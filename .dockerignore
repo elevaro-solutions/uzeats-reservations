@@ -1,0 +1,13 @@
+node_modules
+.next
+dist
+.env
+.env.local
+*.log
+.git
+.github
+docs
+apps/mobile
+**/.turbo
+**/coverage
+**/__tests__

@@ -1,0 +1,48 @@
+name: Deploy to Dokku
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  DOKKU_HOST: ${{ secrets.DOKKU_HOST }}
+
+jobs:
+  deploy-api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dokku/github-action@master
+        with:
+          git_remote_url: ssh://dokku@${{ secrets.DOKKU_HOST }}/reservetable-api
+          ssh_private_key: ${{ secrets.DOKKU_SSH_KEY }}
+          branch: main
+
+  deploy-web:
+    runs-on: ubuntu-latest
+    needs: deploy-api
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dokku/github-action@master
+        with:
+          git_remote_url: ssh://dokku@${{ secrets.DOKKU_HOST }}/reservetable-web
+          ssh_private_key: ${{ secrets.DOKKU_SSH_KEY }}
+          branch: main
+
+  deploy-dashboard:
+    runs-on: ubuntu-latest
+    needs: deploy-api
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dokku/github-action@master
+        with:
+          git_remote_url: ssh://dokku@${{ secrets.DOKKU_HOST }}/reservetable-dashboard
+          ssh_private_key: ${{ secrets.DOKKU_SSH_KEY }}
+          branch: main

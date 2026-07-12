@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "ReserveTable",
+    "slug": "reservetable",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "reservetable",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#da3743"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.reservetable.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#da3743"
+      },
+      "package": "com.reservetable.app"
+    },
+    "plugins": ["expo-router", "expo-secure-store"],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "your-project-id"
+      }
+    }
+  }
+}

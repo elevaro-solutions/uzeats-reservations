@@ -1,0 +1,738 @@
+'use client';
+
+import { useState } from 'react';
+import { useQuery } from '@apollo/client/react';
+import {
+  Typography,
+  Card,
+  Button,
+  Space,
+  Tag,
+  Collapse,
+  Row,
+  Col,
+  Divider,
+} from 'antd';
+import { PLANS } from '@/lib/graphql';
+import {
+  CheckOutlined,
+  CloseOutlined,
+  CrownOutlined,
+  ThunderboltOutlined,
+  RocketOutlined,
+  CalendarOutlined,
+  TeamOutlined,
+  BarChartOutlined,
+  MailOutlined,
+  MobileOutlined,
+  SafetyOutlined,
+  StarOutlined,
+} from '@ant-design/icons';
+
+const { Title, Paragraph, Text } = Typography;
+
+interface PlanFeature {
+  name: string;
+  basic: boolean | string;
+  core: boolean | string;
+  pro: boolean | string;
+}
+
+interface FeatureCategory {
+  title: string;
+  icon: React.ReactNode;
+  features: PlanFeature[];
+}
+
+const featureCategories: FeatureCategory[] = [
+  {
+    title: 'Help land more guests',
+    icon: <TeamOutlined />,
+    features: [
+      { name: 'ReserveTable profile and listing', basic: true, core: true, pro: true },
+      { name: 'Booking widget for your website', basic: true, core: true, pro: 'Fully customizable' },
+      { name: 'Review management', basic: true, core: true, pro: true },
+      { name: 'Booking integrations (100+ sites & apps)', basic: true, core: true, pro: true },
+      { name: "Google's 'Reserve a table' button", basic: true, core: true, pro: true },
+      { name: 'Notify Me (waitlist for fully booked nights)', basic: true, core: true, pro: true },
+    ],
+  },
+  {
+    title: 'Run a smooth restaurant operation',
+    icon: <CalendarOutlined />,
+    features: [
+      { name: 'Customizable floor plans', basic: false, core: true, pro: true },
+      { name: 'Smart Assign (table management)', basic: false, core: true, pro: true },
+      { name: 'Advanced inventory controls', basic: false, core: true, pro: true },
+      { name: 'Access Rules', basic: false, core: true, pro: true },
+      { name: 'In-house and online waitlist', basic: false, core: true, pro: true },
+      { name: 'POS integration', basic: false, core: true, pro: true },
+      { name: 'Mobile app with floor plan', basic: false, core: true, pro: true },
+      { name: 'Automated reservation messages', basic: true, core: true, pro: true },
+      { name: 'Premium SMS Messaging', basic: false, core: '$15/mo add-on', pro: true },
+    ],
+  },
+  {
+    title: 'Build guest relationships',
+    icon: <StarOutlined />,
+    features: [
+      { name: 'Guest database, tags and notes', basic: true, core: true, pro: true },
+      { name: '360 guest profiles', basic: false, core: true, pro: 'Advanced insights' },
+      { name: 'Real-time guest spend alerts', basic: false, core: true, pro: true },
+      { name: 'Two-way messaging', basic: false, core: true, pro: true },
+      { name: 'Pre-shift report', basic: false, core: false, pro: true },
+      { name: 'Automated email campaigns', basic: false, core: false, pro: true },
+      { name: 'Automated guest tags', basic: false, core: false, pro: true },
+      { name: 'Custom post-dining surveys', basic: false, core: false, pro: true },
+    ],
+  },
+  {
+    title: 'Payments & security',
+    icon: <SafetyOutlined />,
+    features: [
+      { name: 'Deposits and credit card holds', basic: true, core: true, pro: true },
+      { name: 'No-show fees', basic: true, core: true, pro: true },
+      { name: 'PCI-compliant payment processing', basic: true, core: true, pro: true },
+      { name: 'Ticketed events & experiences', basic: false, core: true, pro: true },
+    ],
+  },
+  {
+    title: 'Reporting & analytics',
+    icon: <BarChartOutlined />,
+    features: [
+      { name: 'Standard reporting', basic: true, core: true, pro: true },
+      { name: 'Advanced analytics dashboard', basic: false, core: true, pro: true },
+      { name: 'Revenue forecasting', basic: false, core: false, pro: true },
+      { name: 'Custom report builder', basic: false, core: false, pro: true },
+      { name: 'Multi-location analytics', basic: false, core: false, pro: true },
+    ],
+  },
+  {
+    title: 'Marketing tools',
+    icon: <MailOutlined />,
+    features: [
+      { name: 'Boost campaigns (pay-per-cover)', basic: true, core: true, pro: true },
+      { name: 'Featured placement on ReserveTable', basic: false, core: true, pro: true },
+      { name: 'Email marketing campaigns', basic: false, core: false, pro: true },
+      { name: 'Promotion & offer management', basic: false, core: false, pro: true },
+    ],
+  },
+  {
+    title: 'Support & onboarding',
+    icon: <MobileOutlined />,
+    features: [
+      { name: 'Online help center', basic: true, core: true, pro: true },
+      { name: 'Email support', basic: true, core: true, pro: true },
+      { name: 'Phone support', basic: false, core: true, pro: true },
+      { name: 'Dedicated account manager', basic: false, core: false, pro: true },
+      { name: 'Priority onboarding', basic: false, core: false, pro: true },
+    ],
+  },
+];
+
+const faqItems = [
+  {
+    key: '1',
+    label: "What's the commitment?",
+    children:
+      "None. Every plan is month-to-month — cancel anytime. We're just getting started, so we keep things simple: no annual contracts, no lock-in.",
+  },
+  {
+    key: '2',
+    label: 'Does ReserveTable charge cover fees for every reservation?',
+    children:
+      "On Core and Pro plans, we only charge cover fees for diners that discover your restaurant on ReserveTable's website, app, or through our affiliate network. If a diner books directly through your website or by calling the restaurant, we don't take a cent.",
+  },
+  {
+    key: '3',
+    label: 'Do I pay for reservations through my website?',
+    children:
+      'On Core and Pro plans, all reservations from your website are free. On the Basic plan, website reservations are $0.10 per cover or you can opt for a $19/month flat fee for unlimited website bookings.',
+  },
+  {
+    key: '4',
+    label: 'Do I pay for phone reservations? Walk-ins?',
+    children:
+      "No. When a diner books by calling the restaurant or walks in, we don't charge you anything.",
+  },
+  {
+    key: '5',
+    label: 'Will I still be charged a cover fee for a no-show or cancellation?',
+    children:
+      "You only pay for seated diners, which means there's no need to worry about being charged a cover fee for cancellations or no-shows.",
+  },
+  {
+    key: '6',
+    label: 'Can I offer ticketed events?',
+    children:
+      "Yes. Whether it's a ticketed event like a class or wine tasting or a special menu, you can offer customized Experiences on Core and Pro plans. A 2% service fee applies to deposits and ticketed experiences.",
+  },
+  {
+    key: '7',
+    label: 'Is there a free trial?',
+    children:
+      'Yes — every plan includes a free 30-day trial. No credit card commitment required to explore the product; cancel anytime during the trial with no charge.',
+  },
+];
+
+function FeatureValue({ value }: { value: boolean | string }) {
+  if (value === true) {
+    return <CheckOutlined style={{ color: '#52c41a', fontSize: 18 }} />;
+  }
+  if (value === false) {
+    return <CloseOutlined style={{ color: '#d9d9d9', fontSize: 14 }} />;
+  }
+  return (
+    <Text style={{ fontSize: 13, color: '#da3743', fontWeight: 500 }}>
+      {value}
+    </Text>
+  );
+}
+
+const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL ?? 'http://localhost:3001';
+
+type PlanPricing = {
+  monthly: string;
+  networkFee: string;
+  websiteFee: string;
+  trialDays: number;
+};
+
+const FALLBACK_PRICING: Record<'basic' | 'core' | 'pro', PlanPricing> = {
+  basic: { monthly: '$49', networkFee: '$0.50', websiteFee: '$0.10', trialDays: 30 },
+  core: { monthly: '$99', networkFee: '$0.50', websiteFee: 'FREE', trialDays: 30 },
+  pro: { monthly: '$199', networkFee: '$0.25', websiteFee: 'FREE', trialDays: 30 },
+};
+
+function formatDollars(cents: number): string {
+  const dollars = cents / 100;
+  return Number.isInteger(dollars) ? `$${dollars}` : `$${dollars.toFixed(2)}`;
+}
+
+export default function PricingPage() {
+  const [selectedPlan, setSelectedPlan] = useState<'basic' | 'core' | 'pro'>('core');
+  const { data: plansData } = useQuery(PLANS);
+
+  const pricing = (key: 'basic' | 'core' | 'pro'): PlanPricing => {
+    const plan = ((plansData as any)?.plans ?? []).find((p: any) => p.key === key);
+    if (!plan) return FALLBACK_PRICING[key];
+    return {
+      monthly: formatDollars(plan.monthlyPriceCents),
+      networkFee: formatDollars(plan.networkCoverFeeCents),
+      websiteFee: plan.websiteCoverFeeCents === 0 ? 'FREE' : formatDollars(plan.websiteCoverFeeCents),
+      trialDays: plan.trialDays,
+    };
+  };
+
+  const goToDashboard = () => {
+    window.open(DASHBOARD_URL, '_blank');
+  };
+
+  return (
+    <Space orientation="vertical" size={48} style={{ width: '100%' }}>
+      {/* Hero Section */}
+      <Card
+        style={{
+          background: 'linear-gradient(135deg, #da3743 0%, #8b1a22 100%)',
+          border: 'none',
+          borderRadius: 16,
+          overflow: 'hidden',
+        }}
+        styles={{ body: { padding: '48px 32px', textAlign: 'center' } }}
+      >
+        <Tag
+          color="gold"
+          style={{ marginBottom: 16, fontWeight: 600, border: 'none' }}
+        >
+          Launch pricing — limited early-partner rates
+        </Tag>
+        <Title style={{ color: '#fff', marginTop: 0, fontSize: 36 }}>
+          Simple pricing for restaurants getting started
+        </Title>
+        <Paragraph
+          style={{
+            color: 'rgba(255,255,255,0.9)',
+            fontSize: 18,
+            maxWidth: 640,
+            margin: '0 auto',
+          }}
+        >
+          We&apos;re a new platform building with our first partners. Month-to-month plans, a
+          30-day free trial on every tier, and cover fees that won&apos;t eat your margins.
+        </Paragraph>
+      </Card>
+
+      {/* Pricing Cards */}
+      <Row gutter={[24, 24]} align="stretch">
+        {/* Basic Plan */}
+        <Col xs={24} md={8}>
+          <Card
+            hoverable
+            onClick={() => setSelectedPlan('basic')}
+            style={{
+              height: '100%',
+              borderRadius: 12,
+              border: selectedPlan === 'basic' ? '2px solid #da3743' : '1px solid #e8e8e8',
+              cursor: 'pointer',
+            }}
+            styles={{ body: { padding: 32, display: 'flex', flexDirection: 'column', height: '100%' } }}
+          >
+            <Space orientation="vertical" size={16} style={{ width: '100%', flex: 1 }}>
+              <div>
+                <Space align="center">
+                  <ThunderboltOutlined style={{ fontSize: 24, color: '#da3743' }} />
+                  <Title level={3} style={{ margin: 0 }}>
+                    Basic
+                  </Title>
+                </Space>
+                <Paragraph type="secondary" style={{ marginTop: 8 }}>
+                  Essential reservation management to get started with online bookings.
+                </Paragraph>
+              </div>
+              <div>
+                <Text style={{ fontSize: 36, fontWeight: 700 }}>{pricing('basic').monthly}</Text>
+                <Text type="secondary"> / month</Text>
+              </div>
+              <div>
+                <Tag color="green">Free {pricing('basic').trialDays || 30}-day trial</Tag>
+              </div>
+              <Divider style={{ margin: '8px 0' }} />
+              <Space orientation="vertical" size={8} style={{ flex: 1 }}>
+                <Text strong>Cover fees:</Text>
+                <Text>• {pricing('basic').networkFee} per network cover</Text>
+                <Text>• {pricing('basic').websiteFee} per website cover</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  (or $19/mo flat for unlimited)
+                </Text>
+              </Space>
+              <Button
+                type={selectedPlan === 'basic' ? 'primary' : 'default'}
+                size="large"
+                block
+                style={
+                  selectedPlan === 'basic'
+                    ? { background: '#da3743', borderColor: '#da3743' }
+                    : {}
+                }
+                onClick={goToDashboard}
+              >
+                Start free trial
+              </Button>
+            </Space>
+          </Card>
+        </Col>
+
+        {/* Core Plan */}
+        <Col xs={24} md={8}>
+          <Card
+            hoverable
+            onClick={() => setSelectedPlan('core')}
+            style={{
+              height: '100%',
+              borderRadius: 12,
+              border: selectedPlan === 'core' ? '2px solid #da3743' : '1px solid #e8e8e8',
+              cursor: 'pointer',
+              position: 'relative',
+            }}
+            styles={{ body: { padding: 32, display: 'flex', flexDirection: 'column', height: '100%' } }}
+          >
+            <Tag
+              color="#da3743"
+              style={{
+                position: 'absolute',
+                top: -1,
+                right: 16,
+                borderRadius: '0 0 6px 6px',
+                padding: '4px 12px',
+                fontWeight: 600,
+              }}
+            >
+              Most Popular
+            </Tag>
+            <Space orientation="vertical" size={16} style={{ width: '100%', flex: 1 }}>
+              <div>
+                <Space align="center">
+                  <CrownOutlined style={{ fontSize: 24, color: '#da3743' }} />
+                  <Title level={3} style={{ margin: 0 }}>
+                    Core
+                  </Title>
+                </Space>
+                <Paragraph type="secondary" style={{ marginTop: 8 }}>
+                  Best-in-class table management to maximize seatings, streamline operations, and
+                  more.
+                </Paragraph>
+              </div>
+              <div>
+                <Text style={{ fontSize: 36, fontWeight: 700 }}>{pricing('core').monthly}</Text>
+                <Text type="secondary"> / month</Text>
+              </div>
+              <div>
+                <Space size={8} wrap>
+                  <Tag color="green">Free {pricing('core').trialDays || 30}-day trial</Tag>
+                  <Tag color="blue">Free website covers</Tag>
+                </Space>
+              </div>
+              <Divider style={{ margin: '8px 0' }} />
+              <Space orientation="vertical" size={8} style={{ flex: 1 }}>
+                <Text strong>Cover fees:</Text>
+                <Text>• {pricing('core').networkFee} per network cover</Text>
+                <Text>• Website reservations: {pricing('core').websiteFee}</Text>
+              </Space>
+              <Button
+                type="primary"
+                size="large"
+                block
+                style={{ background: '#da3743', borderColor: '#da3743' }}
+                onClick={goToDashboard}
+              >
+                Start free trial
+              </Button>
+            </Space>
+          </Card>
+        </Col>
+
+        {/* Pro Plan */}
+        <Col xs={24} md={8}>
+          <Card
+            hoverable
+            onClick={() => setSelectedPlan('pro')}
+            style={{
+              height: '100%',
+              borderRadius: 12,
+              border: selectedPlan === 'pro' ? '2px solid #da3743' : '1px solid #e8e8e8',
+              cursor: 'pointer',
+            }}
+            styles={{ body: { padding: 32, display: 'flex', flexDirection: 'column', height: '100%' } }}
+          >
+            <Space orientation="vertical" size={16} style={{ width: '100%', flex: 1 }}>
+              <div>
+                <Space align="center">
+                  <RocketOutlined style={{ fontSize: 24, color: '#da3743' }} />
+                  <Title level={3} style={{ margin: 0 }}>
+                    Pro
+                  </Title>
+                </Space>
+                <Paragraph type="secondary" style={{ marginTop: 8 }}>
+                  Our most comprehensive plan with powerful relationship management and data tools
+                  to drive loyalty.
+                </Paragraph>
+              </div>
+              <div>
+                <Text style={{ fontSize: 36, fontWeight: 700 }}>{pricing('pro').monthly}</Text>
+                <Text type="secondary"> / month</Text>
+              </div>
+              <div>
+                <Space size={8} wrap>
+                  <Tag color="green">Free {pricing('pro').trialDays || 30}-day trial</Tag>
+                  <Tag color="purple">Everything in Core + more</Tag>
+                </Space>
+              </div>
+              <Divider style={{ margin: '8px 0' }} />
+              <Space orientation="vertical" size={8} style={{ flex: 1 }}>
+                <Text strong>Cover fees:</Text>
+                <Text>• {pricing('pro').networkFee} per network cover</Text>
+                <Text>• Website reservations: {pricing('pro').websiteFee}</Text>
+                <Text>• Premium SMS included</Text>
+              </Space>
+              <Button
+                type={selectedPlan === 'pro' ? 'primary' : 'default'}
+                size="large"
+                block
+                style={
+                  selectedPlan === 'pro'
+                    ? { background: '#da3743', borderColor: '#da3743' }
+                    : {}
+                }
+                onClick={goToDashboard}
+              >
+                Start free trial
+              </Button>
+            </Space>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Feature Comparison Table */}
+      <div>
+        <Title level={2} style={{ textAlign: 'center', marginBottom: 32 }}>
+          Compare all features
+        </Title>
+
+        {/* Sticky plan headers on desktop */}
+        <Card
+          style={{ borderRadius: 12 }}
+          styles={{ body: { padding: 0 } }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 120px 120px 120px',
+              padding: '20px 24px',
+              background: '#fafafa',
+              borderBottom: '1px solid #f0f0f0',
+              position: 'sticky',
+              top: 0,
+              zIndex: 10,
+              borderRadius: '12px 12px 0 0',
+            }}
+          >
+            <Text strong>Features</Text>
+            <Text strong style={{ textAlign: 'center' }}>Basic</Text>
+            <Text strong style={{ textAlign: 'center' }}>Core</Text>
+            <Text strong style={{ textAlign: 'center' }}>Pro</Text>
+          </div>
+
+          {featureCategories.map((category, catIdx) => (
+            <div key={catIdx}>
+              {/* Category header */}
+              <div
+                style={{
+                  padding: '16px 24px',
+                  background: '#fff7f6',
+                  borderBottom: '1px solid #f0f0f0',
+                  borderTop: catIdx > 0 ? '1px solid #f0f0f0' : undefined,
+                }}
+              >
+                <Space>
+                  <span style={{ color: '#da3743' }}>{category.icon}</span>
+                  <Text strong style={{ fontSize: 16 }}>
+                    {category.title}
+                  </Text>
+                </Space>
+              </div>
+
+              {/* Feature rows */}
+              {category.features.map((feature, featIdx) => (
+                <div
+                  key={featIdx}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 120px 120px 120px',
+                    padding: '14px 24px',
+                    borderBottom:
+                      featIdx < category.features.length - 1
+                        ? '1px solid #f5f5f5'
+                        : undefined,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text>{feature.name}</Text>
+                  <div style={{ textAlign: 'center' }}>
+                    <FeatureValue value={feature.basic} />
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <FeatureValue value={feature.core} />
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <FeatureValue value={feature.pro} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+
+          {/* Bottom CTA row */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 120px 120px 120px',
+              padding: '20px 24px',
+              background: '#fafafa',
+              borderTop: '1px solid #f0f0f0',
+              borderRadius: '0 0 12px 12px',
+            }}
+          >
+            <div />
+            <div style={{ textAlign: 'center' }}>
+              <Button
+                size="small"
+                style={{ borderColor: '#da3743', color: '#da3743' }}
+                onClick={goToDashboard}
+              >
+                Get Basic
+              </Button>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <Button
+                type="primary"
+                size="small"
+                style={{ background: '#da3743', borderColor: '#da3743' }}
+                onClick={goToDashboard}
+              >
+                Get Core
+              </Button>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <Button
+                size="small"
+                style={{ borderColor: '#da3743', color: '#da3743' }}
+                onClick={goToDashboard}
+              >
+                Get Pro
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Additional Solutions */}
+      <div>
+        <Title level={2} style={{ textAlign: 'center' }}>
+          Additional solutions
+        </Title>
+        <Paragraph style={{ textAlign: 'center', maxWidth: 600, margin: '0 auto 32px' }}>
+          Enhance your plan with powerful add-ons designed to drive more revenue and streamline
+          operations.
+        </Paragraph>
+        <Row gutter={[24, 24]}>
+          <Col xs={24} md={8}>
+            <Card
+              style={{ height: '100%', borderRadius: 12, textAlign: 'center' }}
+              styles={{ body: { padding: 32 } }}
+            >
+              <BarChartOutlined style={{ fontSize: 40, color: '#da3743', marginBottom: 16 }} />
+              <Title level={4}>Digital Marketing</Title>
+              <Paragraph type="secondary">
+                Get in front of a larger audience with digital marketing campaigns that attract
+                diners at the moment they&apos;re searching to help drive more bookings.
+              </Paragraph>
+              <Button type="link" style={{ color: '#da3743', padding: 0 }}>
+                Learn more →
+              </Button>
+            </Card>
+          </Col>
+          <Col xs={24} md={8}>
+            <Card
+              style={{ height: '100%', borderRadius: 12, textAlign: 'center' }}
+              styles={{ body: { padding: 32 } }}
+            >
+              <StarOutlined style={{ fontSize: 40, color: '#da3743', marginBottom: 16 }} />
+              <Title level={4}>Experiences</Title>
+              <Paragraph type="secondary">
+                Serve up, sell out, and manage a full range of customized dining experiences — from
+                tastings and classes to special menus — all in one place.
+              </Paragraph>
+              <Button type="link" style={{ color: '#da3743', padding: 0 }}>
+                Learn more →
+              </Button>
+            </Card>
+          </Col>
+          <Col xs={24} md={8}>
+            <Card
+              style={{ height: '100%', borderRadius: 12, textAlign: 'center' }}
+              styles={{ body: { padding: 32 } }}
+            >
+              <TeamOutlined style={{ fontSize: 40, color: '#da3743', marginBottom: 16 }} />
+              <Title level={4}>Private Dining</Title>
+              <Paragraph type="secondary">
+                Open your restaurant to more guests, help get more leads, and streamline operations
+                for successful private events.
+              </Paragraph>
+              <Button type="link" style={{ color: '#da3743', padding: 0 }}>
+                Learn more →
+              </Button>
+            </Card>
+          </Col>
+        </Row>
+      </div>
+
+      {/* Testimonial */}
+      <Card
+        style={{
+          background: '#1a1a1a',
+          border: 'none',
+          borderRadius: 16,
+        }}
+        styles={{ body: { padding: '48px 32px', textAlign: 'center' } }}
+      >
+        <Title
+          level={3}
+          style={{ color: '#fff', fontStyle: 'italic', fontWeight: 400, maxWidth: 700, margin: '0 auto' }}
+        >
+          &ldquo;ReserveTable offers an intuitive and powerful platform that makes it easy for our
+          restaurants to be discovered by new guests while being able to service them with smart
+          marketing tools and useful data.&rdquo;
+        </Title>
+        <Paragraph style={{ color: 'rgba(255,255,255,0.7)', marginTop: 24, marginBottom: 0 }}>
+          <Text style={{ color: '#fff', fontWeight: 600 }}>Sarah Chen</Text>
+          <br />
+          Director of Operations, Metropolitan Dining Group
+        </Paragraph>
+      </Card>
+
+      {/* Enterprise CTA */}
+      <Card
+        style={{ borderRadius: 12, border: '2px solid #da3743' }}
+        styles={{ body: { padding: '32px', textAlign: 'center' } }}
+      >
+        <Title level={3} style={{ marginTop: 0 }}>
+          Looking for an Enterprise solution?
+        </Title>
+        <Paragraph type="secondary" style={{ fontSize: 16, maxWidth: 500, margin: '0 auto 24px' }}>
+          Multi-location restaurant groups get custom pricing, dedicated support, and advanced
+          management tools.
+        </Paragraph>
+        <Button
+          type="primary"
+          size="large"
+          style={{ background: '#da3743', borderColor: '#da3743' }}
+        >
+          Contact sales
+        </Button>
+      </Card>
+
+      {/* FAQ */}
+      <div>
+        <Title level={2} style={{ textAlign: 'center', marginBottom: 32 }}>
+          Frequently asked questions
+        </Title>
+        <Collapse
+          items={faqItems}
+          bordered={false}
+          style={{ background: '#fff', borderRadius: 12, maxWidth: 800, margin: '0 auto' }}
+          size="large"
+        />
+      </div>
+
+      {/* Final CTA */}
+      <Card
+        style={{
+          background: 'linear-gradient(135deg, #da3743 0%, #b22a34 100%)',
+          border: 'none',
+          borderRadius: 16,
+        }}
+        styles={{ body: { padding: '48px 32px', textAlign: 'center' } }}
+      >
+        <Title level={2} style={{ color: '#fff', marginTop: 0 }}>
+          Ready to grow your restaurant?
+        </Title>
+        <Paragraph style={{ color: 'rgba(255,255,255,0.9)', fontSize: 16, marginBottom: 24 }}>
+          Be one of our founding restaurant partners — lock in launch pricing and help shape the
+          product as we grow.
+        </Paragraph>
+        <Space size={16}>
+          <Button
+            size="large"
+            style={{
+              background: '#fff',
+              color: '#da3743',
+              borderColor: '#fff',
+              fontWeight: 600,
+            }}
+            onClick={goToDashboard}
+          >
+            Start free trial
+          </Button>
+          <Button
+            size="large"
+            ghost
+            style={{ borderColor: '#fff', color: '#fff' }}
+          >
+            See a demo
+          </Button>
+        </Space>
+      </Card>
+    </Space>
+  );
+}
