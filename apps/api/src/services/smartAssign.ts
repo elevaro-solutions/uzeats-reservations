@@ -18,14 +18,13 @@ export async function smartAssignTable(input: {
   slotStart: Date;
   slotEnd: Date;
   dinerId?: string;
-  session?: mongoose.ClientSession;
 }): Promise<(TableDocument & { _id: mongoose.Types.ObjectId }) | null> {
   const tables = await Table.find({
     restaurantId: input.restaurantId,
     active: true,
     minCapacity: { $lte: input.partySize },
     maxCapacity: { $gte: input.partySize },
-  }).session(input.session ?? null);
+  });
 
   if (tables.length === 0) return null;
 
@@ -37,13 +36,11 @@ export async function smartAssignTable(input: {
     status: { $in: ['pending', 'confirmed', 'seated'] },
     slotStart: { $lt: windowEnd },
     slotEnd: { $gt: windowStart },
-  }).session(input.session ?? null);
+  });
 
   let preferredTableName: string | undefined;
   if (input.dinerId) {
-    const diner = await User.findById(input.dinerId)
-      .select('preferredTable')
-      .session(input.session ?? null);
+    const diner = await User.findById(input.dinerId).select('preferredTable');
     preferredTableName = (diner as any)?.preferredTable;
   }
 

@@ -1,17 +1,10 @@
 services:
-  mongo1:
+  mongo:
     image: mongo:7
-    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
     ports:
       - "27017:27017"
     volumes:
-      - mongo1_data:/data/db
-    healthcheck:
-      test: echo "try { rs.status() } catch (err) { rs.initiate({_id:'rs0',members:[{_id:0,host:'localhost:27017'}]}) }" | mongosh --port 27017 --quiet
-      interval: 5s
-      timeout: 30s
-      start_period: 0s
-      retries: 30
+      - mongo_data:/data/db
 
   redis:
     image: redis:7-alpine
@@ -21,5 +14,5 @@ services:
       - redis_data:/data
 
 volumes:
-  mongo1_data:
+  mongo_data:
   redis_data:

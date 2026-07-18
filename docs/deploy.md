@@ -2,7 +2,7 @@
 
 ## Recommended layout
 
-1. **Managed MongoDB** with replica set (booking uses multi-document transactions).
+1. **Managed MongoDB** (standalone is fine; booking uses unique table slot claims).
 2. **Managed Redis** for BullMQ (reminders, no-show checks).
 3. **Spaces** bucket for restaurant/menu photos.
 4. **App Platform** services:

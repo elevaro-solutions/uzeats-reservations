@@ -19,6 +19,7 @@ import { notifyUser, scheduleReservationReminders } from './notifications.js';
 import { checkAccessRules } from './accessRules.js';
 import { updateGuestProfileAfterVisit, sendSurveyInvitation } from './guests.js';
 import { BoostCampaign } from '../models/Marketing.js';
+import { claimTableSlots, releaseTableSlotClaims } from './tableSlotClaims.js';
 
 export async function createReservation(input: {
   dinerId: string;
@@ -45,102 +46,99 @@ export async function createReservation(input: {
   const turn = await getTurnTimeMinutes(input.restaurantId, input.slotStart);
   const slotEnd = new Date(input.slotStart.getTime() + turn * 60_000);
 
-  const session = await mongoose.startSession();
+  const useSmartAssign = restaurant.useSmartAssign !== false;
+  const table = useSmartAssign
+    ? await smartAssignTable({
+        restaurantId: input.restaurantId,
+        partySize: input.partySize,
+        slotStart: input.slotStart,
+        slotEnd,
+        dinerId: input.dinerId,
+      })
+    : await findAvailableTable({
+        restaurantId: input.restaurantId,
+        partySize: input.partySize,
+        slotStart: input.slotStart,
+        slotEnd,
+      });
+  if (!table) throw new Error('No tables available for this time');
+
+  let depositAmountCents = 0;
+  let depositStatus: 'none' | 'requires_payment' | 'authorized' = 'none';
+  let stripePaymentIntentId: string | undefined;
+  let clientSecret: string | undefined;
+  let requiresPayment = false;
+
+  if (restaurant.depositRequired && restaurant.depositAmountCents > 0) {
+    depositAmountCents = restaurant.depositAmountCents * input.partySize;
+    const intent = await createDepositIntent({
+      amountCents: depositAmountCents,
+      metadata: {
+        restaurantId: input.restaurantId,
+        dinerId: input.dinerId,
+      },
+    });
+    stripePaymentIntentId = intent.id;
+    clientSecret = intent.client_secret ?? undefined;
+
+    if (intent.isStub) {
+      depositStatus = 'authorized';
+    } else {
+      depositStatus = 'requires_payment';
+      requiresPayment = true;
+    }
+  }
+
+  const reservation = await Reservation.create({
+    restaurantId: input.restaurantId,
+    dinerId: input.dinerId,
+    tableIds: [table._id],
+    partySize: input.partySize,
+    slotStart: input.slotStart,
+    slotEnd,
+    status: requiresPayment ? 'pending' : 'confirmed',
+    occasion: input.occasion ?? 'none',
+    guestNotes: input.guestNotes ?? '',
+    source: input.source ?? 'network',
+    depositAmountCents,
+    stripePaymentIntentId,
+    depositStatus,
+    loyaltyPointsRedeemed: input.redeemPoints ?? 0,
+  });
+
   try {
-    let reservation: any;
-    let clientSecret: string | undefined;
-    let requiresPayment = false;
-
-    await session.withTransaction(async () => {
-      const useSmartAssign = restaurant.useSmartAssign !== false;
-      const table = useSmartAssign
-        ? await smartAssignTable({
-            restaurantId: input.restaurantId,
-            partySize: input.partySize,
-            slotStart: input.slotStart,
-            slotEnd,
-            dinerId: input.dinerId,
-            session,
-          })
-        : await findAvailableTable({
-            restaurantId: input.restaurantId,
-            partySize: input.partySize,
-            slotStart: input.slotStart,
-            slotEnd,
-            session,
-          });
-      if (!table) throw new Error('No tables available for this time');
-
-      let depositAmountCents = 0;
-      let depositStatus: 'none' | 'requires_payment' | 'authorized' = 'none';
-      let stripePaymentIntentId: string | undefined;
-
-      if (restaurant.depositRequired && restaurant.depositAmountCents > 0) {
-        depositAmountCents = restaurant.depositAmountCents * input.partySize;
-        const intent = await createDepositIntent({
-          amountCents: depositAmountCents,
-          metadata: {
-            restaurantId: input.restaurantId,
-            dinerId: input.dinerId,
-          },
-        });
-        stripePaymentIntentId = intent.id;
-        clientSecret = intent.client_secret ?? undefined;
-
-        if (intent.isStub) {
-          depositStatus = 'authorized';
-        } else {
-          depositStatus = 'requires_payment';
-          requiresPayment = true;
-        }
-      }
-
-      if (input.redeemPoints && input.redeemPoints > 0) {
-        await redeemPoints(input.dinerId, input.redeemPoints);
-      }
-
-      const [created] = await Reservation.create(
-        [
-          {
-            restaurantId: input.restaurantId,
-            dinerId: input.dinerId,
-            tableIds: [table._id],
-            partySize: input.partySize,
-            slotStart: input.slotStart,
-            slotEnd,
-            status: requiresPayment ? 'pending' : 'confirmed',
-            occasion: input.occasion ?? 'none',
-            guestNotes: input.guestNotes ?? '',
-            source: input.source ?? 'network',
-            depositAmountCents,
-            stripePaymentIntentId,
-            depositStatus,
-            loyaltyPointsRedeemed: input.redeemPoints ?? 0,
-          },
-        ],
-        { session },
-      );
-      reservation = created;
+    await claimTableSlots({
+      restaurantId: input.restaurantId,
+      tableId: table._id,
+      reservationId: reservation._id,
+      slotStart: input.slotStart,
+      slotEnd,
     });
 
-    if (reservation.status === 'confirmed') {
-      await scheduleReservationReminders(reservation._id.toString());
-      await notifyUser(
-        input.dinerId,
-        {
-          type: 'reservation_confirmed',
-          title: 'Reservation confirmed',
-          body: `Your reservation at ${restaurant.name} is confirmed.`,
-          data: { reservationId: reservation._id.toString() },
-        },
-        { smsRestaurantId: input.restaurantId },
-      );
+    if (input.redeemPoints && input.redeemPoints > 0) {
+      await redeemPoints(input.dinerId, input.redeemPoints);
     }
-
-    return { reservation, clientSecret: requiresPayment ? clientSecret : null };
-  } finally {
-    await session.endSession();
+  } catch (err) {
+    await releaseTableSlotClaims(reservation._id);
+    await Reservation.deleteOne({ _id: reservation._id });
+    throw err;
   }
+
+  if (reservation.status === 'confirmed') {
+    await scheduleReservationReminders(reservation._id.toString());
+    await notifyUser(
+      input.dinerId,
+      {
+        type: 'reservation_confirmed',
+        title: 'Reservation confirmed',
+        body: `Your reservation at ${restaurant.name} is confirmed.`,
+        data: { reservationId: reservation._id.toString() },
+      },
+      { smsRestaurantId: input.restaurantId },
+    );
+  }
+
+  return { reservation, clientSecret: requiresPayment ? clientSecret : null };
 }
 
 /** Confirm deposit after Stripe PaymentElement succeeds (or stub confirm). */
@@ -233,6 +231,10 @@ export async function updateReservationStatus(
   }
 
   await reservation.save();
+
+  if (status === 'cancelled' || status === 'completed' || status === 'no_show') {
+    await releaseTableSlotClaims(reservation._id);
+  }
 
   if (status === 'cancelled') {
     await notifyWaitlistOnCancellation(reservation);

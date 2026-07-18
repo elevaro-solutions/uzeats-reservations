@@ -149,8 +149,14 @@ export const FLOOR_PLAN_RESERVATIONS = gql`
   query FloorPlanReservations($restaurantId: ID!, $date: String) {
     restaurantReservations(restaurantId: $restaurantId, date: $date) {
       id
+      partySize
+      slotStart
       status
+      occasion
+      guestNotes
       tableIds
+      diner { firstName lastName }
+      tables { name }
     }
   }
 `;

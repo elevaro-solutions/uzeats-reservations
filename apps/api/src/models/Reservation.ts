@@ -44,7 +44,7 @@ const reservationSchema = new Schema(
   { timestamps: true },
 );
 
-// Helps prevent double-booking the same table for overlapping slots
+// Query helper for active bookings. Overlap exclusion is enforced by TableSlotClaim.
 reservationSchema.index(
   { tableIds: 1, slotStart: 1, status: 1 },
   {

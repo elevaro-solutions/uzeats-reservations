@@ -3,6 +3,7 @@ export { Restaurant } from './Restaurant.js';
 export { Table } from './Table.js';
 export { Shift, Blackout } from './Shift.js';
 export { Reservation } from './Reservation.js';
+export { TableSlotClaim } from './TableSlotClaim.js';
 export { WaitlistEntry } from './Waitlist.js';
 export { Review } from './Review.js';
 export { Menu } from './Menu.js';

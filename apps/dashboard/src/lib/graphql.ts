@@ -7,8 +7,22 @@ export const MY_RESTAURANTS = gql`
       name
       status
       cuisine
+      description
+      priceRange
       photos
-      address { city state }
+      phone
+      website
+      address {
+        line1
+        city
+        state
+        zip
+        country
+      }
+      location {
+        lat
+        lng
+      }
       depositRequired
       depositAmountCents
       tables {
@@ -21,7 +35,7 @@ export const MY_RESTAURANTS = gql`
         id
         sections {
           id name
-          items { id name description priceCents dietary available }
+          items { id name description priceCents dietary available photoUrl }
         }
       }
     }
@@ -139,7 +153,28 @@ export const SET_RESTAURANT_STATUS = gql`
 export const UPDATE_RESTAURANT = gql`
   mutation UpdateRestaurant($id: ID!, $input: RestaurantInput!) {
     updateRestaurant(id: $id, input: $input) {
-      id name status
+      id
+      name
+      status
+      cuisine
+      description
+      priceRange
+      photos
+      phone
+      website
+      address {
+        line1
+        city
+        state
+        zip
+        country
+      }
+      location {
+        lat
+        lng
+      }
+      depositRequired
+      depositAmountCents
     }
   }
 `;

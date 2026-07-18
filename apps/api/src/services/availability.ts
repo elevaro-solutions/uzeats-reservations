@@ -1,5 +1,4 @@
 import type { AvailabilitySlot } from '@reservations/shared';
-import mongoose from 'mongoose';
 import { Blackout, Shift } from '../models/Shift.js';
 import { Table } from '../models/Table.js';
 import { Reservation } from '../models/Reservation.js';
@@ -111,21 +110,20 @@ export async function findAvailableTable(params: {
   partySize: number;
   slotStart: Date;
   slotEnd: Date;
-  session?: mongoose.ClientSession;
 }) {
   const tables = await Table.find({
     restaurantId: params.restaurantId,
     active: true,
     minCapacity: { $lte: params.partySize },
     maxCapacity: { $gte: params.partySize },
-  }).session(params.session ?? null);
+  });
 
   const existing = await Reservation.find({
     restaurantId: params.restaurantId,
     status: { $in: ['pending', 'confirmed', 'seated'] },
     slotStart: { $lt: params.slotEnd },
     slotEnd: { $gt: params.slotStart },
-  }).session(params.session ?? null);
+  });
 
   for (const table of tables) {
     const conflict = existing.some(

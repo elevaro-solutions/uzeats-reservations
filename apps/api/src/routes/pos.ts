@@ -5,6 +5,7 @@ import { User } from '../models/User.js';
 import { logger } from '../lib/logger.js';
 import { posAuth, type PosAuthRequest } from '../middleware/posAuth.js';
 import { recordGuestSpend } from '../services/guests.js';
+import { claimTableSlots, releaseTableSlotClaims } from '../services/tableSlotClaims.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -180,6 +181,22 @@ router.post('/walkin', async (req: PosAuthRequest, res) => {
       guestNotes: guestNotes ?? '',
       source: 'walkin',
     });
+
+    if (tableIds[0]) {
+      try {
+        await claimTableSlots({
+          restaurantId,
+          tableId: tableIds[0],
+          reservationId: reservation._id,
+          slotStart: now,
+          slotEnd,
+        });
+      } catch (err) {
+        await releaseTableSlotClaims(reservation._id);
+        await Reservation.deleteOne({ _id: reservation._id });
+        throw err;
+      }
+    }
 
     logger.info(
       { reservationId: reservation._id.toString(), partySize },

@@ -8,11 +8,13 @@ import {
   ActivityIndicator,
   RefreshControl,
   useWindowDimensions,
+  Alert,
 } from 'react-native';
-import { useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 import {
   MY_RESTAURANTS_FLOOR_PLAN,
   FLOOR_PLAN_RESERVATIONS,
+  UPDATE_RESERVATION_STATUS,
 } from '../../src/lib/graphql';
 import { useAuth } from '../../src/lib/auth';
 
@@ -30,9 +32,31 @@ type FloorTable = {
   shape: string;
 };
 
+type FloorReservation = {
+  id: string;
+  partySize: number;
+  slotStart: string;
+  status: string;
+  occasion?: string;
+  guestNotes?: string;
+  tableIds?: string[];
+  diner?: { firstName?: string; lastName?: string };
+  tables?: { name: string }[];
+};
+
 function todayISO(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function formatOccasion(occasion?: string) {
+  if (!occasion || occasion === 'none') return null;
+  return occasion.charAt(0).toUpperCase() + occasion.slice(1);
+}
+
+function guestName(r: FloorReservation) {
+  const name = `${r.diner?.firstName ?? ''} ${r.diner?.lastName ?? ''}`.trim();
+  return name || 'Guest';
 }
 
 const GRID_COLUMNS = 24;
@@ -53,7 +77,7 @@ export default function FloorPlanScreen() {
 
   const restaurants = restaurantsData?.myRestaurants ?? [];
   const activeRestaurantId = restaurantId ?? restaurants[0]?.id ?? null;
-  const restaurant = restaurants.find((r: any) => r.id === activeRestaurantId);
+  const restaurant = restaurants.find((r: { id: string }) => r.id === activeRestaurantId);
 
   const { data: reservationsData, refetch: refetchReservations } = useQuery(
     FLOOR_PLAN_RESERVATIONS,
@@ -62,15 +86,19 @@ export default function FloorPlanScreen() {
       skip: !activeRestaurantId,
     },
   );
+  const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
+
+  const reservations: FloorReservation[] =
+    reservationsData?.restaurantReservations ?? [];
 
   const occupiedTableIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const res of reservationsData?.restaurantReservations ?? []) {
+    for (const res of reservations) {
       if (res.status !== 'seated') continue;
       for (const tableId of res.tableIds ?? []) ids.add(tableId);
     }
     return ids;
-  }, [reservationsData]);
+  }, [reservations]);
 
   const tables: FloorTable[] = (restaurant?.tables ?? []).filter(
     (t: FloorTable) => t.active,
@@ -94,6 +122,65 @@ export default function FloorPlanScreen() {
       setRefreshing(false);
     }
   }, [refetchRestaurants, refetchReservations]);
+
+  const runStatusUpdate = async (
+    id: string,
+    status: string,
+    reason?: string,
+  ) => {
+    try {
+      await updateStatus({ variables: { id, status, reason } });
+      await refetchReservations();
+    } catch (err) {
+      Alert.alert(
+        'Error',
+        err instanceof Error ? err.message : 'Failed to update reservation',
+      );
+    }
+  };
+
+  const openMoreActions = (r: FloorReservation) => {
+    const buttons: {
+      text: string;
+      style?: 'cancel' | 'destructive' | 'default';
+      onPress?: () => void;
+    }[] = [];
+
+    if (r.status === 'confirmed') {
+      buttons.push({
+        text: 'Seat',
+        onPress: () => runStatusUpdate(r.id, 'seated'),
+      });
+      buttons.push({
+        text: 'No-show',
+        onPress: () => runStatusUpdate(r.id, 'no_show'),
+      });
+    }
+
+    if (r.status === 'seated') {
+      buttons.push({
+        text: 'Complete',
+        onPress: () => runStatusUpdate(r.id, 'completed'),
+      });
+    }
+
+    if (['pending', 'confirmed'].includes(r.status)) {
+      buttons.push({
+        text: 'Cancel',
+        style: 'destructive',
+        onPress: () =>
+          runStatusUpdate(r.id, 'cancelled', 'Cancelled by restaurant'),
+      });
+    }
+
+    if (buttons.length === 0) {
+      Alert.alert('Actions', 'No actions available for this reservation.');
+      return;
+    }
+
+    buttons.push({ text: 'Close', style: 'cancel' });
+    Alert.alert(`${guestName(r)} · ${r.status}`, 'Choose an action', buttons);
+  };
 
   if (!user) {
     return (
@@ -133,7 +220,7 @@ export default function FloorPlanScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.chipRow}
         >
-          {restaurants.map((r: any) => {
+          {restaurants.map((r: { id: string; name: string }) => {
             const isActive = r.id === activeRestaurantId;
             return (
               <Pressable
@@ -224,6 +311,51 @@ export default function FloorPlanScreen() {
           })}
         </View>
       )}
+
+      <View style={styles.listSection}>
+        <Text style={styles.listTitle}>Today's reservations</Text>
+        {reservations.length === 0 ? (
+          <Text style={styles.emptyText}>No reservations today.</Text>
+        ) : (
+          reservations.map((r) => {
+            const occasion = formatOccasion(r.occasion);
+            const notes = r.guestNotes?.trim();
+            const tableLabel =
+              (r.tables ?? []).map((t) => t.name).join(', ') || 'Unassigned';
+            return (
+              <View key={r.id} style={styles.resCard}>
+                <View style={styles.resHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.resName}>{guestName(r)}</Text>
+                    <Text style={styles.resMeta}>
+                      {new Date(r.slotStart).toLocaleTimeString([], {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}{' '}
+                      · {r.partySize} guests · {tableLabel}
+                    </Text>
+                  </View>
+                  <Pressable style={styles.moreBtn} onPress={() => openMoreActions(r)}>
+                    <Text style={styles.moreBtnText}>More</Text>
+                  </Pressable>
+                </View>
+                <Text style={styles.resStatus}>{r.status}</Text>
+                {occasion ? (
+                  <Text style={styles.resDetail}>
+                    Occasion: <Text style={styles.resDetailValue}>{occasion}</Text>
+                  </Text>
+                ) : null}
+                {notes ? (
+                  <Text style={styles.resDetail}>
+                    Special request:{' '}
+                    <Text style={styles.resDetailValue}>{notes}</Text>
+                  </Text>
+                ) : null}
+              </View>
+            );
+          })
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -282,4 +414,51 @@ const styles = StyleSheet.create({
   tableName: { fontWeight: '700', fontSize: 12, color: '#1c1917' },
   tableCapacity: { fontSize: 10, color: '#666' },
   tableTextOccupied: { color: '#fff' },
+  listSection: {
+    paddingHorizontal: CANVAS_PADDING,
+    paddingTop: 20,
+  },
+  listTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1c1917',
+    marginBottom: 12,
+  },
+  resCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+  },
+  resHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  resName: { fontWeight: '700', fontSize: 16, color: '#1c1917' },
+  resMeta: { color: '#666', marginTop: 4, fontSize: 13 },
+  moreBtn: {
+    borderWidth: 1,
+    borderColor: '#da3743',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  moreBtnText: { color: '#da3743', fontWeight: '600', fontSize: 13 },
+  resStatus: {
+    marginTop: 8,
+    color: '#da3743',
+    fontWeight: '600',
+    textTransform: 'capitalize',
+    fontSize: 13,
+  },
+  resDetail: {
+    marginTop: 6,
+    color: '#666',
+    fontSize: 13,
+  },
+  resDetailValue: {
+    color: '#1c1917',
+    fontWeight: '500',
+  },
 });

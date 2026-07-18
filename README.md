@@ -17,7 +17,7 @@ OpenTable-style restaurant reservation platform for the USA market.
 
 - Node.js 20+
 - pnpm 9+
-- Docker (MongoDB replica set + Redis)
+- Docker (MongoDB + Redis)
 
 ## Quick start
 
@@ -63,7 +63,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 ## Features
 
 - Restaurant search (city, cuisine, text) + live availability slots
-- Transactional booking against table inventory (Mongo transactions)
+- Concurrent-safe booking via atomic table slot claims (no replica set required)
 - Deposits via Stripe PaymentIntents (manual capture; stubbed without keys)
 - Waitlist + auto-notify on cancellation
 - Loyalty earn/redeem
@@ -77,7 +77,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 See [`.env.example`](.env.example). Required for local:
 
 ```
-MONGODB_URI=mongodb://localhost:27017/reservations?replicaSet=rs0&directConnection=true
+MONGODB_URI=mongodb://localhost:27017/reservations
 REDIS_URL=redis://localhost:6379
 JWT_ACCESS_SECRET=...
 JWT_REFRESH_SECRET=...
@@ -87,7 +87,7 @@ Optional integrations: `STRIPE_*`, `TWILIO_*`, `GOOGLE_CLIENT_*`, `RESEND_API_KE
 
 ## Deploy notes (DigitalOcean)
 
-1. **Managed MongoDB** — enable replica set (required for booking transactions).
+1. **Managed MongoDB** — standalone or replica set both work (booking uses unique slot claims).
 2. **Managed Redis** — for BullMQ reminder / no-show jobs.
 3. **App Platform or Droplet**
    - `api`: build `pnpm --filter @reservations/api build`, start `node apps/api/dist/index.js`

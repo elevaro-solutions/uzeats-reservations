@@ -4,7 +4,7 @@
 
 - A server with Dokku installed (v0.30+)
 - Domain pointing to your server (e.g., `reservetable.com`)
-- MongoDB with replica set (for transactions) — use MongoDB Atlas or self-hosted
+- MongoDB — use MongoDB Atlas or self-hosted (replica set not required)
 - Redis instance for BullMQ job queues
 
 ## Architecture

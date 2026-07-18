@@ -1,4 +1,4 @@
-import { MongoMemoryReplSet } from 'mongodb-memory-server';
+import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import { beforeAll, afterAll, afterEach, vi } from 'vitest';
 
@@ -35,10 +35,10 @@ vi.mock('ioredis', () => {
   return { default: Redis, Redis };
 });
 
-let mongoServer: MongoMemoryReplSet;
+let mongoServer: MongoMemoryServer;
 
 beforeAll(async () => {
-  mongoServer = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
+  mongoServer = await MongoMemoryServer.create();
   const uri = mongoServer.getUri();
   process.env.MONGODB_URI = uri;
 
