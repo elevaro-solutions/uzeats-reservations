@@ -10,20 +10,50 @@ import {
   Input,
   Row,
   Select,
-  Space,
+  Skeleton,
   Tag,
   Tooltip,
   Typography,
-  Spin,
   message,
 } from 'antd';
 import dayjs from 'dayjs';
 import { RestaurantCard, EmptyState, colors, radii, shadows, typography } from '@reservations/ui';
-import { AimOutlined, CloseOutlined, EnvironmentFilled, SearchOutlined } from '@ant-design/icons';
+import {
+  AimOutlined,
+  CheckCircleFilled,
+  CrownFilled,
+  EnvironmentFilled,
+  FireFilled,
+  GlobalOutlined,
+  SearchOutlined,
+} from '@ant-design/icons';
 import { CUISINES } from '@reservations/shared';
 import { SEARCH_RESTAURANTS, AVAILABILITY } from '@/lib/graphql';
 
 const { Title, Paragraph, Text } = Typography;
+
+const CUISINE_EMOJI: Record<string, string> = {
+  American: '🍔',
+  Italian: '🍝',
+  Mexican: '🌮',
+  Japanese: '🍣',
+  Chinese: '🥡',
+  Indian: '🍛',
+  French: '🥐',
+  Mediterranean: '🫒',
+  Thai: '🍜',
+  Steakhouse: '🥩',
+  Seafood: '🦞',
+  Vegetarian: '🥗',
+  Uzbek: '🥘',
+  Other: '🍽️',
+};
+
+const HERO_HIGHLIGHTS = [
+  'Instant confirmation',
+  'No booking fees',
+  'Earn loyalty points',
+] as const;
 
 export default function HomePage() {
   const router = useRouter();
@@ -34,6 +64,7 @@ export default function HomePage() {
   const [date, setDate] = useState(dayjs().add(1, 'day'));
   const [geoLocation, setGeoLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
+  const [showMap, setShowMap] = useState(false);
 
   const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -65,6 +96,8 @@ export default function HomePage() {
     setCity('New York');
   }, []);
 
+  const dateStr = date.format('YYYY-MM-DD');
+
   const { data, loading } = useQuery(SEARCH_RESTAURANTS, {
     variables: {
       input: {
@@ -72,7 +105,7 @@ export default function HomePage() {
         cuisine,
         city: geoLocation ? undefined : city || undefined,
         partySize,
-        date: date.format('YYYY-MM-DD'),
+        date: dateStr,
         page: 1,
         limit: 24,
         ...(geoLocation ? { lat: geoLocation.lat, lng: geoLocation.lng, radiusKm: 16 } : {}),
@@ -81,170 +114,548 @@ export default function HomePage() {
   });
 
   const restaurants = (data as any)?.searchRestaurants?.items ?? [];
+  const total = (data as any)?.searchRestaurants?.total ?? 0;
+  const noResults = !loading && restaurants.length === 0;
+
+  // Fallback: when nothing matches (e.g. no restaurants near the user's
+  // location), surface the top 20 restaurants platform-wide instead.
+  const { data: topData, loading: topLoading } = useQuery(SEARCH_RESTAURANTS, {
+    variables: { input: { partySize, date: dateStr, page: 1, limit: 20 } },
+    skip: !noResults,
+  });
+  const topRestaurants = (topData as any)?.searchRestaurants?.items ?? [];
+
+  const resultsTitle = geoLocation
+    ? 'Restaurants near you'
+    : city
+      ? `Top tables in ${city}`
+      : 'Top restaurants';
+
+  const renderGrid = (items: any[]) => (
+    <Row gutter={[20, 20]}>
+      {items.map((r: any, i: number) => (
+        <Col key={r.id} xs={24} sm={12} md={8} lg={6} className="rt-fade-up" style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}>
+          <RestaurantWithSlots
+            restaurant={r}
+            date={dateStr}
+            partySize={partySize}
+            onOpen={() => router.push(`/restaurants/${r.id}`)}
+            onSelectSlot={(time) =>
+              router.push(
+                `/restaurants/${r.id}?date=${dateStr}&party=${partySize}&slot=${encodeURIComponent(time)}`,
+              )
+            }
+          />
+        </Col>
+      ))}
+    </Row>
+  );
 
   return (
-    <Space orientation="vertical" size={32} style={{ width: '100%' }}>
-      <div
+    <div>
+      {/* ---------- Hero (full-bleed) ---------- */}
+      <section
         style={{
-          background: `linear-gradient(140deg, ${colors.neutral[900]} 0%, #3d1f22 55%, ${colors.brand[800]} 100%)`,
-          borderRadius: radii.xl,
-          padding: '48px 40px 40px',
-          boxShadow: shadows.lg,
+          margin: '-32px calc(50% - 50vw) 0',
+          position: 'relative',
+          overflow: 'hidden',
+          background: `linear-gradient(150deg, ${colors.neutral[900]} 0%, #2e181b 45%, ${colors.brand[900]} 100%)`,
         }}
       >
-        <Text
+        {/* decorative glows */}
+        <div
+          aria-hidden
           style={{
-            color: colors.brand[300],
-            fontSize: typography.fontSize.sm,
-            fontWeight: typography.fontWeight.semibold,
-            textTransform: 'uppercase',
-            letterSpacing: typography.letterSpacing.wide,
+            position: 'absolute',
+            top: -160,
+            right: '-8%',
+            width: 520,
+            height: 520,
+            borderRadius: '50%',
+            background: `radial-gradient(circle, rgba(230, 69, 83, 0.35) 0%, transparent 70%)`,
+            pointerEvents: 'none',
           }}
-        >
-          Book a table in seconds
-        </Text>
-        <Title
+        />
+        <div
+          aria-hidden
           style={{
-            color: '#fff',
-            marginTop: 8,
-            marginBottom: 0,
-            fontSize: typography.fontSize.display,
-            letterSpacing: typography.letterSpacing.tight,
-            maxWidth: 640,
+            position: 'absolute',
+            bottom: -220,
+            left: '-6%',
+            width: 460,
+            height: 460,
+            borderRadius: '50%',
+            background: `radial-gradient(circle, rgba(247, 163, 170, 0.18) 0%, transparent 70%)`,
+            pointerEvents: 'none',
           }}
-        >
-          Find your table for any occasion
-        </Title>
-        <Paragraph
+        />
+        <div
+          aria-hidden
           style={{
-            color: 'rgba(255,255,255,0.75)',
-            maxWidth: 560,
-            marginTop: 12,
-            fontSize: typography.fontSize.md,
+            position: 'absolute',
+            inset: 0,
+            backgroundImage:
+              'radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px)',
+            backgroundSize: '28px 28px',
+            maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.7), transparent 75%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.7), transparent 75%)',
+            pointerEvents: 'none',
           }}
-        >
-          Search restaurants across the USA and book instantly — birthdays, date nights, business
-          dinners, and more.
-        </Paragraph>
+        />
+
         <div
           style={{
-            marginTop: 24,
-            background: '#fff',
-            borderRadius: radii.lg,
-            padding: 12,
-            boxShadow: shadows.md,
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 10,
-            alignItems: 'center',
+            maxWidth: 1120,
+            margin: '0 auto',
+            padding: '76px 24px 60px',
+            position: 'relative',
+            textAlign: 'center',
           }}
         >
-          <Input
-            size="large"
-            prefix={<SearchOutlined style={{ color: colors.textTertiary }} />}
-            placeholder="Restaurant or cuisine"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            style={{ flex: '2 1 200px', minWidth: 180 }}
-            variant="filled"
-          />
-          <Select
-            size="large"
-            allowClear
-            placeholder="Cuisine"
-            value={cuisine}
-            onChange={setCuisine}
-            style={{ flex: '1 1 140px', minWidth: 130 }}
-            options={CUISINES.map((c) => ({ value: c, label: c }))}
-            variant="filled"
-          />
-          {geoLocation ? (
-            <Tag
-              color="#da3743"
-              closable
-              onClose={clearLocation}
+          <div
+            className="rt-fade-up"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              background: 'rgba(255,255,255,0.08)',
+              border: '1px solid rgba(255,255,255,0.14)',
+              borderRadius: radii.pill,
+              padding: '6px 14px',
+              color: colors.brand[300],
+              fontSize: typography.fontSize.sm,
+              fontWeight: typography.fontWeight.semibold,
+              letterSpacing: typography.letterSpacing.wide,
+              textTransform: 'uppercase',
+            }}
+          >
+            <FireFilled /> Book a table in seconds
+          </div>
+
+          <Title
+            className="rt-fade-up"
+            style={{
+              color: '#fff',
+              margin: '20px auto 0',
+              fontSize: 'clamp(38px, 5.4vw, 58px)',
+              lineHeight: 1.08,
+              letterSpacing: typography.letterSpacing.tight,
+              maxWidth: 760,
+              animationDelay: '80ms',
+            }}
+          >
+            Your next favorite table,{' '}
+            <span
               style={{
-                height: 40,
-                display: 'flex',
-                alignItems: 'center',
-                fontSize: 14,
-                padding: '0 12px',
-                borderRadius: 8,
+                background: `linear-gradient(90deg, ${colors.brand[400]}, ${colors.brand[300]})`,
+                WebkitBackgroundClip: 'text',
+                backgroundClip: 'text',
+                color: 'transparent',
               }}
             >
-              <EnvironmentFilled style={{ marginRight: 4 }} /> Near me
-            </Tag>
-          ) : (
+              one tap away
+            </span>
+          </Title>
+
+          <Paragraph
+            className="rt-fade-up"
+            style={{
+              color: 'rgba(255,255,255,0.72)',
+              maxWidth: 560,
+              margin: '16px auto 0',
+              fontSize: typography.fontSize.md,
+              lineHeight: 1.6,
+              animationDelay: '160ms',
+            }}
+          >
+            Discover and instantly book the best restaurants across the USA — date nights,
+            birthdays, business dinners, and everything in between.
+          </Paragraph>
+
+          {/* search panel */}
+          <div
+            className="rt-fade-up"
+            style={{
+              marginTop: 32,
+              background: '#fff',
+              borderRadius: radii.xl,
+              padding: 12,
+              boxShadow: '0 24px 64px rgba(0, 0, 0, 0.35)',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 10,
+              alignItems: 'center',
+              textAlign: 'left',
+              animationDelay: '240ms',
+            }}
+          >
             <Input
               size="large"
-              placeholder="City"
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              style={{ flex: '1 1 120px', minWidth: 110 }}
+              prefix={<SearchOutlined style={{ color: colors.textTertiary }} />}
+              placeholder="Restaurant or cuisine"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              style={{ flex: '2 1 200px', minWidth: 180 }}
               variant="filled"
             />
-          )}
-          <Tooltip title={geoLocation ? 'Location active' : 'Find restaurants near me'}>
-            <Button
+            <Select
               size="large"
-              icon={<AimOutlined />}
-              loading={geoLoading}
-              onClick={geoLocation ? clearLocation : requestLocation}
-              type={geoLocation ? 'primary' : 'default'}
-              style={geoLocation ? { background: '#da3743', borderColor: '#da3743' } : {}}
+              allowClear
+              placeholder="Cuisine"
+              value={cuisine}
+              onChange={setCuisine}
+              style={{ flex: '1 1 140px', minWidth: 130 }}
+              options={CUISINES.map((c) => ({ value: c, label: `${CUISINE_EMOJI[c] ?? ''} ${c}` }))}
+              variant="filled"
             />
-          </Tooltip>
-          <DatePicker
-            size="large"
-            value={date}
-            onChange={(d) => d && setDate(d)}
-            style={{ flex: '0 1 150px' }}
-            variant="filled"
-          />
-          <Select
-            size="large"
-            value={partySize}
-            onChange={(v) => setPartySize(v ?? 2)}
-            style={{ flex: '0 1 140px', minWidth: 130 }}
-            variant="filled"
-            options={Array.from({ length: 20 }, (_, i) => ({
-              value: i + 1,
-              label: `${i + 1} ${i === 0 ? 'person' : 'people'}`,
-            }))}
-          />
+            {geoLocation ? (
+              <Tag
+                color={colors.brand[600]}
+                closable
+                onClose={clearLocation}
+                style={{
+                  height: 40,
+                  display: 'flex',
+                  alignItems: 'center',
+                  fontSize: 14,
+                  padding: '0 12px',
+                  borderRadius: radii.sm,
+                  margin: 0,
+                }}
+              >
+                <EnvironmentFilled style={{ marginRight: 4 }} /> Near me
+              </Tag>
+            ) : (
+              <Input
+                size="large"
+                prefix={<EnvironmentFilled style={{ color: colors.textTertiary }} />}
+                placeholder="City"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                style={{ flex: '1 1 130px', minWidth: 120 }}
+                variant="filled"
+              />
+            )}
+            <Tooltip title={geoLocation ? 'Location active — click to clear' : 'Find restaurants near me'}>
+              <Button
+                size="large"
+                icon={<AimOutlined />}
+                loading={geoLoading}
+                onClick={geoLocation ? clearLocation : requestLocation}
+                type={geoLocation ? 'primary' : 'default'}
+              />
+            </Tooltip>
+            <DatePicker
+              size="large"
+              value={date}
+              onChange={(d) => d && setDate(d)}
+              allowClear={false}
+              style={{ flex: '0 1 150px' }}
+              variant="filled"
+            />
+            <Select
+              size="large"
+              value={partySize}
+              onChange={(v) => setPartySize(v ?? 2)}
+              style={{ flex: '0 1 140px', minWidth: 130 }}
+              variant="filled"
+              options={Array.from({ length: 20 }, (_, i) => ({
+                value: i + 1,
+                label: `${i + 1} ${i === 0 ? 'person' : 'people'}`,
+              }))}
+            />
+            <Button
+              type="primary"
+              size="large"
+              icon={<SearchOutlined />}
+              style={{
+                flex: '0 0 auto',
+                height: 44,
+                borderRadius: radii.md,
+                fontWeight: typography.fontWeight.semibold,
+                paddingInline: 24,
+                background: colors.brand[600],
+              }}
+            >
+              Find a table
+            </Button>
+          </div>
+
+          {/* highlights */}
+          <div
+            className="rt-fade-up"
+            style={{
+              marginTop: 22,
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              gap: '10px 28px',
+              animationDelay: '320ms',
+            }}
+          >
+            {HERO_HIGHLIGHTS.map((h) => (
+              <span
+                key={h}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  color: 'rgba(255,255,255,0.78)',
+                  fontSize: typography.fontSize.sm,
+                  fontWeight: typography.fontWeight.medium,
+                }}
+              >
+                <CheckCircleFilled style={{ color: colors.brand[400] }} /> {h}
+              </span>
+            ))}
+          </div>
         </div>
+      </section>
+
+      {/* ---------- Cuisine quick filters ---------- */}
+      <div
+        className="rt-scroll-hidden"
+        style={{
+          display: 'flex',
+          gap: 10,
+          overflowX: 'auto',
+          padding: '28px 2px 4px',
+        }}
+      >
+        {CUISINES.map((c) => {
+          const active = cuisine === c;
+          return (
+            <button
+              key={c}
+              type="button"
+              className={active ? 'rt-chip rt-chip--active' : 'rt-chip'}
+              onClick={() => setCuisine(active ? undefined : c)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                whiteSpace: 'nowrap',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                fontSize: typography.fontSize.sm,
+                fontWeight: typography.fontWeight.semibold,
+                padding: '9px 16px',
+                borderRadius: radii.pill,
+                border: `1.5px solid ${active ? colors.brand[600] : colors.border}`,
+                background: active ? colors.brand[600] : colors.surface,
+                color: active ? '#fff' : colors.textSecondary,
+                boxShadow: active ? shadows.brand : shadows.xs,
+                transition: 'all 0.18s ease',
+              }}
+            >
+              <span aria-hidden>{CUISINE_EMOJI[c]}</span> {c}
+            </button>
+          );
+        })}
       </div>
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: 64 }}>
-          <Spin size="large" />
+      {/* ---------- View toggle ---------- */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          marginTop: 20,
+          gap: 8,
+        }}
+      >
+        <Button
+          icon={<GlobalOutlined />}
+          type={showMap ? 'primary' : 'default'}
+          onClick={() => setShowMap((v) => !v)}
+          style={{
+            borderRadius: radii.pill,
+            fontWeight: typography.fontWeight.semibold,
+            ...(showMap ? { background: colors.brand[600] } : {}),
+          }}
+        >
+          {showMap ? 'Hide map' : 'Show map'}
+        </Button>
+      </div>
+
+      {/* ---------- Map view ---------- */}
+      {showMap && (
+        <div
+          style={{
+            marginTop: 16,
+            height: 380,
+            borderRadius: radii.lg,
+            overflow: 'hidden',
+            border: `1px solid ${colors.border}`,
+            background: colors.neutral[100],
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+          }}
+        >
+          <div
+            style={{
+              textAlign: 'center',
+              color: colors.textSecondary,
+            }}
+          >
+            <GlobalOutlined style={{ fontSize: 40, color: colors.textTertiary, display: 'block', marginBottom: 12 }} />
+            <Text strong style={{ fontSize: typography.fontSize.md }}>Map view</Text>
+            <br />
+            <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+              Interactive map coming soon — browse restaurants by location
+            </Text>
+          </div>
         </div>
-      ) : restaurants.length === 0 ? (
-        <EmptyState
-          icon={<SearchOutlined />}
-          title="No restaurants found"
-          description="Try a different city, cuisine, or date — new restaurants join ReserveTable every week."
-        />
-      ) : (
-        <Row gutter={[20, 20]}>
-          {restaurants.map((r: any) => (
-            <Col key={r.id} xs={24} sm={12} lg={8}>
-              <RestaurantWithSlots
-                restaurant={r}
-                date={date.format('YYYY-MM-DD')}
-                partySize={partySize}
-                onOpen={() => router.push(`/restaurants/${r.id}`)}
-                onSelectSlot={(time) =>
-                  router.push(
-                    `/restaurants/${r.id}?date=${date.format('YYYY-MM-DD')}&party=${partySize}&slot=${encodeURIComponent(time)}`,
-                  )
-                }
-              />
-            </Col>
-          ))}
-        </Row>
       )}
-    </Space>
+
+      {/* ---------- Results ---------- */}
+      <div style={{ marginTop: 28 }}>
+        {loading ? (
+          <>
+            <Skeleton.Input active style={{ width: 260, height: 30, marginBottom: 20 }} />
+            <SkeletonGrid count={8} />
+          </>
+        ) : restaurants.length > 0 ? (
+          <>
+            <SectionHeader
+              icon={geoLocation ? <EnvironmentFilled /> : <CrownFilled />}
+              title={resultsTitle}
+              subtitle={`${total} restaurant${total === 1 ? '' : 's'} ready to book`}
+            />
+            {renderGrid(restaurants)}
+          </>
+        ) : (
+          <>
+            {/* Fallback: top 20 platform-wide */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                background: `linear-gradient(120deg, ${colors.brand[50]}, #fff)`,
+                border: `1px solid ${colors.brand[100]}`,
+                borderRadius: radii.lg,
+                padding: '16px 20px',
+                marginBottom: 24,
+              }}
+            >
+              <div
+                style={{
+                  width: 42,
+                  height: 42,
+                  flexShrink: 0,
+                  borderRadius: '50%',
+                  background: colors.brand[100],
+                  color: colors.brand[600],
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 18,
+                }}
+              >
+                <EnvironmentFilled />
+              </div>
+              <div>
+                <Text strong style={{ display: 'block', fontSize: typography.fontSize.md }}>
+                  No restaurants found {geoLocation ? 'near your location' : 'for this search'}
+                </Text>
+                <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+                  Don&apos;t worry — here are the top 20 restaurants on ReserveTable, loved by
+                  thousands of diners.
+                </Text>
+              </div>
+            </div>
+
+            {topLoading ? (
+              <SkeletonGrid count={8} />
+            ) : topRestaurants.length > 0 ? (
+              <>
+                <SectionHeader
+                  icon={<CrownFilled />}
+                  title="Top 20 restaurants"
+                  subtitle="The highest-rated places across ReserveTable"
+                />
+                {renderGrid(topRestaurants)}
+              </>
+            ) : (
+              <EmptyState
+                icon={<SearchOutlined />}
+                title="No restaurants yet"
+                description="New restaurants join ReserveTable every week — check back soon."
+              />
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SectionHeader({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+      <div
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: radii.md,
+          background: colors.brand[50],
+          color: colors.brand[600],
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 18,
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </div>
+      <div>
+        <Title level={3} style={{ margin: 0, letterSpacing: typography.letterSpacing.tight }}>
+          {title}
+        </Title>
+        {subtitle && (
+          <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+            {subtitle}
+          </Text>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SkeletonGrid({ count }: { count: number }) {
+  return (
+    <Row gutter={[20, 20]}>
+      {Array.from({ length: count }, (_, i) => (
+        <Col key={i} xs={24} sm={12} md={8} lg={6}>
+          <div
+            style={{
+              background: colors.surface,
+              borderRadius: radii.lg,
+              overflow: 'hidden',
+              boxShadow: shadows.sm,
+              border: `1px solid ${colors.bordersubtle}`,
+            }}
+          >
+            <Skeleton.Node active style={{ width: '100%', height: 190, borderRadius: 0 }} />
+            <div style={{ padding: 16 }}>
+              <Skeleton active title={{ width: '60%' }} paragraph={{ rows: 2, width: ['45%', '80%'] }} />
+            </div>
+          </div>
+        </Col>
+      ))}
+    </Row>
   );
 }
 

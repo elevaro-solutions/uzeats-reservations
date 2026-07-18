@@ -13,6 +13,43 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  /* Full-bleed hero uses 100vw breakout; prevent scrollbar-width overflow */
+  overflow-x: hidden;
+}
+
+/* Entrance animation for hero and result cards */
+@keyframes rt-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rt-fade-up {
+  animation: rt-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Cuisine filter chips */
+.rt-chip:hover {
+  transform: translateY(-1px);
+}
+
+.rt-chip:not(.rt-chip--active):hover {
+  border-color: #da3743 !important;
+  color: #da3743;
+}
+
+/* Horizontal scroller without visible scrollbar */
+.rt-scroll-hidden {
+  scrollbar-width: none;
+}
+
+.rt-scroll-hidden::-webkit-scrollbar {
+  display: none;
 }
 
 * {
@@ -32,6 +69,16 @@ a {
   outline: 2px solid var(--color-brand);
   outline-offset: 2px;
   border-radius: 4px;
+}
+
+/* Auth layout responsive rules */
+@media (max-width: 860px) {
+  .rt-auth-panel {
+    display: none !important;
+  }
+  .rt-auth-mobile-logo {
+    display: inline-flex !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -2,56 +2,75 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useMutation } from '@apollo/client/react';
-import { Alert, Button, Card, Form, Input, Space, Typography, message } from 'antd';
+import { Alert, Button, Form, Input, Space, message } from 'antd';
 import { LockOutlined } from '@ant-design/icons';
+import { colors, typography } from '@reservations/ui';
 import { RESET_PASSWORD } from '@/lib/graphql';
-
-const { Title, Text } = Typography;
+import { AuthLayout } from '@/components/AuthLayout';
 
 export default function ResetPasswordForm() {
   const search = useSearchParams();
-  const router = useRouter();
   const token = search.get('token') ?? '';
   const [resetPassword, { loading }] = useMutation(RESET_PASSWORD);
   const [success, setSuccess] = useState(false);
 
   if (!token) {
     return (
-      <Card style={{ maxWidth: 420, margin: '40px auto' }}>
-        <Alert
-          type="error"
-          message="Invalid reset link"
-          description="This password reset link is invalid or has expired. Please request a new one."
-          showIcon
-        />
-        <Link href="/forgot-password">
-          <Button type="primary" style={{ marginTop: 16 }}>
-            Request new link
-          </Button>
-        </Link>
-      </Card>
+      <AuthLayout heading="Invalid reset link">
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Alert
+            type="error"
+            message="Link expired or invalid"
+            description="This password reset link is invalid or has expired. Please request a new one."
+            showIcon
+          />
+          <Link href="/forgot-password">
+            <Button
+              type="primary"
+              block
+              size="large"
+              style={{
+                height: 46,
+                fontWeight: typography.fontWeight.semibold,
+                background: colors.brand[600],
+              }}
+            >
+              Request new link
+            </Button>
+          </Link>
+        </Space>
+      </AuthLayout>
     );
   }
 
   if (success) {
     return (
-      <Card style={{ maxWidth: 420, margin: '40px auto' }}>
+      <AuthLayout heading="Password updated">
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
           <Alert
             type="success"
-            message="Password updated"
+            message="You're all set"
             description="Your password has been reset successfully. You can now sign in with your new password."
             showIcon
           />
           <Link href="/login">
-            <Button type="primary" block>
+            <Button
+              type="primary"
+              block
+              size="large"
+              style={{
+                height: 46,
+                fontWeight: typography.fontWeight.semibold,
+                background: colors.brand[600],
+              }}
+            >
               Sign in
             </Button>
           </Link>
         </Space>
-      </Card>
+      </AuthLayout>
     );
   }
 
@@ -63,22 +82,23 @@ export default function ResetPasswordForm() {
       if ((data as any)?.resetPassword?.success) {
         setSuccess(true);
       } else {
-        message.error((data as any)?.resetPassword?.message ?? 'Failed to reset password');
+        message.error(
+          (data as any)?.resetPassword?.message ?? 'Failed to reset password',
+        );
       }
     } catch (err) {
-      message.error(err instanceof Error ? err.message : 'Failed to reset password');
+      message.error(
+        err instanceof Error ? err.message : 'Failed to reset password',
+      );
     }
   };
 
   return (
-    <Card style={{ maxWidth: 420, margin: '40px auto' }}>
-      <Title level={3} style={{ marginTop: 0 }}>
-        Set new password
-      </Title>
-      <Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
-        Enter your new password below.
-      </Text>
-      <Form layout="vertical" onFinish={onFinish}>
+    <AuthLayout
+      heading="Set new password"
+      subheading="Enter your new password below."
+    >
+      <Form layout="vertical" requiredMark={false} onFinish={onFinish}>
         <Form.Item
           name="password"
           label="New password"
@@ -87,7 +107,11 @@ export default function ResetPasswordForm() {
             { min: 8, message: 'Password must be at least 8 characters' },
           ]}
         >
-          <Input.Password prefix={<LockOutlined />} placeholder="New password" />
+          <Input.Password
+            size="large"
+            prefix={<LockOutlined style={{ color: colors.textTertiary }} />}
+            placeholder="New password"
+          />
         </Form.Item>
         <Form.Item
           name="confirm"
@@ -105,12 +129,28 @@ export default function ResetPasswordForm() {
             }),
           ]}
         >
-          <Input.Password prefix={<LockOutlined />} placeholder="Confirm password" />
+          <Input.Password
+            size="large"
+            prefix={<LockOutlined style={{ color: colors.textTertiary }} />}
+            placeholder="Confirm password"
+          />
         </Form.Item>
-        <Button type="primary" htmlType="submit" block loading={loading}>
+        <Button
+          type="primary"
+          htmlType="submit"
+          block
+          size="large"
+          loading={loading}
+          style={{
+            height: 46,
+            fontWeight: typography.fontWeight.semibold,
+            fontSize: typography.fontSize.md,
+            background: colors.brand[600],
+          }}
+        >
           Reset password
         </Button>
       </Form>
-    </Card>
+    </AuthLayout>
   );
 }

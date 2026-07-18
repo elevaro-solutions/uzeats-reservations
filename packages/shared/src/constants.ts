@@ -36,6 +36,7 @@ export const CUISINES = [
   'Steakhouse',
   'Seafood',
   'Vegetarian',
+  'Uzbek',
   'Other',
 ] as const;
 

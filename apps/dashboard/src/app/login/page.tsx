@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Button, Card, Form, Input, Typography, message } from 'antd';
+import { Button, Form, Input, message } from 'antd';
+import { LockOutlined, MailOutlined } from '@ant-design/icons';
+import { colors, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
-
-const { Title, Text } = Typography;
+import { AuthLayout } from '@/components/AuthLayout';
 
 export default function LoginPage() {
   const { login, user } = useAuth();
@@ -18,10 +20,13 @@ export default function LoginPage() {
   }
 
   return (
-    <Card style={{ maxWidth: 420, margin: '80px auto' }}>
-      <Title level={3}>Partner Hub sign in</Title>
+    <AuthLayout
+      heading="Partner Hub sign in"
+      subheading="Sign in to manage your restaurant"
+    >
       <Form
         layout="vertical"
+        requiredMark={false}
         onFinish={async (values) => {
           setLoading(true);
           try {
@@ -35,19 +40,72 @@ export default function LoginPage() {
           }
         }}
       >
-        <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email' }]}>
-          <Input />
+        <Form.Item
+          name="email"
+          label="Email"
+          rules={[
+            { required: true, message: 'Enter your email' },
+            { type: 'email', message: 'Enter a valid email' },
+          ]}
+        >
+          <Input
+            size="large"
+            prefix={<MailOutlined style={{ color: colors.textTertiary }} />}
+            placeholder="you@restaurant.com"
+          />
         </Form.Item>
-        <Form.Item name="password" label="Password" rules={[{ required: true }]}>
-          <Input.Password />
+        <Form.Item
+          name="password"
+          label="Password"
+          rules={[{ required: true, message: 'Enter your password' }]}
+        >
+          <Input.Password
+            size="large"
+            prefix={<LockOutlined style={{ color: colors.textTertiary }} />}
+            placeholder="••••••••"
+          />
         </Form.Item>
-        <Button type="primary" htmlType="submit" block loading={loading}>
+        <Button
+          type="primary"
+          htmlType="submit"
+          block
+          size="large"
+          loading={loading}
+          style={{
+            height: 46,
+            fontWeight: typography.fontWeight.semibold,
+            fontSize: typography.fontSize.md,
+            background: colors.brand[600],
+          }}
+        >
           Sign in
         </Button>
       </Form>
-      <Text type="secondary" style={{ display: 'block', marginTop: 12 }}>
-        Demo: owner@reservations.local or admin@reservations.local / Password123!
-      </Text>
-    </Card>
+
+      <div
+        style={{
+          marginTop: 20,
+          padding: '12px 16px',
+          background: colors.neutral[50],
+          borderRadius: 8,
+          border: `1px solid ${colors.bordersubtle}`,
+        }}
+      >
+        <p
+          style={{
+            margin: 0,
+            color: colors.textSecondary,
+            fontSize: typography.fontSize.xs,
+            lineHeight: 1.5,
+          }}
+        >
+          <strong style={{ color: colors.textPrimary }}>Demo credentials</strong>
+          <br />
+          owner@reservations.local or admin@reservations.local
+          <br />
+          Password: Password123!
+        </p>
+      </div>
+    </AuthLayout>
   );
 }

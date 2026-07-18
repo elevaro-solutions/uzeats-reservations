@@ -39,101 +39,28 @@ const MENUS: Record<
   string,
   { name: string; items: { name: string; description: string; priceCents: number; dietary: string[] }[] }[]
 > = {
-  Steakhouse: [
+  Uzbek: [
     {
       name: 'Starters',
       items: [
-        { name: 'Caesar Salad', description: 'Romaine, anchovy dressing, croutons', priceCents: 1600, dietary: [] },
-        { name: 'Oysters Rockefeller', description: 'Half dozen, spinach & Pernod', priceCents: 2400, dietary: [] },
+        { name: 'Somsa', description: 'Flaky pastry with lamb and onions', priceCents: 800, dietary: [] },
+        { name: 'Achichuk', description: 'Tomato, onion, and chili salad', priceCents: 700, dietary: ['vegan', 'vegetarian'] },
       ],
     },
     {
       name: 'Mains',
       items: [
-        { name: 'Dry-Aged Ribeye', description: '16oz, bone marrow butter', priceCents: 7200, dietary: [] },
-        { name: 'Filet Mignon', description: '8oz, red wine reduction', priceCents: 6800, dietary: [] },
-      ],
-    },
-  ],
-  Italian: [
-    {
-      name: 'Antipasti',
-      items: [
-        { name: 'Burrata', description: 'Heirloom tomatoes, basil oil', priceCents: 1800, dietary: ['vegetarian'] },
-        { name: 'Carpaccio', description: 'Thin-sliced beef, arugula, lemon', priceCents: 2000, dietary: [] },
+        { name: 'Plov', description: 'Samarkand-style rice with lamb and carrots', priceCents: 2200, dietary: [] },
+        { name: 'Lagman', description: 'Hand-pulled noodles in rich meat broth', priceCents: 1800, dietary: [] },
+        { name: 'Shashlik', description: 'Charcoal-grilled lamb skewers', priceCents: 2400, dietary: [] },
+        { name: 'Manti', description: 'Steamed dumplings with beef and onion', priceCents: 1600, dietary: [] },
       ],
     },
     {
-      name: 'Pasta & Pizza',
+      name: 'Drinks & Sweets',
       items: [
-        { name: 'Cacio e Pepe', description: 'Pecorino, black pepper', priceCents: 2400, dietary: ['vegetarian'] },
-        { name: 'Margherita Pizza', description: 'San Marzano, mozzarella di bufala', priceCents: 2200, dietary: ['vegetarian'] },
-      ],
-    },
-  ],
-  Japanese: [
-    {
-      name: 'Small Plates',
-      items: [
-        { name: 'Edamame', description: 'Sea salt', priceCents: 800, dietary: ['vegan', 'vegetarian'] },
-        { name: 'Tuna Tataki', description: 'Sesame, ponzu', priceCents: 1800, dietary: [] },
-      ],
-    },
-    {
-      name: 'Sushi & Mains',
-      items: [
-        { name: 'Omakase Set', description: "Chef's selection, 10 pieces", priceCents: 8500, dietary: [] },
-        { name: 'Chicken Teriyaki', description: 'Jasmine rice, pickles', priceCents: 2800, dietary: [] },
-      ],
-    },
-  ],
-  Mexican: [
-    {
-      name: 'Botanas',
-      items: [
-        { name: 'Guacamole', description: 'Tostadas, salsa verde', priceCents: 1200, dietary: ['vegan', 'vegetarian'] },
-        { name: 'Elote', description: 'Cotija, chili, lime', priceCents: 900, dietary: ['vegetarian'] },
-      ],
-    },
-    {
-      name: 'Platos',
-      items: [
-        { name: 'Duck Carnitas Tacos', description: 'Three tacos, pickled onion', priceCents: 2200, dietary: [] },
-        { name: 'Chile Relleno', description: 'Oaxaca cheese, ranchero sauce', priceCents: 2400, dietary: ['vegetarian'] },
-      ],
-    },
-  ],
-  Seafood: [
-    {
-      name: 'Raw Bar',
-      items: [
-        { name: 'East Coast Oysters', description: 'Half dozen, mignonette', priceCents: 2200, dietary: [] },
-        { name: 'Shrimp Cocktail', description: 'House cocktail sauce', priceCents: 1800, dietary: [] },
-      ],
-    },
-    {
-      name: 'Mains',
-      items: [
-        { name: 'Lobster Roll', description: 'Warm butter, brioche', priceCents: 4200, dietary: [] },
-        { name: 'Pan-Roasted Cod', description: 'Clam chowder broth', priceCents: 3600, dietary: [] },
-      ],
-    },
-  ],
-  French: [
-    {
-      name: 'Entrées',
-      items: [
-        { name: 'French Onion Soup', description: 'Gruyère crouton', priceCents: 1400, dietary: ['vegetarian'] },
-        { name: 'Steak Frites', description: 'Hanger steak, herb butter', priceCents: 3800, dietary: [] },
-      ],
-    },
-  ],
-  American: [
-    {
-      name: 'Classics',
-      items: [
-        { name: 'Wedge Salad', description: 'Blue cheese, bacon', priceCents: 1400, dietary: [] },
-        { name: 'Cheeseburger', description: 'Aged cheddar, fries', priceCents: 2200, dietary: [] },
+        { name: 'Green Tea', description: 'Traditional pot of kok choy', priceCents: 400, dietary: ['vegan', 'vegetarian'] },
+        { name: 'Navat Halva', description: 'House-made sesame sweet', priceCents: 600, dietary: ['vegetarian'] },
       ],
     },
   ],
@@ -156,6 +83,91 @@ type RestaurantSeed = {
   rating?: number;
   reviewCount?: number;
 };
+
+const CITIES: { city: string; state: string; zip: string; lng: number; lat: number }[] = [
+  // New York
+  { city: 'New York', state: 'NY', zip: '10001', lng: -73.9942, lat: 40.7505 },
+  { city: 'Brooklyn', state: 'NY', zip: '11201', lng: -73.9903, lat: 40.6943 },
+  { city: 'Queens', state: 'NY', zip: '11354', lng: -73.8272, lat: 40.759 },
+  { city: 'Buffalo', state: 'NY', zip: '14202', lng: -78.8784, lat: 42.8864 },
+  { city: 'Rochester', state: 'NY', zip: '14604', lng: -77.6109, lat: 43.1566 },
+  { city: 'Albany', state: 'NY', zip: '12207', lng: -73.7562, lat: 42.6526 },
+  // New Jersey
+  { city: 'Jersey City', state: 'NJ', zip: '07302', lng: -74.0431, lat: 40.7178 },
+  { city: 'Newark', state: 'NJ', zip: '07102', lng: -74.1724, lat: 40.7357 },
+  { city: 'Paterson', state: 'NJ', zip: '07501', lng: -74.1718, lat: 40.9168 },
+  { city: 'Edison', state: 'NJ', zip: '08817', lng: -74.4121, lat: 40.5187 },
+  { city: 'Hoboken', state: 'NJ', zip: '07030', lng: -74.0324, lat: 40.744 },
+  { city: 'Princeton', state: 'NJ', zip: '08540', lng: -74.6672, lat: 40.3573 },
+  { city: 'Atlantic City', state: 'NJ', zip: '08401', lng: -74.4229, lat: 39.3643 },
+  // Florida
+  { city: 'Miami', state: 'FL', zip: '33131', lng: -80.1918, lat: 25.7617 },
+  { city: 'Orlando', state: 'FL', zip: '32801', lng: -81.3792, lat: 28.5383 },
+  { city: 'Tampa', state: 'FL', zip: '33602', lng: -82.4572, lat: 27.9506 },
+  { city: 'Jacksonville', state: 'FL', zip: '32202', lng: -81.6557, lat: 30.3322 },
+  { city: 'Fort Lauderdale', state: 'FL', zip: '33301', lng: -80.1373, lat: 26.1224 },
+  { city: 'St. Petersburg', state: 'FL', zip: '33701', lng: -82.6403, lat: 27.7676 },
+  { city: 'Tallahassee', state: 'FL', zip: '32301', lng: -84.2807, lat: 30.4383 },
+  // Philadelphia, PA
+  { city: 'Philadelphia', state: 'PA', zip: '19107', lng: -75.1652, lat: 39.9526 },
+  { city: 'Philadelphia', state: 'PA', zip: '19103', lng: -75.1745, lat: 39.952 },
+  { city: 'Philadelphia', state: 'PA', zip: '19147', lng: -75.1545, lat: 39.934 },
+  { city: 'Philadelphia', state: 'PA', zip: '19123', lng: -75.1452, lat: 39.967 },
+];
+
+const PLANS_CYCLE: (keyof typeof PLANS)[] = ['basic', 'core', 'pro'];
+const NAME_PREFIXES = [
+  'Samarkand', 'Bukhara', 'Tashkent', 'Khiva', 'Fergana', 'Andijan', 'Namangan', 'Termez', 'Nukus', 'Karshi',
+  'Registan', 'Silk Road', 'Plov', 'Lagman', 'Manti', 'Shashlik', 'Somsa', 'Navruz', 'Chorsu', 'Bibi',
+  'Amir', 'Timur', 'Alisher', 'Navoi', 'Ulugbek', 'Bobur', 'Khan', 'Sultan', 'Emir', 'Diyor',
+  'Anor', 'Anjir', 'Shaftoli', 'Uzum', 'Qovun', 'Non', 'Osh', 'Choy', 'Qazi', 'Halim',
+  'Golden Plov', 'Blue Domes', 'Caravan', 'Bazaar', 'Teahouse', 'Garden', 'Palace', 'House', 'Kitchen', 'Grill',
+  'East', 'Orient', 'Steppe', 'Oasis', 'Valley', 'Mountain', 'River', 'Desert', 'Meadow', 'Market',
+  'Family', 'Heritage', 'Legacy', 'Royal', 'Noble', 'Ancient', 'Modern', 'Classic', 'Fresh', 'Home',
+  'Sunrise', 'Sunset', 'Moon', 'Star', 'Pearl', 'Ruby', 'Jade', 'Copper', 'Silver', 'Gold',
+  'Cedar', 'Maple', 'Olive', 'Pomegranate', 'Fig', 'Mulberry', 'Walnut', 'Almond', 'Apricot', 'Melon',
+  'Harbor', 'Bridge', 'Canal', 'Pier', 'Corner', 'Avenue',
+];
+const NAME_SUFFIXES = [
+  'Choyxona', 'Oshxona', 'Grill', 'Kitchen', 'House', 'Palace', 'Cafe', 'Restaurant', 'Bistro', 'Table',
+  'Dining', 'Lounge', 'Hall', 'Garden', 'Express',
+];
+
+function buildExtraRestaurants(count: number): RestaurantSeed[] {
+  const out: RestaurantSeed[] = [];
+  for (let i = 0; i < count; i++) {
+    const loc = CITIES[i % CITIES.length]!;
+    const prefix = NAME_PREFIXES[i % NAME_PREFIXES.length]!;
+    const suffix = NAME_SUFFIXES[Math.floor(i / NAME_PREFIXES.length) % NAME_SUFFIXES.length]!;
+    const name = `${prefix} ${suffix} ${i + 1}`;
+    const statusRoll = i % 17;
+    const status: RestaurantSeed['status'] =
+      statusRoll === 0 ? 'pending' : statusRoll === 1 ? 'suspended' : 'approved';
+    const priceRange = (i % 4) + 1;
+    const depositRequired = i % 5 === 0;
+    const plan = status === 'pending' ? undefined : PLANS_CYCLE[i % PLANS_CYCLE.length];
+    const jitter = ((i % 7) - 3) * 0.008;
+
+    out.push({
+      name,
+      cuisine: 'Uzbek',
+      priceRange,
+      city: loc.city,
+      state: loc.state,
+      zip: loc.zip,
+      lng: loc.lng + jitter,
+      lat: loc.lat + jitter * 0.6,
+      description: `Authentic Uzbek cuisine in ${loc.city}, ${loc.state} — seed venue #${i + 1}.`,
+      depositRequired,
+      depositAmountCents: depositRequired ? 1000 + (i % 5) * 500 : 0,
+      status,
+      plan,
+      rating: status === 'pending' ? undefined : Math.round((3.5 + (i % 15) * 0.1) * 10) / 10,
+      reviewCount: status === 'pending' ? undefined : 5 + (i % 40) * 3,
+    });
+  }
+  return out;
+}
 
 async function seed() {
   await mongoose.connect(env.MONGODB_URI);
@@ -235,17 +247,17 @@ async function seed() {
     },
   ]);
 
-  const restaurantsData: RestaurantSeed[] = [
+  const featuredRestaurants: RestaurantSeed[] = [
     {
-      name: 'Harbor Steakhouse',
-      cuisine: 'Steakhouse',
+      name: 'Samarkand Palace',
+      cuisine: 'Uzbek',
       priceRange: 4,
       city: 'New York',
       state: 'NY',
       zip: '10013',
       lng: -74.0059,
       lat: 40.7195,
-      description: 'Dry-aged steaks and classic cocktails in Tribeca.',
+      description: 'Wood-fired plov and charcoal shashlik in Tribeca.',
       depositRequired: true,
       depositAmountCents: 2500,
       status: 'approved',
@@ -254,15 +266,15 @@ async function seed() {
       reviewCount: 128,
     },
     {
-      name: 'Nonna Bella',
-      cuisine: 'Italian',
+      name: 'Tashkent House',
+      cuisine: 'Uzbek',
       priceRange: 3,
-      city: 'New York',
+      city: 'Brooklyn',
       state: 'NY',
-      zip: '10012',
-      lng: -73.998,
-      lat: 40.7255,
-      description: 'Handmade pasta and wood-fired pizzas in SoHo.',
+      zip: '11201',
+      lng: -73.9903,
+      lat: 40.6943,
+      description: 'Home-style lagman and manti near Downtown Brooklyn.',
       depositRequired: false,
       depositAmountCents: 0,
       status: 'approved',
@@ -271,15 +283,15 @@ async function seed() {
       reviewCount: 96,
     },
     {
-      name: 'Sakura Garden',
-      cuisine: 'Japanese',
+      name: 'Bukhara Grill',
+      cuisine: 'Uzbek',
       priceRange: 3,
-      city: 'New York',
-      state: 'NY',
-      zip: '10003',
-      lng: -73.9897,
-      lat: 40.7312,
-      description: 'Omakase and izakaya favorites near Union Square.',
+      city: 'Philadelphia',
+      state: 'PA',
+      zip: '19107',
+      lng: -75.1652,
+      lat: 39.9526,
+      description: 'Bukharan Jewish and Uzbek classics in Center City.',
       depositRequired: true,
       depositAmountCents: 1500,
       status: 'approved',
@@ -288,15 +300,15 @@ async function seed() {
       reviewCount: 74,
     },
     {
-      name: 'Casa Verde',
-      cuisine: 'Mexican',
+      name: 'Choyxona Jersey',
+      cuisine: 'Uzbek',
       priceRange: 2,
-      city: 'Austin',
-      state: 'TX',
-      zip: '78701',
-      lng: -97.7431,
-      lat: 30.2672,
-      description: 'Modern Mexican with mezcal flights downtown.',
+      city: 'Jersey City',
+      state: 'NJ',
+      zip: '07302',
+      lng: -74.0431,
+      lat: 40.7178,
+      description: 'Teahouse vibes with somsa and green tea downtown.',
       depositRequired: false,
       depositAmountCents: 0,
       status: 'approved',
@@ -305,15 +317,15 @@ async function seed() {
       reviewCount: 51,
     },
     {
-      name: 'The Blue Crab',
-      cuisine: 'Seafood',
+      name: 'Plov Center Miami',
+      cuisine: 'Uzbek',
       priceRange: 3,
-      city: 'Boston',
-      state: 'MA',
-      zip: '02110',
-      lng: -71.0547,
-      lat: 42.3584,
-      description: 'Fresh oysters and New England classics on the waterfront.',
+      city: 'Miami',
+      state: 'FL',
+      zip: '33131',
+      lng: -80.1918,
+      lat: 25.7617,
+      description: 'Giant kazan plov and family-style feasts in Brickell.',
       depositRequired: false,
       depositAmountCents: 0,
       status: 'approved',
@@ -322,28 +334,28 @@ async function seed() {
       reviewCount: 88,
     },
     {
-      name: 'Petit Bistro',
-      cuisine: 'French',
+      name: 'Silk Road Cafe',
+      cuisine: 'Uzbek',
       priceRange: 3,
-      city: 'New York',
-      state: 'NY',
-      zip: '10014',
-      lng: -74.0045,
-      lat: 40.7336,
-      description: 'Cozy West Village bistro awaiting approval.',
+      city: 'Newark',
+      state: 'NJ',
+      zip: '07102',
+      lng: -74.1724,
+      lat: 40.7357,
+      description: 'Cozy Newark cafe awaiting approval.',
       depositRequired: false,
       depositAmountCents: 0,
       status: 'pending',
     },
     {
-      name: 'Smokehouse Grill',
-      cuisine: 'American',
+      name: 'Fergana Kitchen',
+      cuisine: 'Uzbek',
       priceRange: 2,
-      city: 'Austin',
-      state: 'TX',
-      zip: '78702',
-      lng: -97.72,
-      lat: 30.26,
+      city: 'Orlando',
+      state: 'FL',
+      zip: '32801',
+      lng: -81.3792,
+      lat: 28.5383,
       description: 'Temporarily suspended for policy review.',
       depositRequired: false,
       depositAmountCents: 0,
@@ -353,6 +365,8 @@ async function seed() {
       reviewCount: 22,
     },
   ];
+
+  const restaurantsData: RestaurantSeed[] = [...featuredRestaurants, ...buildExtraRestaurants(93)];
 
   const created: {
     restaurant: mongoose.Document & { _id: mongoose.Types.ObjectId; name: string };
@@ -389,7 +403,7 @@ async function seed() {
       $addToSet: { restaurantIds: restaurant._id },
     });
 
-    if (r.name === 'Harbor Steakhouse') {
+    if (r.name === 'Samarkand Palace') {
       await User.findByIdAndUpdate(staff!._id, {
         $addToSet: { restaurantIds: restaurant._id },
       });
@@ -457,7 +471,7 @@ async function seed() {
         active: true,
       });
 
-      const sections = MENUS[r.cuisine] ?? MENUS.American!;
+      const sections = MENUS[r.cuisine] ?? MENUS.Uzbek!;
       await Menu.create({
         restaurantId: restaurant._id,
         sections: sections.map((s) => ({
@@ -487,21 +501,21 @@ async function seed() {
     created.push({ restaurant, tables });
   }
 
-  const harbor = created.find((c) => c.restaurant.name === 'Harbor Steakhouse')!;
-  const nonna = created.find((c) => c.restaurant.name === 'Nonna Bella')!;
-  const sakura = created.find((c) => c.restaurant.name === 'Sakura Garden')!;
-  const casa = created.find((c) => c.restaurant.name === 'Casa Verde')!;
-  const crab = created.find((c) => c.restaurant.name === 'The Blue Crab')!;
+  const samarkand = created.find((c) => c.restaurant.name === 'Samarkand Palace')!;
+  const tashkent = created.find((c) => c.restaurant.name === 'Tashkent House')!;
+  const bukhara = created.find((c) => c.restaurant.name === 'Bukhara Grill')!;
+  const choyxona = created.find((c) => c.restaurant.name === 'Choyxona Jersey')!;
+  const plov = created.find((c) => c.restaurant.name === 'Plov Center Miami')!;
 
   await Blackout.insertMany([
     {
-      restaurantId: harbor.restaurant._id,
+      restaurantId: samarkand.restaurant._id,
       date: dateStr(14),
       reason: 'Private buyout',
       allDay: true,
     },
     {
-      restaurantId: nonna.restaurant._id,
+      restaurantId: tashkent.restaurant._id,
       date: dateStr(7),
       reason: 'Kitchen renovation (lunch only)',
       allDay: false,
@@ -509,17 +523,17 @@ async function seed() {
       endTime: '14:30',
     },
     {
-      restaurantId: sakura.restaurant._id,
+      restaurantId: bukhara.restaurant._id,
       date: dateStr(21),
       reason: 'New Year staff party',
       allDay: true,
     },
   ]);
 
-  const completedHarbor = await Reservation.create({
-    restaurantId: harbor.restaurant._id,
+  const completedSamarkand = await Reservation.create({
+    restaurantId: samarkand.restaurant._id,
     dinerId: diner!._id,
-    tableIds: [harbor.tables[1]!._id],
+    tableIds: [samarkand.tables[1]!._id],
     partySize: 2,
     ...slot(-14, 19),
     status: 'completed',
@@ -531,10 +545,10 @@ async function seed() {
     source: 'network',
   });
 
-  const completedNonna = await Reservation.create({
-    restaurantId: nonna.restaurant._id,
+  const completedTashkent = await Reservation.create({
+    restaurantId: tashkent.restaurant._id,
     dinerId: diner!._id,
-    tableIds: [nonna.tables[2]!._id],
+    tableIds: [tashkent.tables[2]!._id],
     partySize: 4,
     ...slot(-7, 20),
     status: 'completed',
@@ -546,10 +560,10 @@ async function seed() {
     source: 'website',
   });
 
-  const completedSakura = await Reservation.create({
-    restaurantId: sakura.restaurant._id,
+  const completedBukhara = await Reservation.create({
+    restaurantId: bukhara.restaurant._id,
     dinerId: diner2!._id,
-    tableIds: [sakura.tables[0]!._id],
+    tableIds: [bukhara.tables[0]!._id],
     partySize: 2,
     ...slot(-3, 18, 30),
     status: 'completed',
@@ -561,9 +575,9 @@ async function seed() {
   });
 
   await Reservation.create({
-    restaurantId: harbor.restaurant._id,
+    restaurantId: samarkand.restaurant._id,
     dinerId: diner!._id,
-    tableIds: [harbor.tables[1]!._id],
+    tableIds: [samarkand.tables[1]!._id],
     partySize: 2,
     ...slot(1, 19),
     status: 'confirmed',
@@ -575,9 +589,9 @@ async function seed() {
   });
 
   await Reservation.create({
-    restaurantId: nonna.restaurant._id,
+    restaurantId: tashkent.restaurant._id,
     dinerId: diner2!._id,
-    tableIds: [nonna.tables[3]!._id],
+    tableIds: [tashkent.tables[3]!._id],
     partySize: 5,
     ...slot(2, 18, 30),
     status: 'confirmed',
@@ -589,9 +603,9 @@ async function seed() {
   });
 
   await Reservation.create({
-    restaurantId: casa.restaurant._id,
+    restaurantId: choyxona.restaurant._id,
     dinerId: diner!._id,
-    tableIds: [casa.tables[1]!._id],
+    tableIds: [choyxona.tables[1]!._id],
     partySize: 3,
     ...slot(0, 18),
     status: 'pending',
@@ -602,9 +616,9 @@ async function seed() {
   });
 
   await Reservation.create({
-    restaurantId: crab.restaurant._id,
+    restaurantId: plov.restaurant._id,
     dinerId: diner2!._id,
-    tableIds: [crab.tables[4]!._id],
+    tableIds: [plov.tables[4]!._id],
     partySize: 8,
     ...slot(0, 19),
     status: 'seated',
@@ -616,9 +630,9 @@ async function seed() {
   });
 
   await Reservation.create({
-    restaurantId: sakura.restaurant._id,
+    restaurantId: bukhara.restaurant._id,
     dinerId: diner!._id,
-    tableIds: [sakura.tables[2]!._id],
+    tableIds: [bukhara.tables[2]!._id],
     partySize: 2,
     ...slot(-2, 19),
     status: 'cancelled',
@@ -631,9 +645,9 @@ async function seed() {
   });
 
   await Reservation.create({
-    restaurantId: harbor.restaurant._id,
+    restaurantId: samarkand.restaurant._id,
     dinerId: diner2!._id,
-    tableIds: [harbor.tables[0]!._id],
+    tableIds: [samarkand.tables[0]!._id],
     partySize: 2,
     ...slot(-5, 20),
     status: 'no_show',
@@ -643,11 +657,11 @@ async function seed() {
     source: 'network',
   });
 
-  // Same-evening inventory pressure at Harbor (multiple tables booked)
+  // Same-evening inventory pressure at Samarkand Palace (multiple tables booked)
   await Reservation.create({
-    restaurantId: harbor.restaurant._id,
+    restaurantId: samarkand.restaurant._id,
     dinerId: diner2!._id,
-    tableIds: [harbor.tables[3]!._id],
+    tableIds: [samarkand.tables[3]!._id],
     partySize: 4,
     ...slot(1, 19),
     status: 'confirmed',
@@ -658,9 +672,9 @@ async function seed() {
   });
 
   await Reservation.create({
-    restaurantId: harbor.restaurant._id,
+    restaurantId: samarkand.restaurant._id,
     dinerId: diner!._id,
-    tableIds: [harbor.tables[4]!._id],
+    tableIds: [samarkand.tables[4]!._id],
     partySize: 8,
     ...slot(1, 19, 30),
     status: 'confirmed',
@@ -673,31 +687,31 @@ async function seed() {
 
   await Review.insertMany([
     {
-      restaurantId: harbor.restaurant._id,
+      restaurantId: samarkand.restaurant._id,
       dinerId: diner!._id,
-      reservationId: completedHarbor._id,
+      reservationId: completedSamarkand._id,
       rating: 5,
-      comment: 'Perfect anniversary dinner — steaks were exceptional.',
+      comment: 'Perfect anniversary dinner — the plov was exceptional.',
     },
     {
-      restaurantId: nonna.restaurant._id,
+      restaurantId: tashkent.restaurant._id,
       dinerId: diner!._id,
-      reservationId: completedNonna._id,
+      reservationId: completedTashkent._id,
       rating: 4,
-      comment: 'Great pasta and friendly staff. A bit noisy on weekends.',
+      comment: 'Great lagman and friendly staff. A bit noisy on weekends.',
     },
     {
-      restaurantId: sakura.restaurant._id,
+      restaurantId: bukhara.restaurant._id,
       dinerId: diner2!._id,
-      reservationId: completedSakura._id,
+      reservationId: completedBukhara._id,
       rating: 5,
-      comment: 'Best omakase in the neighborhood.',
+      comment: 'Best shashlik in the neighborhood.',
     },
   ]);
 
   await WaitlistEntry.insertMany([
     {
-      restaurantId: harbor.restaurant._id,
+      restaurantId: samarkand.restaurant._id,
       dinerId: diner2!._id,
       partySize: 2,
       preferredDate: dateStr(1),
@@ -706,7 +720,7 @@ async function seed() {
       status: 'waiting',
     },
     {
-      restaurantId: sakura.restaurant._id,
+      restaurantId: bukhara.restaurant._id,
       dinerId: diner!._id,
       partySize: 4,
       preferredDate: dateStr(3),
@@ -717,7 +731,7 @@ async function seed() {
       notifiedSlot: atOffset(3, 18, 30),
     },
     {
-      restaurantId: nonna.restaurant._id,
+      restaurantId: tashkent.restaurant._id,
       dinerId: diner2!._id,
       partySize: 2,
       preferredDate: dateStr(-1),
@@ -726,7 +740,7 @@ async function seed() {
       status: 'expired',
     },
     {
-      restaurantId: casa.restaurant._id,
+      restaurantId: choyxona.restaurant._id,
       dinerId: diner!._id,
       partySize: 6,
       preferredDate: dateStr(5),
@@ -739,23 +753,23 @@ async function seed() {
   await LoyaltyTransaction.insertMany([
     {
       userId: diner!._id,
-      reservationId: completedHarbor._id,
+      reservationId: completedSamarkand._id,
       type: 'earn',
       points: 100,
-      description: 'Completed visit at Harbor Steakhouse',
+      description: 'Completed visit at Samarkand Palace',
     },
     {
       userId: diner!._id,
-      reservationId: completedNonna._id,
+      reservationId: completedTashkent._id,
       type: 'earn',
       points: 100,
-      description: 'Completed visit at Nonna Bella',
+      description: 'Completed visit at Tashkent House',
     },
     {
       userId: diner!._id,
       type: 'earn',
       points: 50,
-      description: 'Deposit points from Harbor Steakhouse',
+      description: 'Deposit points from Samarkand Palace',
     },
     {
       userId: diner!._id,
@@ -771,10 +785,10 @@ async function seed() {
     },
     {
       userId: diner2!._id,
-      reservationId: completedSakura._id,
+      reservationId: completedBukhara._id,
       type: 'earn',
       points: 100,
-      description: 'Completed visit at Sakura Garden',
+      description: 'Completed visit at Bukhara Grill',
     },
     {
       userId: diner2!._id,
@@ -790,17 +804,17 @@ async function seed() {
       channel: 'email',
       type: 'reservation_confirmed',
       title: 'Reservation confirmed',
-      body: 'Your table at Harbor Steakhouse tomorrow at 7:00 PM is confirmed.',
+      body: 'Your table at Samarkand Palace tomorrow at 7:00 PM is confirmed.',
       status: 'sent',
       sentAt: atOffset(0, 8),
-      data: { restaurantName: 'Harbor Steakhouse' },
+      data: { restaurantName: 'Samarkand Palace' },
     },
     {
       userId: diner!._id,
       channel: 'push',
       type: 'reminder',
       title: 'Reminder: dinner tomorrow',
-      body: 'Harbor Steakhouse — party of 2 at 7:00 PM.',
+      body: 'Samarkand Palace — party of 2 at 7:00 PM.',
       status: 'queued',
     },
     {
@@ -808,7 +822,7 @@ async function seed() {
       channel: 'email',
       type: 'waitlist_notified',
       title: 'A table opened up',
-      body: 'Sakura Garden has a table for 4 on your preferred date.',
+      body: 'Bukhara Grill has a table for 4 on your preferred date.',
       status: 'sent',
       sentAt: atOffset(0, 9),
     },
@@ -817,7 +831,7 @@ async function seed() {
       channel: 'email',
       type: 'new_reservation',
       title: 'New reservation',
-      body: 'Dan Diner booked a party of 2 at Harbor Steakhouse.',
+      body: 'Dan Diner booked a party of 2 at Samarkand Palace.',
       status: 'sent',
       sentAt: atOffset(0, 8),
     },
@@ -826,8 +840,8 @@ async function seed() {
   const period = atOffset(0).toISOString().slice(0, 7);
   await CoverFee.insertMany([
     {
-      restaurantId: harbor.restaurant._id,
-      reservationId: completedHarbor._id,
+      restaurantId: samarkand.restaurant._id,
+      reservationId: completedSamarkand._id,
       dinerId: diner!._id,
       partySize: 2,
       source: 'network',
@@ -836,8 +850,8 @@ async function seed() {
       billingPeriod: period,
     },
     {
-      restaurantId: nonna.restaurant._id,
-      reservationId: completedNonna._id,
+      restaurantId: tashkent.restaurant._id,
+      reservationId: completedTashkent._id,
       dinerId: diner!._id,
       partySize: 4,
       source: 'website',
@@ -846,8 +860,8 @@ async function seed() {
       billingPeriod: period,
     },
     {
-      restaurantId: sakura.restaurant._id,
-      reservationId: completedSakura._id,
+      restaurantId: bukhara.restaurant._id,
+      reservationId: completedBukhara._id,
       dinerId: diner2!._id,
       partySize: 2,
       source: 'network',
@@ -862,12 +876,15 @@ async function seed() {
   console.log('Accounts (password: Password123!):');
   console.log('  admin@reservations.local   — platform admin');
   console.log('  owner@reservations.local   — restaurant owner (all venues)');
-  console.log('  staff@reservations.local   — staff at Harbor Steakhouse');
+  console.log('  staff@reservations.local   — staff at Samarkand Palace');
   console.log('  diner@reservations.local   — diner (750 pts)');
   console.log('  diner2@reservations.local  — second diner (200 pts)');
   console.log('');
   console.log('Data summary:');
-  console.log(`  ${restaurantsData.length} restaurants (5 approved, 1 pending, 1 suspended)`);
+  const approved = restaurantsData.filter((r) => r.status === 'approved').length;
+  const pending = restaurantsData.filter((r) => r.status === 'pending').length;
+  const suspended = restaurantsData.filter((r) => r.status === 'suspended').length;
+  console.log(`  ${restaurantsData.length} restaurants (${approved} approved, ${pending} pending, ${suspended} suspended)`);
   console.log('  Reservations across statuses: pending, confirmed, seated, completed, cancelled, no_show');
   console.log('  Reviews, waitlist entries, blackouts, loyalty, notifications, subscriptions, cover fees');
   await mongoose.disconnect();

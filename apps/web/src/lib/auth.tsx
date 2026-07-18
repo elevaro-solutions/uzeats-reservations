@@ -38,6 +38,23 @@ const REGISTER = gql`
   }
 `;
 
+const LOGIN_WITH_GOOGLE = gql`
+  mutation LoginWithGoogle($idToken: String!) {
+    loginWithGoogle(idToken: $idToken) {
+      accessToken
+      refreshToken
+      user {
+        id
+        email
+        firstName
+        lastName
+        role
+        loyaltyPoints
+      }
+    }
+  }
+`;
+
 const ME = gql`
   query Me {
     me {
@@ -66,11 +83,13 @@ type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<void>;
   register: (input: {
     email: string;
     password: string;
     firstName: string;
     lastName: string;
+    phone: string;
   }) => Promise<void>;
   logout: () => void;
   refreshMe: () => Promise<void>;
@@ -82,6 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [loginMutation] = useMutation(LOGIN);
+  const [googleLoginMutation] = useMutation(LOGIN_WITH_GOOGLE);
   const [registerMutation] = useMutation(REGISTER);
 
   const persist = (accessToken: string, refreshToken: string, nextUser: AuthUser) => {
@@ -131,11 +151,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     persist(data.login.accessToken, data.login.refreshToken, data.login.user);
   };
 
+  const loginGoogle = async (idToken: string) => {
+    const result = await googleLoginMutation({ variables: { idToken } });
+    const data = result.data as any;
+    persist(data.loginWithGoogle.accessToken, data.loginWithGoogle.refreshToken, data.loginWithGoogle.user);
+  };
+
   const register = async (input: {
     email: string;
     password: string;
     firstName: string;
     lastName: string;
+    phone: string;
   }) => {
     const result = await registerMutation({ variables: { input } });
     const data = result.data as any;
@@ -149,7 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const value = useMemo(
-    () => ({ user, loading, login, register, logout, refreshMe }),
+    () => ({ user, loading, login, loginWithGoogle: loginGoogle, register, logout, refreshMe }),
     [user, loading, refreshMe],
   );
 

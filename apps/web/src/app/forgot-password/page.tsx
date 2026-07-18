@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useMutation } from '@apollo/client/react';
-import { Alert, Button, Card, Form, Input, Space, Typography } from 'antd';
+import { Alert, Button, Form, Input, Space } from 'antd';
 import { MailOutlined } from '@ant-design/icons';
+import { colors, typography } from '@reservations/ui';
 import { REQUEST_PASSWORD_RESET } from '@/lib/graphql';
-
-const { Title, Text } = Typography;
+import { AuthLayout } from '@/components/AuthLayout';
 
 export default function ForgotPasswordPage() {
   const [requestReset, { loading }] = useMutation(REQUEST_PASSWORD_RESET);
@@ -23,11 +23,14 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <Card style={{ maxWidth: 420, margin: '40px auto' }}>
-      <Title level={3} style={{ marginTop: 0 }}>
-        Reset your password
-      </Title>
-
+    <AuthLayout
+      heading="Reset your password"
+      subheading={
+        submitted
+          ? undefined
+          : "Enter your email and we'll send you a link to reset your password."
+      }
+    >
       {submitted ? (
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
           <Alert
@@ -37,18 +40,23 @@ export default function ForgotPasswordPage() {
             showIcon
           />
           <Link href="/login">
-            <Button type="primary" block>
+            <Button
+              type="primary"
+              block
+              size="large"
+              style={{
+                height: 46,
+                fontWeight: typography.fontWeight.semibold,
+                background: colors.brand[600],
+              }}
+            >
               Back to sign in
             </Button>
           </Link>
         </Space>
       ) : (
         <>
-          <Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
-            Enter your email address and we&apos;ll send you a link to reset your
-            password.
-          </Text>
-          <Form layout="vertical" onFinish={onFinish}>
+          <Form layout="vertical" requiredMark={false} onFinish={onFinish}>
             <Form.Item
               name="email"
               label="Email"
@@ -57,24 +65,50 @@ export default function ForgotPasswordPage() {
                 { type: 'email', message: 'Please enter a valid email' },
               ]}
             >
-              <Input prefix={<MailOutlined />} placeholder="you@example.com" />
+              <Input
+                size="large"
+                prefix={<MailOutlined style={{ color: colors.textTertiary }} />}
+                placeholder="you@example.com"
+              />
             </Form.Item>
             <Button
               type="primary"
               htmlType="submit"
               block
+              size="large"
               loading={loading}
-              style={{ marginBottom: 12 }}
+              style={{
+                height: 46,
+                fontWeight: typography.fontWeight.semibold,
+                fontSize: typography.fontSize.md,
+                background: colors.brand[600],
+                marginBottom: 16,
+              }}
             >
               Send reset link
             </Button>
           </Form>
-          <Text>
+          <p
+            style={{
+              textAlign: 'center',
+              margin: 0,
+              color: colors.textSecondary,
+              fontSize: typography.fontSize.sm,
+            }}
+          >
             Remember your password?{' '}
-            <Link href="/login">Sign in</Link>
-          </Text>
+            <Link
+              href="/login"
+              style={{
+                color: colors.brand[600],
+                fontWeight: typography.fontWeight.semibold,
+              }}
+            >
+              Sign in
+            </Link>
+          </p>
         </>
       )}
-    </Card>
+    </AuthLayout>
   );
 }
