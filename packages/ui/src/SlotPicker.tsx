@@ -48,8 +48,8 @@ export function SlotPicker({ slots, selected, onSelect, loading }: SlotPickerPro
             style={{
               cursor: slot.available ? 'pointer' : 'not-allowed',
               fontFamily: 'inherit',
-              borderRadius: radii.sm,
-              padding: '8px 14px',
+              borderRadius: radii.md,
+              padding: '10px 16px',
               fontSize: typography.fontSize.base,
               fontWeight: typography.fontWeight.semibold,
               lineHeight: 1.2,
@@ -62,20 +62,33 @@ export function SlotPicker({ slots, selected, onSelect, loading }: SlotPickerPro
                 ? {
                     background: colors.brand[600],
                     color: colors.textInverse,
-                    border: `1px solid ${colors.brand[600]}`,
+                    border: `1.5px solid ${colors.brand[600]}`,
+                    boxShadow: `0 4px 12px rgba(196, 71, 47, 0.28)`,
                   }
                 : slot.available
                   ? {
                       background: colors.surface,
                       color: colors.brand[600],
-                      border: `1px solid ${colors.brand[300]}`,
+                      border: `1.5px solid ${colors.brand[200]}`,
                     }
                   : {
                       background: colors.neutral[50],
                       color: colors.textTertiary,
-                      border: `1px solid ${colors.bordersubtle}`,
+                      border: `1.5px solid ${colors.bordersubtle}`,
                       textDecoration: 'line-through',
                     }),
+            }}
+            onMouseEnter={(e) => {
+              if (slot.available && !isSelected) {
+                e.currentTarget.style.borderColor = colors.brand[400];
+                e.currentTarget.style.background = colors.brand[50];
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (slot.available && !isSelected) {
+                e.currentTarget.style.borderColor = colors.brand[200];
+                e.currentTarget.style.background = colors.surface;
+              }
             }}
           >
             {label}

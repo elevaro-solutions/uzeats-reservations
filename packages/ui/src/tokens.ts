@@ -3,63 +3,72 @@
  *
  * Framework-agnostic (no antd import) so they can be consumed by the
  * Next.js apps, the Ant Design theme, and the Expo mobile app alike.
+ *
+ * Palette intent: warm hospitality — terracotta-wine accent on soft
+ * stone neutrals. Feels like a dining room, not a generic tech product.
  */
 
 export const colors = {
-  /** Brand — a confident, appetizing red. */
+  /** Brand — warm terracotta-wine, appetizing and confident. */
   brand: {
-    50: '#fef2f3',
-    100: '#fde3e5',
-    200: '#fbccd0',
-    300: '#f7a3aa',
-    400: '#f1707c',
-    500: '#e64553',
-    600: '#da3743', // primary
-    700: '#b02531',
-    800: '#93222d',
-    900: '#7a222b',
+    50: '#fdf6f4',
+    100: '#fce9e4',
+    200: '#f8d2c8',
+    300: '#f0ac9a',
+    400: '#e47d64',
+    500: '#d45a3f',
+    600: '#c4472f', // primary
+    700: '#a33826',
+    800: '#873123',
+    900: '#702c22',
   },
 
   /** Warm neutrals — softer than pure gray, suits food & hospitality. */
   neutral: {
     0: '#ffffff',
-    25: '#fcfcfb',
-    50: '#f8f7f6',
-    100: '#f1efed',
-    200: '#e5e2df',
-    300: '#d4d0cc',
-    400: '#a8a29c',
-    500: '#7d766f',
-    600: '#5c554e',
-    700: '#443f39',
-    800: '#2b2724',
-    900: '#1c1917',
+    25: '#fcfbfa',
+    50: '#f7f5f2',
+    100: '#f0ede8',
+    200: '#e3dfd8',
+    300: '#d0cbc2',
+    400: '#a39e94',
+    500: '#78736a',
+    600: '#5a554d',
+    700: '#433f39',
+    800: '#2c2925',
+    900: '#1a1816',
   },
 
   /** Semantic */
-  success: '#2e9e5b',
-  successBg: '#e9f7ef',
-  warning: '#d97917',
-  warningBg: '#fdf3e5',
-  error: '#d64550',
-  errorBg: '#fdeceb',
+  success: '#2f9e6a',
+  successBg: '#e8f7ef',
+  warning: '#d4890f',
+  warningBg: '#fdf4e5',
+  error: '#c4472f',
+  errorBg: '#fdf0ed',
   info: '#2f6fed',
   infoBg: '#ebf1fe',
 
+  /** Rating gold */
+  rating: '#e8a317',
+
+  /** Hero / auth panel midtone (warm espresso) */
+  heroMid: '#2a1816',
+
   /** Aliases used across surfaces */
-  background: '#f8f7f6',
+  background: '#f7f5f2',
   surface: '#ffffff',
-  border: '#e5e2df',
-  bordersubtle: '#f1efed',
-  textPrimary: '#1c1917',
-  textSecondary: '#5c554e',
-  textTertiary: '#a8a29c',
+  border: '#e3dfd8',
+  bordersubtle: '#f0ede8',
+  textPrimary: '#1a1816',
+  textSecondary: '#5a554d',
+  textTertiary: '#a39e94',
   textInverse: '#ffffff',
 } as const;
 
 export const typography = {
   fontFamily:
-    'var(--font-sans, "Inter"), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    'var(--font-sans, "Plus Jakarta Sans"), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
   /** Type scale (px) — 1.25 ratio, tuned for UI density. */
   fontSize: {
     xs: 12,
@@ -69,7 +78,7 @@ export const typography = {
     lg: 20,
     xl: 24,
     xxl: 30,
-    display: 38,
+    display: 40,
   },
   fontWeight: {
     regular: 400,
@@ -83,7 +92,7 @@ export const typography = {
     normal: 1.55,
   },
   letterSpacing: {
-    tight: '-0.02em',
+    tight: '-0.025em',
     normal: '0',
     wide: '0.04em',
   },
@@ -103,19 +112,19 @@ export const spacing = {
 
 export const radii = {
   sm: 8,
-  md: 10,
-  lg: 14,
-  xl: 20,
+  md: 12,
+  lg: 16,
+  xl: 24,
   pill: 999,
 } as const;
 
 /** Layered, low-contrast shadows for a soft, modern feel. */
 export const shadows = {
-  xs: '0 1px 2px rgba(28, 25, 23, 0.05)',
-  sm: '0 1px 3px rgba(28, 25, 23, 0.06), 0 1px 2px rgba(28, 25, 23, 0.04)',
-  md: '0 4px 12px rgba(28, 25, 23, 0.08), 0 1px 3px rgba(28, 25, 23, 0.05)',
-  lg: '0 12px 32px rgba(28, 25, 23, 0.12), 0 2px 6px rgba(28, 25, 23, 0.06)',
-  brand: '0 6px 16px rgba(218, 55, 67, 0.24)',
+  xs: '0 1px 2px rgba(26, 24, 22, 0.04)',
+  sm: '0 1px 3px rgba(26, 24, 22, 0.05), 0 1px 2px rgba(26, 24, 22, 0.04)',
+  md: '0 4px 14px rgba(26, 24, 22, 0.07), 0 1px 3px rgba(26, 24, 22, 0.04)',
+  lg: '0 16px 40px rgba(26, 24, 22, 0.1), 0 2px 8px rgba(26, 24, 22, 0.05)',
+  brand: '0 8px 20px rgba(196, 71, 47, 0.28)',
 } as const;
 
 export const layout = {

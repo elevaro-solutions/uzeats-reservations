@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import {
@@ -17,8 +17,15 @@ import {
   Upload,
   message,
 } from 'antd';
-import { DeleteOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
+import {
+  DeleteOutlined,
+  NodeCollapseOutlined,
+  NodeExpandOutlined,
+  PlusOutlined,
+  UploadOutlined,
+} from '@ant-design/icons';
 import type { RcFile } from 'antd/es/upload';
+import type { FormListFieldData } from 'antd/es/form/FormList';
 import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS, UPSERT_MENU, CREATE_UPLOAD_URL } from '@/lib/graphql';
 
@@ -62,6 +69,9 @@ const EMPTY_SECTION: MenuSectionForm = {
   items: [{ ...EMPTY_ITEM }],
 };
 
+/** Active accordion panel keys, keyed by Form.List section field name. */
+type OpenKeysBySection = Record<string, string[]>;
+
 export default function MenuPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -71,6 +81,10 @@ export default function MenuPage() {
   const [upsertMenu, { loading }] = useMutation(UPSERT_MENU);
   const [createUploadUrl] = useMutation(CREATE_UPLOAD_URL);
   const [uploadingPath, setUploadingPath] = useState<string | null>(null);
+  /** Empty = all item accordions collapsed (default). */
+  const [openKeys, setOpenKeys] = useState<OpenKeysBySection>({});
+  /** Latest item keys per section, updated each render for expand-all. */
+  const itemKeysRef = useRef<Record<string, string[]>>({});
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -83,22 +97,36 @@ export default function MenuPage() {
   }, [data]);
 
   useEffect(() => {
-    const restaurant = (data?.myRestaurants ?? []).find((r: any) => r.id === restaurantId);
+    const restaurant = (data?.myRestaurants ?? []).find(
+      (r: { id: string }) => r.id === restaurantId,
+    );
     if (!restaurantId) return;
 
     if (restaurant?.menu?.sections?.length) {
       form.setFieldsValue({
-        sections: restaurant.menu.sections.map((s: any) => ({
-          name: s.name,
-          items: s.items.map((i: any) => ({
-            name: i.name,
-            description: i.description ?? '',
-            price: (i.priceCents ?? 0) / 100,
-            dietary: i.dietary ?? [],
-            available: i.available ?? true,
-            photoUrl: i.photoUrl ?? undefined,
-          })),
-        })),
+        sections: restaurant.menu.sections.map(
+          (s: {
+            name: string;
+            items: Array<{
+              name: string;
+              description?: string;
+              priceCents?: number;
+              dietary?: string[];
+              available?: boolean;
+              photoUrl?: string;
+            }>;
+          }) => ({
+            name: s.name,
+            items: s.items.map((i) => ({
+              name: i.name,
+              description: i.description ?? '',
+              price: (i.priceCents ?? 0) / 100,
+              dietary: i.dietary ?? [],
+              available: i.available ?? true,
+              photoUrl: i.photoUrl ?? undefined,
+            })),
+          }),
+        ),
       });
     } else {
       form.setFieldsValue({
@@ -110,6 +138,8 @@ export default function MenuPage() {
         ],
       });
     }
+    setOpenKeys({});
+    itemKeysRef.current = {};
   }, [data, restaurantId, form]);
 
   async function uploadPhoto(file: RcFile, sectionIndex: number, itemIndex: number) {
@@ -132,25 +162,56 @@ export default function MenuPage() {
       });
       form.setFieldValue(['sections', sectionIndex, 'items', itemIndex, 'photoUrl'], publicUrl);
       message.success('Photo uploaded');
-    } catch (err: any) {
-      message.error(err.message ?? 'Upload failed');
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setUploadingPath(null);
     }
   }
 
+  const expandAll = () => {
+    const next: OpenKeysBySection = {};
+    Object.entries(itemKeysRef.current).forEach(([sectionKey, keys]) => {
+      next[sectionKey] = [...keys];
+    });
+    setOpenKeys(next);
+  };
+
+  const collapseAll = () => {
+    const next: OpenKeysBySection = {};
+    Object.keys(itemKeysRef.current).forEach((sectionKey) => {
+      next[sectionKey] = [];
+    });
+    setOpenKeys(next);
+  };
+
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <Title level={2}>Menu editor</Title>
-      <Select
-        style={{ width: 280 }}
-        value={restaurantId}
-        onChange={(id) => {
-          setRestaurantId(id);
-          localStorage.setItem('activeRestaurantId', id);
+      <div
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
         }}
-        options={(data?.myRestaurants ?? []).map((r: any) => ({ value: r.id, label: r.name }))}
-      />
+      >
+        <Title level={2} style={{ margin: 0 }}>
+          Menu editor
+        </Title>
+        <Select
+          style={{ width: 240 }}
+          value={restaurantId}
+          onChange={(id) => {
+            setRestaurantId(id);
+            localStorage.setItem('activeRestaurantId', id);
+          }}
+          options={(data?.myRestaurants ?? []).map((r: { id: string; name: string }) => ({
+            value: r.id,
+            label: r.name,
+          }))}
+        />
+      </div>
 
       <Form
         form={form}
@@ -172,14 +233,26 @@ export default function MenuPage() {
             await upsertMenu({ variables: { restaurantId, input: { sections } } });
             message.success('Menu saved');
             refetch();
-          } catch (err: any) {
-            message.error(err.message ?? 'Failed to save menu');
+          } catch (err: unknown) {
+            message.error(err instanceof Error ? err.message : 'Failed to save menu');
           }
         }}
       >
         <Form.List name="sections">
           {(sections, { add: addSection, remove: removeSection }) => (
             <Space direction="vertical" size={16} style={{ width: '100%' }}>
+              <Space wrap>
+                <Button icon={<NodeExpandOutlined />} onClick={expandAll}>
+                  Expand all categories
+                </Button>
+                <Button icon={<NodeCollapseOutlined />} onClick={collapseAll}>
+                  Collapse all categories
+                </Button>
+                <Text type="secondary" style={{ fontSize: 13 }}>
+                  Items start collapsed — expand a dish or use the controls to open by category
+                </Text>
+              </Space>
+
               {sections.map((section) => (
                 <Card
                   key={section.key}
@@ -193,176 +266,72 @@ export default function MenuPage() {
                     </Form.Item>
                   }
                   extra={
-                    <Button
-                      type="text"
-                      danger
-                      icon={<DeleteOutlined />}
-                      onClick={() => removeSection(section.name)}
-                      disabled={sections.length <= 1}
-                    >
-                      Remove section
-                    </Button>
+                    <Space wrap size={4}>
+                      <SectionExpandControls
+                        sectionKey={String(section.name)}
+                        itemKeysRef={itemKeysRef}
+                        onExpand={(keys) =>
+                          setOpenKeys((prev) => ({ ...prev, [String(section.name)]: keys }))
+                        }
+                        onCollapse={() =>
+                          setOpenKeys((prev) => ({ ...prev, [String(section.name)]: [] }))
+                        }
+                      />
+                      <Button
+                        type="text"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={() => removeSection(section.name)}
+                        disabled={sections.length <= 1}
+                      >
+                        Remove section
+                      </Button>
+                    </Space>
                   }
                 >
                   <Form.List name={[section.name, 'items']}>
-                    {(items, { add: addItem, remove: removeItem }) => (
-                      <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                        <Collapse
-                          defaultActiveKey={items.map((item) => String(item.key))}
-                          items={items.map((item, itemIndex) => ({
-                            key: String(item.key),
-                            label: (
-                              <Form.Item shouldUpdate noStyle>
-                                {() => {
-                                  const name =
-                                    form.getFieldValue([
-                                      'sections',
-                                      section.name,
-                                      'items',
-                                      item.name,
-                                      'name',
-                                    ]) || `Item ${itemIndex + 1}`;
-                                  const price = form.getFieldValue([
-                                    'sections',
-                                    section.name,
-                                    'items',
-                                    item.name,
-                                    'price',
-                                  ]);
-                                  return (
-                                    <Text>
-                                      {name}
-                                      {typeof price === 'number' ? ` — $${price.toFixed(2)}` : ''}
-                                    </Text>
-                                  );
-                                }}
-                              </Form.Item>
-                            ),
-                            extra: (
-                              <Button
-                                type="text"
-                                danger
-                                size="small"
-                                icon={<DeleteOutlined />}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeItem(item.name);
-                                }}
-                                disabled={items.length <= 1}
-                              />
-                            ),
-                            children: (
-                              <Space direction="vertical" size={0} style={{ width: '100%' }}>
-                                <Form.Item
-                                  name={[item.name, 'name']}
-                                  label="Name"
-                                  rules={[{ required: true, message: 'Item name is required' }]}
-                                >
-                                  <Input placeholder="Dish name" />
-                                </Form.Item>
-                                <Form.Item name={[item.name, 'description']} label="Description">
-                                  <Input.TextArea rows={2} placeholder="Short description" />
-                                </Form.Item>
-                                <Space wrap align="start" style={{ width: '100%' }}>
-                                  <Form.Item
-                                    name={[item.name, 'price']}
-                                    label="Price ($)"
-                                    rules={[{ required: true, message: 'Price is required' }]}
-                                  >
-                                    <InputNumber min={0} step={0.01} precision={2} style={{ width: 140 }} />
-                                  </Form.Item>
-                                  <Form.Item
-                                    name={[item.name, 'available']}
-                                    label="Available"
-                                    valuePropName="checked"
-                                  >
-                                    <Switch />
-                                  </Form.Item>
-                                </Space>
-                                <Form.Item name={[item.name, 'dietary']} label="Dietary tags">
-                                  <Select
-                                    mode="tags"
-                                    placeholder="Select or type tags"
-                                    options={DIETARY_OPTIONS}
-                                    style={{ width: '100%' }}
-                                  />
-                                </Form.Item>
-                                <Form.Item name={[item.name, 'photoUrl']} label="Photo URL" hidden>
-                                  <Input />
-                                </Form.Item>
-                                <Form.Item shouldUpdate noStyle>
-                                  {() => {
-                                    const photoUrl = form.getFieldValue([
-                                      'sections',
-                                      section.name,
-                                      'items',
-                                      item.name,
-                                      'photoUrl',
-                                    ]);
-                                    const path = `${section.name}-${item.name}`;
-                                    return (
-                                      <Space direction="vertical" size={8} style={{ marginBottom: 16 }}>
-                                        {photoUrl ? (
-                                          <img
-                                            src={photoUrl}
-                                            alt="Menu item"
-                                            style={{
-                                              width: 120,
-                                              height: 120,
-                                              objectFit: 'cover',
-                                              borderRadius: 8,
-                                            }}
-                                          />
-                                        ) : null}
-                                        <Space>
-                                          <Upload
-                                            accept="image/*"
-                                            showUploadList={false}
-                                            beforeUpload={(file: RcFile) => {
-                                              void uploadPhoto(file, section.name, item.name);
-                                              return false;
-                                            }}
-                                          >
-                                            <Button
-                                              icon={<UploadOutlined />}
-                                              loading={uploadingPath === path}
-                                            >
-                                              {photoUrl ? 'Replace photo' : 'Upload photo'}
-                                            </Button>
-                                          </Upload>
-                                          {photoUrl ? (
-                                            <Button
-                                              type="link"
-                                              danger
-                                              onClick={() =>
-                                                form.setFieldValue(
-                                                  ['sections', section.name, 'items', item.name, 'photoUrl'],
-                                                  undefined,
-                                                )
-                                              }
-                                            >
-                                              Remove photo
-                                            </Button>
-                                          ) : null}
-                                        </Space>
-                                      </Space>
-                                    );
-                                  }}
-                                </Form.Item>
-                              </Space>
-                            ),
-                          }))}
-                        />
-                        <Button
-                          type="dashed"
-                          icon={<PlusOutlined />}
-                          onClick={() => addItem({ ...EMPTY_ITEM })}
-                          block
-                        >
-                          Add item
-                        </Button>
-                      </Space>
-                    )}
+                    {(items, { add: addItem, remove: removeItem }) => {
+                      const panelKeys = items.map((item) => String(item.key));
+                      itemKeysRef.current[String(section.name)] = panelKeys;
+
+                      return (
+                        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                          <Collapse
+                            activeKey={openKeys[String(section.name)] ?? []}
+                            onChange={(keys) =>
+                              setOpenKeys((prev) => ({
+                                ...prev,
+                                [String(section.name)]: keys as string[],
+                              }))
+                            }
+                            items={items.map((item, itemIndex) =>
+                              buildItemPanel({
+                                item,
+                                itemIndex,
+                                section,
+                                form,
+                                removeItem,
+                                itemsLength: items.length,
+                                uploadingPath,
+                                uploadPhoto,
+                              }),
+                            )}
+                          />
+                          <Button
+                            type="dashed"
+                            icon={<PlusOutlined />}
+                            onClick={() => {
+                              addItem({ ...EMPTY_ITEM });
+                              // Newly added panel key isn't known until next render;
+                              // leave collapsed to match default behavior.
+                            }}
+                            block
+                          >
+                            Add item
+                          </Button>
+                        </Space>
+                      );
+                    }}
                   </Form.List>
                 </Card>
               ))}
@@ -385,4 +354,184 @@ export default function MenuPage() {
       </Form>
     </Space>
   );
+}
+
+function SectionExpandControls({
+  sectionKey,
+  itemKeysRef,
+  onExpand,
+  onCollapse,
+}: {
+  sectionKey: string;
+  itemKeysRef: MutableRefObject<Record<string, string[]>>;
+  onExpand: (keys: string[]) => void;
+  onCollapse: () => void;
+}) {
+  return (
+    <>
+      <Button
+        type="text"
+        size="small"
+        icon={<NodeExpandOutlined />}
+        onClick={() => onExpand([...(itemKeysRef.current[sectionKey] ?? [])])}
+      >
+        Expand category
+      </Button>
+      <Button type="text" size="small" icon={<NodeCollapseOutlined />} onClick={onCollapse}>
+        Collapse category
+      </Button>
+    </>
+  );
+}
+
+function buildItemPanel({
+  item,
+  itemIndex,
+  section,
+  form,
+  removeItem,
+  itemsLength,
+  uploadingPath,
+  uploadPhoto,
+}: {
+  item: FormListFieldData;
+  itemIndex: number;
+  section: FormListFieldData;
+  form: ReturnType<typeof Form.useForm<{ sections: MenuSectionForm[] }>>[0];
+  removeItem: (index: number | number[]) => void;
+  itemsLength: number;
+  uploadingPath: string | null;
+  uploadPhoto: (file: RcFile, sectionIndex: number, itemIndex: number) => Promise<void>;
+}) {
+  return {
+    key: String(item.key),
+    label: (
+      <Form.Item shouldUpdate noStyle>
+        {() => {
+          const name =
+            form.getFieldValue(['sections', section.name, 'items', item.name, 'name']) ||
+            `Item ${itemIndex + 1}`;
+          const price = form.getFieldValue([
+            'sections',
+            section.name,
+            'items',
+            item.name,
+            'price',
+          ]);
+          return (
+            <Text>
+              {name}
+              {typeof price === 'number' ? ` — $${price.toFixed(2)}` : ''}
+            </Text>
+          );
+        }}
+      </Form.Item>
+    ),
+    extra: (
+      <Button
+        type="text"
+        danger
+        size="small"
+        icon={<DeleteOutlined />}
+        onClick={(e) => {
+          e.stopPropagation();
+          removeItem(item.name);
+        }}
+        disabled={itemsLength <= 1}
+      />
+    ),
+    children: (
+      <Space direction="vertical" size={0} style={{ width: '100%' }}>
+        <Form.Item
+          name={[item.name, 'name']}
+          label="Name"
+          rules={[{ required: true, message: 'Item name is required' }]}
+        >
+          <Input placeholder="Dish name" />
+        </Form.Item>
+        <Form.Item name={[item.name, 'description']} label="Description">
+          <Input.TextArea rows={2} placeholder="Short description" />
+        </Form.Item>
+        <Space wrap align="start" style={{ width: '100%' }}>
+          <Form.Item
+            name={[item.name, 'price']}
+            label="Price ($)"
+            rules={[{ required: true, message: 'Price is required' }]}
+          >
+            <InputNumber min={0} step={0.01} precision={2} style={{ width: 140 }} />
+          </Form.Item>
+          <Form.Item name={[item.name, 'available']} label="Available" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+        </Space>
+        <Form.Item name={[item.name, 'dietary']} label="Dietary tags">
+          <Select
+            mode="tags"
+            placeholder="Select or type tags"
+            options={DIETARY_OPTIONS}
+            style={{ width: '100%' }}
+          />
+        </Form.Item>
+        <Form.Item name={[item.name, 'photoUrl']} label="Photo URL" hidden>
+          <Input />
+        </Form.Item>
+        <Form.Item shouldUpdate noStyle>
+          {() => {
+            const photoUrl = form.getFieldValue([
+              'sections',
+              section.name,
+              'items',
+              item.name,
+              'photoUrl',
+            ]);
+            const path = `${section.name}-${item.name}`;
+            return (
+              <Space direction="vertical" size={8} style={{ marginBottom: 16 }}>
+                {photoUrl ? (
+                  <img
+                    src={photoUrl}
+                    alt="Menu item"
+                    style={{
+                      width: 120,
+                      height: 120,
+                      objectFit: 'cover',
+                      borderRadius: 8,
+                    }}
+                  />
+                ) : null}
+                <Space>
+                  <Upload
+                    accept="image/*"
+                    showUploadList={false}
+                    beforeUpload={(file: RcFile) => {
+                      void uploadPhoto(file, section.name, item.name);
+                      return false;
+                    }}
+                  >
+                    <Button icon={<UploadOutlined />} loading={uploadingPath === path}>
+                      {photoUrl ? 'Replace photo' : 'Upload photo'}
+                    </Button>
+                  </Upload>
+                  {photoUrl ? (
+                    <Button
+                      type="link"
+                      danger
+                      onClick={() =>
+                        form.setFieldValue(
+                          ['sections', section.name, 'items', item.name, 'photoUrl'],
+                          undefined,
+                        )
+                      }
+                    >
+                      Remove photo
+                    </Button>
+                  ) : null}
+                </Space>
+              </Space>
+            );
+          }}
+        </Form.Item>
+      </Space>
+    ),
+  };
 }

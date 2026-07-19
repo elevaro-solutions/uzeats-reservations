@@ -7,6 +7,7 @@ import {
   Button,
   Card,
   Col,
+  Divider,
   Form,
   Input,
   InputNumber,
@@ -19,7 +20,7 @@ import {
   message,
 } from 'antd';
 import { CUISINES } from '@reservations/shared';
-import { StatusTag } from '@reservations/ui';
+import { EmptyState, PageHeader, StatusTag, colors, radii, spacing } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS, CREATE_RESTAURANT } from '@/lib/graphql';
 import {
@@ -27,13 +28,13 @@ import {
   restaurantFieldTooltips as tips,
 } from '@/lib/restaurantFormTooltips';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function OverviewPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { data, refetch } = useQuery(MY_RESTAURANTS, { skip: !user });
-  const [createRestaurant] = useMutation(CREATE_RESTAURANT);
+  const [createRestaurant, { loading: creating }] = useMutation(CREATE_RESTAURANT);
   const [showCreate, setShowCreate] = useState(false);
 
   useEffect(() => {
@@ -43,20 +44,30 @@ export default function OverviewPage() {
   const restaurants = data?.myRestaurants ?? [];
 
   return (
-    <Space direction="vertical" size={24} style={{ width: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Title level={2} style={{ margin: 0 }}>
-          Your restaurants
-        </Title>
-        <Button type="primary" onClick={() => setShowCreate((v) => !v)}>
-          Add restaurant
-        </Button>
-      </div>
+    <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+      <PageHeader
+        title="Overview"
+        subtitle="Your venues at a glance — jump into service or add a new listing"
+        extra={
+          <Button type="primary" size="large" onClick={() => setShowCreate((v) => !v)}>
+            {showCreate ? 'Cancel' : 'Add restaurant'}
+          </Button>
+        }
+      />
 
       {showCreate && (
-        <Card title="New restaurant listing">
+        <Card
+          className="rt-surface-card"
+          styles={{ body: { padding: spacing.lg } }}
+          style={{ borderRadius: radii.lg }}
+        >
+          <h3 className="rt-form-section-title">New restaurant listing</h3>
+          <p className="rt-form-section-desc">
+            Submit for approval. You can refine photos, menu, and booking rules in Settings after.
+          </p>
           <Form
             layout="vertical"
+            requiredMark="optional"
             onFinish={async (values) => {
               await createRestaurant({
                 variables: {
@@ -83,8 +94,8 @@ export default function OverviewPage() {
               refetch();
             }}
           >
-            <Row gutter={12}>
-              <Col span={12}>
+            <Row gutter={[24, 8]}>
+              <Col xs={24} md={12}>
                 <Form.Item
                   name="name"
                   label="Name"
@@ -97,7 +108,7 @@ export default function OverviewPage() {
                   <Input maxLength={120} showCount />
                 </Form.Item>
               </Col>
-              <Col span={12}>
+              <Col xs={24} md={12}>
                 <Form.Item
                   name="cuisine"
                   label="Cuisine"
@@ -114,20 +125,27 @@ export default function OverviewPage() {
                   tooltip={tips.description}
                   rules={[{ max: 2000, message: 'Max 2000 characters' }]}
                 >
-                  <Input.TextArea rows={2} maxLength={2000} showCount />
+                  <Input.TextArea rows={3} maxLength={2000} showCount />
                 </Form.Item>
               </Col>
-              <Col span={8}>
+            </Row>
+
+            <Divider style={{ margin: `${spacing.md}px 0 ${spacing.lg}px` }} />
+            <h3 className="rt-form-section-title">Location</h3>
+            <p className="rt-form-section-desc">Where diners will find you.</p>
+
+            <Row gutter={[24, 8]}>
+              <Col xs={24} md={10}>
                 <Form.Item
                   name="line1"
-                  label="Address"
+                  label="Street address"
                   tooltip={tips.line1}
                   rules={[{ required: true, message: 'Address is required' }]}
                 >
                   <Input />
                 </Form.Item>
               </Col>
-              <Col span={5}>
+              <Col xs={24} sm={12} md={6}>
                 <Form.Item
                   name="city"
                   label="City"
@@ -137,7 +155,7 @@ export default function OverviewPage() {
                   <Input />
                 </Form.Item>
               </Col>
-              <Col span={3}>
+              <Col xs={12} sm={6} md={4}>
                 <Form.Item
                   name="state"
                   label="State"
@@ -150,7 +168,7 @@ export default function OverviewPage() {
                   <Input maxLength={2} />
                 </Form.Item>
               </Col>
-              <Col span={4}>
+              <Col xs={12} sm={6} md={4}>
                 <Form.Item
                   name="zip"
                   label="ZIP"
@@ -163,10 +181,10 @@ export default function OverviewPage() {
                   <Input maxLength={10} />
                 </Form.Item>
               </Col>
-              <Col span={4}>
+              <Col xs={24} md={8}>
                 <Form.Item
                   name="priceRange"
-                  label="Price"
+                  label="Price range"
                   tooltip={tips.priceRange}
                   initialValue={2}
                   rules={[{ required: true, message: 'Price range is required' }]}
@@ -174,35 +192,52 @@ export default function OverviewPage() {
                   <Select options={priceRangeOptions} style={{ width: '100%' }} />
                 </Form.Item>
               </Col>
-              <Col span={6}>
+              <Col xs={12} md={8}>
                 <Form.Item
                   name="lat"
-                  label="Lat"
+                  label="Latitude"
                   tooltip={tips.lat}
                   initialValue={40.7128}
                   rules={[
                     { required: true, message: 'Latitude is required' },
-                    { type: 'number', min: -90, max: 90, message: 'Latitude must be between -90 and 90' },
+                    {
+                      type: 'number',
+                      min: -90,
+                      max: 90,
+                      message: 'Latitude must be between -90 and 90',
+                    },
                   ]}
                 >
                   <InputNumber min={-90} max={90} style={{ width: '100%' }} step={0.0001} />
                 </Form.Item>
               </Col>
-              <Col span={6}>
+              <Col xs={12} md={8}>
                 <Form.Item
                   name="lng"
-                  label="Lng"
+                  label="Longitude"
                   tooltip={tips.lng}
                   initialValue={-74.006}
                   rules={[
                     { required: true, message: 'Longitude is required' },
-                    { type: 'number', min: -180, max: 180, message: 'Longitude must be between -180 and 180' },
+                    {
+                      type: 'number',
+                      min: -180,
+                      max: 180,
+                      message: 'Longitude must be between -180 and 180',
+                    },
                   ]}
                 >
                   <InputNumber min={-180} max={180} style={{ width: '100%' }} step={0.0001} />
                 </Form.Item>
               </Col>
-              <Col span={6}>
+            </Row>
+
+            <Divider style={{ margin: `${spacing.md}px 0 ${spacing.lg}px` }} />
+            <h3 className="rt-form-section-title">Deposits</h3>
+            <p className="rt-form-section-desc">Optional hold when guests book.</p>
+
+            <Row gutter={[24, 8]}>
+              <Col xs={12} md={8}>
                 <Form.Item
                   name="depositRequired"
                   label="Require deposit"
@@ -212,10 +247,10 @@ export default function OverviewPage() {
                   <Switch />
                 </Form.Item>
               </Col>
-              <Col span={6}>
+              <Col xs={12} md={8}>
                 <Form.Item
                   name="depositAmountCents"
-                  label="Deposit cents/guest"
+                  label="Deposit (cents / guest)"
                   tooltip={tips.depositAmountCents}
                   initialValue={0}
                   rules={[{ type: 'number', min: 0, message: 'Must be 0 or greater' }]}
@@ -224,59 +259,101 @@ export default function OverviewPage() {
                 </Form.Item>
               </Col>
             </Row>
-            <Button type="primary" htmlType="submit">
-              Submit
+
+            <Button type="primary" htmlType="submit" loading={creating} size="large">
+              Submit for approval
             </Button>
           </Form>
         </Card>
       )}
 
-      <Row gutter={[16, 16]}>
-        {restaurants.map((r: any) => (
-          <Col key={r.id} xs={24} md={12} lg={8}>
-            <Card
-              title={r.name}
-              extra={<StatusTag status={r.status} />}
-              actions={[
-                <Button key="res" type="link" onClick={() => {
-                  localStorage.setItem('activeRestaurantId', r.id);
-                  router.push('/reservations');
-                }}>
-                  Reservations
-                </Button>,
-                <Button key="floor" type="link" onClick={() => {
-                  localStorage.setItem('activeRestaurantId', r.id);
-                  router.push('/floor');
-                }}>
-                  Floor
-                </Button>,
-                <Button key="edit" type="link" onClick={() => {
-                  localStorage.setItem('activeRestaurantId', r.id);
-                  router.push('/edit');
-                }}>
-                  Edit
-                </Button>,
-              ]}
-            >
-              <Text type="secondary">
-                {r.cuisine} · {r.address.city}, {r.address.state}
-              </Text>
-              <Row gutter={12} style={{ marginTop: 16 }}>
-                <Col span={8}>
-                  <Statistic title="Tables" value={r.tables?.length ?? 0} />
-                </Col>
-                <Col span={8}>
-                  <Statistic title="Shifts" value={r.shifts?.length ?? 0} />
-                </Col>
-              </Row>
-            </Card>
-          </Col>
-        ))}
-      </Row>
-      {restaurants.length === 0 && (
-        <Card>
-          <Text type="secondary">No restaurants yet. Add one to get started.</Text>
-        </Card>
+      {restaurants.length === 0 && !showCreate ? (
+        <EmptyState
+          title="No restaurants yet"
+          description="Add your first venue to start taking reservations."
+          action={
+            <Button type="primary" onClick={() => setShowCreate(true)}>
+              Add restaurant
+            </Button>
+          }
+        />
+      ) : (
+        <Row gutter={[16, 16]}>
+          {restaurants.map((r: {
+            id: string;
+            name: string;
+            status: string;
+            cuisine: string;
+            address: { city: string; state: string };
+            tables?: unknown[];
+            shifts?: unknown[];
+          }) => (
+            <Col key={r.id} xs={24} md={12} lg={8}>
+              <Card
+                title={r.name}
+                extra={<StatusTag status={r.status} />}
+                style={{ borderRadius: radii.lg, height: '100%' }}
+                styles={{ body: { paddingTop: spacing.sm } }}
+                actions={[
+                  <Button
+                    key="res"
+                    type="link"
+                    style={{ color: colors.brand[600] }}
+                    onClick={() => {
+                      localStorage.setItem('activeRestaurantId', r.id);
+                      window.dispatchEvent(
+                        new CustomEvent('rt-restaurant-change', { detail: r.id }),
+                      );
+                      router.push('/reservations');
+                    }}
+                  >
+                    Reservations
+                  </Button>,
+                  <Button
+                    key="floor"
+                    type="link"
+                    style={{ color: colors.brand[600] }}
+                    onClick={() => {
+                      localStorage.setItem('activeRestaurantId', r.id);
+                      window.dispatchEvent(
+                        new CustomEvent('rt-restaurant-change', { detail: r.id }),
+                      );
+                      router.push('/floor-plan');
+                    }}
+                  >
+                    Floor
+                  </Button>,
+                  <Button
+                    key="settings"
+                    type="link"
+                    style={{ color: colors.brand[600] }}
+                    onClick={() => {
+                      localStorage.setItem('activeRestaurantId', r.id);
+                      window.dispatchEvent(
+                        new CustomEvent('rt-restaurant-change', { detail: r.id }),
+                      );
+                      router.push('/settings');
+                    }}
+                  >
+                    Settings
+                  </Button>,
+                ]}
+              >
+                <Text type="secondary">
+                  {r.cuisine} · {r.address.city}, {r.address.state}
+                </Text>
+                <Row gutter={12} style={{ marginTop: spacing.md }}>
+                  <Col span={12}>
+                    <Statistic title="Tables" value={r.tables?.length ?? 0} />
+                  </Col>
+                  <Col span={12}>
+                    <Statistic title="Shifts" value={r.shifts?.length ?? 0} />
+                  </Col>
+                </Row>
+              </Card>
+            </Col>
+          ))}
+        </Row>
       )}
     </Space>
   );

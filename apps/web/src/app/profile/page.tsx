@@ -11,7 +11,9 @@ import {
   LinkOutlined,
   MailOutlined,
   SendOutlined,
+  TrophyOutlined,
 } from '@ant-design/icons';
+import { PageHeader, colors, radii, shadows } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 
@@ -123,26 +125,80 @@ export default function ProfilePage() {
   const telegramLinked = !!(user as any)?.telegramChatId;
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%', maxWidth: 720 }}>
-      <Title level={2}>Profile</Title>
-      <Card>
-        <Title level={4} style={{ marginTop: 0 }}>
-          {user?.firstName} {user?.lastName}
-        </Title>
-        <Text type="secondary">{user?.email}</Text>
-        <div style={{ marginTop: 12 }}>
-          <Text strong>Loyalty points: </Text>
-          <Text style={{ color: '#da3743', fontWeight: 600 }}>{user?.loyaltyPoints ?? 0}</Text>
+    <Space direction="vertical" size={20} style={{ width: '100%', maxWidth: 720 }}>
+      <PageHeader
+        title="Profile"
+        subtitle="Manage notifications and loyalty rewards"
+      />
+
+      <Card
+        style={{
+          borderRadius: radii.lg,
+          border: `1px solid ${colors.bordersubtle}`,
+          boxShadow: shadows.sm,
+          background: `linear-gradient(135deg, ${colors.surface} 60%, ${colors.brand[50]} 100%)`,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              background: colors.brand[100],
+              color: colors.brand[700],
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 22,
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
+          >
+            {user?.firstName?.[0]?.toUpperCase()}
+          </div>
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <Title level={4} style={{ margin: 0 }}>
+              {user?.firstName} {user?.lastName}
+            </Title>
+            <Text type="secondary">{user?.email}</Text>
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: colors.surface,
+              border: `1px solid ${colors.brand[100]}`,
+              borderRadius: radii.pill,
+              padding: '8px 16px',
+            }}
+          >
+            <TrophyOutlined style={{ color: colors.brand[600] }} />
+            <Text strong style={{ color: colors.brand[700], fontSize: 16 }}>
+              {user?.loyaltyPoints ?? 0}
+            </Text>
+            <Text type="secondary" style={{ fontSize: 13 }}>
+              points
+            </Text>
+          </div>
         </div>
       </Card>
 
-      <Card title="Notification preferences">
+      <Card
+        title="Notification preferences"
+        style={{
+          borderRadius: radii.lg,
+          border: `1px solid ${colors.bordersubtle}`,
+          boxShadow: shadows.sm,
+        }}
+      >
         <List>
           <List.Item
             extra={<Tag icon={<CheckCircleFilled />} color="success">Always on</Tag>}
           >
             <List.Item.Meta
-              avatar={<MailOutlined style={{ fontSize: 20, color: '#da3743' }} />}
+              avatar={<MailOutlined style={{ fontSize: 20, color: colors.brand[600] }} />}
               title="Email"
               description="Reservation confirmations, reminders, and updates"
             />
@@ -158,7 +214,7 @@ export default function ProfilePage() {
             }
           >
             <List.Item.Meta
-              avatar={<SendOutlined style={{ fontSize: 20, color: '#da3743' }} />}
+              avatar={<SendOutlined style={{ fontSize: 20, color: colors.brand[600] }} />}
               title="Telegram"
               description={
                 telegramLinked
@@ -174,7 +230,7 @@ export default function ProfilePage() {
                 <Switch
                   checked
                   onChange={unsubscribeFromPush}
-                  style={{ background: '#da3743' }}
+                  style={{ background: colors.brand[600] }}
                 />
               ) : (
                 <Switch
@@ -186,7 +242,7 @@ export default function ProfilePage() {
             }
           >
             <List.Item.Meta
-              avatar={<BellOutlined style={{ fontSize: 20, color: '#da3743' }} />}
+              avatar={<BellOutlined style={{ fontSize: 20, color: colors.brand[600] }} />}
               title="Push notifications"
               description={
                 !VAPID_PUBLIC_KEY
@@ -206,12 +262,13 @@ export default function ProfilePage() {
             size="small"
             style={{
               marginTop: 16,
-              background: '#faf5f5',
-              border: '1px solid #f0e0e0',
+              background: colors.brand[50],
+              border: `1px solid ${colors.brand[100]}`,
+              borderRadius: radii.md,
             }}
           >
             <Title level={5} style={{ marginTop: 0 }}>
-              <SendOutlined style={{ marginRight: 8 }} />
+              <SendOutlined style={{ marginRight: 8, color: colors.brand[600] }} />
               Link Telegram
             </Title>
             <Paragraph type="secondary" style={{ marginBottom: 12 }}>
@@ -220,6 +277,7 @@ export default function ProfilePage() {
                 href="https://t.me/ReserveTableBot"
                 target="_blank"
                 rel="noopener noreferrer"
+                style={{ color: colors.brand[600] }}
               >
                 @ReserveTableBot <LinkOutlined />
               </a>{' '}
@@ -255,19 +313,26 @@ export default function ProfilePage() {
         )}
       </Card>
 
-      <Card title="Loyalty history">
+      <Card
+        title="Loyalty history"
+        style={{
+          borderRadius: radii.lg,
+          border: `1px solid ${colors.bordersubtle}`,
+          boxShadow: shadows.sm,
+        }}
+      >
         {((data as any)?.myLoyalty ?? []).length === 0 && (
-          <Text type="secondary">No loyalty activity yet</Text>
+          <Text type="secondary">No loyalty activity yet — book a table to start earning points.</Text>
         )}
         {((data as any)?.myLoyalty ?? []).map((item: any, idx: number, arr: any[]) => (
           <div
             key={item.id ?? idx}
             style={{
               padding: '12px 0',
-              borderBottom: idx < arr.length - 1 ? '1px solid #f1efed' : 'none',
+              borderBottom: idx < arr.length - 1 ? `1px solid ${colors.bordersubtle}` : 'none',
             }}
           >
-            <Text strong>
+            <Text strong style={{ color: item.points > 0 ? colors.success : colors.textPrimary }}>
               {item.points > 0 ? '+' : ''}
               {item.points} · {item.description}
             </Text>

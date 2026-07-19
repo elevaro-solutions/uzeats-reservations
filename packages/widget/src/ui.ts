@@ -4,7 +4,7 @@ import { fetchRestaurant, fetchAvailability } from './api';
 // ── Theme ────────────────────────────────────────────────────────────
 
 export const DEFAULT_THEME: WidgetTheme = {
-  primaryColor: '#da3743',
+  primaryColor: '#c4472f',
   buttonText: 'Reserve a table',
   showReviews: true,
 };

@@ -22,7 +22,7 @@ import {
   Tag,
 } from 'antd';
 import dayjs from 'dayjs';
-import { SlotPicker, priceRangeLabel } from '@reservations/ui';
+import { SlotPicker, priceRangeLabel, colors, radii } from '@reservations/ui';
 import { OCCASIONS } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import {
@@ -209,7 +209,7 @@ export default function RestaurantPage() {
           <Row gutter={[16, 16]}>
             {promotions.map((p: any) => (
               <Col xs={24} md={12} key={p.id}>
-                <Card size="small" style={{ height: '100%', background: '#fff7f6' }}>
+                <Card size="small" style={{ height: '100%', background: colors.brand[50], borderColor: colors.brand[100] }}>
                   <Space align="baseline" style={{ justifyContent: 'space-between', width: '100%' }}>
                     <Text strong>{p.title}</Text>
                     {p.discountPercent ? <Tag color="red">{p.discountPercent}% off</Tag> : null}
@@ -281,7 +281,10 @@ export default function RestaurantPage() {
 
       <Row gutter={16}>
         <Col xs={24} lg={14}>
-          <Card title="Make a reservation">
+          <Card title="Make a reservation" style={{ borderColor: colors.brand[100] }}>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+              Pick a date, party size, and time — confirmed in seconds.
+            </Text>
             <Space wrap style={{ marginBottom: 16 }}>
               <DatePicker value={date} onChange={(d) => d && setDate(d)} />
               <Select
@@ -323,13 +326,13 @@ export default function RestaurantPage() {
                 <Form.Item label="Redeem loyalty points">
                   <div style={{
                     padding: 16,
-                    borderRadius: 8,
-                    background: '#faf5f5',
-                    border: '1px solid #f0e0e0',
+                    borderRadius: radii.md,
+                    background: colors.brand[50],
+                    border: `1px solid ${colors.brand[100]}`,
                   }}>
                     <div style={{ marginBottom: 12 }}>
                       <Text>
-                        Your balance: <Text strong style={{ color: '#da3743' }}>{user.loyaltyPoints} pts</Text>
+                        Your balance: <Text strong style={{ color: colors.brand[600] }}>{user.loyaltyPoints} pts</Text>
                       </Text>
                     </div>
                     <InputNumber
@@ -387,7 +390,7 @@ export default function RestaurantPage() {
                       alignItems: 'baseline',
                       gap: 16,
                       padding: '10px 0',
-                      borderBottom: '1px solid #f1efed',
+                      borderBottom: '1px solid #f0ede8',
                     }}
                   >
                     <div style={{ minWidth: 0 }}>
@@ -416,7 +419,7 @@ export default function RestaurantPage() {
                 key={r.id ?? idx}
                 style={{
                   padding: '12px 0',
-                  borderBottom: '1px solid #f1efed',
+                  borderBottom: `1px solid ${colors.bordersubtle}`,
                 }}
               >
                 <Space>

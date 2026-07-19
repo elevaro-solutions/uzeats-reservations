@@ -32,7 +32,7 @@ export const restaurantFieldTooltips = {
   useSmartAssign: 'Automatically picks the best available table when a reservation is confirmed.',
   posEnabled: 'Enable POS sync so walk-ins and covers can update from your POS system.',
   spendAlertDollars: 'Alert staff when a party’s spend reaches this amount. Set 0 to disable.',
-  primaryColor: 'Hex color for the booking widget primary button (e.g. #1677ff).',
+  primaryColor: 'Hex color for the booking widget primary button (e.g. #c4472f).',
   buttonText: 'Label shown on the booking widget CTA button.',
   showReviews: 'Show average rating and review count on the booking widget.',
 } as const;

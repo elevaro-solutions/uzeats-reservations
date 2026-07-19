@@ -5,6 +5,7 @@ import { useMutation, useQuery } from '@apollo/client';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Badge, Button, Card, Empty, Input, List, Select, Space, Typography, message } from 'antd';
 import { SendOutlined } from '@ant-design/icons';
+import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import {
   MY_RESTAURANTS,
@@ -146,7 +147,8 @@ function MessagesContent() {
                         maxWidth: '70%',
                         padding: '8px 12px',
                         borderRadius: 12,
-                        background: m.senderType === 'restaurant' ? '#da3743' : '#f5f5f5',
+                        background:
+                          m.senderType === 'restaurant' ? colors.brand[600] : colors.neutral[100],
                         color: m.senderType === 'restaurant' ? '#fff' : undefined,
                       }}
                     >

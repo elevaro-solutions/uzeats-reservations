@@ -17,6 +17,7 @@ import {
   message,
 } from 'antd';
 import { EyeInvisibleOutlined, EyeOutlined, MessageOutlined } from '@ant-design/icons';
+import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import {
   MY_RESTAURANTS,
@@ -132,8 +133,8 @@ export default function ReviewsPage() {
                     {r.ownerReply && (
                       <div
                         style={{
-                          background: '#fafafa',
-                          borderLeft: '3px solid #da3743',
+                          background: colors.brand[50],
+                          borderLeft: `3px solid ${colors.brand[600]}`,
                           padding: '8px 12px',
                           borderRadius: 4,
                         }}

@@ -43,7 +43,7 @@ export function AuthLayout({
           flexDirection: 'column',
           justifyContent: 'center',
           padding: '64px 48px',
-          background: `linear-gradient(160deg, ${colors.neutral[900]} 0%, #1a2332 50%, #162030 100%)`,
+          background: `linear-gradient(160deg, ${colors.neutral[900]} 0%, ${colors.heroMid} 48%, #3d221c 100%)`,
         }}
         className="rt-auth-panel"
       >
@@ -58,7 +58,7 @@ export function AuthLayout({
             height: 440,
             borderRadius: '50%',
             background:
-              'radial-gradient(circle, rgba(218, 55, 67, 0.25) 0%, transparent 70%)',
+              'radial-gradient(circle, rgba(196, 71, 47, 0.32) 0%, transparent 70%)',
             pointerEvents: 'none',
           }}
         />
@@ -72,7 +72,7 @@ export function AuthLayout({
             height: 380,
             borderRadius: '50%',
             background:
-              'radial-gradient(circle, rgba(47, 111, 237, 0.15) 0%, transparent 70%)',
+              'radial-gradient(circle, rgba(232, 163, 23, 0.12) 0%, transparent 70%)',
             pointerEvents: 'none',
           }}
         />

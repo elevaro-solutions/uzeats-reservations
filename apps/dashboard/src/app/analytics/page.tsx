@@ -21,6 +21,7 @@ import {
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS, RESTAURANT_RESERVATIONS } from '@/lib/graphql';
 
@@ -131,7 +132,7 @@ export default function AnalyticsPage() {
                   title="Confirmed"
                   value={stats.byStatus.confirmed}
                   prefix={<ClockCircleOutlined />}
-                  valueStyle={{ color: '#1677ff' }}
+                  valueStyle={{ color: colors.info }}
                 />
               </Card>
             </Col>
@@ -193,7 +194,7 @@ export default function AnalyticsPage() {
                   <Progress
                     percent={Math.round((count / maxDaily) * 100)}
                     format={() => count}
-                    strokeColor="#da3743"
+                    strokeColor={colors.brand[600]}
                     style={{ flex: 1 }}
                   />
                 </div>

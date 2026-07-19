@@ -2,9 +2,9 @@
 
 import { useMutation, useQuery } from '@apollo/client/react';
 import { Button, Card, Rate, Space, Typography, message, Modal, Input } from 'antd';
-import { MessageOutlined } from '@ant-design/icons';
+import { CalendarOutlined, MessageOutlined, SearchOutlined } from '@ant-design/icons';
 import Link from 'next/link';
-import { StatusTag } from '@reservations/ui';
+import { StatusTag, PageHeader, EmptyState, colors, radii, shadows, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -14,7 +14,7 @@ import {
   CREATE_REVIEW,
 } from '@/lib/graphql';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function ReservationsPage() {
   const { user, loading: authLoading } = useAuth();
@@ -31,79 +31,154 @@ export default function ReservationsPage() {
     return null;
   }
 
+  const reservations = (data as any)?.myReservations ?? [];
+
   return (
-    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-      <Title level={2}>My reservations</Title>
-      <Card loading={loading}>
-        {((data as any)?.myReservations ?? []).length === 0 && (
-          <Text type="secondary">No reservations yet</Text>
-        )}
-        {((data as any)?.myReservations ?? []).map((r: any, idx: number, arr: any[]) => (
-          <div
-            key={r.id}
-            style={{
-              display: 'flex',
-              gap: 16,
-              alignItems: 'flex-start',
-              padding: '16px 0',
-              borderBottom: idx < arr.length - 1 ? '1px solid #f1efed' : 'none',
-            }}
-          >
-            {r.restaurant?.photos?.[0] && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={r.restaurant.photos[0]}
-                alt=""
-                width={64}
-                height={64}
-                style={{ objectFit: 'cover', borderRadius: 10, flexShrink: 0 }}
-              />
-            )}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <Space>
-                <Text strong>{r.restaurant?.name}</Text>
-                <StatusTag status={r.status} />
-              </Space>
-              <Space orientation="vertical" size={0} style={{ display: 'flex', marginTop: 4 }}>
-                <Text>
-                  {new Date(r.slotStart).toLocaleString()} · {r.partySize} guests
-                </Text>
-                {r.occasion !== 'none' && <Text type="secondary">Occasion: {r.occasion}</Text>}
-                {r.guestNotes && <Text type="secondary">{r.guestNotes}</Text>}
-                {r.loyaltyPointsEarned > 0 && (
-                  <Text type="success">+{r.loyaltyPointsEarned} points earned</Text>
+    <div style={{ maxWidth: 800 }}>
+      <PageHeader
+        title="My reservations"
+        subtitle="Upcoming and past bookings in one place"
+        extra={
+          <Button type="primary" icon={<SearchOutlined />} onClick={() => router.push('/')}>
+            Book a table
+          </Button>
+        }
+      />
+
+      {loading ? (
+        <Card
+          loading
+          style={{
+            borderRadius: radii.lg,
+            border: `1px solid ${colors.bordersubtle}`,
+            boxShadow: shadows.sm,
+            minHeight: 180,
+          }}
+        />
+      ) : reservations.length === 0 ? (
+        <EmptyState
+          icon={<CalendarOutlined />}
+          title="No reservations yet"
+          description="Find a restaurant and book a table in seconds — it's free."
+          action={
+            <Button type="primary" size="large" onClick={() => router.push('/')}>
+              Find a table
+            </Button>
+          }
+        />
+      ) : (
+      <Card
+        style={{
+          borderRadius: radii.lg,
+          border: `1px solid ${colors.bordersubtle}`,
+          boxShadow: shadows.sm,
+        }}
+      >
+          {reservations.map((r: any, idx: number, arr: any[]) => (
+            <div
+              key={r.id}
+              style={{
+                display: 'flex',
+                gap: 16,
+                alignItems: 'flex-start',
+                padding: '20px 0',
+                borderBottom: idx < arr.length - 1 ? `1px solid ${colors.bordersubtle}` : 'none',
+                flexWrap: 'wrap',
+              }}
+            >
+              <div
+                style={{
+                  width: 72,
+                  height: 72,
+                  borderRadius: radii.md,
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  background: colors.brand[50],
+                }}
+              >
+                {r.restaurant?.photos?.[0] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={r.restaurant.photos[0]}
+                    alt=""
+                    width={72}
+                    height={72}
+                    style={{ objectFit: 'cover', width: '100%', height: '100%' }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: colors.brand[400],
+                      fontSize: 22,
+                    }}
+                  >
+                    <CalendarOutlined />
+                  </div>
+                )}
+              </div>
+              <div style={{ flex: 1, minWidth: 180 }}>
+                <Space size={8} wrap>
+                  <Text strong style={{ fontSize: typography.fontSize.md }}>
+                    {r.restaurant?.name}
+                  </Text>
+                  <StatusTag status={r.status} />
+                </Space>
+                <Space orientation="vertical" size={0} style={{ display: 'flex', marginTop: 6 }}>
+                  <Text style={{ color: colors.textSecondary }}>
+                    {new Date(r.slotStart).toLocaleString()} · {r.partySize} guests
+                  </Text>
+                  {r.occasion !== 'none' && (
+                    <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+                      Occasion: {r.occasion}
+                    </Text>
+                  )}
+                  {r.guestNotes && (
+                    <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+                      {r.guestNotes}
+                    </Text>
+                  )}
+                  {r.loyaltyPointsEarned > 0 && (
+                    <Text style={{ color: colors.success, fontSize: typography.fontSize.sm }}>
+                      +{r.loyaltyPointsEarned} points earned
+                    </Text>
+                  )}
+                </Space>
+              </div>
+              <Space wrap>
+                {(r.status === 'confirmed' || r.status === 'pending') && r.restaurant?.id && (
+                  <Link href={`/messages/${r.restaurant.id}`}>
+                    <Button icon={<MessageOutlined />}>Message</Button>
+                  </Link>
+                )}
+                {(r.status === 'confirmed' || r.status === 'pending') && (
+                  <Button
+                    danger
+                    onClick={async () => {
+                      await updateStatus({
+                        variables: { id: r.id, status: 'cancelled', reason: 'Cancelled by diner' },
+                      });
+                      message.success('Reservation cancelled');
+                      refetch();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                )}
+                {r.status === 'completed' && (
+                  <Button type="primary" ghost onClick={() => setReviewFor(r.id)}>
+                    Leave review
+                  </Button>
                 )}
               </Space>
             </div>
-            <Space>
-              {(r.status === 'confirmed' || r.status === 'pending') && r.restaurant?.id && (
-                <Link href={`/messages/${r.restaurant.id}`}>
-                  <Button icon={<MessageOutlined />}>Message restaurant</Button>
-                </Link>
-              )}
-              {(r.status === 'confirmed' || r.status === 'pending') && (
-                <Button
-                  danger
-                  onClick={async () => {
-                    await updateStatus({
-                      variables: { id: r.id, status: 'cancelled', reason: 'Cancelled by diner' },
-                    });
-                    message.success('Reservation cancelled');
-                    refetch();
-                  }}
-                >
-                  Cancel
-                </Button>
-              )}
-              {r.status === 'completed' && (
-                <Button type="link" onClick={() => setReviewFor(r.id)}>
-                  Leave review
-                </Button>
-              )}
-            </Space>
-          </div>
-        ))}
+          ))}
       </Card>
+      )}
 
       <Modal
         title="Leave a review"
@@ -118,6 +193,7 @@ export default function ReservationsPage() {
           setComment('');
           refetch();
         }}
+        okText="Submit review"
       >
         <Space orientation="vertical" style={{ width: '100%' }}>
           <Rate value={rating} onChange={setRating} />
@@ -129,6 +205,6 @@ export default function ReservationsPage() {
           />
         </Space>
       </Modal>
-    </Space>
+    </div>
   );
 }

@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@apollo/client/react';
 import { Button, Card, Empty, Input, Space, Typography, message } from 'antd';
 import { SendOutlined } from '@ant-design/icons';
+import { colors, radii } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { MESSAGES, SEND_MESSAGE, RESTAURANT_DETAIL } from '@/lib/graphql';
 
@@ -81,9 +82,9 @@ export default function MessagesPage() {
               style={{
                 alignSelf: mine ? 'flex-end' : 'flex-start',
                 maxWidth: '75%',
-                background: mine ? '#da3743' : '#f1efed',
-                color: mine ? '#fff' : 'inherit',
-                borderRadius: 12,
+                background: mine ? colors.brand[600] : colors.neutral[100],
+                color: mine ? colors.textInverse : 'inherit',
+                borderRadius: radii.md,
                 padding: '8px 12px',
               }}
             >

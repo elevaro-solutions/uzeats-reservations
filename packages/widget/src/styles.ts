@@ -1,31 +1,31 @@
 export const STYLES = /* css */ `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
   :host {
     /* --rt-brand can be overridden at runtime (server widgetTheme or embed options) */
-    --rt-brand: #da3743;
-    --rt-brand-hover: color-mix(in srgb, var(--rt-brand) 80%, #1c1917);
+    --rt-brand: #c4472f;
+    --rt-brand-hover: color-mix(in srgb, var(--rt-brand) 80%, #1a1816);
     --rt-brand-light: color-mix(in srgb, var(--rt-brand) 7%, #ffffff);
-    --rt-brand-shadow: color-mix(in srgb, var(--rt-brand) 24%, transparent);
-    --rt-bg: #f8f7f6;
+    --rt-brand-shadow: color-mix(in srgb, var(--rt-brand) 28%, transparent);
+    --rt-bg: #f7f5f2;
     --rt-surface: #ffffff;
-    --rt-border: #e5e2df;
-    --rt-border-subtle: #f1efed;
-    --rt-text: #1c1917;
-    --rt-text-secondary: #5c554e;
-    --rt-text-tertiary: #a8a29c;
+    --rt-border: #e3dfd8;
+    --rt-border-subtle: #f0ede8;
+    --rt-text: #1a1816;
+    --rt-text-secondary: #5a554d;
+    --rt-text-tertiary: #a39e94;
     --rt-text-inverse: #ffffff;
     --rt-success: #2e9e5b;
     --rt-radius-sm: 8px;
-    --rt-radius-md: 10px;
-    --rt-radius-lg: 14px;
-    --rt-shadow-sm: 0 1px 3px rgba(28, 25, 23, 0.06), 0 1px 2px rgba(28, 25, 23, 0.04);
-    --rt-shadow-md: 0 4px 12px rgba(28, 25, 23, 0.08), 0 1px 3px rgba(28, 25, 23, 0.05);
-    --rt-shadow-lg: 0 12px 32px rgba(28, 25, 23, 0.12), 0 2px 6px rgba(28, 25, 23, 0.06);
+    --rt-radius-md: 12px;
+    --rt-radius-lg: 16px;
+    --rt-shadow-sm: 0 1px 3px rgba(26, 24, 22, 0.05), 0 1px 2px rgba(26, 24, 22, 0.04);
+    --rt-shadow-md: 0 4px 14px rgba(26, 24, 22, 0.07), 0 1px 3px rgba(26, 24, 22, 0.04);
+    --rt-shadow-lg: 0 16px 40px rgba(26, 24, 22, 0.1), 0 2px 8px rgba(26, 24, 22, 0.05);
     --rt-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
     display: block;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
       'Helvetica Neue', Arial, sans-serif;
     font-size: 14px;
     line-height: 1.55;

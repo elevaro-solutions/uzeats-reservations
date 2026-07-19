@@ -9,10 +9,11 @@ import {
   useStripe,
 } from '@stripe/react-stripe-js';
 import { Alert, Button, Card, Space, Spin, Typography } from 'antd';
+import { colors } from '@reservations/ui';
 
 const { Title, Text } = Typography;
 
-const BRAND_COLOR = '#da3743';
+const BRAND_COLOR = colors.brand[600];
 const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 
 function PaymentForm({

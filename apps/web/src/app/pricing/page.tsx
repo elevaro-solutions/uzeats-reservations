@@ -183,7 +183,7 @@ function FeatureValue({ value }: { value: boolean | string }) {
     return <CloseOutlined style={{ color: '#d9d9d9', fontSize: 14 }} />;
   }
   return (
-    <Text style={{ fontSize: 13, color: '#da3743', fontWeight: 500 }}>
+    <Text style={{ fontSize: 13, color: '#c4472f', fontWeight: 500 }}>
       {value}
     </Text>
   );
@@ -233,7 +233,7 @@ export default function PricingPage() {
       {/* Hero Section */}
       <Card
         style={{
-          background: 'linear-gradient(135deg, #da3743 0%, #8b1a22 100%)',
+          background: 'linear-gradient(135deg, #c4472f 0%, #702c22 100%)',
           border: 'none',
           borderRadius: 16,
           overflow: 'hidden',
@@ -272,7 +272,7 @@ export default function PricingPage() {
             style={{
               height: '100%',
               borderRadius: 12,
-              border: selectedPlan === 'basic' ? '2px solid #da3743' : '1px solid #e8e8e8',
+              border: selectedPlan === 'basic' ? '2px solid #c4472f' : '1px solid #e8e8e8',
               cursor: 'pointer',
             }}
             styles={{ body: { padding: 32, display: 'flex', flexDirection: 'column', height: '100%' } }}
@@ -280,7 +280,7 @@ export default function PricingPage() {
             <Space orientation="vertical" size={16} style={{ width: '100%', flex: 1 }}>
               <div>
                 <Space align="center">
-                  <ThunderboltOutlined style={{ fontSize: 24, color: '#da3743' }} />
+                  <ThunderboltOutlined style={{ fontSize: 24, color: '#c4472f' }} />
                   <Title level={3} style={{ margin: 0 }}>
                     Basic
                   </Title>
@@ -311,7 +311,7 @@ export default function PricingPage() {
                 block
                 style={
                   selectedPlan === 'basic'
-                    ? { background: '#da3743', borderColor: '#da3743' }
+                    ? { background: '#c4472f', borderColor: '#c4472f' }
                     : {}
                 }
                 onClick={goToDashboard}
@@ -330,14 +330,14 @@ export default function PricingPage() {
             style={{
               height: '100%',
               borderRadius: 12,
-              border: selectedPlan === 'core' ? '2px solid #da3743' : '1px solid #e8e8e8',
+              border: selectedPlan === 'core' ? '2px solid #c4472f' : '1px solid #e8e8e8',
               cursor: 'pointer',
               position: 'relative',
             }}
             styles={{ body: { padding: 32, display: 'flex', flexDirection: 'column', height: '100%' } }}
           >
             <Tag
-              color="#da3743"
+              color="#c4472f"
               style={{
                 position: 'absolute',
                 top: -1,
@@ -352,7 +352,7 @@ export default function PricingPage() {
             <Space orientation="vertical" size={16} style={{ width: '100%', flex: 1 }}>
               <div>
                 <Space align="center">
-                  <CrownOutlined style={{ fontSize: 24, color: '#da3743' }} />
+                  <CrownOutlined style={{ fontSize: 24, color: '#c4472f' }} />
                   <Title level={3} style={{ margin: 0 }}>
                     Core
                   </Title>
@@ -382,7 +382,7 @@ export default function PricingPage() {
                 type="primary"
                 size="large"
                 block
-                style={{ background: '#da3743', borderColor: '#da3743' }}
+                style={{ background: '#c4472f', borderColor: '#c4472f' }}
                 onClick={goToDashboard}
               >
                 Start free trial
@@ -399,7 +399,7 @@ export default function PricingPage() {
             style={{
               height: '100%',
               borderRadius: 12,
-              border: selectedPlan === 'pro' ? '2px solid #da3743' : '1px solid #e8e8e8',
+              border: selectedPlan === 'pro' ? '2px solid #c4472f' : '1px solid #e8e8e8',
               cursor: 'pointer',
             }}
             styles={{ body: { padding: 32, display: 'flex', flexDirection: 'column', height: '100%' } }}
@@ -407,7 +407,7 @@ export default function PricingPage() {
             <Space orientation="vertical" size={16} style={{ width: '100%', flex: 1 }}>
               <div>
                 <Space align="center">
-                  <RocketOutlined style={{ fontSize: 24, color: '#da3743' }} />
+                  <RocketOutlined style={{ fontSize: 24, color: '#c4472f' }} />
                   <Title level={3} style={{ margin: 0 }}>
                     Pro
                   </Title>
@@ -440,7 +440,7 @@ export default function PricingPage() {
                 block
                 style={
                   selectedPlan === 'pro'
-                    ? { background: '#da3743', borderColor: '#da3743' }
+                    ? { background: '#c4472f', borderColor: '#c4472f' }
                     : {}
                 }
                 onClick={goToDashboard}
@@ -489,13 +489,13 @@ export default function PricingPage() {
               <div
                 style={{
                   padding: '16px 24px',
-                  background: '#fff7f6',
+                  background: '#fdf6f4',
                   borderBottom: '1px solid #f0f0f0',
                   borderTop: catIdx > 0 ? '1px solid #f0f0f0' : undefined,
                 }}
               >
                 <Space>
-                  <span style={{ color: '#da3743' }}>{category.icon}</span>
+                  <span style={{ color: '#c4472f' }}>{category.icon}</span>
                   <Text strong style={{ fontSize: 16 }}>
                     {category.title}
                   </Text>
@@ -547,7 +547,7 @@ export default function PricingPage() {
             <div style={{ textAlign: 'center' }}>
               <Button
                 size="small"
-                style={{ borderColor: '#da3743', color: '#da3743' }}
+                style={{ borderColor: '#c4472f', color: '#c4472f' }}
                 onClick={goToDashboard}
               >
                 Get Basic
@@ -557,7 +557,7 @@ export default function PricingPage() {
               <Button
                 type="primary"
                 size="small"
-                style={{ background: '#da3743', borderColor: '#da3743' }}
+                style={{ background: '#c4472f', borderColor: '#c4472f' }}
                 onClick={goToDashboard}
               >
                 Get Core
@@ -566,7 +566,7 @@ export default function PricingPage() {
             <div style={{ textAlign: 'center' }}>
               <Button
                 size="small"
-                style={{ borderColor: '#da3743', color: '#da3743' }}
+                style={{ borderColor: '#c4472f', color: '#c4472f' }}
                 onClick={goToDashboard}
               >
                 Get Pro
@@ -591,13 +591,13 @@ export default function PricingPage() {
               style={{ height: '100%', borderRadius: 12, textAlign: 'center' }}
               styles={{ body: { padding: 32 } }}
             >
-              <BarChartOutlined style={{ fontSize: 40, color: '#da3743', marginBottom: 16 }} />
+              <BarChartOutlined style={{ fontSize: 40, color: '#c4472f', marginBottom: 16 }} />
               <Title level={4}>Digital Marketing</Title>
               <Paragraph type="secondary">
                 Get in front of a larger audience with digital marketing campaigns that attract
                 diners at the moment they&apos;re searching to help drive more bookings.
               </Paragraph>
-              <Button type="link" style={{ color: '#da3743', padding: 0 }}>
+              <Button type="link" style={{ color: '#c4472f', padding: 0 }}>
                 Learn more →
               </Button>
             </Card>
@@ -607,13 +607,13 @@ export default function PricingPage() {
               style={{ height: '100%', borderRadius: 12, textAlign: 'center' }}
               styles={{ body: { padding: 32 } }}
             >
-              <StarOutlined style={{ fontSize: 40, color: '#da3743', marginBottom: 16 }} />
+              <StarOutlined style={{ fontSize: 40, color: '#c4472f', marginBottom: 16 }} />
               <Title level={4}>Experiences</Title>
               <Paragraph type="secondary">
                 Serve up, sell out, and manage a full range of customized dining experiences — from
                 tastings and classes to special menus — all in one place.
               </Paragraph>
-              <Button type="link" style={{ color: '#da3743', padding: 0 }}>
+              <Button type="link" style={{ color: '#c4472f', padding: 0 }}>
                 Learn more →
               </Button>
             </Card>
@@ -623,13 +623,13 @@ export default function PricingPage() {
               style={{ height: '100%', borderRadius: 12, textAlign: 'center' }}
               styles={{ body: { padding: 32 } }}
             >
-              <TeamOutlined style={{ fontSize: 40, color: '#da3743', marginBottom: 16 }} />
+              <TeamOutlined style={{ fontSize: 40, color: '#c4472f', marginBottom: 16 }} />
               <Title level={4}>Private Dining</Title>
               <Paragraph type="secondary">
                 Open your restaurant to more guests, help get more leads, and streamline operations
                 for successful private events.
               </Paragraph>
-              <Button type="link" style={{ color: '#da3743', padding: 0 }}>
+              <Button type="link" style={{ color: '#c4472f', padding: 0 }}>
                 Learn more →
               </Button>
             </Card>
@@ -663,7 +663,7 @@ export default function PricingPage() {
 
       {/* Enterprise CTA */}
       <Card
-        style={{ borderRadius: 12, border: '2px solid #da3743' }}
+        style={{ borderRadius: 12, border: '2px solid #c4472f' }}
         styles={{ body: { padding: '32px', textAlign: 'center' } }}
       >
         <Title level={3} style={{ marginTop: 0 }}>
@@ -676,7 +676,7 @@ export default function PricingPage() {
         <Button
           type="primary"
           size="large"
-          style={{ background: '#da3743', borderColor: '#da3743' }}
+          style={{ background: '#c4472f', borderColor: '#c4472f' }}
         >
           Contact sales
         </Button>
@@ -698,7 +698,7 @@ export default function PricingPage() {
       {/* Final CTA */}
       <Card
         style={{
-          background: 'linear-gradient(135deg, #da3743 0%, #b22a34 100%)',
+          background: 'linear-gradient(135deg, #c4472f 0%, #a33826 100%)',
           border: 'none',
           borderRadius: 16,
         }}
@@ -716,7 +716,7 @@ export default function PricingPage() {
             size="large"
             style={{
               background: '#fff',
-              color: '#da3743',
+              color: '#c4472f',
               borderColor: '#fff',
               fontWeight: 600,
             }}

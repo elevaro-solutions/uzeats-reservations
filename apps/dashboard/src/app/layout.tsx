@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import { AntdRegistry } from '@ant-design/nextjs-registry';
 import { Providers } from '@/lib/apollo';
 import { DashShell } from '@/components/DashShell';
 import './globals.css';
 
-const inter = Inter({
+const sans = Plus_Jakarta_Sans({
   subsets: ['latin'],
   variable: '--font-sans',
   display: 'swap',
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={sans.variable}>
       <body>
         <AntdRegistry>
           <Providers>

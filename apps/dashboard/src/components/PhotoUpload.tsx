@@ -2,21 +2,20 @@
 
 import { useState } from 'react';
 import { useMutation } from '@apollo/client';
-import { Upload, Image, Button, message, Progress, Typography } from 'antd';
+import { Upload, Image, Button, message, Progress } from 'antd';
 import {
-  PlusOutlined,
   DeleteOutlined,
   InboxOutlined,
   EyeOutlined,
 } from '@ant-design/icons';
-import type { UploadFile, RcFile } from 'antd/es/upload';
+import type { RcFile } from 'antd/es/upload';
+import { colors } from '@reservations/ui';
 import { CREATE_UPLOAD_URL } from '@/lib/graphql';
 
-const { Text } = Typography;
 const { Dragger } = Upload;
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const BRAND = '#da3743';
+const BRAND = colors.brand[600];
 
 interface PhotoUploadProps {
   value?: string[];

@@ -27,9 +27,9 @@ export const theme: ThemeConfig = {
     colorBorderSecondary: colors.bordersubtle,
 
     // Shape & type
-    borderRadius: radii.sm,
-    borderRadiusLG: radii.md,
-    borderRadiusSM: 6,
+    borderRadius: radii.md,
+    borderRadiusLG: radii.lg,
+    borderRadiusSM: radii.sm,
     fontFamily: typography.fontFamily,
     fontSize: typography.fontSize.base,
 
@@ -37,30 +37,33 @@ export const theme: ThemeConfig = {
     boxShadow: shadows.md,
     boxShadowSecondary: shadows.lg,
 
-    controlHeight: 38,
-    controlHeightLG: 46,
-    controlHeightSM: 30,
+    controlHeight: 40,
+    controlHeightLG: 48,
+    controlHeightSM: 32,
   },
   components: {
     Button: {
       primaryShadow: 'none',
       defaultShadow: 'none',
       dangerShadow: 'none',
-      fontWeight: typography.fontWeight.medium,
-      controlHeight: 38,
-      paddingInline: 18,
+      fontWeight: typography.fontWeight.semibold,
+      controlHeight: 40,
+      paddingInline: 20,
+      borderRadius: radii.md,
     },
     Card: {
       borderRadiusLG: radii.lg,
-      paddingLG: 20,
+      paddingLG: 24,
       boxShadowTertiary: shadows.sm,
     },
     Input: {
-      paddingInline: 12,
+      paddingInline: 14,
       activeShadow: `0 0 0 3px ${colors.brand[100]}`,
+      borderRadius: radii.md,
     },
     Select: {
       optionSelectedBg: colors.brand[50],
+      borderRadius: radii.md,
     },
     Menu: {
       itemBorderRadius: radii.sm,
@@ -92,7 +95,7 @@ export const theme: ThemeConfig = {
       siderBg: colors.surface,
     },
     Rate: {
-      starColor: '#f5a623',
+      starColor: colors.rating,
     },
     Badge: {
       colorBgContainer: colors.surface,
@@ -100,6 +103,11 @@ export const theme: ThemeConfig = {
     Segmented: {
       itemSelectedBg: colors.surface,
       trackBg: colors.neutral[100],
+    },
+    Tabs: {
+      inkBarColor: colors.brand[600],
+      itemSelectedColor: colors.brand[600],
+      itemHoverColor: colors.brand[500],
     },
   },
 };

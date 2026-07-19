@@ -23,7 +23,6 @@ import {
   CheckCircleFilled,
   CrownFilled,
   EnvironmentFilled,
-  FireFilled,
   GlobalOutlined,
   SearchOutlined,
 } from '@ant-design/icons';
@@ -32,27 +31,10 @@ import { SEARCH_RESTAURANTS, AVAILABILITY } from '@/lib/graphql';
 
 const { Title, Paragraph, Text } = Typography;
 
-const CUISINE_EMOJI: Record<string, string> = {
-  American: '🍔',
-  Italian: '🍝',
-  Mexican: '🌮',
-  Japanese: '🍣',
-  Chinese: '🥡',
-  Indian: '🍛',
-  French: '🥐',
-  Mediterranean: '🫒',
-  Thai: '🍜',
-  Steakhouse: '🥩',
-  Seafood: '🦞',
-  Vegetarian: '🥗',
-  Uzbek: '🥘',
-  Other: '🍽️',
-};
-
 const HERO_HIGHLIGHTS = [
   'Instant confirmation',
-  'No booking fees',
-  'Earn loyalty points',
+  'Free for diners',
+  'Loyalty rewards',
 ] as const;
 
 export default function HomePage() {
@@ -159,7 +141,7 @@ export default function HomePage() {
           margin: '-32px calc(50% - 50vw) 0',
           position: 'relative',
           overflow: 'hidden',
-          background: `linear-gradient(150deg, ${colors.neutral[900]} 0%, #2e181b 45%, ${colors.brand[900]} 100%)`,
+          background: `linear-gradient(150deg, ${colors.neutral[900]} 0%, ${colors.heroMid} 45%, ${colors.brand[900]} 100%)`,
         }}
       >
         {/* decorative glows */}
@@ -172,7 +154,7 @@ export default function HomePage() {
             width: 520,
             height: 520,
             borderRadius: '50%',
-            background: `radial-gradient(circle, rgba(230, 69, 83, 0.35) 0%, transparent 70%)`,
+            background: `radial-gradient(circle, rgba(212, 90, 63, 0.38) 0%, transparent 70%)`,
             pointerEvents: 'none',
           }}
         />
@@ -185,7 +167,7 @@ export default function HomePage() {
             width: 460,
             height: 460,
             borderRadius: '50%',
-            background: `radial-gradient(circle, rgba(247, 163, 170, 0.18) 0%, transparent 70%)`,
+            background: `radial-gradient(circle, rgba(240, 172, 154, 0.2) 0%, transparent 70%)`,
             pointerEvents: 'none',
           }}
         />
@@ -207,86 +189,55 @@ export default function HomePage() {
           style={{
             maxWidth: 1120,
             margin: '0 auto',
-            padding: '76px 24px 60px',
+            padding: '72px 24px 56px',
             position: 'relative',
             textAlign: 'center',
           }}
         >
-          <div
-            className="rt-fade-up"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              background: 'rgba(255,255,255,0.08)',
-              border: '1px solid rgba(255,255,255,0.14)',
-              borderRadius: radii.pill,
-              padding: '6px 14px',
-              color: colors.brand[300],
-              fontSize: typography.fontSize.sm,
-              fontWeight: typography.fontWeight.semibold,
-              letterSpacing: typography.letterSpacing.wide,
-              textTransform: 'uppercase',
-            }}
-          >
-            <FireFilled /> Book a table in seconds
-          </div>
-
           <Title
             className="rt-fade-up"
             style={{
               color: '#fff',
-              margin: '20px auto 0',
-              fontSize: 'clamp(38px, 5.4vw, 58px)',
-              lineHeight: 1.08,
+              margin: '0 auto',
+              fontSize: 'clamp(36px, 5vw, 52px)',
+              lineHeight: 1.1,
               letterSpacing: typography.letterSpacing.tight,
-              maxWidth: 760,
-              animationDelay: '80ms',
+              maxWidth: 720,
+              fontWeight: typography.fontWeight.bold,
             }}
           >
-            Your next favorite table,{' '}
-            <span
-              style={{
-                background: `linear-gradient(90deg, ${colors.brand[400]}, ${colors.brand[300]})`,
-                WebkitBackgroundClip: 'text',
-                backgroundClip: 'text',
-                color: 'transparent',
-              }}
-            >
-              one tap away
-            </span>
+            ReserveTable
           </Title>
 
           <Paragraph
             className="rt-fade-up"
             style={{
-              color: 'rgba(255,255,255,0.72)',
-              maxWidth: 560,
-              margin: '16px auto 0',
+              color: 'rgba(255,255,255,0.78)',
+              maxWidth: 480,
+              margin: '14px auto 0',
               fontSize: typography.fontSize.md,
-              lineHeight: 1.6,
-              animationDelay: '160ms',
+              lineHeight: 1.55,
+              animationDelay: '80ms',
             }}
           >
-            Discover and instantly book the best restaurants across the USA — date nights,
-            birthdays, business dinners, and everything in between.
+            Find a table and book it in seconds — free for diners, anywhere in the USA.
           </Paragraph>
 
           {/* search panel */}
           <div
             className="rt-fade-up"
             style={{
-              marginTop: 32,
+              marginTop: 28,
               background: '#fff',
               borderRadius: radii.xl,
-              padding: 12,
-              boxShadow: '0 24px 64px rgba(0, 0, 0, 0.35)',
+              padding: 10,
+              boxShadow: '0 24px 64px rgba(0, 0, 0, 0.32)',
               display: 'flex',
               flexWrap: 'wrap',
-              gap: 10,
+              gap: 8,
               alignItems: 'center',
               textAlign: 'left',
-              animationDelay: '240ms',
+              animationDelay: '140ms',
             }}
           >
             <Input
@@ -305,7 +256,7 @@ export default function HomePage() {
               value={cuisine}
               onChange={setCuisine}
               style={{ flex: '1 1 140px', minWidth: 130 }}
-              options={CUISINES.map((c) => ({ value: c, label: `${CUISINE_EMOJI[c] ?? ''} ${c}` }))}
+              options={CUISINES.map((c) => ({ value: c, label: c }))}
               variant="filled"
             />
             {geoLocation ? (
@@ -390,7 +341,7 @@ export default function HomePage() {
               flexWrap: 'wrap',
               justifyContent: 'center',
               gap: '10px 28px',
-              animationDelay: '320ms',
+              animationDelay: '220ms',
             }}
           >
             {HERO_HIGHLIGHTS.map((h) => (
@@ -448,7 +399,7 @@ export default function HomePage() {
                 transition: 'all 0.18s ease',
               }}
             >
-              <span aria-hidden>{CUISINE_EMOJI[c]}</span> {c}
+              {c}
             </button>
           );
         })}

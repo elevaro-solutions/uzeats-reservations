@@ -47,7 +47,7 @@ export function mapRestaurant(r: any) {
     useSmartAssign: r.useSmartAssign !== false,
     posEnabled: r.posEnabled ?? false,
     widgetTheme: {
-      primaryColor: r.widgetTheme?.primaryColor ?? '#da3743',
+      primaryColor: r.widgetTheme?.primaryColor ?? '#c4472f',
       buttonText: r.widgetTheme?.buttonText ?? 'Reserve a table',
       showReviews: r.widgetTheme?.showReviews ?? true,
     },

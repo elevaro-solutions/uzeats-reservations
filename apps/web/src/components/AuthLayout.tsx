@@ -2,14 +2,37 @@
 
 import Link from 'next/link';
 import { colors, radii, typography, shadows } from '@reservations/ui';
-import { FireFilled, CheckCircleFilled } from '@ant-design/icons';
+import { CheckCircleFilled } from '@ant-design/icons';
 
 const PERKS = [
   'Instant table confirmations',
   'No booking fees, ever',
   'Earn loyalty points on every visit',
-  'Manage reservations on the go',
+  'Manage reservations in one place',
 ] as const;
+
+function BrandMark({ size = 40 }: { size?: number }) {
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: Math.round(size * 0.28),
+        background: `linear-gradient(145deg, ${colors.brand[500]} 0%, ${colors.brand[700]} 100%)`,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#fff',
+        fontSize: Math.round(size * 0.45),
+        fontWeight: 700,
+        boxShadow: shadows.brand,
+        flexShrink: 0,
+      }}
+    >
+      R
+    </div>
+  );
+}
 
 export function AuthLayout({
   children,
@@ -25,7 +48,7 @@ export function AuthLayout({
       style={{
         minHeight: '100dvh',
         display: 'flex',
-        margin: '-32px calc(50% - 50vw) 0',
+        background: colors.neutral[25],
       }}
     >
       {/* ---- Branded panel (hidden on mobile) ---- */}
@@ -38,11 +61,10 @@ export function AuthLayout({
           flexDirection: 'column',
           justifyContent: 'center',
           padding: '64px 48px',
-          background: `linear-gradient(160deg, ${colors.neutral[900]} 0%, #2e181b 50%, ${colors.brand[900]} 100%)`,
+          background: `linear-gradient(160deg, ${colors.neutral[900]} 0%, ${colors.heroMid} 50%, ${colors.brand[900]} 100%)`,
         }}
         className="rt-auth-panel"
       >
-        {/* decorative glows */}
         <div
           aria-hidden
           style={{
@@ -52,8 +74,7 @@ export function AuthLayout({
             width: 440,
             height: 440,
             borderRadius: '50%',
-            background:
-              'radial-gradient(circle, rgba(230, 69, 83, 0.35) 0%, transparent 70%)',
+            background: `radial-gradient(circle, rgba(212, 90, 63, 0.4) 0%, transparent 70%)`,
             pointerEvents: 'none',
           }}
         />
@@ -66,8 +87,7 @@ export function AuthLayout({
             width: 380,
             height: 380,
             borderRadius: '50%',
-            background:
-              'radial-gradient(circle, rgba(247, 163, 170, 0.18) 0%, transparent 70%)',
+            background: `radial-gradient(circle, rgba(240, 172, 154, 0.2) 0%, transparent 70%)`,
             pointerEvents: 'none',
           }}
         />
@@ -76,13 +96,10 @@ export function AuthLayout({
           style={{
             position: 'absolute',
             inset: 0,
-            backgroundImage:
-              'radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)',
+            backgroundImage: 'radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)',
             backgroundSize: '26px 26px',
-            maskImage:
-              'linear-gradient(to bottom, rgba(0,0,0,0.6), transparent 80%)',
-            WebkitMaskImage:
-              'linear-gradient(to bottom, rgba(0,0,0,0.6), transparent 80%)',
+            maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.6), transparent 80%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.6), transparent 80%)',
             pointerEvents: 'none',
           }}
         />
@@ -93,26 +110,12 @@ export function AuthLayout({
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 10,
+              gap: 12,
               textDecoration: 'none',
               marginBottom: 56,
             }}
           >
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: radii.md,
-                background: colors.brand[600],
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#fff',
-                fontSize: 18,
-              }}
-            >
-              <FireFilled />
-            </div>
+            <BrandMark />
             <span
               style={{
                 color: '#fff',
@@ -136,16 +139,16 @@ export function AuthLayout({
               maxWidth: 420,
             }}
           >
-            Your next favorite table,{' '}
+            Dining made{' '}
             <span
               style={{
-                background: `linear-gradient(90deg, ${colors.brand[400]}, ${colors.brand[300]})`,
+                background: `linear-gradient(90deg, ${colors.brand[300]}, ${colors.brand[400]})`,
                 WebkitBackgroundClip: 'text',
                 backgroundClip: 'text',
                 color: 'transparent',
               }}
             >
-              one tap away
+              beautifully simple
             </span>
           </h1>
           <p
@@ -157,10 +160,19 @@ export function AuthLayout({
               maxWidth: 400,
             }}
           >
-            Discover and instantly book the best restaurants across the USA.
+            Find a table, book it in seconds, and earn rewards — free for diners.
           </p>
 
-          <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <ul
+            style={{
+              listStyle: 'none',
+              padding: 0,
+              margin: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 14,
+            }}
+          >
             {PERKS.map((perk) => (
               <li
                 key={perk}
@@ -168,12 +180,14 @@ export function AuthLayout({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 10,
-                  color: 'rgba(255,255,255,0.82)',
+                  color: 'rgba(255,255,255,0.85)',
                   fontSize: typography.fontSize.base,
                   fontWeight: typography.fontWeight.medium,
                 }}
               >
-                <CheckCircleFilled style={{ color: colors.brand[400], fontSize: 16, flexShrink: 0 }} />
+                <CheckCircleFilled
+                  style={{ color: colors.brand[400], fontSize: 16, flexShrink: 0 }}
+                />
                 {perk}
               </li>
             ))}
@@ -190,37 +204,22 @@ export function AuthLayout({
           justifyContent: 'center',
           alignItems: 'center',
           padding: '48px 24px',
-          background: colors.neutral[25],
+          background: colors.neutral[50],
           overflowY: 'auto',
         }}
       >
-        {/* Mobile-only logo */}
         <Link
           href="/"
           className="rt-auth-mobile-logo"
           style={{
             display: 'none',
             alignItems: 'center',
-            gap: 8,
+            gap: 10,
             textDecoration: 'none',
             marginBottom: 32,
           }}
         >
-          <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: radii.md,
-              background: colors.brand[600],
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              fontSize: 16,
-            }}
-          >
-            <FireFilled />
-          </div>
+          <BrandMark size={36} />
           <span
             style={{
               color: colors.textPrimary,
@@ -238,10 +237,10 @@ export function AuthLayout({
           style={{
             width: '100%',
             maxWidth: 440,
-            background: '#fff',
+            background: colors.surface,
             borderRadius: radii.xl,
             border: `1px solid ${colors.border}`,
-            boxShadow: shadows.md,
+            boxShadow: shadows.lg,
             padding: '40px 36px 36px',
           }}
         >
@@ -268,6 +267,7 @@ export function AuthLayout({
               {subheading}
             </p>
           )}
+          {!subheading && <div style={{ height: 24 }} />}
           {children}
         </div>
       </div>

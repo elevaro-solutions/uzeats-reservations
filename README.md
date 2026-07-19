@@ -2,6 +2,8 @@
 
 OpenTable-style restaurant reservation platform for the USA market.
 
+See [CHANGELOG.md](./CHANGELOG.md) for release history.
+
 ## Monorepo
 
 | App / package | Port | Description |
@@ -11,7 +13,8 @@ OpenTable-style restaurant reservation platform for the USA market.
 | `apps/dashboard` | 3001 | Restaurant partner + platform admin |
 | `apps/mobile` | Expo | React Native diner app |
 | `packages/shared` | — | Zod schemas, constants, types |
-| `packages/ui` | — | Shared Ant Design theme + components |
+| `packages/ui` | — | Design tokens, Ant Design theme, shared components |
+| `packages/widget` | — | Embeddable booking widget |
 
 ## Prerequisites
 
@@ -71,6 +74,12 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Menus + DO Spaces presigned uploads (stubbed without keys)
 - Notifications: email (Resend), Telegram, web/Expo push via BullMQ reminders
 - Auth: email/password, Google OAuth, Twilio phone OTP
+- Partner Settings hub (profile, booking rules, widget theme) with multi-restaurant selector
+- Embeddable booking widget with per-restaurant theme
+
+## Design system
+
+Visual language lives in [`packages/ui`](./packages/ui): warm terracotta accent on stone neutrals, Plus Jakarta Sans, shared Ant Design theme. See [`packages/ui/DESIGN.md`](./packages/ui/DESIGN.md).
 
 ## Environment
 
@@ -86,6 +95,8 @@ JWT_REFRESH_SECRET=...
 Optional integrations: `STRIPE_*`, `TWILIO_*`, `GOOGLE_CLIENT_*`, `RESEND_API_KEY`, `TELEGRAM_BOT_TOKEN`, `DO_SPACES_*`, `VAPID_*`.
 
 ## Deploy notes (DigitalOcean)
+
+Full steps: [`docs/deploy.md`](./docs/deploy.md).
 
 1. **Managed MongoDB** — standalone or replica set both work (booking uses unique slot claims).
 2. **Managed Redis** — for BullMQ reminder / no-show jobs.

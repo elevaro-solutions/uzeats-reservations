@@ -48,7 +48,7 @@ const restaurantSchema = new Schema(
     spendAlertThresholdCents: { type: Number, default: 0 },
     // Booking widget customization (Pro)
     widgetTheme: {
-      primaryColor: { type: String, default: '#da3743' },
+      primaryColor: { type: String, default: '#c4472f' },
       buttonText: { type: String, default: 'Reserve a table' },
       showReviews: { type: Boolean, default: true },
     },

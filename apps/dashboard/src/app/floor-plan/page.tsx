@@ -15,6 +15,7 @@ import {
   message,
 } from 'antd';
 import { SaveOutlined } from '@ant-design/icons';
+import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS, FLOOR_PLAN_TABLES, UPDATE_TABLE_POSITIONS } from '@/lib/graphql';
 
@@ -243,8 +244,10 @@ export default function FloorPlanPage() {
                       width: t.width * GRID_SIZE,
                       height: t.height * GRID_SIZE,
                       borderRadius: t.shape === 'round' ? '50%' : 6,
-                      background: isSelected ? '#e6f4ff' : '#fafafa',
-                      border: isSelected ? '2px solid #1677ff' : '1px solid #8c8c8c',
+                      background: isSelected ? colors.brand[50] : colors.neutral[25],
+                      border: isSelected
+                        ? `2px solid ${colors.brand[600]}`
+                        : `1px solid ${colors.neutral[300]}`,
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
@@ -256,7 +259,7 @@ export default function FloorPlanPage() {
                     }}
                   >
                     <span style={{ fontWeight: 600, fontSize: 12 }}>{t.name}</span>
-                    <span style={{ fontSize: 11, color: '#8c8c8c' }}>
+                    <span style={{ fontSize: 11, color: colors.textTertiary }}>
                       {t.minCapacity}–{t.maxCapacity}
                     </span>
                   </div>
