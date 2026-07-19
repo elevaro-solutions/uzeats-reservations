@@ -6,8 +6,11 @@ import {
   tableInputSchema,
   shiftInputSchema,
   reservationInputSchema,
+  ownerReservationInputSchema,
+  updateReservationInputSchema,
   waitlistInputSchema,
   reviewInputSchema,
+  notificationPreferencesSchema,
   searchRestaurantsSchema,
 } from '@reservations/shared';
 import {
@@ -24,6 +27,9 @@ import {
 import { getAvailability } from '../services/availability.js';
 import {
   createReservation,
+  createOwnerReservation,
+  updateReservationDetails,
+  deleteReservation,
   updateReservationStatus,
   confirmDepositPayment,
 } from '../services/reservations.js';
@@ -56,6 +62,7 @@ import {
   Promotion,
   BoostCampaign,
   Integration,
+  Notification,
 } from '../models/index.js';
 import crypto from 'node:crypto';
 import { PLANS, type PlanKey } from '../config/plans.js';
@@ -270,6 +277,10 @@ export const resolvers = {
       const doc = await Restaurant.findById(c.restaurantId);
       return doc ? mapRestaurant(doc) : null;
     },
+    reservation: async (c: { reservationId: string }) => {
+      const doc = await Reservation.findById(c.reservationId);
+      return doc ? mapReservation(doc) : null;
+    },
   },
 
   LocationStat: {
@@ -293,30 +304,56 @@ export const resolvers = {
     searchRestaurants: async (_: unknown, args: { input: unknown }) => {
       const input = searchRestaurantsSchema.parse(args.input);
       const filter: Record<string, unknown> = { status: 'approved' };
+      const usingGeo = input.lat != null && input.lng != null;
 
-      if (input.query) filter.$text = { $search: input.query };
+      if (input.query) {
+        // MongoDB forbids combining $text with $near / geoNear, so use regex
+        // when a location filter is also applied.
+        if (usingGeo) {
+          const q = input.query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          if (q) {
+            const pattern = new RegExp(q, 'i');
+            filter.$or = [
+              { name: pattern },
+              { cuisine: pattern },
+              { description: pattern },
+              { 'address.city': pattern },
+            ];
+          }
+        } else {
+          filter.$text = { $search: input.query };
+        }
+      }
       if (input.cuisine) filter.cuisine = input.cuisine;
       if (input.priceRange) filter.priceRange = input.priceRange;
       if (input.city) filter['address.city'] = new RegExp(`^${input.city}$`, 'i');
 
-      if (input.lat != null && input.lng != null) {
+      const skip = (input.page - 1) * input.limit;
+      // Featured (promoted) restaurants rank first, then by rating.
+      // Geo $near queries return distance-sorted results, so keep that order there.
+      // countDocuments uses aggregation, which rejects $near — use $geoWithin for counts.
+      const countFilter = { ...filter };
+      if (usingGeo) {
+        const coordinates = [input.lng!, input.lat!];
+        const maxDistanceMeters = (input.radiusKm ?? 25) * 1000;
         filter.location = {
           $near: {
-            $geometry: { type: 'Point', coordinates: [input.lng, input.lat] },
-            $maxDistance: (input.radiusKm ?? 25) * 1000,
+            $geometry: { type: 'Point', coordinates },
+            $maxDistance: maxDistanceMeters,
+          },
+        };
+        countFilter.location = {
+          $geoWithin: {
+            $centerSphere: [coordinates, maxDistanceMeters / 6_378_100],
           },
         };
       }
 
-      const skip = (input.page - 1) * input.limit;
-      // Featured (promoted) restaurants rank first, then by rating.
-      // Geo $near queries return distance-sorted results, so keep that order there.
-      const usingGeo = input.lat != null && input.lng != null;
       const query = Restaurant.find(filter).skip(skip).limit(input.limit);
       if (!usingGeo) query.sort({ featured: -1, averageRating: -1 });
       const [items, total] = await Promise.all([
         query,
-        Restaurant.countDocuments(filter),
+        Restaurant.countDocuments(countFilter),
       ]);
 
       return {
@@ -408,6 +445,39 @@ export const resolvers = {
       }));
     },
 
+    myNotifications: async (
+      _: unknown,
+      args: { limit?: number | null },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const limit = Math.min(Math.max(args.limit ?? 20, 1), 50);
+      const items = await Notification.find({
+        userId: user._id,
+        channel: 'in_app',
+      })
+        .sort({ createdAt: -1 })
+        .limit(limit);
+      return items.map((n: any) => ({
+        id: n._id.toString(),
+        type: n.type,
+        title: n.title,
+        body: n.body,
+        data: n.data ? JSON.stringify(n.data) : null,
+        readAt: n.readAt ?? null,
+        createdAt: n.createdAt,
+      }));
+    },
+
+    unreadNotificationCount: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      return Notification.countDocuments({
+        userId: user._id,
+        channel: 'in_app',
+        readAt: null,
+      });
+    },
+
     myRestaurants: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
       const items = await Restaurant.find({
@@ -442,6 +512,21 @@ export const resolvers = {
       requireRole(ctx, ['admin']);
       const users = await User.find().sort({ createdAt: -1 }).limit(200);
       return users.map(mapUser);
+    },
+
+    restaurantTeam: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      const restaurant = await Restaurant.findById(args.restaurantId);
+      if (!restaurant) throw new Error('Restaurant not found');
+      const team = await User.find({
+        $or: [{ _id: restaurant.ownerId }, { restaurantIds: restaurant._id }],
+      }).sort({ firstName: 1, lastName: 1 });
+      return team.map(mapUser);
     },
 
     auditLogs: async (
@@ -820,12 +905,20 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      const mongoose = (await import('mongoose')).default;
       const latest = await Message.aggregate([
-        { $match: { restaurantId: new (await import('mongoose')).default.Types.ObjectId(args.restaurantId) } },
+        {
+          $match: {
+            restaurantId: new mongoose.Types.ObjectId(args.restaurantId),
+            reservationId: { $ne: null },
+          },
+        },
         { $sort: { createdAt: -1 } },
         {
           $group: {
-            _id: '$dinerId',
+            _id: '$reservationId',
+            dinerId: { $first: '$dinerId' },
+            restaurantId: { $first: '$restaurantId' },
             lastMessage: { $first: '$$ROOT' },
             unreadCount: {
               $sum: {
@@ -838,41 +931,89 @@ export const resolvers = {
             },
           },
         },
+        { $match: { _id: { $ne: null } } },
         { $sort: { 'lastMessage.createdAt': -1 } },
       ]);
       return latest.map((c) => ({
-        dinerId: c._id.toString(),
-        restaurantId: args.restaurantId,
+        reservationId: c._id.toString(),
+        dinerId: c.dinerId.toString(),
+        restaurantId: c.restaurantId.toString(),
         lastMessage: mapMessage(c.lastMessage),
         unreadCount: c.unreadCount,
       }));
     },
 
-    messages: async (
+    conversation: async (
       _: unknown,
-      args: { restaurantId: string; dinerId: string },
+      args: { reservationId: string },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      const isDiner = user._id.toString() === args.dinerId;
+      const reservation = await Reservation.findById(args.reservationId);
+      if (!reservation) return null;
+
+      const isDiner = reservation.dinerId.equals(user._id);
       if (!isDiner) {
-        await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+        await assertRestaurantAccess(
+          user._id.toString(),
+          reservation.restaurantId.toString(),
+          user.role,
+        );
       }
-      const items = await Message.find({
-        restaurantId: args.restaurantId,
-        dinerId: args.dinerId,
-      }).sort({ createdAt: 1 });
+
+      const lastMessage = await Message.findOne({ reservationId: args.reservationId }).sort({
+        createdAt: -1,
+      });
+      const unreadSenderType = isDiner ? 'restaurant' : 'diner';
+      const unreadCount = await Message.countDocuments({
+        reservationId: args.reservationId,
+        senderType: unreadSenderType,
+        readAt: null,
+      });
+
+      return {
+        reservationId: reservation._id.toString(),
+        dinerId: reservation.dinerId.toString(),
+        restaurantId: reservation.restaurantId.toString(),
+        lastMessage: lastMessage ? mapMessage(lastMessage) : null,
+        unreadCount,
+      };
+    },
+
+    messages: async (
+      _: unknown,
+      args: { reservationId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const reservation = await Reservation.findById(args.reservationId);
+      if (!reservation) throw new Error('Reservation not found');
+
+      const isDiner = reservation.dinerId.equals(user._id);
+      if (!isDiner) {
+        await assertRestaurantAccess(
+          user._id.toString(),
+          reservation.restaurantId.toString(),
+          user.role,
+        );
+      }
+
+      const items = await Message.find({ reservationId: args.reservationId }).sort({
+        createdAt: 1,
+      });
       return items.map(mapMessage);
     },
 
     myConversations: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
       const latest = await Message.aggregate([
-        { $match: { dinerId: user._id } },
+        { $match: { dinerId: user._id, reservationId: { $ne: null } } },
         { $sort: { createdAt: -1 } },
         {
           $group: {
-            _id: '$restaurantId',
+            _id: '$reservationId',
+            dinerId: { $first: '$dinerId' },
+            restaurantId: { $first: '$restaurantId' },
             lastMessage: { $first: '$$ROOT' },
             unreadCount: {
               $sum: {
@@ -885,11 +1026,13 @@ export const resolvers = {
             },
           },
         },
+        { $match: { _id: { $ne: null } } },
         { $sort: { 'lastMessage.createdAt': -1 } },
       ]);
       return latest.map((c) => ({
-        dinerId: user._id.toString(),
-        restaurantId: c._id.toString(),
+        reservationId: c._id.toString(),
+        dinerId: c.dinerId.toString(),
+        restaurantId: c.restaurantId.toString(),
         lastMessage: mapMessage(c.lastMessage),
         unreadCount: c.unreadCount,
       }));
@@ -1310,6 +1453,42 @@ export const resolvers = {
       };
     },
 
+    createOwnerReservation: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      const rawInput = args.input as Record<string, unknown>;
+      if (rawInput.slotStart instanceof Date) {
+        rawInput.slotStart = rawInput.slotStart.toISOString();
+      }
+      const input = ownerReservationInputSchema.parse(rawInput);
+      await assertRestaurantAccess(user._id.toString(), input.restaurantId, user.role);
+      if (input.source && !['phone', 'walkin'].includes(input.source)) {
+        throw new Error('Owner bookings must use phone or walkin source');
+      }
+      const reservation = await createOwnerReservation({
+        restaurantId: input.restaurantId,
+        partySize: input.partySize,
+        slotStart: new Date(input.slotStart),
+        occasion: input.occasion,
+        guestNotes: input.guestNotes,
+        source: input.source,
+        guest: input.guest,
+        tableId: input.tableId,
+        seatImmediately: input.seatImmediately,
+      });
+      await logAudit({
+        actorId: user._id.toString(),
+        action: 'createOwnerReservation',
+        resource: 'Reservation',
+        resourceId: reservation._id.toString(),
+        details: {
+          restaurantId: input.restaurantId,
+          partySize: input.partySize,
+          source: input.source,
+        },
+      });
+      return mapReservation(reservation);
+    },
+
     confirmDepositPayment: async (
       _: unknown,
       args: { paymentIntentId: string },
@@ -1321,6 +1500,34 @@ export const resolvers = {
         dinerId: user._id.toString(),
       });
       if (!reservation) throw new Error('Payment confirmation failed');
+      return mapReservation(reservation);
+    },
+
+    updateReservation: async (
+      _: unknown,
+      args: { id: string; input: unknown },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const rawInput = args.input as Record<string, unknown>;
+      if (rawInput.slotStart instanceof Date) {
+        rawInput.slotStart = rawInput.slotStart.toISOString();
+      }
+      const input = updateReservationInputSchema.parse(rawInput);
+      const reservation = await updateReservationDetails(args.id, user._id.toString(), {
+        partySize: input.partySize,
+        slotStart: input.slotStart ? new Date(input.slotStart) : undefined,
+        occasion: input.occasion,
+        guestNotes: input.guestNotes,
+        tableId: input.tableId,
+      });
+      await logAudit({
+        actorId: user._id.toString(),
+        action: 'updateReservation',
+        resource: 'Reservation',
+        resourceId: args.id,
+        details: input,
+      });
       return mapReservation(reservation);
     },
 
@@ -1344,6 +1551,18 @@ export const resolvers = {
         details: { status: args.status, reason: args.reason },
       });
       return mapReservation(reservation);
+    },
+
+    deleteReservation: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      await deleteReservation(args.id, user._id.toString());
+      await logAudit({
+        actorId: user._id.toString(),
+        action: 'deleteReservation',
+        resource: 'Reservation',
+        resourceId: args.id,
+      });
+      return true;
     },
 
     joinWaitlist: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
@@ -1625,6 +1844,87 @@ export const resolvers = {
       const user = requireAuth(ctx);
       await User.findByIdAndUpdate(user._id, { telegramChatId: args.chatId });
       return true;
+    },
+
+    markNotificationsRead: async (
+      _: unknown,
+      args: { ids?: string[] | null },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const filter: Record<string, unknown> = {
+        userId: user._id,
+        channel: 'in_app',
+        readAt: null,
+      };
+      if (args.ids?.length) filter._id = { $in: args.ids };
+      await Notification.updateMany(filter, { $set: { readAt: new Date() } });
+      return true;
+    },
+
+    markAllNotificationsRead: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      await Notification.updateMany(
+        { userId: user._id, channel: 'in_app', readAt: null },
+        { $set: { readAt: new Date() } },
+      );
+      return true;
+    },
+
+    updateNotificationPreferences: async (
+      _: unknown,
+      args: {
+        userId?: string | null;
+        restaurantId?: string | null;
+        input: Record<
+          string,
+          | {
+              sms?: boolean | null;
+              email?: boolean | null;
+              webPush?: boolean | null;
+              platform?: boolean | null;
+            }
+          | null
+          | undefined
+        >;
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const actor = requireAuth(ctx);
+      const input = notificationPreferencesSchema.parse(args.input);
+      const targetId = args.userId ?? actor._id.toString();
+      const isSelf = targetId === actor._id.toString();
+
+      if (!isSelf) {
+        if (!args.restaurantId) throw new Error('restaurantId is required to update another user');
+        await assertRestaurantAccess(actor._id.toString(), args.restaurantId, actor.role);
+        if (actor.role !== 'admin' && actor.role !== 'restaurant_owner') {
+          throw new Error('Only owners can update team notification preferences');
+        }
+        const restaurant = await Restaurant.findById(args.restaurantId);
+        if (!restaurant) throw new Error('Restaurant not found');
+        const target = await User.findById(targetId);
+        if (!target) throw new Error('User not found');
+        const onTeam =
+          restaurant.ownerId.equals(targetId) ||
+          target.restaurantIds?.some((id) => id.equals(args.restaurantId!));
+        if (!onTeam) throw new Error('User is not on this restaurant team');
+      }
+
+      const $set: Record<string, boolean> = {};
+      for (const [eventKey, channels] of Object.entries(input)) {
+        if (!channels || typeof channels !== 'object') continue;
+        for (const [channelKey, value] of Object.entries(channels)) {
+          if (typeof value === 'boolean') {
+            $set[`notificationPreferences.${eventKey}.${channelKey}`] = value;
+          }
+        }
+      }
+      if (Object.keys($set).length === 0) throw new Error('No preferences to update');
+
+      const updated = await User.findByIdAndUpdate(targetId, { $set }, { new: true });
+      if (!updated) throw new Error('User not found');
+      return mapUser(updated);
     },
 
     createExperience: async (
@@ -2149,29 +2449,30 @@ export const resolvers = {
 
     sendMessage: async (
       _: unknown,
-      args: { restaurantId: string; dinerId?: string; reservationId?: string; body: string },
+      args: { reservationId: string; body: string },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
       if (!args.body.trim()) throw new Error('Message cannot be empty');
 
-      let senderType: 'restaurant' | 'diner' = 'diner';
-      let dinerId = user._id.toString();
+      const reservation = await Reservation.findById(args.reservationId);
+      if (!reservation) throw new Error('Reservation not found');
 
-      try {
-        await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-        senderType = 'restaurant';
-        if (!args.dinerId) throw new Error('dinerId is required when messaging as the restaurant');
-        dinerId = args.dinerId;
-      } catch (err) {
-        if (err instanceof Error && err.message.includes('dinerId is required')) throw err;
+      const restaurantId = reservation.restaurantId.toString();
+      const dinerId = reservation.dinerId.toString();
+
+      let senderType: 'restaurant' | 'diner' = 'diner';
+      if (reservation.dinerId.equals(user._id)) {
         senderType = 'diner';
+      } else {
+        await assertRestaurantAccess(user._id.toString(), restaurantId, user.role);
+        senderType = 'restaurant';
       }
 
-      await requireFeature(args.restaurantId, 'twoWayMessaging');
+      await requireFeature(restaurantId, 'twoWayMessaging');
 
       const doc = await Message.create({
-        restaurantId: args.restaurantId,
+        restaurantId,
         dinerId,
         reservationId: args.reservationId,
         senderType,
@@ -2180,23 +2481,23 @@ export const resolvers = {
       });
 
       if (senderType === 'restaurant') {
-        const restaurant = await Restaurant.findById(args.restaurantId);
+        const restaurant = await Restaurant.findById(restaurantId);
         await notifyUser(
           dinerId,
           {
             type: 'new_message',
             title: `Message from ${restaurant?.name ?? 'the restaurant'}`,
             body: args.body.slice(0, 200),
-            data: { restaurantId: args.restaurantId },
+            data: { restaurantId, reservationId: args.reservationId },
           },
-          { smsRestaurantId: args.restaurantId },
+          { smsRestaurantId: restaurantId },
         );
       } else {
-        await notifyRestaurantStaff(args.restaurantId, {
+        await notifyRestaurantStaff(restaurantId, {
           type: 'new_message',
           title: 'New guest message',
           body: args.body.slice(0, 200),
-          data: { restaurantId: args.restaurantId, dinerId },
+          data: { restaurantId, dinerId, reservationId: args.reservationId },
         });
       }
 
@@ -2205,20 +2506,28 @@ export const resolvers = {
 
     markConversationRead: async (
       _: unknown,
-      args: { restaurantId: string; dinerId: string },
+      args: { reservationId: string },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      const isDiner = user._id.toString() === args.dinerId;
+      const reservation = await Reservation.findById(args.reservationId);
+      if (!reservation) throw new Error('Reservation not found');
+
       let readSenderType = 'restaurant';
-      if (!isDiner) {
-        await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      if (reservation.dinerId.equals(user._id)) {
+        readSenderType = 'restaurant';
+      } else {
+        await assertRestaurantAccess(
+          user._id.toString(),
+          reservation.restaurantId.toString(),
+          user.role,
+        );
         readSenderType = 'diner';
       }
+
       await Message.updateMany(
         {
-          restaurantId: args.restaurantId,
-          dinerId: args.dinerId,
+          reservationId: args.reservationId,
           senderType: readSenderType,
           readAt: null,
         },

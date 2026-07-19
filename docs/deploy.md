@@ -30,6 +30,9 @@ pnpm --filter @reservations/web start
 
 Set `NEXT_PUBLIC_API_URL=https://api.yourdomain.com/graphql`.
 
+For Google address autocomplete on the diner home page, also set
+`NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (Maps JavaScript API + Places library; restrict by HTTP referrer).
+Without the key, the location field falls back to curated US cities with nearby search.
 ## Stripe webhook
 
 Endpoint: `POST https://api.yourdomain.com/webhooks/stripe`  

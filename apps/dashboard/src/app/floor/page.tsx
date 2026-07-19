@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import {
@@ -21,6 +21,7 @@ import {
 } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import { useAuth } from '@/lib/auth';
+import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
 import {
   MY_RESTAURANTS,
   CREATE_TABLE,
@@ -37,8 +38,12 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export default function FloorPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [restaurantId, setRestaurantId] = useState<string>();
   const { data, refetch } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurantIds = useMemo(
+    () => (data?.myRestaurants ?? []).map((r: { id: string }) => r.id),
+    [data],
+  );
+  const { restaurantId, setRestaurantId } = useActiveRestaurant(restaurantIds);
   const [createTable] = useMutation(CREATE_TABLE);
   const [deleteTable] = useMutation(DELETE_TABLE);
   const [createShift] = useMutation(CREATE_SHIFT);
@@ -55,11 +60,6 @@ export default function FloorPage() {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('activeRestaurantId');
-    setRestaurantId(saved ?? data?.myRestaurants?.[0]?.id);
-  }, [data]);
-
   const restaurant = (data?.myRestaurants ?? []).find((r: any) => r.id === restaurantId);
 
   return (
@@ -68,10 +68,7 @@ export default function FloorPage() {
       <Select
         style={{ width: 280 }}
         value={restaurantId}
-        onChange={(id) => {
-          setRestaurantId(id);
-          localStorage.setItem('activeRestaurantId', id);
-        }}
+        onChange={setRestaurantId}
         options={(data?.myRestaurants ?? []).map((r: any) => ({ value: r.id, label: r.name }))}
       />
 

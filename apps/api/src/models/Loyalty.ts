@@ -14,7 +14,11 @@ const loyaltySchema = new Schema(
 const notificationSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    channel: { type: String, enum: ['email', 'telegram', 'push', 'sms'], required: true },
+    channel: {
+      type: String,
+      enum: ['email', 'telegram', 'push', 'sms', 'in_app'],
+      required: true,
+    },
     type: { type: String, required: true },
     title: { type: String, required: true },
     body: { type: String, required: true },
@@ -25,6 +29,7 @@ const notificationSchema = new Schema(
       default: 'queued',
     },
     sentAt: { type: Date },
+    readAt: { type: Date },
     error: { type: String },
   },
   { timestamps: true },

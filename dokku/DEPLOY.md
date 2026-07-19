@@ -92,7 +92,8 @@ dokku config:set reservetable-web \
 dokku docker-options:add reservetable-web build \
   "--build-arg NEXT_PUBLIC_API_URL=https://api.reservetable.com/graphql" \
   "--build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_..." \
-  "--build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY=..."
+  "--build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY=..." \
+  "--build-arg NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=..."
 ```
 
 ### Dashboard

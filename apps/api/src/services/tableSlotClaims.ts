@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { ConflictError } from '../lib/errors.js';
 import { SLOT_QUANTUM_MS, TableSlotClaim } from '../models/TableSlotClaim.js';
 
 export function slotKeysForRange(start: Date, end: Date): string[] {
@@ -46,7 +47,7 @@ export async function claimTableSlots(input: {
   } catch (err) {
     await TableSlotClaim.deleteMany({ reservationId: input.reservationId });
     if (isDuplicateKeyError(err)) {
-      throw new Error('No tables available for this time');
+      throw new ConflictError('No tables available for this time');
     }
     throw err;
   }
@@ -56,4 +57,23 @@ export async function releaseTableSlotClaims(
   reservationId: string | mongoose.Types.ObjectId,
 ) {
   await TableSlotClaim.deleteMany({ reservationId });
+}
+
+/** Table IDs that already have a claim overlapping [slotStart, slotEnd). */
+export async function findClaimedTableIds(input: {
+  restaurantId: string | mongoose.Types.ObjectId;
+  slotStart: Date;
+  slotEnd: Date;
+}): Promise<Set<string>> {
+  const keys = slotKeysForRange(input.slotStart, input.slotEnd);
+  if (keys.length === 0) return new Set();
+
+  const claims = await TableSlotClaim.find({
+    restaurantId: input.restaurantId,
+    slotKey: { $in: keys },
+  })
+    .select('tableId')
+    .lean();
+
+  return new Set(claims.map((c) => String(c.tableId)));
 }

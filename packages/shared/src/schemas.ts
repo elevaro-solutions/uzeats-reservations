@@ -89,6 +89,33 @@ export const reservationInputSchema = z.object({
   redeemPoints: z.number().int().min(0).optional(),
 });
 
+export const ownerGuestInputSchema = z.object({
+  firstName: z.string().min(1).max(80),
+  lastName: z.string().max(80).optional().default(''),
+  phone: z.string().min(7).max(20).optional(),
+  email: z.string().email().toLowerCase().optional(),
+});
+
+export const ownerReservationInputSchema = z.object({
+  restaurantId: z.string().min(1),
+  partySize: z.number().int().min(1).max(50),
+  slotStart: z.string().datetime(),
+  occasion: z.enum(OCCASIONS).default('none'),
+  guestNotes: z.string().max(500).optional(),
+  source: z.enum(['phone', 'walkin']).default('phone'),
+  guest: ownerGuestInputSchema,
+  tableId: z.string().min(1).optional(),
+  seatImmediately: z.boolean().optional().default(false),
+});
+
+export const updateReservationInputSchema = z.object({
+  partySize: z.number().int().min(1).max(50).optional(),
+  slotStart: z.string().datetime().optional(),
+  occasion: z.enum(OCCASIONS).optional(),
+  guestNotes: z.string().max(500).optional(),
+  tableId: z.string().min(1).optional(),
+});
+
 export const waitlistInputSchema = z.object({
   restaurantId: z.string().min(1),
   partySize: z.number().int().min(1).max(50),
@@ -101,6 +128,23 @@ export const reviewInputSchema = z.object({
   reservationId: z.string().min(1),
   rating: z.number().int().min(1).max(5),
   comment: z.string().max(2000).optional(),
+});
+
+export const notificationChannelPreferencesSchema = z.object({
+  sms: z.boolean().nullish(),
+  email: z.boolean().nullish(),
+  webPush: z.boolean().nullish(),
+  platform: z.boolean().nullish(),
+});
+
+export const notificationPreferencesSchema = z.object({
+  newMessage: notificationChannelPreferencesSchema.nullish(),
+  newReservation: notificationChannelPreferencesSchema.nullish(),
+  waitlistAvailable: notificationChannelPreferencesSchema.nullish(),
+  guestSpendAlert: notificationChannelPreferencesSchema.nullish(),
+  reservationUpdates: notificationChannelPreferencesSchema.nullish(),
+  reviewReply: notificationChannelPreferencesSchema.nullish(),
+  surveyInvitation: notificationChannelPreferencesSchema.nullish(),
 });
 
 export const searchRestaurantsSchema = z.object({
@@ -124,8 +168,11 @@ export type RestaurantInput = z.infer<typeof restaurantInputSchema>;
 export type TableInput = z.infer<typeof tableInputSchema>;
 export type ShiftInput = z.infer<typeof shiftInputSchema>;
 export type ReservationInput = z.infer<typeof reservationInputSchema>;
+export type OwnerReservationInput = z.infer<typeof ownerReservationInputSchema>;
+export type UpdateReservationInput = z.infer<typeof updateReservationInputSchema>;
 export type WaitlistInput = z.infer<typeof waitlistInputSchema>;
 export type ReviewInput = z.infer<typeof reviewInputSchema>;
+export type NotificationPreferencesInput = z.infer<typeof notificationPreferencesSchema>;
 export type SearchRestaurantsInput = z.infer<typeof searchRestaurantsSchema>;
 
 export {

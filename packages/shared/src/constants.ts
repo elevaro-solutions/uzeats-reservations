@@ -53,3 +53,42 @@ export const DEFAULT_SLOT_INTERVAL_MINUTES = 15;
 export const DEFAULT_TURN_TIME_MINUTES = 90;
 export const REMINDER_HOURS = [24, 2] as const;
 export const CANCELLATION_REFUND_HOURS = 24;
+
+/** Delivery channels shown as preference matrix columns. */
+export const NOTIFICATION_CHANNELS = ['sms', 'email', 'webPush', 'platform'] as const;
+
+export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
+
+/** Toggleable notification features (password_reset is always sent). */
+export const NOTIFICATION_EVENTS = [
+  'newMessage',
+  'newReservation',
+  'waitlistAvailable',
+  'guestSpendAlert',
+  'reservationUpdates',
+  'reviewReply',
+  'surveyInvitation',
+] as const;
+
+export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
+
+/** Maps delivery `type` strings to preference event keys. */
+export const NOTIFICATION_TYPE_TO_EVENT: Record<string, NotificationEvent> = {
+  new_message: 'newMessage',
+  new_reservation: 'newReservation',
+  waitlist_available: 'waitlistAvailable',
+  waitlist_ready: 'waitlistAvailable',
+  waitlist_notified: 'waitlistAvailable',
+  guest_spend_alert: 'guestSpendAlert',
+  reservation_confirmed: 'reservationUpdates',
+  reservation_reminder: 'reservationUpdates',
+  review_reply: 'reviewReply',
+  survey_invitation: 'surveyInvitation',
+};
+
+export const DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES: Record<NotificationChannel, boolean> = {
+  sms: false,
+  email: true,
+  webPush: true,
+  platform: true,
+};

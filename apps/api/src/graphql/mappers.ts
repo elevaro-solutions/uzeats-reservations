@@ -1,3 +1,5 @@
+import { mapNotificationPreferences } from '../lib/notificationPreferences.js';
+
 function id(doc: { _id: { toString(): string } }) {
   return doc._id.toString();
 }
@@ -14,6 +16,7 @@ export function mapUser(u: any) {
     emailVerified: u.emailVerified ?? false,
     phoneVerified: u.phoneVerified ?? false,
     telegramChatId: u.telegramChatId ?? null,
+    notificationPreferences: mapNotificationPreferences(u.notificationPreferences),
     restaurantIds: (u.restaurantIds ?? []).map((x: { toString(): string }) => x.toString()),
     createdAt: u.createdAt,
   };
@@ -149,7 +152,7 @@ export function mapMessage(m: any) {
     id: m._id.toString(),
     restaurantId: m.restaurantId.toString(),
     dinerId: m.dinerId.toString(),
-    reservationId: m.reservationId?.toString() ?? null,
+    reservationId: m.reservationId?.toString() ?? '',
     senderType: m.senderType,
     senderId: m.senderId.toString(),
     body: m.body,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@apollo/client/react';
 import { useRouter } from 'next/navigation';
 import {
@@ -12,41 +12,73 @@ import {
   Select,
   Skeleton,
   Tag,
-  Tooltip,
   Typography,
   message,
 } from 'antd';
 import dayjs from 'dayjs';
 import { RestaurantCard, EmptyState, colors, radii, shadows, typography } from '@reservations/ui';
 import {
-  AimOutlined,
-  CheckCircleFilled,
   CrownFilled,
   EnvironmentFilled,
   GlobalOutlined,
   SearchOutlined,
+  StarFilled,
+  TagFilled,
+  ThunderboltFilled,
 } from '@ant-design/icons';
 import { CUISINES } from '@reservations/shared';
 import { SEARCH_RESTAURANTS, AVAILABILITY } from '@/lib/graphql';
+import { DEFAULT_LOCATION, cityLabel } from '@/lib/cities';
+import {
+  AddressAutocomplete,
+  type LocationSelection,
+} from '@/components/AddressAutocomplete';
 
 const { Title, Paragraph, Text } = Typography;
 
+/** Search radius for address / near-me results (~10 miles). */
+const NEARBY_RADIUS_KM = 16;
+const SEARCH_DEBOUNCE_MS = 500;
+
 const HERO_HIGHLIGHTS = [
-  'Instant confirmation',
-  'Free for diners',
-  'Loyalty rewards',
+  { icon: <ThunderboltFilled />, label: 'Instant confirmation' },
+  { icon: <TagFilled />, label: 'Free for diners' },
+  { icon: <CrownFilled />, label: 'Loyalty rewards' },
+] as const;
+
+const HERO_STATS = [
+  { value: '12,000+', label: 'Restaurants' },
+  { value: '2M+', label: 'Diners served' },
+  { value: '4.8★', label: 'Average rating' },
 ] as const;
 
 export default function HomePage() {
   const router = useRouter();
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [cuisine, setCuisine] = useState<string | undefined>();
-  const [city, setCity] = useState('New York');
+  const [locationInput, setLocationInput] = useState(cityLabel(DEFAULT_LOCATION));
+  const [selectedLocation, setSelectedLocation] = useState<LocationSelection>({
+    label: cityLabel(DEFAULT_LOCATION),
+    lat: DEFAULT_LOCATION.lat,
+    lng: DEFAULT_LOCATION.lng,
+  });
+  const [usingDeviceLocation, setUsingDeviceLocation] = useState(false);
   const [partySize, setPartySize] = useState(2);
   const [date, setDate] = useState(dayjs().add(1, 'day'));
-  const [geoLocation, setGeoLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
   const [showMap, setShowMap] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const applyLocation = useCallback((location: LocationSelection, fromDevice = false) => {
+    setSelectedLocation(location);
+    setLocationInput(location.label);
+    setUsingDeviceLocation(fromDevice);
+  }, []);
 
   const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -56,8 +88,14 @@ export default function HomePage() {
     setGeoLoading(true);
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setGeoLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
-        setCity('');
+        applyLocation(
+          {
+            label: 'Near me',
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          },
+          true,
+        );
         setGeoLoading(false);
         message.success('Showing restaurants near you');
       },
@@ -71,11 +109,24 @@ export default function HomePage() {
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
-  }, []);
+  }, [applyLocation]);
+
+  const clearDeviceLocation = useCallback(() => {
+    applyLocation({
+      label: cityLabel(DEFAULT_LOCATION),
+      lat: DEFAULT_LOCATION.lat,
+      lng: DEFAULT_LOCATION.lng,
+    });
+  }, [applyLocation]);
 
   const clearLocation = useCallback(() => {
-    setGeoLocation(null);
-    setCity('New York');
+    setLocationInput('');
+    setSelectedLocation({
+      label: cityLabel(DEFAULT_LOCATION),
+      lat: DEFAULT_LOCATION.lat,
+      lng: DEFAULT_LOCATION.lng,
+    });
+    setUsingDeviceLocation(false);
   }, []);
 
   const dateStr = date.format('YYYY-MM-DD');
@@ -83,14 +134,15 @@ export default function HomePage() {
   const { data, loading } = useQuery(SEARCH_RESTAURANTS, {
     variables: {
       input: {
-        query: query || undefined,
+        query: debouncedQuery || undefined,
         cuisine,
-        city: geoLocation ? undefined : city || undefined,
         partySize,
         date: dateStr,
         page: 1,
         limit: 24,
-        ...(geoLocation ? { lat: geoLocation.lat, lng: geoLocation.lng, radiusKm: 16 } : {}),
+        lat: selectedLocation.lat,
+        lng: selectedLocation.lng,
+        radiusKm: NEARBY_RADIUS_KM,
       },
     },
   });
@@ -107,11 +159,9 @@ export default function HomePage() {
   });
   const topRestaurants = (topData as any)?.searchRestaurants?.items ?? [];
 
-  const resultsTitle = geoLocation
+  const resultsTitle = usingDeviceLocation
     ? 'Restaurants near you'
-    : city
-      ? `Top tables in ${city}`
-      : 'Top restaurants';
+    : `Restaurants near ${selectedLocation.label.split(',').slice(0, 2).join(',').trim()}`;
 
   const renderGrid = (items: any[]) => (
     <Row gutter={[20, 20]}>
@@ -147,6 +197,7 @@ export default function HomePage() {
         {/* decorative glows */}
         <div
           aria-hidden
+          className="rt-hero-orb"
           style={{
             position: 'absolute',
             top: -160,
@@ -160,6 +211,7 @@ export default function HomePage() {
         />
         <div
           aria-hidden
+          className="rt-hero-orb"
           style={{
             position: 'absolute',
             bottom: -220,
@@ -169,6 +221,7 @@ export default function HomePage() {
             borderRadius: '50%',
             background: `radial-gradient(circle, rgba(240, 172, 154, 0.2) 0%, transparent 70%)`,
             pointerEvents: 'none',
+            animationDelay: '-7s',
           }}
         />
         <div
@@ -194,50 +247,67 @@ export default function HomePage() {
             textAlign: 'center',
           }}
         >
+          <span
+            className="rt-fade-up rt-hero-badge"
+            style={{
+              fontSize: typography.fontSize.sm,
+              fontWeight: typography.fontWeight.medium,
+            }}
+          >
+            <StarFilled style={{ color: colors.rating }} />
+            Rated 4.8/5 by diners nationwide
+          </span>
+
           <Title
             className="rt-fade-up"
             style={{
               color: '#fff',
-              margin: '0 auto',
-              fontSize: 'clamp(36px, 5vw, 52px)',
-              lineHeight: 1.1,
+              margin: '18px auto 0',
+              fontSize: 'clamp(38px, 5.5vw, 60px)',
+              lineHeight: 1.08,
               letterSpacing: typography.letterSpacing.tight,
-              maxWidth: 720,
+              maxWidth: 780,
               fontWeight: typography.fontWeight.bold,
+              animationDelay: '60ms',
             }}
           >
-            ReserveTable
+            Find your table.{' '}
+            <span style={{ color: colors.brand[400], display: 'inline-block' }}>
+              Book it in seconds.
+            </span>
           </Title>
 
           <Paragraph
             className="rt-fade-up"
             style={{
               color: 'rgba(255,255,255,0.78)',
-              maxWidth: 480,
-              margin: '14px auto 0',
+              maxWidth: 520,
+              margin: '16px auto 0',
               fontSize: typography.fontSize.md,
               lineHeight: 1.55,
-              animationDelay: '80ms',
+              animationDelay: '120ms',
             }}
           >
-            Find a table and book it in seconds — free for diners, anywhere in the USA.
+            Reserve at thousands of restaurants across the USA — always free for
+            diners, confirmed instantly.
           </Paragraph>
 
           {/* search panel */}
           <div
             className="rt-fade-up"
             style={{
-              marginTop: 28,
+              marginTop: 32,
               background: '#fff',
               borderRadius: radii.xl,
               padding: 10,
-              boxShadow: '0 24px 64px rgba(0, 0, 0, 0.32)',
+              boxShadow:
+                '0 24px 64px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(255,255,255,0.06)',
               display: 'flex',
               flexWrap: 'wrap',
               gap: 8,
               alignItems: 'center',
               textAlign: 'left',
-              animationDelay: '140ms',
+              animationDelay: '180ms',
             }}
           >
             <Input
@@ -259,43 +329,36 @@ export default function HomePage() {
               options={CUISINES.map((c) => ({ value: c, label: c }))}
               variant="filled"
             />
-            {geoLocation ? (
+            {usingDeviceLocation ? (
               <Tag
                 color={colors.brand[600]}
                 closable
-                onClose={clearLocation}
+                onClose={clearDeviceLocation}
                 style={{
-                  height: 40,
-                  display: 'flex',
+                  height: 44,
+                  display: 'inline-flex',
                   alignItems: 'center',
                   fontSize: 14,
-                  padding: '0 12px',
-                  borderRadius: radii.sm,
+                  padding: '0 14px',
+                  borderRadius: radii.md,
                   margin: 0,
+                  flex: '1 1 180px',
+                  minWidth: 160,
                 }}
               >
-                <EnvironmentFilled style={{ marginRight: 4 }} /> Near me
+                <EnvironmentFilled style={{ marginRight: 6 }} /> Near me — showing closest tables
               </Tag>
             ) : (
-              <Input
-                size="large"
-                prefix={<EnvironmentFilled style={{ color: colors.textTertiary }} />}
-                placeholder="City"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                style={{ flex: '1 1 130px', minWidth: 120 }}
-                variant="filled"
+              <AddressAutocomplete
+                value={locationInput}
+                onChange={setLocationInput}
+                onSelectLocation={(loc) => applyLocation(loc)}
+                onUseMyLocation={requestLocation}
+                onClear={clearLocation}
+                geoLoading={geoLoading}
+                style={{ flex: '1 1 220px', minWidth: 180 }}
               />
             )}
-            <Tooltip title={geoLocation ? 'Location active — click to clear' : 'Find restaurants near me'}>
-              <Button
-                size="large"
-                icon={<AimOutlined />}
-                loading={geoLoading}
-                onClick={geoLocation ? clearLocation : requestLocation}
-                type={geoLocation ? 'primary' : 'default'}
-              />
-            </Tooltip>
             <DatePicker
               size="large"
               value={date}
@@ -319,13 +382,16 @@ export default function HomePage() {
               type="primary"
               size="large"
               icon={<SearchOutlined />}
+              className="rt-hero-cta"
               style={{
-                flex: '0 0 auto',
+                flex: '1 1 auto',
                 height: 44,
+                minWidth: 150,
                 borderRadius: radii.md,
                 fontWeight: typography.fontWeight.semibold,
                 paddingInline: 24,
                 background: colors.brand[600],
+                boxShadow: shadows.brand,
               }}
             >
               Find a table
@@ -340,24 +406,78 @@ export default function HomePage() {
               display: 'flex',
               flexWrap: 'wrap',
               justifyContent: 'center',
-              gap: '10px 28px',
-              animationDelay: '220ms',
+              gap: 10,
+              animationDelay: '240ms',
             }}
           >
             {HERO_HIGHLIGHTS.map((h) => (
               <span
-                key={h}
+                key={h.label}
+                className="rt-hero-pill"
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  color: 'rgba(255,255,255,0.78)',
                   fontSize: typography.fontSize.sm,
                   fontWeight: typography.fontWeight.medium,
                 }}
               >
-                <CheckCircleFilled style={{ color: colors.brand[400] }} /> {h}
+                <span style={{ color: colors.brand[400], display: 'inline-flex' }}>
+                  {h.icon}
+                </span>
+                {h.label}
               </span>
+            ))}
+          </div>
+
+          {/* social proof stats */}
+          <div
+            className="rt-fade-up"
+            style={{
+              marginTop: 30,
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+              alignItems: 'center',
+              gap: '14px 0',
+              animationDelay: '300ms',
+            }}
+          >
+            {HERO_STATS.map((s, i) => (
+              <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '14px 32px' }}>
+                {i > 0 && (
+                  <span
+                    aria-hidden
+                    style={{
+                      width: 1,
+                      height: 30,
+                      background: 'rgba(255,255,255,0.16)',
+                      display: 'inline-block',
+                    }}
+                  />
+                )}
+                <div style={{ textAlign: 'center' }}>
+                  <div
+                    style={{
+                      color: '#fff',
+                      fontSize: typography.fontSize.lg,
+                      fontWeight: typography.fontWeight.bold,
+                      lineHeight: 1.1,
+                      letterSpacing: typography.letterSpacing.tight,
+                    }}
+                  >
+                    {s.value}
+                  </div>
+                  <div
+                    style={{
+                      color: 'rgba(255,255,255,0.6)',
+                      fontSize: typography.fontSize.xs,
+                      textTransform: 'uppercase',
+                      letterSpacing: typography.letterSpacing.wide,
+                      marginTop: 2,
+                    }}
+                  >
+                    {s.label}
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </div>
@@ -471,9 +591,9 @@ export default function HomePage() {
         ) : restaurants.length > 0 ? (
           <>
             <SectionHeader
-              icon={geoLocation ? <EnvironmentFilled /> : <CrownFilled />}
+              icon={<EnvironmentFilled />}
               title={resultsTitle}
-              subtitle={`${total} restaurant${total === 1 ? '' : 's'} ready to book`}
+              subtitle={`${total} restaurant${total === 1 ? '' : 's'} within ${NEARBY_RADIUS_KM} km`}
             />
             {renderGrid(restaurants)}
           </>
@@ -510,7 +630,7 @@ export default function HomePage() {
               </div>
               <div>
                 <Text strong style={{ display: 'block', fontSize: typography.fontSize.md }}>
-                  No restaurants found {geoLocation ? 'near your location' : 'for this search'}
+                  No restaurants found near {usingDeviceLocation ? 'you' : selectedLocation.label}
                 </Text>
                 <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
                   Don&apos;t worry — here are the top 20 restaurants on ReserveTable, loved by

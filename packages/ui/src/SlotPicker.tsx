@@ -13,7 +13,9 @@ export interface SlotPickerProps {
 }
 
 export function SlotPicker({ slots, selected, onSelect, loading }: SlotPickerProps) {
-  if (!loading && slots.length === 0) {
+  const openSlots = slots.filter((s) => s.available);
+
+  if (!loading && openSlots.length === 0) {
     return (
       <div
         style={{
@@ -31,22 +33,21 @@ export function SlotPicker({ slots, selected, onSelect, loading }: SlotPickerPro
 
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-      {slots.map((slot) => {
+      {openSlots.map((slot) => {
         const label = new Date(slot.time).toLocaleTimeString([], {
           hour: 'numeric',
           minute: '2-digit',
         });
         const isSelected = selected === slot.time;
-        const fewLeft = slot.available && slot.remainingTables > 0 && slot.remainingTables <= 2;
+        const fewLeft = slot.remainingTables > 0 && slot.remainingTables <= 2;
 
         return (
           <button
             key={slot.time}
             type="button"
-            disabled={!slot.available}
             onClick={() => onSelect(slot.time)}
             style={{
-              cursor: slot.available ? 'pointer' : 'not-allowed',
+              cursor: 'pointer',
               fontFamily: 'inherit',
               borderRadius: radii.md,
               padding: '10px 16px',
@@ -65,27 +66,20 @@ export function SlotPicker({ slots, selected, onSelect, loading }: SlotPickerPro
                     border: `1.5px solid ${colors.brand[600]}`,
                     boxShadow: `0 4px 12px rgba(196, 71, 47, 0.28)`,
                   }
-                : slot.available
-                  ? {
-                      background: colors.surface,
-                      color: colors.brand[600],
-                      border: `1.5px solid ${colors.brand[200]}`,
-                    }
-                  : {
-                      background: colors.neutral[50],
-                      color: colors.textTertiary,
-                      border: `1.5px solid ${colors.bordersubtle}`,
-                      textDecoration: 'line-through',
-                    }),
+                : {
+                    background: colors.surface,
+                    color: colors.brand[600],
+                    border: `1.5px solid ${colors.brand[200]}`,
+                  }),
             }}
             onMouseEnter={(e) => {
-              if (slot.available && !isSelected) {
+              if (!isSelected) {
                 e.currentTarget.style.borderColor = colors.brand[400];
                 e.currentTarget.style.background = colors.brand[50];
               }
             }}
             onMouseLeave={(e) => {
-              if (slot.available && !isSelected) {
+              if (!isSelected) {
                 e.currentTarget.style.borderColor = colors.brand[200];
                 e.currentTarget.style.background = colors.surface;
               }

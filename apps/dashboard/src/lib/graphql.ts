@@ -48,11 +48,55 @@ export const RESTAURANT_RESERVATIONS = gql`
       id
       partySize
       slotStart
+      slotEnd
       status
       occasion
       guestNotes
-      diner { firstName lastName phone email }
-      tables { name floorArea }
+      source
+      tableIds
+      diner { id firstName lastName phone email }
+      tables { id name floorArea }
+    }
+  }
+`;
+
+export const AVAILABILITY = gql`
+  query Availability($restaurantId: ID!, $date: String!, $partySize: Int!) {
+    availability(restaurantId: $restaurantId, date: $date, partySize: $partySize) {
+      time
+      available
+      remainingTables
+    }
+  }
+`;
+
+export const CREATE_OWNER_RESERVATION = gql`
+  mutation CreateOwnerReservation($input: OwnerReservationInput!) {
+    createOwnerReservation(input: $input) {
+      id status slotStart partySize
+    }
+  }
+`;
+
+export const UPDATE_RESERVATION = gql`
+  mutation UpdateReservation($id: ID!, $input: UpdateReservationInput!) {
+    updateReservation(id: $id, input: $input) {
+      id status slotStart partySize occasion guestNotes
+      tables { id name }
+    }
+  }
+`;
+
+export const DELETE_RESERVATION = gql`
+  mutation DeleteReservation($id: ID!) {
+    deleteReservation(id: $id)
+  }
+`;
+
+export const UPDATE_RESERVATION_STATUS = gql`
+  mutation UpdateReservationStatus($id: ID!, $status: ReservationStatus!, $reason: String) {
+    updateReservationStatus(id: $id, status: $status, reason: $reason) {
+      id status
     }
   }
 `;
@@ -91,14 +135,6 @@ export const CREATE_SHIFT = gql`
 export const DELETE_SHIFT = gql`
   mutation DeleteShift($id: ID!) {
     deleteShift(id: $id)
-  }
-`;
-
-export const UPDATE_RESERVATION_STATUS = gql`
-  mutation UpdateReservationStatus($id: ID!, $status: ReservationStatus!, $reason: String) {
-    updateReservationStatus(id: $id, status: $status, reason: $reason) {
-      id status
-    }
   }
 `;
 
@@ -335,32 +371,49 @@ export const REMOVE_GUEST_TAG = gql`
 export const CONVERSATIONS = gql`
   query Conversations($restaurantId: ID!) {
     conversations(restaurantId: $restaurantId) {
-      dinerId unreadCount
+      reservationId
+      dinerId
+      unreadCount
       diner { id firstName lastName email }
+      reservation { id slotStart partySize status }
+      lastMessage { id body senderType createdAt }
+    }
+  }
+`;
+
+export const CONVERSATION = gql`
+  query Conversation($reservationId: ID!) {
+    conversation(reservationId: $reservationId) {
+      reservationId
+      dinerId
+      restaurantId
+      unreadCount
+      diner { id firstName lastName email }
+      reservation { id slotStart partySize status }
       lastMessage { id body senderType createdAt }
     }
   }
 `;
 
 export const MESSAGES = gql`
-  query Messages($restaurantId: ID!, $dinerId: ID!) {
-    messages(restaurantId: $restaurantId, dinerId: $dinerId) {
-      id body senderType senderId readAt createdAt
+  query Messages($reservationId: ID!) {
+    messages(reservationId: $reservationId) {
+      id body senderType senderId readAt createdAt reservationId
     }
   }
 `;
 
 export const SEND_MESSAGE = gql`
-  mutation SendMessage($restaurantId: ID!, $dinerId: ID, $reservationId: ID, $body: String!) {
-    sendMessage(restaurantId: $restaurantId, dinerId: $dinerId, reservationId: $reservationId, body: $body) {
+  mutation SendMessage($reservationId: ID!, $body: String!) {
+    sendMessage(reservationId: $reservationId, body: $body) {
       id body senderType createdAt
     }
   }
 `;
 
 export const MARK_CONVERSATION_READ = gql`
-  mutation MarkConversationRead($restaurantId: ID!, $dinerId: ID!) {
-    markConversationRead(restaurantId: $restaurantId, dinerId: $dinerId)
+  mutation MarkConversationRead($reservationId: ID!) {
+    markConversationRead(reservationId: $reservationId)
   }
 `;
 
@@ -603,6 +656,78 @@ export const MULTI_LOCATION_ANALYTICS = gql`
       locations {
         reservations covers revenueCents noShows cancellations averageRating
         restaurant { id name address { city state } }
+      }
+    }
+  }
+`;
+
+// ---- Notifications & settings ----
+
+export const MY_NOTIFICATIONS = gql`
+  query MyNotifications($limit: Int) {
+    myNotifications(limit: $limit) {
+      id
+      type
+      title
+      body
+      data
+      readAt
+      createdAt
+    }
+    unreadNotificationCount
+  }
+`;
+
+export const MARK_NOTIFICATIONS_READ = gql`
+  mutation MarkNotificationsRead($ids: [ID!]) {
+    markNotificationsRead(ids: $ids)
+  }
+`;
+
+export const MARK_ALL_NOTIFICATIONS_READ = gql`
+  mutation MarkAllNotificationsRead {
+    markAllNotificationsRead
+  }
+`;
+
+export const RESTAURANT_TEAM = gql`
+  query RestaurantTeam($restaurantId: ID!) {
+    restaurantTeam(restaurantId: $restaurantId) {
+      id
+      email
+      phone
+      firstName
+      lastName
+      role
+      notificationPreferences {
+        newMessage { sms email webPush platform }
+        newReservation { sms email webPush platform }
+        waitlistAvailable { sms email webPush platform }
+        guestSpendAlert { sms email webPush platform }
+        reservationUpdates { sms email webPush platform }
+        reviewReply { sms email webPush platform }
+        surveyInvitation { sms email webPush platform }
+      }
+    }
+  }
+`;
+
+export const UPDATE_NOTIFICATION_PREFERENCES = gql`
+  mutation UpdateNotificationPreferences(
+    $userId: ID
+    $restaurantId: ID
+    $input: NotificationPreferencesInput!
+  ) {
+    updateNotificationPreferences(userId: $userId, restaurantId: $restaurantId, input: $input) {
+      id
+      notificationPreferences {
+        newMessage { sms email webPush platform }
+        newReservation { sms email webPush platform }
+        waitlistAvailable { sms email webPush platform }
+        guestSpendAlert { sms email webPush platform }
+        reservationUpdates { sms email webPush platform }
+        reviewReply { sms email webPush platform }
+        surveyInvitation { sms email webPush platform }
       }
     }
   }

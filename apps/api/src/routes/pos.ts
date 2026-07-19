@@ -137,6 +137,7 @@ router.post('/reservations/:id/no-show', async (req: PosAuthRequest, res) => {
 
     reservation.status = 'no_show';
     await reservation.save();
+    await releaseTableSlotClaims(reservation._id);
 
     logger.info(
       { reservationId: reservation._id.toString() },

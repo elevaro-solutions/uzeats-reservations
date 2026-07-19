@@ -21,6 +21,40 @@ export const typeDefs = `#graphql
     message: String!
   }
 
+  type NotificationChannelPreferences {
+    sms: Boolean!
+    email: Boolean!
+    webPush: Boolean!
+    platform: Boolean!
+  }
+
+  type NotificationPreferences {
+    newMessage: NotificationChannelPreferences!
+    newReservation: NotificationChannelPreferences!
+    waitlistAvailable: NotificationChannelPreferences!
+    guestSpendAlert: NotificationChannelPreferences!
+    reservationUpdates: NotificationChannelPreferences!
+    reviewReply: NotificationChannelPreferences!
+    surveyInvitation: NotificationChannelPreferences!
+  }
+
+  input NotificationChannelPreferencesInput {
+    sms: Boolean
+    email: Boolean
+    webPush: Boolean
+    platform: Boolean
+  }
+
+  input NotificationPreferencesInput {
+    newMessage: NotificationChannelPreferencesInput
+    newReservation: NotificationChannelPreferencesInput
+    waitlistAvailable: NotificationChannelPreferencesInput
+    guestSpendAlert: NotificationChannelPreferencesInput
+    reservationUpdates: NotificationChannelPreferencesInput
+    reviewReply: NotificationChannelPreferencesInput
+    surveyInvitation: NotificationChannelPreferencesInput
+  }
+
   type User {
     id: ID!
     email: String
@@ -32,6 +66,7 @@ export const typeDefs = `#graphql
     emailVerified: Boolean!
     phoneVerified: Boolean!
     telegramChatId: String
+    notificationPreferences: NotificationPreferences!
     restaurantIds: [ID!]!
     createdAt: DateTime!
   }
@@ -224,6 +259,16 @@ export const typeDefs = `#graphql
     type: String!
     points: Int!
     description: String!
+    createdAt: DateTime!
+  }
+
+  type AppNotification {
+    id: ID!
+    type: String!
+    title: String!
+    body: String!
+    data: String
+    readAt: DateTime
     createdAt: DateTime!
   }
 
@@ -602,6 +647,33 @@ export const typeDefs = `#graphql
     source: ReservationSource
   }
 
+  input OwnerGuestInput {
+    firstName: String!
+    lastName: String
+    phone: String
+    email: String
+  }
+
+  input OwnerReservationInput {
+    restaurantId: ID!
+    partySize: Int!
+    slotStart: DateTime!
+    occasion: Occasion
+    guestNotes: String
+    source: ReservationSource
+    guest: OwnerGuestInput!
+    tableId: ID
+    seatImmediately: Boolean
+  }
+
+  input UpdateReservationInput {
+    partySize: Int
+    slotStart: DateTime
+    occasion: Occasion
+    guestNotes: String
+    tableId: ID
+  }
+
   input WaitlistInput {
     restaurantId: ID!
     partySize: Int!
@@ -730,7 +802,7 @@ export const typeDefs = `#graphql
     id: ID!
     restaurantId: ID!
     dinerId: ID!
-    reservationId: ID
+    reservationId: ID!
     senderType: String!
     senderId: ID!
     body: String!
@@ -739,6 +811,8 @@ export const typeDefs = `#graphql
   }
 
   type Conversation {
+    reservationId: ID!
+    reservation: Reservation
     dinerId: ID!
     diner: User
     restaurantId: ID!
@@ -935,7 +1009,10 @@ export const typeDefs = `#graphql
     restaurantWaitlist(restaurantId: ID!): [WaitlistEntry!]!
     restaurantReviews(restaurantId: ID!): [Review!]!
     myLoyalty: [LoyaltyTransaction!]!
+    myNotifications(limit: Int): [AppNotification!]!
+    unreadNotificationCount: Int!
     myRestaurants: [Restaurant!]!
+    restaurantTeam(restaurantId: ID!): [User!]!
     adminRestaurants(status: RestaurantStatus): [Restaurant!]!
     adminStats: PlatformStats!
     adminUsers: [User!]!
@@ -966,7 +1043,8 @@ export const typeDefs = `#graphql
     surveyConfig(restaurantId: ID!): SurveyConfig
 
     conversations(restaurantId: ID!): [Conversation!]!
-    messages(restaurantId: ID!, dinerId: ID!): [Message!]!
+    conversation(reservationId: ID!): Conversation
+    messages(reservationId: ID!): [Message!]!
     myConversations: [Conversation!]!
 
     accessRules(restaurantId: ID!): [AccessRule!]!
@@ -1007,8 +1085,11 @@ export const typeDefs = `#graphql
     createBlackout(restaurantId: ID!, date: String!, reason: String, allDay: Boolean): Blackout!
 
     createReservation(input: ReservationInput!): CreateReservationPayload!
+    createOwnerReservation(input: OwnerReservationInput!): Reservation!
     confirmDepositPayment(paymentIntentId: String!): Reservation!
+    updateReservation(id: ID!, input: UpdateReservationInput!): Reservation!
     updateReservationStatus(id: ID!, status: ReservationStatus!, reason: String): Reservation!
+    deleteReservation(id: ID!): Boolean!
     joinWaitlist(input: WaitlistInput!): WaitlistEntry!
     cancelWaitlist(id: ID!): Boolean!
 
@@ -1023,6 +1104,13 @@ export const typeDefs = `#graphql
 
     registerPushToken(token: String!, platform: String!): Boolean!
     linkTelegram(chatId: String!): Boolean!
+    updateNotificationPreferences(
+      userId: ID
+      restaurantId: ID
+      input: NotificationPreferencesInput!
+    ): User!
+    markNotificationsRead(ids: [ID!]): Boolean!
+    markAllNotificationsRead: Boolean!
 
     createRestaurantGroup(name: String!, restaurantIds: [ID!]!): RestaurantGroup!
     addRestaurantToGroup(groupId: ID!, restaurantId: ID!): RestaurantGroup!
@@ -1056,8 +1144,8 @@ export const typeDefs = `#graphql
     replyToReview(reviewId: ID!, reply: String!): Review!
     setReviewHidden(reviewId: ID!, hidden: Boolean!): Review!
 
-    sendMessage(restaurantId: ID!, dinerId: ID, reservationId: ID, body: String!): Message!
-    markConversationRead(restaurantId: ID!, dinerId: ID!): Boolean!
+    sendMessage(reservationId: ID!, body: String!): Message!
+    markConversationRead(reservationId: ID!): Boolean!
 
     createAccessRule(restaurantId: ID!, input: AccessRuleInput!): AccessRule!
     updateAccessRule(id: ID!, input: AccessRuleInput!): AccessRule!

@@ -4,6 +4,27 @@ All notable changes to ReserveTable are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.0] — 2026-07-19
+
+### Added
+
+- Geo restaurant search with Google Places address autocomplete and near-me (`NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`)
+- Partner in-app notifications inbox, unread badge, and per-event channel preferences (`/notifications`)
+- Owner/staff manual bookings (phone / walk-in), reservation edit, and hard delete APIs
+- Diner cancel confirmation modal with required cancellation reason
+- Reservation-scoped messaging (`messages` keyed by `reservationId`)
+
+### Changed
+
+- Search supports combined text + geo filters (regex when `$near` is active)
+- Partner reservations and floor ops expanded for create/edit/seat flows
+- Dashboard and diner shells gain notification dropdowns and denser account nav
+- Availability / smart-assign / slot-claim edge cases tightened for concurrent booking
+
+### Docs
+
+- Deploy notes and `.env.example` document the Maps API key and Places requirement
+
 ## [0.2.0] — 2026-07-19
 
 ### Added

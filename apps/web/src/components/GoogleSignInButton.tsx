@@ -3,27 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { colors, radii, typography, shadows } from '@reservations/ui';
 
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (config: {
-            client_id: string;
-            callback: (response: { credential: string }) => void;
-            auto_select?: boolean;
-          }) => void;
-          prompt: () => void;
-          renderButton: (
-            element: HTMLElement,
-            config: Record<string, unknown>,
-          ) => void;
-        };
-      };
-    };
-  }
-}
-
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
 const GSI_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 
@@ -70,8 +49,10 @@ export function GoogleSignInButton({
 
   useEffect(() => {
     if (!scriptLoaded || !GOOGLE_CLIENT_ID || initializedRef.current) return;
+    const accounts = window.google?.accounts;
+    if (!accounts) return;
     initializedRef.current = true;
-    window.google!.accounts.id.initialize({
+    accounts.id.initialize({
       client_id: GOOGLE_CLIENT_ID,
       callback: (response) => {
         callbackRef.current(response.credential);

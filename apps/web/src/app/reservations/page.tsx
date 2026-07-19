@@ -25,6 +25,9 @@ export default function ReservationsPage() {
   const [reviewFor, setReviewFor] = useState<string | null>(null);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
+  const [cancelFor, setCancelFor] = useState<{ id: string; name: string } | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
   if (!authLoading && !user) {
     router.replace('/login?next=/reservations');
@@ -32,6 +35,33 @@ export default function ReservationsPage() {
   }
 
   const reservations = (data as any)?.myReservations ?? [];
+
+  const closeCancelModal = () => {
+    setCancelFor(null);
+    setCancelReason('');
+  };
+
+  const confirmCancel = async () => {
+    if (!cancelFor) return;
+    const reason = cancelReason.trim();
+    if (!reason) {
+      message.warning('Please share a cancellation reason');
+      return;
+    }
+    setCancelling(true);
+    try {
+      await updateStatus({
+        variables: { id: cancelFor.id, status: 'cancelled', reason },
+      });
+      message.success('Reservation cancelled');
+      closeCancelModal();
+      refetch();
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Failed to cancel');
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <div style={{ maxWidth: 800 }}>
@@ -150,21 +180,17 @@ export default function ReservationsPage() {
                 </Space>
               </div>
               <Space wrap>
-                {(r.status === 'confirmed' || r.status === 'pending') && r.restaurant?.id && (
-                  <Link href={`/messages/${r.restaurant.id}`}>
+                {(r.status === 'confirmed' || r.status === 'pending') && (
+                  <Link href={`/messages/${r.id}`}>
                     <Button icon={<MessageOutlined />}>Message</Button>
                   </Link>
                 )}
                 {(r.status === 'confirmed' || r.status === 'pending') && (
                   <Button
                     danger
-                    onClick={async () => {
-                      await updateStatus({
-                        variables: { id: r.id, status: 'cancelled', reason: 'Cancelled by diner' },
-                      });
-                      message.success('Reservation cancelled');
-                      refetch();
-                    }}
+                    onClick={() =>
+                      setCancelFor({ id: r.id, name: r.restaurant?.name ?? 'this restaurant' })
+                    }
                   >
                     Cancel
                   </Button>
@@ -203,6 +229,34 @@ export default function ReservationsPage() {
             onChange={(e) => setComment(e.target.value)}
             placeholder="How was your visit?"
           />
+        </Space>
+      </Modal>
+
+      <Modal
+        title="Cancel reservation?"
+        open={!!cancelFor}
+        onCancel={closeCancelModal}
+        onOk={confirmCancel}
+        okText="Yes, cancel"
+        okButtonProps={{ danger: true, loading: cancelling }}
+        cancelText="Keep reservation"
+        destroyOnClose
+      >
+        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
+          <Text>
+            Cancel your reservation at <Text strong>{cancelFor?.name}</Text>? This cannot be undone.
+          </Text>
+          <div>
+            <Text style={{ display: 'block', marginBottom: 6 }}>Cancellation reason</Text>
+            <Input.TextArea
+              rows={3}
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="e.g. Change of plans, running late, booked elsewhere…"
+              maxLength={500}
+              showCount
+            />
+          </div>
         </Space>
       </Modal>
     </div>

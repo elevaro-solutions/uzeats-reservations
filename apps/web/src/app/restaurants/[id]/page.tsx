@@ -35,6 +35,7 @@ import {
   PROMOTIONS,
   EXPERIENCES,
 } from '@/lib/graphql';
+import { getGraphQLErrorMessage, getValidationIssues, toFieldErrors } from '@/lib/errors';
 import DepositPayment from '@/components/DepositPayment';
 
 const { Title, Paragraph, Text } = Typography;
@@ -50,6 +51,8 @@ export default function RestaurantPage() {
   const [occasion, setOccasion] = useState('none');
   const [notes, setNotes] = useState('');
   const [redeemPoints, setRedeemPoints] = useState<number>(0);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [validationSummary, setValidationSummary] = useState<string[]>([]);
   const [depositInfo, setDepositInfo] = useState<{
     clientSecret: string;
     reservationId: string;
@@ -90,6 +93,23 @@ export default function RestaurantPage() {
     if (slot) setSelectedSlot(slot);
   }, [search]);
 
+  // Drop a deep-linked / previously selected slot when it is no longer free
+  // for the current date + party size (avoids a late CONFLICT from the API).
+  useEffect(() => {
+    if (availLoading || !selectedSlot) return;
+    const match = slots.find((s: { time: string; available: boolean }) => s.time === selectedSlot);
+    if (!match?.available) setSelectedSlot(null);
+  }, [availLoading, slots, selectedSlot]);
+
+  const clearFieldError = (field: string) => {
+    setFieldErrors((prev) => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
   const book = async () => {
     if (!user) {
       message.info('Please sign in to book');
@@ -100,6 +120,16 @@ export default function RestaurantPage() {
       message.warning('Select a time slot');
       return;
     }
+    const slotStillOpen = slots.some(
+      (s: { time: string; available: boolean }) => s.time === selectedSlot && s.available,
+    );
+    if (!slotStillOpen) {
+      message.warning('That time is no longer available — pick another slot');
+      setSelectedSlot(null);
+      return;
+    }
+    setFieldErrors({});
+    setValidationSummary([]);
     try {
       const { data: result } = await createReservation({
         variables: {
@@ -127,7 +157,14 @@ export default function RestaurantPage() {
       message.success('Reservation confirmed!');
       router.push('/reservations');
     } catch (err) {
-      message.error(err instanceof Error ? err.message : 'Booking failed');
+      const issues = getValidationIssues(err);
+      if (issues.length > 0) {
+        setFieldErrors(toFieldErrors(issues));
+        setValidationSummary(issues.map((i) => i.message));
+        message.error('Please fix the highlighted fields and try again.');
+        return;
+      }
+      message.error(getGraphQLErrorMessage(err, 'Booking failed'));
     }
   };
 
@@ -304,26 +341,47 @@ export default function RestaurantPage() {
               loading={availLoading}
             />
             <Form layout="vertical" style={{ marginTop: 24 }}>
-              <Form.Item label="Occasion">
+              <Form.Item
+                label="Occasion"
+                validateStatus={fieldErrors.occasion ? 'error' : undefined}
+                help={fieldErrors.occasion}
+              >
                 <Select
                   value={occasion}
-                  onChange={setOccasion}
+                  onChange={(v) => {
+                    setOccasion(v);
+                    clearFieldError('occasion');
+                  }}
                   options={OCCASIONS.map((o) => ({
                     value: o,
                     label: o === 'none' ? 'None' : o.charAt(0).toUpperCase() + o.slice(1),
                   }))}
                 />
               </Form.Item>
-              <Form.Item label="Special requests">
+              <Form.Item
+                label="Special requests"
+                validateStatus={fieldErrors.guestNotes ? 'error' : undefined}
+                help={fieldErrors.guestNotes}
+              >
                 <Input.TextArea
                   rows={3}
                   value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
+                  onChange={(e) => {
+                    setNotes(e.target.value);
+                    clearFieldError('guestNotes');
+                  }}
+                  maxLength={500}
+                  showCount
+                  status={fieldErrors.guestNotes ? 'error' : undefined}
                   placeholder="Allergies, seating preferences, celebration details..."
                 />
               </Form.Item>
               {user && (user.loyaltyPoints ?? 0) >= 500 && (
-                <Form.Item label="Redeem loyalty points">
+                <Form.Item
+                  label="Redeem loyalty points"
+                  validateStatus={fieldErrors.redeemPoints ? 'error' : undefined}
+                  help={fieldErrors.redeemPoints}
+                >
                   <div style={{
                     padding: 16,
                     borderRadius: radii.md,
@@ -340,7 +398,10 @@ export default function RestaurantPage() {
                       max={user.loyaltyPoints}
                       step={100}
                       value={redeemPoints}
-                      onChange={(v) => setRedeemPoints(v ?? 0)}
+                      onChange={(v) => {
+                        setRedeemPoints(v ?? 0);
+                        clearFieldError('redeemPoints');
+                      }}
                       style={{ width: 160 }}
                       addonAfter="pts"
                     />
@@ -361,6 +422,26 @@ export default function RestaurantPage() {
                     ) : null}
                   </div>
                 </Form.Item>
+              )}
+
+              {validationSummary.length > 0 && (
+                <Alert
+                  type="error"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                  message="Please fix the following"
+                  description={
+                    validationSummary.length === 1 ? (
+                      validationSummary[0]
+                    ) : (
+                      <ul style={{ margin: 0, paddingInlineStart: 20 }}>
+                        {validationSummary.map((msg, idx) => (
+                          <li key={idx}>{msg}</li>
+                        ))}
+                      </ul>
+                    )
+                  }
+                />
               )}
 
               <Space>

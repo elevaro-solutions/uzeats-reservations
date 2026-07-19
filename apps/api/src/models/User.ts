@@ -9,6 +9,29 @@ const pushTokenSchema = new Schema(
   { _id: false },
 );
 
+const notificationChannelPreferencesSchema = new Schema(
+  {
+    sms: { type: Boolean, default: false },
+    email: { type: Boolean, default: true },
+    webPush: { type: Boolean, default: true },
+    platform: { type: Boolean, default: true },
+  },
+  { _id: false },
+);
+
+const notificationPreferencesSchema = new Schema(
+  {
+    newMessage: { type: notificationChannelPreferencesSchema, default: () => ({}) },
+    newReservation: { type: notificationChannelPreferencesSchema, default: () => ({}) },
+    waitlistAvailable: { type: notificationChannelPreferencesSchema, default: () => ({}) },
+    guestSpendAlert: { type: notificationChannelPreferencesSchema, default: () => ({}) },
+    reservationUpdates: { type: notificationChannelPreferencesSchema, default: () => ({}) },
+    reviewReply: { type: notificationChannelPreferencesSchema, default: () => ({}) },
+    surveyInvitation: { type: notificationChannelPreferencesSchema, default: () => ({}) },
+  },
+  { _id: false },
+);
+
 const userSchema = new Schema(
   {
     email: { type: String, sparse: true, unique: true, lowercase: true, trim: true },
@@ -25,6 +48,10 @@ const userSchema = new Schema(
     loyaltyPoints: { type: Number, default: 0, min: 0 },
     pushTokens: { type: [pushTokenSchema], default: [] },
     telegramChatId: { type: String },
+    notificationPreferences: {
+      type: notificationPreferencesSchema,
+      default: () => ({}),
+    },
     emailVerified: { type: Boolean, default: false },
     phoneVerified: { type: Boolean, default: false },
     restaurantIds: [{ type: Schema.Types.ObjectId, ref: 'Restaurant' }],

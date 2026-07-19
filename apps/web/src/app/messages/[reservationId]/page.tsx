@@ -4,39 +4,50 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@apollo/client/react';
 import { Button, Card, Empty, Input, Space, Typography, message } from 'antd';
-import { SendOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, SendOutlined } from '@ant-design/icons';
+import Link from 'next/link';
 import { colors, radii } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
-import { MESSAGES, SEND_MESSAGE, RESTAURANT_DETAIL } from '@/lib/graphql';
+import { MESSAGES, SEND_MESSAGE, MY_RESERVATIONS } from '@/lib/graphql';
 
 const { Title, Text } = Typography;
 
 export default function MessagesPage() {
-  const params = useParams<{ restaurantId: string }>();
+  const params = useParams<{ reservationId: string }>();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const { data: restaurantData } = useQuery(RESTAURANT_DETAIL, {
-    variables: { id: params.restaurantId },
-  });
+  const { data: reservationsData } = useQuery(MY_RESERVATIONS, { skip: !user });
   const { data, loading, refetch } = useQuery(MESSAGES, {
-    variables: { restaurantId: params.restaurantId, dinerId: user?.id },
+    variables: { reservationId: params.reservationId },
     skip: !user,
     pollInterval: 5000,
   });
   const [sendMessage, { loading: sending }] = useMutation(SEND_MESSAGE);
 
   const messages = (data as any)?.messages ?? [];
-  const restaurantName = (restaurantData as any)?.restaurant?.name ?? 'Restaurant';
+  const reservation = ((reservationsData as any)?.myReservations ?? []).find(
+    (r: any) => r.id === params.reservationId,
+  );
+  const restaurantName = reservation?.restaurant?.name ?? 'Restaurant';
+  const slotLabel = reservation?.slotStart
+    ? new Date(reservation.slotStart).toLocaleString([], {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    : null;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages.length]);
 
   if (!authLoading && !user) {
-    router.replace(`/login?next=/messages/${params.restaurantId}`);
+    router.replace(`/login?next=/messages/${params.reservationId}`);
     return null;
   }
 
@@ -44,7 +55,7 @@ export default function MessagesPage() {
     const body = draft.trim();
     if (!body) return;
     try {
-      await sendMessage({ variables: { restaurantId: params.restaurantId, body } });
+      await sendMessage({ variables: { reservationId: params.reservationId, body } });
       setDraft('');
       refetch();
     } catch (err) {
@@ -57,9 +68,20 @@ export default function MessagesPage() {
       style={{ maxWidth: 720, margin: '0 auto' }}
       styles={{ body: { display: 'flex', flexDirection: 'column', height: '70vh', padding: 16 } }}
     >
-      <Title level={4} style={{ marginTop: 0 }}>
+      <Link href="/reservations" style={{ alignSelf: 'flex-start', marginBottom: 8 }}>
+        <Button type="text" icon={<ArrowLeftOutlined />} style={{ paddingInline: 0 }}>
+          Back to reservation
+        </Button>
+      </Link>
+      <Title level={4} style={{ marginTop: 0, marginBottom: 4 }}>
         {restaurantName}
       </Title>
+      {slotLabel && (
+        <Text type="secondary" style={{ marginBottom: 12, display: 'block' }}>
+          Reservation · {slotLabel}
+          {reservation?.partySize ? ` · party of ${reservation.partySize}` : ''}
+        </Text>
+      )}
       <div
         ref={scrollRef}
         style={{

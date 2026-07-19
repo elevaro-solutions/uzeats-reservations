@@ -3,6 +3,8 @@ import { Blackout, Shift } from '../models/Shift.js';
 import { Table } from '../models/Table.js';
 import { Reservation } from '../models/Reservation.js';
 import { Restaurant } from '../models/Restaurant.js';
+import { SLOT_QUANTUM_MS, TableSlotClaim } from '../models/TableSlotClaim.js';
+import { findClaimedTableIds, slotKeysForRange } from './tableSlotClaims.js';
 
 function parseHm(hm: string) {
   const [h, m] = hm.split(':').map(Number);
@@ -62,6 +64,25 @@ export async function getAvailability(params: {
     slotEnd: { $gt: dayStart },
   });
 
+  // Load all claims for the day once, then test each slot in memory.
+  const dayClaimKeys = slotKeysForRange(dayStart, new Date(dayEnd.getTime() + SLOT_QUANTUM_MS));
+  const dayClaims = await TableSlotClaim.find({
+    restaurantId: params.restaurantId,
+    slotKey: { $in: dayClaimKeys },
+  })
+    .select('tableId slotKey')
+    .lean();
+  const claimsByTable = new Map<string, Set<string>>();
+  for (const claim of dayClaims) {
+    const tid = String(claim.tableId);
+    let set = claimsByTable.get(tid);
+    if (!set) {
+      set = new Set();
+      claimsByTable.set(tid, set);
+    }
+    set.add(claim.slotKey);
+  }
+
   const slots: AvailabilitySlot[] = [];
 
   for (const shift of shifts) {
@@ -83,7 +104,14 @@ export async function getAvailability(params: {
       });
 
       if (!inBlackout) {
+        const slotKeys = new Set(slotKeysForRange(cursor, slotEnd));
         const freeTables = tables.filter((table) => {
+          const claimed = claimsByTable.get(String(table._id));
+          if (claimed) {
+            for (const key of slotKeys) {
+              if (claimed.has(key)) return false;
+            }
+          }
           const conflict = existing.some((r) => {
             const tableMatch = r.tableIds.some((id) => id.equals(table._id));
             return tableMatch && overlaps(cursor, slotEnd, r.slotStart, r.slotEnd);
@@ -125,7 +153,14 @@ export async function findAvailableTable(params: {
     slotEnd: { $gt: params.slotStart },
   });
 
+  const claimedIds = await findClaimedTableIds({
+    restaurantId: params.restaurantId,
+    slotStart: params.slotStart,
+    slotEnd: params.slotEnd,
+  });
+
   for (const table of tables) {
+    if (claimedIds.has(String(table._id))) continue;
     const conflict = existing.some(
       (r) =>
         r.tableIds.some((id) => id.equals(table._id)) &&

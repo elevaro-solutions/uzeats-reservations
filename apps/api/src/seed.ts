@@ -409,38 +409,45 @@ async function seed() {
       });
     }
 
+    // Distinct labels so venue switching is obvious in Partner Hub.
+    const prefix = r.name
+      .split(/\s+/)
+      .map((w: string) => w[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 3);
     const tables = await Table.insertMany([
       {
         restaurantId: restaurant._id,
-        name: 'T1',
+        name: `${prefix}-1`,
         minCapacity: 1,
         maxCapacity: 2,
         floorArea: 'Window',
       },
       {
         restaurantId: restaurant._id,
-        name: 'T2',
+        name: `${prefix}-2`,
         minCapacity: 2,
         maxCapacity: 4,
         floorArea: 'Main',
       },
       {
         restaurantId: restaurant._id,
-        name: 'T3',
+        name: `${prefix}-3`,
         minCapacity: 2,
         maxCapacity: 4,
         floorArea: 'Main',
       },
       {
         restaurantId: restaurant._id,
-        name: 'T4',
+        name: `${prefix}-4`,
         minCapacity: 4,
         maxCapacity: 6,
         floorArea: 'Patio',
       },
       {
         restaurantId: restaurant._id,
-        name: 'T5',
+        name: `${prefix}-5`,
         minCapacity: 6,
         maxCapacity: 10,
         floorArea: 'Private',
@@ -834,6 +841,36 @@ async function seed() {
       body: 'Dan Diner booked a party of 2 at Samarkand Palace.',
       status: 'sent',
       sentAt: atOffset(0, 8),
+    },
+    {
+      userId: owner!._id,
+      channel: 'in_app',
+      type: 'new_reservation',
+      title: 'New reservation',
+      body: 'Dan Diner booked a party of 2 at Samarkand Palace.',
+      status: 'sent',
+      sentAt: atOffset(0, 8),
+      data: { restaurantId: samarkand.restaurant._id.toString() },
+    },
+    {
+      userId: owner!._id,
+      channel: 'in_app',
+      type: 'new_message',
+      title: 'New guest message',
+      body: 'Can we get a high chair for our booking tonight?',
+      status: 'sent',
+      sentAt: atOffset(0, 10),
+      data: { restaurantId: samarkand.restaurant._id.toString() },
+    },
+    {
+      userId: staff!._id,
+      channel: 'in_app',
+      type: 'guest_spend_alert',
+      title: 'High spend alert',
+      body: 'A guest check just hit $420.00 at Samarkand Palace.',
+      status: 'sent',
+      sentAt: atOffset(0, 11),
+      data: { restaurantId: samarkand.restaurant._id.toString() },
     },
   ]);
 

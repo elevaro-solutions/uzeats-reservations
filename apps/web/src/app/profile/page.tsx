@@ -186,6 +186,7 @@ export default function ProfilePage() {
       </Card>
 
       <Card
+        id="notifications"
         title="Notification preferences"
         style={{
           borderRadius: radii.lg,

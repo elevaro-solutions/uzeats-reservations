@@ -1,13 +1,22 @@
 import { Queue, Worker } from 'bullmq';
 import { Resend } from 'resend';
 import webpush from 'web-push';
-import { REMINDER_HOURS } from '@reservations/shared';
+import {
+  DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES,
+  NOTIFICATION_EVENTS,
+  NOTIFICATION_TYPE_TO_EVENT,
+  REMINDER_HOURS,
+  type NotificationChannel,
+} from '@reservations/shared';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 import { User } from '../models/User.js';
 import { Notification } from '../models/Loyalty.js';
 import { Reservation } from '../models/Reservation.js';
 import { Restaurant } from '../models/Restaurant.js';
+import { mapNotificationPreferences } from '../lib/notificationPreferences.js';
+import { releaseTableSlotClaims } from './tableSlotClaims.js';
+import { captureDeposit } from './stripe.js';
 
 const connection = { url: env.REDIS_URL };
 
@@ -107,12 +116,32 @@ export async function notifyUser(
   const user = await User.findById(userId);
   if (!user) return;
 
-  const channels: Array<'email' | 'telegram' | 'push' | 'sms'> = [];
-  if (user.email) channels.push('email');
-  if (user.telegramChatId) channels.push('telegram');
-  if (user.pushTokens.length) channels.push('push');
+  const eventKey = NOTIFICATION_TYPE_TO_EVENT[payload.type];
+  let channelPrefs: Record<NotificationChannel, boolean>;
 
-  if (opts?.smsRestaurantId && user.phone) {
+  if (eventKey && NOTIFICATION_EVENTS.includes(eventKey)) {
+    channelPrefs = mapNotificationPreferences(user.notificationPreferences)[eventKey];
+  } else {
+    // Security / account messages (e.g. password_reset) always use email defaults.
+    channelPrefs = {
+      ...DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES,
+      sms: false,
+      webPush: false,
+      platform: false,
+      email: true,
+    };
+  }
+
+  const channels: Array<'email' | 'telegram' | 'push' | 'sms' | 'in_app'> = [];
+  // In-app inbox follows the Platform preference (except account/security messages).
+  if (payload.type !== 'password_reset' && channelPrefs.platform) {
+    channels.push('in_app');
+  }
+  if (channelPrefs.email && user.email) channels.push('email');
+  if (channelPrefs.platform && user.telegramChatId) channels.push('telegram');
+  if (channelPrefs.webPush && user.pushTokens.length) channels.push('push');
+
+  if (channelPrefs.sms && opts?.smsRestaurantId && user.phone) {
     try {
       const { hasPremiumSms } = await import('./plans.js');
       if (await hasPremiumSms(opts.smsRestaurantId)) channels.push('sms');
@@ -133,7 +162,9 @@ export async function notifyUser(
     });
 
     try {
-      if (channel === 'email' && user.email) {
+      if (channel === 'in_app') {
+        // Inbox item only — no external delivery.
+      } else if (channel === 'email' && user.email) {
         await sendEmail(user.email, payload.title, payload.body);
       } else if (channel === 'telegram' && user.telegramChatId) {
         await sendTelegram(user.telegramChatId, payload.title, payload.body);
@@ -163,7 +194,11 @@ export async function notifyRestaurantStaff(
   const staff = await User.find({
     $or: [{ _id: restaurant.ownerId }, { restaurantIds: restaurant._id }],
   }).select('_id');
-  await Promise.all(staff.map((u) => notifyUser(u._id.toString(), payload)));
+  await Promise.all(
+    staff.map((u) =>
+      notifyUser(u._id.toString(), payload, { smsRestaurantId: restaurantId }),
+    ),
+  );
 }
 
 export async function scheduleReservationReminders(reservationId: string) {
@@ -180,7 +215,9 @@ export async function scheduleReservationReminders(reservationId: string) {
     );
   }
 
-  const noShowAt = new Date(reservation.slotStart.getTime() + 30 * 60 * 1000);
+  // Mark no-show only after the reserved turn window ends (not 30m after start),
+  // so the table stays blocked for the full seating duration.
+  const noShowAt = new Date(reservation.slotEnd.getTime());
   await reminderQueue.add(
     'no-show-check',
     { reservationId },
@@ -225,7 +262,12 @@ export function startNotificationWorkers() {
         const reservation = await Reservation.findById(reservationId);
         if (reservation?.status === 'confirmed') {
           reservation.status = 'no_show';
+          if (reservation.stripePaymentIntentId && reservation.depositStatus === 'authorized') {
+            await captureDeposit(reservation.stripePaymentIntentId);
+            reservation.depositStatus = 'captured';
+          }
           await reservation.save();
+          await releaseTableSlotClaims(reservation._id);
         }
       }
     },

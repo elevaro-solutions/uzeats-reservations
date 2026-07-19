@@ -65,16 +65,18 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 
 ## Features
 
-- Restaurant search (city, cuisine, text) + live availability slots
+- Restaurant search (city, cuisine, text, nearby geo) + live availability slots
+- Google Places address autocomplete and device near-me (falls back to curated US cities)
 - Concurrent-safe booking via atomic table slot claims (no replica set required)
 - Deposits via Stripe PaymentIntents (manual capture; stubbed without keys)
 - Waitlist + auto-notify on cancellation
 - Loyalty earn/redeem
 - Reviews after completed visits
 - Menus + DO Spaces presigned uploads (stubbed without keys)
-- Notifications: email (Resend), Telegram, web/Expo push via BullMQ reminders
+- Notifications: email (Resend), Telegram, web/Expo push, in-app inbox + channel prefs
 - Auth: email/password, Google OAuth, Twilio phone OTP
-- Partner Settings hub (profile, booking rules, widget theme) with multi-restaurant selector
+- Partner Settings hub, notifications prefs, and multi-restaurant selector
+- Owner phone / walk-in bookings, reservation edit, and reservation-scoped messaging
 - Embeddable booking widget with per-restaurant theme
 
 ## Design system
@@ -92,7 +94,7 @@ JWT_ACCESS_SECRET=...
 JWT_REFRESH_SECRET=...
 ```
 
-Optional integrations: `STRIPE_*`, `TWILIO_*`, `GOOGLE_CLIENT_*`, `RESEND_API_KEY`, `TELEGRAM_BOT_TOKEN`, `DO_SPACES_*`, `VAPID_*`.
+Optional integrations: `STRIPE_*`, `TWILIO_*`, `GOOGLE_CLIENT_*`, `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `RESEND_API_KEY`, `TELEGRAM_BOT_TOKEN`, `DO_SPACES_*`, `VAPID_*`.
 
 ## Deploy notes (DigitalOcean)
 

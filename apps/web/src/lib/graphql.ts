@@ -249,11 +249,12 @@ export const SUBMIT_SURVEY = gql`
 `;
 
 export const MESSAGES = gql`
-  query Messages($restaurantId: ID!, $dinerId: ID!) {
-    messages(restaurantId: $restaurantId, dinerId: $dinerId) {
+  query Messages($reservationId: ID!) {
+    messages(reservationId: $reservationId) {
       id
       restaurantId
       dinerId
+      reservationId
       senderType
       senderId
       body
@@ -264,13 +265,8 @@ export const MESSAGES = gql`
 `;
 
 export const SEND_MESSAGE = gql`
-  mutation SendMessage($restaurantId: ID!, $dinerId: ID, $reservationId: ID, $body: String!) {
-    sendMessage(
-      restaurantId: $restaurantId
-      dinerId: $dinerId
-      reservationId: $reservationId
-      body: $body
-    ) {
+  mutation SendMessage($reservationId: ID!, $body: String!) {
+    sendMessage(reservationId: $reservationId, body: $body) {
       id
       senderType
       body
@@ -325,5 +321,32 @@ export const PLANS = gql`
       websiteCoverFeeCents
       trialDays
     }
+  }
+`;
+
+export const MY_NOTIFICATIONS = gql`
+  query MyNotifications($limit: Int) {
+    myNotifications(limit: $limit) {
+      id
+      type
+      title
+      body
+      data
+      readAt
+      createdAt
+    }
+    unreadNotificationCount
+  }
+`;
+
+export const MARK_NOTIFICATIONS_READ = gql`
+  mutation MarkNotificationsRead($ids: [ID!]) {
+    markNotificationsRead(ids: $ids)
+  }
+`;
+
+export const MARK_ALL_NOTIFICATIONS_READ = gql`
+  mutation MarkAllNotificationsRead {
+    markAllNotificationsRead
   }
 `;

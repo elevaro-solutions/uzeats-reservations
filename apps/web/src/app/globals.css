@@ -51,6 +51,59 @@ body {
   animation: rt-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* Hero primary CTA — subtle lift + glow on hover */
+.rt-hero-cta {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease !important;
+}
+
+.rt-hero-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 26px rgba(196, 71, 47, 0.45) !important;
+}
+
+/* Hero trust/highlight glass pills */
+.rt-hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* Hero eyebrow badge */
+.rt-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* Slow ambient drift for hero glow orbs */
+@keyframes rt-hero-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -24px, 0) scale(1.06);
+  }
+}
+
+.rt-hero-orb {
+  animation: rt-hero-drift 14s ease-in-out infinite;
+}
+
 /* Cuisine filter chips */
 .rt-chip {
   transition: transform 0.18s ease, border-color 0.18s ease, color 0.18s ease,

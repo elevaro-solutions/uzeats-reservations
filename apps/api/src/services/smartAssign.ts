@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { Table, type TableDocument } from '../models/Table.js';
 import { Reservation } from '../models/Reservation.js';
 import { User } from '../models/User.js';
+import { findClaimedTableIds } from './tableSlotClaims.js';
 
 function overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
   return aStart < bEnd && bStart < aEnd;
@@ -38,6 +39,12 @@ export async function smartAssignTable(input: {
     slotEnd: { $gt: windowStart },
   });
 
+  const claimedIds = await findClaimedTableIds({
+    restaurantId: input.restaurantId,
+    slotStart: input.slotStart,
+    slotEnd: input.slotEnd,
+  });
+
   let preferredTableName: string | undefined;
   if (input.dinerId) {
     const diner = await User.findById(input.dinerId).select('preferredTable');
@@ -58,6 +65,7 @@ export async function smartAssignTable(input: {
   const scored: ScoredTable[] = [];
 
   for (const table of tables) {
+    if (claimedIds.has(String(table._id))) continue;
     const conflict = existing.some(
       (r) =>
         r.tableIds.some((id) => id.equals(table._id)) &&

@@ -23,6 +23,7 @@ import {
 import {
   ApiOutlined,
   ArrowRightOutlined,
+  BellOutlined,
   ClusterOutlined,
   FormOutlined,
   LockOutlined,
@@ -83,6 +84,12 @@ const TOOL_LINKS = [
     title: 'Integrations',
     description: 'API keys, POS, and embed partners',
     icon: <ApiOutlined />,
+  },
+  {
+    href: '/notifications',
+    title: 'Notifications',
+    description: 'Per-user alert matrix by feature and channel',
+    icon: <BellOutlined />,
   },
 ] as const;
 

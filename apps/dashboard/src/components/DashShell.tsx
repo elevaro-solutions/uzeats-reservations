@@ -1,7 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { Layout, Menu, Button, Typography, Avatar, Select, Tooltip } from 'antd';
+import {
+  Layout,
+  Menu,
+  Button,
+  Typography,
+  Avatar,
+  Select,
+  Dropdown,
+  Badge,
+  List,
+  Empty,
+  Spin,
+} from 'antd';
+import type { MenuProps } from 'antd';
 import {
   AppstoreOutlined,
   BarChartOutlined,
@@ -23,13 +36,21 @@ import {
   RocketOutlined,
   GiftOutlined,
   ShopOutlined,
+  BellOutlined,
+  UserOutlined,
+  CheckOutlined,
 } from '@ant-design/icons';
 import { usePathname, useRouter } from 'next/navigation';
-import { useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@apollo/client';
 import { useEffect, useMemo, useState } from 'react';
 import { colors, radii, spacing, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
-import { MY_RESTAURANTS } from '@/lib/graphql';
+import {
+  MARK_ALL_NOTIFICATIONS_READ,
+  MARK_NOTIFICATIONS_READ,
+  MY_NOTIFICATIONS,
+  MY_RESTAURANTS,
+} from '@/lib/graphql';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -38,6 +59,16 @@ type NavChild = {
   key: string;
   icon: React.ReactNode;
   label: React.ReactNode;
+};
+
+type AppNotification = {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  data?: string | null;
+  readAt?: string | null;
+  createdAt: string;
 };
 
 function navLink(href: string, label: string) {
@@ -57,7 +88,49 @@ const SETTINGS_PREFIXES = [
   '/surveys',
   '/groups',
   '/integrations',
+  '/notifications',
 ];
+
+function notificationHref(n: AppNotification): string {
+  let data: Record<string, unknown> = {};
+  try {
+    data = n.data ? JSON.parse(n.data) : {};
+  } catch {
+    data = {};
+  }
+
+  switch (n.type) {
+    case 'new_message':
+      return typeof data.reservationId === 'string'
+        ? `/messages?reservationId=${data.reservationId}`
+        : '/messages';
+    case 'new_reservation':
+    case 'reservation_confirmed':
+    case 'reservation_reminder':
+      return '/reservations';
+    case 'waitlist_available':
+    case 'waitlist_ready':
+    case 'waitlist_notified':
+      return '/waitlist';
+    case 'guest_spend_alert':
+      return data.reservationId ? '/reservations' : '/guests';
+    case 'review_reply':
+      return '/reviews';
+    default:
+      return '/notifications';
+  }
+}
+
+function formatRelativeTime(iso: string) {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
 
 export function DashShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -65,7 +138,19 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const isAdmin = user?.role === 'admin';
   const [restaurantId, setRestaurantId] = useState<string>();
+  const [notifOpen, setNotifOpen] = useState(false);
   const { data: restaurantsData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const {
+    data: notifData,
+    loading: notifLoading,
+    refetch: refetchNotifs,
+  } = useQuery(MY_NOTIFICATIONS, {
+    skip: !user,
+    variables: { limit: 20 },
+    pollInterval: 60_000,
+  });
+  const [markRead] = useMutation(MARK_NOTIFICATIONS_READ);
+  const [markAllRead, { loading: markingAll }] = useMutation(MARK_ALL_NOTIFICATIONS_READ);
 
   useEffect(() => {
     if (!user) return;
@@ -116,6 +201,8 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   }
 
   const restaurants = restaurantsData?.myRestaurants ?? [];
+  const notifications: AppNotification[] = notifData?.myNotifications ?? [];
+  const unreadCount: number = notifData?.unreadNotificationCount ?? 0;
 
   const items = [
     {
@@ -178,6 +265,202 @@ export function DashShell({ children }: { children: React.ReactNode }) {
         ]
       : []),
   ];
+
+  const profileMenu: MenuProps['items'] = [
+    {
+      key: 'user',
+      disabled: true,
+      label: (
+        <div style={{ lineHeight: 1.3, maxWidth: 220 }}>
+          <Text strong style={{ display: 'block' }}>
+            {user.firstName} {user.lastName}
+          </Text>
+          <Text type="secondary" style={{ fontSize: 12, textTransform: 'capitalize' }}>
+            {user.role.replace(/_/g, ' ')}
+          </Text>
+        </div>
+      ),
+    },
+    { type: 'divider' },
+    {
+      key: 'settings',
+      icon: <SettingOutlined />,
+      label: 'Settings',
+      onClick: () => router.push('/settings'),
+    },
+    {
+      key: 'notification-settings',
+      icon: <BellOutlined />,
+      label: 'Notification settings',
+      onClick: () => router.push('/notifications'),
+    },
+    { type: 'divider' },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: 'Log out',
+      danger: true,
+      onClick: () => {
+        logout();
+        router.push('/login');
+      },
+    },
+  ];
+
+  const handleOpenNotification = async (n: AppNotification) => {
+    if (!n.readAt) {
+      try {
+        await markRead({ variables: { ids: [n.id] } });
+        await refetchNotifs();
+      } catch {
+        // navigation still proceeds
+      }
+    }
+    setNotifOpen(false);
+    router.push(notificationHref(n));
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllRead();
+      await refetchNotifs();
+    } catch {
+      // ignore
+    }
+  };
+
+  const notificationDropdown = (
+    <div
+      style={{
+        width: 360,
+        maxWidth: '92vw',
+        background: colors.surface,
+        borderRadius: radii.lg,
+        border: `1px solid ${colors.border}`,
+        boxShadow: '0 12px 40px rgba(15, 23, 42, 0.12)',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 14px',
+          borderBottom: `1px solid ${colors.bordersubtle}`,
+        }}
+      >
+        <Text strong>Notifications</Text>
+        <Button
+          type="link"
+          size="small"
+          icon={<CheckOutlined />}
+          disabled={!unreadCount}
+          loading={markingAll}
+          onClick={handleMarkAllRead}
+          style={{ paddingInline: 0 }}
+        >
+          Mark all read
+        </Button>
+      </div>
+      <div style={{ maxHeight: 380, overflowY: 'auto' }}>
+        {notifLoading ? (
+          <div style={{ padding: 32, textAlign: 'center' }}>
+            <Spin size="small" />
+          </div>
+        ) : notifications.length === 0 ? (
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description="No notifications yet"
+            style={{ padding: '28px 16px' }}
+          />
+        ) : (
+          <List
+            dataSource={notifications}
+            renderItem={(n) => {
+              const unread = !n.readAt;
+              return (
+                <List.Item
+                  key={n.id}
+                  onClick={() => handleOpenNotification(n)}
+                  style={{
+                    cursor: 'pointer',
+                    padding: '12px 14px',
+                    background: unread ? colors.brand[50] : colors.surface,
+                    borderBottom: `1px solid ${colors.bordersubtle}`,
+                  }}
+                >
+                  <List.Item.Meta
+                    avatar={
+                      <Badge dot={unread} color={colors.brand[600]}>
+                        <Avatar
+                          size={36}
+                          style={{
+                            background: unread ? colors.brand[100] : colors.bordersubtle,
+                            color: colors.brand[700],
+                          }}
+                          icon={<BellOutlined />}
+                        />
+                      </Badge>
+                    }
+                    title={
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          gap: 8,
+                          alignItems: 'baseline',
+                        }}
+                      >
+                        <Text strong={unread} style={{ fontSize: 13 }}>
+                          {n.title}
+                        </Text>
+                        <Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+                          {formatRelativeTime(n.createdAt)}
+                        </Text>
+                      </div>
+                    }
+                    description={
+                      <Text
+                        type="secondary"
+                        style={{
+                          fontSize: 12,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {n.body}
+                      </Text>
+                    }
+                  />
+                </List.Item>
+              );
+            }}
+          />
+        )}
+      </div>
+      <div
+        style={{
+          padding: '10px 14px',
+          borderTop: `1px solid ${colors.bordersubtle}`,
+          textAlign: 'center',
+        }}
+      >
+        <Button
+          type="link"
+          size="small"
+          onClick={() => {
+            setNotifOpen(false);
+            router.push('/notifications');
+          }}
+        >
+          Notification settings
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <Layout style={{ minHeight: '100vh', background: colors.background }}>
@@ -291,44 +574,78 @@ export function DashShell({ children }: { children: React.ReactNode }) {
               popupMatchSelectWidth={280}
             />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Avatar
-                size={34}
-                style={{
-                  background: colors.brand[50],
-                  color: colors.brand[600],
-                  fontWeight: 600,
-                  border: `1px solid ${colors.brand[100]}`,
-                }}
-              >
-                {user.firstName?.[0]?.toUpperCase()}
-              </Avatar>
-              <div style={{ lineHeight: 1.25 }} className="rt-header-user">
-                <Text strong style={{ display: 'block', fontSize: typography.fontSize.sm }}>
-                  {user.firstName}
-                </Text>
-                <Text
-                  type="secondary"
-                  style={{ fontSize: typography.fontSize.xs, textTransform: 'capitalize' }}
-                >
-                  {user.role.replace(/_/g, ' ')}
-                </Text>
-              </div>
-            </div>
-            <Tooltip title="Log out">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Dropdown
+              trigger={['click']}
+              open={notifOpen}
+              onOpenChange={(open) => {
+                setNotifOpen(open);
+                if (open) refetchNotifs();
+              }}
+              dropdownRender={() => notificationDropdown}
+              placement="bottomRight"
+            >
               <Button
                 type="text"
-                icon={<LogoutOutlined />}
-                onClick={() => {
-                  logout();
-                  router.push('/login');
+                aria-label="Notifications"
+                style={{
+                  width: 40,
+                  height: 40,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: colors.textSecondary,
                 }}
-                style={{ color: colors.textSecondary }}
+                icon={
+                  <Badge count={unreadCount} size="small" overflowCount={99} offset={[2, -2]}>
+                    <BellOutlined style={{ fontSize: 18 }} />
+                  </Badge>
+                }
+              />
+            </Dropdown>
+
+            <Dropdown menu={{ items: profileMenu }} placement="bottomRight" trigger={['click']}>
+              <button
+                type="button"
+                aria-label="Account menu"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '4px 10px 4px 4px',
+                  borderRadius: radii.pill,
+                  border: `1px solid ${colors.border}`,
+                  background: colors.surface,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  height: 42,
+                }}
               >
-                Log out
-              </Button>
-            </Tooltip>
+                <Avatar
+                  size={32}
+                  style={{
+                    background: colors.brand[50],
+                    color: colors.brand[600],
+                    fontWeight: 600,
+                    border: `1px solid ${colors.brand[100]}`,
+                  }}
+                  icon={!user.firstName ? <UserOutlined /> : undefined}
+                >
+                  {user.firstName?.[0]?.toUpperCase()}
+                </Avatar>
+                <div style={{ lineHeight: 1.25, textAlign: 'left' }} className="rt-header-user">
+                  <Text strong style={{ display: 'block', fontSize: typography.fontSize.sm }}>
+                    {user.firstName}
+                  </Text>
+                  <Text
+                    type="secondary"
+                    style={{ fontSize: typography.fontSize.xs, textTransform: 'capitalize' }}
+                  >
+                    {user.role.replace(/_/g, ' ')}
+                  </Text>
+                </div>
+              </button>
+            </Dropdown>
           </div>
         </Header>
         <Content
