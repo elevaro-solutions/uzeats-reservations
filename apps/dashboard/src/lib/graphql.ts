@@ -43,19 +43,22 @@ export const MY_RESTAURANTS = gql`
 `;
 
 export const RESTAURANT_RESERVATIONS = gql`
-  query RestaurantReservations($restaurantId: ID!, $date: String) {
-    restaurantReservations(restaurantId: $restaurantId, date: $date) {
-      id
-      partySize
-      slotStart
-      slotEnd
-      status
-      occasion
-      guestNotes
-      source
-      tableIds
-      diner { id firstName lastName phone email }
-      tables { id name floorArea }
+  query RestaurantReservations($restaurantId: ID!, $date: String, $limit: Int, $offset: Int) {
+    restaurantReservations(restaurantId: $restaurantId, date: $date, limit: $limit, offset: $offset) {
+      total
+      items {
+        id
+        partySize
+        slotStart
+        slotEnd
+        status
+        occasion
+        guestNotes
+        source
+        tableIds
+        diner { id firstName lastName phone email }
+        tables { id name floorArea }
+      }
     }
   }
 `;
@@ -102,10 +105,13 @@ export const UPDATE_RESERVATION_STATUS = gql`
 `;
 
 export const RESTAURANT_WAITLIST = gql`
-  query RestaurantWaitlist($restaurantId: ID!) {
-    restaurantWaitlist(restaurantId: $restaurantId) {
-      id partySize preferredDate preferredTimeStart status createdAt
-      dinerId
+  query RestaurantWaitlist($restaurantId: ID!, $limit: Int, $offset: Int) {
+    restaurantWaitlist(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
+      total
+      items {
+        id partySize preferredDate preferredTimeStart status createdAt
+        dinerId
+      }
     }
   }
 `;
@@ -165,15 +171,92 @@ export const CREATE_UPLOAD_URL = gql`
 export const ADMIN_STATS = gql`
   query AdminStats {
     adminStats {
-      users restaurants reservations pendingRestaurants
+      users
+      restaurants
+      reservations
+      pendingRestaurants
+      mrrCents
+      activeSubscriptions
+      openInvoices
     }
   }
 `;
 
 export const ADMIN_RESTAURANTS = gql`
-  query AdminRestaurants($status: RestaurantStatus) {
-    adminRestaurants(status: $status) {
-      id name status cuisine address { city state } ownerId createdAt
+  query AdminRestaurants($status: RestaurantStatus, $limit: Int, $offset: Int) {
+    adminRestaurants(status: $status, limit: $limit, offset: $offset) {
+      total
+      items {
+        id
+        name
+        status
+        cuisine
+        description
+        priceRange
+        phone
+        website
+        photos
+        ownerId
+        featured
+        featuredUntil
+        depositRequired
+        depositAmountCents
+        address { line1 line2 city state zip country }
+        location { lat lng }
+        createdAt
+      }
+    }
+  }
+`;
+
+export const ADMIN_UPDATE_RESTAURANT = gql`
+  mutation AdminUpdateRestaurant(
+    $id: ID!
+    $input: RestaurantInput!
+    $featured: Boolean
+    $featuredUntil: DateTime
+    $ownerId: ID
+  ) {
+    adminUpdateRestaurant(
+      id: $id
+      input: $input
+      featured: $featured
+      featuredUntil: $featuredUntil
+      ownerId: $ownerId
+    ) {
+      id
+      name
+      status
+      cuisine
+      description
+      priceRange
+      phone
+      website
+      photos
+      ownerId
+      featured
+      featuredUntil
+      depositRequired
+      depositAmountCents
+      address { line1 line2 city state zip country }
+      location { lat lng }
+    }
+  }
+`;
+
+export const ADMIN_UPDATE_USER = gql`
+  mutation AdminUpdateUser($userId: ID!, $input: AdminUserInput!) {
+    adminUpdateUser(userId: $userId, input: $input) {
+      id
+      email
+      phone
+      firstName
+      lastName
+      role
+      loyaltyPoints
+      emailVerified
+      phoneVerified
+      restaurantIds
     }
   }
 `;
@@ -183,6 +266,825 @@ export const SET_RESTAURANT_STATUS = gql`
     setRestaurantStatus(id: $id, status: $status) {
       id status
     }
+  }
+`;
+
+export const ADMIN_USERS = gql`
+  query AdminUsers($search: String, $limit: Int, $offset: Int) {
+    adminUsers(search: $search, limit: $limit, offset: $offset) {
+      total
+      items { id email phone firstName lastName role loyaltyPoints emailVerified phoneVerified restaurantIds createdAt }
+    }
+  }
+`;
+
+export const SET_USER_ROLE = gql`
+  mutation SetUserRole($userId: ID!, $role: UserRole!) {
+    setUserRole(userId: $userId, role: $role) {
+      id role restaurantIds
+    }
+  }
+`;
+
+export const START_IMPERSONATION = gql`
+  mutation StartImpersonation($userId: ID!) {
+    startImpersonation(userId: $userId) {
+      accessToken
+      expiresInSeconds
+      user { id email firstName lastName role restaurantIds }
+      impersonator { id firstName lastName email }
+    }
+  }
+`;
+
+export const INVITE_STAFF = gql`
+  mutation InviteStaff(
+    $email: String!
+    $firstName: String!
+    $lastName: String!
+    $restaurantIds: [ID!]!
+    $role: UserRole
+  ) {
+    inviteStaff(
+      email: $email
+      firstName: $firstName
+      lastName: $lastName
+      restaurantIds: $restaurantIds
+      role: $role
+    ) {
+      inviteUrl
+      email
+      user { id email role restaurantIds }
+    }
+  }
+`;
+
+export const ASSIGN_USER_RESTAURANTS = gql`
+  mutation AssignUserRestaurants($userId: ID!, $restaurantIds: [ID!]!, $role: UserRole) {
+    assignUserRestaurants(userId: $userId, restaurantIds: $restaurantIds, role: $role) {
+      id role restaurantIds
+    }
+  }
+`;
+
+export const REMOVE_USER_RESTAURANT = gql`
+  mutation RemoveUserRestaurant($userId: ID!, $restaurantId: ID!) {
+    removeUserRestaurant(userId: $userId, restaurantId: $restaurantId) {
+      id restaurantIds
+    }
+  }
+`;
+
+export const SUPPORT_TICKETS = gql`
+  query SupportTickets(
+    $status: String
+    $assigneeId: ID
+    $restaurantId: ID
+    $search: String
+    $limit: Int
+    $offset: Int
+  ) {
+    supportTickets(
+      status: $status
+      assigneeId: $assigneeId
+      restaurantId: $restaurantId
+      search: $search
+      limit: $limit
+      offset: $offset
+    ) {
+      total
+      items {
+        id
+        subject
+        subjectKey
+        description
+        status
+        priority
+        category
+        requesterId
+        restaurantId
+        assigneeId
+        firstResponseAt
+        resolvedAt
+        createdAt
+        updatedAt
+        requester { id firstName lastName email role }
+        assignee { id firstName lastName email role }
+        restaurant { id name status }
+        notes { id body authorId createdAt }
+        attachments { id filename }
+      }
+    }
+  }
+`;
+
+export const SUPPORT_TICKET = gql`
+  query SupportTicket($id: ID!) {
+    supportTicket(id: $id) {
+      id
+      subject
+      subjectKey
+      description
+      status
+      priority
+      category
+      requesterId
+      restaurantId
+      assigneeId
+      firstResponseAt
+      resolvedAt
+      createdAt
+      updatedAt
+      requester { id firstName lastName email role }
+      assignee { id firstName lastName email role }
+      restaurant { id name status }
+      notes {
+        id
+        body
+        authorId
+        createdAt
+        updatedAt
+        author { id firstName lastName email role }
+      }
+      attachments {
+        id
+        url
+        key
+        filename
+        contentType
+        size
+        uploadedById
+        createdAt
+        uploadedBy { id firstName lastName email role }
+      }
+      events {
+        id
+        type
+        field
+        from
+        to
+        message
+        actorId
+        createdAt
+        actor { id firstName lastName email role }
+      }
+    }
+  }
+`;
+
+export const CREATE_SUPPORT_TICKET = gql`
+  mutation CreateSupportTicket(
+    $subject: String
+    $subjectKey: String
+    $description: String
+    $priority: String
+    $category: String
+    $requesterId: ID
+    $restaurantId: ID
+    $assigneeId: ID
+    $note: String
+  ) {
+    createSupportTicket(
+      subject: $subject
+      subjectKey: $subjectKey
+      description: $description
+      priority: $priority
+      category: $category
+      requesterId: $requesterId
+      restaurantId: $restaurantId
+      assigneeId: $assigneeId
+      note: $note
+    ) {
+      id
+      subject
+      status
+    }
+  }
+`;
+
+export const UPDATE_SUPPORT_TICKET = gql`
+  mutation UpdateSupportTicket(
+    $id: ID!
+    $status: String
+    $priority: String
+    $category: String
+    $subject: String
+    $subjectKey: String
+    $description: String
+    $assigneeId: ID
+    $restaurantId: ID
+    $requesterId: ID
+  ) {
+    updateSupportTicket(
+      id: $id
+      status: $status
+      priority: $priority
+      category: $category
+      subject: $subject
+      subjectKey: $subjectKey
+      description: $description
+      assigneeId: $assigneeId
+      restaurantId: $restaurantId
+      requesterId: $requesterId
+    ) {
+      id
+      subject
+      subjectKey
+      description
+      status
+      priority
+      category
+      assigneeId
+      restaurantId
+      requesterId
+      assignee { id firstName lastName email role }
+      restaurant { id name status }
+      requester { id firstName lastName email role }
+      events {
+        id
+        type
+        field
+        from
+        to
+        message
+        actorId
+        createdAt
+        actor { id firstName lastName email role }
+      }
+      updatedAt
+    }
+  }
+`;
+
+export const ADD_SUPPORT_NOTE = gql`
+  mutation AddSupportNote($ticketId: ID!, $body: String!) {
+    addSupportNote(ticketId: $ticketId, body: $body) {
+      id
+      status
+      notes {
+        id
+        body
+        authorId
+        createdAt
+        updatedAt
+        author { id firstName lastName email role }
+      }
+      events {
+        id
+        type
+        field
+        from
+        to
+        message
+        actorId
+        createdAt
+        actor { id firstName lastName email role }
+      }
+    }
+  }
+`;
+
+export const UPDATE_SUPPORT_NOTE = gql`
+  mutation UpdateSupportNote($ticketId: ID!, $noteId: ID!, $body: String!) {
+    updateSupportNote(ticketId: $ticketId, noteId: $noteId, body: $body) {
+      id
+      notes {
+        id
+        body
+        authorId
+        createdAt
+        updatedAt
+        author { id firstName lastName email role }
+      }
+      events {
+        id
+        type
+        field
+        from
+        to
+        message
+        actorId
+        createdAt
+        actor { id firstName lastName email role }
+      }
+    }
+  }
+`;
+
+export const DELETE_SUPPORT_NOTE = gql`
+  mutation DeleteSupportNote($ticketId: ID!, $noteId: ID!) {
+    deleteSupportNote(ticketId: $ticketId, noteId: $noteId) {
+      id
+      notes {
+        id
+        body
+        authorId
+        createdAt
+        updatedAt
+        author { id firstName lastName email role }
+      }
+      events {
+        id
+        type
+        field
+        from
+        to
+        message
+        actorId
+        createdAt
+        actor { id firstName lastName email role }
+      }
+    }
+  }
+`;
+
+export const ADD_SUPPORT_ATTACHMENT = gql`
+  mutation AddSupportAttachment(
+    $ticketId: ID!
+    $url: String!
+    $key: String
+    $filename: String!
+    $contentType: String!
+    $size: Int
+  ) {
+    addSupportAttachment(
+      ticketId: $ticketId
+      url: $url
+      key: $key
+      filename: $filename
+      contentType: $contentType
+      size: $size
+    ) {
+      id
+      attachments {
+        id
+        url
+        key
+        filename
+        contentType
+        size
+        uploadedById
+        createdAt
+        uploadedBy { id firstName lastName email role }
+      }
+      events {
+        id
+        type
+        field
+        from
+        to
+        message
+        actorId
+        createdAt
+        actor { id firstName lastName email role }
+      }
+    }
+  }
+`;
+
+export const UPDATE_SUPPORT_ATTACHMENT = gql`
+  mutation UpdateSupportAttachment($ticketId: ID!, $attachmentId: ID!, $filename: String!) {
+    updateSupportAttachment(
+      ticketId: $ticketId
+      attachmentId: $attachmentId
+      filename: $filename
+    ) {
+      id
+      attachments {
+        id
+        url
+        key
+        filename
+        contentType
+        size
+        uploadedById
+        createdAt
+        uploadedBy { id firstName lastName email role }
+      }
+      events {
+        id
+        type
+        field
+        from
+        to
+        message
+        actorId
+        createdAt
+        actor { id firstName lastName email role }
+      }
+    }
+  }
+`;
+
+export const REMOVE_SUPPORT_ATTACHMENT = gql`
+  mutation RemoveSupportAttachment($ticketId: ID!, $attachmentId: ID!) {
+    removeSupportAttachment(ticketId: $ticketId, attachmentId: $attachmentId) {
+      id
+      attachments {
+        id
+        url
+        key
+        filename
+        contentType
+        size
+        uploadedById
+        createdAt
+        uploadedBy { id firstName lastName email role }
+      }
+      events {
+        id
+        type
+        field
+        from
+        to
+        message
+        actorId
+        createdAt
+        actor { id firstName lastName email role }
+      }
+    }
+  }
+`;
+
+export const EMAIL_TEMPLATES = gql`
+  query EmailTemplates {
+    emailTemplates {
+      id key name subject bodyHtml bodyText description updatedAt
+    }
+  }
+`;
+
+export const UPDATE_EMAIL_TEMPLATE = gql`
+  mutation UpdateEmailTemplate(
+    $key: String!
+    $subject: String
+    $bodyHtml: String
+    $bodyText: String
+    $name: String
+  ) {
+    updateEmailTemplate(
+      key: $key
+      subject: $subject
+      bodyHtml: $bodyHtml
+      bodyText: $bodyText
+      name: $name
+    ) {
+      id key subject bodyHtml bodyText name updatedAt
+    }
+  }
+`;
+
+export const CHURN_ALERTS = gql`
+  query ChurnAlerts {
+    churnAlerts {
+      id alertType restaurantId restaurantName plan status monthlyPriceCents
+      trialEndsAt cancelledAt updatedAt
+    }
+  }
+`;
+
+export const SLA_METRICS = gql`
+  query SlaMetrics {
+    slaMetrics {
+      pendingRestaurantApprovals
+      oldestPendingApprovalHours
+      avgApprovalHoursLast30d
+      openSupportTickets
+      avgFirstResponseHoursLast30d
+      avgResolutionHoursLast30d
+      flaggedReviews
+      flaggedMessages
+      overdueOrPendingInvoices
+    }
+  }
+`;
+
+export const FLAGGED_CONTENT = gql`
+  query FlaggedContent($limit: Int) {
+    flaggedContent(limit: $limit) {
+      reviews {
+        id type restaurantId restaurantName authorName body rating hidden
+        flagReason flaggedAt createdAt
+      }
+      messages {
+        id type restaurantId restaurantName authorName body hidden
+        flagReason flaggedAt createdAt
+      }
+    }
+  }
+`;
+
+export const UNFLAG_REVIEW = gql`
+  mutation UnflagReview($id: ID!) {
+    unflagReview(id: $id) { id flaggedAt }
+  }
+`;
+
+export const SET_REVIEW_HIDDEN_ADMIN = gql`
+  mutation SetReviewHiddenAdmin($id: ID!, $hidden: Boolean!) {
+    setReviewHiddenAdmin(id: $id, hidden: $hidden) { id hidden }
+  }
+`;
+
+export const UNFLAG_MESSAGE = gql`
+  mutation UnflagMessage($id: ID!) {
+    unflagMessage(id: $id) { id flaggedAt }
+  }
+`;
+
+export const SET_MESSAGE_HIDDEN = gql`
+  mutation SetMessageHidden($id: ID!, $hidden: Boolean!) {
+    setMessageHidden(id: $id, hidden: $hidden) { id hidden }
+  }
+`;
+
+export const EXPORT_ADMIN_CSV = gql`
+  mutation ExportAdminCsv($type: String!, $period: String) {
+    exportAdminCsv(type: $type, period: $period) {
+      filename content rowCount
+    }
+  }
+`;
+
+export const SYNC_STRIPE_INVOICES = gql`
+  mutation SyncStripeInvoices($limit: Int) {
+    syncStripeInvoices(limit: $limit) {
+      synced message
+    }
+  }
+`;
+
+export const SESSION_INFO = gql`
+  query SessionInfo {
+    session {
+      isImpersonating
+      user { id email firstName lastName role restaurantIds }
+      impersonator { id firstName lastName email }
+    }
+  }
+`;
+
+export const ADMIN_SEND_PASSWORD_RESET = gql`
+  mutation AdminSendPasswordReset($userId: ID!, $sendEmail: Boolean) {
+    adminSendPasswordReset(userId: $userId, sendEmail: $sendEmail) {
+      success
+      message
+      resetUrl
+      emailed
+      email
+    }
+  }
+`;
+
+export const ADMIN_INVOICES = gql`
+  query AdminInvoices($status: InvoiceStatus, $search: String, $limit: Int, $offset: Int) {
+    adminInvoices(status: $status, search: $search, limit: $limit, offset: $offset) {
+      total
+      items {
+        id
+        number
+        restaurantId
+        restaurantName
+        status
+        billingPeriod
+        currency
+        subtotalCents
+        totalCents
+        dueDate
+        paidAt
+        canceledAt
+        lines {
+          description
+          quantity
+          unitAmountCents
+          amountCents
+        }
+        createdAt
+      }
+    }
+  }
+`;
+
+export const GENERATE_INVOICES = gql`
+  mutation GenerateInvoices($period: String!) {
+    generateInvoices(period: $period) {
+      created
+      skipped
+      period
+    }
+  }
+`;
+
+export const SET_INVOICE_STATUS = gql`
+  mutation SetInvoiceStatus($id: ID!, $status: InvoiceStatus!) {
+    setInvoiceStatus(id: $id, status: $status) {
+      id
+      status
+      paidAt
+      canceledAt
+    }
+  }
+`;
+
+export const SET_INVOICE_STATUSES = gql`
+  mutation SetInvoiceStatuses($ids: [ID!]!, $status: InvoiceStatus!) {
+    setInvoiceStatuses(ids: $ids, status: $status) {
+      updated
+      items {
+        id
+        status
+        paidAt
+        canceledAt
+      }
+    }
+  }
+`;
+
+export const ADMIN_REVENUE_REPORT = gql`
+  query AdminRevenueReport($period: String) {
+    adminRevenueReport(period: $period) {
+      period
+      mrrCents
+      arrCents
+      activeSubscriptions
+      trialingSubscriptions
+      pastDueSubscriptions
+      cancelledSubscriptions
+      billedCents
+      paidCents
+      outstandingCents
+      invoiceCount
+      coverFeeCents
+      covers
+      byPlan {
+        plan
+        count
+        mrrCents
+      }
+      byInvoiceStatus {
+        status
+        count
+        totalCents
+      }
+    }
+  }
+`;
+
+export const PLATFORM_CONFIG = gql`
+  query PlatformConfig {
+    platformConfig {
+      id
+      supportEmail
+      supportPhone
+      defaultSignupRole
+      defaultPartnerRole
+      defaultStaffRole
+      maintenanceMode
+      allowPublicRegistration
+      allowPartnerRegistration
+      requireAdminDelete2FA
+      invoicePrefix
+      currency
+      featureFlags {
+        waitlist deposits partnerRegistration publicRegistration
+        messaging reviews experiences campaigns widget
+      }
+      updatedAt
+    }
+  }
+`;
+
+export const UPDATE_PLATFORM_CONFIG = gql`
+  mutation UpdatePlatformConfig($input: PlatformConfigInput!) {
+    updatePlatformConfig(input: $input) {
+      id
+      supportEmail
+      supportPhone
+      defaultSignupRole
+      defaultPartnerRole
+      defaultStaffRole
+      maintenanceMode
+      allowPublicRegistration
+      allowPartnerRegistration
+      requireAdminDelete2FA
+      invoicePrefix
+      currency
+      featureFlags {
+        waitlist deposits partnerRegistration publicRegistration
+        messaging reviews experiences campaigns widget
+      }
+      updatedAt
+    }
+  }
+`;
+
+export const REQUEST_ADMIN_DELETE_USER_CODE = gql`
+  mutation RequestAdminDeleteUserCode($userId: ID!) {
+    requestAdminDeleteUserCode(userId: $userId) {
+      success
+      requires2FA
+      message
+      emailedTo
+    }
+  }
+`;
+
+export const ADMIN_DELETE_USER = gql`
+  mutation AdminDeleteUser($userId: ID!, $code: String) {
+    adminDeleteUser(userId: $userId, code: $code) {
+      success
+      message
+      deletedUserId
+    }
+  }
+`;
+
+export const CLEAR_SEED_DATA = gql`
+  mutation ClearSeedData {
+    clearSeedData {
+      success
+      message
+      preservedAdminCount
+    }
+  }
+`;
+
+export const ADMIN_PLANS = gql`
+  query AdminPlans {
+    plans {
+      key
+      name
+      description
+      monthlyPriceCents
+      networkCoverFeeCents
+      websiteCoverFeeCents
+      trialDays
+      visibleOnPricing
+      isCustom
+      features {
+        floorPlans
+        smartAssign
+        waitlist
+        premiumSms
+        guestProfiles360
+        emailCampaigns
+        customWidget
+        analytics
+        dedicatedSupport
+        accessRules
+        posIntegration
+        twoWayMessaging
+        spendAlerts
+        ticketedEvents
+        preShift
+        autoTags
+        surveys
+        revenueForecasting
+        customReports
+        multiLocationAnalytics
+        promotions
+        featuredPlacement
+        boostCampaigns
+      }
+    }
+  }
+`;
+
+export const UPDATE_PLAN_PACKAGE = gql`
+  mutation UpdatePlanPackage($input: PlanPackageInput!) {
+    updatePlanPackage(input: $input) {
+      key
+      name
+      description
+      monthlyPriceCents
+      networkCoverFeeCents
+      websiteCoverFeeCents
+      trialDays
+      visibleOnPricing
+      isCustom
+    }
+  }
+`;
+
+export const CREATE_PLAN_PACKAGE = gql`
+  mutation CreatePlanPackage($input: CreatePlanPackageInput!) {
+    createPlanPackage(input: $input) {
+      key
+      name
+      description
+      monthlyPriceCents
+      networkCoverFeeCents
+      websiteCoverFeeCents
+      trialDays
+      visibleOnPricing
+      isCustom
+    }
+  }
+`;
+
+export const DELETE_PLAN_PACKAGE = gql`
+  mutation DeletePlanPackage($key: String!) {
+    deletePlanPackage(key: $key)
   }
 `;
 
@@ -239,22 +1141,6 @@ export const UPDATE_SHIFT = gql`
   }
 `;
 
-export const ADMIN_USERS = gql`
-  query AdminUsers {
-    adminUsers {
-      id email firstName lastName role loyaltyPoints createdAt
-    }
-  }
-`;
-
-export const SET_USER_ROLE = gql`
-  mutation SetUserRole($userId: ID!, $role: UserRole!) {
-    setUserRole(userId: $userId, role: $role) {
-      id role
-    }
-  }
-`;
-
 export const MY_SUBSCRIPTION = gql`
   query MySubscription($restaurantId: ID!) {
     mySubscription(restaurantId: $restaurantId) {
@@ -280,7 +1166,15 @@ export const MY_SUBSCRIPTION = gql`
 export const PLANS = gql`
   query Plans {
     plans {
-      key name monthlyPriceCents networkCoverFeeCents websiteCoverFeeCents trialDays
+      key
+      name
+      description
+      monthlyPriceCents
+      networkCoverFeeCents
+      websiteCoverFeeCents
+      trialDays
+      visibleOnPricing
+      isCustom
       features {
         floorPlans smartAssign waitlist premiumSms
         guestProfiles360 emailCampaigns customWidget analytics dedicatedSupport
@@ -305,6 +1199,34 @@ export const CREATE_SUBSCRIPTION = gql`
   }
 `;
 
+export const REGISTER_RESTAURANT_PARTNER = gql`
+  mutation RegisterRestaurantPartner($input: RegisterRestaurantPartnerInput!) {
+    registerRestaurantPartner(input: $input) {
+      accessToken
+      refreshToken
+      user {
+        id
+        email
+        firstName
+        lastName
+        role
+        restaurantIds
+      }
+      restaurant {
+        id
+        name
+        status
+      }
+      subscription {
+        id
+        plan
+        status
+        trialEndsAt
+      }
+    }
+  }
+`;
+
 export const CANCEL_SUBSCRIPTION = gql`
   mutation CancelSubscription($restaurantId: ID!) {
     cancelSubscription(restaurantId: $restaurantId) {
@@ -324,8 +1246,11 @@ export const CHANGE_PLAN = gql`
 export const AUDIT_LOGS = gql`
   query AuditLogs($limit: Int, $offset: Int) {
     auditLogs(limit: $limit, offset: $offset) {
-      id actorId action resource resourceId details createdAt
-      actor { id firstName lastName email }
+      total
+      items {
+        id actorId action resource resourceId details createdAt
+        actor { id firstName lastName email }
+      }
     }
   }
 `;
@@ -335,9 +1260,12 @@ export const AUDIT_LOGS = gql`
 export const RESTAURANT_GUESTS = gql`
   query RestaurantGuests($restaurantId: ID!, $tag: String, $vipStatus: String, $search: String, $limit: Int, $offset: Int) {
     restaurantGuests(restaurantId: $restaurantId, tag: $tag, vipStatus: $vipStatus, search: $search, limit: $limit, offset: $offset) {
-      id dinerId tags notes vipStatus totalVisits totalSpendCents averagePartySize
-      lastVisitDate preferredTable dietaryRestrictions allergies occasions
-      diner { id firstName lastName email phone }
+      total
+      items {
+        id dinerId tags notes vipStatus totalVisits totalSpendCents averagePartySize
+        lastVisitDate preferredTable dietaryRestrictions allergies occasions
+        diner { id firstName lastName email phone }
+      }
     }
   }
 `;
@@ -420,10 +1348,13 @@ export const MARK_CONVERSATION_READ = gql`
 // ---- Reviews ----
 
 export const RESTAURANT_REVIEWS = gql`
-  query DashboardRestaurantReviews($restaurantId: ID!) {
-    restaurantReviews(restaurantId: $restaurantId) {
-      id rating comment ownerReply ownerRepliedAt hidden createdAt dinerId
-      diner { id firstName lastName }
+  query DashboardRestaurantReviews($restaurantId: ID!, $limit: Int, $offset: Int) {
+    restaurantReviews(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
+      total
+      items {
+        id rating comment ownerReply ownerRepliedAt hidden createdAt dinerId
+        diner { id firstName lastName }
+      }
     }
   }
 `;
@@ -447,9 +1378,12 @@ export const SET_REVIEW_HIDDEN = gql`
 // ---- Campaigns ----
 
 export const CAMPAIGNS = gql`
-  query Campaigns($restaurantId: ID!) {
-    campaigns(restaurantId: $restaurantId) {
-      id name subject body status targetTags targetVipStatus scheduledAt sentAt recipientCount createdAt
+  query Campaigns($restaurantId: ID!, $limit: Int, $offset: Int) {
+    campaigns(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
+      total
+      items {
+        id name subject body status targetTags targetVipStatus scheduledAt sentAt recipientCount createdAt
+      }
     }
   }
 `;
@@ -505,9 +1439,12 @@ export const SURVEY_STATS = gql`
 export const RESTAURANT_SURVEYS = gql`
   query RestaurantSurveys($restaurantId: ID!, $limit: Int, $offset: Int) {
     restaurantSurveys(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
-      id overallRating foodRating serviceRating ambienceRating valueRating
-      wouldRecommend feedback submittedAt
-      diner { firstName lastName }
+      total
+      items {
+        id overallRating foodRating serviceRating ambienceRating valueRating
+        wouldRecommend feedback submittedAt
+        diner { firstName lastName }
+      }
     }
   }
 `;
@@ -556,9 +1493,12 @@ export const DELETE_ACCESS_RULE = gql`
 // ---- Marketing ----
 
 export const PROMOTIONS = gql`
-  query Promotions($restaurantId: ID!) {
-    promotions(restaurantId: $restaurantId) {
-      id title description discountPercent code startDate endDate daysOfWeek active redemptions createdAt
+  query Promotions($restaurantId: ID!, $limit: Int, $offset: Int) {
+    promotions(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
+      total
+      items {
+        id title description discountPercent code startDate endDate daysOfWeek active redemptions createdAt
+      }
     }
   }
 `;
@@ -586,9 +1526,12 @@ export const DELETE_PROMOTION = gql`
 `;
 
 export const BOOST_CAMPAIGNS = gql`
-  query BoostCampaigns($restaurantId: ID!) {
-    boostCampaigns(restaurantId: $restaurantId) {
-      id name costPerCoverCents budgetCents spentCents coversAttributed startDate endDate status createdAt
+  query BoostCampaigns($restaurantId: ID!, $limit: Int, $offset: Int) {
+    boostCampaigns(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
+      total
+      items {
+        id name costPerCoverCents budgetCents spentCents coversAttributed startDate endDate status createdAt
+      }
     }
   }
 `;
@@ -839,11 +1782,14 @@ export const UPDATE_WAITLIST_STATUS = gql`
 `;
 
 export const RESTAURANT_WAITLIST_FULL = gql`
-  query RestaurantWaitlistFull($restaurantId: ID!) {
-    restaurantWaitlist(restaurantId: $restaurantId) {
-      id partySize preferredDate preferredTimeStart status createdAt
-      dinerId guestName guestPhone source quotedWaitMinutes
-      diner { firstName lastName phone }
+  query RestaurantWaitlistFull($restaurantId: ID!, $limit: Int, $offset: Int) {
+    restaurantWaitlist(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
+      total
+      items {
+        id partySize preferredDate preferredTimeStart status createdAt
+        dinerId guestName guestPhone source quotedWaitMinutes
+        diner { firstName lastName phone }
+      }
     }
   }
 `;

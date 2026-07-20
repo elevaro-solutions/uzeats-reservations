@@ -15,6 +15,10 @@ const reviewSchema = new Schema(
     ownerReply: { type: String },
     ownerRepliedAt: { type: Date },
     hidden: { type: Boolean, default: false },
+    flagged: { type: Boolean, default: false, index: true },
+    flagReason: { type: String },
+    flaggedAt: { type: Date },
+    flaggedById: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true },
 );

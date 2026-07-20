@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import {
@@ -28,6 +28,7 @@ import {
   ADD_GUEST_TAG,
   REMOVE_GUEST_TAG,
 } from '@/lib/graphql';
+import { useUrlPagination } from '@/lib/useUrlPagination';
 
 const { Title, Text } = Typography;
 
@@ -38,7 +39,7 @@ const VIP_COLORS: Record<string, string> = {
   none: 'default',
 };
 
-export default function GuestsPage() {
+function GuestsPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [restaurantId, setRestaurantId] = useState<string>();
@@ -47,11 +48,20 @@ export default function GuestsPage() {
   const [selected, setSelected] = useState<any>(null);
   const [newTag, setNewTag] = useState('');
   const [form] = Form.useForm();
+  const { limit, offset, setPagination, tablePagination } = useUrlPagination({
+    defaultPageSize: 20,
+  });
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const { data, loading, refetch } = useQuery(RESTAURANT_GUESTS, {
     skip: !restaurantId,
-    variables: { restaurantId, search: search || undefined, vipStatus: vipFilter },
+    variables: {
+      restaurantId,
+      search: search || undefined,
+      vipStatus: vipFilter,
+      limit,
+      offset,
+    },
   });
   const [updateProfile, { loading: saving }] = useMutation(UPDATE_GUEST_PROFILE);
   const [addTag] = useMutation(ADD_GUEST_TAG);
@@ -138,14 +148,20 @@ export default function GuestsPage() {
           placeholder="Search name or email"
           allowClear
           style={{ width: 240 }}
-          onSearch={setSearch}
+          onSearch={(value) => {
+            setSearch(value);
+            setPagination(1);
+          }}
         />
         <Select
           placeholder="VIP status"
           allowClear
           style={{ width: 160 }}
           value={vipFilter}
-          onChange={setVipFilter}
+          onChange={(value) => {
+            setVipFilter(value);
+            setPagination(1);
+          }}
           options={[
             { value: 'vip', label: 'VIP' },
             { value: 'regular', label: 'Regular' },
@@ -159,7 +175,8 @@ export default function GuestsPage() {
         <Table
           loading={loading}
           rowKey="id"
-          dataSource={data?.restaurantGuests ?? []}
+          dataSource={data?.restaurantGuests?.items ?? []}
+          pagination={tablePagination(data?.restaurantGuests?.total ?? 0)}
           onRow={(record) => ({ onClick: () => openGuest(record), style: { cursor: 'pointer' } })}
           columns={[
             {
@@ -306,5 +323,13 @@ export default function GuestsPage() {
         )}
       </Drawer>
     </Space>
+  );
+}
+
+export default function GuestsPage() {
+  return (
+    <Suspense fallback={null}>
+      <GuestsPageContent />
+    </Suspense>
   );
 }

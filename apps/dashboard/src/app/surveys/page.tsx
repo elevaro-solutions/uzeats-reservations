@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import {
@@ -25,6 +25,7 @@ import {
   RESTAURANT_SURVEYS,
   UPDATE_SURVEY_CONFIG,
 } from '@/lib/graphql';
+import { useUrlPagination } from '@/lib/useUrlPagination';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -36,10 +37,13 @@ const QUESTION_TOGGLES = [
   { key: 'includeRecommend', label: 'Would recommend' },
 ] as const;
 
-export default function SurveysPage() {
+function SurveysPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [restaurantId, setRestaurantId] = useState<string>();
+  const { page, pageSize, limit, offset, setPagination } = useUrlPagination({
+    defaultPageSize: 20,
+  });
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const { data: configData, refetch: refetchConfig } = useQuery(SURVEY_CONFIG, {
@@ -52,7 +56,7 @@ export default function SurveysPage() {
   });
   const { data: responsesData, loading } = useQuery(RESTAURANT_SURVEYS, {
     skip: !restaurantId,
-    variables: { restaurantId },
+    variables: { restaurantId, limit, offset },
   });
   const [updateConfig] = useMutation(UPDATE_SURVEY_CONFIG);
 
@@ -163,7 +167,13 @@ export default function SurveysPage() {
       <Card title="Recent responses">
         <List
           loading={loading}
-          dataSource={responsesData?.restaurantSurveys ?? []}
+          dataSource={responsesData?.restaurantSurveys?.items ?? []}
+          pagination={{
+            current: page,
+            pageSize,
+            total: responsesData?.restaurantSurveys?.total ?? 0,
+            onChange: (p) => setPagination(p),
+          }}
           renderItem={(s: any) => (
             <List.Item>
               <List.Item.Meta
@@ -200,5 +210,13 @@ export default function SurveysPage() {
         />
       </Card>
     </Space>
+  );
+}
+
+export default function SurveysPage() {
+  return (
+    <Suspense fallback={null}>
+      <SurveysPageContent />
+    </Suspense>
   );
 }

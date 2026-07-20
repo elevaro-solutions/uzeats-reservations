@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@apollo/client/react';
 import { useRouter } from 'next/navigation';
 import {
@@ -8,6 +8,7 @@ import {
   Col,
   DatePicker,
   Input,
+  Pagination,
   Row,
   Select,
   Skeleton,
@@ -28,6 +29,7 @@ import {
 } from '@ant-design/icons';
 import { CUISINES } from '@reservations/shared';
 import { SEARCH_RESTAURANTS, AVAILABILITY } from '@/lib/graphql';
+import { useUrlPagination } from '@/lib/useUrlPagination';
 import { DEFAULT_LOCATION, cityLabel } from '@/lib/cities';
 import {
   AddressAutocomplete,
@@ -52,7 +54,7 @@ const HERO_STATS = [
   { value: '4.8★', label: 'Average rating' },
 ] as const;
 
-export default function HomePage() {
+function HomePageContent() {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -68,11 +70,22 @@ export default function HomePage() {
   const [date, setDate] = useState(dayjs().add(1, 'day'));
   const [geoLoading, setGeoLoading] = useState(false);
   const [showMap, setShowMap] = useState(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const skipPageReset = useRef(true);
+  const { page, pageSize, setPage } = useUrlPagination({ defaultPageSize: 24 });
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQuery(query), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [query]);
+
+  useEffect(() => {
+    if (skipPageReset.current) {
+      skipPageReset.current = false;
+      return;
+    }
+    setPage(1);
+  }, [debouncedQuery, cuisine, selectedLocation.lat, selectedLocation.lng, partySize, date, setPage]);
 
   const applyLocation = useCallback((location: LocationSelection, fromDevice = false) => {
     setSelectedLocation(location);
@@ -129,6 +142,22 @@ export default function HomePage() {
     setUsingDeviceLocation(false);
   }, []);
 
+  // Search runs live as filters change; the CTA flushes the debounce and
+  // brings the results into view so the button always "does something".
+  const handleSearch = useCallback(() => {
+    setDebouncedQuery(query);
+    resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [query]);
+
+  const datePresets = useMemo(
+    () => [
+      { label: 'Today', value: dayjs() },
+      { label: 'Tomorrow', value: dayjs().add(1, 'day') },
+      { label: 'This weekend', value: dayjs().day() === 0 ? dayjs() : dayjs().day(6) },
+    ],
+    [],
+  );
+
   const dateStr = date.format('YYYY-MM-DD');
 
   const { data, loading } = useQuery(SEARCH_RESTAURANTS, {
@@ -138,8 +167,8 @@ export default function HomePage() {
         cuisine,
         partySize,
         date: dateStr,
-        page: 1,
-        limit: 24,
+        page,
+        limit: pageSize,
         lat: selectedLocation.lat,
         lng: selectedLocation.lng,
         radiusKm: NEARBY_RADIUS_KM,
@@ -242,7 +271,7 @@ export default function HomePage() {
           style={{
             maxWidth: 1120,
             margin: '0 auto',
-            padding: '72px 24px 56px',
+            padding: 'clamp(48px, 7vw, 72px) 24px 56px',
             position: 'relative',
             textAlign: 'center',
           }}
@@ -294,108 +323,116 @@ export default function HomePage() {
 
           {/* search panel */}
           <div
-            className="rt-fade-up"
-            style={{
-              marginTop: 32,
-              background: '#fff',
-              borderRadius: radii.xl,
-              padding: 10,
-              boxShadow:
-                '0 24px 64px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(255,255,255,0.06)',
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 8,
-              alignItems: 'center',
-              textAlign: 'left',
-              animationDelay: '180ms',
-            }}
+            className="rt-fade-up rt-search-panel"
+            role="search"
+            style={{ animationDelay: '180ms' }}
           >
-            <Input
-              size="large"
-              prefix={<SearchOutlined style={{ color: colors.textTertiary }} />}
-              placeholder="Restaurant or cuisine"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              style={{ flex: '2 1 200px', minWidth: 180 }}
-              variant="filled"
-            />
-            <Select
-              size="large"
-              allowClear
-              placeholder="Cuisine"
-              value={cuisine}
-              onChange={setCuisine}
-              style={{ flex: '1 1 140px', minWidth: 130 }}
-              options={CUISINES.map((c) => ({ value: c, label: c }))}
-              variant="filled"
-            />
-            {usingDeviceLocation ? (
-              <Tag
-                color={colors.brand[600]}
-                closable
-                onClose={clearDeviceLocation}
+            <div className="rt-search-field rt-sf-what">
+              <span className="rt-search-label">Search</span>
+              <Input
+                size="large"
+                variant="borderless"
+                allowClear
+                prefix={<SearchOutlined style={{ color: colors.textTertiary }} />}
+                placeholder="Restaurant name or dish"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onPressEnter={handleSearch}
+              />
+            </div>
+            <span className="rt-search-divider" aria-hidden />
+            <div className="rt-search-field rt-sf-cuisine">
+              <span className="rt-search-label">Cuisine</span>
+              <Select
+                size="large"
+                variant="borderless"
+                allowClear
+                placeholder="Any cuisine"
+                value={cuisine}
+                onChange={setCuisine}
+                options={CUISINES.map((c) => ({ value: c, label: c }))}
+              />
+            </div>
+            <span className="rt-search-divider" aria-hidden />
+            <div className="rt-search-field rt-sf-where">
+              <span className="rt-search-label">Where</span>
+              {usingDeviceLocation ? (
+                <Tag
+                  color={colors.brand[600]}
+                  closable
+                  onClose={clearDeviceLocation}
+                  style={{
+                    height: 40,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    fontSize: 14,
+                    padding: '0 12px',
+                    borderRadius: radii.md,
+                    margin: '0 4px 2px',
+                  }}
+                >
+                  <EnvironmentFilled style={{ marginRight: 6 }} /> Near me — closest tables first
+                </Tag>
+              ) : (
+                <AddressAutocomplete
+                  value={locationInput}
+                  onChange={setLocationInput}
+                  onSelectLocation={(loc) => applyLocation(loc)}
+                  onUseMyLocation={requestLocation}
+                  onClear={clearLocation}
+                  geoLoading={geoLoading}
+                  variant="borderless"
+                />
+              )}
+            </div>
+            <span className="rt-search-divider" aria-hidden />
+            <div className="rt-search-field rt-sf-when">
+              <span className="rt-search-label">When</span>
+              <DatePicker
+                size="large"
+                variant="borderless"
+                value={date}
+                onChange={(d) => d && setDate(d)}
+                allowClear={false}
+                format="ddd, MMM D"
+                disabledDate={(d) => d.isBefore(dayjs().startOf('day'))}
+                presets={datePresets}
+              />
+            </div>
+            <span className="rt-search-divider" aria-hidden />
+            <div className="rt-search-field rt-sf-who">
+              <span className="rt-search-label">Guests</span>
+              <Select
+                size="large"
+                variant="borderless"
+                value={partySize}
+                onChange={(v) => setPartySize(v ?? 2)}
+                options={Array.from({ length: 20 }, (_, i) => ({
+                  value: i + 1,
+                  label: `${i + 1} ${i === 0 ? 'guest' : 'guests'}`,
+                }))}
+              />
+            </div>
+            <div className="rt-search-submit">
+              <Button
+                type="primary"
+                size="large"
+                icon={<SearchOutlined />}
+                className="rt-hero-cta"
+                onClick={handleSearch}
                 style={{
-                  height: 44,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  fontSize: 14,
-                  padding: '0 14px',
-                  borderRadius: radii.md,
-                  margin: 0,
-                  flex: '1 1 180px',
-                  minWidth: 160,
+                  height: 'auto',
+                  minHeight: 52,
+                  borderRadius: radii.lg,
+                  fontWeight: typography.fontWeight.semibold,
+                  paddingInline: 26,
+                  background: colors.brand[600],
+                  boxShadow: shadows.brand,
                 }}
               >
-                <EnvironmentFilled style={{ marginRight: 6 }} /> Near me — showing closest tables
-              </Tag>
-            ) : (
-              <AddressAutocomplete
-                value={locationInput}
-                onChange={setLocationInput}
-                onSelectLocation={(loc) => applyLocation(loc)}
-                onUseMyLocation={requestLocation}
-                onClear={clearLocation}
-                geoLoading={geoLoading}
-                style={{ flex: '1 1 220px', minWidth: 180 }}
-              />
-            )}
-            <DatePicker
-              size="large"
-              value={date}
-              onChange={(d) => d && setDate(d)}
-              allowClear={false}
-              style={{ flex: '0 1 150px' }}
-              variant="filled"
-            />
-            <Select
-              size="large"
-              value={partySize}
-              onChange={(v) => setPartySize(v ?? 2)}
-              style={{ flex: '0 1 140px', minWidth: 130 }}
-              variant="filled"
-              options={Array.from({ length: 20 }, (_, i) => ({
-                value: i + 1,
-                label: `${i + 1} ${i === 0 ? 'person' : 'people'}`,
-              }))}
-            />
-            <Button
-              type="primary"
-              size="large"
-              icon={<SearchOutlined />}
-              className="rt-hero-cta"
-              style={{
-                flex: '1 1 auto',
-                height: 44,
-                minWidth: 150,
-                borderRadius: radii.md,
-                fontWeight: typography.fontWeight.semibold,
-                paddingInline: 24,
-                background: colors.brand[600],
-                boxShadow: shadows.brand,
-              }}
-            >
-              Find a table
-            </Button>
+                Find a table
+              </Button>
+            </div>
           </div>
 
           {/* highlights */}
@@ -445,6 +482,7 @@ export default function HomePage() {
                 {i > 0 && (
                   <span
                     aria-hidden
+                    className="rt-hero-stat-sep"
                     style={{
                       width: 1,
                       height: 30,
@@ -582,7 +620,7 @@ export default function HomePage() {
       )}
 
       {/* ---------- Results ---------- */}
-      <div style={{ marginTop: 28 }}>
+      <div ref={resultsRef} style={{ marginTop: 28, scrollMarginTop: 84 }}>
         {loading ? (
           <>
             <Skeleton.Input active style={{ width: 260, height: 30, marginBottom: 20 }} />
@@ -596,6 +634,17 @@ export default function HomePage() {
               subtitle={`${total} restaurant${total === 1 ? '' : 's'} within ${NEARBY_RADIUS_KM} km`}
             />
             {renderGrid(restaurants)}
+            {total > pageSize && (
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 32 }}>
+                <Pagination
+                  current={page}
+                  pageSize={pageSize}
+                  total={total}
+                  onChange={setPage}
+                  showSizeChanger={false}
+                />
+              </div>
+            )}
           </>
         ) : (
           <>
@@ -633,7 +682,7 @@ export default function HomePage() {
                   No restaurants found near {usingDeviceLocation ? 'you' : selectedLocation.label}
                 </Text>
                 <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                  Don&apos;t worry — here are the top 20 restaurants on ReserveTable, loved by
+                  Don&apos;t worry — here are the top 20 restaurants on Tablevera, loved by
                   thousands of diners.
                 </Text>
               </div>
@@ -646,7 +695,7 @@ export default function HomePage() {
                 <SectionHeader
                   icon={<CrownFilled />}
                   title="Top 20 restaurants"
-                  subtitle="The highest-rated places across ReserveTable"
+                  subtitle="The highest-rated places across Tablevera"
                 />
                 {renderGrid(topRestaurants)}
               </>
@@ -654,7 +703,7 @@ export default function HomePage() {
               <EmptyState
                 icon={<SearchOutlined />}
                 title="No restaurants yet"
-                description="New restaurants join ReserveTable every week — check back soon."
+                description="New restaurants join Tablevera every week — check back soon."
               />
             )}
           </>
@@ -770,5 +819,13 @@ function RestaurantWithSlots({
       onClick={onOpen}
       onSelectSlot={(_, time) => onSelectSlot(time)}
     />
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={null}>
+      <HomePageContent />
+    </Suspense>
   );
 }

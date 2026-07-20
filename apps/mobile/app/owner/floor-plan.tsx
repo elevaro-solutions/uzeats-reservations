@@ -89,7 +89,7 @@ export default function FloorPlanScreen() {
   const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
 
   const reservations: FloorReservation[] =
-    reservationsData?.restaurantReservations ?? [];
+    reservationsData?.restaurantReservations?.items ?? [];
 
   const occupiedTableIds = useMemo(() => {
     const ids = new Set<string>();

@@ -94,6 +94,21 @@ async function main() {
         ) {
           const intent = event.data.object as { id: string };
           await confirmDeposit(intent.id);
+        } else if (
+          event.type === 'invoice.paid' ||
+          event.type === 'invoice.payment_failed' ||
+          event.type === 'invoice.finalized' ||
+          event.type === 'invoice.voided' ||
+          event.type === 'invoice.updated'
+        ) {
+          const { syncStripeInvoice } = await import('./services/stripeSync.js');
+          await syncStripeInvoice(event.data.object as any);
+        } else if (
+          event.type === 'customer.subscription.updated' ||
+          event.type === 'customer.subscription.deleted'
+        ) {
+          const { handleStripeSubscriptionEvent } = await import('./services/stripeSync.js');
+          await handleStripeSubscriptionEvent(event.type, event.data.object as any);
         }
         res.json({ received: true });
       } catch (err) {

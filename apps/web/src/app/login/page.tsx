@@ -7,10 +7,9 @@ import { Button, Divider, Form, Input, Tabs, message } from 'antd';
 import {
   LockOutlined,
   MailOutlined,
-  PhoneOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { colors, typography } from '@reservations/ui';
+import { PhoneInput, colors, typography, usPhoneRules } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { AuthLayout } from '@/components/AuthLayout';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
@@ -142,8 +141,7 @@ function LoginContent() {
                 onFinish={async (values) => {
                   setLoading(true);
                   try {
-                    const phone = '+1' + values.phone.replace(/\D/g, '');
-                    await register({ ...values, phone });
+                    await register({ ...values, phone: values.phone });
                     message.success('Account created');
                     goNext();
                   } catch (err) {
@@ -194,33 +192,9 @@ function LoginContent() {
                 <Form.Item
                   name="phone"
                   label="Phone number"
-                  rules={[
-                    { required: true, message: 'Enter your phone number' },
-                    {
-                      pattern: /^\(\d{3}\)\s\d{3}-\d{4}$/,
-                      message: 'Enter a valid US number, e.g. (212) 555-1234',
-                    },
-                  ]}
-                  normalize={(value: string) => {
-                    const digits = value.replace(/\D/g, '').slice(0, 10);
-                    if (digits.length <= 3) return digits.length ? `(${digits}` : '';
-                    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-                    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-                  }}
+                  rules={usPhoneRules({ required: true })}
                 >
-                  <Input
-                    size="large"
-                    prefix={
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: colors.textTertiary }}>
-                        <PhoneOutlined />
-                        <span style={{ fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.medium, color: colors.textSecondary }}>
-                          +1
-                        </span>
-                      </span>
-                    }
-                    placeholder="(212) 555-1234"
-                    inputMode="tel"
-                  />
+                  <PhoneInput size="large" />
                 </Form.Item>
                 <Form.Item
                   name="password"
@@ -273,7 +247,7 @@ function LoginContent() {
       >
         Restaurant partner?{' '}
         <Link
-          href="http://localhost:3001"
+          href={process.env.NEXT_PUBLIC_DASHBOARD_URL ?? 'http://localhost:3001'}
           target="_blank"
           style={{
             color: colors.brand[600],

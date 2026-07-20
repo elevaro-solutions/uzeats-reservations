@@ -29,15 +29,32 @@ export type DashUser = {
   restaurantIds: string[];
 };
 
+type Impersonator = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string | null;
+};
+
 const AuthContext = createContext<{
   user: DashUser | null;
   loading: boolean;
+  impersonator: Impersonator | null;
+  isImpersonating: boolean;
   login: (email: string, password: string) => Promise<void>;
+  setSession: (accessToken: string, refreshToken: string, user: DashUser) => void;
+  beginImpersonation: (accessToken: string, user: DashUser, impersonator: Impersonator) => void;
+  endImpersonation: () => void;
   logout: () => void;
 } | null>(null);
 
+const ADMIN_BACKUP_ACCESS = 'dashAdminAccessToken';
+const ADMIN_BACKUP_REFRESH = 'dashAdminRefreshToken';
+const ADMIN_BACKUP_USER = 'dashAdminUser';
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<DashUser | null>(null);
+  const [impersonator, setImpersonator] = useState<Impersonator | null>(null);
   const [loading, setLoading] = useState(true);
   const [loginMutation] = useMutation(LOGIN);
 
@@ -45,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const token = localStorage.getItem('dashAccessToken');
     if (!token) {
       setUser(null);
+      setImpersonator(null);
       setLoading(false);
       return;
     }
@@ -56,13 +74,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          query: `query Me { me { id email firstName lastName role restaurantIds } }`,
+          query: `query SessionInfo {
+            session {
+              isImpersonating
+              user { id email firstName lastName role restaurantIds }
+              impersonator { id firstName lastName email }
+            }
+          }`,
         }),
       });
       const json = await res.json();
-      setUser(json.data?.me ?? null);
+      const session = json.data?.session;
+      setUser(session?.user ?? null);
+      setImpersonator(session?.impersonator ?? null);
     } catch {
       setUser(null);
+      setImpersonator(null);
     } finally {
       setLoading(false);
     }
@@ -72,20 +99,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void refreshMe();
   }, [refreshMe]);
 
+  const setSession = (accessToken: string, refreshToken: string, nextUser: DashUser) => {
+    localStorage.setItem('dashAccessToken', accessToken);
+    localStorage.setItem('dashRefreshToken', refreshToken);
+    setUser(nextUser);
+    setImpersonator(null);
+  };
+
+  const beginImpersonation = (
+    accessToken: string,
+    nextUser: DashUser,
+    nextImpersonator: Impersonator,
+  ) => {
+    const currentAccess = localStorage.getItem('dashAccessToken');
+    const currentRefresh = localStorage.getItem('dashRefreshToken');
+    if (currentAccess && user && user.role === 'admin') {
+      localStorage.setItem(ADMIN_BACKUP_ACCESS, currentAccess);
+      if (currentRefresh) localStorage.setItem(ADMIN_BACKUP_REFRESH, currentRefresh);
+      localStorage.setItem(ADMIN_BACKUP_USER, JSON.stringify(user));
+    }
+    localStorage.setItem('dashAccessToken', accessToken);
+    localStorage.removeItem('dashRefreshToken');
+    setUser(nextUser);
+    setImpersonator(nextImpersonator);
+  };
+
+  const endImpersonation = () => {
+    const access = localStorage.getItem(ADMIN_BACKUP_ACCESS);
+    const refresh = localStorage.getItem(ADMIN_BACKUP_REFRESH);
+    const rawUser = localStorage.getItem(ADMIN_BACKUP_USER);
+    localStorage.removeItem(ADMIN_BACKUP_ACCESS);
+    localStorage.removeItem(ADMIN_BACKUP_REFRESH);
+    localStorage.removeItem(ADMIN_BACKUP_USER);
+    if (access && rawUser) {
+      localStorage.setItem('dashAccessToken', access);
+      if (refresh) localStorage.setItem('dashRefreshToken', refresh);
+      setUser(JSON.parse(rawUser) as DashUser);
+      setImpersonator(null);
+      window.location.href = '/admin/users';
+      return;
+    }
+    localStorage.removeItem('dashAccessToken');
+    localStorage.removeItem('dashRefreshToken');
+    setUser(null);
+    setImpersonator(null);
+    window.location.href = '/login';
+  };
+
   const login = async (email: string, password: string) => {
     const { data } = await loginMutation({ variables: { input: { email, password } } });
-    localStorage.setItem('dashAccessToken', data.login.accessToken);
-    localStorage.setItem('dashRefreshToken', data.login.refreshToken);
-    setUser(data.login.user);
+    const nextUser = data.login.user as DashUser;
+    if (nextUser.role === 'diner') {
+      throw new Error(
+        'This hub is for restaurant partners. Sign in on the diner app to manage your bookings.',
+      );
+    }
+    setSession(data.login.accessToken, data.login.refreshToken, nextUser);
   };
 
   const logout = () => {
     localStorage.removeItem('dashAccessToken');
     localStorage.removeItem('dashRefreshToken');
+    localStorage.removeItem(ADMIN_BACKUP_ACCESS);
+    localStorage.removeItem(ADMIN_BACKUP_REFRESH);
+    localStorage.removeItem(ADMIN_BACKUP_USER);
     setUser(null);
+    setImpersonator(null);
   };
 
-  const value = useMemo(() => ({ user, loading, login, logout }), [user, loading]);
+  const value = useMemo(
+    () => ({
+      user,
+      loading,
+      impersonator,
+      isImpersonating: Boolean(impersonator),
+      login,
+      setSession,
+      beginImpersonation,
+      endImpersonation,
+      logout,
+    }),
+    [user, loading, impersonator],
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

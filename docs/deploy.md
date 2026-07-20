@@ -33,6 +33,12 @@ Set `NEXT_PUBLIC_API_URL=https://api.yourdomain.com/graphql`.
 For Google address autocomplete on the diner home page, also set
 `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (Maps JavaScript API + Places library; restrict by HTTP referrer).
 Without the key, the location field falls back to curated US cities with nearby search.
+
+For Google / Gmail login on the diner app, set matching OAuth Web client IDs:
+- API: `GOOGLE_CLIENT_ID` (and optional `GOOGLE_CLIENT_SECRET`)
+- Web build: `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (same value as `GOOGLE_CLIENT_ID`)
+
+In Google Cloud Console → Credentials → OAuth 2.0 Client ID (Web), add Authorized JavaScript origins for local and production diner URLs.
 ## Stripe webhook
 
 Endpoint: `POST https://api.yourdomain.com/webhooks/stripe`  

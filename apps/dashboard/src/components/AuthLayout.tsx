@@ -21,10 +21,12 @@ export function AuthLayout({
   children,
   heading,
   subheading,
+  maxWidth = 440,
 }: {
   children: React.ReactNode;
   heading: string;
   subheading?: string;
+  maxWidth?: number;
 }) {
   return (
     <div
@@ -115,7 +117,7 @@ export function AuthLayout({
                 fontWeight: 700,
               }}
             >
-              R
+              T
             </div>
             <div style={{ lineHeight: 1.2 }}>
               <span
@@ -127,7 +129,7 @@ export function AuthLayout({
                   letterSpacing: typography.letterSpacing.tight,
                 }}
               >
-                ReserveTable
+                Tablevera
               </span>
               <span
                 style={{
@@ -252,7 +254,7 @@ export function AuthLayout({
               fontWeight: 700,
             }}
           >
-            R
+            T
           </div>
           <div style={{ lineHeight: 1.2 }}>
             <span
@@ -264,7 +266,7 @@ export function AuthLayout({
                 letterSpacing: typography.letterSpacing.tight,
               }}
             >
-              ReserveTable
+              Tablevera
             </span>
             <span
               style={{
@@ -285,7 +287,7 @@ export function AuthLayout({
           className="rt-fade-up"
           style={{
             width: '100%',
-            maxWidth: 440,
+            maxWidth,
             background: '#fff',
             borderRadius: radii.xl,
             border: `1px solid ${colors.border}`,
@@ -329,7 +331,7 @@ export function AuthLayout({
         >
           Not a partner?{' '}
           <Link
-            href="http://localhost:3000"
+            href={process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000'}
             style={{
               color: colors.brand[600],
               fontWeight: typography.fontWeight.semibold,

@@ -17,7 +17,7 @@ jobs:
           fetch-depth: 0
       - uses: dokku/github-action@master
         with:
-          git_remote_url: ssh://dokku@${{ secrets.DOKKU_HOST }}/reservetable-api
+          git_remote_url: ssh://dokku@${{ secrets.DOKKU_HOST }}/tablevera-api
           ssh_private_key: ${{ secrets.DOKKU_SSH_KEY }}
           branch: main
 
@@ -30,7 +30,7 @@ jobs:
           fetch-depth: 0
       - uses: dokku/github-action@master
         with:
-          git_remote_url: ssh://dokku@${{ secrets.DOKKU_HOST }}/reservetable-web
+          git_remote_url: ssh://dokku@${{ secrets.DOKKU_HOST }}/tablevera-web
           ssh_private_key: ${{ secrets.DOKKU_SSH_KEY }}
           branch: main
 
@@ -43,6 +43,6 @@ jobs:
           fetch-depth: 0
       - uses: dokku/github-action@master
         with:
-          git_remote_url: ssh://dokku@${{ secrets.DOKKU_HOST }}/reservetable-dashboard
+          git_remote_url: ssh://dokku@${{ secrets.DOKKU_HOST }}/tablevera-dashboard
           ssh_private_key: ${{ secrets.DOKKU_SSH_KEY }}
           branch: main

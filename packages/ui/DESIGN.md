@@ -1,4 +1,4 @@
-# ReserveTable Design System
+# Tablevera Design System
 
 A warm, modern design language for hospitality SaaS — diner web, partner dashboard, and mobile. Source of truth:
 

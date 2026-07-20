@@ -42,6 +42,68 @@ export const CUISINES = [
 
 export const WAITLIST_STATUSES = ['waiting', 'notified', 'booked', 'expired', 'cancelled'] as const;
 
+export const SUPPORT_TICKET_STATUSES = [
+  'open',
+  'in_progress',
+  'waiting',
+  'resolved',
+  'closed',
+] as const;
+
+export const SUPPORT_TICKET_PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
+
+export const SUPPORT_TICKET_CATEGORIES = [
+  'billing',
+  'account',
+  'booking',
+  'restaurant',
+  'technical',
+  'other',
+] as const;
+
+/** Predefined support subjects; `category` maps to SUPPORT_TICKET_CATEGORIES. */
+export const SUPPORT_TICKET_SUBJECTS = [
+  { key: 'billing_inquiry', label: 'Billing inquiry', category: 'billing' },
+  { key: 'payment_failed', label: 'Payment failed', category: 'billing' },
+  { key: 'refund_request', label: 'Refund request', category: 'billing' },
+  { key: 'subscription_change', label: 'Subscription change', category: 'billing' },
+  { key: 'invoice_question', label: 'Invoice question', category: 'billing' },
+  { key: 'account_access', label: 'Account access issue', category: 'account' },
+  { key: 'password_reset', label: 'Password reset help', category: 'account' },
+  { key: 'profile_update', label: 'Profile / contact update', category: 'account' },
+  { key: 'booking_issue', label: 'Booking issue', category: 'booking' },
+  { key: 'cancellation_help', label: 'Cancellation help', category: 'booking' },
+  { key: 'reservation_modification', label: 'Reservation modification', category: 'booking' },
+  { key: 'no_show_dispute', label: 'No-show dispute', category: 'booking' },
+  { key: 'restaurant_onboarding', label: 'Restaurant onboarding', category: 'restaurant' },
+  { key: 'menu_floor_plan', label: 'Menu / floor plan help', category: 'restaurant' },
+  { key: 'restaurant_settings', label: 'Restaurant settings', category: 'restaurant' },
+  { key: 'staff_access', label: 'Staff access / invites', category: 'restaurant' },
+  { key: 'bug_report', label: 'Bug report', category: 'technical' },
+  { key: 'integration_issue', label: 'Integration issue', category: 'technical' },
+  { key: 'performance_issue', label: 'Performance / outage', category: 'technical' },
+  { key: 'feature_request', label: 'Feature request', category: 'other' },
+  { key: 'general_inquiry', label: 'General inquiry', category: 'other' },
+  { key: 'other', label: 'Other', category: 'other' },
+] as const;
+
+export const SUPPORT_TICKET_EVENT_TYPES = [
+  'created',
+  'status_changed',
+  'priority_changed',
+  'category_changed',
+  'subject_changed',
+  'assignee_changed',
+  'restaurant_changed',
+  'requester_changed',
+  'note_added',
+  'note_updated',
+  'note_deleted',
+  'attachment_added',
+  'attachment_updated',
+  'attachment_removed',
+] as const;
+
 export const LOYALTY = {
   POINTS_PER_COMPLETED_VISIT: 100,
   POINTS_PER_DOLLAR_DEPOSIT: 1,

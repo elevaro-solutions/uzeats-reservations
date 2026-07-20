@@ -69,7 +69,7 @@ function BrandMark({ size = 30 }: { size?: number }) {
         flexShrink: 0,
       }}
     >
-      R
+      T
     </span>
   );
 }
@@ -148,15 +148,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const unreadCount: number =
     (notifData as { unreadNotificationCount?: number } | undefined)?.unreadNotificationCount ?? 0;
 
+  // Diner app: only customer booking surfaces (no partner/admin links when signed in).
   const navItems = [
     { key: '/', label: <Link href="/">Find a table</Link> },
     ...(user
       ? [
           { key: '/reservations', label: <Link href="/reservations">My reservations</Link> },
           { key: '/waitlist', label: <Link href="/waitlist">Waitlist</Link> },
+          { key: '/profile', label: <Link href="/profile">Profile</Link> },
         ]
-      : []),
-    { key: '/pricing', label: <Link href="/pricing">For restaurants</Link> },
+      : [{ key: '/pricing', label: <Link href="/pricing">For restaurants</Link> }]),
   ];
 
   const accountMenu: MenuProps['items'] = user
@@ -399,13 +400,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               fontWeight: typography.fontWeight.bold,
             }}
           >
-            Reserve<span style={{ color: colors.brand[600] }}>Table</span>
+            Table<span style={{ color: colors.brand[600] }}>vera</span>
           </Text>
         </Link>
 
         <Menu
           mode="horizontal"
-          selectedKeys={[pathname === '/' ? '/' : pathname]}
+          selectedKeys={[
+            pathname === '/' || pathname.startsWith('/restaurants')
+              ? '/'
+              : pathname.startsWith('/profile')
+                ? '/profile'
+                : pathname.startsWith('/reservations')
+                  ? '/reservations'
+                  : pathname.startsWith('/waitlist')
+                    ? '/waitlist'
+                    : pathname,
+          ]}
           style={{ flex: 1, border: 'none', minWidth: 0, background: 'transparent' }}
           items={navItems}
         />
@@ -537,7 +548,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link href="/" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
               <BrandMark size={28} />
               <Text strong style={{ color: '#fff', fontSize: 17 }}>
-                ReserveTable
+                Tablevera
               </Text>
             </Link>
             <p style={{ margin: '14px 0 0', fontSize: 13, lineHeight: 1.6 }}>
@@ -562,12 +573,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Link href="/" style={{ color: 'rgba(255,255,255,0.55)' }}>
                   Find a table
                 </Link>
-                <Link href="/pricing" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                  For restaurants
-                </Link>
-                {user && (
-                  <Link href="/reservations" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                    My reservations
+                {user ? (
+                  <>
+                    <Link href="/reservations" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                      My reservations
+                    </Link>
+                    <Link href="/waitlist" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                      Waitlist
+                    </Link>
+                    <Link href="/profile" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                      Profile
+                    </Link>
+                  </>
+                ) : (
+                  <Link href="/pricing" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                    For restaurants
                   </Link>
                 )}
               </div>
@@ -606,7 +626,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             textAlign: 'center',
           }}
         >
-          © {new Date().getFullYear()} ReserveTable. All rights reserved.
+          © {new Date().getFullYear()} Tablevera. All rights reserved.
         </div>
       </Footer>
     </Layout>

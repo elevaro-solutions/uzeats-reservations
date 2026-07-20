@@ -98,7 +98,7 @@ export async function createStripeSubscription(input: {
     currency: env.STRIPE_CURRENCY,
     unit_amount: input.priceAmountCents,
     recurring: { interval: 'month' },
-    product_data: { name: 'ReserveTable Plan' },
+    product_data: { name: 'Tablevera Plan' },
   });
 
   const subscription = await client.subscriptions.create({
@@ -130,7 +130,7 @@ export async function updateStripeSubscription(
     currency: env.STRIPE_CURRENCY,
     unit_amount: priceAmountCents,
     recurring: { interval: 'month' },
-    product_data: { name: 'ReserveTable Plan' },
+    product_data: { name: 'Tablevera Plan' },
   });
 
   const sub = await client.subscriptions.retrieve(subscriptionId);
@@ -149,3 +149,14 @@ export async function constructStripeEvent(rawBody: Buffer, signature: string) {
   }
   return client.webhooks.constructEvent(rawBody, signature, env.STRIPE_WEBHOOK_SECRET);
 }
+
+export async function listRecentStripeInvoices(limit = 50) {
+  const client = getStripe();
+  if (!client) {
+    return { invoices: [] as any[], stub: true as const };
+  }
+  const result = await client.invoices.list({ limit: Math.min(limit, 100) });
+  return { invoices: result.data, stub: false as const };
+}
+
+export { getStripe };

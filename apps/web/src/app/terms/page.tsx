@@ -11,13 +11,13 @@ export default function TermsOfServicePage() {
       <Paragraph type="secondary">Last updated: July 11, 2026</Paragraph>
 
       <Paragraph>
-        Welcome to ReserveTable. By accessing or using our platform, you agree to be bound by these
+        Welcome to Tablevera. By accessing or using our platform, you agree to be bound by these
         Terms of Service. Please read them carefully.
       </Paragraph>
 
       <Title level={4}>1. Service Description</Title>
       <Paragraph>
-        ReserveTable is a restaurant reservation platform that allows diners to discover restaurants,
+        Tablevera is a restaurant reservation platform that allows diners to discover restaurants,
         book tables, earn loyalty points, and leave reviews. Restaurant partners use our platform to
         manage reservations, tables, and customer engagement.
       </Paragraph>
@@ -73,13 +73,13 @@ export default function TermsOfServicePage() {
       <Title level={4}>8. Restaurant Partners</Title>
       <Paragraph>
         Restaurant partners are responsible for honoring confirmed reservations, maintaining accurate
-        availability, and providing the service standard expected by diners. ReserveTable is not
+        availability, and providing the service standard expected by diners. Tablevera is not
         responsible for the dining experience itself.
       </Paragraph>
 
       <Title level={4}>9. Limitation of Liability</Title>
       <Paragraph>
-        ReserveTable provides the platform &quot;as is.&quot; We are not liable for restaurant
+        Tablevera provides the platform &quot;as is.&quot; We are not liable for restaurant
         service quality, food safety, or the accuracy of restaurant-provided information. Our total
         liability to you shall not exceed the amount you paid to us in the 12 months preceding the
         claim.
@@ -118,7 +118,7 @@ export default function TermsOfServicePage() {
       <Title level={4}>14. Contact</Title>
       <Paragraph>
         For questions about these Terms, contact us at:{' '}
-        <Text copyable>legal@reservetable.com</Text>
+        <Text copyable>legal@tablevera.online</Text>
       </Paragraph>
     </Typography>
   );

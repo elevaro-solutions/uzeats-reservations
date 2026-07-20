@@ -184,6 +184,7 @@ export default function AccessRulesPage() {
         <Table
           loading={loading}
           rowKey="id"
+          pagination={false}
           dataSource={data?.accessRules ?? []}
           columns={[
             { title: 'Name', dataIndex: 'name' },

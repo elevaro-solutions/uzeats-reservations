@@ -13,6 +13,11 @@ const messageSchema = new Schema(
     senderId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     body: { type: String, required: true, maxlength: 2000 },
     readAt: { type: Date },
+    flagged: { type: Boolean, default: false, index: true },
+    flagReason: { type: String },
+    flaggedAt: { type: Date },
+    flaggedById: { type: Schema.Types.ObjectId, ref: 'User' },
+    hidden: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

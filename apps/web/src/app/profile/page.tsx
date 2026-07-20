@@ -275,12 +275,12 @@ export default function ProfilePage() {
             <Paragraph type="secondary" style={{ marginBottom: 12 }}>
               1. Open{' '}
               <a
-                href="https://t.me/ReserveTableBot"
+                href="https://t.me/TableveraBot"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{ color: colors.brand[600] }}
               >
-                @ReserveTableBot <LinkOutlined />
+                @TableveraBot <LinkOutlined />
               </a>{' '}
               in Telegram
               <br />

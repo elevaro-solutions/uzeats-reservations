@@ -1,5 +1,6 @@
 import {
   registerSchema,
+  registerRestaurantPartnerSchema,
   loginSchema,
   phoneOtpVerifySchema,
   restaurantInputSchema,
@@ -23,8 +24,11 @@ import {
   logout,
   requestPasswordReset,
   resetPassword,
+  adminCreatePasswordReset,
 } from '../services/auth.js';
+import { registerRestaurantPartner } from '../services/partnerRegister.js';
 import { getAvailability } from '../services/availability.js';
+import { paginateQuery } from '../lib/pagination.js';
 import {
   createReservation,
   createOwnerReservation,
@@ -48,6 +52,7 @@ import {
   AuditLog,
   Subscription,
   CoverFee,
+  Invoice,
   Experience,
   Ticket,
   PrivateDiningSpace,
@@ -65,7 +70,6 @@ import {
   Notification,
 } from '../models/index.js';
 import crypto from 'node:crypto';
-import { PLANS, type PlanKey } from '../config/plans.js';
 import {
   createStripeCustomer,
   createStripeSubscription,
@@ -107,6 +111,28 @@ import {
   buildCustomReport,
   buildMultiLocationAnalytics,
 } from '../services/reports.js';
+import {
+  BUILTIN_PLAN_KEYS,
+  getEffectivePlan,
+  getEffectivePlans,
+  getPlanOverridesMap,
+  getPlatformConfig,
+  mapPlatformConfig,
+  isFeatureEnabled,
+  uniquePlanKey,
+} from '../services/platformConfig.js';
+import {
+  generateInvoicesForPeriod,
+  getPlatformRevenueReport,
+  listInvoices,
+  setInvoiceStatus,
+  setInvoiceStatuses,
+} from '../services/invoices.js';
+import {
+  adminOpsMutation,
+  adminOpsQuery,
+  applyPlatformConfigFeatureFlags,
+} from '../services/adminOpsResolvers.js';
 
 function mapSubscription(sub: any) {
   return {
@@ -291,6 +317,7 @@ export const resolvers = {
   Query: {
     me: (_: unknown, __: unknown, ctx: GraphQLContext) =>
       ctx.user ? mapUser(ctx.user) : null,
+    ...adminOpsQuery,
 
     restaurant: async (_: unknown, args: { id?: string; slug?: string }) => {
       const doc = args.id
@@ -377,7 +404,7 @@ export const resolvers = {
 
     restaurantReservations: async (
       _: unknown,
-      args: { restaurantId: string; date?: string },
+      args: { restaurantId: string; date?: string; limit?: number; offset?: number },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
@@ -388,8 +415,13 @@ export const resolvers = {
         const end = new Date(`${args.date}T23:59:59`);
         filter.slotStart = { $gte: start, $lte: end };
       }
-      const items = await Reservation.find(filter).sort({ slotStart: 1 });
-      return items.map((r) => mapReservation(r));
+      return paginateQuery(Reservation, filter, {
+        sort: { slotStart: 1 },
+        limit: args.limit,
+        offset: args.offset,
+        defaultLimit: 50,
+        map: mapReservation,
+      });
     },
 
     myWaitlist: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
@@ -400,21 +432,30 @@ export const resolvers = {
 
     restaurantWaitlist: async (
       _: unknown,
-      args: { restaurantId: string },
+      args: { restaurantId: string; limit?: number; offset?: number },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      const items = await WaitlistEntry.find({
-        restaurantId: args.restaurantId,
-        status: { $in: ['waiting', 'notified'] },
-      }).sort({ createdAt: 1 });
-      return items.map(mapWaitlistEntry);
+      return paginateQuery(
+        WaitlistEntry,
+        {
+          restaurantId: args.restaurantId,
+          status: { $in: ['waiting', 'notified'] },
+        },
+        {
+          sort: { createdAt: 1 },
+          limit: args.limit,
+          offset: args.offset,
+          defaultLimit: 50,
+          map: mapWaitlistEntry,
+        },
+      );
     },
 
     restaurantReviews: async (
       _: unknown,
-      args: { restaurantId: string },
+      args: { restaurantId: string; limit?: number; offset?: number },
       ctx: GraphQLContext,
     ) => {
       // Owners see hidden reviews too; the public does not.
@@ -429,8 +470,13 @@ export const resolvers = {
       }
       const filter: Record<string, unknown> = { restaurantId: args.restaurantId };
       if (!includeHidden) filter.hidden = { $ne: true };
-      const reviews = await Review.find(filter).sort({ createdAt: -1 });
-      return reviews.map(mapReview);
+      return paginateQuery(Review, filter, {
+        sort: { createdAt: -1 },
+        limit: args.limit,
+        offset: args.offset,
+        defaultLimit: 50,
+        map: mapReview,
+      });
     },
 
     myLoyalty: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
@@ -488,30 +534,73 @@ export const resolvers = {
 
     adminRestaurants: async (
       _: unknown,
-      args: { status?: string },
+      args: { status?: string; limit?: number; offset?: number },
       ctx: GraphQLContext,
     ) => {
       requireRole(ctx, ['admin']);
       const filter = args.status ? { status: args.status } : {};
-      const items = await Restaurant.find(filter).sort({ createdAt: -1 });
-      return items.map(mapRestaurant);
+      const result = await paginateQuery(Restaurant, filter, {
+        sort: { createdAt: -1 },
+        limit: args.limit,
+        offset: args.offset,
+        defaultLimit: 20,
+        map: mapRestaurant,
+      });
+      return { ...result, page: Math.floor(result.offset / result.limit) + 1 };
     },
 
     adminStats: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       requireRole(ctx, ['admin']);
-      const [users, restaurants, reservations, pendingRestaurants] = await Promise.all([
+      const [
+        users,
+        restaurants,
+        reservations,
+        pendingRestaurants,
+        activeSubscriptions,
+        mrrAgg,
+        openInvoices,
+      ] = await Promise.all([
         User.countDocuments(),
         Restaurant.countDocuments(),
         Reservation.countDocuments(),
         Restaurant.countDocuments({ status: 'pending' }),
+        Subscription.countDocuments({ status: { $in: ['active', 'trialing'] } }),
+        Subscription.aggregate([
+          { $match: { status: { $in: ['active', 'past_due'] } } },
+          { $group: { _id: null, mrrCents: { $sum: '$monthlyPriceCents' } } },
+        ]),
+        Invoice.countDocuments({ status: { $in: ['pending', 'overdue', 'upcoming'] } }),
       ]);
-      return { users, restaurants, reservations, pendingRestaurants };
+      return {
+        users,
+        restaurants,
+        reservations,
+        pendingRestaurants,
+        mrrCents: mrrAgg[0]?.mrrCents ?? 0,
+        activeSubscriptions,
+        openInvoices,
+      };
     },
 
-    adminUsers: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+    adminUsers: async (
+      _: unknown,
+      args: { search?: string; limit?: number; offset?: number },
+      ctx: GraphQLContext,
+    ) => {
       requireRole(ctx, ['admin']);
-      const users = await User.find().sort({ createdAt: -1 }).limit(200);
-      return users.map(mapUser);
+      const filter: Record<string, unknown> = {};
+      if (args.search?.trim()) {
+        const regex = new RegExp(args.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        filter.$or = [{ email: regex }, { firstName: regex }, { lastName: regex }];
+      }
+      return paginateQuery(User, filter, {
+        sort: { createdAt: -1 },
+        limit: args.limit,
+        offset: args.offset,
+        defaultLimit: 20,
+        maxLimit: 100,
+        map: mapUser,
+      });
     },
 
     restaurantTeam: async (
@@ -535,21 +624,22 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       requireRole(ctx, ['admin']);
-      const limit = Math.min(args.limit ?? 50, 200);
-      const offset = args.offset ?? 0;
-      const logs = await AuditLog.find()
-        .sort({ createdAt: -1 })
-        .skip(offset)
-        .limit(limit);
-      return logs.map((l: any) => ({
-        id: l._id.toString(),
-        actorId: l.actorId.toString(),
-        action: l.action,
-        resource: l.resource,
-        resourceId: l.resourceId,
-        details: l.details ? JSON.stringify(l.details) : null,
-        createdAt: l.createdAt,
-      }));
+      return paginateQuery(AuditLog, {}, {
+        sort: { createdAt: -1 },
+        limit: args.limit,
+        offset: args.offset,
+        defaultLimit: 25,
+        maxLimit: 200,
+        map: (l: any) => ({
+          id: l._id.toString(),
+          actorId: l.actorId.toString(),
+          action: l.action,
+          resource: l.resource,
+          resourceId: l.resourceId,
+          details: l.details ? JSON.stringify(l.details) : null,
+          createdAt: l.createdAt,
+        }),
+      });
     },
 
     mySubscription: async (
@@ -564,16 +654,31 @@ export const resolvers = {
       return mapSubscription(sub);
     },
 
-    plans: () =>
-      Object.entries(PLANS).map(([key, plan]) => ({
-        key,
-        name: plan.name,
-        monthlyPriceCents: plan.monthlyPriceCents,
-        networkCoverFeeCents: plan.networkCoverFeeCents,
-        websiteCoverFeeCents: plan.websiteCoverFeeCents,
-        trialDays: plan.trialDays,
-        features: plan.features,
-      })),
+    plans: async () => getEffectivePlans(),
+
+    adminInvoices: async (
+      _: unknown,
+      args: { status?: string; search?: string; limit?: number; offset?: number },
+      ctx: GraphQLContext,
+    ) => {
+      requireRole(ctx, ['admin']);
+      return listInvoices(args);
+    },
+
+    adminRevenueReport: async (
+      _: unknown,
+      args: { period?: string },
+      ctx: GraphQLContext,
+    ) => {
+      requireRole(ctx, ['admin']);
+      return getPlatformRevenueReport(args.period);
+    },
+
+    platformConfig: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      requireRole(ctx, ['admin']);
+      const doc = await getPlatformConfig();
+      return mapPlatformConfig(doc);
+    },
 
     coverFeeSummary: async (
       _: unknown,
@@ -708,7 +813,7 @@ export const resolvers = {
 
     experiences: async (
       _: unknown,
-      args: { restaurantId?: string; upcoming?: boolean },
+      args: { restaurantId?: string; upcoming?: boolean; limit?: number; offset?: number },
     ) => {
       const filter: Record<string, unknown> = {};
       if (args.restaurantId) filter.restaurantId = args.restaurantId;
@@ -716,8 +821,13 @@ export const resolvers = {
         filter.date = { $gte: new Date() };
         filter.status = { $in: ['published', 'sold_out'] };
       }
-      const items = await Experience.find(filter).sort({ date: 1 });
-      return items.map(mapExperience);
+      return paginateQuery(Experience, filter, {
+        sort: { date: 1 },
+        limit: args.limit,
+        offset: args.offset,
+        defaultLimit: 50,
+        map: mapExperience,
+      });
     },
 
     experience: async (_: unknown, args: { id: string }) => {
@@ -741,15 +851,22 @@ export const resolvers = {
 
     privateDiningInquiries: async (
       _: unknown,
-      args: { restaurantId: string },
+      args: { restaurantId: string; limit?: number; offset?: number },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      const items = await PrivateDiningInquiry.find({
-        restaurantId: args.restaurantId,
-      }).sort({ createdAt: -1 });
-      return items.map(mapPrivateDiningInquiry);
+      return paginateQuery(
+        PrivateDiningInquiry,
+        { restaurantId: args.restaurantId },
+        {
+          sort: { createdAt: -1 },
+          limit: args.limit,
+          offset: args.offset,
+          defaultLimit: 10,
+          map: mapPrivateDiningInquiry,
+        },
+      );
     },
 
     myInquiries: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
@@ -760,7 +877,14 @@ export const resolvers = {
 
     restaurantGuests: async (
       _: unknown,
-      args: { restaurantId: string; tag?: string; vipStatus?: string; search?: string; limit?: number; offset?: number },
+      args: {
+        restaurantId: string;
+        tag?: string;
+        vipStatus?: string;
+        search?: string;
+        limit?: number;
+        offset?: number;
+      },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
@@ -769,25 +893,22 @@ export const resolvers = {
       if (args.tag) filter.tags = args.tag;
       if (args.vipStatus) filter.vipStatus = args.vipStatus;
 
-      let profiles = GuestProfile.find(filter)
-        .sort({ lastVisitDate: -1 })
-        .skip(args.offset ?? 0)
-        .limit(Math.min(args.limit ?? 50, 200));
-
-      const docs = await profiles;
-
-      if (args.search) {
-        const dinerIds = docs.map((d) => d.dinerId);
-        const regex = new RegExp(args.search, 'i');
+      if (args.search?.trim()) {
+        const regex = new RegExp(args.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
         const matchingUsers = await User.find({
-          _id: { $in: dinerIds },
           $or: [{ firstName: regex }, { lastName: regex }, { email: regex }],
-        });
-        const matchingIds = new Set(matchingUsers.map((u) => u._id.toString()));
-        return docs.filter((d) => matchingIds.has(d.dinerId.toString())).map(mapGuestProfile);
+        }).select('_id');
+        filter.dinerId = { $in: matchingUsers.map((u) => u._id) };
       }
 
-      return docs.map(mapGuestProfile);
+      return paginateQuery(GuestProfile, filter, {
+        sort: { lastVisitDate: -1 },
+        limit: args.limit,
+        offset: args.offset,
+        defaultLimit: 20,
+        maxLimit: 200,
+        map: mapGuestProfile,
+      });
     },
 
     guestProfile: async (
@@ -806,13 +927,18 @@ export const resolvers = {
 
     campaigns: async (
       _: unknown,
-      args: { restaurantId: string },
+      args: { restaurantId: string; limit?: number; offset?: number },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      const docs = await Campaign.find({ restaurantId: args.restaurantId }).sort({ createdAt: -1 });
-      return docs.map(mapCampaign);
+      return paginateQuery(Campaign, { restaurantId: args.restaurantId }, {
+        sort: { createdAt: -1 },
+        limit: args.limit,
+        offset: args.offset,
+        defaultLimit: 20,
+        map: mapCampaign,
+      });
     },
 
     campaign: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
@@ -830,11 +956,14 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      const docs = await SurveyResponse.find({ restaurantId: args.restaurantId })
-        .sort({ submittedAt: -1 })
-        .skip(args.offset ?? 0)
-        .limit(Math.min(args.limit ?? 50, 200));
-      return docs.map(mapSurveyResponse);
+      return paginateQuery(SurveyResponse, { restaurantId: args.restaurantId }, {
+        sort: { submittedAt: -1 },
+        limit: args.limit,
+        offset: args.offset,
+        defaultLimit: 20,
+        maxLimit: 200,
+        map: mapSurveyResponse,
+      });
     },
 
     surveyStats: async (
@@ -1049,7 +1178,10 @@ export const resolvers = {
       return rules.map(mapAccessRule);
     },
 
-    promotions: async (_: unknown, args: { restaurantId: string; activeOnly?: boolean }) => {
+    promotions: async (
+      _: unknown,
+      args: { restaurantId: string; activeOnly?: boolean; limit?: number; offset?: number },
+    ) => {
       const filter: Record<string, unknown> = { restaurantId: args.restaurantId };
       if (args.activeOnly) {
         filter.active = true;
@@ -1059,19 +1191,29 @@ export const resolvers = {
           { $or: [{ endDate: { $exists: false } }, { endDate: null }, { endDate: { $gte: today } }] },
         ];
       }
-      const items = await Promotion.find(filter).sort({ createdAt: -1 });
-      return items.map(mapPromotion);
+      return paginateQuery(Promotion, filter, {
+        sort: { createdAt: -1 },
+        limit: args.limit,
+        offset: args.offset,
+        defaultLimit: 50,
+        map: mapPromotion,
+      });
     },
 
     boostCampaigns: async (
       _: unknown,
-      args: { restaurantId: string },
+      args: { restaurantId: string; limit?: number; offset?: number },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      const items = await BoostCampaign.find({ restaurantId: args.restaurantId }).sort({ createdAt: -1 });
-      return items.map(mapBoostCampaign);
+      return paginateQuery(BoostCampaign, { restaurantId: args.restaurantId }, {
+        sort: { createdAt: -1 },
+        limit: args.limit,
+        offset: args.offset,
+        defaultLimit: 20,
+        map: mapBoostCampaign,
+      });
     },
 
     integrations: async (
@@ -1177,6 +1319,18 @@ export const resolvers = {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
         user: mapUser(result.user),
+      };
+    },
+
+    registerRestaurantPartner: async (_: unknown, args: { input: unknown }) => {
+      const input = registerRestaurantPartnerSchema.parse(args.input);
+      const result = await registerRestaurantPartner(input);
+      return {
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        user: mapUser(result.user),
+        restaurant: mapRestaurant(result.restaurant),
+        subscription: mapSubscription(result.subscription),
       };
     },
 
@@ -1567,6 +1721,9 @@ export const resolvers = {
 
     joinWaitlist: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
+      if (!(await isFeatureEnabled('waitlist'))) {
+        throw new Error('Waitlist is temporarily unavailable');
+      }
       const input = waitlistInputSchema.parse(args.input);
       const doc = await WaitlistEntry.create({
         ...input,
@@ -1588,6 +1745,9 @@ export const resolvers = {
 
     createReview: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
+      if (!(await isFeatureEnabled('reviews'))) {
+        throw new Error('Reviews are temporarily unavailable');
+      }
       const input = reviewInputSchema.parse(args.input);
       const reservation = await Reservation.findById(input.reservationId);
       if (!reservation || !reservation.dinerId.equals(user._id)) {
@@ -1692,6 +1852,281 @@ export const resolvers = {
       return mapUser(target);
     },
 
+    adminSendPasswordReset: async (
+      _: unknown,
+      args: { userId: string; sendEmail?: boolean },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireRole(ctx, ['admin']);
+      const result = await adminCreatePasswordReset({
+        userId: args.userId,
+        sendEmail: args.sendEmail,
+      });
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: 'adminSendPasswordReset',
+        resource: 'User',
+        resourceId: args.userId,
+        details: { emailed: result.emailed, email: result.email },
+      });
+      return result;
+    },
+
+    generateInvoices: async (
+      _: unknown,
+      args: { period: string },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireRole(ctx, ['admin']);
+      const result = await generateInvoicesForPeriod(args.period);
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: 'generateInvoices',
+        resource: 'Invoice',
+        details: result,
+      });
+      return result;
+    },
+
+    setInvoiceStatus: async (
+      _: unknown,
+      args: { id: string; status: string },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireRole(ctx, ['admin']);
+      const invoice = await setInvoiceStatus(
+        args.id,
+        args.status as 'upcoming' | 'pending' | 'paid' | 'canceled' | 'overdue',
+      );
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: 'setInvoiceStatus',
+        resource: 'Invoice',
+        resourceId: args.id,
+        details: { status: args.status },
+      });
+      return invoice;
+    },
+
+    setInvoiceStatuses: async (
+      _: unknown,
+      args: { ids: string[]; status: string },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireRole(ctx, ['admin']);
+      const result = await setInvoiceStatuses(
+        args.ids,
+        args.status as 'upcoming' | 'pending' | 'paid' | 'canceled' | 'overdue',
+      );
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: 'setInvoiceStatuses',
+        resource: 'Invoice',
+        details: { status: args.status, ids: args.ids, updated: result.updated },
+      });
+      return result;
+    },
+
+    updatePlatformConfig: async (
+      _: unknown,
+      args: { input: Record<string, unknown> },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireRole(ctx, ['admin']);
+      const doc = await getPlatformConfig();
+      const allowed = [
+        'supportEmail',
+        'supportPhone',
+        'defaultSignupRole',
+        'defaultPartnerRole',
+        'defaultStaffRole',
+        'maintenanceMode',
+        'allowPublicRegistration',
+        'allowPartnerRegistration',
+        'requireAdminDelete2FA',
+        'invoicePrefix',
+        'currency',
+      ] as const;
+      for (const key of allowed) {
+        if (args.input[key] !== undefined) {
+          (doc as any)[key] = args.input[key];
+        }
+      }
+      if (args.input.featureFlags && typeof args.input.featureFlags === 'object') {
+        await applyPlatformConfigFeatureFlags(
+          doc,
+          args.input.featureFlags as Record<string, boolean | undefined>,
+        );
+      }
+      await doc.save();
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: 'updatePlatformConfig',
+        resource: 'PlatformConfig',
+        resourceId: doc._id.toString(),
+        details: args.input,
+      });
+      return mapPlatformConfig(doc);
+    },
+
+    updatePlanPackage: async (
+      _: unknown,
+      args: {
+        input: {
+          key: string;
+          name?: string;
+          description?: string | null;
+          monthlyPriceCents?: number;
+          networkCoverFeeCents?: number;
+          websiteCoverFeeCents?: number;
+          trialDays?: number;
+          visibleOnPricing?: boolean;
+          features?: Record<string, boolean>;
+        };
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireRole(ctx, ['admin']);
+      const key = args.input.key.trim().toLowerCase();
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key)) {
+        throw new Error('Invalid plan key');
+      }
+      const doc = await getPlatformConfig();
+      const overrides = getPlanOverridesMap(doc);
+      const existing = overrides[key] ?? {};
+      if (!BUILTIN_PLAN_KEYS.has(key) && !overrides[key]) {
+        throw new Error('Plan not found. Create it first.');
+      }
+      const next = {
+        ...existing,
+        ...(args.input.name !== undefined ? { name: args.input.name } : {}),
+        ...(args.input.description !== undefined ? { description: args.input.description } : {}),
+        ...(args.input.monthlyPriceCents !== undefined
+          ? { monthlyPriceCents: args.input.monthlyPriceCents }
+          : {}),
+        ...(args.input.networkCoverFeeCents !== undefined
+          ? { networkCoverFeeCents: args.input.networkCoverFeeCents }
+          : {}),
+        ...(args.input.websiteCoverFeeCents !== undefined
+          ? { websiteCoverFeeCents: args.input.websiteCoverFeeCents }
+          : {}),
+        ...(args.input.trialDays !== undefined ? { trialDays: args.input.trialDays } : {}),
+        ...(args.input.visibleOnPricing !== undefined
+          ? { visibleOnPricing: args.input.visibleOnPricing }
+          : {}),
+        ...(args.input.features !== undefined
+          ? {
+              features: {
+                ...(existing.features instanceof Map
+                  ? Object.fromEntries(existing.features)
+                  : existing.features ?? {}),
+                ...args.input.features,
+              },
+            }
+          : {}),
+      };
+      if (!(doc as any).planOverrides) (doc as any).planOverrides = new Map();
+      if ((doc as any).planOverrides instanceof Map) {
+        (doc as any).planOverrides.set(key, next);
+      } else {
+        (doc.planOverrides as any)[key] = next;
+      }
+      doc.markModified('planOverrides');
+      await doc.save();
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: 'updatePlanPackage',
+        resource: 'PlatformConfig',
+        details: { plan: key },
+      });
+      const plans = await getEffectivePlans();
+      const plan = plans.find((p) => p.key === key);
+      if (!plan) throw new Error('Plan not found after update');
+      return plan;
+    },
+
+    createPlanPackage: async (
+      _: unknown,
+      args: {
+        input: {
+          name: string;
+          description?: string | null;
+          monthlyPriceCents: number;
+          networkCoverFeeCents?: number;
+          websiteCoverFeeCents?: number;
+          trialDays?: number;
+          visibleOnPricing?: boolean;
+          features?: Record<string, boolean>;
+        };
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireRole(ctx, ['admin']);
+      const name = args.input.name.trim();
+      if (!name) throw new Error('Package name is required');
+
+      const doc = await getPlatformConfig();
+      const overrides = getPlanOverridesMap(doc);
+      const existingKeys = new Set([...BUILTIN_PLAN_KEYS, ...Object.keys(overrides)]);
+      const key = uniquePlanKey(name, existingKeys);
+
+      const next = {
+        name,
+        description: args.input.description ?? null,
+        monthlyPriceCents: args.input.monthlyPriceCents,
+        networkCoverFeeCents: args.input.networkCoverFeeCents ?? 0,
+        websiteCoverFeeCents: args.input.websiteCoverFeeCents ?? 0,
+        trialDays: args.input.trialDays ?? 0,
+        visibleOnPricing: args.input.visibleOnPricing !== false,
+        features: args.input.features ?? {},
+      };
+
+      if (!(doc as any).planOverrides) (doc as any).planOverrides = new Map();
+      if ((doc as any).planOverrides instanceof Map) {
+        (doc as any).planOverrides.set(key, next);
+      } else {
+        (doc.planOverrides as any)[key] = next;
+      }
+      doc.markModified('planOverrides');
+      await doc.save();
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: 'createPlanPackage',
+        resource: 'PlatformConfig',
+        details: { plan: key },
+      });
+      const plans = await getEffectivePlans();
+      const plan = plans.find((p) => p.key === key);
+      if (!plan) throw new Error('Plan not found after create');
+      return plan;
+    },
+
+    deletePlanPackage: async (_: unknown, args: { key: string }, ctx: GraphQLContext) => {
+      const admin = requireRole(ctx, ['admin']);
+      const key = args.key.trim().toLowerCase();
+      if (BUILTIN_PLAN_KEYS.has(key)) {
+        throw new Error('Built-in packages cannot be deleted');
+      }
+      const doc = await getPlatformConfig();
+      const overrides = getPlanOverridesMap(doc);
+      if (!overrides[key]) throw new Error('Plan not found');
+
+      if ((doc as any).planOverrides instanceof Map) {
+        (doc as any).planOverrides.delete(key);
+      } else {
+        delete (doc.planOverrides as any)[key];
+      }
+      doc.markModified('planOverrides');
+      await doc.save();
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: 'deletePlanPackage',
+        resource: 'PlatformConfig',
+        details: { plan: key },
+      });
+      return true;
+    },
+
     createSubscription: async (
       _: unknown,
       args: { restaurantId: string; plan: string },
@@ -1700,9 +2135,9 @@ export const resolvers = {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
 
-      const planKey = args.plan as PlanKey;
-      const planDef = PLANS[planKey];
+      const planDef = await getEffectivePlan(args.plan);
       if (!planDef) throw new Error(`Invalid plan: ${args.plan}`);
+      const planKey = planDef.key;
 
       const existing = await Subscription.findOne({ restaurantId: args.restaurantId });
       if (existing) throw new Error('Subscription already exists for this restaurant');
@@ -1795,9 +2230,9 @@ export const resolvers = {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
 
-      const planKey = args.plan as PlanKey;
-      const planDef = PLANS[planKey];
+      const planDef = await getEffectivePlan(args.plan);
       if (!planDef) throw new Error(`Invalid plan: ${args.plan}`);
+      const planKey = planDef.key;
 
       const sub = await Subscription.findOne({ restaurantId: args.restaurantId });
       if (!sub) throw new Error('No subscription found');
@@ -2859,5 +3294,6 @@ export const resolvers = {
       });
       return mapSubscription(sub);
     },
+    ...adminOpsMutation,
   },
 };

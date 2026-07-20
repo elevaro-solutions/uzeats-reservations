@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import {
@@ -24,7 +24,7 @@ import {
 import type { MenuProps } from 'antd';
 import { MoreOutlined, PlusOutlined, MessageOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
-import { PageHeader, StatusTag, radii, spacing } from '@reservations/ui';
+import { PageHeader, PhoneInput, StatusTag, radii, spacing, usPhoneRules } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import {
   AVAILABILITY,
@@ -36,6 +36,7 @@ import {
   UPDATE_RESERVATION_STATUS,
 } from '@/lib/graphql';
 import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
+import { useUrlPagination } from '@/lib/useUrlPagination';
 
 const { Text } = Typography;
 
@@ -80,7 +81,7 @@ function combineDateTime(date: Dayjs, time: Dayjs) {
   return date.hour(time.hour()).minute(time.minute()).second(0).millisecond(0);
 }
 
-export default function ReservationsPage() {
+function ReservationsPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [date, setDate] = useState(dayjs());
@@ -88,6 +89,9 @@ export default function ReservationsPage() {
   const [editing, setEditing] = useState<ReservationRow | null>(null);
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
+  const { limit, offset, setPagination, tablePagination } = useUrlPagination({
+    defaultPageSize: 20,
+  });
 
   const createPartySize = Form.useWatch('partySize', createForm) ?? 2;
   const createDate = Form.useWatch('date', createForm);
@@ -114,7 +118,7 @@ export default function ReservationsPage() {
 
   const { data, refetch, loading } = useQuery(RESTAURANT_RESERVATIONS, {
     skip: !restaurantId,
-    variables: { restaurantId, date: date.format('YYYY-MM-DD') },
+    variables: { restaurantId, date: date.format('YYYY-MM-DD'), limit, offset },
   });
   const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
   const [createReservation, { loading: creating }] = useMutation(CREATE_OWNER_RESERVATION);
@@ -379,7 +383,15 @@ export default function ReservationsPage() {
               }))}
               placeholder="Restaurant"
             />
-            <DatePicker value={date} onChange={(d) => d && setDate(d)} />
+            <DatePicker
+              value={date}
+              onChange={(d) => {
+                if (d) {
+                  setDate(d);
+                  setPagination(1);
+                }
+              }}
+            />
             <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} disabled={!restaurantId}>
               New reservation
             </Button>
@@ -390,7 +402,8 @@ export default function ReservationsPage() {
         <Table<ReservationRow>
           loading={loading}
           rowKey="id"
-          dataSource={(data?.restaurantReservations ?? []) as ReservationRow[]}
+          dataSource={(data?.restaurantReservations?.items ?? []) as ReservationRow[]}
+          pagination={tablePagination(data?.restaurantReservations?.total ?? 0)}
           scroll={{ x: 1040 }}
           columns={[
             {
@@ -529,8 +542,13 @@ export default function ReservationsPage() {
           </Space>
 
           <Space wrap style={{ width: '100%' }} size="middle">
-            <Form.Item name="phone" label="Phone" style={{ marginBottom: 12, minWidth: 180 }}>
-              <Input placeholder="+15551234567" />
+            <Form.Item
+              name="phone"
+              label="Phone"
+              rules={usPhoneRules()}
+              style={{ marginBottom: 12, minWidth: 180 }}
+            >
+              <PhoneInput />
             </Form.Item>
             <Form.Item
               name="email"
@@ -657,5 +675,13 @@ export default function ReservationsPage() {
         </Form>
       </Modal>
     </Space>
+  );
+}
+
+export default function ReservationsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ReservationsPageContent />
+    </Suspense>
   );
 }

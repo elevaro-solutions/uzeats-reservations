@@ -29,7 +29,7 @@ function BrandMark({ size = 40 }: { size?: number }) {
         flexShrink: 0,
       }}
     >
-      R
+      T
     </div>
   );
 }
@@ -124,7 +124,7 @@ export function AuthLayout({
                 letterSpacing: typography.letterSpacing.tight,
               }}
             >
-              ReserveTable
+              Tablevera
             </span>
           </Link>
 
@@ -228,7 +228,7 @@ export function AuthLayout({
               letterSpacing: typography.letterSpacing.tight,
             }}
           >
-            ReserveTable
+            Tablevera
           </span>
         </Link>
 

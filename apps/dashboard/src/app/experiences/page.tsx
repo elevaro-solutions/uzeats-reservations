@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import {
@@ -22,15 +22,19 @@ import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS } from '@/lib/graphql';
+import { useUrlPagination } from '@/lib/useUrlPagination';
 import { gql } from '@apollo/client';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 
 const EXPERIENCES = gql`
-  query Experiences($restaurantId: ID) {
-    experiences(restaurantId: $restaurantId) {
-      id title type date startTime endTime maxGuests ticketPriceCents ticketsSold status
+  query Experiences($restaurantId: ID, $limit: Int, $offset: Int) {
+    experiences(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
+      total
+      items {
+        id title type date startTime endTime maxGuests ticketPriceCents ticketsSold status
+      }
     }
   }
 `;
@@ -62,7 +66,10 @@ const PUBLISH_EXPERIENCE = gql`
 const EXPERIENCE_TICKETS = gql`
   query ExperienceTickets($restaurantId: ID) {
     experiences(restaurantId: $restaurantId) {
-      id title
+      total
+      items {
+        id title
+      }
     }
   }
 `;
@@ -85,18 +92,19 @@ const statusColors: Record<string, string> = {
   cancelled: 'red',
 };
 
-export default function ExperiencesPage() {
+function ExperiencesPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [restaurantId, setRestaurantId] = useState<string>();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form] = Form.useForm();
+  const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 10 });
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const { data, refetch, loading } = useQuery(EXPERIENCES, {
     skip: !restaurantId,
-    variables: { restaurantId },
+    variables: { restaurantId, limit, offset },
   });
   const [createExperience, { loading: creating }] = useMutation(CREATE_EXPERIENCE);
   const [updateExperience, { loading: updating }] = useMutation(UPDATE_EXPERIENCE);
@@ -247,11 +255,11 @@ export default function ExperiencesPage() {
 
       <Card>
         <Table
-          dataSource={data?.experiences ?? []}
+          dataSource={data?.experiences?.items ?? []}
           columns={columns}
           rowKey="id"
           loading={loading}
-          pagination={{ pageSize: 10 }}
+          pagination={tablePagination(data?.experiences?.total ?? 0)}
         />
       </Card>
 
@@ -306,5 +314,13 @@ export default function ExperiencesPage() {
         </Form>
       </Modal>
     </Space>
+  );
+}
+
+export default function ExperiencesPage() {
+  return (
+    <Suspense fallback={null}>
+      <ExperiencesPageContent />
+    </Suspense>
   );
 }

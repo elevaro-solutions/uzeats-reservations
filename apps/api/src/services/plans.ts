@@ -1,5 +1,6 @@
 import { Subscription } from '../models/Subscription.js';
-import { PLANS, type FeatureKey, type PlanFeatures } from '../config/plans.js';
+import { type FeatureKey, type PlanFeatures } from '../config/plans.js';
+import { getEffectivePlan } from './platformConfig.js';
 
 const FEATURE_LABELS: Partial<Record<FeatureKey, string>> = {
   floorPlans: 'Customizable floor plans',
@@ -31,12 +32,14 @@ const FEATURE_LABELS: Partial<Record<FeatureKey, string>> = {
  * subscription fall back to the Basic feature set.
  */
 export async function getFeatures(restaurantId: string): Promise<PlanFeatures & { premiumSmsAddon?: boolean }> {
+  const basic = await getEffectivePlan('basic');
+  const basicFeatures = basic?.features ?? ({} as PlanFeatures);
   const sub = await Subscription.findOne({ restaurantId });
   if (!sub || sub.status === 'cancelled' || sub.status === 'paused') {
-    return { ...PLANS.basic.features };
+    return { ...basicFeatures };
   }
   const features = (sub.features ?? {}) as unknown as PlanFeatures & { premiumSmsAddon?: boolean };
-  return { ...PLANS.basic.features, ...JSON.parse(JSON.stringify(features)) };
+  return { ...basicFeatures, ...JSON.parse(JSON.stringify(features)) };
 }
 
 export class PlanFeatureError extends Error {

@@ -55,10 +55,25 @@ export const restaurantInputSchema = z.object({
     lat: z.number().min(-90).max(90),
   }),
   phone: phoneSchema.optional(),
-  website: z.string().url().optional(),
+  website: z
+    .union([z.string().url(), z.literal('')])
+    .optional()
+    .transform((v) => (v === '' || v == null ? undefined : v)),
   depositRequired: z.boolean().default(false),
   depositAmountCents: z.number().int().min(0).default(0),
   photos: z.array(z.string().url()).default([]),
+});
+
+/** Partner signup: account + restaurant listing + selected plan. */
+export const registerRestaurantPartnerSchema = z.object({
+  account: registerSchema.extend({
+    phone: phoneSchema,
+  }),
+  restaurant: restaurantInputSchema.extend({
+    phone: phoneSchema,
+    description: z.string().min(1).max(2000),
+  }),
+  plan: z.string().min(1).max(40),
 });
 
 export const tableInputSchema = z.object({
@@ -165,6 +180,7 @@ export const searchRestaurantsSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RestaurantInput = z.infer<typeof restaurantInputSchema>;
+export type RegisterRestaurantPartnerInput = z.infer<typeof registerRestaurantPartnerSchema>;
 export type TableInput = z.infer<typeof tableInputSchema>;
 export type ShiftInput = z.infer<typeof shiftInputSchema>;
 export type ReservationInput = z.infer<typeof reservationInputSchema>;

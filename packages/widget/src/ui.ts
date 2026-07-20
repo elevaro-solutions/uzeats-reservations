@@ -193,7 +193,7 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
       href: config.appUrl,
       target: '_blank',
       rel: 'noopener',
-    }, [brandIcon(), 'ReserveTable']);
+    }, [brandIcon(), 'Tablevera']);
     header.append(brandLink);
 
     if (state.restaurant) {

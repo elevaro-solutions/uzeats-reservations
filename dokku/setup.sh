@@ -1,17 +1,17 @@
 #!/bin/bash
 set -euo pipefail
 
-# ReserveTable Dokku Setup Script
+# Tablevera Dokku Setup Script
 # Run this on your Dokku server to initialize the apps.
 # Usage: bash setup.sh <domain>
-# Example: bash setup.sh reservetable.com
+# Example: bash setup.sh tablevera.online
 
 DOMAIN="${1:?Usage: bash setup.sh <domain>}"
-API_APP="reservetable-api"
-WEB_APP="reservetable-web"
-DASH_APP="reservetable-dashboard"
+API_APP="tablevera-api"
+WEB_APP="tablevera-web"
+DASH_APP="tablevera-dashboard"
 
-echo "==> Setting up ReserveTable on $DOMAIN"
+echo "==> Setting up Tablevera on $DOMAIN"
 
 # Create apps
 echo "==> Creating apps..."

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import {
@@ -29,6 +29,7 @@ import {
   DELETE_CAMPAIGN,
   SEND_CAMPAIGN,
 } from '@/lib/graphql';
+import { useUrlPagination } from '@/lib/useUrlPagination';
 
 const { Title, Text } = Typography;
 
@@ -39,18 +40,19 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'red',
 };
 
-export default function CampaignsPage() {
+function CampaignsPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [restaurantId, setRestaurantId] = useState<string>();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form] = Form.useForm();
+  const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 20 });
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const { data, loading, refetch } = useQuery(CAMPAIGNS, {
     skip: !restaurantId,
-    variables: { restaurantId },
+    variables: { restaurantId, limit, offset },
   });
   const [createCampaign, { loading: creating }] = useMutation(CREATE_CAMPAIGN);
   const [updateCampaign, { loading: updating }] = useMutation(UPDATE_CAMPAIGN);
@@ -144,7 +146,8 @@ export default function CampaignsPage() {
         <Table
           loading={loading}
           rowKey="id"
-          dataSource={data?.campaigns ?? []}
+          dataSource={data?.campaigns?.items ?? []}
+          pagination={tablePagination(data?.campaigns?.total ?? 0)}
           columns={[
             { title: 'Name', dataIndex: 'name' },
             { title: 'Subject', dataIndex: 'subject' },
@@ -263,5 +266,13 @@ export default function CampaignsPage() {
         </Form>
       </Modal>
     </Space>
+  );
+}
+
+export default function CampaignsPage() {
+  return (
+    <Suspense fallback={null}>
+      <CampaignsPageContent />
+    </Suspense>
   );
 }

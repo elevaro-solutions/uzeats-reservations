@@ -52,12 +52,12 @@ export default function AnalyticsPage() {
         const date = dayjs().subtract(29 - i, 'day').format('YYYY-MM-DD');
         return client.query({
           query: RESTAURANT_RESERVATIONS,
-          variables: { restaurantId: resId, date },
+          variables: { restaurantId: resId, date, limit: 500, offset: 0 },
           fetchPolicy: 'cache-first',
         });
       });
       const results = await Promise.all(promises);
-      const all = results.flatMap((r) => r.data?.restaurantReservations ?? []);
+      const all = results.flatMap((r) => r.data?.restaurantReservations?.items ?? []);
       setAllReservations(all);
     } finally {
       setFetching(false);

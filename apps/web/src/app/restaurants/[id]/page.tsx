@@ -69,13 +69,13 @@ export default function RestaurantPage() {
     },
   });
   const { data: reviewsData } = useQuery(RESTAURANT_REVIEWS, {
-    variables: { restaurantId: params.id },
+    variables: { restaurantId: params.id, limit: 50, offset: 0 },
   });
   const { data: promotionsData } = useQuery(PROMOTIONS, {
-    variables: { restaurantId: params.id, activeOnly: true },
+    variables: { restaurantId: params.id, activeOnly: true, limit: 50, offset: 0 },
   });
   const { data: experiencesData } = useQuery(EXPERIENCES, {
-    variables: { restaurantId: params.id, upcoming: true },
+    variables: { restaurantId: params.id, upcoming: true, limit: 50, offset: 0 },
   });
 
   const [createReservation, { loading: booking }] = useMutation(CREATE_RESERVATION);
@@ -85,8 +85,8 @@ export default function RestaurantPage() {
   const restaurant = (data as any)?.restaurant;
   const slots = (availData as any)?.availability ?? [];
   const availableCount = slots.filter((s: any) => s.available).length;
-  const promotions = (promotionsData as any)?.promotions ?? [];
-  const experiences = (experiencesData as any)?.experiences ?? [];
+  const promotions = (promotionsData as any)?.promotions?.items ?? [];
+  const experiences = (experiencesData as any)?.experiences?.items ?? [];
 
   useEffect(() => {
     const slot = search.get('slot');
@@ -492,10 +492,10 @@ export default function RestaurantPage() {
             {!restaurant.menu && <Text type="secondary">Menu coming soon.</Text>}
           </Card>
           <Card title="Reviews">
-            {((reviewsData as any)?.restaurantReviews ?? []).length === 0 && (
+            {((reviewsData as any)?.restaurantReviews?.items ?? []).length === 0 && (
               <Text type="secondary">No reviews yet</Text>
             )}
-            {((reviewsData as any)?.restaurantReviews ?? []).map((r: any, idx: number) => (
+            {((reviewsData as any)?.restaurantReviews?.items ?? []).map((r: any, idx: number) => (
               <div
                 key={r.id ?? idx}
                 style={{

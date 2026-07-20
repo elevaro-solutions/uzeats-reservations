@@ -13,6 +13,7 @@ import {
   List,
   Empty,
   Spin,
+  Alert,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -39,6 +40,15 @@ import {
   BellOutlined,
   UserOutlined,
   CheckOutlined,
+  FileDoneOutlined,
+  FundOutlined,
+  ControlOutlined,
+  TagOutlined,
+  CustomerServiceOutlined,
+  WarningOutlined,
+  FlagOutlined,
+  DownloadOutlined,
+  DashboardOutlined,
 } from '@ant-design/icons';
 import { usePathname, useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@apollo/client';
@@ -132,33 +142,51 @@ function formatRelativeTime(iso: string) {
   return `${days}d ago`;
 }
 
+const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000';
+const PARTNER_ROLES = new Set(['restaurant_owner', 'staff', 'admin']);
+
 export function DashShell({ children }: { children: React.ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user, logout, loading: authLoading, isImpersonating, impersonator, endImpersonation } =
+    useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' && !isImpersonating;
+  const isPartner =
+    Boolean(user) && (PARTNER_ROLES.has(user!.role) || isImpersonating);
   const [restaurantId, setRestaurantId] = useState<string>();
   const [notifOpen, setNotifOpen] = useState(false);
-  const { data: restaurantsData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restaurantsData } = useQuery(MY_RESTAURANTS, {
+    skip: !user || isAdmin || !isPartner,
+  });
   const {
     data: notifData,
     loading: notifLoading,
     refetch: refetchNotifs,
   } = useQuery(MY_NOTIFICATIONS, {
-    skip: !user,
+    skip: !user || (user.role === 'diner' && !isImpersonating),
     variables: { limit: 20 },
     pollInterval: 60_000,
   });
   const [markRead] = useMutation(MARK_NOTIFICATIONS_READ);
   const [markAllRead, { loading: markingAll }] = useMutation(MARK_ALL_NOTIFICATIONS_READ);
 
+  // Diners belong on the customer web app — never show Partner Hub chrome to them.
   useEffect(() => {
-    if (!user) return;
+    if (authLoading || !user) return;
+    if (user.role === 'diner' && !isImpersonating) {
+      logout();
+      window.location.href = `${WEB_URL}/login?next=/`;
+    }
+  }, [user, authLoading, isImpersonating, logout]);
+
+  useEffect(() => {
+    if (!user || !isPartner) return;
+    if (user.role === 'admin' && !isImpersonating) return;
     const saved = localStorage.getItem('activeRestaurantId');
     const list = restaurantsData?.myRestaurants ?? [];
     const valid = list.some((r: { id: string }) => r.id === saved);
     setRestaurantId(valid ? saved! : list[0]?.id);
-  }, [user, restaurantsData]);
+  }, [user, restaurantsData, isPartner, isImpersonating]);
 
   useEffect(() => {
     const onChange = (e: Event) => {
@@ -170,10 +198,13 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const selectedKey = useMemo(() => {
+    if (pathname.startsWith('/admin')) {
+      if (pathname === '/admin' || pathname === '/admin/') return '/admin';
+      return pathname;
+    }
     if (SETTINGS_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
       return '/settings';
     }
-    if (pathname.startsWith('/admin')) return pathname;
     const exact = [
       '/',
       '/reservations',
@@ -196,7 +227,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     return pathname;
   }, [pathname]);
 
-  if (!user) {
+  if (!user || (user.role === 'diner' && !isImpersonating)) {
     return <>{children}</>;
   }
 
@@ -204,7 +235,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   const notifications: AppNotification[] = notifData?.myNotifications ?? [];
   const unreadCount: number = notifData?.unreadNotificationCount ?? 0;
 
-  const items = [
+  const partnerItems = [
     {
       type: 'group' as const,
       label: 'Service',
@@ -251,20 +282,44 @@ export function DashShell({ children }: { children: React.ReactNode }) {
         item('/billing', <DollarOutlined />, 'Billing'),
       ],
     },
-    ...(isAdmin
-      ? [
-          {
-            type: 'group' as const,
-            label: 'Platform',
-            children: [
-              item('/admin', <SafetyOutlined />, 'Admin'),
-              item('/admin/users', <TeamOutlined />, 'Users'),
-              item('/admin/audit', <AuditOutlined />, 'Audit logs'),
-            ],
-          },
-        ]
-      : []),
   ];
+
+  const adminItems = [
+    {
+      type: 'group' as const,
+      label: 'Support',
+      children: [
+        item('/admin', <SafetyOutlined />, 'Overview'),
+        item('/admin/users', <TeamOutlined />, 'Users & access'),
+        item('/admin/restaurants', <ShopOutlined />, 'Restaurants'),
+        item('/admin/support', <CustomerServiceOutlined />, 'Tickets'),
+        item('/admin/moderation', <FlagOutlined />, 'Moderation'),
+      ],
+    },
+    {
+      type: 'group' as const,
+      label: 'Billing',
+      children: [
+        item('/admin/invoices', <FileDoneOutlined />, 'Invoices'),
+        item('/admin/revenue', <FundOutlined />, 'Revenue'),
+        item('/admin/churn', <WarningOutlined />, 'Churn alerts'),
+        item('/admin/pricing', <TagOutlined />, 'Plans & pricing'),
+        item('/admin/exports', <DownloadOutlined />, 'CSV exports'),
+      ],
+    },
+    {
+      type: 'group' as const,
+      label: 'Platform',
+      children: [
+        item('/admin/config', <ControlOutlined />, 'Configuration'),
+        item('/admin/templates', <MailOutlined />, 'Email templates'),
+        item('/admin/sla', <DashboardOutlined />, 'SLA metrics'),
+        item('/admin/audit', <AuditOutlined />, 'Audit logs'),
+      ],
+    },
+  ];
+
+  const items = isAdmin ? adminItems : partnerItems;
 
   const profileMenu: MenuProps['items'] = [
     {
@@ -282,18 +337,29 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       ),
     },
     { type: 'divider' },
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: 'Settings',
-      onClick: () => router.push('/settings'),
-    },
-    {
-      key: 'notification-settings',
-      icon: <BellOutlined />,
-      label: 'Notification settings',
-      onClick: () => router.push('/notifications'),
-    },
+    ...(isAdmin
+      ? [
+          {
+            key: 'admin-config',
+            icon: <ControlOutlined />,
+            label: 'Platform config',
+            onClick: () => router.push('/admin/config'),
+          },
+        ]
+      : [
+          {
+            key: 'settings',
+            icon: <SettingOutlined />,
+            label: 'Settings',
+            onClick: () => router.push('/settings'),
+          },
+          {
+            key: 'notification-settings',
+            icon: <BellOutlined />,
+            label: 'Notification settings',
+            onClick: () => router.push('/notifications'),
+          },
+        ]),
     { type: 'divider' },
     {
       key: 'logout',
@@ -464,6 +530,25 @@ export function DashShell({ children }: { children: React.ReactNode }) {
 
   return (
     <Layout style={{ minHeight: '100vh', background: colors.background }}>
+      {isImpersonating && impersonator && (
+        <Alert
+          type="warning"
+          banner
+          showIcon
+          message={
+            <span>
+              Viewing as <strong>{user.firstName} {user.lastName}</strong> ({user.role.replace(/_/g, ' ')})
+              — signed in as admin {impersonator.firstName} {impersonator.lastName}
+            </span>
+          }
+          action={
+            <Button size="small" type="primary" onClick={() => endImpersonation()}>
+              Exit impersonation
+            </Button>
+          }
+        />
+      )}
+      <Layout>
       <Sider
         theme="light"
         width={248}
@@ -504,7 +589,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
               flexShrink: 0,
             }}
           >
-            R
+            T
           </span>
           <div style={{ lineHeight: 1.2, minWidth: 0 }}>
             <Text
@@ -515,7 +600,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
                 display: 'block',
               }}
             >
-              ReserveTable
+              Tablevera
             </Text>
             <Text
               type="secondary"
@@ -527,7 +612,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
                 fontWeight: 600,
               }}
             >
-              Partner Hub
+              {isAdmin ? 'Platform Admin' : 'Partner Hub'}
             </Text>
           </div>
         </div>
@@ -556,23 +641,31 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-            <ShopOutlined style={{ color: colors.textTertiary, fontSize: 16 }} />
-            <Select
-              placeholder="Select restaurant"
-              style={{ width: 260, maxWidth: '100%' }}
-              value={restaurantId}
-              onChange={(id) => {
-                setRestaurantId(id);
-                localStorage.setItem('activeRestaurantId', id);
-                window.dispatchEvent(new CustomEvent('rt-restaurant-change', { detail: id }));
-              }}
-              options={restaurants.map((r: { id: string; name: string }) => ({
-                value: r.id,
-                label: r.name,
-              }))}
-              variant="borderless"
-              popupMatchSelectWidth={280}
-            />
+            {isAdmin ? (
+              <Text type="secondary" style={{ fontSize: 13 }}>
+                Help diners & restaurants · manage billing & platform settings
+              </Text>
+            ) : (
+              <>
+                <ShopOutlined style={{ color: colors.textTertiary, fontSize: 16 }} />
+                <Select
+                  placeholder="Select restaurant"
+                  style={{ width: 260, maxWidth: '100%' }}
+                  value={restaurantId}
+                  onChange={(id) => {
+                    setRestaurantId(id);
+                    localStorage.setItem('activeRestaurantId', id);
+                    window.dispatchEvent(new CustomEvent('rt-restaurant-change', { detail: id }));
+                  }}
+                  options={restaurants.map((r: { id: string; name: string }) => ({
+                    value: r.id,
+                    label: r.name,
+                  }))}
+                  variant="borderless"
+                  popupMatchSelectWidth={280}
+                />
+              </>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Dropdown
@@ -658,6 +751,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
         >
           {children}
         </Content>
+      </Layout>
       </Layout>
     </Layout>
   );

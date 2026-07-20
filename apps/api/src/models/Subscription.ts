@@ -10,7 +10,6 @@ const subscriptionSchema = new Schema(
     },
     plan: {
       type: String,
-      enum: ['basic', 'core', 'pro', 'enterprise'],
       required: true,
     },
     status: {

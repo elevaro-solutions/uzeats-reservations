@@ -20,9 +20,18 @@ import {
   message,
 } from 'antd';
 import { CUISINES } from '@reservations/shared';
-import { EmptyState, PageHeader, StatusTag, colors, radii, spacing } from '@reservations/ui';
+import {
+  AddressAutocomplete,
+  EmptyState,
+  PageHeader,
+  StatusTag,
+  colors,
+  radii,
+  spacing,
+} from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS, CREATE_RESTAURANT } from '@/lib/graphql';
+import { addressSelectionToFields } from '@/lib/address';
 import {
   priceRangeOptions,
   restaurantFieldTooltips as tips,
@@ -36,9 +45,11 @@ export default function OverviewPage() {
   const { data, refetch } = useQuery(MY_RESTAURANTS, { skip: !user });
   const [createRestaurant, { loading: creating }] = useMutation(CREATE_RESTAURANT);
   const [showCreate, setShowCreate] = useState(false);
+  const [createForm] = Form.useForm();
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
+    if (!authLoading && user?.role === 'admin') router.replace('/admin');
   }, [authLoading, user, router]);
 
   const restaurants = data?.myRestaurants ?? [];
@@ -66,6 +77,7 @@ export default function OverviewPage() {
             Submit for approval. You can refine photos, menu, and booking rules in Settings after.
           </p>
           <Form
+            form={createForm}
             layout="vertical"
             requiredMark="optional"
             onFinish={async (values) => {
@@ -142,7 +154,13 @@ export default function OverviewPage() {
                   tooltip={tips.line1}
                   rules={[{ required: true, message: 'Address is required' }]}
                 >
-                  <Input />
+                  <AddressAutocomplete
+                    placeholder="Start typing an address"
+                    inputProps={{ size: 'middle' }}
+                    onSelect={(selection) =>
+                      createForm.setFieldsValue(addressSelectionToFields(selection))
+                    }
+                  />
                 </Form.Item>
               </Col>
               <Col xs={24} sm={12} md={6}>

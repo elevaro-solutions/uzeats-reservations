@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "ReserveTable",
-    "slug": "reservetable",
+    "name": "Tablevera",
+    "slug": "tablevera",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "reservetable",
+    "scheme": "tablevera",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -13,13 +13,13 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.reservetable.app"
+      "bundleIdentifier": "com.tablevera.app"
     },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#da3743"
       },
-      "package": "com.reservetable.app"
+      "package": "com.tablevera.app"
     },
     "plugins": ["expo-router", "expo-secure-store"],
     "experiments": {

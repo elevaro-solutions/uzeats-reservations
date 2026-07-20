@@ -1,5 +1,5 @@
 /**
- * ReserveTable design tokens.
+ * Tablevera design tokens.
  *
  * Framework-agnostic (no antd import) so they can be consumed by the
  * Next.js apps, the Ant Design theme, and the Expo mobile app alike.

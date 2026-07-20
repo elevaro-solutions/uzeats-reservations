@@ -27,7 +27,7 @@ export const restaurantFieldTooltips = {
   lng: 'Longitude in decimal degrees (−180 to 180). Used for map search. Example: −74.006.',
   depositRequired: 'When on, guests must pay a per-guest deposit to hold the reservation.',
   depositAmountCents: 'Deposit charged per guest, in cents (e.g. 2500 = $25.00).',
-  phone: 'Restaurant contact phone in E.164 format, e.g. +12125551234. Optional.',
+  phone: 'Restaurant contact phone number. US format, e.g. (212) 555-1234. Optional.',
   website: 'Full restaurant website URL including https://. Optional.',
   useSmartAssign: 'Automatically picks the best available table when a reservation is confirmed.',
   posEnabled: 'Enable POS sync so walk-ins and covers can update from your POS system.',

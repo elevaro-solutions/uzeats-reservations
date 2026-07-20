@@ -31,8 +31,9 @@ import {
   StopOutlined,
 } from '@ant-design/icons';
 import { CUISINES } from '@reservations/shared';
-import { PageHeader, colors, radii, spacing } from '@reservations/ui';
+import { AddressAutocomplete, PageHeader, PhoneInput, colors, radii, spacing, usPhoneRules } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
+import { addressSelectionToFields } from '@/lib/address';
 import {
   MY_RESTAURANTS,
   UPDATE_RESTAURANT,
@@ -352,7 +353,7 @@ export default function SettingsPage() {
             <Form form={form} layout="vertical" onFinish={handleFinish} requiredMark="optional">
               <FormSection
                 title="Restaurant profile"
-                description="How your venue appears to diners on ReserveTable."
+                description="How your venue appears to diners on Tablevera."
               >
                 <Row gutter={[24, 8]}>
                   <Col xs={24} md={12}>
@@ -405,7 +406,13 @@ export default function SettingsPage() {
                       tooltip={tips.line1}
                       rules={[{ required: true, message: 'Address is required' }]}
                     >
-                      <Input />
+                      <AddressAutocomplete
+                        placeholder="Start typing an address"
+                        inputProps={{ size: 'middle' }}
+                        onSelect={(selection) =>
+                          form.setFieldsValue(addressSelectionToFields(selection))
+                        }
+                      />
                     </Form.Item>
                   </Col>
                   <Col xs={24} sm={12} md={6}>
@@ -505,21 +512,9 @@ export default function SettingsPage() {
                       name="phone"
                       label="Phone"
                       tooltip={tips.phone}
-                      rules={[
-                        {
-                          validator: (_, value) => {
-                            if (!value) return Promise.resolve();
-                            if (!/^\+?[1-9]\d{7,14}$/.test(value)) {
-                              return Promise.reject(
-                                new Error('Use E.164 format, e.g. +12125551234'),
-                              );
-                            }
-                            return Promise.resolve();
-                          },
-                        },
-                      ]}
+                      rules={usPhoneRules()}
                     >
-                      <Input placeholder="+12125551234" />
+                      <PhoneInput />
                     </Form.Item>
                   </Col>
                   <Col xs={24} md={12}>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import {
@@ -18,6 +18,7 @@ import {
   message,
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { PhoneInput, usPhoneRules } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import {
   MY_RESTAURANTS,
@@ -25,6 +26,7 @@ import {
   ADD_IN_HOUSE_WAITLIST,
   UPDATE_WAITLIST_STATUS,
 } from '@/lib/graphql';
+import { useUrlPagination } from '@/lib/useUrlPagination';
 
 const { Title } = Typography;
 
@@ -37,16 +39,17 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'red',
 };
 
-export default function WaitlistPage() {
+function WaitlistPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [restaurantId, setRestaurantId] = useState<string>();
   const [modalOpen, setModalOpen] = useState(false);
   const [form] = Form.useForm();
+  const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 20 });
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const { data, loading, refetch } = useQuery(RESTAURANT_WAITLIST_FULL, {
     skip: !restaurantId,
-    variables: { restaurantId },
+    variables: { restaurantId, limit, offset },
   });
   const [addEntry, { loading: adding }] = useMutation(ADD_IN_HOUSE_WAITLIST);
   const [updateStatus, { loading: updating }] = useMutation(UPDATE_WAITLIST_STATUS);
@@ -129,7 +132,8 @@ export default function WaitlistPage() {
         <Table
           loading={loading}
           rowKey="id"
-          dataSource={data?.restaurantWaitlist ?? []}
+          dataSource={data?.restaurantWaitlist?.items ?? []}
+          pagination={tablePagination(data?.restaurantWaitlist?.total ?? 0)}
           columns={[
             {
               title: 'Guest',
@@ -229,8 +233,8 @@ export default function WaitlistPage() {
           <Form.Item name="guestName" label="Guest name" rules={[{ required: true }]}>
             <Input placeholder="e.g. Jane Smith" />
           </Form.Item>
-          <Form.Item name="guestPhone" label="Phone">
-            <Input placeholder="Optional" />
+          <Form.Item name="guestPhone" label="Phone" rules={usPhoneRules()}>
+            <PhoneInput placeholder="Optional" />
           </Form.Item>
           <Form.Item name="partySize" label="Party size" rules={[{ required: true }]}>
             <InputNumber min={1} max={50} style={{ width: '100%' }} />
@@ -241,5 +245,13 @@ export default function WaitlistPage() {
         </Form>
       </Modal>
     </Space>
+  );
+}
+
+export default function WaitlistPage() {
+  return (
+    <Suspense fallback={null}>
+      <WaitlistPageContent />
+    </Suspense>
   );
 }

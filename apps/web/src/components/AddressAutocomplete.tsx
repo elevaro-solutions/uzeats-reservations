@@ -1,16 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AutoComplete, Button, Input, Tooltip } from 'antd';
-import type { DefaultOptionType } from 'antd/es/select';
+import { useCallback, useMemo } from 'react';
+import { Button, Tooltip } from 'antd';
 import { AimOutlined, CloseCircleFilled, EnvironmentFilled, EnvironmentOutlined } from '@ant-design/icons';
-import { colors, typography } from '@reservations/ui';
 import {
-  fetchPlacePredictions,
-  hasGoogleMapsKey,
-  resolvePlace,
-  type PlacePrediction,
-} from '@/lib/googleMaps';
+  AddressAutocomplete as SharedAddressAutocomplete,
+  useGooglePlacesAvailability,
+  colors,
+  typography,
+  type AddressFallbackOption,
+  type AddressSelection,
+} from '@reservations/ui';
 import {
   POPULAR_CITIES,
   US_STATE_NAMES,
@@ -32,10 +32,14 @@ type AddressAutocompleteProps = {
   onClear?: () => void;
   geoLoading?: boolean;
   style?: React.CSSProperties;
+  variant?: 'outlined' | 'filled' | 'borderless';
 };
 
-const DEBOUNCE_MS = 280;
-
+/**
+ * Location picker for restaurant discovery. Wraps the shared
+ * AddressAutocomplete with a "use my location" action and a popular-cities
+ * fallback when Google Places is unavailable.
+ */
 export function AddressAutocomplete({
   value,
   onChange,
@@ -44,41 +48,11 @@ export function AddressAutocomplete({
   onClear,
   geoLoading,
   style,
+  variant = 'filled',
 }: AddressAutocompleteProps) {
-  const useGoogle = hasGoogleMapsKey();
-  const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
-  const [searching, setSearching] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const requestIdRef = useRef(0);
+  const googleAvailable = useGooglePlacesAvailability() !== 'unavailable';
 
-  useEffect(() => {
-    if (!useGoogle) return;
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    const trimmed = value.trim();
-    if (trimmed.length < 2) {
-      setPredictions([]);
-      setSearching(false);
-      return;
-    }
-
-    setSearching(true);
-    const requestId = ++requestIdRef.current;
-    debounceRef.current = setTimeout(() => {
-      void fetchPlacePredictions(trimmed).then((results) => {
-        if (requestId !== requestIdRef.current) return;
-        setPredictions(results);
-        setSearching(false);
-      });
-    }, DEBOUNCE_MS);
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [value, useGoogle]);
-
-  const fallbackOptions = useMemo((): DefaultOptionType[] => {
+  const fallbackOptions = useMemo((): AddressFallbackOption[] => {
     const byState = new Map<string, CityOption[]>();
     for (const c of POPULAR_CITIES) {
       const list = byState.get(c.state) ?? [];
@@ -99,10 +73,10 @@ export function AddressAutocomplete({
           {US_STATE_NAMES[state] ?? state}
         </span>
       ),
-      options: list.map((c) => ({
+      options: list.map((c): AddressFallbackOption => ({
         value: cityLabel(c),
         search: `${c.city} ${c.state} ${US_STATE_NAMES[c.state] ?? ''}`.toLowerCase(),
-        location: { label: cityLabel(c), lat: c.lat, lng: c.lng } satisfies LocationSelection,
+        selection: { label: cityLabel(c), lat: c.lat, lng: c.lng } satisfies AddressSelection,
         label: (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -116,51 +90,16 @@ export function AddressAutocomplete({
     }));
   }, []);
 
-  const googleOptions = useMemo(
-    (): DefaultOptionType[] =>
-      predictions.map((p) => ({
-        value: p.description,
-        placeId: p.placeId,
-        label: (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '2px 0' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <EnvironmentOutlined style={{ color: colors.textTertiary }} />
-              <span style={{ fontWeight: typography.fontWeight.medium }}>{p.mainText}</span>
-            </span>
-            {p.secondaryText ? (
-              <span
-                style={{
-                  color: colors.textTertiary,
-                  fontSize: typography.fontSize.xs,
-                  paddingLeft: 22,
-                }}
-              >
-                {p.secondaryText}
-              </span>
-            ) : null}
-          </div>
-        ),
-      })),
-    [predictions],
-  );
-
   const handleSelect = useCallback(
-    async (selected: string, option: DefaultOptionType) => {
-      const location = (option as DefaultOptionType & { location?: LocationSelection }).location;
-      const placeId = (option as DefaultOptionType & { placeId?: string }).placeId;
-      if (location) {
-        onSelectLocation(location);
+    (selection: AddressSelection) => {
+      if (selection.lat != null && selection.lng != null) {
+        onSelectLocation({ label: selection.label, lat: selection.lat, lng: selection.lng });
         return;
       }
-      if (placeId) {
-        const place = await resolvePlace(placeId);
-        if (place) {
-          onSelectLocation({ label: place.label, lat: place.lat, lng: place.lng });
-          return;
-        }
-      }
-      // Fallback city match by label if Google details fail
-      const match = POPULAR_CITIES.find((c) => cityLabel(c) === selected || c.city === selected);
+      // Google details failed — fall back to a popular-city match by label.
+      const match = POPULAR_CITIES.find(
+        (c) => cityLabel(c) === selection.label || c.city === selection.label,
+      );
       if (match) {
         onSelectLocation({ label: cityLabel(match), lat: match.lat, lng: match.lng });
       }
@@ -169,37 +108,21 @@ export function AddressAutocomplete({
   );
 
   return (
-    <AutoComplete
+    <SharedAddressAutocomplete
       value={value}
       onChange={onChange}
-      options={useGoogle ? googleOptions : fallbackOptions}
-      popupMatchSelectWidth={320}
+      onSelect={handleSelect}
+      searchTypes={['geocode']}
+      country="us"
+      fallbackOptions={fallbackOptions}
+      placeholder={googleAvailable ? 'Address or neighborhood' : 'City'}
       style={style}
-      notFoundContent={
-        useGoogle && searching
-          ? 'Searching addresses…'
-          : useGoogle && value.trim().length >= 2
-            ? 'No addresses found'
-            : undefined
-      }
-      filterOption={
-        useGoogle
-          ? false
-          : (input, option) => {
-              const s = (option as { search?: string })?.search;
-              return s ? s.includes(input.toLowerCase()) : false;
-            }
-      }
-      onSelect={(v, option) => {
-        void handleSelect(String(v), option);
-      }}
-    >
-      <Input
-        size="large"
-        variant="filled"
-        placeholder={useGoogle ? 'Address or neighborhood' : 'City'}
-        prefix={<EnvironmentFilled style={{ color: colors.textTertiary }} />}
-        suffix={
+      popupMatchSelectWidth={320}
+      inputProps={{
+        size: 'large',
+        variant,
+        prefix: <EnvironmentFilled style={{ color: colors.textTertiary }} />,
+        suffix: (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
             {value.trim() ? (
               <Tooltip title="Clear location">
@@ -229,8 +152,8 @@ export function AddressAutocomplete({
               />
             </Tooltip>
           </span>
-        }
-      />
-    </AutoComplete>
+        ),
+      }}
+    />
   );
 }

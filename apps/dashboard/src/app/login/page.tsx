@@ -15,7 +15,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   if (user) {
-    router.replace('/');
+    router.replace(user.role === 'admin' ? '/admin' : '/');
     return null;
   }
 
@@ -32,6 +32,7 @@ export default function LoginPage() {
           try {
             await login(values.email, values.password);
             message.success('Signed in');
+            // Role-aware landing is handled by / redirect for admins
             router.push('/');
           } catch (err) {
             message.error(err instanceof Error ? err.message : 'Login failed');
@@ -82,6 +83,24 @@ export default function LoginPage() {
         </Button>
       </Form>
 
+      <p
+        style={{
+          marginTop: 20,
+          marginBottom: 0,
+          textAlign: 'center',
+          color: colors.textSecondary,
+          fontSize: typography.fontSize.sm,
+        }}
+      >
+        New restaurant partner?{' '}
+        <Link
+          href="/register"
+          style={{ color: colors.brand[600], fontWeight: typography.fontWeight.semibold }}
+        >
+          Create an account
+        </Link>
+      </p>
+
       <div
         style={{
           marginTop: 20,
@@ -101,9 +120,13 @@ export default function LoginPage() {
         >
           <strong style={{ color: colors.textPrimary }}>Demo credentials</strong>
           <br />
-          owner@reservations.local or admin@reservations.local
+          owner@tablevera.local or admin@tablevera.local
           <br />
           Password: Password123!
+          <br />
+          <span style={{ color: colors.textTertiary }}>
+            Diners: use the booking app, not Partner Hub.
+          </span>
         </p>
       </div>
     </AuthLayout>

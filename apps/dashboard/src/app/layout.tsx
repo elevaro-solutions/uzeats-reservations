@@ -12,7 +12,7 @@ const sans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'ReserveTable Partner Hub',
+  title: 'Tablevera Partner Hub',
   description: 'Restaurant and admin dashboard',
 };
 

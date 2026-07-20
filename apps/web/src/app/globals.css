@@ -16,9 +16,12 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 24px;
-  --shadow-sm: 0 1px 3px rgba(26, 24, 22, 0.05), 0 1px 2px rgba(26, 24, 22, 0.04);
-  --shadow-md: 0 4px 14px rgba(26, 24, 22, 0.07), 0 1px 3px rgba(26, 24, 22, 0.04);
-  --shadow-lg: 0 16px 40px rgba(26, 24, 22, 0.1), 0 2px 8px rgba(26, 24, 22, 0.05);
+  --shadow-sm:
+    0 1px 3px rgba(26, 24, 22, 0.05), 0 1px 2px rgba(26, 24, 22, 0.04);
+  --shadow-md:
+    0 4px 14px rgba(26, 24, 22, 0.07), 0 1px 3px rgba(26, 24, 22, 0.04);
+  --shadow-lg:
+    0 16px 40px rgba(26, 24, 22, 0.1), 0 2px 8px rgba(26, 24, 22, 0.05);
   --shadow-brand: 0 8px 20px rgba(196, 71, 47, 0.28);
 }
 
@@ -53,7 +56,10 @@ body {
 
 /* Hero primary CTA — subtle lift + glow on hover */
 .rt-hero-cta {
-  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease !important;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease !important;
 }
 
 .rt-hero-cta:hover {
@@ -89,6 +95,139 @@ body {
   -webkit-backdrop-filter: blur(6px);
 }
 
+/* ---------- Hero search panel (segmented search bar) ---------- */
+.rt-search-panel {
+  margin-top: 32px;
+  background: #fff;
+  border-radius: var(--radius-xl);
+  padding: 8px;
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.32),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  text-align: left;
+}
+
+.rt-search-field {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-width: 0;
+  padding: 6px 6px 4px;
+  border-radius: var(--radius-lg);
+  transition: background 0.18s ease;
+}
+
+.rt-search-field:hover {
+  background: rgba(196, 71, 47, 0.045);
+}
+
+.rt-search-field:focus-within {
+  background: var(--color-brand-50);
+}
+
+.rt-search-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-text-tertiary);
+  padding: 2px 11px 0;
+  line-height: 1.4;
+  user-select: none;
+}
+
+/* Borderless antd controls fill their cell */
+.rt-search-field .ant-input-affix-wrapper,
+.rt-search-field .ant-select,
+.rt-search-field .ant-picker {
+  width: 100%;
+}
+
+.rt-search-divider {
+  width: 1px;
+  flex-shrink: 0;
+  align-self: center;
+  height: 34px;
+  background: var(--color-border-subtle);
+}
+
+.rt-search-submit {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  padding: 2px;
+}
+
+/* Field widths — desktop */
+.rt-sf-what {
+  flex: 1.4 1 175px;
+}
+.rt-sf-cuisine {
+  flex: 0.9 1 118px;
+}
+.rt-sf-where {
+  flex: 1.6 1 195px;
+}
+.rt-sf-when {
+  flex: 0.9 1 128px;
+}
+.rt-sf-who {
+  flex: 0.9 1 122px;
+}
+
+/* Stack the panel on smaller screens */
+@media (max-width: 940px) {
+  .rt-search-panel {
+    flex-wrap: wrap;
+    gap: 4px;
+    border-radius: var(--radius-lg);
+  }
+  .rt-search-divider {
+    display: none;
+  }
+  .rt-sf-what,
+  .rt-sf-where {
+    flex: 1 1 100%;
+  }
+  .rt-sf-cuisine,
+  .rt-sf-when,
+  .rt-sf-who {
+    flex: 1 1 40%;
+  }
+  .rt-search-field,
+  .rt-search-field:hover {
+    background: var(--color-bg);
+  }
+  .rt-search-field:focus-within {
+    background: var(--color-brand-50);
+  }
+  .rt-search-submit {
+    flex: 1 1 100%;
+    padding: 4px 2px 2px;
+  }
+  .rt-search-submit .ant-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .rt-sf-cuisine,
+  .rt-sf-when,
+  .rt-sf-who {
+    flex: 1 1 100%;
+  }
+}
+
+/* Hide hero stat dividers when stats wrap on narrow screens */
+@media (max-width: 640px) {
+  .rt-hero-stat-sep {
+    display: none !important;
+  }
+}
+
 /* Slow ambient drift for hero glow orbs */
 @keyframes rt-hero-drift {
   0%,
@@ -106,8 +245,12 @@ body {
 
 /* Cuisine filter chips */
 .rt-chip {
-  transition: transform 0.18s ease, border-color 0.18s ease, color 0.18s ease,
-    background 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .rt-chip:hover {

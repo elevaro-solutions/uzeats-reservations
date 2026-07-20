@@ -366,7 +366,7 @@ export default function BillingPage() {
                 No active subscription
               </Title>
               <Paragraph type="secondary" style={{ textAlign: 'center', maxWidth: 480 }}>
-                Choose a plan to start accepting reservations through the ReserveTable network and
+                Choose a plan to start accepting reservations through the Tablevera network and
                 unlock premium features.
               </Paragraph>
             </Space>

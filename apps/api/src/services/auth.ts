@@ -6,6 +6,7 @@ import type { JwtPayload, UserRole } from '@reservations/shared';
 import { env } from '../config/env.js';
 import { User } from '../models/User.js';
 import { notifyUser } from './notifications.js';
+import { getPlatformConfig } from './platformConfig.js';
 
 const googleClient = env.GOOGLE_CLIENT_ID
   ? new OAuth2Client(env.GOOGLE_CLIENT_ID)
@@ -67,6 +68,10 @@ export async function registerWithEmail(input: {
   const existing = await User.findOne({ email: input.email.toLowerCase() });
   if (existing) throw new Error('Email already registered');
 
+  const config = await getPlatformConfig();
+  if (config.allowPublicRegistration === false) {
+    throw new Error('Public registration is currently disabled');
+  }
   const passwordHash = await hashPassword(input.password);
   const user = await User.create({
     email: input.email.toLowerCase(),
@@ -74,7 +79,7 @@ export async function registerWithEmail(input: {
     firstName: input.firstName,
     lastName: input.lastName,
     phone: input.phone,
-    role: 'diner',
+    role: (config.defaultSignupRole as UserRole) || 'diner',
     emailVerified: false,
   });
 
@@ -201,18 +206,26 @@ export async function logout(userId: string, refreshToken?: string) {
   return true;
 }
 
+function passwordResetBaseUrl() {
+  return env.WEB_APP_URL || env.CORS_ORIGINS.split(',')[0]?.trim() || 'http://localhost:3000';
+}
+
+async function createPasswordResetToken(userId: string) {
+  const token = crypto.randomUUID();
+  await User.findByIdAndUpdate(userId, {
+    passwordResetToken: token,
+    passwordResetExpires: new Date(Date.now() + 60 * 60 * 1000),
+  });
+  return `${passwordResetBaseUrl()}/reset-password?token=${token}`;
+}
+
 export async function requestPasswordReset(email: string) {
   const user = await User.findOne({ email: email.toLowerCase() });
   if (!user) {
     return { success: true, message: 'If that email exists, a reset link has been sent.' };
   }
 
-  const token = crypto.randomUUID();
-  user.passwordResetToken = token;
-  user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
-  await user.save();
-
-  const resetUrl = `${env.CORS_ORIGINS.split(',')[0]}/reset-password?token=${token}`;
+  const resetUrl = await createPasswordResetToken(user._id.toString());
   await notifyUser(user._id.toString(), {
     type: 'password_reset',
     title: 'Password Reset Request',
@@ -220,6 +233,38 @@ export async function requestPasswordReset(email: string) {
   });
 
   return { success: true, message: 'If that email exists, a reset link has been sent.' };
+}
+
+/** Admin support tool: create a reset link, optionally email it, always return the URL. */
+export async function adminCreatePasswordReset(input: {
+  userId: string;
+  sendEmail?: boolean;
+}) {
+  const user = await User.findById(input.userId);
+  if (!user) throw new Error('User not found');
+  if (!user.email) throw new Error('User has no email address');
+
+  const resetUrl = await createPasswordResetToken(user._id.toString());
+  let emailed = false;
+
+  if (input.sendEmail !== false) {
+    await notifyUser(user._id.toString(), {
+      type: 'password_reset',
+      title: 'Password Reset Request',
+      body: `A platform admin started a password reset for your account.\n\nUse this link to reset your password: ${resetUrl}\n\nThis link expires in 1 hour.`,
+    });
+    emailed = true;
+  }
+
+  return {
+    success: true,
+    message: emailed
+      ? `Password reset email sent to ${user.email}`
+      : 'Password reset link generated (not emailed)',
+    resetUrl,
+    emailed,
+    email: user.email,
+  };
 }
 
 export async function resetPassword(token: string, newPassword: string) {

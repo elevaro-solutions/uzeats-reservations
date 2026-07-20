@@ -14,7 +14,7 @@ const sans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'ReserveTable — Find and book restaurants',
+  title: 'Tablevera — Find and book restaurants',
   description: 'Discover restaurants and reserve tables across the USA in seconds.',
 };
 

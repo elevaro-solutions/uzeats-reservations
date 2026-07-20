@@ -2,8 +2,8 @@ import { STYLES } from './styles';
 import { createInlineWidget, createButtonWidget } from './ui';
 import type { WidgetConfig, WidgetTheme } from './api';
 
-const DEFAULT_API_URL = 'https://reservetable.com/graphql';
-const DEFAULT_APP_URL = 'https://reservetable.com';
+const DEFAULT_API_URL = 'https://tablevera.online/graphql';
+const DEFAULT_APP_URL = 'https://tablevera.online';
 
 function init() {
   const scripts = document.querySelectorAll<HTMLScriptElement>(
@@ -31,7 +31,7 @@ function init() {
     };
 
     const host = document.createElement('div');
-    host.setAttribute('data-reservetable-widget', '');
+    host.setAttribute('data-tablevera-widget', '');
     script.insertAdjacentElement('afterend', host);
 
     const shadow = host.attachShadow({ mode: 'open' });

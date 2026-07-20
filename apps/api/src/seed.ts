@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { env } from './config/env.js';
 import { PLANS } from './config/plans.js';
 import { hashPassword } from './services/auth.js';
+import { clearSeedData } from './services/seedData.js';
 import {
   User,
   Restaurant,
@@ -18,6 +19,22 @@ import {
   Subscription,
   CoverFee,
 } from './models/index.js';
+
+const SEED_PASSWORD = 'Password123!';
+const ADMIN_EMAIL = 'admin@tablevera.local';
+const OWNER_EMAIL = 'owner@tablevera.local';
+const STAFF_EMAIL = 'staff@tablevera.local';
+const DINER_EMAIL = 'diner@tablevera.local';
+const DINER2_EMAIL = 'diner2@tablevera.local';
+
+/** Legacy emails from pre-rebrand seeds — removed on reseed so demos stay clean. */
+const LEGACY_DEMO_EMAILS = [
+  'admin@reservations.local',
+  'owner@reservations.local',
+  'staff@reservations.local',
+  'diner@reservations.local',
+  'diner2@reservations.local',
+];
 
 function atOffset(days: number, hours = 19, minutes = 0): Date {
   const d = new Date();
@@ -170,39 +187,43 @@ function buildExtraRestaurants(count: number): RestaurantSeed[] {
 }
 
 async function seed() {
+  const clearOnly = process.argv.includes('--clear');
   await mongoose.connect(env.MONGODB_URI);
-  console.log('Seeding...');
+  console.log(clearOnly ? 'Clearing seed data (preserving admins)...' : 'Seeding...');
 
-  await Promise.all([
-    User.deleteMany({}),
-    Restaurant.deleteMany({}),
-    Table.deleteMany({}),
-    Shift.deleteMany({}),
-    Blackout.deleteMany({}),
-    Menu.deleteMany({}),
-    Reservation.deleteMany({}),
-    WaitlistEntry.deleteMany({}),
-    Review.deleteMany({}),
-    LoyaltyTransaction.deleteMany({}),
-    Notification.deleteMany({}),
-    Subscription.deleteMany({}),
-    CoverFee.deleteMany({}),
-  ]);
+  const cleared = await clearSeedData();
+  console.log(cleared.message);
 
-  const passwordHash = await hashPassword('Password123!');
+  if (clearOnly) {
+    await mongoose.disconnect();
+    process.exit(0);
+  }
 
-  const [admin, owner, staff, diner, diner2] = await User.create([
-    {
-      email: 'admin@reservations.local',
+  // Drop legacy demo admin if present so we do not leave duplicate platform admins
+  // after the Tablevera email rename (existing non-legacy admins stay untouched).
+  await User.deleteMany({ email: { $in: LEGACY_DEMO_EMAILS }, role: 'admin' });
+
+  const passwordHash = await hashPassword(SEED_PASSWORD);
+
+  let admin = await User.findOne({ role: 'admin' });
+  if (!admin) {
+    admin = await User.create({
+      email: ADMIN_EMAIL,
       passwordHash,
       firstName: 'Platform',
       lastName: 'Admin',
       role: 'admin',
       emailVerified: true,
       loyaltyPoints: 0,
-    },
+    });
+    console.log(`Created admin account: ${ADMIN_EMAIL}`);
+  } else {
+    console.log(`Preserved existing admin: ${admin.email}`);
+  }
+
+  const [owner, staff, diner, diner2] = await User.create([
     {
-      email: 'owner@reservations.local',
+      email: OWNER_EMAIL,
       passwordHash,
       firstName: 'Rita',
       lastName: 'Owner',
@@ -213,7 +234,7 @@ async function seed() {
       loyaltyPoints: 0,
     },
     {
-      email: 'staff@reservations.local',
+      email: STAFF_EMAIL,
       passwordHash,
       firstName: 'Sam',
       lastName: 'Staff',
@@ -224,7 +245,7 @@ async function seed() {
       loyaltyPoints: 0,
     },
     {
-      email: 'diner@reservations.local',
+      email: DINER_EMAIL,
       passwordHash,
       firstName: 'Dan',
       lastName: 'Diner',
@@ -235,7 +256,7 @@ async function seed() {
       loyaltyPoints: 750,
     },
     {
-      email: 'diner2@reservations.local',
+      email: DINER2_EMAIL,
       passwordHash,
       firstName: 'Dana',
       lastName: 'Guest',
@@ -910,12 +931,12 @@ async function seed() {
 
   console.log('Seed complete!');
   console.log('');
-  console.log('Accounts (password: Password123!):');
-  console.log('  admin@reservations.local   — platform admin');
-  console.log('  owner@reservations.local   — restaurant owner (all venues)');
-  console.log('  staff@reservations.local   — staff at Samarkand Palace');
-  console.log('  diner@reservations.local   — diner (750 pts)');
-  console.log('  diner2@reservations.local  — second diner (200 pts)');
+  console.log(`Accounts (password: ${SEED_PASSWORD}):`);
+  console.log(`  ${admin.email}   — platform admin (preserved if already present)`);
+  console.log(`  ${OWNER_EMAIL}   — restaurant owner (all venues)`);
+  console.log(`  ${STAFF_EMAIL}   — staff at Samarkand Palace`);
+  console.log(`  ${DINER_EMAIL}   — diner (750 pts)`);
+  console.log(`  ${DINER2_EMAIL}  — second diner (200 pts)`);
   console.log('');
   console.log('Data summary:');
   const approved = restaurantsData.filter((r) => r.status === 'approved').length;
@@ -924,6 +945,8 @@ async function seed() {
   console.log(`  ${restaurantsData.length} restaurants (${approved} approved, ${pending} pending, ${suspended} suspended)`);
   console.log('  Reservations across statuses: pending, confirmed, seated, completed, cancelled, no_show');
   console.log('  Reviews, waitlist entries, blackouts, loyalty, notifications, subscriptions, cover fees');
+  console.log('');
+  console.log('Clear only (keep admins): pnpm seed -- --clear');
   await mongoose.disconnect();
   process.exit(0);
 }

@@ -7,7 +7,6 @@ export const typeDefs = `#graphql
   enum Occasion { none birthday anniversary business date celebration other }
   enum WaitlistStatus { waiting notified booked seated expired cancelled }
   enum ReservationSource { network website widget phone walkin }
-  enum SubscriptionPlan { basic core pro enterprise }
   enum SubscriptionStatus { trialing active past_due cancelled paused }
 
   type AuthPayload {
@@ -302,7 +301,7 @@ export const typeDefs = `#graphql
   type SubscriptionType {
     id: ID!
     restaurantId: ID!
-    plan: SubscriptionPlan!
+    plan: String!
     status: SubscriptionStatus!
     stripeCustomerId: String
     stripeSubscriptionId: String
@@ -321,10 +320,13 @@ export const typeDefs = `#graphql
   type PlanInfo {
     key: String!
     name: String!
+    description: String
     monthlyPriceCents: Int!
     networkCoverFeeCents: Int!
     websiteCoverFeeCents: Int!
     trialDays: Int!
+    visibleOnPricing: Boolean!
+    isCustom: Boolean!
     features: SubscriptionFeatures!
   }
 
@@ -351,11 +353,459 @@ export const typeDefs = `#graphql
     limit: Int!
   }
 
+  type UserConnection {
+    items: [User!]!
+    total: Int!
+  }
+
+  type AuditLogConnection {
+    items: [AuditLog!]!
+    total: Int!
+  }
+
+  type ReservationConnection {
+    items: [Reservation!]!
+    total: Int!
+  }
+
+  type WaitlistConnection {
+    items: [WaitlistEntry!]!
+    total: Int!
+  }
+
+  type ReviewConnection {
+    items: [Review!]!
+    total: Int!
+  }
+
+  type ExperienceConnection {
+    items: [Experience!]!
+    total: Int!
+  }
+
+  type PrivateDiningInquiryConnection {
+    items: [PrivateDiningInquiry!]!
+    total: Int!
+  }
+
+  type GuestProfileConnection {
+    items: [GuestProfile!]!
+    total: Int!
+  }
+
+  type CampaignConnection {
+    items: [Campaign!]!
+    total: Int!
+  }
+
+  type SurveyResponseConnection {
+    items: [SurveyResponse!]!
+    total: Int!
+  }
+
+  type PromotionConnection {
+    items: [Promotion!]!
+    total: Int!
+  }
+
+  type BoostCampaignConnection {
+    items: [BoostCampaign!]!
+    total: Int!
+  }
+
   type PlatformStats {
     users: Int!
     restaurants: Int!
     reservations: Int!
     pendingRestaurants: Int!
+    mrrCents: Int!
+    activeSubscriptions: Int!
+    openInvoices: Int!
+  }
+
+  type InvoiceLine {
+    description: String!
+    quantity: Int!
+    unitAmountCents: Int!
+    amountCents: Int!
+  }
+
+  enum InvoiceStatus {
+    upcoming
+    pending
+    paid
+    canceled
+    overdue
+  }
+
+  type Invoice {
+    id: ID!
+    number: String!
+    restaurantId: ID!
+    restaurantName: String
+    subscriptionId: ID
+    status: InvoiceStatus!
+    billingPeriod: String!
+    currency: String!
+    subtotalCents: Int!
+    totalCents: Int!
+    lines: [InvoiceLine!]!
+    dueDate: DateTime!
+    paidAt: DateTime
+    canceledAt: DateTime
+    notes: String
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type InvoiceConnection {
+    items: [Invoice!]!
+    total: Int!
+  }
+
+  type GenerateInvoicesResult {
+    created: Int!
+    skipped: Int!
+    period: String!
+  }
+
+  type BulkInvoiceStatusResult {
+    updated: Int!
+    items: [Invoice!]!
+  }
+
+  type PlanBreakdown {
+    plan: String!
+    count: Int!
+    mrrCents: Int!
+  }
+
+  type InvoiceStatusBreakdown {
+    status: String!
+    count: Int!
+    totalCents: Int!
+  }
+
+  type PlatformRevenueReport {
+    period: String!
+    mrrCents: Int!
+    arrCents: Int!
+    activeSubscriptions: Int!
+    trialingSubscriptions: Int!
+    pastDueSubscriptions: Int!
+    cancelledSubscriptions: Int!
+    billedCents: Int!
+    paidCents: Int!
+    outstandingCents: Int!
+    invoiceCount: Int!
+    coverFeeCents: Int!
+    covers: Int!
+    byPlan: [PlanBreakdown!]!
+    byInvoiceStatus: [InvoiceStatusBreakdown!]!
+  }
+
+  type PlatformFeatureFlags {
+    waitlist: Boolean!
+    deposits: Boolean!
+    partnerRegistration: Boolean!
+    publicRegistration: Boolean!
+    messaging: Boolean!
+    reviews: Boolean!
+    experiences: Boolean!
+    campaigns: Boolean!
+    widget: Boolean!
+  }
+
+  input PlatformFeatureFlagsInput {
+    waitlist: Boolean
+    deposits: Boolean
+    partnerRegistration: Boolean
+    publicRegistration: Boolean
+    messaging: Boolean
+    reviews: Boolean
+    experiences: Boolean
+    campaigns: Boolean
+    widget: Boolean
+  }
+
+  type PlatformConfig {
+    id: ID!
+    supportEmail: String!
+    supportPhone: String!
+    defaultSignupRole: UserRole!
+    defaultPartnerRole: UserRole!
+    defaultStaffRole: UserRole!
+    maintenanceMode: Boolean!
+    allowPublicRegistration: Boolean!
+    allowPartnerRegistration: Boolean!
+    requireAdminDelete2FA: Boolean!
+    invoicePrefix: String!
+    currency: String!
+    featureFlags: PlatformFeatureFlags!
+    updatedAt: DateTime!
+  }
+
+  input PlatformConfigInput {
+    supportEmail: String
+    supportPhone: String
+    defaultSignupRole: UserRole
+    defaultPartnerRole: UserRole
+    defaultStaffRole: UserRole
+    maintenanceMode: Boolean
+    allowPublicRegistration: Boolean
+    allowPartnerRegistration: Boolean
+    requireAdminDelete2FA: Boolean
+    invoicePrefix: String
+    currency: String
+    featureFlags: PlatformFeatureFlagsInput
+  }
+
+  type AdminDeleteUserCodePayload {
+    success: Boolean!
+    requires2FA: Boolean!
+    message: String!
+    emailedTo: String
+  }
+
+  type AdminDeleteUserPayload {
+    success: Boolean!
+    message: String!
+    deletedUserId: ID!
+  }
+
+  type ClearSeedDataPayload {
+    success: Boolean!
+    message: String!
+    preservedAdminCount: Int!
+  }
+
+  input PlanPackageInput {
+    key: String!
+    name: String
+    description: String
+    monthlyPriceCents: Int
+    networkCoverFeeCents: Int
+    websiteCoverFeeCents: Int
+    trialDays: Int
+    visibleOnPricing: Boolean
+    features: SubscriptionFeaturesInput
+  }
+
+  input CreatePlanPackageInput {
+    name: String!
+    description: String
+    monthlyPriceCents: Int!
+    networkCoverFeeCents: Int
+    websiteCoverFeeCents: Int
+    trialDays: Int
+    visibleOnPricing: Boolean
+    features: SubscriptionFeaturesInput
+  }
+
+  input SubscriptionFeaturesInput {
+    floorPlans: Boolean
+    smartAssign: Boolean
+    waitlist: Boolean
+    premiumSms: Boolean
+    guestProfiles360: Boolean
+    emailCampaigns: Boolean
+    customWidget: Boolean
+    analytics: Boolean
+    dedicatedSupport: Boolean
+    accessRules: Boolean
+    posIntegration: Boolean
+    twoWayMessaging: Boolean
+    spendAlerts: Boolean
+    ticketedEvents: Boolean
+    preShift: Boolean
+    autoTags: Boolean
+    surveys: Boolean
+    revenueForecasting: Boolean
+    customReports: Boolean
+    multiLocationAnalytics: Boolean
+    promotions: Boolean
+    featuredPlacement: Boolean
+    boostCampaigns: Boolean
+  }
+
+  type PasswordResetLinkPayload {
+    success: Boolean!
+    message: String!
+    resetUrl: String!
+    emailed: Boolean!
+    email: String!
+  }
+
+  input AdminUserInput {
+    firstName: String
+    lastName: String
+    email: String
+    phone: String
+    loyaltyPoints: Int
+    emailVerified: Boolean
+    phoneVerified: Boolean
+    role: UserRole
+    restaurantIds: [ID!]
+  }
+
+  type SessionInfo {
+    user: User
+    impersonator: User
+    isImpersonating: Boolean!
+  }
+
+  type ImpersonationPayload {
+    accessToken: String!
+    user: User!
+    impersonator: User!
+    expiresInSeconds: Int!
+  }
+
+  type StaffInviteResult {
+    inviteUrl: String!
+    user: User!
+    email: String!
+  }
+
+  type SupportPerson {
+    id: ID!
+    firstName: String!
+    lastName: String!
+    email: String
+    role: UserRole!
+  }
+
+  type SupportRestaurantRef {
+    id: ID!
+    name: String!
+    status: RestaurantStatus!
+  }
+
+  type SupportNote {
+    id: ID!
+    body: String!
+    authorId: ID!
+    author: SupportPerson
+    createdAt: DateTime!
+    updatedAt: DateTime
+  }
+
+  type SupportAttachment {
+    id: ID!
+    url: String!
+    key: String
+    filename: String!
+    contentType: String!
+    size: Int
+    uploadedById: ID!
+    uploadedBy: SupportPerson
+    createdAt: DateTime!
+  }
+
+  type SupportTicketEvent {
+    id: ID!
+    type: String!
+    field: String
+    from: String
+    to: String
+    message: String
+    actorId: ID!
+    actor: SupportPerson
+    createdAt: DateTime!
+  }
+
+  type SupportTicket {
+    id: ID!
+    subject: String!
+    subjectKey: String
+    description: String!
+    status: String!
+    priority: String!
+    category: String!
+    requesterId: ID
+    restaurantId: ID
+    assigneeId: ID
+    requester: SupportPerson
+    restaurant: SupportRestaurantRef
+    assignee: SupportPerson
+    notes: [SupportNote!]!
+    attachments: [SupportAttachment!]!
+    events: [SupportTicketEvent!]!
+    firstResponseAt: DateTime
+    resolvedAt: DateTime
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type SupportTicketConnection {
+    items: [SupportTicket!]!
+    total: Int!
+  }
+
+  type EmailTemplate {
+    id: ID!
+    key: String!
+    name: String!
+    subject: String!
+    bodyHtml: String!
+    bodyText: String!
+    description: String!
+    updatedAt: DateTime!
+  }
+
+  type ChurnAlert {
+    id: ID!
+    alertType: String!
+    restaurantId: ID!
+    restaurantName: String
+    plan: String!
+    status: String!
+    monthlyPriceCents: Int!
+    trialEndsAt: DateTime
+    cancelledAt: DateTime
+    updatedAt: DateTime!
+  }
+
+  type SlaMetrics {
+    pendingRestaurantApprovals: Int!
+    oldestPendingApprovalHours: Float!
+    avgApprovalHoursLast30d: Float!
+    openSupportTickets: Int!
+    avgFirstResponseHoursLast30d: Float!
+    avgResolutionHoursLast30d: Float!
+    flaggedReviews: Int!
+    flaggedMessages: Int!
+    overdueOrPendingInvoices: Int!
+  }
+
+  type FlaggedContentItem {
+    id: ID!
+    type: String!
+    restaurantId: ID!
+    restaurantName: String
+    authorName: String
+    body: String!
+    rating: Int
+    hidden: Boolean!
+    flagReason: String
+    flaggedAt: DateTime
+    createdAt: DateTime!
+  }
+
+  type FlaggedContent {
+    reviews: [FlaggedContentItem!]!
+    messages: [FlaggedContentItem!]!
+  }
+
+  type CsvExport {
+    filename: String!
+    content: String!
+    rowCount: Int!
+  }
+
+  type StripeSyncResult {
+    synced: Int!
+    message: String!
   }
 
   type AuditLog {
@@ -602,6 +1052,42 @@ export const typeDefs = `#graphql
     depositRequired: Boolean
     depositAmountCents: Int
     photos: [String!]
+  }
+
+  input PartnerAccountInput {
+    email: String!
+    password: String!
+    firstName: String!
+    lastName: String!
+    phone: String!
+  }
+
+  input PartnerRestaurantInput {
+    name: String!
+    description: String!
+    cuisine: String!
+    priceRange: Int!
+    address: AddressInput!
+    location: LocationInput!
+    phone: String!
+    website: String
+    depositRequired: Boolean
+    depositAmountCents: Int
+    photos: [String!]
+  }
+
+  input RegisterRestaurantPartnerInput {
+    account: PartnerAccountInput!
+    restaurant: PartnerRestaurantInput!
+    plan: String!
+  }
+
+  type PartnerRegisterPayload {
+    accessToken: String!
+    refreshToken: String!
+    user: User!
+    restaurant: Restaurant!
+    subscription: SubscriptionType!
   }
 
   input TableInput {
@@ -1004,19 +1490,36 @@ export const typeDefs = `#graphql
     searchRestaurants(input: SearchRestaurantsInput!): RestaurantConnection!
     availability(restaurantId: ID!, date: String!, partySize: Int!): [AvailabilitySlot!]!
     myReservations: [Reservation!]!
-    restaurantReservations(restaurantId: ID!, date: String): [Reservation!]!
+    restaurantReservations(restaurantId: ID!, date: String, limit: Int, offset: Int): ReservationConnection!
     myWaitlist: [WaitlistEntry!]!
-    restaurantWaitlist(restaurantId: ID!): [WaitlistEntry!]!
-    restaurantReviews(restaurantId: ID!): [Review!]!
+    restaurantWaitlist(restaurantId: ID!, limit: Int, offset: Int): WaitlistConnection!
+    restaurantReviews(restaurantId: ID!, limit: Int, offset: Int): ReviewConnection!
     myLoyalty: [LoyaltyTransaction!]!
     myNotifications(limit: Int): [AppNotification!]!
     unreadNotificationCount: Int!
     myRestaurants: [Restaurant!]!
     restaurantTeam(restaurantId: ID!): [User!]!
-    adminRestaurants(status: RestaurantStatus): [Restaurant!]!
+    adminRestaurants(status: RestaurantStatus, limit: Int, offset: Int): RestaurantConnection!
     adminStats: PlatformStats!
-    adminUsers: [User!]!
-    auditLogs(limit: Int, offset: Int): [AuditLog!]!
+    adminUsers(search: String, limit: Int, offset: Int): UserConnection!
+    adminInvoices(status: InvoiceStatus, search: String, limit: Int, offset: Int): InvoiceConnection!
+    adminRevenueReport(period: String): PlatformRevenueReport!
+    platformConfig: PlatformConfig!
+    session: SessionInfo!
+    supportTickets(
+      status: String
+      assigneeId: ID
+      restaurantId: ID
+      search: String
+      limit: Int
+      offset: Int
+    ): SupportTicketConnection!
+    supportTicket(id: ID!): SupportTicket!
+    emailTemplates: [EmailTemplate!]!
+    churnAlerts: [ChurnAlert!]!
+    slaMetrics: SlaMetrics!
+    flaggedContent(limit: Int): FlaggedContent!
+    auditLogs(limit: Int, offset: Int): AuditLogConnection!
     mySubscription(restaurantId: ID!): SubscriptionType
     plans: [PlanInfo!]!
     coverFeeSummary(restaurantId: ID!, period: String): CoverFeeSummary!
@@ -1024,21 +1527,21 @@ export const typeDefs = `#graphql
     myRestaurantGroups: [RestaurantGroup!]!
     groupAnalytics(groupId: ID!): GroupAnalytics!
 
-    experiences(restaurantId: ID, upcoming: Boolean): [Experience!]!
+    experiences(restaurantId: ID, upcoming: Boolean, limit: Int, offset: Int): ExperienceConnection!
     experience(id: ID!): Experience
     myTickets: [Ticket!]!
 
     privateDiningSpaces(restaurantId: ID!): [PrivateDiningSpace!]!
-    privateDiningInquiries(restaurantId: ID!): [PrivateDiningInquiry!]!
+    privateDiningInquiries(restaurantId: ID!, limit: Int, offset: Int): PrivateDiningInquiryConnection!
     myInquiries: [PrivateDiningInquiry!]!
 
-    restaurantGuests(restaurantId: ID!, tag: String, vipStatus: String, search: String, limit: Int, offset: Int): [GuestProfile!]!
+    restaurantGuests(restaurantId: ID!, tag: String, vipStatus: String, search: String, limit: Int, offset: Int): GuestProfileConnection!
     guestProfile(restaurantId: ID!, dinerId: ID!): GuestProfile
 
-    campaigns(restaurantId: ID!): [Campaign!]!
+    campaigns(restaurantId: ID!, limit: Int, offset: Int): CampaignConnection!
     campaign(id: ID!): Campaign
 
-    restaurantSurveys(restaurantId: ID!, limit: Int, offset: Int): [SurveyResponse!]!
+    restaurantSurveys(restaurantId: ID!, limit: Int, offset: Int): SurveyResponseConnection!
     surveyStats(restaurantId: ID!): SurveyStats!
     surveyConfig(restaurantId: ID!): SurveyConfig
 
@@ -1048,8 +1551,8 @@ export const typeDefs = `#graphql
     myConversations: [Conversation!]!
 
     accessRules(restaurantId: ID!): [AccessRule!]!
-    promotions(restaurantId: ID!, activeOnly: Boolean): [Promotion!]!
-    boostCampaigns(restaurantId: ID!): [BoostCampaign!]!
+    promotions(restaurantId: ID!, activeOnly: Boolean, limit: Int, offset: Int): PromotionConnection!
+    boostCampaigns(restaurantId: ID!, limit: Int, offset: Int): BoostCampaignConnection!
     integrations(restaurantId: ID!): [Integration!]!
 
     preShiftReport(restaurantId: ID!, date: String!, shiftId: ID): PreShiftReport!
@@ -1062,6 +1565,7 @@ export const typeDefs = `#graphql
 
   type Mutation {
     register(input: RegisterInput!): AuthPayload!
+    registerRestaurantPartner(input: RegisterRestaurantPartnerInput!): PartnerRegisterPayload!
     login(input: LoginInput!): AuthPayload!
     loginWithGoogle(idToken: String!): AuthPayload!
     requestPhoneOtp(phone: String!): MessagePayload!
@@ -1098,6 +1602,80 @@ export const typeDefs = `#graphql
 
     createUploadUrl(filename: String!, contentType: String!): UploadUrl!
     setUserRole(userId: ID!, role: UserRole!): User!
+    adminUpdateUser(userId: ID!, input: AdminUserInput!): User!
+    requestAdminDeleteUserCode(userId: ID!): AdminDeleteUserCodePayload!
+    adminDeleteUser(userId: ID!, code: String): AdminDeleteUserPayload!
+    clearSeedData: ClearSeedDataPayload!
+    adminUpdateRestaurant(id: ID!, input: RestaurantInput!, featured: Boolean, featuredUntil: DateTime, ownerId: ID): Restaurant!
+    adminSendPasswordReset(userId: ID!, sendEmail: Boolean): PasswordResetLinkPayload!
+    generateInvoices(period: String!): GenerateInvoicesResult!
+    setInvoiceStatus(id: ID!, status: InvoiceStatus!): Invoice!
+    setInvoiceStatuses(ids: [ID!]!, status: InvoiceStatus!): BulkInvoiceStatusResult!
+    updatePlatformConfig(input: PlatformConfigInput!): PlatformConfig!
+    updatePlanPackage(input: PlanPackageInput!): PlanInfo!
+    createPlanPackage(input: CreatePlanPackageInput!): PlanInfo!
+    deletePlanPackage(key: String!): Boolean!
+    startImpersonation(userId: ID!): ImpersonationPayload!
+    inviteStaff(
+      email: String!
+      firstName: String!
+      lastName: String!
+      restaurantIds: [ID!]!
+      role: UserRole
+    ): StaffInviteResult!
+    assignUserRestaurants(userId: ID!, restaurantIds: [ID!]!, role: UserRole): User!
+    removeUserRestaurant(userId: ID!, restaurantId: ID!): User!
+    createSupportTicket(
+      subject: String
+      subjectKey: String
+      description: String
+      priority: String
+      category: String
+      requesterId: ID
+      restaurantId: ID
+      assigneeId: ID
+      note: String
+    ): SupportTicket!
+    updateSupportTicket(
+      id: ID!
+      status: String
+      priority: String
+      category: String
+      subject: String
+      subjectKey: String
+      description: String
+      assigneeId: ID
+      restaurantId: ID
+      requesterId: ID
+    ): SupportTicket!
+    addSupportNote(ticketId: ID!, body: String!): SupportTicket!
+    updateSupportNote(ticketId: ID!, noteId: ID!, body: String!): SupportTicket!
+    deleteSupportNote(ticketId: ID!, noteId: ID!): SupportTicket!
+    addSupportAttachment(
+      ticketId: ID!
+      url: String!
+      key: String
+      filename: String!
+      contentType: String!
+      size: Int
+    ): SupportTicket!
+    updateSupportAttachment(ticketId: ID!, attachmentId: ID!, filename: String!): SupportTicket!
+    removeSupportAttachment(ticketId: ID!, attachmentId: ID!): SupportTicket!
+    updateEmailTemplate(
+      key: String!
+      subject: String
+      bodyHtml: String
+      bodyText: String
+      name: String
+    ): EmailTemplate!
+    flagReview(id: ID!, reason: String): FlaggedContentItem!
+    unflagReview(id: ID!): FlaggedContentItem!
+    setReviewHiddenAdmin(id: ID!, hidden: Boolean!): FlaggedContentItem!
+    flagMessage(id: ID!, reason: String): FlaggedContentItem!
+    unflagMessage(id: ID!): FlaggedContentItem!
+    setMessageHidden(id: ID!, hidden: Boolean!): FlaggedContentItem!
+    exportAdminCsv(type: String!, period: String): CsvExport!
+    syncStripeInvoices(limit: Int): StripeSyncResult!
     createSubscription(restaurantId: ID!, plan: String!): SubscriptionType!
     cancelSubscription(restaurantId: ID!): SubscriptionType!
     changePlan(restaurantId: ID!, plan: String!): SubscriptionType!

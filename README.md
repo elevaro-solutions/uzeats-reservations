@@ -1,6 +1,8 @@
-# ReserveTable
+# Tablevera
 
 OpenTable-style restaurant reservation platform for the USA market.
+
+Primary domain: [https://tablevera.online](https://tablevera.online)
 
 See [CHANGELOG.md](./CHANGELOG.md) for release history.
 
@@ -41,6 +43,7 @@ pnpm --filter @reservations/shared build
 
 # 5. Seed demo data
 pnpm seed
+# Clear demo data only (keeps admin accounts): pnpm seed -- --clear
 
 # 6. Run all apps
 pnpm dev
@@ -57,9 +60,9 @@ Password for all: `Password123!`
 
 | Email | Role |
 |---|---|
-| `diner@reservations.local` | Diner (750 loyalty points) |
-| `owner@reservations.local` | Restaurant owner |
-| `admin@reservations.local` | Platform admin |
+| `diner@tablevera.local` | Diner (750 loyalty points) |
+| `owner@tablevera.local` | Restaurant owner |
+| `admin@tablevera.local` | Platform admin |
 
 Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 
@@ -75,8 +78,9 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Menus + DO Spaces presigned uploads (stubbed without keys)
 - Notifications: email (Resend), Telegram, web/Expo push, in-app inbox + channel prefs
 - Auth: email/password, Google OAuth, Twilio phone OTP
-- Partner Settings hub, notifications prefs, and multi-restaurant selector
+- Partner Settings hub, notifications prefs, multi-restaurant selector, and self-registration
 - Owner phone / walk-in bookings, reservation edit, and reservation-scoped messaging
+- Platform admin: users, restaurants, invoices, revenue, support, moderation, templates, config
 - Embeddable booking widget with per-restaurant theme
 
 ## Design system
@@ -94,7 +98,7 @@ JWT_ACCESS_SECRET=...
 JWT_REFRESH_SECRET=...
 ```
 
-Optional integrations: `STRIPE_*`, `TWILIO_*`, `GOOGLE_CLIENT_*`, `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `RESEND_API_KEY`, `TELEGRAM_BOT_TOKEN`, `DO_SPACES_*`, `VAPID_*`.
+Optional integrations: `STRIPE_*`, `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `RESEND_API_KEY`, `TELEGRAM_BOT_TOKEN`, `DO_SPACES_*`, `VAPID_*`.
 
 ## Deploy notes (DigitalOcean)
 
@@ -115,5 +119,6 @@ pnpm dev          # turbo: all apps
 pnpm build        # turbo build
 pnpm db:up        # docker compose up
 pnpm db:down      # docker compose down
-pnpm seed         # seed restaurants, tables, shifts, users
+pnpm seed         # seed restaurants, tables, shifts, users (keeps admins)
+pnpm seed -- --clear  # delete seed data only; admin accounts untouched
 ```

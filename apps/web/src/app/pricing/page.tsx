@@ -49,7 +49,7 @@ const featureCategories: FeatureCategory[] = [
     title: 'Help land more guests',
     icon: <TeamOutlined />,
     features: [
-      { name: 'ReserveTable profile and listing', basic: true, core: true, pro: true },
+      { name: 'Tablevera profile and listing', basic: true, core: true, pro: true },
       { name: 'Booking widget for your website', basic: true, core: true, pro: 'Fully customizable' },
       { name: 'Review management', basic: true, core: true, pro: true },
       { name: 'Booking integrations (100+ sites & apps)', basic: true, core: true, pro: true },
@@ -112,7 +112,7 @@ const featureCategories: FeatureCategory[] = [
     icon: <MailOutlined />,
     features: [
       { name: 'Boost campaigns (pay-per-cover)', basic: true, core: true, pro: true },
-      { name: 'Featured placement on ReserveTable', basic: false, core: true, pro: true },
+      { name: 'Featured placement on Tablevera', basic: false, core: true, pro: true },
       { name: 'Email marketing campaigns', basic: false, core: false, pro: true },
       { name: 'Promotion & offer management', basic: false, core: false, pro: true },
     ],
@@ -139,9 +139,9 @@ const faqItems = [
   },
   {
     key: '2',
-    label: 'Does ReserveTable charge cover fees for every reservation?',
+    label: 'Does Tablevera charge cover fees for every reservation?',
     children:
-      "On Core and Pro plans, we only charge cover fees for diners that discover your restaurant on ReserveTable's website, app, or through our affiliate network. If a diner books directly through your website or by calling the restaurant, we don't take a cent.",
+      "On Core and Pro plans, we only charge cover fees for diners that discover your restaurant on Tablevera's website, app, or through our affiliate network. If a diner books directly through your website or by calling the restaurant, we don't take a cent.",
   },
   {
     key: '3',
@@ -191,17 +191,60 @@ function FeatureValue({ value }: { value: boolean | string }) {
 
 const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL ?? 'http://localhost:3001';
 
-type PlanPricing = {
-  monthly: string;
-  networkFee: string;
-  websiteFee: string;
+type ApiPlan = {
+  key: string;
+  name: string;
+  description?: string | null;
+  monthlyPriceCents: number;
+  networkCoverFeeCents: number;
+  websiteCoverFeeCents: number;
   trialDays: number;
+  visibleOnPricing: boolean;
+  isCustom: boolean;
 };
 
-const FALLBACK_PRICING: Record<'basic' | 'core' | 'pro', PlanPricing> = {
-  basic: { monthly: '$49', networkFee: '$0.50', websiteFee: '$0.10', trialDays: 30 },
-  core: { monthly: '$99', networkFee: '$0.50', websiteFee: 'FREE', trialDays: 30 },
-  pro: { monthly: '$199', networkFee: '$0.25', websiteFee: 'FREE', trialDays: 30 },
+const FALLBACK_PLANS: ApiPlan[] = [
+  {
+    key: 'basic',
+    name: 'Basic',
+    description: 'Essential reservation management to get started with online bookings.',
+    monthlyPriceCents: 4900,
+    networkCoverFeeCents: 50,
+    websiteCoverFeeCents: 10,
+    trialDays: 30,
+    visibleOnPricing: true,
+    isCustom: false,
+  },
+  {
+    key: 'core',
+    name: 'Core',
+    description:
+      'Best-in-class table management to maximize seatings, streamline operations, and more.',
+    monthlyPriceCents: 9900,
+    networkCoverFeeCents: 50,
+    websiteCoverFeeCents: 0,
+    trialDays: 30,
+    visibleOnPricing: true,
+    isCustom: false,
+  },
+  {
+    key: 'pro',
+    name: 'Pro',
+    description:
+      'Our most comprehensive plan with powerful relationship management and data tools to drive loyalty.',
+    monthlyPriceCents: 19900,
+    networkCoverFeeCents: 25,
+    websiteCoverFeeCents: 0,
+    trialDays: 30,
+    visibleOnPricing: true,
+    isCustom: false,
+  },
+];
+
+const PLAN_BLURBS: Record<string, string> = {
+  basic: 'Essential reservation management to get started with online bookings.',
+  core: 'Best-in-class table management to maximize seatings, streamline operations, and more.',
+  pro: 'Our most comprehensive plan with powerful relationship management and data tools to drive loyalty.',
 };
 
 function formatDollars(cents: number): string {
@@ -209,23 +252,26 @@ function formatDollars(cents: number): string {
   return Number.isInteger(dollars) ? `$${dollars}` : `$${dollars.toFixed(2)}`;
 }
 
+function planIcon(key: string) {
+  if (key === 'basic') return <ThunderboltOutlined style={{ fontSize: 24, color: '#c4472f' }} />;
+  if (key === 'pro') return <RocketOutlined style={{ fontSize: 24, color: '#c4472f' }} />;
+  return <CrownOutlined style={{ fontSize: 24, color: '#c4472f' }} />;
+}
+
 export default function PricingPage() {
-  const [selectedPlan, setSelectedPlan] = useState<'basic' | 'core' | 'pro'>('core');
+  const [selectedPlan, setSelectedPlan] = useState<string>('core');
   const { data: plansData } = useQuery(PLANS);
 
-  const pricing = (key: 'basic' | 'core' | 'pro'): PlanPricing => {
-    const plan = ((plansData as any)?.plans ?? []).find((p: any) => p.key === key);
-    if (!plan) return FALLBACK_PRICING[key];
-    return {
-      monthly: formatDollars(plan.monthlyPriceCents),
-      networkFee: formatDollars(plan.networkCoverFeeCents),
-      websiteFee: plan.websiteCoverFeeCents === 0 ? 'FREE' : formatDollars(plan.websiteCoverFeeCents),
-      trialDays: plan.trialDays,
-    };
-  };
+  const allPlans: ApiPlan[] =
+    ((plansData as any)?.plans as ApiPlan[] | undefined)?.length
+      ? ((plansData as any).plans as ApiPlan[])
+      : FALLBACK_PLANS;
 
-  const goToDashboard = () => {
-    window.open(DASHBOARD_URL, '_blank');
+  const visiblePlans = allPlans.filter((p) => p.visibleOnPricing !== false);
+  const colSpan = visiblePlans.length >= 4 ? 6 : visiblePlans.length === 1 ? 24 : 8;
+
+  const startTrial = (plan: string = selectedPlan) => {
+    window.open(`${DASHBOARD_URL}/register?plan=${plan}`, '_blank');
   };
 
   return (
@@ -257,199 +303,125 @@ export default function PricingPage() {
             margin: '0 auto',
           }}
         >
-          We&apos;re a new platform building with our first partners. Month-to-month plans, a
-          30-day free trial on every tier, and cover fees that won&apos;t eat your margins.
+          We&apos;re a new platform building with our first partners. Month-to-month plans, optional
+          free trials, and cover fees that won&apos;t eat your margins.
         </Paragraph>
       </Card>
 
       {/* Pricing Cards */}
       <Row gutter={[24, 24]} align="stretch">
-        {/* Basic Plan */}
-        <Col xs={24} md={8}>
-          <Card
-            hoverable
-            onClick={() => setSelectedPlan('basic')}
-            style={{
-              height: '100%',
-              borderRadius: 12,
-              border: selectedPlan === 'basic' ? '2px solid #c4472f' : '1px solid #e8e8e8',
-              cursor: 'pointer',
-            }}
-            styles={{ body: { padding: 32, display: 'flex', flexDirection: 'column', height: '100%' } }}
-          >
-            <Space orientation="vertical" size={16} style={{ width: '100%', flex: 1 }}>
-              <div>
-                <Space align="center">
-                  <ThunderboltOutlined style={{ fontSize: 24, color: '#c4472f' }} />
-                  <Title level={3} style={{ margin: 0 }}>
-                    Basic
-                  </Title>
-                </Space>
-                <Paragraph type="secondary" style={{ marginTop: 8 }}>
-                  Essential reservation management to get started with online bookings.
-                </Paragraph>
-              </div>
-              <div>
-                <Text style={{ fontSize: 36, fontWeight: 700 }}>{pricing('basic').monthly}</Text>
-                <Text type="secondary"> / month</Text>
-              </div>
-              <div>
-                <Tag color="green">Free {pricing('basic').trialDays || 30}-day trial</Tag>
-              </div>
-              <Divider style={{ margin: '8px 0' }} />
-              <Space orientation="vertical" size={8} style={{ flex: 1 }}>
-                <Text strong>Cover fees:</Text>
-                <Text>• {pricing('basic').networkFee} per network cover</Text>
-                <Text>• {pricing('basic').websiteFee} per website cover</Text>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  (or $19/mo flat for unlimited)
-                </Text>
-              </Space>
-              <Button
-                type={selectedPlan === 'basic' ? 'primary' : 'default'}
-                size="large"
-                block
-                style={
-                  selectedPlan === 'basic'
-                    ? { background: '#c4472f', borderColor: '#c4472f' }
-                    : {}
-                }
-                onClick={goToDashboard}
-              >
-                Start free trial
-              </Button>
-            </Space>
-          </Card>
-        </Col>
+        {visiblePlans.map((plan) => {
+          const isSelected = selectedPlan === plan.key;
+          const isCore = plan.key === 'core';
+          const monthly = formatDollars(plan.monthlyPriceCents);
+          const networkFee = formatDollars(plan.networkCoverFeeCents);
+          const websiteFee =
+            plan.websiteCoverFeeCents === 0 ? 'FREE' : formatDollars(plan.websiteCoverFeeCents);
+          const description =
+            plan.description?.trim() || PLAN_BLURBS[plan.key] || 'Custom package for your restaurant.';
+          const ctaLabel = plan.trialDays > 0 ? 'Start free trial' : 'Get started';
 
-        {/* Core Plan */}
-        <Col xs={24} md={8}>
-          <Card
-            hoverable
-            onClick={() => setSelectedPlan('core')}
-            style={{
-              height: '100%',
-              borderRadius: 12,
-              border: selectedPlan === 'core' ? '2px solid #c4472f' : '1px solid #e8e8e8',
-              cursor: 'pointer',
-              position: 'relative',
-            }}
-            styles={{ body: { padding: 32, display: 'flex', flexDirection: 'column', height: '100%' } }}
-          >
-            <Tag
-              color="#c4472f"
-              style={{
-                position: 'absolute',
-                top: -1,
-                right: 16,
-                borderRadius: '0 0 6px 6px',
-                padding: '4px 12px',
-                fontWeight: 600,
-              }}
-            >
-              Most Popular
-            </Tag>
-            <Space orientation="vertical" size={16} style={{ width: '100%', flex: 1 }}>
-              <div>
-                <Space align="center">
-                  <CrownOutlined style={{ fontSize: 24, color: '#c4472f' }} />
-                  <Title level={3} style={{ margin: 0 }}>
-                    Core
-                  </Title>
-                </Space>
-                <Paragraph type="secondary" style={{ marginTop: 8 }}>
-                  Best-in-class table management to maximize seatings, streamline operations, and
-                  more.
-                </Paragraph>
-              </div>
-              <div>
-                <Text style={{ fontSize: 36, fontWeight: 700 }}>{pricing('core').monthly}</Text>
-                <Text type="secondary"> / month</Text>
-              </div>
-              <div>
-                <Space size={8} wrap>
-                  <Tag color="green">Free {pricing('core').trialDays || 30}-day trial</Tag>
-                  <Tag color="blue">Free website covers</Tag>
-                </Space>
-              </div>
-              <Divider style={{ margin: '8px 0' }} />
-              <Space orientation="vertical" size={8} style={{ flex: 1 }}>
-                <Text strong>Cover fees:</Text>
-                <Text>• {pricing('core').networkFee} per network cover</Text>
-                <Text>• Website reservations: {pricing('core').websiteFee}</Text>
-              </Space>
-              <Button
-                type="primary"
-                size="large"
-                block
-                style={{ background: '#c4472f', borderColor: '#c4472f' }}
-                onClick={goToDashboard}
+          return (
+            <Col xs={24} md={colSpan} key={plan.key}>
+              <Card
+                hoverable
+                onClick={() => setSelectedPlan(plan.key)}
+                style={{
+                  height: '100%',
+                  borderRadius: 12,
+                  border: isSelected ? '2px solid #c4472f' : '1px solid #e8e8e8',
+                  cursor: 'pointer',
+                  position: 'relative',
+                }}
+                styles={{
+                  body: {
+                    padding: 32,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '100%',
+                  },
+                }}
               >
-                Start free trial
-              </Button>
-            </Space>
-          </Card>
-        </Col>
-
-        {/* Pro Plan */}
-        <Col xs={24} md={8}>
-          <Card
-            hoverable
-            onClick={() => setSelectedPlan('pro')}
-            style={{
-              height: '100%',
-              borderRadius: 12,
-              border: selectedPlan === 'pro' ? '2px solid #c4472f' : '1px solid #e8e8e8',
-              cursor: 'pointer',
-            }}
-            styles={{ body: { padding: 32, display: 'flex', flexDirection: 'column', height: '100%' } }}
-          >
-            <Space orientation="vertical" size={16} style={{ width: '100%', flex: 1 }}>
-              <div>
-                <Space align="center">
-                  <RocketOutlined style={{ fontSize: 24, color: '#c4472f' }} />
-                  <Title level={3} style={{ margin: 0 }}>
-                    Pro
-                  </Title>
+                {isCore ? (
+                  <Tag
+                    color="#c4472f"
+                    style={{
+                      position: 'absolute',
+                      top: -1,
+                      right: 16,
+                      borderRadius: '0 0 6px 6px',
+                      padding: '4px 12px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Most Popular
+                  </Tag>
+                ) : null}
+                <Space orientation="vertical" size={16} style={{ width: '100%', flex: 1 }}>
+                  <div>
+                    <Space align="center">
+                      {planIcon(plan.key)}
+                      <Title level={3} style={{ margin: 0 }}>
+                        {plan.name}
+                      </Title>
+                    </Space>
+                    <Paragraph type="secondary" style={{ marginTop: 8 }}>
+                      {description}
+                    </Paragraph>
+                  </div>
+                  <div>
+                    <Text style={{ fontSize: 36, fontWeight: 700 }}>{monthly}</Text>
+                    <Text type="secondary"> / month</Text>
+                  </div>
+                  <div>
+                    <Space size={8} wrap>
+                      {plan.trialDays > 0 ? (
+                        <Tag color="green">Free {plan.trialDays}-day trial</Tag>
+                      ) : null}
+                      {plan.key === 'core' ? <Tag color="blue">Free website covers</Tag> : null}
+                      {plan.key === 'pro' ? (
+                        <Tag color="purple">Everything in Core + more</Tag>
+                      ) : null}
+                      {plan.isCustom ? <Tag>Custom</Tag> : null}
+                    </Space>
+                  </div>
+                  <Divider style={{ margin: '8px 0' }} />
+                  <Space orientation="vertical" size={8} style={{ flex: 1 }}>
+                    <Text strong>Cover fees:</Text>
+                    <Text>• {networkFee} per network cover</Text>
+                    {plan.key === 'basic' ? (
+                      <>
+                        <Text>• {websiteFee} per website cover</Text>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          (or $19/mo flat for unlimited)
+                        </Text>
+                      </>
+                    ) : (
+                      <Text>• Website reservations: {websiteFee}</Text>
+                    )}
+                    {plan.key === 'pro' ? <Text>• Premium SMS included</Text> : null}
+                  </Space>
+                  <Button
+                    type={isSelected || isCore ? 'primary' : 'default'}
+                    size="large"
+                    block
+                    style={
+                      isSelected || isCore
+                        ? { background: '#c4472f', borderColor: '#c4472f' }
+                        : {}
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startTrial(plan.key);
+                    }}
+                  >
+                    {ctaLabel}
+                  </Button>
                 </Space>
-                <Paragraph type="secondary" style={{ marginTop: 8 }}>
-                  Our most comprehensive plan with powerful relationship management and data tools
-                  to drive loyalty.
-                </Paragraph>
-              </div>
-              <div>
-                <Text style={{ fontSize: 36, fontWeight: 700 }}>{pricing('pro').monthly}</Text>
-                <Text type="secondary"> / month</Text>
-              </div>
-              <div>
-                <Space size={8} wrap>
-                  <Tag color="green">Free {pricing('pro').trialDays || 30}-day trial</Tag>
-                  <Tag color="purple">Everything in Core + more</Tag>
-                </Space>
-              </div>
-              <Divider style={{ margin: '8px 0' }} />
-              <Space orientation="vertical" size={8} style={{ flex: 1 }}>
-                <Text strong>Cover fees:</Text>
-                <Text>• {pricing('pro').networkFee} per network cover</Text>
-                <Text>• Website reservations: {pricing('pro').websiteFee}</Text>
-                <Text>• Premium SMS included</Text>
-              </Space>
-              <Button
-                type={selectedPlan === 'pro' ? 'primary' : 'default'}
-                size="large"
-                block
-                style={
-                  selectedPlan === 'pro'
-                    ? { background: '#c4472f', borderColor: '#c4472f' }
-                    : {}
-                }
-                onClick={goToDashboard}
-              >
-                Start free trial
-              </Button>
-            </Space>
-          </Card>
-        </Col>
+              </Card>
+            </Col>
+          );
+        })}
       </Row>
 
       {/* Feature Comparison Table */}
@@ -548,7 +520,7 @@ export default function PricingPage() {
               <Button
                 size="small"
                 style={{ borderColor: '#c4472f', color: '#c4472f' }}
-                onClick={goToDashboard}
+                onClick={() => startTrial('basic')}
               >
                 Get Basic
               </Button>
@@ -558,7 +530,7 @@ export default function PricingPage() {
                 type="primary"
                 size="small"
                 style={{ background: '#c4472f', borderColor: '#c4472f' }}
-                onClick={goToDashboard}
+                onClick={() => startTrial('core')}
               >
                 Get Core
               </Button>
@@ -567,7 +539,7 @@ export default function PricingPage() {
               <Button
                 size="small"
                 style={{ borderColor: '#c4472f', color: '#c4472f' }}
-                onClick={goToDashboard}
+                onClick={() => startTrial('pro')}
               >
                 Get Pro
               </Button>
@@ -650,7 +622,7 @@ export default function PricingPage() {
           level={3}
           style={{ color: '#fff', fontStyle: 'italic', fontWeight: 400, maxWidth: 700, margin: '0 auto' }}
         >
-          &ldquo;ReserveTable offers an intuitive and powerful platform that makes it easy for our
+          &ldquo;Tablevera offers an intuitive and powerful platform that makes it easy for our
           restaurants to be discovered by new guests while being able to service them with smart
           marketing tools and useful data.&rdquo;
         </Title>
@@ -720,7 +692,7 @@ export default function PricingPage() {
               borderColor: '#fff',
               fontWeight: 600,
             }}
-            onClick={goToDashboard}
+            onClick={() => startTrial()}
           >
             Start free trial
           </Button>

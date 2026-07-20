@@ -10,12 +10,12 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.reservetable.com/graphql"
+        "EXPO_PUBLIC_API_URL": "https://api.tablevera.online/graphql"
       }
     },
     "production": {
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api.reservetable.com/graphql"
+        "EXPO_PUBLIC_API_URL": "https://api.tablevera.online/graphql"
       }
     }
   },

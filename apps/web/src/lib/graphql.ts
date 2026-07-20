@@ -144,15 +144,18 @@ export const JOIN_WAITLIST = gql`
 `;
 
 export const RESTAURANT_REVIEWS = gql`
-  query RestaurantReviews($restaurantId: ID!) {
-    restaurantReviews(restaurantId: $restaurantId) {
-      id
-      rating
-      comment
-      createdAt
-      diner {
-        firstName
-        lastName
+  query RestaurantReviews($restaurantId: ID!, $limit: Int, $offset: Int) {
+    restaurantReviews(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
+      total
+      items {
+        id
+        rating
+        comment
+        createdAt
+        diner {
+          firstName
+          lastName
+        }
       }
     }
   }
@@ -276,37 +279,43 @@ export const SEND_MESSAGE = gql`
 `;
 
 export const PROMOTIONS = gql`
-  query Promotions($restaurantId: ID!, $activeOnly: Boolean) {
-    promotions(restaurantId: $restaurantId, activeOnly: $activeOnly) {
-      id
-      title
-      description
-      discountPercent
-      code
-      startDate
-      endDate
-      daysOfWeek
-      active
+  query Promotions($restaurantId: ID!, $activeOnly: Boolean, $limit: Int, $offset: Int) {
+    promotions(restaurantId: $restaurantId, activeOnly: $activeOnly, limit: $limit, offset: $offset) {
+      total
+      items {
+        id
+        title
+        description
+        discountPercent
+        code
+        startDate
+        endDate
+        daysOfWeek
+        active
+      }
     }
   }
 `;
 
 export const EXPERIENCES = gql`
-  query Experiences($restaurantId: ID, $upcoming: Boolean) {
-    experiences(restaurantId: $restaurantId, upcoming: $upcoming) {
-      id
-      restaurantId
-      title
-      description
-      type
-      photoUrl
-      date
-      startTime
-      endTime
-      ticketPriceCents
-      availableTickets
-      status
-      tags
+  query Experiences($restaurantId: ID, $upcoming: Boolean, $limit: Int, $offset: Int) {
+    experiences(restaurantId: $restaurantId, upcoming: $upcoming, limit: $limit, offset: $offset) {
+      total
+      items {
+        id
+        restaurantId
+        title
+        description
+        type
+        photoUrl
+        date
+        startTime
+        endTime
+        ticketPriceCents
+        availableTickets
+        status
+        tags
+      }
     }
   }
 `;
@@ -316,10 +325,13 @@ export const PLANS = gql`
     plans {
       key
       name
+      description
       monthlyPriceCents
       networkCoverFeeCents
       websiteCoverFeeCents
       trialDays
+      visibleOnPricing
+      isCustom
     }
   }
 `;

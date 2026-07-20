@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import {
@@ -40,6 +40,7 @@ import {
   SET_FEATURED_PLACEMENT,
   RESTAURANT_SETTINGS,
 } from '@/lib/graphql';
+import { useUrlPagination } from '@/lib/useUrlPagination';
 
 const { Title, Text } = Typography;
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -56,10 +57,14 @@ function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form] = Form.useForm();
+  const { limit, offset, tablePagination } = useUrlPagination({
+    defaultPageSize: 20,
+    pageParam: 'page',
+  });
 
   const { data, loading, refetch } = useQuery(PROMOTIONS, {
     skip: !restaurantId,
-    variables: { restaurantId },
+    variables: { restaurantId, limit, offset },
     onError: (err) => message.error(err.message),
   });
   const [createPromotion, { loading: creating }] = useMutation(CREATE_PROMOTION);
@@ -113,7 +118,8 @@ function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
       <Table
         loading={loading}
         rowKey="id"
-        dataSource={data?.promotions ?? []}
+        dataSource={data?.promotions?.items ?? []}
+        pagination={tablePagination(data?.promotions?.total ?? 0)}
         columns={[
           { title: 'Title', dataIndex: 'title' },
           {
@@ -244,10 +250,15 @@ function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
 function BoostCampaignsTab({ restaurantId }: { restaurantId?: string }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [form] = Form.useForm();
+  const { limit, offset, tablePagination } = useUrlPagination({
+    defaultPageSize: 20,
+    pageParam: 'boostPage',
+    pageSizeParam: 'boostPageSize',
+  });
 
   const { data, loading, refetch } = useQuery(BOOST_CAMPAIGNS, {
     skip: !restaurantId,
-    variables: { restaurantId },
+    variables: { restaurantId, limit, offset },
     onError: (err) => message.error(err.message),
   });
   const [createBoost, { loading: creating }] = useMutation(CREATE_BOOST_CAMPAIGN);
@@ -308,7 +319,8 @@ function BoostCampaignsTab({ restaurantId }: { restaurantId?: string }) {
       <Table
         loading={loading}
         rowKey="id"
-        dataSource={data?.boostCampaigns ?? []}
+        dataSource={data?.boostCampaigns?.items ?? []}
+        pagination={tablePagination(data?.boostCampaigns?.total ?? 0)}
         columns={[
           { title: 'Name', dataIndex: 'name' },
           {
@@ -475,7 +487,7 @@ function FeaturedTab({ restaurantId }: { restaurantId?: string }) {
   );
 }
 
-export default function MarketingPage() {
+function MarketingPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [restaurantId, setRestaurantId] = useState<string>();
@@ -543,5 +555,13 @@ export default function MarketingPage() {
         />
       </Card>
     </Space>
+  );
+}
+
+export default function MarketingPage() {
+  return (
+    <Suspense fallback={null}>
+      <MarketingPageContent />
+    </Suspense>
   );
 }

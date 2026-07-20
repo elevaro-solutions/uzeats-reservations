@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import {
@@ -23,6 +23,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS } from '@/lib/graphql';
+import { useUrlPagination } from '@/lib/useUrlPagination';
 import { gql } from '@apollo/client';
 
 const { Title, Text } = Typography;
@@ -37,11 +38,14 @@ const PRIVATE_DINING_SPACES = gql`
 `;
 
 const PRIVATE_DINING_INQUIRIES = gql`
-  query PrivateDiningInquiries($restaurantId: ID!) {
-    privateDiningInquiries(restaurantId: $restaurantId) {
-      id eventDate guestCount eventType budget specialRequests contactPhone status restaurantResponse createdAt
-      space { name }
-      diner { firstName lastName email phone }
+  query PrivateDiningInquiries($restaurantId: ID!, $limit: Int, $offset: Int) {
+    privateDiningInquiries(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
+      total
+      items {
+        id eventDate guestCount eventType budget specialRequests contactPhone status restaurantResponse createdAt
+        space { name }
+        diner { firstName lastName email phone }
+      }
     }
   }
 `;
@@ -78,7 +82,7 @@ const inquiryStatusColors: Record<string, string> = {
   cancelled: 'default',
 };
 
-export default function PrivateDiningPage() {
+function PrivateDiningPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [restaurantId, setRestaurantId] = useState<string>();
@@ -88,6 +92,7 @@ export default function PrivateDiningPage() {
   const [respondingInquiry, setRespondingInquiry] = useState<any>(null);
   const [spaceForm] = Form.useForm();
   const [respondForm] = Form.useForm();
+  const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 10 });
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const { data: spacesData, refetch: refetchSpaces, loading: spacesLoading } = useQuery(
@@ -96,7 +101,7 @@ export default function PrivateDiningPage() {
   );
   const { data: inquiriesData, refetch: refetchInquiries, loading: inquiriesLoading } = useQuery(
     PRIVATE_DINING_INQUIRIES,
-    { skip: !restaurantId, variables: { restaurantId: restaurantId! } },
+    { skip: !restaurantId, variables: { restaurantId: restaurantId!, limit, offset } },
   );
   const [createSpace, { loading: creatingSpace }] = useMutation(CREATE_SPACE);
   const [updateSpace, { loading: updatingSpace }] = useMutation(UPDATE_SPACE);
@@ -307,11 +312,11 @@ export default function PrivateDiningPage() {
             label: 'Inquiries',
             children: (
               <Table
-                dataSource={inquiriesData?.privateDiningInquiries ?? []}
+                dataSource={inquiriesData?.privateDiningInquiries?.items ?? []}
                 columns={inquiryColumns}
                 rowKey="id"
                 loading={inquiriesLoading}
-                pagination={{ pageSize: 10 }}
+                pagination={tablePagination(inquiriesData?.privateDiningInquiries?.total ?? 0)}
                 expandable={{
                   expandedRowRender: (record: any) => (
                     <Descriptions size="small" column={2}>
@@ -400,5 +405,13 @@ export default function PrivateDiningPage() {
         </Form>
       </Modal>
     </Space>
+  );
+}
+
+export default function PrivateDiningPage() {
+  return (
+    <Suspense fallback={null}>
+      <PrivateDiningPageContent />
+    </Suspense>
   );
 }

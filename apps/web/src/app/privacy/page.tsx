@@ -11,7 +11,7 @@ export default function PrivacyPolicyPage() {
       <Paragraph type="secondary">Last updated: July 11, 2026</Paragraph>
 
       <Paragraph>
-        ReserveTable (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) operates a restaurant
+        Tablevera (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;) operates a restaurant
         reservation platform that connects diners with restaurants. This Privacy Policy explains how
         we collect, use, disclose, and safeguard your information when you use our service.
       </Paragraph>
@@ -112,7 +112,7 @@ export default function PrivacyPolicyPage() {
       <Title level={4}>10. Contact Us</Title>
       <Paragraph>
         If you have questions about this Privacy Policy or wish to exercise your rights, please
-        contact us at: <Text copyable>privacy@reservetable.com</Text>
+        contact us at: <Text copyable>privacy@tablevera.online</Text>
       </Paragraph>
     </Typography>
   );

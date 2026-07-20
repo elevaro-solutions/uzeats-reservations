@@ -145,6 +145,7 @@ export default function IntegrationsPage() {
           <Table
             loading={loading}
             rowKey="id"
+            pagination={false}
             dataSource={data?.integrations ?? []}
             columns={[
               { title: 'Name', dataIndex: 'name' },

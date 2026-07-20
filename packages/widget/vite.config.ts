@@ -4,7 +4,7 @@ export default defineConfig({
   build: {
     lib: {
       entry: 'src/index.ts',
-      name: 'ReserveTableWidget',
+      name: 'TableveraWidget',
       fileName: 'widget',
       formats: ['iife'],
     },

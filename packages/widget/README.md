@@ -1,4 +1,4 @@
-# ReserveTable Embeddable Widget
+# Tablevera Embeddable Widget
 
 Drop-in booking widget that lets diners reserve a table directly from your restaurant's website.
 
@@ -8,7 +8,7 @@ Add this snippet anywhere in your HTML:
 
 ```html
 <script
-  src="https://reservetable.com/widget.js"
+  src="https://tablevera.online/widget.js"
   data-restaurant-id="YOUR_RESTAURANT_ID"
 ></script>
 ```
@@ -21,10 +21,10 @@ All configuration is done via `data-*` attributes on the script tag:
 
 | Attribute              | Required | Default                            | Description                                                      |
 | ---------------------- | -------- | ---------------------------------- | ---------------------------------------------------------------- |
-| `data-restaurant-id`   | Yes      | —                                  | Your restaurant's ID from the ReserveTable dashboard             |
+| `data-restaurant-id`   | Yes      | —                                  | Your restaurant's ID from the Tablevera dashboard             |
 | `data-mode`            | No       | `inline`                           | `inline` — full form embedded on page. `button` — compact button that opens a modal |
-| `data-api-url`         | No       | `https://reservetable.com/graphql` | API endpoint (useful for staging/development)                    |
-| `data-app-url`         | No       | `https://reservetable.com`         | Web app base URL for the final booking redirect                  |
+| `data-api-url`         | No       | `https://tablevera.online/graphql` | API endpoint (useful for staging/development)                    |
+| `data-app-url`         | No       | `https://tablevera.online`         | Web app base URL for the final booking redirect                  |
 
 ## Display Modes
 
@@ -34,7 +34,7 @@ Shows the full date picker, party size stepper, and time slots directly on your 
 
 ```html
 <script
-  src="https://reservetable.com/widget.js"
+  src="https://tablevera.online/widget.js"
   data-restaurant-id="abc123"
   data-mode="inline"
 ></script>
@@ -46,7 +46,7 @@ Shows a "Reserve a table" button. Clicking it opens a modal with the full bookin
 
 ```html
 <script
-  src="https://reservetable.com/widget.js"
+  src="https://tablevera.online/widget.js"
   data-restaurant-id="abc123"
   data-mode="button"
 ></script>
@@ -54,9 +54,9 @@ Shows a "Reserve a table" button. Clicking it opens a modal with the full bookin
 
 ## How It Works
 
-1. The widget fetches your restaurant's details and available time slots from the ReserveTable API.
+1. The widget fetches your restaurant's details and available time slots from the Tablevera API.
 2. Diners pick a date, party size, and time slot.
-3. Clicking "Complete reservation" opens the ReserveTable web app with the selection pre-filled so they can finish booking.
+3. Clicking "Complete reservation" opens the Tablevera web app with the selection pre-filled so they can finish booking.
 
 ## Style Isolation
 
@@ -67,8 +67,8 @@ The widget renders inside a [Shadow DOM](https://developer.mozilla.org/en-US/doc
 You can embed multiple widgets on the same page (e.g. for different restaurant locations):
 
 ```html
-<script src="https://reservetable.com/widget.js" data-restaurant-id="location-1"></script>
-<script src="https://reservetable.com/widget.js" data-restaurant-id="location-2"></script>
+<script src="https://tablevera.online/widget.js" data-restaurant-id="location-1"></script>
+<script src="https://tablevera.online/widget.js" data-restaurant-id="location-2"></script>
 ```
 
 ## Development

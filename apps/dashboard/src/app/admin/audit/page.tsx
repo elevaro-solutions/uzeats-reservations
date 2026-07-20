@@ -1,47 +1,38 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense } from 'react';
 import { useQuery } from '@apollo/client';
-import { useRouter } from 'next/navigation';
-import { Card, Table, Typography, Tag } from 'antd';
-import { useAuth } from '@/lib/auth';
+import { Card, Table, Tag } from 'antd';
+import { PageHeader, spacing } from '@reservations/ui';
+import { Space } from 'antd';
 import { AUDIT_LOGS } from '@/lib/graphql';
+import { useRequireAdmin } from '@/lib/useRequireAdmin';
+import { useUrlPagination } from '@/lib/useUrlPagination';
 
-const { Title } = Typography;
-
-const PAGE_SIZE = 25;
-
-export default function AdminAuditPage() {
-  const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
-  const [page, setPage] = useState(1);
+function AdminAuditPageContent() {
+  const { ready } = useRequireAdmin();
+  const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 25 });
 
   const { data, loading } = useQuery(AUDIT_LOGS, {
-    variables: { limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE },
-    skip: user?.role !== 'admin',
+    variables: { limit, offset },
+    skip: !ready,
     fetchPolicy: 'network-only',
   });
 
-  useEffect(() => {
-    if (!authLoading && (!user || user.role !== 'admin')) router.replace('/');
-  }, [authLoading, user, router]);
-
-  const logs = data?.auditLogs ?? [];
+  if (!ready) return null;
 
   return (
-    <>
-      <Title level={2}>Audit Logs</Title>
+    <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+      <PageHeader
+        title="Audit logs"
+        subtitle="Track admin actions across users, restaurants, invoices, and configuration."
+      />
       <Card>
         <Table
           loading={loading}
           rowKey="id"
-          dataSource={logs}
-          pagination={{
-            pageSize: PAGE_SIZE,
-            current: page,
-            onChange: setPage,
-            showSizeChanger: false,
-          }}
+          dataSource={data?.auditLogs?.items ?? []}
+          pagination={tablePagination(data?.auditLogs?.total ?? 0)}
           columns={[
             {
               title: 'Timestamp',
@@ -82,6 +73,14 @@ export default function AdminAuditPage() {
           ]}
         />
       </Card>
-    </>
+    </Space>
+  );
+}
+
+export default function AdminAuditPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminAuditPageContent />
+    </Suspense>
   );
 }

@@ -1,8 +1,31 @@
 # Changelog
 
-All notable changes to ReserveTable are documented in this file.
+All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [0.4.0] — 2026-07-20
+
+### Added
+
+- Platform admin hub: restaurants, users, invoices, revenue, pricing, churn, SLA, support tickets, moderation, email templates, exports, and config
+- Partner self-registration (`/register`) gated by platform feature flags
+- Billing invoices (generate, status updates, Stripe sync) and platform revenue reports
+- Support ticket lifecycle with notes, attachments, and event history
+- Shared `AddressAutocomplete` + `PhoneInput` in `@reservations/ui` (Maps key optional; plain fallback)
+- Cursor pagination helpers and URL pagination hooks across dashboard/web list pages
+- Staff invite and safer admin user delete (optional 2FA code)
+
+### Changed
+
+- Product rebranded to **Tablevera** (`tablevera.online`); seed demo emails use `@tablevera.local`
+- Google Sign-In / Maps env docs clarified; web + dashboard Docker builds accept Maps API key
+- Partner and admin GraphQL surfaces expanded with connection types (`items` + `total`)
+- Pricing, home, auth, and shell polish on diner web; denser admin navigation in dashboard
+
+### Docs
+
+- README, deploy, and Dokku notes updated for Tablevera branding and new public URL env vars
 
 ## [0.3.0] — 2026-07-19
 
@@ -53,6 +76,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Initial ReserveTable monorepo: GraphQL API, diner web, partner dashboard, mobile, shared UI, and booking widget
+- Initial Tablevera monorepo: GraphQL API, diner web, partner dashboard, mobile, shared UI, and booking widget
 - Concurrent-safe booking via atomic table slot claims (no MongoDB replica set required)
 - Deposits, waitlist, loyalty, reviews, menus, notifications, and auth (email, Google, phone OTP)

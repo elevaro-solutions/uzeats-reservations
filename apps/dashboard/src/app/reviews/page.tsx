@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import { useRouter } from 'next/navigation';
 import {
@@ -25,20 +25,24 @@ import {
   REPLY_TO_REVIEW,
   SET_REVIEW_HIDDEN,
 } from '@/lib/graphql';
+import { useUrlPagination } from '@/lib/useUrlPagination';
 
 const { Title, Text, Paragraph } = Typography;
 
-export default function ReviewsPage() {
+function ReviewsPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [restaurantId, setRestaurantId] = useState<string>();
   const [replying, setReplying] = useState<any>(null);
   const [replyText, setReplyText] = useState('');
+  const { page, pageSize, limit, offset, setPagination } = useUrlPagination({
+    defaultPageSize: 20,
+  });
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const { data, loading, refetch } = useQuery(RESTAURANT_REVIEWS, {
     skip: !restaurantId,
-    variables: { restaurantId },
+    variables: { restaurantId, limit, offset },
   });
   const [replyToReview, { loading: savingReply }] = useMutation(REPLY_TO_REVIEW);
   const [setReviewHidden] = useMutation(SET_REVIEW_HIDDEN);
@@ -91,7 +95,13 @@ export default function ReviewsPage() {
       <Card>
         <List
           loading={loading}
-          dataSource={data?.restaurantReviews ?? []}
+          dataSource={data?.restaurantReviews?.items ?? []}
+          pagination={{
+            current: page,
+            pageSize,
+            total: data?.restaurantReviews?.total ?? 0,
+            onChange: (p) => setPagination(p),
+          }}
           renderItem={(r: any) => (
             <List.Item
               actions={[
@@ -177,5 +187,13 @@ export default function ReviewsPage() {
         )}
       </Modal>
     </Space>
+  );
+}
+
+export default function ReviewsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ReviewsPageContent />
+    </Suspense>
   );
 }
