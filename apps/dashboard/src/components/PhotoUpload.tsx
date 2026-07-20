@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation } from '@apollo/client';
+import { useMutation } from '@/lib/apollo-hooks';
 import { Upload, Image, Button, message, Progress } from 'antd';
 import {
   DeleteOutlined,

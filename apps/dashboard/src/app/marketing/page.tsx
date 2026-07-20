@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import {
   Alert,
@@ -65,7 +65,7 @@ function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
   const { data, loading, refetch } = useQuery(PROMOTIONS, {
     skip: !restaurantId,
     variables: { restaurantId, limit, offset },
-    onError: (err) => message.error(err.message),
+    onError: (err: Error) => message.error(err.message),
   });
   const [createPromotion, { loading: creating }] = useMutation(CREATE_PROMOTION);
   const [updatePromotion, { loading: updating }] = useMutation(UPDATE_PROMOTION);
@@ -259,7 +259,7 @@ function BoostCampaignsTab({ restaurantId }: { restaurantId?: string }) {
   const { data, loading, refetch } = useQuery(BOOST_CAMPAIGNS, {
     skip: !restaurantId,
     variables: { restaurantId, limit, offset },
-    onError: (err) => message.error(err.message),
+    onError: (err: Error) => message.error(err.message),
   });
   const [createBoost, { loading: creating }] = useMutation(CREATE_BOOST_CAMPAIGN);
   const [setStatus] = useMutation(SET_BOOST_CAMPAIGN_STATUS);
@@ -434,7 +434,7 @@ function FeaturedTab({ restaurantId }: { restaurantId?: string }) {
   const { data, loading, refetch } = useQuery(RESTAURANT_SETTINGS, {
     skip: !restaurantId,
     variables: { id: restaurantId },
-    onError: (err) => message.error(err.message),
+    onError: (err: Error) => message.error(err.message),
   });
   const [setFeatured, { loading: saving }] = useMutation(SET_FEATURED_PLACEMENT);
 

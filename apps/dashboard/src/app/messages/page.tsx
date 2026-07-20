@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Badge, Button, Card, Empty, Input, List, Select, Space, Typography, message } from 'antd';
 import { SendOutlined } from '@ant-design/icons';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation } from '@apollo/client';
+import { useMutation } from '@/lib/apollo-hooks';
 import { Button, Card, Input, Space, Typography, message } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
 import { PageHeader, spacing } from '@reservations/ui';

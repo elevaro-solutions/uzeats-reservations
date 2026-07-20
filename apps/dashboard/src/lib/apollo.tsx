@@ -1,16 +1,16 @@
 'use client';
 
-import '@ant-design/v5-patch-for-react-19';
-import { ApolloClient, InMemoryCache, createHttpLink, ApolloProvider, Observable, from } from '@apollo/client';
+import { ApolloClient, InMemoryCache, HttpLink, Observable, from, CombinedGraphQLErrors } from '@apollo/client';
+import { ApolloProvider } from '@apollo/client/react';
 import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
-import { ConfigProvider } from 'antd';
+import { ConfigProvider, type ThemeConfig } from 'antd';
 import { theme } from '@reservations/ui';
 import { AuthProvider } from '@/lib/auth';
 
 const API_URI = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/graphql';
 
-const httpLink = createHttpLink({ uri: API_URI });
+const httpLink = new HttpLink({ uri: API_URI });
 
 const authLink = setContext((_, { headers }) => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('dashAccessToken') : null;
@@ -30,20 +30,19 @@ function resolvePendingRequests() {
   pendingRequests = [];
 }
 
-const errorLink = onError(({ graphQLErrors, operation, forward }) => {
-  if (!graphQLErrors) return;
+const errorLink = onError(({ error, operation, forward }) => {
+  if (!CombinedGraphQLErrors.is(error)) return;
 
-  const authError = graphQLErrors.find((e) => e.message === 'Authentication required');
+  const authError = error.errors.find((e) => e.message === 'Authentication required');
   if (!authError) return;
 
   if (isRefreshing) {
     return new Observable((subscriber) => {
       pendingRequests.push(() => {
         const token = localStorage.getItem('dashAccessToken');
-        const oldContext = operation.getContext();
-        operation.setContext({
-          headers: { ...oldContext.headers, authorization: token ? `Bearer ${token}` : '' },
-        });
+        operation.setContext((prev) => ({
+          headers: { ...prev.headers, authorization: token ? `Bearer ${token}` : '' },
+        }));
         forward(operation).subscribe(subscriber);
       });
     });
@@ -57,7 +56,7 @@ const errorLink = onError(({ graphQLErrors, operation, forward }) => {
       localStorage.removeItem('dashAccessToken');
       localStorage.removeItem('dashRefreshToken');
       window.location.href = '/login';
-      subscriber.error(authError);
+      subscriber.error(error);
       return;
     }
 
@@ -79,10 +78,9 @@ const errorLink = onError(({ graphQLErrors, operation, forward }) => {
         isRefreshing = false;
         resolvePendingRequests();
 
-        const oldContext = operation.getContext();
-        operation.setContext({
-          headers: { ...oldContext.headers, authorization: `Bearer ${data.accessToken}` },
-        });
+        operation.setContext((prev) => ({
+          headers: { ...prev.headers, authorization: `Bearer ${data.accessToken}` },
+        }));
         forward(operation).subscribe(subscriber);
       })
       .catch(() => {
@@ -91,7 +89,7 @@ const errorLink = onError(({ graphQLErrors, operation, forward }) => {
         localStorage.removeItem('dashAccessToken');
         localStorage.removeItem('dashRefreshToken');
         window.location.href = '/login';
-        subscriber.error(authError);
+        subscriber.error(error);
       });
   });
 });
@@ -104,7 +102,8 @@ const client = new ApolloClient({
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ApolloProvider client={client}>
-      <ConfigProvider theme={theme}>
+      {/* shared theme is typed against antd v5; structurally compatible with v6 */}
+      <ConfigProvider theme={theme as ThemeConfig}>
         <AuthProvider>{children}</AuthProvider>
       </ConfigProvider>
     </ApolloProvider>

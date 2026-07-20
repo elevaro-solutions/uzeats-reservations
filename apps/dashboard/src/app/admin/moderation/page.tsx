@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { Button, Card, Space, Table, Tabs, Tag, message } from 'antd';
 import { PageHeader, spacing } from '@reservations/ui';
 import {

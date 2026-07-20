@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import {
   Button,
@@ -113,7 +113,7 @@ export default function NotificationsSettingsPage() {
   const { data, loading, refetch } = useQuery(RESTAURANT_TEAM, {
     skip: !restaurantId,
     variables: { restaurantId },
-    onError: (err) => message.error(err.message),
+    onError: (err: Error) => message.error(err.message),
   });
   const [updatePrefs] = useMutation(UPDATE_NOTIFICATION_PREFERENCES);
 

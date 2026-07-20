@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useLazyQuery, useQuery } from '@apollo/client';
+import { useLazyQuery, useQuery } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import {
   Button,
@@ -57,7 +57,7 @@ function PreShiftTab({ restaurantId }: { restaurantId?: string }) {
   const { data, loading, error } = useQuery(PRE_SHIFT_REPORT, {
     skip: !restaurantId,
     variables: { restaurantId, date: date.format('YYYY-MM-DD') },
-    onError: (err) => message.error(err.message),
+    onError: (err: Error) => message.error(err.message),
   });
 
   const report = data?.preShiftReport;
@@ -137,7 +137,7 @@ function ForecastTab({ restaurantId }: { restaurantId?: string }) {
   const { data, loading } = useQuery(REVENUE_FORECAST, {
     skip: !restaurantId,
     variables: { restaurantId, days },
-    onError: (err) => message.error(err.message),
+    onError: (err: Error) => message.error(err.message),
   });
 
   const forecast = data?.revenueForecast;
@@ -185,7 +185,7 @@ function CustomReportTab({ restaurantId }: { restaurantId?: string }) {
   const [form] = Form.useForm();
   const [runReport, { data, loading }] = useLazyQuery(CUSTOM_REPORT, {
     fetchPolicy: 'network-only',
-    onError: (err) => message.error(err.message),
+    onError: (err: Error) => message.error(err.message),
   });
 
   const rows = data?.customReport ?? [];
@@ -265,7 +265,7 @@ function MultiLocationTab() {
   const [period, setPeriod] = useState<Dayjs | null>(dayjs());
   const { data, loading } = useQuery(MULTI_LOCATION_ANALYTICS, {
     variables: { period: period ? period.format('YYYY-MM') : undefined },
-    onError: (err) => message.error(err.message),
+    onError: (err: Error) => message.error(err.message),
   });
 
   const analytics = data?.multiLocationAnalytics;

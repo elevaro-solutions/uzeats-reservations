@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@apollo/client';
+import { useQuery } from '@/lib/apollo-hooks';
 import { Card, Col, Row, Space, Statistic } from 'antd';
 import { PageHeader, spacing } from '@reservations/ui';
 import { SLA_METRICS } from '@/lib/graphql';

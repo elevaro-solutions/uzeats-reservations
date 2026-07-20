@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import {
   Button,
@@ -48,7 +48,7 @@ export default function AccessRulesPage() {
   const { data, loading, refetch } = useQuery(ACCESS_RULES, {
     skip: !restaurantId,
     variables: { restaurantId },
-    onError: (err) => message.error(err.message),
+    onError: (err: Error) => message.error(err.message),
   });
   const [createRule, { loading: creating }] = useMutation(CREATE_ACCESS_RULE);
   const [updateRule, { loading: updating }] = useMutation(UPDATE_ACCESS_RULE);

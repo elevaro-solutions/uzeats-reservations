@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
   Button,
   Form,
@@ -263,14 +263,7 @@ function RegisterForm() {
         }
         return;
       }
-      const graphMsg =
-        err && typeof err === 'object' && 'graphQLErrors' in err
-          ? (err as { graphQLErrors?: { message?: string }[] }).graphQLErrors?.[0]?.message
-          : undefined;
-      message.error(
-        graphMsg ||
-          (err instanceof Error ? err.message : 'Registration failed. Please try again.'),
-      );
+      message.error(err instanceof Error ? err.message : 'Registration failed. Please try again.');
     }
   };
 

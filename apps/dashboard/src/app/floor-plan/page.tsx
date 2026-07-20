@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import {
   Button,
@@ -60,7 +60,7 @@ export default function FloorPlanPage() {
   const { data, loading } = useQuery(FLOOR_PLAN_TABLES, {
     skip: !restaurantId,
     variables: { id: restaurantId },
-    onError: (err) => message.error(err.message),
+    onError: (err: Error) => message.error(err.message),
   });
   const [updatePositions, { loading: saving }] = useMutation(UPDATE_TABLE_POSITIONS);
 

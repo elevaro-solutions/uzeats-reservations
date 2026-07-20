@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { Button, Card, Col, Form, Input, Row, Space, message } from 'antd';
 import { PageHeader, spacing } from '@reservations/ui';
 import { EMAIL_TEMPLATES, UPDATE_EMAIL_TEMPLATE } from '@/lib/graphql';

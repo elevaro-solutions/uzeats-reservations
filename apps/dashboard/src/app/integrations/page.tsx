@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import {
   Alert,
@@ -60,7 +60,7 @@ export default function IntegrationsPage() {
   const { data, loading, refetch } = useQuery(INTEGRATIONS, {
     skip: !restaurantId,
     variables: { restaurantId },
-    onError: (err) => message.error(err.message),
+    onError: (err: Error) => message.error(err.message),
   });
   const [createIntegration, { loading: creating }] = useMutation(CREATE_INTEGRATION);
   const [setEnabled] = useMutation(SET_INTEGRATION_ENABLED);

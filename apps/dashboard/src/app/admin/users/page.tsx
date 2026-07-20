@@ -1,10 +1,11 @@
 'use client';
 
 import { Suspense, useState } from 'react';
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
   Button,
   Card,
+  Dropdown,
   Form,
   Input,
   InputNumber,
@@ -16,12 +17,14 @@ import {
   Typography,
   message,
 } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   CopyOutlined,
   DeleteOutlined,
   EditOutlined,
   EyeOutlined,
   MailOutlined,
+  MoreOutlined,
   SearchOutlined,
   UserAddOutlined,
 } from '@ant-design/icons';
@@ -292,6 +295,48 @@ function AdminUsersPageContent() {
     }
   };
 
+  const actionItems = (record: any): MenuProps['items'] => [
+    {
+      key: 'edit',
+      icon: <EditOutlined />,
+      label: 'Edit',
+      onClick: () => openEdit(record),
+    },
+    {
+      key: 'view-as',
+      icon: <EyeOutlined />,
+      label: 'View as',
+      disabled: record.role === 'admin' || impersonating,
+      onClick: () => onImpersonate(record),
+    },
+    {
+      key: 'assign',
+      label: 'Assign venues',
+      onClick: () => setAssignUser(record),
+    },
+    {
+      key: 'reset',
+      icon: <MailOutlined />,
+      label: 'Reset password',
+      disabled: !record.email,
+      onClick: () =>
+        setResetModal({
+          userId: record.id,
+          name: `${record.firstName} ${record.lastName}`,
+          email: record.email,
+        }),
+    },
+    { type: 'divider' },
+    {
+      key: 'delete',
+      icon: <DeleteOutlined />,
+      label: 'Delete',
+      danger: true,
+      disabled: record.id === user?.id,
+      onClick: () => openDelete(record),
+    },
+  ];
+
   return (
     <>
       <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
@@ -320,7 +365,7 @@ function AdminUsersPageContent() {
             <Table
               loading={loading}
               rowKey="id"
-              scroll={{ x: 1100 }}
+              scroll={{ x: 700 }}
               dataSource={data?.adminUsers?.items ?? []}
               pagination={tablePagination(data?.adminUsers?.total ?? 0, {
                 showSizeChanger: true,
@@ -351,53 +396,19 @@ function AdminUsersPageContent() {
                   render: (ids: string[]) => ids?.length ?? 0,
                 },
                 {
-                  title: 'Support',
-                  width: 500,
+                  title: 'Actions',
+                  width: 90,
+                  fixed: 'right',
                   render: (_: unknown, record: any) => (
-                    <Space wrap>
-                      <Button
-                        size="small"
-                        icon={<EditOutlined />}
-                        onClick={() => openEdit(record)}
-                      >
-                        Edit
+                    <Dropdown
+                      menu={{ items: actionItems(record) }}
+                      trigger={['click']}
+                      placement="bottomRight"
+                    >
+                      <Button size="small" icon={<MoreOutlined />}>
+                        More
                       </Button>
-                      <Button
-                        size="small"
-                        icon={<EyeOutlined />}
-                        loading={impersonating}
-                        disabled={record.role === 'admin'}
-                        onClick={() => onImpersonate(record)}
-                      >
-                        View as
-                      </Button>
-                      <Button size="small" onClick={() => setAssignUser(record)}>
-                        Assign venues
-                      </Button>
-                      <Button
-                        size="small"
-                        icon={<MailOutlined />}
-                        disabled={!record.email}
-                        onClick={() =>
-                          setResetModal({
-                            userId: record.id,
-                            name: `${record.firstName} ${record.lastName}`,
-                            email: record.email,
-                          })
-                        }
-                      >
-                        Reset password
-                      </Button>
-                      <Button
-                        size="small"
-                        danger
-                        icon={<DeleteOutlined />}
-                        disabled={record.id === user?.id}
-                        onClick={() => openDelete(record)}
-                      >
-                        Delete
-                      </Button>
-                    </Space>
+                    </Dropdown>
                   ),
                 },
               ]}

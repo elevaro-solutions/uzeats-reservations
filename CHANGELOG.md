@@ -4,6 +4,19 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0] — 2026-07-20
+
+### Changed
+
+- Partner dashboard upgraded to Apollo Client 4, Ant Design 6, Next.js 16, and GraphQL 17 (aligned with diner web)
+- Dashboard hooks moved to `@/lib/apollo-hooks` for untyped Apollo React usage under AC4
+- Auth token refresh error link updated for Apollo Client 4 (`CombinedGraphQLErrors` / `HttpLink`)
+- Admin users table actions consolidated into a dropdown menu
+
+### Removed
+
+- `@ant-design/v5-patch-for-react-19` from the dashboard (no longer needed on antd 6)
+
 ## [0.4.0] — 2026-07-20
 
 ### Added

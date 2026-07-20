@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useQuery } from '@apollo/client';
+import { useQuery } from '@/lib/apollo-hooks';
 import { Button, Card, Col, Row, Space, Statistic, Typography } from 'antd';
 import {
   FileDoneOutlined,

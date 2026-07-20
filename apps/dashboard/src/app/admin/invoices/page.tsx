@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useState } from 'react';
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { Button, Card, Input, Select, Space, Table, Tag, Typography, message } from 'antd';
 import type { Key } from 'react';
 import { PageHeader, spacing } from '@reservations/ui';

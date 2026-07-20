@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
-import { useQuery } from '@apollo/client';
+import { useQuery } from '@/lib/apollo-hooks';
 import { Card, Table, Tag } from 'antd';
 import { PageHeader, spacing } from '@reservations/ui';
 import { Space } from 'antd';

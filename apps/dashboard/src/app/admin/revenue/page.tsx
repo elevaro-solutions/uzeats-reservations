@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@apollo/client';
+import { useQuery } from '@/lib/apollo-hooks';
 import { Card, Col, Input, Row, Space, Statistic, Table } from 'antd';
 import { PageHeader, spacing } from '@reservations/ui';
 import { ADMIN_REVENUE_REPORT } from '@/lib/graphql';

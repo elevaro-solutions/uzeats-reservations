@@ -51,7 +51,7 @@ import {
   DashboardOutlined,
 } from '@ant-design/icons';
 import { usePathname, useRouter } from 'next/navigation';
-import { useMutation, useQuery } from '@apollo/client';
+import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useEffect, useMemo, useState } from 'react';
 import { colors, radii, spacing, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';

@@ -24,6 +24,8 @@ See [CHANGELOG.md](./CHANGELOG.md) for release history.
 - pnpm 9+
 - Docker (MongoDB + Redis)
 
+Diner web and partner dashboard run on **Next.js 16**, **React 19**, **Ant Design 6**, and **Apollo Client 4**.
+
 ## Quick start
 
 ```bash
