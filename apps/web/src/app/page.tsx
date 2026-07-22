@@ -27,7 +27,7 @@ import {
   TagFilled,
   ThunderboltFilled,
 } from '@ant-design/icons';
-import { buildRestaurantBookingPath } from '@reservations/shared';
+import { buildRestaurantBookingPath, CUISINES } from '@reservations/shared';
 import { SEARCH_RESTAURANTS, AVAILABILITY } from '@/lib/graphql';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { DEFAULT_LOCATION, cityLabel } from '@/lib/cities';
