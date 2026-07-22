@@ -121,7 +121,7 @@ function MessagesContent() {
   const active = conversations.find((c: any) => c.reservationId === activeReservationId);
 
   return (
-    <div component="MessagesContent" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="MessagesContent" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Messages</Title>
       <Select
         style={{ width: 260 }}
@@ -162,7 +162,7 @@ function MessagesContent() {
                       </Space>
                     }
                     description={
-                      <Space direction="vertical" size={0} style={{ width: '100%' }}>
+                      <Space orientation="vertical" size={0} style={{ width: '100%' }}>
                         {slot && (
                           <Text type="secondary" style={{ fontSize: 12 }}>
                             {slot}

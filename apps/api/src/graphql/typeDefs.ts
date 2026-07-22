@@ -353,6 +353,7 @@ export const typeDefs = `#graphql
   enum PlanDiscountType {
     none
     percent_off
+    amount_off
     first_month_free
     annual_months_free
   }
@@ -365,6 +366,7 @@ export const typeDefs = `#graphql
     originalMonthlyPriceCents: Int
     discountType: PlanDiscountType!
     discountPercent: Int
+    discountAmountCents: Int
     annualFreeMonths: Int
     networkCoverFeeCents: Int!
     websiteCoverFeeCents: Int!
@@ -601,6 +603,34 @@ export const typeDefs = `#graphql
     widget: Boolean
   }
 
+  enum AnnualBillingScope {
+    all
+    selected
+  }
+
+  enum AnnualBillingDiscountType {
+    months_free
+    percent_off
+  }
+
+  type AnnualBillingSettings {
+    enabled: Boolean!
+    scope: AnnualBillingScope!
+    planKeys: [String!]!
+    discountType: AnnualBillingDiscountType!
+    freeMonths: Int!
+    discountPercent: Int!
+  }
+
+  input AnnualBillingSettingsInput {
+    enabled: Boolean
+    scope: AnnualBillingScope
+    planKeys: [String!]
+    discountType: AnnualBillingDiscountType
+    freeMonths: Int
+    discountPercent: Int
+  }
+
   type PlatformConfig {
     id: ID!
     supportEmail: String!
@@ -615,6 +645,7 @@ export const typeDefs = `#graphql
     invoicePrefix: String!
     currency: String!
     featureFlags: PlatformFeatureFlags!
+    annualBilling: AnnualBillingSettings!
     updatedAt: DateTime!
   }
 
@@ -631,6 +662,7 @@ export const typeDefs = `#graphql
     invoicePrefix: String
     currency: String
     featureFlags: PlatformFeatureFlagsInput
+    annualBilling: AnnualBillingSettingsInput
   }
 
   type AdminDeleteUserCodePayload {
@@ -660,6 +692,7 @@ export const typeDefs = `#graphql
     originalMonthlyPriceCents: Int
     discountType: PlanDiscountType
     discountPercent: Int
+    discountAmountCents: Int
     annualFreeMonths: Int
     networkCoverFeeCents: Int
     websiteCoverFeeCents: Int
@@ -675,6 +708,7 @@ export const typeDefs = `#graphql
     originalMonthlyPriceCents: Int
     discountType: PlanDiscountType
     discountPercent: Int
+    discountAmountCents: Int
     annualFreeMonths: Int
     networkCoverFeeCents: Int
     websiteCoverFeeCents: Int
@@ -1695,6 +1729,7 @@ export const typeDefs = `#graphql
     auditLogs(limit: Int, offset: Int): AuditLogConnection!
     mySubscription(restaurantId: ID!): SubscriptionType
     plans: [PlanInfo!]!
+    annualBillingSettings: AnnualBillingSettings!
     coverFeeSummary(restaurantId: ID!, period: String): CoverFeeSummary!
 
     myRestaurantGroups: [RestaurantGroup!]!

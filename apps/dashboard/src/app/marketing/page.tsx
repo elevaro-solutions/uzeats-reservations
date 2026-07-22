@@ -103,7 +103,7 @@ function PromoAnalyticsTab({ restaurantId }: { restaurantId?: string }) {
   const stats = data?.promotionStats;
 
   return (
-    <div component="PromoAnalyticsTab" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="PromoAnalyticsTab" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Text type="secondary">Redemptions from confirmed bookings with a promotion applied.</Text>
         <Select
@@ -227,7 +227,7 @@ function GiftCardsTab({ restaurantId }: { restaurantId?: string }) {
   };
 
   return (
-    <div component="GiftCardsTab" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="GiftCardsTab" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
           Issue gift card
@@ -365,7 +365,7 @@ function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
   };
 
   return (
-    <div component="PromotionsTab" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="PromotionsTab" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Button
           type="primary"
@@ -589,7 +589,7 @@ function BoostCampaignsTab({ restaurantId }: { restaurantId?: string }) {
   };
 
   return (
-    <div component="BoostCampaignsTab" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="BoostCampaignsTab" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Text type="secondary">
           Boost campaigns promote your restaurant across the network. You pay per cover
@@ -743,7 +743,7 @@ function FeaturedTab({ restaurantId }: { restaurantId?: string }) {
   };
 
   return (
-    <div component="FeaturedTab" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ maxWidth: 560 }}>
+    <div component="FeaturedTab" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ maxWidth: 560 }}>
       <Alert
         type="info"
         showIcon
@@ -751,7 +751,7 @@ function FeaturedTab({ restaurantId }: { restaurantId?: string }) {
         description="Featured restaurants rank higher in diner search results and get a highlighted badge, driving more visibility and bookings."
       />
       <Card loading={loading}>
-        <Space direction="vertical" size={12}>
+        <Space orientation="vertical" size={12}>
           <Space size={16}>
             <Text strong>Featured</Text>
             <Switch
@@ -795,7 +795,7 @@ function MarketingPageContent() {
   }, [restData]);
 
   return (
-    <div component="MarketingPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="MarketingPageContent" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Marketing</Title>
       <Select
         style={{ width: 260 }}

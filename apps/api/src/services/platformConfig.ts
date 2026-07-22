@@ -1,6 +1,8 @@
 import type { UserRole } from '@reservations/shared';
 import {
   resolvePlanPricing,
+  normalizeAnnualBillingSettings,
+  type AnnualBillingSettings,
   type PlanDiscountType,
 } from '@reservations/shared';
 import {
@@ -20,6 +22,7 @@ export type EffectivePlan = {
   originalMonthlyPriceCents: number | null;
   discountType: PlanDiscountType;
   discountPercent: number | null;
+  discountAmountCents: number | null;
   annualFreeMonths: number | null;
   networkCoverFeeCents: number;
   websiteCoverFeeCents: number;
@@ -36,6 +39,7 @@ export type PlanOverrideFields = {
   originalMonthlyPriceCents?: number | null;
   discountType?: PlanDiscountType | string;
   discountPercent?: number | null;
+  discountAmountCents?: number | null;
   annualFreeMonths?: number | null;
   networkCoverFeeCents?: number;
   websiteCoverFeeCents?: number;
@@ -70,6 +74,14 @@ const DEFAULTS = {
     campaigns: true,
     widget: true,
   },
+  annualBilling: {
+    enabled: true,
+    scope: 'all' as const,
+    planKeys: [] as string[],
+    discountType: 'months_free' as const,
+    freeMonths: 2,
+    discountPercent: 17,
+  },
 };
 
 function emptyFeatures(): PlanFeatures {
@@ -95,6 +107,7 @@ function mergeFeatures(
 export function pickDiscountOverrides(input: {
   discountType?: string | null;
   discountPercent?: number | null;
+  discountAmountCents?: number | null;
   annualFreeMonths?: number | null;
   originalMonthlyPriceCents?: number | null;
   monthlyPriceCents?: number;
@@ -104,6 +117,7 @@ export function pickDiscountOverrides(input: {
     return {
       discountType: 'none' as const,
       discountPercent: null,
+      discountAmountCents: null,
       annualFreeMonths: null,
       originalMonthlyPriceCents: null,
     };
@@ -111,6 +125,9 @@ export function pickDiscountOverrides(input: {
   return {
     discountType,
     ...(input.discountPercent !== undefined ? { discountPercent: input.discountPercent } : {}),
+    ...(input.discountAmountCents !== undefined
+      ? { discountAmountCents: input.discountAmountCents }
+      : {}),
     ...(input.annualFreeMonths !== undefined ? { annualFreeMonths: input.annualFreeMonths } : {}),
     ...(input.originalMonthlyPriceCents !== undefined
       ? { originalMonthlyPriceCents: input.originalMonthlyPriceCents }
@@ -166,6 +183,7 @@ function mapOverrideToPlan(
     originalMonthlyPriceCents: override?.originalMonthlyPriceCents ?? null,
     discountType: override?.discountType ?? 'none',
     discountPercent: override?.discountPercent ?? null,
+    discountAmountCents: override?.discountAmountCents ?? null,
     annualFreeMonths: override?.annualFreeMonths ?? null,
   });
   return {
@@ -176,6 +194,7 @@ function mapOverrideToPlan(
     originalMonthlyPriceCents: pricing.originalMonthlyPriceCents,
     discountType: pricing.discountType,
     discountPercent: pricing.discountPercent,
+    discountAmountCents: pricing.discountAmountCents,
     annualFreeMonths: pricing.annualFreeMonths,
     networkCoverFeeCents: override?.networkCoverFeeCents ?? base?.networkCoverFeeCents ?? 0,
     websiteCoverFeeCents: override?.websiteCoverFeeCents ?? base?.websiteCoverFeeCents ?? 0,
@@ -211,6 +230,23 @@ export async function getEffectivePlan(planKey: string): Promise<EffectivePlan |
   return plans.find((p) => p.key === planKey) ?? null;
 }
 
+export function mapAnnualBillingSettings(doc: PlatformConfigDocument): AnnualBillingSettings {
+  const raw = (doc as any).annualBilling ?? DEFAULTS.annualBilling;
+  return normalizeAnnualBillingSettings({
+    enabled: raw.enabled,
+    scope: raw.scope,
+    planKeys: Array.isArray(raw.planKeys) ? raw.planKeys : [],
+    discountType: raw.discountType,
+    freeMonths: raw.freeMonths,
+    discountPercent: raw.discountPercent,
+  });
+}
+
+export async function getAnnualBillingSettings(): Promise<AnnualBillingSettings> {
+  const config = await getPlatformConfig();
+  return mapAnnualBillingSettings(config);
+}
+
 export function mapPlatformConfig(doc: PlatformConfigDocument) {
   const flags = (doc.featureFlags as any) ?? {};
   return {
@@ -237,6 +273,7 @@ export function mapPlatformConfig(doc: PlatformConfigDocument) {
       campaigns: flags.campaigns !== false,
       widget: flags.widget !== false,
     },
+    annualBilling: mapAnnualBillingSettings(doc),
     updatedAt: (doc as any).updatedAt ?? new Date(),
   };
 }

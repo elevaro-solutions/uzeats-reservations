@@ -101,7 +101,7 @@ export default function GroupsPage() {
   );
 
   return (
-    <div component="GroupsPage" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="GroupsPage" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Title level={2} style={{ margin: 0 }}>
           Restaurant groups

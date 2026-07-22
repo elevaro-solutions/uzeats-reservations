@@ -55,7 +55,7 @@ function PaymentForm({
   };
 
   return (
-    <div component="PaymentForm" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="PaymentForm" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Text>
         Deposit due:{' '}
         <Text strong style={{ fontSize: 18 }}>

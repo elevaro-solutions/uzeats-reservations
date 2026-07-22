@@ -398,7 +398,7 @@ function ReservationsPageContent() {
   };
 
   return (
-    <div component="ReservationsPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="ReservationsPageContent" style={{ display: 'contents' }}><Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Reservations"
         subtitle="Create, edit, and manage covers for your restaurant"
@@ -450,7 +450,7 @@ function ReservationsPageContent() {
                 const name =
                   `${r.diner?.firstName ?? ''} ${r.diner?.lastName ?? ''}`.trim() || '—';
                 return (
-                  <Space direction="vertical" size={0}>
+                  <Space orientation="vertical" size={0}>
                     <Text>{name}</Text>
                     {r.diner?.phone ? (
                       <Text type="secondary" style={{ fontSize: 12 }}>

@@ -63,7 +63,7 @@ function PreShiftTab({ restaurantId }: { restaurantId?: string }) {
   const report = data?.preShiftReport;
 
   return (
-    <div component="PreShiftTab" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="PreShiftTab" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Space>
         <DatePicker value={date} allowClear={false} onChange={(d) => d && setDate(d)} />
         <Button icon={<PrinterOutlined />} onClick={() => window.print()}>
@@ -90,10 +90,10 @@ function PreShiftTab({ restaurantId }: { restaurantId?: string }) {
             {(report.entries ?? []).length === 0 ? (
               <Empty description="No reservations for this date" />
             ) : (
-              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={12} style={{ width: '100%' }}>
                 {(report.entries ?? []).map((e: any) => (
                   <Card key={e.reservationId} size="small">
-                    <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                    <Space orientation="vertical" size={4} style={{ width: '100%' }}>
                       <Space wrap>
                         <Text strong>{dayjs(e.slotStart).format('HH:mm')}</Text>
                         <Text strong>{e.guestName}</Text>
@@ -143,7 +143,7 @@ function ForecastTab({ restaurantId }: { restaurantId?: string }) {
   const forecast = data?.revenueForecast;
 
   return (
-    <div component="ForecastTab" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="ForecastTab" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Space>
         <Text>Forecast horizon (days):</Text>
         <InputNumber min={1} max={90} value={days} onChange={(v) => v && setDays(v)} />
@@ -211,7 +211,7 @@ function CustomReportTab({ restaurantId }: { restaurantId?: string }) {
   };
 
   return (
-    <div component="CustomReportTab" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="CustomReportTab" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Form
         form={form}
         layout="inline"
@@ -271,7 +271,7 @@ function MultiLocationTab() {
   const analytics = data?.multiLocationAnalytics;
 
   return (
-    <div component="MultiLocationTab" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="MultiLocationTab" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Space>
         <Text>Month:</Text>
         <DatePicker picker="month" value={period} onChange={setPeriod} />
@@ -300,7 +300,7 @@ function MultiLocationTab() {
             title: 'Location',
             key: 'location',
             render: (_: any, r: any) => (
-              <Space direction="vertical" size={0}>
+              <Space orientation="vertical" size={0}>
                 <Text strong>{r.restaurant?.name}</Text>
                 <Text type="secondary" style={{ fontSize: 12 }}>
                   {r.restaurant?.address
@@ -348,7 +348,7 @@ export default function ReportsPage() {
   }, [restData]);
 
   return (
-    <div component="ReportsPage" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="ReportsPage" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Reports</Title>
       <Select
         style={{ width: 260 }}

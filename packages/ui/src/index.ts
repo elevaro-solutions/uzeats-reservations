@@ -47,7 +47,7 @@ export {
   type PlacePrediction,
 } from './googlePlaces';
 export { PhoneInput, type PhoneInputProps } from './PhoneInput';
-export { PlanPrice, type PlanPriceProps } from './PlanPrice';
+export { PlanPrice, type PlanPriceProps, type BillingPeriod, type AnnualBillingSettings } from './PlanPrice';
 export {
   DEFAULT_PHONE_COUNTRY,
   US_PHONE_COUNTRY_CODE,

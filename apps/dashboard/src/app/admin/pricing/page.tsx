@@ -23,20 +23,24 @@ import { PlusOutlined } from '@ant-design/icons';
 import { PageHeader, spacing } from '@reservations/ui';
 import {
   computeAnnualSavings,
+  computeAmountOffPriceCents,
   computeDiscountedPriceCents,
   formatAnnualSavingsNote,
   formatPlanDollars,
+  getAnnualSavingsPercentFromSettings,
   type PlanDiscountType,
 } from '@reservations/shared';
 import {
   ADMIN_PLANS,
   CREATE_PLAN_PACKAGE,
   DELETE_PLAN_PACKAGE,
+  PLATFORM_CONFIG,
+  UPDATE_PLATFORM_CONFIG,
   UPDATE_PLAN_PACKAGE,
 } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
 
 const FEATURE_TOGGLES = [
   {
@@ -90,10 +94,18 @@ const FIELD_TIPS = {
   listPrice:
     'Original list price shown with strikethrough when a discount is active (e.g. before 50% off or 1st month free).',
   discountType:
-    'Optional promotional pricing: percent off, first month free, or free months on annual billing.',
+    'Optional promotional pricing: percent off, fixed amount off, first month free, or free months on annual billing.',
   discountPercent: 'Percentage taken off the list price each month (e.g. 50 for half off).',
+  discountAmount: 'Fixed dollar amount taken off the list price each month (e.g. $20 off $99).',
   annualFreeMonths:
-    'Number of months free when the customer pays annually (e.g. 2 = pay for 10 months, get 12).',
+    'Per-package override: free months when paying annually. Used only when global annual billing is off or does not include this package.',
+  globalAnnualEnabled: 'When on, annual billing discounts apply on the public pricing page.',
+  globalAnnualScope: 'Apply the annual discount to every package or only selected ones.',
+  globalAnnualPlanKeys: 'Packages that receive the annual discount when scope is “Selected packages”.',
+  globalAnnualDiscountType:
+    'How annual savings are calculated: free months off the yearly total, or a percentage off the annual price.',
+  globalAnnualFreeMonths: 'Months free when paying annually (e.g. 2 months free = pay for 10, get 12).',
+  globalAnnualDiscountPercent: 'Percentage taken off the full annual price when billing annually.',
   networkCoverFee:
     'Per-cover fee when a diner discovers and books via the Tablevera network, app, or affiliates.',
   websiteCoverFee:
@@ -109,6 +121,7 @@ const TRIAL_PRESETS = [1, 3, 7, 14, 30] as const;
 const DISCOUNT_OPTIONS: { value: PlanDiscountType; label: string }[] = [
   { value: 'none', label: 'No discount' },
   { value: 'percent_off', label: 'Percent off' },
+  { value: 'amount_off', label: 'Fixed amount off' },
   { value: 'first_month_free', label: '1st month free' },
   { value: 'annual_months_free', label: 'Annual — months free' },
 ];
@@ -129,12 +142,17 @@ function trialPeriodValue(trialDays: number): number | 'custom' {
 export default function AdminPricingPage() {
   const { ready } = useRequireAdmin();
   const { data, loading, refetch } = useQuery(ADMIN_PLANS, { skip: !ready });
+  const { data: configData, refetch: refetchConfig } = useQuery(PLATFORM_CONFIG, {
+    skip: !ready,
+  });
   const [updatePlan, { loading: saving }] = useMutation(UPDATE_PLAN_PACKAGE);
+  const [updateConfig, { loading: savingAnnual }] = useMutation(UPDATE_PLATFORM_CONFIG);
   const [createPlan, { loading: creating }] = useMutation(CREATE_PLAN_PACKAGE);
   const [deletePlan, { loading: deleting }] = useMutation(DELETE_PLAN_PACKAGE);
   const [activeKey, setActiveKey] = useState<string>('basic');
   const [createOpen, setCreateOpen] = useState(false);
   const [form] = Form.useForm();
+  const [annualForm] = Form.useForm();
   const [createForm] = Form.useForm();
 
   const plans = data?.plans ?? [];
@@ -143,6 +161,7 @@ export default function AdminPricingPage() {
   const discountType = Form.useWatch('discountType', form) as PlanDiscountType | undefined;
   const listPrice = Form.useWatch('listPrice', form);
   const discountPercent = Form.useWatch('discountPercent', form);
+  const discountAmount = Form.useWatch('discountAmount', form);
   const monthlyPrice = Form.useWatch('monthlyPrice', form);
   const annualFreeMonths = Form.useWatch('annualFreeMonths', form);
   const createTrialEnabled = Form.useWatch('trialEnabled', createForm);
@@ -152,6 +171,16 @@ export default function AdminPricingPage() {
     | undefined;
   const createMonthlyPrice = Form.useWatch('monthlyPrice', createForm);
   const createAnnualFreeMonths = Form.useWatch('annualFreeMonths', createForm);
+  const globalAnnualEnabled = Form.useWatch('enabled', annualForm);
+  const globalAnnualScope = Form.useWatch('scope', annualForm);
+  const globalAnnualDiscountType = Form.useWatch('discountType', annualForm);
+  const globalAnnualFreeMonths = Form.useWatch('freeMonths', annualForm);
+  const globalAnnualDiscountPercent = Form.useWatch('discountPercent', annualForm);
+
+  useEffect(() => {
+    if (!configData?.platformConfig?.annualBilling) return;
+    annualForm.setFieldsValue(configData.platformConfig.annualBilling);
+  }, [configData, annualForm]);
 
   useEffect(() => {
     const plan = plans.find((p: any) => p.key === activeKey) ?? plans[0];
@@ -167,6 +196,7 @@ export default function AdminPricingPage() {
         : centsToDollars(plan.monthlyPriceCents),
       discountType: plan.discountType ?? 'none',
       discountPercent: plan.discountPercent ?? 50,
+      discountAmount: plan.discountAmountCents ? centsToDollars(plan.discountAmountCents) : 10,
       annualFreeMonths: plan.annualFreeMonths ?? 2,
       networkCoverFee: centsToDollars(plan.networkCoverFeeCents),
       websiteCoverFee: centsToDollars(plan.websiteCoverFeeCents),
@@ -195,6 +225,7 @@ export default function AdminPricingPage() {
     monthlyPrice?: number;
     listPrice?: number;
     discountPercent?: number;
+    discountAmount?: number;
     annualFreeMonths?: number;
   }) => {
     const type = values.discountType ?? 'none';
@@ -203,6 +234,7 @@ export default function AdminPricingPage() {
         discountType: 'none' as const,
         originalMonthlyPriceCents: null,
         discountPercent: null,
+        discountAmountCents: null,
         annualFreeMonths: null,
       };
     }
@@ -213,8 +245,21 @@ export default function AdminPricingPage() {
         discountType: type,
         originalMonthlyPriceCents: original,
         discountPercent: percent,
+        discountAmountCents: null,
         annualFreeMonths: null,
         monthlyPriceCents: computeDiscountedPriceCents(original, percent),
+      };
+    }
+    if (type === 'amount_off') {
+      const original = dollarsToCents(values.listPrice ?? values.monthlyPrice);
+      const amountOff = dollarsToCents(values.discountAmount ?? 0);
+      return {
+        discountType: type,
+        originalMonthlyPriceCents: original,
+        discountPercent: null,
+        discountAmountCents: amountOff,
+        annualFreeMonths: null,
+        monthlyPriceCents: computeAmountOffPriceCents(original, amountOff),
       };
     }
     if (type === 'first_month_free') {
@@ -223,6 +268,7 @@ export default function AdminPricingPage() {
         discountType: type,
         originalMonthlyPriceCents: dollarsToCents(values.listPrice ?? values.monthlyPrice),
         discountPercent: null,
+        discountAmountCents: null,
         annualFreeMonths: null,
         monthlyPriceCents: monthly,
       };
@@ -231,9 +277,35 @@ export default function AdminPricingPage() {
       discountType: type,
       originalMonthlyPriceCents: null,
       discountPercent: null,
+      discountAmountCents: null,
       annualFreeMonths: Math.min(11, Math.max(1, values.annualFreeMonths ?? 1)),
       monthlyPriceCents: dollarsToCents(values.monthlyPrice),
     };
+  };
+
+  const onSaveAnnualBilling = async () => {
+    try {
+      const values = await annualForm.validateFields();
+      await updateConfig({
+        variables: {
+          input: {
+            annualBilling: {
+              enabled: values.enabled,
+              scope: values.scope,
+              planKeys: values.planKeys ?? [],
+              discountType: values.discountType,
+              freeMonths: values.freeMonths,
+              discountPercent: values.discountPercent,
+            },
+          },
+        },
+      });
+      message.success('Global annual billing updated');
+      refetchConfig();
+    } catch (err: any) {
+      if (err?.errorFields) return;
+      message.error(err.message || 'Failed to update annual billing');
+    }
   };
 
   const onSave = async () => {
@@ -251,6 +323,7 @@ export default function AdminPricingPage() {
             originalMonthlyPriceCents: discount.originalMonthlyPriceCents,
             discountType: discount.discountType,
             discountPercent: discount.discountPercent,
+            discountAmountCents: discount.discountAmountCents,
             annualFreeMonths: discount.annualFreeMonths,
             networkCoverFeeCents: dollarsToCents(values.networkCoverFee),
             websiteCoverFeeCents: dollarsToCents(values.websiteCoverFee),
@@ -282,6 +355,7 @@ export default function AdminPricingPage() {
             originalMonthlyPriceCents: discount.originalMonthlyPriceCents,
             discountType: discount.discountType,
             discountPercent: discount.discountPercent,
+            discountAmountCents: discount.discountAmountCents,
             annualFreeMonths: discount.annualFreeMonths,
             networkCoverFeeCents: dollarsToCents(values.networkCoverFee),
             websiteCoverFeeCents: dollarsToCents(values.websiteCoverFee),
@@ -326,14 +400,30 @@ export default function AdminPricingPage() {
 
   const activePlan = plans.find((p: any) => p.key === activeKey);
 
+  const globalAnnualPreview = {
+    enabled: globalAnnualEnabled !== false,
+    scope: globalAnnualScope === 'selected' ? 'selected' as const : 'all' as const,
+    planKeys: [],
+    discountType: globalAnnualDiscountType === 'percent_off' ? 'percent_off' as const : 'months_free' as const,
+    freeMonths: globalAnnualFreeMonths ?? 2,
+    discountPercent: globalAnnualDiscountPercent ?? 17,
+  };
+  const globalAnnualSavingsPercent = getAnnualSavingsPercentFromSettings(globalAnnualPreview);
+
   const percentPreviewCents =
     discountType === 'percent_off' && listPrice && discountPercent
       ? computeDiscountedPriceCents(dollarsToCents(listPrice), discountPercent)
       : null;
 
+  const amountPreviewCents =
+    discountType === 'amount_off' && listPrice && discountAmount
+      ? computeAmountOffPriceCents(dollarsToCents(listPrice), dollarsToCents(discountAmount))
+      : null;
+
   const discountFields = (
     type: PlanDiscountType | undefined,
     percentPreviewCents: number | null,
+    amountPreviewCents: number | null,
     previewMonthlyPrice?: number,
     previewAnnualFreeMonths?: number,
   ) => {
@@ -379,6 +469,40 @@ export default function AdminPricingPage() {
               Sale price:{' '}
               {percentPreviewCents != null ? (
                 <Text strong>{formatPlanDollars(percentPreviewCents)}/mo</Text>
+              ) : (
+                '—'
+              )}
+            </Text>
+          </Col>
+        </Row>
+      ) : null}
+      {type === 'amount_off' ? (
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item
+              name="listPrice"
+              label="List price (USD)"
+              tooltip={FIELD_TIPS.listPrice}
+              rules={[{ required: true }]}
+            >
+              <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="discountAmount"
+              label="Discount amount (USD)"
+              tooltip={FIELD_TIPS.discountAmount}
+              rules={[{ required: true, type: 'number', min: 0.01 }]}
+            >
+              <InputNumber min={0.01} step={1} style={{ width: '100%' }} prefix="$" />
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Text type="secondary">
+              Sale price:{' '}
+              {amountPreviewCents != null ? (
+                <Text strong>{formatPlanDollars(amountPreviewCents)}/mo</Text>
               ) : (
                 '—'
               )}
@@ -489,11 +613,118 @@ export default function AdminPricingPage() {
   );
 
   return (
-    <div component="AdminPricingPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminPricingPage" style={{ display: 'contents' }}><Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Plans & pricing"
         subtitle="Edit package prices, cover fees, trial length, and included features. Changes apply to new subscriptions and plan changes."
       />
+
+      <Card
+        title="Global annual billing"
+        loading={loading}
+        extra={
+          <Button type="primary" loading={savingAnnual} onClick={onSaveAnnualBilling}>
+            Save annual settings
+          </Button>
+        }
+      >
+        <Paragraph type="secondary" style={{ marginTop: 0 }}>
+          Control the annual billing discount shown on the public pricing page. Applies to all
+          packages or only the ones you select. Per-package &ldquo;Annual — months free&rdquo;
+          discounts apply only when global billing is disabled or excludes that package.
+        </Paragraph>
+        <Form form={annualForm} layout="vertical">
+          <Row gutter={16}>
+            <Col xs={24} md={8}>
+              <Form.Item
+                name="enabled"
+                label="Annual discount"
+                tooltip={FIELD_TIPS.globalAnnualEnabled}
+                valuePropName="checked"
+              >
+                <Switch checkedChildren="On" unCheckedChildren="Off" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item
+                name="scope"
+                label="Apply to"
+                tooltip={FIELD_TIPS.globalAnnualScope}
+              >
+                <Select
+                  options={[
+                    { value: 'all', label: 'All packages' },
+                    { value: 'selected', label: 'Selected packages' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={8}>
+              <Form.Item
+                name="discountType"
+                label="Discount type"
+                tooltip={FIELD_TIPS.globalAnnualDiscountType}
+              >
+                <Select
+                  options={[
+                    { value: 'months_free', label: 'Free months' },
+                    { value: 'percent_off', label: 'Percent off annual total' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            {globalAnnualScope === 'selected' ? (
+              <Col span={24}>
+                <Form.Item
+                  name="planKeys"
+                  label="Packages"
+                  tooltip={FIELD_TIPS.globalAnnualPlanKeys}
+                  rules={[{ required: true, message: 'Select at least one package' }]}
+                >
+                  <Select
+                    mode="multiple"
+                    placeholder="Choose packages"
+                    options={plans.map((p: any) => ({ value: p.key, label: p.name }))}
+                  />
+                </Form.Item>
+              </Col>
+            ) : null}
+            {globalAnnualDiscountType === 'percent_off' ? (
+              <Col xs={24} md={8}>
+                <Form.Item
+                  name="discountPercent"
+                  label="Annual discount %"
+                  tooltip={FIELD_TIPS.globalAnnualDiscountPercent}
+                  rules={[{ required: true, type: 'number', min: 1, max: 99 }]}
+                >
+                  <InputNumber min={1} max={99} style={{ width: '100%' }} addonAfter="%" />
+                </Form.Item>
+              </Col>
+            ) : (
+              <Col xs={24} md={8}>
+                <Form.Item
+                  name="freeMonths"
+                  label="Free months on annual"
+                  tooltip={FIELD_TIPS.globalAnnualFreeMonths}
+                  rules={[{ required: true, type: 'number', min: 1, max: 11 }]}
+                >
+                  <InputNumber min={1} max={11} style={{ width: '100%' }} addonAfter="months" />
+                </Form.Item>
+              </Col>
+            )}
+            <Col span={24}>
+              <Text type="secondary">
+                Pricing page label:{' '}
+                <Text strong>
+                  {globalAnnualEnabled === false
+                    ? 'Annual (no global discount)'
+                    : `Annual (save ${globalAnnualSavingsPercent}%)`}
+                </Text>
+              </Text>
+            </Col>
+          </Row>
+        </Form>
+      </Card>
 
       <Row gutter={[16, 16]}>
         <Col xs={24} md={8}>
@@ -506,7 +737,7 @@ export default function AdminPricingPage() {
               </Button>
             }
           >
-            <Space direction="vertical" style={{ width: '100%' }}>
+            <Space orientation="vertical" style={{ width: '100%' }}>
               {plans.map((p: any) => (
                 <Button
                   key={p.key}
@@ -574,7 +805,9 @@ export default function AdminPricingPage() {
                 <Switch checkedChildren="Visible" unCheckedChildren="Hidden" />
               </Form.Item>
               <Row gutter={16}>
-                {discountType !== 'first_month_free' && discountType !== 'percent_off' ? (
+                {discountType !== 'first_month_free' &&
+                discountType !== 'percent_off' &&
+                discountType !== 'amount_off' ? (
                   <Col span={12}>
                     <Form.Item
                       name="monthlyPrice"
@@ -605,7 +838,13 @@ export default function AdminPricingPage() {
                   </Form.Item>
                 </Col>
               </Row>
-              {discountFields(discountType, percentPreviewCents, monthlyPrice, annualFreeMonths)}
+              {discountFields(
+                discountType,
+                percentPreviewCents,
+                amountPreviewCents,
+                monthlyPrice,
+                annualFreeMonths,
+              )}
               {trialFields(Boolean(trialEnabled), trialPeriod)}
               <Text strong style={{ display: 'block', marginBottom: 12 }}>
                 Features
@@ -650,6 +889,7 @@ export default function AdminPricingPage() {
             visibleOnPricing: true,
             discountType: 'none',
             discountPercent: 50,
+            discountAmount: 10,
             annualFreeMonths: 2,
             monthlyPrice: 0,
             listPrice: 0,
@@ -678,7 +918,9 @@ export default function AdminPricingPage() {
             <Switch checkedChildren="Visible" unCheckedChildren="Hidden" />
           </Form.Item>
           <Row gutter={16}>
-            {createDiscountType !== 'first_month_free' && createDiscountType !== 'percent_off' ? (
+            {createDiscountType !== 'first_month_free' &&
+            createDiscountType !== 'percent_off' &&
+            createDiscountType !== 'amount_off' ? (
               <Col span={12}>
                 <Form.Item
                   name="monthlyPrice"
@@ -711,6 +953,7 @@ export default function AdminPricingPage() {
           </Row>
           {discountFields(
             createDiscountType,
+            null,
             null,
             createMonthlyPrice,
             createAnnualFreeMonths,

@@ -98,6 +98,7 @@ function RegisterForm() {
       originalMonthlyPriceCents?: number | null;
       discountType?: string | null;
       discountPercent?: number | null;
+      discountAmountCents?: number | null;
       annualFreeMonths?: number | null;
       trialDays: number;
       visibleOnPricing?: boolean;
@@ -111,6 +112,7 @@ function RegisterForm() {
         originalMonthlyPriceCents: p.originalMonthlyPriceCents,
         discountType: p.discountType,
         discountPercent: p.discountPercent,
+        discountAmountCents: p.discountAmountCents,
         annualFreeMonths: p.annualFreeMonths,
       };
       const display = getPlanPriceDisplay(pricing);

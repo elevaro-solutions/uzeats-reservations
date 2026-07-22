@@ -135,7 +135,7 @@ function AdminRestaurantsContent() {
   };
 
   return (
-    <div component="AdminRestaurantsContent" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminRestaurantsContent" style={{ display: 'contents' }}><Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Restaurants"
         subtitle="Approve partners, edit listing details, and manage ownership."

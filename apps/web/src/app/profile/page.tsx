@@ -152,7 +152,7 @@ export default function ProfilePage() {
   const restaurantHistory = (restaurantLoyaltyData as any)?.myRestaurantLoyaltyHistory ?? [];
 
   return (
-    <div component="ProfilePage" style={{ display: 'contents' }}><Space direction="vertical" size={20} style={{ width: '100%', maxWidth: 720 }}>
+    <div component="ProfilePage" style={{ display: 'contents' }}><Space orientation="vertical" size={20} style={{ width: '100%', maxWidth: 720 }}>
       <PageHeader
         title="Profile"
         subtitle="Manage notifications and loyalty rewards"

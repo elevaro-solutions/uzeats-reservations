@@ -649,7 +649,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
                 setNotifOpen(open);
                 if (open) refetchNotifs();
               }}
-              dropdownRender={() => notificationDropdown}
+              popupRender={() => notificationDropdown}
               placement="bottomRight"
             >
               <Button

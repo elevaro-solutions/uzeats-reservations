@@ -50,7 +50,7 @@ export default function AdminExportsPage() {
   };
 
   return (
-    <div component="AdminExportsPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminExportsPage" style={{ display: 'contents' }}><Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="CSV exports"
         subtitle="Download finance and support datasets for spreadsheets or BI tools."
@@ -63,7 +63,7 @@ export default function AdminExportsPage() {
           />
         }
       />
-      <Space direction="vertical" style={{ width: '100%' }} size="middle">
+      <Space orientation="vertical" style={{ width: '100%' }} size="middle">
         {EXPORTS.map((item) => (
           <Card key={item.type}>
             <Space style={{ width: '100%', justifyContent: 'space-between' }}>

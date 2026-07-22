@@ -13,6 +13,8 @@ import {
   reviewInputSchema,
   notificationPreferencesSchema,
   searchRestaurantsSchema,
+  normalizeAnnualBillingSettings,
+  type AnnualBillingSettings,
 } from '@reservations/shared';
 import {
   registerWithEmail,
@@ -139,6 +141,8 @@ import {
   getPlanOverridesMap,
   getPlatformConfig,
   mapPlatformConfig,
+  getAnnualBillingSettings,
+  mapAnnualBillingSettings,
   isFeatureEnabled,
   pickDiscountOverrides,
   uniquePlanKey,
@@ -822,6 +826,8 @@ export const resolvers = {
     },
 
     plans: async () => getEffectivePlans(),
+
+    annualBillingSettings: async () => getAnnualBillingSettings(),
 
     adminInvoices: async (
       _: unknown,
@@ -2166,6 +2172,15 @@ export const resolvers = {
           args.input.featureFlags as Record<string, boolean | undefined>,
         );
       }
+      if (args.input.annualBilling && typeof args.input.annualBilling === 'object') {
+        const current = mapAnnualBillingSettings(doc);
+        const next = normalizeAnnualBillingSettings({
+          ...current,
+          ...(args.input.annualBilling as Partial<AnnualBillingSettings>),
+        });
+        (doc as any).annualBilling = next;
+        doc.markModified('annualBilling');
+      }
       await doc.save();
       await logAudit({
         actorId: admin._id.toString(),
@@ -2188,6 +2203,7 @@ export const resolvers = {
           originalMonthlyPriceCents?: number | null;
           discountType?: string;
           discountPercent?: number | null;
+          discountAmountCents?: number | null;
           annualFreeMonths?: number | null;
           networkCoverFeeCents?: number;
           websiteCoverFeeCents?: number;
@@ -2218,11 +2234,13 @@ export const resolvers = {
           : {}),
         ...(args.input.discountType !== undefined ||
         args.input.discountPercent !== undefined ||
+        args.input.discountAmountCents !== undefined ||
         args.input.annualFreeMonths !== undefined ||
         args.input.originalMonthlyPriceCents !== undefined
           ? pickDiscountOverrides({
               discountType: args.input.discountType,
               discountPercent: args.input.discountPercent,
+              discountAmountCents: args.input.discountAmountCents,
               annualFreeMonths: args.input.annualFreeMonths,
               originalMonthlyPriceCents: args.input.originalMonthlyPriceCents,
             })
@@ -2278,6 +2296,7 @@ export const resolvers = {
           originalMonthlyPriceCents?: number | null;
           discountType?: string;
           discountPercent?: number | null;
+          discountAmountCents?: number | null;
           annualFreeMonths?: number | null;
           networkCoverFeeCents?: number;
           websiteCoverFeeCents?: number;
@@ -2304,6 +2323,7 @@ export const resolvers = {
         ...pickDiscountOverrides({
           discountType: args.input.discountType,
           discountPercent: args.input.discountPercent,
+          discountAmountCents: args.input.discountAmountCents,
           annualFreeMonths: args.input.annualFreeMonths,
           originalMonthlyPriceCents: args.input.originalMonthlyPriceCents,
         }),

@@ -31,7 +31,7 @@ export default function AdminRevenuePage() {
   const r = data?.adminRevenueReport;
 
   return (
-    <div component="AdminRevenuePage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminRevenuePage" style={{ display: 'contents' }}><Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Revenue"
         subtitle="Platform SaaS metrics — subscription MRR and invoice collections for the selected period."

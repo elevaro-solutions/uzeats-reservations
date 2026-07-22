@@ -129,7 +129,7 @@ function GuestsPageContent() {
   };
 
   return (
-    <div component="GuestsPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="GuestsPageContent" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Guests</Title>
       <Space wrap>
         <Select
@@ -252,7 +252,7 @@ function GuestsPageContent() {
         }
       >
         {selected && (
-          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
             <Space size={24}>
               <Statistic title="Visits" value={selected.totalVisits} />
               <Statistic title="Loyalty pts" value={selected.loyaltyPoints ?? 0} />

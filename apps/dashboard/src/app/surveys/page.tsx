@@ -83,7 +83,7 @@ function SurveysPageContent() {
   };
 
   return (
-    <div component="SurveysPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="SurveysPageContent" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Post-dining surveys</Title>
       <Text type="secondary">
         When enabled, guests automatically receive a survey invitation after each completed
@@ -105,7 +105,7 @@ function SurveysPageContent() {
       <Row gutter={16}>
         <Col xs={24} lg={8}>
           <Card title="Survey builder">
-            <Space direction="vertical" style={{ width: '100%' }} size={12}>
+            <Space orientation="vertical" style={{ width: '100%' }} size={12}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Text strong>Surveys enabled</Text>
                 <Switch

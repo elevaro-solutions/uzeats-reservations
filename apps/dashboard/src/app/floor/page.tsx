@@ -63,7 +63,7 @@ export default function FloorPage() {
   const restaurant = (data?.myRestaurants ?? []).find((r: any) => r.id === restaurantId);
 
   return (
-    <div component="FloorPage" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="FloorPage" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Tables & shifts</Title>
       <Select
         style={{ width: 280 }}

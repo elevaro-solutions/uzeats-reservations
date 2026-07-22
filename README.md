@@ -82,7 +82,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Auth: email/password, Google OAuth, Twilio phone OTP
 - Partner Settings hub, notifications prefs, multi-restaurant selector, and self-registration
 - Owner phone / walk-in bookings, reservation edit, and reservation-scoped messaging
-- Platform admin: users, restaurants, invoices, revenue, support, moderation, templates, config
+- Platform admin: users, restaurants, invoices, revenue, support, moderation, templates, config, and annual billing discounts
 - Embeddable booking widget with per-restaurant theme
 
 ## Design system

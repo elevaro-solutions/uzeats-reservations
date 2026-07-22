@@ -19,7 +19,7 @@ export default function ResetPasswordForm() {
   if (!token) {
     return (
       <AuthLayout heading="Invalid reset link">
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <Alert
             type="error"
             message="Link expired or invalid"
@@ -48,7 +48,7 @@ export default function ResetPasswordForm() {
   if (success) {
     return (
       <AuthLayout heading="Password updated">
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <Alert
             type="success"
             message="You're all set"

@@ -77,7 +77,7 @@ function ReviewsPageContent() {
   };
 
   return (
-    <div component="ReviewsPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="ReviewsPageContent" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Reviews</Title>
       <Select
         style={{ width: 260 }}
@@ -172,7 +172,7 @@ function ReviewsPageContent() {
         okText="Post reply"
       >
         {replying && (
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             <div>
               <Rate disabled value={replying.rating} style={{ fontSize: 14 }} />
               <Paragraph type="secondary">{replying.comment}</Paragraph>

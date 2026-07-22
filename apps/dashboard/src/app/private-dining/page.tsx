@@ -265,7 +265,7 @@ function PrivateDiningPageContent() {
   ];
 
   return (
-    <div component="PrivateDiningPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="PrivateDiningPageContent" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Private Dining</Title>
 
       <Select
@@ -287,7 +287,7 @@ function PrivateDiningPageContent() {
             key: 'spaces',
             label: 'Spaces',
             children: (
-              <Space direction="vertical" size={12} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={12} style={{ width: '100%' }}>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <Button
                     type="primary"

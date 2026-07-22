@@ -130,7 +130,7 @@ function SupportPageContent() {
   };
 
   return (
-    <div component="SupportPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="SupportPageContent" style={{ display: 'contents' }}><Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Support tickets"
         subtitle="Track diner and restaurant cases with assignments, notes, and history."

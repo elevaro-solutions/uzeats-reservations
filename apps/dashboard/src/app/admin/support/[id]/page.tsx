@@ -192,7 +192,7 @@ export default function SupportTicketDetailPage() {
 
   if (!loading && !ticket) {
     return (
-      <Space direction="vertical" size={spacing.lg}>
+      <Space orientation="vertical" size={spacing.lg}>
         <Link href="/admin/support">
           <Button icon={<ArrowLeftOutlined />}>Back to tickets</Button>
         </Link>
@@ -217,7 +217,7 @@ export default function SupportTicketDetailPage() {
     }));
 
   return (
-    <div component="SupportTicketDetailPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="SupportTicketDetailPage" style={{ display: 'contents' }}><Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <div>
         <Link href="/admin/support">
           <Button type="link" icon={<ArrowLeftOutlined />} style={{ paddingLeft: 0 }}>
@@ -244,7 +244,7 @@ export default function SupportTicketDetailPage() {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={16}>
-          <Space direction="vertical" size={spacing.md} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={spacing.md} style={{ width: '100%' }}>
             <Card title="Details" loading={loading}>
               {ticket && (
                 <Form layout="vertical">
@@ -327,7 +327,7 @@ export default function SupportTicketDetailPage() {
             </Card>
 
             <Card title="Internal notes" loading={loading}>
-              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+              <Space orientation="vertical" style={{ width: '100%' }} size="middle">
                 {(ticket?.notes ?? []).length === 0 && (
                   <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No notes yet" />
                 )}
@@ -485,7 +485,7 @@ export default function SupportTicketDetailPage() {
         </Col>
 
         <Col xs={24} lg={8}>
-          <Space direction="vertical" size={spacing.md} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={spacing.md} style={{ width: '100%' }}>
             <Card title="Assignments" loading={loading}>
               {ticket && (
                 <Form layout="vertical">

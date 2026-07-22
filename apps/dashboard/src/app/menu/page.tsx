@@ -186,7 +186,7 @@ export default function MenuPage() {
   };
 
   return (
-    <div component="MenuPage" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="MenuPage" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <div
         style={{
           display: 'flex',
@@ -240,7 +240,7 @@ export default function MenuPage() {
       >
         <Form.List name="sections">
           {(sections, { add: addSection, remove: removeSection }) => (
-            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={16} style={{ width: '100%' }}>
               <Space wrap>
                 <Button icon={<NodeExpandOutlined />} onClick={expandAll}>
                   Expand all categories
@@ -295,7 +295,7 @@ export default function MenuPage() {
                       itemKeysRef.current[String(section.name)] = panelKeys;
 
                       return (
-                        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
                           <Collapse
                             activeKey={openKeys[String(section.name)] ?? []}
                             onChange={(keys) =>
@@ -441,7 +441,7 @@ function buildItemPanel({
       />
     ),
     children: (
-      <Space direction="vertical" size={0} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={0} style={{ width: '100%' }}>
         <Form.Item
           name={[item.name, 'name']}
           label="Name"
@@ -486,7 +486,7 @@ function buildItemPanel({
             ]);
             const path = `${section.name}-${item.name}`;
             return (
-              <Space direction="vertical" size={8} style={{ marginBottom: 16 }}>
+              <Space orientation="vertical" size={8} style={{ marginBottom: 16 }}>
                 {photoUrl ? (
                   <img
                     src={photoUrl}

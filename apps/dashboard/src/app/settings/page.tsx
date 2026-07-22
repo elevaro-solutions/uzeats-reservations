@@ -254,7 +254,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div component="SettingsPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="SettingsPage" style={{ display: 'contents' }}><Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Settings"
         subtitle="Restaurant profile, booking preferences, and setup tools"

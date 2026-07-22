@@ -53,7 +53,7 @@ function DepositForm({
   };
 
   return (
-    <div component="DepositForm" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="DepositForm" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Text>
         Deposit due: <Text strong>${(amountCents / 100).toFixed(2)}</Text>
       </Text>

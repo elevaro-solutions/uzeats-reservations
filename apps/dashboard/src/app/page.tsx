@@ -55,7 +55,7 @@ export default function OverviewPage() {
   const restaurants = data?.myRestaurants ?? [];
 
   return (
-    <div component="OverviewPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="OverviewPage" style={{ display: 'contents' }}><Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Overview"
         subtitle="Your venues at a glance — jump into service or add a new listing"

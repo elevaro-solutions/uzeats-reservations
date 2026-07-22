@@ -4,6 +4,20 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.0] — 2026-07-22
+
+### Added
+
+- Platform-wide annual billing settings (scope, free months, or percent off) editable in admin pricing
+- `annualBillingSettings` GraphQL query and `amount_off` plan discount type
+- Shared `annualBilling` helpers for monthly vs annual price display and savings labels
+
+### Changed
+
+- Public pricing page redesigned with monthly/annual toggle and dynamic annual savings
+- Admin pricing UI manages global annual billing and per-plan fixed-amount discounts
+- `PlanPrice` component and plan pricing resolver honor annual billing overrides
+
 ## [0.6.0] — 2026-07-22
 
 ### Added

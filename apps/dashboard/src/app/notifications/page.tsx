@@ -199,7 +199,7 @@ export default function NotificationsSettingsPage() {
   }));
 
   return (
-    <div component="NotificationsSettingsPage" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="NotificationsSettingsPage" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <PageHeader
         title="Notifications"
         subtitle="Select a team member to configure feature alerts by channel."
@@ -218,7 +218,7 @@ export default function NotificationsSettingsPage() {
       />
 
       <Card className="rt-surface-card">
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
           {canManageTeam && (
             <Space wrap>
               <Text type="secondary">Filter by role</Text>
@@ -300,7 +300,7 @@ export default function NotificationsSettingsPage() {
         destroyOnClose
       >
         {selected && (
-          <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={12} style={{ width: '100%' }}>
             <div>
               <Tag>{ROLE_LABELS[selected.role] ?? selected.role}</Tag>
               <Text type="secondary" style={{ fontSize: 12 }}>

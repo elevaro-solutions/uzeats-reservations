@@ -22,7 +22,7 @@ function AdminAuditPageContent() {
   if (!ready) return null;
 
   return (
-    <div component="AdminAuditPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminAuditPageContent" style={{ display: 'contents' }}><Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Audit logs"
         subtitle="Track admin actions across users, restaurants, invoices, and configuration."

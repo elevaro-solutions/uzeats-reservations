@@ -339,7 +339,7 @@ function AdminUsersPageContent() {
 
   return (
     <div component="AdminUsersPageContent" style={{ display: 'contents' }}><>
-      <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
         <PageHeader
           title="Users & access"
           subtitle="Roles, staff invites, restaurant assignment, impersonation, password resets, and account deletion."
@@ -350,7 +350,7 @@ function AdminUsersPageContent() {
           }
         />
         <Card>
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
             <Input
               placeholder="Search by name or email..."
               prefix={<SearchOutlined />}

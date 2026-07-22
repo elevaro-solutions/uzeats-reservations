@@ -103,7 +103,7 @@ export default function IntegrationsPage() {
   };
 
   return (
-    <div component="IntegrationsPage" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="IntegrationsPage" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Integrations</Title>
       <Select
         style={{ width: 260 }}
@@ -137,7 +137,7 @@ export default function IntegrationsPage() {
           </Button>
         }
       >
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <Text type="secondary">
             Partners call REST endpoints under <Text code>/api/partner</Text> using the{' '}
             <Text code>X-API-Key</Text> header with the key below.
@@ -232,7 +232,7 @@ export default function IntegrationsPage() {
           </Space>
         }
       >
-        <Space direction="vertical" size={16} style={{ maxWidth: 640 }}>
+        <Space orientation="vertical" size={16} style={{ maxWidth: 640 }}>
           <Text type="secondary">
             Connect your point-of-sale system to sync check totals and spend data with guest
             profiles. Generate an API key for your POS provider to use.

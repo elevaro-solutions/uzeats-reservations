@@ -169,7 +169,7 @@ export default function FloorPlanPage() {
   };
 
   return (
-    <div component="FloorPlanPage" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="FloorPlanPage" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Title level={2} style={{ margin: 0 }}>Floor plan</Title>
         <Button
@@ -271,7 +271,7 @@ export default function FloorPlanPage() {
 
         <Card title={selected ? `Table ${selected.name}` : 'Table details'} style={{ width: 280 }}>
           {selected ? (
-            <Space direction="vertical" size={12} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={12} style={{ width: '100%' }}>
               <div>
                 <Text type="secondary">Area: </Text>
                 <Tag>{selected.floorArea}</Tag>

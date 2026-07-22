@@ -988,6 +988,14 @@ export const PLATFORM_CONFIG = gql`
         waitlist deposits partnerRegistration publicRegistration
         messaging reviews experiences campaigns widget
       }
+      annualBilling {
+        enabled
+        scope
+        planKeys
+        discountType
+        freeMonths
+        discountPercent
+      }
       updatedAt
     }
   }
@@ -1011,6 +1019,14 @@ export const UPDATE_PLATFORM_CONFIG = gql`
       featureFlags {
         waitlist deposits partnerRegistration publicRegistration
         messaging reviews experiences campaigns widget
+      }
+      annualBilling {
+        enabled
+        scope
+        planKeys
+        discountType
+        freeMonths
+        discountPercent
       }
       updatedAt
     }
@@ -1053,6 +1069,7 @@ const PLAN_PRICING_FIELDS = `
   originalMonthlyPriceCents
   discountType
   discountPercent
+  discountAmountCents
   annualFreeMonths
 `;
 
@@ -1223,6 +1240,7 @@ export const PLANS = gql`
       originalMonthlyPriceCents
       discountType
       discountPercent
+      discountAmountCents
       annualFreeMonths
       networkCoverFeeCents
       websiteCoverFeeCents

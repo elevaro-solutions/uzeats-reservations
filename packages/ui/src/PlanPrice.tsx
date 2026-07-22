@@ -5,15 +5,23 @@ import { Typography } from 'antd';
 import {
   formatPlanDollars,
   getPlanPriceDisplay,
+  planForBillingPeriod,
+  type AnnualBillingSettings,
+  type BillingPeriod,
   type PlanPricingFields,
 } from '@reservations/shared';
 
 const { Text } = Typography;
 
+export type { BillingPeriod, AnnualBillingSettings };
+
 export type PlanPriceProps = {
   plan: PlanPricingFields;
+  planKey?: string;
   size?: 'large' | 'medium' | 'small';
   showSecondaryNote?: boolean;
+  billingPeriod?: BillingPeriod;
+  annualBilling?: AnnualBillingSettings | null;
   style?: CSSProperties;
 };
 
@@ -25,11 +33,19 @@ const SIZE_MAP = {
 
 export function PlanPrice({
   plan,
+  planKey,
   size = 'large',
   showSecondaryNote = true,
+  billingPeriod = 'monthly',
+  annualBilling,
   style,
 }: PlanPriceProps) {
-  const display = getPlanPriceDisplay(plan);
+  const display = getPlanPriceDisplay(
+    planForBillingPeriod(plan, billingPeriod, {
+      annualBilling,
+      planKey,
+    }),
+  );
   const sizes = SIZE_MAP[size];
 
   let strikeContent: ReactNode = null;
@@ -37,8 +53,8 @@ export function PlanPrice({
     const strikeLabel =
       display.primarySuffix === ' / first month'
         ? `${formatPlanDollars(display.originalCents)}/mo`
-        : display.discountTag?.includes('annual')
-          ? `${formatPlanDollars(display.originalCents)}/yr`
+        : display.discountTag?.includes('annual') || display.discountTag?.includes('free on annual')
+          ? `${formatPlanDollars(display.originalCents)}/mo`
           : formatPlanDollars(display.originalCents);
     strikeContent = (
       <Text

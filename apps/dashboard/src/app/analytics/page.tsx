@@ -109,7 +109,7 @@ export default function AnalyticsPage() {
   const maxDaily = Math.max(...Object.values(stats.last7Days), 1);
 
   return (
-    <div component="AnalyticsPage" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="AnalyticsPage" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Analytics</Title>
       <Select
         style={{ width: 280 }}
@@ -187,7 +187,7 @@ export default function AnalyticsPage() {
           </Row>
 
           <Card title="Reservations per day (last 7 days)">
-            <Space direction="vertical" style={{ width: '100%' }} size={8}>
+            <Space orientation="vertical" style={{ width: '100%' }} size={8}>
               {Object.entries(stats.last7Days).map(([date, count]) => (
                 <div key={date} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <Text style={{ width: 80, flexShrink: 0 }}>{dayjs(date).format('ddd M/D')}</Text>
@@ -206,7 +206,7 @@ export default function AnalyticsPage() {
             {stats.topSlots.length === 0 ? (
               <Text type="secondary">No reservation data</Text>
             ) : (
-              <Space direction="vertical" size={4}>
+              <Space orientation="vertical" size={4}>
                 {stats.topSlots.map(([slot, count]) => (
                   <div key={slot} style={{ display: 'flex', gap: 12 }}>
                     <Text strong style={{ width: 60 }}>{slot}</Text>

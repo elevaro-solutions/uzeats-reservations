@@ -392,12 +392,21 @@ export const PLANS = gql`
       originalMonthlyPriceCents
       discountType
       discountPercent
+      discountAmountCents
       annualFreeMonths
       networkCoverFeeCents
       websiteCoverFeeCents
       trialDays
       visibleOnPricing
       isCustom
+    }
+    annualBillingSettings {
+      enabled
+      scope
+      planKeys
+      discountType
+      freeMonths
+      discountPercent
     }
   }
 `;

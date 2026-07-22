@@ -150,7 +150,7 @@ export default function BillingPage() {
     : [];
 
   return (
-    <div component="BillingPage" style={{ display: 'contents' }}><Space direction="vertical" size={24} style={{ width: '100%' }}>
+    <div component="BillingPage" style={{ display: 'contents' }}><Space orientation="vertical" size={24} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Title level={2} style={{ margin: 0 }}>
           Billing
@@ -362,7 +362,7 @@ export default function BillingPage() {
         /* No subscription — show plan picker */
         <>
           <Card>
-            <Space direction="vertical" align="center" style={{ width: '100%', padding: '24px 0' }}>
+            <Space orientation="vertical" align="center" style={{ width: '100%', padding: '24px 0' }}>
               <ExclamationCircleOutlined style={{ fontSize: 40, color: '#faad14' }} />
               <Title level={4} style={{ margin: 0 }}>
                 No active subscription
@@ -399,7 +399,7 @@ export default function BillingPage() {
                     </Button>,
                   ]}
                 >
-                  <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                  <Space orientation="vertical" size={4} style={{ width: '100%' }}>
                     {getPlanDiscountLabel(plan) ? (
                       <Tag color="gold">{getPlanDiscountLabel(plan)}</Tag>
                     ) : null}

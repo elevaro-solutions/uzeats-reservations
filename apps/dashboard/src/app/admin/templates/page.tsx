@@ -46,7 +46,7 @@ export default function AdminTemplatesPage() {
   };
 
   return (
-    <div component="AdminTemplatesPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminTemplatesPage" style={{ display: 'contents' }}><Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Email templates"
         subtitle="Edit transactional email subject and body. Use {{firstName}}, {{restaurantName}}, {{resetUrl}}, etc."
@@ -54,7 +54,7 @@ export default function AdminTemplatesPage() {
       <Row gutter={[16, 16]}>
         <Col xs={24} md={8}>
           <Card title="Templates" loading={loading}>
-            <Space direction="vertical" style={{ width: '100%' }}>
+            <Space orientation="vertical" style={{ width: '100%' }}>
               {templates.map((t: any) => (
                 <Button
                   key={t.key}

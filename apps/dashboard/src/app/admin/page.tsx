@@ -114,7 +114,7 @@ export default function AdminOverviewPage() {
   const s = stats?.adminStats;
 
   return (
-    <div component="AdminOverviewPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminOverviewPage" style={{ display: 'contents' }}><Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Platform overview"
         subtitle="Support diners and restaurant owners, and keep billing and platform settings healthy."
@@ -166,7 +166,7 @@ export default function AdminOverviewPage() {
               style={{ borderRadius: radii.lg, height: '100%' }}
               styles={{ body: { padding: spacing.lg } }}
             >
-              <Space direction="vertical" size={8} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                 <Text style={{ fontSize: 20, color: colors.brand[600] }}>{item.icon}</Text>
                 <Text strong style={{ fontSize: 16 }}>
                   {item.title}

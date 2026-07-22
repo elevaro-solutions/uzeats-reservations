@@ -173,7 +173,7 @@ export default function WaitlistPage() {
                     </div>
                   </div>
 
-                  <Space direction="vertical" size={8}>
+                  <Space orientation="vertical" size={8}>
                     {entry.status === 'notified' && (
                       <Button type="primary" onClick={() => handleBookNow(entry)}>
                         Book now

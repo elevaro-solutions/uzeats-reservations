@@ -259,7 +259,7 @@ export default function AdminConfigPage() {
         );
       case 'danger':
         return (
-          <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={12} style={{ width: '100%' }}>
             <div>
               <Text strong>Clear seed / demo data</Text>
               <Paragraph type="secondary" style={{ marginBottom: 0, marginTop: 4 }}>
@@ -278,7 +278,7 @@ export default function AdminConfigPage() {
   };
 
   return (
-    <div component="AdminConfigPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminConfigPage" style={{ display: 'contents' }}><Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Platform configuration"
         subtitle="Default roles, registration switches, support contacts, and invoice settings."
@@ -287,7 +287,7 @@ export default function AdminConfigPage() {
       <Row gutter={[16, 16]}>
         <Col xs={24} md={8}>
           <Card title="Configuration" loading={loading}>
-            <Space direction="vertical" style={{ width: '100%' }}>
+            <Space orientation="vertical" style={{ width: '100%' }}>
               {CONFIG_SECTIONS.map((section) => (
                 <Button
                   key={section.key}

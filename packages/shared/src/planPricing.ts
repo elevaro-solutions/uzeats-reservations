@@ -1,8 +1,13 @@
+import type { AnnualBillingSettings, PlanForBillingPeriodOptions } from './annualBilling.js';
+import { annualBillingAppliesToPlan, normalizeAnnualBillingSettings } from './annualBilling.js';
+
 export const PLAN_DISCOUNT_TYPES = [
   'none',
   'percent_off',
+  'amount_off',
   'first_month_free',
   'annual_months_free',
+  'annual_percent_off',
 ] as const;
 
 export type PlanDiscountType = (typeof PLAN_DISCOUNT_TYPES)[number];
@@ -12,6 +17,7 @@ export interface PlanPricingFields {
   originalMonthlyPriceCents?: number | null;
   discountType?: PlanDiscountType | string | null;
   discountPercent?: number | null;
+  discountAmountCents?: number | null;
   annualFreeMonths?: number | null;
 }
 
@@ -22,6 +28,13 @@ export function formatPlanDollars(cents: number): string {
 
 export function computeDiscountedPriceCents(originalCents: number, percent: number): number {
   return Math.round((originalCents * (100 - percent)) / 100);
+}
+
+export function computeAmountOffPriceCents(
+  originalCents: number,
+  discountAmountCents: number,
+): number {
+  return Math.max(0, originalCents - Math.max(0, discountAmountCents));
 }
 
 export function normalizeDiscountType(value?: string | null): PlanDiscountType {
@@ -37,6 +50,7 @@ export function resolvePlanPricing(input: PlanPricingFields): {
   originalMonthlyPriceCents: number | null;
   discountType: PlanDiscountType;
   discountPercent: number | null;
+  discountAmountCents: number | null;
   annualFreeMonths: number | null;
 } {
   const discountType = normalizeDiscountType(input.discountType);
@@ -47,6 +61,10 @@ export function resolvePlanPricing(input: PlanPricingFields): {
       : null;
   const discountPercent =
     input.discountPercent != null && input.discountPercent > 0 ? input.discountPercent : null;
+  const discountAmountCents =
+    input.discountAmountCents != null && input.discountAmountCents > 0
+      ? input.discountAmountCents
+      : null;
   const annualFreeMonths =
     input.annualFreeMonths != null && input.annualFreeMonths > 0 ? input.annualFreeMonths : null;
 
@@ -56,6 +74,18 @@ export function resolvePlanPricing(input: PlanPricingFields): {
       originalMonthlyPriceCents,
       discountType,
       discountPercent,
+      discountAmountCents: null,
+      annualFreeMonths: null,
+    };
+  }
+
+  if (discountType === 'amount_off' && originalMonthlyPriceCents && discountAmountCents) {
+    return {
+      monthlyPriceCents: computeAmountOffPriceCents(originalMonthlyPriceCents, discountAmountCents),
+      originalMonthlyPriceCents,
+      discountType,
+      discountPercent: null,
+      discountAmountCents,
       annualFreeMonths: null,
     };
   }
@@ -67,6 +97,7 @@ export function resolvePlanPricing(input: PlanPricingFields): {
       originalMonthlyPriceCents,
       discountType,
       discountPercent: null,
+      discountAmountCents: null,
       annualFreeMonths: null,
     };
   }
@@ -77,7 +108,19 @@ export function resolvePlanPricing(input: PlanPricingFields): {
       originalMonthlyPriceCents: null,
       discountType,
       discountPercent: null,
+      discountAmountCents: null,
       annualFreeMonths,
+    };
+  }
+
+  if (discountType === 'annual_percent_off' && discountPercent) {
+    return {
+      monthlyPriceCents,
+      originalMonthlyPriceCents: null,
+      discountType,
+      discountPercent,
+      discountAmountCents: null,
+      annualFreeMonths: null,
     };
   }
 
@@ -87,6 +130,7 @@ export function resolvePlanPricing(input: PlanPricingFields): {
       originalMonthlyPriceCents,
       discountType: 'none',
       discountPercent: null,
+      discountAmountCents: null,
       annualFreeMonths: null,
     };
   }
@@ -96,6 +140,7 @@ export function resolvePlanPricing(input: PlanPricingFields): {
     originalMonthlyPriceCents: null,
     discountType: 'none',
     discountPercent: null,
+    discountAmountCents: null,
     annualFreeMonths: null,
   };
 }
@@ -126,6 +171,59 @@ export function computeAnnualSavings(monthlyPriceCents: number, freeMonths: numb
     annualSavingsCents,
     annualSavingsPercent,
   };
+}
+
+export type { AnnualBillingSettings, PlanForBillingPeriodOptions };
+export type BillingPeriod = 'monthly' | 'annual';
+
+function stripAnnualRuntimeDiscount(plan: PlanPricingFields): PlanPricingFields {
+  if (plan.discountType === 'annual_months_free' || plan.discountType === 'annual_percent_off') {
+    return {
+      ...plan,
+      discountType: 'none',
+      annualFreeMonths: null,
+      discountPercent: plan.discountType === 'annual_percent_off' ? null : plan.discountPercent,
+    };
+  }
+  return plan;
+}
+
+/** Adjust plan pricing fields for monthly vs annual billing display. */
+export function planForBillingPeriod(
+  plan: PlanPricingFields,
+  billingPeriod: BillingPeriod,
+  options?: PlanForBillingPeriodOptions,
+): PlanPricingFields {
+  if (billingPeriod === 'monthly') {
+    return stripAnnualRuntimeDiscount(plan);
+  }
+
+  const annualBilling = normalizeAnnualBillingSettings(options?.annualBilling);
+  const planKey = options?.planKey;
+
+  // Global annual billing wins when enabled for this package.
+  if (planKey && annualBillingAppliesToPlan(planKey, annualBilling)) {
+    if (annualBilling.discountType === 'months_free') {
+      return {
+        ...plan,
+        discountType: 'annual_months_free',
+        annualFreeMonths: annualBilling.freeMonths,
+      };
+    }
+    return {
+      ...plan,
+      discountType: 'annual_percent_off',
+      discountPercent: annualBilling.discountPercent,
+      annualFreeMonths: null,
+    };
+  }
+
+  // Per-package annual discount only when global rules do not apply.
+  if (plan.discountType === 'annual_months_free' && plan.annualFreeMonths) {
+    return plan;
+  }
+
+  return plan;
 }
 
 export function formatAnnualSavingsNote(
@@ -169,6 +267,21 @@ export function getPlanPriceDisplay(plan: PlanPricingFields): PlanPriceDisplay {
         secondaryNote: null,
         ...emptySavings,
       };
+    case 'amount_off':
+      return {
+        primaryCents: resolved.monthlyPriceCents,
+        primarySuffix: ' / month',
+        originalCents: resolved.originalMonthlyPriceCents,
+        showStrikethrough: Boolean(
+          resolved.originalMonthlyPriceCents &&
+            resolved.originalMonthlyPriceCents > resolved.monthlyPriceCents,
+        ),
+        discountTag: resolved.discountAmountCents
+          ? `${formatPlanDollars(resolved.discountAmountCents)} off`
+          : null,
+        secondaryNote: null,
+        ...emptySavings,
+      };
     case 'annual_months_free': {
       const freeMonths = resolved.annualFreeMonths ?? 0;
       if (freeMonths <= 0) {
@@ -183,10 +296,11 @@ export function getPlanPriceDisplay(plan: PlanPricingFields): PlanPriceDisplay {
         };
       }
       const annual = computeAnnualSavings(resolved.monthlyPriceCents, freeMonths);
+      const effectiveMonthlyCents = Math.round(annual.annualDiscountedCents / 12);
       return {
-        primaryCents: resolved.monthlyPriceCents,
+        primaryCents: effectiveMonthlyCents,
         primarySuffix: ' / month',
-        originalCents: annual.annualFullCents,
+        originalCents: resolved.monthlyPriceCents,
         showStrikethrough: true,
         discountTag: `${freeMonths} month${freeMonths === 1 ? '' : 's'} free on annual`,
         secondaryNote: `${formatPlanDollars(annual.annualDiscountedCents)}/year billed annually`,
@@ -198,6 +312,39 @@ export function getPlanPriceDisplay(plan: PlanPricingFields): PlanPriceDisplay {
         annualDiscountedCents: annual.annualDiscountedCents,
         annualSavingsCents: annual.annualSavingsCents,
         annualSavingsPercent: annual.annualSavingsPercent,
+      };
+    }
+    case 'annual_percent_off': {
+      const percent = resolved.discountPercent ?? 0;
+      if (percent <= 0) {
+        return {
+          primaryCents: resolved.monthlyPriceCents,
+          primarySuffix: ' / month',
+          originalCents: null,
+          showStrikethrough: false,
+          discountTag: null,
+          secondaryNote: null,
+          ...emptySavings,
+        };
+      }
+      const annualFullCents = resolved.monthlyPriceCents * 12;
+      const annualDiscountedCents = computeDiscountedPriceCents(annualFullCents, percent);
+      const annualSavingsCents = annualFullCents - annualDiscountedCents;
+      const annualSavingsPercent =
+        annualFullCents > 0 ? Math.round((annualSavingsCents / annualFullCents) * 100) : 0;
+      const effectiveMonthlyCents = Math.round(annualDiscountedCents / 12);
+      return {
+        primaryCents: effectiveMonthlyCents,
+        primarySuffix: ' / month',
+        originalCents: resolved.monthlyPriceCents,
+        showStrikethrough: true,
+        discountTag: `${percent}% off annual billing`,
+        secondaryNote: `${formatPlanDollars(annualDiscountedCents)}/year billed annually`,
+        savingsNote: formatAnnualSavingsNote(annualSavingsCents, annualSavingsPercent),
+        annualFullCents,
+        annualDiscountedCents,
+        annualSavingsCents,
+        annualSavingsPercent,
       };
     }
     default:
