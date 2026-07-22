@@ -1,9 +1,14 @@
 import { gql } from '@apollo/client';
 
 export const MY_RESTAURANTS = gql`
-  query MyRestaurants {
-    myRestaurants {
+  query MyRestaurants(
+    $search: String
+    $status: RestaurantStatus
+    $city: String
+  ) {
+    myRestaurants(search: $search, status: $status, city: $city) {
       id
+      slug
       name
       status
       cuisine
@@ -41,6 +46,15 @@ export const MY_RESTAURANTS = gql`
           items { id name description priceCents dietary available photoUrl }
         }
       }
+    }
+  }
+`;
+
+export const MY_RESTAURANT_LOCATIONS_META = gql`
+  query MyRestaurantLocationsMeta {
+    myRestaurantLocationsMeta {
+      total
+      cities
     }
   }
 `;
@@ -156,8 +170,8 @@ export const UPSERT_MENU = gql`
 `;
 
 export const CREATE_RESTAURANT = gql`
-  mutation CreateRestaurant($input: RestaurantInput!) {
-    createRestaurant(input: $input) {
+  mutation CreateRestaurant($input: RestaurantInput!, $plan: String!) {
+    createRestaurant(input: $input, plan: $plan) {
       id name status
     }
   }
@@ -222,8 +236,13 @@ export const RESTAURANT_LOYALTY_STATS = gql`
 `;
 
 export const ADMIN_RESTAURANTS = gql`
-  query AdminRestaurants($status: RestaurantStatus, $limit: Int, $offset: Int) {
-    adminRestaurants(status: $status, limit: $limit, offset: $offset) {
+  query AdminRestaurants(
+    $status: RestaurantStatus
+    $search: String
+    $limit: Int
+    $offset: Int
+  ) {
+    adminRestaurants(status: $status, search: $search, limit: $limit, offset: $offset) {
       total
       items {
         id

@@ -23,7 +23,7 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import { SlotPicker, priceRangeLabel, colors, radii } from '@reservations/ui';
-import { OCCASIONS, LOYALTY, RESTAURANT_LOYALTY, pointsToDiscountCents, restaurantPointsToDiscountCents, depositPointsFromCents, loyaltyRedeemProgress } from '@reservations/shared';
+import { OCCASIONS, LOYALTY, RESTAURANT_LOYALTY, pointsToDiscountCents, restaurantPointsToDiscountCents, depositPointsFromCents, loyaltyRedeemProgress, isMongoObjectId, buildRestaurantBookingPath } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import {
   RESTAURANT_DETAIL,
@@ -46,6 +46,8 @@ const { Title, Paragraph, Text } = Typography;
 
 export default function RestaurantPage() {
   const params = useParams<{ id: string }>();
+  const slugOrId = params.id;
+  const isObjectId = isMongoObjectId(slugOrId);
   const search = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
@@ -72,33 +74,42 @@ export default function RestaurantPage() {
     paymentIntentId: string;
   } | null>(null);
 
-  const { data } = useQuery(RESTAURANT_DETAIL, { variables: { id: params.id } });
+  const { data } = useQuery(RESTAURANT_DETAIL, {
+    variables: isObjectId ? { id: slugOrId } : { slug: slugOrId },
+  });
+  const restaurant = (data as any)?.restaurant;
+  const restaurantId = restaurant?.id ?? (isObjectId ? slugOrId : undefined);
+  const bookingPath = buildRestaurantBookingPath(restaurant?.slug, restaurantId);
+
   const { data: availData, loading: availLoading } = useQuery(AVAILABILITY, {
     variables: {
-      restaurantId: params.id,
+      restaurantId: restaurantId!,
       date: date.format('YYYY-MM-DD'),
       partySize,
     },
+    skip: !restaurantId,
   });
   const { data: reviewsData } = useQuery(RESTAURANT_REVIEWS, {
-    variables: { restaurantId: params.id, limit: 50, offset: 0 },
+    variables: { restaurantId: restaurantId!, limit: 50, offset: 0 },
+    skip: !restaurantId,
   });
   const { data: promotionsData } = useQuery(PROMOTIONS, {
-    variables: { restaurantId: params.id, activeOnly: true, limit: 50, offset: 0 },
+    variables: { restaurantId: restaurantId!, activeOnly: true, limit: 50, offset: 0 },
+    skip: !restaurantId,
   });
   const { data: experiencesData } = useQuery(EXPERIENCES, {
-    variables: { restaurantId: params.id, upcoming: true, limit: 50, offset: 0 },
+    variables: { restaurantId: restaurantId!, upcoming: true, limit: 50, offset: 0 },
+    skip: !restaurantId,
   });
   const { data: restaurantLoyaltyData } = useQuery(MY_RESTAURANT_LOYALTY_BALANCE, {
-    variables: { restaurantId: params.id },
-    skip: !user,
+    variables: { restaurantId: restaurantId! },
+    skip: !user || !restaurantId,
   });
 
   const [createReservation, { loading: booking }] = useMutation(CREATE_RESERVATION);
   const [confirmDeposit] = useMutation(CONFIRM_DEPOSIT);
   const [joinWaitlist, { loading: waitlisting }] = useMutation(JOIN_WAITLIST);
 
-  const restaurant = (data as any)?.restaurant;
   const slots = (availData as any)?.availability ?? [];
   const grossDepositCents =
     restaurant?.depositRequired && restaurant.depositAmountCents > 0
@@ -130,20 +141,20 @@ export default function RestaurantPage() {
   ]);
   const { data: promoValidationData } = useQuery(VALIDATE_PROMOTION, {
     variables: {
-      restaurantId: params.id,
+      restaurantId: restaurantId!,
       code: promoCode.trim().toUpperCase(),
       slotStart: selectedSlot!,
       depositCents: depositBeforePromo,
     },
-    skip: !promoCode.trim() || !selectedSlot || depositBeforePromo <= 0,
+    skip: !restaurantId || !promoCode.trim() || !selectedSlot || depositBeforePromo <= 0,
   });
   const { data: bestPromoData } = useQuery(BEST_PROMOTION, {
     variables: {
-      restaurantId: params.id,
+      restaurantId: restaurantId!,
       slotStart: selectedSlot!,
       depositCents: depositBeforePromo,
     },
-    skip: !!promoCode.trim() || !selectedSlot || depositBeforePromo <= 0,
+    skip: !restaurantId || !!promoCode.trim() || !selectedSlot || depositBeforePromo <= 0,
   });
   const promoValidation = (promoValidationData as any)?.validatePromotion;
   const bestPromotion = (bestPromoData as any)?.bestPromotion;
@@ -154,11 +165,11 @@ export default function RestaurantPage() {
   );
   const { data: giftValidationData } = useQuery(VALIDATE_GIFT_CARD, {
     variables: {
-      restaurantId: params.id,
+      restaurantId: restaurantId!,
       code: giftCardCode.trim().toUpperCase(),
       depositCents: depositAfterPromo,
     },
-    skip: !giftCardCode.trim() || depositAfterPromo <= 0,
+    skip: !restaurantId || !giftCardCode.trim() || depositAfterPromo <= 0,
   });
   const giftValidation = (giftValidationData as any)?.validateGiftCard;
   const availableCount = slots.filter((s: any) => s.available).length;
@@ -190,7 +201,7 @@ export default function RestaurantPage() {
   const book = async () => {
     if (!user) {
       message.info('Please sign in to book');
-      router.push(`/login?next=/restaurants/${params.id}`);
+      router.push(`/login?next=${encodeURIComponent(bookingPath)}`);
       return;
     }
     if (!selectedSlot) {
@@ -211,7 +222,7 @@ export default function RestaurantPage() {
       const { data: result } = await createReservation({
         variables: {
           input: {
-            restaurantId: params.id,
+            restaurantId: restaurantId!,
             partySize,
             slotStart: selectedSlot,
             occasion,
@@ -273,7 +284,7 @@ export default function RestaurantPage() {
     await joinWaitlist({
       variables: {
         input: {
-          restaurantId: params.id,
+          restaurantId: restaurantId!,
           partySize,
           preferredDate: date.format('YYYY-MM-DD'),
         },

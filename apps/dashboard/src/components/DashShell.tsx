@@ -50,6 +50,7 @@ import {
   FlagOutlined,
   DownloadOutlined,
   DashboardOutlined,
+  CompassOutlined,
 } from '@ant-design/icons';
 import { usePathname, useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
@@ -62,6 +63,11 @@ import {
   MY_NOTIFICATIONS,
   MY_RESTAURANTS,
 } from '@/lib/graphql';
+import {
+  MANY_LOCATIONS_THRESHOLD,
+  restaurantSelectFilterOption,
+} from '@/lib/restaurants';
+import { getOnboardingProgress, getOnboardingSteps } from '@/lib/onboarding';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -208,6 +214,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     }
     const exact = [
       '/',
+      '/onboarding',
       '/reservations',
       '/waitlist',
       '/floor-plan',
@@ -236,6 +243,15 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   const restaurants = restaurantsData?.myRestaurants ?? [];
   const notifications: AppNotification[] = notifData?.myNotifications ?? [];
   const unreadCount: number = notifData?.unreadNotificationCount ?? 0;
+  const activeRestaurant = restaurants.find((r: { id: string }) => r.id === restaurantId);
+  const onboardingSteps = activeRestaurant ? getOnboardingSteps(activeRestaurant) : [];
+  const onboardingProgress = getOnboardingProgress(onboardingSteps);
+  const showOnboardingBanner =
+    !isAdmin &&
+    isPartner &&
+    activeRestaurant &&
+    onboardingProgress.showOnboarding &&
+    pathname !== '/onboarding';
 
   const partnerItems = [
     {
@@ -281,6 +297,9 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       type: 'group' as const,
       label: 'Account',
       children: [
+        ...(onboardingProgress.showOnboarding
+          ? [item('/onboarding', <CompassOutlined />, 'Get started')]
+          : []),
         item('/settings', <SettingOutlined />, 'Settings'),
         item('/billing', <DollarOutlined />, 'Billing'),
       ],
@@ -635,6 +654,8 @@ export function DashShell({ children }: { children: React.ReactNode }) {
                     value: r.id,
                     label: r.name,
                   }))}
+                  showSearch={restaurants.length >= MANY_LOCATIONS_THRESHOLD}
+                  filterOption={restaurantSelectFilterOption}
                   variant="borderless"
                   popupMatchSelectWidth={280}
                 />
@@ -723,6 +744,26 @@ export function DashShell({ children }: { children: React.ReactNode }) {
             margin: '0 auto',
           }}
         >
+          {showOnboardingBanner && (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: spacing.lg, borderRadius: radii.lg }}
+              message="Finish setting up your restaurant"
+              description={
+                <span>
+                  {onboardingProgress.completedRequired} of {onboardingProgress.totalRequired}{' '}
+                  required steps complete for {activeRestaurant?.name}. Complete your profile, tables
+                  & shifts, and await approval to start taking reservations.
+                </span>
+              }
+              action={
+                <Button size="small" type="primary" onClick={() => router.push('/onboarding')}>
+                  Continue setup
+                </Button>
+              }
+            />
+          )}
           {children}
         </Content>
       </Layout>

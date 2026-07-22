@@ -258,7 +258,7 @@ function RegisterForm() {
       message.success(
         `${payload.restaurant.name} submitted — ${planInfo.name}${planInfo.trialDays > 0 ? ' trial started' : ' selected'}`,
       );
-      router.push('/');
+      router.push('/onboarding');
     } catch (err) {
       const errorFields =
         err && typeof err === 'object' && 'errorFields' in err

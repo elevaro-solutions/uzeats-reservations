@@ -28,11 +28,13 @@ pnpm --filter @reservations/web build
 pnpm --filter @reservations/web start
 ```
 
-Set `NEXT_PUBLIC_API_URL=https://api.yourdomain.com/graphql`.
+Set `NEXT_PUBLIC_API_URL=https://api.yourdomain.com/graphql` and `NEXT_PUBLIC_WEB_URL=https://tablevera.online` (used for booking links and widget redirects).
 
 For Google address autocomplete on the diner home page, also set
 `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (Maps JavaScript API + Places library; restrict by HTTP referrer).
 Without the key, the location field falls back to curated US cities with nearby search.
+
+Public restaurant pages support short share links: `https://yourdomain.com/r/{slug}` (rewrites to `/restaurants/{slug}`).
 
 For Google / Gmail login on the diner app, set matching OAuth Web client IDs:
 - API: `GOOGLE_CLIENT_ID` (and optional `GOOGLE_CLIENT_SECRET`)
@@ -51,3 +53,9 @@ Events: `payment_intent.amount_capturable_updated`, `payment_intent.succeeded`
 3. The API registers `POST https://api.yourdomain.com/webhooks/telegram` on startup.
 4. In local development, the API uses long-polling instead of a webhook.
 5. Users open `@TableveraBot`, send `/start`, paste the returned Chat ID in profile settings.
+
+## Partner dashboard
+
+Set `NEXT_PUBLIC_DASHBOARD_URL` and `NEXT_PUBLIC_WEB_URL` on the dashboard build so Settings and onboarding can generate correct booking links and widget embed snippets.
+
+Partners use `/onboarding` for the setup checklist (profile, tables/shifts, approval). Embed code is also available under Settings → Booking widget.

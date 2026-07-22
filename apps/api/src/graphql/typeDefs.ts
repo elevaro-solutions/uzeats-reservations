@@ -399,6 +399,11 @@ export const typeDefs = `#graphql
     limit: Int!
   }
 
+  type MyRestaurantLocationsMeta {
+    total: Int!
+    cities: [String!]!
+  }
+
   type UserConnection {
     items: [User!]!
     total: Int!
@@ -1702,9 +1707,19 @@ export const typeDefs = `#graphql
     myRestaurantLoyaltyHistory(restaurantId: ID, limit: Int): [RestaurantLoyaltyTransaction!]!
     myNotifications(limit: Int): [AppNotification!]!
     unreadNotificationCount: Int!
-    myRestaurants: [Restaurant!]!
+    myRestaurants(
+      search: String
+      status: RestaurantStatus
+      city: String
+    ): [Restaurant!]!
+    myRestaurantLocationsMeta: MyRestaurantLocationsMeta!
     restaurantTeam(restaurantId: ID!): [User!]!
-    adminRestaurants(status: RestaurantStatus, limit: Int, offset: Int): RestaurantConnection!
+    adminRestaurants(
+      status: RestaurantStatus
+      search: String
+      limit: Int
+      offset: Int
+    ): RestaurantConnection!
     adminStats: PlatformStats!
     adminLoyaltyStats: LoyaltyPlatformStats!
     adminReferralLeaders(limit: Int): [ReferralLeader!]!
@@ -1787,7 +1802,7 @@ export const typeDefs = `#graphql
     requestPasswordReset(email: String!): MessagePayload!
     resetPassword(token: String!, newPassword: String!): MessagePayload!
 
-    createRestaurant(input: RestaurantInput!): Restaurant!
+    createRestaurant(input: RestaurantInput!, plan: String): Restaurant!
     updateRestaurant(id: ID!, input: RestaurantInput!): Restaurant!
     setRestaurantStatus(id: ID!, status: RestaurantStatus!): Restaurant!
 

@@ -27,7 +27,7 @@ import {
   TagFilled,
   ThunderboltFilled,
 } from '@ant-design/icons';
-import { CUISINES } from '@reservations/shared';
+import { buildRestaurantBookingPath } from '@reservations/shared';
 import { SEARCH_RESTAURANTS, AVAILABILITY } from '@/lib/graphql';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { DEFAULT_LOCATION, cityLabel } from '@/lib/cities';
@@ -200,10 +200,10 @@ function HomePageContent() {
             restaurant={r}
             date={dateStr}
             partySize={partySize}
-            onOpen={() => router.push(`/restaurants/${r.id}`)}
+            onOpen={() => router.push(buildRestaurantBookingPath(r.slug, r.id))}
             onSelectSlot={(time) =>
               router.push(
-                `/restaurants/${r.id}?date=${dateStr}&party=${partySize}&slot=${encodeURIComponent(time)}`,
+                `${buildRestaurantBookingPath(r.slug, r.id)}?date=${dateStr}&party=${partySize}&slot=${encodeURIComponent(time)}`,
               )
             }
           />

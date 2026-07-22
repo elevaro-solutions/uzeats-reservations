@@ -4,7 +4,7 @@ Drop-in booking widget that lets diners reserve a table directly from your resta
 
 ## Quick Start
 
-Add this snippet anywhere in your HTML:
+Add this snippet anywhere in your HTML (or copy the generated code from **Partner Hub → Settings → Booking widget**):
 
 ```html
 <script
@@ -12,6 +12,8 @@ Add this snippet anywhere in your HTML:
   data-restaurant-id="YOUR_RESTAURANT_ID"
 ></script>
 ```
+
+You can also build embed markup programmatically via `buildWidgetEmbedCode` from `@reservations/shared`.
 
 The widget renders immediately after the `<script>` tag.
 

@@ -29,6 +29,10 @@ import {
   adminCreatePasswordReset,
 } from '../services/auth.js';
 import { registerRestaurantPartner } from '../services/partnerRegister.js';
+import {
+  buildAdminRestaurantFilter,
+  buildOwnerRestaurantFilter,
+} from '../services/restaurantFilters.js';
 import { getAvailability } from '../services/availability.js';
 import { paginateQuery } from '../lib/pagination.js';
 import {
@@ -93,14 +97,13 @@ import {
 } from '../models/index.js';
 import crypto from 'node:crypto';
 import {
-  createStripeCustomer,
-  createStripeSubscription,
   cancelStripeSubscription,
   updateStripeSubscription,
   createDepositIntent,
   isStubPaymentIntent,
 } from '../services/stripe.js';
 import { logAudit } from '../services/audit.js';
+import { createRestaurantSubscription } from '../services/restaurantSubscription.js';
 import { requireAuth, requireRole, type GraphQLContext } from './context.js';
 import {
   mapUser,
@@ -681,21 +684,43 @@ export const resolvers = {
       });
     },
 
-    myRestaurants: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+    myRestaurants: async (
+      _: unknown,
+      args: { search?: string; status?: string; city?: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
-      const items = await Restaurant.find({
-        $or: [{ ownerId: user._id }, { _id: { $in: user.restaurantIds } }],
-      });
+      const items = await Restaurant.find(
+        buildOwnerRestaurantFilter(user, args),
+      ).sort({ name: 1 });
       return items.map(mapRestaurant);
+    },
+
+    myRestaurantLocationsMeta: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      const baseFilter = buildOwnerRestaurantFilter(user);
+      const [total, cityRows] = await Promise.all([
+        Restaurant.countDocuments(baseFilter),
+        Restaurant.aggregate<{ _id: string }>([
+          { $match: baseFilter },
+          { $group: { _id: '$address.city' } },
+          { $match: { _id: { $nin: [null, ''] } } },
+          { $sort: { _id: 1 } },
+        ]),
+      ]);
+      return {
+        total,
+        cities: cityRows.map((row) => row._id),
+      };
     },
 
     adminRestaurants: async (
       _: unknown,
-      args: { status?: string; limit?: number; offset?: number },
+      args: { status?: string; search?: string; limit?: number; offset?: number },
       ctx: GraphQLContext,
     ) => {
       requireRole(ctx, ['admin']);
-      const filter = args.status ? { status: args.status } : {};
+      const filter = buildAdminRestaurantFilter(args);
       const result = await paginateQuery(Restaurant, filter, {
         sort: { createdAt: -1 },
         limit: args.limit,
@@ -1596,7 +1621,11 @@ export const resolvers = {
     resetPassword: async (_: unknown, args: { token: string; newPassword: string }) =>
       resetPassword(args.token, args.newPassword),
 
-    createRestaurant: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
+    createRestaurant: async (
+      _: unknown,
+      args: { input: unknown; plan?: string | null },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const input = restaurantInputSchema.parse(args.input);
       const doc = await Restaurant.create({
@@ -1610,6 +1639,25 @@ export const resolvers = {
         $addToSet: { restaurantIds: doc._id },
         role: user.role === 'diner' ? 'restaurant_owner' : user.role,
       });
+
+      if (args.plan) {
+        try {
+          await createRestaurantSubscription({
+            restaurantId: doc._id.toString(),
+            plan: args.plan,
+            customerEmail: user.email ?? undefined,
+            customerName: doc.name,
+            actorId: user._id.toString(),
+          });
+        } catch (err) {
+          await Restaurant.findByIdAndDelete(doc._id);
+          await User.findByIdAndUpdate(user._id, {
+            $pull: { restaurantIds: doc._id },
+          });
+          throw err;
+        }
+      }
+
       return mapRestaurant(doc);
     },
 
@@ -2390,55 +2438,16 @@ export const resolvers = {
 
       const planDef = await getEffectivePlan(args.plan);
       if (!planDef) throw new Error(`Invalid plan: ${args.plan}`);
-      const planKey = planDef.key;
-
-      const existing = await Subscription.findOne({ restaurantId: args.restaurantId });
-      if (existing) throw new Error('Subscription already exists for this restaurant');
 
       const restaurant = await Restaurant.findById(args.restaurantId);
       if (!restaurant) throw new Error('Restaurant not found');
 
-      const customer = await createStripeCustomer({
-        email: user.email ?? undefined,
-        name: restaurant.name,
-        metadata: { restaurantId: args.restaurantId },
-      });
-
-      const stripeSub = await createStripeSubscription({
-        customerId: customer.id,
-        priceAmountCents: planDef.monthlyPriceCents,
-        trialDays: planDef.trialDays || undefined,
-        metadata: { restaurantId: args.restaurantId, plan: planKey },
-      });
-
-      const now = new Date();
-      const sub = await Subscription.create({
+      const sub = await createRestaurantSubscription({
         restaurantId: args.restaurantId,
-        plan: planKey,
-        status: planDef.trialDays ? 'trialing' : 'active',
-        stripeCustomerId: customer.id,
-        stripeSubscriptionId: stripeSub.id,
-        currentPeriodStart: stripeSub.current_period_start
-          ? new Date(stripeSub.current_period_start * 1000)
-          : new Date(),
-        currentPeriodEnd: stripeSub.current_period_end
-          ? new Date(stripeSub.current_period_end * 1000)
-          : new Date(Date.now() + 30 * 86_400_000),
-        trialEndsAt: stripeSub.trial_end
-          ? new Date(stripeSub.trial_end * 1000)
-          : undefined,
-        monthlyPriceCents: planDef.monthlyPriceCents,
-        networkCoverFeeCents: planDef.networkCoverFeeCents,
-        websiteCoverFeeCents: planDef.websiteCoverFeeCents,
-        features: { ...planDef.features },
-      });
-
-      await logAudit({
+        plan: args.plan,
+        customerEmail: user.email ?? undefined,
+        customerName: restaurant.name,
         actorId: user._id.toString(),
-        action: 'createSubscription',
-        resource: 'Subscription',
-        resourceId: sub._id.toString(),
-        details: { plan: planKey, restaurantId: args.restaurantId },
       });
 
       return mapSubscription(sub);

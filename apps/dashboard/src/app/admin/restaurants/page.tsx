@@ -17,7 +17,7 @@ import {
   Table,
   message,
 } from 'antd';
-import { EditOutlined } from '@ant-design/icons';
+import { EditOutlined, SearchOutlined } from '@ant-design/icons';
 import { CUISINES } from '@reservations/shared';
 import {
   AddressAutocomplete,
@@ -38,12 +38,28 @@ import { priceRangeOptions } from '@/lib/restaurantFormTooltips';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 
+const STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'suspended', label: 'Suspended' },
+];
+
 function AdminRestaurantsContent() {
   const { ready } = useRequireAdmin();
-  const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 20 });
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>();
+  const { limit, offset, setPagination, tablePagination } = useUrlPagination({
+    defaultPageSize: 20,
+  });
   const { data, refetch, loading } = useQuery(ADMIN_RESTAURANTS, {
     skip: !ready,
-    variables: { limit, offset },
+    variables: {
+      search: search || undefined,
+      status: statusFilter,
+      limit,
+      offset,
+    },
   });
   const { data: usersData } = useQuery(ADMIN_USERS, {
     skip: !ready,
@@ -141,11 +157,38 @@ function AdminRestaurantsContent() {
         subtitle="Approve partners, edit listing details, and manage ownership."
       />
       <Card>
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+          <Space wrap>
+            <Input
+              placeholder="Search name, cuisine, or location..."
+              prefix={<SearchOutlined />}
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPagination(1);
+              }}
+              allowClear
+              style={{ width: 300 }}
+            />
+            <Select
+              placeholder="Status"
+              allowClear
+              style={{ width: 160 }}
+              value={statusFilter}
+              onChange={(value) => {
+                setStatusFilter(value);
+                setPagination(1);
+              }}
+              options={STATUS_OPTIONS}
+            />
+          </Space>
         <Table
           loading={loading}
           rowKey="id"
           dataSource={data?.adminRestaurants?.items ?? []}
-          pagination={tablePagination(data?.adminRestaurants?.total ?? 0)}
+          pagination={tablePagination(data?.adminRestaurants?.total ?? 0, {
+            showSizeChanger: true,
+          })}
           columns={[
             { title: 'Name', dataIndex: 'name' },
             { title: 'Cuisine', dataIndex: 'cuisine' },
@@ -207,6 +250,7 @@ function AdminRestaurantsContent() {
             },
           ]}
         />
+        </Space>
       </Card>
 
       <Modal

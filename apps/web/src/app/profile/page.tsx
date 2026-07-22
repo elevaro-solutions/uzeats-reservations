@@ -14,7 +14,7 @@ import {
   TrophyOutlined,
 } from '@ant-design/icons';
 import { PageHeader, colors, radii, shadows } from '@reservations/ui';
-import { LOYALTY, loyaltyRedeemProgress, resolveLoyaltyTier } from '@reservations/shared';
+import { LOYALTY, loyaltyRedeemProgress, resolveLoyaltyTier, buildRestaurantBookingPath } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -274,7 +274,7 @@ export default function ProfilePage() {
                     actions={[
                       <Link
                         key="book"
-                        href={`/restaurants/${item.restaurantSlug ?? item.restaurantId}`}
+                        href={buildRestaurantBookingPath(item.restaurantSlug, item.restaurantId)}
                       >
                         Book
                       </Link>,

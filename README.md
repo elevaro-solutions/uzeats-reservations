@@ -80,7 +80,8 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Menus + DO Spaces presigned uploads (stubbed without keys)
 - Notifications: email (Resend), Telegram bot, web/Expo push, in-app inbox + channel prefs
 - Auth: email/password, Google OAuth, Twilio phone OTP
-- Partner Settings hub, notifications prefs, multi-restaurant selector, and self-registration
+- Partner Settings hub, notifications prefs, multi-restaurant selector, self-registration, and onboarding checklist
+- Shareable booking links (`/r/:slug`) and copy-paste widget embed from Settings
 - Owner phone / walk-in bookings, reservation edit, and reservation-scoped messaging
 - Platform admin: users, restaurants, invoices, revenue, support, moderation, templates, config, and annual billing discounts
 - Embeddable booking widget with per-restaurant theme

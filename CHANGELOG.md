@@ -4,6 +4,28 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.0] — 2026-07-22
+
+### Added
+
+- Partner onboarding checklist (`/onboarding`) with setup progress, booking link, and widget embed copy
+- Short public booking URLs at `/r/:slug` (slug-based restaurant lookup on diner web)
+- Shared `bookingUrl` helpers: `buildRestaurantBookingPath`, `buildRestaurantBookingUrl`, `buildWidgetEmbedCode`
+- Partner overview: plan picker when adding a venue, search/filter by status and city, location metadata
+- Admin restaurant list search; `myRestaurants` and `adminRestaurants` text filters
+- Extracted `createRestaurantSubscription` service (used by partner register and create flows)
+
+### Changed
+
+- Settings shows shareable booking URL and inline/button widget embed snippets
+- DashShell surfaces onboarding banner and searchable venue selector for multi-location owners
+- `createRestaurant` accepts optional `plan` to start Stripe subscription on signup
+
+### Docs
+
+- README and deploy guide cover `NEXT_PUBLIC_WEB_URL`, short `/r/:slug` links, and partner onboarding
+- Widget README notes dashboard-generated embed code
+
 ## [0.7.0] — 2026-07-22
 
 ### Added

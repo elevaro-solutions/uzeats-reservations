@@ -1,7 +1,7 @@
 import type { RestaurantInfo, AvailabilitySlot, WidgetConfig, WidgetTheme } from './api';
 import { fetchRestaurant, fetchAvailability } from './api';
 import { getActivePalette } from '@reservations/ui/palettes';
-import { LOYALTY, RESTAURANT_LOYALTY, depositPointsFromCents } from '@reservations/shared';
+import { LOYALTY, RESTAURANT_LOYALTY, depositPointsFromCents, buildRestaurantBookingPath } from '@reservations/shared';
 
 // ── Theme ────────────────────────────────────────────────────────────
 
@@ -172,7 +172,8 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
     if (state.selectedSlot) params.set('slot', state.selectedSlot);
     const promo = state.promoCode.trim().toUpperCase();
     if (promo) params.set('promo', promo);
-    return `${base}/restaurants/${config.restaurantId}?${params}`;
+    const path = buildRestaurantBookingPath(state.restaurant?.slug, config.restaurantId);
+    return `${base}${path}?${params}`;
   }
 
   function render() {

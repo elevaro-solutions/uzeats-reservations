@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@apollo/client/react';
 import {
   Typography,
   Card,
   Button,
   Space,
-  Tag,
   Collapse,
   Row,
   Col,
@@ -191,19 +190,6 @@ const COMPARISON_PLAN_KEYS = ['basic', 'core', 'pro'] as const;
 const VISIBLE_CATEGORY_COUNT = 2;
 
 type PlanKey = (typeof PLAN_ORDER)[number];
-type Segment = 'new' | 'operations' | 'marketing';
-
-const SEGMENT_OPTIONS: { label: string; value: Segment }[] = [
-  { label: 'New restaurant', value: 'new' },
-  { label: 'Full operations', value: 'operations' },
-  { label: 'Marketing & CRM', value: 'marketing' },
-];
-
-const SEGMENT_PLAN: Record<Segment, PlanKey> = {
-  new: 'basic',
-  operations: 'core',
-  marketing: 'pro',
-};
 
 const PLAN_HIGHLIGHTS: Record<PlanKey, string[]> = {
   basic: [
@@ -389,7 +375,6 @@ function getFinePrint(
 export default function PricingPage() {
   const [selectedPlan, setSelectedPlan] = useState<string>('core');
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
-  const [segment, setSegment] = useState<Segment>('operations');
   const [showAllFeatures, setShowAllFeatures] = useState(false);
   const { data: plansData } = useQuery(PLANS);
 
@@ -447,10 +432,6 @@ export default function PricingPage() {
   const gridColumns = `1fr repeat(${comparisonPlans.length}, minmax(100px, 120px))`;
   const coreColumnIndex = comparisonPlans.indexOf('core');
 
-  useEffect(() => {
-    setSelectedPlan(SEGMENT_PLAN[segment]);
-  }, [segment]);
-
   const startTrial = (plan: string = selectedPlan) => {
     window.open(`${DASHBOARD_URL}/register?plan=${plan}`, '_blank');
   };
@@ -469,9 +450,9 @@ export default function PricingPage() {
           }}
           styles={{ body: { padding: '48px 32px', textAlign: 'center' } }}
         >
-          <Tag color="gold" style={{ marginBottom: 16, fontWeight: 600, border: 'none' }}>
+          <span className="pricing-hero-badge">
             Launch pricing — limited early-partner rates
-          </Tag>
+          </span>
           <Title style={{ color: '#fff', marginTop: 0, fontSize: 36, lineHeight: 1.2 }}>
             Fill more tables. Pay less per cover.
           </Title>
@@ -500,19 +481,6 @@ export default function PricingPage() {
             </Space>
           </Space>
         </Card>
-
-        {/* Segment selector */}
-        <div style={{ textAlign: 'center' }}>
-          <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
-            Recommended for you
-          </Text>
-          <Segmented
-            value={segment}
-            onChange={(value) => setSegment(value as Segment)}
-            options={SEGMENT_OPTIONS}
-            size="large"
-          />
-        </div>
 
         {/* Billing toggle */}
         <div style={{ textAlign: 'center' }}>

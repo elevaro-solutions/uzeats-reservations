@@ -1,11 +1,10 @@
 import type { RegisterRestaurantPartnerInput, UserRole } from '@reservations/shared';
 import { Restaurant } from '../models/Restaurant.js';
-import { Subscription } from '../models/Subscription.js';
 import { User } from '../models/User.js';
 import { logAudit } from './audit.js';
 import { hashPassword, issueTokens } from './auth.js';
 import { getEffectivePlan, getPlatformConfig } from './platformConfig.js';
-import { createStripeCustomer, createStripeSubscription } from './stripe.js';
+import { createRestaurantSubscription } from './restaurantSubscription.js';
 
 function slugify(name: string) {
   return name
@@ -66,38 +65,12 @@ export async function registerRestaurantPartner(input: RegisterRestaurantPartner
     $addToSet: { restaurantIds: restaurant._id },
   });
 
-  const customer = await createStripeCustomer({
-    email: user.email ?? undefined,
-    name: restaurant.name,
-    metadata: { restaurantId: restaurant._id.toString() },
-  });
-
-  const stripeSub = await createStripeSubscription({
-    customerId: customer.id,
-    priceAmountCents: planDef.monthlyPriceCents,
-    trialDays: planDef.trialDays || undefined,
-    metadata: { restaurantId: restaurant._id.toString(), plan: planDef.key },
-  });
-
-  const subscription = await Subscription.create({
-    restaurantId: restaurant._id,
-    plan: planDef.key,
-    status: planDef.trialDays ? 'trialing' : 'active',
-    stripeCustomerId: customer.id,
-    stripeSubscriptionId: stripeSub.id,
-    currentPeriodStart: stripeSub.current_period_start
-      ? new Date(stripeSub.current_period_start * 1000)
-      : new Date(),
-    currentPeriodEnd: stripeSub.current_period_end
-      ? new Date(stripeSub.current_period_end * 1000)
-      : new Date(Date.now() + 30 * 86_400_000),
-    trialEndsAt: stripeSub.trial_end
-      ? new Date(stripeSub.trial_end * 1000)
-      : undefined,
-    monthlyPriceCents: planDef.monthlyPriceCents,
-    networkCoverFeeCents: planDef.networkCoverFeeCents,
-    websiteCoverFeeCents: planDef.websiteCoverFeeCents,
-    features: { ...planDef.features },
+  const subscription = await createRestaurantSubscription({
+    restaurantId: restaurant._id.toString(),
+    plan: input.plan,
+    customerEmail: user.email ?? undefined,
+    customerName: restaurant.name,
+    actorId: user._id.toString(),
   });
 
   await logAudit({

@@ -578,6 +578,19 @@ a {
 }
 
 /* Pricing page */
+.pricing-hero-badge {
+  display: inline-block;
+  margin-bottom: 20px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  background: #f5e6a8;
+  color: #3d2e00;
+}
+
 .pricing-page-content {
   padding-bottom: 88px;
 }

@@ -13,6 +13,7 @@ import {
   Input,
   InputNumber,
   Row,
+  Segmented,
   Select,
   Space,
   Switch,
@@ -25,12 +26,14 @@ import {
   ArrowRightOutlined,
   BellOutlined,
   ClusterOutlined,
+  CopyOutlined,
   FormOutlined,
+  LinkOutlined,
   LockOutlined,
   ReadOutlined,
   StopOutlined,
 } from '@ant-design/icons';
-import { CUISINES } from '@reservations/shared';
+import { CUISINES, buildRestaurantBookingUrl, buildWidgetEmbedCode } from '@reservations/shared';
 import { AddressAutocomplete, PageHeader, PhoneInput, colors, radii, spacing, usPhoneRules } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { addressSelectionToFields } from '@/lib/address';
@@ -47,7 +50,18 @@ import {
 } from '@/lib/restaurantFormTooltips';
 import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
 
-const { Text } = Typography;
+const { Text, Paragraph } = Typography;
+
+const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000';
+
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text);
+    message.success('Copied to clipboard');
+  } catch {
+    message.error('Failed to copy');
+  }
+};
 
 const TOOL_LINKS = [
   {
@@ -118,6 +132,7 @@ export default function SettingsPage() {
   const [form] = Form.useForm();
   const [settingsForm] = Form.useForm();
   const [photos, setPhotos] = useState<string[]>([]);
+  const [embedMode, setEmbedMode] = useState<'inline' | 'button'>('inline');
   const { data, loading: dataLoading, refetch } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurantIds = useMemo(
     () => (data?.myRestaurants ?? []).map((r: { id: string }) => r.id),
@@ -142,6 +157,9 @@ export default function SettingsPage() {
   const restaurant = (data?.myRestaurants ?? []).find(
     (r: { id: string }) => r.id === restaurantId,
   );
+  const bookingUrl = restaurant
+    ? buildRestaurantBookingUrl(WEB_URL, { slug: restaurant.slug, id: restaurant.id })
+    : '';
 
   useEffect(() => {
     if (!restaurant) return;
@@ -168,6 +186,26 @@ export default function SettingsPage() {
   }, [restaurant?.id, restaurant, form]);
 
   const settings = settingsData?.restaurant;
+
+  const widgetEmbedCode = useMemo(() => {
+    if (!restaurant?.id) return '';
+    return buildWidgetEmbedCode({
+      restaurantId: restaurant.id,
+      widgetUrl: `${WEB_URL.replace(/\/$/, '')}/widget.js`,
+      appUrl: WEB_URL,
+      mode: embedMode,
+      primaryColor: previewColor || settings?.widgetTheme?.primaryColor,
+      buttonText: previewText || settings?.widgetTheme?.buttonText,
+      showReviews: previewShowReviews ?? settings?.widgetTheme?.showReviews,
+    });
+  }, [
+    restaurant?.id,
+    embedMode,
+    previewColor,
+    previewText,
+    previewShowReviews,
+    settings?.widgetTheme,
+  ]);
 
   useEffect(() => {
     if (settings) {
@@ -623,6 +661,83 @@ export default function SettingsPage() {
               description="Showcase your space. Photos save when you update the profile above."
             >
               <PhotoUpload value={photos} onChange={setPhotos} maxCount={10} />
+            </FormSection>
+          </Card>
+
+          <Card
+            className="rt-surface-card"
+            styles={{ body: { padding: spacing.lg } }}
+            style={{ borderRadius: radii.lg }}
+          >
+            <FormSection
+              title="Booking link & website embed"
+              description="Share your booking page or embed the reserve widget on your own site."
+            >
+              <Text strong style={{ display: 'block', marginBottom: spacing.xs }}>
+                Booking link
+              </Text>
+              <Input
+                readOnly
+                value={bookingUrl}
+                addonAfter={
+                  <Space size={0}>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<CopyOutlined />}
+                      onClick={() => copyToClipboard(bookingUrl)}
+                    >
+                      Copy
+                    </Button>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<LinkOutlined />}
+                      href={bookingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Preview
+                    </Button>
+                  </Space>
+                }
+              />
+              <Paragraph type="secondary" style={{ marginTop: spacing.sm, marginBottom: spacing.md }}>
+                <strong>Google Business Profile:</strong> Edit profile → Bookings → Add your booking
+                link. Google will show a &ldquo;Reserve a table&rdquo; button that opens this page.
+              </Paragraph>
+
+              <Divider style={{ margin: `${spacing.md}px 0` }} />
+
+              <Text strong style={{ display: 'block', marginBottom: spacing.xs }}>
+                Website embed
+              </Text>
+              <Paragraph type="secondary" style={{ marginBottom: spacing.sm }}>
+                Paste this snippet on your restaurant website. The widget uses your theme from the
+                Booking widget section below.
+              </Paragraph>
+              <Segmented
+                value={embedMode}
+                onChange={(value) => setEmbedMode(value as 'inline' | 'button')}
+                options={[
+                  { label: 'Inline form', value: 'inline' },
+                  { label: 'Reserve button', value: 'button' },
+                ]}
+                style={{ marginBottom: spacing.sm }}
+              />
+              <Input.TextArea
+                readOnly
+                value={widgetEmbedCode}
+                autoSize={{ minRows: 4, maxRows: 8 }}
+                style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12 }}
+              />
+              <Button
+                icon={<CopyOutlined />}
+                onClick={() => copyToClipboard(widgetEmbedCode)}
+                style={{ marginTop: spacing.sm }}
+              >
+                Copy embed code
+              </Button>
             </FormSection>
           </Card>
 
