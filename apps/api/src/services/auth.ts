@@ -7,6 +7,17 @@ import { env } from '../config/env.js';
 import { User } from '../models/User.js';
 import { notifyUser } from './notifications.js';
 import { getPlatformConfig } from './platformConfig.js';
+import { generateUniqueReferralCode } from '../lib/referralCode.js';
+import { AuthenticationError } from '../lib/errors.js';
+
+/** Pre-rebrand demo emails still used in bookmarks and mobile defaults. */
+const LEGACY_DEMO_EMAIL_ALIASES: Record<string, string> = {
+  'admin@reservations.local': 'admin@tablevera.local',
+  'owner@reservations.local': 'owner@tablevera.local',
+  'staff@reservations.local': 'staff@tablevera.local',
+  'diner@reservations.local': 'diner@tablevera.local',
+  'diner2@reservations.local': 'diner2@tablevera.local',
+};
 
 const googleClient = env.GOOGLE_CLIENT_ID
   ? new OAuth2Client(env.GOOGLE_CLIENT_ID)
@@ -64,6 +75,7 @@ export async function registerWithEmail(input: {
   firstName: string;
   lastName: string;
   phone?: string;
+  referralCode?: string;
 }) {
   const existing = await User.findOne({ email: input.email.toLowerCase() });
   if (existing) throw new Error('Email already registered');
@@ -72,6 +84,16 @@ export async function registerWithEmail(input: {
   if (config.allowPublicRegistration === false) {
     throw new Error('Public registration is currently disabled');
   }
+
+  let referredByUserId = undefined;
+  if (input.referralCode?.trim()) {
+    const referrer = await User.findOne({
+      referralCode: input.referralCode.trim().toUpperCase(),
+    });
+    if (!referrer) throw new Error('Invalid referral code');
+    referredByUserId = referrer._id;
+  }
+
   const passwordHash = await hashPassword(input.password);
   const user = await User.create({
     email: input.email.toLowerCase(),
@@ -81,6 +103,8 @@ export async function registerWithEmail(input: {
     phone: input.phone,
     role: (config.defaultSignupRole as UserRole) || 'diner',
     emailVerified: false,
+    referralCode: await generateUniqueReferralCode(input.firstName),
+    referredByUserId,
   });
 
   const tokens = await issueTokens(user);
@@ -88,10 +112,12 @@ export async function registerWithEmail(input: {
 }
 
 export async function loginWithEmail(email: string, password: string) {
-  const user = await User.findOne({ email: email.toLowerCase() });
-  if (!user?.passwordHash) throw new Error('Invalid credentials');
+  const normalizedEmail =
+    LEGACY_DEMO_EMAIL_ALIASES[email.toLowerCase()] ?? email.toLowerCase();
+  const user = await User.findOne({ email: normalizedEmail });
+  if (!user?.passwordHash) throw new AuthenticationError('Invalid credentials');
   const ok = await verifyPassword(password, user.passwordHash);
-  if (!ok) throw new Error('Invalid credentials');
+  if (!ok) throw new AuthenticationError('Invalid credentials');
   const tokens = await issueTokens(user);
   return { user, ...tokens };
 }
@@ -119,6 +145,7 @@ export async function loginWithGoogle(idToken: string) {
       lastName: payload.family_name ?? '',
       role: 'diner',
       emailVerified: payload.email_verified ?? true,
+      referralCode: await generateUniqueReferralCode(payload.given_name ?? 'Guest'),
     });
   } else if (!user.googleId) {
     user.googleId = payload.sub;
@@ -177,6 +204,7 @@ export async function verifyPhoneOtp(input: {
       lastName: input.lastName ?? '',
       role: 'diner',
       phoneVerified: true,
+      referralCode: await generateUniqueReferralCode(input.firstName ?? 'Guest'),
     });
   } else {
     user.phoneVerified = true;

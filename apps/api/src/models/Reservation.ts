@@ -29,6 +29,12 @@ const reservationSchema = new Schema(
     },
     loyaltyPointsEarned: { type: Number, default: 0 },
     loyaltyPointsRedeemed: { type: Number, default: 0 },
+    restaurantLoyaltyPointsEarned: { type: Number, default: 0 },
+    restaurantLoyaltyPointsRedeemed: { type: Number, default: 0 },
+    promotionId: { type: Schema.Types.ObjectId, ref: 'Promotion' },
+    promoDiscountCents: { type: Number, default: 0 },
+    giftCardId: { type: Schema.Types.ObjectId, ref: 'GiftCard' },
+    giftCardDiscountCents: { type: Number, default: 0 },
     source: {
       type: String,
       enum: ['network', 'website', 'widget', 'phone', 'walkin'],

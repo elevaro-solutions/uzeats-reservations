@@ -121,7 +121,7 @@ function MessagesContent() {
   const active = conversations.find((c: any) => c.reservationId === activeReservationId);
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="MessagesContent" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Messages</Title>
       <Select
         style={{ width: 260 }}
@@ -273,14 +273,14 @@ function MessagesContent() {
           )}
         </Card>
       </div>
-    </Space>
+    </Space></div>
   );
 }
 
 export default function MessagesPage() {
   return (
-    <Suspense>
+    <div component="MessagesPage" style={{ display: 'contents' }}><Suspense>
       <MessagesContent />
-    </Suspense>
+    </Suspense></div>
   );
 }

@@ -8,6 +8,7 @@ import { Subscription } from '../models/Subscription.js';
 import { requireAdmin, type GraphQLContext } from '../graphql/context.js';
 import { mapRestaurant, mapUser } from '../graphql/mappers.js';
 import { logAudit } from './audit.js';
+import { adjustPoints } from './loyalty.js';
 import {
   assignUserToRestaurants,
   inviteStaff,
@@ -258,7 +259,16 @@ export const adminOpsMutation = {
     if (args.input.lastName !== undefined) updates.lastName = args.input.lastName.trim();
     if (args.input.loyaltyPoints !== undefined) {
       if (args.input.loyaltyPoints < 0) throw new Error('loyaltyPoints must be >= 0');
-      updates.loyaltyPoints = args.input.loyaltyPoints;
+      const current = target.loyaltyPoints ?? 0;
+      const delta = args.input.loyaltyPoints - current;
+      if (delta !== 0) {
+        await adjustPoints(
+          target._id.toString(),
+          delta,
+          `Admin set balance to ${args.input.loyaltyPoints} points`,
+        );
+        updates.loyaltyPoints = args.input.loyaltyPoints;
+      }
     }
     if (args.input.emailVerified !== undefined) updates.emailVerified = args.input.emailVerified;
     if (args.input.phoneVerified !== undefined) updates.phoneVerified = args.input.phoneVerified;
@@ -286,7 +296,11 @@ export const adminOpsMutation = {
       updates.phone = phone;
     }
 
-    const updated = await User.findByIdAndUpdate(args.userId, { $set: updates }, { new: true });
+    if (Object.keys(updates).length > 0) {
+      await User.findByIdAndUpdate(args.userId, { $set: updates });
+    }
+
+    const updated = await User.findById(args.userId);
     if (!updated) throw new Error('User not found');
     await logAudit({
       actorId: admin._id.toString(),

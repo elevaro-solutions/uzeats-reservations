@@ -228,7 +228,7 @@ function ExperiencesPageContent() {
   ];
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="ExperiencesPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Title level={2} style={{ margin: 0 }}>Experiences</Title>
         <Button
@@ -313,14 +313,14 @@ function ExperiencesPageContent() {
           </Form.Item>
         </Form>
       </Modal>
-    </Space>
+    </Space></div>
   );
 }
 
 export default function ExperiencesPage() {
   return (
-    <Suspense fallback={null}>
+    <div component="ExperiencesPage" style={{ display: 'contents' }}><Suspense fallback={null}>
       <ExperiencesPageContent />
-    </Suspense>
+    </Suspense></div>
   );
 }

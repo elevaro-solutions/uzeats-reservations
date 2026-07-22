@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { LOYALTY, CANCELLATION_REFUND_HOURS } from '@reservations/shared';
+import { LOYALTY, CANCELLATION_REFUND_HOURS, resolveRedeemPoints, RESTAURANT_LOYALTY, resolveRestaurantRedeemPoints } from '@reservations/shared';
 import { ConflictError } from '../lib/errors.js';
 import { Reservation } from '../models/Reservation.js';
 import { Restaurant } from '../models/Restaurant.js';
@@ -16,7 +16,13 @@ import {
   captureDeposit,
   isStubPaymentIntent,
 } from './stripe.js';
-import { earnPoints, redeemPoints } from './loyalty.js';
+import { earnPoints, redeemPoints, refundRedeemedPoints, awardDepositPoints, awardFirstBookingBonus, awardCompletedVisitPoints, reverseDepositPoints } from './loyalty.js';
+import {
+  awardRestaurantVisitPoints,
+  getRestaurantLoyaltyBalance,
+  redeemRestaurantPoints,
+  refundRestaurantRedeemedPoints,
+} from './restaurantLoyalty.js';
 import {
   notifyRestaurantStaff,
   notifyUser,
@@ -24,6 +30,11 @@ import {
 } from './notifications.js';
 import { checkAccessRules } from './accessRules.js';
 import { updateGuestProfileAfterVisit, sendSurveyInvitation } from './guests.js';
+import {
+  resolvePromotionForBooking,
+  recordPromotionRedemption,
+} from './promotionCodes.js';
+import { redeemGiftCardBalance, resolveGiftCardDiscount } from './giftCards.js';
 import { BoostCampaign } from '../models/Marketing.js';
 import { claimTableSlots, releaseTableSlotClaims } from './tableSlotClaims.js';
 
@@ -108,6 +119,9 @@ export async function createReservation(input: {
   occasion?: string;
   guestNotes?: string;
   redeemPoints?: number;
+  redeemRestaurantPoints?: number;
+  promoCode?: string;
+  giftCardCode?: string;
   source?: string;
 }) {
   const restaurant = await Restaurant.findById(input.restaurantId);
@@ -142,14 +156,84 @@ export async function createReservation(input: {
       });
   if (!table) throw new ConflictError('No tables available for this time');
 
-  let depositAmountCents = 0;
+  const priorReservations = await Reservation.countDocuments({ dinerId: input.dinerId });
+
+  const grossDepositCents =
+    restaurant.depositRequired && restaurant.depositAmountCents > 0
+      ? restaurant.depositAmountCents * input.partySize
+      : 0;
+
+  let pointsToRedeem = 0;
+  let restaurantPointsToRedeem = 0;
+  let depositAmountCents = grossDepositCents;
+  if (input.redeemPoints && input.redeemPoints > 0) {
+    const diner = await User.findById(input.dinerId).select('loyaltyPoints');
+    if (!diner) throw new Error('User not found');
+    const redeem = resolveRedeemPoints(
+      input.redeemPoints,
+      grossDepositCents,
+      diner.loyaltyPoints ?? 0,
+    );
+    if (!redeem) {
+      throw new Error(`Minimum redeem is ${LOYALTY.MIN_REDEEM_POINTS} points`);
+    }
+    pointsToRedeem = redeem.pointsToRedeem;
+    depositAmountCents = grossDepositCents - redeem.discountCents;
+  }
+
+  if (input.redeemRestaurantPoints && input.redeemRestaurantPoints > 0) {
+    if (!restaurant.loyaltyEnabled) {
+      throw new Error('Restaurant loyalty is not enabled');
+    }
+    const minRedeem =
+      restaurant.loyaltyMinRedeemPoints ?? RESTAURANT_LOYALTY.DEFAULT_MIN_REDEEM_POINTS;
+    const balance = await getRestaurantLoyaltyBalance(input.restaurantId, input.dinerId);
+    const redeem = resolveRestaurantRedeemPoints(
+      input.redeemRestaurantPoints,
+      depositAmountCents,
+      balance,
+      minRedeem,
+    );
+    if (!redeem) {
+      throw new Error(`Minimum redeem is ${minRedeem} restaurant points`);
+    }
+    restaurantPointsToRedeem = redeem.pointsToRedeem;
+    depositAmountCents -= redeem.discountCents;
+  }
+
+  let promotionId: string | undefined;
+  let promoDiscountCents = 0;
+  const promo = await resolvePromotionForBooking({
+    restaurantId: input.restaurantId,
+    code: input.promoCode,
+    slotStart: input.slotStart,
+    depositCents: depositAmountCents,
+  });
+  if (promo) {
+    promotionId = promo.promotion._id.toString();
+    promoDiscountCents = promo.discountCents;
+    depositAmountCents -= promoDiscountCents;
+  }
+
+  let giftCardId: string | undefined;
+  let giftCardDiscountCents = 0;
+  if (input.giftCardCode?.trim()) {
+    const giftCard = await resolveGiftCardDiscount({
+      restaurantId: input.restaurantId,
+      code: input.giftCardCode,
+      depositCents: depositAmountCents,
+    });
+    giftCardId = giftCard.giftCard._id.toString();
+    giftCardDiscountCents = giftCard.discountCents;
+    depositAmountCents -= giftCardDiscountCents;
+  }
+
   let depositStatus: 'none' | 'requires_payment' | 'authorized' = 'none';
   let stripePaymentIntentId: string | undefined;
   let clientSecret: string | undefined;
   let requiresPayment = false;
 
-  if (restaurant.depositRequired && restaurant.depositAmountCents > 0) {
-    depositAmountCents = restaurant.depositAmountCents * input.partySize;
+  if (depositAmountCents > 0) {
     const intent = await createDepositIntent({
       amountCents: depositAmountCents,
       metadata: {
@@ -182,7 +266,12 @@ export async function createReservation(input: {
     depositAmountCents,
     stripePaymentIntentId,
     depositStatus,
-    loyaltyPointsRedeemed: input.redeemPoints ?? 0,
+    loyaltyPointsRedeemed: pointsToRedeem,
+    restaurantLoyaltyPointsRedeemed: restaurantPointsToRedeem,
+    promotionId,
+    promoDiscountCents,
+    giftCardId,
+    giftCardDiscountCents,
   });
 
   try {
@@ -194,13 +283,42 @@ export async function createReservation(input: {
       slotEnd,
     });
 
-    if (input.redeemPoints && input.redeemPoints > 0) {
-      await redeemPoints(input.dinerId, input.redeemPoints);
+    if (pointsToRedeem > 0) {
+      await redeemPoints(input.dinerId, pointsToRedeem, reservation._id.toString());
+    }
+    if (restaurantPointsToRedeem > 0) {
+      await redeemRestaurantPoints({
+        restaurantId: input.restaurantId,
+        dinerId: input.dinerId,
+        points: restaurantPointsToRedeem,
+        reservationId: reservation._id.toString(),
+        minRedeem:
+          restaurant.loyaltyMinRedeemPoints ?? RESTAURANT_LOYALTY.DEFAULT_MIN_REDEEM_POINTS,
+      });
+    }
+    if (promotionId) {
+      await recordPromotionRedemption(promotionId);
+    }
+    if (giftCardId && giftCardDiscountCents > 0) {
+      await redeemGiftCardBalance(giftCardId, giftCardDiscountCents);
     }
   } catch (err) {
     await releaseTableSlotClaims(reservation._id);
     await Reservation.deleteOne({ _id: reservation._id });
     throw err;
+  }
+
+  if (depositStatus === 'authorized') {
+    await awardDepositPoints({
+      dinerId: input.dinerId,
+      reservationId: reservation._id.toString(),
+      depositAmountCents,
+      depositStatus,
+    });
+  }
+
+  if (priorReservations === 0) {
+    await awardFirstBookingBonus(input.dinerId);
   }
 
   if (reservation.status === 'confirmed') {
@@ -296,6 +414,25 @@ export async function updateReservationStatus(
       await refundDeposit(reservation.stripePaymentIntentId);
       reservation.depositStatus = 'refunded';
     }
+    if (reservation.loyaltyPointsRedeemed > 0) {
+      await refundRedeemedPoints(
+        reservation.dinerId.toString(),
+        reservation.loyaltyPointsRedeemed,
+        reservation._id.toString(),
+      );
+    }
+    if (reservation.restaurantLoyaltyPointsRedeemed > 0) {
+      await refundRestaurantRedeemedPoints({
+        restaurantId: reservation.restaurantId.toString(),
+        dinerId: reservation.dinerId.toString(),
+        points: reservation.restaurantLoyaltyPointsRedeemed,
+        reservationId: reservation._id.toString(),
+      });
+    }
+    await reverseDepositPoints(
+      reservation.dinerId.toString(),
+      reservation._id.toString(),
+    );
   }
 
   if (status === 'no_show' && reservation.stripePaymentIntentId) {
@@ -304,13 +441,26 @@ export async function updateReservationStatus(
   }
 
   if (status === 'completed') {
-    const points = await earnPoints(
+    const points = await awardCompletedVisitPoints(
       reservation.dinerId.toString(),
-      LOYALTY.POINTS_PER_COMPLETED_VISIT,
       reservation._id.toString(),
-      'Completed reservation',
     );
     reservation.loyaltyPointsEarned = points;
+
+    const restaurantDoc = await Restaurant.findById(reservation.restaurantId).select(
+      'loyaltyEnabled loyaltyPointsPerVisit',
+    );
+    if (restaurantDoc?.loyaltyEnabled) {
+      const restaurantPoints = await awardRestaurantVisitPoints({
+        restaurantId: reservation.restaurantId.toString(),
+        dinerId: reservation.dinerId.toString(),
+        reservationId: reservation._id.toString(),
+        pointsPerVisit:
+          restaurantDoc.loyaltyPointsPerVisit ?? RESTAURANT_LOYALTY.DEFAULT_POINTS_PER_VISIT,
+      });
+      reservation.restaurantLoyaltyPointsEarned = restaurantPoints;
+    }
+
     await recordCoverFee(reservation);
     await attributeBoostCampaign(reservation);
   }
@@ -455,6 +605,12 @@ export async function confirmDeposit(paymentIntentId: string) {
   reservation.depositStatus = 'authorized';
   reservation.status = 'confirmed';
   await reservation.save();
+  await awardDepositPoints({
+    dinerId: reservation.dinerId.toString(),
+    reservationId: reservation._id.toString(),
+    depositAmountCents: reservation.depositAmountCents,
+    depositStatus: reservation.depositStatus,
+  });
   await scheduleReservationReminders(reservation._id.toString());
 
   if (wasPending) {

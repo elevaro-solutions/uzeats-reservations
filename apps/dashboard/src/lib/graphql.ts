@@ -25,6 +25,9 @@ export const MY_RESTAURANTS = gql`
       }
       depositRequired
       depositAmountCents
+      loyaltyEnabled
+      loyaltyPointsPerVisit
+      loyaltyMinRedeemPoints
       tables {
         id name minCapacity maxCapacity floorArea active combinable
       }
@@ -178,6 +181,42 @@ export const ADMIN_STATS = gql`
       mrrCents
       activeSubscriptions
       openInvoices
+    }
+  }
+`;
+
+export const ADMIN_LOYALTY_STATS = gql`
+  query AdminLoyaltyStats {
+    adminLoyaltyStats {
+      totalOutstandingPoints
+      usersWithPoints
+      tierBronze
+      tierSilver
+      tierGold
+      referralsCount
+      pointsEarned30d
+      pointsRedeemed30d
+    }
+    adminReferralLeaders(limit: 15) {
+      userId
+      firstName
+      lastName
+      email
+      referralCode
+      refereesCount
+    }
+  }
+`;
+
+export const RESTAURANT_LOYALTY_STATS = gql`
+  query RestaurantLoyaltyStats($restaurantId: ID!) {
+    restaurantLoyaltyStats(restaurantId: $restaurantId) {
+      loyaltyEnabled
+      totalOutstandingPoints
+      guestsWithPoints
+      pointsEarned30d
+      pointsRedeemed30d
+      totalVisitsAwarded
     }
   }
 `;
@@ -1009,13 +1048,21 @@ export const CLEAR_SEED_DATA = gql`
   }
 `;
 
+const PLAN_PRICING_FIELDS = `
+  monthlyPriceCents
+  originalMonthlyPriceCents
+  discountType
+  discountPercent
+  annualFreeMonths
+`;
+
 export const ADMIN_PLANS = gql`
   query AdminPlans {
     plans {
       key
       name
       description
-      monthlyPriceCents
+      ${PLAN_PRICING_FIELDS}
       networkCoverFeeCents
       websiteCoverFeeCents
       trialDays
@@ -1056,7 +1103,7 @@ export const UPDATE_PLAN_PACKAGE = gql`
       key
       name
       description
-      monthlyPriceCents
+      ${PLAN_PRICING_FIELDS}
       networkCoverFeeCents
       websiteCoverFeeCents
       trialDays
@@ -1072,7 +1119,7 @@ export const CREATE_PLAN_PACKAGE = gql`
       key
       name
       description
-      monthlyPriceCents
+      ${PLAN_PRICING_FIELDS}
       networkCoverFeeCents
       websiteCoverFeeCents
       trialDays
@@ -1113,6 +1160,9 @@ export const UPDATE_RESTAURANT = gql`
       }
       depositRequired
       depositAmountCents
+      loyaltyEnabled
+      loyaltyPointsPerVisit
+      loyaltyMinRedeemPoints
     }
   }
 `;
@@ -1170,6 +1220,10 @@ export const PLANS = gql`
       name
       description
       monthlyPriceCents
+      originalMonthlyPriceCents
+      discountType
+      discountPercent
+      annualFreeMonths
       networkCoverFeeCents
       websiteCoverFeeCents
       trialDays
@@ -1262,7 +1316,7 @@ export const RESTAURANT_GUESTS = gql`
     restaurantGuests(restaurantId: $restaurantId, tag: $tag, vipStatus: $vipStatus, search: $search, limit: $limit, offset: $offset) {
       total
       items {
-        id dinerId tags notes vipStatus totalVisits totalSpendCents averagePartySize
+        id dinerId tags notes vipStatus totalVisits loyaltyPoints totalSpendCents averagePartySize
         lastVisitDate preferredTable dietaryRestrictions allergies occasions
         diner { id firstName lastName email phone }
       }
@@ -1497,7 +1551,7 @@ export const PROMOTIONS = gql`
     promotions(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
       total
       items {
-        id title description discountPercent code startDate endDate daysOfWeek active redemptions createdAt
+        id title description discountPercent discountAmountCents code startDate endDate daysOfWeek maxRedemptions active redemptions createdAt
       }
     }
   }
@@ -1522,6 +1576,69 @@ export const UPDATE_PROMOTION = gql`
 export const DELETE_PROMOTION = gql`
   mutation DeletePromotion($id: ID!) {
     deletePromotion(id: $id)
+  }
+`;
+
+export const PROMOTION_STATS = gql`
+  query PromotionStats($restaurantId: ID!, $days: Int) {
+    promotionStats(restaurantId: $restaurantId, days: $days) {
+      days
+      totalRedemptions
+      totalDiscountCents
+      activePromotionCount
+      redemptionsByDay {
+        date
+        count
+        discountCents
+      }
+      promotions {
+        promotionId
+        title
+        code
+        redemptions
+        discountCents
+        active
+      }
+    }
+  }
+`;
+
+export const GIFT_CARDS = gql`
+  query GiftCards($restaurantId: ID!, $limit: Int, $offset: Int) {
+    giftCards(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
+      total
+      items {
+        id
+        code
+        initialBalanceCents
+        balanceCents
+        recipientName
+        recipientEmail
+        expiresAt
+        note
+        active
+        createdAt
+      }
+    }
+  }
+`;
+
+export const ISSUE_GIFT_CARD = gql`
+  mutation IssueGiftCard($restaurantId: ID!, $input: IssueGiftCardInput!) {
+    issueGiftCard(restaurantId: $restaurantId, input: $input) {
+      id
+      code
+      balanceCents
+    }
+  }
+`;
+
+export const SET_GIFT_CARD_ACTIVE = gql`
+  mutation SetGiftCardActive($id: ID!, $active: Boolean!) {
+    setGiftCardActive(id: $id, active: $active) {
+      id
+      active
+    }
   }
 `;
 
@@ -1650,6 +1767,7 @@ export const RESTAURANT_TEAM = gql`
         reservationUpdates { sms email webPush platform }
         reviewReply { sms email webPush platform }
         surveyInvitation { sms email webPush platform }
+        loyaltyUpdates { sms email webPush platform }
       }
     }
   }
@@ -1671,6 +1789,7 @@ export const UPDATE_NOTIFICATION_PREFERENCES = gql`
         reservationUpdates { sms email webPush platform }
         reviewReply { sms email webPush platform }
         surveyInvitation { sms email webPush platform }
+        loyaltyUpdates { sms email webPush platform }
       }
     }
   }

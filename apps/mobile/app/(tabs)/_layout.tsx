@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Text } from 'react-native';
+import { brand } from '../../src/lib/brand';
 
 function TabIcon({ label, color }: { label: string; color: string }) {
   return <Text style={{ fontSize: 20, color }}>{label}</Text>;
@@ -9,9 +10,9 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#da3743',
+        tabBarActiveTintColor: brand.primary,
         tabBarInactiveTintColor: '#999',
-        headerTintColor: '#da3743',
+        headerTintColor: brand.primary,
         headerTitleStyle: { fontWeight: '700' },
       }}
     >

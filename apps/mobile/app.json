@@ -9,7 +9,9 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "backgroundColor": "#da3743"
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0b3d2e"
     },
     "ios": {
       "supportsTablet": true,
@@ -17,7 +19,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#da3743"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0b3d2e"
       },
       "package": "com.tablevera.app"
     },

@@ -98,7 +98,7 @@ export default function ReservationsScreen() {
   return (
     <View style={styles.container}>
       {loading ? (
-        <ActivityIndicator color="#da3743" style={{ marginTop: 24 }} />
+        <ActivityIndicator color="#0b3d2e" style={{ marginTop: 24 }} />
       ) : (
         <FlatList
           data={data?.myReservations ?? []}
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   empty: { color: '#666', marginTop: 24, textAlign: 'center' },
   status: {
     marginTop: 8,
-    color: '#da3743',
+    color: '#0b3d2e',
     fontWeight: '600',
     textTransform: 'capitalize',
   },
@@ -229,14 +229,14 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', gap: 10, marginTop: 10 },
   cancelBtn: {
     borderWidth: 1,
-    borderColor: '#da3743',
+    borderColor: '#0b3d2e',
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  cancelText: { color: '#da3743', fontWeight: '600', fontSize: 13 },
+  cancelText: { color: '#0b3d2e', fontWeight: '600', fontSize: 13 },
   reviewBtn: {
-    backgroundColor: '#da3743',
+    backgroundColor: '#0b3d2e',
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   },
   commentInput: { height: 80, textAlignVertical: 'top' },
   submitBtn: {
-    backgroundColor: '#da3743',
+    backgroundColor: '#0b3d2e',
     padding: 14,
     borderRadius: 10,
     alignItems: 'center',

@@ -94,13 +94,13 @@ export function AddressAutocomplete({
 
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
   const [searching, setSearching] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestIdRef = useRef(0);
+  // Stable primitive so parent re-renders with inline arrays (e.g. ['geocode'])
+  // don't reset the debounce timer before it can fire.
+  const searchTypesKey = searchTypes?.join('\0') ?? '';
 
   useEffect(() => {
     if (!useGoogle) return;
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
 
     const trimmed = value.trim();
     if (trimmed.length < MIN_QUERY_LENGTH) {
@@ -111,18 +111,22 @@ export function AddressAutocomplete({
 
     setSearching(true);
     const requestId = ++requestIdRef.current;
-    debounceRef.current = setTimeout(() => {
-      void fetchPlacePredictions(trimmed, { types: searchTypes, country }).then((results) => {
-        if (requestId !== requestIdRef.current) return;
-        setPredictions(results);
-        setSearching(false);
-      });
+    const timer = setTimeout(() => {
+      void fetchPlacePredictions(trimmed, { types: searchTypes, country })
+        .then((results) => {
+          if (requestId !== requestIdRef.current) return;
+          setPredictions(results);
+          setSearching(false);
+        })
+        .catch(() => {
+          if (requestId !== requestIdRef.current) return;
+          setPredictions([]);
+          setSearching(false);
+        });
     }, debounceMs);
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [value, useGoogle, debounceMs, country, searchTypes]);
+    return () => clearTimeout(timer);
+  }, [value, useGoogle, debounceMs, country, searchTypesKey]);
 
   const googleOptions = useMemo(
     (): DefaultOptionType[] =>
@@ -202,8 +206,7 @@ export function AddressAutocomplete({
   }
 
   return (
-    <AutoComplete
-      value={value}
+    <div component="AddressAutocomplete" style={{ display: 'contents' }}><AutoComplete       value={value}
       onChange={onChange}
       disabled={disabled}
       options={useGoogle ? googleOptions : fallbackOptions}
@@ -229,6 +232,6 @@ export function AddressAutocomplete({
       }}
     >
       {inputEl}
-    </AutoComplete>
+    </AutoComplete></div>
   );
 }

@@ -23,8 +23,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <AuthLayout
-      heading="Reset your password"
+    <div component="ForgotPasswordPage" style={{ display: 'contents' }}><AuthLayout       heading="Reset your password"
       subheading={
         submitted
           ? undefined
@@ -109,6 +108,6 @@ export default function ForgotPasswordPage() {
           </p>
         </>
       )}
-    </AuthLayout>
+    </AuthLayout></div>
   );
 }

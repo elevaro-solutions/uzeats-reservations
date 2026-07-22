@@ -6,12 +6,14 @@ import { useRouter } from 'next/navigation';
 import {
   Button,
   Card,
+  Col,
   DatePicker,
   Dropdown,
   Form,
   Input,
   InputNumber,
   Modal,
+  Row,
   Select,
   Space,
   Switch,
@@ -24,7 +26,15 @@ import {
 import type { MenuProps } from 'antd';
 import { MoreOutlined, PlusOutlined, MessageOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
-import { PageHeader, PhoneInput, StatusTag, radii, spacing, usPhoneRules } from '@reservations/ui';
+import {
+  PageHeader,
+  PhoneInput,
+  StatusTag,
+  colors,
+  radii,
+  spacing,
+  usPhoneRules,
+} from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import {
   AVAILABILITY,
@@ -79,6 +89,27 @@ function formatOccasion(occasion?: string) {
 
 function combineDateTime(date: Dayjs, time: Dayjs) {
   return date.hour(time.hour()).minute(time.minute()).second(0).millisecond(0);
+}
+
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <div component="SectionLabel"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        margin: '2px 0 14px',
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: 0.6,
+        textTransform: 'uppercase',
+        color: colors.textTertiary,
+      }}
+    >
+      <span style={{ whiteSpace: 'nowrap' }}>{children}</span>
+      <span style={{ flex: 1, height: 1, background: colors.bordersubtle }} />
+    </div>
+  );
 }
 
 function ReservationsPageContent() {
@@ -367,7 +398,7 @@ function ReservationsPageContent() {
   };
 
   return (
-    <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="ReservationsPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Reservations"
         subtitle="Create, edit, and manage covers for your restaurant"
@@ -491,32 +522,40 @@ function ReservationsPageContent() {
         onCancel={() => setCreateOpen(false)}
         onOk={handleCreate}
         confirmLoading={creating}
-        okText="Create"
-        width={560}
+        okText="Create reservation"
+        width={640}
+        centered
         destroyOnClose
+        styles={{ body: { paddingTop: 4 } }}
       >
-        <Form form={createForm} layout="vertical" style={{ marginTop: 8 }}>
-          <Space wrap style={{ width: '100%' }} size="middle">
-            <Form.Item name="date" label="Date" rules={[{ required: true }]} style={{ marginBottom: 12 }}>
-              <DatePicker />
-            </Form.Item>
-            <Form.Item name="time" label="Time" rules={[{ required: true }]} style={{ marginBottom: 12 }}>
-              <TimePicker format="h:mm A" minuteStep={15} use12Hours />
-            </Form.Item>
-            <Form.Item
-              name="partySize"
-              label="Party size"
-              rules={[{ required: true }]}
-              style={{ marginBottom: 12 }}
-            >
-              <InputNumber min={1} max={50} />
-            </Form.Item>
-          </Space>
+        <Form form={createForm} layout="vertical">
+          <SectionLabel>When &amp; party</SectionLabel>
+          <Row gutter={12}>
+            <Col xs={24} sm={10}>
+              <Form.Item name="date" label="Date" rules={[{ required: true }]} required>
+                <DatePicker style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Form.Item name="time" label="Time" rules={[{ required: true }]} required>
+                <TimePicker format="h:mm A" minuteStep={15} use12Hours style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={6}>
+              <Form.Item name="partySize" label="Guests" rules={[{ required: true }]} required>
+                <InputNumber min={1} max={50} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
 
           {(createSlotsData?.availability ?? []).length > 0 ? (
-            <Form.Item label="Available slots" style={{ marginBottom: 12 }}>
+            <Form.Item
+              label="Open slots"
+              extra="Quick-fill date and time from an available slot"
+              style={{ marginBottom: 20 }}
+            >
               <Select
-                placeholder="Pick an open slot"
+                placeholder="Choose a slot"
                 options={slotOptions(createSlotsData?.availability)}
                 onChange={(iso: string) => {
                   const slot = dayjs(iso);
@@ -527,74 +566,105 @@ function ReservationsPageContent() {
             </Form.Item>
           ) : null}
 
-          <Space wrap style={{ width: '100%' }} size="middle">
-            <Form.Item
-              name="firstName"
-              label="First name"
-              rules={[{ required: true, message: 'Required' }]}
-              style={{ marginBottom: 12, minWidth: 160 }}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item name="lastName" label="Last name" style={{ marginBottom: 12, minWidth: 160 }}>
-              <Input />
-            </Form.Item>
-          </Space>
+          <SectionLabel>Guest</SectionLabel>
+          <Row gutter={12}>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="firstName"
+                label="First name"
+                rules={[{ required: true, message: 'First name is required' }]}
+                required
+              >
+                <Input placeholder="Jane" autoComplete="given-name" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="lastName" label="Last name">
+                <Input placeholder="Smith" autoComplete="family-name" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="phone" label="Phone" rules={usPhoneRules()}>
+                <PhoneInput />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="email"
+                label="Email"
+                rules={[{ type: 'email', message: 'Invalid email' }]}
+              >
+                <Input placeholder="guest@email.com" type="email" autoComplete="email" />
+              </Form.Item>
+            </Col>
+          </Row>
 
-          <Space wrap style={{ width: '100%' }} size="middle">
-            <Form.Item
-              name="phone"
-              label="Phone"
-              rules={usPhoneRules()}
-              style={{ marginBottom: 12, minWidth: 180 }}
-            >
-              <PhoneInput />
-            </Form.Item>
-            <Form.Item
-              name="email"
-              label="Email"
-              rules={[{ type: 'email', message: 'Invalid email' }]}
-              style={{ marginBottom: 12, minWidth: 200 }}
-            >
-              <Input />
-            </Form.Item>
-          </Space>
+          <SectionLabel>Details</SectionLabel>
+          <Row gutter={12}>
+            <Col xs={24} sm={12}>
+              <Form.Item name="source" label="Source" rules={[{ required: true }]} required>
+                <Select
+                  options={[
+                    { value: 'phone', label: 'Phone' },
+                    { value: 'walkin', label: 'Walk-in' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="occasion" label="Occasion">
+                <Select options={OCCASION_OPTIONS} />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item
+                name="tableId"
+                label="Table"
+                extra="Leave empty to auto-assign the best available table"
+              >
+                <Select
+                  allowClear
+                  placeholder="Auto-assign"
+                  options={tableOptionsForParty(createPartySize)}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item name="guestNotes" label="Special requests">
+                <Input.TextArea
+                  rows={3}
+                  maxLength={500}
+                  placeholder="Allergies, high chair, window seat…"
+                  showCount
+                />
+              </Form.Item>
+            </Col>
+          </Row>
 
-          <Space wrap style={{ width: '100%' }} size="middle">
-            <Form.Item name="source" label="Source" rules={[{ required: true }]} style={{ marginBottom: 12 }}>
-              <Select
-                style={{ width: 140 }}
-                options={[
-                  { value: 'phone', label: 'Phone' },
-                  { value: 'walkin', label: 'Walk-in' },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name="occasion" label="Occasion" style={{ marginBottom: 12 }}>
-              <Select style={{ width: 160 }} options={OCCASION_OPTIONS} />
-            </Form.Item>
-            <Form.Item name="tableId" label="Table" style={{ marginBottom: 12 }}>
-              <Select
-                allowClear
-                placeholder="Auto-assign"
-                style={{ width: 200 }}
-                options={tableOptionsForParty(createPartySize)}
-              />
-            </Form.Item>
-          </Space>
-
-          <Form.Item name="guestNotes" label="Notes" style={{ marginBottom: 12 }}>
-            <Input.TextArea rows={2} maxLength={500} />
-          </Form.Item>
-
-          <Form.Item
-            name="seatImmediately"
-            label="Seat now"
-            valuePropName="checked"
-            style={{ marginBottom: 0 }}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 16,
+              padding: '12px 16px',
+              marginTop: 4,
+              background: colors.neutral[50],
+              borderRadius: radii.md,
+              border: `1px solid ${colors.bordersubtle}`,
+            }}
           >
-            <Switch />
-          </Form.Item>
+            <div>
+              <Text strong>Seat immediately</Text>
+              <br />
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Skip confirmed status and mark the party as seated now
+              </Text>
+            </div>
+            <Form.Item name="seatImmediately" valuePropName="checked" noStyle>
+              <Switch />
+            </Form.Item>
+          </div>
         </Form>
       </Modal>
 
@@ -604,43 +674,53 @@ function ReservationsPageContent() {
         onCancel={() => setEditing(null)}
         onOk={handleEdit}
         confirmLoading={updating}
-        okText="Save"
-        width={520}
+        okText="Save changes"
+        width={600}
+        centered
         destroyOnClose
+        styles={{ body: { paddingTop: 4 } }}
       >
-        <Form form={editForm} layout="vertical" style={{ marginTop: 8 }}>
-          <Space wrap style={{ width: '100%' }} size="middle">
-            <Form.Item name="date" label="Date" rules={[{ required: true }]} style={{ marginBottom: 12 }}>
-              <DatePicker
-                onChange={() => editForm.setFieldsValue({ slotTime: undefined })}
-              />
-            </Form.Item>
-            <Form.Item name="time" label="Time" rules={[{ required: true }]} style={{ marginBottom: 12 }}>
-              <TimePicker
-                format="h:mm A"
-                minuteStep={15}
-                use12Hours
-                onChange={() => editForm.setFieldsValue({ slotTime: undefined })}
-              />
-            </Form.Item>
-            <Form.Item
-              name="partySize"
-              label="Party size"
-              rules={[{ required: true }]}
-              style={{ marginBottom: 12 }}
-            >
-              <InputNumber min={1} max={50} />
-            </Form.Item>
-          </Space>
+        <Form form={editForm} layout="vertical">
+          <SectionLabel>When &amp; party</SectionLabel>
+          <Row gutter={12}>
+            <Col xs={24} sm={10}>
+              <Form.Item name="date" label="Date" rules={[{ required: true }]} required>
+                <DatePicker
+                  style={{ width: '100%' }}
+                  onChange={() => editForm.setFieldsValue({ slotTime: undefined })}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Form.Item name="time" label="Time" rules={[{ required: true }]} required>
+                <TimePicker
+                  format="h:mm A"
+                  minuteStep={15}
+                  use12Hours
+                  style={{ width: '100%' }}
+                  onChange={() => editForm.setFieldsValue({ slotTime: undefined })}
+                />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={6}>
+              <Form.Item name="partySize" label="Guests" rules={[{ required: true }]} required>
+                <InputNumber min={1} max={50} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
 
           <Form.Item name="slotTime" hidden>
             <Input />
           </Form.Item>
 
           {(editSlotsData?.availability ?? []).length > 0 ? (
-            <Form.Item label="Available slots" style={{ marginBottom: 12 }}>
+            <Form.Item
+              label="Open slots"
+              extra="Quick-fill date and time from an available slot"
+              style={{ marginBottom: 20 }}
+            >
               <Select
-                placeholder="Pick an open slot"
+                placeholder="Choose a slot"
                 options={slotOptions(editSlotsData?.availability, editing?.slotStart)}
                 value={editForm.getFieldValue('slotTime')}
                 onChange={(iso: string) => {
@@ -652,36 +732,50 @@ function ReservationsPageContent() {
             </Form.Item>
           ) : null}
 
-          <Space wrap style={{ width: '100%' }} size="middle">
-            <Form.Item name="occasion" label="Occasion" style={{ marginBottom: 12 }}>
-              <Select style={{ width: 160 }} options={OCCASION_OPTIONS} />
-            </Form.Item>
-            <Form.Item name="tableId" label="Table" style={{ marginBottom: 12 }}>
-              <Select
-                allowClear
-                placeholder="Auto-assign"
-                style={{ width: 200 }}
-                options={tableOptionsForParty(
-                  editPartySize,
-                  editing?.tables?.[0]?.id ?? editing?.tableIds?.[0],
-                )}
-              />
-            </Form.Item>
-          </Space>
-
-          <Form.Item name="guestNotes" label="Notes" style={{ marginBottom: 0 }}>
-            <Input.TextArea rows={2} maxLength={500} />
-          </Form.Item>
+          <SectionLabel>Details</SectionLabel>
+          <Row gutter={12}>
+            <Col xs={24} sm={12}>
+              <Form.Item name="occasion" label="Occasion">
+                <Select options={OCCASION_OPTIONS} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="tableId"
+                label="Table"
+                extra="Leave empty to auto-assign"
+              >
+                <Select
+                  allowClear
+                  placeholder="Auto-assign"
+                  options={tableOptionsForParty(
+                    editPartySize,
+                    editing?.tables?.[0]?.id ?? editing?.tableIds?.[0],
+                  )}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={24}>
+              <Form.Item name="guestNotes" label="Special requests" style={{ marginBottom: 0 }}>
+                <Input.TextArea
+                  rows={3}
+                  maxLength={500}
+                  placeholder="Allergies, high chair, window seat…"
+                  showCount
+                />
+              </Form.Item>
+            </Col>
+          </Row>
         </Form>
       </Modal>
-    </Space>
+    </Space></div>
   );
 }
 
 export default function ReservationsPage() {
   return (
-    <Suspense fallback={null}>
+    <div component="ReservationsPage" style={{ display: 'contents' }}><Suspense fallback={null}>
       <ReservationsPageContent />
-    </Suspense>
+    </Suspense></div>
   );
 }

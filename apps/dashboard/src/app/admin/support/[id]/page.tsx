@@ -217,7 +217,7 @@ export default function SupportTicketDetailPage() {
     }));
 
   return (
-    <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="SupportTicketDetailPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <div>
         <Link href="/admin/support">
           <Button type="link" icon={<ArrowLeftOutlined />} style={{ paddingLeft: 0 }}>
@@ -627,6 +627,6 @@ export default function SupportTicketDetailPage() {
           maxLength={255}
         />
       </Modal>
-    </Space>
+    </Space></div>
   );
 }

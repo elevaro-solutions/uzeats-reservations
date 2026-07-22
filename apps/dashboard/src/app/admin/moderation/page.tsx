@@ -117,7 +117,7 @@ export default function AdminModerationPage() {
   ];
 
   return (
-    <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminModerationPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Content moderation"
         subtitle="Review flagged reviews and messages. Hide content or clear flags."
@@ -152,6 +152,6 @@ export default function AdminModerationPage() {
           ]}
         />
       </Card>
-    </Space>
+    </Space></div>
   );
 }

@@ -109,6 +109,28 @@ export const LOYALTY = {
   POINTS_PER_DOLLAR_DEPOSIT: 1,
   REDEEM_POINTS_PER_DOLLAR: 100,
   MIN_REDEEM_POINTS: 500,
+  FIRST_BOOKING_BONUS_POINTS: 50,
+  POINTS_PER_REVIEW: 25,
+  REFERRAL_BONUS_POINTS: 100,
+  POINTS_EXPIRY_MONTHS: 12,
+} as const;
+
+export const LOYALTY_TIERS = [
+  { id: 'bronze', name: 'Bronze', minVisits: 0, earnMultiplier: 1 },
+  { id: 'silver', name: 'Silver', minVisits: 5, earnMultiplier: 1.25 },
+  { id: 'gold', name: 'Gold', minVisits: 15, earnMultiplier: 1.5 },
+] as const;
+
+export type LoyaltyTierId = (typeof LOYALTY_TIERS)[number]['id'];
+
+/** Stable earn descriptions used for idempotent awards and reversals. */
+export const LOYALTY_EARN_REASONS = {
+  COMPLETED_VISIT: 'Completed reservation',
+  DEPOSIT_PAYMENT: 'Deposit payment points',
+  FIRST_BOOKING: 'First booking bonus',
+  REVIEW: 'Review submitted',
+  REFERRAL_BONUS: 'Referral bonus',
+  POINTS_EXPIRED: 'Points expired due to inactivity',
 } as const;
 
 export const DEFAULT_SLOT_INTERVAL_MINUTES = 15;
@@ -130,6 +152,7 @@ export const NOTIFICATION_EVENTS = [
   'reservationUpdates',
   'reviewReply',
   'surveyInvitation',
+  'loyaltyUpdates',
 ] as const;
 
 export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
@@ -146,6 +169,9 @@ export const NOTIFICATION_TYPE_TO_EVENT: Record<string, NotificationEvent> = {
   reservation_reminder: 'reservationUpdates',
   review_reply: 'reviewReply',
   survey_invitation: 'surveyInvitation',
+  points_earned: 'loyaltyUpdates',
+  points_redeemed: 'loyaltyUpdates',
+  points_refunded: 'loyaltyUpdates',
 };
 
 export const DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES: Record<NotificationChannel, boolean> = {

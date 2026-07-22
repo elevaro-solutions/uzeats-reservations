@@ -3,8 +3,8 @@ import DepositPayPage from './DepositPayClient';
 
 export default function Page() {
   return (
-    <Suspense fallback={<div style={{ padding: 24 }}>Loading payment…</div>}>
+    <div component="Page" style={{ display: 'contents' }}><Suspense fallback={<div style={{ padding: 24 }}>Loading payment…</div>}>
       <DepositPayPage />
-    </Suspense>
+    </Suspense></div>
   );
 }

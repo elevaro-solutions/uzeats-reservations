@@ -7,7 +7,7 @@ import { colors, radii, shadows, typography } from './tokens';
  */
 export const theme: ThemeConfig = {
   token: {
-    // Brand
+    // Brand — forest green primary, gold accent links on hover
     colorPrimary: colors.brand[600],
     colorLink: colors.brand[600],
     colorLinkHover: colors.brand[500],
@@ -50,6 +50,9 @@ export const theme: ThemeConfig = {
       controlHeight: 40,
       paddingInline: 20,
       borderRadius: radii.md,
+      colorPrimary: colors.brand[600],
+      colorPrimaryHover: colors.brand[500],
+      colorPrimaryActive: colors.brand[700],
     },
     Card: {
       borderRadiusLG: radii.lg,
@@ -59,10 +62,13 @@ export const theme: ThemeConfig = {
     Input: {
       paddingInline: 14,
       activeShadow: `0 0 0 3px ${colors.brand[100]}`,
+      hoverBorderColor: colors.brand[400],
+      activeBorderColor: colors.brand[600],
       borderRadius: radii.md,
     },
     Select: {
       optionSelectedBg: colors.brand[50],
+      optionSelectedColor: colors.brand[700],
       borderRadius: radii.md,
     },
     Menu: {
@@ -71,6 +77,7 @@ export const theme: ThemeConfig = {
       itemSelectedColor: colors.brand[600],
       activeBarBorderWidth: 0,
       horizontalItemSelectedColor: colors.brand[600],
+      itemHoverColor: colors.brand[500],
     },
     Tag: {
       borderRadiusSM: radii.pill,
@@ -89,25 +96,47 @@ export const theme: ThemeConfig = {
       titleMarginTop: 0,
     },
     Layout: {
-      headerBg: colors.surface,
+      headerBg: colors.brand[600],
       headerHeight: 64,
       bodyBg: colors.background,
       siderBg: colors.surface,
     },
     Rate: {
-      starColor: colors.rating,
+      starColor: colors.accent[400],
     },
     Badge: {
       colorBgContainer: colors.surface,
     },
     Segmented: {
       itemSelectedBg: colors.surface,
+      itemSelectedColor: colors.brand[600],
       trackBg: colors.neutral[100],
     },
     Tabs: {
       inkBarColor: colors.brand[600],
       itemSelectedColor: colors.brand[600],
       itemHoverColor: colors.brand[500],
+    },
+    Checkbox: {
+      colorPrimary: colors.brand[600],
+    },
+    Radio: {
+      colorPrimary: colors.brand[600],
+    },
+    Switch: {
+      colorPrimary: colors.brand[600],
+    },
+    Progress: {
+      defaultColor: colors.brand[600],
+    },
+    Slider: {
+      trackBg: colors.brand[200],
+      trackHoverBg: colors.brand[300],
+      handleColor: colors.brand[600],
+    },
+    Pagination: {
+      itemActiveBg: colors.brand[50],
+      itemActiveColor: colors.brand[600],
     },
   },
 };

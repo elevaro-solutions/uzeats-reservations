@@ -16,7 +16,7 @@ export interface PageHeaderProps {
 /** Consistent page-level heading with optional subtitle and actions. */
 export function PageHeader({ title, subtitle, extra }: PageHeaderProps) {
   return (
-    <div
+    <div component="PageHeader"
       style={{
         display: 'flex',
         alignItems: 'flex-start',

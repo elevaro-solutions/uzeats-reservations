@@ -1,7 +1,7 @@
 'use client';
 
 import { Typography } from 'antd';
-import { colors, radii, typography } from './tokens';
+import { colors, radii, shadows, typography } from './tokens';
 
 const { Text } = Typography;
 
@@ -32,7 +32,7 @@ export function SlotPicker({ slots, selected, onSelect, loading }: SlotPickerPro
   }
 
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+    <div component="SlotPicker" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
       {openSlots.map((slot) => {
         const label = new Date(slot.time).toLocaleTimeString([], {
           hour: 'numeric',
@@ -64,7 +64,7 @@ export function SlotPicker({ slots, selected, onSelect, loading }: SlotPickerPro
                     background: colors.brand[600],
                     color: colors.textInverse,
                     border: `1.5px solid ${colors.brand[600]}`,
-                    boxShadow: `0 4px 12px rgba(196, 71, 47, 0.28)`,
+                    boxShadow: shadows.brand,
                   }
                 : {
                     background: colors.surface,

@@ -64,7 +64,7 @@ export default function BlackoutsPage() {
   };
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="BlackoutsPage" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Blackout dates</Title>
       <Select
         style={{ width: 280 }}
@@ -118,6 +118,6 @@ export default function BlackoutsPage() {
           </Card>
         </Col>
       </Row>
-    </Space>
+    </Space></div>
   );
 }

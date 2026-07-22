@@ -22,7 +22,7 @@ function AdminAuditPageContent() {
   if (!ready) return null;
 
   return (
-    <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminAuditPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Audit logs"
         subtitle="Track admin actions across users, restaurants, invoices, and configuration."
@@ -73,14 +73,14 @@ function AdminAuditPageContent() {
           ]}
         />
       </Card>
-    </Space>
+    </Space></div>
   );
 }
 
 export default function AdminAuditPage() {
   return (
-    <Suspense fallback={null}>
+    <div component="AdminAuditPage" style={{ display: 'contents' }}><Suspense fallback={null}>
       <AdminAuditPageContent />
-    </Suspense>
+    </Suspense></div>
   );
 }

@@ -64,7 +64,7 @@ export default function ReservationsPage() {
   };
 
   return (
-    <div style={{ maxWidth: 800 }}>
+    <div component="ReservationsPage" style={{ maxWidth: 800 }}>
       <PageHeader
         title="My reservations"
         subtitle="Upcoming and past bookings in one place"

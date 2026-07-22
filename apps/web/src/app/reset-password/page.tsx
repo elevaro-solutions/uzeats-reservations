@@ -5,8 +5,8 @@ import ResetPasswordForm from './ResetPasswordForm';
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
+    <div component="ResetPasswordPage" style={{ display: 'contents' }}><Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
       <ResetPasswordForm />
-    </Suspense>
+    </Suspense></div>
   );
 }

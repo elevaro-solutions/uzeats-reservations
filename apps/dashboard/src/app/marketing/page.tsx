@@ -25,8 +25,9 @@ import {
   Typography,
   message,
 } from 'antd';
-import { PlusOutlined, RocketOutlined, StarOutlined, TagOutlined } from '@ant-design/icons';
+import { PlusOutlined, RocketOutlined, StarOutlined, TagOutlined, FundOutlined, GiftOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import {
   MY_RESTAURANTS,
@@ -34,6 +35,10 @@ import {
   CREATE_PROMOTION,
   UPDATE_PROMOTION,
   DELETE_PROMOTION,
+  PROMOTION_STATS,
+  GIFT_CARDS,
+  ISSUE_GIFT_CARD,
+  SET_GIFT_CARD_ACTIVE,
   BOOST_CAMPAIGNS,
   CREATE_BOOST_CAMPAIGN,
   SET_BOOST_CAMPAIGN_STATUS,
@@ -52,6 +57,260 @@ const BOOST_STATUS_COLORS: Record<string, string> = {
   paused: 'orange',
   completed: 'default',
 };
+
+function RedemptionsChart({
+  days,
+}: {
+  days: { date: string; count: number; discountCents: number }[];
+}) {
+  const max = Math.max(...days.map((d) => d.count), 1);
+  return (
+    <div component="RedemptionsChart">
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 140, marginBottom: 8 }}>
+        {days.map((d) => (
+          <div
+            key={d.date}
+            title={`${d.date}: ${d.count} redemption${d.count === 1 ? '' : 's'}`}
+            style={{
+              flex: 1,
+              height: `${(d.count / max) * 100}%`,
+              background: colors.brand[500],
+              borderRadius: 4,
+              minHeight: d.count > 0 ? 4 : 0,
+            }}
+          />
+        ))}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {days[0]?.date}
+        </Text>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          {days[days.length - 1]?.date}
+        </Text>
+      </div>
+    </div>
+  );
+}
+
+function PromoAnalyticsTab({ restaurantId }: { restaurantId?: string }) {
+  const [days, setDays] = useState(30);
+  const { data, loading } = useQuery(PROMOTION_STATS, {
+    skip: !restaurantId,
+    variables: { restaurantId, days },
+    onError: (err: Error) => message.error(err.message),
+  });
+  const stats = data?.promotionStats;
+
+  return (
+    <div component="PromoAnalyticsTab" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text type="secondary">Redemptions from confirmed bookings with a promotion applied.</Text>
+        <Select
+          value={days}
+          onChange={setDays}
+          style={{ width: 140 }}
+          options={[
+            { value: 7, label: 'Last 7 days' },
+            { value: 30, label: 'Last 30 days' },
+            { value: 90, label: 'Last 90 days' },
+          ]}
+        />
+      </div>
+
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={8}>
+          <Card loading={loading}>
+            <Text type="secondary">Redemptions</Text>
+            <Title level={3} style={{ margin: '4px 0 0' }}>
+              {stats?.totalRedemptions ?? 0}
+            </Title>
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card loading={loading}>
+            <Text type="secondary">Discount given</Text>
+            <Title level={3} style={{ margin: '4px 0 0' }}>
+              {dollars(stats?.totalDiscountCents ?? 0)}
+            </Title>
+          </Card>
+        </Col>
+        <Col xs={24} sm={8}>
+          <Card loading={loading}>
+            <Text type="secondary">Active promotions</Text>
+            <Title level={3} style={{ margin: '4px 0 0' }}>
+              {stats?.activePromotionCount ?? 0}
+            </Title>
+          </Card>
+        </Col>
+      </Row>
+
+      <Card title="Redemptions over time" loading={loading}>
+        {stats?.redemptionsByDay?.length ? (
+          <RedemptionsChart days={stats.redemptionsByDay} />
+        ) : (
+          <Text type="secondary">No promotion redemptions in this period.</Text>
+        )}
+      </Card>
+
+      <Card title="Promotion performance" loading={loading}>
+        <Table
+          rowKey="promotionId"
+          pagination={false}
+          dataSource={stats?.promotions ?? []}
+          columns={[
+            { title: 'Promotion', dataIndex: 'title' },
+            {
+              title: 'Code',
+              dataIndex: 'code',
+              render: (v: string) => (v ? <Tag>{v}</Tag> : <Text type="secondary">Auto-apply</Text>),
+            },
+            { title: 'Redemptions', dataIndex: 'redemptions' },
+            {
+              title: 'Discount given',
+              dataIndex: 'discountCents',
+              render: (v: number) => dollars(v),
+            },
+            {
+              title: 'Status',
+              dataIndex: 'active',
+              render: (v: boolean) => (
+                <Tag color={v ? 'green' : 'default'}>{v ? 'Active' : 'Inactive'}</Tag>
+              ),
+            },
+          ]}
+        />
+      </Card>
+    </Space></div>
+  );
+}
+
+function GiftCardsTab({ restaurantId }: { restaurantId?: string }) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [form] = Form.useForm();
+  const { limit, offset, tablePagination } = useUrlPagination({
+    defaultPageSize: 20,
+    pageParam: 'giftPage',
+  });
+
+  const { data, loading, refetch } = useQuery(GIFT_CARDS, {
+    skip: !restaurantId,
+    variables: { restaurantId, limit, offset },
+    onError: (err: Error) => message.error(err.message),
+  });
+  const [issueGiftCard, { loading: issuing }] = useMutation(ISSUE_GIFT_CARD);
+  const [setGiftCardActive] = useMutation(SET_GIFT_CARD_ACTIVE);
+
+  const handleIssue = async () => {
+    try {
+      const values = await form.validateFields();
+      const result = await issueGiftCard({
+        variables: {
+          restaurantId,
+          input: {
+            balanceCents: Math.round(values.balanceDollars * 100),
+            recipientName: values.recipientName || undefined,
+            recipientEmail: values.recipientEmail || undefined,
+            expiresAt: values.expiresAt ? values.expiresAt.toISOString() : undefined,
+            note: values.note || undefined,
+          },
+        },
+      });
+      const code = result.data?.issueGiftCard?.code;
+      message.success(code ? `Gift card issued: ${code}` : 'Gift card issued');
+      setModalOpen(false);
+      form.resetFields();
+      refetch();
+    } catch (err: any) {
+      if (err?.message) message.error(err.message);
+    }
+  };
+
+  return (
+    <div component="GiftCardsTab" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
+          Issue gift card
+        </Button>
+      </div>
+
+      <Table
+        loading={loading}
+        rowKey="id"
+        dataSource={data?.giftCards?.items ?? []}
+        pagination={tablePagination(data?.giftCards?.total ?? 0)}
+        columns={[
+          { title: 'Code', dataIndex: 'code', render: (v: string) => <Tag>{v}</Tag> },
+          {
+            title: 'Balance',
+            key: 'balance',
+            render: (_: unknown, r: { balanceCents: number; initialBalanceCents: number }) =>
+              `${dollars(r.balanceCents)} / ${dollars(r.initialBalanceCents)}`,
+          },
+          { title: 'Recipient', dataIndex: 'recipientName', render: (v: string) => v || '—' },
+          {
+            title: 'Expires',
+            dataIndex: 'expiresAt',
+            render: (v: string) => (v ? new Date(v).toLocaleDateString() : '—'),
+          },
+          {
+            title: 'Active',
+            dataIndex: 'active',
+            render: (v: boolean, r: any) => (
+              <Switch
+                checked={v}
+                onChange={async (checked) => {
+                  try {
+                    await setGiftCardActive({ variables: { id: r.id, active: checked } });
+                    message.success(checked ? 'Gift card activated' : 'Gift card deactivated');
+                    refetch();
+                  } catch (err: any) {
+                    message.error(err?.message ?? 'Failed to update');
+                  }
+                }}
+              />
+            ),
+          },
+          {
+            title: 'Issued',
+            dataIndex: 'createdAt',
+            render: (v: string) => new Date(v).toLocaleDateString(),
+          },
+        ]}
+      />
+
+      <Modal
+        title="Issue gift card"
+        open={modalOpen}
+        onCancel={() => setModalOpen(false)}
+        onOk={handleIssue}
+        confirmLoading={issuing}
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item
+            name="balanceDollars"
+            label="Balance ($)"
+            rules={[{ required: true, message: 'Enter a balance' }]}
+          >
+            <InputNumber min={0.01} step={0.01} style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="recipientName" label="Recipient name">
+            <Input />
+          </Form.Item>
+          <Form.Item name="recipientEmail" label="Recipient email">
+            <Input type="email" />
+          </Form.Item>
+          <Form.Item name="expiresAt" label="Expires">
+            <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item name="note" label="Note">
+            <Input.TextArea rows={2} />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </Space></div>
+  );
+}
 
 function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -78,10 +337,15 @@ function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
         title: values.title,
         description: values.description || undefined,
         discountPercent: values.discountPercent ?? undefined,
+        discountAmountCents:
+          values.discountAmountDollars != null
+            ? Math.round(values.discountAmountDollars * 100)
+            : undefined,
         code: values.code || undefined,
         startDate: values.startDate ? values.startDate.format('YYYY-MM-DD') : undefined,
         endDate: values.endDate ? values.endDate.format('YYYY-MM-DD') : undefined,
         daysOfWeek: values.daysOfWeek ?? [],
+        maxRedemptions: values.maxRedemptions ?? undefined,
         active: values.active ?? true,
       };
       if (editingId) {
@@ -101,7 +365,7 @@ function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
   };
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="PromotionsTab" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <Button
           type="primary"
@@ -124,8 +388,14 @@ function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
           { title: 'Title', dataIndex: 'title' },
           {
             title: 'Discount',
-            dataIndex: 'discountPercent',
-            render: (v: number) => (v != null ? `${v}%` : '—'),
+            key: 'discount',
+            render: (_: unknown, r: { discountPercent?: number; discountAmountCents?: number }) => {
+              if (r.discountAmountCents != null && r.discountAmountCents > 0) {
+                return dollars(r.discountAmountCents);
+              }
+              if (r.discountPercent != null) return `${r.discountPercent}%`;
+              return '—';
+            },
           },
           {
             title: 'Code',
@@ -144,7 +414,12 @@ function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
             render: (days: number[]) =>
               days?.length ? days.map((d) => DAYS[d]).join(', ') : 'Every day',
           },
-          { title: 'Redemptions', dataIndex: 'redemptions' },
+          {
+            title: 'Redemptions',
+            dataIndex: 'redemptions',
+            render: (v: number, r: any) =>
+              r.maxRedemptions ? `${v ?? 0} / ${r.maxRedemptions}` : String(v ?? 0),
+          },
           {
             title: 'Active',
             dataIndex: 'active',
@@ -163,10 +438,13 @@ function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
                       title: r.title,
                       description: r.description,
                       discountPercent: r.discountPercent,
+                      discountAmountDollars:
+                        r.discountAmountCents != null ? r.discountAmountCents / 100 : undefined,
                       code: r.code,
                       startDate: r.startDate ? dayjs(r.startDate) : undefined,
                       endDate: r.endDate ? dayjs(r.endDate) : undefined,
                       daysOfWeek: r.daysOfWeek ?? [],
+                      maxRedemptions: r.maxRedemptions,
                       active: r.active,
                     });
                     setModalOpen(true);
@@ -214,12 +492,24 @@ function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
           <Row gutter={12}>
             <Col span={12}>
               <Form.Item name="discountPercent" label="Discount %">
-                <InputNumber min={1} max={100} style={{ width: '100%' }} />
+                <InputNumber min={1} max={100} style={{ width: '100%' }} placeholder="20" />
               </Form.Item>
             </Col>
             <Col span={12}>
+              <Form.Item name="discountAmountDollars" label="Or fixed amount ($)">
+                <InputNumber min={0.01} step={0.01} style={{ width: '100%' }} placeholder="5.00" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={12}>
+            <Col span={12}>
               <Form.Item name="code" label="Promo code">
                 <Input placeholder="HAPPY20" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="maxRedemptions" label="Max redemptions (optional)">
+                <InputNumber min={1} style={{ width: '100%' }} placeholder="Unlimited" />
               </Form.Item>
             </Col>
           </Row>
@@ -243,7 +533,7 @@ function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
           </Form.Item>
         </Form>
       </Modal>
-    </Space>
+    </Space></div>
   );
 }
 
@@ -299,7 +589,7 @@ function BoostCampaignsTab({ restaurantId }: { restaurantId?: string }) {
   };
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="BoostCampaignsTab" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Text type="secondary">
           Boost campaigns promote your restaurant across the network. You pay per cover
@@ -425,7 +715,7 @@ function BoostCampaignsTab({ restaurantId }: { restaurantId?: string }) {
           </Row>
         </Form>
       </Modal>
-    </Space>
+    </Space></div>
   );
 }
 
@@ -453,7 +743,7 @@ function FeaturedTab({ restaurantId }: { restaurantId?: string }) {
   };
 
   return (
-    <Space direction="vertical" size={16} style={{ maxWidth: 560 }}>
+    <div component="FeaturedTab" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ maxWidth: 560 }}>
       <Alert
         type="info"
         showIcon
@@ -483,7 +773,7 @@ function FeaturedTab({ restaurantId }: { restaurantId?: string }) {
           )}
         </Space>
       </Card>
-    </Space>
+    </Space></div>
   );
 }
 
@@ -505,7 +795,7 @@ function MarketingPageContent() {
   }, [restData]);
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="MarketingPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Marketing</Title>
       <Select
         style={{ width: 260 }}
@@ -534,6 +824,24 @@ function MarketingPageContent() {
               children: <PromotionsTab restaurantId={restaurantId} />,
             },
             {
+              key: 'analytics',
+              label: (
+                <span>
+                  <FundOutlined /> Promo analytics
+                </span>
+              ),
+              children: <PromoAnalyticsTab restaurantId={restaurantId} />,
+            },
+            {
+              key: 'gift-cards',
+              label: (
+                <span>
+                  <GiftOutlined /> Gift cards
+                </span>
+              ),
+              children: <GiftCardsTab restaurantId={restaurantId} />,
+            },
+            {
               key: 'boost',
               label: (
                 <span>
@@ -554,14 +862,14 @@ function MarketingPageContent() {
           ]}
         />
       </Card>
-    </Space>
+    </Space></div>
   );
 }
 
 export default function MarketingPage() {
   return (
-    <Suspense fallback={null}>
+    <div component="MarketingPage" style={{ display: 'contents' }}><Suspense fallback={null}>
       <MarketingPageContent />
-    </Suspense>
+    </Suspense></div>
   );
 }

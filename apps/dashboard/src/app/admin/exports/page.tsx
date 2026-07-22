@@ -50,7 +50,7 @@ export default function AdminExportsPage() {
   };
 
   return (
-    <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminExportsPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="CSV exports"
         subtitle="Download finance and support datasets for spreadsheets or BI tools."
@@ -85,6 +85,6 @@ export default function AdminExportsPage() {
           </Card>
         ))}
       </Space>
-    </Space>
+    </Space></div>
   );
 }

@@ -62,7 +62,7 @@ export default function SurveyPage() {
     return null;
   }
 
-  if (authLoading || loading) return <Card loading style={{ maxWidth: 560, margin: '40px auto' }} />;
+  if (authLoading || loading) return <div component="SurveyPage" style={{ display: 'contents' }}><Card loading style={{ maxWidth: 560, margin: '40px auto' }} /></div>;
 
   if (user && !loading && !reservation) {
     return (
@@ -136,7 +136,7 @@ export default function SurveyPage() {
   );
 
   return (
-    <Card style={{ maxWidth: 560, margin: '40px auto' }}>
+    <div component="SurveyPage" style={{ display: 'contents' }}><Card style={{ maxWidth: 560, margin: '40px auto' }}>
       <Title level={3} style={{ marginTop: 0 }}>
         How was your visit?
       </Title>
@@ -203,6 +203,6 @@ export default function SurveyPage() {
           Submit feedback
         </Button>
       </Space>
-    </Card>
+    </Card></div>
   );
 }

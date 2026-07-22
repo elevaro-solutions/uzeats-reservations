@@ -17,7 +17,7 @@ export interface EmptyStateProps {
 /** Friendly empty state for lists and searches with no results. */
 export function EmptyState({ icon, title, description, action }: EmptyStateProps) {
   return (
-    <div
+    <div component="EmptyState"
       style={{
         display: 'flex',
         flexDirection: 'column',

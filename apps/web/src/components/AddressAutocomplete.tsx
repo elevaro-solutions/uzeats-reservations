@@ -18,6 +18,8 @@ import {
   type CityOption,
 } from '@/lib/cities';
 
+const LOCATION_SEARCH_TYPES = ['geocode'] as const;
+
 export type LocationSelection = {
   label: string;
   lat: number;
@@ -108,11 +110,10 @@ export function AddressAutocomplete({
   );
 
   return (
-    <SharedAddressAutocomplete
-      value={value}
+    <div component="AddressAutocomplete" style={{ display: 'contents' }}><SharedAddressAutocomplete       value={value}
       onChange={onChange}
       onSelect={handleSelect}
-      searchTypes={['geocode']}
+      searchTypes={LOCATION_SEARCH_TYPES}
       country="us"
       fallbackOptions={fallbackOptions}
       placeholder={googleAvailable ? 'Address or neighborhood' : 'City'}
@@ -154,6 +155,6 @@ export function AddressAutocomplete({
           </span>
         ),
       }}
-    />
+    /></div>
   );
 }

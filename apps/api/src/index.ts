@@ -15,6 +15,8 @@ import { constructStripeEvent } from './services/stripe.js';
 import { confirmDeposit } from './services/reservations.js';
 import { startNotificationWorkers } from './services/notifications.js';
 import { startCampaignWorker } from './services/campaigns.js';
+import { startLoyaltyWorker } from './services/loyaltyExpiry.js';
+import { handleTelegramWebhook, startTelegramBot } from './services/telegram.js';
 import { logger } from './lib/logger.js';
 import { AppError } from './lib/errors.js';
 import { posRouter } from './routes/pos.js';
@@ -26,6 +28,7 @@ async function main() {
   await connectDb();
   startNotificationWorkers();
   startCampaignWorker();
+  startLoyaltyWorker();
 
   const app = express();
 
@@ -118,6 +121,10 @@ async function main() {
     },
   );
 
+  app.post('/webhooks/telegram', express.json(), (req, res) => {
+    void handleTelegramWebhook(req, res);
+  });
+
   app.use('/api/pos', express.json(), cors({
     origin: env.CORS_ORIGINS.split(',').map((s) => s.trim()),
   }), posRouter);
@@ -181,6 +188,9 @@ async function main() {
 
   app.listen(env.PORT, () => {
     logger.info(`[api] GraphQL ready at http://localhost:${env.PORT}/graphql`);
+    void startTelegramBot().catch((err) => {
+      logger.error({ err }, '[telegram] failed to start bot');
+    });
   });
 }
 

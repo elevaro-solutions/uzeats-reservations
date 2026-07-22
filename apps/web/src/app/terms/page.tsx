@@ -6,7 +6,7 @@ const { Title, Paragraph, Text } = Typography;
 
 export default function TermsOfServicePage() {
   return (
-    <Typography style={{ maxWidth: 780 }}>
+    <div component="TermsOfServicePage" style={{ display: 'contents' }}><Typography style={{ maxWidth: 780 }}>
       <Title level={2}>Terms of Service</Title>
       <Paragraph type="secondary">Last updated: July 11, 2026</Paragraph>
 
@@ -120,6 +120,6 @@ export default function TermsOfServicePage() {
         For questions about these Terms, contact us at:{' '}
         <Text copyable>legal@tablevera.online</Text>
       </Paragraph>
-    </Typography>
+    </Typography></div>
   );
 }

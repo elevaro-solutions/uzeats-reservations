@@ -55,7 +55,7 @@ function PaymentForm({
   };
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="PaymentForm" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Text>
         Deposit due:{' '}
         <Text strong style={{ fontSize: 18 }}>
@@ -82,7 +82,7 @@ function PaymentForm({
           Pay deposit
         </Button>
       </Space>
-    </Space>
+    </Space></div>
   );
 }
 
@@ -127,7 +127,7 @@ export default function DepositPayment({
   }
 
   return (
-    <Card style={{ maxWidth: 520, margin: '0 auto' }}>
+    <div component="DepositPayment" style={{ display: 'contents' }}><Card style={{ maxWidth: 520, margin: '0 auto' }}>
       <Title level={4} style={{ marginTop: 0 }}>
         Complete your deposit
       </Title>
@@ -147,6 +147,6 @@ export default function DepositPayment({
       >
         <PaymentForm amount={amount} onSuccess={onSuccess} onCancel={onCancel} />
       </Elements>
-    </Card>
+    </Card></div>
   );
 }

@@ -135,7 +135,7 @@ function AdminRestaurantsContent() {
   };
 
   return (
-    <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminRestaurantsContent" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Restaurants"
         subtitle="Approve partners, edit listing details, and manage ownership."
@@ -326,14 +326,14 @@ function AdminRestaurantsContent() {
           </Row>
         </Form>
       </Modal>
-    </Space>
+    </Space></div>
   );
 }
 
 export default function AdminRestaurantsPage() {
   return (
-    <Suspense fallback={null}>
+    <div component="AdminRestaurantsPage" style={{ display: 'contents' }}><Suspense fallback={null}>
       <AdminRestaurantsContent />
-    </Suspense>
+    </Suspense></div>
   );
 }

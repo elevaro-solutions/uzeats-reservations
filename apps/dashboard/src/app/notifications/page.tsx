@@ -36,7 +36,8 @@ type EventKey =
   | 'guestSpendAlert'
   | 'reservationUpdates'
   | 'reviewReply'
-  | 'surveyInvitation';
+  | 'surveyInvitation'
+  | 'loyaltyUpdates';
 
 type ChannelPrefs = Record<ChannelKey, boolean>;
 type NotificationPreferences = Record<EventKey, ChannelPrefs>;
@@ -66,6 +67,7 @@ const EVENTS: Array<{ key: EventKey; title: string; hint: string }> = [
   { key: 'reservationUpdates', title: 'Reservation updates', hint: 'Confirmations & reminders' },
   { key: 'reviewReply', title: 'Review reply', hint: 'Replies on guest reviews' },
   { key: 'surveyInvitation', title: 'Survey invite', hint: 'Post-visit feedback' },
+  { key: 'loyaltyUpdates', title: 'Loyalty points', hint: 'Earned, redeemed, and refunded points' },
 ];
 
 const ROLE_LABELS: Record<string, string> = {
@@ -197,7 +199,7 @@ export default function NotificationsSettingsPage() {
   }));
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="NotificationsSettingsPage" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <PageHeader
         title="Notifications"
         subtitle="Select a team member to configure feature alerts by channel."
@@ -350,6 +352,6 @@ export default function NotificationsSettingsPage() {
           </Space>
         )}
       </Modal>
-    </Space>
+    </Space></div>
   );
 }

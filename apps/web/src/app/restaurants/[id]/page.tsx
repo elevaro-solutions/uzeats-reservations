@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@apollo/client/react';
 import {
@@ -23,7 +23,7 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import { SlotPicker, priceRangeLabel, colors, radii } from '@reservations/ui';
-import { OCCASIONS } from '@reservations/shared';
+import { OCCASIONS, LOYALTY, RESTAURANT_LOYALTY, pointsToDiscountCents, restaurantPointsToDiscountCents, depositPointsFromCents, loyaltyRedeemProgress } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import {
   RESTAURANT_DETAIL,
@@ -34,6 +34,10 @@ import {
   RESTAURANT_REVIEWS,
   PROMOTIONS,
   EXPERIENCES,
+  MY_RESTAURANT_LOYALTY_BALANCE,
+  VALIDATE_PROMOTION,
+  BEST_PROMOTION,
+  VALIDATE_GIFT_CARD,
 } from '@/lib/graphql';
 import { getGraphQLErrorMessage, getValidationIssues, toFieldErrors } from '@/lib/errors';
 import DepositPayment from '@/components/DepositPayment';
@@ -51,6 +55,14 @@ export default function RestaurantPage() {
   const [occasion, setOccasion] = useState('none');
   const [notes, setNotes] = useState('');
   const [redeemPoints, setRedeemPoints] = useState<number>(0);
+  const [redeemRestaurantPoints, setRedeemRestaurantPoints] = useState<number>(0);
+  const [promoCode, setPromoCode] = useState(search.get('promo')?.toUpperCase() ?? '');
+  const [giftCardCode, setGiftCardCode] = useState('');
+
+  useEffect(() => {
+    const promo = search.get('promo');
+    if (promo) setPromoCode(promo.toUpperCase());
+  }, [search]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [validationSummary, setValidationSummary] = useState<string[]>([]);
   const [depositInfo, setDepositInfo] = useState<{
@@ -77,6 +89,10 @@ export default function RestaurantPage() {
   const { data: experiencesData } = useQuery(EXPERIENCES, {
     variables: { restaurantId: params.id, upcoming: true, limit: 50, offset: 0 },
   });
+  const { data: restaurantLoyaltyData } = useQuery(MY_RESTAURANT_LOYALTY_BALANCE, {
+    variables: { restaurantId: params.id },
+    skip: !user,
+  });
 
   const [createReservation, { loading: booking }] = useMutation(CREATE_RESERVATION);
   const [confirmDeposit] = useMutation(CONFIRM_DEPOSIT);
@@ -84,6 +100,67 @@ export default function RestaurantPage() {
 
   const restaurant = (data as any)?.restaurant;
   const slots = (availData as any)?.availability ?? [];
+  const grossDepositCents =
+    restaurant?.depositRequired && restaurant.depositAmountCents > 0
+      ? restaurant.depositAmountCents * partySize
+      : 0;
+  const redeemProgress = loyaltyRedeemProgress(user?.loyaltyPoints ?? 0);
+  const restaurantLoyaltyBalance = (restaurantLoyaltyData as any)?.myRestaurantLoyaltyBalance ?? 0;
+  const restaurantMinRedeem =
+    restaurant?.loyaltyMinRedeemPoints ?? RESTAURANT_LOYALTY.DEFAULT_MIN_REDEEM_POINTS;
+  const canRedeemRestaurant =
+    !!restaurant?.loyaltyEnabled &&
+    restaurantLoyaltyBalance >= restaurantMinRedeem &&
+    grossDepositCents > 0;
+  const depositBeforePromo = useMemo(() => {
+    let d = grossDepositCents;
+    if (redeemPoints >= LOYALTY.MIN_REDEEM_POINTS) {
+      d -= pointsToDiscountCents(redeemPoints);
+    }
+    if (canRedeemRestaurant && redeemRestaurantPoints >= restaurantMinRedeem) {
+      d -= restaurantPointsToDiscountCents(redeemRestaurantPoints);
+    }
+    return Math.max(0, d);
+  }, [
+    grossDepositCents,
+    redeemPoints,
+    redeemRestaurantPoints,
+    canRedeemRestaurant,
+    restaurantMinRedeem,
+  ]);
+  const { data: promoValidationData } = useQuery(VALIDATE_PROMOTION, {
+    variables: {
+      restaurantId: params.id,
+      code: promoCode.trim().toUpperCase(),
+      slotStart: selectedSlot!,
+      depositCents: depositBeforePromo,
+    },
+    skip: !promoCode.trim() || !selectedSlot || depositBeforePromo <= 0,
+  });
+  const { data: bestPromoData } = useQuery(BEST_PROMOTION, {
+    variables: {
+      restaurantId: params.id,
+      slotStart: selectedSlot!,
+      depositCents: depositBeforePromo,
+    },
+    skip: !!promoCode.trim() || !selectedSlot || depositBeforePromo <= 0,
+  });
+  const promoValidation = (promoValidationData as any)?.validatePromotion;
+  const bestPromotion = (bestPromoData as any)?.bestPromotion;
+  const activePromo = promoCode.trim() ? promoValidation : bestPromotion;
+  const depositAfterPromo = Math.max(
+    0,
+    depositBeforePromo - (activePromo?.valid ? activePromo.discountCents : 0),
+  );
+  const { data: giftValidationData } = useQuery(VALIDATE_GIFT_CARD, {
+    variables: {
+      restaurantId: params.id,
+      code: giftCardCode.trim().toUpperCase(),
+      depositCents: depositAfterPromo,
+    },
+    skip: !giftCardCode.trim() || depositAfterPromo <= 0,
+  });
+  const giftValidation = (giftValidationData as any)?.validateGiftCard;
   const availableCount = slots.filter((s: any) => s.available).length;
   const promotions = (promotionsData as any)?.promotions?.items ?? [];
   const experiences = (experiencesData as any)?.experiences?.items ?? [];
@@ -139,7 +216,12 @@ export default function RestaurantPage() {
             slotStart: selectedSlot,
             occasion,
             guestNotes: notes || undefined,
-            ...(redeemPoints >= 500 ? { redeemPoints } : {}),
+            ...(redeemPoints >= LOYALTY.MIN_REDEEM_POINTS ? { redeemPoints } : {}),
+            ...(canRedeemRestaurant && redeemRestaurantPoints >= restaurantMinRedeem
+              ? { redeemRestaurantPoints }
+              : {}),
+            ...(promoCode.trim() ? { promoCode: promoCode.trim().toUpperCase() } : {}),
+            ...(giftCardCode.trim() ? { giftCardCode: giftCardCode.trim().toUpperCase() } : {}),
           },
         },
       });
@@ -200,10 +282,10 @@ export default function RestaurantPage() {
     message.success('Added to waitlist — we will notify you if a table opens.');
   };
 
-  if (!restaurant) return <Card loading />;
+  if (!restaurant) return <div component="RestaurantPage" style={{ display: 'contents' }}><Card loading /></div>;
 
   return (
-    <Space orientation="vertical" size={24} style={{ width: '100%' }}>
+    <div component="RestaurantPage" style={{ display: 'contents' }}><Space orientation="vertical" size={24} style={{ width: '100%' }}>
       <Card
         cover={
           restaurant.photos?.[0] ? (
@@ -249,7 +331,11 @@ export default function RestaurantPage() {
                 <Card size="small" style={{ height: '100%', background: colors.brand[50], borderColor: colors.brand[100] }}>
                   <Space align="baseline" style={{ justifyContent: 'space-between', width: '100%' }}>
                     <Text strong>{p.title}</Text>
-                    {p.discountPercent ? <Tag color="red">{p.discountPercent}% off</Tag> : null}
+                    {p.discountPercent ? (
+                      <Tag color="red">{p.discountPercent}% off</Tag>
+                    ) : p.discountAmountCents ? (
+                      <Tag color="red">${(p.discountAmountCents / 100).toFixed(2)} off</Tag>
+                    ) : null}
                   </Space>
                   {p.description && (
                     <Paragraph type="secondary" style={{ marginBottom: 8, marginTop: 4 }}>
@@ -322,6 +408,22 @@ export default function RestaurantPage() {
             <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
               Pick a date, party size, and time — confirmed in seconds.
             </Text>
+            {user && (
+              <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+                Earn {LOYALTY.POINTS_PER_COMPLETED_VISIT} pts when you complete your visit
+                {grossDepositCents > 0
+                  ? ` and ${depositPointsFromCents(grossDepositCents)} pts when your deposit is paid`
+                  : ''}
+                .
+                {restaurant?.loyaltyEnabled ? (
+                  <>
+                    {' '}
+                    Plus {restaurant.loyaltyPointsPerVisit ?? RESTAURANT_LOYALTY.DEFAULT_POINTS_PER_VISIT}{' '}
+                    {restaurant.name} points for this visit.
+                  </>
+                ) : null}
+              </Text>
+            )}
             <Space wrap style={{ marginBottom: 16 }}>
               <DatePicker value={date} onChange={(d) => d && setDate(d)} />
               <Select
@@ -376,7 +478,7 @@ export default function RestaurantPage() {
                   placeholder="Allergies, seating preferences, celebration details..."
                 />
               </Form.Item>
-              {user && (user.loyaltyPoints ?? 0) >= 500 && (
+              {user && redeemProgress.canRedeem && grossDepositCents > 0 && (
                 <Form.Item
                   label="Redeem loyalty points"
                   validateStatus={fieldErrors.redeemPoints ? 'error' : undefined}
@@ -393,6 +495,25 @@ export default function RestaurantPage() {
                         Your balance: <Text strong style={{ color: colors.brand[600] }}>{user.loyaltyPoints} pts</Text>
                       </Text>
                     </div>
+                    <div style={{
+                      height: 8,
+                      borderRadius: radii.pill,
+                      background: colors.brand[100],
+                      overflow: 'hidden',
+                      marginBottom: 12,
+                    }}>
+                      <div style={{
+                        width: `${redeemProgress.percent}%`,
+                        height: '100%',
+                        background: colors.brand[600],
+                        borderRadius: radii.pill,
+                      }} />
+                    </div>
+                    <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 13 }}>
+                      {redeemProgress.canRedeem
+                        ? `Ready to redeem (${LOYALTY.MIN_REDEEM_POINTS}+ pts)`
+                        : `${redeemProgress.remaining} pts until you can redeem`}
+                    </Text>
                     <InputNumber
                       min={0}
                       max={user.loyaltyPoints}
@@ -405,22 +526,141 @@ export default function RestaurantPage() {
                       style={{ width: 160 }}
                       addonAfter="pts"
                     />
-                    {redeemPoints >= 500 ? (
+                    {redeemPoints >= LOYALTY.MIN_REDEEM_POINTS ? (
                       <Alert
                         type="success"
                         showIcon
                         style={{ marginTop: 10 }}
-                        message={`${redeemPoints} pts = $${(redeemPoints / 100).toFixed(2)} off deposit`}
+                        message={`${redeemPoints} pts = $${(pointsToDiscountCents(redeemPoints) / 100).toFixed(2)} off deposit`}
                       />
                     ) : redeemPoints > 0 ? (
                       <Alert
                         type="warning"
                         showIcon
                         style={{ marginTop: 10 }}
-                        message="Minimum 500 points required to redeem"
+                        message={`Minimum ${LOYALTY.MIN_REDEEM_POINTS} points required to redeem`}
                       />
                     ) : null}
                   </div>
+                </Form.Item>
+              )}
+
+              {user && canRedeemRestaurant && (
+                <Form.Item
+                  label={`Redeem ${restaurant.name} points`}
+                  validateStatus={fieldErrors.redeemRestaurantPoints ? 'error' : undefined}
+                  help={fieldErrors.redeemRestaurantPoints}
+                >
+                  <div style={{
+                    padding: 16,
+                    borderRadius: radii.md,
+                    background: colors.brand[50],
+                    border: `1px solid ${colors.brand[100]}`,
+                  }}>
+                    <Text>
+                      Your balance:{' '}
+                      <Text strong style={{ color: colors.brand[600] }}>
+                        {restaurantLoyaltyBalance} pts
+                      </Text>
+                    </Text>
+                    <InputNumber
+                      min={0}
+                      max={restaurantLoyaltyBalance}
+                      step={50}
+                      value={redeemRestaurantPoints}
+                      onChange={(v) => {
+                        setRedeemRestaurantPoints(v ?? 0);
+                        clearFieldError('redeemRestaurantPoints');
+                      }}
+                      style={{ width: 160, marginTop: 12 }}
+                      addonAfter="pts"
+                    />
+                    {redeemRestaurantPoints >= restaurantMinRedeem ? (
+                      <Alert
+                        type="success"
+                        showIcon
+                        style={{ marginTop: 10 }}
+                        message={`${redeemRestaurantPoints} pts = $${(restaurantPointsToDiscountCents(redeemRestaurantPoints) / 100).toFixed(2)} off deposit`}
+                      />
+                    ) : redeemRestaurantPoints > 0 ? (
+                      <Alert
+                        type="warning"
+                        showIcon
+                        style={{ marginTop: 10 }}
+                        message={`Minimum ${restaurantMinRedeem} restaurant points required to redeem`}
+                      />
+                    ) : null}
+                  </div>
+                </Form.Item>
+              )}
+
+              {grossDepositCents > 0 && (
+                <Form.Item label="Promotion code">
+                  <Input
+                    placeholder="Enter code"
+                    value={promoCode}
+                    onChange={(e) => {
+                      setPromoCode(e.target.value.toUpperCase());
+                      clearFieldError('promoCode');
+                    }}
+                    style={{ maxWidth: 220 }}
+                  />
+                  {promoCode.trim() && selectedSlot && promoValidation && (
+                    promoValidation.valid ? (
+                      <Alert
+                        type="success"
+                        showIcon
+                        style={{ marginTop: 10 }}
+                        message={`${promoValidation.promotion?.title ?? 'Promotion'}: $${(promoValidation.discountCents / 100).toFixed(2)} off deposit`}
+                      />
+                    ) : (
+                      <Alert
+                        type="warning"
+                        showIcon
+                        style={{ marginTop: 10 }}
+                        message={promoValidation.message ?? 'Invalid code'}
+                      />
+                    )
+                  )}
+                  {!promoCode.trim() && selectedSlot && bestPromotion?.valid && (
+                    <Alert
+                      type="info"
+                      showIcon
+                      style={{ marginTop: 10 }}
+                      message={`Auto-applied: ${bestPromotion.promotion?.title ?? 'Promotion'} — $${(bestPromotion.discountCents / 100).toFixed(2)} off deposit`}
+                    />
+                  )}
+                </Form.Item>
+              )}
+
+              {depositAfterPromo > 0 && (
+                <Form.Item label="Gift card">
+                  <Input
+                    placeholder="GV-XXXX-XXXX"
+                    value={giftCardCode}
+                    onChange={(e) => {
+                      setGiftCardCode(e.target.value.toUpperCase());
+                      clearFieldError('giftCardCode');
+                    }}
+                    style={{ maxWidth: 220 }}
+                  />
+                  {giftCardCode.trim() && giftValidation && (
+                    giftValidation.valid ? (
+                      <Alert
+                        type="success"
+                        showIcon
+                        style={{ marginTop: 10 }}
+                        message={`Gift card: $${(giftValidation.discountCents / 100).toFixed(2)} off deposit`}
+                      />
+                    ) : (
+                      <Alert
+                        type="warning"
+                        showIcon
+                        style={{ marginTop: 10 }}
+                        message={giftValidation.message ?? 'Invalid gift card'}
+                      />
+                    )
+                  )}
                 </Form.Item>
               )}
 
@@ -536,6 +776,6 @@ export default function RestaurantPage() {
           />
         )}
       </Modal>
-    </Space>
+    </Space></div>
   );
 }

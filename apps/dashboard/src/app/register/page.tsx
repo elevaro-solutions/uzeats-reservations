@@ -19,7 +19,8 @@ import {
   Spin,
 } from 'antd';
 import { CUISINES } from '@reservations/shared';
-import { AddressAutocomplete, PhoneInput, colors, formatPhoneDisplay, toE164Us, typography, usPhoneRules } from '@reservations/ui';
+import { AddressAutocomplete, PhoneInput, PlanPrice, colors, formatPhoneDisplay, toE164Us, typography, usPhoneRules } from '@reservations/ui';
+import { formatPlanDollars, getPlanDiscountLabel, getPlanPriceDisplay } from '@reservations/shared';
 import { AuthLayout } from '@/components/AuthLayout';
 import { useAuth } from '@/lib/auth';
 import { addressSelectionToFields } from '@/lib/address';
@@ -37,6 +38,14 @@ type PlanOption = {
   monthly: string;
   blurb: string;
   trialDays: number;
+  discountLabel: string | null;
+  pricing: {
+    monthlyPriceCents: number;
+    originalMonthlyPriceCents?: number | null;
+    discountType?: string | null;
+    discountPercent?: number | null;
+    annualFreeMonths?: number | null;
+  };
 };
 
 const FALLBACK_PLAN_OPTIONS: PlanOption[] = [
@@ -46,6 +55,8 @@ const FALLBACK_PLAN_OPTIONS: PlanOption[] = [
     monthly: '$49',
     blurb: 'Essential reservation management to get started.',
     trialDays: 30,
+    discountLabel: null,
+    pricing: { monthlyPriceCents: 4900 },
   },
   {
     key: 'core',
@@ -53,6 +64,8 @@ const FALLBACK_PLAN_OPTIONS: PlanOption[] = [
     monthly: '$99',
     blurb: 'Table management, waitlist, and free website covers.',
     trialDays: 30,
+    discountLabel: null,
+    pricing: { monthlyPriceCents: 9900 },
   },
   {
     key: 'pro',
@@ -60,13 +73,11 @@ const FALLBACK_PLAN_OPTIONS: PlanOption[] = [
     monthly: '$199',
     blurb: 'Full suite with guest insights, campaigns, and SMS.',
     trialDays: 30,
+    discountLabel: null,
+    pricing: { monthlyPriceCents: 19900 },
   },
 ];
 
-function formatDollars(cents: number): string {
-  const dollars = cents / 100;
-  return Number.isInteger(dollars) ? `$${dollars}` : `$${dollars.toFixed(2)}`;
-}
 
 function RegisterForm() {
   const searchParams = useSearchParams();
@@ -84,19 +95,35 @@ function RegisterForm() {
       name: string;
       description?: string | null;
       monthlyPriceCents: number;
+      originalMonthlyPriceCents?: number | null;
+      discountType?: string | null;
+      discountPercent?: number | null;
+      annualFreeMonths?: number | null;
       trialDays: number;
       visibleOnPricing?: boolean;
     }>;
     if (!fromApi.length) return FALLBACK_PLAN_OPTIONS;
     const visible = fromApi.filter((p) => p.visibleOnPricing !== false);
     const list = visible.length ? visible : fromApi;
-    return list.map((p) => ({
-      key: p.key,
-      name: p.name,
-      monthly: formatDollars(p.monthlyPriceCents),
-      blurb: p.description?.trim() || `${p.name} package`,
-      trialDays: p.trialDays ?? 0,
-    }));
+    return list.map((p) => {
+      const pricing = {
+        monthlyPriceCents: p.monthlyPriceCents,
+        originalMonthlyPriceCents: p.originalMonthlyPriceCents,
+        discountType: p.discountType,
+        discountPercent: p.discountPercent,
+        annualFreeMonths: p.annualFreeMonths,
+      };
+      const display = getPlanPriceDisplay(pricing);
+      return {
+        key: p.key,
+        name: p.name,
+        monthly: formatPlanDollars(display.primaryCents),
+        blurb: p.description?.trim() || `${p.name} package`,
+        trialDays: p.trialDays ?? 0,
+        discountLabel: getPlanDiscountLabel(pricing),
+        pricing,
+      };
+    });
   }, [plansData]);
 
   const planInfo = useMemo(
@@ -268,8 +295,7 @@ function RegisterForm() {
   };
 
   return (
-    <AuthLayout
-      heading="Register your restaurant"
+    <div component="RegisterForm" style={{ display: 'contents' }}><AuthLayout       heading="Register your restaurant"
       subheading="Pick a plan, create your owner account, and tell us about your venue."
       maxWidth={560}
     >
@@ -326,12 +352,18 @@ function RegisterForm() {
             }}
           >
             <Text strong style={{ display: 'block', marginBottom: 4 }}>
-              {planInfo.name} · {planInfo.monthly}/month
+              {planInfo.name}
             </Text>
-            <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+            <PlanPrice plan={planInfo.pricing} size="medium" />
+            <Text type="secondary" style={{ fontSize: typography.fontSize.sm, display: 'block', marginTop: 8 }}>
               {planInfo.blurb}
             </Text>
             <div style={{ marginTop: 8 }}>
+              {planInfo.discountLabel ? (
+                <Tag color="gold" style={{ marginInlineEnd: 8 }}>
+                  {planInfo.discountLabel}
+                </Tag>
+              ) : null}
               {planInfo.trialDays > 0 ? (
                 <Tag color="green">Free {planInfo.trialDays}-day trial</Tag>
               ) : (
@@ -653,13 +685,13 @@ function RegisterForm() {
           Sign in
         </Link>
       </p>
-    </AuthLayout>
+    </AuthLayout></div>
   );
 }
 
 function ConfirmRow({ label, value }: { label: string; value?: string }) {
   return (
-    <div
+    <div component="ConfirmRow"
       style={{
         display: 'flex',
         justifyContent: 'space-between',
@@ -678,7 +710,7 @@ function ConfirmRow({ label, value }: { label: string; value?: string }) {
 
 export default function RegisterPage() {
   return (
-    <Suspense
+    <div component="RegisterPage" style={{ display: 'contents' }}><Suspense
       fallback={
         <div style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center' }}>
           <Spin size="large" />
@@ -686,6 +718,6 @@ export default function RegisterPage() {
       }
     >
       <RegisterForm />
-    </Suspense>
+    </Suspense></div>
   );
 }

@@ -191,7 +191,7 @@ export default function FloorPlanScreen() {
   }
 
   if (restaurantsLoading) {
-    return <ActivityIndicator style={{ marginTop: 40 }} color="#da3743" />;
+    return <ActivityIndicator style={{ marginTop: 40 }} color="#0b3d2e" />;
   }
 
   if (restaurants.length === 0) {
@@ -210,7 +210,7 @@ export default function FloorPlanScreen() {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={onRefresh}
-          tintColor="#da3743"
+          tintColor="#0b3d2e"
         />
       }
     >
@@ -266,7 +266,7 @@ export default function FloorPlanScreen() {
       <View style={styles.legend}>
         <View style={[styles.legendDot, { backgroundColor: '#2e9e5b' }]} />
         <Text style={styles.legendText}>Free</Text>
-        <View style={[styles.legendDot, { backgroundColor: '#da3743' }]} />
+        <View style={[styles.legendDot, { backgroundColor: '#0b3d2e' }]} />
         <Text style={styles.legendText}>Seated</Text>
       </View>
 
@@ -378,14 +378,14 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderWidth: 1,
-    borderColor: '#da3743',
+    borderColor: '#0b3d2e',
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 6,
     backgroundColor: '#fff',
   },
-  chipActive: { backgroundColor: '#da3743' },
-  chipText: { color: '#da3743', fontWeight: '600', fontSize: 13 },
+  chipActive: { backgroundColor: '#0b3d2e' },
+  chipText: { color: '#0b3d2e', fontWeight: '600', fontSize: 13 },
   chipTextActive: { color: '#fff' },
   legend: {
     flexDirection: 'row',
@@ -410,7 +410,7 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   tableFree: { backgroundColor: '#e9f7ef', borderColor: '#2e9e5b' },
-  tableOccupied: { backgroundColor: '#da3743', borderColor: '#b02531' },
+  tableOccupied: { backgroundColor: '#0b3d2e', borderColor: '#093224' },
   tableName: { fontWeight: '700', fontSize: 12, color: '#1c1917' },
   tableCapacity: { fontSize: 10, color: '#666' },
   tableTextOccupied: { color: '#fff' },
@@ -439,15 +439,15 @@ const styles = StyleSheet.create({
   resMeta: { color: '#666', marginTop: 4, fontSize: 13 },
   moreBtn: {
     borderWidth: 1,
-    borderColor: '#da3743',
+    borderColor: '#0b3d2e',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  moreBtnText: { color: '#da3743', fontWeight: '600', fontSize: 13 },
+  moreBtnText: { color: '#0b3d2e', fontWeight: '600', fontSize: 13 },
   resStatus: {
     marginTop: 8,
-    color: '#da3743',
+    color: '#0b3d2e',
     fontWeight: '600',
     textTransform: 'capitalize',
     fontSize: 13,

@@ -28,6 +28,7 @@ const notificationPreferencesSchema = new Schema(
     reservationUpdates: { type: notificationChannelPreferencesSchema, default: () => ({}) },
     reviewReply: { type: notificationChannelPreferencesSchema, default: () => ({}) },
     surveyInvitation: { type: notificationChannelPreferencesSchema, default: () => ({}) },
+    loyaltyUpdates: { type: notificationChannelPreferencesSchema, default: () => ({}) },
   },
   { _id: false },
 );
@@ -46,6 +47,10 @@ const userSchema = new Schema(
     },
     googleId: { type: String, sparse: true, unique: true },
     loyaltyPoints: { type: Number, default: 0, min: 0 },
+    loyaltyCompletedVisits: { type: Number, default: 0, min: 0 },
+    loyaltyPointsExpireAt: { type: Date },
+    referralCode: { type: String, sparse: true, unique: true, uppercase: true, trim: true },
+    referredByUserId: { type: Schema.Types.ObjectId, ref: 'User' },
     pushTokens: { type: [pushTokenSchema], default: [] },
     telegramChatId: { type: String },
     notificationPreferences: {
@@ -65,7 +70,7 @@ const userSchema = new Schema(
 export type UserDocument = InferSchemaType<typeof userSchema> & {
   _id: mongoose.Types.ObjectId;
   role: UserRole;
-};
+} & mongoose.Document;
 
 export const User: Model<UserDocument> =
   mongoose.models.User ?? mongoose.model<UserDocument>('User', userSchema);

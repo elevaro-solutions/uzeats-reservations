@@ -26,7 +26,7 @@ import {
   LogoutOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { colors, layout, radii, typography } from '@reservations/ui';
+import { TableveraBrand, colors, layout, radii, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import {
   MARK_ALL_NOTIFICATIONS_READ,
@@ -48,31 +48,6 @@ type AppNotification = {
   readAt?: string | null;
   createdAt: string;
 };
-
-function BrandMark({ size = 30 }: { size?: number }) {
-  return (
-    <span
-      aria-hidden
-      style={{
-        width: size,
-        height: size,
-        borderRadius: Math.round(size * 0.3),
-        background: `linear-gradient(145deg, ${colors.brand[500]} 0%, ${colors.brand[700]} 100%)`,
-        color: '#fff',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: Math.round(size * 0.48),
-        fontWeight: 700,
-        letterSpacing: '-0.02em',
-        boxShadow: `0 2px 8px rgba(196, 71, 47, 0.35)`,
-        flexShrink: 0,
-      }}
-    >
-      T
-    </span>
-  );
-}
 
 function roleLabel(role: string) {
   if (role === 'diner') return 'Customer';
@@ -138,6 +113,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [markAllRead, { loading: markingAll }] = useMutation(MARK_ALL_NOTIFICATIONS_READ);
 
   const isAuthRoute = AUTH_PATHS.some((p) => pathname.startsWith(p));
+  const isHome = pathname === '/';
 
   if (isAuthRoute) {
     return <>{children}</>;
@@ -371,8 +347,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <Layout style={{ minHeight: '100vh', background: colors.background }}>
+    <div component="AppShell" style={{ display: 'contents' }}><Layout style={{ minHeight: '100vh', background: colors.background }}>
       <Header
+        className="rt-site-header"
         style={{
           position: 'sticky',
           top: 0,
@@ -380,32 +357,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           display: 'flex',
           alignItems: 'center',
           gap: 20,
+          width: '100%',
           height: layout.headerHeight,
           lineHeight: `${layout.headerHeight}px`,
-          background: 'rgba(255, 255, 255, 0.88)',
-          backdropFilter: 'blur(14px)',
-          WebkitBackdropFilter: 'blur(14px)',
-          borderBottom: `1px solid ${colors.bordersubtle}`,
-          paddingInline: 24,
         }}
       >
-        <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <BrandMark />
-          <Text
-            strong
-            style={{
-              fontSize: 18,
-              color: colors.textPrimary,
-              letterSpacing: typography.letterSpacing.tight,
-              fontWeight: typography.fontWeight.bold,
-            }}
-          >
-            Table<span style={{ color: colors.brand[600] }}>vera</span>
-          </Text>
+        <Link href="/" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+          <TableveraBrand iconSize={34} surface="dark" />
         </Link>
 
         <Menu
           mode="horizontal"
+          theme="dark"
           selectedKeys={[
             pathname === '/' || pathname.startsWith('/restaurants')
               ? '/'
@@ -437,17 +400,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Button
                   type="text"
                   aria-label="Notifications"
+                  className="rt-site-header__notify"
                   style={{
                     width: 40,
                     height: 40,
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: colors.textSecondary,
                   }}
                   icon={
-                    <Badge count={unreadCount} size="small" overflowCount={99} offset={[2, -2]}>
-                      <BellOutlined style={{ fontSize: 18 }} />
+                    <Badge
+                      count={unreadCount}
+                      size="small"
+                      overflowCount={99}
+                      offset={[2, -2]}
+                      color={colors.accent[400]}
+                    >
+                      <BellOutlined style={{ fontSize: 18, color: 'rgba(255, 255, 255, 0.88)' }} />
                     </Badge>
                   }
                 />
@@ -457,38 +426,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <button
                   type="button"
                   aria-label="Account menu"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '4px 10px 4px 4px',
-                    borderRadius: radii.pill,
-                    border: `1px solid ${colors.border}`,
-                    background: colors.surface,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    height: 42,
-                    transition: layout.transition,
-                  }}
+                  className="rt-site-header__account"
                 >
                   <Avatar
                     size={32}
                     style={{
-                      background: colors.brand[50],
-                      color: colors.brand[600],
+                      background: 'rgba(255, 255, 255, 0.14)',
+                      color: '#fff',
                       fontWeight: 600,
-                      border: `1px solid ${colors.brand[100]}`,
+                      border: '1px solid rgba(255, 255, 255, 0.18)',
                     }}
                     icon={!user.firstName ? <UserOutlined /> : undefined}
                   >
                     {user.firstName?.[0]?.toUpperCase()}
                   </Avatar>
                   <div style={{ lineHeight: 1.25, textAlign: 'left' }} className="rt-header-user">
-                    <Text strong style={{ display: 'block', fontSize: typography.fontSize.sm }}>
+                    <Text strong className="rt-site-header__account-name" style={{ display: 'block', fontSize: typography.fontSize.sm }}>
                       {user.firstName}
                     </Text>
                     <Text
-                      type="secondary"
+                      className="rt-site-header__account-role"
                       style={{ fontSize: typography.fontSize.xs, textTransform: 'capitalize' }}
                     >
                       {roleLabel(user.role)}
@@ -499,13 +456,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </>
           ) : (
             <>
-              <Button type="text" onClick={() => router.push('/login')} style={{ fontWeight: 500 }}>
+              <Button type="text" className="rt-site-header__sign-in" onClick={() => router.push('/login')}>
                 Sign in
               </Button>
               <Button
                 type="primary"
+                className="rt-site-header__cta"
                 onClick={() => router.push('/login')}
-                style={{ borderRadius: radii.pill, fontWeight: 600, paddingInline: 18 }}
+                style={{ borderRadius: radii.pill, paddingInline: 18 }}
               >
                 Get started
               </Button>
@@ -516,119 +474,68 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <Content
         style={{
-          maxWidth: layout.contentMaxWidth,
+          maxWidth: isHome ? '100%' : layout.contentMaxWidth,
           width: '100%',
           margin: '0 auto',
-          padding: '32px 24px',
+          padding: isHome ? '0' : '32px 24px',
         }}
       >
         {children}
       </Content>
 
       <Footer
+        className="rt-site-footer"
         style={{
-          background: colors.neutral[900],
-          color: 'rgba(255,255,255,0.55)',
-          padding: '48px 24px 32px',
-          marginTop: 48,
+          background: `linear-gradient(180deg, ${colors.brand[600]} 0%, ${colors.heroMid} 100%)`,
         }}
       >
-        <div
-          style={{
-            maxWidth: layout.contentMaxWidth,
-            margin: '0 auto',
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 32,
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-          }}
-        >
-          <div style={{ maxWidth: 320 }}>
-            <Link href="/" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-              <BrandMark size={28} />
-              <Text strong style={{ color: '#fff', fontSize: 17 }}>
-                Tablevera
-              </Text>
+        <div className="rt-site-footer__inner">
+          <div className="rt-site-footer__brand">
+            <Link href="/" style={{ textDecoration: 'none', display: 'inline-flex' }}>
+              <TableveraBrand iconSize={38} surface="dark" />
             </Link>
-            <p style={{ margin: '14px 0 0', fontSize: 13, lineHeight: 1.6 }}>
+            <p className="rt-site-footer__tagline">
+              Discover. Reserve. Dine.
+            </p>
+            <p className="rt-site-footer__desc">
               Book the best tables in seconds — free for diners, built for restaurants.
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 40, flexWrap: 'wrap' }}>
+
+          <div className="rt-site-footer__links">
             <div>
-              <div
-                style={{
-                  color: '#fff',
-                  fontWeight: 600,
-                  fontSize: 12,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  marginBottom: 12,
-                }}
-              >
-                Product
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
-                <Link href="/" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                  Find a table
-                </Link>
+              <div className="rt-site-footer__heading">Product</div>
+              <div className="rt-site-footer__list">
+                <Link href="/">Find a table</Link>
                 {user ? (
                   <>
-                    <Link href="/reservations" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                      My reservations
-                    </Link>
-                    <Link href="/waitlist" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                      Waitlist
-                    </Link>
-                    <Link href="/profile" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                      Profile
-                    </Link>
+                    <Link href="/reservations">My reservations</Link>
+                    <Link href="/waitlist">Waitlist</Link>
+                    <Link href="/profile">Profile</Link>
                   </>
                 ) : (
-                  <Link href="/pricing" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                    For restaurants
-                  </Link>
+                  <>
+                    <Link href="/pricing">For restaurants</Link>
+                    <Link href="/login">Sign in</Link>
+                  </>
                 )}
               </div>
             </div>
             <div>
-              <div
-                style={{
-                  color: '#fff',
-                  fontWeight: 600,
-                  fontSize: 12,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  marginBottom: 12,
-                }}
-              >
-                Legal
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13 }}>
-                <Link href="/privacy" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                  Privacy
-                </Link>
-                <Link href="/terms" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                  Terms
-                </Link>
+              <div className="rt-site-footer__heading">Company</div>
+              <div className="rt-site-footer__list">
+                <Link href="/privacy">Privacy</Link>
+                <Link href="/terms">Terms</Link>
+                <a href="mailto:hello@tablevera.online">Contact</a>
               </div>
             </div>
           </div>
         </div>
-        <div
-          style={{
-            maxWidth: layout.contentMaxWidth,
-            margin: '36px auto 0',
-            paddingTop: 20,
-            borderTop: '1px solid rgba(255,255,255,0.08)',
-            fontSize: 12,
-            textAlign: 'center',
-          }}
-        >
+
+        <div className="rt-site-footer__bottom">
           © {new Date().getFullYear()} Tablevera. All rights reserved.
         </div>
       </Footer>
-    </Layout>
+    </Layout></div>
   );
 }

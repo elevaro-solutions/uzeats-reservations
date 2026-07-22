@@ -95,7 +95,7 @@ export function GoogleSignInButton({
   if (!GOOGLE_CLIENT_ID) return null;
 
   return (
-    <div
+    <div component="GoogleSignInButton"
       style={{
         width: '100%',
         minHeight: 44,

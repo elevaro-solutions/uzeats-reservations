@@ -109,7 +109,7 @@ function CampaignsPageContent() {
   };
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="CampaignsPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Title level={2} style={{ margin: 0 }}>Email campaigns</Title>
         <Button
@@ -265,14 +265,14 @@ function CampaignsPageContent() {
           </Form.Item>
         </Form>
       </Modal>
-    </Space>
+    </Space></div>
   );
 }
 
 export default function CampaignsPage() {
   return (
-    <Suspense fallback={null}>
+    <div component="CampaignsPage" style={{ display: 'contents' }}><Suspense fallback={null}>
       <CampaignsPageContent />
-    </Suspense>
+    </Suspense></div>
   );
 }

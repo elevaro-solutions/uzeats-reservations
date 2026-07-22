@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Button, Form, Input, message } from 'antd';
+import { App, Button, Form, Input } from 'antd';
 import { LockOutlined, MailOutlined } from '@ant-design/icons';
 import { colors, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { AuthLayout } from '@/components/AuthLayout';
 
 export default function LoginPage() {
+  const { message } = App.useApp();
   const { login, user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -20,8 +21,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthLayout
-      heading="Partner Hub sign in"
+    <div component="LoginPage" style={{ display: 'contents' }}><AuthLayout       heading="Partner Hub sign in"
       subheading="Sign in to manage your restaurant"
     >
       <Form
@@ -129,6 +129,6 @@ export default function LoginPage() {
           </span>
         </p>
       </div>
-    </AuthLayout>
+    </AuthLayout></div>
   );
 }

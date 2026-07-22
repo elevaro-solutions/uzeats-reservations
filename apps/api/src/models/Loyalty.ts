@@ -7,9 +7,15 @@ const loyaltySchema = new Schema(
     type: { type: String, enum: ['earn', 'redeem', 'adjust'], required: true },
     points: { type: Number, required: true },
     description: { type: String, required: true },
+    expiresAt: { type: Date },
+    /** Unspent balance from this credit (earn/adjust). Used for FIFO redeem and expiry. */
+    remainingPoints: { type: Number, min: 0 },
   },
   { timestamps: true },
 );
+
+loyaltySchema.index({ userId: 1, createdAt: -1 });
+loyaltySchema.index({ expiresAt: 1, remainingPoints: 1 });
 
 const notificationSchema = new Schema(
   {

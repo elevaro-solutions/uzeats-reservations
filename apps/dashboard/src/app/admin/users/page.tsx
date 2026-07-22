@@ -338,7 +338,7 @@ function AdminUsersPageContent() {
   ];
 
   return (
-    <>
+    <div component="AdminUsersPageContent" style={{ display: 'contents' }}><>
       <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
         <PageHeader
           title="Users & access"
@@ -641,14 +641,14 @@ function AdminUsersPageContent() {
           </Form.Item>
         </Form>
       </Modal>
-    </>
+    </></div>
   );
 }
 
 export default function AdminUsersPage() {
   return (
-    <Suspense fallback={null}>
+    <div component="AdminUsersPage" style={{ display: 'contents' }}><Suspense fallback={null}>
       <AdminUsersPageContent />
-    </Suspense>
+    </Suspense></div>
   );
 }

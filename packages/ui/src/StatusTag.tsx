@@ -27,7 +27,7 @@ export function StatusTag({ status }: { status: string }) {
   const label = status.replace(/_/g, ' ');
 
   return (
-    <span
+    <span component="StatusTag"
       style={{
         display: 'inline-flex',
         alignItems: 'center',

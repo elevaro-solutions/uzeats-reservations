@@ -7,7 +7,9 @@ const promotionSchema = new Schema(
     title: { type: String, required: true },
     description: { type: String, default: '' },
     discountPercent: { type: Number, min: 0, max: 100 },
+    discountAmountCents: { type: Number, min: 0 },
     code: { type: String },
+    maxRedemptions: { type: Number, min: 1 },
     startDate: { type: String }, // YYYY-MM-DD
     endDate: { type: String },
     daysOfWeek: [{ type: Number, min: 0, max: 6 }],

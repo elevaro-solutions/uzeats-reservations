@@ -149,7 +149,8 @@ export function loadGooglePlaces(): Promise<PlacesApi | null> {
 
       w.__rtGoogleMapsOnLoad = () => {
         const places = mapsWindow().google?.maps?.places ?? null;
-        if (!places) setAvailability('unavailable');
+        if (places) setAvailability('available');
+        else setAvailability('unavailable');
         resolve(places);
       };
 

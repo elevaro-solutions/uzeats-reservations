@@ -109,7 +109,7 @@ export default function AnalyticsPage() {
   const maxDaily = Math.max(...Object.values(stats.last7Days), 1);
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="AnalyticsPage" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Analytics</Title>
       <Select
         style={{ width: 280 }}
@@ -218,6 +218,6 @@ export default function AnalyticsPage() {
           </Card>
         </>
       )}
-    </Space>
+    </Space></div>
   );
 }

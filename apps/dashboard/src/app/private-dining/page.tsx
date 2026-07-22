@@ -265,7 +265,7 @@ function PrivateDiningPageContent() {
   ];
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="PrivateDiningPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Private Dining</Title>
 
       <Select
@@ -404,14 +404,14 @@ function PrivateDiningPageContent() {
           </Form.Item>
         </Form>
       </Modal>
-    </Space>
+    </Space></div>
   );
 }
 
 export default function PrivateDiningPage() {
   return (
-    <Suspense fallback={null}>
+    <div component="PrivateDiningPage" style={{ display: 'contents' }}><Suspense fallback={null}>
       <PrivateDiningPageContent />
-    </Suspense>
+    </Suspense></div>
   );
 }

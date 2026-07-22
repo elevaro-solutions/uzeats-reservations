@@ -1,5 +1,9 @@
 import type { UserRole } from '@reservations/shared';
 import {
+  resolvePlanPricing,
+  type PlanDiscountType,
+} from '@reservations/shared';
+import {
   FEATURE_KEYS,
   PLANS,
   type FeatureKey,
@@ -13,6 +17,10 @@ export type EffectivePlan = {
   name: string;
   description: string | null;
   monthlyPriceCents: number;
+  originalMonthlyPriceCents: number | null;
+  discountType: PlanDiscountType;
+  discountPercent: number | null;
+  annualFreeMonths: number | null;
   networkCoverFeeCents: number;
   websiteCoverFeeCents: number;
   trialDays: number;
@@ -25,6 +33,10 @@ export type PlanOverrideFields = {
   name?: string;
   description?: string | null;
   monthlyPriceCents?: number;
+  originalMonthlyPriceCents?: number | null;
+  discountType?: PlanDiscountType | string;
+  discountPercent?: number | null;
+  annualFreeMonths?: number | null;
   networkCoverFeeCents?: number;
   websiteCoverFeeCents?: number;
   trialDays?: number;
@@ -80,6 +92,32 @@ function mergeFeatures(
   return merged;
 }
 
+export function pickDiscountOverrides(input: {
+  discountType?: string | null;
+  discountPercent?: number | null;
+  annualFreeMonths?: number | null;
+  originalMonthlyPriceCents?: number | null;
+  monthlyPriceCents?: number;
+}) {
+  const discountType = input.discountType ?? 'none';
+  if (discountType === 'none') {
+    return {
+      discountType: 'none' as const,
+      discountPercent: null,
+      annualFreeMonths: null,
+      originalMonthlyPriceCents: null,
+    };
+  }
+  return {
+    discountType,
+    ...(input.discountPercent !== undefined ? { discountPercent: input.discountPercent } : {}),
+    ...(input.annualFreeMonths !== undefined ? { annualFreeMonths: input.annualFreeMonths } : {}),
+    ...(input.originalMonthlyPriceCents !== undefined
+      ? { originalMonthlyPriceCents: input.originalMonthlyPriceCents }
+      : {}),
+  };
+}
+
 export function getPlanOverridesMap(
   doc: PlatformConfigDocument,
 ): Record<string, PlanOverrideFields> {
@@ -122,11 +160,23 @@ function mapOverrideToPlan(
   base?: (typeof PLANS)[PlanKey],
 ): EffectivePlan {
   const isCustom = !BUILTIN_PLAN_KEYS.has(key);
+  const baseMonthly = override?.monthlyPriceCents ?? base?.monthlyPriceCents ?? 0;
+  const pricing = resolvePlanPricing({
+    monthlyPriceCents: baseMonthly,
+    originalMonthlyPriceCents: override?.originalMonthlyPriceCents ?? null,
+    discountType: override?.discountType ?? 'none',
+    discountPercent: override?.discountPercent ?? null,
+    annualFreeMonths: override?.annualFreeMonths ?? null,
+  });
   return {
     key,
     name: override?.name ?? base?.name ?? key,
     description: override?.description ?? null,
-    monthlyPriceCents: override?.monthlyPriceCents ?? base?.monthlyPriceCents ?? 0,
+    monthlyPriceCents: pricing.monthlyPriceCents,
+    originalMonthlyPriceCents: pricing.originalMonthlyPriceCents,
+    discountType: pricing.discountType,
+    discountPercent: pricing.discountPercent,
+    annualFreeMonths: pricing.annualFreeMonths,
     networkCoverFeeCents: override?.networkCoverFeeCents ?? base?.networkCoverFeeCents ?? 0,
     websiteCoverFeeCents: override?.websiteCoverFeeCents ?? base?.websiteCoverFeeCents ?? 0,
     trialDays: override?.trialDays ?? base?.trialDays ?? 0,

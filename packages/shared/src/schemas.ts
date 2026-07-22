@@ -19,6 +19,7 @@ export const registerSchema = z.object({
   firstName: z.string().min(1).max(80),
   lastName: z.string().min(1).max(80),
   phone: phoneSchema.optional(),
+  referralCode: z.string().min(4).max(20).optional(),
 });
 
 export const loginSchema = z.object({
@@ -61,6 +62,9 @@ export const restaurantInputSchema = z.object({
     .transform((v) => (v === '' || v == null ? undefined : v)),
   depositRequired: z.boolean().default(false),
   depositAmountCents: z.number().int().min(0).default(0),
+  loyaltyEnabled: z.boolean().default(false),
+  loyaltyPointsPerVisit: z.number().int().min(0).default(50),
+  loyaltyMinRedeemPoints: z.number().int().min(0).default(200),
   photos: z.array(z.string().url()).default([]),
 });
 
@@ -102,6 +106,9 @@ export const reservationInputSchema = z.object({
   occasion: z.enum(OCCASIONS).default('none'),
   guestNotes: z.string().max(500).optional(),
   redeemPoints: z.number().int().min(0).optional(),
+  redeemRestaurantPoints: z.number().int().min(0).optional(),
+  promoCode: z.string().min(1).max(40).optional(),
+  giftCardCode: z.string().min(1).max(40).optional(),
 });
 
 export const ownerGuestInputSchema = z.object({
@@ -160,6 +167,7 @@ export const notificationPreferencesSchema = z.object({
   reservationUpdates: notificationChannelPreferencesSchema.nullish(),
   reviewReply: notificationChannelPreferencesSchema.nullish(),
   surveyInvitation: notificationChannelPreferencesSchema.nullish(),
+  loyaltyUpdates: notificationChannelPreferencesSchema.nullish(),
 });
 
 export const searchRestaurantsSchema = z.object({

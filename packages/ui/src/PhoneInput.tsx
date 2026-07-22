@@ -88,8 +88,7 @@ export const PhoneInput = forwardRef<InputRef, PhoneInputProps>(function PhoneIn
   );
 
   return (
-    <Input
-      ref={ref}
+    <div component="PhoneInput" style={{ display: 'contents' }}><Input       ref={ref}
       {...rest}
       type="tel"
       inputMode={inputMode}
@@ -98,6 +97,6 @@ export const PhoneInput = forwardRef<InputRef, PhoneInputProps>(function PhoneIn
       prefix={prefix ?? defaultPrefix}
       value={displayValue}
       onChange={handleChange}
-    />
+    /></div>
   );
 });

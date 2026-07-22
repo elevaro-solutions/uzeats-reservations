@@ -43,3 +43,11 @@ In Google Cloud Console → Credentials → OAuth 2.0 Client ID (Web), add Autho
 
 Endpoint: `POST https://api.yourdomain.com/webhooks/stripe`  
 Events: `payment_intent.amount_capturable_updated`, `payment_intent.succeeded`
+
+## Telegram bot
+
+1. Create the bot via [@BotFather](https://t.me/BotFather) and set `TELEGRAM_BOT_TOKEN`.
+2. In production, set `API_PUBLIC_URL=https://api.yourdomain.com` and a random `TELEGRAM_WEBHOOK_SECRET`.
+3. The API registers `POST https://api.yourdomain.com/webhooks/telegram` on startup.
+4. In local development, the API uses long-polling instead of a webhook.
+5. Users open `@TableveraBot`, send `/start`, paste the returned Chat ID in profile settings.

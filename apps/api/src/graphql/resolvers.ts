@@ -37,7 +37,27 @@ import {
   updateReservationStatus,
   confirmDepositPayment,
 } from '../services/reservations.js';
-import { getLoyaltyHistory } from '../services/loyalty.js';
+import { getLoyaltyHistory, awardReviewPoints } from '../services/loyalty.js';
+import {
+  getMyRestaurantLoyaltyBalances,
+  getRestaurantLoyaltyBalance,
+  getRestaurantLoyaltyHistory,
+} from '../services/restaurantLoyalty.js';
+import { getAdminLoyaltyStats, getAdminReferralLeaders } from '../services/loyaltyStats.js';
+import { getRestaurantLoyaltyStats } from '../services/restaurantLoyaltyStats.js';
+import {
+  resolvePromotionDiscount,
+  findBestAutoPromotion,
+} from '../services/promotionCodes.js';
+import { getPromotionStats } from '../services/promotionStats.js';
+import {
+  issueGiftCard,
+  redeemGiftCardBalance,
+  resolveGiftCardDiscount,
+  setGiftCardActive,
+} from '../services/giftCards.js';
+import { GiftCard } from '../models/GiftCard.js';
+import { ensureUserReferralCode } from '../lib/referralCode.js';
 import { createUploadUrl } from '../services/spaces.js';
 import {
   User,
@@ -98,6 +118,7 @@ import {
   mapMessage,
   mapAccessRule,
   mapPromotion,
+  mapGiftCard,
   mapBoostCampaign,
   mapIntegration,
   slugify,
@@ -119,6 +140,7 @@ import {
   getPlatformConfig,
   mapPlatformConfig,
   isFeatureEnabled,
+  pickDiscountOverrides,
   uniquePlanKey,
 } from '../services/platformConfig.js';
 import {
@@ -315,8 +337,12 @@ export const resolvers = {
   },
 
   Query: {
-    me: (_: unknown, __: unknown, ctx: GraphQLContext) =>
-      ctx.user ? mapUser(ctx.user) : null,
+    me: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      const user = ctx.user;
+      if (!user) return null;
+      const referralCode = await ensureUserReferralCode(user);
+      return mapUser({ ...user.toObject(), referralCode });
+    },
     ...adminOpsQuery,
 
     restaurant: async (_: unknown, args: { id?: string; slug?: string }) => {
@@ -326,6 +352,107 @@ export const resolvers = {
           ? await Restaurant.findOne({ slug: args.slug })
           : null;
       return doc ? mapRestaurant(doc) : null;
+    },
+
+    validatePromotion: async (
+      _: unknown,
+      args: { restaurantId: string; code: string; slotStart: string; depositCents: number },
+    ) => {
+      try {
+        const slotStart = new Date(args.slotStart);
+        const { promotion, discountCents } = await resolvePromotionDiscount({
+          restaurantId: args.restaurantId,
+          code: args.code,
+          slotStart,
+          depositCents: args.depositCents,
+        });
+        return {
+          valid: true,
+          message: null,
+          promotion: mapPromotion(promotion),
+          discountCents,
+          discountedDepositCents: Math.max(0, args.depositCents - discountCents),
+          autoApplied: false,
+        };
+      } catch (err) {
+        return {
+          valid: false,
+          message: err instanceof Error ? err.message : 'Invalid promotion',
+          promotion: null,
+          discountCents: 0,
+          discountedDepositCents: args.depositCents,
+          autoApplied: false,
+        };
+      }
+    },
+
+    bestPromotion: async (
+      _: unknown,
+      args: { restaurantId: string; slotStart: string; depositCents: number },
+    ) => {
+      try {
+        const slotStart = new Date(args.slotStart);
+        const best = await findBestAutoPromotion({
+          restaurantId: args.restaurantId,
+          slotStart,
+          depositCents: args.depositCents,
+        });
+        if (!best) {
+          return {
+            valid: false,
+            message: 'No automatic promotion available',
+            promotion: null,
+            discountCents: 0,
+            discountedDepositCents: args.depositCents,
+            autoApplied: false,
+          };
+        }
+        return {
+          valid: true,
+          message: null,
+          promotion: mapPromotion(best.promotion),
+          discountCents: best.discountCents,
+          discountedDepositCents: Math.max(0, args.depositCents - best.discountCents),
+          autoApplied: true,
+        };
+      } catch (err) {
+        return {
+          valid: false,
+          message: err instanceof Error ? err.message : 'Invalid promotion',
+          promotion: null,
+          discountCents: 0,
+          discountedDepositCents: args.depositCents,
+          autoApplied: false,
+        };
+      }
+    },
+
+    validateGiftCard: async (
+      _: unknown,
+      args: { restaurantId: string; code: string; depositCents: number },
+    ) => {
+      try {
+        const { giftCard, discountCents } = await resolveGiftCardDiscount({
+          restaurantId: args.restaurantId,
+          code: args.code,
+          depositCents: args.depositCents,
+        });
+        return {
+          valid: true,
+          message: null,
+          giftCard: mapGiftCard(giftCard),
+          discountCents,
+          discountedDepositCents: Math.max(0, args.depositCents - discountCents),
+        };
+      } catch (err) {
+        return {
+          valid: false,
+          message: err instanceof Error ? err.message : 'Invalid gift card',
+          giftCard: null,
+          discountCents: 0,
+          discountedDepositCents: args.depositCents,
+        };
+      }
     },
 
     searchRestaurants: async (_: unknown, args: { input: unknown }) => {
@@ -491,6 +618,32 @@ export const resolvers = {
       }));
     },
 
+    myRestaurantLoyalty: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      return getMyRestaurantLoyaltyBalances(user._id.toString());
+    },
+
+    myRestaurantLoyaltyBalance: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      return getRestaurantLoyaltyBalance(args.restaurantId, user._id.toString());
+    },
+
+    myRestaurantLoyaltyHistory: async (
+      _: unknown,
+      args: { restaurantId?: string; limit?: number },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      return getRestaurantLoyaltyHistory(user._id.toString(), {
+        restaurantId: args.restaurantId,
+        limit: args.limit ?? undefined,
+      });
+    },
+
     myNotifications: async (
       _: unknown,
       args: { limit?: number | null },
@@ -580,6 +733,20 @@ export const resolvers = {
         activeSubscriptions,
         openInvoices,
       };
+    },
+
+    adminLoyaltyStats: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      requireRole(ctx, ['admin']);
+      return getAdminLoyaltyStats();
+    },
+
+    adminReferralLeaders: async (
+      _: unknown,
+      args: { limit?: number },
+      ctx: GraphQLContext,
+    ) => {
+      requireRole(ctx, ['admin']);
+      return getAdminReferralLeaders(args.limit ?? 20);
     },
 
     adminUsers: async (
@@ -873,6 +1040,16 @@ export const resolvers = {
       const user = requireAuth(ctx);
       const items = await PrivateDiningInquiry.find({ dinerId: user._id }).sort({ createdAt: -1 });
       return items.map(mapPrivateDiningInquiry);
+    },
+
+    restaurantLoyaltyStats: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      return getRestaurantLoyaltyStats(args.restaurantId);
     },
 
     restaurantGuests: async (
@@ -1197,6 +1374,32 @@ export const resolvers = {
         offset: args.offset,
         defaultLimit: 50,
         map: mapPromotion,
+      });
+    },
+
+    promotionStats: async (
+      _: unknown,
+      args: { restaurantId: string; days?: number },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      return getPromotionStats(args.restaurantId, args.days ?? 30);
+    },
+
+    giftCards: async (
+      _: unknown,
+      args: { restaurantId: string; limit?: number; offset?: number },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      return paginateQuery(GiftCard, { restaurantId: args.restaurantId }, {
+        sort: { createdAt: -1 },
+        limit: args.limit,
+        offset: args.offset,
+        defaultLimit: 50,
+        map: mapGiftCard,
       });
     },
 
@@ -1592,6 +1795,9 @@ export const resolvers = {
         occasion: input.occasion,
         guestNotes: input.guestNotes,
         redeemPoints: input.redeemPoints,
+        redeemRestaurantPoints: input.redeemRestaurantPoints,
+        promoCode: input.promoCode,
+        giftCardCode: input.giftCardCode,
         source: (rawInput as any).source,
       });
       await logAudit({
@@ -1783,6 +1989,8 @@ export const resolvers = {
           reviewCount: stats[0].reviewCount,
         });
       }
+
+      await awardReviewPoints(user._id.toString(), reservation._id.toString());
 
       return mapReview(review);
     },
@@ -1977,6 +2185,10 @@ export const resolvers = {
           name?: string;
           description?: string | null;
           monthlyPriceCents?: number;
+          originalMonthlyPriceCents?: number | null;
+          discountType?: string;
+          discountPercent?: number | null;
+          annualFreeMonths?: number | null;
           networkCoverFeeCents?: number;
           websiteCoverFeeCents?: number;
           trialDays?: number;
@@ -2003,6 +2215,17 @@ export const resolvers = {
         ...(args.input.description !== undefined ? { description: args.input.description } : {}),
         ...(args.input.monthlyPriceCents !== undefined
           ? { monthlyPriceCents: args.input.monthlyPriceCents }
+          : {}),
+        ...(args.input.discountType !== undefined ||
+        args.input.discountPercent !== undefined ||
+        args.input.annualFreeMonths !== undefined ||
+        args.input.originalMonthlyPriceCents !== undefined
+          ? pickDiscountOverrides({
+              discountType: args.input.discountType,
+              discountPercent: args.input.discountPercent,
+              annualFreeMonths: args.input.annualFreeMonths,
+              originalMonthlyPriceCents: args.input.originalMonthlyPriceCents,
+            })
           : {}),
         ...(args.input.networkCoverFeeCents !== undefined
           ? { networkCoverFeeCents: args.input.networkCoverFeeCents }
@@ -2052,6 +2275,10 @@ export const resolvers = {
           name: string;
           description?: string | null;
           monthlyPriceCents: number;
+          originalMonthlyPriceCents?: number | null;
+          discountType?: string;
+          discountPercent?: number | null;
+          annualFreeMonths?: number | null;
           networkCoverFeeCents?: number;
           websiteCoverFeeCents?: number;
           trialDays?: number;
@@ -2074,6 +2301,12 @@ export const resolvers = {
         name,
         description: args.input.description ?? null,
         monthlyPriceCents: args.input.monthlyPriceCents,
+        ...pickDiscountOverrides({
+          discountType: args.input.discountType,
+          discountPercent: args.input.discountPercent,
+          annualFreeMonths: args.input.annualFreeMonths,
+          originalMonthlyPriceCents: args.input.originalMonthlyPriceCents,
+        }),
         networkCoverFeeCents: args.input.networkCoverFeeCents ?? 0,
         websiteCoverFeeCents: args.input.websiteCoverFeeCents ?? 0,
         trialDays: args.input.trialDays ?? 0,
@@ -2277,7 +2510,10 @@ export const resolvers = {
 
     linkTelegram: async (_: unknown, args: { chatId: string }, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
-      await User.findByIdAndUpdate(user._id, { telegramChatId: args.chatId });
+      const chatId = args.chatId.trim();
+      const { verifyTelegramChat } = await import('../services/telegram.js');
+      await verifyTelegramChat(chatId);
+      await User.findByIdAndUpdate(user._id, { telegramChatId: chatId });
       return true;
     },
 
@@ -3043,6 +3279,51 @@ export const resolvers = {
       await assertRestaurantAccess(user._id.toString(), doc.restaurantId.toString(), user.role);
       await doc.deleteOne();
       return true;
+    },
+
+    issueGiftCard: async (
+      _: unknown,
+      args: {
+        restaurantId: string;
+        input: {
+          balanceCents: number;
+          recipientName?: string;
+          recipientEmail?: string;
+          expiresAt?: string;
+          note?: string;
+        };
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      const doc = await issueGiftCard({
+        restaurantId: args.restaurantId,
+        balanceCents: args.input.balanceCents,
+        issuedByUserId: user._id.toString(),
+        recipientName: args.input.recipientName,
+        recipientEmail: args.input.recipientEmail,
+        expiresAt: args.input.expiresAt ? new Date(args.input.expiresAt) : undefined,
+        note: args.input.note,
+      });
+      return mapGiftCard(doc);
+    },
+
+    setGiftCardActive: async (
+      _: unknown,
+      args: { id: string; active: boolean },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const existing = await GiftCard.findById(args.id);
+      if (!existing) throw new Error('Gift card not found');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        existing.restaurantId.toString(),
+        user.role,
+      );
+      const doc = await setGiftCardActive(args.id, args.active);
+      return mapGiftCard(doc);
     },
 
     // ---- Boost campaigns ----

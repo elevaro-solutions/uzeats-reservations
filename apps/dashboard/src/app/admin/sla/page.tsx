@@ -14,7 +14,7 @@ export default function AdminSlaPage() {
   const m = data?.slaMetrics;
 
   return (
-    <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminSlaPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="SLA metrics"
         subtitle="Approval latency, support response times, and open risk queues."
@@ -85,6 +85,6 @@ export default function AdminSlaPage() {
           </Card>
         </Col>
       </Row>
-    </Space>
+    </Space></div>
   );
 }

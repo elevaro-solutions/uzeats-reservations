@@ -4,24 +4,17 @@
  * Framework-agnostic (no antd import) so they can be consumed by the
  * Next.js apps, the Ant Design theme, and the Expo mobile app alike.
  *
- * Palette intent: warm hospitality — terracotta-wine accent on soft
- * stone neutrals. Feels like a dining room, not a generic tech product.
+ * Active brand/accent scales come from `NEXT_PUBLIC_COLOR_PALETTE` /
+ * `EXPO_PUBLIC_COLOR_PALETTE` (`1` = forest & gold, `2` = terracotta).
  */
 
+import { getActivePalette } from './palettes';
+
+const palette = getActivePalette();
+
 export const colors = {
-  /** Brand — warm terracotta-wine, appetizing and confident. */
-  brand: {
-    50: '#fdf6f4',
-    100: '#fce9e4',
-    200: '#f8d2c8',
-    300: '#f0ac9a',
-    400: '#e47d64',
-    500: '#d45a3f',
-    600: '#c4472f', // primary
-    700: '#a33826',
-    800: '#873123',
-    900: '#702c22',
-  },
+  brand: palette.brand,
+  accent: palette.accent,
 
   /** Warm neutrals — softer than pure gray, suits food & hospitality. */
   neutral: {
@@ -49,11 +42,8 @@ export const colors = {
   info: '#2f6fed',
   infoBg: '#ebf1fe',
 
-  /** Rating gold */
-  rating: '#e8a317',
-
-  /** Hero / auth panel midtone (warm espresso) */
-  heroMid: '#2a1816',
+  rating: palette.rating,
+  heroMid: palette.heroMid,
 
   /** Aliases used across surfaces */
   background: '#f7f5f2',
@@ -124,7 +114,8 @@ export const shadows = {
   sm: '0 1px 3px rgba(26, 24, 22, 0.05), 0 1px 2px rgba(26, 24, 22, 0.04)',
   md: '0 4px 14px rgba(26, 24, 22, 0.07), 0 1px 3px rgba(26, 24, 22, 0.04)',
   lg: '0 16px 40px rgba(26, 24, 22, 0.1), 0 2px 8px rgba(26, 24, 22, 0.05)',
-  brand: '0 8px 20px rgba(196, 71, 47, 0.28)',
+  brand: palette.shadows.brand,
+  accent: palette.shadows.accent,
 } as const;
 
 export const layout = {

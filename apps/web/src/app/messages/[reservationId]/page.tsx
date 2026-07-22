@@ -64,8 +64,7 @@ export default function MessagesPage() {
   };
 
   return (
-    <Card
-      style={{ maxWidth: 720, margin: '0 auto' }}
+    <div component="MessagesPage" style={{ display: 'contents' }}><Card       style={{ maxWidth: 720, margin: '0 auto' }}
       styles={{ body: { display: 'flex', flexDirection: 'column', height: '70vh', padding: 16 } }}
     >
       <Link href="/reservations" style={{ alignSelf: 'flex-start', marginBottom: 8 }}>
@@ -144,6 +143,6 @@ export default function MessagesPage() {
           Send
         </Button>
       </Space.Compact>
-    </Card>
+    </Card></div>
   );
 }

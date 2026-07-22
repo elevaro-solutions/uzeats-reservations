@@ -17,6 +17,7 @@ import { Restaurant } from '../models/Restaurant.js';
 import { mapNotificationPreferences } from '../lib/notificationPreferences.js';
 import { releaseTableSlotClaims } from './tableSlotClaims.js';
 import { captureDeposit } from './stripe.js';
+import { sendTelegramNotification } from './telegram.js';
 
 const connection = { url: env.REDIS_URL };
 
@@ -50,22 +51,6 @@ export async function sendSms(to: string, body: string) {
   const twilio = await import('twilio');
   const client = twilio.default(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN);
   await client.messages.create({ to, from: env.TWILIO_FROM_NUMBER, body });
-}
-
-async function sendTelegram(chatId: string, title: string, body: string) {
-  if (!env.TELEGRAM_BOT_TOKEN) {
-    logger.debug({ chatId, title, body }, '[telegram:dev] stub');
-    return;
-  }
-  await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: `*${title}*\n${body}`,
-      parse_mode: 'Markdown',
-    }),
-  });
 }
 
 async function sendPush(
@@ -167,7 +152,7 @@ export async function notifyUser(
       } else if (channel === 'email' && user.email) {
         await sendEmail(user.email, payload.title, payload.body);
       } else if (channel === 'telegram' && user.telegramChatId) {
-        await sendTelegram(user.telegramChatId, payload.title, payload.body);
+        await sendTelegramNotification(user.telegramChatId, payload.title, payload.body);
       } else if (channel === 'push') {
         await sendPush(user.pushTokens, payload.title, payload.body, payload.data);
       } else if (channel === 'sms' && user.phone) {

@@ -12,5 +12,5 @@ export default function EditRedirectPage() {
     router.replace('/settings');
   }, [router]);
 
-  return <Spin size="large" style={{ display: 'block', margin: '80px auto' }} />;
+  return <div component="EditRedirectPage" style={{ display: 'contents' }}><Spin size="large" style={{ display: 'block', margin: '80px auto' }} /></div>;
 }

@@ -46,7 +46,7 @@ export default function AdminTemplatesPage() {
   };
 
   return (
-    <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminTemplatesPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Email templates"
         subtitle="Edit transactional email subject and body. Use {{firstName}}, {{restaurantName}}, {{resetUrl}}, etc."
@@ -95,6 +95,6 @@ export default function AdminTemplatesPage() {
           </Card>
         </Col>
       </Row>
-    </Space>
+    </Space></div>
   );
 }

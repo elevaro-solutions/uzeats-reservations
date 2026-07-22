@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { colors, radii, typography, shadows } from '@reservations/ui';
+import { TableveraLogo, TableveraWordmark, colors, radii, typography, shadows } from '@reservations/ui';
 import { CheckCircleFilled } from '@ant-design/icons';
 
 const PERKS = [
@@ -10,29 +10,6 @@ const PERKS = [
   'Earn loyalty points on every visit',
   'Manage reservations in one place',
 ] as const;
-
-function BrandMark({ size = 40 }: { size?: number }) {
-  return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: Math.round(size * 0.28),
-        background: `linear-gradient(145deg, ${colors.brand[500]} 0%, ${colors.brand[700]} 100%)`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: '#fff',
-        fontSize: Math.round(size * 0.45),
-        fontWeight: 700,
-        boxShadow: shadows.brand,
-        flexShrink: 0,
-      }}
-    >
-      T
-    </div>
-  );
-}
 
 export function AuthLayout({
   children,
@@ -44,7 +21,7 @@ export function AuthLayout({
   subheading?: string;
 }) {
   return (
-    <div
+    <div component="AuthLayout"
       style={{
         minHeight: '100dvh',
         display: 'flex',
@@ -61,7 +38,7 @@ export function AuthLayout({
           flexDirection: 'column',
           justifyContent: 'center',
           padding: '64px 48px',
-          background: `linear-gradient(160deg, ${colors.neutral[900]} 0%, ${colors.heroMid} 50%, ${colors.brand[900]} 100%)`,
+          background: `linear-gradient(160deg, ${colors.brand[900]} 0%, ${colors.heroMid} 50%, ${colors.brand[800]} 100%)`,
         }}
         className="rt-auth-panel"
       >
@@ -74,7 +51,7 @@ export function AuthLayout({
             width: 440,
             height: 440,
             borderRadius: '50%',
-            background: `radial-gradient(circle, rgba(212, 90, 63, 0.4) 0%, transparent 70%)`,
+            background: `radial-gradient(circle, rgba(61, 143, 111, 0.35) 0%, transparent 70%)`,
             pointerEvents: 'none',
           }}
         />
@@ -87,7 +64,7 @@ export function AuthLayout({
             width: 380,
             height: 380,
             borderRadius: '50%',
-            background: `radial-gradient(circle, rgba(240, 172, 154, 0.2) 0%, transparent 70%)`,
+            background: `radial-gradient(circle, rgba(197, 160, 89, 0.18) 0%, transparent 70%)`,
             pointerEvents: 'none',
           }}
         />
@@ -109,23 +86,11 @@ export function AuthLayout({
             href="/"
             style={{
               display: 'inline-flex',
-              alignItems: 'center',
-              gap: 12,
               textDecoration: 'none',
               marginBottom: 56,
             }}
           >
-            <BrandMark />
-            <span
-              style={{
-                color: '#fff',
-                fontSize: typography.fontSize.lg,
-                fontWeight: typography.fontWeight.bold,
-                letterSpacing: typography.letterSpacing.tight,
-              }}
-            >
-              Tablevera
-            </span>
+            <TableveraLogo height={40} />
           </Link>
 
           <h1
@@ -142,7 +107,7 @@ export function AuthLayout({
             Dining made{' '}
             <span
               style={{
-                background: `linear-gradient(90deg, ${colors.brand[300]}, ${colors.brand[400]})`,
+                background: `linear-gradient(90deg, ${colors.accent[300]}, ${colors.accent[400]})`,
                 WebkitBackgroundClip: 'text',
                 backgroundClip: 'text',
                 color: 'transparent',
@@ -186,7 +151,7 @@ export function AuthLayout({
                 }}
               >
                 <CheckCircleFilled
-                  style={{ color: colors.brand[400], fontSize: 16, flexShrink: 0 }}
+                  style={{ color: colors.accent[400], fontSize: 16, flexShrink: 0 }}
                 />
                 {perk}
               </li>
@@ -213,23 +178,11 @@ export function AuthLayout({
           className="rt-auth-mobile-logo"
           style={{
             display: 'none',
-            alignItems: 'center',
-            gap: 10,
             textDecoration: 'none',
             marginBottom: 32,
           }}
         >
-          <BrandMark size={36} />
-          <span
-            style={{
-              color: colors.textPrimary,
-              fontSize: typography.fontSize.md,
-              fontWeight: typography.fontWeight.bold,
-              letterSpacing: typography.letterSpacing.tight,
-            }}
-          >
-            Tablevera
-          </span>
+          <TableveraWordmark iconSize={36} />
         </Link>
 
         <div

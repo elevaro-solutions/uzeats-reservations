@@ -2,12 +2,77 @@
 
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
-import { Button, Card, Form, Input, Modal, Select, Space, Switch, Typography, message } from 'antd';
+import {
+  Button,
+  Card,
+  Col,
+  Form,
+  Input,
+  Modal,
+  Row,
+  Select,
+  Space,
+  Switch,
+  Typography,
+  message,
+} from 'antd';
 import { PageHeader, spacing } from '@reservations/ui';
 import { CLEAR_SEED_DATA, PLATFORM_CONFIG, UPDATE_PLATFORM_CONFIG } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 
 const { Paragraph, Text } = Typography;
+
+const FEATURE_FLAGS = [
+  ['waitlist', 'Waitlist'],
+  ['deposits', 'Deposits'],
+  ['messaging', 'Messaging'],
+  ['reviews', 'Reviews'],
+  ['experiences', 'Experiences'],
+  ['campaigns', 'Campaigns'],
+  ['widget', 'Booking widget'],
+  ['publicRegistration', 'Public registration'],
+  ['partnerRegistration', 'Partner registration'],
+] as const;
+
+const CONFIG_SECTIONS = [
+  {
+    key: 'support',
+    label: 'Support contacts',
+    description: 'Shown to diners and restaurant owners when they need help.',
+  },
+  {
+    key: 'roles',
+    label: 'Default roles',
+    description: 'Assigned automatically when someone signs up or is invited.',
+  },
+  {
+    key: 'billing',
+    label: 'Billing',
+    description: 'Defaults for invoices and subscription charges.',
+  },
+  {
+    key: 'registration',
+    label: 'Registration & access',
+    description: 'Control who can sign up and whether the platform is in maintenance.',
+  },
+  {
+    key: 'security',
+    label: 'Security',
+    description: 'Extra safeguards for sensitive admin actions.',
+  },
+  {
+    key: 'features',
+    label: 'Feature kill switches',
+    description: 'Turn platform capabilities off globally without a deploy.',
+  },
+  {
+    key: 'danger',
+    label: 'Danger zone',
+    description: 'Destructive actions that cannot be undone.',
+  },
+] as const;
+
+type ConfigSectionKey = (typeof CONFIG_SECTIONS)[number]['key'];
 
 const ROLE_OPTIONS = [
   { value: 'diner', label: 'Diner' },
@@ -22,7 +87,10 @@ export default function AdminConfigPage() {
   const [updateConfig, { loading: saving }] = useMutation(UPDATE_PLATFORM_CONFIG);
   const [clearSeed, { loading: clearing }] = useMutation(CLEAR_SEED_DATA);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const [activeKey, setActiveKey] = useState<ConfigSectionKey>('support');
   const [form] = Form.useForm();
+
+  const activeSection = CONFIG_SECTIONS.find((s) => s.key === activeKey) ?? CONFIG_SECTIONS[0];
 
   useEffect(() => {
     if (!data?.platformConfig) return;
@@ -71,88 +139,103 @@ export default function AdminConfigPage() {
     }
   };
 
-  return (
-    <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
-      <PageHeader
-        title="Platform configuration"
-        subtitle="Default roles, registration switches, support contacts, and invoice settings."
-        extra={
-          <Button type="primary" loading={saving} onClick={onSave}>
-            Save changes
-          </Button>
-        }
-      />
-
-      <Card loading={loading}>
-        <Form form={form} layout="vertical" style={{ maxWidth: 640 }}>
-          <Form.Item
-            name="supportEmail"
-            label="Support email"
-            rules={[{ required: true, type: 'email' }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item name="supportPhone" label="Support phone">
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="defaultSignupRole"
-            label="Default diner signup role"
-            rules={[{ required: true }]}
-          >
-            <Select options={ROLE_OPTIONS} />
-          </Form.Item>
-          <Form.Item
-            name="defaultPartnerRole"
-            label="Default partner signup role"
-            rules={[{ required: true }]}
-          >
-            <Select options={ROLE_OPTIONS} />
-          </Form.Item>
-          <Form.Item
-            name="defaultStaffRole"
-            label="Default staff invite role"
-            rules={[{ required: true }]}
-          >
-            <Select options={ROLE_OPTIONS} />
-          </Form.Item>
-
-          <Form.Item name="invoicePrefix" label="Invoice number prefix" rules={[{ required: true }]}>
-            <Input style={{ maxWidth: 160 }} />
-          </Form.Item>
-          <Form.Item name="currency" label="Billing currency" rules={[{ required: true }]}>
-            <Select
-              options={[
-                { value: 'usd', label: 'USD' },
-                { value: 'eur', label: 'EUR' },
-                { value: 'gbp', label: 'GBP' },
-              ]}
-              style={{ maxWidth: 160 }}
-            />
-          </Form.Item>
-
-          <Form.Item
-            name="allowPublicRegistration"
-            label="Allow public diner registration"
-            valuePropName="checked"
-          >
-            <Switch />
-          </Form.Item>
-          <Form.Item
-            name="allowPartnerRegistration"
-            label="Allow partner self-registration"
-            valuePropName="checked"
-          >
-            <Switch />
-          </Form.Item>
-          <Form.Item
-            name="maintenanceMode"
-            label="Maintenance mode"
-            valuePropName="checked"
-            extra="Flag for ops — wire into public apps when you want a global banner or hard stop."
-          >
-            <Switch />
-          </Form.Item>
+  const renderSectionContent = () => {
+    switch (activeKey) {
+      case 'support':
+        return (
+          <>
+            <Form.Item
+              name="supportEmail"
+              label="Support email"
+              rules={[{ required: true, type: 'email' }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item name="supportPhone" label="Support phone">
+              <Input />
+            </Form.Item>
+          </>
+        );
+      case 'roles':
+        return (
+          <>
+            <Form.Item
+              name="defaultSignupRole"
+              label="Default diner signup role"
+              rules={[{ required: true }]}
+            >
+              <Select options={ROLE_OPTIONS} />
+            </Form.Item>
+            <Form.Item
+              name="defaultPartnerRole"
+              label="Default partner signup role"
+              rules={[{ required: true }]}
+            >
+              <Select options={ROLE_OPTIONS} />
+            </Form.Item>
+            <Form.Item
+              name="defaultStaffRole"
+              label="Default staff invite role"
+              rules={[{ required: true }]}
+            >
+              <Select options={ROLE_OPTIONS} />
+            </Form.Item>
+          </>
+        );
+      case 'billing':
+        return (
+          <Row gutter={16}>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="invoicePrefix"
+                label="Invoice number prefix"
+                rules={[{ required: true }]}
+              >
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item name="currency" label="Billing currency" rules={[{ required: true }]}>
+                <Select
+                  options={[
+                    { value: 'usd', label: 'USD' },
+                    { value: 'eur', label: 'EUR' },
+                    { value: 'gbp', label: 'GBP' },
+                  ]}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+        );
+      case 'registration':
+        return (
+          <>
+            <Form.Item
+              name="allowPublicRegistration"
+              label="Allow public diner registration"
+              valuePropName="checked"
+            >
+              <Switch />
+            </Form.Item>
+            <Form.Item
+              name="allowPartnerRegistration"
+              label="Allow partner self-registration"
+              valuePropName="checked"
+            >
+              <Switch />
+            </Form.Item>
+            <Form.Item
+              name="maintenanceMode"
+              label="Maintenance mode"
+              valuePropName="checked"
+              extra="Flag for ops — wire into public apps when you want a global banner or hard stop."
+            >
+              <Switch />
+            </Form.Item>
+          </>
+        );
+      case 'security':
+        return (
           <Form.Item
             name="requireAdminDelete2FA"
             label="Require 2FA to delete users"
@@ -161,54 +244,91 @@ export default function AdminConfigPage() {
           >
             <Switch />
           </Form.Item>
+        );
+      case 'features':
+        return (
+          <Row gutter={[16, 0]}>
+            {FEATURE_FLAGS.map(([key, label]) => (
+              <Col xs={24} sm={12} key={key}>
+                <Form.Item name={['featureFlags', key]} label={label} valuePropName="checked">
+                  <Switch />
+                </Form.Item>
+              </Col>
+            ))}
+          </Row>
+        );
+      case 'danger':
+        return (
+          <Space direction="vertical" size={12} style={{ width: '100%' }}>
+            <div>
+              <Text strong>Clear seed / demo data</Text>
+              <Paragraph type="secondary" style={{ marginBottom: 0, marginTop: 4 }}>
+                Deletes restaurants, reservations, non-admin users, and related demo records.
+                Platform admin accounts are left untouched.
+              </Paragraph>
+            </div>
+            <Button danger loading={clearing} onClick={() => setClearConfirmOpen(true)}>
+              Clear seed data
+            </Button>
+          </Space>
+        );
+      default:
+        return null;
+    }
+  };
 
-          <h3 style={{ marginTop: 24 }}>Feature kill switches</h3>
-          <p style={{ opacity: 0.65, marginTop: 0 }}>
-            Turn platform capabilities off globally without a deploy.
-          </p>
-          {(
-            [
-              ['waitlist', 'Waitlist'],
-              ['deposits', 'Deposits'],
-              ['messaging', 'Messaging'],
-              ['reviews', 'Reviews'],
-              ['experiences', 'Experiences'],
-              ['campaigns', 'Campaigns'],
-              ['widget', 'Booking widget'],
-              ['publicRegistration', 'Public registration'],
-              ['partnerRegistration', 'Partner registration'],
-            ] as const
-          ).map(([key, label]) => (
-            <Form.Item
-              key={key}
-              name={['featureFlags', key]}
-              label={label}
-              valuePropName="checked"
-            >
-              <Switch />
-            </Form.Item>
-          ))}
-        </Form>
-      </Card>
+  return (
+    <div component="AdminConfigPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+      <PageHeader
+        title="Platform configuration"
+        subtitle="Default roles, registration switches, support contacts, and invoice settings."
+      />
 
-      <Card
-        title="Danger zone"
-        styles={{ header: { color: '#a8071a' } }}
-        style={{ borderColor: '#ffa39e' }}
-      >
-        <Space direction="vertical" size={12} style={{ width: '100%', maxWidth: 640 }}>
-          <div>
-            <Text strong>Clear seed / demo data</Text>
-            <Paragraph type="secondary" style={{ marginBottom: 0, marginTop: 4 }}>
-              Deletes restaurants, reservations, non-admin users, and related demo records.
-              Platform admin accounts are left untouched.
+      <Row gutter={[16, 16]}>
+        <Col xs={24} md={8}>
+          <Card title="Configuration" loading={loading}>
+            <Space direction="vertical" style={{ width: '100%' }}>
+              {CONFIG_SECTIONS.map((section) => (
+                <Button
+                  key={section.key}
+                  block
+                  type={section.key === activeKey ? 'primary' : 'default'}
+                  danger={section.key === 'danger' && section.key !== activeKey}
+                  onClick={() => setActiveKey(section.key)}
+                >
+                  {section.label}
+                </Button>
+              ))}
+            </Space>
+          </Card>
+        </Col>
+        <Col xs={24} md={16}>
+          <Card
+            title={activeSection.label}
+            loading={loading}
+            styles={
+              activeKey === 'danger'
+                ? { header: { color: '#a8071a' } }
+                : undefined
+            }
+            style={activeKey === 'danger' ? { borderColor: '#ffa39e' } : undefined}
+            extra={
+              activeKey !== 'danger' ? (
+                <Button type="primary" loading={saving} onClick={onSave}>
+                  Save changes
+                </Button>
+              ) : undefined
+            }
+          >
+            <Paragraph type="secondary" style={{ marginTop: 0 }}>
+              {activeSection.description}
             </Paragraph>
-          </div>
-          <Button danger loading={clearing} onClick={() => setClearConfirmOpen(true)}>
-            Clear seed data
-          </Button>
-        </Space>
-      </Card>
+            <Form form={form} layout="vertical">
+              {renderSectionContent()}
+            </Form>
+          </Card>
+        </Col>
+      </Row>
 
       <Modal
         title="Clear seed data?"
@@ -227,6 +347,6 @@ export default function AdminConfigPage() {
           without re-running <Text code>pnpm seed</Text>.
         </Paragraph>
       </Modal>
-    </Space>
+    </Space></div>
   );
 }

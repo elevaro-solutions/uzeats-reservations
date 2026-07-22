@@ -94,8 +94,7 @@ export default function ResetPasswordForm() {
   };
 
   return (
-    <AuthLayout
-      heading="Set new password"
+    <div component="ResetPasswordForm" style={{ display: 'contents' }}><AuthLayout       heading="Set new password"
       subheading="Enter your new password below."
     >
       <Form layout="vertical" requiredMark={false} onFinish={onFinish}>
@@ -151,6 +150,6 @@ export default function ResetPasswordForm() {
           Reset password
         </Button>
       </Form>
-    </AuthLayout>
+    </AuthLayout></div>
   );
 }

@@ -28,6 +28,10 @@ export interface RestaurantInfo {
   photos: string[];
   averageRating: number;
   reviewCount: number;
+  depositRequired: boolean;
+  depositAmountCents: number;
+  loyaltyEnabled: boolean;
+  loyaltyPointsPerVisit: number;
   widgetTheme: WidgetTheme;
 }
 
@@ -72,6 +76,10 @@ const RESTAURANT_QUERY = `
       photos
       averageRating
       reviewCount
+      depositRequired
+      depositAmountCents
+      loyaltyEnabled
+      loyaltyPointsPerVisit
       widgetTheme { primaryColor buttonText showReviews }
     }
   }

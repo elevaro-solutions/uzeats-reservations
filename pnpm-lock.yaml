@@ -181,6 +181,9 @@ importers:
       '@reservations/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@reservations/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       expo:
         specifier: ~53.0.12
         version: 53.0.27(@babel/core@7.29.7)(@expo/metro-runtime@5.0.5(react-native@0.79.4(@babel/core@7.29.7)(@types/react@19.0.14)(react@19.0.0)))(graphql@16.14.2)(react-native@0.79.4(@babel/core@7.29.7)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
@@ -294,6 +297,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@reservations/shared':
+        specifier: workspace:*
+        version: link:../shared
       react-dom:
         specifier: ^19.0.0
         version: 19.2.7(react@19.2.7)
@@ -316,6 +322,12 @@ importers:
 
   packages/widget:
     devDependencies:
+      '@reservations/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@reservations/ui':
+        specifier: workspace:*
+        version: link:../ui
       typescript:
         specifier: ^7.0.2
         version: 7.0.2

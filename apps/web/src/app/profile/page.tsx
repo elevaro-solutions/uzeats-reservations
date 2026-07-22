@@ -14,8 +14,10 @@ import {
   TrophyOutlined,
 } from '@ant-design/icons';
 import { PageHeader, colors, radii, shadows } from '@reservations/ui';
+import { LOYALTY, loyaltyRedeemProgress, resolveLoyaltyTier } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -23,6 +25,26 @@ const MY_LOYALTY = gql`
   query MyLoyalty {
     myLoyalty {
       id
+      type
+      points
+      description
+      createdAt
+    }
+  }
+`;
+
+const MY_RESTAURANT_LOYALTY = gql`
+  query MyRestaurantLoyalty {
+    myRestaurantLoyalty {
+      restaurantId
+      restaurantName
+      restaurantSlug
+      points
+    }
+    myRestaurantLoyaltyHistory(limit: 20) {
+      id
+      restaurantId
+      restaurantName
       type
       points
       description
@@ -60,6 +82,7 @@ export default function ProfilePage() {
   const { user, loading: authLoading, refreshMe } = useAuth();
   const router = useRouter();
   const { data } = useQuery(MY_LOYALTY, { skip: !user });
+  const { data: restaurantLoyaltyData } = useQuery(MY_RESTAURANT_LOYALTY, { skip: !user });
   const [linkTelegram] = useMutation(LINK_TELEGRAM);
   const [registerPush] = useMutation(REGISTER_PUSH);
   const [pushSubscription, setPushSubscription] = useState<PushSubscription | null>(null);
@@ -123,9 +146,13 @@ export default function ProfilePage() {
   }
 
   const telegramLinked = !!(user as any)?.telegramChatId;
+  const redeemProgress = loyaltyRedeemProgress(user?.loyaltyPoints ?? 0);
+  const tier = resolveLoyaltyTier(user?.loyaltyCompletedVisits ?? 0);
+  const restaurantBalances = (restaurantLoyaltyData as any)?.myRestaurantLoyalty ?? [];
+  const restaurantHistory = (restaurantLoyaltyData as any)?.myRestaurantLoyaltyHistory ?? [];
 
   return (
-    <Space direction="vertical" size={20} style={{ width: '100%', maxWidth: 720 }}>
+    <div component="ProfilePage" style={{ display: 'contents' }}><Space direction="vertical" size={20} style={{ width: '100%', maxWidth: 720 }}>
       <PageHeader
         title="Profile"
         subtitle="Manage notifications and loyalty rewards"
@@ -183,7 +210,114 @@ export default function ProfilePage() {
             </Text>
           </div>
         </div>
+        <div style={{ marginTop: 16 }}>
+          <div style={{
+            height: 8,
+            borderRadius: radii.pill,
+            background: colors.brand[100],
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              width: `${redeemProgress.percent}%`,
+              height: '100%',
+              background: colors.brand[600],
+              borderRadius: radii.pill,
+            }} />
+          </div>
+          <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
+            {redeemProgress.canRedeem
+              ? `Ready to redeem (${LOYALTY.MIN_REDEEM_POINTS}+ pts)`
+              : `${redeemProgress.remaining} pts until you can redeem`}
+          </Text>
+          <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
+            Tier: <Text strong>{user?.loyaltyTierName ?? tier.name}</Text>
+            {tier.visitsToNextTier != null
+              ? ` · ${tier.visitsToNextTier} visits to ${tier.nextTier?.name}`
+              : ' · top tier'}
+          </Text>
+          {user?.referralCode && (
+            <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
+              Referral code: <Text strong copyable>{user.referralCode}</Text>
+            </Text>
+          )}
+          {user?.loyaltyPointsExpireAt && (
+            <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
+              Points expire: {new Date(user.loyaltyPointsExpireAt).toLocaleDateString()}
+            </Text>
+          )}
+        </div>
       </Card>
+
+      {(restaurantBalances.length > 0 || restaurantHistory.length > 0) && (
+        <Card
+          title="Restaurant rewards"
+          style={{
+            borderRadius: radii.lg,
+            border: `1px solid ${colors.bordersubtle}`,
+            boxShadow: shadows.sm,
+          }}
+        >
+          {restaurantBalances.length > 0 && (
+            <>
+              <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+                Points you can redeem at specific restaurants when booking.
+              </Text>
+              <List
+                dataSource={restaurantBalances}
+                renderItem={(item: {
+                  restaurantId: string;
+                  restaurantName: string;
+                  restaurantSlug?: string | null;
+                  points: number;
+                }) => (
+                  <List.Item
+                    actions={[
+                      <Link
+                        key="book"
+                        href={`/restaurants/${item.restaurantSlug ?? item.restaurantId}`}
+                      >
+                        Book
+                      </Link>,
+                    ]}
+                  >
+                    <List.Item.Meta
+                      title={item.restaurantName}
+                      description={`${item.points} points available`}
+                    />
+                  </List.Item>
+                )}
+              />
+            </>
+          )}
+          {restaurantHistory.length > 0 && (
+            <div style={{ marginTop: restaurantBalances.length > 0 ? 16 : 0 }}>
+              <Title level={5} style={{ marginTop: 0 }}>
+                Restaurant activity
+              </Title>
+              {restaurantHistory.map((item: any, idx: number, arr: any[]) => (
+                <div
+                  key={item.id ?? idx}
+                  style={{
+                    padding: '12px 0',
+                    borderBottom: idx < arr.length - 1 ? `1px solid ${colors.bordersubtle}` : 'none',
+                  }}
+                >
+                  <Text strong style={{ color: item.points > 0 ? colors.success : colors.textPrimary }}>
+                    {item.points > 0 ? '+' : ''}
+                    {item.points} · {item.restaurantName}
+                  </Text>
+                  <Text type="secondary" style={{ display: 'block', fontSize: 13 }}>
+                    {item.description}
+                  </Text>
+                  <Text type="secondary" style={{ display: 'block', marginTop: 2, fontSize: 13 }}>
+                    {new Date(item.createdAt).toLocaleString()}
+                  </Text>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
 
       <Card
         id="notifications"
@@ -343,6 +477,6 @@ export default function ProfilePage() {
           </div>
         ))}
       </Card>
-    </Space>
+    </Space></div>
   );
 }

@@ -53,7 +53,7 @@ function DepositForm({
   };
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="DepositForm" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Text>
         Deposit due: <Text strong>${(amountCents / 100).toFixed(2)}</Text>
       </Text>
@@ -61,7 +61,7 @@ function DepositForm({
       <Button type="primary" size="large" block loading={loading} onClick={onPay}>
         Authorize deposit
       </Button>
-    </Space>
+    </Space></div>
   );
 }
 
@@ -109,7 +109,7 @@ export default function DepositPayPage() {
   }
 
   return (
-    <Card style={{ maxWidth: 520, margin: '40px auto' }}>
+    <div component="DepositPayPage" style={{ display: 'contents' }}><Card style={{ maxWidth: 520, margin: '40px auto' }}>
       <Title level={3}>Complete your deposit</Title>
       <Paragraph type="secondary">
         Your table is held pending deposit authorization. The charge is only captured if you
@@ -122,6 +122,6 @@ export default function DepositPayPage() {
           amountCents={amountCents}
         />
       </Elements>
-    </Card>
+    </Card></div>
   );
 }

@@ -17,7 +17,7 @@ import {
   message,
 } from 'antd';
 import dayjs from 'dayjs';
-import { RestaurantCard, EmptyState, colors, radii, shadows, typography } from '@reservations/ui';
+import { RestaurantCard, EmptyState, colors, layout, radii, shadows, typography } from '@reservations/ui';
 import {
   CrownFilled,
   EnvironmentFilled,
@@ -213,16 +213,9 @@ function HomePageContent() {
   );
 
   return (
-    <div>
+    <div component="HomePageContent">
       {/* ---------- Hero (full-bleed) ---------- */}
-      <section
-        style={{
-          margin: '-32px calc(50% - 50vw) 0',
-          position: 'relative',
-          overflow: 'hidden',
-          background: `linear-gradient(150deg, ${colors.neutral[900]} 0%, ${colors.heroMid} 45%, ${colors.brand[900]} 100%)`,
-        }}
-      >
+      <section className="rt-hero">
         {/* decorative glows */}
         <div
           aria-hidden
@@ -234,7 +227,7 @@ function HomePageContent() {
             width: 520,
             height: 520,
             borderRadius: '50%',
-            background: `radial-gradient(circle, rgba(212, 90, 63, 0.38) 0%, transparent 70%)`,
+            background: `radial-gradient(circle, rgba(61, 143, 111, 0.22) 0%, transparent 70%)`,
             pointerEvents: 'none',
           }}
         />
@@ -248,7 +241,7 @@ function HomePageContent() {
             width: 460,
             height: 460,
             borderRadius: '50%',
-            background: `radial-gradient(circle, rgba(240, 172, 154, 0.2) 0%, transparent 70%)`,
+            background: `radial-gradient(circle, rgba(197, 160, 89, 0.14) 0%, transparent 70%)`,
             pointerEvents: 'none',
             animationDelay: '-7s',
           }}
@@ -259,17 +252,17 @@ function HomePageContent() {
             position: 'absolute',
             inset: 0,
             backgroundImage:
-              'radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px)',
+              'radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px)',
             backgroundSize: '28px 28px',
-            maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.7), transparent 75%)',
-            WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.7), transparent 75%)',
+            maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.5), transparent 75%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.5), transparent 75%)',
             pointerEvents: 'none',
           }}
         />
 
         <div
           style={{
-            maxWidth: 1120,
+            maxWidth: layout.contentMaxWidth,
             margin: '0 auto',
             padding: 'clamp(48px, 7vw, 72px) 24px 56px',
             position: 'relative',
@@ -301,7 +294,7 @@ function HomePageContent() {
             }}
           >
             Find your table.{' '}
-            <span style={{ color: colors.brand[400], display: 'inline-block' }}>
+            <span style={{ color: colors.accent[300], display: 'inline-block' }}>
               Book it in seconds.
             </span>
           </Title>
@@ -456,7 +449,7 @@ function HomePageContent() {
                   fontWeight: typography.fontWeight.medium,
                 }}
               >
-                <span style={{ color: colors.brand[400], display: 'inline-flex' }}>
+                <span style={{ color: colors.accent[400], display: 'inline-flex' }}>
                   {h.icon}
                 </span>
                 {h.label}
@@ -521,6 +514,14 @@ function HomePageContent() {
         </div>
       </section>
 
+      <div
+        style={{
+          maxWidth: layout.contentMaxWidth,
+          width: '100%',
+          margin: '0 auto',
+          padding: '0 24px 32px',
+        }}
+      >
       {/* ---------- Cuisine quick filters ---------- */}
       <div
         className="rt-scroll-hidden"
@@ -709,6 +710,7 @@ function HomePageContent() {
           </>
         )}
       </div>
+      </div>
     </div>
   );
 }
@@ -723,7 +725,7 @@ function SectionHeader({
   subtitle?: string;
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
+    <div component="SectionHeader" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
       <div
         style={{
           width: 40,
@@ -756,7 +758,7 @@ function SectionHeader({
 
 function SkeletonGrid({ count }: { count: number }) {
   return (
-    <Row gutter={[20, 20]}>
+    <div component="SkeletonGrid" style={{ display: 'contents' }}><Row gutter={[20, 20]}>
       {Array.from({ length: count }, (_, i) => (
         <Col key={i} xs={24} sm={12} md={8} lg={6}>
           <div
@@ -775,7 +777,7 @@ function SkeletonGrid({ count }: { count: number }) {
           </div>
         </Col>
       ))}
-    </Row>
+    </Row></div>
   );
 }
 
@@ -805,8 +807,7 @@ function RestaurantWithSlots({
   );
 
   return (
-    <RestaurantCard
-      id={restaurant.id}
+    <div component="RestaurantWithSlots" style={{ display: 'contents' }}><RestaurantCard       id={restaurant.id}
       name={restaurant.name}
       cuisine={restaurant.cuisine}
       priceRange={restaurant.priceRange}
@@ -818,14 +819,14 @@ function RestaurantWithSlots({
       availableSlots={slots}
       onClick={onOpen}
       onSelectSlot={(_, time) => onSelectSlot(time)}
-    />
+    /></div>
   );
 }
 
 export default function HomePage() {
   return (
-    <Suspense fallback={null}>
+    <div component="HomePage" style={{ display: 'contents' }}><Suspense fallback={null}>
       <HomePageContent />
-    </Suspense>
+    </Suspense></div>
   );
 }

@@ -35,8 +35,59 @@ export const RESTAURANT = gql`
       photos
       depositRequired
       depositAmountCents
+      loyaltyEnabled
+      loyaltyPointsPerVisit
+      loyaltyMinRedeemPoints
       averageRating
       address { line1 city state zip }
+    }
+  }
+`;
+
+export const MY_LOYALTY = gql`
+  query MyLoyalty {
+    myLoyalty {
+      id
+      type
+      points
+      description
+      createdAt
+    }
+  }
+`;
+
+export const MY_RESTAURANT_LOYALTY_BALANCE = gql`
+  query MyRestaurantLoyaltyBalance($restaurantId: ID!) {
+    myRestaurantLoyaltyBalance(restaurantId: $restaurantId)
+  }
+`;
+
+export const MY_RESTAURANT_LOYALTY = gql`
+  query MyRestaurantLoyalty {
+    myRestaurantLoyalty {
+      restaurantId
+      restaurantName
+      points
+    }
+    myRestaurantLoyaltyHistory(limit: 20) {
+      id
+      restaurantId
+      restaurantName
+      points
+      description
+      createdAt
+    }
+  }
+`;
+
+export const BEST_PROMOTION = gql`
+  query BestPromotion($restaurantId: ID!, $slotStart: DateTime!, $depositCents: Int!) {
+    bestPromotion(restaurantId: $restaurantId, slotStart: $slotStart, depositCents: $depositCents) {
+      valid
+      discountCents
+      promotion {
+        title
+      }
     }
   }
 `;
@@ -48,6 +99,8 @@ export const BOOK = gql`
         id
         status
         slotStart
+        depositAmountCents
+        loyaltyPointsRedeemed
       }
       clientSecret
     }

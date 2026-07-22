@@ -12,6 +12,7 @@ const guestProfileSchema = new Schema(
       default: 'none',
     },
     totalVisits: { type: Number, default: 0 },
+    loyaltyPoints: { type: Number, default: 0, min: 0 },
     totalSpendCents: { type: Number, default: 0 },
     averagePartySize: { type: Number, default: 0 },
     lastVisitDate: { type: Date },

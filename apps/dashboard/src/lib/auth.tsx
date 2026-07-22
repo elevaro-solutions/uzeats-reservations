@@ -182,7 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }),
     [user, loading, impersonator],
   );
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <div component="AuthProvider" style={{ display: 'contents' }}><AuthContext.Provider value={value}>{children}</AuthContext.Provider></div>;
 }
 
 export function useAuth() {

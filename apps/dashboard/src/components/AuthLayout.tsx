@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { colors, radii, typography, shadows } from '@reservations/ui';
+import { TableveraLogo, TableveraWordmark, colors, radii, typography, shadows } from '@reservations/ui';
 import {
   BarChartOutlined,
   CalendarOutlined,
@@ -29,7 +29,7 @@ export function AuthLayout({
   maxWidth?: number;
 }) {
   return (
-    <div
+    <div component="AuthLayout"
       style={{
         minHeight: '100dvh',
         display: 'flex',
@@ -45,7 +45,7 @@ export function AuthLayout({
           flexDirection: 'column',
           justifyContent: 'center',
           padding: '64px 48px',
-          background: `linear-gradient(160deg, ${colors.neutral[900]} 0%, ${colors.heroMid} 48%, #3d221c 100%)`,
+          background: `linear-gradient(160deg, ${colors.brand[900]} 0%, ${colors.heroMid} 48%, ${colors.brand[800]} 100%)`,
         }}
         className="rt-auth-panel"
       >
@@ -60,7 +60,7 @@ export function AuthLayout({
             height: 440,
             borderRadius: '50%',
             background:
-              'radial-gradient(circle, rgba(196, 71, 47, 0.32) 0%, transparent 70%)',
+              'radial-gradient(circle, rgba(61, 143, 111, 0.3) 0%, transparent 70%)',
             pointerEvents: 'none',
           }}
         />
@@ -95,55 +95,21 @@ export function AuthLayout({
         />
 
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 10,
-              marginBottom: 56,
-            }}
-          >
-            <div
+          <div style={{ marginBottom: 56 }}>
+            <TableveraLogo height={40} />
+            <span
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: radii.md,
-                background: colors.brand[600],
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#fff',
-                fontSize: 18,
-                fontWeight: 700,
+                display: 'block',
+                marginTop: 8,
+                color: 'rgba(255,255,255,0.45)',
+                fontSize: typography.fontSize.xs,
+                fontWeight: typography.fontWeight.semibold,
+                textTransform: 'uppercase',
+                letterSpacing: typography.letterSpacing.wide,
               }}
             >
-              T
-            </div>
-            <div style={{ lineHeight: 1.2 }}>
-              <span
-                style={{
-                  display: 'block',
-                  color: '#fff',
-                  fontSize: typography.fontSize.lg,
-                  fontWeight: typography.fontWeight.bold,
-                  letterSpacing: typography.letterSpacing.tight,
-                }}
-              >
-                Tablevera
-              </span>
-              <span
-                style={{
-                  display: 'block',
-                  color: 'rgba(255,255,255,0.45)',
-                  fontSize: typography.fontSize.xs,
-                  fontWeight: typography.fontWeight.semibold,
-                  textTransform: 'uppercase',
-                  letterSpacing: typography.letterSpacing.wide,
-                }}
-              >
-                Partner Hub
-              </span>
-            </div>
+              Partner Hub
+            </span>
           </div>
 
           <h1
@@ -204,7 +170,7 @@ export function AuthLayout({
                     alignItems: 'center',
                     justifyContent: 'center',
                     fontSize: 14,
-                    color: colors.brand[400],
+                    color: colors.accent[400],
                     flexShrink: 0,
                   }}
                 >
@@ -235,52 +201,24 @@ export function AuthLayout({
           className="rt-auth-mobile-logo"
           style={{
             display: 'none',
-            alignItems: 'center',
-            gap: 8,
+            flexDirection: 'column',
+            alignItems: 'flex-start',
+            gap: 4,
             marginBottom: 32,
           }}
         >
-          <div
+          <TableveraWordmark iconSize={34} />
+          <span
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: radii.md,
-              background: colors.brand[600],
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              fontSize: 16,
-              fontWeight: 700,
+              color: colors.textTertiary,
+              fontSize: 10,
+              fontWeight: typography.fontWeight.semibold,
+              textTransform: 'uppercase',
+              letterSpacing: typography.letterSpacing.wide,
             }}
           >
-            T
-          </div>
-          <div style={{ lineHeight: 1.2 }}>
-            <span
-              style={{
-                display: 'block',
-                color: colors.textPrimary,
-                fontSize: typography.fontSize.md,
-                fontWeight: typography.fontWeight.bold,
-                letterSpacing: typography.letterSpacing.tight,
-              }}
-            >
-              Tablevera
-            </span>
-            <span
-              style={{
-                display: 'block',
-                color: colors.textTertiary,
-                fontSize: 10,
-                fontWeight: typography.fontWeight.semibold,
-                textTransform: 'uppercase',
-                letterSpacing: typography.letterSpacing.wide,
-              }}
-            >
-              Partner Hub
-            </span>
-          </div>
+            Partner Hub
+          </span>
         </div>
 
         <div

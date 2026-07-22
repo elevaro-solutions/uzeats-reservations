@@ -43,6 +43,7 @@ export function RestaurantCard({
   const showBooked = bookedToday != null && bookedToday > 0;
 
   return (
+    <div component="RestaurantCard" style={{ display: 'contents' }}>
     <Card
       hoverable
       onMouseEnter={() => setHovered(true)}
@@ -265,5 +266,6 @@ export function RestaurantCard({
         </button>
       )}
     </Card>
+    </div>
   );
 }

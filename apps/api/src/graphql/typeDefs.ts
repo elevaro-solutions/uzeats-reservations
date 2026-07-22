@@ -35,6 +35,7 @@ export const typeDefs = `#graphql
     reservationUpdates: NotificationChannelPreferences!
     reviewReply: NotificationChannelPreferences!
     surveyInvitation: NotificationChannelPreferences!
+    loyaltyUpdates: NotificationChannelPreferences!
   }
 
   input NotificationChannelPreferencesInput {
@@ -52,6 +53,7 @@ export const typeDefs = `#graphql
     reservationUpdates: NotificationChannelPreferencesInput
     reviewReply: NotificationChannelPreferencesInput
     surveyInvitation: NotificationChannelPreferencesInput
+    loyaltyUpdates: NotificationChannelPreferencesInput
   }
 
   type User {
@@ -62,6 +64,11 @@ export const typeDefs = `#graphql
     lastName: String!
     role: UserRole!
     loyaltyPoints: Int!
+    loyaltyCompletedVisits: Int!
+    loyaltyTier: String!
+    loyaltyTierName: String!
+    loyaltyPointsExpireAt: DateTime
+    referralCode: String
     emailVerified: Boolean!
     phoneVerified: Boolean!
     telegramChatId: String
@@ -107,6 +114,9 @@ export const typeDefs = `#graphql
     spendAlertThresholdCents: Int!
     useSmartAssign: Boolean!
     posEnabled: Boolean!
+    loyaltyEnabled: Boolean!
+    loyaltyPointsPerVisit: Int!
+    loyaltyMinRedeemPoints: Int!
     widgetTheme: WidgetTheme!
     tables: [Table!]!
     shifts: [Shift!]!
@@ -189,6 +199,12 @@ export const typeDefs = `#graphql
     clientSecret: String
     loyaltyPointsEarned: Int!
     loyaltyPointsRedeemed: Int!
+    restaurantLoyaltyPointsEarned: Int!
+    restaurantLoyaltyPointsRedeemed: Int!
+    promotionId: ID
+    promoDiscountCents: Int!
+    giftCardId: ID
+    giftCardDiscountCents: Int!
     source: ReservationSource!
     totalSpendCents: Int!
     createdAt: DateTime!
@@ -261,6 +277,23 @@ export const typeDefs = `#graphql
     createdAt: DateTime!
   }
 
+  type RestaurantLoyaltyBalance {
+    restaurantId: ID!
+    restaurantName: String!
+    restaurantSlug: String
+    points: Int!
+  }
+
+  type RestaurantLoyaltyTransaction {
+    id: ID!
+    restaurantId: ID!
+    restaurantName: String!
+    type: String!
+    points: Int!
+    description: String!
+    createdAt: DateTime!
+  }
+
   type AppNotification {
     id: ID!
     type: String!
@@ -317,11 +350,22 @@ export const typeDefs = `#graphql
     updatedAt: DateTime!
   }
 
+  enum PlanDiscountType {
+    none
+    percent_off
+    first_month_free
+    annual_months_free
+  }
+
   type PlanInfo {
     key: String!
     name: String!
     description: String
     monthlyPriceCents: Int!
+    originalMonthlyPriceCents: Int
+    discountType: PlanDiscountType!
+    discountPercent: Int
+    annualFreeMonths: Int
     networkCoverFeeCents: Int!
     websiteCoverFeeCents: Int!
     trialDays: Int!
@@ -421,6 +465,35 @@ export const typeDefs = `#graphql
     mrrCents: Int!
     activeSubscriptions: Int!
     openInvoices: Int!
+  }
+
+  type LoyaltyPlatformStats {
+    totalOutstandingPoints: Int!
+    usersWithPoints: Int!
+    tierBronze: Int!
+    tierSilver: Int!
+    tierGold: Int!
+    referralsCount: Int!
+    pointsEarned30d: Int!
+    pointsRedeemed30d: Int!
+  }
+
+  type ReferralLeader {
+    userId: ID!
+    firstName: String!
+    lastName: String!
+    email: String
+    referralCode: String
+    refereesCount: Int!
+  }
+
+  type RestaurantLoyaltyStats {
+    loyaltyEnabled: Boolean!
+    totalOutstandingPoints: Int!
+    guestsWithPoints: Int!
+    pointsEarned30d: Int!
+    pointsRedeemed30d: Int!
+    totalVisitsAwarded: Int!
   }
 
   type InvoiceLine {
@@ -584,6 +657,10 @@ export const typeDefs = `#graphql
     name: String
     description: String
     monthlyPriceCents: Int
+    originalMonthlyPriceCents: Int
+    discountType: PlanDiscountType
+    discountPercent: Int
+    annualFreeMonths: Int
     networkCoverFeeCents: Int
     websiteCoverFeeCents: Int
     trialDays: Int
@@ -595,6 +672,10 @@ export const typeDefs = `#graphql
     name: String!
     description: String
     monthlyPriceCents: Int!
+    originalMonthlyPriceCents: Int
+    discountType: PlanDiscountType
+    discountPercent: Int
+    annualFreeMonths: Int
     networkCoverFeeCents: Int
     websiteCoverFeeCents: Int
     trialDays: Int
@@ -906,6 +987,7 @@ export const typeDefs = `#graphql
     notes: String
     vipStatus: String!
     totalVisits: Int!
+    loyaltyPoints: Int!
     totalSpendCents: Int!
     averagePartySize: Float!
     lastVisitDate: DateTime
@@ -1012,6 +1094,7 @@ export const typeDefs = `#graphql
     firstName: String!
     lastName: String!
     phone: String
+    referralCode: String
   }
 
   input LoginInput {
@@ -1051,6 +1134,9 @@ export const typeDefs = `#graphql
     website: String
     depositRequired: Boolean
     depositAmountCents: Int
+    loyaltyEnabled: Boolean
+    loyaltyPointsPerVisit: Int
+    loyaltyMinRedeemPoints: Int
     photos: [String!]
   }
 
@@ -1130,6 +1216,9 @@ export const typeDefs = `#graphql
     occasion: Occasion
     guestNotes: String
     redeemPoints: Int
+    redeemRestaurantPoints: Int
+    promoCode: String
+    giftCardCode: String
     source: ReservationSource
   }
 
@@ -1340,16 +1429,86 @@ export const typeDefs = `#graphql
     active: Boolean
   }
 
+  type PromotionValidation {
+    valid: Boolean!
+    message: String
+    promotion: Promotion
+    discountCents: Int!
+    discountedDepositCents: Int!
+    autoApplied: Boolean!
+  }
+
+  type PromotionRedemptionDay {
+    date: String!
+    count: Int!
+    discountCents: Int!
+  }
+
+  type PromotionPerformance {
+    promotionId: ID!
+    title: String!
+    code: String
+    redemptions: Int!
+    discountCents: Int!
+    active: Boolean!
+  }
+
+  type PromotionStats {
+    days: Int!
+    totalRedemptions: Int!
+    totalDiscountCents: Int!
+    activePromotionCount: Int!
+    redemptionsByDay: [PromotionRedemptionDay!]!
+    promotions: [PromotionPerformance!]!
+  }
+
+  type GiftCard {
+    id: ID!
+    restaurantId: ID!
+    code: String!
+    initialBalanceCents: Int!
+    balanceCents: Int!
+    recipientName: String
+    recipientEmail: String
+    expiresAt: DateTime
+    note: String
+    active: Boolean!
+    createdAt: DateTime!
+  }
+
+  type GiftCardConnection {
+    total: Int!
+    items: [GiftCard!]!
+  }
+
+  type GiftCardValidation {
+    valid: Boolean!
+    message: String
+    giftCard: GiftCard
+    discountCents: Int!
+    discountedDepositCents: Int!
+  }
+
+  input IssueGiftCardInput {
+    balanceCents: Int!
+    recipientName: String
+    recipientEmail: String
+    expiresAt: DateTime
+    note: String
+  }
+
   type Promotion {
     id: ID!
     restaurantId: ID!
     title: String!
     description: String
     discountPercent: Int
+    discountAmountCents: Int
     code: String
     startDate: String
     endDate: String
     daysOfWeek: [Int!]!
+    maxRedemptions: Int
     active: Boolean!
     redemptions: Int!
     createdAt: DateTime!
@@ -1359,10 +1518,12 @@ export const typeDefs = `#graphql
     title: String!
     description: String
     discountPercent: Int
+    discountAmountCents: Int
     code: String
     startDate: String
     endDate: String
     daysOfWeek: [Int!]
+    maxRedemptions: Int
     active: Boolean
   }
 
@@ -1487,6 +1648,13 @@ export const typeDefs = `#graphql
   type Query {
     me: User
     restaurant(id: ID, slug: String): Restaurant
+    validatePromotion(
+      restaurantId: ID!
+      code: String!
+      slotStart: DateTime!
+      depositCents: Int!
+    ): PromotionValidation!
+    validateGiftCard(restaurantId: ID!, code: String!, depositCents: Int!): GiftCardValidation!
     searchRestaurants(input: SearchRestaurantsInput!): RestaurantConnection!
     availability(restaurantId: ID!, date: String!, partySize: Int!): [AvailabilitySlot!]!
     myReservations: [Reservation!]!
@@ -1495,12 +1663,17 @@ export const typeDefs = `#graphql
     restaurantWaitlist(restaurantId: ID!, limit: Int, offset: Int): WaitlistConnection!
     restaurantReviews(restaurantId: ID!, limit: Int, offset: Int): ReviewConnection!
     myLoyalty: [LoyaltyTransaction!]!
+    myRestaurantLoyalty: [RestaurantLoyaltyBalance!]!
+    myRestaurantLoyaltyBalance(restaurantId: ID!): Int!
+    myRestaurantLoyaltyHistory(restaurantId: ID, limit: Int): [RestaurantLoyaltyTransaction!]!
     myNotifications(limit: Int): [AppNotification!]!
     unreadNotificationCount: Int!
     myRestaurants: [Restaurant!]!
     restaurantTeam(restaurantId: ID!): [User!]!
     adminRestaurants(status: RestaurantStatus, limit: Int, offset: Int): RestaurantConnection!
     adminStats: PlatformStats!
+    adminLoyaltyStats: LoyaltyPlatformStats!
+    adminReferralLeaders(limit: Int): [ReferralLeader!]!
     adminUsers(search: String, limit: Int, offset: Int): UserConnection!
     adminInvoices(status: InvoiceStatus, search: String, limit: Int, offset: Int): InvoiceConnection!
     adminRevenueReport(period: String): PlatformRevenueReport!
@@ -1537,6 +1710,7 @@ export const typeDefs = `#graphql
 
     restaurantGuests(restaurantId: ID!, tag: String, vipStatus: String, search: String, limit: Int, offset: Int): GuestProfileConnection!
     guestProfile(restaurantId: ID!, dinerId: ID!): GuestProfile
+    restaurantLoyaltyStats(restaurantId: ID!): RestaurantLoyaltyStats!
 
     campaigns(restaurantId: ID!, limit: Int, offset: Int): CampaignConnection!
     campaign(id: ID!): Campaign
@@ -1552,6 +1726,9 @@ export const typeDefs = `#graphql
 
     accessRules(restaurantId: ID!): [AccessRule!]!
     promotions(restaurantId: ID!, activeOnly: Boolean, limit: Int, offset: Int): PromotionConnection!
+    promotionStats(restaurantId: ID!, days: Int): PromotionStats!
+    bestPromotion(restaurantId: ID!, slotStart: DateTime!, depositCents: Int!): PromotionValidation!
+    giftCards(restaurantId: ID!, limit: Int, offset: Int): GiftCardConnection!
     boostCampaigns(restaurantId: ID!, limit: Int, offset: Int): BoostCampaignConnection!
     integrations(restaurantId: ID!): [Integration!]!
 
@@ -1732,6 +1909,9 @@ export const typeDefs = `#graphql
     createPromotion(restaurantId: ID!, input: PromotionInput!): Promotion!
     updatePromotion(id: ID!, input: PromotionInput!): Promotion!
     deletePromotion(id: ID!): Boolean!
+
+    issueGiftCard(restaurantId: ID!, input: IssueGiftCardInput!): GiftCard!
+    setGiftCardActive(id: ID!, active: Boolean!): GiftCard!
 
     createBoostCampaign(restaurantId: ID!, input: BoostCampaignInput!): BoostCampaign!
     setBoostCampaignStatus(id: ID!, status: String!): BoostCampaign!

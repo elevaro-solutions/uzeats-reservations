@@ -120,7 +120,7 @@ function AdminInvoicesContent() {
   };
 
   return (
-    <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminInvoicesContent" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Invoices"
         subtitle="Generate monthly invoices and track upcoming, pending, overdue, and canceled bills."
@@ -290,14 +290,14 @@ function AdminInvoicesContent() {
           ]}
         />
       </Card>
-    </Space>
+    </Space></div>
   );
 }
 
 export default function AdminInvoicesPage() {
   return (
-    <Suspense fallback={null}>
+    <div component="AdminInvoicesPage" style={{ display: 'contents' }}><Suspense fallback={null}>
       <AdminInvoicesContent />
-    </Suspense>
+    </Suspense></div>
   );
 }

@@ -90,7 +90,7 @@ export default function PhotoUpload({
   const activeUploads = Object.entries(uploading);
 
   return (
-    <div>
+    <div component="PhotoUpload">
       {value.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
           {value.map((url) => (

@@ -102,7 +102,7 @@ function WaitlistPageContent() {
     ([entry.diner?.firstName, entry.diner?.lastName].filter(Boolean).join(' ') || '—');
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="WaitlistPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Title level={2} style={{ margin: 0 }}>
           Waitlist
@@ -244,14 +244,14 @@ function WaitlistPageContent() {
           </Form.Item>
         </Form>
       </Modal>
-    </Space>
+    </Space></div>
   );
 }
 
 export default function WaitlistPage() {
   return (
-    <Suspense fallback={null}>
+    <div component="WaitlistPage" style={{ display: 'contents' }}><Suspense fallback={null}>
       <WaitlistPageContent />
-    </Suspense>
+    </Suspense></div>
   );
 }

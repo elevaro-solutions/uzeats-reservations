@@ -130,7 +130,7 @@ function SupportPageContent() {
   };
 
   return (
-    <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="SupportPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Support tickets"
         subtitle="Track diner and restaurant cases with assignments, notes, and history."
@@ -325,14 +325,14 @@ function SupportPageContent() {
           </Form.Item>
         </Form>
       </Modal>
-    </Space>
+    </Space></div>
   );
 }
 
 export default function AdminSupportPage() {
   return (
-    <Suspense fallback={null}>
+    <div component="AdminSupportPage" style={{ display: 'contents' }}><Suspense fallback={null}>
       <SupportPageContent />
-    </Suspense>
+    </Suspense></div>
   );
 }

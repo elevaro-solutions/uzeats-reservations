@@ -1,10 +1,13 @@
 import { mapNotificationPreferences } from '../lib/notificationPreferences.js';
+import { resolveLoyaltyTier } from '@reservations/shared';
 
 function id(doc: { _id: { toString(): string } }) {
   return doc._id.toString();
 }
 
 export function mapUser(u: any) {
+  const visits = u.loyaltyCompletedVisits ?? 0;
+  const tier = resolveLoyaltyTier(visits);
   return {
     id: id(u),
     email: u.email ?? null,
@@ -13,6 +16,11 @@ export function mapUser(u: any) {
     lastName: u.lastName,
     role: u.role,
     loyaltyPoints: u.loyaltyPoints ?? 0,
+    loyaltyCompletedVisits: visits,
+    loyaltyTier: tier.id,
+    loyaltyTierName: tier.name,
+    loyaltyPointsExpireAt: u.loyaltyPointsExpireAt ?? null,
+    referralCode: u.referralCode ?? null,
     emailVerified: u.emailVerified ?? false,
     phoneVerified: u.phoneVerified ?? false,
     telegramChatId: u.telegramChatId ?? null,
@@ -49,8 +57,11 @@ export function mapRestaurant(r: any) {
     spendAlertThresholdCents: r.spendAlertThresholdCents ?? 0,
     useSmartAssign: r.useSmartAssign !== false,
     posEnabled: r.posEnabled ?? false,
+    loyaltyEnabled: r.loyaltyEnabled ?? false,
+    loyaltyPointsPerVisit: r.loyaltyPointsPerVisit ?? 50,
+    loyaltyMinRedeemPoints: r.loyaltyMinRedeemPoints ?? 200,
     widgetTheme: {
-      primaryColor: r.widgetTheme?.primaryColor ?? '#c4472f',
+      primaryColor: r.widgetTheme?.primaryColor ?? '#0b3d2e',
       buttonText: r.widgetTheme?.buttonText ?? 'Reserve a table',
       showReviews: r.widgetTheme?.showReviews ?? true,
     },
@@ -107,6 +118,12 @@ export function mapReservation(r: any, clientSecret?: string | null) {
     clientSecret: clientSecret ?? null,
     loyaltyPointsEarned: r.loyaltyPointsEarned,
     loyaltyPointsRedeemed: r.loyaltyPointsRedeemed,
+    restaurantLoyaltyPointsEarned: r.restaurantLoyaltyPointsEarned ?? 0,
+    restaurantLoyaltyPointsRedeemed: r.restaurantLoyaltyPointsRedeemed ?? 0,
+    promotionId: r.promotionId?.toString() ?? null,
+    promoDiscountCents: r.promoDiscountCents ?? 0,
+    giftCardId: r.giftCardId?.toString() ?? null,
+    giftCardDiscountCents: r.giftCardDiscountCents ?? 0,
     source: r.source ?? 'network',
     totalSpendCents: r.totalSpendCents ?? 0,
     createdAt: r.createdAt,
@@ -181,6 +198,22 @@ export function mapAccessRule(r: any) {
   };
 }
 
+export function mapGiftCard(card: any) {
+  return {
+    id: card._id.toString(),
+    restaurantId: card.restaurantId.toString(),
+    code: card.code,
+    initialBalanceCents: card.initialBalanceCents,
+    balanceCents: card.balanceCents,
+    recipientName: card.recipientName ?? null,
+    recipientEmail: card.recipientEmail ?? null,
+    expiresAt: card.expiresAt ?? null,
+    note: card.note ?? '',
+    active: card.active,
+    createdAt: card.createdAt,
+  };
+}
+
 export function mapPromotion(p: any) {
   return {
     id: p._id.toString(),
@@ -188,10 +221,12 @@ export function mapPromotion(p: any) {
     title: p.title,
     description: p.description ?? null,
     discountPercent: p.discountPercent ?? null,
+    discountAmountCents: p.discountAmountCents ?? null,
     code: p.code ?? null,
     startDate: p.startDate ?? null,
     endDate: p.endDate ?? null,
     daysOfWeek: p.daysOfWeek ?? [],
+    maxRedemptions: p.maxRedemptions ?? null,
     active: p.active,
     redemptions: p.redemptions ?? 0,
     createdAt: p.createdAt,
@@ -309,6 +344,7 @@ export function mapGuestProfile(g: any) {
     notes: g.notes ?? '',
     vipStatus: g.vipStatus ?? 'none',
     totalVisits: g.totalVisits ?? 0,
+    loyaltyPoints: g.loyaltyPoints ?? 0,
     totalSpendCents: g.totalSpendCents ?? 0,
     averagePartySize: g.averagePartySize ?? 0,
     lastVisitDate: g.lastVisitDate ?? null,

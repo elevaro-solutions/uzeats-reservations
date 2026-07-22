@@ -83,7 +83,7 @@ export default function HomeScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator color="#da3743" style={{ marginTop: 24 }} />
+        <ActivityIndicator color="#0b3d2e" style={{ marginTop: 24 }} />
       ) : (
         <FlatList
           data={data?.searchRestaurants?.items ?? []}
@@ -115,7 +115,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f7f7f7', padding: 16 },
-  brand: { fontSize: 22, fontWeight: '700', color: '#da3743', marginBottom: 12 },
+  brand: { fontSize: 22, fontWeight: '700', color: '#0b3d2e', marginBottom: 12 },
   label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 4 },
   input: {
     backgroundColor: '#fff',
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   stepperBtn: { paddingHorizontal: 14, paddingVertical: 4 },
-  stepperText: { fontSize: 20, color: '#da3743', fontWeight: '700' },
+  stepperText: { fontSize: 20, color: '#0b3d2e', fontWeight: '700' },
   stepperValue: { fontSize: 16, fontWeight: '700', minWidth: 24, textAlign: 'center' },
   card: {
     backgroundColor: '#fff',

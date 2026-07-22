@@ -44,6 +44,7 @@ import {
   FundOutlined,
   ControlOutlined,
   TagOutlined,
+  TrophyOutlined,
   CustomerServiceOutlined,
   WarningOutlined,
   FlagOutlined,
@@ -53,7 +54,7 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useEffect, useMemo, useState } from 'react';
-import { colors, radii, spacing, typography } from '@reservations/ui';
+import { TableveraWordmark, colors, radii, spacing, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import {
   MARK_ALL_NOTIFICATIONS_READ,
@@ -212,6 +213,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       '/floor-plan',
       '/floor',
       '/guests',
+      '/loyalty',
       '/messages',
       '/reviews',
       '/marketing',
@@ -252,6 +254,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       label: 'Guests',
       children: [
         item('/guests', <ContactsOutlined />, 'Guests'),
+        item('/loyalty', <TrophyOutlined />, 'Loyalty'),
         item('/messages', <MessageOutlined />, 'Messages'),
         item('/reviews', <StarOutlined />, 'Reviews'),
       ],
@@ -302,6 +305,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       children: [
         item('/admin/invoices', <FileDoneOutlined />, 'Invoices'),
         item('/admin/revenue', <FundOutlined />, 'Revenue'),
+        item('/admin/loyalty', <TrophyOutlined />, 'Loyalty'),
         item('/admin/churn', <WarningOutlined />, 'Churn alerts'),
         item('/admin/pricing', <TagOutlined />, 'Plans & pricing'),
         item('/admin/exports', <DownloadOutlined />, 'CSV exports'),
@@ -529,7 +533,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <Layout style={{ minHeight: '100vh', background: colors.background }}>
+    <div component="DashShell" style={{ display: 'contents' }}><Layout style={{ minHeight: '100vh', background: colors.background }}>
       {isImpersonating && impersonator && (
         <Alert
           type="warning"
@@ -566,55 +570,25 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           style={{
             padding: '20px 16px 16px',
             display: 'flex',
-            alignItems: 'center',
-            gap: 10,
+            flexDirection: 'column',
+            gap: 4,
             borderBottom: `1px solid ${colors.bordersubtle}`,
             marginBottom: 4,
           }}
         >
-          <span
-            aria-hidden
+          <TableveraWordmark iconSize={28} />
+          {/* <Text
+            type="secondary"
             style={{
-              width: 32,
-              height: 32,
-              borderRadius: radii.sm,
-              background: colors.brand[600],
-              color: '#fff',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 15,
-              fontWeight: 700,
-              boxShadow: '0 4px 12px rgba(196, 71, 47, 0.28)',
-              flexShrink: 0,
+              display: 'block',
+              fontSize: 11,
+              textTransform: 'uppercase',
+              letterSpacing: typography.letterSpacing.wide,
+              fontWeight: 600,
             }}
           >
-            T
-          </span>
-          <div style={{ lineHeight: 1.2, minWidth: 0 }}>
-            <Text
-              strong
-              style={{
-                fontSize: 15,
-                letterSpacing: typography.letterSpacing.tight,
-                display: 'block',
-              }}
-            >
-              Tablevera
-            </Text>
-            <Text
-              type="secondary"
-              style={{
-                display: 'block',
-                fontSize: 11,
-                textTransform: 'uppercase',
-                letterSpacing: typography.letterSpacing.wide,
-                fontWeight: 600,
-              }}
-            >
-              {isAdmin ? 'Platform Admin' : 'Partner Hub'}
-            </Text>
-          </div>
+            {isAdmin ? 'Platform Admin' : 'Partner Hub'}
+          </Text> */}
         </div>
         <Menu
           mode="inline"
@@ -753,6 +727,6 @@ export function DashShell({ children }: { children: React.ReactNode }) {
         </Content>
       </Layout>
       </Layout>
-    </Layout>
+    </Layout></div>
   );
 }

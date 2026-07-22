@@ -12,6 +12,7 @@ import {
   Modal,
   Radio,
   Row,
+  Select,
   Space,
   Switch,
   Tag,
@@ -20,6 +21,13 @@ import {
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { PageHeader, spacing } from '@reservations/ui';
+import {
+  computeAnnualSavings,
+  computeDiscountedPriceCents,
+  formatAnnualSavingsNote,
+  formatPlanDollars,
+  type PlanDiscountType,
+} from '@reservations/shared';
 import {
   ADMIN_PLANS,
   CREATE_PLAN_PACKAGE,
@@ -79,6 +87,13 @@ const FIELD_TIPS = {
   visibleOnPricing:
     'When on, this package appears as a card on the public /pricing page and in partner registration.',
   monthlyPrice: 'Recurring monthly subscription price charged after any trial ends.',
+  listPrice:
+    'Original list price shown with strikethrough when a discount is active (e.g. before 50% off or 1st month free).',
+  discountType:
+    'Optional promotional pricing: percent off, first month free, or free months on annual billing.',
+  discountPercent: 'Percentage taken off the list price each month (e.g. 50 for half off).',
+  annualFreeMonths:
+    'Number of months free when the customer pays annually (e.g. 2 = pay for 10 months, get 12).',
   networkCoverFee:
     'Per-cover fee when a diner discovers and books via the Tablevera network, app, or affiliates.',
   websiteCoverFee:
@@ -90,6 +105,13 @@ const FIELD_TIPS = {
 } as const;
 
 const TRIAL_PRESETS = [1, 3, 7, 14, 30] as const;
+
+const DISCOUNT_OPTIONS: { value: PlanDiscountType; label: string }[] = [
+  { value: 'none', label: 'No discount' },
+  { value: 'percent_off', label: 'Percent off' },
+  { value: 'first_month_free', label: '1st month free' },
+  { value: 'annual_months_free', label: 'Annual — months free' },
+];
 
 function dollarsToCents(v: number | null | undefined) {
   return Math.round((v ?? 0) * 100);
@@ -118,8 +140,18 @@ export default function AdminPricingPage() {
   const plans = data?.plans ?? [];
   const trialEnabled = Form.useWatch('trialEnabled', form);
   const trialPeriod = Form.useWatch('trialPeriod', form);
+  const discountType = Form.useWatch('discountType', form) as PlanDiscountType | undefined;
+  const listPrice = Form.useWatch('listPrice', form);
+  const discountPercent = Form.useWatch('discountPercent', form);
+  const monthlyPrice = Form.useWatch('monthlyPrice', form);
+  const annualFreeMonths = Form.useWatch('annualFreeMonths', form);
   const createTrialEnabled = Form.useWatch('trialEnabled', createForm);
   const createTrialPeriod = Form.useWatch('trialPeriod', createForm);
+  const createDiscountType = Form.useWatch('discountType', createForm) as
+    | PlanDiscountType
+    | undefined;
+  const createMonthlyPrice = Form.useWatch('monthlyPrice', createForm);
+  const createAnnualFreeMonths = Form.useWatch('annualFreeMonths', createForm);
 
   useEffect(() => {
     const plan = plans.find((p: any) => p.key === activeKey) ?? plans[0];
@@ -130,6 +162,12 @@ export default function AdminPricingPage() {
       name: plan.name,
       description: plan.description ?? '',
       monthlyPrice: centsToDollars(plan.monthlyPriceCents),
+      listPrice: plan.originalMonthlyPriceCents
+        ? centsToDollars(plan.originalMonthlyPriceCents)
+        : centsToDollars(plan.monthlyPriceCents),
+      discountType: plan.discountType ?? 'none',
+      discountPercent: plan.discountPercent ?? 50,
+      annualFreeMonths: plan.annualFreeMonths ?? 2,
       networkCoverFee: centsToDollars(plan.networkCoverFeeCents),
       websiteCoverFee: centsToDollars(plan.websiteCoverFeeCents),
       trialEnabled: days > 0,
@@ -152,16 +190,68 @@ export default function AdminPricingPage() {
     return Number(values.trialPeriod ?? 30);
   };
 
+  const resolveDiscountInput = (values: {
+    discountType?: PlanDiscountType;
+    monthlyPrice?: number;
+    listPrice?: number;
+    discountPercent?: number;
+    annualFreeMonths?: number;
+  }) => {
+    const type = values.discountType ?? 'none';
+    if (type === 'none') {
+      return {
+        discountType: 'none' as const,
+        originalMonthlyPriceCents: null,
+        discountPercent: null,
+        annualFreeMonths: null,
+      };
+    }
+    if (type === 'percent_off') {
+      const original = dollarsToCents(values.listPrice ?? values.monthlyPrice);
+      const percent = Math.min(100, Math.max(1, values.discountPercent ?? 50));
+      return {
+        discountType: type,
+        originalMonthlyPriceCents: original,
+        discountPercent: percent,
+        annualFreeMonths: null,
+        monthlyPriceCents: computeDiscountedPriceCents(original, percent),
+      };
+    }
+    if (type === 'first_month_free') {
+      const monthly = dollarsToCents(values.monthlyPrice);
+      return {
+        discountType: type,
+        originalMonthlyPriceCents: dollarsToCents(values.listPrice ?? values.monthlyPrice),
+        discountPercent: null,
+        annualFreeMonths: null,
+        monthlyPriceCents: monthly,
+      };
+    }
+    return {
+      discountType: type,
+      originalMonthlyPriceCents: null,
+      discountPercent: null,
+      annualFreeMonths: Math.min(11, Math.max(1, values.annualFreeMonths ?? 1)),
+      monthlyPriceCents: dollarsToCents(values.monthlyPrice),
+    };
+  };
+
   const onSave = async () => {
     try {
       const values = await form.validateFields();
+      const discount = resolveDiscountInput(values);
       await updatePlan({
         variables: {
           input: {
             key: activeKey,
             name: values.name,
             description: values.description || null,
-            monthlyPriceCents: dollarsToCents(values.monthlyPrice),
+            monthlyPriceCents:
+              discount.monthlyPriceCents ?? dollarsToCents(values.monthlyPrice),
+            originalMonthlyPriceCents: discount.originalMonthlyPriceCents,
+            discountType: discount.discountType,
+            discountPercent: discount.discountPercent,
+            annualFreeMonths: discount.annualFreeMonths,
             networkCoverFeeCents: dollarsToCents(values.networkCoverFee),
             websiteCoverFeeCents: dollarsToCents(values.websiteCoverFee),
             trialDays: resolveTrialDays(values),
@@ -181,12 +271,18 @@ export default function AdminPricingPage() {
   const onCreate = async () => {
     try {
       const values = await createForm.validateFields();
+      const discount = resolveDiscountInput(values);
       const result = await createPlan({
         variables: {
           input: {
             name: values.name,
             description: values.description || null,
-            monthlyPriceCents: dollarsToCents(values.monthlyPrice),
+            monthlyPriceCents:
+              discount.monthlyPriceCents ?? dollarsToCents(values.monthlyPrice),
+            originalMonthlyPriceCents: discount.originalMonthlyPriceCents,
+            discountType: discount.discountType,
+            discountPercent: discount.discountPercent,
+            annualFreeMonths: discount.annualFreeMonths,
             networkCoverFeeCents: dollarsToCents(values.networkCoverFee),
             websiteCoverFeeCents: dollarsToCents(values.websiteCoverFee),
             trialDays: resolveTrialDays(values),
@@ -229,6 +325,125 @@ export default function AdminPricingPage() {
   };
 
   const activePlan = plans.find((p: any) => p.key === activeKey);
+
+  const percentPreviewCents =
+    discountType === 'percent_off' && listPrice && discountPercent
+      ? computeDiscountedPriceCents(dollarsToCents(listPrice), discountPercent)
+      : null;
+
+  const discountFields = (
+    type: PlanDiscountType | undefined,
+    percentPreviewCents: number | null,
+    previewMonthlyPrice?: number,
+    previewAnnualFreeMonths?: number,
+  ) => {
+    const annualSavingsPreview =
+      type === 'annual_months_free' && previewMonthlyPrice && previewAnnualFreeMonths
+        ? computeAnnualSavings(dollarsToCents(previewMonthlyPrice), previewAnnualFreeMonths)
+        : null;
+
+    return (
+    <>
+      <Form.Item
+        name="discountType"
+        label="Discount"
+        tooltip={FIELD_TIPS.discountType}
+        style={{ marginBottom: 12 }}
+      >
+        <Select options={DISCOUNT_OPTIONS} />
+      </Form.Item>
+      {type === 'percent_off' ? (
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item
+              name="listPrice"
+              label="List price (USD)"
+              tooltip={FIELD_TIPS.listPrice}
+              rules={[{ required: true }]}
+            >
+              <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="discountPercent"
+              label="Discount %"
+              tooltip={FIELD_TIPS.discountPercent}
+              rules={[{ required: true, type: 'number', min: 1, max: 99 }]}
+            >
+              <InputNumber min={1} max={99} style={{ width: '100%' }} addonAfter="%" />
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Text type="secondary">
+              Sale price:{' '}
+              {percentPreviewCents != null ? (
+                <Text strong>{formatPlanDollars(percentPreviewCents)}/mo</Text>
+              ) : (
+                '—'
+              )}
+            </Text>
+          </Col>
+        </Row>
+      ) : null}
+      {type === 'first_month_free' ? (
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item
+              name="monthlyPrice"
+              label="Regular monthly price (USD)"
+              tooltip={FIELD_TIPS.monthlyPrice}
+              rules={[{ required: true }]}
+            >
+              <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="listPrice"
+              label="Strikethrough price (USD)"
+              tooltip={FIELD_TIPS.listPrice}
+              rules={[{ required: true }]}
+            >
+              <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
+            </Form.Item>
+          </Col>
+        </Row>
+      ) : null}
+      {type === 'annual_months_free' ? (
+        <Row gutter={16}>
+          <Col span={12}>
+            <Form.Item
+              name="annualFreeMonths"
+              label="Free months on annual"
+              tooltip={FIELD_TIPS.annualFreeMonths}
+              rules={[{ required: true, type: 'number', min: 1, max: 11 }]}
+            >
+              <InputNumber min={1} max={11} style={{ width: '100%' }} addonAfter="months" />
+            </Form.Item>
+          </Col>
+          {annualSavingsPreview ? (
+            <Col span={24}>
+              <Text type="secondary" style={{ display: 'block' }}>
+                Annual total:{' '}
+                <Text delete>{formatPlanDollars(annualSavingsPreview.annualFullCents)}/yr</Text>{' '}
+                <Text strong>
+                  {formatPlanDollars(annualSavingsPreview.annualDiscountedCents)}/yr
+                </Text>
+              </Text>
+              <Text style={{ display: 'block', color: '#389e0d', fontWeight: 600, marginTop: 4 }}>
+                {formatAnnualSavingsNote(
+                  annualSavingsPreview.annualSavingsCents,
+                  annualSavingsPreview.annualSavingsPercent,
+                )}
+              </Text>
+            </Col>
+          ) : null}
+        </Row>
+      ) : null}
+    </>
+    );
+  };
 
   const trialFields = (enabled: boolean, period: number | 'custom') => (
     <>
@@ -274,7 +489,7 @@ export default function AdminPricingPage() {
   );
 
   return (
-    <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminPricingPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Plans & pricing"
         subtitle="Edit package prices, cover fees, trial length, and included features. Changes apply to new subscriptions and plan changes."
@@ -359,16 +574,18 @@ export default function AdminPricingPage() {
                 <Switch checkedChildren="Visible" unCheckedChildren="Hidden" />
               </Form.Item>
               <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item
-                    name="monthlyPrice"
-                    label="Monthly price (USD)"
-                    tooltip={FIELD_TIPS.monthlyPrice}
-                    rules={[{ required: true }]}
-                  >
-                    <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
-                  </Form.Item>
-                </Col>
+                {discountType !== 'first_month_free' && discountType !== 'percent_off' ? (
+                  <Col span={12}>
+                    <Form.Item
+                      name="monthlyPrice"
+                      label="Monthly price (USD)"
+                      tooltip={FIELD_TIPS.monthlyPrice}
+                      rules={[{ required: true }]}
+                    >
+                      <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
+                    </Form.Item>
+                  </Col>
+                ) : null}
                 <Col span={12}>
                   <Form.Item
                     name="networkCoverFee"
@@ -388,6 +605,7 @@ export default function AdminPricingPage() {
                   </Form.Item>
                 </Col>
               </Row>
+              {discountFields(discountType, percentPreviewCents, monthlyPrice, annualFreeMonths)}
               {trialFields(Boolean(trialEnabled), trialPeriod)}
               <Text strong style={{ display: 'block', marginBottom: 12 }}>
                 Features
@@ -430,7 +648,11 @@ export default function AdminPricingPage() {
             trialPeriod: 30,
             customTrialDays: 7,
             visibleOnPricing: true,
+            discountType: 'none',
+            discountPercent: 50,
+            annualFreeMonths: 2,
             monthlyPrice: 0,
+            listPrice: 0,
             networkCoverFee: 0,
             websiteCoverFee: 0,
             features: {},
@@ -456,16 +678,18 @@ export default function AdminPricingPage() {
             <Switch checkedChildren="Visible" unCheckedChildren="Hidden" />
           </Form.Item>
           <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="monthlyPrice"
-                label="Monthly price (USD)"
-                tooltip={FIELD_TIPS.monthlyPrice}
-                rules={[{ required: true }]}
-              >
-                <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
-              </Form.Item>
-            </Col>
+            {createDiscountType !== 'first_month_free' && createDiscountType !== 'percent_off' ? (
+              <Col span={12}>
+                <Form.Item
+                  name="monthlyPrice"
+                  label="Monthly price (USD)"
+                  tooltip={FIELD_TIPS.monthlyPrice}
+                  rules={[{ required: true }]}
+                >
+                  <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
+                </Form.Item>
+              </Col>
+            ) : null}
             <Col span={12}>
               <Form.Item
                 name="networkCoverFee"
@@ -485,9 +709,15 @@ export default function AdminPricingPage() {
               </Form.Item>
             </Col>
           </Row>
+          {discountFields(
+            createDiscountType,
+            null,
+            createMonthlyPrice,
+            createAnnualFreeMonths,
+          )}
           {trialFields(Boolean(createTrialEnabled), createTrialPeriod)}
         </Form>
       </Modal>
-    </Space>
+    </Space></div>
   );
 }

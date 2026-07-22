@@ -3,7 +3,7 @@ export const STYLES = /* css */ `
 
   :host {
     /* --rt-brand can be overridden at runtime (server widgetTheme or embed options) */
-    --rt-brand: #c4472f;
+    --rt-brand: var(--color-brand-600, #0b3d2e);
     --rt-brand-hover: color-mix(in srgb, var(--rt-brand) 80%, #1a1816);
     --rt-brand-light: color-mix(in srgb, var(--rt-brand) 7%, #ffffff);
     --rt-brand-shadow: color-mix(in srgb, var(--rt-brand) 28%, transparent);
@@ -69,8 +69,15 @@ export const STYLES = /* css */ `
     margin-bottom: 14px;
   }
 
+  .rt-brand img,
   .rt-brand svg {
     flex-shrink: 0;
+  }
+
+  .rt-brand img {
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
   }
 
   .rt-brand:hover {
@@ -324,6 +331,17 @@ export const STYLES = /* css */ `
     font-size: 13px;
     color: var(--rt-text-secondary);
     padding: 8px 0;
+  }
+
+  .rt-loyalty-hint {
+    margin: 0 20px 12px;
+    padding: 10px 12px;
+    border-radius: var(--rt-radius-sm);
+    background: var(--rt-brand-50, #e8f5ef);
+    border: 1px solid var(--rt-brand-100, #b7e0cc);
+    font-size: 13px;
+    color: var(--rt-text-secondary);
+    line-height: 1.4;
   }
 
   /* ── Divider ────────────────────────────────────────────────────── */

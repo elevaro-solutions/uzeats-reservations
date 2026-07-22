@@ -77,7 +77,7 @@ function ReviewsPageContent() {
   };
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="ReviewsPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Reviews</Title>
       <Select
         style={{ width: 260 }}
@@ -186,14 +186,14 @@ function ReviewsPageContent() {
           </Space>
         )}
       </Modal>
-    </Space>
+    </Space></div>
   );
 }
 
 export default function ReviewsPage() {
   return (
-    <Suspense fallback={null}>
+    <div component="ReviewsPage" style={{ display: 'contents' }}><Suspense fallback={null}>
       <ReviewsPageContent />
-    </Suspense>
+    </Suspense></div>
   );
 }

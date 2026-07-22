@@ -75,10 +75,10 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Concurrent-safe booking via atomic table slot claims (no replica set required)
 - Deposits via Stripe PaymentIntents (manual capture; stubbed without keys)
 - Waitlist + auto-notify on cancellation
-- Loyalty earn/redeem
+- Platform + per-restaurant loyalty (tiers, referrals, expiry) with gift cards and promotion codes
 - Reviews after completed visits
 - Menus + DO Spaces presigned uploads (stubbed without keys)
-- Notifications: email (Resend), Telegram, web/Expo push, in-app inbox + channel prefs
+- Notifications: email (Resend), Telegram bot, web/Expo push, in-app inbox + channel prefs
 - Auth: email/password, Google OAuth, Twilio phone OTP
 - Partner Settings hub, notifications prefs, multi-restaurant selector, and self-registration
 - Owner phone / walk-in bookings, reservation edit, and reservation-scoped messaging
@@ -87,7 +87,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 
 ## Design system
 
-Visual language lives in [`packages/ui`](./packages/ui): warm terracotta accent on stone neutrals, Plus Jakarta Sans, shared Ant Design theme. See [`packages/ui/DESIGN.md`](./packages/ui/DESIGN.md).
+Visual language lives in [`packages/ui`](./packages/ui): shared Tablevera brand components, swappable palettes (Forest & Gold or Terracotta & Amber), Plus Jakarta Sans, and Ant Design theme. Set `NEXT_PUBLIC_COLOR_PALETTE` (`1` or `2`). See [`packages/ui/DESIGN.md`](./packages/ui/DESIGN.md).
 
 ## Environment
 
@@ -100,7 +100,7 @@ JWT_ACCESS_SECRET=...
 JWT_REFRESH_SECRET=...
 ```
 
-Optional integrations: `STRIPE_*`, `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `RESEND_API_KEY`, `TELEGRAM_BOT_TOKEN`, `DO_SPACES_*`, `VAPID_*`.
+Optional integrations: `STRIPE_*`, `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `RESEND_API_KEY`, `TELEGRAM_BOT_TOKEN` (+ `API_PUBLIC_URL` / `TELEGRAM_WEBHOOK_SECRET` in production), `DO_SPACES_*`, `VAPID_*`.
 
 ## Deploy notes (DigitalOcean)
 

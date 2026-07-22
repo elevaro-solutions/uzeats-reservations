@@ -104,7 +104,7 @@ function FormSection({
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ marginBottom: spacing.lg }}>
+    <div component="FormSection" style={{ marginBottom: spacing.lg }}>
       <h3 className="rt-form-section-title">{title}</h3>
       {description && <p className="rt-form-section-desc">{description}</p>}
       {children}
@@ -158,6 +158,9 @@ export default function SettingsPage() {
       lng: restaurant.location?.lng,
       depositRequired: restaurant.depositRequired,
       depositAmountCents: restaurant.depositAmountCents,
+      loyaltyEnabled: restaurant.loyaltyEnabled ?? false,
+      loyaltyPointsPerVisit: restaurant.loyaltyPointsPerVisit ?? 50,
+      loyaltyMinRedeemPoints: restaurant.loyaltyMinRedeemPoints ?? 200,
       phone: restaurant.phone ?? '',
       website: restaurant.website ?? '',
     });
@@ -230,6 +233,9 @@ export default function SettingsPage() {
             location: { lng: values.lng, lat: values.lat },
             depositRequired: values.depositRequired ?? false,
             depositAmountCents: values.depositAmountCents ?? 0,
+            loyaltyEnabled: values.loyaltyEnabled ?? false,
+            loyaltyPointsPerVisit: values.loyaltyPointsPerVisit ?? 50,
+            loyaltyMinRedeemPoints: values.loyaltyMinRedeemPoints ?? 200,
             phone: values.phone || undefined,
             website: values.website || undefined,
             photos,
@@ -248,7 +254,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="SettingsPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Settings"
         subtitle="Restaurant profile, booking preferences, and setup tools"
@@ -563,6 +569,44 @@ export default function SettingsPage() {
                 </Row>
               </FormSection>
 
+              <FormSection
+                title="Restaurant loyalty"
+                description="Reward repeat guests with points they can redeem on future bookings at your venue."
+              >
+                <Row gutter={[24, 8]}>
+                  <Col xs={12} md={8}>
+                    <Form.Item
+                      name="loyaltyEnabled"
+                      label="Enable loyalty program"
+                      tooltip={tips.loyaltyEnabled}
+                      valuePropName="checked"
+                    >
+                      <Switch />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={12} md={8}>
+                    <Form.Item
+                      name="loyaltyPointsPerVisit"
+                      label="Points per visit"
+                      tooltip={tips.loyaltyPointsPerVisit}
+                      rules={[{ type: 'number', min: 0, message: 'Must be 0 or greater' }]}
+                    >
+                      <InputNumber min={0} precision={0} style={{ width: '100%' }} />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={12} md={8}>
+                    <Form.Item
+                      name="loyaltyMinRedeemPoints"
+                      label="Min redeem (points)"
+                      tooltip={tips.loyaltyMinRedeemPoints}
+                      rules={[{ type: 'number', min: 0, message: 'Must be 0 or greater' }]}
+                    >
+                      <InputNumber min={0} precision={0} style={{ width: '100%' }} />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </FormSection>
+
               <Button type="primary" htmlType="submit" loading={saving} size="large">
                 Save profile
               </Button>
@@ -646,7 +690,7 @@ export default function SettingsPage() {
                       rules={[
                         {
                           pattern: /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/,
-                          message: 'Enter a hex color like #c4472f',
+                          message: 'Enter a hex color like #0b3d2e',
                         },
                       ]}
                     >
@@ -723,6 +767,6 @@ export default function SettingsPage() {
           </Text>
         </Card>
       )}
-    </Space>
+    </Space></div>
   );
 }

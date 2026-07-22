@@ -129,7 +129,7 @@ function GuestsPageContent() {
   };
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="GuestsPageContent" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Guests</Title>
       <Space wrap>
         <Select
@@ -216,6 +216,7 @@ function GuestsPageContent() {
               ),
             },
             { title: 'Visits', dataIndex: 'totalVisits' },
+            { title: 'Loyalty pts', dataIndex: 'loyaltyPoints', render: (v: number) => v ?? 0 },
             {
               title: 'Total spend',
               dataIndex: 'totalSpendCents',
@@ -254,6 +255,7 @@ function GuestsPageContent() {
           <Space direction="vertical" size={16} style={{ width: '100%' }}>
             <Space size={24}>
               <Statistic title="Visits" value={selected.totalVisits} />
+              <Statistic title="Loyalty pts" value={selected.loyaltyPoints ?? 0} />
               <Statistic
                 title="Total spend"
                 value={(selected.totalSpendCents ?? 0) / 100}
@@ -322,14 +324,14 @@ function GuestsPageContent() {
           </Space>
         )}
       </Drawer>
-    </Space>
+    </Space></div>
   );
 }
 
 export default function GuestsPage() {
   return (
-    <Suspense fallback={null}>
+    <div component="GuestsPage" style={{ display: 'contents' }}><Suspense fallback={null}>
       <GuestsPageContent />
-    </Suspense>
+    </Suspense></div>
   );
 }

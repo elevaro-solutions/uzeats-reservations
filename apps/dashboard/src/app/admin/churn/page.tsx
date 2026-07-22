@@ -25,7 +25,7 @@ export default function AdminChurnPage() {
   const alerts = data?.churnAlerts ?? [];
 
   return (
-    <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminChurnPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Churn alerts"
         subtitle="Past-due subscriptions, recent cancellations, and trials ending within 7 days."
@@ -92,6 +92,6 @@ export default function AdminChurnPage() {
           ]}
         />
       </Card>
-    </Space>
+    </Space></div>
   );
 }

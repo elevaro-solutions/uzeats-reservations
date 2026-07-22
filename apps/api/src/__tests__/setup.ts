@@ -1,4 +1,4 @@
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import { beforeAll, afterAll, afterEach, vi } from 'vitest';
 
@@ -11,6 +11,7 @@ process.env.CORS_ORIGINS = 'http://localhost:3000';
 process.env.REDIS_URL = 'redis://localhost:6379';
 process.env.STRIPE_SECRET_KEY = '';
 process.env.STRIPE_WEBHOOK_SECRET = '';
+process.env.TELEGRAM_BOT_TOKEN = 'test-telegram-token';
 process.env.AUTH_DEV_OTP = 'true';
 process.env.MONGODB_URI = 'mongodb://placeholder';
 
@@ -35,11 +36,13 @@ vi.mock('ioredis', () => {
   return { default: Redis, Redis };
 });
 
-let mongoServer: MongoMemoryServer;
+let mongoReplSet: MongoMemoryReplSet;
 
 beforeAll(async () => {
-  mongoServer = await MongoMemoryServer.create();
-  const uri = mongoServer.getUri();
+  mongoReplSet = await MongoMemoryReplSet.create({
+    replSet: { count: 1, storageEngine: 'wiredTiger' },
+  });
+  const uri = mongoReplSet.getUri();
   process.env.MONGODB_URI = uri;
 
   await mongoose.connect(uri);
@@ -60,7 +63,7 @@ afterEach(async () => {
 
 afterAll(async () => {
   await mongoose.disconnect();
-  if (mongoServer) {
-    await mongoServer.stop();
+  if (mongoReplSet) {
+    await mongoReplSet.stop();
   }
 });

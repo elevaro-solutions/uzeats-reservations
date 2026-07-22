@@ -4,7 +4,7 @@ import { ApolloClient, InMemoryCache, HttpLink, Observable, from, CombinedGraphQ
 import { ApolloProvider } from '@apollo/client/react';
 import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
-import { ConfigProvider, type ThemeConfig } from 'antd';
+import { App, ConfigProvider, type ThemeConfig } from 'antd';
 import { theme } from '@reservations/ui';
 import { AuthProvider } from '@/lib/auth';
 
@@ -101,11 +101,13 @@ const client = new ApolloClient({
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ApolloProvider client={client}>
+    <div component="Providers" style={{ display: 'contents' }}><ApolloProvider client={client}>
       {/* shared theme is typed against antd v5; structurally compatible with v6 */}
       <ConfigProvider theme={theme as ThemeConfig}>
-        <AuthProvider>{children}</AuthProvider>
+        <App>
+          <AuthProvider>{children}</AuthProvider>
+        </App>
       </ConfigProvider>
-    </ApolloProvider>
+    </ApolloProvider></div>
   );
 }

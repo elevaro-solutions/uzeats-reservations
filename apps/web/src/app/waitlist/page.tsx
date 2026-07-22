@@ -78,7 +78,7 @@ export default function WaitlistPage() {
   };
 
   return (
-    <div style={{ maxWidth: 800 }}>
+    <div component="WaitlistPage" style={{ maxWidth: 800 }}>
       <PageHeader
         title="My waitlist"
         subtitle="We'll notify you when a table opens"
@@ -201,8 +201,8 @@ function WaitlistRestaurantName({ restaurantId }: { restaurantId: string }) {
   });
 
   return (
-    <Text strong style={{ fontSize: 16 }}>
+    <div component="WaitlistRestaurantName" style={{ display: 'contents' }}><Text strong style={{ fontSize: 16 }}>
       {(data as any)?.restaurant?.name ?? `Restaurant #${restaurantId.slice(-6)}`}
-    </Text>
+    </Text></div>
   );
 }

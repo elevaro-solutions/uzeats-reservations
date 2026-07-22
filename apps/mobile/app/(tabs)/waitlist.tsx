@@ -44,7 +44,7 @@ export default function WaitlistScreen() {
   return (
     <View style={styles.container}>
       {loading ? (
-        <ActivityIndicator color="#da3743" style={{ marginTop: 24 }} />
+        <ActivityIndicator color="#0b3d2e" style={{ marginTop: 24 }} />
       ) : (
         <FlatList
           data={data?.myWaitlist ?? []}
@@ -108,19 +108,19 @@ const styles = StyleSheet.create({
   empty: { color: '#666', marginTop: 24, textAlign: 'center' },
   status: {
     marginTop: 8,
-    color: '#da3743',
+    color: '#0b3d2e',
     fontWeight: '600',
     textTransform: 'capitalize',
   },
   statusNotified: { color: '#2d9c3c' },
   leaveBtn: {
     borderWidth: 1,
-    borderColor: '#da3743',
+    borderColor: '#0b3d2e',
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 8,
     alignSelf: 'flex-start',
     marginTop: 10,
   },
-  leaveText: { color: '#da3743', fontWeight: '600', fontSize: 13 },
+  leaveText: { color: '#0b3d2e', fontWeight: '600', fontSize: 13 },
 });

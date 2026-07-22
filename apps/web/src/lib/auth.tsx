@@ -4,19 +4,26 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 
+const USER_FIELDS = `
+  id
+  email
+  firstName
+  lastName
+  role
+  loyaltyPoints
+  loyaltyCompletedVisits
+  loyaltyTier
+  loyaltyTierName
+  loyaltyPointsExpireAt
+  referralCode
+`;
+
 const LOGIN = gql`
   mutation Login($input: LoginInput!) {
     login(input: $input) {
       accessToken
       refreshToken
-      user {
-        id
-        email
-        firstName
-        lastName
-        role
-        loyaltyPoints
-      }
+      user { ${USER_FIELDS} }
     }
   }
 `;
@@ -26,14 +33,7 @@ const REGISTER = gql`
     register(input: $input) {
       accessToken
       refreshToken
-      user {
-        id
-        email
-        firstName
-        lastName
-        role
-        loyaltyPoints
-      }
+      user { ${USER_FIELDS} }
     }
   }
 `;
@@ -43,14 +43,7 @@ const LOGIN_WITH_GOOGLE = gql`
     loginWithGoogle(idToken: $idToken) {
       accessToken
       refreshToken
-      user {
-        id
-        email
-        firstName
-        lastName
-        role
-        loyaltyPoints
-      }
+      user { ${USER_FIELDS} }
     }
   }
 `;
@@ -65,6 +58,11 @@ const ME = gql`
       lastName
       role
       loyaltyPoints
+      loyaltyCompletedVisits
+      loyaltyTier
+      loyaltyTierName
+      loyaltyPointsExpireAt
+      referralCode
     }
   }
 `;
@@ -77,6 +75,11 @@ export type AuthUser = {
   lastName: string;
   role: string;
   loyaltyPoints: number;
+  loyaltyCompletedVisits?: number;
+  loyaltyTier?: string;
+  loyaltyTierName?: string;
+  loyaltyPointsExpireAt?: string | null;
+  referralCode?: string | null;
 };
 
 type AuthContextValue = {
@@ -89,7 +92,8 @@ type AuthContextValue = {
     password: string;
     firstName: string;
     lastName: string;
-    phone: string;
+    phone?: string;
+    referralCode?: string;
   }) => Promise<void>;
   logout: () => void;
   refreshMe: () => Promise<void>;
@@ -128,6 +132,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           query: `query Me {
             me {
               id email phone firstName lastName role loyaltyPoints
+              loyaltyCompletedVisits loyaltyTier loyaltyTierName
+              loyaltyPointsExpireAt referralCode
             }
           }`,
         }),
@@ -162,7 +168,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string;
     firstName: string;
     lastName: string;
-    phone: string;
+    phone?: string;
+    referralCode?: string;
   }) => {
     const result = await registerMutation({ variables: { input } });
     const data = result.data as any;
@@ -180,7 +187,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [user, loading, refreshMe],
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <div component="AuthProvider" style={{ display: 'contents' }}><AuthContext.Provider value={value}>{children}</AuthContext.Provider></div>;
 }
 
 export function useAuth() {

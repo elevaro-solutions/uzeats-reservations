@@ -31,6 +31,8 @@ import {
   TeamOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { getPlanDiscountLabel } from '@reservations/shared';
+import { PlanPrice } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import {
   MY_RESTAURANTS,
@@ -148,7 +150,7 @@ export default function BillingPage() {
     : [];
 
   return (
-    <Space direction="vertical" size={24} style={{ width: '100%' }}>
+    <div component="BillingPage" style={{ display: 'contents' }}><Space direction="vertical" size={24} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Title level={2} style={{ margin: 0 }}>
           Billing
@@ -382,14 +384,7 @@ export default function BillingPage() {
                       <span>{plan.name}</span>
                     </Space>
                   }
-                  extra={
-                    <Text strong style={{ fontSize: 18 }}>
-                      {formatCents(plan.monthlyPriceCents)}
-                      <Text type="secondary" style={{ fontSize: 13 }}>
-                        /mo
-                      </Text>
-                    </Text>
-                  }
+                  extra={<PlanPrice plan={plan} size="small" showSecondaryNote={false} />}
                   actions={[
                     <Button
                       key="subscribe"
@@ -405,6 +400,9 @@ export default function BillingPage() {
                   ]}
                 >
                   <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                    {getPlanDiscountLabel(plan) ? (
+                      <Tag color="gold">{getPlanDiscountLabel(plan)}</Tag>
+                    ) : null}
                     <div>
                       <Text type="secondary">Network cover: </Text>
                       <Text strong>{formatCents(plan.networkCoverFeeCents)}</Text>
@@ -445,6 +443,6 @@ export default function BillingPage() {
           </Row>
         </>
       )}
-    </Space>
+    </Space></div>
   );
 }

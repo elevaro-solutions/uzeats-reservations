@@ -8,7 +8,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./theme": "./src/theme.ts",
-    "./tokens": "./src/tokens.ts"
+    "./tokens": "./src/tokens.ts",
+    "./palettes": "./src/palettes.ts"
   },
   "peerDependencies": {
     "@ant-design/icons": ">=5.0.0",
@@ -16,8 +17,12 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
+  "dependencies": {
+    "@reservations/shared": "workspace:*"
+  },
   "devDependencies": {
     "@ant-design/icons": "^6.0.0",
+    "@reservations/shared": "workspace:*",
     "@types/react": "^19.1.8",
     "antd": "^5.26.2",
     "react": "^19.1.0",

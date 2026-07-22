@@ -1,10 +1,14 @@
 import type { RestaurantInfo, AvailabilitySlot, WidgetConfig, WidgetTheme } from './api';
 import { fetchRestaurant, fetchAvailability } from './api';
+import { getActivePalette } from '@reservations/ui/palettes';
+import { LOYALTY, RESTAURANT_LOYALTY, depositPointsFromCents } from '@reservations/shared';
 
 // ── Theme ────────────────────────────────────────────────────────────
 
+const palette = getActivePalette();
+
 export const DEFAULT_THEME: WidgetTheme = {
-  primaryColor: '#c4472f',
+  primaryColor: palette.brand[600],
   buttonText: 'Reserve a table',
   showReviews: true,
 };
@@ -61,19 +65,16 @@ function todayISO(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function brandIcon(): SVGSVGElement {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('width', '14');
-  svg.setAttribute('height', '14');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('fill', 'none');
-  svg.setAttribute('stroke', 'currentColor');
-  svg.setAttribute('stroke-width', '2');
-  svg.setAttribute('stroke-linecap', 'round');
-  svg.setAttribute('stroke-linejoin', 'round');
-  svg.innerHTML =
-    '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>';
-  return svg;
+function brandIcon(appUrl: string): HTMLImageElement {
+  const img = document.createElement('img');
+  const base = appUrl.replace(/\/$/, '');
+  img.src = `${base}/brand/tablevera_icon_v2.svg`;
+  img.alt = '';
+  img.width = 16;
+  img.height = 16;
+  img.style.objectFit = 'contain';
+  img.style.display = 'block';
+  return img;
 }
 
 function calendarIcon(): SVGSVGElement {
@@ -99,6 +100,7 @@ interface WidgetState {
   partySize: number;
   slots: AvailabilitySlot[];
   selectedSlot: string | null;
+  promoCode: string;
   loading: boolean;
   slotsLoading: boolean;
   error: string | null;
@@ -113,6 +115,7 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
     partySize: 2,
     slots: [],
     selectedSlot: null,
+    promoCode: '',
     loading: true,
     slotsLoading: false,
     error: null,
@@ -167,6 +170,8 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
       party: String(state.partySize),
     });
     if (state.selectedSlot) params.set('slot', state.selectedSlot);
+    const promo = state.promoCode.trim().toUpperCase();
+    if (promo) params.set('promo', promo);
     return `${base}/restaurants/${config.restaurantId}?${params}`;
   }
 
@@ -193,7 +198,7 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
       href: config.appUrl,
       target: '_blank',
       rel: 'noopener',
-    }, [brandIcon(), 'Tablevera']);
+    }, [brandIcon(config.appUrl), 'Tablevera']);
     header.append(brandLink);
 
     if (state.restaurant) {
@@ -307,6 +312,44 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
     }
 
     body.append(slotsField);
+
+    const promoField = h('div', { className: 'rt-field' });
+    promoField.append(h('label', { className: 'rt-label', for: 'rt-promo' }, ['Promo code (optional)']));
+    const promoInput = h('input', {
+      className: 'rt-date-input',
+      type: 'text',
+      id: 'rt-promo',
+      placeholder: 'SUMMER20',
+    });
+    promoInput.value = state.promoCode;
+    promoInput.addEventListener('input', () => {
+      state.promoCode = promoInput.value.toUpperCase();
+      promoInput.value = state.promoCode;
+    });
+    promoField.append(promoInput);
+    body.append(promoField);
+
+    if (state.restaurant) {
+      const depositCents =
+        state.restaurant.depositRequired && state.restaurant.depositAmountCents > 0
+          ? state.restaurant.depositAmountCents * state.partySize
+          : 0;
+      const depositPts = depositPointsFromCents(depositCents);
+      const earnParts = [`${LOYALTY.POINTS_PER_COMPLETED_VISIT} pts on visit completion`];
+      if (depositPts > 0) earnParts.push(`${depositPts} pts on deposit`);
+      const hints = [`Earn ${earnParts.join(' + ')} with Tablevera loyalty`];
+      if (state.restaurant.loyaltyEnabled) {
+        const perVisit =
+          state.restaurant.loyaltyPointsPerVisit ??
+          RESTAURANT_LOYALTY.DEFAULT_POINTS_PER_VISIT;
+        hints.push(
+          `Plus ${perVisit} ${state.restaurant.name} points per visit — redeem when booking on Tablevera`,
+        );
+      }
+      for (const hint of hints) {
+        body.append(h('div', { className: 'rt-loyalty-hint' }, [hint]));
+      }
+    }
 
     // CTA button
     const cta = h('a', {

@@ -14,6 +14,10 @@ const LOGIN = gql`
         lastName
         role
         loyaltyPoints
+        loyaltyCompletedVisits
+        loyaltyTier
+        loyaltyTierName
+        referralCode
       }
     }
   }
@@ -26,6 +30,10 @@ export type MobileUser = {
   lastName: string;
   role: 'diner' | 'restaurant_owner' | 'staff' | 'admin';
   loyaltyPoints: number;
+  loyaltyCompletedVisits?: number;
+  loyaltyTier?: string;
+  loyaltyTierName?: string;
+  referralCode?: string | null;
 };
 
 const AuthContext = createContext<{
@@ -33,6 +41,7 @@ const AuthContext = createContext<{
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshMe: () => Promise<void>;
 } | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -57,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            query: `query Me { me { id email firstName lastName role loyaltyPoints } }`,
+            query: `query Me { me { id email firstName lastName role loyaltyPoints loyaltyCompletedVisits loyaltyTier loyaltyTierName referralCode } }`,
           }),
         },
       );
@@ -87,7 +96,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
-  const value = useMemo(() => ({ user, loading, login, logout }), [user, loading]);
+  const value = useMemo(
+    () => ({ user, loading, login, logout, refreshMe }),
+    [user, loading, refreshMe],
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

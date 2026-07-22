@@ -4,6 +4,29 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.0] — 2026-07-22
+
+### Added
+
+- Per-restaurant loyalty: earn/redeem, tiers, point expiry, referral codes, and partner/admin stats dashboards
+- Gift cards (issue, validate, redeem at booking) and promotion codes with performance stats
+- Telegram bot webhook (`/webhooks/telegram`) with long-polling fallback in dev; profile chat ID linking
+- Tablevera brand assets and shared `BrandLogo` / palette system (`NEXT_PUBLIC_COLOR_PALETTE`, `EXPO_PUBLIC_COLOR_PALETTE`)
+- Second color palette (Forest & Gold default; Terracotta & Amber optional) via CSS variables across web, dashboard, widget, and mobile
+- Diner profile loyalty balances, referral sharing, and richer restaurant detail booking (promo + gift card at checkout)
+- Partner marketing hub, loyalty settings, and admin loyalty overview
+- API tests for loyalty, gift cards, promotion codes, and Telegram
+
+### Changed
+
+- Platform and restaurant loyalty models expanded; reservations track promo/gift-card discounts
+- Admin pricing/config pages support plan discounts; billing surfaces `PlanPrice`
+- Web and dashboard shells use shared brand components; mobile gets Tablevera icons and splash assets
+
+### Docs
+
+- `.env.example` and deploy guide document Telegram webhook env vars and palette selection
+
 ## [0.5.0] — 2026-07-20
 
 ### Changed

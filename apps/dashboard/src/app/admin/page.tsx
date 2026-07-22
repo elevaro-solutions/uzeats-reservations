@@ -68,6 +68,12 @@ const shortcuts = [
     icon: <FundOutlined />,
   },
   {
+    href: '/admin/loyalty',
+    title: 'Loyalty program',
+    desc: 'Points liability, tiers, and referrals',
+    icon: <TagOutlined />,
+  },
+  {
     href: '/admin/pricing',
     title: 'Plans & pricing',
     desc: 'Edit packages and cover fees',
@@ -108,7 +114,7 @@ export default function AdminOverviewPage() {
   const s = stats?.adminStats;
 
   return (
-    <Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
+    <div component="AdminOverviewPage" style={{ display: 'contents' }}><Space direction="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Platform overview"
         subtitle="Support diners and restaurant owners, and keep billing and platform settings healthy."
@@ -178,6 +184,6 @@ export default function AdminOverviewPage() {
           </Col>
         ))}
       </Row>
-    </Space>
+    </Space></div>
   );
 }

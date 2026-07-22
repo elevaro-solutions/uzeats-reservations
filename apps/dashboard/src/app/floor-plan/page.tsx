@@ -169,7 +169,7 @@ export default function FloorPlanPage() {
   };
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="FloorPlanPage" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Title level={2} style={{ margin: 0 }}>Floor plan</Title>
         <Button
@@ -322,6 +322,6 @@ export default function FloorPlanPage() {
           )}
         </Card>
       </div>
-    </Space>
+    </Space></div>
   );
 }

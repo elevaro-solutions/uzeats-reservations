@@ -25,7 +25,7 @@ export function StatCard({ label, value, icon, hint, hintTone = 'neutral' }: Sta
         : colors.textTertiary;
 
   return (
-    <Card styles={{ body: { padding: 20 } }}>
+    <div component="StatCard" style={{ display: 'contents' }}><Card styles={{ body: { padding: 20 } }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ minWidth: 0 }}>
           <Text
@@ -76,6 +76,6 @@ export function StatCard({ label, value, icon, hint, hintTone = 'neutral' }: Sta
           </div>
         )}
       </div>
-    </Card>
+    </Card></div>
   );
 }

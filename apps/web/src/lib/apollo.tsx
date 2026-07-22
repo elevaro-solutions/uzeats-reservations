@@ -101,11 +101,11 @@ const client = new ApolloClient({
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ApolloProvider client={client}>
+    <div component="Providers" style={{ display: 'contents' }}><ApolloProvider client={client}>
       {/* shared theme is typed against antd v5; structurally compatible with v6 */}
       <ConfigProvider theme={theme as ThemeConfig}>
         <AuthProvider>{children}</AuthProvider>
       </ConfigProvider>
-    </ApolloProvider>
+    </ApolloProvider></div>
   );
 }

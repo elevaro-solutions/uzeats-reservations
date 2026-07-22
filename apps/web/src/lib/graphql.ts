@@ -44,6 +44,9 @@ export const RESTAURANT_DETAIL = gql`
       reviewCount
       depositRequired
       depositAmountCents
+      loyaltyEnabled
+      loyaltyPointsPerVisit
+      loyaltyMinRedeemPoints
       menu {
         sections {
           id
@@ -118,6 +121,64 @@ export const MY_RESERVATIONS = gql`
           city
           state
         }
+      }
+    }
+  }
+`;
+
+export const MY_RESTAURANT_LOYALTY_BALANCE = gql`
+  query MyRestaurantLoyaltyBalance($restaurantId: ID!) {
+    myRestaurantLoyaltyBalance(restaurantId: $restaurantId)
+  }
+`;
+
+export const VALIDATE_PROMOTION = gql`
+  query ValidatePromotion($restaurantId: ID!, $code: String!, $slotStart: DateTime!, $depositCents: Int!) {
+    validatePromotion(
+      restaurantId: $restaurantId
+      code: $code
+      slotStart: $slotStart
+      depositCents: $depositCents
+    ) {
+      valid
+      message
+      discountCents
+      discountedDepositCents
+      autoApplied
+      promotion {
+        title
+        discountPercent
+      }
+    }
+  }
+`;
+
+export const BEST_PROMOTION = gql`
+  query BestPromotion($restaurantId: ID!, $slotStart: DateTime!, $depositCents: Int!) {
+    bestPromotion(restaurantId: $restaurantId, slotStart: $slotStart, depositCents: $depositCents) {
+      valid
+      message
+      discountCents
+      discountedDepositCents
+      autoApplied
+      promotion {
+        title
+        discountPercent
+      }
+    }
+  }
+`;
+
+export const VALIDATE_GIFT_CARD = gql`
+  query ValidateGiftCard($restaurantId: ID!, $code: String!, $depositCents: Int!) {
+    validateGiftCard(restaurantId: $restaurantId, code: $code, depositCents: $depositCents) {
+      valid
+      message
+      discountCents
+      discountedDepositCents
+      giftCard {
+        code
+        balanceCents
       }
     }
   }
@@ -287,6 +348,7 @@ export const PROMOTIONS = gql`
         title
         description
         discountPercent
+        discountAmountCents
         code
         startDate
         endDate
@@ -327,6 +389,10 @@ export const PLANS = gql`
       name
       description
       monthlyPriceCents
+      originalMonthlyPriceCents
+      discountType
+      discountPercent
+      annualFreeMonths
       networkCoverFeeCents
       websiteCoverFeeCents
       trialDays

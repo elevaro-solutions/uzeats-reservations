@@ -6,7 +6,7 @@ const { Title, Paragraph, Text } = Typography;
 
 export default function PrivacyPolicyPage() {
   return (
-    <Typography style={{ maxWidth: 780 }}>
+    <div component="PrivacyPolicyPage" style={{ display: 'contents' }}><Typography style={{ maxWidth: 780 }}>
       <Title level={2}>Privacy Policy</Title>
       <Paragraph type="secondary">Last updated: July 11, 2026</Paragraph>
 
@@ -114,6 +114,6 @@ export default function PrivacyPolicyPage() {
         If you have questions about this Privacy Policy or wish to exercise your rights, please
         contact us at: <Text copyable>privacy@tablevera.online</Text>
       </Paragraph>
-    </Typography>
+    </Typography></div>
   );
 }

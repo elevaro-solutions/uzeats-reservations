@@ -103,7 +103,7 @@ export default function IntegrationsPage() {
   };
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="IntegrationsPage" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Integrations</Title>
       <Select
         style={{ width: 260 }}
@@ -283,6 +283,6 @@ export default function IntegrationsPage() {
           </Form.Item>
         </Form>
       </Modal>
-    </Space>
+    </Space></div>
   );
 }

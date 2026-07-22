@@ -46,9 +46,13 @@ const restaurantSchema = new Schema(
     featuredUntil: { type: Date },
     // Real-time guest spend alerts (0 = disabled)
     spendAlertThresholdCents: { type: Number, default: 0 },
+    // Per-restaurant loyalty program (separate from platform Tablevera points)
+    loyaltyEnabled: { type: Boolean, default: false },
+    loyaltyPointsPerVisit: { type: Number, default: 50, min: 0 },
+    loyaltyMinRedeemPoints: { type: Number, default: 200, min: 0 },
     // Booking widget customization (Pro)
     widgetTheme: {
-      primaryColor: { type: String, default: '#c4472f' },
+      primaryColor: { type: String, default: '#0b3d2e' },
       buttonText: { type: String, default: 'Reserve a table' },
       showReviews: { type: Boolean, default: true },
     },

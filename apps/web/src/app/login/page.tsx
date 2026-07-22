@@ -16,9 +16,9 @@ import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 
 export default function LoginPage() {
   return (
-    <Suspense>
+    <div component="LoginPage" style={{ display: 'contents' }}><Suspense>
       <LoginContent />
-    </Suspense>
+    </Suspense></div>
   );
 }
 
@@ -45,7 +45,7 @@ function LoginContent() {
   };
 
   return (
-    <AuthLayout heading="Welcome back" subheading="Sign in to manage your reservations">
+    <div component="LoginContent" style={{ display: 'contents' }}><AuthLayout heading="Welcome back" subheading="Sign in to manage your reservations">
       <GoogleSignInButton onSuccess={handleGoogleSuccess} loading={googleLoading} />
 
       <Divider style={{ margin: '20px 0', color: colors.textTertiary, fontSize: typography.fontSize.sm }}>
@@ -138,10 +138,18 @@ function LoginContent() {
               <Form
                 layout="vertical"
                 requiredMark={false}
+                initialValues={{ referralCode: search.get('ref') ?? undefined }}
                 onFinish={async (values) => {
                   setLoading(true);
                   try {
-                    await register({ ...values, phone: values.phone });
+                    await register({
+                      email: values.email,
+                      password: values.password,
+                      firstName: values.firstName,
+                      lastName: values.lastName,
+                      phone: values.phone,
+                      referralCode: values.referralCode?.trim() || undefined,
+                    });
                     message.success('Account created');
                     goNext();
                   } catch (err) {
@@ -215,6 +223,9 @@ function LoginContent() {
                     placeholder="••••••••"
                   />
                 </Form.Item>
+                <Form.Item name="referralCode" label="Referral code (optional)">
+                  <Input size="large" placeholder="Friend's code" />
+                </Form.Item>
                 <Button
                   type="primary"
                   htmlType="submit"
@@ -257,6 +268,6 @@ function LoginContent() {
           Open dashboard &rarr;
         </Link>
       </p>
-    </AuthLayout>
+    </AuthLayout></div>
   );
 }

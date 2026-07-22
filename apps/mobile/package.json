@@ -12,6 +12,7 @@
   "dependencies": {
     "@apollo/client": "^3.13.8",
     "@reservations/shared": "workspace:*",
+    "@reservations/ui": "workspace:*",
     "expo": "~53.0.12",
     "expo-constants": "~17.1.6",
     "expo-linking": "~7.1.5",

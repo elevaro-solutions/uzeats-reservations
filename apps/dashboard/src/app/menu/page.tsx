@@ -186,7 +186,7 @@ export default function MenuPage() {
   };
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <div component="MenuPage" style={{ display: 'contents' }}><Space direction="vertical" size={16} style={{ width: '100%' }}>
       <div
         style={{
           display: 'flex',
@@ -352,7 +352,7 @@ export default function MenuPage() {
           Save menu
         </Button>
       </Form>
-    </Space>
+    </Space></div>
   );
 }
 
@@ -368,7 +368,7 @@ function SectionExpandControls({
   onCollapse: () => void;
 }) {
   return (
-    <>
+    <div component="SectionExpandControls" style={{ display: 'contents' }}><>
       <Button
         type="text"
         size="small"
@@ -380,7 +380,7 @@ function SectionExpandControls({
       <Button type="text" size="small" icon={<NodeCollapseOutlined />} onClick={onCollapse}>
         Collapse category
       </Button>
-    </>
+    </></div>
   );
 }
 
