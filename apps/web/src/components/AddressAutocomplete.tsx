@@ -18,7 +18,7 @@ import {
   type CityOption,
 } from '@/lib/cities';
 
-const LOCATION_SEARCH_TYPES = ['geocode'] as const;
+const LOCATION_SEARCH_TYPES: string[] = ['geocode'];
 
 export type LocationSelection = {
   label: string;
