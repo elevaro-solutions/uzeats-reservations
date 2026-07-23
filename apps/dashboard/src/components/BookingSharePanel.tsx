@@ -5,8 +5,7 @@ import { Button, Divider, Input, Segmented, Space, Typography, message } from 'a
 import { CopyOutlined, LinkOutlined } from '@ant-design/icons';
 import { buildRestaurantBookingUrl, buildWidgetEmbedCode } from '@reservations/shared';
 import { spacing } from '@reservations/ui';
-
-const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000';
+import { getPublicWebUrl } from '@/lib/webUrl';
 
 const { Text, Paragraph } = Typography;
 
@@ -30,26 +29,27 @@ export function useBookingShare(
   widgetTheme?: WidgetTheme | null,
   embedMode: 'inline' | 'button' = 'button',
 ) {
+  const webUrl = getPublicWebUrl();
   const bookingUrl = useMemo(
     () =>
       restaurant
-        ? buildRestaurantBookingUrl(WEB_URL, { slug: restaurant.slug, id: restaurant.id })
+        ? buildRestaurantBookingUrl(webUrl, { slug: restaurant.slug, id: restaurant.id })
         : '',
-    [restaurant],
+    [restaurant, webUrl],
   );
 
   const widgetEmbedCode = useMemo(() => {
     if (!restaurant?.id) return '';
     return buildWidgetEmbedCode({
       restaurantId: restaurant.id,
-      widgetUrl: `${WEB_URL.replace(/\/$/, '')}/widget.js`,
-      appUrl: WEB_URL,
+      widgetUrl: `${webUrl.replace(/\/$/, '')}/widget.js`,
+      appUrl: webUrl,
       mode: embedMode,
       primaryColor: widgetTheme?.primaryColor ?? undefined,
       buttonText: widgetTheme?.buttonText ?? 'Reserve a table',
       showReviews: widgetTheme?.showReviews ?? true,
     });
-  }, [restaurant?.id, restaurant?.slug, embedMode, widgetTheme]);
+  }, [restaurant?.id, restaurant?.slug, embedMode, widgetTheme, webUrl]);
 
   return { bookingUrl, widgetEmbedCode };
 }

@@ -16,7 +16,7 @@ export function useActiveRestaurant(restaurantIds: string[] = []) {
     const saved = localStorage.getItem('activeRestaurantId');
     const valid = saved && restaurantIds.includes(saved);
     const next = valid ? saved! : restaurantIds[0];
-    if (next) setRestaurantIdState(next);
+    setRestaurantIdState(next);
   }, [restaurantIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

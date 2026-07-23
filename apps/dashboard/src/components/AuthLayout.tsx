@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { TableveraLogo, TableveraWordmark, colors, radii, typography, shadows } from '@reservations/ui';
+import { getPublicWebUrl } from '@/lib/webUrl';
 import {
   BarChartOutlined,
   CalendarOutlined,
@@ -269,7 +270,7 @@ export function AuthLayout({
         >
           Not a partner?{' '}
           <Link
-            href={process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000'}
+            href={getPublicWebUrl()}
             style={{
               color: colors.brand[600],
               fontWeight: typography.fontWeight.semibold,

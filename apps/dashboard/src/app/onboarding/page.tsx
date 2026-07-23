@@ -33,10 +33,9 @@ import {
   getOnboardingSteps,
   type OnboardingStep,
 } from '@/lib/onboarding';
+import { getPublicWebUrl } from '@/lib/webUrl';
 
 const { Text, Paragraph, Title } = Typography;
-
-const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000';
 
 export default function OnboardingPage() {
   const { user, loading: authLoading } = useAuth();
@@ -95,7 +94,7 @@ export default function OnboardingPage() {
   }
 
   const bookingUrl = restaurant
-    ? buildRestaurantBookingUrl(WEB_URL, { slug: restaurant.slug, id: restaurant.id })
+    ? buildRestaurantBookingUrl(getPublicWebUrl(), { slug: restaurant.slug, id: restaurant.id })
     : '';
 
   return (

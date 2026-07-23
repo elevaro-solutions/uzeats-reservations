@@ -5,6 +5,7 @@ import { logAudit } from './audit.js';
 import { hashPassword, issueTokens } from './auth.js';
 import { getEffectivePlan, getPlatformConfig } from './platformConfig.js';
 import { createRestaurantSubscription } from './restaurantSubscription.js';
+import { provisionDefaultRestaurantSetup } from './restaurantSetup.js';
 
 function slugify(name: string) {
   return name
@@ -64,6 +65,8 @@ export async function registerRestaurantPartner(input: RegisterRestaurantPartner
   await User.findByIdAndUpdate(user._id, {
     $addToSet: { restaurantIds: restaurant._id },
   });
+
+  await provisionDefaultRestaurantSetup(restaurant._id);
 
   const subscription = await createRestaurantSubscription({
     restaurantId: restaurant._id.toString(),

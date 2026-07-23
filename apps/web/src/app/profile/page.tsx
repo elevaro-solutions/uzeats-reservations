@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
-import { Button, Card, Form, Input, List, Space, Switch, Tag, Typography, message } from 'antd';
+import { Button, Card, Form, Input, List, Space, Spin, Switch, Tag, Typography, message } from 'antd';
 import {
   BellOutlined,
   CheckCircleFilled,
@@ -140,7 +140,17 @@ export default function ProfilePage() {
     }
   }, [pushSubscription]);
 
-  if (!authLoading && !user) {
+  if (authLoading) {
+    return (
+      <div component="ProfilePage" style={{ display: 'contents' }}>
+        <div style={{ textAlign: 'center', padding: 80 }}>
+          <Spin size="large" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
     router.replace('/login?next=/profile');
     return null;
   }

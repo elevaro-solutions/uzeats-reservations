@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 
-const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000';
+import { getPublicWebUrl } from '@/lib/webUrl';
 
 const PARTNER_ROLES = new Set(['restaurant_owner', 'staff', 'admin']);
 
@@ -24,9 +24,9 @@ export function useRequirePartner() {
     }
     if (user.role === 'diner' && !isImpersonating) {
       logout();
-      window.location.href = `${WEB_URL}/login?next=/`;
+      window.location.href = `${getPublicWebUrl()}/login?next=/`;
     }
   }, [user, loading, isImpersonating, logout, router]);
 
-  return { ready: !loading && allowed, webUrl: WEB_URL };
+  return { ready: !loading && allowed, webUrl: getPublicWebUrl() };
 }

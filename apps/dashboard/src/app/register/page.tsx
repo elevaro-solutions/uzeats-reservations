@@ -23,6 +23,7 @@ import { AddressAutocomplete, PhoneInput, PlanPrice, colors, formatPhoneDisplay,
 import { formatPlanDollars, getPlanDiscountLabel, getPlanPriceDisplay } from '@reservations/shared';
 import { AuthLayout } from '@/components/AuthLayout';
 import { useAuth } from '@/lib/auth';
+import { getPublicWebUrl } from '@/lib/webUrl';
 import { addressSelectionToFields } from '@/lib/address';
 import { PLANS, REGISTER_RESTAURANT_PARTNER } from '@/lib/graphql';
 import {
@@ -375,7 +376,7 @@ function RegisterForm() {
           </div>
           <Text type="secondary" style={{ fontSize: typography.fontSize.xs }}>
             Prefer a different tier?{' '}
-            <a href={`${process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000'}/pricing`}>
+            <a href={`${getPublicWebUrl()}/pricing`}>
               Compare plans
             </a>
           </Text>

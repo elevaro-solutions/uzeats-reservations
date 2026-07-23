@@ -104,6 +104,7 @@ import {
 } from '../services/stripe.js';
 import { logAudit } from '../services/audit.js';
 import { createRestaurantSubscription } from '../services/restaurantSubscription.js';
+import { provisionDefaultRestaurantSetup } from '../services/restaurantSetup.js';
 import { requireAuth, requireRole, type GraphQLContext } from './context.js';
 import {
   mapUser,
@@ -1640,6 +1641,8 @@ export const resolvers = {
         role: user.role === 'diner' ? 'restaurant_owner' : user.role,
       });
 
+      await provisionDefaultRestaurantSetup(doc._id);
+
       if (args.plan) {
         try {
           await createRestaurantSubscription({
@@ -1693,6 +1696,9 @@ export const resolvers = {
         { new: true },
       );
       if (!doc) throw new Error('Restaurant not found');
+      if (args.status === 'approved') {
+        await provisionDefaultRestaurantSetup(doc._id);
+      }
       await logAudit({
         actorId: admin._id.toString(),
         action: 'setRestaurantStatus',

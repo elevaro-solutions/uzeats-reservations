@@ -106,7 +106,8 @@ dokku config:set tablevera-dashboard \
   NODE_ENV=production
 
 dokku docker-options:add tablevera-dashboard build \
-  "--build-arg NEXT_PUBLIC_API_URL=https://api.tablevera.online/graphql"
+  "--build-arg NEXT_PUBLIC_API_URL=https://api.tablevera.online/graphql" \
+  "--build-arg NEXT_PUBLIC_WEB_URL=https://tablevera.online"
 ```
 
 ## Deploy

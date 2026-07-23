@@ -150,7 +150,8 @@ function formatRelativeTime(iso: string) {
   return `${days}d ago`;
 }
 
-const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000';
+import { getPublicWebUrl } from '@/lib/webUrl';
+
 const PARTNER_ROLES = new Set(['restaurant_owner', 'staff', 'admin']);
 
 export function DashShell({ children }: { children: React.ReactNode }) {
@@ -183,7 +184,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     if (authLoading || !user) return;
     if (user.role === 'diner' && !isImpersonating) {
       logout();
-      window.location.href = `${WEB_URL}/login?next=/`;
+      window.location.href = `${getPublicWebUrl()}/login?next=/`;
     }
   }, [user, authLoading, isImpersonating, logout]);
 

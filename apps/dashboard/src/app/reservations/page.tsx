@@ -135,10 +135,11 @@ function ReservationsPageContent() {
     [restData],
   );
   const { restaurantId, setRestaurantId } = useActiveRestaurant(restaurantIds);
+  const activeRestaurantId = restaurantId ?? restaurantIds[0];
 
   const activeRestaurant = useMemo(
-    () => (restData?.myRestaurants ?? []).find((r: { id: string }) => r.id === restaurantId),
-    [restData, restaurantId],
+    () => (restData?.myRestaurants ?? []).find((r: { id: string }) => r.id === activeRestaurantId),
+    [restData, activeRestaurantId],
   );
 
   const tables: TableOption[] = useMemo(
@@ -148,8 +149,8 @@ function ReservationsPageContent() {
   );
 
   const { data, refetch, loading } = useQuery(RESTAURANT_RESERVATIONS, {
-    skip: !restaurantId,
-    variables: { restaurantId, date: date.format('YYYY-MM-DD'), limit, offset },
+    skip: !activeRestaurantId,
+    variables: { restaurantId: activeRestaurantId, date: date.format('YYYY-MM-DD'), limit, offset },
   });
   const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
   const [createReservation, { loading: creating }] = useMutation(CREATE_OWNER_RESERVATION);
@@ -160,18 +161,18 @@ function ReservationsPageContent() {
   const editDateStr = (editDate as Dayjs | undefined)?.format('YYYY-MM-DD');
 
   const { data: createSlotsData } = useQuery(AVAILABILITY, {
-    skip: !restaurantId || !createOpen || !createDateStr,
+    skip: !activeRestaurantId || !createOpen || !createDateStr,
     variables: {
-      restaurantId,
+      restaurantId: activeRestaurantId,
       date: createDateStr,
       partySize: createPartySize,
     },
   });
 
   const { data: editSlotsData } = useQuery(AVAILABILITY, {
-    skip: !restaurantId || !editing || !editDateStr,
+    skip: !activeRestaurantId || !editing || !editDateStr,
     variables: {
-      restaurantId,
+      restaurantId: activeRestaurantId,
       date: editDateStr,
       partySize: editPartySize,
     },
@@ -258,7 +259,7 @@ function ReservationsPageContent() {
       await createReservation({
         variables: {
           input: {
-            restaurantId,
+            restaurantId: activeRestaurantId,
             partySize: values.partySize,
             slotStart,
             occasion: values.occasion,
@@ -406,7 +407,7 @@ function ReservationsPageContent() {
           <Space wrap>
             <Select
               style={{ width: 240 }}
-              value={restaurantId}
+              value={activeRestaurantId}
               onChange={setRestaurantId}
               options={(restData?.myRestaurants ?? []).map((r: { id: string; name: string }) => ({
                 value: r.id,
@@ -423,7 +424,7 @@ function ReservationsPageContent() {
                 }
               }}
             />
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} disabled={!restaurantId}>
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} disabled={!activeRestaurantId}>
               New reservation
             </Button>
           </Space>

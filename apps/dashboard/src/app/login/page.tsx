@@ -101,6 +101,7 @@ export default function LoginPage() {
         </Link>
       </p>
 
+      {process.env.NODE_ENV === 'development' && (
       <div
         style={{
           marginTop: 20,
@@ -118,17 +119,18 @@ export default function LoginPage() {
             lineHeight: 1.5,
           }}
         >
-          <strong style={{ color: colors.textPrimary }}>Demo credentials</strong>
+          <strong style={{ color: colors.textPrimary }}>Local dev credentials</strong>
           <br />
           owner@tablevera.local or admin@tablevera.local
           <br />
           Password: Password123!
           <br />
           <span style={{ color: colors.textTertiary }}>
-            Diners: use the booking app, not Partner Hub.
+            Run <code>pnpm seed</code> first. Diners use the booking app, not Partner Hub.
           </span>
         </p>
       </div>
+      )}
     </AuthLayout></div>
   );
 }
