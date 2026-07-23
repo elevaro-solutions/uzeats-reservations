@@ -90,8 +90,18 @@ The built file is output to `dist/widget.iife.js`.
 
 ## Deployment
 
-After building, deploy `dist/widget.iife.js` to your CDN or serve it from the web app's public directory:
+After building, `widget.js` is copied automatically to `apps/web/public/widget.js` and served at:
+
+```
+https://tablevera.online/widget.js
+```
+
+The web app build (`pnpm --filter @reservations/web build`) runs the widget build first. For local development, `pnpm dev` in the web app also builds the widget on start.
 
 ```bash
-cp dist/widget.iife.js ../web/public/widget.js
+# Build the widget only (copies to apps/web/public/widget.js)
+pnpm --filter @reservations/widget build
+
+# Watch mode — rebuilds on changes (re-copy after each build)
+pnpm --filter @reservations/widget dev
 ```

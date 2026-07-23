@@ -28,6 +28,8 @@ pnpm --filter @reservations/web build
 pnpm --filter @reservations/web start
 ```
 
+This also builds `packages/widget` and serves `widget.js` at `https://yourdomain.com/widget.js`.
+
 Set `NEXT_PUBLIC_API_URL=https://api.yourdomain.com/graphql` and `NEXT_PUBLIC_WEB_URL=https://tablevera.online` (used for booking links and widget redirects).
 
 For Google address autocomplete on the diner home page, also set
@@ -58,4 +60,4 @@ Events: `payment_intent.amount_capturable_updated`, `payment_intent.succeeded`
 
 Set `NEXT_PUBLIC_DASHBOARD_URL` and `NEXT_PUBLIC_WEB_URL` on the dashboard build so Settings and onboarding can generate correct booking links and widget embed snippets.
 
-Partners use `/onboarding` for the setup checklist (profile, tables/shifts, approval). Embed code is also available under Settings → Booking widget.
+Partners use `/onboarding` for the setup checklist (profile, tables/shifts, approval). Embed code and booking links are on **Booking widget** (`/booking-widget`); widget theme colors remain under Settings.

@@ -3,8 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "predev": "pnpm --filter @reservations/widget build",
     "dev": "next dev --port 3000",
-    "build": "next build",
+    "build": "pnpm --filter @reservations/widget build && next build",
     "start": "next start --port 3000",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

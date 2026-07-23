@@ -754,6 +754,23 @@ a {
   border-top: 1px solid var(--color-border-subtle);
 }
 
+.pricing-plan-card__section-label {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.pricing-plan-card--featured .pricing-plan-card__section-label {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.pricing-plan-card__cover-fees {
+  margin-bottom: 16px;
+}
+
 .pricing-plan-card--featured .pricing-plan-card__divider {
   border-top-color: rgba(255, 255, 255, 0.15);
 }

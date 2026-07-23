@@ -81,7 +81,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Notifications: email (Resend), Telegram bot, web/Expo push, in-app inbox + channel prefs
 - Auth: email/password, Google OAuth, Twilio phone OTP
 - Partner Settings hub, notifications prefs, multi-restaurant selector, self-registration, and onboarding checklist
-- Shareable booking links (`/r/:slug`) and copy-paste widget embed from Settings
+- Shareable booking links (`/r/:slug`) and **Booking widget** page for embed script copy
 - Owner phone / walk-in bookings, reservation edit, and reservation-scoped messaging
 - Platform admin: users, restaurants, invoices, revenue, support, moderation, templates, config, and annual billing discounts
 - Embeddable booking widget with per-restaurant theme
@@ -114,6 +114,7 @@ Full steps: [`docs/deploy.md`](./docs/deploy.md).
    - `web` / `dashboard`: Next.js build + start on 3000/3001
 4. **Spaces** — create a bucket for restaurant/menu photos; set CDN URL.
 5. Point Stripe webhooks to `https://api.yourdomain.com/webhooks/stripe`.
+6. **Widget** — `pnpm --filter @reservations/web build` builds and copies `widget.js` to the web app (`/widget.js`). Partners copy embed code from **Booking widget** in the dashboard.
 
 ## Project scripts
 

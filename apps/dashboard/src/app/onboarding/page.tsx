@@ -22,10 +22,8 @@ import {
   CopyOutlined,
   RocketOutlined,
 } from '@ant-design/icons';
-import {
-  buildRestaurantBookingUrl,
-  buildWidgetEmbedCode,
-} from '@reservations/shared';
+import { buildRestaurantBookingUrl } from '@reservations/shared';
+import { BookingSharePanel, copyBookingText } from '@/components/BookingSharePanel';
 import { EmptyState, PageHeader, StatusTag, colors, radii, spacing, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS } from '@/lib/graphql';
@@ -39,14 +37,6 @@ import {
 const { Text, Paragraph, Title } = Typography;
 
 const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? 'http://localhost:3000';
-
-async function copyText(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    // clipboard may be unavailable
-  }
-}
 
 export default function OnboardingPage() {
   const { user, loading: authLoading } = useAuth();
@@ -106,14 +96,6 @@ export default function OnboardingPage() {
 
   const bookingUrl = restaurant
     ? buildRestaurantBookingUrl(WEB_URL, { slug: restaurant.slug, id: restaurant.id })
-    : '';
-  const embedCode = restaurant
-    ? buildWidgetEmbedCode({
-        restaurantId: restaurant.id,
-        appUrl: WEB_URL,
-        mode: 'button',
-        buttonText: 'Book a table',
-      })
     : '';
 
   return (
@@ -180,7 +162,7 @@ export default function OnboardingPage() {
                 step={step}
                 index={index}
                 bookingUrl={step.key === 'golive' ? bookingUrl : undefined}
-                embedCode={step.key === 'golive' ? embedCode : undefined}
+                restaurant={step.key === 'golive' ? restaurant : undefined}
               />
             </Col>
           ))}
@@ -210,7 +192,7 @@ export default function OnboardingPage() {
                 <Button type="primary" onClick={() => router.push('/reservations')}>
                   View reservations
                 </Button>
-                <Button onClick={() => router.push('/settings')}>Booking link & widget</Button>
+                <Button onClick={() => router.push('/booking-widget')}>Copy booking script</Button>
               </Space>
             </Space>
           </Card>
@@ -224,12 +206,12 @@ function StepCard({
   step,
   index,
   bookingUrl,
-  embedCode,
+  restaurant,
 }: {
   step: OnboardingStep;
   index: number;
   bookingUrl?: string;
-  embedCode?: string;
+  restaurant?: { id: string; slug?: string | null };
 }) {
   const statusColor = step.complete
     ? colors.success
@@ -285,7 +267,7 @@ function StepCard({
         </div>
       </div>
 
-      {step.key === 'golive' && bookingUrl && (
+      {step.key === 'golive' && restaurant && (
         <div
           style={{
             padding: 12,
@@ -294,39 +276,17 @@ function StepCard({
             border: `1px solid ${colors.bordersubtle}`,
           }}
         >
-          <Text type="secondary" style={{ fontSize: typography.fontSize.xs, display: 'block' }}>
-            Booking page
-          </Text>
-          <Text
-            style={{
-              display: 'block',
-              marginTop: 4,
-              wordBreak: 'break-all',
-              fontSize: typography.fontSize.sm,
-            }}
-          >
-            {bookingUrl}
-          </Text>
-          <Space wrap style={{ marginTop: 10 }}>
+          <BookingSharePanel restaurant={restaurant} showBookingLink={false} />
+          {bookingUrl && (
             <Button
               size="small"
               icon={<CopyOutlined />}
-              onClick={() => copyText(bookingUrl)}
-              disabled={!step.complete}
+              onClick={() => copyBookingText(bookingUrl)}
+              style={{ marginTop: 8 }}
             >
-              Copy link
+              Copy booking link only
             </Button>
-            {embedCode && (
-              <Button
-                size="small"
-                icon={<CopyOutlined />}
-                onClick={() => copyText(embedCode)}
-                disabled={!step.complete}
-              >
-                Copy widget code
-              </Button>
-            )}
-          </Space>
+          )}
         </div>
       )}
 

@@ -350,6 +350,19 @@ function getDiscountBadge(
   return null;
 }
 
+function getPlanCoverFees(plan: ApiPlan): { network: string; website: string } {
+  const network = `${formatDollars(plan.networkCoverFeeCents)} per network cover`;
+  let website: string;
+  if (plan.websiteCoverFeeCents === 0) {
+    website = 'Website reservations: FREE';
+  } else if (plan.key === 'basic') {
+    website = `${formatDollars(plan.websiteCoverFeeCents)} per website cover (or $19/mo unlimited)`;
+  } else {
+    website = `${formatDollars(plan.websiteCoverFeeCents)} per website cover`;
+  }
+  return { network, website };
+}
+
 function getFinePrint(
   display: ReturnType<typeof getPlanPriceDisplay>,
   plan: ApiPlan,
@@ -507,6 +520,7 @@ export default function PricingPage() {
             const display = getPlanDisplay(plan, billingPeriod, annualBilling);
             const badge = getDiscountBadge(display, plan, isCore, billingPeriod, annualBilling);
             const finePrint = getFinePrint(display, plan, billingPeriod);
+            const coverFees = getPlanCoverFees(plan);
             const showStrike =
               display.showStrikethrough && display.originalCents != null && display.originalCents > 0;
             const strikeLabel =
@@ -573,6 +587,19 @@ export default function PricingPage() {
 
                   <hr className="pricing-plan-card__divider" />
 
+                  <p className="pricing-plan-card__section-label">Cover fees</p>
+                  <ul className="pricing-plan-card__features pricing-plan-card__cover-fees">
+                    <li className="pricing-plan-card__feature">
+                      <CheckOutlined className="pricing-plan-card__check" />
+                      <span>{coverFees.network}</span>
+                    </li>
+                    <li className="pricing-plan-card__feature">
+                      <CheckOutlined className="pricing-plan-card__check" />
+                      <span>{coverFees.website}</span>
+                    </li>
+                  </ul>
+
+                  <p className="pricing-plan-card__section-label">Includes</p>
                   <ul className="pricing-plan-card__features">
                     {highlights.map((item) => (
                       <li key={item} className="pricing-plan-card__feature">

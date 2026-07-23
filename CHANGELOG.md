@@ -4,6 +4,23 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.0] — 2026-07-23
+
+### Added
+
+- Partner **Booking widget** page (`/booking-widget`) with shared `BookingSharePanel` for link + embed copy
+- Public pricing page cover-fee breakdown (network vs website covers per plan)
+
+### Changed
+
+- Widget build copies `widget.js` into `apps/web/public/` automatically; web `dev`/`build` run widget build first
+- Onboarding and Settings reuse `BookingSharePanel` instead of inline embed markup
+- `Dockerfile.web` includes the widget package in the image build
+
+### Docs
+
+- Widget README documents auto-deploy to `/widget.js`; deploy guide notes widget is bundled with web builds
+
 ## [0.8.0] — 2026-07-22
 
 ### Added

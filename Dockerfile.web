@@ -7,6 +7,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/config/package.json packages/config/
 COPY packages/ui/package.json packages/ui/
+COPY packages/widget/package.json packages/widget/
 COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile --prod=false
 
@@ -27,6 +28,7 @@ ENV NEXT_PUBLIC_COLOR_PALETTE=$NEXT_PUBLIC_COLOR_PALETTE
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=deps /app/packages/ui/node_modules ./packages/ui/node_modules
+COPY --from=deps /app/packages/widget/node_modules ./packages/widget/node_modules
 COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
 COPY . .
 RUN pnpm --filter @reservations/shared build && \

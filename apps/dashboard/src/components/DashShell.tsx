@@ -51,6 +51,7 @@ import {
   DownloadOutlined,
   DashboardOutlined,
   CompassOutlined,
+  CodeOutlined,
 } from '@ant-design/icons';
 import { usePathname, useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
@@ -224,6 +225,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       '/messages',
       '/reviews',
       '/marketing',
+      '/booking-widget',
       '/campaigns',
       '/experiences',
       '/private-dining',
@@ -280,6 +282,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       label: 'Grow',
       children: [
         item('/marketing', <RocketOutlined />, 'Marketing'),
+        item('/booking-widget', <CodeOutlined />, 'Booking widget'),
         item('/campaigns', <MailOutlined />, 'Campaigns'),
         item('/experiences', <GiftOutlined />, 'Experiences'),
         item('/private-dining', <TeamOutlined />, 'Private dining'),
