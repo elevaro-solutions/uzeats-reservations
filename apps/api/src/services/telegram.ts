@@ -90,7 +90,7 @@ export async function verifyTelegramChat(chatId: string): Promise<void> {
   const res = await callTelegramApi('getChat', { chat_id: trimmed });
   if (!res.ok) {
     throw new ValidationError(
-      'Could not verify this chat ID. Open @TableveraBot in Telegram, send /start, then paste the ID it replies with.',
+      'Could not verify this chat ID. Open @uzeatsbot in Telegram, send /start, then paste the ID it replies with.',
     );
   }
 }
