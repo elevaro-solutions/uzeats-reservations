@@ -32,6 +32,7 @@ const envSchema = z.object({
   DO_SPACES_BUCKET: z.string().optional().default('reservations'),
   DO_SPACES_CDN: z.string().optional().default(''),
   RESEND_API_KEY: z.string().optional().default(''),
+  SENDGRID_API_KEY: z.string().optional().default(''),
   EMAIL_FROM: z.string().default('noreply@reservations.local'),
   TELEGRAM_BOT_TOKEN: z.string().optional().default(''),
   TELEGRAM_WEBHOOK_SECRET: z.string().optional().default(''),

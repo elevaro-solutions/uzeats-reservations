@@ -30,7 +30,37 @@ if (env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY) {
 
 const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
 
+function parseEmailFrom(from: string): { email: string; name?: string } {
+  const match = from.match(/^(.+?)\s*<([^>]+)>$/);
+  if (match) return { name: match[1].trim(), email: match[2].trim() };
+  return { email: from.trim() };
+}
+
+async function sendViaSendGrid(to: string, title: string, body: string) {
+  const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.SENDGRID_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email: to }] }],
+      from: parseEmailFrom(env.EMAIL_FROM),
+      subject: title,
+      content: [{ type: 'text/plain', value: body }],
+    }),
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`SendGrid failed: ${res.status} ${errText}`);
+  }
+}
+
 export async function sendEmail(to: string, title: string, body: string) {
+  if (env.SENDGRID_API_KEY) {
+    await sendViaSendGrid(to, title, body);
+    return;
+  }
   if (!resend) {
     logger.debug({ to, title, body }, '[email:dev] stub');
     return;
