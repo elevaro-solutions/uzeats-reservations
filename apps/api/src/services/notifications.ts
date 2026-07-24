@@ -32,7 +32,9 @@ const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
 
 function parseEmailFrom(from: string): { email: string; name?: string } {
   const match = from.match(/^(.+?)\s*<([^>]+)>$/);
-  if (match) return { name: match[1].trim(), email: match[2].trim() };
+  if (match?.[1] && match[2]) {
+    return { name: match[1].trim(), email: match[2].trim() };
+  }
   return { email: from.trim() };
 }
 
