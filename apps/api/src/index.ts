@@ -14,6 +14,7 @@ import { createContext } from './graphql/context.js';
 import { constructStripeEvent } from './services/stripe.js';
 import { confirmDeposit } from './services/reservations.js';
 import { startNotificationWorkers } from './services/notifications.js';
+import { ensureDefaultEmailTemplates } from './services/emailTemplates.js';
 import { startCampaignWorker } from './services/campaigns.js';
 import { startLoyaltyWorker } from './services/loyaltyExpiry.js';
 import { handleTelegramWebhook, startTelegramBot } from './services/telegram.js';
@@ -26,6 +27,7 @@ const startedAt = Date.now();
 
 async function main() {
   await connectDb();
+  await ensureDefaultEmailTemplates();
   startNotificationWorkers();
   startCampaignWorker();
   startLoyaltyWorker();

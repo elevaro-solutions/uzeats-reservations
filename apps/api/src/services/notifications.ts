@@ -38,7 +38,19 @@ function parseEmailFrom(from: string): { email: string; name?: string } {
   return { email: from.trim() };
 }
 
-async function sendViaSendGrid(to: string, title: string, body: string) {
+async function sendViaSendGrid(
+  to: string,
+  title: string,
+  body: string,
+  htmlBody?: string,
+) {
+  const content: Array<{ type: string; value: string }> = [
+    { type: 'text/plain', value: body },
+  ];
+  if (htmlBody) {
+    content.push({ type: 'text/html', value: htmlBody });
+  }
+
   const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
     method: 'POST',
     headers: {
@@ -49,7 +61,7 @@ async function sendViaSendGrid(to: string, title: string, body: string) {
       personalizations: [{ to: [{ email: to }] }],
       from: parseEmailFrom(env.EMAIL_FROM),
       subject: title,
-      content: [{ type: 'text/plain', value: body }],
+      content,
     }),
   });
   if (!res.ok) {
@@ -58,13 +70,51 @@ async function sendViaSendGrid(to: string, title: string, body: string) {
   }
 }
 
-export async function sendEmail(to: string, title: string, body: string) {
+export function wrapEmailHtml(innerHtml: string) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tablevera</title>
+</head>
+<body style="margin:0;padding:0;background:#f6f4ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a1a;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f6f4ef;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:12px;padding:32px;">
+          <tr>
+            <td style="padding-bottom:24px;font-size:20px;font-weight:700;color:#2d5a3d;">Tablevera</td>
+          </tr>
+          <tr>
+            <td style="font-size:16px;line-height:1.6;">${innerHtml}</td>
+          </tr>
+          <tr>
+            <td style="padding-top:32px;font-size:12px;color:#888;">© Tablevera</td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+export async function sendEmail(
+  to: string,
+  title: string,
+  body: string,
+  options?: { htmlBody?: string },
+) {
+  const htmlBody = options?.htmlBody ? wrapEmailHtml(options.htmlBody) : undefined;
+
   if (env.SENDGRID_API_KEY) {
-    await sendViaSendGrid(to, title, body);
+    await sendViaSendGrid(to, title, body, htmlBody);
+    logger.info({ to, subject: title }, '[email] sent via SendGrid');
     return;
   }
   if (!resend) {
-    logger.debug({ to, title, body }, '[email:dev] stub');
+    logger.debug({ to, title, body, htmlBody }, '[email:dev] stub');
     return;
   }
   await resend.emails.send({
@@ -72,7 +122,9 @@ export async function sendEmail(to: string, title: string, body: string) {
     to,
     subject: title,
     text: body,
+    html: htmlBody,
   });
+  logger.info({ to, subject: title }, '[email] sent via Resend');
 }
 
 export async function sendSms(to: string, body: string) {
@@ -123,6 +175,7 @@ export async function notifyUser(
     type: string;
     title: string;
     body: string;
+    htmlBody?: string;
     data?: Record<string, unknown>;
   },
   opts?: {
@@ -182,7 +235,9 @@ export async function notifyUser(
       if (channel === 'in_app') {
         // Inbox item only — no external delivery.
       } else if (channel === 'email' && user.email) {
-        await sendEmail(user.email, payload.title, payload.body);
+        await sendEmail(user.email, payload.title, payload.body, {
+          htmlBody: payload.htmlBody,
+        });
       } else if (channel === 'telegram' && user.telegramChatId) {
         await sendTelegramNotification(user.telegramChatId, payload.title, payload.body);
       } else if (channel === 'push') {

@@ -6,6 +6,7 @@ import type { JwtPayload, UserRole } from '@reservations/shared';
 import { env } from '../config/env.js';
 import { User } from '../models/User.js';
 import { notifyUser } from './notifications.js';
+import { renderEmailTemplate } from './emailTemplates.js';
 import { getPlatformConfig } from './platformConfig.js';
 import { generateUniqueReferralCode } from '../lib/referralCode.js';
 import { AuthenticationError } from '../lib/errors.js';
@@ -247,6 +248,30 @@ async function createPasswordResetToken(userId: string) {
   return `${passwordResetBaseUrl()}/reset-password?token=${token}`;
 }
 
+async function sendPasswordResetEmail(
+  user: { _id: { toString(): string }; firstName?: string | null },
+  resetUrl: string,
+  adminInitiated = false,
+) {
+  const rendered = await renderEmailTemplate('password_reset', {
+    firstName: user.firstName || 'there',
+    resetUrl,
+  });
+  const bodyText = adminInitiated
+    ? `A platform admin started a password reset for your account.\n\n${rendered.bodyText}`
+    : rendered.bodyText;
+  const htmlBody = adminInitiated
+    ? `<p>A platform admin started a password reset for your account.</p>${rendered.bodyHtml}`
+    : rendered.bodyHtml;
+
+  await notifyUser(user._id.toString(), {
+    type: 'password_reset',
+    title: rendered.subject,
+    body: bodyText,
+    htmlBody,
+  });
+}
+
 export async function requestPasswordReset(email: string) {
   const user = await User.findOne({ email: email.toLowerCase() });
   if (!user) {
@@ -254,11 +279,7 @@ export async function requestPasswordReset(email: string) {
   }
 
   const resetUrl = await createPasswordResetToken(user._id.toString());
-  await notifyUser(user._id.toString(), {
-    type: 'password_reset',
-    title: 'Password Reset Request',
-    body: `Use this link to reset your password: ${resetUrl}\n\nThis link expires in 1 hour. If you didn't request this, ignore this message.`,
-  });
+  await sendPasswordResetEmail(user, resetUrl);
 
   return { success: true, message: 'If that email exists, a reset link has been sent.' };
 }
@@ -276,11 +297,7 @@ export async function adminCreatePasswordReset(input: {
   let emailed = false;
 
   if (input.sendEmail !== false) {
-    await notifyUser(user._id.toString(), {
-      type: 'password_reset',
-      title: 'Password Reset Request',
-      body: `A platform admin started a password reset for your account.\n\nUse this link to reset your password: ${resetUrl}\n\nThis link expires in 1 hour.`,
-    });
+    await sendPasswordResetEmail(user, resetUrl, true);
     emailed = true;
   }
 

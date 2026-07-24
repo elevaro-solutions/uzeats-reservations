@@ -92,6 +92,7 @@ export async function inviteStaff(input: {
       type: 'staff_invite',
       title: rendered.subject,
       body: rendered.bodyText,
+      htmlBody: rendered.bodyHtml,
     });
   } else {
     // Create pending account with temp password; invitee resets via link flow
@@ -118,6 +119,7 @@ export async function inviteStaff(input: {
       type: 'staff_invite',
       title: rendered.subject,
       body: `${rendered.bodyText}\n\nTemporary password: ${tempPassword}\nPlease reset after signing in.`,
+      htmlBody: `${rendered.bodyHtml}<p><strong>Temporary password:</strong> ${tempPassword}<br>Please reset after signing in.</p>`,
     });
   }
 

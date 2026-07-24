@@ -16,11 +16,14 @@ export function renderTemplateString(
 
 export async function ensureDefaultEmailTemplates() {
   for (const tpl of DEFAULT_EMAIL_TEMPLATES) {
+    const { key, ...fields } = tpl;
     await EmailTemplate.updateOne(
-      { key: tpl.key },
-      { $setOnInsert: { ...tpl } },
+      { key },
+      { $setOnInsert: { key, ...fields } },
       { upsert: true },
     );
+    // Keep built-in templates current until an admin customizes them.
+    await EmailTemplate.updateOne({ key, updatedById: { $exists: false } }, { $set: fields });
   }
 }
 

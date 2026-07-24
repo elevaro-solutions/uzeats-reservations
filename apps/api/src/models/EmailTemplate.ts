@@ -42,7 +42,7 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     subject: 'Reset your Tablevera password',
     description: 'Sent when a user or admin requests a password reset.',
     bodyHtml:
-      '<p>Hi {{firstName}},</p><p>Use this link to reset your password:</p><p><a href="{{resetUrl}}">{{resetUrl}}</a></p><p>This link expires in 1 hour.</p>',
+      '<p>Hi {{firstName}},</p><p>We received a request to reset your password.</p><p style="margin:24px 0;"><a href="{{resetUrl}}" style="display:inline-block;padding:12px 24px;background:#2d5a3d;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">Reset password</a></p><p style="font-size:14px;color:#666;">Or copy this link:<br><a href="{{resetUrl}}">{{resetUrl}}</a></p><p style="font-size:14px;color:#666;">This link expires in 1 hour. If you didn\'t request this, you can ignore this email.</p>',
     bodyText:
       'Hi {{firstName}},\n\nUse this link to reset your password:\n{{resetUrl}}\n\nThis link expires in 1 hour.',
   },
