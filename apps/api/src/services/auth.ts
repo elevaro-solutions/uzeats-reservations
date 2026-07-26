@@ -127,12 +127,21 @@ export async function loginWithGoogle(idToken: string) {
   if (!googleClient || !env.GOOGLE_CLIENT_ID) {
     throw new Error('Google OAuth is not configured');
   }
-  const ticket = await googleClient.verifyIdToken({
-    idToken,
-    audience: env.GOOGLE_CLIENT_ID,
-  });
-  const payload = ticket.getPayload();
-  if (!payload?.sub || !payload.email) throw new Error('Invalid Google token');
+
+  let payload;
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: env.GOOGLE_CLIENT_ID,
+    });
+    payload = ticket.getPayload();
+  } catch {
+    throw new AuthenticationError('Invalid Google token');
+  }
+
+  if (!payload?.sub || !payload.email) {
+    throw new AuthenticationError('Invalid Google token');
+  }
 
   let user = await User.findOne({
     $or: [{ googleId: payload.sub }, { email: payload.email.toLowerCase() }],
