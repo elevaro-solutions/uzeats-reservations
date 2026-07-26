@@ -91,6 +91,7 @@ dokku config:set tablevera-web \
 # Build-time args (for Next.js static optimization)
 dokku docker-options:add tablevera-web build \
   "--build-arg NEXT_PUBLIC_API_URL=https://api.tablevera.online/graphql" \
+  "--build-arg NEXT_PUBLIC_DASHBOARD_URL=https://dashboard.tablevera.online" \
   "--build-arg NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_..." \
   "--build-arg NEXT_PUBLIC_VAPID_PUBLIC_KEY=..." \
   "--build-arg NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=..." \

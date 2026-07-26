@@ -44,7 +44,9 @@ dokku checks:set $API_APP web /health
 # Docker build args for Next.js apps
 echo "==> Setting build args..."
 dokku docker-options:add $WEB_APP build "--build-arg NEXT_PUBLIC_API_URL=https://api.$DOMAIN/graphql"
+dokku docker-options:add $WEB_APP build "--build-arg NEXT_PUBLIC_DASHBOARD_URL=https://dashboard.$DOMAIN"
 dokku docker-options:add $DASH_APP build "--build-arg NEXT_PUBLIC_API_URL=https://api.$DOMAIN/graphql"
+dokku docker-options:add $DASH_APP build "--build-arg NEXT_PUBLIC_WEB_URL=https://$DOMAIN"
 
 # Zero-downtime deploy settings
 echo "==> Configuring zero-downtime..."

@@ -157,7 +157,7 @@ export function loadGooglePlaces(): Promise<PlacesApi | null> {
       const script = document.createElement('script');
       script.src =
         `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(API_KEY)}` +
-        `&libraries=places&loading=async&callback=__rtGoogleMapsOnLoad`;
+        `&libraries=places&language=en&loading=async&callback=__rtGoogleMapsOnLoad`;
       script.async = true;
       script.defer = true;
       script.onerror = () => {

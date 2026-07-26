@@ -13,6 +13,7 @@ import { PhoneInput, colors, typography, usPhoneRules } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { AuthLayout } from '@/components/AuthLayout';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
+import { getDashboardUrl } from '@/lib/urls';
 
 export default function LoginPage() {
   return (
@@ -258,7 +259,7 @@ function LoginContent() {
       >
         Restaurant partner?{' '}
         <Link
-          href={process.env.NEXT_PUBLIC_DASHBOARD_URL ?? 'http://localhost:3001'}
+          href={getDashboardUrl()}
           target="_blank"
           style={{
             color: colors.brand[600],

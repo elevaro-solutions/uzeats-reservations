@@ -43,7 +43,15 @@ export default function WaitlistPage() {
   const { data, loading, refetch } = useQuery(MY_WAITLIST, { skip: !user });
   const [cancelWaitlist] = useMutation(CANCEL_WAITLIST);
 
-  if (!authLoading && !user) {
+  if (authLoading) {
+    return (
+      <div style={{ textAlign: 'center', padding: 80 }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  if (!user) {
     router.replace('/login?next=/waitlist');
     return null;
   }

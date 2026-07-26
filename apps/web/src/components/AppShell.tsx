@@ -97,7 +97,7 @@ function formatRelativeTime(iso: string) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
   const [notifOpen, setNotifOpen] = useState(false);
 
   const {
@@ -385,7 +385,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
 
         <Space size={8}>
-          {user ? (
+          {authLoading ? (
+            <div style={{ width: 120, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+              <Spin size="small" />
+            </div>
+          ) : user ? (
             <>
               <Dropdown
                 trigger={['click']}

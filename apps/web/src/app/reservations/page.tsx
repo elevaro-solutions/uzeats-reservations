@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery } from '@apollo/client/react';
-import { Button, Card, Rate, Space, Typography, message, Modal, Input } from 'antd';
+import { Button, Card, Rate, Space, Typography, message, Modal, Input, Spin } from 'antd';
 import { CalendarOutlined, MessageOutlined, SearchOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { StatusTag, PageHeader, EmptyState, colors, radii, shadows, typography } from '@reservations/ui';
@@ -29,7 +29,15 @@ export default function ReservationsPage() {
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
 
-  if (!authLoading && !user) {
+  if (authLoading) {
+    return (
+      <div style={{ textAlign: 'center', padding: 80 }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  if (!user) {
     router.replace('/login?next=/reservations');
     return null;
   }

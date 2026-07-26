@@ -24,6 +24,7 @@ import {
   planForBillingPeriod,
   type AnnualBillingSettings,
 } from '@reservations/shared';
+import { getDashboardUrl } from '@/lib/urls';
 import {
   CheckOutlined,
   CloseOutlined,
@@ -232,7 +233,7 @@ function FeatureValue({ value }: { value: boolean | string }) {
   );
 }
 
-const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL ?? 'http://localhost:3001';
+const DASHBOARD_URL = getDashboardUrl();
 
 type ApiPlan = {
   key: string;

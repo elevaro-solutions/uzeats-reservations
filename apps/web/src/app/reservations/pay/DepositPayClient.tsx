@@ -4,8 +4,10 @@ import { useMemo, useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
 import { useMutation } from '@apollo/client/react';
-import { Button, Card, Space, Typography, message, Alert } from 'antd';
+import { Button, Card, Space, Typography, message, Result } from 'antd';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { CalendarOutlined } from '@ant-design/icons';
+import { PageHeader, colors, radii, shadows } from '@reservations/ui';
 import { CONFIRM_DEPOSIT } from '@/lib/graphql';
 
 const { Title, Text, Paragraph } = Typography;
@@ -80,12 +82,33 @@ export default function DepositPayPage() {
 
   if (!clientSecret || !reservationId) {
     return (
-      <Card>
-        <Alert type="error" message="Missing payment details" />
-        <Button style={{ marginTop: 16 }} onClick={() => router.push('/reservations')}>
-          Back to reservations
-        </Button>
-      </Card>
+      <div component="DepositPayPage" style={{ maxWidth: 560, margin: '0 auto' }}>
+        <PageHeader
+          title="Deposit payment"
+          subtitle="Complete a pending deposit from your reservation email or booking flow"
+        />
+        <Card
+          style={{
+            borderRadius: radii.lg,
+            border: `1px solid ${colors.bordersubtle}`,
+            boxShadow: shadows.sm,
+          }}
+        >
+          <Result
+            status="info"
+            title="No payment session found"
+            subTitle="This page opens automatically when a restaurant requires a deposit. If you arrived here from a link, it may have expired or already been paid."
+            extra={
+              <Space>
+                <Button type="primary" icon={<CalendarOutlined />} onClick={() => router.push('/reservations')}>
+                  My reservations
+                </Button>
+                <Button onClick={() => router.push('/')}>Find a table</Button>
+              </Space>
+            }
+          />
+        </Card>
+      </div>
     );
   }
 
