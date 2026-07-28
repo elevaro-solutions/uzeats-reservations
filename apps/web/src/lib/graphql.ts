@@ -232,8 +232,8 @@ export const UPDATE_RESERVATION_STATUS = gql`
 `;
 
 export const REQUEST_PASSWORD_RESET = gql`
-  mutation RequestPasswordReset($email: String!) {
-    requestPasswordReset(email: $email) {
+  mutation RequestPasswordReset($email: String!, $app: String) {
+    requestPasswordReset(email: $email, app: $app) {
       success
       message
     }

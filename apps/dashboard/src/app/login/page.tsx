@@ -66,6 +66,18 @@ export default function LoginPage() {
             placeholder="••••••••"
           />
         </Form.Item>
+        <div style={{ textAlign: 'right', marginBottom: 20 }}>
+          <Link
+            href="/forgot-password"
+            style={{
+              color: colors.brand[600],
+              fontSize: typography.fontSize.sm,
+              fontWeight: typography.fontWeight.medium,
+            }}
+          >
+            Forgot password?
+          </Link>
+        </div>
         <Button
           type="primary"
           htmlType="submit"

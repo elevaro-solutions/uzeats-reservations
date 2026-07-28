@@ -1799,7 +1799,7 @@ export const typeDefs = `#graphql
     verifyPhoneOtp(input: PhoneOtpVerifyInput!): AuthPayload!
     refreshToken(refreshToken: String!): AuthPayload!
     logout(refreshToken: String): Boolean!
-    requestPasswordReset(email: String!): MessagePayload!
+    requestPasswordReset(email: String!, app: String): MessagePayload!
     resetPassword(token: String!, newPassword: String!): MessagePayload!
 
     createRestaurant(input: RestaurantInput!, plan: String): Restaurant!

@@ -18,6 +18,7 @@ const envSchema = z.object({
   TWILIO_VERIFY_SERVICE_SID: z.string().optional().default(''),
   TWILIO_FROM_NUMBER: z.string().optional().default(''),
   WEB_APP_URL: z.string().default('http://localhost:3000'),
+  DASHBOARD_APP_URL: z.string().default('http://localhost:3001'),
   AUTH_DEV_OTP: z
     .string()
     .optional()
@@ -31,6 +32,7 @@ const envSchema = z.object({
   DO_SPACES_ENDPOINT: z.string().optional().default('https://nyc3.digitaloceanspaces.com'),
   DO_SPACES_BUCKET: z.string().optional().default('reservations'),
   DO_SPACES_CDN: z.string().optional().default(''),
+  SENDGRID_API_KEY: z.string().optional().default(''),
   RESEND_API_KEY: z.string().optional().default(''),
   SENDGRID_API_KEY: z.string().optional().default(''),
   EMAIL_FROM: z.string().default('noreply@reservations.local'),

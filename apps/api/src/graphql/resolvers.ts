@@ -1616,8 +1616,14 @@ export const resolvers = {
       return logout(user._id.toString(), args.refreshToken);
     },
 
-    requestPasswordReset: async (_: unknown, args: { email: string }) =>
-      requestPasswordReset(args.email),
+    requestPasswordReset: async (
+      _: unknown,
+      args: { email: string; app?: string | null },
+    ) =>
+      requestPasswordReset(
+        args.email,
+        args.app === 'dashboard' ? 'dashboard' : args.app === 'web' ? 'web' : undefined,
+      ),
 
     resetPassword: async (_: unknown, args: { token: string; newPassword: string }) =>
       resetPassword(args.token, args.newPassword),

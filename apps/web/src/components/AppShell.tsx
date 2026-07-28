@@ -33,6 +33,7 @@ import {
   MARK_NOTIFICATIONS_READ,
   MY_NOTIFICATIONS,
 } from '@/lib/graphql';
+import { getDashboardUrl } from '@/lib/urls';
 
 const { Header, Content, Footer } = Layout;
 const { Text } = Typography;
@@ -114,6 +115,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const isAuthRoute = AUTH_PATHS.some((p) => pathname.startsWith(p));
   const isHome = pathname === '/';
+  const isRestaurantMarketing = pathname.startsWith('/pricing');
+  const dashboardUrl = getDashboardUrl();
+  const signInHref = isRestaurantMarketing ? `${dashboardUrl}/login` : '/login';
+  const getStartedHref = isRestaurantMarketing ? `${dashboardUrl}/register` : '/login';
 
   if (isAuthRoute) {
     return <>{children}</>;
@@ -372,13 +377,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           selectedKeys={[
             pathname === '/' || pathname.startsWith('/restaurants')
               ? '/'
-              : pathname.startsWith('/profile')
-                ? '/profile'
-                : pathname.startsWith('/reservations')
-                  ? '/reservations'
-                  : pathname.startsWith('/waitlist')
-                    ? '/waitlist'
-                    : pathname,
+              : pathname.startsWith('/pricing')
+                ? '/pricing'
+                : pathname.startsWith('/profile')
+                  ? '/profile'
+                  : pathname.startsWith('/reservations')
+                    ? '/reservations'
+                    : pathname.startsWith('/waitlist')
+                      ? '/waitlist'
+                      : pathname,
           ]}
           style={{ flex: 1, border: 'none', minWidth: 0, background: 'transparent' }}
           items={navItems}
@@ -460,13 +467,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </>
           ) : (
             <>
-              <Button type="text" className="rt-site-header__sign-in" onClick={() => router.push('/login')}>
+              <Button type="text" className="rt-site-header__sign-in" href={signInHref}>
                 Sign in
               </Button>
               <Button
                 type="primary"
                 className="rt-site-header__cta"
-                onClick={() => router.push('/login')}
+                href={getStartedHref}
                 style={{ borderRadius: radii.pill, paddingInline: 18 }}
               >
                 Get started
@@ -520,7 +527,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 ) : (
                   <>
                     <Link href="/pricing">For restaurants</Link>
-                    <Link href="/login">Sign in</Link>
+                    <a href={signInHref}>Sign in</a>
                   </>
                 )}
               </div>

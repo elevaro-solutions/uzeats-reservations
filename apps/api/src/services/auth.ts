@@ -244,17 +244,30 @@ export async function logout(userId: string, refreshToken?: string) {
   return true;
 }
 
-function passwordResetBaseUrl() {
+function passwordResetBaseUrl(app: 'web' | 'dashboard') {
+  if (app === 'dashboard') {
+    return (
+      env.DASHBOARD_APP_URL ||
+      env.CORS_ORIGINS.split(',')[1]?.trim() ||
+      'http://localhost:3001'
+    );
+  }
   return env.WEB_APP_URL || env.CORS_ORIGINS.split(',')[0]?.trim() || 'http://localhost:3000';
 }
 
-async function createPasswordResetToken(userId: string) {
+const PARTNER_ROLES = new Set<UserRole>(['restaurant_owner', 'staff', 'admin']);
+
+function passwordResetAppForRole(role: UserRole): 'web' | 'dashboard' {
+  return PARTNER_ROLES.has(role) ? 'dashboard' : 'web';
+}
+
+async function createPasswordResetToken(userId: string, app: 'web' | 'dashboard') {
   const token = crypto.randomUUID();
   await User.findByIdAndUpdate(userId, {
     passwordResetToken: token,
     passwordResetExpires: new Date(Date.now() + 60 * 60 * 1000),
   });
-  return `${passwordResetBaseUrl()}/reset-password?token=${token}`;
+  return `${passwordResetBaseUrl(app)}/reset-password?token=${token}`;
 }
 
 async function sendPasswordResetEmail(
@@ -281,13 +294,17 @@ async function sendPasswordResetEmail(
   });
 }
 
-export async function requestPasswordReset(email: string) {
+export async function requestPasswordReset(email: string, app?: 'web' | 'dashboard') {
   const user = await User.findOne({ email: email.toLowerCase() });
   if (!user) {
     return { success: true, message: 'If that email exists, a reset link has been sent.' };
   }
+  if (!user.email) {
+    return { success: true, message: 'If that email exists, a reset link has been sent.' };
+  }
 
-  const resetUrl = await createPasswordResetToken(user._id.toString());
+  const resetApp = app ?? passwordResetAppForRole(user.role);
+  const resetUrl = await createPasswordResetToken(user._id.toString(), resetApp);
   await sendPasswordResetEmail(user, resetUrl);
 
   return { success: true, message: 'If that email exists, a reset link has been sent.' };
@@ -302,7 +319,8 @@ export async function adminCreatePasswordReset(input: {
   if (!user) throw new Error('User not found');
   if (!user.email) throw new Error('User has no email address');
 
-  const resetUrl = await createPasswordResetToken(user._id.toString());
+  const resetApp = passwordResetAppForRole(user.role);
+  const resetUrl = await createPasswordResetToken(user._id.toString(), resetApp);
   let emailed = false;
 
   if (input.sendEmail !== false) {

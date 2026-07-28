@@ -21,6 +21,8 @@ node apps/api/dist/index.js
 
 Env: copy from `.env.example`. Set `NODE_ENV=production`, real JWT secrets, Mongo/Redis URLs, Stripe webhook secret.
 
+Set `WEB_APP_URL` and `DASHBOARD_APP_URL` on the API for password-reset links. For transactional email, prefer `SENDGRID_API_KEY` (falls back to `RESEND_API_KEY` when unset).
+
 ## Web / Dashboard
 
 ```
@@ -61,3 +63,5 @@ Events: `payment_intent.amount_capturable_updated`, `payment_intent.succeeded`
 Set `NEXT_PUBLIC_DASHBOARD_URL` and `NEXT_PUBLIC_WEB_URL` on the dashboard build so Settings and onboarding can generate correct booking links and widget embed snippets.
 
 Partners use `/onboarding` for the setup checklist (profile, tables/shifts, approval). Embed code and booking links are on **Booking widget** (`/booking-widget`); widget theme colors remain under Settings.
+
+Password reset: `/forgot-password` and `/reset-password` on the dashboard. The API sends templated emails; partners receive links to `DASHBOARD_APP_URL`, diners to `WEB_APP_URL`.

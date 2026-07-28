@@ -78,8 +78,8 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Platform + per-restaurant loyalty (tiers, referrals, expiry) with gift cards and promotion codes
 - Reviews after completed visits
 - Menus + DO Spaces presigned uploads (stubbed without keys)
-- Notifications: email (Resend), Telegram bot, web/Expo push, in-app inbox + channel prefs
-- Auth: email/password, Google OAuth, Twilio phone OTP
+- Notifications: email (SendGrid or Resend), Telegram bot, web/Expo push, in-app inbox + channel prefs
+- Auth: email/password (forgot/reset on web and partner dashboard), Google OAuth, Twilio phone OTP
 - Partner Settings hub, notifications prefs, multi-restaurant selector, self-registration, and onboarding checklist
 - Shareable booking links (`/r/:slug`) and **Booking widget** page for embed script copy
 - Owner phone / walk-in bookings, reservation edit, and reservation-scoped messaging
@@ -101,7 +101,9 @@ JWT_ACCESS_SECRET=...
 JWT_REFRESH_SECRET=...
 ```
 
-Optional integrations: `STRIPE_*`, `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `RESEND_API_KEY`, `TELEGRAM_BOT_TOKEN` (+ `API_PUBLIC_URL` / `TELEGRAM_WEBHOOK_SECRET` in production), `DO_SPACES_*`, `VAPID_*`.
+Optional integrations: `STRIPE_*`, `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `SENDGRID_API_KEY` (or `RESEND_API_KEY`), `TELEGRAM_BOT_TOKEN` (+ `API_PUBLIC_URL` / `TELEGRAM_WEBHOOK_SECRET` in production), `DO_SPACES_*`, `VAPID_*`.
+
+For password reset emails, set `WEB_APP_URL` and `DASHBOARD_APP_URL` on the API so reset links land on the correct app.
 
 ## Deploy notes (DigitalOcean)
 

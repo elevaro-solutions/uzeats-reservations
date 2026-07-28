@@ -4,6 +4,26 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.10.0] — 2026-07-28
+
+### Added
+
+- Partner dashboard forgot/reset password flows (`/forgot-password`, `/reset-password`)
+- SendGrid email delivery (`SENDGRID_API_KEY`) with Resend as fallback
+- Password reset emails rendered from the `password_reset` email template (HTML + text)
+- `requestPasswordReset` `app` argument routes links to diner web or partner dashboard
+- API E2E tests for password reset request and token validation
+
+### Changed
+
+- Reset links use `WEB_APP_URL` / `DASHBOARD_APP_URL`; partners default to dashboard by role
+- Pricing page Sign in / Get started point to the partner dashboard
+- `sendEmail` supports HTML bodies; admin-initiated resets use the same template
+
+### Docs
+
+- `.env.example`, README, and deploy guide document SendGrid, app URLs, and password reset
+
 ## [0.9.0] — 2026-07-23
 
 ### Added

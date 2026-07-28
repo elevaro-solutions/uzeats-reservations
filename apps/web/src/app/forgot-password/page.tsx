@@ -15,7 +15,7 @@ export default function ForgotPasswordPage() {
 
   const onFinish = async (values: { email: string }) => {
     try {
-      await requestReset({ variables: { email: values.email } });
+      await requestReset({ variables: { email: values.email, app: 'web' } });
     } catch {
       // Always show the same message to avoid email enumeration
     }

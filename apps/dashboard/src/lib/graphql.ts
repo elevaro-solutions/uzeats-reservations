@@ -894,6 +894,24 @@ export const ADMIN_SEND_PASSWORD_RESET = gql`
   }
 `;
 
+export const REQUEST_PASSWORD_RESET = gql`
+  mutation RequestPasswordReset($email: String!, $app: String) {
+    requestPasswordReset(email: $email, app: $app) {
+      success
+      message
+    }
+  }
+`;
+
+export const RESET_PASSWORD = gql`
+  mutation ResetPassword($token: String!, $newPassword: String!) {
+    resetPassword(token: $token, newPassword: $newPassword) {
+      success
+      message
+    }
+  }
+`;
+
 export const ADMIN_INVOICES = gql`
   query AdminInvoices($status: InvoiceStatus, $search: String, $limit: Int, $offset: Int) {
     adminInvoices(status: $status, search: $search, limit: $limit, offset: $offset) {

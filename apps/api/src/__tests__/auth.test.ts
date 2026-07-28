@@ -184,4 +184,59 @@ describe('Authentication (E2E)', () => {
       expect(res.body.data.me.firstName).toBe('Me');
     });
   });
+
+  describe('Password reset', () => {
+    it('should request a password reset and complete reset with token', async () => {
+      await registerUser(agent, {
+        email: 'reset@test.com',
+        password: 'OldPassword1!',
+        firstName: 'Reset',
+        lastName: 'User',
+      });
+
+      const requestRes = await graphqlRequest(
+        agent,
+        `mutation RequestPasswordReset($email: String!, $app: String) {
+          requestPasswordReset(email: $email, app: $app) { success message }
+        }`,
+        { email: 'reset@test.com', app: 'web' },
+      );
+
+      expect(requestRes.body.errors).toBeUndefined();
+      expect(requestRes.body.data.requestPasswordReset.success).toBe(true);
+
+      const user = await mongoose.connection.db!
+        .collection('users')
+        .findOne({ email: 'reset@test.com' });
+      expect(user?.passwordResetToken).toBeTruthy();
+      expect(user?.passwordResetExpires).toBeTruthy();
+
+      const resetRes = await graphqlRequest(
+        agent,
+        `mutation ResetPassword($token: String!, $newPassword: String!) {
+          resetPassword(token: $token, newPassword: $newPassword) { success message }
+        }`,
+        { token: user!.passwordResetToken, newPassword: 'NewPassword1!' },
+      );
+
+      expect(resetRes.body.errors).toBeUndefined();
+      expect(resetRes.body.data.resetPassword.success).toBe(true);
+
+      const loginRes = await loginUser(agent, 'reset@test.com', 'NewPassword1!');
+      expect(loginRes.accessToken).toBeTruthy();
+    });
+
+    it('should reject reset with invalid token', async () => {
+      const res = await graphqlRequest(
+        agent,
+        `mutation ResetPassword($token: String!, $newPassword: String!) {
+          resetPassword(token: $token, newPassword: $newPassword) { success message }
+        }`,
+        { token: 'invalid-token', newPassword: 'NewPassword1!' },
+      );
+
+      expect(res.body.errors).toBeDefined();
+      expect(res.body.errors[0].message).toMatch(/invalid or expired/i);
+    });
+  });
 });
