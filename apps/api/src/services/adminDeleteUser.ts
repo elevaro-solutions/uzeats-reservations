@@ -261,6 +261,11 @@ export async function adminDeleteUser(input: {
     throw new Error('You cannot delete your own account');
   }
 
+  if (target.role === 'super_admin') {
+    const superAdminCount = await User.countDocuments({ role: 'super_admin' });
+    if (superAdminCount <= 1) throw new Error('Cannot delete the last super admin account');
+  }
+
   if (target.role === 'admin') {
     const adminCount = await User.countDocuments({ role: 'admin' });
     if (adminCount <= 1) throw new Error('Cannot delete the last admin account');
@@ -299,5 +304,24 @@ export async function adminDeleteUser(input: {
     message: parts.length
       ? `Deleted user and related records (${parts.join(', ')})`
       : 'Deleted user',
+  };
+}
+
+export async function adminDeleteRestaurant(restaurantId: string) {
+  const restaurant = await Restaurant.findById(restaurantId);
+  if (!restaurant) throw new Error('Restaurant not found');
+
+  const deletedCounts = await deleteRestaurantCascade([restaurant._id]);
+  const parts = Object.entries(deletedCounts)
+    .filter(([, n]) => n > 0)
+    .map(([k, n]) => `${k}=${n}`);
+
+  return {
+    success: true,
+    deletedRestaurantId: restaurantId,
+    message: parts.length
+      ? `Deleted restaurant and related records (${parts.join(', ')})`
+      : 'Deleted restaurant',
+    deletedCounts,
   };
 }

@@ -34,6 +34,7 @@ import {
   typography,
 } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
+import { isPlatformAdmin } from '@/lib/roles';
 import { MY_RESTAURANTS, MY_RESTAURANT_LOCATIONS_META, CREATE_RESTAURANT, PLANS } from '@/lib/graphql';
 import { addressSelectionToFields } from '@/lib/address';
 import {
@@ -263,7 +264,7 @@ export default function OverviewPage() {
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
-    if (!authLoading && user?.role === 'admin') router.replace('/admin');
+    if (!authLoading && user && isPlatformAdmin(user.role)) router.replace('/admin');
   }, [authLoading, user, router]);
 
   const restaurants: OwnerRestaurant[] = data?.myRestaurants ?? [];

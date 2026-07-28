@@ -64,7 +64,7 @@ Password for all: `Password123!`
 |---|---|
 | `diner@tablevera.local` | Diner (750 loyalty points) |
 | `owner@tablevera.local` | Restaurant owner |
-| `admin@tablevera.local` | Platform admin |
+| `admin@tablevera.local` | Super admin (platform operator) |
 
 Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 
@@ -83,7 +83,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Partner Settings hub, notifications prefs, multi-restaurant selector, self-registration, and onboarding checklist
 - Shareable booking links (`/r/:slug`) and **Booking widget** page for embed script copy
 - Owner phone / walk-in bookings, reservation edit, and reservation-scoped messaging
-- Platform admin: users, restaurants, invoices, revenue, support, moderation, templates, config, and annual billing discounts
+- Platform admin: users, restaurants (create/edit/delete), invoices, revenue, support, moderation, templates, config, and annual billing discounts
 - Embeddable booking widget with per-restaurant theme
 
 ## Design system
@@ -126,5 +126,7 @@ pnpm build        # turbo build
 pnpm db:up        # docker compose up
 pnpm db:down      # docker compose down
 pnpm seed         # seed restaurants, tables, shifts, users (keeps admins)
-pnpm seed -- --clear  # delete seed data only; admin accounts untouched
+pnpm seed -- --clear  # delete seed data only; admin/super_admin accounts untouched
 ```
+
+**Roles:** `super_admin` can permanently delete users/restaurants and wipe seed data. Regular `admin` has read/write access to most platform ops but cannot modify super admins or perform destructive deletes.

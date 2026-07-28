@@ -255,7 +255,7 @@ function passwordResetBaseUrl(app: 'web' | 'dashboard') {
   return env.WEB_APP_URL || env.CORS_ORIGINS.split(',')[0]?.trim() || 'http://localhost:3000';
 }
 
-const PARTNER_ROLES = new Set<UserRole>(['restaurant_owner', 'staff', 'admin']);
+const PARTNER_ROLES = new Set<UserRole>(['restaurant_owner', 'staff', 'admin', 'super_admin']);
 
 function passwordResetAppForRole(role: UserRole): 'web' | 'dashboard' {
   return PARTNER_ROLES.has(role) ? 'dashboard' : 'web';

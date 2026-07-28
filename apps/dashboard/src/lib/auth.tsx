@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { gql } from '@apollo/client';
 import { useMutation } from '@/lib/apollo-hooks';
+import { isPlatformAdmin } from '@/lib/roles';
 
 const LOGIN = gql`
   mutation Login($input: LoginInput!) {
@@ -114,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ) => {
     const currentAccess = localStorage.getItem('dashAccessToken');
     const currentRefresh = localStorage.getItem('dashRefreshToken');
-    if (currentAccess && user && user.role === 'admin') {
+    if (currentAccess && user && isPlatformAdmin(user.role)) {
       localStorage.setItem(ADMIN_BACKUP_ACCESS, currentAccess);
       if (currentRefresh) localStorage.setItem(ADMIN_BACKUP_REFRESH, currentRefresh);
       localStorage.setItem(ADMIN_BACKUP_USER, JSON.stringify(user));

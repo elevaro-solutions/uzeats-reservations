@@ -19,6 +19,7 @@ import {
 import { PageHeader, spacing } from '@reservations/ui';
 import { CLEAR_SEED_DATA, PLATFORM_CONFIG, UPDATE_PLATFORM_CONFIG } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
+import { isSuperAdmin } from '@/lib/roles';
 
 const { Paragraph, Text } = Typography;
 
@@ -72,6 +73,8 @@ const CONFIG_SECTIONS = [
   },
 ] as const;
 
+const NON_DANGER_SECTIONS = CONFIG_SECTIONS.filter((s) => s.key !== 'danger');
+
 type ConfigSectionKey = (typeof CONFIG_SECTIONS)[number]['key'];
 
 const ROLE_OPTIONS = [
@@ -82,7 +85,8 @@ const ROLE_OPTIONS = [
 ];
 
 export default function AdminConfigPage() {
-  const { ready } = useRequireAdmin();
+  const { ready, user } = useRequireAdmin();
+  const canClearSeed = user ? isSuperAdmin(user.role) : false;
   const { data, loading, refetch } = useQuery(PLATFORM_CONFIG, { skip: !ready });
   const [updateConfig, { loading: saving }] = useMutation(UPDATE_PLATFORM_CONFIG);
   const [clearSeed, { loading: clearing }] = useMutation(CLEAR_SEED_DATA);
@@ -90,12 +94,19 @@ export default function AdminConfigPage() {
   const [activeKey, setActiveKey] = useState<ConfigSectionKey>('support');
   const [form] = Form.useForm();
 
-  const activeSection = CONFIG_SECTIONS.find((s) => s.key === activeKey) ?? CONFIG_SECTIONS[0];
+  const visibleSections = canClearSeed ? CONFIG_SECTIONS : NON_DANGER_SECTIONS;
+  const activeSection = visibleSections.find((s) => s.key === activeKey) ?? visibleSections[0];
 
   useEffect(() => {
     if (!data?.platformConfig) return;
     form.setFieldsValue(data.platformConfig);
   }, [data, form]);
+
+  useEffect(() => {
+    if (!canClearSeed && activeKey === 'danger') {
+      setActiveKey('support');
+    }
+  }, [canClearSeed, activeKey]);
 
   if (!ready) return null;
 
@@ -263,8 +274,8 @@ export default function AdminConfigPage() {
             <div>
               <Text strong>Clear seed / demo data</Text>
               <Paragraph type="secondary" style={{ marginBottom: 0, marginTop: 4 }}>
-                Deletes restaurants, reservations, non-admin users, and related demo records.
-                Platform admin accounts are left untouched.
+                Deletes restaurants, reservations, non-platform-admin users, and related demo
+                records. Super admin accounts are left untouched.
               </Paragraph>
             </div>
             <Button danger loading={clearing} onClick={() => setClearConfirmOpen(true)}>
@@ -288,7 +299,7 @@ export default function AdminConfigPage() {
         <Col xs={24} md={8}>
           <Card title="Configuration" loading={loading}>
             <Space orientation="vertical" style={{ width: '100%' }}>
-              {CONFIG_SECTIONS.map((section) => (
+              {visibleSections.map((section) => (
                 <Button
                   key={section.key}
                   block
@@ -340,7 +351,7 @@ export default function AdminConfigPage() {
       >
         <Paragraph>
           This permanently deletes restaurants, bookings, reviews, subscriptions, and all
-          non-admin users. Admin accounts stay signed in and unchanged.
+          non-platform-admin users. Admin accounts stay signed in and unchanged.
         </Paragraph>
         <Paragraph type="secondary" style={{ marginBottom: 0 }}>
           Platform configuration and email templates are preserved. This cannot be undone

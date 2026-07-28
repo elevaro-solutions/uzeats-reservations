@@ -9,6 +9,7 @@ import { SettingOutlined } from '@ant-design/icons';
 import { BookingSharePanel } from '@/components/BookingSharePanel';
 import { EmptyState, PageHeader, colors, radii, spacing } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
+import { isPlatformAdmin } from '@/lib/roles';
 import { MY_RESTAURANTS, RESTAURANT_SETTINGS } from '@/lib/graphql';
 import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
 
@@ -33,7 +34,7 @@ export default function BookingWidgetPage() {
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
-    if (!authLoading && user?.role === 'admin') router.replace('/admin');
+    if (!authLoading && user && isPlatformAdmin(user.role)) router.replace('/admin');
   }, [authLoading, user, router]);
 
   if (authLoading || dataLoading || settingsLoading) {

@@ -1,4 +1,4 @@
-export const USER_ROLES = ['diner', 'restaurant_owner', 'staff', 'admin'] as const;
+export const USER_ROLES = ['diner', 'restaurant_owner', 'staff', 'admin', 'super_admin'] as const;
 
 export const RESTAURANT_STATUSES = ['pending', 'approved', 'rejected', 'suspended'] as const;
 

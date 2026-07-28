@@ -3,6 +3,8 @@ import {
   SUPPORT_TICKET_PRIORITIES,
   SUPPORT_TICKET_STATUSES,
   SUPPORT_TICKET_SUBJECTS,
+  isPlatformAdmin,
+  type UserRole,
 } from '@reservations/shared';
 
 export const STATUS_COLORS: Record<string, string> = {
@@ -102,7 +104,7 @@ export function canManageOwnedItem(opts: {
   ownerId?: string | null;
 }) {
   if (!opts.currentUserId) return false;
-  if (opts.currentUserRole === 'admin') return true;
+  if (opts.currentUserRole && isPlatformAdmin(opts.currentUserRole as UserRole)) return true;
   return Boolean(opts.ownerId && opts.ownerId === opts.currentUserId);
 }
 

@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { LOYALTY, CANCELLATION_REFUND_HOURS, resolveRedeemPoints, RESTAURANT_LOYALTY, resolveRestaurantRedeemPoints } from '@reservations/shared';
+import { LOYALTY, CANCELLATION_REFUND_HOURS, resolveRedeemPoints, RESTAURANT_LOYALTY, resolveRestaurantRedeemPoints, isPlatformAdmin } from '@reservations/shared';
 import { ConflictError } from '../lib/errors.js';
 import { Reservation } from '../models/Reservation.js';
 import { Restaurant } from '../models/Restaurant.js';
@@ -382,7 +382,7 @@ export async function updateReservationStatus(
     (restaurant.ownerId.equals(actorId) ||
       user?.restaurantIds?.some((id) => id.equals(restaurant._id)));
   const isDiner = reservation.dinerId.equals(actorId);
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user ? isPlatformAdmin(user.role) : false;
 
   if (!isOwner && !isDiner && !isAdmin) throw new Error('Forbidden');
 
@@ -758,7 +758,7 @@ export async function updateReservationDetails(
     restaurant &&
     (restaurant.ownerId.equals(actorId) ||
       user?.restaurantIds?.some((id) => id.equals(restaurant._id)));
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user ? isPlatformAdmin(user.role) : false;
   if (!isOwner && !isAdmin) throw new Error('Forbidden');
 
   if (!EDITABLE_STATUSES.has(reservation.status)) {
@@ -856,7 +856,7 @@ export async function deleteReservation(reservationId: string, actorId: string) 
     restaurant &&
     (restaurant.ownerId.equals(actorId) ||
       user?.restaurantIds?.some((id) => id.equals(restaurant._id)));
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user ? isPlatformAdmin(user.role) : false;
   if (!isOwner && !isAdmin) throw new Error('Forbidden');
 
   if (reservation.status === 'pending' || reservation.status === 'confirmed') {

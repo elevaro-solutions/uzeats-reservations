@@ -86,9 +86,18 @@ export async function clearSeedData(): Promise<ClearSeedDataResult> {
   await bump(counts, 'auditLogs', await AuditLog.deleteMany({}));
   await bump(counts, 'restaurants', await Restaurant.deleteMany({}));
 
-  const preservedAdminCount = await User.countDocuments({ role: 'admin' });
-  await bump(counts, 'users', await User.deleteMany({ role: { $ne: 'admin' } }));
-  await User.updateMany({ role: 'admin' }, { $set: { restaurantIds: [] } });
+  const preservedAdminCount = await User.countDocuments({
+    role: { $in: ['admin', 'super_admin'] },
+  });
+  await bump(
+    counts,
+    'users',
+    await User.deleteMany({ role: { $nin: ['admin', 'super_admin'] } }),
+  );
+  await User.updateMany(
+    { role: { $in: ['admin', 'super_admin'] } },
+    { $set: { restaurantIds: [] } },
+  );
 
   const parts = Object.entries(counts)
     .filter(([, n]) => n > 0)

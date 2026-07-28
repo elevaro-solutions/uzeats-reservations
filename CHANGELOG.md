@@ -4,6 +4,27 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.11.0] — 2026-07-28
+
+### Added
+
+- `super_admin` role with elevated permissions (user/restaurant delete, seed wipe, role assignment guards)
+- Shared role helpers (`isPlatformAdmin`, `canEditUser`, `assertCanAssignRole`) in `@reservations/shared`
+- Admin restaurant create flow, expanded edit (owner, plan, widget theme, ops flags), and team assignment UI
+- `adminDeleteRestaurant` and `adminCreateRestaurant` GraphQL mutations
+- `hasSuperAdmin` flag on admin user list; restaurant `subscription` on admin queries
+
+### Changed
+
+- Platform admin access includes `admin` and `super_admin`; destructive ops require `super_admin`
+- Seed creates/upgrades demo account to super admin; `clearSeedData` preserves both admin roles
+- Admin users page hides delete/edit actions for super admins unless actor is super admin
+- Impersonation allowed for platform admins (not only legacy `admin` role)
+
+### Docs
+
+- README demo account table and deploy notes updated for super admin role
+
 ## [0.10.0] — 2026-07-28
 
 ### Added

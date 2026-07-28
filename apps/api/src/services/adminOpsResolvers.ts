@@ -1,12 +1,14 @@
-import { restaurantInputSchema } from '@reservations/shared';
+import { restaurantInputSchema, assertCanEditUser, type UserRole } from '@reservations/shared';
 import { Review } from '../models/Review.js';
 import { Message } from '../models/Message.js';
 import { User } from '../models/User.js';
 import { Invoice } from '../models/Invoice.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { Subscription } from '../models/Subscription.js';
-import { requireAdmin, type GraphQLContext } from '../graphql/context.js';
-import { mapRestaurant, mapUser } from '../graphql/mappers.js';
+import { requireAdmin, requireSuperAdmin, type GraphQLContext } from '../graphql/context.js';
+import { mapRestaurant, mapUser, slugify } from '../graphql/mappers.js';
+import { provisionDefaultRestaurantSetup } from './restaurantSetup.js';
+import { createRestaurantSubscription } from './restaurantSubscription.js';
 import { logAudit } from './audit.js';
 import { adjustPoints } from './loyalty.js';
 import {
@@ -41,9 +43,11 @@ import { syncStripeInvoice } from './stripeSync.js';
 import { getPlatformRevenueReport } from './invoices.js';
 import {
   adminDeleteUser,
+  adminDeleteRestaurant,
   requestAdminDeleteUserCode,
 } from './adminDeleteUser.js';
 import { clearSeedData as wipeSeedData } from './seedData.js';
+import { assertCanAssignRole } from './roleAccess.js';
 
 function csvEscape(value: unknown) {
   const s = value == null ? '' : String(value);
@@ -200,6 +204,9 @@ export const adminOpsMutation = {
     ctx: GraphQLContext,
   ) => {
     const admin = requireAdmin(ctx);
+    const target = await User.findById(args.userId);
+    if (!target) throw new Error('User not found');
+    assertCanEditUser(admin.role, target.role);
     const user = await assignUserToRestaurants({
       userId: args.userId,
       restaurantIds: args.restaurantIds,
@@ -221,6 +228,9 @@ export const adminOpsMutation = {
     ctx: GraphQLContext,
   ) => {
     const admin = requireAdmin(ctx);
+    const target = await User.findById(args.userId);
+    if (!target) throw new Error('User not found');
+    assertCanEditUser(admin.role, target.role);
     const user = await removeUserFromRestaurant(args.userId, args.restaurantId);
     await logAudit({
       actorId: admin._id.toString(),
@@ -253,6 +263,7 @@ export const adminOpsMutation = {
     const admin = requireAdmin(ctx);
     const target = await User.findById(args.userId);
     if (!target) throw new Error('User not found');
+    assertCanEditUser(admin.role, target.role);
 
     const updates: Record<string, unknown> = {};
     if (args.input.firstName !== undefined) updates.firstName = args.input.firstName.trim();
@@ -273,8 +284,9 @@ export const adminOpsMutation = {
     if (args.input.emailVerified !== undefined) updates.emailVerified = args.input.emailVerified;
     if (args.input.phoneVerified !== undefined) updates.phoneVerified = args.input.phoneVerified;
     if (args.input.role !== undefined) {
-      const validRoles = ['diner', 'restaurant_owner', 'staff', 'admin'];
+      const validRoles = ['diner', 'restaurant_owner', 'staff', 'admin', 'super_admin'];
       if (!validRoles.includes(args.input.role)) throw new Error('Invalid role');
+      await assertCanAssignRole(admin.role, args.input.role);
       updates.role = args.input.role;
     }
     if (args.input.restaurantIds !== undefined) {
@@ -317,7 +329,7 @@ export const adminOpsMutation = {
     args: { userId: string },
     ctx: GraphQLContext,
   ) => {
-    const admin = requireAdmin(ctx);
+    const admin = requireSuperAdmin(ctx);
     return requestAdminDeleteUserCode({
       adminId: admin._id.toString(),
       userId: args.userId,
@@ -329,7 +341,7 @@ export const adminOpsMutation = {
     args: { userId: string; code?: string | null },
     ctx: GraphQLContext,
   ) => {
-    const admin = requireAdmin(ctx);
+    const admin = requireSuperAdmin(ctx);
     return adminDeleteUser({
       adminId: admin._id.toString(),
       userId: args.userId,
@@ -337,8 +349,25 @@ export const adminOpsMutation = {
     });
   },
 
+  adminDeleteRestaurant: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    const admin = requireSuperAdmin(ctx);
+    const result = await adminDeleteRestaurant(args.id);
+    await logAudit({
+      actorId: admin._id.toString(),
+      action: 'adminDeleteRestaurant',
+      resource: 'Restaurant',
+      resourceId: args.id,
+      details: { deletedCounts: result.deletedCounts },
+    });
+    return {
+      success: result.success,
+      message: result.message,
+      deletedRestaurantId: result.deletedRestaurantId,
+    };
+  },
+
   clearSeedData: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
-    const admin = requireAdmin(ctx);
+    const admin = requireSuperAdmin(ctx);
     const result = await wipeSeedData();
     await logAudit({
       actorId: admin._id.toString(),
@@ -357,6 +386,73 @@ export const adminOpsMutation = {
     };
   },
 
+  adminCreateRestaurant: async (
+    _: unknown,
+    args: {
+      input: unknown;
+      ownerId: string;
+      plan?: string | null;
+      status?: string | null;
+    },
+    ctx: GraphQLContext,
+  ) => {
+    const admin = requireAdmin(ctx);
+    const input = restaurantInputSchema.parse(args.input);
+    const owner = await User.findById(args.ownerId);
+    if (!owner) throw new Error('Owner user not found');
+
+    const status = args.status ?? 'approved';
+    const doc = await Restaurant.create({
+      ...input,
+      slug: slugify(input.name),
+      location: { type: 'Point', coordinates: [input.location.lng, input.location.lat] },
+      ownerId: owner._id,
+      status,
+    });
+
+    await User.findByIdAndUpdate(owner._id, {
+      $addToSet: { restaurantIds: doc._id },
+      ...(owner.role === 'diner' ? { role: 'restaurant_owner' } : {}),
+    });
+
+    if (status === 'approved') {
+      await provisionDefaultRestaurantSetup(doc._id);
+    }
+
+    if (args.plan) {
+      try {
+        await createRestaurantSubscription({
+          restaurantId: doc._id.toString(),
+          plan: args.plan,
+          customerEmail: owner.email ?? undefined,
+          customerName: doc.name,
+          actorId: admin._id.toString(),
+        });
+      } catch (err) {
+        await Restaurant.findByIdAndDelete(doc._id);
+        await User.findByIdAndUpdate(owner._id, {
+          $pull: { restaurantIds: doc._id },
+        });
+        throw err;
+      }
+    }
+
+    await logAudit({
+      actorId: admin._id.toString(),
+      action: 'adminCreateRestaurant',
+      resource: 'Restaurant',
+      resourceId: doc._id.toString(),
+      details: {
+        name: input.name,
+        ownerId: args.ownerId,
+        plan: args.plan,
+        status,
+      },
+    });
+
+    return mapRestaurant(doc);
+  },
+
   adminUpdateRestaurant: async (
     _: unknown,
     args: {
@@ -365,6 +461,10 @@ export const adminOpsMutation = {
       featured?: boolean;
       featuredUntil?: string | Date | null;
       ownerId?: string;
+      spendAlertThresholdCents?: number;
+      useSmartAssign?: boolean;
+      posEnabled?: boolean;
+      widgetTheme?: { primaryColor?: string; buttonText?: string; showReviews?: boolean };
     },
     ctx: GraphQLContext,
   ) => {
@@ -387,6 +487,22 @@ export const adminOpsMutation = {
       $set.featuredUntil = args.featuredUntil ? new Date(args.featuredUntil) : null;
     }
     if (args.ownerId) $set.ownerId = args.ownerId;
+    if (args.spendAlertThresholdCents !== undefined) {
+      $set.spendAlertThresholdCents = args.spendAlertThresholdCents;
+    }
+    if (args.useSmartAssign !== undefined) $set.useSmartAssign = args.useSmartAssign;
+    if (args.posEnabled !== undefined) $set.posEnabled = args.posEnabled;
+    if (args.widgetTheme) {
+      if (args.widgetTheme.primaryColor != null) {
+        $set['widgetTheme.primaryColor'] = args.widgetTheme.primaryColor;
+      }
+      if (args.widgetTheme.buttonText != null) {
+        $set['widgetTheme.buttonText'] = args.widgetTheme.buttonText;
+      }
+      if (args.widgetTheme.showReviews != null) {
+        $set['widgetTheme.showReviews'] = args.widgetTheme.showReviews;
+      }
+    }
 
     const doc = await Restaurant.findByIdAndUpdate(args.id, { $set }, { new: true });
     if (!doc) throw new Error('Restaurant not found');

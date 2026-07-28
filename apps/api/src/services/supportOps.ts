@@ -1,4 +1,4 @@
-import { SUPPORT_TICKET_SUBJECTS } from '@reservations/shared';
+import { SUPPORT_TICKET_SUBJECTS, isPlatformAdmin, type UserRole } from '@reservations/shared';
 import { SupportTicket } from '../models/SupportTicket.js';
 import { User } from '../models/User.js';
 import { Restaurant } from '../models/Restaurant.js';
@@ -441,7 +441,7 @@ function assertCanManageOwnedResource(opts: {
   ownerId: string;
   resource: string;
 }) {
-  if (opts.actorRole === 'admin') return;
+  if (isPlatformAdmin(opts.actorRole as UserRole)) return;
   if (opts.actorId === opts.ownerId) return;
   throw new Error(`Only an admin or the ${opts.resource} owner can perform this action`);
 }

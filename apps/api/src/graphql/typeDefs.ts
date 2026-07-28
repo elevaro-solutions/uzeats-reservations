@@ -1,7 +1,7 @@
 export const typeDefs = `#graphql
   scalar DateTime
 
-  enum UserRole { diner restaurant_owner staff admin }
+  enum UserRole { diner restaurant_owner staff admin super_admin }
   enum RestaurantStatus { pending approved rejected suspended }
   enum ReservationStatus { pending confirmed seated completed cancelled no_show }
   enum Occasion { none birthday anniversary business date celebration other }
@@ -118,6 +118,7 @@ export const typeDefs = `#graphql
     loyaltyPointsPerVisit: Int!
     loyaltyMinRedeemPoints: Int!
     widgetTheme: WidgetTheme!
+    subscription: SubscriptionType
     tables: [Table!]!
     shifts: [Shift!]!
     menu: Menu
@@ -407,6 +408,7 @@ export const typeDefs = `#graphql
   type UserConnection {
     items: [User!]!
     total: Int!
+    hasSuperAdmin: Boolean!
   }
 
   type AuditLogConnection {
@@ -687,6 +689,12 @@ export const typeDefs = `#graphql
     success: Boolean!
     message: String!
     preservedAdminCount: Int!
+  }
+
+  type AdminDeleteRestaurantPayload {
+    success: Boolean!
+    message: String!
+    deletedRestaurantId: ID!
   }
 
   input PlanPackageInput {
@@ -1832,8 +1840,25 @@ export const typeDefs = `#graphql
     adminUpdateUser(userId: ID!, input: AdminUserInput!): User!
     requestAdminDeleteUserCode(userId: ID!): AdminDeleteUserCodePayload!
     adminDeleteUser(userId: ID!, code: String): AdminDeleteUserPayload!
+    adminDeleteRestaurant(id: ID!): AdminDeleteRestaurantPayload!
     clearSeedData: ClearSeedDataPayload!
-    adminUpdateRestaurant(id: ID!, input: RestaurantInput!, featured: Boolean, featuredUntil: DateTime, ownerId: ID): Restaurant!
+    adminCreateRestaurant(
+      input: RestaurantInput!
+      ownerId: ID!
+      plan: String
+      status: RestaurantStatus
+    ): Restaurant!
+    adminUpdateRestaurant(
+      id: ID!
+      input: RestaurantInput!
+      featured: Boolean
+      featuredUntil: DateTime
+      ownerId: ID
+      spendAlertThresholdCents: Int
+      useSmartAssign: Boolean
+      posEnabled: Boolean
+      widgetTheme: WidgetThemeInput
+    ): Restaurant!
     adminSendPasswordReset(userId: ID!, sendEmail: Boolean): PasswordResetLinkPayload!
     generateInvoices(period: String!): GenerateInvoicesResult!
     setInvoiceStatus(id: ID!, status: InvoiceStatus!): Invoice!

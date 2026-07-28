@@ -26,6 +26,7 @@ import { buildRestaurantBookingUrl } from '@reservations/shared';
 import { BookingSharePanel, copyBookingText } from '@/components/BookingSharePanel';
 import { EmptyState, PageHeader, StatusTag, colors, radii, spacing, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
+import { isPlatformAdmin } from '@/lib/roles';
 import { MY_RESTAURANTS } from '@/lib/graphql';
 import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
 import {
@@ -57,7 +58,7 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
-    if (!authLoading && user?.role === 'admin') router.replace('/admin');
+    if (!authLoading && user && isPlatformAdmin(user.role)) router.replace('/admin');
   }, [authLoading, user, router]);
 
   if (authLoading || dataLoading) {

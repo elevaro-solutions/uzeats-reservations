@@ -7,6 +7,7 @@ import { App, Button, Form, Input } from 'antd';
 import { LockOutlined, MailOutlined } from '@ant-design/icons';
 import { colors, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
+import { isPlatformAdmin } from '@/lib/roles';
 import { AuthLayout } from '@/components/AuthLayout';
 
 export default function LoginPage() {
@@ -16,7 +17,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   if (user) {
-    router.replace(user.role === 'admin' ? '/admin' : '/');
+    router.replace(isPlatformAdmin(user.role) ? '/admin' : '/');
     return null;
   }
 

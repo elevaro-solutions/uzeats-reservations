@@ -15,7 +15,10 @@ import {
   searchRestaurantsSchema,
   normalizeAnnualBillingSettings,
   type AnnualBillingSettings,
+  isPlatformAdmin,
+  assertCanEditUser,
 } from '@reservations/shared';
+import { assertCanAssignRole } from '../services/roleAccess.js';
 import {
   registerWithEmail,
   loginWithEmail,
@@ -105,7 +108,7 @@ import {
 import { logAudit } from '../services/audit.js';
 import { createRestaurantSubscription } from '../services/restaurantSubscription.js';
 import { provisionDefaultRestaurantSetup } from '../services/restaurantSetup.js';
-import { requireAuth, requireRole, type GraphQLContext } from './context.js';
+import { requireAuth, requireAdmin, requireRole, type GraphQLContext } from './context.js';
 import {
   mapUser,
   mapRestaurant,
@@ -186,7 +189,7 @@ function mapSubscription(sub: any) {
 }
 
 async function assertRestaurantAccess(userId: string, restaurantId: string, role: string) {
-  if (role === 'admin') return;
+  if (isPlatformAdmin(role as import('@reservations/shared').UserRole)) return;
   const restaurant = await Restaurant.findById(restaurantId);
   if (!restaurant) throw new Error('Restaurant not found');
   if (!restaurant.ownerId.equals(userId)) {
@@ -209,6 +212,11 @@ export const resolvers = {
   },
 
   Restaurant: {
+    subscription: async (r: { id: string }) => {
+      const sub = await Subscription.findOne({ restaurantId: r.id });
+      if (!sub) return null;
+      return mapSubscription(sub);
+    },
     tables: async (r: { id: string }) => {
       const tables = await Table.find({ restaurantId: r.id });
       return tables.map(mapTable);
@@ -720,7 +728,7 @@ export const resolvers = {
       args: { status?: string; search?: string; limit?: number; offset?: number },
       ctx: GraphQLContext,
     ) => {
-      requireRole(ctx, ['admin']);
+      requireAdmin(ctx);
       const filter = buildAdminRestaurantFilter(args);
       const result = await paginateQuery(Restaurant, filter, {
         sort: { createdAt: -1 },
@@ -733,7 +741,7 @@ export const resolvers = {
     },
 
     adminStats: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
-      requireRole(ctx, ['admin']);
+      requireAdmin(ctx);
       const [
         users,
         restaurants,
@@ -766,7 +774,7 @@ export const resolvers = {
     },
 
     adminLoyaltyStats: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
-      requireRole(ctx, ['admin']);
+      requireAdmin(ctx);
       return getAdminLoyaltyStats();
     },
 
@@ -775,7 +783,7 @@ export const resolvers = {
       args: { limit?: number },
       ctx: GraphQLContext,
     ) => {
-      requireRole(ctx, ['admin']);
+      requireAdmin(ctx);
       return getAdminReferralLeaders(args.limit ?? 20);
     },
 
@@ -784,20 +792,24 @@ export const resolvers = {
       args: { search?: string; limit?: number; offset?: number },
       ctx: GraphQLContext,
     ) => {
-      requireRole(ctx, ['admin']);
+      requireAdmin(ctx);
       const filter: Record<string, unknown> = {};
       if (args.search?.trim()) {
         const regex = new RegExp(args.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
         filter.$or = [{ email: regex }, { firstName: regex }, { lastName: regex }];
       }
-      return paginateQuery(User, filter, {
-        sort: { createdAt: -1 },
-        limit: args.limit,
-        offset: args.offset,
-        defaultLimit: 20,
-        maxLimit: 100,
-        map: mapUser,
-      });
+      const [page, hasSuperAdmin] = await Promise.all([
+        paginateQuery(User, filter, {
+          sort: { createdAt: -1 },
+          limit: args.limit,
+          offset: args.offset,
+          defaultLimit: 20,
+          maxLimit: 100,
+          map: mapUser,
+        }),
+        User.countDocuments({ role: 'super_admin' }).then((n) => n > 0),
+      ]);
+      return { ...page, hasSuperAdmin };
     },
 
     restaurantTeam: async (
@@ -820,7 +832,7 @@ export const resolvers = {
       args: { limit?: number; offset?: number },
       ctx: GraphQLContext,
     ) => {
-      requireRole(ctx, ['admin']);
+      requireAdmin(ctx);
       return paginateQuery(AuditLog, {}, {
         sort: { createdAt: -1 },
         limit: args.limit,
@@ -860,7 +872,7 @@ export const resolvers = {
       args: { status?: string; search?: string; limit?: number; offset?: number },
       ctx: GraphQLContext,
     ) => {
-      requireRole(ctx, ['admin']);
+      requireAdmin(ctx);
       return listInvoices(args);
     },
 
@@ -869,12 +881,12 @@ export const resolvers = {
       args: { period?: string },
       ctx: GraphQLContext,
     ) => {
-      requireRole(ctx, ['admin']);
+      requireAdmin(ctx);
       return getPlatformRevenueReport(args.period);
     },
 
     platformConfig: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
-      requireRole(ctx, ['admin']);
+      requireAdmin(ctx);
       const doc = await getPlatformConfig();
       return mapPlatformConfig(doc);
     },
@@ -947,7 +959,7 @@ export const resolvers = {
       if (
         !group.ownerId.equals(user._id) &&
         !group.adminUserIds.some((id) => id.equals(user._id)) &&
-        user.role !== 'admin'
+        !isPlatformAdmin(user.role)
       ) {
         throw new Error('Forbidden');
       }
@@ -1695,7 +1707,7 @@ export const resolvers = {
       args: { id: string; status: string },
       ctx: GraphQLContext,
     ) => {
-      const admin = requireRole(ctx, ['admin']);
+      const admin = requireAdmin(ctx);
       const doc = await Restaurant.findByIdAndUpdate(
         args.id,
         { status: args.status },
@@ -2107,9 +2119,13 @@ export const resolvers = {
       args: { userId: string; role: string },
       ctx: GraphQLContext,
     ) => {
-      const admin = requireRole(ctx, ['admin']);
-      const validRoles = ['diner', 'restaurant_owner', 'staff', 'admin'];
+      const admin = requireAdmin(ctx);
+      const validRoles = ['diner', 'restaurant_owner', 'staff', 'admin', 'super_admin'];
       if (!validRoles.includes(args.role)) throw new Error('Invalid role');
+      await assertCanAssignRole(admin.role, args.role);
+      const existing = await User.findById(args.userId);
+      if (!existing) throw new Error('User not found');
+      assertCanEditUser(admin.role, existing.role);
       const target = await User.findByIdAndUpdate(
         args.userId,
         { role: args.role },
@@ -2131,7 +2147,10 @@ export const resolvers = {
       args: { userId: string; sendEmail?: boolean },
       ctx: GraphQLContext,
     ) => {
-      const admin = requireRole(ctx, ['admin']);
+      const admin = requireAdmin(ctx);
+      const target = await User.findById(args.userId);
+      if (!target) throw new Error('User not found');
+      assertCanEditUser(admin.role, target.role);
       const result = await adminCreatePasswordReset({
         userId: args.userId,
         sendEmail: args.sendEmail,
@@ -2151,7 +2170,7 @@ export const resolvers = {
       args: { period: string },
       ctx: GraphQLContext,
     ) => {
-      const admin = requireRole(ctx, ['admin']);
+      const admin = requireAdmin(ctx);
       const result = await generateInvoicesForPeriod(args.period);
       await logAudit({
         actorId: admin._id.toString(),
@@ -2167,7 +2186,7 @@ export const resolvers = {
       args: { id: string; status: string },
       ctx: GraphQLContext,
     ) => {
-      const admin = requireRole(ctx, ['admin']);
+      const admin = requireAdmin(ctx);
       const invoice = await setInvoiceStatus(
         args.id,
         args.status as 'upcoming' | 'pending' | 'paid' | 'canceled' | 'overdue',
@@ -2187,7 +2206,7 @@ export const resolvers = {
       args: { ids: string[]; status: string },
       ctx: GraphQLContext,
     ) => {
-      const admin = requireRole(ctx, ['admin']);
+      const admin = requireAdmin(ctx);
       const result = await setInvoiceStatuses(
         args.ids,
         args.status as 'upcoming' | 'pending' | 'paid' | 'canceled' | 'overdue',
@@ -2206,7 +2225,7 @@ export const resolvers = {
       args: { input: Record<string, unknown> },
       ctx: GraphQLContext,
     ) => {
-      const admin = requireRole(ctx, ['admin']);
+      const admin = requireAdmin(ctx);
       const doc = await getPlatformConfig();
       const allowed = [
         'supportEmail',
@@ -2274,7 +2293,7 @@ export const resolvers = {
       },
       ctx: GraphQLContext,
     ) => {
-      const admin = requireRole(ctx, ['admin']);
+      const admin = requireAdmin(ctx);
       const key = args.input.key.trim().toLowerCase();
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key)) {
         throw new Error('Invalid plan key');
@@ -2367,7 +2386,7 @@ export const resolvers = {
       },
       ctx: GraphQLContext,
     ) => {
-      const admin = requireRole(ctx, ['admin']);
+      const admin = requireAdmin(ctx);
       const name = args.input.name.trim();
       if (!name) throw new Error('Package name is required');
 
@@ -2415,7 +2434,7 @@ export const resolvers = {
     },
 
     deletePlanPackage: async (_: unknown, args: { key: string }, ctx: GraphQLContext) => {
-      const admin = requireRole(ctx, ['admin']);
+      const admin = requireAdmin(ctx);
       const key = args.key.trim().toLowerCase();
       if (BUILTIN_PLAN_KEYS.has(key)) {
         throw new Error('Built-in packages cannot be deleted');
@@ -2610,7 +2629,7 @@ export const resolvers = {
       if (!isSelf) {
         if (!args.restaurantId) throw new Error('restaurantId is required to update another user');
         await assertRestaurantAccess(actor._id.toString(), args.restaurantId, actor.role);
-        if (actor.role !== 'admin' && actor.role !== 'restaurant_owner') {
+        if (!isPlatformAdmin(actor.role) && actor.role !== 'restaurant_owner') {
           throw new Error('Only owners can update team notification preferences');
         }
         const restaurant = await Restaurant.findById(args.restaurantId);
@@ -3042,7 +3061,7 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const group = await RestaurantGroup.findById(args.groupId);
-      if (!group || (!group.ownerId.equals(user._id) && user.role !== 'admin')) {
+      if (!group || (!group.ownerId.equals(user._id) && !isPlatformAdmin(user.role))) {
         throw new Error('Group not found');
       }
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
@@ -3073,7 +3092,7 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const group = await RestaurantGroup.findById(args.groupId);
-      if (!group || (!group.ownerId.equals(user._id) && user.role !== 'admin')) {
+      if (!group || (!group.ownerId.equals(user._id) && !isPlatformAdmin(user.role))) {
         throw new Error('Group not found');
       }
       const doc = await RestaurantGroup.findByIdAndUpdate(

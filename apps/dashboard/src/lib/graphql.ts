@@ -247,6 +247,7 @@ export const ADMIN_RESTAURANTS = gql`
       items {
         id
         name
+        slug
         status
         cuisine
         description
@@ -259,10 +260,36 @@ export const ADMIN_RESTAURANTS = gql`
         featuredUntil
         depositRequired
         depositAmountCents
+        loyaltyEnabled
+        loyaltyPointsPerVisit
+        loyaltyMinRedeemPoints
+        spendAlertThresholdCents
+        useSmartAssign
+        posEnabled
         address { line1 line2 city state zip country }
         location { lat lng }
+        widgetTheme { primaryColor buttonText showReviews }
+        subscription { id plan status trialEndsAt monthlyPriceCents }
         createdAt
       }
+    }
+  }
+`;
+
+export const ADMIN_CREATE_RESTAURANT = gql`
+  mutation AdminCreateRestaurant(
+    $input: RestaurantInput!
+    $ownerId: ID!
+    $plan: String
+    $status: RestaurantStatus
+  ) {
+    adminCreateRestaurant(input: $input, ownerId: $ownerId, plan: $plan, status: $status) {
+      id
+      name
+      slug
+      status
+      ownerId
+      subscription { id plan status }
     }
   }
 `;
@@ -274,6 +301,10 @@ export const ADMIN_UPDATE_RESTAURANT = gql`
     $featured: Boolean
     $featuredUntil: DateTime
     $ownerId: ID
+    $spendAlertThresholdCents: Int
+    $useSmartAssign: Boolean
+    $posEnabled: Boolean
+    $widgetTheme: WidgetThemeInput
   ) {
     adminUpdateRestaurant(
       id: $id
@@ -281,9 +312,14 @@ export const ADMIN_UPDATE_RESTAURANT = gql`
       featured: $featured
       featuredUntil: $featuredUntil
       ownerId: $ownerId
+      spendAlertThresholdCents: $spendAlertThresholdCents
+      useSmartAssign: $useSmartAssign
+      posEnabled: $posEnabled
+      widgetTheme: $widgetTheme
     ) {
       id
       name
+      slug
       status
       cuisine
       description
@@ -296,8 +332,16 @@ export const ADMIN_UPDATE_RESTAURANT = gql`
       featuredUntil
       depositRequired
       depositAmountCents
+      loyaltyEnabled
+      loyaltyPointsPerVisit
+      loyaltyMinRedeemPoints
+      spendAlertThresholdCents
+      useSmartAssign
+      posEnabled
       address { line1 line2 city state zip country }
       location { lat lng }
+      widgetTheme { primaryColor buttonText showReviews }
+      subscription { id plan status trialEndsAt monthlyPriceCents }
     }
   }
 `;
@@ -331,6 +375,7 @@ export const ADMIN_USERS = gql`
   query AdminUsers($search: String, $limit: Int, $offset: Int) {
     adminUsers(search: $search, limit: $limit, offset: $offset) {
       total
+      hasSuperAdmin
       items { id email phone firstName lastName role loyaltyPoints emailVerified phoneVerified restaurantIds createdAt }
     }
   }
@@ -1087,6 +1132,16 @@ export const ADMIN_DELETE_USER = gql`
       success
       message
       deletedUserId
+    }
+  }
+`;
+
+export const ADMIN_DELETE_RESTAURANT = gql`
+  mutation AdminDeleteRestaurant($id: ID!) {
+    adminDeleteRestaurant(id: $id) {
+      success
+      message
+      deletedRestaurantId
     }
   }
 `;

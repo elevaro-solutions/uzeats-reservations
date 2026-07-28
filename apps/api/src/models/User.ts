@@ -42,7 +42,7 @@ const userSchema = new Schema(
     lastName: { type: String, required: true, trim: true },
     role: {
       type: String,
-      enum: ['diner', 'restaurant_owner', 'staff', 'admin'],
+      enum: ['diner', 'restaurant_owner', 'staff', 'admin', 'super_admin'],
       default: 'diner',
     },
     googleId: { type: String, sparse: true, unique: true },

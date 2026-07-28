@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth';
 
 import { getPublicWebUrl } from '@/lib/webUrl';
 
-const PARTNER_ROLES = new Set(['restaurant_owner', 'staff', 'admin']);
+const PARTNER_ROLES = new Set(['restaurant_owner', 'staff', 'admin', 'super_admin']);
 
 /** Partner Hub is for owners, staff, and admins — diners use the web app. */
 export function useRequirePartner() {

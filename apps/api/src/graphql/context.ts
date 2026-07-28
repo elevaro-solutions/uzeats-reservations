@@ -1,5 +1,5 @@
 import type { Request } from 'express';
-import type { UserRole } from '@reservations/shared';
+import { isPlatformAdmin, PLATFORM_ADMIN_ROLES, type UserRole } from '@reservations/shared';
 import { User } from '../models/User.js';
 import { verifyAccessToken } from '../services/auth.js';
 import type { UserDocument } from '../models/User.js';
@@ -21,7 +21,7 @@ export async function createContext({ req }: { req: Request }): Promise<GraphQLC
     let impersonator: UserDocument | null = null;
     if (payload.impersonatorId) {
       impersonator = await User.findById(payload.impersonatorId);
-      if (!impersonator || impersonator.role !== 'admin') {
+      if (!impersonator || !isPlatformAdmin(impersonator.role)) {
         return { user: null, impersonator: null, req };
       }
     }
@@ -42,10 +42,18 @@ export function requireRole(ctx: GraphQLContext, roles: UserRole[]) {
   return user;
 }
 
-/** Admin actions must be performed as the real admin, not while impersonating. */
+/** Platform admin actions must be performed as the real admin, not while impersonating. */
 export function requireAdmin(ctx: GraphQLContext) {
   if (ctx.impersonator) {
     throw new Error('Exit impersonation before performing admin actions');
   }
-  return requireRole(ctx, ['admin']);
+  return requireRole(ctx, [...PLATFORM_ADMIN_ROLES]);
+}
+
+/** Destructive platform actions (permanent deletes, seed wipe, restaurant removal). */
+export function requireSuperAdmin(ctx: GraphQLContext) {
+  if (ctx.impersonator) {
+    throw new Error('Exit impersonation before performing super admin actions');
+  }
+  return requireRole(ctx, ['super_admin']);
 }

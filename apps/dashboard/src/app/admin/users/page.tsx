@@ -16,6 +16,7 @@ import {
   Table,
   Typography,
   message,
+  Alert,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -43,6 +44,7 @@ import {
   START_IMPERSONATION,
 } from '@/lib/graphql';
 import { useAuth } from '@/lib/auth';
+import { isPlatformAdmin, isSuperAdmin, canEditUser } from '@/lib/roles';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 
@@ -53,11 +55,15 @@ const ROLES = [
   { value: 'restaurant_owner', label: 'Restaurant Owner' },
   { value: 'staff', label: 'Staff' },
   { value: 'admin', label: 'Admin' },
+  { value: 'super_admin', label: 'Super Admin' },
 ];
 
 function AdminUsersPageContent() {
   const { ready } = useRequireAdmin();
   const { user, beginImpersonation } = useAuth();
+  const canDeleteUsers = user ? isSuperAdmin(user.role) : false;
+  const canEditRecord = (record: { role: string }) =>
+    user ? canEditUser(user.role, record.role) : false;
   const [search, setSearch] = useState('');
   const [resetModal, setResetModal] = useState<{
     userId: string;
@@ -118,6 +124,17 @@ function AdminUsersPageContent() {
   });
 
   if (!ready) return null;
+
+  const hasSuperAdmin = data?.adminUsers?.hasSuperAdmin ?? false;
+  const roleOptions = (() => {
+    const standard = ROLES.filter((r) => r.value !== 'admin' && r.value !== 'super_admin');
+    if (!user) return standard;
+    if (isSuperAdmin(user.role)) return ROLES;
+    if (!hasSuperAdmin) {
+      return [...standard, { value: 'super_admin', label: 'Super Admin' }];
+    }
+    return standard;
+  })();
 
   const requireDelete2FA = configData?.platformConfig?.requireAdminDelete2FA !== false;
 
@@ -295,30 +312,34 @@ function AdminUsersPageContent() {
     }
   };
 
-  const actionItems = (record: any): MenuProps['items'] => [
+  const actionItems = (record: any): MenuProps['items'] => {
+    const editable = canEditRecord(record);
+    return [
     {
       key: 'edit',
       icon: <EditOutlined />,
       label: 'Edit',
+      disabled: !editable,
       onClick: () => openEdit(record),
     },
     {
       key: 'view-as',
       icon: <EyeOutlined />,
       label: 'View as',
-      disabled: record.role === 'admin' || impersonating,
+      disabled: isPlatformAdmin(record.role) || impersonating,
       onClick: () => onImpersonate(record),
     },
     {
       key: 'assign',
       label: 'Assign venues',
+      disabled: !editable,
       onClick: () => setAssignUser(record),
     },
     {
       key: 'reset',
       icon: <MailOutlined />,
       label: 'Reset password',
-      disabled: !record.email,
+      disabled: !editable || !record.email,
       onClick: () =>
         setResetModal({
           userId: record.id,
@@ -326,16 +347,21 @@ function AdminUsersPageContent() {
           email: record.email,
         }),
     },
-    { type: 'divider' },
-    {
-      key: 'delete',
-      icon: <DeleteOutlined />,
-      label: 'Delete',
-      danger: true,
-      disabled: record.id === user?.id,
-      onClick: () => openDelete(record),
-    },
+    ...(canDeleteUsers
+      ? [
+          { type: 'divider' as const },
+          {
+            key: 'delete',
+            icon: <DeleteOutlined />,
+            label: 'Delete',
+            danger: true,
+            disabled: record.id === user?.id,
+            onClick: () => openDelete(record),
+          },
+        ]
+      : []),
   ];
+  };
 
   return (
     <div component="AdminUsersPageContent" style={{ display: 'contents' }}><>
@@ -351,6 +377,14 @@ function AdminUsersPageContent() {
         />
         <Card>
           <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+            {!hasSuperAdmin && user && isPlatformAdmin(user.role) && !isSuperAdmin(user.role) && (
+              <Alert
+                type="warning"
+                showIcon
+                message="No super admin yet"
+                description="Assign the Super Admin role to a platform admin account. After that, only super admins can grant admin or super admin roles."
+              />
+            )}
             <Input
               placeholder="Search by name or email..."
               prefix={<SearchOutlined />}
@@ -379,15 +413,21 @@ function AdminUsersPageContent() {
                 {
                   title: 'Role',
                   dataIndex: 'role',
-                  render: (role: string, record: any) => (
-                    <Select
-                      value={role}
-                      options={ROLES}
-                      onChange={(val) => handleRoleChange(record.id, val)}
-                      style={{ width: 170 }}
-                      size="small"
-                    />
-                  ),
+                  render: (role: string, record: any) => {
+                    const roleLabel =
+                      ROLES.find((r) => r.value === role)?.label ?? role;
+                    return canEditRecord(record) ? (
+                      <Select
+                        value={role}
+                        options={roleOptions}
+                        onChange={(val) => handleRoleChange(record.id, val)}
+                        style={{ width: 170 }}
+                        size="small"
+                      />
+                    ) : (
+                      <span>{roleLabel}</span>
+                    );
+                  },
                 },
                 {
                   title: 'Restaurants',
@@ -554,7 +594,7 @@ function AdminUsersPageContent() {
             <PhoneInput />
           </Form.Item>
           <Form.Item name="role" label="Role" rules={[{ required: true }]}>
-            <Select options={ROLES} />
+            <Select options={roleOptions} />
           </Form.Item>
           <Form.Item name="loyaltyPoints" label="Loyalty points" rules={[{ required: true }]}>
             <InputNumber min={0} style={{ width: '100%' }} />

@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import type { UserRole } from '@reservations/shared';
+import { isPlatformAdmin, type UserRole } from '@reservations/shared';
 import { env } from '../config/env.js';
 import { StaffInvite } from '../models/StaffInvite.js';
 import { User } from '../models/User.js';
@@ -15,9 +15,9 @@ export async function startImpersonation(adminId: string, targetUserId: string) 
     User.findById(adminId),
     User.findById(targetUserId),
   ]);
-  if (!admin || admin.role !== 'admin') throw new Error('Forbidden');
+  if (!admin || !isPlatformAdmin(admin.role)) throw new Error('Forbidden');
   if (!target) throw new Error('User not found');
-  if (target.role === 'admin') throw new Error('Cannot impersonate another admin');
+  if (isPlatformAdmin(target.role)) throw new Error('Cannot impersonate another platform admin');
 
   const accessToken = signAccessToken({
     sub: target._id.toString(),

@@ -151,15 +151,16 @@ function formatRelativeTime(iso: string) {
 }
 
 import { getPublicWebUrl } from '@/lib/webUrl';
+import { isPlatformAdmin } from '@/lib/roles';
 
-const PARTNER_ROLES = new Set(['restaurant_owner', 'staff', 'admin']);
+const PARTNER_ROLES = new Set(['restaurant_owner', 'staff', 'admin', 'super_admin']);
 
 export function DashShell({ children }: { children: React.ReactNode }) {
   const { user, logout, loading: authLoading, isImpersonating, impersonator, endImpersonation } =
     useAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const isAdmin = user?.role === 'admin' && !isImpersonating;
+  const isAdmin = user ? isPlatformAdmin(user.role) && !isImpersonating : false;
   const isPartner =
     Boolean(user) && (PARTNER_ROLES.has(user!.role) || isImpersonating);
   const [restaurantId, setRestaurantId] = useState<string>();
@@ -190,7 +191,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user || !isPartner) return;
-    if (user.role === 'admin' && !isImpersonating) return;
+    if (isPlatformAdmin(user.role) && !isImpersonating) return;
     const saved = localStorage.getItem('activeRestaurantId');
     const list = restaurantsData?.myRestaurants ?? [];
     const valid = list.some((r: { id: string }) => r.id === saved);

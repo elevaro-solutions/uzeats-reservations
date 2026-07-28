@@ -201,24 +201,35 @@ async function seed() {
 
   // Drop legacy demo admin if present so we do not leave duplicate platform admins
   // after the Tablevera email rename (existing non-legacy admins stay untouched).
-  await User.deleteMany({ email: { $in: LEGACY_DEMO_EMAILS }, role: 'admin' });
+  await User.deleteMany({
+    email: { $in: LEGACY_DEMO_EMAILS },
+    role: { $in: ['admin', 'super_admin'] },
+  });
 
   const passwordHash = await hashPassword(SEED_PASSWORD);
 
-  let admin = await User.findOne({ role: 'admin' });
-  if (!admin) {
-    admin = await User.create({
-      email: ADMIN_EMAIL,
-      passwordHash,
-      firstName: 'Platform',
-      lastName: 'Admin',
-      role: 'admin',
-      emailVerified: true,
-      loyaltyPoints: 0,
-    });
-    console.log(`Created admin account: ${ADMIN_EMAIL}`);
+  let superAdmin = await User.findOne({ role: 'super_admin' });
+  if (!superAdmin) {
+    const existingAdmin = await User.findOne({ email: ADMIN_EMAIL });
+    if (existingAdmin) {
+      existingAdmin.role = 'super_admin';
+      await existingAdmin.save();
+      superAdmin = existingAdmin;
+      console.log(`Upgraded ${ADMIN_EMAIL} to super admin`);
+    } else {
+      superAdmin = await User.create({
+        email: ADMIN_EMAIL,
+        passwordHash,
+        firstName: 'Platform',
+        lastName: 'Admin',
+        role: 'super_admin',
+        emailVerified: true,
+        loyaltyPoints: 0,
+      });
+      console.log(`Created super admin account: ${ADMIN_EMAIL}`);
+    }
   } else {
-    console.log(`Preserved existing admin: ${admin.email}`);
+    console.log(`Preserved existing super admin: ${superAdmin.email}`);
   }
 
   const [owner, staff, diner, diner2] = await User.create([
@@ -932,7 +943,7 @@ async function seed() {
   console.log('Seed complete!');
   console.log('');
   console.log(`Accounts (password: ${SEED_PASSWORD}):`);
-  console.log(`  ${admin.email}   — platform admin (preserved if already present)`);
+  console.log(`  ${superAdmin.email}   — super admin (preserved if already present)`);
   console.log(`  ${OWNER_EMAIL}   — restaurant owner (all venues)`);
   console.log(`  ${STAFF_EMAIL}   — staff at Samarkand Palace`);
   console.log(`  ${DINER_EMAIL}   — diner (750 pts)`);
