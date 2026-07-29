@@ -43,7 +43,11 @@ export function useUrlPagination(options: Options = {}) {
       if (safePage <= 1) params.delete(pageParam);
       else params.set(pageParam, String(safePage));
       const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      const nextUrl = qs ? `${pathname}?${qs}` : pathname;
+      const currentQs = searchParams.toString();
+      const currentUrl = currentQs ? `${pathname}?${currentQs}` : pathname;
+      if (nextUrl === currentUrl) return;
+      router.replace(nextUrl, { scroll: false });
     },
     [pageParam, pathname, router, searchParams],
   );

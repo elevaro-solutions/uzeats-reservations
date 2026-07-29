@@ -40,6 +40,11 @@ export const theme: ThemeConfig = {
     controlHeight: 40,
     controlHeightLG: 48,
     controlHeightSM: 32,
+
+    // List / menu / select option highlights — keep light backgrounds with dark text
+    controlItemBgHover: colors.neutral[50],
+    controlItemBgActive: colors.brand[50],
+    controlItemBgActiveHover: colors.brand[100],
   },
   components: {
     Button: {
@@ -69,6 +74,7 @@ export const theme: ThemeConfig = {
     Select: {
       optionSelectedBg: colors.brand[50],
       optionSelectedColor: colors.brand[700],
+      optionActiveBg: colors.brand[50],
       borderRadius: radii.md,
     },
     Menu: {

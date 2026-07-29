@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@apollo/client/react';
 import {
@@ -919,13 +920,15 @@ export default function PricingPage() {
             Multi-location restaurant groups get custom pricing, dedicated support, and advanced
             management tools.
           </Paragraph>
-          <Button
-            type="primary"
-            size="large"
-            style={{ background: '#0b3d2e', borderColor: '#0b3d2e' }}
-          >
-            Contact sales
-          </Button>
+          <Link href="/contact?topic=restaurant">
+            <Button
+              type="primary"
+              size="large"
+              style={{ background: '#0b3d2e', borderColor: '#0b3d2e' }}
+            >
+              Contact sales
+            </Button>
+          </Link>
         </Card>
 
         {/* FAQ */}

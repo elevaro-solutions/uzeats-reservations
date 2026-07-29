@@ -537,7 +537,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="rt-site-footer__list">
                 <Link href="/privacy">Privacy</Link>
                 <Link href="/terms">Terms</Link>
-                <a href="mailto:hello@tablevera.online">Contact</a>
+                <Link href="/contact">Contact</Link>
               </div>
             </div>
           </div>

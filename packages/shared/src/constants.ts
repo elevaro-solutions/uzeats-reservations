@@ -35,9 +35,37 @@ export const CUISINES = [
   'Thai',
   'Steakhouse',
   'Seafood',
+  'Pizza',
+  'Sushi',
+  'Tapas',
+  'Brunch',
   'Vegetarian',
   'Uzbek',
   'Other',
+] as const;
+
+/** Quick-filter chips on the diner homepage (cuisine and experience-style filters). */
+export const RESTAURANT_DISCOVERY_CATEGORIES = [
+  { id: 'romantic', label: 'Romantic', query: 'romantic' },
+  { id: 'italian', label: 'Italian', cuisine: 'Italian' },
+  { id: 'brunch', label: 'Brunch', cuisine: 'Brunch' },
+  { id: 'mexican', label: 'Mexican', cuisine: 'Mexican' },
+  { id: 'pizza', label: 'Pizza', cuisine: 'Pizza' },
+  { id: 'seafood', label: 'Seafood', cuisine: 'Seafood' },
+  { id: 'american', label: 'American', cuisine: 'American' },
+  { id: 'fun', label: 'Fun', query: 'fun lively' },
+  { id: 'japanese', label: 'Japanese', cuisine: 'Japanese' },
+  { id: 'birthdays', label: 'Birthdays', query: 'birthday' },
+  { id: 'sushi', label: 'Sushi', cuisine: 'Sushi' },
+  { id: 'steak', label: 'Steak', cuisine: 'Steakhouse' },
+  { id: 'casual', label: 'Casual', query: 'casual' },
+  { id: 'chinese', label: 'Chinese', cuisine: 'Chinese' },
+  { id: 'mediterranean', label: 'Mediterranean', cuisine: 'Mediterranean' },
+  { id: 'indian', label: 'Indian', cuisine: 'Indian' },
+  { id: 'groups', label: 'Groups', query: 'group private dining' },
+  { id: 'fine-dining', label: 'Fine dining', query: 'fine dining' },
+  { id: 'kid-friendly', label: 'Kid-friendly', query: 'kid friendly family' },
+  { id: 'tapas', label: 'Tapas', cuisine: 'Tapas' },
 ] as const;
 
 export const WAITLIST_STATUSES = ['waiting', 'notified', 'booked', 'expired', 'cancelled'] as const;

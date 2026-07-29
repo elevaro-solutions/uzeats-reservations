@@ -70,7 +70,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 
 ## Features
 
-- Restaurant search (city, cuisine, text, nearby geo) + live availability slots
+- Restaurant search (city, cuisine, text, nearby geo) with **list and map views** + live availability slots
 - Google Places address autocomplete and device near-me (falls back to curated US cities)
 - Concurrent-safe booking via atomic table slot claims (no replica set required)
 - Deposits via Stripe PaymentIntents (manual capture; stubbed without keys)
@@ -85,6 +85,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Owner phone / walk-in bookings, reservation edit, and reservation-scoped messaging
 - Platform admin: users, restaurants (create/edit/delete), invoices, revenue, support, moderation, templates, config, and annual billing discounts
 - Embeddable booking widget with per-restaurant theme
+- Public contact page for diners and restaurant partners
 
 ## Design system
 

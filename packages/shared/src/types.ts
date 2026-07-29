@@ -5,6 +5,7 @@ import type {
   OCCASIONS,
   PRICE_RANGES,
   CUISINES,
+  RESTAURANT_DISCOVERY_CATEGORIES,
   WAITLIST_STATUSES,
   SUPPORT_TICKET_STATUSES,
   SUPPORT_TICKET_PRIORITIES,
@@ -19,6 +20,7 @@ export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
 export type Occasion = (typeof OCCASIONS)[number];
 export type PriceRange = (typeof PRICE_RANGES)[number];
 export type Cuisine = (typeof CUISINES)[number];
+export type RestaurantDiscoveryCategory = (typeof RESTAURANT_DISCOVERY_CATEGORIES)[number];
 export type WaitlistStatus = (typeof WAITLIST_STATUSES)[number];
 export type SupportTicketStatus = (typeof SUPPORT_TICKET_STATUSES)[number];
 export type SupportTicketPriority = (typeof SUPPORT_TICKET_PRIORITIES)[number];

@@ -36,6 +36,7 @@ Set `NEXT_PUBLIC_API_URL=https://api.yourdomain.com/graphql` and `NEXT_PUBLIC_WE
 
 For Google address autocomplete on the diner home page, also set
 `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (Maps JavaScript API + Places library; restrict by HTTP referrer).
+The map discovery view (`/?view=map`) uses the same key for Google Maps markers.
 Without the key, the location field falls back to curated US cities with nearby search.
 
 Public restaurant pages support short share links: `https://yourdomain.com/r/{slug}` (rewrites to `/restaurants/{slug}`).

@@ -51,7 +51,11 @@ export function useUrlPagination(options: Options = {}) {
       else params.set(pageSizeParam, String(size));
 
       const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      const nextUrl = qs ? `${pathname}?${qs}` : pathname;
+      const currentQs = searchParams.toString();
+      const currentUrl = currentQs ? `${pathname}?${currentQs}` : pathname;
+      if (nextUrl === currentUrl) return;
+      router.replace(nextUrl, { scroll: false });
     },
     [
       defaultPageSize,

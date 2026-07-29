@@ -195,7 +195,14 @@ export function RestaurantCard({
       )}
 
       {availableSlots.length > 0 ? (
-        <div style={{ marginTop: 14, display: 'flex', gap: 6, flexWrap: 'nowrap', overflowX: 'auto' }}>
+        <div
+          style={{
+            marginTop: 14,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+            gap: 6,
+          }}
+        >
           {availableSlots.slice(0, 3).map((slot) => (
             <button
               key={slot}
@@ -210,13 +217,15 @@ export function RestaurantCard({
                 background: colors.brand[600],
                 color: colors.textInverse,
                 borderRadius: radii.sm,
-                padding: '7px 12px',
-                fontSize: typography.fontSize.sm,
+                padding: '7px 4px',
+                fontSize: typography.fontSize.xs,
                 fontWeight: typography.fontWeight.semibold,
                 fontFamily: 'inherit',
                 lineHeight: 1.2,
                 whiteSpace: 'nowrap',
-                flexShrink: 0,
+                width: '100%',
+                minWidth: 0,
+                textAlign: 'center',
                 transition: 'background 0.15s ease',
                 boxShadow: shadows.brand,
               }}

@@ -83,8 +83,71 @@ type PlacesApi = {
   AutocompleteSessionToken: new () => unknown;
 };
 
+export type GoogleMapsCore = {
+  Map: new (
+    el: HTMLElement,
+    opts: {
+      center: { lat: number; lng: number };
+      zoom: number;
+      mapTypeControl?: boolean;
+      streetViewControl?: boolean;
+      fullscreenControl?: boolean;
+      styles?: Array<{ featureType: string; stylers: Array<Record<string, unknown>> }>;
+    },
+  ) => GoogleMapInstance;
+  Marker: new (opts: {
+    map: GoogleMapInstance;
+    position: { lat: number; lng: number };
+    title?: string;
+    icon?: { path: number; fillColor: string; fillOpacity: number; strokeColor: string; strokeWeight: number; scale: number };
+    zIndex?: number;
+  }) => GoogleMarkerInstance;
+  InfoWindow: new (opts?: { content?: string }) => GoogleInfoWindowInstance;
+  LatLngBounds: new () => GoogleLatLngBoundsInstance;
+  LatLng: new (lat: number, lng: number) => { lat: () => number; lng: () => number };
+  OverlayView: new () => GoogleOverlayViewInstance;
+  SymbolPath: { CIRCLE: number };
+  event: {
+    addListener: (instance: unknown, event: string, handler: () => void) => { remove: () => void };
+  };
+};
+
+type GoogleMapInstance = {
+  fitBounds: (bounds: GoogleLatLngBoundsInstance, padding?: number) => void;
+  panTo: (position: { lat: number; lng: number }) => void;
+  setZoom: (zoom: number) => void;
+};
+
+type GoogleMarkerInstance = {
+  setMap: (map: GoogleMapInstance | null) => void;
+  setIcon: (icon: { path: number; fillColor: string; fillOpacity: number; strokeColor: string; strokeWeight: number; scale: number }) => void;
+  setZIndex: (zIndex: number) => void;
+  addListener: (event: string, handler: () => void) => void;
+};
+
+type GoogleInfoWindowInstance = {
+  open: (opts: { map: GoogleMapInstance; anchor?: GoogleMarkerInstance }) => void;
+  close: () => void;
+  setContent: (content: string) => void;
+};
+
+type GoogleLatLngBoundsInstance = {
+  extend: (position: { lat: number; lng: number }) => void;
+  isEmpty: () => boolean;
+};
+
+type GoogleOverlayViewInstance = {
+  onAdd?: () => void;
+  draw?: () => void;
+  onRemove?: () => void;
+  setMap: (map: GoogleMapInstance | null) => void;
+  getProjection: () => {
+    fromLatLngToContainerPixel: (latLng: { lat: () => number; lng: () => number }) => { x: number; y: number } | null;
+  } | null;
+};
+
 type MapsWindow = {
-  google?: { maps?: { places?: PlacesApi } };
+  google?: { maps?: GoogleMapsCore & { places?: PlacesApi } };
   gm_authFailure?: () => void;
   __rtGoogleMapsOnLoad?: () => void;
 };
@@ -169,6 +232,13 @@ export function loadGooglePlaces(): Promise<PlacesApi | null> {
   }
 
   return loaderPromise;
+}
+
+/** Loads the Google Maps JavaScript API (Map, Marker, etc.). */
+export async function loadGoogleMaps(): Promise<GoogleMapsCore | null> {
+  if (typeof window === 'undefined' || !API_KEY) return null;
+  await loadGooglePlaces();
+  return mapsWindow().google?.maps ?? null;
 }
 
 /* ------------------------------------------------------------------ */

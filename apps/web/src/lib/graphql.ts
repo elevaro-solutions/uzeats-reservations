@@ -16,6 +16,10 @@ export const SEARCH_RESTAURANTS = gql`
           city
           state
         }
+        location {
+          lat
+          lng
+        }
         photos
         averageRating
         reviewCount

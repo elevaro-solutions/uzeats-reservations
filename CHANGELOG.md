@@ -4,6 +4,26 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.12.0] — 2026-07-29
+
+### Added
+
+- Diner homepage **map view** (`?view=map`) with Google Maps markers, filters sidebar, and list/map toggle
+- Discovery quick-filter categories (cuisine and experience chips) in `@reservations/shared`
+- Contact page (`/contact`) with topic routing to support, privacy, and legal emails
+- `loadGoogleMaps` Map/Marker APIs in `@reservations/ui` for embedded discovery maps
+- New cuisines: Pizza, Sushi, Tapas, Brunch
+
+### Changed
+
+- Homepage search redesigned with split list/map layouts, price/rating/accessibility filters on map
+- Restaurant search query returns `location { lat, lng }` for map pins
+- `RestaurantCard` and Places loader support map discovery UX
+
+### Docs
+
+- README notes map discovery and Maps API requirement for map view
+
 ## [0.11.0] — 2026-07-28
 
 ### Added

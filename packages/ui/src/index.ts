@@ -40,9 +40,11 @@ export {
   fetchPlacePredictions,
   getGooglePlacesAvailability,
   hasGoogleMapsKey,
+  loadGoogleMaps,
   loadGooglePlaces,
   resolveAddress,
   subscribeGooglePlacesAvailability,
+  type GoogleMapsCore,
   type GooglePlacesAvailability,
   type PlacePrediction,
 } from './googlePlaces';

@@ -4,37 +4,44 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { useQuery } from '@apollo/client/react';
 import { useRouter } from 'next/navigation';
 import {
-  Button,
   Col,
-  DatePicker,
-  Input,
   Pagination,
   Row,
-  Select,
+  Segmented,
   Skeleton,
-  Tag,
   Typography,
   message,
 } from 'antd';
 import dayjs from 'dayjs';
 import { RestaurantCard, EmptyState, colors, layout, radii, shadows, typography } from '@reservations/ui';
 import {
+  AppstoreOutlined,
+  CoffeeOutlined,
   CrownFilled,
   EnvironmentFilled,
+  FireOutlined,
+  GiftOutlined,
   GlobalOutlined,
+  HeartOutlined,
+  RocketOutlined,
   SearchOutlined,
+  SmileOutlined,
   StarFilled,
+  SunOutlined,
   TagFilled,
+  TeamOutlined,
   ThunderboltFilled,
+  TrophyOutlined,
 } from '@ant-design/icons';
-import { buildRestaurantBookingPath, CUISINES } from '@reservations/shared';
+import { buildRestaurantBookingPath, RESTAURANT_DISCOVERY_CATEGORIES } from '@reservations/shared';
 import { SEARCH_RESTAURANTS, AVAILABILITY } from '@/lib/graphql';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { useDiscoveryViewMode } from '@/lib/useDiscoveryViewMode';
 import { DEFAULT_LOCATION, cityLabel } from '@/lib/cities';
-import {
-  AddressAutocomplete,
-  type LocationSelection,
-} from '@/components/AddressAutocomplete';
+import type { LocationSelection } from '@/components/AddressAutocomplete';
+import { MapResultsLayout } from '@/components/MapResultsLayout';
+import { DiscoverySearchPanel } from '@/components/DiscoverySearchPanel';
+import { MapFiltersSidebar } from '@/components/MapFiltersSidebar';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -54,11 +61,35 @@ const HERO_STATS = [
   { value: '4.8★', label: 'Average rating' },
 ] as const;
 
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  romantic: <HeartOutlined />,
+  italian: <CoffeeOutlined />,
+  brunch: <SunOutlined />,
+  mexican: <FireOutlined />,
+  pizza: <StarFilled />,
+  seafood: <GlobalOutlined />,
+  american: <CrownFilled />,
+  fun: <RocketOutlined />,
+  japanese: <CoffeeOutlined />,
+  birthdays: <GiftOutlined />,
+  sushi: <StarFilled />,
+  steak: <FireOutlined />,
+  casual: <SmileOutlined />,
+  chinese: <CoffeeOutlined />,
+  mediterranean: <GlobalOutlined />,
+  indian: <FireOutlined />,
+  groups: <TeamOutlined />,
+  'fine-dining': <TrophyOutlined />,
+  'kid-friendly': <SmileOutlined />,
+  tapas: <TagFilled />,
+};
+
 function HomePageContent() {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [cuisine, setCuisine] = useState<string | undefined>();
+  const [activeCategoryId, setActiveCategoryId] = useState<string | undefined>();
   const [locationInput, setLocationInput] = useState(cityLabel(DEFAULT_LOCATION));
   const [selectedLocation, setSelectedLocation] = useState<LocationSelection>({
     label: cityLabel(DEFAULT_LOCATION),
@@ -69,7 +100,11 @@ function HomePageContent() {
   const [partySize, setPartySize] = useState(2);
   const [date, setDate] = useState(dayjs().add(1, 'day'));
   const [geoLoading, setGeoLoading] = useState(false);
-  const [showMap, setShowMap] = useState(false);
+  const [mapPriceRange, setMapPriceRange] = useState<number | undefined>();
+  const [topRatedOnly, setTopRatedOnly] = useState(false);
+  const [accessibleOnly, setAccessibleOnly] = useState(false);
+  const { viewMode, setViewMode } = useDiscoveryViewMode();
+  const [selectedMapRestaurantId, setSelectedMapRestaurantId] = useState<string | null>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const skipPageReset = useRef(true);
   const { page, pageSize, setPage } = useUrlPagination({ defaultPageSize: 24 });
@@ -85,7 +120,25 @@ function HomePageContent() {
       return;
     }
     setPage(1);
-  }, [debouncedQuery, cuisine, selectedLocation.lat, selectedLocation.lng, partySize, date, setPage]);
+    setSelectedMapRestaurantId(null);
+    // setPage is intentionally omitted — it changes when searchParams update and
+    // would retrigger this effect in a router.replace loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery, cuisine, activeCategoryId, selectedLocation.lat, selectedLocation.lng, partySize, date, mapPriceRange, topRatedOnly, accessibleOnly]);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('rt-map-view', viewMode === 'map');
+    return () => document.documentElement.classList.remove('rt-map-view');
+  }, [viewMode]);
+
+  const activeCategory = useMemo(
+    () => RESTAURANT_DISCOVERY_CATEGORIES.find((c) => c.id === activeCategoryId),
+    [activeCategoryId],
+  );
+
+  const searchCuisine = activeCategory && 'cuisine' in activeCategory ? activeCategory.cuisine : cuisine;
+  const searchQuery =
+    activeCategory && 'query' in activeCategory ? activeCategory.query : debouncedQuery || undefined;
 
   const applyLocation = useCallback((location: LocationSelection, fromDevice = false) => {
     setSelectedLocation(location);
@@ -163,8 +216,9 @@ function HomePageContent() {
   const { data, loading } = useQuery(SEARCH_RESTAURANTS, {
     variables: {
       input: {
-        query: debouncedQuery || undefined,
-        cuisine,
+        query: searchQuery,
+        cuisine: searchCuisine,
+        priceRange: mapPriceRange,
         partySize,
         date: dateStr,
         page,
@@ -178,7 +232,29 @@ function HomePageContent() {
 
   const restaurants = (data as any)?.searchRestaurants?.items ?? [];
   const total = (data as any)?.searchRestaurants?.total ?? 0;
+
+  const visibleRestaurants = useMemo(() => {
+    let items = restaurants;
+    if (topRatedOnly) {
+      items = items.filter((r: any) => (r.averageRating ?? 0) >= 4.5);
+    }
+    // Accessibility metadata is not yet available on restaurants.
+    void accessibleOnly;
+    return items;
+  }, [restaurants, topRatedOnly, accessibleOnly]);
+
+  const hasDiscoveryFilters = Boolean(
+    activeCategoryId ||
+      mapPriceRange != null ||
+      topRatedOnly ||
+      accessibleOnly ||
+      debouncedQuery ||
+      cuisine,
+  );
+
+  const visibleTotal = topRatedOnly ? visibleRestaurants.length : total;
   const noResults = !loading && restaurants.length === 0;
+  const noVisibleResults = !loading && visibleRestaurants.length === 0;
 
   // Fallback: when nothing matches (e.g. no restaurants near the user's
   // location), surface the top 20 restaurants platform-wide instead.
@@ -191,6 +267,146 @@ function HomePageContent() {
   const resultsTitle = usingDeviceLocation
     ? 'Restaurants near you'
     : `Restaurants near ${selectedLocation.label.split(',').slice(0, 2).join(',').trim()}`;
+
+  const clearCategoryFilters = useCallback(() => {
+    setActiveCategoryId(undefined);
+    setCuisine(undefined);
+  }, []);
+
+  const clearMapFilters = useCallback(() => {
+    clearCategoryFilters();
+    setMapPriceRange(undefined);
+    setTopRatedOnly(false);
+    setAccessibleOnly(false);
+    setQuery('');
+    setDebouncedQuery('');
+    setSelectedMapRestaurantId(null);
+  }, [clearCategoryFilters]);
+
+  const handleCuisineChange = useCallback((value: string | undefined) => {
+    setCuisine(value);
+    setActiveCategoryId(
+      value
+        ? RESTAURANT_DISCOVERY_CATEGORIES.find((c) => 'cuisine' in c && c.cuisine === value)?.id
+        : undefined,
+    );
+  }, []);
+
+  const handleCategorySelect = useCallback(
+    (categoryId: string) => {
+      if (activeCategoryId === categoryId) {
+        clearCategoryFilters();
+        return;
+      }
+      const category = RESTAURANT_DISCOVERY_CATEGORIES.find((c) => c.id === categoryId);
+      setActiveCategoryId(categoryId);
+      setCuisine(category && 'cuisine' in category ? category.cuisine : undefined);
+      setQuery('');
+      setDebouncedQuery('');
+      setSelectedMapRestaurantId(null);
+    },
+    [activeCategoryId, clearCategoryFilters],
+  );
+
+  const openRestaurant = useCallback(
+    (items: any[], id: string) => {
+      const r = items.find((item) => item.id === id);
+      if (r) router.push(buildRestaurantBookingPath(r.slug, r.id));
+    },
+    [router],
+  );
+
+  const bookRestaurantSlot = useCallback(
+    (items: any[], id: string, time: string) => {
+      const r = items.find((item) => item.id === id);
+      if (r) {
+        router.push(
+          `${buildRestaurantBookingPath(r.slug, r.id)}?date=${dateStr}&party=${partySize}&slot=${encodeURIComponent(time)}`,
+        );
+      }
+    },
+    [router, dateStr, partySize],
+  );
+
+  const mapFiltersSidebar = (
+    <MapFiltersSidebar
+      categories={RESTAURANT_DISCOVERY_CATEGORIES.map((category) => ({
+        id: category.id,
+        label: category.label,
+        icon: CATEGORY_ICONS[category.id],
+      }))}
+      filters={{
+        activeCategoryId,
+        priceRange: mapPriceRange,
+        topRatedOnly,
+        accessibleOnly,
+      }}
+      onCategorySelect={handleCategorySelect}
+      onPriceRangeChange={setMapPriceRange}
+      onTopRatedChange={setTopRatedOnly}
+      onAccessibleChange={setAccessibleOnly}
+      onClearAll={clearMapFilters}
+    />
+  );
+
+  const viewToggle = (
+    <Segmented
+      value={viewMode}
+      onChange={(value) => setViewMode(value as 'list' | 'map')}
+      options={[
+        { label: 'Cards', value: 'list', icon: <AppstoreOutlined /> },
+        { label: 'Map', value: 'map', icon: <GlobalOutlined /> },
+      ]}
+      style={{ fontWeight: typography.fontWeight.semibold }}
+    />
+  );
+
+  const renderMapResults = (items: any[], resultTotal: number, title: string, isFallback = false) => (
+    <MapResultsLayout
+      restaurants={items}
+      center={{ lat: selectedLocation.lat, lng: selectedLocation.lng }}
+      selectedId={selectedMapRestaurantId}
+      date={dateStr}
+      partySize={partySize}
+      total={resultTotal}
+      page={page}
+      pageSize={pageSize}
+      resultsTitle={title}
+      activeCategoryLabel={activeCategory?.label}
+      filtersSidebar={mapFiltersSidebar}
+      onPageChange={setPage}
+      onSelectRestaurant={setSelectedMapRestaurantId}
+      onCloseRestaurant={() => setSelectedMapRestaurantId(null)}
+      onOpenRestaurant={(id) => openRestaurant(items, id)}
+      onSelectSlot={(id, time) => bookRestaurantSlot(items, id, time)}
+      onClearCategory={isFallback ? undefined : clearMapFilters}
+    />
+  );
+
+  const discoverySearch = (variant: 'hero' | 'map') => (
+    <DiscoverySearchPanel
+      variant={variant}
+      query={query}
+      cuisine={cuisine}
+      locationInput={locationInput}
+      usingDeviceLocation={usingDeviceLocation}
+      partySize={partySize}
+      date={date}
+      geoLoading={geoLoading}
+      datePresets={datePresets}
+      onQueryChange={setQuery}
+      onCuisineChange={handleCuisineChange}
+      onLocationInputChange={setLocationInput}
+      onSelectLocation={(loc) => applyLocation(loc)}
+      onUseMyLocation={requestLocation}
+      onClearLocation={clearLocation}
+      onClearDeviceLocation={clearDeviceLocation}
+      onDateChange={setDate}
+      onPartySizeChange={setPartySize}
+      onSearch={handleSearch}
+      onClearCategory={clearCategoryFilters}
+    />
+  );
 
   const renderGrid = (items: any[]) => (
     <Row gutter={[20, 20]}>
@@ -214,7 +430,7 @@ function HomePageContent() {
 
   return (
     <div component="HomePageContent">
-      {/* ---------- Hero (full-bleed) ---------- */}
+      {viewMode !== 'map' && (
       <section className="rt-hero">
         {/* decorative glows */}
         <div
@@ -314,119 +530,7 @@ function HomePageContent() {
             diners, confirmed instantly.
           </Paragraph>
 
-          {/* search panel */}
-          <div
-            className="rt-fade-up rt-search-panel"
-            role="search"
-            style={{ animationDelay: '180ms' }}
-          >
-            <div className="rt-search-field rt-sf-what">
-              <span className="rt-search-label">Search</span>
-              <Input
-                size="large"
-                variant="borderless"
-                allowClear
-                prefix={<SearchOutlined style={{ color: colors.textTertiary }} />}
-                placeholder="Restaurant name or dish"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onPressEnter={handleSearch}
-              />
-            </div>
-            <span className="rt-search-divider" aria-hidden />
-            <div className="rt-search-field rt-sf-cuisine">
-              <span className="rt-search-label">Cuisine</span>
-              <Select
-                size="large"
-                variant="borderless"
-                allowClear
-                placeholder="Any cuisine"
-                value={cuisine}
-                onChange={setCuisine}
-                options={CUISINES.map((c) => ({ value: c, label: c }))}
-              />
-            </div>
-            <span className="rt-search-divider" aria-hidden />
-            <div className="rt-search-field rt-sf-where">
-              <span className="rt-search-label">Where</span>
-              {usingDeviceLocation ? (
-                <Tag
-                  color={colors.brand[600]}
-                  closable
-                  onClose={clearDeviceLocation}
-                  style={{
-                    height: 40,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    fontSize: 14,
-                    padding: '0 12px',
-                    borderRadius: radii.md,
-                    margin: '0 4px 2px',
-                  }}
-                >
-                  <EnvironmentFilled style={{ marginRight: 6 }} /> Near me — closest tables first
-                </Tag>
-              ) : (
-                <AddressAutocomplete
-                  value={locationInput}
-                  onChange={setLocationInput}
-                  onSelectLocation={(loc) => applyLocation(loc)}
-                  onUseMyLocation={requestLocation}
-                  onClear={clearLocation}
-                  geoLoading={geoLoading}
-                  variant="borderless"
-                />
-              )}
-            </div>
-            <span className="rt-search-divider" aria-hidden />
-            <div className="rt-search-field rt-sf-when">
-              <span className="rt-search-label">When</span>
-              <DatePicker
-                size="large"
-                variant="borderless"
-                value={date}
-                onChange={(d) => d && setDate(d)}
-                allowClear={false}
-                format="ddd, MMM D"
-                disabledDate={(d) => d.isBefore(dayjs().startOf('day'))}
-                presets={datePresets}
-              />
-            </div>
-            <span className="rt-search-divider" aria-hidden />
-            <div className="rt-search-field rt-sf-who">
-              <span className="rt-search-label">Guests</span>
-              <Select
-                size="large"
-                variant="borderless"
-                value={partySize}
-                onChange={(v) => setPartySize(v ?? 2)}
-                options={Array.from({ length: 20 }, (_, i) => ({
-                  value: i + 1,
-                  label: `${i + 1} ${i === 0 ? 'guest' : 'guests'}`,
-                }))}
-              />
-            </div>
-            <div className="rt-search-submit">
-              <Button
-                type="primary"
-                size="large"
-                icon={<SearchOutlined />}
-                className="rt-hero-cta"
-                onClick={handleSearch}
-                style={{
-                  height: 'auto',
-                  minHeight: 52,
-                  borderRadius: radii.lg,
-                  fontWeight: typography.fontWeight.semibold,
-                  paddingInline: 26,
-                  background: colors.brand[600],
-                  boxShadow: shadows.brand,
-                }}
-              >
-                Find a table
-              </Button>
-            </div>
-          </div>
+          {discoverySearch('hero')}
 
           {/* highlights */}
           <div
@@ -513,7 +617,49 @@ function HomePageContent() {
           </div>
         </div>
       </section>
+      )}
 
+      {viewMode === 'map' ? (
+        <div className="rt-map-page">
+          <div className="rt-map-page__search-bar">
+            <div className="rt-map-page__search-inner">
+              {discoverySearch('map')}
+            </div>
+            <div className="rt-map-page__search-actions">{viewToggle}</div>
+          </div>
+          <div className="rt-map-page__content">
+            {loading ? (
+              <div className="rt-map-page__loading">
+                <Skeleton active paragraph={{ rows: 8 }} />
+              </div>
+            ) : visibleRestaurants.length > 0 ? (
+              renderMapResults(visibleRestaurants, visibleTotal, resultsTitle)
+            ) : hasDiscoveryFilters ? (
+              <div className="rt-map-page__empty">
+                <EmptyState
+                  icon={<SearchOutlined />}
+                  title="No restaurants match your filters"
+                  description="Try a different category, price range, or location."
+                />
+              </div>
+            ) : noResults && topLoading ? (
+              <div className="rt-map-page__loading">
+                <Skeleton active paragraph={{ rows: 8 }} />
+              </div>
+            ) : topRestaurants.length > 0 ? (
+              renderMapResults(topRestaurants, topRestaurants.length, 'Top restaurants across Tablevera', true)
+            ) : (
+              <div className="rt-map-page__empty">
+                <EmptyState
+                  icon={<SearchOutlined />}
+                  title="No restaurants yet"
+                  description="New restaurants join Tablevera every week — check back soon."
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
       <div
         style={{
           maxWidth: layout.contentMaxWidth,
@@ -522,7 +668,6 @@ function HomePageContent() {
           padding: '0 24px 32px',
         }}
       >
-      {/* ---------- Cuisine quick filters ---------- */}
       <div
         className="rt-scroll-hidden"
         style={{
@@ -532,14 +677,14 @@ function HomePageContent() {
           padding: '28px 2px 4px',
         }}
       >
-        {CUISINES.map((c) => {
-          const active = cuisine === c;
+        {RESTAURANT_DISCOVERY_CATEGORIES.map((category) => {
+          const active = activeCategoryId === category.id;
           return (
             <button
-              key={c}
+              key={category.id}
               type="button"
               className={active ? 'rt-chip rt-chip--active' : 'rt-chip'}
-              onClick={() => setCuisine(active ? undefined : c)}
+              onClick={() => handleCategorySelect(category.id)}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -558,69 +703,26 @@ function HomePageContent() {
                 transition: 'all 0.18s ease',
               }}
             >
-              {c}
+              <span style={{ display: 'inline-flex', fontSize: 14, opacity: active ? 1 : 0.75 }}>
+                {CATEGORY_ICONS[category.id]}
+              </span>
+              {category.label}
             </button>
           );
         })}
       </div>
 
-      {/* ---------- View toggle ---------- */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'flex-end',
           alignItems: 'center',
           marginTop: 20,
-          gap: 8,
         }}
       >
-        <Button
-          icon={<GlobalOutlined />}
-          type={showMap ? 'primary' : 'default'}
-          onClick={() => setShowMap((v) => !v)}
-          style={{
-            borderRadius: radii.pill,
-            fontWeight: typography.fontWeight.semibold,
-            ...(showMap ? { background: colors.brand[600] } : {}),
-          }}
-        >
-          {showMap ? 'Hide map' : 'Show map'}
-        </Button>
+        {viewToggle}
       </div>
 
-      {/* ---------- Map view ---------- */}
-      {showMap && (
-        <div
-          style={{
-            marginTop: 16,
-            height: 380,
-            borderRadius: radii.lg,
-            overflow: 'hidden',
-            border: `1px solid ${colors.border}`,
-            background: colors.neutral[100],
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'relative',
-          }}
-        >
-          <div
-            style={{
-              textAlign: 'center',
-              color: colors.textSecondary,
-            }}
-          >
-            <GlobalOutlined style={{ fontSize: 40, color: colors.textTertiary, display: 'block', marginBottom: 12 }} />
-            <Text strong style={{ fontSize: typography.fontSize.md }}>Map view</Text>
-            <br />
-            <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-              Interactive map coming soon — browse restaurants by location
-            </Text>
-          </div>
-        </div>
-      )}
-
-      {/* ---------- Results ---------- */}
       <div ref={resultsRef} style={{ marginTop: 28, scrollMarginTop: 84 }}>
         {loading ? (
           <>
@@ -649,7 +751,6 @@ function HomePageContent() {
           </>
         ) : (
           <>
-            {/* Fallback: top 20 platform-wide */}
             <div
               style={{
                 display: 'flex',
@@ -711,6 +812,7 @@ function HomePageContent() {
         )}
       </div>
       </div>
+      )}
     </div>
   );
 }
