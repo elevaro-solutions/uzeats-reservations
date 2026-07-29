@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { useMutation } from '@apollo/client/react';
 import {
   Alert,
   Button,
@@ -16,6 +17,7 @@ import {
   Select,
   Space,
   Typography,
+  message,
 } from 'antd';
 import {
   ArrowRightOutlined,
@@ -31,6 +33,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { colors, radii, shadows, typography } from '@reservations/ui';
+import { SUBMIT_CONTACT_FORM } from '@/lib/graphql';
 
 const { Title, Paragraph, Text } = Typography;
 const { TextArea } = Input;
@@ -138,21 +141,8 @@ type ContactFormValues = {
   message: string;
 };
 
-function getTopicEmail(topic: ContactFormValues['topic']) {
-  return TOPIC_OPTIONS.find((option) => option.value === topic)?.email ?? CONTACT_EMAILS.general;
-}
-
 function getTopicLabel(topic: ContactFormValues['topic']) {
   return TOPIC_OPTIONS.find((option) => option.value === topic)?.label ?? 'General inquiry';
-}
-
-function buildMailtoUrl(values: ContactFormValues) {
-  const recipient = getTopicEmail(values.topic);
-  const subject = encodeURIComponent(`[Tablevera] ${getTopicLabel(values.topic)}`);
-  const body = encodeURIComponent(
-    `Name: ${values.name}\nEmail: ${values.email}\nTopic: ${getTopicLabel(values.topic)}\n\n${values.message}`,
-  );
-  return `mailto:${recipient}?subject=${subject}&body=${body}`;
 }
 
 export default function ContactPage() {
@@ -173,13 +163,27 @@ function ContactContent() {
       ? (topicParam as ContactFormValues['topic'])
       : 'general';
 
+  const [submitContact, { loading }] = useMutation(SUBMIT_CONTACT_FORM);
   const [submitted, setSubmitted] = useState(false);
   const [submittedValues, setSubmittedValues] = useState<ContactFormValues | null>(null);
 
-  const onFinish = (values: ContactFormValues) => {
-    window.location.href = buildMailtoUrl(values);
-    setSubmittedValues(values);
-    setSubmitted(true);
+  const onFinish = async (values: ContactFormValues) => {
+    try {
+      await submitContact({
+        variables: {
+          input: {
+            name: values.name,
+            email: values.email,
+            topic: values.topic,
+            message: values.message,
+          },
+        },
+      });
+      setSubmittedValues(values);
+      setSubmitted(true);
+    } catch {
+      message.error('Something went wrong sending your message. Please try again or email us directly.');
+    }
   };
 
   return (
@@ -277,32 +281,20 @@ function ContactContent() {
               {submitted && submittedValues ? (
                 <Result
                   status="success"
-                  title="Your message is ready"
+                  title="Message sent"
                   subTitle={
                     <>
-                      Your email client should open with your message addressed to{' '}
+                      Thanks, {submittedValues.name}! We&apos;ve received your message about{' '}
+                      <Text strong>{getTopicLabel(submittedValues.topic)}</Text> and sent a
+                      confirmation to{' '}
                       <Text copyable strong>
-                        {getTopicEmail(submittedValues.topic)}
+                        {submittedValues.email}
                       </Text>
-                      . If it doesn&apos;t open, use the button below.
+                      . We typically respond within 1–2 business days.
                     </>
                   }
                   extra={[
-                    <Button
-                      key="email"
-                      type="primary"
-                      size="large"
-                      icon={<MailOutlined />}
-                      href={buildMailtoUrl(submittedValues)}
-                      style={{
-                        height: 46,
-                        fontWeight: typography.fontWeight.semibold,
-                        background: colors.brand[600],
-                      }}
-                    >
-                      Open in email client
-                    </Button>,
-                    <Button key="again" size="large" onClick={() => setSubmitted(false)}>
+                    <Button key="again" type="primary" size="large" onClick={() => setSubmitted(false)}>
                       Send another message
                     </Button>,
                   ]}
@@ -390,6 +382,7 @@ function ContactContent() {
                         size="large"
                         icon={<SendOutlined />}
                         className="contact-submit-btn"
+                        loading={loading}
                       >
                         Send message
                       </Button>

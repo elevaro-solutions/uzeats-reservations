@@ -34,6 +34,7 @@ import {
   MY_NOTIFICATIONS,
 } from '@/lib/graphql';
 import { getDashboardUrl } from '@/lib/urls';
+import { CookieConsent, openCookieSettings } from '@/components/CookieConsent';
 
 const { Header, Content, Footer } = Layout;
 const { Text } = Typography;
@@ -546,6 +547,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="rt-site-footer__list">
                 <Link href="/privacy">Privacy</Link>
                 <Link href="/terms">Terms</Link>
+                <Link href="/cookies">Cookies</Link>
+                <button type="button" className="rt-site-footer__cookie-btn" onClick={openCookieSettings}>
+                  Cookie settings
+                </button>
                 <Link href="/contact">Contact</Link>
               </div>
             </div>
@@ -556,6 +561,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           © {new Date().getFullYear()} Tablevera. All rights reserved.
         </div>
       </Footer>
+
+      <CookieConsent />
     </Layout></div>
   );
 }

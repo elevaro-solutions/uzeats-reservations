@@ -9,3 +9,4 @@ export * from './annualBilling.js';
 export * from './loyalty.js';
 export * from './restaurantLoyalty.js';
 export * from './promotions.js';
+export * from './envVars.js';

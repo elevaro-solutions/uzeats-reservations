@@ -85,7 +85,8 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Owner phone / walk-in bookings, reservation edit, and reservation-scoped messaging
 - Platform admin: users, restaurants (create/edit/delete), invoices, revenue, support, moderation, templates, config, and annual billing discounts
 - Embeddable booking widget with per-restaurant theme
-- Public contact page for diners and restaurant partners
+- Public contact form, cookie consent, and legal pages (privacy, terms, cookies)
+- Super-admin developer page for deployment env-var health
 
 ## Design system
 
@@ -96,13 +97,13 @@ Visual language lives in [`packages/ui`](./packages/ui): shared Tablevera brand 
 See [`.env.example`](.env.example). Required for local:
 
 ```
-MONGODB_URI=mongodb://localhost:27017/reservations?replicaSet=rs0?replicaSet=rs0
+MONGODB_URI=mongodb://localhost:27017/reservations?replicaSet=rs0
 REDIS_URL=redis://localhost:6379
 JWT_ACCESS_SECRET=...
 JWT_REFRESH_SECRET=...
 ```
 
-Optional integrations: `STRIPE_*`, `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `SENDGRID_API_KEY` (or `RESEND_API_KEY`), `TELEGRAM_BOT_TOKEN` (+ `API_PUBLIC_URL` / `TELEGRAM_WEBHOOK_SECRET` in production), `DO_SPACES_*`, `VAPID_*`, `NEXT_PUBLIC_SITE_URL` (canonical URLs for sitemap/SEO).
+Optional integrations: `STRIPE_*`, `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `SENDGRID_API_KEY` (or `RESEND_API_KEY`), `TELEGRAM_BOT_TOKEN` (+ `API_PUBLIC_URL` / `TELEGRAM_WEBHOOK_SECRET` in production), `DO_SPACES_*`, `VAPID_*`, `NEXT_PUBLIC_SITE_URL` (canonical URLs for sitemap/SEO), `ELEVARO_LEADS_API_KEY` (contact form lead ingest).
 
 For password reset emails, set `WEB_APP_URL` and `DASHBOARD_APP_URL` on the API so reset links land on the correct app.
 

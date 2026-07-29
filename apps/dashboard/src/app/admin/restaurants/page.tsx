@@ -7,6 +7,7 @@ import {
   Card,
   Col,
   Divider,
+  Dropdown,
   Form,
   Input,
   InputNumber,
@@ -21,12 +22,14 @@ import {
   Typography,
   message,
 } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   EditOutlined,
   DeleteOutlined,
   SearchOutlined,
   PlusOutlined,
   UserAddOutlined,
+  MoreOutlined,
 } from '@ant-design/icons';
 import { CUISINES } from '@reservations/shared';
 import {
@@ -172,7 +175,7 @@ function AdminRestaurantsContent() {
       refetch();
     },
   });
-  const [deleteRestaurant, { loading: deleting }] = useMutation(ADMIN_DELETE_RESTAURANT, {
+  const [deleteRestaurant] = useMutation(ADMIN_DELETE_RESTAURANT, {
     onCompleted: () => {
       message.success('Restaurant deleted');
       refetch();
@@ -390,6 +393,78 @@ function AdminRestaurantsContent() {
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Failed to remove account');
     }
+  };
+
+  const actionItems = (r: RestaurantRecord): MenuProps['items'] => {
+    const items: NonNullable<MenuProps['items']> = [
+      {
+        key: 'edit',
+        icon: <EditOutlined />,
+        label: 'Edit',
+        onClick: () => setEditing(r),
+      },
+    ];
+
+    if (r.status !== 'approved') {
+      items.push({
+        key: 'approve',
+        label: 'Approve',
+        onClick: async () => {
+          await setStatus({ variables: { id: r.id, status: 'approved' } });
+          message.success('Approved');
+          refetch();
+        },
+      });
+    }
+
+    if (r.status !== 'rejected') {
+      items.push({
+        key: 'reject',
+        label: 'Reject',
+        danger: true,
+        onClick: async () => {
+          await setStatus({ variables: { id: r.id, status: 'rejected' } });
+          refetch();
+        },
+      });
+    }
+
+    if (r.status === 'approved') {
+      items.push({
+        key: 'suspend',
+        label: 'Suspend',
+        onClick: async () => {
+          await setStatus({ variables: { id: r.id, status: 'suspended' } });
+          refetch();
+        },
+      });
+    }
+
+    if (canDeleteRestaurants) {
+      items.push(
+        { type: 'divider' },
+        {
+          key: 'delete',
+          icon: <DeleteOutlined />,
+          label: 'Delete',
+          danger: true,
+          onClick: () => {
+            Modal.confirm({
+              title: `Delete ${r.name}?`,
+              content:
+                'Permanently deletes this restaurant and all related records. This cannot be undone.',
+              okText: 'Delete permanently',
+              okButtonProps: { danger: true },
+              onOk: async () => {
+                await deleteRestaurant({ variables: { id: r.id } });
+              },
+            });
+          },
+        },
+      );
+    }
+
+    return items;
   };
 
   if (!ready) return null;
@@ -643,71 +718,18 @@ function AdminRestaurantsContent() {
                 },
                 {
                   title: 'Actions',
-                  width: 320,
+                  width: 90,
+                  fixed: 'right',
                   render: (_: unknown, r: RestaurantRecord) => (
-                    <Space wrap>
-                      <Button size="small" icon={<EditOutlined />} onClick={() => setEditing(r)}>
-                        Edit
+                    <Dropdown
+                      menu={{ items: actionItems(r) }}
+                      trigger={['click']}
+                      placement="bottomRight"
+                    >
+                      <Button size="small" icon={<MoreOutlined />}>
+                        More
                       </Button>
-                      {r.status !== 'approved' && (
-                        <Button
-                          type="primary"
-                          size="small"
-                          onClick={async () => {
-                            await setStatus({ variables: { id: r.id, status: 'approved' } });
-                            message.success('Approved');
-                            refetch();
-                          }}
-                        >
-                          Approve
-                        </Button>
-                      )}
-                      {r.status !== 'rejected' && (
-                        <Button
-                          danger
-                          size="small"
-                          onClick={async () => {
-                            await setStatus({ variables: { id: r.id, status: 'rejected' } });
-                            refetch();
-                          }}
-                        >
-                          Reject
-                        </Button>
-                      )}
-                      {r.status === 'approved' && (
-                        <Button
-                          size="small"
-                          onClick={async () => {
-                            await setStatus({ variables: { id: r.id, status: 'suspended' } });
-                            refetch();
-                          }}
-                        >
-                          Suspend
-                        </Button>
-                      )}
-                      {canDeleteRestaurants && (
-                        <Button
-                          danger
-                          size="small"
-                          icon={<DeleteOutlined />}
-                          loading={deleting}
-                          onClick={() => {
-                            Modal.confirm({
-                              title: `Delete ${r.name}?`,
-                              content:
-                                'Permanently deletes this restaurant and all related records. This cannot be undone.',
-                              okText: 'Delete permanently',
-                              okButtonProps: { danger: true },
-                              onOk: async () => {
-                                await deleteRestaurant({ variables: { id: r.id } });
-                              },
-                            });
-                          }}
-                        >
-                          Delete
-                        </Button>
-                      )}
-                    </Space>
+                    </Dropdown>
                   ),
                 },
               ]}

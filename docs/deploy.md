@@ -75,3 +75,9 @@ Password reset: `/forgot-password` and `/reset-password` on the dashboard. The A
 - **`admin`** — platform dashboard access for users, restaurants, billing, and support; cannot delete super admins or perform super-admin-only destructive actions.
 
 Assign elevated roles only to trusted operators. Re-run `pnpm seed` to upgrade an existing demo admin account to `super_admin`.
+
+Super admins can open **Developer** (`/admin/developer`) to see the API release version and which required env vars are missing on the current deployment.
+
+## Contact form leads
+
+Set `ELEVARO_LEADS_API_KEY`, `ELEVARO_LEADS_REFERRER_DOMAIN`, and `ELEVARO_LEADS_SOURCE` on the API to forward diner contact submissions to Elevaro Solutions. Email notifications still send via SendGrid/Resend when configured.

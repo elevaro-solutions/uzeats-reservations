@@ -4,6 +4,27 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.14.0] — 2026-07-29
+
+### Added
+
+- GDPR-style **cookie consent** banner with essential/analytics/marketing preferences and `/cookies` policy
+- Rewritten **Privacy** and **Terms** pages with shared `LegalPageLayout` and table of contents
+- Contact form API (`submitContactForm`) with email notifications and optional Elevaro leads ingest
+- Super-admin **Developer** page (`/admin/developer`) — release version and env-var health checklist
+- `developerInfo` GraphQL query and shared `ENV_VAR_DEFINITIONS` catalog (values never exposed)
+- `useRequireSuperAdmin` hook for super-admin-only dashboard routes
+
+### Changed
+
+- Contact page submits via GraphQL instead of mailto-only
+- Admin restaurants table uses dropdown actions (approve/reject/suspend/edit/delete)
+- Sitemap includes `/cookies`; footer links to legal pages and cookie settings
+
+### Docs
+
+- `.env.example` documents Elevaro leads API vars; deploy guide mentions developer env checklist
+
 ## [0.13.0] — 2026-07-29
 
 ### Added

@@ -42,6 +42,9 @@ const envSchema = z.object({
   VAPID_PUBLIC_KEY: z.string().optional().default(''),
   VAPID_PRIVATE_KEY: z.string().optional().default(''),
   VAPID_SUBJECT: z.string().default('mailto:admin@reservations.local'),
+  ELEVARO_LEADS_API_KEY: z.string().optional().default(''),
+  ELEVARO_LEADS_REFERRER_DOMAIN: z.string().default('https://tablevera.online/'),
+  ELEVARO_LEADS_SOURCE: z.string().default('ORDERING_APP'),
 });
 
 const parsed = envSchema.parse(process.env);
