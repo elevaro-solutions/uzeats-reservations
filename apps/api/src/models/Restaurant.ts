@@ -39,6 +39,7 @@ const restaurantSchema = new Schema(
     averageRating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
     useSmartAssign: { type: Boolean, default: true },
+    allowGuestTableSelection: { type: Boolean, default: false },
     posApiKey: { type: String, sparse: true, unique: true },
     posEnabled: { type: Boolean, default: false },
     // Marketing: featured placement boosts search ranking while active

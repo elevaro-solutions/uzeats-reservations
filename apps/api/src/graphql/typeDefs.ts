@@ -113,6 +113,7 @@ export const typeDefs = `#graphql
     featuredUntil: DateTime
     spendAlertThresholdCents: Int!
     useSmartAssign: Boolean!
+    allowGuestTableSelection: Boolean!
     posEnabled: Boolean!
     loyaltyEnabled: Boolean!
     loyaltyPointsPerVisit: Int!
@@ -150,6 +151,7 @@ export const typeDefs = `#graphql
     width: Float!
     height: Float!
     shape: String!
+    photoUrl: String
   }
 
   type Shift {
@@ -207,6 +209,7 @@ export const typeDefs = `#graphql
     giftCardDiscountCents: Int!
     source: ReservationSource!
     totalSpendCents: Int!
+    seatedAt: DateTime
     createdAt: DateTime!
   }
 
@@ -230,7 +233,32 @@ export const typeDefs = `#graphql
     preferredTimeEnd: String
     status: WaitlistStatus!
     notifiedSlot: DateTime
+    position: Int
+    partiesAhead: Int
+    estimatedWaitMinutes: Int
+    estimatedReadyAt: DateTime
     createdAt: DateTime!
+  }
+
+  enum FloorTableStatus {
+    free
+    reserved
+    seated
+    turning
+  }
+
+  type FloorPlanTableState {
+    table: Table!
+    status: FloorTableStatus!
+    reservation: Reservation
+    seatedMinutes: Int
+    turnMinutesRemaining: Int
+  }
+
+  type FloorPlanOpsPayload {
+    tables: [FloorPlanTableState!]!
+    unassigned: [Reservation!]!
+    date: String!
   }
 
   type Review {
@@ -1227,6 +1255,7 @@ export const typeDefs = `#graphql
     width: Float
     height: Float
     shape: String
+    photoUrl: String
   }
 
   input TablePositionInput {
@@ -1259,6 +1288,7 @@ export const typeDefs = `#graphql
     promoCode: String
     giftCardCode: String
     source: ReservationSource
+    tableId: ID
   }
 
   input OwnerGuestInput {
@@ -1696,6 +1726,8 @@ export const typeDefs = `#graphql
     validateGiftCard(restaurantId: ID!, code: String!, depositCents: Int!): GiftCardValidation!
     searchRestaurants(input: SearchRestaurantsInput!): RestaurantConnection!
     availability(restaurantId: ID!, date: String!, partySize: Int!): [AvailabilitySlot!]!
+    bookableTables(restaurantId: ID!, slotStart: DateTime!, partySize: Int!): [Table!]!
+    floorPlanOps(restaurantId: ID!, date: String): FloorPlanOpsPayload!
     myReservations: [Reservation!]!
     restaurantReservations(restaurantId: ID!, date: String, limit: Int, offset: Int): ReservationConnection!
     myWaitlist: [WaitlistEntry!]!
@@ -1820,6 +1852,7 @@ export const typeDefs = `#graphql
     confirmDepositPayment(paymentIntentId: String!): Reservation!
     updateReservation(id: ID!, input: UpdateReservationInput!): Reservation!
     updateReservationStatus(id: ID!, status: ReservationStatus!, reason: String): Reservation!
+    seatReservationAtTable(reservationId: ID!, tableId: ID!): Reservation!
     deleteReservation(id: ID!): Boolean!
     joinWaitlist(input: WaitlistInput!): WaitlistEntry!
     cancelWaitlist(id: ID!): Boolean!
@@ -1976,6 +2009,7 @@ export const typeDefs = `#graphql
       restaurantId: ID!
       spendAlertThresholdCents: Int
       useSmartAssign: Boolean
+      allowGuestTableSelection: Boolean
       posEnabled: Boolean
       widgetTheme: WidgetThemeInput
     ): Restaurant!

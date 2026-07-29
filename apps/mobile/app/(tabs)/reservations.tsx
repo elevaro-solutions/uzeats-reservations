@@ -11,6 +11,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { useQuery, useMutation } from '@apollo/client';
 import { useRouter } from 'expo-router';
@@ -114,6 +115,20 @@ export default function ReservationsScreen() {
                 {new Date(item.slotStart).toLocaleString()} · {item.partySize}{' '}
                 guests
               </Text>
+              {item.tables?.[0] && (
+                <>
+                  <Text style={styles.tableInfo}>
+                    Table: {item.tables[0].name}
+                    {item.tables[0].floorArea ? ` · ${item.tables[0].floorArea}` : ''}
+                  </Text>
+                  {item.tables[0].photoUrl ? (
+                    <Image
+                      source={{ uri: item.tables[0].photoUrl }}
+                      style={styles.tablePhoto}
+                    />
+                  ) : null}
+                </>
+              )}
               <Text
                 style={[
                   styles.status,
@@ -218,6 +233,8 @@ const styles = StyleSheet.create({
   },
   name: { fontWeight: '700', fontSize: 16 },
   meta: { color: '#666', marginTop: 4 },
+  tableInfo: { color: '#444', marginTop: 6, fontSize: 14 },
+  tablePhoto: { width: '100%', height: 100, borderRadius: 8, marginTop: 8 },
   empty: { color: '#666', marginTop: 24, textAlign: 'center' },
   status: {
     marginTop: 8,

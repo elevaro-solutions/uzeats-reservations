@@ -15,6 +15,7 @@ import { useMutation, useQuery } from '@apollo/client';
 import {
   AVAILABILITY,
   BOOK,
+  BOOKABLE_TABLES,
   RESTAURANT,
   REGISTER_PUSH,
   JOIN_WAITLIST,
@@ -43,6 +44,7 @@ export default function RestaurantScreen() {
   const [date, setDate] = useState(tomorrow.toISOString().slice(0, 10));
   const [partySize, setPartySize] = useState(2);
   const [selected, setSelected] = useState<string | null>(null);
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [waitlistTime, setWaitlistTime] = useState('');
   const [redeemPoints, setRedeemPoints] = useState(0);
   const [redeemRestaurantPoints, setRedeemRestaurantPoints] = useState(0);
@@ -57,6 +59,11 @@ export default function RestaurantScreen() {
   const { data: avail } = useQuery(AVAILABILITY, {
     variables: { restaurantId: id, date, partySize },
   });
+  const { data: bookableData } = useQuery(BOOKABLE_TABLES, {
+    variables: { restaurantId: id, slotStart: selected!, partySize },
+    skip: !selected,
+  });
+  const bookableTables = bookableData?.bookableTables ?? [];
   const [book, { loading: booking }] = useMutation(BOOK);
   const [registerPush] = useMutation(REGISTER_PUSH);
   const [joinWaitlist, { loading: joining }] = useMutation(JOIN_WAITLIST);
@@ -112,13 +119,14 @@ export default function RestaurantScreen() {
       return;
     }
     try {
-      await book({
+      const { data: bookResult } = await book({
         variables: {
           input: {
             restaurantId: id,
             partySize,
             slotStart: selected,
             occasion: 'none',
+            ...(selectedTableId ? { tableId: selectedTableId } : {}),
             ...(redeemPoints >= LOYALTY.MIN_REDEEM_POINTS ? { redeemPoints } : {}),
             ...(canRedeemRestaurant && redeemRestaurantPoints >= restaurantMinRedeem
               ? { redeemRestaurantPoints }
@@ -128,6 +136,7 @@ export default function RestaurantScreen() {
           },
         },
       });
+      const table = bookResult?.createReservation?.reservation?.tables?.[0];
       await refreshMe();
       try {
         const { status } = await Notifications.requestPermissionsAsync();
@@ -138,7 +147,12 @@ export default function RestaurantScreen() {
       } catch {
         // push optional on simulators
       }
-      Alert.alert('Booked!', 'Your reservation is confirmed.');
+      Alert.alert(
+        'Booked!',
+        table
+          ? `Your table: ${table.name}${table.floorArea ? ` (${table.floorArea})` : ''}`
+          : 'Your reservation is confirmed.',
+      );
       router.push('/reservations');
     } catch (err) {
       Alert.alert(
@@ -154,7 +168,7 @@ export default function RestaurantScreen() {
       return;
     }
     try {
-      await joinWaitlist({
+      const { data: wlData } = await joinWaitlist({
         variables: {
           input: {
             restaurantId: id,
@@ -164,10 +178,12 @@ export default function RestaurantScreen() {
           },
         },
       });
-      Alert.alert(
-        'Added!',
-        "You've been added to the waitlist. We'll notify you when a spot opens.",
-      );
+      const entry = wlData?.joinWaitlist;
+      const eta =
+        entry?.position != null && entry?.estimatedWaitMinutes != null
+          ? ` You are #${entry.position} · ~${entry.estimatedWaitMinutes} min.`
+          : '';
+      Alert.alert('Added!', `You've been added to the waitlist.${eta}`);
     } catch (err) {
       Alert.alert(
         'Error',
@@ -253,7 +269,10 @@ export default function RestaurantScreen() {
               <Pressable
                 key={s.time}
                 style={[styles.slot, active && styles.slotActive]}
-                onPress={() => setSelected(s.time)}
+                onPress={() => {
+                  setSelected(s.time);
+                  setSelectedTableId(null);
+                }}
               >
                 <Text
                   style={[styles.slotText, active && styles.slotTextActive]}
@@ -264,6 +283,36 @@ export default function RestaurantScreen() {
             );
           })}
         </View>
+
+        {selected && restaurant.allowGuestTableSelection && bookableTables.length > 0 && (
+          <View style={styles.tableSection}>
+            <Text style={styles.section}>Choose your table</Text>
+            {bookableTables.map((t: any) => {
+              const active = selectedTableId === t.id;
+              return (
+                <Pressable
+                  key={t.id}
+                  style={[styles.tableCard, active && styles.tableCardActive]}
+                  onPress={() => setSelectedTableId(t.id)}
+                >
+                  {t.photoUrl ? (
+                    <Image source={{ uri: t.photoUrl }} style={styles.tablePhoto} />
+                  ) : null}
+                  <Text style={styles.tableName}>{t.name}</Text>
+                  <Text style={styles.tableMeta}>
+                    {t.floorArea} · {t.minCapacity}-{t.maxCapacity} guests
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+
+        {selected && !restaurant.allowGuestTableSelection && (
+          <Text style={styles.autoAssignHint}>
+            Your table will be assigned automatically when you book.
+          </Text>
+        )}
 
         {canRedeem && (
           <View style={styles.redeemCard}>
@@ -480,6 +529,19 @@ const styles = StyleSheet.create({
   slotActive: { backgroundColor: '#0b3d2e' },
   slotText: { color: '#0b3d2e', fontWeight: '600' },
   slotTextActive: { color: '#fff' },
+  tableSection: { marginTop: 12, gap: 8 },
+  tableCard: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 8,
+  },
+  tableCardActive: { borderColor: '#0b3d2e', borderWidth: 2, backgroundColor: '#e8f5ef' },
+  tablePhoto: { width: '100%', height: 100, borderRadius: 8, marginBottom: 8 },
+  tableName: { fontWeight: '700', fontSize: 15 },
+  tableMeta: { color: '#666', marginTop: 4, fontSize: 13 },
+  autoAssignHint: { color: '#666', marginTop: 12, fontStyle: 'italic' },
   button: {
     marginTop: 16,
     backgroundColor: '#0b3d2e',

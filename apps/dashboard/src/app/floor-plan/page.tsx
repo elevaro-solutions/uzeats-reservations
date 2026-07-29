@@ -17,7 +17,8 @@ import {
 import { SaveOutlined } from '@ant-design/icons';
 import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
-import { MY_RESTAURANTS, FLOOR_PLAN_TABLES, UPDATE_TABLE_POSITIONS } from '@/lib/graphql';
+import { MY_RESTAURANTS, FLOOR_PLAN_TABLES, UPDATE_TABLE_POSITIONS, UPDATE_TABLE } from '@/lib/graphql';
+import PhotoUpload from '@/components/PhotoUpload';
 
 const { Title, Text } = Typography;
 
@@ -37,6 +38,7 @@ type FloorTable = {
   width: number;
   height: number;
   shape: string;
+  photoUrl?: string | null;
 };
 
 export default function FloorPlanPage() {
@@ -63,6 +65,7 @@ export default function FloorPlanPage() {
     onError: (err: Error) => message.error(err.message),
   });
   const [updatePositions, { loading: saving }] = useMutation(UPDATE_TABLE_POSITIONS);
+  const [saveTableMutation] = useMutation(UPDATE_TABLE);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -87,6 +90,7 @@ export default function FloorPlanPage() {
       width: t.width || 2,
       height: t.height || 2,
       shape: t.shape || 'rect',
+      photoUrl: t.photoUrl ?? null,
     }));
     setTables(loaded);
     setSelectedId(null);
@@ -314,6 +318,36 @@ export default function FloorPlanPage() {
                     { value: 'round', label: 'Round' },
                   ]}
                   style={{ width: '100%', marginTop: 4 }}
+                />
+              </div>
+              <div>
+                <Text strong>Table photo</Text>
+                <PhotoUpload
+                  maxCount={1}
+                  value={selected.photoUrl ? [selected.photoUrl] : []}
+                  onChange={async (urls) => {
+                    const photoUrl = urls[0] ?? null;
+                    try {
+                      await saveTableMutation({
+                        variables: {
+                          id: selected.id,
+                          input: {
+                            name: selected.name,
+                            minCapacity: selected.minCapacity,
+                            maxCapacity: selected.maxCapacity,
+                            floorArea: selected.floorArea,
+                            combinable: false,
+                            active: selected.active,
+                            photoUrl,
+                          },
+                        },
+                      });
+                      updateTable(selected.id, { photoUrl });
+                      message.success('Photo updated');
+                    } catch (err: unknown) {
+                      message.error(err instanceof Error ? err.message : 'Failed to update photo');
+                    }
+                  }}
                 />
               </div>
             </Space>

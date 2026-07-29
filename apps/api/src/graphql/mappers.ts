@@ -56,6 +56,7 @@ export function mapRestaurant(r: any) {
     featuredUntil: r.featuredUntil ?? null,
     spendAlertThresholdCents: r.spendAlertThresholdCents ?? 0,
     useSmartAssign: r.useSmartAssign !== false,
+    allowGuestTableSelection: r.allowGuestTableSelection ?? false,
     posEnabled: r.posEnabled ?? false,
     loyaltyEnabled: r.loyaltyEnabled ?? false,
     loyaltyPointsPerVisit: r.loyaltyPointsPerVisit ?? 50,
@@ -84,6 +85,7 @@ export function mapTable(t: any) {
     width: t.width ?? 2,
     height: t.height ?? 2,
     shape: t.shape ?? 'rect',
+    photoUrl: t.photoUrl ?? null,
   };
 }
 
@@ -126,6 +128,7 @@ export function mapReservation(r: any, clientSecret?: string | null) {
     giftCardDiscountCents: r.giftCardDiscountCents ?? 0,
     source: r.source ?? 'network',
     totalSpendCents: r.totalSpendCents ?? 0,
+    seatedAt: r.seatedAt ?? null,
     createdAt: r.createdAt,
   };
 }
@@ -161,6 +164,10 @@ export function mapWaitlistEntry(w: any) {
     status: w.status,
     notifiedSlot: w.notifiedSlot,
     createdAt: w.createdAt,
+    position: w._eta?.position ?? null,
+    partiesAhead: w._eta?.partiesAhead ?? null,
+    estimatedWaitMinutes: w._eta?.estimatedWaitMinutes ?? null,
+    estimatedReadyAt: w._eta?.estimatedReadyAt ?? null,
   };
 }
 

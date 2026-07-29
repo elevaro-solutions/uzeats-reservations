@@ -33,8 +33,9 @@ import {
   buildAdminRestaurantFilter,
   buildOwnerRestaurantFilter,
 } from '../services/restaurantFilters.js';
-import { getAvailability } from '../services/availability.js';
-import { paginateQuery } from '../lib/pagination.js';
+import { getAvailability, getTurnTimeMinutes } from '../services/availability.js';
+import { getFloorPlanOps, getBookableTables } from '../services/floorPlanOps.js';
+import { enrichWaitlistEntries, enrichWaitlistEntry } from '../services/waitlistEta.js';
 import {
   createReservation,
   createOwnerReservation,
@@ -42,7 +43,9 @@ import {
   deleteReservation,
   updateReservationStatus,
   confirmDepositPayment,
+  seatReservationAtTable,
 } from '../services/reservations.js';
+import { paginateQuery, normalizePagination } from '../lib/pagination.js';
 import { getLoyaltyHistory, awardReviewPoints } from '../services/loyalty.js';
 import {
   getMyRestaurantLoyaltyBalances,
@@ -531,6 +534,43 @@ export const resolvers = {
       args: { restaurantId: string; date: string; partySize: number },
     ) => getAvailability(args),
 
+    bookableTables: async (
+      _: unknown,
+      args: { restaurantId: string; slotStart: Date; partySize: number },
+    ) => {
+      const slotStart = args.slotStart instanceof Date ? args.slotStart : new Date(args.slotStart);
+      const turn = await getTurnTimeMinutes(args.restaurantId, slotStart);
+      const slotEnd = new Date(slotStart.getTime() + turn * 60_000);
+      const tables = await getBookableTables({
+        restaurantId: args.restaurantId,
+        partySize: args.partySize,
+        slotStart,
+        slotEnd,
+      });
+      return tables.map(mapTable);
+    },
+
+    floorPlanOps: async (
+      _: unknown,
+      args: { restaurantId: string; date?: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      const ops = await getFloorPlanOps(args.restaurantId, args.date);
+      return {
+        date: ops.date,
+        tables: ops.tables.map((state) => ({
+          table: mapTable(state.table),
+          status: state.status,
+          reservation: state.reservation ? mapReservation(state.reservation) : null,
+          seatedMinutes: state.seatedMinutes,
+          turnMinutesRemaining: state.turnMinutesRemaining,
+        })),
+        unassigned: ops.unassigned.map((r) => mapReservation(r)),
+      };
+    },
+
     myReservations: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
       const items = await Reservation.find({ dinerId: user._id }).sort({ slotStart: -1 });
@@ -562,7 +602,11 @@ export const resolvers = {
     myWaitlist: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
       const items = await WaitlistEntry.find({ dinerId: user._id }).sort({ createdAt: -1 });
-      return items.map(mapWaitlistEntry);
+      const enriched = await enrichWaitlistEntries(items);
+      return enriched.map(({ entry, eta }) => {
+        (entry as any)._eta = eta;
+        return mapWaitlistEntry(entry);
+      });
     },
 
     restaurantWaitlist: async (
@@ -572,20 +616,28 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      return paginateQuery(
-        WaitlistEntry,
-        {
-          restaurantId: args.restaurantId,
-          status: { $in: ['waiting', 'notified'] },
-        },
-        {
-          sort: { createdAt: 1 },
-          limit: args.limit,
-          offset: args.offset,
-          defaultLimit: 50,
-          map: mapWaitlistEntry,
-        },
+      const { limit, offset } = normalizePagination(
+        { limit: args.limit, offset: args.offset },
+        { limit: 50, max: 100 },
       );
+      const filter = {
+        restaurantId: args.restaurantId,
+        status: { $in: ['waiting', 'notified'] },
+      };
+      const [docs, total] = await Promise.all([
+        WaitlistEntry.find(filter).sort({ createdAt: 1 }).skip(offset).limit(limit),
+        WaitlistEntry.countDocuments(filter),
+      ]);
+      const enriched = await enrichWaitlistEntries(docs);
+      return {
+        items: enriched.map(({ entry, eta }) => {
+          (entry as any)._eta = eta;
+          return mapWaitlistEntry(entry);
+        }),
+        total,
+        limit,
+        offset,
+      };
     },
 
     restaurantReviews: async (
@@ -1865,6 +1917,7 @@ export const resolvers = {
         promoCode: input.promoCode,
         giftCardCode: input.giftCardCode,
         source: (rawInput as any).source,
+        tableId: input.tableId,
       });
       await logAudit({
         actorId: user._id.toString(),
@@ -1979,6 +2032,27 @@ export const resolvers = {
       return mapReservation(reservation);
     },
 
+    seatReservationAtTable: async (
+      _: unknown,
+      args: { reservationId: string; tableId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const reservation = await seatReservationAtTable(
+        args.reservationId,
+        args.tableId,
+        user._id.toString(),
+      );
+      await logAudit({
+        actorId: user._id.toString(),
+        action: 'seatReservationAtTable',
+        resource: 'Reservation',
+        resourceId: args.reservationId,
+        details: { tableId: args.tableId },
+      });
+      return mapReservation(reservation);
+    },
+
     deleteReservation: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
       await deleteReservation(args.id, user._id.toString());
@@ -2003,7 +2077,9 @@ export const resolvers = {
         source: 'online',
         status: 'waiting',
       });
-      return mapWaitlistEntry(doc);
+      const { entry, eta } = await enrichWaitlistEntry(doc);
+      (entry as any)._eta = eta;
+      return mapWaitlistEntry(entry);
     },
 
     cancelWaitlist: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
@@ -3497,6 +3573,7 @@ export const resolvers = {
         restaurantId: string;
         spendAlertThresholdCents?: number;
         useSmartAssign?: boolean;
+        allowGuestTableSelection?: boolean;
         posEnabled?: boolean;
         widgetTheme?: { primaryColor?: string; buttonText?: string; showReviews?: boolean };
       },
@@ -3513,6 +3590,9 @@ export const resolvers = {
         update.spendAlertThresholdCents = args.spendAlertThresholdCents;
       }
       if (args.useSmartAssign != null) update.useSmartAssign = args.useSmartAssign;
+      if (args.allowGuestTableSelection != null) {
+        update.allowGuestTableSelection = args.allowGuestTableSelection;
+      }
       if (args.posEnabled != null) update.posEnabled = args.posEnabled;
       if (args.widgetTheme) {
         await requireFeature(args.restaurantId, 'customWidget');

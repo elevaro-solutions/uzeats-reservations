@@ -190,6 +190,7 @@ export default function SettingsPage() {
     if (settings) {
       settingsForm.setFieldsValue({
         useSmartAssign: settings.useSmartAssign ?? false,
+        allowGuestTableSelection: settings.allowGuestTableSelection ?? false,
         posEnabled: settings.posEnabled ?? false,
         spendAlertDollars: (settings.spendAlertThresholdCents ?? 0) / 100,
         primaryColor: settings.widgetTheme?.primaryColor ?? colors.brand[600],
@@ -202,6 +203,7 @@ export default function SettingsPage() {
   const handleSettingsFinish = async (values: {
     spendAlertDollars?: number;
     useSmartAssign?: boolean;
+    allowGuestTableSelection?: boolean;
     posEnabled?: boolean;
     primaryColor?: string;
     buttonText?: string;
@@ -214,6 +216,7 @@ export default function SettingsPage() {
           restaurantId,
           spendAlertThresholdCents: Math.round((values.spendAlertDollars ?? 0) * 100),
           useSmartAssign: values.useSmartAssign ?? false,
+          allowGuestTableSelection: values.allowGuestTableSelection ?? false,
           posEnabled: values.posEnabled ?? false,
           widgetTheme: {
             primaryColor: values.primaryColor,
@@ -681,6 +684,16 @@ export default function SettingsPage() {
                       name="useSmartAssign"
                       label="Smart table assign"
                       tooltip={tips.useSmartAssign}
+                      valuePropName="checked"
+                    >
+                      <Switch />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={12} md={8}>
+                    <Form.Item
+                      name="allowGuestTableSelection"
+                      label="Guest table selection"
+                      tooltip="Let guests pick a table with photo when booking"
                       valuePropName="checked"
                     >
                       <Switch />
