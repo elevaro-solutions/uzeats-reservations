@@ -673,6 +673,32 @@ export const typeDefs = `#graphql
     discountPercent: Int
   }
 
+  enum EnvVarRequirement {
+    required
+    production
+    recommended
+  }
+
+  type DeveloperEnvVar {
+    key: String!
+    label: String!
+    group: String!
+    groupLabel: String!
+    requirement: EnvVarRequirement!
+    description: String
+    configured: Boolean!
+    applicable: Boolean!
+    missing: Boolean!
+  }
+
+  type DeveloperInfo {
+    version: String!
+    nodeEnv: String!
+    envVars: [DeveloperEnvVar!]!
+    missingCount: Int!
+    requiredMissingCount: Int!
+  }
+
   type PlatformConfig {
     id: ID!
     supportEmail: String!
@@ -1177,6 +1203,13 @@ export const typeDefs = `#graphql
     lastName: String!
     phone: String
     referralCode: String
+  }
+
+  input ContactFormInput {
+    name: String!
+    email: String!
+    topic: String!
+    message: String!
   }
 
   input LoginInput {
@@ -1801,6 +1834,7 @@ export const typeDefs = `#graphql
     adminInvoices(status: InvoiceStatus, search: String, limit: Int, offset: Int): InvoiceConnection!
     adminRevenueReport(period: String): PlatformRevenueReport!
     platformConfig: PlatformConfig!
+    developerInfo: DeveloperInfo!
     session: SessionInfo!
     supportTickets(
       status: String
@@ -1875,6 +1909,7 @@ export const typeDefs = `#graphql
     logout(refreshToken: String): Boolean!
     requestPasswordReset(email: String!, app: String): MessagePayload!
     resetPassword(token: String!, newPassword: String!): MessagePayload!
+    submitContactForm(input: ContactFormInput!): MessagePayload!
 
     createRestaurant(input: RestaurantInput!, plan: String): Restaurant!
     updateRestaurant(id: ID!, input: RestaurantInput!): Restaurant!

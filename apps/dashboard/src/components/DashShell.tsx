@@ -52,6 +52,7 @@ import {
   DashboardOutlined,
   CompassOutlined,
   CodeOutlined,
+  ToolOutlined,
 } from '@ant-design/icons';
 import { usePathname, useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
@@ -151,7 +152,7 @@ function formatRelativeTime(iso: string) {
 }
 
 import { getPublicWebUrl } from '@/lib/webUrl';
-import { isPlatformAdmin } from '@/lib/roles';
+import { isPlatformAdmin, isSuperAdmin } from '@/lib/roles';
 
 const PARTNER_ROLES = new Set(['restaurant_owner', 'staff', 'admin', 'super_admin']);
 
@@ -161,6 +162,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const isAdmin = user ? isPlatformAdmin(user.role) && !isImpersonating : false;
+  const isSuperAdminUser = user ? isSuperAdmin(user.role) && !isImpersonating : false;
   const isPartner =
     Boolean(user) && (PARTNER_ROLES.has(user!.role) || isImpersonating);
   const [restaurantId, setRestaurantId] = useState<string>();
@@ -345,6 +347,9 @@ export function DashShell({ children }: { children: React.ReactNode }) {
         item('/admin/templates', <MailOutlined />, 'Email templates'),
         item('/admin/sla', <DashboardOutlined />, 'SLA metrics'),
         item('/admin/audit', <AuditOutlined />, 'Audit logs'),
+        ...(isSuperAdminUser
+          ? [item('/admin/developer', <ToolOutlined />, 'Developer')]
+          : []),
       ],
     },
   ];

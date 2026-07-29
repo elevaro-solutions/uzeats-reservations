@@ -19,6 +19,7 @@ import {
   assertCanEditUser,
 } from '@reservations/shared';
 import { assertCanAssignRole } from '../services/roleAccess.js';
+import { submitContactForm } from '../services/contactForm.js';
 import {
   registerWithEmail,
   loginWithEmail,
@@ -116,7 +117,7 @@ import {
 import { logAudit } from '../services/audit.js';
 import { createRestaurantSubscription } from '../services/restaurantSubscription.js';
 import { provisionDefaultRestaurantSetup } from '../services/restaurantSetup.js';
-import { requireAuth, requireAdmin, requireRole, type GraphQLContext } from './context.js';
+import { requireAuth, requireAdmin, requireSuperAdmin, requireRole, type GraphQLContext } from './context.js';
 import {
   mapUser,
   mapRestaurant,
@@ -162,6 +163,7 @@ import {
   pickDiscountOverrides,
   uniquePlanKey,
 } from '../services/platformConfig.js';
+import { getDeveloperInfo } from '../services/developerInfo.js';
 import {
   generateInvoicesForPeriod,
   getPlatformRevenueReport,
@@ -993,6 +995,11 @@ export const resolvers = {
       return mapPlatformConfig(doc);
     },
 
+    developerInfo: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      requireSuperAdmin(ctx);
+      return getDeveloperInfo();
+    },
+
     coverFeeSummary: async (
       _: unknown,
       args: { restaurantId: string; period?: string },
@@ -1741,6 +1748,9 @@ export const resolvers = {
 
     resetPassword: async (_: unknown, args: { token: string; newPassword: string }) =>
       resetPassword(args.token, args.newPassword),
+
+    submitContactForm: async (_: unknown, args: { input: unknown }) =>
+      submitContactForm(args.input),
 
     createRestaurant: async (
       _: unknown,

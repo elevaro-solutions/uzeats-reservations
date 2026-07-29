@@ -1051,6 +1051,28 @@ export const ADMIN_REVENUE_REPORT = gql`
   }
 `;
 
+export const DEVELOPER_INFO = gql`
+  query DeveloperInfo {
+    developerInfo {
+      version
+      nodeEnv
+      missingCount
+      requiredMissingCount
+      envVars {
+        key
+        label
+        group
+        groupLabel
+        requirement
+        description
+        configured
+        applicable
+        missing
+      }
+    }
+  }
+`;
+
 export const PLATFORM_CONFIG = gql`
   query PlatformConfig {
     platformConfig {

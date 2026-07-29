@@ -226,6 +226,23 @@ export type ReviewInput = z.infer<typeof reviewInputSchema>;
 export type NotificationPreferencesInput = z.infer<typeof notificationPreferencesSchema>;
 export type SearchRestaurantsInput = z.infer<typeof searchRestaurantsSchema>;
 
+export const CONTACT_FORM_TOPICS = [
+  'general',
+  'restaurant',
+  'support',
+  'privacy',
+  'legal',
+] as const;
+
+export const contactFormInputSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  email: emailSchema,
+  topic: z.enum(CONTACT_FORM_TOPICS),
+  message: z.string().trim().min(10).max(5000),
+});
+
+export type ContactFormInput = z.infer<typeof contactFormInputSchema>;
+
 export {
   USER_ROLES,
   RESTAURANT_STATUSES,
