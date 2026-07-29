@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import {
@@ -24,10 +24,13 @@ import {
   UPDATE_RESERVATION_STATUS,
 } from '@/lib/graphql';
 
-const { Title, Text } = Typography;
+import {
+  FLOOR_GRID_COLS,
+  MIN_CELL_SIZE,
+  cellSizeForWidth,
+} from '@/lib/floorPlanCanvas';
 
-const GRID_SIZE = 40;
-const GRID_COLS = 24;
+const { Title, Text } = Typography;
 
 const STATUS_COLORS: Record<string, string> = {
   free: '#2e9e5b',
@@ -85,6 +88,8 @@ export default function FloorOpsPage() {
   const [areaFilter, setAreaFilter] = useState<string>();
   const [selectedState, setSelectedState] = useState<TableState | null>(null);
   const [dragReservationId, setDragReservationId] = useState<string | null>(null);
+  const [cellSize, setCellSize] = useState(40);
+  const canvasWrapRef = useRef<HTMLDivElement>(null);
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const { data, loading, refetch } = useQuery(FLOOR_PLAN_OPS, {
@@ -106,6 +111,16 @@ export default function FloorOpsPage() {
     );
   }, [restData]);
 
+  useEffect(() => {
+    const el = canvasWrapRef.current;
+    if (!el) return;
+    const update = () => setCellSize(cellSizeForWidth(el.clientWidth));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [loading, areaFilter, restaurantId]);
+
   const tableStates: TableState[] = data?.floorPlanOps?.tables ?? [];
   const unassigned = data?.floorPlanOps?.unassigned ?? [];
 
@@ -125,8 +140,8 @@ export default function FloorOpsPage() {
       (max, s) => Math.max(max, s.table.posY + s.table.height),
       4,
     );
-    return maxRow * GRID_SIZE + GRID_SIZE;
-  }, [visibleStates]);
+    return maxRow * cellSize + cellSize;
+  }, [visibleStates, cellSize]);
 
   const handleSeatAtTable = useCallback(
     async (reservationId: string, tableId: string) => {
@@ -167,7 +182,7 @@ export default function FloorOpsPage() {
         </Title>
         <Space wrap>
           <Select
-            style={{ width: 220 }}
+            style={{ width: '100%', maxWidth: 220 }}
             value={restaurantId}
             onChange={(id) => {
               setRestaurantId(id);
@@ -214,20 +229,22 @@ export default function FloorOpsPage() {
           {visibleStates.length === 0 ? (
             <Empty description="No tables configured. Add tables in Tables & shifts." />
           ) : (
-            <div
-              style={{
-                position: 'relative',
-                width: GRID_COLS * GRID_SIZE,
-                height: canvasHeight,
-                background: `repeating-linear-gradient(
-                  0deg, transparent, transparent ${GRID_SIZE - 1}px, ${colors.neutral[100]} ${GRID_SIZE - 1}px, ${colors.neutral[100]} ${GRID_SIZE}px
+            <div ref={canvasWrapRef} style={{ width: '100%', overflowX: 'auto' }}>
+              <div
+                style={{
+                  position: 'relative',
+                  width: '100%',
+                  minWidth: FLOOR_GRID_COLS * MIN_CELL_SIZE,
+                  height: canvasHeight,
+                  background: `repeating-linear-gradient(
+                  0deg, transparent, transparent ${cellSize - 1}px, ${colors.neutral[100]} ${cellSize - 1}px, ${colors.neutral[100]} ${cellSize}px
                 ),
                 repeating-linear-gradient(
-                  90deg, transparent, transparent ${GRID_SIZE - 1}px, ${colors.neutral[100]} ${GRID_SIZE - 1}px, ${colors.neutral[100]} ${GRID_SIZE}px
+                  90deg, transparent, transparent ${cellSize - 1}px, ${colors.neutral[100]} ${cellSize - 1}px, ${colors.neutral[100]} ${cellSize}px
                 )`,
-                borderRadius: 8,
-              }}
-            >
+                  borderRadius: 8,
+                }}
+              >
               {visibleStates.map((state) => {
                 const t = state.table;
                 const bg = STATUS_COLORS[state.status] ?? STATUS_COLORS.free;
@@ -253,10 +270,10 @@ export default function FloorOpsPage() {
                     }}
                     style={{
                       position: 'absolute',
-                      left: t.posX * GRID_SIZE,
-                      top: t.posY * GRID_SIZE,
-                      width: t.width * GRID_SIZE - 4,
-                      height: t.height * GRID_SIZE - 4,
+                      left: t.posX * cellSize,
+                      top: t.posY * cellSize,
+                      width: t.width * cellSize - 4,
+                      height: t.height * cellSize - 4,
                       background: bg,
                       borderRadius: t.shape === 'round' ? 999 : 6,
                       border: '2px solid rgba(255,255,255,0.5)',
@@ -282,13 +299,14 @@ export default function FloorOpsPage() {
                   </div>
                 );
               })}
+              </div>
             </div>
           )}
         </Card>
 
         <Card
           title={`Arriving (${unassigned.length})`}
-          style={{ flex: '0 1 300px', minWidth: 260 }}
+          style={{ flex: '1 1 260px', minWidth: 0, maxWidth: '100%' }}
           styles={{ body: { maxHeight: 480, overflow: 'auto' } }}
         >
           {unassigned.length === 0 ? (

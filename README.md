@@ -95,7 +95,7 @@ Visual language lives in [`packages/ui`](./packages/ui): shared Tablevera brand 
 See [`.env.example`](.env.example). Required for local:
 
 ```
-MONGODB_URI=mongodb://localhost:27017/reservations
+MONGODB_URI=mongodb://localhost:27017/reservations?replicaSet=rs0?replicaSet=rs0
 REDIS_URL=redis://localhost:6379
 JWT_ACCESS_SECRET=...
 JWT_REFRESH_SECRET=...
@@ -123,8 +123,9 @@ Full steps: [`docs/deploy.md`](./docs/deploy.md).
 ```bash
 pnpm dev          # turbo: all apps
 pnpm build        # turbo build
-pnpm db:up        # docker compose up
+pnpm db:up        # docker compose up (Mongo single-node replica set for transactions)
 pnpm db:down      # docker compose down
+pnpm db:reset     # wipe volumes, recreate Mongo RS, re-seed
 pnpm seed         # seed restaurants, tables, shifts, users (keeps admins)
 pnpm seed -- --clear  # delete seed data only; admin accounts untouched
 ```
