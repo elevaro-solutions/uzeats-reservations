@@ -1,10 +1,10 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@apollo/client/react';
 import { Rate, Typography } from 'antd';
 import { EnvironmentOutlined } from '@ant-design/icons';
-import { colors, priceRangeLabel, radii, shadows, typography } from '@reservations/ui';
+import { colors, priceRangeLabel, radii, shadows, typography, pickRestaurantPhoto, restaurantPhotoCandidates } from '@reservations/ui';
 import { AVAILABILITY } from '@/lib/graphql';
 import type { MapRestaurant } from './RestaurantDiscoveryMap';
 
@@ -42,7 +42,16 @@ export function MapListRestaurantCard({
     [data],
   );
 
-  const photo = restaurant.photos?.[0];
+  const photoCandidates = useMemo(
+    () => restaurantPhotoCandidates(restaurant.photos),
+    [restaurant.photos],
+  );
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const photo = photoCandidates[Math.min(photoIndex, photoCandidates.length - 1)] ?? pickRestaurantPhoto();
+
+  useEffect(() => {
+    setPhotoIndex(0);
+  }, [restaurant.id, restaurant.photos]);
   const rating = restaurant.averageRating ?? 0;
   const reviewCount = restaurant.reviewCount ?? 0;
 
@@ -57,12 +66,16 @@ export function MapListRestaurantCard({
       tabIndex={0}
     >
       <div className="rt-map-list-card__media">
-        {photo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={photo} alt={restaurant.name} />
-        ) : (
-          <div className="rt-map-list-card__media-placeholder">No photo</div>
-        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={photo}
+          alt={restaurant.name}
+          loading="lazy"
+          decoding="async"
+          onError={() => {
+            setPhotoIndex((current) => Math.min(current + 1, photoCandidates.length - 1));
+          }}
+        />
       </div>
 
       <div className="rt-map-list-card__body">

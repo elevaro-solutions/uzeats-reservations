@@ -13,7 +13,7 @@ import {
   discoverySlug,
   type DiscoveryLandingMeta,
 } from '@reservations/shared';
-import { RestaurantCard, EmptyState, layout, typography } from '@reservations/ui';
+import { RestaurantCard, EmptyState, layout, typography, pickRestaurantPhoto } from '@reservations/ui';
 import { SEARCH_RESTAURANTS, AVAILABILITY } from '@/lib/graphql';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { useDiscoveryViewMode } from '@/lib/useDiscoveryViewMode';
@@ -396,7 +396,7 @@ function RestaurantWithSlots({
       state={restaurant.address.state}
       rating={restaurant.averageRating}
       reviewCount={restaurant.reviewCount}
-      photoUrl={restaurant.photos?.[0]}
+      photoUrl={pickRestaurantPhoto(restaurant.photos)}
       availableSlots={slots}
       onClick={onOpen}
       onSelectSlot={(_, time) => onSelectSlot(time)}

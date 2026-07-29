@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, Rate, Typography } from 'antd';
 import { EnvironmentOutlined, FireFilled, StarFilled } from '@ant-design/icons';
 import { priceRangeLabel } from './theme';
 import { colors, radii, shadows, typography } from './tokens';
+import { DEFAULT_RESTAURANT_PHOTO, restaurantPhotoCandidates } from './restaurantPhoto';
 
 const { Text } = Typography;
 
@@ -40,6 +41,17 @@ export function RestaurantCard({
   onSelectSlot,
 }: RestaurantCardProps) {
   const [hovered, setHovered] = useState(false);
+  const photoCandidates = useMemo(
+    () => (photoUrl ? restaurantPhotoCandidates([photoUrl]) : restaurantPhotoCandidates()),
+    [photoUrl],
+  );
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const imageSrc = photoCandidates[Math.min(photoIndex, photoCandidates.length - 1)] ?? DEFAULT_RESTAURANT_PHOTO;
+
+  useEffect(() => {
+    setPhotoIndex(0);
+  }, [photoUrl]);
+
   const showBooked = bookedToday != null && bookedToday > 0;
 
   return (
@@ -59,35 +71,24 @@ export function RestaurantCard({
       }}
       cover={
         <div style={{ position: 'relative', height: 190, overflow: 'hidden' }}>
-          {photoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              alt={name}
-              src={photoUrl}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                display: 'block',
-                transform: hovered ? 'scale(1.05)' : 'scale(1)',
-                transition: 'transform 0.45s ease',
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                height: '100%',
-                background: `linear-gradient(145deg, ${colors.neutral[100]} 0%, ${colors.brand[50]} 100%)`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: colors.textTertiary,
-                fontSize: typography.fontSize.sm,
-              }}
-            >
-              No photo yet
-            </div>
-          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            alt={name}
+            src={imageSrc}
+            loading="lazy"
+            decoding="async"
+            onError={() => {
+              setPhotoIndex((current) => Math.min(current + 1, photoCandidates.length - 1));
+            }}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: 'block',
+              transform: hovered ? 'scale(1.05)' : 'scale(1)',
+              transition: 'transform 0.45s ease',
+            }}
+          />
           <div
             aria-hidden
             style={{

@@ -24,6 +24,12 @@ export {
 export { theme, priceRangeLabel } from './theme';
 export { tokens, colors, typography, spacing, radii, shadows, layout } from './tokens';
 export { RestaurantCard } from './RestaurantCard';
+export {
+  DEFAULT_RESTAURANT_PHOTO,
+  RESTAURANT_PHOTO_FALLBACKS,
+  pickRestaurantPhoto,
+  restaurantPhotoCandidates,
+} from './restaurantPhoto';
 export { SlotPicker } from './SlotPicker';
 export { StatusTag } from './StatusTag';
 export { PageHeader } from './PageHeader';

@@ -13,7 +13,7 @@ import {
   message,
 } from 'antd';
 import dayjs from 'dayjs';
-import { RestaurantCard, EmptyState, colors, layout, radii, shadows, typography } from '@reservations/ui';
+import { RestaurantCard, EmptyState, colors, layout, radii, shadows, typography, pickRestaurantPhoto } from '@reservations/ui';
 import {
   AppstoreOutlined,
   CoffeeOutlined,
@@ -132,8 +132,16 @@ function HomePageContent() {
   }, [debouncedQuery, cuisine, activeCategoryIds, selectedLocation.lat, selectedLocation.lng, partySize, date, mapPriceRange, topRatedOnly, accessibleOnly, occasions, diningStyles, meals, dietaryTags, amenities]);
 
   useEffect(() => {
-    document.documentElement.classList.toggle('rt-map-view', viewMode === 'map');
-    return () => document.documentElement.classList.remove('rt-map-view');
+    const media = window.matchMedia('(min-width: 961px)');
+    const apply = () => {
+      document.documentElement.classList.toggle('rt-map-view', viewMode === 'map' && media.matches);
+    };
+    apply();
+    media.addEventListener('change', apply);
+    return () => {
+      media.removeEventListener('change', apply);
+      document.documentElement.classList.remove('rt-map-view');
+    };
   }, [viewMode]);
 
   const activeCategories = useMemo(
@@ -966,7 +974,7 @@ function RestaurantWithSlots({
       state={restaurant.address.state}
       rating={restaurant.averageRating}
       reviewCount={restaurant.reviewCount}
-      photoUrl={restaurant.photos?.[0]}
+      photoUrl={pickRestaurantPhoto(restaurant.photos)}
       availableSlots={slots}
       onClick={onOpen}
       onSelectSlot={(_, time) => onSelectSlot(time)}

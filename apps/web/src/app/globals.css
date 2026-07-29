@@ -1079,9 +1079,44 @@ html.rt-map-view .rt-site-footer {
 }
 
 @media (max-width: 960px) {
+  html.rt-map-view {
+    overflow: auto;
+  }
+
+  html.rt-map-view .rt-site-footer {
+    display: block;
+  }
+
+  .rt-map-page {
+    position: relative;
+    top: auto;
+    bottom: auto;
+    height: auto;
+    min-height: calc(100dvh - 64px);
+    z-index: 1;
+  }
+
+  .rt-map-page__content {
+    overflow: visible;
+    height: auto;
+    min-height: 0;
+  }
+
   .rt-map-page__split {
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(280px, 38%) 1fr;
+    grid-template-rows: auto auto minmax(45vh, 52vh);
+    height: auto;
+  }
+
+  .rt-map-page__list {
+    overflow-y: visible;
+    max-height: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .rt-map-page__map-panel {
+    min-height: 45vh;
+    height: auto;
   }
 
   .rt-map-filters {
