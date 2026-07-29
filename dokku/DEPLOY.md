@@ -66,6 +66,8 @@ dokku config:set tablevera-api \
   JWT_ACCESS_EXPIRES=15m \
   JWT_REFRESH_EXPIRES=7d \
   CORS_ORIGINS="https://tablevera.online,https://dashboard.tablevera.online" \
+  WEB_APP_URL="https://tablevera.online" \
+  DASHBOARD_APP_URL="https://dashboard.tablevera.online" \
   AUTH_DEV_OTP=false \
   STRIPE_SECRET_KEY="sk_live_..." \
   STRIPE_WEBHOOK_SECRET="whsec_..." \
