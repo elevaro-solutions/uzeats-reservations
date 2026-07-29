@@ -7,8 +7,9 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "db:up": "docker compose up -d",
+    "db:up": "docker compose up -d --build",
     "db:down": "docker compose down",
+    "db:reset": "docker compose down -v && docker compose up -d --build && sleep 8 && pnpm seed",
     "seed": "pnpm --filter @reservations/api seed",
     "codegen": "pnpm --filter @reservations/api codegen && pnpm --filter @reservations/shared codegen"
   },

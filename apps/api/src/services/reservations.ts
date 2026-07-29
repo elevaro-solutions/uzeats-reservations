@@ -37,6 +37,8 @@ import {
 import { redeemGiftCardBalance, resolveGiftCardDiscount } from './giftCards.js';
 import { BoostCampaign } from '../models/Marketing.js';
 import { claimTableSlots, releaseTableSlotClaims } from './tableSlotClaims.js';
+import { getBookableTables } from './floorPlanOps.js';
+import { partySizeMatches, timeWindowMatches } from './waitlistEta.js';
 
 async function findOrCreateDiner(guest: {
   firstName: string;
@@ -90,6 +92,15 @@ async function resolveTable(input: {
     if (table.minCapacity > input.partySize || table.maxCapacity < input.partySize) {
       throw new Error('Table capacity does not fit this party size');
     }
+    const bookable = await getBookableTables({
+      restaurantId: input.restaurantId,
+      partySize: input.partySize,
+      slotStart: input.slotStart,
+      slotEnd: input.slotEnd,
+    });
+    if (!bookable.some((t) => t._id.equals(table._id))) {
+      throw new ConflictError('Selected table is not available for this time');
+    }
     return table;
   }
 
@@ -123,10 +134,15 @@ export async function createReservation(input: {
   promoCode?: string;
   giftCardCode?: string;
   source?: string;
+  tableId?: string;
 }) {
   const restaurant = await Restaurant.findById(input.restaurantId);
   if (!restaurant || restaurant.status !== 'approved') {
     throw new Error('Restaurant not available');
+  }
+
+  if (input.tableId && !restaurant.allowGuestTableSelection) {
+    throw new Error('Table selection is not enabled for this restaurant');
   }
 
   const accessViolation = await checkAccessRules({
@@ -139,21 +155,15 @@ export async function createReservation(input: {
   const turn = await getTurnTimeMinutes(input.restaurantId, input.slotStart);
   const slotEnd = new Date(input.slotStart.getTime() + turn * 60_000);
 
-  const useSmartAssign = restaurant.useSmartAssign !== false;
-  const table = useSmartAssign
-    ? await smartAssignTable({
-        restaurantId: input.restaurantId,
-        partySize: input.partySize,
-        slotStart: input.slotStart,
-        slotEnd,
-        dinerId: input.dinerId,
-      })
-    : await findAvailableTable({
-        restaurantId: input.restaurantId,
-        partySize: input.partySize,
-        slotStart: input.slotStart,
-        slotEnd,
-      });
+  const table = await resolveTable({
+    restaurantId: input.restaurantId,
+    partySize: input.partySize,
+    slotStart: input.slotStart,
+    slotEnd,
+    dinerId: input.dinerId,
+    tableId: input.tableId,
+    useSmartAssign: restaurant.useSmartAssign !== false,
+  });
   if (!table) throw new ConflictError('No tables available for this time');
 
   const priorReservations = await Reservation.countDocuments({ dinerId: input.dinerId });
@@ -401,6 +411,10 @@ export async function updateReservationStatus(
 
   reservation.status = status as typeof reservation.status;
 
+  if (status === 'seated') {
+    reservation.seatedAt = new Date();
+  }
+
   if (status === 'cancelled') {
     reservation.cancelledAt = new Date();
     reservation.cancellationReason = reason;
@@ -471,7 +485,7 @@ export async function updateReservationStatus(
     await releaseTableSlotClaims(reservation._id);
   }
 
-  if (status === 'cancelled') {
+  if (status === 'cancelled' || status === 'no_show') {
     await notifyWaitlistOnCancellation(reservation);
   }
 
@@ -516,33 +530,41 @@ async function notifyWaitlistOnCancellation(reservation: {
   slotStart: Date;
 }) {
   const date = reservation.slotStart.toISOString().slice(0, 10);
-  const entries = await WaitlistEntry.find({
+  const slotTime = `${String(reservation.slotStart.getHours()).padStart(2, '0')}:${String(reservation.slotStart.getMinutes()).padStart(2, '0')}`;
+
+  const candidates = await WaitlistEntry.find({
     restaurantId: reservation.restaurantId,
     preferredDate: date,
     partySize: { $lte: reservation.partySize + 2, $gte: Math.max(1, reservation.partySize - 2) },
     status: 'waiting',
-  }).limit(5);
+  })
+    .sort({ createdAt: 1 })
+    .limit(10);
 
-  for (const entry of entries) {
-    entry.status = 'notified';
-    entry.notifiedAt = new Date();
-    entry.notifiedSlot = reservation.slotStart;
-    await entry.save();
-    if (!entry.dinerId) continue; // in-house entries have no account to notify
-    await notifyUser(
-      entry.dinerId.toString(),
-      {
-        type: 'waitlist_available',
-        title: 'A table opened up!',
-        body: `A table is available on ${date}. Book now before it's gone.`,
-        data: {
-          restaurantId: reservation.restaurantId.toString(),
-          slot: reservation.slotStart.toISOString(),
-        },
+  const entry = candidates.find((e) =>
+    partySizeMatches(e.partySize, reservation.partySize) &&
+    timeWindowMatches(e, slotTime),
+  );
+  if (!entry) return;
+
+  entry.status = 'notified';
+  entry.notifiedAt = new Date();
+  entry.notifiedSlot = reservation.slotStart;
+  await entry.save();
+  if (!entry.dinerId) return;
+  await notifyUser(
+    entry.dinerId.toString(),
+    {
+      type: 'waitlist_available',
+      title: 'A table opened up!',
+      body: `A table is available on ${date}. Book now before it's gone.`,
+      data: {
+        restaurantId: reservation.restaurantId.toString(),
+        slot: reservation.slotStart.toISOString(),
       },
-      { smsRestaurantId: reservation.restaurantId.toString() },
-    );
-  }
+    },
+    { smsRestaurantId: reservation.restaurantId.toString() },
+  );
 }
 
 async function recordCoverFee(reservation: any) {
@@ -696,6 +718,7 @@ export async function createOwnerReservation(input: {
     source,
     depositAmountCents: 0,
     depositStatus: 'none',
+    seatedAt: status === 'seated' ? new Date() : undefined,
   });
 
   try {
@@ -841,6 +864,81 @@ export async function updateReservationDetails(
   }
   if (input.guestNotes !== undefined) reservation.guestNotes = input.guestNotes;
 
+  await reservation.save();
+  return reservation;
+}
+
+/** Seat a guest at a specific table in one operation (floor ops). */
+export async function seatReservationAtTable(
+  reservationId: string,
+  tableId: string,
+  actorId: string,
+) {
+  const reservation = await Reservation.findById(reservationId);
+  if (!reservation) throw new Error('Reservation not found');
+
+  const restaurant = await Restaurant.findById(reservation.restaurantId);
+  const user = await User.findById(actorId);
+  const isOwner =
+    restaurant &&
+    (restaurant.ownerId.equals(actorId) ||
+      user?.restaurantIds?.some((id) => id.equals(restaurant._id)));
+  const isAdmin = user?.role === 'admin';
+  if (!isOwner && !isAdmin) throw new Error('Forbidden');
+
+  if (!['pending', 'confirmed'].includes(reservation.status)) {
+    throw new Error(`Cannot seat reservation with status ${reservation.status}`);
+  }
+
+  const table = await Table.findOne({
+    _id: tableId,
+    restaurantId: reservation.restaurantId,
+    active: true,
+  });
+  if (!table) throw new Error('Table not found');
+  if (table.minCapacity > reservation.partySize || table.maxCapacity < reservation.partySize) {
+    throw new Error('Table capacity does not fit this party size');
+  }
+
+  const bookable = await getBookableTables({
+    restaurantId: reservation.restaurantId.toString(),
+    partySize: reservation.partySize,
+    slotStart: reservation.slotStart,
+    slotEnd: reservation.slotEnd,
+  });
+  const currentTableId = reservation.tableIds[0]?.toString();
+  const isCurrentTable = currentTableId === tableId;
+  if (!isCurrentTable && !bookable.some((t) => t._id.toString() === tableId)) {
+    throw new ConflictError('Selected table is not available');
+  }
+
+  if (!isCurrentTable) {
+    await releaseTableSlotClaims(reservation._id);
+    try {
+      await claimTableSlots({
+        restaurantId: reservation.restaurantId,
+        tableId: table._id,
+        reservationId: reservation._id,
+        slotStart: reservation.slotStart,
+        slotEnd: reservation.slotEnd,
+      });
+    } catch (err) {
+      if (currentTableId) {
+        await claimTableSlots({
+          restaurantId: reservation.restaurantId,
+          tableId: reservation.tableIds[0]!,
+          reservationId: reservation._id,
+          slotStart: reservation.slotStart,
+          slotEnd: reservation.slotEnd,
+        });
+      }
+      throw err;
+    }
+    reservation.tableIds = [table._id] as typeof reservation.tableIds;
+  }
+
+  reservation.status = 'seated';
+  reservation.seatedAt = new Date();
   await reservation.save();
   return reservation;
 }

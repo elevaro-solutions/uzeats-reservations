@@ -1,10 +1,27 @@
 services:
   mongo:
-    image: mongo:7
+    build:
+      context: ./docker/mongo
     ports:
       - "27017:27017"
+    environment:
+      MONGO_REPLICA_SET: rs0
+      MONGO_REPLICA_HOST: localhost:27017
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "--eval",
+          "db.adminCommand({ ping: 1 }) && rs.status().ok === 1",
+        ]
+      interval: 5s
+      timeout: 10s
+      retries: 12
+      start_period: 15s
 
   redis:
     image: redis:7-alpine

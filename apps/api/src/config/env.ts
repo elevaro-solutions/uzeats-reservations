@@ -17,8 +17,9 @@ const envSchema = z.object({
   TWILIO_AUTH_TOKEN: z.string().optional().default(''),
   TWILIO_VERIFY_SERVICE_SID: z.string().optional().default(''),
   TWILIO_FROM_NUMBER: z.string().optional().default(''),
-  WEB_APP_URL: z.string().default('http://localhost:3000'),
-  DASHBOARD_APP_URL: z.string().default('http://localhost:3001'),
+  // Leave unset in production to fall back to CORS_ORIGINS; .env.example sets localhost for dev.
+  WEB_APP_URL: z.string().default(''),
+  DASHBOARD_APP_URL: z.string().default(''),
   AUTH_DEV_OTP: z
     .string()
     .optional()

@@ -7,6 +7,7 @@ import {
   Card,
   List,
   Modal,
+  Progress,
   Space,
   Spin,
   Tag,
@@ -40,7 +41,10 @@ export default function WaitlistPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  const { data, loading, refetch } = useQuery(MY_WAITLIST, { skip: !user });
+  const { data, loading, refetch } = useQuery(MY_WAITLIST, {
+    skip: !user,
+    pollInterval: 15_000,
+  });
   const [cancelWaitlist] = useMutation(CANCEL_WAITLIST);
 
   if (authLoading) {
@@ -158,6 +162,28 @@ export default function WaitlistPage() {
                         {entry.partySize} {entry.partySize === 1 ? 'guest' : 'guests'}
                       </Text>
                     </Space>
+
+                    {entry.status === 'waiting' && entry.position != null && (
+                      <div style={{ marginTop: 12 }}>
+                        <Text strong>
+                          You are #{entry.position}
+                          {entry.estimatedWaitMinutes != null
+                            ? ` · ~${entry.estimatedWaitMinutes} min`
+                            : ''}
+                        </Text>
+                        {entry.estimatedWaitMinutes != null && (
+                          <Progress
+                            percent={Math.min(
+                              100,
+                              Math.max(5, 100 - entry.estimatedWaitMinutes * 2),
+                            )}
+                            showInfo={false}
+                            strokeColor={colors.brand[600]}
+                            style={{ marginTop: 8, maxWidth: 280 }}
+                          />
+                        )}
+                      </div>
+                    )}
 
                     {entry.notifiedSlot && entry.status === 'notified' && (
                       <div style={{ marginTop: 10 }}>

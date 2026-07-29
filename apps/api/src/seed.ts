@@ -187,6 +187,29 @@ const CITIES: { city: string; state: string; zip: string; lng: number; lat: numb
 ];
 
 const PLANS_CYCLE: (keyof typeof PLANS)[] = ['basic', 'core', 'pro'];
+
+function tablePhotoUrl(restaurantName: string, tableName: string) {
+  return `https://picsum.photos/seed/${encodeURIComponent(`${restaurantName}-${tableName}`)}/800/600`;
+}
+
+const TABLE_LAYOUT = [
+  { suffix: '1', minCapacity: 1, maxCapacity: 2, floorArea: 'Window', posX: 0, posY: 0, width: 2, height: 2 },
+  { suffix: '2', minCapacity: 2, maxCapacity: 4, floorArea: 'Main', posX: 3, posY: 0, width: 2, height: 2 },
+  { suffix: '3', minCapacity: 2, maxCapacity: 4, floorArea: 'Main', posX: 6, posY: 0, width: 2, height: 2 },
+  { suffix: '4', minCapacity: 4, maxCapacity: 6, floorArea: 'Patio', posX: 0, posY: 3, width: 3, height: 2 },
+  {
+    suffix: '5',
+    minCapacity: 6,
+    maxCapacity: 10,
+    floorArea: 'Private',
+    combinable: true,
+    posX: 4,
+    posY: 3,
+    width: 4,
+    height: 2,
+  },
+] as const;
+
 const NAME_PREFIXES = [
   'Samarkand', 'Bukhara', 'Tashkent', 'Khiva', 'Fergana', 'Andijan', 'Namangan', 'Termez', 'Nukus', 'Karshi',
   'Registan', 'Silk Road', 'Plov', 'Lagman', 'Manti', 'Shashlik', 'Somsa', 'Navruz', 'Chorsu', 'Bibi',
@@ -497,6 +520,9 @@ async function seed() {
       await User.findByIdAndUpdate(staff!._id, {
         $addToSet: { restaurantIds: restaurant._id },
       });
+      await Restaurant.findByIdAndUpdate(restaurant._id, {
+        allowGuestTableSelection: true,
+      });
     }
 
     // Distinct labels so venue switching is obvious in Partner Hub.
@@ -506,44 +532,24 @@ async function seed() {
       .join('')
       .toUpperCase()
       .slice(0, 3);
-    const tables = await Table.insertMany([
-      {
-        restaurantId: restaurant._id,
-        name: `${prefix}-1`,
-        minCapacity: 1,
-        maxCapacity: 2,
-        floorArea: 'Window',
-      },
-      {
-        restaurantId: restaurant._id,
-        name: `${prefix}-2`,
-        minCapacity: 2,
-        maxCapacity: 4,
-        floorArea: 'Main',
-      },
-      {
-        restaurantId: restaurant._id,
-        name: `${prefix}-3`,
-        minCapacity: 2,
-        maxCapacity: 4,
-        floorArea: 'Main',
-      },
-      {
-        restaurantId: restaurant._id,
-        name: `${prefix}-4`,
-        minCapacity: 4,
-        maxCapacity: 6,
-        floorArea: 'Patio',
-      },
-      {
-        restaurantId: restaurant._id,
-        name: `${prefix}-5`,
-        minCapacity: 6,
-        maxCapacity: 10,
-        floorArea: 'Private',
-        combinable: true,
-      },
-    ]);
+    const tables = await Table.insertMany(
+      TABLE_LAYOUT.map((spec) => {
+        const name = `${prefix}-${spec.suffix}`;
+        return {
+          restaurantId: restaurant._id,
+          name,
+          minCapacity: spec.minCapacity,
+          maxCapacity: spec.maxCapacity,
+          floorArea: spec.floorArea,
+          combinable: 'combinable' in spec ? spec.combinable : false,
+          posX: spec.posX,
+          posY: spec.posY,
+          width: spec.width,
+          height: spec.height,
+          photoUrl: tablePhotoUrl(r.name, name),
+        };
+      }),
+    );
 
     if (r.status === 'approved' || r.status === 'suspended') {
       await Shift.create({
@@ -681,6 +687,34 @@ async function seed() {
     occasion: 'anniversary',
     guestNotes: 'Window seat if possible',
     depositAmountCents: 5000,
+    depositStatus: 'authorized',
+    source: 'network',
+  });
+
+  const todayDinner = slot(0, 19);
+  await Reservation.create({
+    restaurantId: samarkand.restaurant._id,
+    dinerId: diner2!._id,
+    tableIds: [samarkand.tables[0]!._id],
+    partySize: 2,
+    ...todayDinner,
+    status: 'seated',
+    seatedAt: new Date(Date.now() - 50 * 60_000),
+    depositAmountCents: 5000,
+    depositStatus: 'authorized',
+    source: 'network',
+  });
+
+  await Reservation.create({
+    restaurantId: samarkand.restaurant._id,
+    dinerId: diner!._id,
+    tableIds: [samarkand.tables[3]!._id],
+    partySize: 4,
+    slotStart: new Date(Date.now() + 20 * 60_000),
+    slotEnd: new Date(Date.now() + 20 * 60_000 + 90 * 60_000),
+    status: 'confirmed',
+    occasion: 'business',
+    depositAmountCents: 10000,
     depositStatus: 'authorized',
     source: 'network',
   });

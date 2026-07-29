@@ -180,6 +180,29 @@ export default function ReservationsPage() {
                       {r.guestNotes}
                     </Text>
                   )}
+                  {r.tables?.[0] && (
+                    <div style={{ marginTop: 8 }}>
+                      <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+                        Table: {r.tables[0].name}
+                        {r.tables[0].floorArea ? ` · ${r.tables[0].floorArea}` : ''}
+                      </Text>
+                      {r.tables[0].photoUrl && (
+                        <img
+                          src={r.tables[0].photoUrl}
+                          alt={r.tables[0].name}
+                          style={{
+                            display: 'block',
+                            marginTop: 8,
+                            width: '100%',
+                            maxWidth: 220,
+                            borderRadius: radii.md,
+                            objectFit: 'cover',
+                            maxHeight: 120,
+                          }}
+                        />
+                      )}
+                    </div>
+                  )}
                   {r.loyaltyPointsEarned > 0 && (
                     <Text style={{ color: colors.success, fontSize: typography.fontSize.sm }}>
                       +{r.loyaltyPointsEarned} points earned

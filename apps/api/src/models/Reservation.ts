@@ -46,6 +46,7 @@ const reservationSchema = new Schema(
     totalSpendCents: { type: Number, default: 0 },
     // Boost campaign attribution (network covers while a boost is active)
     boostCampaignId: { type: Schema.Types.ObjectId, ref: 'BoostCampaign' },
+    seatedAt: { type: Date },
   },
   { timestamps: true },
 );

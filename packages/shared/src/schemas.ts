@@ -101,6 +101,7 @@ export const tableInputSchema = z.object({
   floorArea: z.string().max(60).default('Main'),
   combinable: z.boolean().default(false),
   active: z.boolean().default(true),
+  photoUrl: z.string().url().optional().nullable(),
 });
 
 export const shiftInputSchema = z.object({
@@ -123,6 +124,7 @@ export const reservationInputSchema = z.object({
   redeemRestaurantPoints: z.number().int().min(0).optional(),
   promoCode: z.string().min(1).max(40).optional(),
   giftCardCode: z.string().min(1).max(40).optional(),
+  tableId: z.string().min(1).optional(),
 });
 
 export const ownerGuestInputSchema = z.object({

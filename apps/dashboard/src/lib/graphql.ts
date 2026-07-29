@@ -34,7 +34,7 @@ export const MY_RESTAURANTS = gql`
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
       tables {
-        id name minCapacity maxCapacity floorArea active combinable
+        id name minCapacity maxCapacity floorArea active combinable photoUrl
       }
       shifts {
         id name daysOfWeek startTime endTime slotIntervalMinutes turnTimeMinutes active
@@ -1946,7 +1946,7 @@ export const GENERATE_POS_API_KEY = gql`
 export const RESTAURANT_SETTINGS = gql`
   query RestaurantSettings($id: ID) {
     restaurant(id: $id) {
-      id name featured featuredUntil spendAlertThresholdCents useSmartAssign posEnabled
+      id name featured featuredUntil spendAlertThresholdCents useSmartAssign allowGuestTableSelection posEnabled
       widgetTheme { primaryColor buttonText showReviews }
     }
   }
@@ -1957,6 +1957,7 @@ export const UPDATE_RESTAURANT_SETTINGS = gql`
     $restaurantId: ID!
     $spendAlertThresholdCents: Int
     $useSmartAssign: Boolean
+    $allowGuestTableSelection: Boolean
     $posEnabled: Boolean
     $widgetTheme: WidgetThemeInput
   ) {
@@ -1964,10 +1965,11 @@ export const UPDATE_RESTAURANT_SETTINGS = gql`
       restaurantId: $restaurantId
       spendAlertThresholdCents: $spendAlertThresholdCents
       useSmartAssign: $useSmartAssign
+      allowGuestTableSelection: $allowGuestTableSelection
       posEnabled: $posEnabled
       widgetTheme: $widgetTheme
     ) {
-      id spendAlertThresholdCents useSmartAssign posEnabled
+      id spendAlertThresholdCents useSmartAssign allowGuestTableSelection posEnabled
       widgetTheme { primaryColor buttonText showReviews }
     }
   }
@@ -1987,7 +1989,39 @@ export const FLOOR_PLAN_TABLES = gql`
   query FloorPlanTables($id: ID) {
     restaurant(id: $id) {
       id name
-      tables { id name minCapacity maxCapacity floorArea active posX posY width height shape }
+      tables { id name minCapacity maxCapacity floorArea active posX posY width height shape photoUrl }
+    }
+  }
+`;
+
+export const FLOOR_PLAN_OPS = gql`
+  query FloorPlanOps($restaurantId: ID!, $date: String) {
+    floorPlanOps(restaurantId: $restaurantId, date: $date) {
+      date
+      tables {
+        status
+        seatedMinutes
+        turnMinutesRemaining
+        table { id name minCapacity maxCapacity floorArea posX posY width height shape photoUrl }
+        reservation {
+          id partySize slotStart slotEnd status seatedAt guestNotes
+          diner { firstName lastName }
+          tables { id name }
+        }
+      }
+      unassigned {
+        id partySize slotStart slotEnd status guestNotes
+        diner { firstName lastName }
+        tables { id name }
+      }
+    }
+  }
+`;
+
+export const SEAT_RESERVATION_AT_TABLE = gql`
+  mutation SeatReservationAtTable($reservationId: ID!, $tableId: ID!) {
+    seatReservationAtTable(reservationId: $reservationId, tableId: $tableId) {
+      id status seatedAt tableIds tables { id name }
     }
   }
 `;
@@ -2017,6 +2051,7 @@ export const RESTAURANT_WAITLIST_FULL = gql`
       items {
         id partySize preferredDate preferredTimeStart status createdAt
         dinerId guestName guestPhone source quotedWaitMinutes
+        position partiesAhead estimatedWaitMinutes estimatedReadyAt
         diner { firstName lastName phone }
       }
     }

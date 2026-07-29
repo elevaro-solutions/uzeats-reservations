@@ -8,6 +8,8 @@ import {
   Alert,
 } from 'react-native';
 import { useQuery, useMutation } from '@apollo/client';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { MY_WAITLIST, CANCEL_WAITLIST } from '../../src/lib/graphql';
 import { useAuth } from '../../src/lib/auth';
@@ -15,7 +17,16 @@ import { useAuth } from '../../src/lib/auth';
 export default function WaitlistScreen() {
   const { user } = useAuth();
   const router = useRouter();
-  const { data, loading, refetch } = useQuery(MY_WAITLIST, { skip: !user });
+  const { data, loading, refetch } = useQuery(MY_WAITLIST, {
+    skip: !user,
+    pollInterval: 15_000,
+  });
+
+  useFocusEffect(
+    useCallback(() => {
+      if (user) refetch();
+    }, [user, refetch]),
+  );
   const [cancelWaitlist] = useMutation(CANCEL_WAITLIST);
 
   if (!user) {
@@ -58,6 +69,14 @@ export default function WaitlistScreen() {
               <Text style={styles.name}>
                 {item.preferredDate} · {item.partySize} guests
               </Text>
+              {item.status === 'waiting' && item.position != null && (
+                <Text style={styles.eta}>
+                  You are #{item.position}
+                  {item.estimatedWaitMinutes != null
+                    ? ` · ~${item.estimatedWaitMinutes} min`
+                    : ''}
+                </Text>
+              )}
               {item.preferredTimeStart ? (
                 <Text style={styles.meta}>
                   Preferred time: {item.preferredTimeStart}
@@ -104,6 +123,7 @@ const styles = StyleSheet.create({
   },
   name: { fontWeight: '700', fontSize: 16 },
   meta: { color: '#666', marginTop: 4 },
+  eta: { color: '#0b3d2e', marginTop: 6, fontWeight: '700' },
   notified: { color: '#2d9c3c', marginTop: 4, fontWeight: '600' },
   empty: { color: '#666', marginTop: 24, textAlign: 'center' },
   status: {

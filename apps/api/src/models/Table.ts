@@ -15,6 +15,7 @@ const tableSchema = new Schema(
     width: { type: Number, default: 2 },
     height: { type: Number, default: 2 },
     shape: { type: String, enum: ['rect', 'round'], default: 'rect' },
+    photoUrl: { type: String },
   },
   { timestamps: true },
 );

@@ -50,6 +50,7 @@ function WaitlistPageContent() {
   const { data, loading, refetch } = useQuery(RESTAURANT_WAITLIST_FULL, {
     skip: !restaurantId,
     variables: { restaurantId, limit, offset },
+    pollInterval: 15_000,
   });
   const [addEntry, { loading: adding }] = useMutation(ADD_IN_HOUSE_WAITLIST);
   const [updateStatus, { loading: updating }] = useMutation(UPDATE_WAITLIST_STATUS);
@@ -146,6 +147,20 @@ function WaitlistPageContent() {
               render: (_: any, entry: any) => entry.guestPhone ?? entry.diner?.phone ?? '—',
             },
             { title: 'Party', dataIndex: 'partySize' },
+            {
+              title: 'Position',
+              dataIndex: 'position',
+              render: (v: number | null, entry: any) =>
+                entry.status === 'waiting' && v != null ? `#${v}` : '—',
+            },
+            {
+              title: 'ETA',
+              key: 'eta',
+              render: (_: unknown, entry: any) => {
+                if (entry.status !== 'waiting' || entry.estimatedWaitMinutes == null) return '—';
+                return `~${entry.estimatedWaitMinutes} min`;
+              },
+            },
             {
               title: 'Source',
               dataIndex: 'source',

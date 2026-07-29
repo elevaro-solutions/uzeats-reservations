@@ -64,6 +64,7 @@ export const RESTAURANT_DETAIL = gql`
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
+      allowGuestTableSelection
       menu {
         sections {
           id
@@ -91,6 +92,19 @@ export const AVAILABILITY = gql`
   }
 `;
 
+export const BOOKABLE_TABLES = gql`
+  query BookableTables($restaurantId: ID!, $slotStart: DateTime!, $partySize: Int!) {
+    bookableTables(restaurantId: $restaurantId, slotStart: $slotStart, partySize: $partySize) {
+      id
+      name
+      minCapacity
+      maxCapacity
+      floorArea
+      photoUrl
+    }
+  }
+`;
+
 export const CREATE_RESERVATION = gql`
   mutation CreateReservation($input: ReservationInput!) {
     createReservation(input: $input) {
@@ -104,6 +118,12 @@ export const CREATE_RESERVATION = gql`
         depositStatus
         restaurant {
           name
+        }
+        tables {
+          id
+          name
+          photoUrl
+          floorArea
         }
       }
     }
@@ -138,6 +158,12 @@ export const MY_RESERVATIONS = gql`
           city
           state
         }
+      }
+      tables {
+        id
+        name
+        photoUrl
+        floorArea
       }
     }
   }
@@ -217,6 +243,8 @@ export const JOIN_WAITLIST = gql`
       id
       status
       preferredDate
+      position
+      estimatedWaitMinutes
     }
   }
 `;
@@ -277,6 +305,10 @@ export const MY_WAITLIST = gql`
       preferredTimeEnd
       status
       notifiedSlot
+      position
+      partiesAhead
+      estimatedWaitMinutes
+      estimatedReadyAt
       createdAt
     }
   }

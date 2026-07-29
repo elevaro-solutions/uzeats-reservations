@@ -31,6 +31,7 @@ import {
   CREATE_RESERVATION,
   CONFIRM_DEPOSIT,
   JOIN_WAITLIST,
+  BOOKABLE_TABLES,
   RESTAURANT_REVIEWS,
   PROMOTIONS,
   EXPERIENCES,
@@ -56,6 +57,12 @@ export default function RestaurantPage() {
   const [date, setDate] = useState(dayjs(search.get('date') ?? dayjs().add(1, 'day')));
   const [partySize, setPartySize] = useState(Number(search.get('party') ?? 2));
   const [selectedSlot, setSelectedSlot] = useState<string | null>(search.get('slot'));
+  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const [bookingSuccess, setBookingSuccess] = useState<{
+    tableName?: string;
+    photoUrl?: string | null;
+    floorArea?: string;
+  } | null>(null);
   const [occasion, setOccasion] = useState('none');
   const [notes, setNotes] = useState('');
   const [redeemPoints, setRedeemPoints] = useState<number>(0);
@@ -74,6 +81,7 @@ export default function RestaurantPage() {
     reservationId: string;
     amountCents: number;
     paymentIntentId: string;
+    tableInfo?: { tableName?: string; photoUrl?: string | null; floorArea?: string } | null;
   } | null>(null);
 
   const { data } = useQuery(RESTAURANT_DETAIL, {
@@ -91,6 +99,15 @@ export default function RestaurantPage() {
     },
     skip: !restaurantId,
   });
+  const { data: bookableData, loading: bookableLoading } = useQuery(BOOKABLE_TABLES, {
+    variables: {
+      restaurantId: restaurantId!,
+      slotStart: selectedSlot!,
+      partySize,
+    },
+    skip: !restaurantId || !selectedSlot,
+  });
+  const bookableTables = (bookableData as any)?.bookableTables ?? [];
   const { data: reviewsData } = useQuery(RESTAURANT_REVIEWS, {
     variables: { restaurantId: restaurantId!, limit: 50, offset: 0 },
     skip: !restaurantId,
@@ -188,8 +205,15 @@ export default function RestaurantPage() {
   useEffect(() => {
     if (availLoading || !selectedSlot) return;
     const match = slots.find((s: { time: string; available: boolean }) => s.time === selectedSlot);
-    if (!match?.available) setSelectedSlot(null);
+    if (!match?.available) {
+      setSelectedSlot(null);
+      setSelectedTableId(null);
+    }
   }, [availLoading, slots, selectedSlot]);
+
+  useEffect(() => {
+    setSelectedTableId(null);
+  }, [selectedSlot, partySize]);
 
   const clearFieldError = (field: string) => {
     setFieldErrors((prev) => {
@@ -235,10 +259,19 @@ export default function RestaurantPage() {
               : {}),
             ...(promoCode.trim() ? { promoCode: promoCode.trim().toUpperCase() } : {}),
             ...(giftCardCode.trim() ? { giftCardCode: giftCardCode.trim().toUpperCase() } : {}),
+            ...(selectedTableId ? { tableId: selectedTableId } : {}),
           },
         },
       });
       const payload = (result as any)?.createReservation;
+      const bookedTable = payload?.reservation?.tables?.[0];
+      const successInfo = bookedTable
+        ? {
+            tableName: bookedTable.name,
+            photoUrl: bookedTable.photoUrl,
+            floorArea: bookedTable.floorArea,
+          }
+        : null;
       if (payload?.clientSecret) {
         const cs = payload.clientSecret as string;
         setDepositInfo({
@@ -246,7 +279,12 @@ export default function RestaurantPage() {
           reservationId: payload.reservation.id,
           amountCents: payload.reservation.depositAmountCents ?? 0,
           paymentIntentId: cs.split('_secret')[0] ?? '',
-        });
+          tableInfo: successInfo,
+        } as any);
+        return;
+      }
+      if (successInfo) {
+        setBookingSuccess(successInfo);
         return;
       }
       message.success('Reservation confirmed!');
@@ -264,6 +302,7 @@ export default function RestaurantPage() {
   };
 
   const handleDepositSuccess = async () => {
+    const tableInfo = depositInfo?.tableInfo;
     if (depositInfo) {
       try {
         await confirmDeposit({
@@ -274,6 +313,10 @@ export default function RestaurantPage() {
       }
     }
     setDepositInfo(null);
+    if (tableInfo) {
+      setBookingSuccess(tableInfo);
+      return;
+    }
     message.success('Deposit authorized — reservation confirmed!');
     router.push('/reservations');
   };
@@ -283,7 +326,7 @@ export default function RestaurantPage() {
       router.push('/login');
       return;
     }
-    await joinWaitlist({
+    const { data: wlData } = await joinWaitlist({
       variables: {
         input: {
           restaurantId: restaurantId!,
@@ -292,7 +335,12 @@ export default function RestaurantPage() {
         },
       },
     });
-    message.success('Added to waitlist — we will notify you if a table opens.');
+    const entry = (wlData as any)?.joinWaitlist;
+    const eta =
+      entry?.position != null && entry?.estimatedWaitMinutes != null
+        ? ` You are #${entry.position} · ~${entry.estimatedWaitMinutes} min wait.`
+        : '';
+    message.success(`Added to waitlist.${eta}`);
   };
 
   if (!restaurant) return <div component="RestaurantPage" style={{ display: 'contents' }}><Card loading /></div>;
@@ -482,6 +530,60 @@ export default function RestaurantPage() {
               onSelect={setSelectedSlot}
               loading={availLoading}
             />
+            {selectedSlot && restaurant?.allowGuestTableSelection && (
+              <div style={{ marginTop: 20 }}>
+                <Text strong style={{ display: 'block', marginBottom: 8 }}>
+                  Choose your table
+                </Text>
+                {bookableLoading ? (
+                  <Text type="secondary">Loading tables…</Text>
+                ) : bookableTables.length === 0 ? (
+                  <Text type="secondary">No tables available for this time</Text>
+                ) : (
+                  <Row gutter={[12, 12]}>
+                    {bookableTables.map((t: any) => {
+                      const selected = selectedTableId === t.id;
+                      return (
+                        <Col xs={12} sm={8} key={t.id}>
+                          <Card
+                            hoverable
+                            size="small"
+                            onClick={() => setSelectedTableId(t.id)}
+                            style={{
+                              borderColor: selected ? colors.brand[600] : undefined,
+                              borderWidth: selected ? 2 : 1,
+                            }}
+                            cover={
+                              t.photoUrl ? (
+                                <img
+                                  alt={t.name}
+                                  src={t.photoUrl}
+                                  style={{ height: 100, objectFit: 'cover' }}
+                                />
+                              ) : undefined
+                            }
+                          >
+                            <Text strong>{t.name}</Text>
+                            <br />
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              {t.floorArea} · {t.minCapacity}-{t.maxCapacity} guests
+                            </Text>
+                          </Card>
+                        </Col>
+                      );
+                    })}
+                  </Row>
+                )}
+              </div>
+            )}
+            {selectedSlot && !restaurant?.allowGuestTableSelection && (
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginTop: 16 }}
+                message="Your table will be assigned automatically when you book."
+              />
+            )}
             <Form layout="vertical" style={{ marginTop: 24 }}>
               <Form.Item
                 label="Occasion"
@@ -799,6 +901,38 @@ export default function RestaurantPage() {
           </Card>
         </Col>
       </Row>
+
+      <Modal
+        open={!!bookingSuccess}
+        title="Reservation confirmed"
+        onOk={() => {
+          setBookingSuccess(null);
+          router.push('/reservations');
+        }}
+        onCancel={() => {
+          setBookingSuccess(null);
+          router.push('/reservations');
+        }}
+        okText="View reservations"
+        cancelButtonProps={{ style: { display: 'none' } }}
+        width={480}
+      >
+        {bookingSuccess && (
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+            <Text>
+              Your table: <Text strong>{bookingSuccess.tableName}</Text>
+              {bookingSuccess.floorArea ? ` · ${bookingSuccess.floorArea}` : ''}
+            </Text>
+            {bookingSuccess.photoUrl && (
+              <img
+                src={bookingSuccess.photoUrl}
+                alt={bookingSuccess.tableName ?? 'Your table'}
+                style={{ width: '100%', borderRadius: 8, maxHeight: 240, objectFit: 'cover' }}
+              />
+            )}
+          </Space>
+        )}
+      </Modal>
 
       <Modal
         open={!!depositInfo}

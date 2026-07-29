@@ -20,6 +20,7 @@ import {
   message,
 } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
+import PhotoUpload from '@/components/PhotoUpload';
 import { useAuth } from '@/lib/auth';
 import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
 import {
@@ -81,6 +82,20 @@ export default function FloorPage() {
               pagination={false}
               dataSource={restaurant?.tables ?? []}
               columns={[
+                {
+                  title: 'Photo',
+                  width: 56,
+                  render: (_: unknown, t: any) =>
+                    t.photoUrl ? (
+                      <img
+                        src={t.photoUrl}
+                        alt=""
+                        style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4 }}
+                      />
+                    ) : (
+                      '—'
+                    ),
+                },
                 { title: 'Name', dataIndex: 'name' },
                 {
                   title: 'Capacity',
@@ -103,6 +118,7 @@ export default function FloorPage() {
                             floorArea: t.floorArea,
                             combinable: t.combinable,
                             active: t.active,
+                            photoUrl: t.photoUrl ? [t.photoUrl] : [],
                           });
                         }}
                       >
@@ -302,6 +318,7 @@ export default function FloorPage() {
                   floorArea: values.floorArea ?? 'Main',
                   combinable: values.combinable ?? false,
                   active: values.active ?? true,
+                  photoUrl: values.photoUrl?.[0] ?? null,
                 },
               },
             });
@@ -340,6 +357,9 @@ export default function FloorPage() {
               </Form.Item>
             </Col>
           </Row>
+          <Form.Item name="photoUrl" label="Table photo">
+            <PhotoUpload maxCount={1} />
+          </Form.Item>
         </Form>
       </Modal>
 
