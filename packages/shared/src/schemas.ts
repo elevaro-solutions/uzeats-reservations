@@ -8,6 +8,13 @@ import {
   CUISINES,
   WAITLIST_STATUSES,
 } from './constants.js';
+import {
+  AMENITIES,
+  DIETARY_TAGS,
+  DINING_STYLES,
+  DISCOVERY_OCCASIONS,
+  MEALS,
+} from './discovery.js';
 
 export const emailSchema = z.string().email().toLowerCase();
 export const passwordSchema = z.string().min(8).max(128);
@@ -66,6 +73,13 @@ export const restaurantInputSchema = z.object({
   loyaltyPointsPerVisit: z.number().int().min(0).default(50),
   loyaltyMinRedeemPoints: z.number().int().min(0).default(200),
   photos: z.array(z.string().url()).default([]),
+  neighborhood: z.string().max(80).optional(),
+  diningStyles: z.array(z.enum(DINING_STYLES)).default([]),
+  discoveryOccasions: z.array(z.enum(DISCOVERY_OCCASIONS)).default([]),
+  meals: z.array(z.enum(MEALS)).default([]),
+  dietaryTags: z.array(z.enum(DIETARY_TAGS)).default([]),
+  amenities: z.array(z.enum(AMENITIES)).default([]),
+  wheelchairAccessible: z.boolean().default(false),
 });
 
 /** Partner signup: account + restaurant listing + selected plan. */
@@ -173,14 +187,25 @@ export const notificationPreferencesSchema = z.object({
 export const searchRestaurantsSchema = z.object({
   query: z.string().optional(),
   cuisine: z.enum(CUISINES).optional(),
+  cuisines: z.array(z.enum(CUISINES)).optional(),
+  categoryIds: z.array(z.string()).optional(),
   priceRange: z.number().int().min(1).max(4).optional(),
   city: z.string().optional(),
+  neighborhood: z.string().optional(),
   lat: z.number().optional(),
   lng: z.number().optional(),
   radiusKm: z.number().min(0.5).max(100).default(25),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   time: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   partySize: z.number().int().min(1).max(50).default(2),
+  occasions: z.array(z.enum(DISCOVERY_OCCASIONS)).optional(),
+  diningStyles: z.array(z.enum(DINING_STYLES)).optional(),
+  meals: z.array(z.enum(MEALS)).optional(),
+  dietaryTags: z.array(z.enum(DIETARY_TAGS)).optional(),
+  amenities: z.array(z.enum(AMENITIES)).optional(),
+  minRating: z.number().min(0).max(5).optional(),
+  wheelchairAccessible: z.boolean().optional(),
+  requireAvailability: z.boolean().optional(),
   page: z.number().int().min(1).default(1),
   limit: z.number().int().min(1).max(50).default(20),
 });

@@ -772,6 +772,33 @@ html.rt-map-view .rt-site-footer {
   font-size: 13px;
 }
 
+.rt-map-filters__select {
+  width: 100%;
+}
+
+.rt-map-filters__select .ant-select-selector {
+  border-radius: 10px !important;
+  border-color: var(--color-border) !important;
+  min-height: 38px !important;
+}
+
+.rt-map-filters__select-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rt-map-filters__chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rt-map-filters__chip-group .rt-map-filters__chip {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
 .rt-map-filters__price-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -794,6 +821,18 @@ html.rt-map-view .rt-site-footer {
   border-color: var(--color-brand-600);
   background: var(--color-brand-50);
   color: var(--color-brand-700);
+}
+
+.rt-map-restaurant-modal .ant-modal-content {
+  padding: 0;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+}
+
+.rt-map-restaurant-modal .rt-map-info-card {
+  border: none;
+  box-shadow: none;
+  width: 100%;
 }
 
 .rt-map-marker-label {

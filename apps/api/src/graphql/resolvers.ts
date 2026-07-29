@@ -36,6 +36,11 @@ import {
   buildAdminRestaurantFilter,
   buildOwnerRestaurantFilter,
 } from '../services/restaurantFilters.js';
+import {
+  applyGeoToFilter,
+  buildDiscoverySearchFilter,
+  filterByAvailability,
+} from '../services/discoverySearch.js';
 import { getAvailability } from '../services/availability.js';
 import { paginateQuery } from '../lib/pagination.js';
 import {
@@ -473,64 +478,109 @@ export const resolvers = {
 
     searchRestaurants: async (_: unknown, args: { input: unknown }) => {
       const input = searchRestaurantsSchema.parse(args.input);
-      const filter: Record<string, unknown> = { status: 'approved' };
-      const usingGeo = input.lat != null && input.lng != null;
-
-      if (input.query) {
-        // MongoDB forbids combining $text with $near / geoNear, so use regex
-        // when a location filter is also applied.
-        if (usingGeo) {
-          const q = input.query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-          if (q) {
-            const pattern = new RegExp(q, 'i');
-            filter.$or = [
-              { name: pattern },
-              { cuisine: pattern },
-              { description: pattern },
-              { 'address.city': pattern },
-            ];
-          }
-        } else {
-          filter.$text = { $search: input.query };
-        }
-      }
-      if (input.cuisine) filter.cuisine = input.cuisine;
-      if (input.priceRange) filter.priceRange = input.priceRange;
-      if (input.city) filter['address.city'] = new RegExp(`^${input.city}$`, 'i');
-
+      const baseFilter = buildDiscoverySearchFilter(input);
+      const { filter, countFilter, usingGeo } = applyGeoToFilter(baseFilter, input);
       const skip = (input.page - 1) * input.limit;
-      // Featured (promoted) restaurants rank first, then by rating.
-      // Geo $near queries return distance-sorted results, so keep that order there.
-      // countDocuments uses aggregation, which rejects $near — use $geoWithin for counts.
-      const countFilter = { ...filter };
-      if (usingGeo) {
-        const coordinates = [input.lng!, input.lat!];
-        const maxDistanceMeters = (input.radiusKm ?? 25) * 1000;
-        filter.location = {
-          $near: {
-            $geometry: { type: 'Point', coordinates },
-            $maxDistance: maxDistanceMeters,
-          },
-        };
-        countFilter.location = {
-          $geoWithin: {
-            $centerSphere: [coordinates, maxDistanceMeters / 6_378_100],
-          },
-        };
-      }
+      const requireAvailability =
+        input.requireAvailability !== false && Boolean(input.date);
 
-      const query = Restaurant.find(filter).skip(skip).limit(input.limit);
+      const fetchLimit = requireAvailability ? Math.min(input.limit * 4, 100) : input.limit;
+
+      const query = Restaurant.find(filter).skip(requireAvailability ? 0 : skip).limit(fetchLimit);
       if (!usingGeo) query.sort({ featured: -1, averageRating: -1 });
-      const [items, total] = await Promise.all([
+
+      let [items, total] = await Promise.all([
         query,
         Restaurant.countDocuments(countFilter),
       ]);
+
+      if (requireAvailability && input.date) {
+        const available = await filterByAvailability(items, input.date, input.partySize, input.time);
+        total = available.length;
+        items = available.slice(skip, skip + input.limit);
+      }
 
       return {
         items: items.map(mapRestaurant),
         total,
         page: input.page,
         limit: input.limit,
+      };
+    },
+
+    discoveryIndex: async () => {
+      const approved = { status: 'approved' };
+      const [cityRows, neighborhoodRows, cuisineRows, occasionRows] = await Promise.all([
+        Restaurant.aggregate([
+          { $match: approved },
+          { $group: { _id: { city: '$address.city', state: '$address.state' }, count: { $sum: 1 } } },
+          { $match: { count: { $gte: 1 } } },
+          { $sort: { count: -1 } },
+        ]),
+        Restaurant.aggregate([
+          { $match: { ...approved, 'address.neighborhood': { $exists: true, $ne: '' } } },
+          {
+            $group: {
+              _id: {
+                neighborhood: '$address.neighborhood',
+                city: '$address.city',
+                state: '$address.state',
+              },
+              count: { $sum: 1 },
+            },
+          },
+          { $match: { count: { $gte: 1 } } },
+          { $sort: { count: -1 } },
+        ]),
+        Restaurant.aggregate([
+          { $match: approved },
+          { $group: { _id: '$cuisine', count: { $sum: 1 } } },
+          { $match: { count: { $gte: 1 } } },
+          { $sort: { count: -1 } },
+        ]),
+        Restaurant.aggregate([
+          { $match: { ...approved, discoveryOccasions: { $exists: true, $not: { $size: 0 } } } },
+          { $unwind: '$discoveryOccasions' },
+          { $group: { _id: '$discoveryOccasions', count: { $sum: 1 } } },
+          { $match: { count: { $gte: 1 } } },
+          { $sort: { count: -1 } },
+        ]),
+      ]);
+
+      const { citySlug, neighborhoodSlug, cuisineSlug, discoverySlug } = await import(
+        '@reservations/shared'
+      );
+
+      return {
+        cities: cityRows.map((row: { _id: { city: string; state: string }; count: number }) => ({
+          slug: citySlug(row._id.city, row._id.state),
+          label: `${row._id.city}, ${row._id.state}`,
+          count: row.count,
+          city: row._id.city,
+          state: row._id.state,
+        })),
+        neighborhoods: neighborhoodRows.map(
+          (row: {
+            _id: { neighborhood: string; city: string; state: string };
+            count: number;
+          }) => ({
+            slug: neighborhoodSlug(row._id.neighborhood, row._id.city, row._id.state),
+            label: `${row._id.neighborhood}, ${row._id.city}`,
+            count: row.count,
+            city: row._id.city,
+            state: row._id.state,
+          }),
+        ),
+        cuisines: cuisineRows.map((row: { _id: string; count: number }) => ({
+          slug: cuisineSlug(row._id),
+          label: row._id,
+          count: row.count,
+        })),
+        occasions: occasionRows.map((row: { _id: string; count: number }) => ({
+          slug: discoverySlug(row._id),
+          label: row._id,
+          count: row.count,
+        })),
       };
     },
 

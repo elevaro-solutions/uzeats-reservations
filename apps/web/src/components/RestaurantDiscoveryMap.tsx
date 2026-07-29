@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Spin, Typography } from 'antd';
+import { Spin, Modal, Typography } from 'antd';
 import { EnvironmentOutlined } from '@ant-design/icons';
 import { colors, hasGoogleMapsKey, loadGoogleMaps, radii, typography } from '@reservations/ui';
 import { MapMarkerInfoCard } from './MapMarkerInfoCard';
@@ -114,7 +114,7 @@ export function RestaurantDiscoveryMap({
   const [overlayMounted, setOverlayMounted] = useState(false);
   const [unavailable, setUnavailable] = useState(!hasGoogleMapsKey());
   const [markerPositions, setMarkerPositions] = useState<Record<string, { x: number; y: number }>>({});
-  const [cardPosition, setCardPosition] = useState<{ x: number; y: number } | null>(null);
+  const [viewModalId, setViewModalId] = useState<string | null>(null);
 
   const mappable = useMemo(
     () => restaurants.filter((r) => r.location?.lat != null && r.location?.lng != null),
@@ -130,6 +130,10 @@ export function RestaurantDiscoveryMap({
     onCloseRestaurantRef.current = onCloseRestaurant;
     onSelectRestaurantRef.current = onSelectRestaurant;
   }, [onCloseRestaurant, onSelectRestaurant]);
+
+  useEffect(() => {
+    if (!selectedId) setViewModalId(null);
+  }, [selectedId]);
 
   const updateOverlayPositions = useCallback(() => {
     const overlay = positionOverlayRef.current;
@@ -147,16 +151,7 @@ export function RestaurantDiscoveryMap({
       if (point) nextPositions[restaurant.id] = { x: point.x, y: point.y };
     }
     setMarkerPositions(nextPositions);
-
-    if (selectedRestaurant?.location) {
-      const point = projection.fromLatLngToContainerPixel(
-        new maps.LatLng(selectedRestaurant.location.lat, selectedRestaurant.location.lng),
-      );
-      if (point) setCardPosition({ x: point.x, y: point.y });
-    } else {
-      setCardPosition(null);
-    }
-  }, [mappable, selectedRestaurant]);
+  }, [mappable]);
 
   const syncMarkers = useCallback(() => {
     const maps = mapsApiRef.current;
@@ -373,43 +368,52 @@ export function RestaurantDiscoveryMap({
                         transform: 'translate(8px, -50%)',
                         pointerEvents: 'auto',
                       }}
+                      onMouseDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.stopPropagation();
+                        e.preventDefault();
                         onSelectRestaurantRef.current?.(restaurant.id);
+                        setViewModalId(restaurant.id);
                       }}
                     >
                       {truncateLabel(restaurant.name)}
                     </button>
                   );
                 })}
-
-                {selectedRestaurant && cardPosition ? (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: cardPosition.x,
-                      top: cardPosition.y,
-                      transform: 'translate(-50%, calc(-100% - 22px))',
-                      pointerEvents: 'auto',
-                      zIndex: 5,
-                    }}
-                  >
-                    <div className="rt-map-marker-card-pointer" aria-hidden />
-                    <MapMarkerInfoCard
-                      restaurant={selectedRestaurant}
-                      date={date}
-                      partySize={partySize}
-                      onClose={() => onCloseRestaurantRef.current?.()}
-                      onOpen={() => onOpenRestaurant?.(selectedRestaurant.id)}
-                      onSelectSlot={(time) => onSelectSlot?.(selectedRestaurant.id, time)}
-                    />
-                  </div>
-                ) : null}
               </>,
               overlayLayerRef.current,
             )
           : null}
       </div>
+
+      <Modal
+        open={!!selectedRestaurant && viewModalId === selectedRestaurant.id}
+        onCancel={() => {
+          setViewModalId(null);
+          onCloseRestaurantRef.current?.();
+        }}
+        footer={null}
+        width={360}
+        centered
+        destroyOnClose
+        className="rt-map-restaurant-modal"
+        styles={{ body: { padding: 0 } }}
+        closable={false}
+      >
+        {selectedRestaurant && viewModalId === selectedRestaurant.id ? (
+          <MapMarkerInfoCard
+            restaurant={selectedRestaurant}
+            date={date}
+            partySize={partySize}
+            onClose={() => {
+              setViewModalId(null);
+              onCloseRestaurantRef.current?.();
+            }}
+            onOpen={() => onOpenRestaurant?.(selectedRestaurant.id)}
+            onSelectSlot={(time) => onSelectSlot?.(selectedRestaurant.id, time)}
+          />
+        ) : null}
+      </Modal>
     </div>
   );
 }

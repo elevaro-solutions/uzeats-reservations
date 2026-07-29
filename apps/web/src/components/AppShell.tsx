@@ -533,6 +533,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             <div>
+              <div className="rt-site-footer__heading">Explore</div>
+              <div className="rt-site-footer__list">
+                <Link href="/cities/new-york-ny">New York restaurants</Link>
+                <Link href="/cuisine/italian">Italian restaurants</Link>
+                <Link href="/occasion/date-night">Date night</Link>
+                <Link href="/neighborhoods/soho-new-york-ny">SoHo restaurants</Link>
+              </div>
+            </div>
+            <div>
               <div className="rt-site-footer__heading">Company</div>
               <div className="rt-site-footer__list">
                 <Link href="/privacy">Privacy</Link>

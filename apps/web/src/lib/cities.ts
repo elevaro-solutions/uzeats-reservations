@@ -3,6 +3,8 @@
  * (no NEXT_PUBLIC_GOOGLE_MAPS_API_KEY). Coordinates match the API seed.
  */
 
+import { citySlug, neighborhoodSlug } from '@reservations/shared';
+
 export const US_STATE_NAMES: Record<string, string> = {
   NY: 'New York',
   NJ: 'New Jersey',
@@ -54,4 +56,38 @@ export const POPULAR_CITIES: CityOption[] = [
 
 export function cityLabel(c: Pick<CityOption, 'city' | 'state'>): string {
   return `${c.city}, ${c.state}`;
+}
+
+export interface NeighborhoodOption {
+  neighborhood: string;
+  city: string;
+  state: string;
+  lat: number;
+  lng: number;
+}
+
+/** Curated neighborhoods for search fallback and SEO landing pages. */
+export const POPULAR_NEIGHBORHOODS: NeighborhoodOption[] = [
+  { neighborhood: 'SoHo', city: 'New York', state: 'NY', lat: 40.7233, lng: -74.003 },
+  { neighborhood: 'Tribeca', city: 'New York', state: 'NY', lat: 40.7163, lng: -74.0086 },
+  { neighborhood: 'Williamsburg', city: 'Brooklyn', state: 'NY', lat: 40.7081, lng: -73.9571 },
+  { neighborhood: 'Astoria', city: 'Queens', state: 'NY', lat: 40.7644, lng: -73.9235 },
+  { neighborhood: 'Downtown', city: 'Jersey City', state: 'NJ', lat: 40.7178, lng: -74.0431 },
+  { neighborhood: 'Brickell', city: 'Miami', state: 'FL', lat: 25.7617, lng: -80.1918 },
+  { neighborhood: 'Center City', city: 'Philadelphia', state: 'PA', lat: 39.9526, lng: -75.1652 },
+  { neighborhood: 'Ybor City', city: 'Tampa', state: 'FL', lat: 27.9636, lng: -82.4368 },
+];
+
+export function neighborhoodLabel(n: Pick<NeighborhoodOption, 'neighborhood' | 'city' | 'state'>): string {
+  return `${n.neighborhood}, ${n.city}, ${n.state}`;
+}
+
+export function findCityBySlug(slug: string): CityOption | undefined {
+  return POPULAR_CITIES.find((c) => citySlug(c.city, c.state) === slug);
+}
+
+export function findNeighborhoodBySlug(slug: string): NeighborhoodOption | undefined {
+  return POPULAR_NEIGHBORHOODS.find(
+    (n) => neighborhoodSlug(n.neighborhood, n.city, n.state) === slug,
+  );
 }

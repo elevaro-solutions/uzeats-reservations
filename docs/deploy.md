@@ -34,6 +34,8 @@ This also builds `packages/widget` and serves `widget.js` at `https://yourdomain
 
 Set `NEXT_PUBLIC_API_URL=https://api.yourdomain.com/graphql` and `NEXT_PUBLIC_WEB_URL=https://tablevera.online` (used for booking links and widget redirects).
 
+Set `NEXT_PUBLIC_SITE_URL=https://tablevera.online` on the web build for sitemap, robots, and SEO canonical URLs.
+
 For Google address autocomplete on the diner home page, also set
 `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (Maps JavaScript API + Places library; restrict by HTTP referrer).
 The map discovery view (`/?view=map`) uses the same key for Google Maps markers.

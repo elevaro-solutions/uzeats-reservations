@@ -84,6 +84,7 @@ export const typeDefs = `#graphql
     state: String!
     zip: String!
     country: String!
+    neighborhood: String
   }
 
   type GeoPoint {
@@ -118,6 +119,12 @@ export const typeDefs = `#graphql
     loyaltyPointsPerVisit: Int!
     loyaltyMinRedeemPoints: Int!
     widgetTheme: WidgetTheme!
+    diningStyles: [String!]!
+    discoveryOccasions: [String!]!
+    meals: [String!]!
+    dietaryTags: [String!]!
+    amenities: [String!]!
+    wheelchairAccessible: Boolean!
     subscription: SubscriptionType
     tables: [Table!]!
     shifts: [Shift!]!
@@ -1313,16 +1320,42 @@ export const typeDefs = `#graphql
   input SearchRestaurantsInput {
     query: String
     cuisine: String
+    cuisines: [String!]
+    categoryIds: [String!]
     priceRange: Int
     city: String
+    neighborhood: String
     lat: Float
     lng: Float
     radiusKm: Float
     date: String
     time: String
     partySize: Int
+    occasions: [String!]
+    diningStyles: [String!]
+    meals: [String!]
+    dietaryTags: [String!]
+    amenities: [String!]
+    minRating: Float
+    wheelchairAccessible: Boolean
+    requireAvailability: Boolean
     page: Int
     limit: Int
+  }
+
+  type DiscoveryIndexEntry {
+    slug: String!
+    label: String!
+    count: Int!
+    city: String
+    state: String
+  }
+
+  type DiscoveryIndex {
+    cities: [DiscoveryIndexEntry!]!
+    neighborhoods: [DiscoveryIndexEntry!]!
+    cuisines: [DiscoveryIndexEntry!]!
+    occasions: [DiscoveryIndexEntry!]!
   }
 
   input MenuItemInput {
@@ -1703,6 +1736,7 @@ export const typeDefs = `#graphql
     ): PromotionValidation!
     validateGiftCard(restaurantId: ID!, code: String!, depositCents: Int!): GiftCardValidation!
     searchRestaurants(input: SearchRestaurantsInput!): RestaurantConnection!
+    discoveryIndex: DiscoveryIndex!
     availability(restaurantId: ID!, date: String!, partySize: Int!): [AvailabilitySlot!]!
     myReservations: [Reservation!]!
     restaurantReservations(restaurantId: ID!, date: String, limit: Int, offset: Int): ReservationConnection!

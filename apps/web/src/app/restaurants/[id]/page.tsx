@@ -40,6 +40,8 @@ import {
   VALIDATE_GIFT_CARD,
 } from '@/lib/graphql';
 import { getGraphQLErrorMessage, getValidationIssues, toFieldErrors } from '@/lib/errors';
+import { JsonLd } from '@/components/JsonLd';
+import { faqJsonLd, restaurantJsonLd } from '@/lib/seo';
 import DepositPayment from '@/components/DepositPayment';
 
 const { Title, Paragraph, Text } = Typography;
@@ -295,8 +297,35 @@ export default function RestaurantPage() {
 
   if (!restaurant) return <div component="RestaurantPage" style={{ display: 'contents' }}><Card loading /></div>;
 
+  const restaurantFaq = [
+    {
+      question: `How do I book a table at ${restaurant.name}?`,
+      answer: `Choose your date, party size, and an available time slot on this page. Confirmation is instant through Tablevera.`,
+    },
+    {
+      question: `What cuisine does ${restaurant.name} serve?`,
+      answer: `${restaurant.name} serves ${restaurant.cuisine} cuisine in ${restaurant.address.city}, ${restaurant.address.state}.`,
+    },
+    {
+      question: `Where is ${restaurant.name} located?`,
+      answer: `${restaurant.name} is located at ${restaurant.address.line1}, ${restaurant.address.city}, ${restaurant.address.state} ${restaurant.address.zip}.`,
+    },
+  ];
+
   return (
-    <div component="RestaurantPage" style={{ display: 'contents' }}><Space orientation="vertical" size={24} style={{ width: '100%' }}>
+    <div component="RestaurantPage" style={{ display: 'contents' }}><JsonLd
+        data={[
+          restaurantJsonLd({
+            ...restaurant,
+            location: restaurant.location,
+            dietaryTags: restaurant.dietaryTags,
+            amenities: restaurant.amenities,
+            meals: restaurant.meals,
+          }),
+          faqJsonLd(restaurantFaq),
+        ]}
+      />
+      <Space orientation="vertical" size={24} style={{ width: '100%' }}>
       <Card
         cover={
           restaurant.photos?.[0] ? (

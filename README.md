@@ -70,7 +70,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 
 ## Features
 
-- Restaurant search (city, cuisine, text, nearby geo) with **list and map views** + live availability slots
+- Restaurant search (city, cuisine, text, nearby geo) with **list and map views**, SEO landing pages, and live availability slots
 - Google Places address autocomplete and device near-me (falls back to curated US cities)
 - Concurrent-safe booking via atomic table slot claims (no replica set required)
 - Deposits via Stripe PaymentIntents (manual capture; stubbed without keys)
@@ -102,7 +102,7 @@ JWT_ACCESS_SECRET=...
 JWT_REFRESH_SECRET=...
 ```
 
-Optional integrations: `STRIPE_*`, `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `SENDGRID_API_KEY` (or `RESEND_API_KEY`), `TELEGRAM_BOT_TOKEN` (+ `API_PUBLIC_URL` / `TELEGRAM_WEBHOOK_SECRET` in production), `DO_SPACES_*`, `VAPID_*`.
+Optional integrations: `STRIPE_*`, `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `SENDGRID_API_KEY` (or `RESEND_API_KEY`), `TELEGRAM_BOT_TOKEN` (+ `API_PUBLIC_URL` / `TELEGRAM_WEBHOOK_SECRET` in production), `DO_SPACES_*`, `VAPID_*`, `NEXT_PUBLIC_SITE_URL` (canonical URLs for sitemap/SEO).
 
 For password reset emails, set `WEB_APP_URL` and `DASHBOARD_APP_URL` on the API so reset links land on the correct app.
 

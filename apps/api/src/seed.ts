@@ -1,5 +1,12 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
+import {
+  AMENITIES,
+  DIETARY_TAGS,
+  DINING_STYLES,
+  DISCOVERY_OCCASIONS,
+  MEALS,
+} from '@reservations/shared';
 import { env } from './config/env.js';
 import { PLANS } from './config/plans.js';
 import { hashPassword } from './services/auth.js';
@@ -52,11 +59,58 @@ function slot(days: number, hours = 19, turnMinutes = 90) {
   return { slotStart: start, slotEnd: new Date(start.getTime() + turnMinutes * 60_000) };
 }
 
+const NEIGHBORHOODS_BY_CITY: Record<string, string[]> = {
+  'New York,NY': ['SoHo', 'Tribeca', 'Midtown', 'Upper West Side'],
+  'Brooklyn,NY': ['Williamsburg', 'DUMBO', 'Park Slope'],
+  'Queens,NY': ['Astoria', 'Long Island City', 'Flushing'],
+  'Jersey City,NJ': ['Downtown', 'Journal Square'],
+  'Miami,FL': ['Brickell', 'Wynwood', 'South Beach'],
+  'Philadelphia,PA': ['Center City', 'Old City', 'Fishtown'],
+};
+
+const CUISINE_ROTATION = [
+  'Uzbek/Central Asian',
+  'Mediterranean',
+  'Italian',
+  'Japanese',
+  'Mexican',
+  'Indian',
+  'American',
+  'Seafood',
+  'Turkish',
+  'Thai',
+] as const;
+
+function pick<T>(items: readonly T[], index: number, count = 2): T[] {
+  const out: T[] = [];
+  for (let i = 0; i < count; i++) {
+    out.push(items[(index + i) % items.length]!);
+  }
+  return [...new Set(out)];
+}
+
+function discoveryProfile(index: number) {
+  return {
+    diningStyles: pick(DINING_STYLES, index, 2),
+    discoveryOccasions: pick(DISCOVERY_OCCASIONS, index, 2),
+    meals: pick(MEALS, index, 3),
+    dietaryTags: pick(DIETARY_TAGS, index, 2),
+    amenities: pick(AMENITIES, index, 3),
+    wheelchairAccessible: index % 4 === 0,
+  };
+}
+
+function neighborhoodFor(city: string, state: string, index: number): string | undefined {
+  const list = NEIGHBORHOODS_BY_CITY[`${city},${state}`];
+  if (!list?.length) return undefined;
+  return list[index % list.length];
+}
+
 const MENUS: Record<
   string,
   { name: string; items: { name: string; description: string; priceCents: number; dietary: string[] }[] }[]
 > = {
-  Uzbek: [
+  'Uzbek/Central Asian': [
     {
       name: 'Starters',
       items: [
@@ -167,7 +221,7 @@ function buildExtraRestaurants(count: number): RestaurantSeed[] {
 
     out.push({
       name,
-      cuisine: 'Uzbek',
+      cuisine: CUISINE_ROTATION[i % CUISINE_ROTATION.length]!,
       priceRange,
       city: loc.city,
       state: loc.state,
@@ -282,7 +336,7 @@ async function seed() {
   const featuredRestaurants: RestaurantSeed[] = [
     {
       name: 'Samarkand Palace',
-      cuisine: 'Uzbek',
+      cuisine: 'Uzbek/Central Asian',
       priceRange: 4,
       city: 'New York',
       state: 'NY',
@@ -299,7 +353,7 @@ async function seed() {
     },
     {
       name: 'Tashkent House',
-      cuisine: 'Uzbek',
+      cuisine: 'Uzbek/Central Asian',
       priceRange: 3,
       city: 'Brooklyn',
       state: 'NY',
@@ -316,7 +370,7 @@ async function seed() {
     },
     {
       name: 'Bukhara Grill',
-      cuisine: 'Uzbek',
+      cuisine: 'Uzbek/Central Asian',
       priceRange: 3,
       city: 'Philadelphia',
       state: 'PA',
@@ -333,7 +387,7 @@ async function seed() {
     },
     {
       name: 'Choyxona Jersey',
-      cuisine: 'Uzbek',
+      cuisine: 'Uzbek/Central Asian',
       priceRange: 2,
       city: 'Jersey City',
       state: 'NJ',
@@ -350,7 +404,7 @@ async function seed() {
     },
     {
       name: 'Plov Center Miami',
-      cuisine: 'Uzbek',
+      cuisine: 'Uzbek/Central Asian',
       priceRange: 3,
       city: 'Miami',
       state: 'FL',
@@ -367,7 +421,7 @@ async function seed() {
     },
     {
       name: 'Silk Road Cafe',
-      cuisine: 'Uzbek',
+      cuisine: 'Uzbek/Central Asian',
       priceRange: 3,
       city: 'Newark',
       state: 'NJ',
@@ -381,7 +435,7 @@ async function seed() {
     },
     {
       name: 'Fergana Kitchen',
-      cuisine: 'Uzbek',
+      cuisine: 'Uzbek/Central Asian',
       priceRange: 2,
       city: 'Orlando',
       state: 'FL',
@@ -405,7 +459,9 @@ async function seed() {
     tables: { _id: mongoose.Types.ObjectId }[];
   }[] = [];
 
-  for (const r of restaurantsData) {
+  for (const [i, r] of restaurantsData.entries()) {
+    const profile = discoveryProfile(i);
+    const neighborhood = neighborhoodFor(r.city, r.state, i);
     const restaurant = await Restaurant.create({
       name: r.name,
       slug: r.name.toLowerCase().replace(/\s+/g, '-') + '-demo',
@@ -418,6 +474,7 @@ async function seed() {
         state: r.state,
         zip: r.zip,
         country: 'US',
+        ...(neighborhood ? { neighborhood } : {}),
       },
       location: { type: 'Point', coordinates: [r.lng, r.lat] },
       phone: '+15550001111',
@@ -429,6 +486,7 @@ async function seed() {
       depositAmountCents: r.depositAmountCents,
       averageRating: r.rating ?? 0,
       reviewCount: r.reviewCount ?? 0,
+      ...profile,
     });
 
     await User.findByIdAndUpdate(owner!._id, {
@@ -510,7 +568,7 @@ async function seed() {
         active: true,
       });
 
-      const sections = MENUS[r.cuisine] ?? MENUS.Uzbek!;
+      const sections = MENUS[r.cuisine] ?? MENUS['Uzbek/Central Asian']!;
       await Menu.create({
         restaurantId: restaurant._id,
         sections: sections.map((s) => ({

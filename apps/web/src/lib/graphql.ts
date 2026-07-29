@@ -39,10 +39,23 @@ export const RESTAURANT_DETAIL = gql`
       priceRange
       address {
         line1
+        line2
         city
         state
         zip
+        neighborhood
       }
+      location {
+        lat
+        lng
+      }
+      phone
+      website
+      diningStyles
+      dietaryTags
+      amenities
+      meals
+      wheelchairAccessible
       photos
       averageRating
       reviewCount

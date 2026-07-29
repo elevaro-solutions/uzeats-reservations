@@ -4,6 +4,28 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.13.0] — 2026-07-29
+
+### Added
+
+- SEO landing pages: `/cities/:slug`, `/neighborhoods/:slug`, `/cuisine/:slug`, `/occasion/:slug`
+- `sitemap.xml` and `robots.txt` with discovery index URLs
+- JSON-LD breadcrumbs/FAQ helpers and `DiscoveryLandingView` shared layout
+- Restaurant discovery metadata: occasions, dining styles, meals, dietary tags, amenities, neighborhood
+- Expanded `searchRestaurants` filters (multi-cuisine, category chips, min rating, wheelchair, availability)
+- `discoveryIndex` GraphQL query and `discoverySearch` service
+- `packages/shared/discovery.ts` — slug helpers and landing-page meta builders
+
+### Changed
+
+- Homepage and map filters use unified `useDiscoveryFilters` with richer sidebar facets
+- Seed restaurants populate discovery tags and neighborhoods for demo search
+- Restaurant detail pages include SEO metadata; address autocomplete supports neighborhoods
+
+### Docs
+
+- README and deploy guide note `NEXT_PUBLIC_SITE_URL` for sitemap/canonical URLs
+
 ## [0.12.0] — 2026-07-29
 
 ### Added

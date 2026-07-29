@@ -89,7 +89,7 @@ function HomePageContent() {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [cuisine, setCuisine] = useState<string | undefined>();
-  const [activeCategoryId, setActiveCategoryId] = useState<string | undefined>();
+  const [activeCategoryIds, setActiveCategoryIds] = useState<string[]>([]);
   const [locationInput, setLocationInput] = useState(cityLabel(DEFAULT_LOCATION));
   const [selectedLocation, setSelectedLocation] = useState<LocationSelection>({
     label: cityLabel(DEFAULT_LOCATION),
@@ -101,6 +101,11 @@ function HomePageContent() {
   const [date, setDate] = useState(dayjs().add(1, 'day'));
   const [geoLoading, setGeoLoading] = useState(false);
   const [mapPriceRange, setMapPriceRange] = useState<number | undefined>();
+  const [occasions, setOccasions] = useState<string[]>([]);
+  const [diningStyles, setDiningStyles] = useState<string[]>([]);
+  const [meals, setMeals] = useState<string[]>([]);
+  const [dietaryTags, setDietaryTags] = useState<string[]>([]);
+  const [amenities, setAmenities] = useState<string[]>([]);
   const [topRatedOnly, setTopRatedOnly] = useState(false);
   const [accessibleOnly, setAccessibleOnly] = useState(false);
   const { viewMode, setViewMode } = useDiscoveryViewMode();
@@ -124,21 +129,19 @@ function HomePageContent() {
     // setPage is intentionally omitted — it changes when searchParams update and
     // would retrigger this effect in a router.replace loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, cuisine, activeCategoryId, selectedLocation.lat, selectedLocation.lng, partySize, date, mapPriceRange, topRatedOnly, accessibleOnly]);
+  }, [debouncedQuery, cuisine, activeCategoryIds, selectedLocation.lat, selectedLocation.lng, partySize, date, mapPriceRange, topRatedOnly, accessibleOnly, occasions, diningStyles, meals, dietaryTags, amenities]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('rt-map-view', viewMode === 'map');
     return () => document.documentElement.classList.remove('rt-map-view');
   }, [viewMode]);
 
-  const activeCategory = useMemo(
-    () => RESTAURANT_DISCOVERY_CATEGORIES.find((c) => c.id === activeCategoryId),
-    [activeCategoryId],
+  const activeCategories = useMemo(
+    () => RESTAURANT_DISCOVERY_CATEGORIES.filter((c) => activeCategoryIds.includes(c.id)),
+    [activeCategoryIds],
   );
 
-  const searchCuisine = activeCategory && 'cuisine' in activeCategory ? activeCategory.cuisine : cuisine;
-  const searchQuery =
-    activeCategory && 'query' in activeCategory ? activeCategory.query : debouncedQuery || undefined;
+  const searchQuery = debouncedQuery || undefined;
 
   const applyLocation = useCallback((location: LocationSelection, fromDevice = false) => {
     setSelectedLocation(location);
@@ -217,15 +220,26 @@ function HomePageContent() {
     variables: {
       input: {
         query: searchQuery,
-        cuisine: searchCuisine,
+        cuisine,
+        categoryIds: activeCategoryIds.length ? activeCategoryIds : undefined,
         priceRange: mapPriceRange,
+        occasions: occasions.length ? occasions : undefined,
+        diningStyles: diningStyles.length ? diningStyles : undefined,
+        meals: meals.length ? meals : undefined,
+        dietaryTags: dietaryTags.length ? dietaryTags : undefined,
+        amenities: amenities.length ? amenities : undefined,
+        minRating: topRatedOnly ? 4.5 : undefined,
+        wheelchairAccessible: accessibleOnly || undefined,
         partySize,
         date: dateStr,
+        requireAvailability: true,
         page,
         limit: pageSize,
         lat: selectedLocation.lat,
         lng: selectedLocation.lng,
         radiusKm: NEARBY_RADIUS_KM,
+        city: selectedLocation.city,
+        neighborhood: selectedLocation.neighborhood,
       },
     },
   });
@@ -233,26 +247,23 @@ function HomePageContent() {
   const restaurants = (data as any)?.searchRestaurants?.items ?? [];
   const total = (data as any)?.searchRestaurants?.total ?? 0;
 
-  const visibleRestaurants = useMemo(() => {
-    let items = restaurants;
-    if (topRatedOnly) {
-      items = items.filter((r: any) => (r.averageRating ?? 0) >= 4.5);
-    }
-    // Accessibility metadata is not yet available on restaurants.
-    void accessibleOnly;
-    return items;
-  }, [restaurants, topRatedOnly, accessibleOnly]);
+  const visibleRestaurants = useMemo(() => restaurants, [restaurants]);
 
   const hasDiscoveryFilters = Boolean(
-    activeCategoryId ||
+    activeCategoryIds.length > 0 ||
       mapPriceRange != null ||
       topRatedOnly ||
       accessibleOnly ||
+      occasions.length > 0 ||
+      diningStyles.length > 0 ||
+      meals.length > 0 ||
+      dietaryTags.length > 0 ||
+      amenities.length > 0 ||
       debouncedQuery ||
       cuisine,
   );
 
-  const visibleTotal = topRatedOnly ? visibleRestaurants.length : total;
+  const visibleTotal = total;
   const noResults = !loading && restaurants.length === 0;
   const noVisibleResults = !loading && visibleRestaurants.length === 0;
 
@@ -269,13 +280,18 @@ function HomePageContent() {
     : `Restaurants near ${selectedLocation.label.split(',').slice(0, 2).join(',').trim()}`;
 
   const clearCategoryFilters = useCallback(() => {
-    setActiveCategoryId(undefined);
+    setActiveCategoryIds([]);
     setCuisine(undefined);
   }, []);
 
   const clearMapFilters = useCallback(() => {
     clearCategoryFilters();
     setMapPriceRange(undefined);
+    setOccasions([]);
+    setDiningStyles([]);
+    setMeals([]);
+    setDietaryTags([]);
+    setAmenities([]);
     setTopRatedOnly(false);
     setAccessibleOnly(false);
     setQuery('');
@@ -285,28 +301,47 @@ function HomePageContent() {
 
   const handleCuisineChange = useCallback((value: string | undefined) => {
     setCuisine(value);
-    setActiveCategoryId(
-      value
-        ? RESTAURANT_DISCOVERY_CATEGORIES.find((c) => 'cuisine' in c && c.cuisine === value)?.id
-        : undefined,
-    );
+    if (value) {
+      const match = RESTAURANT_DISCOVERY_CATEGORIES.find((c) => 'cuisine' in c && c.cuisine === value);
+      setActiveCategoryIds(match ? [match.id] : []);
+    } else {
+      setActiveCategoryIds([]);
+    }
   }, []);
 
-  const handleCategorySelect = useCallback(
-    (categoryId: string) => {
-      if (activeCategoryId === categoryId) {
-        clearCategoryFilters();
-        return;
-      }
-      const category = RESTAURANT_DISCOVERY_CATEGORIES.find((c) => c.id === categoryId);
-      setActiveCategoryId(categoryId);
-      setCuisine(category && 'cuisine' in category ? category.cuisine : undefined);
+  const handleCategoryIdsChange = useCallback((ids: string[]) => {
+    setActiveCategoryIds(ids);
+    const cuisineCategory =
+      ids.length === 1
+        ? RESTAURANT_DISCOVERY_CATEGORIES.find((c) => c.id === ids[0] && 'cuisine' in c)
+        : undefined;
+    setCuisine(
+      cuisineCategory && 'cuisine' in cuisineCategory ? cuisineCategory.cuisine : undefined,
+    );
+    if (ids.length > 0) {
       setQuery('');
       setDebouncedQuery('');
+    }
+    setSelectedMapRestaurantId(null);
+  }, []);
+
+  const handleCategorySelect = useCallback((categoryId: string) => {
+    setActiveCategoryIds((prev) => {
+      const next = prev.includes(categoryId)
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev, categoryId];
+      const cuisineCategory = RESTAURANT_DISCOVERY_CATEGORIES.find(
+        (c) => next.length === 1 && next[0] === c.id && 'cuisine' in c,
+      );
+      setCuisine(cuisineCategory && 'cuisine' in cuisineCategory ? cuisineCategory.cuisine : undefined);
+      if (next.length > 0) {
+        setQuery('');
+        setDebouncedQuery('');
+      }
       setSelectedMapRestaurantId(null);
-    },
-    [activeCategoryId, clearCategoryFilters],
-  );
+      return next;
+    });
+  }, []);
 
   const openRestaurant = useCallback(
     (items: any[], id: string) => {
@@ -336,13 +371,23 @@ function HomePageContent() {
         icon: CATEGORY_ICONS[category.id],
       }))}
       filters={{
-        activeCategoryId,
+        categoryIds: activeCategoryIds,
         priceRange: mapPriceRange,
+        occasions,
+        diningStyles,
+        meals,
+        dietaryTags,
+        amenities,
         topRatedOnly,
         accessibleOnly,
       }}
-      onCategorySelect={handleCategorySelect}
+      onCategoryIdsChange={handleCategoryIdsChange}
       onPriceRangeChange={setMapPriceRange}
+      onOccasionsChange={setOccasions}
+      onDiningStylesChange={setDiningStyles}
+      onMealsChange={setMeals}
+      onDietaryTagsChange={setDietaryTags}
+      onAmenitiesChange={setAmenities}
       onTopRatedChange={setTopRatedOnly}
       onAccessibleChange={setAccessibleOnly}
       onClearAll={clearMapFilters}
@@ -372,7 +417,11 @@ function HomePageContent() {
       page={page}
       pageSize={pageSize}
       resultsTitle={title}
-      activeCategoryLabel={activeCategory?.label}
+      activeCategoryLabel={
+        activeCategories.length > 0
+          ? activeCategories.map((c) => c.label).join(', ')
+          : undefined
+      }
       filtersSidebar={mapFiltersSidebar}
       onPageChange={setPage}
       onSelectRestaurant={setSelectedMapRestaurantId}
@@ -678,7 +727,7 @@ function HomePageContent() {
         }}
       >
         {RESTAURANT_DISCOVERY_CATEGORIES.map((category) => {
-          const active = activeCategoryId === category.id;
+          const active = activeCategoryIds.includes(category.id);
           return (
             <button
               key={category.id}

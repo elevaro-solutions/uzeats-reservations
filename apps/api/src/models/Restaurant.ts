@@ -8,6 +8,7 @@ const addressSchema = new Schema(
     state: { type: String, required: true },
     zip: { type: String, required: true },
     country: { type: String, default: 'US' },
+    neighborhood: { type: String, index: true },
   },
   { _id: false },
 );
@@ -56,6 +57,13 @@ const restaurantSchema = new Schema(
       buttonText: { type: String, default: 'Reserve a table' },
       showReviews: { type: Boolean, default: true },
     },
+    // Discovery & local SEO attributes
+    diningStyles: [{ type: String, index: true }],
+    discoveryOccasions: [{ type: String, index: true }],
+    meals: [{ type: String, index: true }],
+    dietaryTags: [{ type: String, index: true }],
+    amenities: [{ type: String, index: true }],
+    wheelchairAccessible: { type: Boolean, default: false, index: true },
   },
   { timestamps: true },
 );

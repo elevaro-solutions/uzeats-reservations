@@ -31,6 +31,7 @@ export type AddressSelection = {
   /** Street line, e.g. "123 Main St", when Google returns it. */
   line1?: string;
   city?: string;
+  neighborhood?: string;
   /** Two-letter state/region code when available. */
   state?: string;
   zip?: string;
@@ -309,14 +310,18 @@ function parseAddressComponents(components: RawAddressComponent[]): Partial<Addr
 
   const city =
     find('locality')?.long_name ??
-    find('sublocality_level_1')?.long_name ??
-    find('sublocality')?.long_name ??
     find('postal_town')?.long_name ??
     find('administrative_area_level_3')?.long_name;
+
+  const neighborhood =
+    find('neighborhood')?.long_name ??
+    find('sublocality_level_1')?.long_name ??
+    find('sublocality')?.long_name;
 
   return {
     line1,
     city,
+    neighborhood,
     state: find('administrative_area_level_1')?.short_name,
     zip: find('postal_code')?.long_name,
     country: find('country')?.short_name,

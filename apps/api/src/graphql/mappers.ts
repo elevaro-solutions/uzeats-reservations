@@ -65,6 +65,12 @@ export function mapRestaurant(r: any) {
       buttonText: r.widgetTheme?.buttonText ?? 'Reserve a table',
       showReviews: r.widgetTheme?.showReviews ?? true,
     },
+    diningStyles: r.diningStyles ?? [],
+    discoveryOccasions: r.discoveryOccasions ?? [],
+    meals: r.meals ?? [],
+    dietaryTags: r.dietaryTags ?? [],
+    amenities: r.amenities ?? [],
+    wheelchairAccessible: r.wheelchairAccessible ?? false,
     createdAt: r.createdAt,
   };
 }
