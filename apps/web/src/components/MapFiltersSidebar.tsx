@@ -26,6 +26,20 @@ export type MapDiscoveryFilters = {
   accessibleOnly: boolean;
 };
 
+export function countActiveDiscoveryFilters(filters: MapDiscoveryFilters): number {
+  let count = 0;
+  if (filters.categoryIds.length > 0) count += filters.categoryIds.length;
+  if (filters.priceRange != null) count += 1;
+  if (filters.occasions.length > 0) count += filters.occasions.length;
+  if (filters.diningStyles.length > 0) count += filters.diningStyles.length;
+  if (filters.meals.length > 0) count += filters.meals.length;
+  if (filters.dietaryTags.length > 0) count += filters.dietaryTags.length;
+  if (filters.amenities.length > 0) count += filters.amenities.length;
+  if (filters.topRatedOnly) count += 1;
+  if (filters.accessibleOnly) count += 1;
+  return count;
+}
+
 type CategoryFilter = {
   id: string;
   label: string;
@@ -45,6 +59,8 @@ type MapFiltersSidebarProps = {
   onTopRatedChange: (enabled: boolean) => void;
   onAccessibleChange: (enabled: boolean) => void;
   onClearAll: () => void;
+  variant?: 'sidebar' | 'drawer';
+  activeFilterCount?: number;
 };
 
 const PRICE_OPTIONS = [
@@ -77,15 +93,18 @@ function FilterMultiSelect({
   options,
   value,
   onChange,
+  inDrawer = false,
 }: {
   placeholder: string;
   options: readonly string[];
   value: string[];
   onChange: (next: string[]) => void;
+  inDrawer?: boolean;
 }) {
   return (
     <Select
       {...SELECT_PROPS}
+      {...(inDrawer ? { getPopupContainer: (trigger) => trigger.parentElement ?? document.body } : {})}
       placeholder={placeholder}
       value={value}
       onChange={onChange}
@@ -107,20 +126,17 @@ export function MapFiltersSidebar({
   onTopRatedChange,
   onAccessibleChange,
   onClearAll,
+  variant = 'sidebar',
+  activeFilterCount: activeFilterCountProp,
 }: MapFiltersSidebarProps) {
-  const hasActiveFilters =
-    filters.categoryIds.length > 0 ||
-    filters.priceRange != null ||
-    filters.occasions.length > 0 ||
-    filters.diningStyles.length > 0 ||
-    filters.meals.length > 0 ||
-    filters.dietaryTags.length > 0 ||
-    filters.amenities.length > 0 ||
-    filters.topRatedOnly ||
-    filters.accessibleOnly;
+  const hasActiveFilters = (activeFilterCountProp ?? countActiveDiscoveryFilters(filters)) > 0;
+  const inDrawer = variant === 'drawer';
+  const selectContainerProps = inDrawer
+    ? { getPopupContainer: (trigger: HTMLElement) => trigger.parentElement ?? document.body }
+    : {};
 
   return (
-    <aside className="rt-map-filters">
+    <aside className={variant === 'drawer' ? 'rt-map-filters rt-map-filters--drawer' : 'rt-map-filters'}>
       <div className="rt-map-filters__header">
         <Text strong style={{ fontSize: typography.fontSize.md }}>
           Filters
@@ -136,6 +152,7 @@ export function MapFiltersSidebar({
         <FilterSection title="Quick picks">
           <Select
             {...SELECT_PROPS}
+            {...selectContainerProps}
             placeholder="Select quick picks"
             value={filters.categoryIds}
             onChange={onCategoryIdsChange}
@@ -153,6 +170,7 @@ export function MapFiltersSidebar({
 
         <FilterSection title="Occasion">
           <FilterMultiSelect
+            inDrawer={inDrawer}
             placeholder="Select occasions"
             options={DISCOVERY_OCCASIONS}
             value={filters.occasions}
@@ -162,6 +180,7 @@ export function MapFiltersSidebar({
 
         <FilterSection title="Dining style">
           <FilterMultiSelect
+            inDrawer={inDrawer}
             placeholder="Select dining styles"
             options={DINING_STYLES}
             value={filters.diningStyles}
@@ -171,6 +190,7 @@ export function MapFiltersSidebar({
 
         <FilterSection title="Meal">
           <FilterMultiSelect
+            inDrawer={inDrawer}
             placeholder="Select meals"
             options={MEALS}
             value={filters.meals}
@@ -180,6 +200,7 @@ export function MapFiltersSidebar({
 
         <FilterSection title="Dietary">
           <FilterMultiSelect
+            inDrawer={inDrawer}
             placeholder="Select dietary options"
             options={DIETARY_TAGS}
             value={filters.dietaryTags}
@@ -189,6 +210,7 @@ export function MapFiltersSidebar({
 
         <FilterSection title="Amenities">
           <FilterMultiSelect
+            inDrawer={inDrawer}
             placeholder="Select amenities"
             options={AMENITIES}
             value={filters.amenities}

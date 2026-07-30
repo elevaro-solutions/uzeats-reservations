@@ -1,11 +1,13 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { useEffect, useRef } from 'react';
-import { Pagination, Typography } from 'antd';
+import { useEffect, useRef, useState } from 'react';
+import { Typography } from 'antd';
 import { typography } from '@reservations/ui';
+import { DiscoveryFiltersDrawer } from './DiscoveryFiltersDrawer';
 import { RestaurantDiscoveryMap } from './RestaurantDiscoveryMap';
 import { MapListRestaurantCard } from './MapListRestaurantCard';
+import { InfiniteScrollSentinel } from './InfiniteScrollSentinel';
 
 const { Text } = Typography;
 
@@ -16,17 +18,20 @@ type MapResultsLayoutProps = {
   date: string;
   partySize: number;
   total: number;
-  page: number;
-  pageSize: number;
   resultsTitle: string;
   activeCategoryLabel?: string;
   filtersSidebar: ReactNode;
-  onPageChange: (page: number) => void;
+  filtersDrawerContent?: ReactNode;
+  activeFilterCount?: number;
+  hasMore: boolean;
+  loadingMore?: boolean;
+  onLoadMore: () => void;
   onSelectRestaurant: (id: string) => void;
   onCloseRestaurant: () => void;
   onOpenRestaurant: (id: string) => void;
   onSelectSlot: (id: string, time: string) => void;
   onClearCategory?: () => void;
+  emptyContent?: ReactNode;
 };
 
 export function MapResultsLayout({
@@ -36,86 +41,101 @@ export function MapResultsLayout({
   date,
   partySize,
   total,
-  page,
-  pageSize,
   resultsTitle,
   activeCategoryLabel,
   filtersSidebar,
-  onPageChange,
+  filtersDrawerContent,
+  activeFilterCount = 0,
+  hasMore,
+  loadingMore,
+  onLoadMore,
   onSelectRestaurant,
   onCloseRestaurant,
   onOpenRestaurant,
   onSelectSlot,
   onClearCategory,
+  emptyContent,
 }: MapResultsLayoutProps) {
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
+  const [listEl, setListEl] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!selectedId) return;
-    cardRefs.current[selectedId]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const frame = window.requestAnimationFrame(() => {
+      cardRefs.current[selectedId]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [selectedId]);
+
+  const drawerContent = filtersDrawerContent ?? filtersSidebar;
 
   return (
     <div className="rt-map-page__split">
-      {filtersSidebar}
+      <div className="rt-filters-desktop">{filtersSidebar}</div>
 
       <section className="rt-map-page__list-panel">
         <div className="rt-map-page__list-header">
-          <Text strong style={{ fontSize: typography.fontSize.lg, display: 'block' }}>
-            {total.toLocaleString()} restaurant{total === 1 ? '' : 's'} available
-          </Text>
+          <div className="rt-map-page__list-header-top">
+            <Text strong style={{ fontSize: typography.fontSize.lg, display: 'block' }}>
+              {total.toLocaleString()} restaurant{total === 1 ? '' : 's'} available
+            </Text>
+            <DiscoveryFiltersDrawer
+              filtersContent={drawerContent}
+              activeFilterCount={activeFilterCount}
+              onClearAll={onClearCategory}
+            />
+          </div>
           <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
             {resultsTitle}
             {activeCategoryLabel ? (
               <>
                 {' '}
                 · Showing <strong>{activeCategoryLabel}</strong>
-                {onClearCategory ? (
-                  <>
-                    .{' '}
-                    <button type="button" className="rt-map-page__clear" onClick={onClearCategory}>
-                      Clear filters
-                    </button>
-                  </>
-                ) : null}
+              </>
+            ) : null}
+            {activeFilterCount > 0 && onClearCategory ? (
+              <>
+                {activeCategoryLabel ? '. ' : ' · '}
+                <button type="button" className="rt-map-page__clear" onClick={onClearCategory}>
+                  Clear filters
+                </button>
               </>
             ) : null}
           </Text>
         </div>
 
-        <div className="rt-map-page__list">
-          {restaurants.map((restaurant) => (
-            <div
-              key={restaurant.id}
-              ref={(el) => {
-                cardRefs.current[restaurant.id] = el;
-              }}
-            >
-              <MapListRestaurantCard
-                restaurant={restaurant}
-                date={date}
-                partySize={partySize}
-                active={selectedId === restaurant.id}
-                onSelect={() => onSelectRestaurant(restaurant.id)}
-                onOpen={() => onOpenRestaurant(restaurant.id)}
-                onSelectSlot={(time) => onSelectSlot(restaurant.id, time)}
+        <div ref={setListEl} className="rt-map-page__list">
+          {restaurants.length === 0 && emptyContent ? (
+            emptyContent
+          ) : (
+            <>
+              {restaurants.map((restaurant) => (
+                <div
+                  key={restaurant.id}
+                  ref={(el) => {
+                    cardRefs.current[restaurant.id] = el;
+                  }}
+                >
+                  <MapListRestaurantCard
+                    restaurant={restaurant}
+                    date={date}
+                    partySize={partySize}
+                    active={selectedId === restaurant.id}
+                    onSelect={() => onSelectRestaurant(restaurant.id)}
+                    onOpen={() => onOpenRestaurant(restaurant.id)}
+                    onSelectSlot={(time) => onSelectSlot(restaurant.id, time)}
+                  />
+                </div>
+              ))}
+              <InfiniteScrollSentinel
+                onLoadMore={onLoadMore}
+                hasMore={hasMore}
+                loading={loadingMore}
+                root={listEl}
               />
-            </div>
-          ))}
+            </>
+          )}
         </div>
-
-        {total > pageSize && (
-          <div className="rt-map-page__pagination">
-            <Pagination
-              current={page}
-              pageSize={pageSize}
-              total={total}
-              onChange={onPageChange}
-              showSizeChanger={false}
-              size="small"
-            />
-          </div>
-        )}
       </section>
 
       <div className="rt-map-page__map-panel">

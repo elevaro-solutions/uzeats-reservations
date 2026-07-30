@@ -4,6 +4,20 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.15.0] — 2026-07-30
+
+### Added
+
+- Infinite-scroll restaurant search (`useInfiniteRestaurantSearch` + intersection sentinel)
+- `DiscoveryCardsLayout` with sticky desktop filters and mobile filters drawer
+- Shared discovery layout components reused on homepage and SEO landing pages
+
+### Changed
+
+- Homepage cards view redesigned: split layout, filter toolbar, paginated load-more
+- Map view filters available in a mobile drawer; map/list layouts share filter state
+- Discovery landing pages align with the new cards layout and scroll behavior
+
 ## [0.14.0] — 2026-07-29
 
 ### Added

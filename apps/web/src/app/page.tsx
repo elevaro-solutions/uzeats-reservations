@@ -1,11 +1,10 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery } from '@apollo/client/react';
 import { useRouter } from 'next/navigation';
 import {
   Col,
-  Pagination,
   Row,
   Segmented,
   Skeleton,
@@ -35,13 +34,15 @@ import {
 } from '@ant-design/icons';
 import { buildRestaurantBookingPath, RESTAURANT_DISCOVERY_CATEGORIES } from '@reservations/shared';
 import { SEARCH_RESTAURANTS, AVAILABILITY } from '@/lib/graphql';
-import { useUrlPagination } from '@/lib/useUrlPagination';
+import { useInfiniteRestaurantSearch } from '@/lib/useInfiniteRestaurantSearch';
 import { useDiscoveryViewMode } from '@/lib/useDiscoveryViewMode';
+import { useDiscoveryUrlSync } from '@/lib/useDiscoveryFilters';
 import { DEFAULT_LOCATION, cityLabel } from '@/lib/cities';
 import type { LocationSelection } from '@/components/AddressAutocomplete';
 import { MapResultsLayout } from '@/components/MapResultsLayout';
+import { DiscoveryCardsLayout } from '@/components/DiscoveryCardsLayout';
 import { DiscoverySearchPanel } from '@/components/DiscoverySearchPanel';
-import { MapFiltersSidebar } from '@/components/MapFiltersSidebar';
+import { MapFiltersSidebar, countActiveDiscoveryFilters } from '@/components/MapFiltersSidebar';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -86,50 +87,60 @@ const CATEGORY_ICONS: Record<string, React.ReactNode> = {
 
 function HomePageContent() {
   const router = useRouter();
-  const [query, setQuery] = useState('');
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [cuisine, setCuisine] = useState<string | undefined>();
-  const [activeCategoryIds, setActiveCategoryIds] = useState<string[]>([]);
-  const [locationInput, setLocationInput] = useState(cityLabel(DEFAULT_LOCATION));
-  const [selectedLocation, setSelectedLocation] = useState<LocationSelection>({
-    label: cityLabel(DEFAULT_LOCATION),
-    lat: DEFAULT_LOCATION.lat,
-    lng: DEFAULT_LOCATION.lng,
-  });
-  const [usingDeviceLocation, setUsingDeviceLocation] = useState(false);
-  const [partySize, setPartySize] = useState(2);
-  const [date, setDate] = useState(dayjs().add(1, 'day'));
+  const { filters, replaceFilters } = useDiscoveryUrlSync();
+  const [queryDraft, setQueryDraft] = useState(filters.query);
+  const [locationInput, setLocationInput] = useState(
+    filters.locationLabel ?? cityLabel(DEFAULT_LOCATION),
+  );
   const [geoLoading, setGeoLoading] = useState(false);
-  const [mapPriceRange, setMapPriceRange] = useState<number | undefined>();
-  const [occasions, setOccasions] = useState<string[]>([]);
-  const [diningStyles, setDiningStyles] = useState<string[]>([]);
-  const [meals, setMeals] = useState<string[]>([]);
-  const [dietaryTags, setDietaryTags] = useState<string[]>([]);
-  const [amenities, setAmenities] = useState<string[]>([]);
-  const [topRatedOnly, setTopRatedOnly] = useState(false);
-  const [accessibleOnly, setAccessibleOnly] = useState(false);
   const { viewMode, setViewMode } = useDiscoveryViewMode();
   const [selectedMapRestaurantId, setSelectedMapRestaurantId] = useState<string | null>(null);
-  const resultsRef = useRef<HTMLDivElement>(null);
-  const skipPageReset = useRef(true);
-  const { page, pageSize, setPage } = useUrlPagination({ defaultPageSize: 24 });
+  const cardsPageRef = useRef<HTMLDivElement>(null);
+  const skipFilterReset = useRef(true);
+
+  const cuisine = filters.cuisine;
+  const activeCategoryIds = filters.categoryIds;
+  const mapPriceRange = filters.priceRange;
+  const occasions = filters.occasions;
+  const diningStyles = filters.diningStyles;
+  const meals = filters.meals;
+  const dietaryTags = filters.dietaryTags;
+  const amenities = filters.amenities;
+  const topRatedOnly = filters.topRatedOnly;
+  const accessibleOnly = filters.accessibleOnly;
+  const partySize = filters.partySize;
+  const date = dayjs(filters.date);
+  const usingDeviceLocation = filters.nearMe;
+  const selectedLocation: LocationSelection = {
+    label: filters.locationLabel ?? cityLabel(DEFAULT_LOCATION),
+    lat: filters.lat ?? DEFAULT_LOCATION.lat,
+    lng: filters.lng ?? DEFAULT_LOCATION.lng,
+  };
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), SEARCH_DEBOUNCE_MS);
+    setQueryDraft(filters.query);
+  }, [filters.query]);
+
+  useEffect(() => {
+    setLocationInput(filters.locationLabel ?? cityLabel(DEFAULT_LOCATION));
+  }, [filters.locationLabel]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (queryDraft !== filters.query) {
+        replaceFilters({ query: queryDraft });
+      }
+    }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [queryDraft, filters.query, replaceFilters]);
 
   useEffect(() => {
-    if (skipPageReset.current) {
-      skipPageReset.current = false;
+    if (skipFilterReset.current) {
+      skipFilterReset.current = false;
       return;
     }
-    setPage(1);
     setSelectedMapRestaurantId(null);
-    // setPage is intentionally omitted — it changes when searchParams update and
-    // would retrigger this effect in a router.replace loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQuery, cuisine, activeCategoryIds, selectedLocation.lat, selectedLocation.lng, partySize, date, mapPriceRange, topRatedOnly, accessibleOnly, occasions, diningStyles, meals, dietaryTags, amenities]);
+  }, [filters.query, cuisine, activeCategoryIds, selectedLocation.lat, selectedLocation.lng, partySize, filters.date, mapPriceRange, topRatedOnly, accessibleOnly, occasions, diningStyles, meals, dietaryTags, amenities]);
 
   useEffect(() => {
     const media = window.matchMedia('(min-width: 961px)');
@@ -149,13 +160,19 @@ function HomePageContent() {
     [activeCategoryIds],
   );
 
-  const searchQuery = debouncedQuery || undefined;
+  const searchQuery = filters.query || undefined;
 
-  const applyLocation = useCallback((location: LocationSelection, fromDevice = false) => {
-    setSelectedLocation(location);
-    setLocationInput(location.label);
-    setUsingDeviceLocation(fromDevice);
-  }, []);
+  const applyLocation = useCallback(
+    (location: LocationSelection, fromDevice = false) => {
+      replaceFilters({
+        lat: location.lat,
+        lng: location.lng,
+        locationLabel: location.label,
+        nearMe: fromDevice,
+      });
+    },
+    [replaceFilters],
+  );
 
   const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -198,20 +215,18 @@ function HomePageContent() {
 
   const clearLocation = useCallback(() => {
     setLocationInput('');
-    setSelectedLocation({
-      label: cityLabel(DEFAULT_LOCATION),
+    replaceFilters({
       lat: DEFAULT_LOCATION.lat,
       lng: DEFAULT_LOCATION.lng,
+      locationLabel: cityLabel(DEFAULT_LOCATION),
+      nearMe: false,
     });
-    setUsingDeviceLocation(false);
-  }, []);
+  }, [replaceFilters]);
 
-  // Search runs live as filters change; the CTA flushes the debounce and
-  // brings the results into view so the button always "does something".
   const handleSearch = useCallback(() => {
-    setDebouncedQuery(query);
-    resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [query]);
+    replaceFilters({ query: queryDraft });
+    cardsPageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [queryDraft, replaceFilters]);
 
   const datePresets = useMemo(
     () => [
@@ -224,36 +239,57 @@ function HomePageContent() {
 
   const dateStr = date.format('YYYY-MM-DD');
 
-  const { data, loading } = useQuery(SEARCH_RESTAURANTS, {
-    variables: {
-      input: {
-        query: searchQuery,
-        cuisine,
-        categoryIds: activeCategoryIds.length ? activeCategoryIds : undefined,
-        priceRange: mapPriceRange,
-        occasions: occasions.length ? occasions : undefined,
-        diningStyles: diningStyles.length ? diningStyles : undefined,
-        meals: meals.length ? meals : undefined,
-        dietaryTags: dietaryTags.length ? dietaryTags : undefined,
-        amenities: amenities.length ? amenities : undefined,
-        minRating: topRatedOnly ? 4.5 : undefined,
-        wheelchairAccessible: accessibleOnly || undefined,
-        partySize,
-        date: dateStr,
-        requireAvailability: true,
-        page,
-        limit: pageSize,
-        lat: selectedLocation.lat,
-        lng: selectedLocation.lng,
-        radiusKm: NEARBY_RADIUS_KM,
-        city: selectedLocation.city,
-        neighborhood: selectedLocation.neighborhood,
-      },
-    },
-  });
+  const searchInput = useMemo(
+    () => ({
+      query: searchQuery,
+      cuisine,
+      categoryIds: activeCategoryIds.length ? activeCategoryIds : undefined,
+      priceRange: mapPriceRange,
+      occasions: occasions.length ? occasions : undefined,
+      diningStyles: diningStyles.length ? diningStyles : undefined,
+      meals: meals.length ? meals : undefined,
+      dietaryTags: dietaryTags.length ? dietaryTags : undefined,
+      amenities: amenities.length ? amenities : undefined,
+      minRating: topRatedOnly ? 4.5 : undefined,
+      wheelchairAccessible: accessibleOnly || undefined,
+      partySize,
+      date: dateStr,
+      requireAvailability: true,
+      lat: selectedLocation.lat,
+      lng: selectedLocation.lng,
+      radiusKm: NEARBY_RADIUS_KM,
+      city: selectedLocation.city,
+      neighborhood: selectedLocation.neighborhood,
+    }),
+    [
+      searchQuery,
+      cuisine,
+      activeCategoryIds,
+      mapPriceRange,
+      occasions,
+      diningStyles,
+      meals,
+      dietaryTags,
+      amenities,
+      topRatedOnly,
+      accessibleOnly,
+      partySize,
+      dateStr,
+      selectedLocation.lat,
+      selectedLocation.lng,
+      selectedLocation.city,
+      selectedLocation.neighborhood,
+    ],
+  );
 
-  const restaurants = (data as any)?.searchRestaurants?.items ?? [];
-  const total = (data as any)?.searchRestaurants?.total ?? 0;
+  const {
+    items: restaurants,
+    total,
+    loading,
+    loadingMore,
+    hasMore,
+    loadMore,
+  } = useInfiniteRestaurantSearch(searchInput, { pageSize: 24 });
 
   const visibleRestaurants = useMemo(() => restaurants, [restaurants]);
 
@@ -267,14 +303,12 @@ function HomePageContent() {
       meals.length > 0 ||
       dietaryTags.length > 0 ||
       amenities.length > 0 ||
-      debouncedQuery ||
+      filters.query ||
       cuisine,
   );
 
   const visibleTotal = total;
   const noResults = !loading && restaurants.length === 0;
-  const noVisibleResults = !loading && visibleRestaurants.length === 0;
-
   // Fallback: when nothing matches (e.g. no restaurants near the user's
   // location), surface the top 20 restaurants platform-wide instead.
   const { data: topData, loading: topLoading } = useQuery(SEARCH_RESTAURANTS, {
@@ -288,68 +322,56 @@ function HomePageContent() {
     : `Restaurants near ${selectedLocation.label.split(',').slice(0, 2).join(',').trim()}`;
 
   const clearCategoryFilters = useCallback(() => {
-    setActiveCategoryIds([]);
-    setCuisine(undefined);
-  }, []);
+    replaceFilters({ categoryIds: [], cuisine: undefined });
+  }, [replaceFilters]);
 
   const clearMapFilters = useCallback(() => {
-    clearCategoryFilters();
-    setMapPriceRange(undefined);
-    setOccasions([]);
-    setDiningStyles([]);
-    setMeals([]);
-    setDietaryTags([]);
-    setAmenities([]);
-    setTopRatedOnly(false);
-    setAccessibleOnly(false);
-    setQuery('');
-    setDebouncedQuery('');
-    setSelectedMapRestaurantId(null);
-  }, [clearCategoryFilters]);
-
-  const handleCuisineChange = useCallback((value: string | undefined) => {
-    setCuisine(value);
-    if (value) {
-      const match = RESTAURANT_DISCOVERY_CATEGORIES.find((c) => 'cuisine' in c && c.cuisine === value);
-      setActiveCategoryIds(match ? [match.id] : []);
-    } else {
-      setActiveCategoryIds([]);
-    }
-  }, []);
-
-  const handleCategoryIdsChange = useCallback((ids: string[]) => {
-    setActiveCategoryIds(ids);
-    const cuisineCategory =
-      ids.length === 1
-        ? RESTAURANT_DISCOVERY_CATEGORIES.find((c) => c.id === ids[0] && 'cuisine' in c)
-        : undefined;
-    setCuisine(
-      cuisineCategory && 'cuisine' in cuisineCategory ? cuisineCategory.cuisine : undefined,
-    );
-    if (ids.length > 0) {
-      setQuery('');
-      setDebouncedQuery('');
-    }
-    setSelectedMapRestaurantId(null);
-  }, []);
-
-  const handleCategorySelect = useCallback((categoryId: string) => {
-    setActiveCategoryIds((prev) => {
-      const next = prev.includes(categoryId)
-        ? prev.filter((id) => id !== categoryId)
-        : [...prev, categoryId];
-      const cuisineCategory = RESTAURANT_DISCOVERY_CATEGORIES.find(
-        (c) => next.length === 1 && next[0] === c.id && 'cuisine' in c,
-      );
-      setCuisine(cuisineCategory && 'cuisine' in cuisineCategory ? cuisineCategory.cuisine : undefined);
-      if (next.length > 0) {
-        setQuery('');
-        setDebouncedQuery('');
-      }
-      setSelectedMapRestaurantId(null);
-      return next;
+    replaceFilters({
+      query: '',
+      categoryIds: [],
+      cuisine: undefined,
+      priceRange: undefined,
+      occasions: [],
+      diningStyles: [],
+      meals: [],
+      dietaryTags: [],
+      amenities: [],
+      topRatedOnly: false,
+      accessibleOnly: false,
     });
-  }, []);
+    setSelectedMapRestaurantId(null);
+  }, [replaceFilters]);
+
+  const handleCuisineChange = useCallback(
+    (value: string | undefined) => {
+      const match = value
+        ? RESTAURANT_DISCOVERY_CATEGORIES.find((c) => 'cuisine' in c && c.cuisine === value)
+        : undefined;
+      replaceFilters({
+        cuisine: value,
+        categoryIds: match ? [match.id] : [],
+        query: value ? '' : filters.query,
+      });
+    },
+    [replaceFilters, filters.query],
+  );
+
+  const handleCategoryIdsChange = useCallback(
+    (ids: string[]) => {
+      const cuisineCategory =
+        ids.length === 1
+          ? RESTAURANT_DISCOVERY_CATEGORIES.find((c) => c.id === ids[0] && 'cuisine' in c)
+          : undefined;
+      replaceFilters({
+        categoryIds: ids,
+        cuisine:
+          cuisineCategory && 'cuisine' in cuisineCategory ? cuisineCategory.cuisine : undefined,
+        query: ids.length > 0 ? '' : filters.query,
+      });
+      setSelectedMapRestaurantId(null);
+    },
+    [replaceFilters, filters.query],
+  );
 
   const openRestaurant = useCallback(
     (items: any[], id: string) => {
@@ -371,36 +393,43 @@ function HomePageContent() {
     [router, dateStr, partySize],
   );
 
-  const mapFiltersSidebar = (
-    <MapFiltersSidebar
-      categories={RESTAURANT_DISCOVERY_CATEGORIES.map((category) => ({
-        id: category.id,
-        label: category.label,
-        icon: CATEGORY_ICONS[category.id],
-      }))}
-      filters={{
-        categoryIds: activeCategoryIds,
-        priceRange: mapPriceRange,
-        occasions,
-        diningStyles,
-        meals,
-        dietaryTags,
-        amenities,
-        topRatedOnly,
-        accessibleOnly,
-      }}
-      onCategoryIdsChange={handleCategoryIdsChange}
-      onPriceRangeChange={setMapPriceRange}
-      onOccasionsChange={setOccasions}
-      onDiningStylesChange={setDiningStyles}
-      onMealsChange={setMeals}
-      onDietaryTagsChange={setDietaryTags}
-      onAmenitiesChange={setAmenities}
-      onTopRatedChange={setTopRatedOnly}
-      onAccessibleChange={setAccessibleOnly}
-      onClearAll={clearMapFilters}
-    />
-  );
+  const mapFilterState = {
+    categoryIds: activeCategoryIds,
+    priceRange: mapPriceRange,
+    occasions,
+    diningStyles,
+    meals,
+    dietaryTags,
+    amenities,
+    topRatedOnly,
+    accessibleOnly,
+  };
+
+  const activeFilterCount =
+    countActiveDiscoveryFilters(mapFilterState) + (filters.query ? 1 : 0);
+
+  const mapFiltersProps = {
+    categories: RESTAURANT_DISCOVERY_CATEGORIES.map((category) => ({
+      id: category.id,
+      label: category.label,
+      icon: CATEGORY_ICONS[category.id],
+    })),
+    filters: mapFilterState,
+    activeFilterCount,
+    onCategoryIdsChange: handleCategoryIdsChange,
+    onPriceRangeChange: (priceRange?: number) => replaceFilters({ priceRange }),
+    onOccasionsChange: (next: string[]) => replaceFilters({ occasions: next }),
+    onDiningStylesChange: (next: string[]) => replaceFilters({ diningStyles: next }),
+    onMealsChange: (next: string[]) => replaceFilters({ meals: next }),
+    onDietaryTagsChange: (next: string[]) => replaceFilters({ dietaryTags: next }),
+    onAmenitiesChange: (next: string[]) => replaceFilters({ amenities: next }),
+    onTopRatedChange: (enabled: boolean) => replaceFilters({ topRatedOnly: enabled }),
+    onAccessibleChange: (enabled: boolean) => replaceFilters({ accessibleOnly: enabled }),
+    onClearAll: clearMapFilters,
+  };
+
+  const mapFiltersSidebar = <MapFiltersSidebar {...mapFiltersProps} />;
+  const mapFiltersDrawer = <MapFiltersSidebar {...mapFiltersProps} variant="drawer" />;
 
   const viewToggle = (
     <Segmented
@@ -414,7 +443,13 @@ function HomePageContent() {
     />
   );
 
-  const renderMapResults = (items: any[], resultTotal: number, title: string, isFallback = false) => (
+  const renderMapResults = (
+    items: any[],
+    resultTotal: number,
+    title: string,
+    isFallback = false,
+    emptyContent?: ReactNode,
+  ) => (
     <MapResultsLayout
       restaurants={items}
       center={{ lat: selectedLocation.lat, lng: selectedLocation.lng }}
@@ -422,8 +457,6 @@ function HomePageContent() {
       date={dateStr}
       partySize={partySize}
       total={resultTotal}
-      page={page}
-      pageSize={pageSize}
       resultsTitle={title}
       activeCategoryLabel={
         activeCategories.length > 0
@@ -431,19 +464,25 @@ function HomePageContent() {
           : undefined
       }
       filtersSidebar={mapFiltersSidebar}
-      onPageChange={setPage}
+      filtersDrawerContent={mapFiltersDrawer}
+      activeFilterCount={activeFilterCount}
+      hasMore={isFallback ? false : hasMore}
+      loadingMore={isFallback ? false : loadingMore}
+      onLoadMore={isFallback ? () => {} : loadMore}
       onSelectRestaurant={setSelectedMapRestaurantId}
       onCloseRestaurant={() => setSelectedMapRestaurantId(null)}
       onOpenRestaurant={(id) => openRestaurant(items, id)}
       onSelectSlot={(id, time) => bookRestaurantSlot(items, id, time)}
       onClearCategory={isFallback ? undefined : clearMapFilters}
+      emptyContent={emptyContent}
     />
   );
 
   const discoverySearch = (variant: 'hero' | 'map') => (
     <DiscoverySearchPanel
       variant={variant}
-      query={query}
+      actionsSlot={variant === 'map' ? viewToggle : undefined}
+      query={queryDraft}
       cuisine={cuisine}
       locationInput={locationInput}
       usingDeviceLocation={usingDeviceLocation}
@@ -451,15 +490,15 @@ function HomePageContent() {
       date={date}
       geoLoading={geoLoading}
       datePresets={datePresets}
-      onQueryChange={setQuery}
+      onQueryChange={setQueryDraft}
       onCuisineChange={handleCuisineChange}
       onLocationInputChange={setLocationInput}
       onSelectLocation={(loc) => applyLocation(loc)}
       onUseMyLocation={requestLocation}
       onClearLocation={clearLocation}
       onClearDeviceLocation={clearDeviceLocation}
-      onDateChange={setDate}
-      onPartySizeChange={setPartySize}
+      onDateChange={(next) => replaceFilters({ date: next.format('YYYY-MM-DD') })}
+      onPartySizeChange={(next) => replaceFilters({ partySize: next })}
       onSearch={handleSearch}
       onClearCategory={clearCategoryFilters}
     />
@@ -487,7 +526,49 @@ function HomePageContent() {
 
   return (
     <div component="HomePageContent">
-      {viewMode !== 'map' && (
+      {viewMode === 'map' ? (
+        <div className="rt-map-page">
+          <div className="rt-map-page__search-bar">
+            {discoverySearch('map')}
+          </div>
+          <div className="rt-map-page__content">
+            {loading ? (
+              <div className="rt-map-page__loading">
+                <Skeleton active paragraph={{ rows: 8 }} />
+              </div>
+            ) : visibleRestaurants.length > 0 ? (
+              renderMapResults(visibleRestaurants, visibleTotal, resultsTitle)
+            ) : hasDiscoveryFilters ? (
+              renderMapResults(
+                [],
+                0,
+                resultsTitle,
+                false,
+                <EmptyState
+                  icon={<SearchOutlined />}
+                  title="No restaurants match your filters"
+                  description="Try a different category, price range, or location."
+                />,
+              )
+            ) : noResults && topLoading ? (
+              <div className="rt-map-page__loading">
+                <Skeleton active paragraph={{ rows: 8 }} />
+              </div>
+            ) : topRestaurants.length > 0 ? (
+              renderMapResults(topRestaurants, topRestaurants.length, 'Top restaurants across Tablevera', true)
+            ) : (
+              <div className="rt-map-page__empty">
+                <EmptyState
+                  icon={<SearchOutlined />}
+                  title="No restaurants yet"
+                  description="New restaurants join Tablevera every week — check back soon."
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="rt-browse-layout">
       <section className="rt-hero">
         {/* decorative glows */}
         <div
@@ -674,243 +755,125 @@ function HomePageContent() {
           </div>
         </div>
       </section>
-      )}
 
-      {viewMode === 'map' ? (
-        <div className="rt-map-page">
-          <div className="rt-map-page__search-bar">
-            <div className="rt-map-page__search-inner">
-              {discoverySearch('map')}
+      <div
+        ref={cardsPageRef}
+        className="rt-cards-page"
+        style={{ scrollMarginTop: 'calc(var(--header-height, 64px) + 12px)' }}
+      >
+        <div className="rt-cards-page__toolbar">
+          <span className="rt-cards-page__toolbar-label">Browse restaurants</span>
+          {viewToggle}
+        </div>
+
+        <div className="rt-cards-page__body">
+          {loading ? (
+            <div className="rt-cards-page__split">
+              <div className="rt-filters-desktop">{mapFiltersSidebar}</div>
+              <section className="rt-cards-page__main">
+                <Skeleton.Input active style={{ width: 260, height: 30, marginBottom: 20 }} />
+                <SkeletonGrid count={8} />
+              </section>
             </div>
-            <div className="rt-map-page__search-actions">{viewToggle}</div>
-          </div>
-          <div className="rt-map-page__content">
-            {loading ? (
-              <div className="rt-map-page__loading">
-                <Skeleton active paragraph={{ rows: 8 }} />
-              </div>
-            ) : visibleRestaurants.length > 0 ? (
-              renderMapResults(visibleRestaurants, visibleTotal, resultsTitle)
-            ) : hasDiscoveryFilters ? (
-              <div className="rt-map-page__empty">
+          ) : (
+            <DiscoveryCardsLayout
+              filtersSidebar={mapFiltersSidebar}
+              filtersDrawerContent={mapFiltersDrawer}
+              activeFilterCount={activeFilterCount}
+              total={
+                restaurants.length > 0
+                  ? total
+                  : hasDiscoveryFilters
+                    ? 0
+                    : topRestaurants.length
+              }
+              resultsTitle={
+                restaurants.length > 0
+                  ? resultsTitle
+                  : hasDiscoveryFilters
+                    ? resultsTitle
+                    : topRestaurants.length > 0
+                      ? 'Top 20 restaurants'
+                      : resultsTitle
+              }
+              activeCategoryLabel={
+                activeCategories.length > 0
+                  ? activeCategories.map((c) => c.label).join(', ')
+                  : undefined
+              }
+              onClearFilters={clearMapFilters}
+              hasMore={restaurants.length > 0 && !hasDiscoveryFilters ? hasMore : false}
+              loadingMore={restaurants.length > 0 ? loadingMore : false}
+              onLoadMore={restaurants.length > 0 ? loadMore : () => {}}
+            >
+              {restaurants.length > 0 ? (
+                renderGrid(restaurants)
+              ) : hasDiscoveryFilters ? (
                 <EmptyState
                   icon={<SearchOutlined />}
                   title="No restaurants match your filters"
                   description="Try a different category, price range, or location."
                 />
-              </div>
-            ) : noResults && topLoading ? (
-              <div className="rt-map-page__loading">
-                <Skeleton active paragraph={{ rows: 8 }} />
-              </div>
-            ) : topRestaurants.length > 0 ? (
-              renderMapResults(topRestaurants, topRestaurants.length, 'Top restaurants across Tablevera', true)
-            ) : (
-              <div className="rt-map-page__empty">
-                <EmptyState
-                  icon={<SearchOutlined />}
-                  title="No restaurants yet"
-                  description="New restaurants join Tablevera every week — check back soon."
-                />
-              </div>
-            )}
-          </div>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 14,
+                      background: `linear-gradient(120deg, ${colors.brand[50]}, #fff)`,
+                      border: `1px solid ${colors.brand[100]}`,
+                      borderRadius: radii.lg,
+                      padding: '16px 20px',
+                      marginBottom: 24,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 42,
+                        height: 42,
+                        flexShrink: 0,
+                        borderRadius: '50%',
+                        background: colors.brand[100],
+                        color: colors.brand[600],
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 18,
+                      }}
+                    >
+                      <EnvironmentFilled />
+                    </div>
+                    <div>
+                      <Text strong style={{ display: 'block', fontSize: typography.fontSize.md }}>
+                        No restaurants found near {usingDeviceLocation ? 'you' : selectedLocation.label}
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+                        Don&apos;t worry — here are the top 20 restaurants on Tablevera, loved by
+                        thousands of diners.
+                      </Text>
+                    </div>
+                  </div>
+
+                  {topLoading ? (
+                    <SkeletonGrid count={8} />
+                  ) : topRestaurants.length > 0 ? (
+                    renderGrid(topRestaurants)
+                  ) : (
+                    <EmptyState
+                      icon={<SearchOutlined />}
+                      title="No restaurants yet"
+                      description="New restaurants join Tablevera every week — check back soon."
+                    />
+                  )}
+                </>
+              )}
+            </DiscoveryCardsLayout>
+          )}
         </div>
-      ) : (
-      <div
-        style={{
-          maxWidth: layout.contentMaxWidth,
-          width: '100%',
-          margin: '0 auto',
-          padding: '0 24px 32px',
-        }}
-      >
-      <div
-        className="rt-scroll-hidden"
-        style={{
-          display: 'flex',
-          gap: 10,
-          overflowX: 'auto',
-          padding: '28px 2px 4px',
-        }}
-      >
-        {RESTAURANT_DISCOVERY_CATEGORIES.map((category) => {
-          const active = activeCategoryIds.includes(category.id);
-          return (
-            <button
-              key={category.id}
-              type="button"
-              className={active ? 'rt-chip rt-chip--active' : 'rt-chip'}
-              onClick={() => handleCategorySelect(category.id)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                whiteSpace: 'nowrap',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                fontSize: typography.fontSize.sm,
-                fontWeight: typography.fontWeight.semibold,
-                padding: '9px 16px',
-                borderRadius: radii.pill,
-                border: `1.5px solid ${active ? colors.brand[600] : colors.border}`,
-                background: active ? colors.brand[600] : colors.surface,
-                color: active ? '#fff' : colors.textSecondary,
-                boxShadow: active ? shadows.brand : shadows.xs,
-                transition: 'all 0.18s ease',
-              }}
-            >
-              <span style={{ display: 'inline-flex', fontSize: 14, opacity: active ? 1 : 0.75 }}>
-                {CATEGORY_ICONS[category.id]}
-              </span>
-              {category.label}
-            </button>
-          );
-        })}
       </div>
-
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          alignItems: 'center',
-          marginTop: 20,
-        }}
-      >
-        {viewToggle}
-      </div>
-
-      <div ref={resultsRef} style={{ marginTop: 28, scrollMarginTop: 84 }}>
-        {loading ? (
-          <>
-            <Skeleton.Input active style={{ width: 260, height: 30, marginBottom: 20 }} />
-            <SkeletonGrid count={8} />
-          </>
-        ) : restaurants.length > 0 ? (
-          <>
-            <SectionHeader
-              icon={<EnvironmentFilled />}
-              title={resultsTitle}
-              subtitle={`${total} restaurant${total === 1 ? '' : 's'} within ${NEARBY_RADIUS_KM} km`}
-            />
-            {renderGrid(restaurants)}
-            {total > pageSize && (
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 32 }}>
-                <Pagination
-                  current={page}
-                  pageSize={pageSize}
-                  total={total}
-                  onChange={setPage}
-                  showSizeChanger={false}
-                />
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 14,
-                background: `linear-gradient(120deg, ${colors.brand[50]}, #fff)`,
-                border: `1px solid ${colors.brand[100]}`,
-                borderRadius: radii.lg,
-                padding: '16px 20px',
-                marginBottom: 24,
-              }}
-            >
-              <div
-                style={{
-                  width: 42,
-                  height: 42,
-                  flexShrink: 0,
-                  borderRadius: '50%',
-                  background: colors.brand[100],
-                  color: colors.brand[600],
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 18,
-                }}
-              >
-                <EnvironmentFilled />
-              </div>
-              <div>
-                <Text strong style={{ display: 'block', fontSize: typography.fontSize.md }}>
-                  No restaurants found near {usingDeviceLocation ? 'you' : selectedLocation.label}
-                </Text>
-                <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                  Don&apos;t worry — here are the top 20 restaurants on Tablevera, loved by
-                  thousands of diners.
-                </Text>
-              </div>
-            </div>
-
-            {topLoading ? (
-              <SkeletonGrid count={8} />
-            ) : topRestaurants.length > 0 ? (
-              <>
-                <SectionHeader
-                  icon={<CrownFilled />}
-                  title="Top 20 restaurants"
-                  subtitle="The highest-rated places across Tablevera"
-                />
-                {renderGrid(topRestaurants)}
-              </>
-            ) : (
-              <EmptyState
-                icon={<SearchOutlined />}
-                title="No restaurants yet"
-                description="New restaurants join Tablevera every week — check back soon."
-              />
-            )}
-          </>
-        )}
-      </div>
-      </div>
+        </div>
       )}
-    </div>
-  );
-}
-
-function SectionHeader({
-  icon,
-  title,
-  subtitle,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  subtitle?: string;
-}) {
-  return (
-    <div component="SectionHeader" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
-      <div
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: radii.md,
-          background: colors.brand[50],
-          color: colors.brand[600],
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 18,
-          flexShrink: 0,
-        }}
-      >
-        {icon}
-      </div>
-      <div>
-        <Title level={3} style={{ margin: 0, letterSpacing: typography.letterSpacing.tight }}>
-          {title}
-        </Title>
-        {subtitle && (
-          <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-            {subtitle}
-          </Text>
-        )}
-      </div>
     </div>
   );
 }

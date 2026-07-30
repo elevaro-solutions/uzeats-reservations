@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { Button, DatePicker, Input, Select, Tag } from 'antd';
@@ -13,6 +14,7 @@ import {
 
 type DiscoverySearchPanelProps = {
   variant?: 'hero' | 'map';
+  actionsSlot?: ReactNode;
   query: string;
   cuisine?: string;
   locationInput: string;
@@ -36,6 +38,7 @@ type DiscoverySearchPanelProps = {
 
 export function DiscoverySearchPanel({
   variant = 'hero',
+  actionsSlot,
   query,
   cuisine,
   locationInput,
@@ -56,12 +59,22 @@ export function DiscoverySearchPanel({
   onSearch,
   onClearCategory,
 }: DiscoverySearchPanelProps) {
+  const isMap = variant === 'map';
+
   return (
     <div
-      className={variant === 'map' ? 'rt-search-panel rt-search-panel--map' : 'rt-fade-up rt-search-panel'}
+      className={isMap ? 'rt-search-panel rt-search-panel--map' : 'rt-fade-up rt-search-panel'}
       role="search"
       style={variant === 'hero' ? { animationDelay: '180ms' } : undefined}
     >
+      {isMap ? (
+        <div className="rt-search-panel__map-bar">
+          <span className="rt-search-panel__map-title">Search &amp; book</span>
+          {actionsSlot ? <div className="rt-search-panel__map-actions">{actionsSlot}</div> : null}
+        </div>
+      ) : null}
+
+      <div className="rt-search-panel__fields">
       <div className="rt-search-field rt-sf-what">
         <span className="rt-search-label">Search</span>
         <Input
@@ -172,6 +185,7 @@ export function DiscoverySearchPanel({
         >
           Find a table
         </Button>
+      </div>
       </div>
     </div>
   );
