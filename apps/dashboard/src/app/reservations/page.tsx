@@ -45,7 +45,7 @@ import {
   UPDATE_RESERVATION,
   UPDATE_RESERVATION_STATUS,
 } from '@/lib/graphql';
-import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 
 const { Text } = Typography;
@@ -130,16 +130,12 @@ function ReservationsPageContent() {
   const editDate = Form.useWatch('date', editForm);
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
-  const restaurantIds = useMemo(
-    () => (restData?.myRestaurants ?? []).map((r: { id: string }) => r.id),
-    [restData],
-  );
-  const { restaurantId, setRestaurantId } = useActiveRestaurant(restaurantIds);
-  const activeRestaurantId = restaurantId ?? restaurantIds[0];
+  const restaurants = restData?.myRestaurants ?? [];
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
 
   const activeRestaurant = useMemo(
-    () => (restData?.myRestaurants ?? []).find((r: { id: string }) => r.id === activeRestaurantId),
-    [restData, activeRestaurantId],
+    () => restaurants.find((r: { id: string }) => r.id === activeRestaurantId),
+    [restaurants, activeRestaurantId],
   );
 
   const tables: TableOption[] = useMemo(
@@ -407,12 +403,7 @@ function ReservationsPageContent() {
           <Space wrap>
             <Select
               style={{ width: 240 }}
-              value={activeRestaurantId}
-              onChange={setRestaurantId}
-              options={(restData?.myRestaurants ?? []).map((r: { id: string; name: string }) => ({
-                value: r.id,
-                label: r.name,
-              }))}
+              {...restaurantSelectProps}
               placeholder="Restaurant"
             />
             <DatePicker

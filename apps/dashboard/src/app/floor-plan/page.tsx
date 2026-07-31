@@ -19,6 +19,7 @@ import {
 import { SaveOutlined } from '@ant-design/icons';
 import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { MY_RESTAURANTS, FLOOR_PLAN_TABLES, UPDATE_TABLE_POSITIONS, UPDATE_TABLE } from '@/lib/graphql';
 import PhotoUpload from '@/components/PhotoUpload';
 import {
@@ -173,7 +174,6 @@ export default function FloorPlanPage() {
   const screens = useBreakpoint();
   const isCompact = !screens.md;
 
-  const [restaurantId, setRestaurantId] = useState<string>();
   const [tables, setTables] = useState<FloorTable[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [areaFilter, setAreaFilter] = useState<string>();
@@ -190,9 +190,11 @@ export default function FloorPlanPage() {
   cellSizeRef.current = cellSize;
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurants = restData?.myRestaurants ?? [];
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const { data, loading } = useQuery(FLOOR_PLAN_TABLES, {
-    skip: !restaurantId,
-    variables: { id: restaurantId },
+    skip: !activeRestaurantId,
+    variables: { id: activeRestaurantId },
     onError: (err: Error) => message.error(err.message),
   });
   const [updatePositions, { loading: saving }] = useMutation(UPDATE_TABLE_POSITIONS);
@@ -201,12 +203,6 @@ export default function FloorPlanPage() {
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
-
-  useEffect(() => {
-    setRestaurantId(
-      localStorage.getItem('activeRestaurantId') ?? restData?.myRestaurants?.[0]?.id,
-    );
-  }, [restData]);
 
   useEffect(() => {
     const loaded: FloorTable[] = (data?.restaurant?.tables ?? []).map((t: FloorTable) => ({
@@ -237,7 +233,7 @@ export default function FloorPlanPage() {
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [loading, areaFilter, restaurantId]);
+  }, [loading, areaFilter, activeRestaurantId]);
 
   const floorAreas = useMemo(
     () => Array.from(new Set(tables.map((t) => t.floorArea))).sort(),
@@ -357,7 +353,7 @@ export default function FloorPlanPage() {
     try {
       await updatePositions({
         variables: {
-          restaurantId,
+          restaurantId: activeRestaurantId,
           positions: tables.map((t) => ({
             id: t.id,
             posX: t.posX,
@@ -425,15 +421,7 @@ export default function FloorPlanPage() {
       <Space wrap style={{ width: '100%' }}>
         <Select
           style={{ width: '100%', maxWidth: 280 }}
-          value={restaurantId}
-          onChange={(id) => {
-            setRestaurantId(id);
-            localStorage.setItem('activeRestaurantId', id);
-          }}
-          options={(restData?.myRestaurants ?? []).map((r: { id: string; name: string }) => ({
-            value: r.id,
-            label: r.name,
-          }))}
+          {...restaurantSelectProps}
         />
         <Select
           placeholder="Floor area"

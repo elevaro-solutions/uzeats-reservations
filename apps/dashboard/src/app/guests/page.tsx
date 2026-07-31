@@ -21,6 +21,7 @@ import {
 import { CrownOutlined, MessageOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS,
   RESTAURANT_GUESTS,
@@ -42,7 +43,6 @@ const VIP_COLORS: Record<string, string> = {
 function GuestsPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [restaurantId, setRestaurantId] = useState<string>();
   const [search, setSearch] = useState('');
   const [vipFilter, setVipFilter] = useState<string>();
   const [selected, setSelected] = useState<any>(null);
@@ -53,10 +53,12 @@ function GuestsPageContent() {
   });
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurants = restData?.myRestaurants ?? [];
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const { data, loading, refetch } = useQuery(RESTAURANT_GUESTS, {
-    skip: !restaurantId,
+    skip: !activeRestaurantId,
     variables: {
-      restaurantId,
+      restaurantId: activeRestaurantId,
       search: search || undefined,
       vipStatus: vipFilter,
       limit,
@@ -70,12 +72,6 @@ function GuestsPageContent() {
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
-
-  useEffect(() => {
-    setRestaurantId(
-      localStorage.getItem('activeRestaurantId') ?? restData?.myRestaurants?.[0]?.id,
-    );
-  }, [restData]);
 
   const openGuest = (record: any) => {
     setSelected(record);
@@ -93,7 +89,7 @@ function GuestsPageContent() {
     try {
       await updateProfile({
         variables: {
-          restaurantId,
+          restaurantId: activeRestaurantId,
           dinerId: selected.dinerId,
           input: {
             notes: values.notes,
@@ -116,14 +112,14 @@ function GuestsPageContent() {
 
   const handleAddTag = async () => {
     if (!newTag.trim()) return;
-    await addTag({ variables: { restaurantId, dinerId: selected.dinerId, tag: newTag.trim() } });
+    await addTag({ variables: { restaurantId: activeRestaurantId, dinerId: selected.dinerId, tag: newTag.trim() } });
     setSelected({ ...selected, tags: [...(selected.tags ?? []), newTag.trim()] });
     setNewTag('');
     refetch();
   };
 
   const handleRemoveTag = async (tag: string) => {
-    await removeTag({ variables: { restaurantId, dinerId: selected.dinerId, tag } });
+    await removeTag({ variables: { restaurantId: activeRestaurantId, dinerId: selected.dinerId, tag } });
     setSelected({ ...selected, tags: (selected.tags ?? []).filter((t: string) => t !== tag) });
     refetch();
   };
@@ -132,18 +128,7 @@ function GuestsPageContent() {
     <div component="GuestsPageContent" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Guests</Title>
       <Space wrap>
-        <Select
-          style={{ width: 260 }}
-          value={restaurantId}
-          onChange={(id) => {
-            setRestaurantId(id);
-            localStorage.setItem('activeRestaurantId', id);
-          }}
-          options={(restData?.myRestaurants ?? []).map((r: any) => ({
-            value: r.id,
-            label: r.name,
-          }))}
-        />
+        <Select style={{ width: 260 }} {...restaurantSelectProps} />
         <Input.Search
           placeholder="Search name or email"
           allowClear

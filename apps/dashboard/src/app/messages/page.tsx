@@ -7,6 +7,7 @@ import { Badge, Button, Card, Empty, Input, List, Select, Space, Typography, mes
 import { SendOutlined } from '@ant-design/icons';
 import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS,
   CONVERSATIONS,
@@ -32,7 +33,6 @@ function MessagesContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [restaurantId, setRestaurantId] = useState<string>();
   const [activeReservationId, setActiveReservationId] = useState<string | null>(
     searchParams.get('reservationId'),
   );
@@ -41,9 +41,11 @@ function MessagesContent() {
   const listRef = useRef<HTMLDivElement>(null);
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurants = restData?.myRestaurants ?? [];
+  const { activeRestaurantId, setRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const { data: convData, refetch: refetchConvs } = useQuery(CONVERSATIONS, {
-    skip: !restaurantId,
-    variables: { restaurantId },
+    skip: !activeRestaurantId,
+    variables: { restaurantId: activeRestaurantId },
     pollInterval: 15000,
   });
   // Seed an empty thread when Message guest deep-links to a reservation with no messages yet.
@@ -64,18 +66,11 @@ function MessagesContent() {
   }, [authLoading, user, router]);
 
   useEffect(() => {
-    setRestaurantId(
-      localStorage.getItem('activeRestaurantId') ?? restData?.myRestaurants?.[0]?.id,
-    );
-  }, [restData]);
-
-  useEffect(() => {
     const seededRestaurantId = seedData?.conversation?.restaurantId;
     if (!seededRestaurantId) return;
-    if (restaurantId === seededRestaurantId) return;
+    if (activeRestaurantId === seededRestaurantId) return;
     setRestaurantId(seededRestaurantId);
-    localStorage.setItem('activeRestaurantId', seededRestaurantId);
-  }, [seedData?.conversation?.restaurantId, restaurantId]);
+  }, [seedData?.conversation?.restaurantId, activeRestaurantId, setRestaurantId]);
 
   const conversations = useMemo(() => {
     const all = [...(convData?.conversations ?? [])];
@@ -125,16 +120,11 @@ function MessagesContent() {
       <Title level={2}>Messages</Title>
       <Select
         style={{ width: 260 }}
-        value={restaurantId}
+        {...restaurantSelectProps}
         onChange={(id) => {
-          setRestaurantId(id);
+          restaurantSelectProps.onChange(id);
           setActiveReservationId(null);
-          localStorage.setItem('activeRestaurantId', id);
         }}
-        options={(restData?.myRestaurants ?? []).map((r: any) => ({
-          value: r.id,
-          label: r.name,
-        }))}
       />
 
       <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>

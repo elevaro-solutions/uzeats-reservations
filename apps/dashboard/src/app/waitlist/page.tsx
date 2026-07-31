@@ -27,8 +27,7 @@ import {
   UPDATE_WAITLIST_STATUS,
 } from '@/lib/graphql';
 import { useUrlPagination } from '@/lib/useUrlPagination';
-import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
-import { buildRestaurantSelectOptions, validatedRestaurantId } from '@/lib/restaurants';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 
 const { Title } = Typography;
 
@@ -49,13 +48,10 @@ function WaitlistPageContent() {
   const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 20 });
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
-  const restaurantIds = restaurants.map((r: { id: string }) => r.id);
-  const { restaurantId, setRestaurantId } = useActiveRestaurant(restaurantIds);
-  const restaurantOptions = buildRestaurantSelectOptions(restaurants);
-  const selectValue = validatedRestaurantId(restaurantId, restaurantIds);
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const { data, loading, refetch } = useQuery(RESTAURANT_WAITLIST_FULL, {
-    skip: !restaurantId,
-    variables: { restaurantId, limit, offset },
+    skip: !activeRestaurantId,
+    variables: { restaurantId: activeRestaurantId, limit, offset },
     pollInterval: 15_000,
   });
   const [addEntry, { loading: adding }] = useMutation(ADD_IN_HOUSE_WAITLIST);
@@ -66,12 +62,12 @@ function WaitlistPageContent() {
   }, [authLoading, user, router]);
 
   const handleAddWalkIn = async (values: any) => {
-    if (!restaurantId) return;
+    if (!activeRestaurantId) return;
     try {
       await addEntry({
         variables: {
           input: {
-            restaurantId,
+            restaurantId: activeRestaurantId,
             guestName: values.guestName,
             guestPhone: values.guestPhone || undefined,
             partySize: values.partySize,
@@ -112,19 +108,12 @@ function WaitlistPageContent() {
           type="primary"
           icon={<PlusOutlined />}
           onClick={() => setModalOpen(true)}
-          disabled={!restaurantId}
+          disabled={!activeRestaurantId}
         >
           Add walk-in
         </Button>
       </div>
-      <Select
-        style={{ width: 320 }}
-        value={selectValue}
-        onChange={setRestaurantId}
-        options={restaurantOptions}
-        showSearch
-        optionFilterProp="label"
-      />
+      <Select style={{ width: 320 }} {...restaurantSelectProps} />
       <Card>
         <Table
           loading={loading}

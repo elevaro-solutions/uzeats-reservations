@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import {
@@ -22,7 +22,7 @@ import {
 import { EditOutlined } from '@ant-design/icons';
 import PhotoUpload from '@/components/PhotoUpload';
 import { useAuth } from '@/lib/auth';
-import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS,
   CREATE_TABLE,
@@ -40,11 +40,8 @@ export default function FloorPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { data, refetch } = useQuery(MY_RESTAURANTS, { skip: !user });
-  const restaurantIds = useMemo(
-    () => (data?.myRestaurants ?? []).map((r: { id: string }) => r.id),
-    [data],
-  );
-  const { restaurantId, setRestaurantId } = useActiveRestaurant(restaurantIds);
+  const restaurants = data?.myRestaurants ?? [];
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const [createTable] = useMutation(CREATE_TABLE);
   const [deleteTable] = useMutation(DELETE_TABLE);
   const [createShift] = useMutation(CREATE_SHIFT);
@@ -61,17 +58,12 @@ export default function FloorPage() {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
 
-  const restaurant = (data?.myRestaurants ?? []).find((r: any) => r.id === restaurantId);
+  const restaurant = restaurants.find((r: { id: string }) => r.id === activeRestaurantId);
 
   return (
     <div component="FloorPage" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Tables & shifts</Title>
-      <Select
-        style={{ width: 280 }}
-        value={restaurantId}
-        onChange={setRestaurantId}
-        options={(data?.myRestaurants ?? []).map((r: any) => ({ value: r.id, label: r.name }))}
-      />
+      <Select style={{ width: 280 }} {...restaurantSelectProps} />
 
       <Row gutter={16}>
         <Col xs={24} lg={12}>
@@ -143,11 +135,11 @@ export default function FloorPage() {
               layout="inline"
               style={{ marginTop: 16 }}
               onFinish={async (values) => {
-                if (!restaurantId) return;
+                if (!activeRestaurantId) return;
                 try {
                   await createTable({
                     variables: {
-                      restaurantId,
+                      activeRestaurantId,
                       input: {
                         name: values.name,
                         minCapacity: values.minCapacity,
@@ -249,10 +241,10 @@ export default function FloorPage() {
               layout="vertical"
               style={{ marginTop: 16 }}
               onFinish={async (values) => {
-                if (!restaurantId) return;
+                if (!activeRestaurantId) return;
                 await createShift({
                   variables: {
-                    restaurantId,
+                    activeRestaurantId,
                     input: {
                       name: values.name,
                       daysOfWeek: values.daysOfWeek,

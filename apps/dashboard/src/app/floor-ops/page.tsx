@@ -17,6 +17,7 @@ import {
 import { ReloadOutlined } from '@ant-design/icons';
 import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS,
   FLOOR_PLAN_OPS,
@@ -84,7 +85,6 @@ function formatTimer(minutes: number | null | undefined) {
 export default function FloorOpsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [restaurantId, setRestaurantId] = useState<string>();
   const [areaFilter, setAreaFilter] = useState<string>();
   const [selectedState, setSelectedState] = useState<TableState | null>(null);
   const [dragReservationId, setDragReservationId] = useState<string | null>(null);
@@ -92,9 +92,11 @@ export default function FloorOpsPage() {
   const canvasWrapRef = useRef<HTMLDivElement>(null);
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurants = restData?.myRestaurants ?? [];
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const { data, loading, refetch } = useQuery(FLOOR_PLAN_OPS, {
-    skip: !restaurantId,
-    variables: { restaurantId },
+    skip: !activeRestaurantId,
+    variables: { restaurantId: activeRestaurantId },
     pollInterval: 10_000,
     onError: (err: Error) => message.error(err.message),
   });
@@ -106,12 +108,6 @@ export default function FloorOpsPage() {
   }, [authLoading, user, router]);
 
   useEffect(() => {
-    setRestaurantId(
-      localStorage.getItem('activeRestaurantId') ?? restData?.myRestaurants?.[0]?.id,
-    );
-  }, [restData]);
-
-  useEffect(() => {
     const el = canvasWrapRef.current;
     if (!el) return;
     const update = () => setCellSize(cellSizeForWidth(el.clientWidth));
@@ -119,7 +115,7 @@ export default function FloorOpsPage() {
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [loading, areaFilter, restaurantId]);
+  }, [loading, areaFilter, activeRestaurantId]);
 
   const tableStates: TableState[] = data?.floorPlanOps?.tables ?? [];
   const unassigned = data?.floorPlanOps?.unassigned ?? [];
@@ -181,18 +177,7 @@ export default function FloorOpsPage() {
           Floor ops
         </Title>
         <Space wrap>
-          <Select
-            style={{ width: '100%', maxWidth: 220 }}
-            value={restaurantId}
-            onChange={(id) => {
-              setRestaurantId(id);
-              localStorage.setItem('activeRestaurantId', id);
-            }}
-            options={(restData?.myRestaurants ?? []).map((r: { id: string; name: string }) => ({
-              value: r.id,
-              label: r.name,
-            }))}
-          />
+          <Select style={{ width: '100%', maxWidth: 220 }} {...restaurantSelectProps} />
           {floorAreas.length > 1 && (
             <Select
               allowClear

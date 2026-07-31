@@ -23,6 +23,7 @@ import {
 import { PrinterOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import { useAuth } from '@/lib/auth';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS,
   PRE_SHIFT_REPORT,
@@ -333,35 +334,19 @@ function MultiLocationTab() {
 export default function ReportsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [restaurantId, setRestaurantId] = useState<string>();
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurants = restData?.myRestaurants ?? [];
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
 
-  useEffect(() => {
-    setRestaurantId(
-      localStorage.getItem('activeRestaurantId') ?? restData?.myRestaurants?.[0]?.id,
-    );
-  }, [restData]);
-
   return (
     <div component="ReportsPage" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Reports</Title>
-      <Select
-        style={{ width: 260 }}
-        value={restaurantId}
-        onChange={(id) => {
-          setRestaurantId(id);
-          localStorage.setItem('activeRestaurantId', id);
-        }}
-        options={(restData?.myRestaurants ?? []).map((r: any) => ({
-          value: r.id,
-          label: r.name,
-        }))}
-      />
+      <Select style={{ width: 260 }} {...restaurantSelectProps} />
 
       <Card>
         <Tabs
@@ -370,17 +355,17 @@ export default function ReportsPage() {
             {
               key: 'preshift',
               label: 'Pre-shift',
-              children: <PreShiftTab restaurantId={restaurantId} />,
+              children: <PreShiftTab restaurantId={activeRestaurantId} />,
             },
             {
               key: 'forecast',
               label: 'Revenue forecast',
-              children: <ForecastTab restaurantId={restaurantId} />,
+              children: <ForecastTab restaurantId={activeRestaurantId} />,
             },
             {
               key: 'custom',
               label: 'Custom reports',
-              children: <CustomReportTab restaurantId={restaurantId} />,
+              children: <CustomReportTab restaurantId={activeRestaurantId} />,
             },
             {
               key: 'multi',

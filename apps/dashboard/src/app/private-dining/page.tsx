@@ -24,8 +24,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS } from '@/lib/graphql';
-import { buildRestaurantSelectOptions, validatedRestaurantId } from '@/lib/restaurants';
-import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { gql } from '@apollo/client';
 
@@ -104,9 +103,7 @@ function PrivateDiningPageContent() {
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
-  const restaurantIds = restaurants.map((r: { id: string }) => r.id);
-  const { restaurantId, setRestaurantId } = useActiveRestaurant(restaurantIds);
-  const activeRestaurantId = validatedRestaurantId(restaurantId, restaurantIds);
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
 
   const { data: spacesData, refetch: refetchSpaces, loading: spacesLoading } = useQuery(
     PRIVATE_DINING_SPACES,
@@ -295,12 +292,7 @@ function PrivateDiningPageContent() {
     <div component="PrivateDiningPageContent" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Private Dining</Title>
 
-      <Select
-        style={{ width: 320 }}
-        value={activeRestaurantId}
-        onChange={setRestaurantId}
-        options={buildRestaurantSelectOptions(restaurants)}
-      />
+      <Select style={{ width: 320 }} {...restaurantSelectProps} />
 
       <Tabs
         items={[

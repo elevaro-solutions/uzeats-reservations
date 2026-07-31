@@ -18,6 +18,7 @@ import {
   message,
 } from 'antd';
 import { useAuth } from '@/lib/auth';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS,
   SURVEY_CONFIG,
@@ -40,23 +41,24 @@ const QUESTION_TOGGLES = [
 function SurveysPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [restaurantId, setRestaurantId] = useState<string>();
   const { page, pageSize, limit, offset, setPagination } = useUrlPagination({
     defaultPageSize: 20,
   });
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurants = restData?.myRestaurants ?? [];
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const { data: configData, refetch: refetchConfig } = useQuery(SURVEY_CONFIG, {
-    skip: !restaurantId,
-    variables: { restaurantId },
+    skip: !activeRestaurantId,
+    variables: { restaurantId: activeRestaurantId },
   });
   const { data: statsData } = useQuery(SURVEY_STATS, {
-    skip: !restaurantId,
-    variables: { restaurantId },
+    skip: !activeRestaurantId,
+    variables: { restaurantId: activeRestaurantId },
   });
   const { data: responsesData, loading } = useQuery(RESTAURANT_SURVEYS, {
-    skip: !restaurantId,
-    variables: { restaurantId, limit, offset },
+    skip: !activeRestaurantId,
+    variables: { restaurantId: activeRestaurantId, limit, offset },
   });
   const [updateConfig] = useMutation(UPDATE_SURVEY_CONFIG);
 
@@ -64,18 +66,12 @@ function SurveysPageContent() {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
 
-  useEffect(() => {
-    setRestaurantId(
-      localStorage.getItem('activeRestaurantId') ?? restData?.myRestaurants?.[0]?.id,
-    );
-  }, [restData]);
-
   const config = configData?.surveyConfig;
   const stats = statsData?.surveyStats;
 
   const handleToggle = async (key: string, value: boolean) => {
     try {
-      await updateConfig({ variables: { restaurantId, input: { [key]: value } } });
+      await updateConfig({ variables: { restaurantId: activeRestaurantId, input: { [key]: value } } });
       refetchConfig();
     } catch (err: any) {
       message.error(err?.message ?? 'Failed to update');
@@ -89,18 +85,7 @@ function SurveysPageContent() {
         When enabled, guests automatically receive a survey invitation after each completed
         visit. Requires the Pro plan.
       </Text>
-      <Select
-        style={{ width: 260 }}
-        value={restaurantId}
-        onChange={(id) => {
-          setRestaurantId(id);
-          localStorage.setItem('activeRestaurantId', id);
-        }}
-        options={(restData?.myRestaurants ?? []).map((r: any) => ({
-          value: r.id,
-          label: r.name,
-        }))}
-      />
+      <Select style={{ width: 260 }} {...restaurantSelectProps} />
 
       <Row gutter={16}>
         <Col xs={24} lg={8}>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, Col, Row, Select, Statistic, Typography, Alert } from 'antd';
 import { TrophyOutlined } from '@ant-design/icons';
@@ -8,34 +8,28 @@ import { PageHeader, colors, radii } from '@reservations/ui';
 import { useQuery } from '@/lib/apollo-hooks';
 import { MY_RESTAURANTS, RESTAURANT_LOYALTY_STATS } from '@/lib/graphql';
 import { useAuth } from '@/lib/auth';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 
 const { Text, Link } = Typography;
 
 export default function RestaurantLoyaltyPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const [restaurantId, setRestaurantId] = useState<string | null>(null);
 
   const { data: restaurantsData, loading: restaurantsLoading } = useQuery(MY_RESTAURANTS, {
     skip: !user,
   });
 
   const restaurants = restaurantsData?.myRestaurants ?? [];
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
 
-  useEffect(() => {
-    if (restaurants.length === 0) return;
-    const stored = localStorage.getItem('activeRestaurantId');
-    const match = restaurants.find((r: { id: string }) => r.id === stored);
-    setRestaurantId(match?.id ?? restaurants[0].id);
-  }, [restaurants]);
-
   const { data, loading } = useQuery(RESTAURANT_LOYALTY_STATS, {
-    variables: { restaurantId: restaurantId! },
-    skip: !restaurantId,
+    variables: { restaurantId: activeRestaurantId! },
+    skip: !activeRestaurantId,
   });
 
   const stats = data?.restaurantLoyaltyStats;
@@ -49,15 +43,7 @@ export default function RestaurantLoyaltyPage() {
           <Select
             style={{ width: 260 }}
             loading={restaurantsLoading}
-            value={restaurantId ?? undefined}
-            onChange={(id) => {
-              setRestaurantId(id);
-              localStorage.setItem('activeRestaurantId', id);
-            }}
-            options={restaurants.map((r: { id: string; name: string }) => ({
-              value: r.id,
-              label: r.name,
-            }))}
+            {...restaurantSelectProps}
           />
         }
       />

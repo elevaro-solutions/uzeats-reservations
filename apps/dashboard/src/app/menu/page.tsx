@@ -27,6 +27,7 @@ import {
 import type { RcFile } from 'antd/es/upload';
 import type { FormListFieldData } from 'antd/es/form/FormList';
 import { useAuth } from '@/lib/auth';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { MY_RESTAURANTS, UPSERT_MENU } from '@/lib/graphql';
 import { uploadFile } from '@/lib/upload';
 
@@ -77,8 +78,9 @@ export default function MenuPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [form] = Form.useForm<{ sections: MenuSectionForm[] }>();
-  const [restaurantId, setRestaurantId] = useState<string>();
   const { data, refetch } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurants = data?.myRestaurants ?? [];
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const [upsertMenu, { loading }] = useMutation(UPSERT_MENU);
   const [uploadingPath, setUploadingPath] = useState<string | null>(null);
   /** Empty = all item accordions collapsed (default). */
@@ -91,16 +93,10 @@ export default function MenuPage() {
   }, [authLoading, user, router]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('activeRestaurantId');
-    const id = saved ?? data?.myRestaurants?.[0]?.id;
-    setRestaurantId(id);
-  }, [data]);
-
-  useEffect(() => {
-    const restaurant = (data?.myRestaurants ?? []).find(
-      (r: { id: string }) => r.id === restaurantId,
+    const restaurant = restaurants.find(
+      (r: { id: string }) => r.id === activeRestaurantId,
     );
-    if (!restaurantId) return;
+    if (!activeRestaurantId) return;
 
     if (restaurant?.menu?.sections?.length) {
       form.setFieldsValue({
@@ -140,7 +136,7 @@ export default function MenuPage() {
     }
     setOpenKeys({});
     itemKeysRef.current = {};
-  }, [data, restaurantId, form]);
+  }, [data, activeRestaurantId, form, restaurants]);
 
   async function uploadPhoto(file: RcFile, sectionIndex: number, itemIndex: number) {
     if (file.size > 5 * 1024 * 1024) {
@@ -191,25 +187,14 @@ export default function MenuPage() {
         <Title level={2} style={{ margin: 0 }}>
           Menu editor
         </Title>
-        <Select
-          style={{ width: 240 }}
-          value={restaurantId}
-          onChange={(id) => {
-            setRestaurantId(id);
-            localStorage.setItem('activeRestaurantId', id);
-          }}
-          options={(data?.myRestaurants ?? []).map((r: { id: string; name: string }) => ({
-            value: r.id,
-            label: r.name,
-          }))}
-        />
+        <Select style={{ width: 240 }} {...restaurantSelectProps} />
       </div>
 
       <Form
         form={form}
         layout="vertical"
         onFinish={async (values) => {
-          if (!restaurantId) return;
+          if (!activeRestaurantId) return;
           try {
             const sections = (values.sections ?? []).map((s) => ({
               name: s.name.trim(),
@@ -222,7 +207,7 @@ export default function MenuPage() {
                 photoUrl: i.photoUrl || undefined,
               })),
             }));
-            await upsertMenu({ variables: { restaurantId, input: { sections } } });
+            await upsertMenu({ variables: { restaurantId: activeRestaurantId, input: { sections } } });
             message.success('Menu saved');
             refetch();
           } catch (err: unknown) {

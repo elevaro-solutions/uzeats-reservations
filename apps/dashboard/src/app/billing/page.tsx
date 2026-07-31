@@ -34,6 +34,7 @@ import dayjs from 'dayjs';
 import { getPlanDiscountLabel } from '@reservations/shared';
 import { PlanPrice } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS,
   MY_SUBSCRIPTION,
@@ -62,28 +63,24 @@ function formatCents(cents: number) {
 export default function BillingPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [restaurantId, setRestaurantId] = useState<string>();
   const [period, setPeriod] = useState(() => dayjs().format('YYYY-MM'));
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurants = restData?.myRestaurants ?? [];
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
 
-  useEffect(() => {
-    const saved = localStorage.getItem('activeRestaurantId');
-    setRestaurantId(saved ?? restData?.myRestaurants?.[0]?.id);
-  }, [restData]);
-
   const { data: subData, loading: subLoading, refetch: refetchSub } = useQuery(
     MY_SUBSCRIPTION,
-    { variables: { restaurantId }, skip: !restaurantId },
+    { variables: { restaurantId: activeRestaurantId }, skip: !activeRestaurantId },
   );
   const { data: plansData } = useQuery(PLANS);
   const { data: feesData, loading: feesLoading } = useQuery(COVER_FEE_SUMMARY, {
-    variables: { restaurantId, period },
-    skip: !restaurantId,
+    variables: { restaurantId: activeRestaurantId, period },
+    skip: !activeRestaurantId,
   });
 
   const [createSubscription, { loading: creating }] = useMutation(CREATE_SUBSCRIPTION);
@@ -96,8 +93,8 @@ export default function BillingPage() {
   const summary = feesData?.coverFeeSummary;
 
   const handleSubscribe = async (plan: string) => {
-    if (!restaurantId) return;
-    await createSubscription({ variables: { restaurantId, plan } });
+    if (!activeRestaurantId) return;
+    await createSubscription({ variables: { restaurantId: activeRestaurantId, plan } });
     refetchSub();
   };
 
@@ -109,23 +106,23 @@ export default function BillingPage() {
       okText: 'Yes, cancel',
       okButtonProps: { danger: true },
       onOk: async () => {
-        if (!restaurantId) return;
-        await cancelSubscription({ variables: { restaurantId } });
+        if (!activeRestaurantId) return;
+        await cancelSubscription({ variables: { restaurantId: activeRestaurantId } });
         refetchSub();
       },
     });
   };
 
   const handleChangePlan = async (plan: string) => {
-    if (!restaurantId) return;
-    await changePlan({ variables: { restaurantId, plan } });
+    if (!activeRestaurantId) return;
+    await changePlan({ variables: { restaurantId: activeRestaurantId, plan } });
     refetchSub();
   };
 
   const handleTogglePremiumSms = async (enabled: boolean) => {
-    if (!restaurantId) return;
+    if (!activeRestaurantId) return;
     try {
-      await setPremiumSmsAddon({ variables: { restaurantId, enabled } });
+      await setPremiumSmsAddon({ variables: { restaurantId: activeRestaurantId, enabled } });
       message.success(`Premium SMS ${enabled ? 'enabled' : 'disabled'}`);
     } catch (err: any) {
       message.error(err.message ?? 'Failed to update Premium SMS add-on');
@@ -149,24 +146,16 @@ export default function BillingPage() {
       ]
     : [];
 
+  const smsIncludedInPlan = Boolean(subscription?.features?.premiumSms);
+  const smsAddonEnabled = Boolean(subscription?.features?.premiumSmsAddon);
+
   return (
     <div component="BillingPage" style={{ display: 'contents' }}><Space orientation="vertical" size={24} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Title level={2} style={{ margin: 0 }}>
           Billing
         </Title>
-        <Select
-          style={{ width: 280 }}
-          value={restaurantId}
-          onChange={(id) => {
-            setRestaurantId(id);
-            localStorage.setItem('activeRestaurantId', id);
-          }}
-          options={(restData?.myRestaurants ?? []).map((r: any) => ({
-            value: r.id,
-            label: r.name,
-          }))}
-        />
+        <Select style={{ width: 280 }} {...restaurantSelectProps} />
       </div>
 
       {subLoading ? (
@@ -326,15 +315,20 @@ export default function BillingPage() {
                   )}
                 </Paragraph>
               </div>
-              <Switch
-                checked={Boolean(
-                  subscription.features?.premiumSms || subscription.features?.premiumSmsAddon,
-                )}
-                loading={togglingSms}
-                onChange={handleTogglePremiumSms}
-                checkedChildren="On"
-                unCheckedChildren="Off"
-              />
+              {smsIncludedInPlan ? (
+                <Tag color="success" icon={<CheckCircleOutlined />}>
+                  Included in Pro
+                </Tag>
+              ) : (
+                <Switch
+                  checked={smsAddonEnabled}
+                  disabled={subscription.plan === 'basic'}
+                  loading={togglingSms}
+                  onChange={handleTogglePremiumSms}
+                  checkedChildren="On"
+                  unCheckedChildren="Off"
+                />
+              )}
             </div>
           </Card>
 

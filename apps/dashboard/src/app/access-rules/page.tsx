@@ -25,6 +25,7 @@ import {
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useAuth } from '@/lib/auth';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS,
   ACCESS_RULES,
@@ -39,15 +40,16 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export default function AccessRulesPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [restaurantId, setRestaurantId] = useState<string>();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form] = Form.useForm();
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurants = restData?.myRestaurants ?? [];
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const { data, loading, refetch } = useQuery(ACCESS_RULES, {
-    skip: !restaurantId,
-    variables: { restaurantId },
+    skip: !activeRestaurantId,
+    variables: { restaurantId: activeRestaurantId },
     onError: (err: Error) => message.error(err.message),
   });
   const [createRule, { loading: creating }] = useMutation(CREATE_ACCESS_RULE);
@@ -57,12 +59,6 @@ export default function AccessRulesPage() {
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
-
-  useEffect(() => {
-    setRestaurantId(
-      localStorage.getItem('activeRestaurantId') ?? restData?.myRestaurants?.[0]?.id,
-    );
-  }, [restData]);
 
   const buildInput = (values: any) => ({
     name: values.name,
@@ -87,7 +83,7 @@ export default function AccessRulesPage() {
         await updateRule({ variables: { id: editingId, input } });
         message.success('Rule updated');
       } else {
-        await createRule({ variables: { restaurantId, input } });
+        await createRule({ variables: { restaurantId: activeRestaurantId, input } });
         message.success('Rule created');
       }
       setModalOpen(false);
@@ -167,18 +163,7 @@ export default function AccessRulesPage() {
         booking windows.
       </Text>
 
-      <Select
-        style={{ width: 260 }}
-        value={restaurantId}
-        onChange={(id) => {
-          setRestaurantId(id);
-          localStorage.setItem('activeRestaurantId', id);
-        }}
-        options={(restData?.myRestaurants ?? []).map((r: any) => ({
-          value: r.id,
-          label: r.name,
-        }))}
-      />
+      <Select style={{ width: 260 }} {...restaurantSelectProps} />
 
       <Card>
         <Table

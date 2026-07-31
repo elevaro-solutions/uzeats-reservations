@@ -21,6 +21,7 @@ import {
 } from 'antd';
 import { ApiOutlined, CopyOutlined, KeyOutlined, PlusOutlined } from '@ant-design/icons';
 import { useAuth } from '@/lib/auth';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS,
   INTEGRATIONS,
@@ -51,15 +52,16 @@ const copyToClipboard = async (text: string) => {
 export default function IntegrationsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [restaurantId, setRestaurantId] = useState<string>();
   const [modalOpen, setModalOpen] = useState(false);
   const [posKey, setPosKey] = useState<string | null>(null);
   const [form] = Form.useForm();
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurants = restData?.myRestaurants ?? [];
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const { data, loading, refetch } = useQuery(INTEGRATIONS, {
-    skip: !restaurantId,
-    variables: { restaurantId },
+    skip: !activeRestaurantId,
+    variables: { restaurantId: activeRestaurantId },
     onError: (err: Error) => message.error(err.message),
   });
   const [createIntegration, { loading: creating }] = useMutation(CREATE_INTEGRATION);
@@ -71,17 +73,11 @@ export default function IntegrationsPage() {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
 
-  useEffect(() => {
-    setRestaurantId(
-      localStorage.getItem('activeRestaurantId') ?? restData?.myRestaurants?.[0]?.id,
-    );
-  }, [restData]);
-
   const handleCreate = async () => {
     try {
       const values = await form.validateFields();
       await createIntegration({
-        variables: { restaurantId, provider: values.provider, name: values.name },
+        variables: { restaurantId: activeRestaurantId, provider: values.provider, name: values.name },
       });
       message.success('Integration created');
       setModalOpen(false);
@@ -94,7 +90,7 @@ export default function IntegrationsPage() {
 
   const handleGeneratePosKey = async () => {
     try {
-      const res = await generatePosKey({ variables: { restaurantId } });
+      const res = await generatePosKey({ variables: { restaurantId: activeRestaurantId } });
       setPosKey(res.data?.generatePosApiKey ?? null);
       message.success('POS API key generated');
     } catch (err: any) {
@@ -105,18 +101,7 @@ export default function IntegrationsPage() {
   return (
     <div component="IntegrationsPage" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Integrations</Title>
-      <Select
-        style={{ width: 260 }}
-        value={restaurantId}
-        onChange={(id) => {
-          setRestaurantId(id);
-          localStorage.setItem('activeRestaurantId', id);
-        }}
-        options={(restData?.myRestaurants ?? []).map((r: any) => ({
-          value: r.id,
-          label: r.name,
-        }))}
-      />
+      <Select style={{ width: 260 }} {...restaurantSelectProps} />
 
       <Card
         title={

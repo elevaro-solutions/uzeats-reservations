@@ -19,6 +19,7 @@ import {
 import { EyeInvisibleOutlined, EyeOutlined, MessageOutlined } from '@ant-design/icons';
 import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS,
   RESTAURANT_REVIEWS,
@@ -32,7 +33,6 @@ const { Title, Text, Paragraph } = Typography;
 function ReviewsPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [restaurantId, setRestaurantId] = useState<string>();
   const [replying, setReplying] = useState<any>(null);
   const [replyText, setReplyText] = useState('');
   const { page, pageSize, limit, offset, setPagination } = useUrlPagination({
@@ -40,9 +40,11 @@ function ReviewsPageContent() {
   });
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurants = restData?.myRestaurants ?? [];
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const { data, loading, refetch } = useQuery(RESTAURANT_REVIEWS, {
-    skip: !restaurantId,
-    variables: { restaurantId, limit, offset },
+    skip: !activeRestaurantId,
+    variables: { restaurantId: activeRestaurantId, limit, offset },
   });
   const [replyToReview, { loading: savingReply }] = useMutation(REPLY_TO_REVIEW);
   const [setReviewHidden] = useMutation(SET_REVIEW_HIDDEN);
@@ -50,12 +52,6 @@ function ReviewsPageContent() {
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
-
-  useEffect(() => {
-    setRestaurantId(
-      localStorage.getItem('activeRestaurantId') ?? restData?.myRestaurants?.[0]?.id,
-    );
-  }, [restData]);
 
   const handleReply = async () => {
     if (!replyText.trim()) return;
@@ -79,18 +75,7 @@ function ReviewsPageContent() {
   return (
     <div component="ReviewsPageContent" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Reviews</Title>
-      <Select
-        style={{ width: 260 }}
-        value={restaurantId}
-        onChange={(id) => {
-          setRestaurantId(id);
-          localStorage.setItem('activeRestaurantId', id);
-        }}
-        options={(restData?.myRestaurants ?? []).map((r: any) => ({
-          value: r.id,
-          label: r.name,
-        }))}
-      />
+      <Select style={{ width: 260 }} {...restaurantSelectProps} />
 
       <Card>
         <List

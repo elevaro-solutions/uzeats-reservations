@@ -29,6 +29,7 @@ import { PlusOutlined, RocketOutlined, StarOutlined, TagOutlined, FundOutlined, 
 import dayjs from 'dayjs';
 import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS,
   PROMOTIONS,
@@ -780,35 +781,19 @@ function FeaturedTab({ restaurantId }: { restaurantId?: string }) {
 function MarketingPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [restaurantId, setRestaurantId] = useState<string>();
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurants = restData?.myRestaurants ?? [];
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
 
-  useEffect(() => {
-    setRestaurantId(
-      localStorage.getItem('activeRestaurantId') ?? restData?.myRestaurants?.[0]?.id,
-    );
-  }, [restData]);
-
   return (
     <div component="MarketingPageContent" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Marketing</Title>
-      <Select
-        style={{ width: 260 }}
-        value={restaurantId}
-        onChange={(id) => {
-          setRestaurantId(id);
-          localStorage.setItem('activeRestaurantId', id);
-        }}
-        options={(restData?.myRestaurants ?? []).map((r: any) => ({
-          value: r.id,
-          label: r.name,
-        }))}
-      />
+      <Select style={{ width: 260 }} {...restaurantSelectProps} />
 
       <Card>
         <Tabs
@@ -821,7 +806,7 @@ function MarketingPageContent() {
                   <TagOutlined /> Promotions
                 </span>
               ),
-              children: <PromotionsTab restaurantId={restaurantId} />,
+              children: <PromotionsTab restaurantId={activeRestaurantId} />,
             },
             {
               key: 'analytics',
@@ -830,7 +815,7 @@ function MarketingPageContent() {
                   <FundOutlined /> Promo analytics
                 </span>
               ),
-              children: <PromoAnalyticsTab restaurantId={restaurantId} />,
+              children: <PromoAnalyticsTab restaurantId={activeRestaurantId} />,
             },
             {
               key: 'gift-cards',
@@ -839,7 +824,7 @@ function MarketingPageContent() {
                   <GiftOutlined /> Gift cards
                 </span>
               ),
-              children: <GiftCardsTab restaurantId={restaurantId} />,
+              children: <GiftCardsTab restaurantId={activeRestaurantId} />,
             },
             {
               key: 'boost',
@@ -848,7 +833,7 @@ function MarketingPageContent() {
                   <RocketOutlined /> Boost campaigns
                 </span>
               ),
-              children: <BoostCampaignsTab restaurantId={restaurantId} />,
+              children: <BoostCampaignsTab restaurantId={activeRestaurantId} />,
             },
             {
               key: 'featured',
@@ -857,7 +842,7 @@ function MarketingPageContent() {
                   <StarOutlined /> Featured placement
                 </span>
               ),
-              children: <FeaturedTab restaurantId={restaurantId} />,
+              children: <FeaturedTab restaurantId={activeRestaurantId} />,
             },
           ]}
         />

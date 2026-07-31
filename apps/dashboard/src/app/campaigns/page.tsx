@@ -21,6 +21,7 @@ import {
 import { PlusOutlined, SendOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useAuth } from '@/lib/auth';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS,
   CAMPAIGNS,
@@ -43,16 +44,17 @@ const STATUS_COLORS: Record<string, string> = {
 function CampaignsPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [restaurantId, setRestaurantId] = useState<string>();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form] = Form.useForm();
   const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 20 });
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurants = restData?.myRestaurants ?? [];
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const { data, loading, refetch } = useQuery(CAMPAIGNS, {
-    skip: !restaurantId,
-    variables: { restaurantId, limit, offset },
+    skip: !activeRestaurantId,
+    variables: { restaurantId: activeRestaurantId, limit, offset },
   });
   const [createCampaign, { loading: creating }] = useMutation(CREATE_CAMPAIGN);
   const [updateCampaign, { loading: updating }] = useMutation(UPDATE_CAMPAIGN);
@@ -62,12 +64,6 @@ function CampaignsPageContent() {
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
-
-  useEffect(() => {
-    setRestaurantId(
-      localStorage.getItem('activeRestaurantId') ?? restData?.myRestaurants?.[0]?.id,
-    );
-  }, [restData]);
 
   const handleSubmit = async () => {
     try {
@@ -84,7 +80,7 @@ function CampaignsPageContent() {
         await updateCampaign({ variables: { id: editingId, input } });
         message.success('Campaign updated');
       } else {
-        await createCampaign({ variables: { restaurantId, input } });
+        await createCampaign({ variables: { restaurantId: activeRestaurantId, input } });
         message.success(input.scheduledAt ? 'Campaign scheduled' : 'Campaign saved as draft');
       }
       setModalOpen(false);
@@ -129,18 +125,7 @@ function CampaignsPageContent() {
         the body for personalization. Requires the Pro plan.
       </Text>
 
-      <Select
-        style={{ width: 260 }}
-        value={restaurantId}
-        onChange={(id) => {
-          setRestaurantId(id);
-          localStorage.setItem('activeRestaurantId', id);
-        }}
-        options={(restData?.myRestaurants ?? []).map((r: any) => ({
-          value: r.id,
-          label: r.name,
-        }))}
-      />
+      <Select style={{ width: 260 }} {...restaurantSelectProps} />
 
       <Card>
         <Table

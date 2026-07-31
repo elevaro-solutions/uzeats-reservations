@@ -24,6 +24,7 @@ import dayjs from 'dayjs';
 import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS, RESTAURANT_RESERVATIONS } from '@/lib/graphql';
+import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 
 const { Title, Text } = Typography;
 
@@ -31,19 +32,15 @@ export default function AnalyticsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const client = useApolloClient();
-  const [restaurantId, setRestaurantId] = useState<string>();
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurants = restData?.myRestaurants ?? [];
+  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const [allReservations, setAllReservations] = useState<any[]>([]);
   const [fetching, setFetching] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('activeRestaurantId');
-    setRestaurantId(saved ?? restData?.myRestaurants?.[0]?.id);
-  }, [restData]);
 
   const fetchAllDays = useCallback(async (resId: string) => {
     setFetching(true);
@@ -65,8 +62,8 @@ export default function AnalyticsPage() {
   }, [client]);
 
   useEffect(() => {
-    if (restaurantId) fetchAllDays(restaurantId);
-  }, [restaurantId, fetchAllDays]);
+    if (activeRestaurantId) fetchAllDays(activeRestaurantId);
+  }, [activeRestaurantId, fetchAllDays]);
 
   const stats = useMemo(() => {
     const byStatus: Record<string, number> = { confirmed: 0, completed: 0, cancelled: 0, no_show: 0 };
@@ -111,15 +108,7 @@ export default function AnalyticsPage() {
   return (
     <div component="AnalyticsPage" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Analytics</Title>
-      <Select
-        style={{ width: 280 }}
-        value={restaurantId}
-        onChange={(id) => {
-          setRestaurantId(id);
-          localStorage.setItem('activeRestaurantId', id);
-        }}
-        options={(restData?.myRestaurants ?? []).map((r: any) => ({ value: r.id, label: r.name }))}
-      />
+      <Select style={{ width: 280 }} {...restaurantSelectProps} />
 
       {fetching ? (
         <Spin size="large" style={{ display: 'block', margin: '80px auto' }} />
