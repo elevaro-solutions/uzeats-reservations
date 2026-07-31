@@ -76,7 +76,7 @@ import {
 } from '../services/giftCards.js';
 import { GiftCard } from '../models/GiftCard.js';
 import { ensureUserReferralCode } from '../lib/referralCode.js';
-import { createUploadUrl } from '../services/spaces.js';
+import { buildUploadKey, createUploadUrl } from '../services/spaces.js';
 import {
   User,
   Restaurant,
@@ -2246,7 +2246,7 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       requireAuth(ctx);
-      const key = `uploads/${Date.now()}-${args.filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const key = buildUploadKey(args.filename);
       return createUploadUrl({ key, contentType: args.contentType });
     },
 

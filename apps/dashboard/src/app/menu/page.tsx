@@ -27,7 +27,8 @@ import {
 import type { RcFile } from 'antd/es/upload';
 import type { FormListFieldData } from 'antd/es/form/FormList';
 import { useAuth } from '@/lib/auth';
-import { MY_RESTAURANTS, UPSERT_MENU, CREATE_UPLOAD_URL } from '@/lib/graphql';
+import { MY_RESTAURANTS, UPSERT_MENU } from '@/lib/graphql';
+import { uploadFile } from '@/lib/upload';
 
 const { Title, Text } = Typography;
 
@@ -79,7 +80,6 @@ export default function MenuPage() {
   const [restaurantId, setRestaurantId] = useState<string>();
   const { data, refetch } = useQuery(MY_RESTAURANTS, { skip: !user });
   const [upsertMenu, { loading }] = useMutation(UPSERT_MENU);
-  const [createUploadUrl] = useMutation(CREATE_UPLOAD_URL);
   const [uploadingPath, setUploadingPath] = useState<string | null>(null);
   /** Empty = all item accordions collapsed (default). */
   const [openKeys, setOpenKeys] = useState<OpenKeysBySection>({});
@@ -151,15 +151,7 @@ export default function MenuPage() {
     const path = `${sectionIndex}-${itemIndex}`;
     setUploadingPath(path);
     try {
-      const { data: upload } = await createUploadUrl({
-        variables: { filename: file.name, contentType: file.type },
-      });
-      const { uploadUrl, publicUrl } = upload.createUploadUrl;
-      await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type },
-        body: file,
-      });
+      const { publicUrl } = await uploadFile(file, file.name);
       form.setFieldValue(['sections', sectionIndex, 'items', itemIndex, 'photoUrl'], publicUrl);
       message.success('Photo uploaded');
     } catch (err: unknown) {

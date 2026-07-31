@@ -1,4 +1,4 @@
-import { restaurantInputSchema, assertCanEditUser, type UserRole } from '@reservations/shared';
+import { restaurantInputSchema, adminCreateOwnerSchema, assertCanEditUser, type UserRole } from '@reservations/shared';
 import { Review } from '../models/Review.js';
 import { Message } from '../models/Message.js';
 import { User } from '../models/User.js';
@@ -13,6 +13,7 @@ import { logAudit } from './audit.js';
 import { adjustPoints } from './loyalty.js';
 import {
   assignUserToRestaurants,
+  adminCreateOwnerUser,
   inviteStaff,
   removeUserFromRestaurant,
   startImpersonation,
@@ -390,7 +391,8 @@ export const adminOpsMutation = {
     _: unknown,
     args: {
       input: unknown;
-      ownerId: string;
+      ownerId?: string | null;
+      ownerInput?: unknown;
       plan?: string | null;
       status?: string | null;
     },
@@ -398,8 +400,22 @@ export const adminOpsMutation = {
   ) => {
     const admin = requireAdmin(ctx);
     const input = restaurantInputSchema.parse(args.input);
-    const owner = await User.findById(args.ownerId);
-    if (!owner) throw new Error('Owner user not found');
+
+    if (!args.ownerId && !args.ownerInput) {
+      throw new Error('Either ownerId or ownerInput is required');
+    }
+    if (args.ownerId && args.ownerInput) {
+      throw new Error('Provide either ownerId or ownerInput, not both');
+    }
+
+    let owner;
+    if (args.ownerInput) {
+      const ownerData = adminCreateOwnerSchema.parse(args.ownerInput);
+      owner = await adminCreateOwnerUser(ownerData);
+    } else {
+      owner = await User.findById(args.ownerId);
+      if (!owner) throw new Error('Owner user not found');
+    }
 
     const status = args.status ?? 'approved';
     const doc = await Restaurant.create({
@@ -444,7 +460,8 @@ export const adminOpsMutation = {
       resourceId: doc._id.toString(),
       details: {
         name: input.name,
-        ownerId: args.ownerId,
+        ownerId: owner._id.toString(),
+        createdOwner: Boolean(args.ownerInput),
         plan: args.plan,
         status,
       },

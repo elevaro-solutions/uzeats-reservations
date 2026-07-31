@@ -6,6 +6,7 @@ import { User } from '../models/User.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { getPlatformConfig } from './platformConfig.js';
 import { hashPassword, signAccessToken } from './auth.js';
+import { generateUniqueReferralCode } from '../lib/referralCode.js';
 import { notifyUser } from './notifications.js';
 import { renderEmailTemplate } from './emailTemplates.js';
 
@@ -124,6 +125,30 @@ export async function inviteStaff(input: {
   }
 
   return { invite, user: existing, inviteUrl };
+}
+
+export async function adminCreateOwnerUser(input: {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+}) {
+  const email = input.email.toLowerCase();
+  const existing = await User.findOne({ email });
+  if (existing) throw new Error('Email already registered');
+
+  const user = await User.create({
+    email,
+    passwordHash: await hashPassword(input.password),
+    firstName: input.firstName,
+    lastName: input.lastName,
+    phone: input.phone,
+    role: 'restaurant_owner' as UserRole,
+    emailVerified: false,
+    referralCode: await generateUniqueReferralCode(input.firstName),
+  });
+  return user;
 }
 
 export async function assignUserToRestaurants(input: {

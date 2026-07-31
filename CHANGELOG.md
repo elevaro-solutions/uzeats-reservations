@@ -4,6 +4,22 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.16.0] — 2026-07-31
+
+### Added
+
+- Multi-step admin restaurant creation wizard (owner, details, location, review)
+- Inline owner account creation via `ownerInput` on `adminCreateRestaurant`
+- `CuisineSelect` component with custom cuisine entry
+- Direct authenticated upload endpoint (`POST /api/uploads`) for DO Spaces
+- Per-app env-var catalog (API, web, dashboard) with values on Developer page
+
+### Changed
+
+- Developer page filters by app, requirement, status, and group; shows configured values
+- Photo uploads use API proxy when presigned Spaces URLs are unavailable
+- Admin support ticket page and menu page photo upload integration
+
 ## [0.15.1] — 2026-07-31
 
 ### Added

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation } from '@/lib/apollo-hooks';
 import { Upload, Image, Button, message, Progress } from 'antd';
 import {
   DeleteOutlined,
@@ -10,7 +9,7 @@ import {
 } from '@ant-design/icons';
 import type { RcFile } from 'antd/es/upload';
 import { colors } from '@reservations/ui';
-import { CREATE_UPLOAD_URL } from '@/lib/graphql';
+import { uploadFile } from '@/lib/upload';
 
 const { Dragger } = Upload;
 
@@ -28,7 +27,6 @@ export default function PhotoUpload({
   onChange,
   maxCount = 10,
 }: PhotoUploadProps) {
-  const [createUploadUrl] = useMutation(CREATE_UPLOAD_URL);
   const [uploading, setUploading] = useState<Record<string, number>>({});
   const [previewUrl, setPreviewUrl] = useState<string>();
 
@@ -42,29 +40,8 @@ export default function PhotoUpload({
     setUploading((prev) => ({ ...prev, [uid]: 0 }));
 
     try {
-      const { data } = await createUploadUrl({
-        variables: { filename: file.name, contentType: file.type },
-      });
-
-      const { uploadUrl, publicUrl } = data.createUploadUrl;
-
-      const xhr = new XMLHttpRequest();
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          const pct = Math.round((e.loaded / e.total) * 100);
-          setUploading((prev) => ({ ...prev, [uid]: pct }));
-        }
-      });
-
-      await new Promise<void>((resolve, reject) => {
-        xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) resolve();
-          else reject(new Error(`Upload failed: ${xhr.status}`));
-        });
-        xhr.addEventListener('error', () => reject(new Error('Upload failed')));
-        xhr.open('PUT', uploadUrl);
-        xhr.setRequestHeader('Content-Type', file.type);
-        xhr.send(file);
+      const { publicUrl } = await uploadFile(file, file.name, {
+        onProgress: (pct) => setUploading((prev) => ({ ...prev, [uid]: pct })),
       });
 
       const next = [...value, publicUrl];

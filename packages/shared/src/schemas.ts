@@ -45,10 +45,23 @@ export const phoneOtpVerifySchema = z.object({
   lastName: z.string().min(1).max(80).optional(),
 });
 
+export const adminCreateOwnerSchema = z.object({
+  email: emailSchema,
+  password: passwordSchema,
+  firstName: z.string().min(1).max(80),
+  lastName: z.string().min(1).max(80),
+  phone: phoneSchema.optional(),
+});
+
 export const restaurantInputSchema = z.object({
   name: z.string().min(1).max(120),
   description: z.string().max(2000).optional(),
-  cuisine: z.enum(CUISINES),
+  cuisine: z
+    .string()
+    .min(2)
+    .max(60)
+    .trim()
+    .refine((v) => v.length > 0, 'Cuisine is required'),
   priceRange: z.number().int().min(1).max(4) as z.ZodType<(typeof PRICE_RANGES)[number]>,
   address: z.object({
     line1: z.string().min(1),

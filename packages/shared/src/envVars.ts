@@ -9,10 +9,19 @@ export type EnvVarGroup =
   | 'notifications'
   | 'clients';
 
+export type EnvApp = 'api' | 'web' | 'dashboard';
+
+export const ENV_APP_LABELS: Record<EnvApp, string> = {
+  api: 'API',
+  web: 'WEB',
+  dashboard: 'Dashboard',
+};
+
 export interface EnvVarDefinition {
   key: string;
   label: string;
   group: EnvVarGroup;
+  apps: EnvApp[];
   requirement: EnvVarRequirement;
   /** Human-readable note shown on the developer page. */
   description?: string;
@@ -32,12 +41,28 @@ export const ENV_VAR_GROUPS: Record<EnvVarGroup, string> = {
   clients: 'Client apps',
 };
 
-/** Env vars tracked on the super-admin developer page (values are never exposed). */
+/** Env vars tracked on the super-admin developer page. */
 export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
+  {
+    key: 'PORT',
+    label: 'HTTP port',
+    group: 'core',
+    apps: ['api'],
+    requirement: 'recommended',
+    description: 'API server listen port (default 4000).',
+  },
+  {
+    key: 'NODE_ENV',
+    label: 'Node environment',
+    group: 'core',
+    apps: ['api'],
+    requirement: 'recommended',
+  },
   {
     key: 'MONGODB_URI',
     label: 'MongoDB URI',
     group: 'core',
+    apps: ['api'],
     requirement: 'required',
     description: 'Primary database connection string.',
   },
@@ -45,6 +70,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     key: 'REDIS_URL',
     label: 'Redis URL',
     group: 'core',
+    apps: ['api'],
     requirement: 'required',
     description: 'Job queue and session cache.',
   },
@@ -52,6 +78,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     key: 'JWT_ACCESS_SECRET',
     label: 'JWT access secret',
     group: 'core',
+    apps: ['api'],
     requirement: 'required',
     description: 'Signs short-lived access tokens (min 16 characters).',
   },
@@ -59,13 +86,29 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     key: 'JWT_REFRESH_SECRET',
     label: 'JWT refresh secret',
     group: 'core',
+    apps: ['api'],
     requirement: 'required',
     description: 'Signs refresh tokens (min 16 characters).',
+  },
+  {
+    key: 'JWT_ACCESS_EXPIRES',
+    label: 'JWT access expiry',
+    group: 'core',
+    apps: ['api'],
+    requirement: 'recommended',
+  },
+  {
+    key: 'JWT_REFRESH_EXPIRES',
+    label: 'JWT refresh expiry',
+    group: 'core',
+    apps: ['api'],
+    requirement: 'recommended',
   },
   {
     key: 'GOOGLE_CLIENT_ID',
     label: 'Google client ID',
     group: 'auth',
+    apps: ['api'],
     requirement: 'recommended',
     description: 'Verifies Google sign-in ID tokens on the API.',
   },
@@ -73,13 +116,23 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     key: 'GOOGLE_CLIENT_SECRET',
     label: 'Google client secret',
     group: 'auth',
+    apps: ['api'],
     requirement: 'recommended',
     description: 'Server-side Google OAuth (if used).',
+  },
+  {
+    key: 'AUTH_DEV_OTP',
+    label: 'Auth dev OTP',
+    group: 'auth',
+    apps: ['api'],
+    requirement: 'recommended',
+    description: 'Accept OTP 123456 without Twilio (development only).',
   },
   {
     key: 'TWILIO_ACCOUNT_SID',
     label: 'Twilio account SID',
     group: 'auth',
+    apps: ['api'],
     requirement: 'recommended',
     requiredUnlessEquals: { key: 'AUTH_DEV_OTP', value: 'true' },
     description: 'SMS OTP delivery. Not needed when AUTH_DEV_OTP is enabled.',
@@ -88,6 +141,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     key: 'TWILIO_AUTH_TOKEN',
     label: 'Twilio auth token',
     group: 'auth',
+    apps: ['api'],
     requirement: 'recommended',
     requiredUnlessEquals: { key: 'AUTH_DEV_OTP', value: 'true' },
   },
@@ -95,13 +149,22 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     key: 'TWILIO_VERIFY_SERVICE_SID',
     label: 'Twilio Verify service SID',
     group: 'auth',
+    apps: ['api'],
     requirement: 'recommended',
     requiredUnlessEquals: { key: 'AUTH_DEV_OTP', value: 'true' },
+  },
+  {
+    key: 'TWILIO_FROM_NUMBER',
+    label: 'Twilio from number',
+    group: 'auth',
+    apps: ['api'],
+    requirement: 'recommended',
   },
   {
     key: 'CORS_ORIGINS',
     label: 'CORS origins',
     group: 'urls',
+    apps: ['api'],
     requirement: 'recommended',
     description: 'Comma-separated allowed browser origins.',
   },
@@ -109,6 +172,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     key: 'WEB_APP_URL',
     label: 'Web app URL',
     group: 'urls',
+    apps: ['api'],
     requirement: 'recommended',
     description: 'Public diner-facing site base URL.',
   },
@@ -116,6 +180,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     key: 'DASHBOARD_APP_URL',
     label: 'Dashboard app URL',
     group: 'urls',
+    apps: ['api'],
     requirement: 'recommended',
     description: 'Partner hub base URL.',
   },
@@ -123,6 +188,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     key: 'API_PUBLIC_URL',
     label: 'API public URL',
     group: 'urls',
+    apps: ['api'],
     requirement: 'production',
     description: 'Public API base URL for webhooks (e.g. Telegram).',
   },
@@ -130,6 +196,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     key: 'STRIPE_SECRET_KEY',
     label: 'Stripe secret key',
     group: 'payments',
+    apps: ['api'],
     requirement: 'production',
     description: 'Required for deposit-enabled restaurants in production.',
   },
@@ -137,33 +204,58 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     key: 'STRIPE_WEBHOOK_SECRET',
     label: 'Stripe webhook secret',
     group: 'payments',
+    apps: ['api'],
     requirement: 'recommended',
     description: 'Verifies Stripe webhook signatures.',
   },
   {
-    key: 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
-    label: 'Stripe publishable key',
+    key: 'STRIPE_CURRENCY',
+    label: 'Stripe currency',
     group: 'payments',
+    apps: ['api'],
     requirement: 'recommended',
-    description: 'Client-side Stripe.js initialization.',
   },
   {
     key: 'DO_SPACES_KEY',
     label: 'Spaces access key',
     group: 'storage',
-    requirement: 'recommended',
+    apps: ['api'],
+    requirement: 'required',
     description: 'DigitalOcean Spaces object storage.',
   },
   {
     key: 'DO_SPACES_SECRET',
     label: 'Spaces secret key',
     group: 'storage',
-    requirement: 'recommended',
+    apps: ['api'],
+    requirement: 'required',
+  },
+  {
+    key: 'DO_SPACES_ENDPOINT',
+    label: 'Spaces endpoint',
+    group: 'storage',
+    apps: ['api'],
+    requirement: 'required',
+  },
+  {
+    key: 'DO_SPACES_BUCKET',
+    label: 'Spaces bucket',
+    group: 'storage',
+    apps: ['api'],
+    requirement: 'required',
+  },
+  {
+    key: 'DO_SPACES_CDN',
+    label: 'Spaces CDN URL',
+    group: 'storage',
+    apps: ['api'],
+    requirement: 'required',
   },
   {
     key: 'SENDGRID_API_KEY',
     label: 'SendGrid API key',
     group: 'notifications',
+    apps: ['api'],
     requirement: 'recommended',
     requiredUnlessSet: ['RESEND_API_KEY'],
     description: 'Primary transactional email provider.',
@@ -172,6 +264,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     key: 'RESEND_API_KEY',
     label: 'Resend API key',
     group: 'notifications',
+    apps: ['api'],
     requirement: 'recommended',
     requiredUnlessSet: ['SENDGRID_API_KEY'],
     description: 'Fallback email provider when SendGrid is unset.',
@@ -180,39 +273,73 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     key: 'EMAIL_FROM',
     label: 'Email from address',
     group: 'notifications',
+    apps: ['api'],
     requirement: 'recommended',
   },
   {
     key: 'ELEVARO_LEADS_API_KEY',
     label: 'Elevaro leads API key',
     group: 'notifications',
+    apps: ['api'],
     requirement: 'recommended',
     description: 'Creates CRM leads from the public contact form.',
+  },
+  {
+    key: 'ELEVARO_LEADS_REFERRER_DOMAIN',
+    label: 'Elevaro referrer domain',
+    group: 'notifications',
+    apps: ['api'],
+    requirement: 'recommended',
+  },
+  {
+    key: 'ELEVARO_LEADS_SOURCE',
+    label: 'Elevaro leads source',
+    group: 'notifications',
+    apps: ['api'],
+    requirement: 'recommended',
   },
   {
     key: 'TELEGRAM_BOT_TOKEN',
     label: 'Telegram bot token',
     group: 'notifications',
+    apps: ['api'],
     requirement: 'recommended',
     description: 'Optional Telegram notifications for staff.',
+  },
+  {
+    key: 'TELEGRAM_WEBHOOK_SECRET',
+    label: 'Telegram webhook secret',
+    group: 'notifications',
+    apps: ['api'],
+    requirement: 'recommended',
   },
   {
     key: 'VAPID_PUBLIC_KEY',
     label: 'VAPID public key',
     group: 'notifications',
+    apps: ['api'],
     requirement: 'recommended',
-    description: 'Web push notifications.',
+    description: 'Web push notifications (server).',
   },
   {
     key: 'VAPID_PRIVATE_KEY',
     label: 'VAPID private key',
     group: 'notifications',
+    apps: ['api'],
+    requirement: 'recommended',
+  },
+  {
+    key: 'VAPID_SUBJECT',
+    label: 'VAPID subject',
+    group: 'notifications',
+    apps: ['api'],
     requirement: 'recommended',
   },
   {
     key: 'NEXT_PUBLIC_API_URL',
     label: 'GraphQL API URL',
     group: 'clients',
+    apps: ['web', 'dashboard'],
     requirement: 'required',
     description: 'Dashboard / web GraphQL endpoint.',
   },
@@ -220,6 +347,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     key: 'NEXT_PUBLIC_WS_URL',
     label: 'GraphQL WebSocket URL',
     group: 'clients',
+    apps: ['web', 'dashboard'],
     requirement: 'required',
     description: 'Realtime subscriptions endpoint.',
   },
@@ -227,19 +355,30 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     key: 'NEXT_PUBLIC_WEB_URL',
     label: 'Public web URL',
     group: 'clients',
+    apps: ['web', 'dashboard'],
     requirement: 'recommended',
     description: 'Used for share links and impersonation redirects.',
+  },
+  {
+    key: 'NEXT_PUBLIC_SITE_URL',
+    label: 'Public site URL',
+    group: 'clients',
+    apps: ['web'],
+    requirement: 'recommended',
+    description: 'SEO canonical URLs and sitemap.',
   },
   {
     key: 'NEXT_PUBLIC_DASHBOARD_URL',
     label: 'Dashboard URL',
     group: 'clients',
+    apps: ['web', 'dashboard'],
     requirement: 'recommended',
   },
   {
     key: 'NEXT_PUBLIC_GOOGLE_CLIENT_ID',
     label: 'Google client ID (public)',
     group: 'clients',
+    apps: ['web'],
     requirement: 'recommended',
     description: 'Must match GOOGLE_CLIENT_ID for Google sign-in buttons.',
   },
@@ -247,8 +386,33 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     key: 'NEXT_PUBLIC_GOOGLE_MAPS_API_KEY',
     label: 'Google Maps API key',
     group: 'clients',
+    apps: ['web', 'dashboard'],
     requirement: 'recommended',
     description: 'Address autocomplete; forms fall back to plain inputs when empty.',
+  },
+  {
+    key: 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
+    label: 'Stripe publishable key',
+    group: 'payments',
+    apps: ['web'],
+    requirement: 'recommended',
+    description: 'Client-side Stripe.js initialization.',
+  },
+  {
+    key: 'NEXT_PUBLIC_VAPID_PUBLIC_KEY',
+    label: 'VAPID public key (client)',
+    group: 'notifications',
+    apps: ['web'],
+    requirement: 'recommended',
+    description: 'Web push subscription in the diner profile.',
+  },
+  {
+    key: 'NEXT_PUBLIC_COLOR_PALETTE',
+    label: 'Color palette',
+    group: 'clients',
+    apps: ['web', 'dashboard'],
+    requirement: 'recommended',
+    description: 'Theme palette index (1 = Forest & Gold).',
   },
 ];
 
@@ -261,6 +425,19 @@ export interface EnvVarStatus {
   configured: boolean;
   applicable: boolean;
   required: boolean;
+  missing: boolean;
+}
+
+export interface DeveloperEnvRow {
+  key: string;
+  app: EnvApp;
+  label: string;
+  group: EnvVarGroup | 'other';
+  requirement: EnvVarRequirement;
+  description?: string;
+  value: string | null;
+  configured: boolean;
+  applicable: boolean;
   missing: boolean;
 }
 
@@ -296,28 +473,121 @@ function isRequired(def: EnvVarDefinition, nodeEnv: string, applicable: boolean)
   return false;
 }
 
-/** Build env var status list for the developer page (never returns secret values). */
+/** Parse a dotenv file into key/value pairs (comments and quotes stripped). */
+export function parseEnvFile(content: string): Record<string, string> {
+  const result: Record<string, string> = {};
+
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    const withoutComment = trimmed.split('#')[0]?.trim() ?? '';
+    if (!withoutComment) continue;
+
+    const eq = withoutComment.indexOf('=');
+    if (eq === -1) continue;
+
+    let key = withoutComment.slice(0, eq).trim();
+    if (key.startsWith('export ')) key = key.slice(7).trim();
+    if (!key) continue;
+
+    let value = withoutComment.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    result[key] = value;
+  }
+
+  return result;
+}
+
+export function getGroupLabel(group: EnvVarGroup | 'other'): string {
+  return group === 'other' ? 'Other' : ENV_VAR_GROUPS[group];
+}
+
+/** Build env var status list for the API deployment (never returns secret values). */
 export function getEnvVarStatuses(source: EnvSource): EnvVarStatus[] {
   const nodeEnv = envValue('NODE_ENV', source) || 'development';
 
-  return ENV_VAR_DEFINITIONS.map((def) => {
-    const configured = isConfigured(def.key, source);
-    const applicable = isApplicable(def, source);
-    const required = isRequired(def, nodeEnv, applicable);
-    return {
-      key: def.key,
-      label: def.label,
-      group: def.group,
-      requirement: def.requirement,
-      description: def.description,
-      configured,
-      applicable,
-      required,
-      missing: required && !configured,
-    };
-  });
+  return ENV_VAR_DEFINITIONS
+    .filter((def) => def.apps.includes('api'))
+    .map((def) => {
+      const configured = isConfigured(def.key, source);
+      const applicable = isApplicable(def, source);
+      const required = isRequired(def, nodeEnv, applicable);
+      return {
+        key: def.key,
+        label: def.label,
+        group: def.group,
+        requirement: def.requirement,
+        description: def.description,
+        configured,
+        applicable,
+        required,
+        missing: required && !configured,
+      };
+    });
 }
 
 export function getMissingRequiredEnvVars(source: EnvSource): EnvVarStatus[] {
   return getEnvVarStatuses(source).filter((row) => row.missing);
+}
+
+/** Build per-app env rows with values for the super-admin developer page. */
+export function buildDeveloperEnvRows(
+  sources: Record<EnvApp, EnvSource>,
+  nodeEnv: string,
+): DeveloperEnvRow[] {
+  const defByKey = new Map(ENV_VAR_DEFINITIONS.map((def) => [def.key, def]));
+  const rows: DeveloperEnvRow[] = [];
+
+  for (const app of ['api', 'web', 'dashboard'] as EnvApp[]) {
+    const source = sources[app] ?? {};
+    const keys = new Set<string>();
+
+    for (const key of Object.keys(source)) {
+      if (key) keys.add(key);
+    }
+
+    for (const def of ENV_VAR_DEFINITIONS) {
+      if (def.apps.includes(app)) keys.add(def.key);
+    }
+
+    for (const key of keys) {
+      const def = defByKey.get(key);
+
+      if (def && !def.apps.includes(app) && !isConfigured(key, source)) {
+        continue;
+      }
+
+      const value = envValue(key, source);
+      const configured = value.length > 0;
+      const applicable = def ? isApplicable(def, source) : true;
+      const required = def ? isRequired(def, nodeEnv, applicable) : false;
+      const group = def?.group ?? 'other';
+
+      rows.push({
+        key,
+        app,
+        label: def?.label ?? key,
+        group,
+        requirement: def?.requirement ?? 'recommended',
+        description: def?.description,
+        value: configured ? value : null,
+        configured,
+        applicable,
+        missing: required && !configured,
+      });
+    }
+  }
+
+  const appOrder: Record<EnvApp, number> = { api: 0, web: 1, dashboard: 2 };
+  return rows.sort((a, b) => {
+    if (appOrder[a.app] !== appOrder[b.app]) return appOrder[a.app] - appOrder[b.app];
+    return a.key.localeCompare(b.key);
+  });
 }

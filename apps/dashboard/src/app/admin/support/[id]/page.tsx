@@ -38,7 +38,6 @@ import {
   ADD_SUPPORT_NOTE,
   ADMIN_RESTAURANTS,
   ADMIN_USERS,
-  CREATE_UPLOAD_URL,
   DELETE_SUPPORT_NOTE,
   REMOVE_SUPPORT_ATTACHMENT,
   SUPPORT_TICKET,
@@ -46,6 +45,7 @@ import {
   UPDATE_SUPPORT_NOTE,
   UPDATE_SUPPORT_TICKET,
 } from '@/lib/graphql';
+import { uploadFile } from '@/lib/upload';
 import { useAuth } from '@/lib/auth';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import {
@@ -96,7 +96,6 @@ export default function SupportTicketDetailPage() {
   const [addAttachment] = useMutation(ADD_SUPPORT_ATTACHMENT);
   const [updateAttachment, { loading: updatingAttachment }] = useMutation(UPDATE_SUPPORT_ATTACHMENT);
   const [removeAttachment] = useMutation(REMOVE_SUPPORT_ATTACHMENT);
-  const [createUploadUrl] = useMutation(CREATE_UPLOAD_URL);
 
   const ticket = data?.supportTicket;
   const users = usersData?.adminUsers?.items ?? [];
@@ -160,16 +159,10 @@ export default function SupportTicketDetailPage() {
     }
     setUploading(true);
     try {
-      const { data: uploadData } = await createUploadUrl({
-        variables: { filename: file.name, contentType: file.type || 'application/octet-stream' },
-      });
-      const { uploadUrl, publicUrl, key } = uploadData.createUploadUrl;
-      const res = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type || 'application/octet-stream' },
-        body: file,
-      });
-      if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+      const { publicUrl, key } = await uploadFile(
+        file,
+        file.name,
+      );
       await addAttachment({
         variables: {
           ticketId: id,

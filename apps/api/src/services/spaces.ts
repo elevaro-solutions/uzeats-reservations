@@ -15,6 +15,44 @@ function getClient() {
   });
 }
 
+export function buildUploadKey(filename: string) {
+  return `uploads/${Date.now()}-${filename.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+}
+
+function publicUrlForKey(key: string) {
+  const base = env.DO_SPACES_CDN || `${env.DO_SPACES_ENDPOINT}/${env.DO_SPACES_BUCKET}`;
+  return `${base}/${key}`;
+}
+
+export async function uploadObject(input: {
+  key: string;
+  contentType: string;
+  body: Buffer;
+}) {
+  const client = getClient();
+  if (!client) {
+    return {
+      publicUrl: `https://picsum.photos/seed/${encodeURIComponent(input.key)}/800/600`,
+      key: input.key,
+    };
+  }
+
+  await client.send(
+    new PutObjectCommand({
+      Bucket: env.DO_SPACES_BUCKET,
+      Key: input.key,
+      ContentType: input.contentType,
+      ACL: 'public-read',
+      Body: input.body,
+    }),
+  );
+
+  return {
+    publicUrl: publicUrlForKey(input.key),
+    key: input.key,
+  };
+}
+
 export async function createUploadUrl(input: {
   key: string;
   contentType: string;
@@ -35,10 +73,9 @@ export async function createUploadUrl(input: {
     ACL: 'public-read',
   });
   const uploadUrl = await getSignedUrl(client, command, { expiresIn: 600 });
-  const base = env.DO_SPACES_CDN || `${env.DO_SPACES_ENDPOINT}/${env.DO_SPACES_BUCKET}`;
   return {
     uploadUrl,
-    publicUrl: `${base}/${input.key}`,
+    publicUrl: publicUrlForKey(input.key),
     key: input.key,
   };
 }

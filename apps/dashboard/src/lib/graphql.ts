@@ -279,11 +279,18 @@ export const ADMIN_RESTAURANTS = gql`
 export const ADMIN_CREATE_RESTAURANT = gql`
   mutation AdminCreateRestaurant(
     $input: RestaurantInput!
-    $ownerId: ID!
+    $ownerId: ID
+    $ownerInput: AdminCreateOwnerInput
     $plan: String
     $status: RestaurantStatus
   ) {
-    adminCreateRestaurant(input: $input, ownerId: $ownerId, plan: $plan, status: $status) {
+    adminCreateRestaurant(
+      input: $input
+      ownerId: $ownerId
+      ownerInput: $ownerInput
+      plan: $plan
+      status: $status
+    ) {
       id
       name
       slug
@@ -1060,11 +1067,14 @@ export const DEVELOPER_INFO = gql`
       requiredMissingCount
       envVars {
         key
+        app
+        appLabel
         label
         group
         groupLabel
         requirement
         description
+        value
         configured
         applicable
         missing

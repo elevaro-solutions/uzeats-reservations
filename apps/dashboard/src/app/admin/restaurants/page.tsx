@@ -13,8 +13,10 @@ import {
   InputNumber,
   Modal,
   Row,
+  Segmented,
   Select,
   Space,
+  Steps,
   Switch,
   Table,
   Tabs,
@@ -23,6 +25,7 @@ import {
   message,
 } from 'antd';
 import type { MenuProps } from 'antd';
+import type { FormInstance } from 'antd/es/form';
 import {
   EditOutlined,
   DeleteOutlined,
@@ -30,8 +33,10 @@ import {
   PlusOutlined,
   UserAddOutlined,
   MoreOutlined,
+  ArrowLeftOutlined,
+  ArrowRightOutlined,
+  CheckOutlined,
 } from '@ant-design/icons';
-import { CUISINES } from '@reservations/shared';
 import {
   AddressAutocomplete,
   PageHeader,
@@ -42,6 +47,7 @@ import {
   usPhoneRules,
 } from '@reservations/ui';
 import PhotoUpload from '@/components/PhotoUpload';
+import CuisineSelect from '@/components/CuisineSelect';
 import {
   ADMIN_RESTAURANTS,
   ADMIN_CREATE_RESTAURANT,
@@ -65,7 +71,135 @@ import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { isPlatformAdmin, isSuperAdmin } from '@/lib/roles';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 
-const { Text } = Typography;
+const CREATE_STEPS = [
+  { title: 'Owner' },
+  { title: 'Details' },
+  { title: 'Location' },
+  { title: 'Review' },
+];
+
+type OwnerMode = 'existing' | 'new';
+
+type FormFieldError = { name: (string | number)[]; errors: string[] };
+
+const OWNER_STEP_FIELDS = new Set([
+  'ownerMode',
+  'ownerId',
+  'ownerFirstName',
+  'ownerLastName',
+  'ownerEmail',
+  'ownerPhone',
+  'ownerPassword',
+  'confirmPassword',
+  'plan',
+  'status',
+]);
+
+const DETAILS_STEP_FIELDS = new Set([
+  'name',
+  'cuisine',
+  'description',
+  'priceRange',
+  'phone',
+  'website',
+]);
+
+function isFormValidationError(err: unknown): err is { errorFields: FormFieldError[] } {
+  return Boolean(
+    err && typeof err === 'object' && 'errorFields' in err && Array.isArray((err as { errorFields: unknown }).errorFields),
+  );
+}
+
+function resolveCreateStepForField(fieldName: string): number {
+  if (OWNER_STEP_FIELDS.has(fieldName)) return 0;
+  if (DETAILS_STEP_FIELDS.has(fieldName)) return 1;
+  return 2;
+}
+
+function resolveCreateStepForErrors(errorFields: FormFieldError[]): number {
+  return Math.min(...errorFields.map((f) => resolveCreateStepForField(String(f.name[0]))));
+}
+
+function ownerFieldsForMode(mode: OwnerMode): string[] {
+  return mode === 'existing'
+    ? ['ownerId']
+    : ['ownerFirstName', 'ownerLastName', 'ownerEmail', 'ownerPhone', 'ownerPassword', 'confirmPassword'];
+}
+
+async function revealCreateFieldErrors(
+  form: FormInstance,
+  errorFields: FormFieldError[],
+  setStep: (step: number) => void,
+  setMode: (mode: OwnerMode) => void,
+) {
+  const step = resolveCreateStepForErrors(errorFields);
+  const firstField = String(errorFields[0]?.name[0] ?? '');
+
+  if (firstField === 'ownerId') {
+    setMode('existing');
+    form.setFieldValue('ownerMode', 'existing');
+  } else if (firstField.startsWith('owner')) {
+    setMode('new');
+    form.setFieldValue('ownerMode', 'new');
+  }
+
+  setStep(step);
+  form.setFields(
+    errorFields.map((field) => ({
+      name: field.name,
+      errors: field.errors,
+    })),
+  );
+
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+
+  if (firstField) {
+    form.scrollToField(firstField, { block: 'center', behavior: 'smooth' });
+  }
+}
+
+function mapCreateApiErrorToFields(
+  form: FormInstance,
+  err: unknown,
+  setStep: (step: number) => void,
+  setMode: (mode: OwnerMode) => void,
+): boolean {
+  const msg =
+    err instanceof Error
+      ? err.message
+      : typeof err === 'object' && err && 'message' in err
+        ? String((err as { message: unknown }).message)
+        : '';
+  if (!msg) return false;
+
+  if (/email already registered/i.test(msg)) {
+    setMode('new');
+    form.setFieldsValue({ ownerMode: 'new' });
+    form.setFields([{ name: 'ownerEmail', errors: [msg] }]);
+    setStep(0);
+    requestAnimationFrame(() => {
+      form.scrollToField('ownerEmail', { block: 'center', behavior: 'smooth' });
+    });
+    return true;
+  }
+
+  if (/owner user not found/i.test(msg)) {
+    setMode('existing');
+    form.setFieldsValue({ ownerMode: 'existing' });
+    form.setFields([{ name: 'ownerId', errors: [msg] }]);
+    setStep(0);
+    requestAnimationFrame(() => {
+      form.scrollToField('ownerId', { block: 'center', behavior: 'smooth' });
+    });
+    return true;
+  }
+
+  return false;
+}
+
+const { Text, Title } = Typography;
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
@@ -189,6 +323,8 @@ function AdminRestaurantsContent() {
   const [editing, setEditing] = useState<RestaurantRecord | null>(null);
   const [editTab, setEditTab] = useState('details');
   const [showCreate, setShowCreate] = useState(false);
+  const [createStep, setCreateStep] = useState(0);
+  const [ownerMode, setOwnerMode] = useState<OwnerMode>('new');
   const [photos, setPhotos] = useState<string[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<string>();
   const [assignUserId, setAssignUserId] = useState<string>();
@@ -266,9 +402,34 @@ function AdminRestaurantsContent() {
 
   const closeCreate = () => {
     setShowCreate(false);
+    setCreateStep(0);
+    setOwnerMode('new');
     createForm.resetFields();
     setPhotos([]);
   };
+
+  const getOwnerMode = () =>
+    (createForm.getFieldValue('ownerMode') as OwnerMode | undefined) ?? ownerMode;
+
+  const goCreateNext = async () => {
+    try {
+      const mode = getOwnerMode();
+      if (createStep === 0) {
+        await createForm.validateFields(['ownerMode', ...ownerFieldsForMode(mode), 'status']);
+      } else if (createStep === 1) {
+        await createForm.validateFields(['name', 'cuisine', 'priceRange', 'phone', 'website']);
+      } else if (createStep === 2) {
+        await createForm.validateFields(['line1', 'city', 'state', 'zip', 'lat', 'lng']);
+      }
+      setCreateStep((step) => Math.min(step + 1, CREATE_STEPS.length - 1));
+    } catch (err: unknown) {
+      if (isFormValidationError(err) && err.errorFields.length) {
+        await revealCreateFieldErrors(createForm, err.errorFields, setCreateStep, setOwnerMode);
+      }
+    }
+  };
+
+  const goCreateBack = () => setCreateStep((step) => Math.max(step - 1, 0));
 
   const buildRestaurantInput = (values: Record<string, unknown>, photoList: string[]) => ({
     name: values.name,
@@ -324,18 +485,56 @@ function AdminRestaurantsContent() {
   };
 
   const onCreate = async () => {
+    const mode = getOwnerMode();
     try {
-      const values = await createForm.validateFields();
+      await createForm.validateFields([
+        'ownerMode',
+        ...ownerFieldsForMode(mode),
+        'status',
+        'name',
+        'cuisine',
+        'priceRange',
+        'phone',
+        'website',
+        'line1',
+        'city',
+        'state',
+        'zip',
+        'lat',
+        'lng',
+        'depositRequired',
+        'depositAmountCents',
+        'loyaltyEnabled',
+        'loyaltyPointsPerVisit',
+        'loyaltyMinRedeemPoints',
+      ]);
+      const values = createForm.getFieldsValue(true);
+      const ownerInput =
+        values.ownerMode === 'new'
+          ? {
+              firstName: values.ownerFirstName,
+              lastName: values.ownerLastName,
+              email: values.ownerEmail,
+              phone: values.ownerPhone || undefined,
+              password: values.ownerPassword,
+            }
+          : undefined;
+
       await createRestaurant({
         variables: {
-          ownerId: values.ownerId,
+          ownerId: values.ownerMode === 'existing' ? values.ownerId : undefined,
+          ownerInput,
           plan: values.plan || undefined,
           status: values.status || 'approved',
           input: buildRestaurantInput(values, photos),
         },
       });
     } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'errorFields' in err) return;
+      if (isFormValidationError(err) && err.errorFields.length) {
+        await revealCreateFieldErrors(createForm, err.errorFields, setCreateStep, setOwnerMode);
+        return;
+      }
+      if (mapCreateApiErrorToFields(createForm, err, setCreateStep, setOwnerMode)) return;
       message.error(err instanceof Error ? err.message : 'Failed to create restaurant');
     }
   };
@@ -479,7 +678,7 @@ function AdminRestaurantsContent() {
       </Col>
       <Col span={12}>
         <Form.Item name="cuisine" label="Cuisine" rules={[{ required: true }]} tooltip={tips.cuisine}>
-          <Select options={CUISINES.map((c) => ({ value: c, label: c }))} showSearch />
+          <CuisineSelect />
         </Form.Item>
       </Col>
       <Col span={24}>
@@ -651,7 +850,15 @@ function AdminRestaurantsContent() {
           title="Restaurants"
           subtitle="Create venues, assign packages and accounts, and manage full restaurant profiles."
           extra={
-            <Button type="primary" icon={<PlusOutlined />} onClick={() => setShowCreate(true)}>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setCreateStep(0);
+                setOwnerMode('new');
+                setShowCreate(true);
+              }}
+            >
               Add restaurant
             </Button>
           }
@@ -741,16 +948,48 @@ function AdminRestaurantsContent() {
           title="Add restaurant"
           open={showCreate}
           onCancel={closeCreate}
-          onOk={onCreate}
-          confirmLoading={creating}
-          width={760}
+          width={800}
           destroyOnClose
-          okText="Create restaurant"
+          footer={
+            <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+              <Button onClick={closeCreate}>Cancel</Button>
+              <Space>
+                {createStep > 0 && (
+                  <Button icon={<ArrowLeftOutlined />} onClick={goCreateBack}>
+                    Back
+                  </Button>
+                )}
+                {createStep < CREATE_STEPS.length - 1 ? (
+                  <Button type="primary" icon={<ArrowRightOutlined />} onClick={goCreateNext}>
+                    Continue
+                  </Button>
+                ) : (
+                  <Button
+                    type="primary"
+                    icon={<CheckOutlined />}
+                    loading={creating}
+                    onClick={onCreate}
+                  >
+                    Create restaurant
+                  </Button>
+                )}
+              </Space>
+            </Space>
+          }
         >
+          <Steps
+            size="small"
+            current={createStep}
+            items={CREATE_STEPS}
+            style={{ marginBottom: spacing.lg }}
+          />
           <Form
             form={createForm}
             layout="vertical"
+            preserve
+            scrollToFirstError={{ block: 'center', behavior: 'smooth' }}
             initialValues={{
+              ownerMode: 'new',
               status: 'approved',
               priceRange: 2,
               lat: 40.7128,
@@ -763,35 +1002,413 @@ function AdminRestaurantsContent() {
               country: 'US',
             }}
           >
-            <Divider titlePlacement="left" plain>Account & package</Divider>
-            <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item name="ownerId" label="Owner account" rules={[{ required: true }]}>
+            <Form.Item name="ownerMode" hidden>
+              <Input />
+            </Form.Item>
+
+            <div style={{ display: createStep === 0 ? 'block' : 'none' }}>
+              <Title level={5} style={{ marginTop: 0 }}>
+                Owner account
+              </Title>
+              <Text type="secondary" style={{ display: 'block', marginBottom: spacing.md }}>
+                Create a new restaurant owner or link an existing account.
+              </Text>
+              <Segmented
+                block
+                value={ownerMode}
+                onChange={(value) => {
+                  const mode = value as OwnerMode;
+                  setOwnerMode(mode);
+                  createForm.setFieldValue('ownerMode', mode);
+                }}
+                options={[
+                  { label: 'New owner', value: 'new' },
+                  { label: 'Existing account', value: 'existing' },
+                ]}
+                style={{ marginBottom: spacing.md }}
+              />
+
+              {ownerMode === 'existing' ? (
+                <Form.Item
+                  name="ownerId"
+                  label="Owner account"
+                  rules={[{ required: true, message: 'Select an owner account' }]}
+                >
                   <Select
                     options={ownerOptions}
                     showSearch
                     optionFilterProp="label"
-                    placeholder="Assign owner"
+                    placeholder="Search by name or email"
                   />
                 </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item name="plan" label="Package">
-                  <Select
-                    options={planOptions}
-                    allowClear
-                    placeholder="Optional — assign billing package"
-                  />
+              ) : (
+                <Row gutter={16}>
+                  <Col xs={24} sm={12}>
+                    <Form.Item
+                      name="ownerFirstName"
+                      label="First name"
+                      rules={[{ required: true, message: 'Required' }]}
+                    >
+                      <Input autoComplete="given-name" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} sm={12}>
+                    <Form.Item
+                      name="ownerLastName"
+                      label="Last name"
+                      rules={[{ required: true, message: 'Required' }]}
+                    >
+                      <Input autoComplete="family-name" />
+                    </Form.Item>
+                  </Col>
+                  <Col span={24}>
+                    <Form.Item
+                      name="ownerEmail"
+                      label="Email"
+                      rules={[
+                        { required: true, message: 'Required' },
+                        { type: 'email', message: 'Enter a valid email' },
+                      ]}
+                    >
+                      <Input autoComplete="email" placeholder="owner@restaurant.com" />
+                    </Form.Item>
+                  </Col>
+                  <Col span={24}>
+                    <Form.Item
+                      name="ownerPhone"
+                      label="Phone"
+                      rules={usPhoneRules({ required: false })}
+                    >
+                      <PhoneInput />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} sm={12}>
+                    <Form.Item
+                      name="ownerPassword"
+                      label="Password"
+                      rules={[
+                        { required: true, message: 'Required' },
+                        { min: 8, message: 'At least 8 characters' },
+                      ]}
+                    >
+                      <Input.Password autoComplete="new-password" />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={24} sm={12}>
+                    <Form.Item
+                      name="confirmPassword"
+                      label="Confirm password"
+                      dependencies={['ownerPassword']}
+                      rules={[
+                        { required: true, message: 'Confirm the password' },
+                        ({ getFieldValue }) => ({
+                          validator(_, value) {
+                            if (!value || getFieldValue('ownerPassword') === value) {
+                              return Promise.resolve();
+                            }
+                            return Promise.reject(new Error('Passwords do not match'));
+                          },
+                        }),
+                      ]}
+                    >
+                      <Input.Password autoComplete="new-password" />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              )}
+
+              <Divider plain>Package & status</Divider>
+              <Row gutter={16}>
+                <Col xs={24} sm={12}>
+                  <Form.Item name="plan" label="Package">
+                    <Select
+                      options={planOptions}
+                      allowClear
+                      placeholder="Optional — assign billing package"
+                    />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    name="status"
+                    label="Initial status"
+                    rules={[{ required: true, message: 'Select an initial status' }]}
+                  >
+                    <Select options={STATUS_OPTIONS} />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </div>
+
+            <div style={{ display: createStep === 1 ? 'block' : 'none' }}>
+              <Title level={5} style={{ marginTop: 0 }}>
+                Restaurant details
+              </Title>
+              <Text type="secondary" style={{ display: 'block', marginBottom: spacing.md }}>
+                Basic information guests will see on the listing.
+              </Text>
+              <Row gutter={16}>
+                <Col span={24}>
+                  <Form.Item name="name" label="Name" rules={[{ required: true, message: 'Enter a restaurant name' }]} tooltip={tips.name}>
+                    <Input maxLength={120} showCount />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    name="cuisine"
+                    label="Cuisine / category"
+                    rules={[{ required: true, message: 'Select or add a cuisine' }]}
+                    tooltip={tips.cuisine}
+                  >
+                    <CuisineSelect />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    name="priceRange"
+                    label="Price range"
+                    rules={[{ required: true, message: 'Select a price range' }]}
+                    tooltip={tips.priceRange}
+                  >
+                    <Select options={priceRangeOptions} />
+                  </Form.Item>
+                </Col>
+                <Col span={24}>
+                  <Form.Item name="description" label="Description" tooltip={tips.description}>
+                    <Input.TextArea rows={3} maxLength={2000} showCount />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    name="phone"
+                    label="Restaurant phone"
+                    rules={usPhoneRules({ required: false })}
+                    tooltip={tips.phone}
+                  >
+                    <PhoneInput />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12}>
+                  <Form.Item name="website" label="Website" tooltip={tips.website}>
+                    <Input placeholder="https://" />
+                  </Form.Item>
+                </Col>
+                <Col span={24}>
+                  <Form.Item label="Photos">
+                    <PhotoUpload value={photos} onChange={setPhotos} maxCount={10} />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </div>
+
+            <div style={{ display: createStep === 2 ? 'block' : 'none' }}>
+              <Title level={5} style={{ marginTop: 0 }}>
+                Location & policies
+              </Title>
+              <Text type="secondary" style={{ display: 'block', marginBottom: spacing.md }}>
+                Address, coordinates, and optional deposit or loyalty settings.
+              </Text>
+              <Row gutter={16}>
+                <Col span={24}>
+                  <Form.Item label="Address search">
+                    <AddressAutocomplete
+                      onSelect={(selection) => {
+                        createForm.setFieldsValue(addressSelectionToFields(selection));
+                      }}
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={16}>
+                  <Form.Item
+                    name="line1"
+                    label="Street"
+                    rules={[{ required: true, message: 'Enter a street address' }]}
+                    tooltip={tips.line1}
+                  >
+                    <Input />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item name="line2" label="Apt / suite">
+                    <Input />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item
+                    name="city"
+                    label="City"
+                    rules={[{ required: true, message: 'Enter a city' }]}
+                    tooltip={tips.city}
+                  >
+                    <Input />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item
+                    name="state"
+                    label="State"
+                    rules={[{ required: true, message: 'Enter a state code' }]}
+                    tooltip={tips.state}
+                  >
+                    <Input maxLength={2} />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item
+                    name="zip"
+                    label="ZIP"
+                    rules={[{ required: true, message: 'Enter a ZIP code' }]}
+                    tooltip={tips.zip}
+                  >
+                    <Input />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    name="lat"
+                    label="Latitude"
+                    rules={[{ required: true, message: 'Enter latitude' }]}
+                    tooltip={tips.lat}
+                  >
+                    <InputNumber style={{ width: '100%' }} step={0.000001} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    name="lng"
+                    label="Longitude"
+                    rules={[{ required: true, message: 'Enter longitude' }]}
+                    tooltip={tips.lng}
+                  >
+                    <InputNumber style={{ width: '100%' }} step={0.000001} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    name="depositRequired"
+                    label="Deposit required"
+                    valuePropName="checked"
+                    tooltip={tips.depositRequired}
+                  >
+                    <Switch />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    name="depositAmountCents"
+                    label="Deposit amount (USD)"
+                    tooltip={tips.depositAmountCents}
+                  >
+                    <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    name="loyaltyEnabled"
+                    label="Loyalty program"
+                    valuePropName="checked"
+                    tooltip={tips.loyaltyEnabled}
+                  >
+                    <Switch />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    name="loyaltyPointsPerVisit"
+                    label="Points per visit"
+                    tooltip={tips.loyaltyPointsPerVisit}
+                  >
+                    <InputNumber min={0} style={{ width: '100%' }} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    name="loyaltyMinRedeemPoints"
+                    label="Min redeem points"
+                    tooltip={tips.loyaltyMinRedeemPoints}
+                  >
+                    <InputNumber min={0} style={{ width: '100%' }} />
+                  </Form.Item>
+                </Col>
+                <Form.Item name="country" hidden>
+                  <Input />
                 </Form.Item>
-              </Col>
-              <Col span={12}>
-                <Form.Item name="status" label="Initial status" rules={[{ required: true }]}>
-                  <Select options={STATUS_OPTIONS} />
-                </Form.Item>
-              </Col>
-            </Row>
-            <Divider titlePlacement="left" plain>Restaurant details</Divider>
-            {restaurantFormFields(createForm, true)}
+              </Row>
+            </div>
+
+            <div style={{ display: createStep === 3 ? 'block' : 'none' }}>
+              <Title level={5} style={{ marginTop: 0 }}>
+                Review & create
+              </Title>
+              <Text type="secondary" style={{ display: 'block', marginBottom: spacing.md }}>
+                Confirm everything looks right before creating the restaurant.
+              </Text>
+              <Form.Item noStyle shouldUpdate>
+                {() => {
+                  const values = createForm.getFieldsValue(true);
+                  const ownerLabel =
+                    values.ownerMode === 'existing'
+                      ? ownerOptions.find((o: { value: string; label: string }) => o.value === values.ownerId)?.label ?? '—'
+                      : `${values.ownerFirstName ?? ''} ${values.ownerLastName ?? ''}`.trim() +
+                        (values.ownerEmail ? ` (${values.ownerEmail})` : '');
+                  const priceLabel =
+                    priceRangeOptions.find((o) => o.value === values.priceRange)?.label ??
+                    String(values.priceRange ?? '—');
+
+                  return (
+                    <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+                      <Card size="small" title="Owner & package">
+                        <Space orientation="vertical" size={4}>
+                          <Text>
+                            <Text type="secondary">Owner: </Text>
+                            {ownerLabel || '—'}
+                          </Text>
+                          <Text>
+                            <Text type="secondary">Package: </Text>
+                            {values.plan
+                              ? formatPlanLabel(values.plan, plans)
+                              : 'None (assign later)'}
+                          </Text>
+                          <Text>
+                            <Text type="secondary">Status: </Text>
+                            <Tag>{values.status ?? 'approved'}</Tag>
+                          </Text>
+                        </Space>
+                      </Card>
+                      <Card size="small" title="Restaurant">
+                        <Space orientation="vertical" size={4}>
+                          <Text>
+                            <Text type="secondary">Name: </Text>
+                            {values.name || '—'}
+                          </Text>
+                          <Text>
+                            <Text type="secondary">Cuisine: </Text>
+                            {values.cuisine || '—'}
+                          </Text>
+                          <Text>
+                            <Text type="secondary">Price range: </Text>
+                            {priceLabel}
+                          </Text>
+                          {values.description ? (
+                            <Text>
+                              <Text type="secondary">Description: </Text>
+                              {values.description}
+                            </Text>
+                          ) : null}
+                        </Space>
+                      </Card>
+                      <Card size="small" title="Location">
+                        <Text>
+                          {[values.line1, values.line2, values.city, values.state, values.zip]
+                            .filter(Boolean)
+                            .join(', ') || '—'}
+                        </Text>
+                      </Card>
+                    </Space>
+                  );
+                }}
+              </Form.Item>
+            </div>
           </Form>
         </Modal>
 

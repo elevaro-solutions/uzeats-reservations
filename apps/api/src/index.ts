@@ -22,6 +22,7 @@ import { logger } from './lib/logger.js';
 import { AppError } from './lib/errors.js';
 import { posRouter } from './routes/pos.js';
 import { partnerRouter } from './routes/partner.js';
+import { uploadsRouter } from './routes/uploads.js';
 
 const startedAt = Date.now();
 
@@ -134,11 +135,19 @@ async function main() {
   // Partner booking API (third-party sites, affiliates, Google Reserve)
   app.use('/api/partner', express.json(), cors(), partnerRouter);
 
+  const corsOrigins = env.CORS_ORIGINS.split(',').map((s) => s.trim());
+  app.use(
+    '/api/uploads',
+    cors({ origin: corsOrigins, credentials: true }),
+    express.raw({ type: () => true, limit: '10mb' }),
+    uploadsRouter,
+  );
+
   app.use(
     '/graphql',
     graphqlLimiter,
     cors({
-      origin: env.CORS_ORIGINS.split(',').map((s) => s.trim()),
+      origin: corsOrigins,
       credentials: true,
     }),
     express.json({ limit: '2mb' }),

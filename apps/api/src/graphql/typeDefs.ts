@@ -681,11 +681,14 @@ export const typeDefs = `#graphql
 
   type DeveloperEnvVar {
     key: String!
+    app: String!
+    appLabel: String!
     label: String!
     group: String!
     groupLabel: String!
     requirement: EnvVarRequirement!
     description: String
+    value: String
     configured: Boolean!
     applicable: Boolean!
     missing: Boolean!
@@ -1281,6 +1284,14 @@ export const typeDefs = `#graphql
     account: PartnerAccountInput!
     restaurant: PartnerRestaurantInput!
     plan: String!
+  }
+
+  input AdminCreateOwnerInput {
+    email: String!
+    password: String!
+    firstName: String!
+    lastName: String!
+    phone: String
   }
 
   type PartnerRegisterPayload {
@@ -1946,7 +1957,8 @@ export const typeDefs = `#graphql
     clearSeedData: ClearSeedDataPayload!
     adminCreateRestaurant(
       input: RestaurantInput!
-      ownerId: ID!
+      ownerId: ID
+      ownerInput: AdminCreateOwnerInput
       plan: String
       status: RestaurantStatus
     ): Restaurant!
