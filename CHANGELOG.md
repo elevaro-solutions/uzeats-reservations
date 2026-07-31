@@ -4,6 +4,16 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.15.1] — 2026-07-31
+
+### Added
+
+- Cursor git-push skill for automated commit workflow (docs, version bump, commit, push)
+
+### Changed
+
+- Root `package.json` now tracks project version (`version` field)
+
 ## [0.15.0] — 2026-07-30
 
 ### Added
