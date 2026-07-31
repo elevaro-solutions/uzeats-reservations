@@ -1894,6 +1894,7 @@ export const typeDefs = `#graphql
     myConversations: [Conversation!]!
 
     accessRules(restaurantId: ID!): [AccessRule!]!
+    blackouts(restaurantId: ID!): [Blackout!]!
     promotions(restaurantId: ID!, activeOnly: Boolean, limit: Int, offset: Int): PromotionConnection!
     promotionStats(restaurantId: ID!, days: Int): PromotionStats!
     bestPromotion(restaurantId: ID!, slotStart: DateTime!, depositCents: Int!): PromotionValidation!
@@ -1934,6 +1935,7 @@ export const typeDefs = `#graphql
     updateShift(id: ID!, input: ShiftInput!): Shift!
     deleteShift(id: ID!): Boolean!
     createBlackout(restaurantId: ID!, date: String!, reason: String, allDay: Boolean): Blackout!
+    deleteBlackout(id: ID!): Boolean!
 
     createReservation(input: ReservationInput!): CreateReservationPayload!
     createOwnerReservation(input: OwnerReservationInput!): Reservation!
@@ -2063,6 +2065,7 @@ export const typeDefs = `#graphql
 
     createExperience(restaurantId: ID!, input: ExperienceInput!): Experience!
     updateExperience(id: ID!, input: ExperienceInput!): Experience!
+    deleteExperience(id: ID!): Boolean!
     publishExperience(id: ID!): Experience!
     purchaseTicket(experienceId: ID!, quantity: Int!): Ticket!
     confirmTicketPayment(paymentIntentId: String!): Ticket!
@@ -2070,6 +2073,7 @@ export const typeDefs = `#graphql
 
     createPrivateDiningSpace(restaurantId: ID!, input: PrivateDiningSpaceInput!): PrivateDiningSpace!
     updatePrivateDiningSpace(id: ID!, input: PrivateDiningSpaceInput!): PrivateDiningSpace!
+    deletePrivateDiningSpace(id: ID!): Boolean!
     submitPrivateDiningInquiry(input: PrivateDiningInquiryInput!): PrivateDiningInquiry!
     respondToInquiry(id: ID!, status: InquiryStatus!, response: String): PrivateDiningInquiry!
 

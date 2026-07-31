@@ -14,6 +14,7 @@ import {
   Empty,
   Spin,
   Alert,
+  message,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -67,7 +68,9 @@ import {
 } from '@/lib/graphql';
 import {
   MANY_LOCATIONS_THRESHOLD,
+  buildRestaurantSelectOptions,
   restaurantSelectFilterOption,
+  validatedRestaurantId,
 } from '@/lib/restaurants';
 import { getOnboardingProgress, getOnboardingSteps } from '@/lib/onboarding';
 
@@ -248,9 +251,12 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   }
 
   const restaurants = restaurantsData?.myRestaurants ?? [];
+  const restaurantIds = restaurants.map((r: { id: string }) => r.id);
+  const activeRestaurantId = validatedRestaurantId(restaurantId, restaurantIds);
+  const restaurantSelectOptions = buildRestaurantSelectOptions(restaurants);
   const notifications: AppNotification[] = notifData?.myNotifications ?? [];
   const unreadCount: number = notifData?.unreadNotificationCount ?? 0;
-  const activeRestaurant = restaurants.find((r: { id: string }) => r.id === restaurantId);
+  const activeRestaurant = restaurants.find((r: { id: string }) => r.id === activeRestaurantId);
   const onboardingSteps = activeRestaurant ? getOnboardingSteps(activeRestaurant) : [];
   const onboardingProgress = getOnboardingProgress(onboardingSteps);
   const showOnboardingBanner =
@@ -425,8 +431,8 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     try {
       await markAllRead();
       await refetchNotifs();
-    } catch {
-      // ignore
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Failed to mark notifications as read');
     }
   };
 
@@ -656,20 +662,17 @@ export function DashShell({ children }: { children: React.ReactNode }) {
                 <Select
                   placeholder="Select restaurant"
                   style={{ width: 260, maxWidth: '100%' }}
-                  value={restaurantId}
+                  value={activeRestaurantId}
                   onChange={(id) => {
                     setRestaurantId(id);
                     localStorage.setItem('activeRestaurantId', id);
                     window.dispatchEvent(new CustomEvent('rt-restaurant-change', { detail: id }));
                   }}
-                  options={restaurants.map((r: { id: string; name: string }) => ({
-                    value: r.id,
-                    label: r.name,
-                  }))}
+                  options={restaurantSelectOptions}
                   showSearch={restaurants.length >= MANY_LOCATIONS_THRESHOLD}
                   filterOption={restaurantSelectFilterOption}
                   variant="borderless"
-                  popupMatchSelectWidth={280}
+                  popupMatchSelectWidth={320}
                 />
               </>
             )}

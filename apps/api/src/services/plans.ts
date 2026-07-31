@@ -1,6 +1,7 @@
 import { Subscription } from '../models/Subscription.js';
 import { type FeatureKey, type PlanFeatures } from '../config/plans.js';
 import { getEffectivePlan } from './platformConfig.js';
+import { PlanFeatureError } from '../lib/errors.js';
 
 const FEATURE_LABELS: Partial<Record<FeatureKey, string>> = {
   floorPlans: 'Customizable floor plans',
@@ -42,19 +43,14 @@ export async function getFeatures(restaurantId: string): Promise<PlanFeatures & 
   return { ...basicFeatures, ...JSON.parse(JSON.stringify(features)) };
 }
 
-export class PlanFeatureError extends Error {
-  constructor(feature: FeatureKey) {
-    super(
-      `${FEATURE_LABELS[feature] ?? feature} is not included in your current plan. Upgrade to unlock it.`,
-    );
-    this.name = 'PlanFeatureError';
-  }
-}
-
 export async function requireFeature(restaurantId: string, feature: FeatureKey) {
   const features = await getFeatures(restaurantId);
   if (feature === 'premiumSms' && features.premiumSmsAddon) return;
-  if (!features[feature]) throw new PlanFeatureError(feature);
+  if (!features[feature]) {
+    throw new PlanFeatureError(
+      `${FEATURE_LABELS[feature] ?? feature} is not included in your current plan. Upgrade to unlock it.`,
+    );
+  }
 }
 
 /** Whether SMS sending is available (Pro plan or Core + add-on). */

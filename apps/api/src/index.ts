@@ -19,7 +19,7 @@ import { startCampaignWorker } from './services/campaigns.js';
 import { startLoyaltyWorker } from './services/loyaltyExpiry.js';
 import { handleTelegramWebhook, startTelegramBot } from './services/telegram.js';
 import { logger } from './lib/logger.js';
-import { AppError } from './lib/errors.js';
+import { AppError, formatMongooseError } from './lib/errors.js';
 import { posRouter } from './routes/pos.js';
 import { partnerRouter } from './routes/partner.js';
 import { uploadsRouter } from './routes/uploads.js';
@@ -66,6 +66,14 @@ async function main() {
               message: i.message,
             })),
           },
+        };
+      }
+
+      const mongooseError = formatMongooseError(original);
+      if (mongooseError) {
+        return {
+          message: mongooseError.message,
+          extensions: { code: mongooseError.code },
         };
       }
 

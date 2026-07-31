@@ -17,3 +17,32 @@ export function restaurantSelectFilterOption(
 ): boolean {
   return (option?.label ?? '').toString().toLowerCase().includes(input.toLowerCase());
 }
+
+export function restaurantSelectLabel(r: {
+  name: string;
+  address?: { city?: string; state?: string };
+}): string {
+  const location = [r.address?.city, r.address?.state].filter(Boolean).join(', ');
+  return location ? `${r.name} — ${location}` : r.name;
+}
+
+export function buildRestaurantSelectOptions(
+  restaurants: Array<{
+    id: string;
+    name: string;
+    address?: { city?: string; state?: string };
+  }>,
+) {
+  return restaurants.map((r) => ({
+    value: r.id,
+    label: restaurantSelectLabel(r),
+  }));
+}
+
+export function validatedRestaurantId(
+  restaurantId: string | undefined,
+  restaurantIds: string[],
+): string | undefined {
+  if (restaurantId && restaurantIds.includes(restaurantId)) return restaurantId;
+  return restaurantIds[0];
+}

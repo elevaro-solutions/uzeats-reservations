@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { LOYALTY, CANCELLATION_REFUND_HOURS, resolveRedeemPoints, RESTAURANT_LOYALTY, resolveRestaurantRedeemPoints, isPlatformAdmin } from '@reservations/shared';
-import { ConflictError } from '../lib/errors.js';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../lib/errors.js';
 import { Reservation } from '../models/Reservation.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { Table } from '../models/Table.js';
@@ -88,9 +88,9 @@ async function resolveTable(input: {
       restaurantId: input.restaurantId,
       active: true,
     });
-    if (!table) throw new Error('Table not found');
+    if (!table) throw new NotFoundError('Table');
     if (table.minCapacity > input.partySize || table.maxCapacity < input.partySize) {
-      throw new Error('Table capacity does not fit this party size');
+      throw new ValidationError('Table capacity does not fit this party size');
     }
     const bookable = await getBookableTables({
       restaurantId: input.restaurantId,
@@ -138,11 +138,11 @@ export async function createReservation(input: {
 }) {
   const restaurant = await Restaurant.findById(input.restaurantId);
   if (!restaurant || restaurant.status !== 'approved') {
-    throw new Error('Restaurant not available');
+    throw new ValidationError('Restaurant not available');
   }
 
   if (input.tableId && !restaurant.allowGuestTableSelection) {
-    throw new Error('Table selection is not enabled for this restaurant');
+    throw new ValidationError('Table selection is not enabled for this restaurant');
   }
 
   const accessViolation = await checkAccessRules({
@@ -150,7 +150,7 @@ export async function createReservation(input: {
     partySize: input.partySize,
     slotStart: input.slotStart,
   });
-  if (accessViolation) throw new Error(accessViolation);
+  if (accessViolation) throw new ValidationError(accessViolation);
 
   const turn = await getTurnTimeMinutes(input.restaurantId, input.slotStart);
   const slotEnd = new Date(input.slotStart.getTime() + turn * 60_000);
@@ -178,14 +178,14 @@ export async function createReservation(input: {
   let depositAmountCents = grossDepositCents;
   if (input.redeemPoints && input.redeemPoints > 0) {
     const diner = await User.findById(input.dinerId).select('loyaltyPoints');
-    if (!diner) throw new Error('User not found');
+    if (!diner) throw new NotFoundError('User');
     const redeem = resolveRedeemPoints(
       input.redeemPoints,
       grossDepositCents,
       diner.loyaltyPoints ?? 0,
     );
     if (!redeem) {
-      throw new Error(`Minimum redeem is ${LOYALTY.MIN_REDEEM_POINTS} points`);
+      throw new ValidationError(`Minimum redeem is ${LOYALTY.MIN_REDEEM_POINTS} points`);
     }
     pointsToRedeem = redeem.pointsToRedeem;
     depositAmountCents = grossDepositCents - redeem.discountCents;
@@ -193,7 +193,7 @@ export async function createReservation(input: {
 
   if (input.redeemRestaurantPoints && input.redeemRestaurantPoints > 0) {
     if (!restaurant.loyaltyEnabled) {
-      throw new Error('Restaurant loyalty is not enabled');
+      throw new ValidationError('Restaurant loyalty is not enabled');
     }
     const minRedeem =
       restaurant.loyaltyMinRedeemPoints ?? RESTAURANT_LOYALTY.DEFAULT_MIN_REDEEM_POINTS;
@@ -205,7 +205,7 @@ export async function createReservation(input: {
       minRedeem,
     );
     if (!redeem) {
-      throw new Error(`Minimum redeem is ${minRedeem} restaurant points`);
+      throw new ValidationError(`Minimum redeem is ${minRedeem} restaurant points`);
     }
     restaurantPointsToRedeem = redeem.pointsToRedeem;
     depositAmountCents -= redeem.discountCents;
@@ -362,8 +362,8 @@ export async function confirmDepositPayment(input: {
   const reservation = await Reservation.findOne({
     stripePaymentIntentId: input.paymentIntentId,
   });
-  if (!reservation) throw new Error('Reservation not found for payment');
-  if (!reservation.dinerId.equals(input.dinerId)) throw new Error('Forbidden');
+  if (!reservation) throw new NotFoundError('Reservation for payment');
+  if (!reservation.dinerId.equals(input.dinerId)) throw new ForbiddenError();
 
   if (reservation.status === 'confirmed' && reservation.depositStatus === 'authorized') {
     return reservation;
@@ -383,7 +383,7 @@ export async function updateReservationStatus(
   reason?: string,
 ) {
   const reservation = await Reservation.findById(reservationId);
-  if (!reservation) throw new Error('Reservation not found');
+  if (!reservation) throw new NotFoundError('Reservation');
 
   const restaurant = await Restaurant.findById(reservation.restaurantId);
   const user = await User.findById(actorId);
@@ -394,7 +394,7 @@ export async function updateReservationStatus(
   const isDiner = reservation.dinerId.equals(actorId);
   const isAdmin = user ? isPlatformAdmin(user.role) : false;
 
-  if (!isOwner && !isDiner && !isAdmin) throw new Error('Forbidden');
+  if (!isOwner && !isDiner && !isAdmin) throw new ForbiddenError();
 
   const allowed: Record<string, string[]> = {
     pending: ['confirmed', 'cancelled'],
@@ -406,7 +406,7 @@ export async function updateReservationStatus(
   };
 
   if (!allowed[reservation.status]?.includes(status)) {
-    throw new Error(`Cannot transition from ${reservation.status} to ${status}`);
+    throw new ValidationError(`Cannot transition from ${reservation.status} to ${status}`);
   }
 
   reservation.status = status as typeof reservation.status;
@@ -674,7 +674,7 @@ export async function createOwnerReservation(input: {
 }) {
   const restaurant = await Restaurant.findById(input.restaurantId);
   if (!restaurant || restaurant.status !== 'approved') {
-    throw new Error('Restaurant not available');
+    throw new ValidationError('Restaurant not available');
   }
 
   const diner = await findOrCreateDiner(input.guest);
@@ -685,7 +685,7 @@ export async function createOwnerReservation(input: {
     partySize: input.partySize,
     slotStart: input.slotStart,
   });
-  if (accessViolation) throw new Error(accessViolation);
+  if (accessViolation) throw new ValidationError(accessViolation);
 
   const turn = await getTurnTimeMinutes(input.restaurantId, input.slotStart);
   const slotEnd = new Date(input.slotStart.getTime() + turn * 60_000);
@@ -773,7 +773,7 @@ export async function updateReservationDetails(
   },
 ) {
   const reservation = await Reservation.findById(reservationId);
-  if (!reservation) throw new Error('Reservation not found');
+  if (!reservation) throw new NotFoundError('Reservation');
 
   const restaurant = await Restaurant.findById(reservation.restaurantId);
   const user = await User.findById(actorId);
@@ -782,10 +782,10 @@ export async function updateReservationDetails(
     (restaurant.ownerId.equals(actorId) ||
       user?.restaurantIds?.some((id) => id.equals(restaurant._id)));
   const isAdmin = user ? isPlatformAdmin(user.role) : false;
-  if (!isOwner && !isAdmin) throw new Error('Forbidden');
+  if (!isOwner && !isAdmin) throw new ForbiddenError();
 
   if (!EDITABLE_STATUSES.has(reservation.status)) {
-    throw new Error(`Cannot edit a ${reservation.status} reservation`);
+    throw new ValidationError(`Cannot edit a ${reservation.status} reservation`);
   }
 
   const partySize = input.partySize ?? reservation.partySize;
@@ -804,7 +804,7 @@ export async function updateReservationDetails(
       partySize,
       slotStart,
     });
-    if (accessViolation) throw new Error(accessViolation);
+    if (accessViolation) throw new ValidationError(accessViolation);
 
     await releaseTableSlotClaims(reservation._id);
 
@@ -875,7 +875,7 @@ export async function seatReservationAtTable(
   actorId: string,
 ) {
   const reservation = await Reservation.findById(reservationId);
-  if (!reservation) throw new Error('Reservation not found');
+  if (!reservation) throw new NotFoundError('Reservation');
 
   const restaurant = await Restaurant.findById(reservation.restaurantId);
   const user = await User.findById(actorId);
@@ -884,10 +884,10 @@ export async function seatReservationAtTable(
     (restaurant.ownerId.equals(actorId) ||
       user?.restaurantIds?.some((id) => id.equals(restaurant._id)));
   const isAdmin = user?.role === 'admin';
-  if (!isOwner && !isAdmin) throw new Error('Forbidden');
+  if (!isOwner && !isAdmin) throw new ForbiddenError();
 
   if (!['pending', 'confirmed'].includes(reservation.status)) {
-    throw new Error(`Cannot seat reservation with status ${reservation.status}`);
+    throw new ValidationError(`Cannot seat reservation with status ${reservation.status}`);
   }
 
   const table = await Table.findOne({
@@ -895,9 +895,9 @@ export async function seatReservationAtTable(
     restaurantId: reservation.restaurantId,
     active: true,
   });
-  if (!table) throw new Error('Table not found');
+  if (!table) throw new NotFoundError('Table');
   if (table.minCapacity > reservation.partySize || table.maxCapacity < reservation.partySize) {
-    throw new Error('Table capacity does not fit this party size');
+    throw new ValidationError('Table capacity does not fit this party size');
   }
 
   const bookable = await getBookableTables({
@@ -946,7 +946,7 @@ export async function seatReservationAtTable(
 /** Permanently remove a reservation. Active bookings get deposit/claim cleanup first. */
 export async function deleteReservation(reservationId: string, actorId: string) {
   const reservation = await Reservation.findById(reservationId);
-  if (!reservation) throw new Error('Reservation not found');
+  if (!reservation) throw new NotFoundError('Reservation');
 
   const restaurant = await Restaurant.findById(reservation.restaurantId);
   const user = await User.findById(actorId);
@@ -955,7 +955,7 @@ export async function deleteReservation(reservationId: string, actorId: string) 
     (restaurant.ownerId.equals(actorId) ||
       user?.restaurantIds?.some((id) => id.equals(restaurant._id)));
   const isAdmin = user ? isPlatformAdmin(user.role) : false;
-  if (!isOwner && !isAdmin) throw new Error('Forbidden');
+  if (!isOwner && !isAdmin) throw new ForbiddenError();
 
   if (reservation.status === 'pending' || reservation.status === 'confirmed') {
     await updateReservationStatus(reservationId, 'cancelled', actorId, 'Deleted by restaurant');

@@ -28,6 +28,7 @@ import {
   RESIZE_HANDLES,
   applyResize,
   cellSizeForWidth,
+  clampLayout,
   clampMove,
   snapDelta,
   type ResizeHandle,
@@ -82,6 +83,16 @@ function TableDetailsPanel({
   onUpdate: (patch: Partial<FloorTable>) => void;
   onSavePhoto: (photoUrl: string | null) => Promise<void>;
 }) {
+  const applyLayoutPatch = (patch: Partial<Pick<FloorTable, 'posX' | 'posY' | 'width' | 'height'>>) => {
+    const next = clampLayout({
+      posX: patch.posX ?? selected.posX,
+      posY: patch.posY ?? selected.posY,
+      width: patch.width ?? selected.width,
+      height: patch.height ?? selected.height,
+    });
+    onUpdate(next);
+  };
+
   return (
     <Space orientation="vertical" size={12} style={{ width: '100%' }}>
       <div>
@@ -109,7 +120,7 @@ function TableDetailsPanel({
           min={1}
           max={FLOOR_GRID_COLS}
           value={selected.width}
-          onChange={(v) => v && onUpdate({ width: v })}
+          onChange={(v) => v && applyLayoutPatch({ width: v })}
           style={{ width: '100%', marginTop: 4 }}
         />
       </div>
@@ -119,7 +130,7 @@ function TableDetailsPanel({
           min={1}
           max={FLOOR_GRID_ROWS}
           value={selected.height}
-          onChange={(v) => v && onUpdate({ height: v })}
+          onChange={(v) => v && applyLayoutPatch({ height: v })}
           style={{ width: '100%', marginTop: 4 }}
         />
       </div>
@@ -253,7 +264,6 @@ export default function FloorPlanPage() {
       const size = cellSizeRef.current;
       const dx = snapDelta(clientX - interaction.startX, size);
       const dy = snapDelta(clientY - interaction.startY, size);
-      if (dx === 0 && dy === 0) return;
 
       if (interaction.kind === 'move') {
         const next = clampMove(
@@ -267,24 +277,11 @@ export default function FloorPlanPage() {
           dy,
         );
         updateTable(interaction.tableId, next);
-        interactionRef.current = {
-          ...interaction,
-          startX: clientX,
-          startY: clientY,
-          origPosX: next.posX,
-          origPosY: next.posY,
-        };
         return;
       }
 
       const next = applyResize(interaction.orig, interaction.handle, dx, dy);
       updateTable(interaction.tableId, next);
-      interactionRef.current = {
-        ...interaction,
-        startX: clientX,
-        startY: clientY,
-        orig: next,
-      };
     },
     [updateTable],
   );

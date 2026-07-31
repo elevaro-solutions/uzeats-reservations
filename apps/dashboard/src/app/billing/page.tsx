@@ -327,7 +327,9 @@ export default function BillingPage() {
                 </Paragraph>
               </div>
               <Switch
-                checked={Boolean(subscription.features?.premiumSms)}
+                checked={Boolean(
+                  subscription.features?.premiumSms || subscription.features?.premiumSmsAddon,
+                )}
                 loading={togglingSms}
                 onChange={handleTogglePremiumSms}
                 checkedChildren="On"

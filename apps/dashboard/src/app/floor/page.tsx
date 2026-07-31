@@ -144,21 +144,25 @@ export default function FloorPage() {
               style={{ marginTop: 16 }}
               onFinish={async (values) => {
                 if (!restaurantId) return;
-                await createTable({
-                  variables: {
-                    restaurantId,
-                    input: {
-                      name: values.name,
-                      minCapacity: values.minCapacity,
-                      maxCapacity: values.maxCapacity,
-                      floorArea: values.floorArea ?? 'Main',
-                      combinable: values.combinable ?? false,
-                      active: true,
+                try {
+                  await createTable({
+                    variables: {
+                      restaurantId,
+                      input: {
+                        name: values.name,
+                        minCapacity: values.minCapacity,
+                        maxCapacity: values.maxCapacity,
+                        floorArea: values.floorArea ?? 'Main',
+                        combinable: values.combinable ?? false,
+                        active: true,
+                      },
                     },
-                  },
-                });
-                message.success('Table added');
-                refetch();
+                  });
+                  message.success('Table added');
+                  refetch();
+                } catch (err: unknown) {
+                  message.error(err instanceof Error ? err.message : 'Failed to add table');
+                }
               }}
             >
               <Form.Item name="name" rules={[{ required: true }]}>

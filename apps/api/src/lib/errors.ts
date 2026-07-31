@@ -38,3 +38,27 @@ export class ConflictError extends AppError {
     super(message, 'CONFLICT', 409);
   }
 }
+
+export class PlanFeatureError extends AppError {
+  constructor(message: string) {
+    super(message, 'PLAN_FEATURE_REQUIRED', 403);
+    this.name = 'PlanFeatureError';
+  }
+}
+
+export function formatMongooseError(err: unknown): AppError | null {
+  if (!err || typeof err !== 'object') return null;
+  const name = (err as { name?: string }).name;
+  if (name === 'ValidationError') {
+    const message =
+      Object.values((err as { errors?: Record<string, { message?: string }> }).errors ?? {})
+        .map((e) => e.message)
+        .filter(Boolean)
+        .join('; ') || 'Validation failed';
+    return new ValidationError(message);
+  }
+  if (name === 'CastError') {
+    return new ValidationError('Invalid ID or field value');
+  }
+  return null;
+}

@@ -22,6 +22,9 @@ import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS } from '@/lib/graphql';
+import { buildRestaurantSelectOptions, validatedRestaurantId } from '@/lib/restaurants';
+import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
+import PhotoUpload from '@/components/PhotoUpload';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { gql } from '@apollo/client';
 
@@ -33,7 +36,7 @@ const EXPERIENCES = gql`
     experiences(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
       total
       items {
-        id title type date startTime endTime maxGuests ticketPriceCents ticketsSold status
+        id title type date startTime endTime maxGuests ticketPriceCents ticketsSold status description photoUrl
       }
     }
   }
@@ -52,6 +55,12 @@ const UPDATE_EXPERIENCE = gql`
     updateExperience(id: $id, input: $input) {
       id title status
     }
+  }
+`;
+
+const DELETE_EXPERIENCE = gql`
+  mutation DeleteExperience($id: ID!) {
+    deleteExperience(id: $id)
   }
 `;
 
@@ -95,30 +104,29 @@ const statusColors: Record<string, string> = {
 function ExperiencesPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [restaurantId, setRestaurantId] = useState<string>();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form] = Form.useForm();
   const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 10 });
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurants = restData?.myRestaurants ?? [];
+  const restaurantIds = restaurants.map((r: { id: string }) => r.id);
+  const { restaurantId, setRestaurantId } = useActiveRestaurant(restaurantIds);
+  const activeRestaurantId = validatedRestaurantId(restaurantId, restaurantIds);
+
   const { data, refetch, loading } = useQuery(EXPERIENCES, {
-    skip: !restaurantId,
-    variables: { restaurantId, limit, offset },
+    skip: !activeRestaurantId,
+    variables: { restaurantId: activeRestaurantId, limit, offset },
   });
   const [createExperience, { loading: creating }] = useMutation(CREATE_EXPERIENCE);
   const [updateExperience, { loading: updating }] = useMutation(UPDATE_EXPERIENCE);
   const [publishExperience] = useMutation(PUBLISH_EXPERIENCE);
+  const [deleteExperience] = useMutation(DELETE_EXPERIENCE);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('activeRestaurantId');
-    const first = restData?.myRestaurants?.[0]?.id;
-    setRestaurantId(saved ?? first);
-  }, [restData]);
 
   const handleSubmit = async () => {
     try {
@@ -127,7 +135,7 @@ function ExperiencesPageContent() {
         title: values.title,
         description: values.description,
         type: values.type,
-        photoUrl: values.photoUrl || undefined,
+        photoUrl: values.photoUrls?.[0] || values.photoUrl || undefined,
         date: values.date.toISOString(),
         startTime: values.startTime,
         endTime: values.endTime,
@@ -141,7 +149,7 @@ function ExperiencesPageContent() {
         await updateExperience({ variables: { id: editingId, input } });
         message.success('Experience updated');
       } else {
-        await createExperience({ variables: { restaurantId, input } });
+        await createExperience({ variables: { restaurantId: activeRestaurantId, input } });
         message.success('Experience created');
       }
       setModalOpen(false);
@@ -158,7 +166,28 @@ function ExperiencesPageContent() {
     refetch();
   };
 
-  const openEdit = (record: any) => {
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteExperience({ variables: { id } });
+      message.success('Experience deleted');
+      refetch();
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Failed to delete experience');
+    }
+  };
+
+  const openEdit = (record: {
+    id: string;
+    title: string;
+    description?: string;
+    type: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    maxGuests: number;
+    ticketPriceCents: number;
+    photoUrl?: string;
+  }) => {
     setEditingId(record.id);
     form.setFieldsValue({
       title: record.title,
@@ -169,6 +198,8 @@ function ExperiencesPageContent() {
       endTime: record.endTime,
       maxGuests: record.maxGuests,
       ticketPrice: record.ticketPriceCents / 100,
+      photoUrls: record.photoUrl ? [record.photoUrl] : [],
+      photoUrl: record.photoUrl,
     });
     setModalOpen(true);
   };
@@ -214,13 +245,18 @@ function ExperiencesPageContent() {
       key: 'actions',
       render: (_: any, r: any) => (
         <Space>
-          <Button size="small" onClick={() => openEdit(r)}>Edit</Button>
+          <Button size="small" onClick={() => openEdit(r)}>
+            Edit
+          </Button>
           <Button
             size="small"
             type={r.status === 'published' ? 'default' : 'primary'}
             onClick={() => handlePublish(r.id)}
           >
             {r.status === 'published' ? 'Unpublish' : 'Publish'}
+          </Button>
+          <Button size="small" danger onClick={() => handleDelete(r.id)}>
+            Delete
           </Button>
         </Space>
       ),
@@ -241,16 +277,10 @@ function ExperiencesPageContent() {
       </div>
 
       <Select
-        style={{ width: 260 }}
-        value={restaurantId}
-        onChange={(id) => {
-          setRestaurantId(id);
-          localStorage.setItem('activeRestaurantId', id);
-        }}
-        options={(restData?.myRestaurants ?? []).map((r: any) => ({
-          value: r.id,
-          label: r.name,
-        }))}
+        style={{ width: 320 }}
+        value={activeRestaurantId}
+        onChange={setRestaurantId}
+        options={buildRestaurantSelectOptions(restaurants)}
       />
 
       <Card>
@@ -302,8 +332,11 @@ function ExperiencesPageContent() {
               <InputNumber min={0} step={0.01} />
             </Form.Item>
           </Space>
-          <Form.Item name="photoUrl" label="Photo URL">
-            <Input placeholder="https://..." />
+          <Form.Item name="photoUrls" label="Photo">
+            <PhotoUpload maxCount={1} />
+          </Form.Item>
+          <Form.Item name="photoUrl" hidden>
+            <Input />
           </Form.Item>
           <Form.Item name="includes" label="What's Included (one per line)">
             <TextArea rows={3} placeholder="5-course tasting menu&#10;Wine pairings&#10;Meet the chef" />

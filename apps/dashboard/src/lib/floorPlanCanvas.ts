@@ -33,6 +33,18 @@ export function clampMove(
   return { ...layout, posX, posY };
 }
 
+export function clampLayout(
+  layout: TableLayout,
+  cols = FLOOR_GRID_COLS,
+  rows = FLOOR_GRID_ROWS,
+): TableLayout {
+  const width = Math.min(Math.max(layout.width, 1), cols - layout.posX);
+  const height = Math.min(Math.max(layout.height, 1), rows - layout.posY);
+  const posX = Math.min(Math.max(layout.posX, 0), cols - width);
+  const posY = Math.min(Math.max(layout.posY, 0), rows - height);
+  return { posX, posY, width, height };
+}
+
 export function applyResize(
   orig: TableLayout,
   handle: ResizeHandle,

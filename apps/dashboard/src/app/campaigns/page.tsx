@@ -210,14 +210,14 @@ function CampaignsPageContent() {
                       </Button>
                     </Popconfirm>
                     <Popconfirm
-                      title="Cancel this campaign?"
+                      title="Delete this campaign?"
                       onConfirm={async () => {
                         await deleteCampaign({ variables: { id: r.id } });
                         refetch();
                       }}
                     >
                       <Button size="small" danger>
-                        Cancel
+                        Delete
                       </Button>
                     </Popconfirm>
                   </Space>

@@ -1316,6 +1316,23 @@ export const CREATE_BLACKOUT = gql`
   }
 `;
 
+export const RESTAURANT_BLACKOUTS = gql`
+  query RestaurantBlackouts($restaurantId: ID!) {
+    blackouts(restaurantId: $restaurantId) {
+      id
+      date
+      reason
+      allDay
+    }
+  }
+`;
+
+export const DELETE_BLACKOUT = gql`
+  mutation DeleteBlackout($id: ID!) {
+    deleteBlackout(id: $id)
+  }
+`;
+
 export const UPDATE_TABLE = gql`
   mutation UpdateTable($id: ID!, $input: TableInput!) {
     updateTable(id: $id, input: $input) {
@@ -1346,7 +1363,7 @@ export const MY_SUBSCRIPTION = gql`
       networkCoverFeeCents
       websiteCoverFeeCents
       features {
-        floorPlans smartAssign waitlist premiumSms
+        floorPlans smartAssign waitlist premiumSms premiumSmsAddon
         guestProfiles360 emailCampaigns customWidget analytics dedicatedSupport
       }
       createdAt

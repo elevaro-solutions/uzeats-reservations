@@ -3,6 +3,7 @@ import { isPlatformAdmin, PLATFORM_ADMIN_ROLES, type UserRole } from '@reservati
 import { User } from '../models/User.js';
 import { verifyAccessToken } from '../services/auth.js';
 import type { UserDocument } from '../models/User.js';
+import { AuthenticationError, ForbiddenError } from '../lib/errors.js';
 
 export interface GraphQLContext {
   user: UserDocument | null;
@@ -32,20 +33,20 @@ export async function createContext({ req }: { req: Request }): Promise<GraphQLC
 }
 
 export function requireAuth(ctx: GraphQLContext) {
-  if (!ctx.user) throw new Error('Authentication required');
+  if (!ctx.user) throw new AuthenticationError();
   return ctx.user;
 }
 
 export function requireRole(ctx: GraphQLContext, roles: UserRole[]) {
   const user = requireAuth(ctx);
-  if (!roles.includes(user.role)) throw new Error('Forbidden');
+  if (!roles.includes(user.role)) throw new ForbiddenError();
   return user;
 }
 
 /** Platform admin actions must be performed as the real admin, not while impersonating. */
 export function requireAdmin(ctx: GraphQLContext) {
   if (ctx.impersonator) {
-    throw new Error('Exit impersonation before performing admin actions');
+    throw new ForbiddenError('Exit impersonation before performing admin actions');
   }
   return requireRole(ctx, [...PLATFORM_ADMIN_ROLES]);
 }
@@ -53,7 +54,7 @@ export function requireAdmin(ctx: GraphQLContext) {
 /** Destructive platform actions (permanent deletes, seed wipe, restaurant removal). */
 export function requireSuperAdmin(ctx: GraphQLContext) {
   if (ctx.impersonator) {
-    throw new Error('Exit impersonation before performing super admin actions');
+    throw new ForbiddenError('Exit impersonation before performing super admin actions');
   }
   return requireRole(ctx, ['super_admin']);
 }

@@ -13,6 +13,10 @@ import {
   reviewInputSchema,
   notificationPreferencesSchema,
   searchRestaurantsSchema,
+  accessRuleInputSchema,
+  promotionInputSchema,
+  inHouseWaitlistInputSchema,
+  createBlackoutInputSchema,
   normalizeAnnualBillingSettings,
   type AnnualBillingSettings,
   isPlatformAdmin,
@@ -118,6 +122,7 @@ import { logAudit } from '../services/audit.js';
 import { createRestaurantSubscription } from '../services/restaurantSubscription.js';
 import { provisionDefaultRestaurantSetup } from '../services/restaurantSetup.js';
 import { requireAuth, requireAdmin, requireSuperAdmin, requireRole, type GraphQLContext } from './context.js';
+import { NotFoundError } from '../lib/errors.js';
 import {
   mapUser,
   mapRestaurant,
@@ -1508,6 +1513,21 @@ export const resolvers = {
       return rules.map(mapAccessRule);
     },
 
+    blackouts: async (_: unknown, args: { restaurantId: string }, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      const items = await Blackout.find({ restaurantId: args.restaurantId }).sort({ date: 1 });
+      return items.map((doc) => ({
+        id: doc._id.toString(),
+        restaurantId: doc.restaurantId.toString(),
+        date: doc.date,
+        reason: doc.reason,
+        allDay: doc.allDay ?? true,
+        startTime: doc.startTime,
+        endTime: doc.endTime,
+      }));
+    },
+
     promotions: async (
       _: unknown,
       args: { restaurantId: string; activeOnly?: boolean; limit?: number; offset?: number },
@@ -1952,22 +1972,41 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      const doc = await Blackout.create({
+      const input = createBlackoutInputSchema.parse({
         restaurantId: args.restaurantId,
         date: args.date,
         reason: args.reason,
-        allDay: args.allDay ?? true,
+        allDay: args.allDay,
+      });
+      await assertRestaurantAccess(user._id.toString(), input.restaurantId, user.role);
+      const doc = await Blackout.create({
+        restaurantId: input.restaurantId,
+        date: input.date,
+        reason: input.reason,
+        allDay: input.allDay ?? true,
       });
       return {
         id: doc._id.toString(),
-        restaurantId: args.restaurantId,
+        restaurantId: input.restaurantId,
         date: doc.date,
         reason: doc.reason,
         allDay: doc.allDay,
         startTime: doc.startTime,
         endTime: doc.endTime,
       };
+    },
+
+    deleteBlackout: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      const existing = await Blackout.findById(args.id);
+      if (!existing) throw new NotFoundError('Blackout');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        existing.restaurantId.toString(),
+        user.role,
+      );
+      await existing.deleteOne();
+      return true;
     },
 
     createReservation: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
@@ -2813,11 +2852,20 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const existing = await Experience.findById(args.id);
-      if (!existing) throw new Error('Experience not found');
+      if (!existing) throw new NotFoundError('Experience');
       await assertRestaurantAccess(user._id.toString(), existing.restaurantId.toString(), user.role);
       Object.assign(existing, args.input);
       await existing.save();
       return mapExperience(existing);
+    },
+
+    deleteExperience: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      const existing = await Experience.findById(args.id);
+      if (!existing) throw new NotFoundError('Experience');
+      await assertRestaurantAccess(user._id.toString(), existing.restaurantId.toString(), user.role);
+      await existing.deleteOne();
+      return true;
     },
 
     publishExperience: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
@@ -2950,11 +2998,20 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const existing = await PrivateDiningSpace.findById(args.id);
-      if (!existing) throw new Error('Space not found');
+      if (!existing) throw new NotFoundError('Private dining space');
       await assertRestaurantAccess(user._id.toString(), existing.restaurantId.toString(), user.role);
       Object.assign(existing, args.input);
       await existing.save();
       return mapPrivateDiningSpace(existing);
+    },
+
+    deletePrivateDiningSpace: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      const existing = await PrivateDiningSpace.findById(args.id);
+      if (!existing) throw new NotFoundError('Private dining space');
+      await assertRestaurantAccess(user._id.toString(), existing.restaurantId.toString(), user.role);
+      await existing.deleteOne();
+      return true;
     },
 
     submitPrivateDiningInquiry: async (
@@ -3413,7 +3470,8 @@ export const resolvers = {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
       await requireFeature(args.restaurantId, 'accessRules');
-      const doc = await AccessRule.create({ ...args.input, restaurantId: args.restaurantId });
+      const input = accessRuleInputSchema.parse(args.input);
+      const doc = await AccessRule.create({ ...input, restaurantId: args.restaurantId });
       return mapAccessRule(doc);
     },
 
@@ -3450,7 +3508,8 @@ export const resolvers = {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
       await requireFeature(args.restaurantId, 'promotions');
-      const doc = await Promotion.create({ ...args.input, restaurantId: args.restaurantId });
+      const input = promotionInputSchema.parse(args.input);
+      const doc = await Promotion.create({ ...input, restaurantId: args.restaurantId });
       return mapPromotion(doc);
     },
 
@@ -3699,14 +3758,15 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.input.restaurantId, user.role);
-      await requireFeature(args.input.restaurantId, 'waitlist');
+      const input = inHouseWaitlistInputSchema.parse(args.input);
+      await assertRestaurantAccess(user._id.toString(), input.restaurantId, user.role);
+      await requireFeature(input.restaurantId, 'waitlist');
       const doc = await WaitlistEntry.create({
-        restaurantId: args.input.restaurantId,
-        guestName: args.input.guestName,
-        guestPhone: args.input.guestPhone,
-        partySize: args.input.partySize,
-        quotedWaitMinutes: args.input.quotedWaitMinutes,
+        restaurantId: input.restaurantId,
+        guestName: input.guestName,
+        guestPhone: input.guestPhone,
+        partySize: input.partySize,
+        quotedWaitMinutes: input.quotedWaitMinutes,
         preferredDate: new Date().toISOString().slice(0, 10),
         source: 'in_house',
         status: 'waiting',

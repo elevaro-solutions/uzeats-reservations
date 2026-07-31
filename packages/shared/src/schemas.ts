@@ -256,6 +256,57 @@ export const contactFormInputSchema = z.object({
 
 export type ContactFormInput = z.infer<typeof contactFormInputSchema>;
 
+const dateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const timeStringSchema = z.string().regex(/^\d{2}:\d{2}$/);
+
+export const accessRuleInputSchema = z.object({
+  name: z.string().min(1).max(120),
+  daysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
+  startDate: dateStringSchema.optional(),
+  endDate: dateStringSchema.optional(),
+  startTime: timeStringSchema.optional(),
+  endTime: timeStringSchema.optional(),
+  minPartySize: z.number().int().min(1).max(50).optional(),
+  maxPartySize: z.number().int().min(1).max(50).optional(),
+  maxCoversPerSlot: z.number().int().min(0).optional(),
+  minAdvanceHours: z.number().int().min(0).optional(),
+  maxAdvanceDays: z.number().int().min(0).optional(),
+  active: z.boolean().optional(),
+});
+
+export const promotionInputSchema = z.object({
+  title: z.string().min(1).max(120),
+  description: z.string().max(2000).optional(),
+  discountPercent: z.number().int().min(0).max(100).optional(),
+  discountAmountCents: z.number().int().min(0).optional(),
+  code: z.string().min(1).max(40).optional(),
+  startDate: dateStringSchema.optional(),
+  endDate: dateStringSchema.optional(),
+  daysOfWeek: z.array(z.number().int().min(0).max(6)).optional(),
+  maxRedemptions: z.number().int().min(0).optional(),
+  active: z.boolean().optional(),
+});
+
+export const inHouseWaitlistInputSchema = z.object({
+  restaurantId: z.string().min(1),
+  guestName: z.string().min(1).max(120),
+  guestPhone: z.string().min(7).max(20).optional(),
+  partySize: z.number().int().min(1).max(50),
+  quotedWaitMinutes: z.number().int().min(0).max(480).optional(),
+});
+
+export const createBlackoutInputSchema = z.object({
+  restaurantId: z.string().min(1),
+  date: dateStringSchema,
+  reason: z.string().max(500).optional().nullable(),
+  allDay: z.boolean().optional(),
+});
+
+export type AccessRuleInput = z.infer<typeof accessRuleInputSchema>;
+export type PromotionInput = z.infer<typeof promotionInputSchema>;
+export type InHouseWaitlistInput = z.infer<typeof inHouseWaitlistInputSchema>;
+export type CreateBlackoutInput = z.infer<typeof createBlackoutInputSchema>;
+
 export {
   USER_ROLES,
   RESTAURANT_STATUSES,

@@ -11,6 +11,7 @@ import {
   Input,
   InputNumber,
   Modal,
+  Popconfirm,
   Select,
   Space,
   Table,
@@ -23,6 +24,8 @@ import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS } from '@/lib/graphql';
+import { buildRestaurantSelectOptions, validatedRestaurantId } from '@/lib/restaurants';
+import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { gql } from '@apollo/client';
 
@@ -66,6 +69,12 @@ const UPDATE_SPACE = gql`
   }
 `;
 
+const DELETE_SPACE = gql`
+  mutation DeletePrivateDiningSpace($id: ID!) {
+    deletePrivateDiningSpace(id: $id)
+  }
+`;
+
 const RESPOND_TO_INQUIRY = gql`
   mutation RespondToInquiry($id: ID!, $status: InquiryStatus!, $response: String) {
     respondToInquiry(id: $id, status: $status, response: $response) {
@@ -85,7 +94,6 @@ const inquiryStatusColors: Record<string, string> = {
 function PrivateDiningPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [restaurantId, setRestaurantId] = useState<string>();
   const [spaceModalOpen, setSpaceModalOpen] = useState(false);
   const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null);
   const [respondModalOpen, setRespondModalOpen] = useState(false);
@@ -95,27 +103,27 @@ function PrivateDiningPageContent() {
   const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 10 });
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurants = restData?.myRestaurants ?? [];
+  const restaurantIds = restaurants.map((r: { id: string }) => r.id);
+  const { restaurantId, setRestaurantId } = useActiveRestaurant(restaurantIds);
+  const activeRestaurantId = validatedRestaurantId(restaurantId, restaurantIds);
+
   const { data: spacesData, refetch: refetchSpaces, loading: spacesLoading } = useQuery(
     PRIVATE_DINING_SPACES,
-    { skip: !restaurantId, variables: { restaurantId: restaurantId! } },
+    { skip: !activeRestaurantId, variables: { restaurantId: activeRestaurantId! } },
   );
   const { data: inquiriesData, refetch: refetchInquiries, loading: inquiriesLoading } = useQuery(
     PRIVATE_DINING_INQUIRIES,
-    { skip: !restaurantId, variables: { restaurantId: restaurantId!, limit, offset } },
+    { skip: !activeRestaurantId, variables: { restaurantId: activeRestaurantId!, limit, offset } },
   );
   const [createSpace, { loading: creatingSpace }] = useMutation(CREATE_SPACE);
   const [updateSpace, { loading: updatingSpace }] = useMutation(UPDATE_SPACE);
+  const [deleteSpace] = useMutation(DELETE_SPACE);
   const [respondToInquiry, { loading: responding }] = useMutation(RESPOND_TO_INQUIRY);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('activeRestaurantId');
-    const first = restData?.myRestaurants?.[0]?.id;
-    setRestaurantId(saved ?? first);
-  }, [restData]);
 
   const handleSpaceSubmit = async () => {
     try {
@@ -136,7 +144,7 @@ function PrivateDiningPageContent() {
         await updateSpace({ variables: { id: editingSpaceId, input } });
         message.success('Space updated');
       } else {
-        await createSpace({ variables: { restaurantId, input } });
+        await createSpace({ variables: { restaurantId: activeRestaurantId, input } });
         message.success('Space created');
       }
       setSpaceModalOpen(false);
@@ -161,6 +169,16 @@ function PrivateDiningPageContent() {
       refetchInquiries();
     } catch (err: any) {
       message.error(err?.message ?? 'Failed to respond');
+    }
+  };
+
+  const handleDeleteSpace = async (id: string) => {
+    try {
+      await deleteSpace({ variables: { id } });
+      message.success('Space deleted');
+      refetchSpaces();
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Failed to delete space');
     }
   };
 
@@ -208,7 +226,16 @@ function PrivateDiningPageContent() {
       title: 'Actions',
       key: 'actions',
       render: (_: any, r: any) => (
-        <Button size="small" onClick={() => openEditSpace(r)}>Edit</Button>
+        <Space>
+          <Button size="small" onClick={() => openEditSpace(r)}>
+            Edit
+          </Button>
+          <Popconfirm title="Delete this space?" onConfirm={() => handleDeleteSpace(r.id)}>
+            <Button size="small" danger>
+              Delete
+            </Button>
+          </Popconfirm>
+        </Space>
       ),
     },
   ];
@@ -269,16 +296,10 @@ function PrivateDiningPageContent() {
       <Title level={2}>Private Dining</Title>
 
       <Select
-        style={{ width: 260 }}
-        value={restaurantId}
-        onChange={(id) => {
-          setRestaurantId(id);
-          localStorage.setItem('activeRestaurantId', id);
-        }}
-        options={(restData?.myRestaurants ?? []).map((r: any) => ({
-          value: r.id,
-          label: r.name,
-        }))}
+        style={{ width: 320 }}
+        value={activeRestaurantId}
+        onChange={setRestaurantId}
+        options={buildRestaurantSelectOptions(restaurants)}
       />
 
       <Tabs

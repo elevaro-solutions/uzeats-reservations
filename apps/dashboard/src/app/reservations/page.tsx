@@ -430,13 +430,13 @@ function ReservationsPageContent() {
           </Space>
         }
       />
-      <Card styles={{ body: { padding: 0 } }} style={{ borderRadius: radii.lg, overflow: 'hidden' }}>
+      <Card styles={{ body: { padding: 0, paddingRight: 8 } }} style={{ borderRadius: radii.lg, overflow: 'hidden' }}>
         <Table<ReservationRow>
           loading={loading}
           rowKey="id"
           dataSource={(data?.restaurantReservations?.items ?? []) as ReservationRow[]}
           pagination={tablePagination(data?.restaurantReservations?.total ?? 0)}
-          scroll={{ x: 1040 }}
+          scroll={{ x: 1120 }}
           columns={[
             {
               title: 'Time',
@@ -465,6 +465,8 @@ function ReservationsPageContent() {
             { title: 'Party', dataIndex: 'partySize', width: 70 },
             {
               title: 'Table',
+              width: 80,
+              ellipsis: true,
               render: (_: unknown, r) =>
                 (r.tables ?? []).map((t) => t.name).join(', ') || '—',
             },
@@ -503,13 +505,11 @@ function ReservationsPageContent() {
             },
             {
               title: 'Actions',
-              width: 90,
+              width: 72,
               fixed: 'right',
               render: (_: unknown, r) => (
                 <Dropdown menu={{ items: actionItems(r) }} trigger={['click']} placement="bottomRight">
-                  <Button size="small" icon={<MoreOutlined />}>
-                    More
-                  </Button>
+                  <Button size="small" icon={<MoreOutlined />} aria-label="More actions" />
                 </Dropdown>
               ),
             },

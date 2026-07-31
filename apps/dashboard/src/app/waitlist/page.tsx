@@ -133,6 +133,7 @@ function WaitlistPageContent() {
         <Table
           loading={loading}
           rowKey="id"
+          scroll={{ x: 1200 }}
           dataSource={data?.restaurantWaitlist?.items ?? []}
           pagination={tablePagination(data?.restaurantWaitlist?.total ?? 0)}
           columns={[

@@ -713,18 +713,21 @@ export default function OverviewPage() {
             />
           ) : (
         <Row gutter={[16, 16]}>
-          {restaurants.map((r) => (
+          {restaurants.map((r) => {
+            const isInactive = r.status === 'rejected' || r.status === 'suspended';
+            return (
             <Col key={r.id} xs={24} md={12} lg={8}>
               <Card
                 title={r.name}
                 extra={<StatusTag status={r.status} />}
-                style={{ borderRadius: radii.lg, height: '100%' }}
+                style={{ borderRadius: radii.lg, height: '100%', opacity: isInactive ? 0.85 : 1 }}
                 styles={{ body: { paddingTop: spacing.sm } }}
                 actions={[
                   <Button
                     key="res"
                     type="link"
-                    style={{ color: colors.brand[600] }}
+                    disabled={isInactive}
+                    style={{ color: isInactive ? undefined : colors.brand[600] }}
                     onClick={() => {
                       localStorage.setItem('activeRestaurantId', r.id);
                       window.dispatchEvent(
@@ -738,7 +741,8 @@ export default function OverviewPage() {
                   <Button
                     key="floor"
                     type="link"
-                    style={{ color: colors.brand[600] }}
+                    disabled={isInactive}
+                    style={{ color: isInactive ? undefined : colors.brand[600] }}
                     onClick={() => {
                       localStorage.setItem('activeRestaurantId', r.id);
                       window.dispatchEvent(
@@ -752,7 +756,8 @@ export default function OverviewPage() {
                   <Button
                     key="settings"
                     type="link"
-                    style={{ color: colors.brand[600] }}
+                    disabled={isInactive}
+                    style={{ color: isInactive ? undefined : colors.brand[600] }}
                     onClick={() => {
                       localStorage.setItem('activeRestaurantId', r.id);
                       window.dispatchEvent(
@@ -765,6 +770,11 @@ export default function OverviewPage() {
                   </Button>,
                 ]}
               >
+                {isInactive && (
+                  <Text type="danger" style={{ display: 'block', marginBottom: spacing.sm }}>
+                    This location is not active. Contact support if you believe this is an error.
+                  </Text>
+                )}
                 <Text type="secondary">
                   {r.cuisine} · {r.address.city}, {r.address.state}
                 </Text>
@@ -778,7 +788,8 @@ export default function OverviewPage() {
                 </Row>
               </Card>
             </Col>
-          ))}
+            );
+          })}
         </Row>
           )}
         </>

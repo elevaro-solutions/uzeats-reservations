@@ -52,7 +52,7 @@ export async function checkAccessRules(input: {
       const existing = await Reservation.aggregate([
         {
           $match: {
-            restaurantId: rules[0]!.restaurantId,
+            restaurantId: input.restaurantId,
             slotStart: input.slotStart,
             status: { $in: ['pending', 'confirmed', 'seated'] },
           },
