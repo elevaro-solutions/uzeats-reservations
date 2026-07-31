@@ -27,6 +27,8 @@ import {
   UPDATE_WAITLIST_STATUS,
 } from '@/lib/graphql';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
+import { buildRestaurantSelectOptions, validatedRestaurantId } from '@/lib/restaurants';
 
 const { Title } = Typography;
 
@@ -42,11 +44,15 @@ const STATUS_COLORS: Record<string, string> = {
 function WaitlistPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [restaurantId, setRestaurantId] = useState<string>();
   const [modalOpen, setModalOpen] = useState(false);
   const [form] = Form.useForm();
   const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 20 });
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const restaurants = restData?.myRestaurants ?? [];
+  const restaurantIds = restaurants.map((r: { id: string }) => r.id);
+  const { restaurantId, setRestaurantId } = useActiveRestaurant(restaurantIds);
+  const restaurantOptions = buildRestaurantSelectOptions(restaurants);
+  const selectValue = validatedRestaurantId(restaurantId, restaurantIds);
   const { data, loading, refetch } = useQuery(RESTAURANT_WAITLIST_FULL, {
     skip: !restaurantId,
     variables: { restaurantId, limit, offset },
@@ -58,12 +64,6 @@ function WaitlistPageContent() {
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
-
-  useEffect(() => {
-    setRestaurantId(
-      localStorage.getItem('activeRestaurantId') ?? restData?.myRestaurants?.[0]?.id,
-    );
-  }, [restData]);
 
   const handleAddWalkIn = async (values: any) => {
     if (!restaurantId) return;
@@ -118,16 +118,12 @@ function WaitlistPageContent() {
         </Button>
       </div>
       <Select
-        style={{ width: 280 }}
-        value={restaurantId}
-        onChange={(id) => {
-          setRestaurantId(id);
-          localStorage.setItem('activeRestaurantId', id);
-        }}
-        options={(restData?.myRestaurants ?? []).map((r: any) => ({
-          value: r.id,
-          label: r.name,
-        }))}
+        style={{ width: 320 }}
+        value={selectValue}
+        onChange={setRestaurantId}
+        options={restaurantOptions}
+        showSearch
+        optionFilterProp="label"
       />
       <Card>
         <Table
