@@ -103,7 +103,7 @@ JWT_ACCESS_SECRET=...
 JWT_REFRESH_SECRET=...
 ```
 
-Optional integrations: `STRIPE_*`, `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `SENDGRID_API_KEY` (or `RESEND_API_KEY`), `TELEGRAM_BOT_TOKEN` (+ `API_PUBLIC_URL` / `TELEGRAM_WEBHOOK_SECRET` in production), `DO_SPACES_*`, `VAPID_*`, `NEXT_PUBLIC_SITE_URL` (canonical URLs for sitemap/SEO), `ELEVARO_LEADS_API_KEY` (contact form lead ingest).
+Optional integrations: `STRIPE_*`, `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `SENDGRID_API_KEY` (or `RESEND_API_KEY`), `TELEGRAM_BOT_TOKEN` (+ `API_PUBLIC_URL` / `TELEGRAM_WEBHOOK_SECRET` in production), `DO_SPACES_*`, `VAPID_*`, `NEXT_PUBLIC_SITE_URL` (canonical URLs for sitemap/SEO), `ELEVARO_LEADS_API_KEY` (contact form lead ingest). Dashboard only: `NEXT_PUBLIC_SHOW_DEV_CREDENTIALS=true` shows seed login hints on `/login`.
 
 For password reset emails, set `WEB_APP_URL` and `DASHBOARD_APP_URL` on the API so reset links land on the correct app.
 

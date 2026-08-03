@@ -114,7 +114,7 @@ export default function LoginPage() {
         </Link>
       </p>
 
-      {process.env.NODE_ENV === 'development' && (
+      {process.env.NEXT_PUBLIC_SHOW_DEV_CREDENTIALS === 'true' && (
       <div
         style={{
           marginTop: 20,

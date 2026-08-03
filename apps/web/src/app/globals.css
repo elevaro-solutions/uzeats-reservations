@@ -51,7 +51,12 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  /* Full-bleed hero uses 100vw breakout; prevent scrollbar-width overflow */
+}
+
+/* Full-bleed hero uses 100vw breakout; prevent scrollbar-width overflow.
+   Kept off <body> so it stays a non-scroll-container and `position: sticky`
+   descendants resolve against the viewport. */
+html {
   overflow-x: hidden;
 }
 
@@ -110,6 +115,32 @@ body {
   color: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+}
+
+.rt-hero-breadcrumbs.ant-breadcrumb {
+  justify-content: center;
+  margin-bottom: 18px !important;
+}
+
+.rt-hero-breadcrumbs.ant-breadcrumb,
+.rt-hero-breadcrumbs.ant-breadcrumb a,
+.rt-hero-breadcrumbs.ant-breadcrumb .ant-breadcrumb-separator {
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+.rt-hero-breadcrumbs.ant-breadcrumb a:hover {
+  color: #fff !important;
+}
+
+.rt-hero-breadcrumbs.ant-breadcrumb li:last-child {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.rt-discovery-landing__footer {
+  max-width: var(--layout-content-max-width, 1280px);
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 24px 48px;
 }
 
 /* ---------- Hero search panel (segmented search bar) ---------- */
@@ -1087,17 +1118,23 @@ html.rt-map-view .rt-site-footer {
   padding-bottom: 32px;
 }
 
+/* Sticky filter rail. Height is `min(content, viewport - header)`, so it never
+   changes while scrolling, and the sticky containing block is the grid area,
+   so the rail stops above the footer instead of overlapping it. */
 .rt-filters-desktop-wrap {
   min-width: 0;
+  position: sticky;
+  top: var(--cards-sticky-top, var(--header-height, 64px));
+  max-height: calc(100vh - var(--cards-sticky-top, var(--header-height, 64px)));
+  display: flex;
+  flex-direction: column;
+  z-index: 12;
 }
 
-.rt-filters-desktop-anchor {
-  height: 0;
-  margin: 0;
-}
-
-.rt-filters-desktop-spacer {
-  pointer-events: none;
+.rt-filters-desktop-wrap > .rt-filters-desktop {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .rt-filters-desktop .rt-map-filters {
@@ -1106,31 +1143,6 @@ html.rt-map-view .rt-site-footer {
   border-right: none;
   box-shadow: var(--shadow-xs);
   overflow: hidden;
-}
-
-.rt-filters-desktop.is-pinned {
-  position: fixed;
-  z-index: 12;
-  box-sizing: border-box;
-  top: 0;
-  padding-top: 0;
-  overflow: hidden;
-}
-
-.rt-filters-desktop.is-pinned .rt-map-filters {
-  max-height: 100%;
-  border-radius: 0;
-  border: 1px solid var(--color-border);
-  box-shadow: var(--shadow-xs);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.rt-filters-desktop.is-pinned .rt-map-filters__body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
 }
 
 .rt-cards-page__split {

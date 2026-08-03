@@ -139,7 +139,7 @@ export default function FloorPage() {
                 try {
                   await createTable({
                     variables: {
-                      activeRestaurantId,
+                      restaurantId: activeRestaurantId,
                       input: {
                         name: values.name,
                         minCapacity: values.minCapacity,
@@ -244,7 +244,7 @@ export default function FloorPage() {
                 if (!activeRestaurantId) return;
                 await createShift({
                   variables: {
-                    activeRestaurantId,
+                    restaurantId: activeRestaurantId,
                     input: {
                       name: values.name,
                       daysOfWeek: values.daysOfWeek,

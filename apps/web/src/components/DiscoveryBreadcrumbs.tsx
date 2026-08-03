@@ -4,11 +4,13 @@ import type { BreadcrumbItem } from '@/lib/seo';
 
 type DiscoveryBreadcrumbsProps = {
   items: BreadcrumbItem[];
+  className?: string;
 };
 
-export function DiscoveryBreadcrumbs({ items }: DiscoveryBreadcrumbsProps) {
+export function DiscoveryBreadcrumbs({ items, className }: DiscoveryBreadcrumbsProps) {
   return (
     <Breadcrumb
+      className={className}
       style={{ marginBottom: 16 }}
       items={items.map((item, index) => ({
         title:

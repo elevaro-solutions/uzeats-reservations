@@ -18,7 +18,8 @@ export function cellSizeForWidth(containerWidth: number, cols = FLOOR_GRID_COLS)
 }
 
 export function snapDelta(pixels: number, cellSize: number): number {
-  return Math.round(pixels / cellSize);
+  if (pixels >= 0) return Math.floor(pixels / cellSize);
+  return Math.ceil(pixels / cellSize);
 }
 
 export function clampMove(

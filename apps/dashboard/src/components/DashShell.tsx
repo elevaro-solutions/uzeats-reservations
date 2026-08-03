@@ -170,8 +170,9 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     Boolean(user) && (PARTNER_ROLES.has(user!.role) || isImpersonating);
   const [restaurantId, setRestaurantId] = useState<string>();
   const [notifOpen, setNotifOpen] = useState(false);
-  const { data: restaurantsData } = useQuery(MY_RESTAURANTS, {
+  const { data: restaurantsData, refetch: refetchRestaurants } = useQuery(MY_RESTAURANTS, {
     skip: !user || isAdmin || !isPartner,
+    fetchPolicy: 'cache-and-network',
   });
   const {
     data: notifData,
@@ -182,8 +183,13 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     variables: { limit: 20 },
     pollInterval: 60_000,
   });
-  const [markRead] = useMutation(MARK_NOTIFICATIONS_READ);
-  const [markAllRead, { loading: markingAll }] = useMutation(MARK_ALL_NOTIFICATIONS_READ);
+  const [markRead] = useMutation(MARK_NOTIFICATIONS_READ, {
+    refetchQueries: [{ query: MY_NOTIFICATIONS, variables: { limit: 20 } }],
+  });
+  const [markAllRead, { loading: markingAll }] = useMutation(MARK_ALL_NOTIFICATIONS_READ, {
+    refetchQueries: [{ query: MY_NOTIFICATIONS, variables: { limit: 20 } }],
+    awaitRefetchQueries: true,
+  });
 
   // Diners belong on the customer web app — never show Partner Hub chrome to them.
   useEffect(() => {
@@ -211,6 +217,15 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     window.addEventListener('rt-restaurant-change', onChange);
     return () => window.removeEventListener('rt-restaurant-change', onChange);
   }, []);
+
+  useEffect(() => {
+    if (!user || !isPartner) return;
+    const onFocus = () => {
+      void refetchRestaurants();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [user, isPartner, refetchRestaurants]);
 
   const selectedKey = useMemo(() => {
     if (pathname.startsWith('/admin')) {

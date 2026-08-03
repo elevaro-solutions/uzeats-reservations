@@ -114,34 +114,40 @@ function WaitlistPageContent() {
         </Button>
       </div>
       <Select style={{ width: 320 }} {...restaurantSelectProps} />
-      <Card>
+      <Card styles={{ body: { padding: '0 8px 0 12px' } }}>
         <Table
           loading={loading}
           rowKey="id"
-          scroll={{ x: 1200 }}
+          scroll={{ x: 1100 }}
           dataSource={data?.restaurantWaitlist?.items ?? []}
           pagination={tablePagination(data?.restaurantWaitlist?.total ?? 0)}
           columns={[
             {
               title: 'Guest',
               key: 'guest',
+              width: 140,
+              ellipsis: true,
               render: (_: any, entry: any) => guestName(entry),
             },
             {
               title: 'Phone',
               key: 'phone',
+              width: 120,
+              ellipsis: true,
               render: (_: any, entry: any) => entry.guestPhone ?? entry.diner?.phone ?? '—',
             },
-            { title: 'Party', dataIndex: 'partySize' },
+            { title: 'Party', dataIndex: 'partySize', width: 64 },
             {
               title: 'Position',
               dataIndex: 'position',
+              width: 80,
               render: (v: number | null, entry: any) =>
                 entry.status === 'waiting' && v != null ? `#${v}` : '—',
             },
             {
               title: 'ETA',
               key: 'eta',
+              width: 80,
               render: (_: unknown, entry: any) => {
                 if (entry.status !== 'waiting' || entry.estimatedWaitMinutes == null) return '—';
                 return `~${entry.estimatedWaitMinutes} min`;
@@ -150,6 +156,7 @@ function WaitlistPageContent() {
             {
               title: 'Source',
               dataIndex: 'source',
+              width: 88,
               render: (s: string) => (
                 <Tag color={s === 'in_house' ? 'purple' : 'geekblue'}>
                   {s === 'in_house' ? 'In-house' : 'Online'}
@@ -178,6 +185,8 @@ function WaitlistPageContent() {
             {
               title: 'Actions',
               key: 'actions',
+              fixed: 'right',
+              width: 200,
               render: (_: any, entry: any) => {
                 const terminal = ['seated', 'cancelled', 'expired'].includes(entry.status);
                 if (terminal) return null;

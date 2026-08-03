@@ -111,11 +111,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     variables: { limit: 20 },
     pollInterval: 60_000,
   });
-  const [markRead] = useMutation(MARK_NOTIFICATIONS_READ);
-  const [markAllRead, { loading: markingAll }] = useMutation(MARK_ALL_NOTIFICATIONS_READ);
+  const [markRead] = useMutation(MARK_NOTIFICATIONS_READ, {
+    refetchQueries: [{ query: MY_NOTIFICATIONS, variables: { limit: 20 } }],
+  });
+  const [markAllRead, { loading: markingAll }] = useMutation(MARK_ALL_NOTIFICATIONS_READ, {
+    refetchQueries: [{ query: MY_NOTIFICATIONS, variables: { limit: 20 } }],
+    awaitRefetchQueries: true,
+  });
 
   const isAuthRoute = AUTH_PATHS.some((p) => pathname.startsWith(p));
-  const isHome = pathname === '/';
+  const isFullWidthPage =
+    pathname === '/' ||
+    pathname.startsWith('/cities/') ||
+    pathname.startsWith('/cuisine/') ||
+    pathname.startsWith('/neighborhoods/') ||
+    pathname.startsWith('/occasion/');
   const isRestaurantMarketing = pathname.startsWith('/pricing');
   const dashboardUrl = getDashboardUrl();
   const signInHref = isRestaurantMarketing ? `${dashboardUrl}/login` : '/login';
@@ -486,10 +496,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <Content
         style={{
-          maxWidth: isHome ? '100%' : layout.contentMaxWidth,
+          maxWidth: isFullWidthPage ? '100%' : layout.contentMaxWidth,
           width: '100%',
           margin: '0 auto',
-          padding: isHome ? '0' : '32px 24px',
+          padding: isFullWidthPage ? '0' : '32px 24px',
         }}
       >
         {children}

@@ -421,7 +421,7 @@ function ReservationsPageContent() {
           </Space>
         }
       />
-      <Card styles={{ body: { padding: 0, paddingRight: 8 } }} style={{ borderRadius: radii.lg, overflow: 'hidden' }}>
+      <Card styles={{ body: { padding: '0 8px 0 12px' } }} style={{ borderRadius: radii.lg, overflow: 'hidden' }}>
         <Table<ReservationRow>
           loading={loading}
           rowKey="id"

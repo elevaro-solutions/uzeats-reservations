@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Typography } from 'antd';
 import { typography } from '@reservations/ui';
 import { DiscoveryFiltersDrawer } from './DiscoveryFiltersDrawer';
@@ -39,11 +39,10 @@ export function DiscoveryCardsLayout({
   children,
 }: DiscoveryCardsLayoutProps) {
   const drawerContent = filtersDrawerContent ?? filtersSidebar;
-  const splitRef = useRef<HTMLDivElement>(null);
 
   return (
-    <div ref={splitRef} className="rt-cards-page__split">
-      <StickyFiltersSidebar boundaryRef={splitRef}>{filtersSidebar}</StickyFiltersSidebar>
+    <div className="rt-cards-page__split">
+      <StickyFiltersSidebar>{filtersSidebar}</StickyFiltersSidebar>
 
       <section className="rt-cards-page__main">
         <div className="rt-cards-page__header">

@@ -4,6 +4,26 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.17.0] — 2026-08-03
+
+### Added
+
+- Discovery SEO landing pages: full-bleed hero, highlight chips, geolocation search, and date presets
+- `NEXT_PUBLIC_SHOW_DEV_CREDENTIALS` env flag to show seed login hints on dashboard `/login`
+
+### Changed
+
+- Sticky discovery filters use CSS `position: sticky` instead of JS fixed pinning
+- Discovery landing and city/cuisine/neighborhood/occasion pages render full-width in AppShell
+- Dashboard notifications refetch after mark-read; partner restaurant list refreshes on window focus
+- Waitlist and reservations tables: tighter column widths and consistent card padding
+
+### Fixed
+
+- Unread notification count and mark-read when `readAt` field is missing on legacy documents
+- Floor page `createTable` / `createShift` GraphQL variable name (`restaurantId`)
+- Floor plan table resize max bounds and drag snap direction on negative deltas
+
 ## [0.16.0] — 2026-07-31
 
 ### Added

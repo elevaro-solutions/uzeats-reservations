@@ -798,7 +798,7 @@ export const resolvers = {
       return Notification.countDocuments({
         userId: user._id,
         channel: 'in_app',
-        readAt: null,
+        $or: [{ readAt: null }, { readAt: { $exists: false } }],
       });
     },
 
@@ -2761,7 +2761,7 @@ export const resolvers = {
       const filter: Record<string, unknown> = {
         userId: user._id,
         channel: 'in_app',
-        readAt: null,
+        $or: [{ readAt: null }, { readAt: { $exists: false } }],
       };
       if (args.ids?.length) filter._id = { $in: args.ids };
       await Notification.updateMany(filter, { $set: { readAt: new Date() } });
@@ -2771,7 +2771,11 @@ export const resolvers = {
     markAllNotificationsRead: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
       await Notification.updateMany(
-        { userId: user._id, channel: 'in_app', readAt: null },
+        {
+          userId: user._id,
+          channel: 'in_app',
+          $or: [{ readAt: null }, { readAt: { $exists: false } }],
+        },
         { $set: { readAt: new Date() } },
       );
       return true;

@@ -119,7 +119,7 @@ function TableDetailsPanel({
         <Text strong>Width (cells)</Text>
         <InputNumber
           min={1}
-          max={FLOOR_GRID_COLS}
+          max={FLOOR_GRID_COLS - selected.posX}
           value={selected.width}
           onChange={(v) => v && applyLayoutPatch({ width: v })}
           style={{ width: '100%', marginTop: 4 }}
@@ -129,7 +129,7 @@ function TableDetailsPanel({
         <Text strong>Height (cells)</Text>
         <InputNumber
           min={1}
-          max={FLOOR_GRID_ROWS}
+          max={FLOOR_GRID_ROWS - selected.posY}
           value={selected.height}
           onChange={(v) => v && applyLayoutPatch({ height: v })}
           style={{ width: '100%', marginTop: 4 }}
