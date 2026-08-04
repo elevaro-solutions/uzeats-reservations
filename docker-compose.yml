@@ -3,7 +3,7 @@ services:
     build:
       context: ./docker/mongo
     ports:
-      - "27017:27017"
+      - "27018:27017"
     environment:
       MONGO_REPLICA_SET: rs0
       MONGO_REPLICA_HOST: localhost:27017

@@ -4,6 +4,23 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.18.0] — 2026-08-04
+
+### Added
+
+- Booking draft persistence: unauthenticated users save reservation form state in session and resume after login
+- Welcome-back banner when returning to complete a booking after sign-in
+- `isSafeInternalPath` helper to validate post-auth redirect targets
+
+### Changed
+
+- MongoDB Docker port mapped to `27018` locally to avoid conflicts with system MongoDB
+- Login page validates `next` redirect param against open-redirect patterns
+
+### Fixed
+
+- Selected table no longer cleared on initial page load when slot/party haven't changed
+
 ## [0.17.0] — 2026-08-03
 
 ### Added

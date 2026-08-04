@@ -97,7 +97,7 @@ Visual language lives in [`packages/ui`](./packages/ui): shared Tablevera brand 
 See [`.env.example`](.env.example). Required for local:
 
 ```
-MONGODB_URI=mongodb://localhost:27017/reservations?replicaSet=rs0
+MONGODB_URI=mongodb://127.0.0.1:27018/reservations?replicaSet=rs0&directConnection=true
 REDIS_URL=redis://localhost:6379
 JWT_ACCESS_SECRET=...
 JWT_REFRESH_SECRET=...

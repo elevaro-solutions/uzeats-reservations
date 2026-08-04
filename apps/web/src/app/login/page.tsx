@@ -10,6 +10,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { PhoneInput, colors, typography, usPhoneRules } from '@reservations/ui';
+import { isSafeInternalPath } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { AuthLayout } from '@/components/AuthLayout';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
@@ -30,7 +31,10 @@ function LoginContent() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  const goNext = () => router.push(search.get('next') ?? '/');
+  const goNext = () => {
+    const next = search.get('next');
+    router.push(isSafeInternalPath(next) ? next : '/');
+  };
 
   const handleGoogleSuccess = async (idToken: string) => {
     setGoogleLoading(true);

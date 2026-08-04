@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@apollo/client/react';
 import {
@@ -23,7 +23,23 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import { SlotPicker, priceRangeLabel, colors, radii } from '@reservations/ui';
-import { OCCASIONS, LOYALTY, RESTAURANT_LOYALTY, pointsToDiscountCents, restaurantPointsToDiscountCents, depositPointsFromCents, loyaltyRedeemProgress, isMongoObjectId, buildRestaurantBookingPath } from '@reservations/shared';
+import {
+  OCCASIONS,
+  LOYALTY,
+  RESTAURANT_LOYALTY,
+  pointsToDiscountCents,
+  restaurantPointsToDiscountCents,
+  depositPointsFromCents,
+  loyaltyRedeemProgress,
+  isMongoObjectId,
+  buildRestaurantBookingPath,
+  buildBookingResumePath,
+} from '@reservations/shared';
+import {
+  saveBookingDraftToSession,
+  loadBookingDraftFromSession,
+  clearBookingDraftFromSession,
+} from '@/lib/bookingDraft';
 import { useAuth } from '@/lib/auth';
 import {
   RESTAURANT_DETAIL,
@@ -69,6 +85,8 @@ export default function RestaurantPage() {
   const [redeemRestaurantPoints, setRedeemRestaurantPoints] = useState<number>(0);
   const [promoCode, setPromoCode] = useState(search.get('promo')?.toUpperCase() ?? '');
   const [giftCardCode, setGiftCardCode] = useState('');
+  const draftRestoredRef = useRef(false);
+  const prevSlotPartyRef = useRef<{ slot: string | null; party: number } | null>(null);
 
   useEffect(() => {
     const promo = search.get('promo');
@@ -212,8 +230,63 @@ export default function RestaurantPage() {
   }, [availLoading, slots, selectedSlot]);
 
   useEffect(() => {
-    setSelectedTableId(null);
+    if (prevSlotPartyRef.current === null) {
+      prevSlotPartyRef.current = { slot: selectedSlot, party: partySize };
+      return;
+    }
+    if (
+      prevSlotPartyRef.current.slot !== selectedSlot ||
+      prevSlotPartyRef.current.party !== partySize
+    ) {
+      setSelectedTableId(null);
+      prevSlotPartyRef.current = { slot: selectedSlot, party: partySize };
+    }
   }, [selectedSlot, partySize]);
+
+  useEffect(() => {
+    if (!restaurantId || draftRestoredRef.current || search.get('resume') !== '1') return;
+    const draft = loadBookingDraftFromSession(restaurantId);
+    if (!draft) return;
+    draftRestoredRef.current = true;
+    setDate(dayjs(draft.date));
+    setPartySize(draft.partySize);
+    if (draft.selectedSlot) setSelectedSlot(draft.selectedSlot);
+    setOccasion(draft.occasion);
+    setNotes(draft.notes);
+    setPromoCode(draft.promoCode);
+    setGiftCardCode(draft.giftCardCode);
+    setRedeemPoints(draft.redeemPoints);
+    setRedeemRestaurantPoints(draft.redeemRestaurantPoints);
+    if (draft.selectedTableId) setSelectedTableId(draft.selectedTableId);
+    prevSlotPartyRef.current = { slot: draft.selectedSlot, party: draft.partySize };
+  }, [restaurantId, search]);
+
+  const showResumeBanner = search.get('resume') === '1' && !!user;
+
+  useEffect(() => {
+    if (!showResumeBanner) return;
+    document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [showResumeBanner]);
+
+  const redirectToLoginForBooking = () => {
+    if (!restaurantId) return;
+    const draft = {
+      restaurantId,
+      date: date.format('YYYY-MM-DD'),
+      partySize,
+      selectedSlot,
+      selectedTableId,
+      occasion,
+      notes,
+      promoCode,
+      giftCardCode,
+      redeemPoints,
+      redeemRestaurantPoints,
+    };
+    saveBookingDraftToSession(draft);
+    const next = buildBookingResumePath(bookingPath, draft);
+    router.push(`/login?next=${encodeURIComponent(next)}`);
+  };
 
   const clearFieldError = (field: string) => {
     setFieldErrors((prev) => {
@@ -226,8 +299,8 @@ export default function RestaurantPage() {
 
   const book = async () => {
     if (!user) {
-      message.info('Please sign in to book');
-      router.push(`/login?next=${encodeURIComponent(bookingPath)}`);
+      message.info('Please sign in to complete your reservation');
+      redirectToLoginForBooking();
       return;
     }
     if (!selectedSlot) {
@@ -284,9 +357,11 @@ export default function RestaurantPage() {
         return;
       }
       if (successInfo) {
+        clearBookingDraftFromSession(restaurantId!);
         setBookingSuccess(successInfo);
         return;
       }
+      clearBookingDraftFromSession(restaurantId!);
       message.success('Reservation confirmed!');
       router.push('/reservations');
     } catch (err) {
@@ -314,16 +389,19 @@ export default function RestaurantPage() {
     }
     setDepositInfo(null);
     if (tableInfo) {
+      clearBookingDraftFromSession(restaurantId!);
       setBookingSuccess(tableInfo);
       return;
     }
+    clearBookingDraftFromSession(restaurantId!);
     message.success('Deposit authorized — reservation confirmed!');
     router.push('/reservations');
   };
 
   const waitlist = async () => {
     if (!user) {
-      router.push('/login');
+      message.info('Please sign in to join the waitlist');
+      redirectToLoginForBooking();
       return;
     }
     const { data: wlData } = await joinWaitlist({
@@ -492,7 +570,19 @@ export default function RestaurantPage() {
 
       <Row gutter={16}>
         <Col xs={24} lg={14}>
-          <Card title="Make a reservation" style={{ borderColor: colors.brand[100] }}>
+          <Card
+            id="booking-form"
+            title="Make a reservation"
+            style={{ borderColor: colors.brand[100] }}
+          >
+            {showResumeBanner && (
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+                message="Welcome back — your reservation details have been restored. Review and complete your booking."
+              />
+            )}
             <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
               Pick a date, party size, and time — confirmed in seconds.
             </Text>
