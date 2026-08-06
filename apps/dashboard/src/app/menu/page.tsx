@@ -28,7 +28,8 @@ import type { RcFile } from 'antd/es/upload';
 import type { FormListFieldData } from 'antd/es/form/FormList';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
-import { MY_RESTAURANTS, UPSERT_MENU } from '@/lib/graphql';
+import { MY_RESTAURANTS, UPSERT_MENU, UPDATE_RESTAURANT } from '@/lib/graphql';
+import { buildRestaurantInput } from '@/lib/restaurantInput';
 import { uploadFile } from '@/lib/upload';
 
 const { Title, Text } = Typography;
@@ -82,6 +83,8 @@ export default function MenuPage() {
   const restaurants = data?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const [upsertMenu, { loading }] = useMutation(UPSERT_MENU);
+  const [updateRestaurant, { loading: savingMenuUrl }] = useMutation(UPDATE_RESTAURANT);
+  const [menuUrl, setMenuUrl] = useState('');
   const [uploadingPath, setUploadingPath] = useState<string | null>(null);
   /** Empty = all item accordions collapsed (default). */
   const [openKeys, setOpenKeys] = useState<OpenKeysBySection>({});
@@ -97,6 +100,8 @@ export default function MenuPage() {
       (r: { id: string }) => r.id === activeRestaurantId,
     );
     if (!activeRestaurantId) return;
+
+    setMenuUrl(restaurant?.menuUrl ?? '');
 
     if (restaurant?.menu?.sections?.length) {
       form.setFieldsValue({
@@ -195,6 +200,10 @@ export default function MenuPage() {
         layout="vertical"
         onFinish={async (values) => {
           if (!activeRestaurantId) return;
+          const restaurant = restaurants.find(
+            (r: { id: string }) => r.id === activeRestaurantId,
+          );
+          if (!restaurant) return;
           try {
             const sections = (values.sections ?? []).map((s) => ({
               name: s.name.trim(),
@@ -207,7 +216,18 @@ export default function MenuPage() {
                 photoUrl: i.photoUrl || undefined,
               })),
             }));
-            await upsertMenu({ variables: { restaurantId: activeRestaurantId, input: { sections } } });
+            await Promise.all([
+              updateRestaurant({
+                variables: {
+                  id: activeRestaurantId,
+                  input: {
+                    ...buildRestaurantInput(restaurant),
+                    menuUrl: menuUrl.trim() || undefined,
+                  },
+                },
+              }),
+              upsertMenu({ variables: { restaurantId: activeRestaurantId, input: { sections } } }),
+            ]);
             message.success('Menu saved');
             refetch();
           } catch (err: unknown) {
@@ -215,6 +235,20 @@ export default function MenuPage() {
           }
         }}
       >
+        <Card size="small" style={{ marginBottom: 16 }}>
+          <Form.Item
+            label="Full menu URL"
+            extra='Optional link for "View full menu" on your public page — PDF, website menu, or third-party menu host.'
+            style={{ marginBottom: 0 }}
+          >
+            <Input
+              placeholder="https://yourrestaurant.com/menu"
+              value={menuUrl}
+              onChange={(e) => setMenuUrl(e.target.value)}
+            />
+          </Form.Item>
+        </Card>
+
         <Form.List name="sections">
           {(sections, { add: addSection, remove: removeSection }) => (
             <Space orientation="vertical" size={16} style={{ width: '100%' }}>
@@ -325,7 +359,7 @@ export default function MenuPage() {
           )}
         </Form.List>
 
-        <Button type="primary" htmlType="submit" loading={loading} style={{ marginTop: 16 }}>
+        <Button type="primary" htmlType="submit" loading={loading || savingMenuUrl} style={{ marginTop: 16 }}>
           Save menu
         </Button>
       </Form>

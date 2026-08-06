@@ -20,6 +20,7 @@ import { useMutation, useQuery } from '@apollo/client/react';
 import { useState } from 'react';
 import {
   BellOutlined,
+  BookOutlined,
   CalendarOutlined,
   CheckOutlined,
   ClockCircleOutlined,
@@ -56,13 +57,23 @@ function roleLabel(role: string) {
   return role.replace(/_/g, ' ');
 }
 
-function notificationHref(n: AppNotification): string {
-  let data: Record<string, unknown> = {};
+function parseNotificationData(data: string | null | undefined): Record<string, unknown> {
+  if (!data) return {};
   try {
-    data = n.data ? JSON.parse(n.data) : {};
+    return JSON.parse(data) as Record<string, unknown>;
   } catch {
-    data = {};
+    return {};
   }
+}
+
+function reservationDetailHref(data: Record<string, unknown>): string {
+  return typeof data.reservationId === 'string'
+    ? `/reservations/${data.reservationId}`
+    : '/reservations';
+}
+
+function notificationHref(n: AppNotification): string {
+  const data = parseNotificationData(n.data);
 
   switch (n.type) {
     case 'new_message':
@@ -72,14 +83,14 @@ function notificationHref(n: AppNotification): string {
     case 'reservation_confirmed':
     case 'reservation_reminder':
     case 'reservation_updates':
-      return '/reservations';
+      return reservationDetailHref(data);
     case 'waitlist_available':
     case 'waitlist_ready':
     case 'waitlist_notified':
       return '/waitlist';
     case 'review_reply':
     case 'survey_invitation':
-      return '/reservations';
+      return reservationDetailHref(data);
     default:
       return '/profile';
   }
@@ -146,6 +157,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     ...(user
       ? [
           { key: '/reservations', label: <Link href="/reservations">My reservations</Link> },
+          { key: '/saved', label: <Link href="/saved">Saved</Link> },
           { key: '/waitlist', label: <Link href="/waitlist">Waitlist</Link> },
           { key: '/profile', label: <Link href="/profile">Profile</Link> },
         ]
@@ -186,6 +198,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           icon: <CalendarOutlined />,
           label: 'My reservations',
           onClick: () => router.push('/reservations'),
+        },
+        {
+          key: 'saved',
+          icon: <BookOutlined />,
+          label: 'Saved restaurants',
+          onClick: () => router.push('/saved'),
         },
         {
           key: 'waitlist',

@@ -48,6 +48,7 @@ import {
 } from '@reservations/ui';
 import PhotoUpload from '@/components/PhotoUpload';
 import CuisineSelect from '@/components/CuisineSelect';
+import { RestaurantProfileFields } from '@/components/RestaurantProfileFields';
 import {
   ADMIN_RESTAURANTS,
   ADMIN_CREATE_RESTAURANT,
@@ -70,6 +71,7 @@ import {
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { isPlatformAdmin, isSuperAdmin } from '@/lib/roles';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { useUrlListFilters } from '@/lib/useUrlListFilters';
 
 const CREATE_STEPS = [
   { title: 'Owner' },
@@ -223,6 +225,7 @@ type RestaurantRecord = {
   priceRange: number;
   phone?: string | null;
   website?: string | null;
+  menuUrl?: string | null;
   photos?: string[];
   ownerId: string;
   featured?: boolean;
@@ -242,8 +245,22 @@ type RestaurantRecord = {
     state?: string;
     zip?: string;
     country?: string;
+    neighborhood?: string | null;
   };
   location?: { lat?: number; lng?: number };
+  diningStyles?: string[];
+  discoveryOccasions?: string[];
+  meals?: string[];
+  dietaryTags?: string[];
+  amenities?: string[];
+  wheelchairAccessible?: boolean;
+  faq?: Array<{ question: string; answer: string }>;
+  featuredIn?: Array<{
+    title: string;
+    description?: string | null;
+    url?: string | null;
+    logoUrl?: string | null;
+  }>;
   widgetTheme?: {
     primaryColor?: string;
     buttonText?: string;
@@ -274,8 +291,10 @@ function formatPlanLabel(planKey: string, plans: Array<{ key: string; name: stri
 function AdminRestaurantsContent() {
   const { ready, user } = useRequireAdmin();
   const canDeleteRestaurants = user ? isSuperAdmin(user.role) : false;
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>();
+  const { search, status: statusFilter, setSearch, setStatus: setStatusFilter } = useUrlListFilters({
+    search: 'q',
+    status: 'status',
+  });
   const { limit, offset, setPagination, tablePagination } = useUrlPagination({
     defaultPageSize: 20,
   });
@@ -374,6 +393,7 @@ function AdminRestaurantsContent() {
       priceRange: editing.priceRange,
       phone: editing.phone ?? '',
       website: editing.website ?? '',
+      menuUrl: editing.menuUrl ?? '',
       depositRequired: editing.depositRequired,
       depositAmountCents: editing.depositAmountCents
         ? editing.depositAmountCents / 100
@@ -397,6 +417,20 @@ function AdminRestaurantsContent() {
       primaryColor: editing.widgetTheme?.primaryColor ?? colors.brand[600],
       buttonText: editing.widgetTheme?.buttonText ?? 'Reserve a table',
       showReviews: editing.widgetTheme?.showReviews ?? true,
+      neighborhood: editing.address?.neighborhood ?? '',
+      diningStyles: editing.diningStyles ?? [],
+      discoveryOccasions: editing.discoveryOccasions ?? [],
+      meals: editing.meals ?? [],
+      dietaryTags: editing.dietaryTags ?? [],
+      amenities: editing.amenities ?? [],
+      wheelchairAccessible: editing.wheelchairAccessible ?? false,
+      faq: (editing.faq ?? []).map((item) => ({ question: item.question, answer: item.answer })),
+      featuredIn: (editing.featuredIn ?? []).map((item) => ({
+        title: item.title,
+        description: item.description ?? '',
+        url: item.url ?? '',
+        logoUrl: item.logoUrl ?? '',
+      })),
     });
   }, [editing, form]);
 
@@ -438,6 +472,7 @@ function AdminRestaurantsContent() {
     priceRange: values.priceRange,
     phone: values.phone || undefined,
     website: values.website || undefined,
+    menuUrl: values.menuUrl || undefined,
     depositRequired: Boolean(values.depositRequired),
     depositAmountCents: Math.round((Number(values.depositAmountCents) || 0) * 100),
     loyaltyEnabled: Boolean(values.loyaltyEnabled),
@@ -456,6 +491,20 @@ function AdminRestaurantsContent() {
       lat: Number(values.lat),
       lng: Number(values.lng),
     },
+    neighborhood: values.neighborhood || undefined,
+    diningStyles: values.diningStyles ?? [],
+    discoveryOccasions: values.discoveryOccasions ?? [],
+    meals: values.meals ?? [],
+    dietaryTags: values.dietaryTags ?? [],
+    amenities: values.amenities ?? [],
+    wheelchairAccessible: Boolean(values.wheelchairAccessible),
+    faq: (values.faq as Array<{ question: string; answer: string }> | undefined) ?? [],
+    featuredIn: (values.featuredIn as Array<{
+      title: string;
+      description?: string;
+      url?: string;
+      logoUrl?: string;
+    }> | undefined) ?? [],
   });
 
   const onSave = async () => {
@@ -701,6 +750,11 @@ function AdminRestaurantsContent() {
           <Input placeholder="https://" />
         </Form.Item>
       </Col>
+      <Col span={12}>
+        <Form.Item name="menuUrl" label="Full menu URL" tooltip="External link for View full menu on the public restaurant page">
+          <Input placeholder="https://" />
+        </Form.Item>
+      </Col>
       {!isCreate && (
         <Col span={12}>
           <Form.Item name="ownerId" label="Owner" rules={[{ required: true }]}>
@@ -872,7 +926,6 @@ function AdminRestaurantsContent() {
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
-                  setPagination(1);
                 }}
                 allowClear
                 style={{ width: 300 }}
@@ -1193,6 +1246,11 @@ function AdminRestaurantsContent() {
                     <Input placeholder="https://" />
                   </Form.Item>
                 </Col>
+                <Col xs={24} sm={12}>
+                  <Form.Item name="menuUrl" label="Full menu URL">
+                    <Input placeholder="https://" />
+                  </Form.Item>
+                </Col>
                 <Col span={24}>
                   <Form.Item label="Photos">
                     <PhotoUpload value={photos} onChange={setPhotos} maxCount={10} />
@@ -1419,7 +1477,7 @@ function AdminRestaurantsContent() {
           width={800}
           destroyOnClose
           footer={
-            editTab === 'details'
+            editTab === 'details' || editTab === 'profile'
               ? [
                   <Button key="cancel" onClick={() => setEditing(null)}>Cancel</Button>,
                   <Button key="save" type="primary" loading={saving} onClick={onSave}>
@@ -1441,6 +1499,15 @@ function AdminRestaurantsContent() {
                 children: (
                   <Form form={form} layout="vertical">
                     {restaurantFormFields(form)}
+                  </Form>
+                ),
+              },
+              {
+                key: 'profile',
+                label: 'Public profile',
+                children: (
+                  <Form form={form} layout="vertical">
+                    <RestaurantProfileFields />
                   </Form>
                 ),
               },

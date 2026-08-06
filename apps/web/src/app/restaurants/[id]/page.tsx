@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@apollo/client/react';
 import {
@@ -22,6 +22,7 @@ import {
   Tag,
 } from 'antd';
 import dayjs from 'dayjs';
+import { StarFilled } from '@ant-design/icons';
 import { SlotPicker, priceRangeLabel, colors, radii } from '@reservations/ui';
 import {
   OCCASIONS,
@@ -57,9 +58,31 @@ import {
   VALIDATE_GIFT_CARD,
 } from '@/lib/graphql';
 import { getGraphQLErrorMessage, getValidationIssues, toFieldErrors } from '@/lib/errors';
+import {
+  useRestaurantPageParams,
+  useRestaurantSectionScroll,
+} from '@/lib/useRestaurantPageParams';
 import { JsonLd } from '@/components/JsonLd';
 import { faqJsonLd, restaurantJsonLd } from '@/lib/seo';
 import DepositPayment from '@/components/DepositPayment';
+import { RestaurantPhotoGallery } from '@/components/restaurant/RestaurantPhotoGallery';
+import { RestaurantSectionNav } from '@/components/restaurant/RestaurantSectionNav';
+import { RestaurantAbout } from '@/components/restaurant/RestaurantAbout';
+import { RestaurantMenuSection } from '@/components/restaurant/RestaurantMenuSection';
+import { RestaurantReviewsSection } from '@/components/restaurant/RestaurantReviewsSection';
+import { RestaurantPhotosSection } from '@/components/restaurant/RestaurantPhotosSection';
+import { RestaurantDetailsSection } from '@/components/restaurant/RestaurantDetailsSection';
+import { RestaurantFeaturedIn } from '@/components/restaurant/RestaurantFeaturedIn';
+import { RestaurantFaqSection } from '@/components/restaurant/RestaurantFaqSection';
+import { RestaurantActions } from '@/components/restaurant/RestaurantActions';
+import { RestaurantBookmarkButtons } from '@/components/restaurant/RestaurantBookmarkButtons';
+import { RestaurantTermsSection } from '@/components/restaurant/RestaurantTermsSection';
+import { RestaurantMessageModal } from '@/components/restaurant/RestaurantMessageModal';
+import {
+  ReservationConfirmModal,
+  formatOccasion,
+} from '@/components/restaurant/ReservationConfirmModal';
+import { buildCancellationPolicy, buildCancellationPolicySummary } from '@/lib/restaurantTerms';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -70,9 +93,11 @@ export default function RestaurantPage() {
   const search = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
-  const [date, setDate] = useState(dayjs(search.get('date') ?? dayjs().add(1, 'day')));
-  const [partySize, setPartySize] = useState(Number(search.get('party') ?? 2));
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(search.get('slot'));
+  const { section, bookingFromUrl, syncBookingToUrl } = useRestaurantPageParams();
+  useRestaurantSectionScroll(section);
+  const [date, setDate] = useState(bookingFromUrl.date);
+  const [partySize, setPartySize] = useState(bookingFromUrl.partySize);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(bookingFromUrl.selectedSlot);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState<{
     tableName?: string;
@@ -83,15 +108,47 @@ export default function RestaurantPage() {
   const [notes, setNotes] = useState('');
   const [redeemPoints, setRedeemPoints] = useState<number>(0);
   const [redeemRestaurantPoints, setRedeemRestaurantPoints] = useState<number>(0);
-  const [promoCode, setPromoCode] = useState(search.get('promo')?.toUpperCase() ?? '');
+  const [promoCode, setPromoCode] = useState(bookingFromUrl.promoCode);
   const [giftCardCode, setGiftCardCode] = useState('');
+  const [messageOpen, setMessageOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const draftRestoredRef = useRef(false);
   const prevSlotPartyRef = useRef<{ slot: string | null; party: number } | null>(null);
 
   useEffect(() => {
-    const promo = search.get('promo');
-    if (promo) setPromoCode(promo.toUpperCase());
-  }, [search]);
+    setDate(bookingFromUrl.date);
+    setPartySize(bookingFromUrl.partySize);
+    setSelectedSlot(bookingFromUrl.selectedSlot);
+    setPromoCode(bookingFromUrl.promoCode);
+  }, [
+    bookingFromUrl.date.format('YYYY-MM-DD'),
+    bookingFromUrl.partySize,
+    bookingFromUrl.selectedSlot,
+    bookingFromUrl.promoCode,
+    bookingFromUrl,
+  ]);
+
+  const updateBooking = useCallback(
+    (next: Partial<{
+      date: typeof date;
+      partySize: number;
+      selectedSlot: string | null;
+      promoCode: string;
+    }>) => {
+      const merged = {
+        date: next.date ?? date,
+        partySize: next.partySize ?? partySize,
+        selectedSlot: next.selectedSlot !== undefined ? next.selectedSlot : selectedSlot,
+        promoCode: next.promoCode ?? promoCode,
+      };
+      if (next.date !== undefined) setDate(next.date);
+      if (next.partySize !== undefined) setPartySize(next.partySize);
+      if (next.selectedSlot !== undefined) setSelectedSlot(next.selectedSlot);
+      if (next.promoCode !== undefined) setPromoCode(next.promoCode);
+      syncBookingToUrl(merged);
+    },
+    [date, partySize, selectedSlot, promoCode, syncBookingToUrl],
+  );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [validationSummary, setValidationSummary] = useState<string[]>([]);
   const [depositInfo, setDepositInfo] = useState<{
@@ -209,25 +266,23 @@ export default function RestaurantPage() {
     skip: !restaurantId || !giftCardCode.trim() || depositAfterPromo <= 0,
   });
   const giftValidation = (giftValidationData as any)?.validateGiftCard;
+  const finalDepositCents = Math.max(
+    0,
+    depositAfterPromo - (giftValidation?.valid ? giftValidation.discountCents : 0),
+  );
+  const selectedTable = bookableTables.find((t: { id: string }) => t.id === selectedTableId);
   const availableCount = slots.filter((s: any) => s.available).length;
   const promotions = (promotionsData as any)?.promotions?.items ?? [];
   const experiences = (experiencesData as any)?.experiences?.items ?? [];
 
   useEffect(() => {
-    const slot = search.get('slot');
-    if (slot) setSelectedSlot(slot);
-  }, [search]);
-
-  // Drop a deep-linked / previously selected slot when it is no longer free
-  // for the current date + party size (avoids a late CONFLICT from the API).
-  useEffect(() => {
     if (availLoading || !selectedSlot) return;
     const match = slots.find((s: { time: string; available: boolean }) => s.time === selectedSlot);
     if (!match?.available) {
-      setSelectedSlot(null);
+      updateBooking({ selectedSlot: null });
       setSelectedTableId(null);
     }
-  }, [availLoading, slots, selectedSlot]);
+  }, [availLoading, slots, selectedSlot, updateBooking]);
 
   useEffect(() => {
     if (prevSlotPartyRef.current === null) {
@@ -259,6 +314,12 @@ export default function RestaurantPage() {
     setRedeemRestaurantPoints(draft.redeemRestaurantPoints);
     if (draft.selectedTableId) setSelectedTableId(draft.selectedTableId);
     prevSlotPartyRef.current = { slot: draft.selectedSlot, party: draft.partySize };
+    syncBookingToUrl({
+      date: dayjs(draft.date),
+      partySize: draft.partySize,
+      selectedSlot: draft.selectedSlot,
+      promoCode: draft.promoCode,
+    });
   }, [restaurantId, search]);
 
   const showResumeBanner = search.get('resume') === '1' && !!user;
@@ -297,7 +358,7 @@ export default function RestaurantPage() {
     });
   };
 
-  const book = async () => {
+  const book = () => {
     if (!user) {
       message.info('Please sign in to complete your reservation');
       redirectToLoginForBooking();
@@ -315,6 +376,11 @@ export default function RestaurantPage() {
       setSelectedSlot(null);
       return;
     }
+    setConfirmOpen(true);
+  };
+
+  const submitBooking = async () => {
+    if (!user || !selectedSlot) return;
     setFieldErrors({});
     setValidationSummary([]);
     try {
@@ -347,6 +413,7 @@ export default function RestaurantPage() {
         : null;
       if (payload?.clientSecret) {
         const cs = payload.clientSecret as string;
+        setConfirmOpen(false);
         setDepositInfo({
           clientSecret: cs,
           reservationId: payload.reservation.id,
@@ -358,10 +425,12 @@ export default function RestaurantPage() {
       }
       if (successInfo) {
         clearBookingDraftFromSession(restaurantId!);
+        setConfirmOpen(false);
         setBookingSuccess(successInfo);
         return;
       }
       clearBookingDraftFromSession(restaurantId!);
+      setConfirmOpen(false);
       message.success('Reservation confirmed!');
       router.push('/reservations');
     } catch (err) {
@@ -423,7 +492,7 @@ export default function RestaurantPage() {
 
   if (!restaurant) return <div component="RestaurantPage" style={{ display: 'contents' }}><Card loading /></div>;
 
-  const restaurantFaq = [
+  const defaultFaq = [
     {
       question: `How do I book a table at ${restaurant.name}?`,
       answer: `Choose your date, party size, and an available time slot on this page. Confirmation is instant through Tablevera.`,
@@ -434,9 +503,39 @@ export default function RestaurantPage() {
     },
     {
       question: `Where is ${restaurant.name} located?`,
-      answer: `${restaurant.name} is located at ${restaurant.address.line1}, ${restaurant.address.city}, ${restaurant.address.state} ${restaurant.address.zip}.`,
+      answer: `${restaurant.name} is located at ${restaurant.address.line1}, ${restaurant.address.city}, ${restaurant.address.state} ${restaurant.address.zip}.${restaurant.address.neighborhood ? ` The restaurant is in the ${restaurant.address.neighborhood} neighborhood.` : ''}`,
     },
+    ...(restaurant.depositRequired
+      ? [{
+          question: `Is a deposit required at ${restaurant.name}?`,
+          answer: `Yes, a deposit of $${(restaurant.depositAmountCents / 100).toFixed(2)} per guest is required when booking. The deposit is applied toward your final bill.`,
+        }]
+      : []),
+    {
+      question: `What is the cancellation policy at ${restaurant.name}?`,
+      answer: buildCancellationPolicy({
+        depositRequired: restaurant.depositRequired,
+        depositAmountCents: restaurant.depositAmountCents,
+      }),
+    },
+    ...(restaurant.dietaryTags?.length
+      ? [{
+          question: `Does ${restaurant.name} accommodate dietary restrictions?`,
+          answer: `${restaurant.name} offers ${restaurant.dietaryTags.join(', ')} options. Mention any allergies or dietary needs in your special requests when booking.`,
+        }]
+      : []),
+    ...(restaurant.phone
+      ? [{
+          question: `How can I contact ${restaurant.name}?`,
+          answer: `You can reach ${restaurant.name} at ${restaurant.phone}${restaurant.website ? ` or visit their website at ${restaurant.website}` : ''}.`,
+        }]
+      : []),
   ];
+
+  const restaurantFaq =
+    (restaurant.faq?.length ?? 0) > 0 ? restaurant.faq : defaultFaq;
+
+  const reviews = (reviewsData as any)?.restaurantReviews?.items ?? [];
 
   return (
     <div component="RestaurantPage" style={{ display: 'contents' }}><JsonLd
@@ -451,143 +550,219 @@ export default function RestaurantPage() {
           faqJsonLd(restaurantFaq),
         ]}
       />
-      <Space orientation="vertical" size={24} style={{ width: '100%' }}>
-      <Card
-        cover={
-          restaurant.photos?.[0] ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={restaurant.photos[0]}
-              alt={restaurant.name}
-              style={{ height: 280, objectFit: 'cover' }}
-            />
-          ) : undefined
-        }
-      >
-        <Title level={2} style={{ marginTop: 0 }}>
-          {restaurant.name}
-        </Title>
-        <Space wrap>
-          <Tag>{restaurant.cuisine}</Tag>
-          <Text>{priceRangeLabel(restaurant.priceRange)}</Text>
-          <Text type="secondary">
+      <div className="rt-restaurant-page">
+      <div className="rt-restaurant-profile">
+        <RestaurantPhotoGallery photos={restaurant.photos ?? []} name={restaurant.name} />
+
+        <div className="rt-restaurant-profile__header rt-fade-up">
+          <Title level={2} style={{ marginTop: 0, marginBottom: 8 }}>
+            {restaurant.name}
+          </Title>
+          <div className="rt-restaurant-profile__meta">
+            {restaurant.averageRating > 0 && (
+              <span className="rt-restaurant-profile__rating">
+                <StarFilled style={{ color: colors.rating }} />
+                <Text strong>{restaurant.averageRating.toFixed(1)}</Text>
+                <Text type="secondary">({restaurant.reviewCount} reviews)</Text>
+              </span>
+            )}
+            <Text>{priceRangeLabel(restaurant.priceRange)}</Text>
+            <Text type="secondary">·</Text>
+            <Tag>{restaurant.cuisine}</Tag>
+            {restaurant.address.neighborhood && (
+              <>
+                <Text type="secondary">·</Text>
+                <Text type="secondary">{restaurant.address.neighborhood}</Text>
+              </>
+            )}
+          </div>
+          <Text type="secondary" className="rt-restaurant-profile__address">
             {restaurant.address.line1}, {restaurant.address.city}, {restaurant.address.state}{' '}
             {restaurant.address.zip}
           </Text>
-        </Space>
-        <div style={{ marginTop: 8 }}>
-          <Rate disabled allowHalf value={restaurant.averageRating} />
-          <Text type="secondary" style={{ marginLeft: 8 }}>
-            {restaurant.averageRating.toFixed(1)} ({restaurant.reviewCount} reviews)
-          </Text>
+          {restaurant.depositRequired && (
+            <Tag color="gold" style={{ marginTop: 8 }}>
+              Deposit ${(restaurant.depositAmountCents / 100).toFixed(2)} per guest
+            </Tag>
+          )}
+          <div style={{ marginTop: 12 }}>
+            <RestaurantBookmarkButtons
+              restaurantId={restaurant.id}
+              isSaved={restaurant.isSaved}
+              isFavorite={restaurant.isFavorite}
+            />
+          </div>
+          <RestaurantActions
+            address={restaurant.address}
+            location={restaurant.location}
+            onMessage={() => setMessageOpen(true)}
+          />
         </div>
-        <Paragraph style={{ marginTop: 16 }}>{restaurant.description}</Paragraph>
-        {restaurant.depositRequired && (
-          <Tag color="gold">
-            Deposit ${(restaurant.depositAmountCents / 100).toFixed(2)} per guest
-          </Tag>
-        )}
-      </Card>
 
-      {promotions.length > 0 && (
-        <Card title="Offers">
-          <Row gutter={[16, 16]}>
-            {promotions.map((p: any) => (
-              <Col xs={24} md={12} key={p.id}>
-                <Card size="small" style={{ height: '100%', background: colors.brand[50], borderColor: colors.brand[100] }}>
-                  <Space align="baseline" style={{ justifyContent: 'space-between', width: '100%' }}>
-                    <Text strong>{p.title}</Text>
-                    {p.discountPercent ? (
-                      <Tag color="red">{p.discountPercent}% off</Tag>
-                    ) : p.discountAmountCents ? (
-                      <Tag color="red">${(p.discountAmountCents / 100).toFixed(2)} off</Tag>
-                    ) : null}
-                  </Space>
-                  {p.description && (
-                    <Paragraph type="secondary" style={{ marginBottom: 8, marginTop: 4 }}>
-                      {p.description}
-                    </Paragraph>
-                  )}
-                  <Space wrap size={8}>
-                    {p.code && <Tag color="gold">Code: {p.code}</Tag>}
-                    {(p.startDate || p.endDate) && (
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        {p.startDate ? `From ${p.startDate}` : ''}
-                        {p.startDate && p.endDate ? ' ' : ''}
-                        {p.endDate ? `Until ${p.endDate}` : ''}
-                      </Text>
-                    )}
-                  </Space>
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        </Card>
-      )}
+        <RestaurantSectionNav />
 
-      {experiences.length > 0 && (
-        <Card title="Experiences & events">
-          <Row gutter={[16, 16]}>
-            {experiences.map((e: any) => (
-              <Col xs={24} md={12} lg={8} key={e.id}>
-                <Card
-                  size="small"
-                  style={{ height: '100%' }}
-                  cover={
-                    e.photoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={e.photoUrl}
-                        alt={e.title}
-                        style={{ height: 140, objectFit: 'cover' }}
-                      />
-                    ) : undefined
-                  }
-                >
-                  <Space orientation="vertical" size={4} style={{ width: '100%' }}>
-                    <Text strong>{e.title}</Text>
-                    <Text type="secondary" style={{ fontSize: 13 }}>
-                      {dayjs(e.date).format('MMM D, YYYY')} · {e.startTime}–{e.endTime}
-                    </Text>
-                    <Space>
-                      <Tag>{String(e.type).replace(/_/g, ' ')}</Tag>
-                      <Text strong>${(e.ticketPriceCents / 100).toFixed(2)}</Text>
-                    </Space>
-                    {e.status === 'sold_out' ? (
-                      <Tag color="red">Sold out</Tag>
-                    ) : (
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        {e.availableTickets} tickets left
-                      </Text>
-                    )}
-                  </Space>
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        </Card>
-      )}
+        <Row gutter={[32, 32]} className="rt-restaurant-profile__body">
+          <Col xs={24} lg={14}>
+            <div className="rt-restaurant-profile__content">
+              <RestaurantAbout
+                name={restaurant.name}
+                description={restaurant.description}
+                diningStyles={restaurant.diningStyles}
+                discoveryOccasions={restaurant.discoveryOccasions}
+                amenities={restaurant.amenities}
+                dietaryTags={restaurant.dietaryTags}
+                meals={restaurant.meals}
+              />
 
-      <Row gutter={16}>
-        <Col xs={24} lg={14}>
+              {promotions.length > 0 && (
+                <div className="rt-restaurant-section">
+                  <Title level={3} className="rt-restaurant-section__title">Offers</Title>
+                  <Row gutter={[16, 16]}>
+                    {promotions.map((p: any) => (
+                      <Col xs={24} md={12} key={p.id}>
+                        <Card size="small" className="rt-restaurant-offer-card">
+                          <Space align="baseline" style={{ justifyContent: 'space-between', width: '100%' }}>
+                            <Text strong>{p.title}</Text>
+                            {p.discountPercent ? (
+                              <Tag color="red">{p.discountPercent}% off</Tag>
+                            ) : p.discountAmountCents ? (
+                              <Tag color="red">${(p.discountAmountCents / 100).toFixed(2)} off</Tag>
+                            ) : null}
+                          </Space>
+                          {p.description && (
+                            <Paragraph type="secondary" style={{ marginBottom: 8, marginTop: 4 }}>
+                              {p.description}
+                            </Paragraph>
+                          )}
+                          <Space wrap size={8}>
+                            {p.code && <Tag color="gold">Code: {p.code}</Tag>}
+                            {(p.startDate || p.endDate) && (
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                {p.startDate ? `From ${p.startDate}` : ''}
+                                {p.startDate && p.endDate ? ' ' : ''}
+                                {p.endDate ? `Until ${p.endDate}` : ''}
+                              </Text>
+                            )}
+                          </Space>
+                        </Card>
+                      </Col>
+                    ))}
+                  </Row>
+                </div>
+              )}
+
+              {experiences.length > 0 && (
+                <div className="rt-restaurant-section">
+                  <Title level={3} className="rt-restaurant-section__title">Experiences & events</Title>
+                  <Row gutter={[16, 16]}>
+                    {experiences.map((e: any) => (
+                      <Col xs={24} md={12} lg={8} key={e.id}>
+                        <Card
+                          size="small"
+                          className="rt-restaurant-experience-card"
+                          cover={
+                            e.photoUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={e.photoUrl}
+                                alt={e.title}
+                                style={{ height: 140, objectFit: 'cover' }}
+                              />
+                            ) : undefined
+                          }
+                        >
+                          <Space orientation="vertical" size={4} style={{ width: '100%' }}>
+                            <Text strong>{e.title}</Text>
+                            <Text type="secondary" style={{ fontSize: 13 }}>
+                              {dayjs(e.date).format('MMM D, YYYY')} · {e.startTime}–{e.endTime}
+                            </Text>
+                            <Space>
+                              <Tag>{String(e.type).replace(/_/g, ' ')}</Tag>
+                              <Text strong>${(e.ticketPriceCents / 100).toFixed(2)}</Text>
+                            </Space>
+                            {e.status === 'sold_out' ? (
+                              <Tag color="red">Sold out</Tag>
+                            ) : (
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                {e.availableTickets} tickets left
+                              </Text>
+                            )}
+                          </Space>
+                        </Card>
+                      </Col>
+                    ))}
+                  </Row>
+                </div>
+              )}
+
+              <RestaurantMenuSection
+                sections={restaurant.menu?.sections ?? []}
+                menuUrl={restaurant.menuUrl}
+                website={restaurant.website}
+              />
+
+              <RestaurantReviewsSection
+                reviews={reviews}
+                averageRating={restaurant.averageRating}
+                reviewCount={restaurant.reviewCount}
+              />
+
+              <RestaurantPhotosSection photos={restaurant.photos ?? []} name={restaurant.name} />
+
+              <RestaurantDetailsSection
+                address={restaurant.address}
+                phone={restaurant.phone}
+                website={restaurant.website}
+                cuisine={restaurant.cuisine}
+                priceRange={restaurant.priceRange}
+                diningStyles={restaurant.diningStyles}
+                amenities={restaurant.amenities}
+                meals={restaurant.meals}
+                dietaryTags={restaurant.dietaryTags}
+                wheelchairAccessible={restaurant.wheelchairAccessible}
+                location={restaurant.location}
+              />
+
+              <RestaurantFeaturedIn
+                name={restaurant.name}
+                cuisine={restaurant.cuisine}
+                featured={restaurant.featured}
+                address={restaurant.address}
+                averageRating={restaurant.averageRating}
+                reviewCount={restaurant.reviewCount}
+                entries={restaurant.featuredIn}
+              />
+
+              <RestaurantTermsSection
+                name={restaurant.name}
+                termsAndConditions={restaurant.termsAndConditions}
+                depositRequired={restaurant.depositRequired}
+                depositAmountCents={restaurant.depositAmountCents}
+              />
+
+              <RestaurantFaqSection items={restaurantFaq} />
+            </div>
+          </Col>
+
+          <Col xs={24} lg={10}>
+            <div className="rt-restaurant-profile__booking-sticky">
           <Card
             id="booking-form"
             title="Make a reservation"
-            style={{ borderColor: colors.brand[100] }}
+            className="rt-restaurant-booking-card"
           >
             {showResumeBanner && (
               <Alert
                 type="info"
                 showIcon
-                style={{ marginBottom: 16 }}
                 message="Welcome back — your reservation details have been restored. Review and complete your booking."
               />
             )}
-            <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+            <Text type="secondary" className="rt-restaurant-booking-card__intro">
               Pick a date, party size, and time — confirmed in seconds.
             </Text>
             {user && (
-              <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+              <Text type="secondary" className="rt-restaurant-booking-card__loyalty">
                 Earn {LOYALTY.POINTS_PER_COMPLETED_VISIT} pts when you complete your visit
                 {grossDepositCents > 0
                   ? ` and ${depositPointsFromCents(grossDepositCents)} pts when your deposit is paid`
@@ -602,12 +777,17 @@ export default function RestaurantPage() {
                 ) : null}
               </Text>
             )}
-            <Space wrap style={{ marginBottom: 16 }}>
-              <DatePicker value={date} onChange={(d) => d && setDate(d)} />
+            <Space wrap className="rt-restaurant-booking-card__date-row">
+              <DatePicker
+                size="small"
+                value={date}
+                onChange={(d) => d && updateBooking({ date: d })}
+              />
               <Select
+                size="small"
                 value={partySize}
-                onChange={(v) => setPartySize(v ?? 2)}
-                style={{ width: 140 }}
+                onChange={(v) => updateBooking({ partySize: v ?? 2 })}
+                style={{ width: 124 }}
                 options={Array.from({ length: 20 }, (_, i) => ({
                   value: i + 1,
                   label: `${i + 1} ${i === 0 ? 'guest' : 'guests'}`,
@@ -617,11 +797,12 @@ export default function RestaurantPage() {
             <SlotPicker
               slots={slots}
               selected={selectedSlot}
-              onSelect={setSelectedSlot}
+              onSelect={(slot) => updateBooking({ selectedSlot: slot })}
               loading={availLoading}
+              popularCount={4}
             />
             {selectedSlot && restaurant?.allowGuestTableSelection && (
-              <div style={{ marginTop: 20 }}>
+              <div className="rt-restaurant-booking-card__table-pick">
                 <Text strong style={{ display: 'block', marginBottom: 8 }}>
                   Choose your table
                 </Text>
@@ -670,11 +851,11 @@ export default function RestaurantPage() {
               <Alert
                 type="info"
                 showIcon
-                style={{ marginTop: 16 }}
+                style={{ marginTop: 10 }}
                 message="Your table will be assigned automatically when you book."
               />
             )}
-            <Form layout="vertical" style={{ marginTop: 24 }}>
+            <Form layout="vertical" size="small" className="rt-restaurant-booking-card__form">
               <Form.Item
                 label="Occasion"
                 validateStatus={fieldErrors.occasion ? 'error' : undefined}
@@ -698,7 +879,7 @@ export default function RestaurantPage() {
                 help={fieldErrors.guestNotes}
               >
                 <Input.TextArea
-                  rows={3}
+                  rows={2}
                   value={notes}
                   onChange={(e) => {
                     setNotes(e.target.value);
@@ -716,13 +897,8 @@ export default function RestaurantPage() {
                   validateStatus={fieldErrors.redeemPoints ? 'error' : undefined}
                   help={fieldErrors.redeemPoints}
                 >
-                  <div style={{
-                    padding: 16,
-                    borderRadius: radii.md,
-                    background: colors.brand[50],
-                    border: `1px solid ${colors.brand[100]}`,
-                  }}>
-                    <div style={{ marginBottom: 12 }}>
+                  <div className="rt-restaurant-booking-card__loyalty-panel">
+                    <div style={{ marginBottom: 8 }}>
                       <Text>
                         Your balance: <Text strong style={{ color: colors.brand[600] }}>{user.loyaltyPoints} pts</Text>
                       </Text>
@@ -783,12 +959,7 @@ export default function RestaurantPage() {
                   validateStatus={fieldErrors.redeemRestaurantPoints ? 'error' : undefined}
                   help={fieldErrors.redeemRestaurantPoints}
                 >
-                  <div style={{
-                    padding: 16,
-                    borderRadius: radii.md,
-                    background: colors.brand[50],
-                    border: `1px solid ${colors.brand[100]}`,
-                  }}>
+                  <div className="rt-restaurant-booking-card__loyalty-panel">
                     <Text>
                       Your balance:{' '}
                       <Text strong style={{ color: colors.brand[600] }}>
@@ -804,7 +975,7 @@ export default function RestaurantPage() {
                         setRedeemRestaurantPoints(v ?? 0);
                         clearFieldError('redeemRestaurantPoints');
                       }}
-                      style={{ width: 160, marginTop: 12 }}
+                      style={{ width: 160, marginTop: 8 }}
                       addonAfter="pts"
                     />
                     {redeemRestaurantPoints >= restaurantMinRedeem ? (
@@ -832,7 +1003,7 @@ export default function RestaurantPage() {
                     placeholder="Enter code"
                     value={promoCode}
                     onChange={(e) => {
-                      setPromoCode(e.target.value.toUpperCase());
+                      updateBooking({ promoCode: e.target.value.toUpperCase() });
                       clearFieldError('promoCode');
                     }}
                     style={{ maxWidth: 220 }}
@@ -916,8 +1087,8 @@ export default function RestaurantPage() {
                 />
               )}
 
-              <Space>
-                <Button type="primary" size="large" loading={booking} onClick={book}>
+              <Space size={8}>
+                <Button type="primary" loading={booking} onClick={book}>
                   Complete reservation
                 </Button>
                 {availableCount === 0 && (
@@ -926,71 +1097,67 @@ export default function RestaurantPage() {
                   </Button>
                 )}
               </Space>
+              <Text type="secondary" className="rt-restaurant-booking-card__cancellation">
+                {buildCancellationPolicySummary({
+                  depositRequired: restaurant.depositRequired,
+                  depositAmountCents: restaurant.depositAmountCents,
+                })}
+              </Text>
             </Form>
           </Card>
-        </Col>
-        <Col xs={24} lg={10}>
-          <Card title="Menu" style={{ marginBottom: 16 }}>
-            {(restaurant.menu?.sections ?? []).map((section: any) => (
-              <div key={section.id} style={{ marginBottom: 16 }}>
-                <Title level={5}>{section.name}</Title>
-                {(section.items ?? []).map((item: any, idx: number) => (
-                  <div
-                    key={item.id ?? idx}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'baseline',
-                      gap: 16,
-                      padding: '10px 0',
-                      borderBottom: '1px solid #f0ede8',
-                    }}
-                  >
-                    <div style={{ minWidth: 0 }}>
-                      <Text strong>{item.name}</Text>
-                      {item.description && (
-                        <Text type="secondary" style={{ display: 'block', fontSize: 13 }}>
-                          {item.description}
-                        </Text>
-                      )}
-                    </div>
-                    <Text style={{ whiteSpace: 'nowrap' }}>
-                      ${(item.priceCents / 100).toFixed(2)}
-                    </Text>
-                  </div>
-                ))}
-              </div>
-            ))}
-            {!restaurant.menu && <Text type="secondary">Menu coming soon.</Text>}
-          </Card>
-          <Card title="Reviews">
-            {((reviewsData as any)?.restaurantReviews?.items ?? []).length === 0 && (
-              <Text type="secondary">No reviews yet</Text>
-            )}
-            {((reviewsData as any)?.restaurantReviews?.items ?? []).map((r: any, idx: number) => (
-              <div
-                key={r.id ?? idx}
-                style={{
-                  padding: '12px 0',
-                  borderBottom: `1px solid ${colors.bordersubtle}`,
-                }}
-              >
-                <Space>
-                  <Text strong>
-                    {r.diner?.firstName} {r.diner?.lastName?.[0]}.
-                  </Text>
-                  <Rate disabled value={r.rating} style={{ fontSize: 12 }} />
-                </Space>
-                {r.comment && (
-                  <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
-                    {r.comment}
-                  </Text>
-                )}
-              </div>
-            ))}
-          </Card>
-        </Col>
-      </Row>
+            </div>
+          </Col>
+        </Row>
+      </div>
+      </div>
+
+      <RestaurantMessageModal
+        open={messageOpen}
+        restaurantId={restaurantId!}
+        restaurantName={restaurant.name}
+        onClose={() => setMessageOpen(false)}
+      />
+
+      <ReservationConfirmModal
+        open={confirmOpen}
+        confirming={booking}
+        restaurantName={restaurant.name}
+        termsAndConditions={restaurant.termsAndConditions}
+        depositRequired={restaurant.depositRequired}
+        depositAmountCents={restaurant.depositAmountCents}
+        details={{
+          dateLabel: date.format('dddd, MMMM D, YYYY'),
+          timeLabel: new Date(selectedSlot!).toLocaleTimeString([], {
+            hour: 'numeric',
+            minute: '2-digit',
+          }),
+          partySize,
+          occasionLabel: formatOccasion(occasion),
+          guestName: user
+            ? [user.firstName, user.lastName].filter(Boolean).join(' ') || undefined
+            : undefined,
+          guestEmail: user?.email ?? undefined,
+          notes: notes || undefined,
+          tableName: selectedTable?.name,
+          tableFloorArea: selectedTable?.floorArea,
+          depositCents: finalDepositCents,
+          promoDiscountCents: activePromo?.valid ? activePromo.discountCents : undefined,
+          promoTitle: activePromo?.valid ? activePromo.promotion?.title : undefined,
+          giftCardDiscountCents: giftValidation?.valid ? giftValidation.discountCents : undefined,
+          loyaltyPointsRedeemed:
+            redeemPoints >= LOYALTY.MIN_REDEEM_POINTS ? redeemPoints : undefined,
+          restaurantPointsRedeemed:
+            canRedeemRestaurant && redeemRestaurantPoints >= restaurantMinRedeem
+              ? redeemRestaurantPoints
+              : undefined,
+        }}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={submitBooking}
+        onViewTerms={() => {
+          setConfirmOpen(false);
+          document.getElementById('terms')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }}
+      />
 
       <Modal
         open={!!bookingSuccess}
@@ -1040,6 +1207,6 @@ export default function RestaurantPage() {
           />
         )}
       </Modal>
-    </Space></div>
+    </div>
   );
 }

@@ -103,6 +103,7 @@ export const typeDefs = `#graphql
     location: GeoPoint!
     phone: String
     website: String
+    menuUrl: String
     photos: [String!]!
     status: RestaurantStatus!
     ownerId: ID!
@@ -126,17 +127,51 @@ export const typeDefs = `#graphql
     dietaryTags: [String!]!
     amenities: [String!]!
     wheelchairAccessible: Boolean!
+    faq: [RestaurantFaqItem!]!
+    featuredIn: [RestaurantFeaturedInItem!]!
+    termsAndConditions: String
     subscription: SubscriptionType
     tables: [Table!]!
     shifts: [Shift!]!
     menu: Menu
+    isSaved: Boolean!
+    isFavorite: Boolean!
     createdAt: DateTime!
+  }
+
+  enum RestaurantBookmarkKind {
+    saved
+    favorite
   }
 
   type WidgetTheme {
     primaryColor: String!
     buttonText: String!
     showReviews: Boolean!
+  }
+
+  type RestaurantFaqItem {
+    question: String!
+    answer: String!
+  }
+
+  type RestaurantFeaturedInItem {
+    title: String!
+    description: String
+    url: String
+    logoUrl: String
+  }
+
+  input RestaurantFaqItemInput {
+    question: String!
+    answer: String!
+  }
+
+  input RestaurantFeaturedInItemInput {
+    title: String!
+    description: String
+    url: String
+    logoUrl: String
   }
 
   input WidgetThemeInput {
@@ -1215,6 +1250,13 @@ export const typeDefs = `#graphql
     message: String!
   }
 
+  input RestaurantInquiryInput {
+    restaurantId: ID!
+    message: String!
+    name: String
+    email: String
+  }
+
   input LoginInput {
     email: String!
     password: String!
@@ -1234,6 +1276,7 @@ export const typeDefs = `#graphql
     state: String!
     zip: String!
     country: String
+    neighborhood: String
   }
 
   input LocationInput {
@@ -1250,12 +1293,23 @@ export const typeDefs = `#graphql
     location: LocationInput!
     phone: String
     website: String
+    menuUrl: String
     depositRequired: Boolean
     depositAmountCents: Int
     loyaltyEnabled: Boolean
     loyaltyPointsPerVisit: Int
     loyaltyMinRedeemPoints: Int
     photos: [String!]
+    neighborhood: String
+    diningStyles: [String!]
+    discoveryOccasions: [String!]
+    meals: [String!]
+    dietaryTags: [String!]
+    amenities: [String!]
+    wheelchairAccessible: Boolean
+    faq: [RestaurantFaqItemInput!]
+    featuredIn: [RestaurantFeaturedInItemInput!]
+    termsAndConditions: String
   }
 
   input PartnerAccountInput {
@@ -1550,6 +1604,17 @@ export const typeDefs = `#graphql
     unreadCount: Int!
   }
 
+  type RestaurantInquiry {
+    id: ID!
+    restaurantId: ID!
+    senderName: String!
+    senderEmail: String!
+    userId: ID
+    message: String!
+    readAt: DateTime
+    createdAt: DateTime!
+  }
+
   type AccessRule {
     id: ID!
     restaurantId: ID!
@@ -1815,6 +1880,8 @@ export const typeDefs = `#graphql
     bookableTables(restaurantId: ID!, slotStart: DateTime!, partySize: Int!): [Table!]!
     floorPlanOps(restaurantId: ID!, date: String): FloorPlanOpsPayload!
     myReservations: [Reservation!]!
+    myReservation(id: ID!): Reservation
+    mySavedRestaurants(kind: RestaurantBookmarkKind!): [Restaurant!]!
     restaurantReservations(restaurantId: ID!, date: String, limit: Int, offset: Int): ReservationConnection!
     myWaitlist: [WaitlistEntry!]!
     restaurantWaitlist(restaurantId: ID!, limit: Int, offset: Int): WaitlistConnection!
@@ -1892,6 +1959,7 @@ export const typeDefs = `#graphql
     conversation(reservationId: ID!): Conversation
     messages(reservationId: ID!): [Message!]!
     myConversations: [Conversation!]!
+    restaurantInquiries(restaurantId: ID!): [RestaurantInquiry!]!
 
     accessRules(restaurantId: ID!): [AccessRule!]!
     blackouts(restaurantId: ID!): [Blackout!]!
@@ -1922,6 +1990,11 @@ export const typeDefs = `#graphql
     requestPasswordReset(email: String!, app: String): MessagePayload!
     resetPassword(token: String!, newPassword: String!): MessagePayload!
     submitContactForm(input: ContactFormInput!): MessagePayload!
+    sendRestaurantInquiry(input: RestaurantInquiryInput!): MessagePayload!
+    saveRestaurant(restaurantId: ID!): Boolean!
+    unsaveRestaurant(restaurantId: ID!): Boolean!
+    favoriteRestaurant(restaurantId: ID!): Boolean!
+    unfavoriteRestaurant(restaurantId: ID!): Boolean!
 
     createRestaurant(input: RestaurantInput!, plan: String): Restaurant!
     updateRestaurant(id: ID!, input: RestaurantInput!): Restaurant!
@@ -2094,6 +2167,7 @@ export const typeDefs = `#graphql
 
     sendMessage(reservationId: ID!, body: String!): Message!
     markConversationRead(reservationId: ID!): Boolean!
+    markRestaurantInquiryRead(id: ID!): RestaurantInquiry!
 
     createAccessRule(restaurantId: ID!, input: AccessRuleInput!): AccessRule!
     updateAccessRule(id: ID!, input: AccessRuleInput!): AccessRule!

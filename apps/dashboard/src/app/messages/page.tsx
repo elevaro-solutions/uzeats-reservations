@@ -3,8 +3,8 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Badge, Button, Card, Empty, Input, List, Select, Space, Typography, message } from 'antd';
-import { SendOutlined } from '@ant-design/icons';
+import { Badge, Button, Card, Empty, Input, List, Select, Space, Tag, Typography, message } from 'antd';
+import { MailOutlined, SendOutlined } from '@ant-design/icons';
 import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
@@ -15,9 +15,11 @@ import {
   MESSAGES,
   SEND_MESSAGE,
   MARK_CONVERSATION_READ,
+  RESTAURANT_INQUIRIES,
+  MARK_RESTAURANT_INQUIRY_READ,
 } from '@/lib/graphql';
 
-const { Title, Text } = Typography;
+const { Title, Text, Link } = Typography;
 
 function formatSlot(iso?: string) {
   if (!iso) return null;
@@ -29,12 +31,40 @@ function formatSlot(iso?: string) {
   });
 }
 
+type InboxItem =
+  | {
+      kind: 'conversation';
+      key: string;
+      sortAt: string;
+      reservationId: string;
+      dinerId: string;
+      unreadCount: number;
+      diner?: { firstName?: string; lastName?: string };
+      reservation?: { slotStart?: string; partySize?: number };
+      lastMessage?: { body?: string };
+    }
+  | {
+      kind: 'inquiry';
+      key: string;
+      sortAt: string;
+      id: string;
+      senderName: string;
+      senderEmail: string;
+      message: string;
+      readAt?: string | null;
+    };
+
+type ConversationItem = Extract<InboxItem, { kind: 'conversation' }>;
+
 function MessagesContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeReservationId, setActiveReservationId] = useState<string | null>(
     searchParams.get('reservationId'),
+  );
+  const [activeInquiryId, setActiveInquiryId] = useState<string | null>(
+    searchParams.get('inquiryId'),
   );
   const dinerFilter = searchParams.get('dinerId');
   const [draft, setDraft] = useState('');
@@ -48,7 +78,11 @@ function MessagesContent() {
     variables: { restaurantId: activeRestaurantId },
     pollInterval: 15000,
   });
-  // Seed an empty thread when Message guest deep-links to a reservation with no messages yet.
+  const { data: inquiryData, refetch: refetchInquiries } = useQuery(RESTAURANT_INQUIRIES, {
+    skip: !activeRestaurantId,
+    variables: { restaurantId: activeRestaurantId },
+    pollInterval: 15000,
+  });
   const { data: seedData } = useQuery(CONVERSATION, {
     skip: !activeReservationId,
     variables: { reservationId: activeReservationId },
@@ -60,6 +94,7 @@ function MessagesContent() {
   });
   const [sendMessage, { loading: sending }] = useMutation(SEND_MESSAGE);
   const [markRead] = useMutation(MARK_CONVERSATION_READ);
+  const [markInquiryRead] = useMutation(MARK_RESTAURANT_INQUIRY_READ);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -72,32 +107,92 @@ function MessagesContent() {
     setRestaurantId(seededRestaurantId);
   }, [seedData?.conversation?.restaurantId, activeRestaurantId, setRestaurantId]);
 
-  const conversations = useMemo(() => {
-    const all = [...(convData?.conversations ?? [])];
+  const inboxItems = useMemo(() => {
+    const conversations: ConversationItem[] = [...(convData?.conversations ?? [])].map((c: any) => ({
+      kind: 'conversation' as const,
+      key: `res-${c.reservationId}`,
+      sortAt: c.lastMessage?.createdAt ?? c.reservation?.slotStart ?? '',
+      reservationId: c.reservationId,
+      dinerId: c.dinerId,
+      unreadCount: c.unreadCount ?? 0,
+      diner: c.diner,
+      reservation: c.reservation,
+      lastMessage: c.lastMessage,
+    }));
+
     const seed = seedData?.conversation;
-    if (seed && !all.some((c: any) => c.reservationId === seed.reservationId)) {
-      all.unshift(seed);
+    if (seed && !conversations.some((c) => c.reservationId === seed.reservationId)) {
+      conversations.unshift({
+        kind: 'conversation',
+        key: `res-${seed.reservationId}`,
+        sortAt: seed.lastMessage?.createdAt ?? seed.reservation?.slotStart ?? '',
+        reservationId: seed.reservationId,
+        dinerId: seed.dinerId,
+        unreadCount: seed.unreadCount ?? 0,
+        diner: seed.diner,
+        reservation: seed.reservation,
+        lastMessage: seed.lastMessage,
+      });
     }
-    if (!dinerFilter) return all;
-    return all.filter((c: any) => c.dinerId === dinerFilter);
-  }, [convData?.conversations, seedData?.conversation, dinerFilter]);
+
+    const inquiries: InboxItem[] = (inquiryData?.restaurantInquiries ?? []).map((i: any) => ({
+      kind: 'inquiry' as const,
+      key: `inq-${i.id}`,
+      sortAt: i.createdAt,
+      id: i.id,
+      senderName: i.senderName,
+      senderEmail: i.senderEmail,
+      message: i.message,
+      readAt: i.readAt,
+    }));
+
+    let items = [...conversations, ...inquiries];
+    if (dinerFilter) {
+      items = items.filter(
+        (item) => item.kind === 'inquiry' || item.dinerId === dinerFilter,
+      );
+    }
+
+    return items.sort(
+      (a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime(),
+    );
+  }, [convData?.conversations, seedData?.conversation, inquiryData?.restaurantInquiries, dinerFilter]);
 
   useEffect(() => {
-    if (activeReservationId) return;
-    if (conversations.length === 1) {
-      setActiveReservationId(conversations[0].reservationId);
+    if (activeReservationId || activeInquiryId) return;
+    if (inboxItems.length === 1) {
+      const only = inboxItems[0];
+      if (only.kind === 'conversation') {
+        setActiveReservationId(only.reservationId);
+      } else {
+        setActiveInquiryId(only.id);
+      }
     }
-  }, [conversations, activeReservationId]);
+  }, [inboxItems, activeReservationId, activeInquiryId]);
 
   useEffect(() => {
-    if (activeReservationId) {
-      markRead({ variables: { reservationId: activeReservationId } }).then(() => refetchConvs());
-    }
+    if (!activeReservationId) return;
+    markRead({ variables: { reservationId: activeReservationId } }).then(() => refetchConvs());
   }, [activeReservationId, msgData?.messages?.length]);
+
+  useEffect(() => {
+    if (!activeInquiryId) return;
+    markInquiryRead({ variables: { id: activeInquiryId } }).then(() => refetchInquiries());
+  }, [activeInquiryId]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [msgData?.messages?.length]);
+
+  const selectConversation = (reservationId: string) => {
+    setActiveReservationId(reservationId);
+    setActiveInquiryId(null);
+  };
+
+  const selectInquiry = (inquiryId: string) => {
+    setActiveInquiryId(inquiryId);
+    setActiveReservationId(null);
+  };
 
   const handleSend = async () => {
     if (!draft.trim() || !activeReservationId) return;
@@ -113,7 +208,19 @@ function MessagesContent() {
     }
   };
 
-  const active = conversations.find((c: any) => c.reservationId === activeReservationId);
+  const activeConversation = inboxItems.find(
+    (item): item is Extract<InboxItem, { kind: 'conversation' }> =>
+      item.kind === 'conversation' && item.reservationId === activeReservationId,
+  );
+  const activeInquiry = inboxItems.find(
+    (item): item is Extract<InboxItem, { kind: 'inquiry' }> =>
+      item.kind === 'inquiry' && item.id === activeInquiryId,
+  );
+
+  const isActive = (item: InboxItem) =>
+    item.kind === 'conversation'
+      ? activeReservationId === item.reservationId
+      : activeInquiryId === item.id;
 
   return (
     <div component="MessagesContent" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
@@ -124,31 +231,65 @@ function MessagesContent() {
         onChange={(id) => {
           restaurantSelectProps.onChange(id);
           setActiveReservationId(null);
+          setActiveInquiryId(null);
         }}
       />
 
       <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
         <Card style={{ width: 320, flexShrink: 0 }} styles={{ body: { padding: 0 } }}>
           <List
-            dataSource={conversations}
-            locale={{ emptyText: <Empty description="No conversations yet" /> }}
-            renderItem={(c: any) => {
-              const slot = formatSlot(c.reservation?.slotStart);
+            dataSource={inboxItems}
+            locale={{ emptyText: <Empty description="No messages yet" /> }}
+            renderItem={(item) => {
+              if (item.kind === 'inquiry') {
+                const unread = !item.readAt;
+                return (
+                  <List.Item
+                    onClick={() => selectInquiry(item.id)}
+                    style={{
+                      cursor: 'pointer',
+                      padding: '12px 16px',
+                      background: isActive(item) ? '#fff1f0' : undefined,
+                    }}
+                  >
+                    <List.Item.Meta
+                      title={
+                        <Space>
+                          {item.senderName}
+                          <Tag color="blue" style={{ margin: 0 }}>Website</Tag>
+                          {unread && <Badge dot />}
+                        </Space>
+                      }
+                      description={
+                        <Space orientation="vertical" size={0} style={{ width: '100%' }}>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {formatSlot(item.sortAt)}
+                          </Text>
+                          <Text type="secondary" ellipsis style={{ maxWidth: 240 }}>
+                            {item.message}
+                          </Text>
+                        </Space>
+                      }
+                    />
+                  </List.Item>
+                );
+              }
+
+              const slot = formatSlot(item.reservation?.slotStart);
               return (
                 <List.Item
-                  onClick={() => setActiveReservationId(c.reservationId)}
+                  onClick={() => selectConversation(item.reservationId)}
                   style={{
                     cursor: 'pointer',
                     padding: '12px 16px',
-                    background:
-                      activeReservationId === c.reservationId ? '#fff1f0' : undefined,
+                    background: isActive(item) ? '#fff1f0' : undefined,
                   }}
                 >
                   <List.Item.Meta
                     title={
                       <Space>
-                        {c.diner ? `${c.diner.firstName} ${c.diner.lastName}` : 'Guest'}
-                        {c.unreadCount > 0 && <Badge count={c.unreadCount} />}
+                        {item.diner ? `${item.diner.firstName} ${item.diner.lastName}` : 'Guest'}
+                        {item.unreadCount > 0 && <Badge count={item.unreadCount} />}
                       </Space>
                     }
                     description={
@@ -156,13 +297,13 @@ function MessagesContent() {
                         {slot && (
                           <Text type="secondary" style={{ fontSize: 12 }}>
                             {slot}
-                            {c.reservation?.partySize
-                              ? ` · party of ${c.reservation.partySize}`
+                            {item.reservation?.partySize
+                              ? ` · party of ${item.reservation.partySize}`
                               : ''}
                           </Text>
                         )}
                         <Text type="secondary" ellipsis style={{ maxWidth: 240 }}>
-                          {c.lastMessage?.body ?? 'No messages yet'}
+                          {item.lastMessage?.body ?? 'No messages yet'}
                         </Text>
                       </Space>
                     }
@@ -177,22 +318,54 @@ function MessagesContent() {
           style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
           styles={{ body: { display: 'flex', flexDirection: 'column', height: 520, padding: 16 } }}
         >
-          {!activeReservationId ? (
+          {!activeReservationId && !activeInquiryId ? (
             <Empty description="Select a conversation" style={{ margin: 'auto' }} />
+          ) : activeInquiry ? (
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <div style={{ marginBottom: 16 }}>
+                <Space orientation="vertical" size={4}>
+                  <Space>
+                    <Text strong>{activeInquiry.senderName}</Text>
+                    <Tag color="blue">Website message</Tag>
+                  </Space>
+                  <Link href={`mailto:${activeInquiry.senderEmail}`}>
+                    <MailOutlined /> {activeInquiry.senderEmail}
+                  </Link>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {formatSlot(activeInquiry.sortAt)}
+                  </Text>
+                </Space>
+              </div>
+              <div
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  borderRadius: 12,
+                  background: colors.neutral[100],
+                  whiteSpace: 'pre-wrap',
+                  overflowY: 'auto',
+                }}
+              >
+                {activeInquiry.message}
+              </div>
+              <Text type="secondary" style={{ marginTop: 12, fontSize: 12 }}>
+                Reply to this guest directly at their email address.
+              </Text>
+            </div>
           ) : (
             <>
-              {active && (
+              {activeConversation && (
                 <div style={{ marginBottom: 12 }}>
                   <Text strong>
-                    {active.diner
-                      ? `${active.diner.firstName} ${active.diner.lastName}`
+                    {activeConversation.diner
+                      ? `${activeConversation.diner.firstName} ${activeConversation.diner.lastName}`
                       : 'Guest'}
                   </Text>
-                  {active.reservation?.slotStart && (
+                  {activeConversation.reservation?.slotStart && (
                     <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
-                      {formatSlot(active.reservation.slotStart)}
-                      {active.reservation.partySize
-                        ? ` · party of ${active.reservation.partySize}`
+                      {formatSlot(activeConversation.reservation.slotStart)}
+                      {activeConversation.reservation.partySize
+                        ? ` · party of ${activeConversation.reservation.partySize}`
                         : ''}
                     </Text>
                   )}

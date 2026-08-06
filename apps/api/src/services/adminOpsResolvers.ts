@@ -1,4 +1,5 @@
 import { restaurantInputSchema, adminCreateOwnerSchema, assertCanEditUser, type UserRole } from '@reservations/shared';
+import { restaurantInputToDb } from '../lib/restaurantInput.js';
 import { Review } from '../models/Review.js';
 import { Message } from '../models/Message.js';
 import { User } from '../models/User.js';
@@ -419,9 +420,8 @@ export const adminOpsMutation = {
 
     const status = args.status ?? 'approved';
     const doc = await Restaurant.create({
-      ...input,
+      ...restaurantInputToDb(input),
       slug: slugify(input.name),
-      location: { type: 'Point', coordinates: [input.location.lng, input.location.lat] },
       ownerId: owner._id,
       status,
     });
@@ -495,10 +495,7 @@ export const adminOpsMutation = {
       if (!owner) throw new Error('Owner user not found');
     }
 
-    const $set: Record<string, unknown> = {
-      ...input,
-      location: { type: 'Point', coordinates: [input.location.lng, input.location.lat] },
-    };
+    const $set: Record<string, unknown> = restaurantInputToDb(input);
     if (args.featured !== undefined) $set.featured = args.featured;
     if (args.featuredUntil !== undefined) {
       $set.featuredUntil = args.featuredUntil ? new Date(args.featuredUntil) : null;

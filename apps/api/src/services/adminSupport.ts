@@ -9,6 +9,7 @@ import { hashPassword, signAccessToken } from './auth.js';
 import { generateUniqueReferralCode } from '../lib/referralCode.js';
 import { notifyUser } from './notifications.js';
 import { renderEmailTemplate } from './emailTemplates.js';
+import { emailNotice } from './emailBranding.js';
 
 export async function startImpersonation(adminId: string, targetUserId: string) {
   if (adminId === targetUserId) throw new Error('Cannot impersonate yourself');
@@ -120,7 +121,7 @@ export async function inviteStaff(input: {
       type: 'staff_invite',
       title: rendered.subject,
       body: `${rendered.bodyText}\n\nTemporary password: ${tempPassword}\nPlease reset after signing in.`,
-      htmlBody: `${rendered.bodyHtml}<p><strong>Temporary password:</strong> ${tempPassword}<br>Please reset after signing in.</p>`,
+      htmlBody: `${rendered.bodyHtml}${emailNotice(`<strong>Temporary password:</strong> ${tempPassword}<br />Please reset your password after signing in.`)}`,
     });
   }
 

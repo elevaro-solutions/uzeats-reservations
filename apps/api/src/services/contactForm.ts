@@ -7,6 +7,13 @@ import {
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 import { sendEmail } from './notifications.js';
+import {
+  emailDetailBox,
+  emailGreeting,
+  emailParagraph,
+  emailSignature,
+  escapeHtml,
+} from './emailBranding.js';
 
 const CONTACT_EMAILS = {
   general: 'hello@tablevera.online',
@@ -47,14 +54,16 @@ async function sendContactNotificationEmail(input: ContactFormInput) {
     input.message,
   ].join('\n');
 
-  const htmlBody = `
-    <p><strong>New contact form submission</strong></p>
-    <p><strong>Name:</strong> ${escapeHtml(input.name)}<br />
-    <strong>Email:</strong> <a href="mailto:${escapeHtml(input.email)}">${escapeHtml(input.email)}</a><br />
-    <strong>Topic:</strong> ${escapeHtml(topicLabel)}</p>
-    <p><strong>Message:</strong></p>
-    <p style="white-space:pre-wrap">${escapeHtml(input.message)}</p>
-  `;
+  const htmlBody = [
+    emailParagraph('<strong>New contact form submission</strong>'),
+    emailDetailBox([
+      { label: 'Name', value: input.name },
+      { label: 'Email', value: input.email },
+      { label: 'Topic', value: topicLabel },
+    ]),
+    emailParagraph('<strong>Message:</strong>'),
+    emailParagraph(`<span style="white-space:pre-wrap">${escapeHtml(input.message)}</span>`),
+  ].join('');
 
   await sendEmail(recipient, subject, body, { htmlBody });
 }
@@ -73,13 +82,15 @@ async function sendContactConfirmationEmail(input: ContactFormInput) {
     `— The Tablevera team`,
   ].join('\n');
 
-  const htmlBody = `
-    <p>Hi ${escapeHtml(input.name)},</p>
-    <p>Thanks for contacting Tablevera. We received your message about <strong>${escapeHtml(topicLabel)}</strong> and will get back to you within 1–2 business days.</p>
-    <p><strong>Your message:</strong></p>
-    <p style="white-space:pre-wrap">${escapeHtml(input.message)}</p>
-    <p>— The Tablevera team</p>
-  `;
+  const htmlBody = [
+    emailGreeting(input.name),
+    emailParagraph(
+      `Thanks for contacting Tablevera. We received your message about <strong>${escapeHtml(topicLabel)}</strong> and will get back to you within 1–2 business days.`,
+    ),
+    emailParagraph('<strong>Your message:</strong>'),
+    emailParagraph(`<span style="white-space:pre-wrap">${escapeHtml(input.message)}</span>`),
+    emailSignature(),
+  ].join('');
 
   await sendEmail(input.email, subject, body, { htmlBody });
 }
@@ -119,14 +130,6 @@ async function ingestElevaroLead(input: ContactFormInput, externalId: string) {
     message?: string;
   };
   logger.info({ leadId: result.leadId, externalId }, '[contact] Elevaro lead ingested');
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 export async function submitContactForm(rawInput: unknown) {

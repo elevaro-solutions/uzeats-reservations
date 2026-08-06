@@ -1,18 +1,27 @@
 'use client';
 
 import { useMutation, useQuery } from '@apollo/client/react';
-import { Button, Card, Rate, Space, Typography, message, Modal, Input, Spin } from 'antd';
-import { CalendarOutlined, MessageOutlined, SearchOutlined } from '@ant-design/icons';
+import { Button, Card, Rate, Space, Typography, message, Modal, Input, Select, Spin, Tag } from 'antd';
+import { CalendarOutlined, MessageOutlined, SearchOutlined, CreditCardOutlined, RightOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { StatusTag, PageHeader, EmptyState, colors, radii, shadows, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { RESERVATION_CANCELLATION_REASONS } from '@reservations/shared';
 import {
   MY_RESERVATIONS,
   UPDATE_RESERVATION_STATUS,
   CREATE_REVIEW,
 } from '@/lib/graphql';
+
+function buildCancellationReason(preset: string, details: string): string | undefined {
+  const trimmedDetails = details.trim();
+  if (preset && trimmedDetails) return `${preset}: ${trimmedDetails}`;
+  if (preset) return preset;
+  if (trimmedDetails) return trimmedDetails;
+  return undefined;
+}
 
 const { Text } = Typography;
 
@@ -26,7 +35,8 @@ export default function ReservationsPage() {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [cancelFor, setCancelFor] = useState<{ id: string; name: string } | null>(null);
-  const [cancelReason, setCancelReason] = useState('');
+  const [cancelReasonPreset, setCancelReasonPreset] = useState<string | undefined>();
+  const [cancelReasonDetails, setCancelReasonDetails] = useState('');
   const [cancelling, setCancelling] = useState(false);
 
   if (authLoading) {
@@ -46,16 +56,13 @@ export default function ReservationsPage() {
 
   const closeCancelModal = () => {
     setCancelFor(null);
-    setCancelReason('');
+    setCancelReasonPreset(undefined);
+    setCancelReasonDetails('');
   };
 
   const confirmCancel = async () => {
     if (!cancelFor) return;
-    const reason = cancelReason.trim();
-    if (!reason) {
-      message.warning('Please share a cancellation reason');
-      return;
-    }
+    const reason = buildCancellationReason(cancelReasonPreset ?? '', cancelReasonDetails);
     setCancelling(true);
     try {
       await updateStatus({
@@ -112,9 +119,21 @@ export default function ReservationsPage() {
           boxShadow: shadows.sm,
         }}
       >
-          {reservations.map((r: any, idx: number, arr: any[]) => (
+          {reservations.map((r: any, idx: number, arr: any[]) => {
+            const needsPayment =
+              r.depositStatus === 'requires_payment' && (r.depositAmountCents ?? 0) > 0;
+            return (
             <div
               key={r.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => router.push(`/reservations/${r.id}`)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  router.push(`/reservations/${r.id}`);
+                }
+              }}
               style={{
                 display: 'flex',
                 gap: 16,
@@ -122,6 +141,15 @@ export default function ReservationsPage() {
                 padding: '20px 0',
                 borderBottom: idx < arr.length - 1 ? `1px solid ${colors.bordersubtle}` : 'none',
                 flexWrap: 'wrap',
+                cursor: 'pointer',
+                borderRadius: radii.md,
+                transition: 'background 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = colors.brand[50];
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
               }}
             >
               <div
@@ -161,10 +189,26 @@ export default function ReservationsPage() {
               </div>
               <div style={{ flex: 1, minWidth: 180 }}>
                 <Space size={8} wrap>
-                  <Text strong style={{ fontSize: typography.fontSize.md }}>
+                  <Link
+                    href={`/reservations/${r.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      color: colors.brand[700],
+                      fontWeight: 600,
+                      fontSize: typography.fontSize.md,
+                      textDecoration: 'none',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.textDecoration = 'underline';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.textDecoration = 'none';
+                    }}
+                  >
                     {r.restaurant?.name}
-                  </Text>
+                  </Link>
                   <StatusTag status={r.status} />
+                  {needsPayment && <Tag color="gold">Deposit due</Tag>}
                 </Space>
                 <Space orientation="vertical" size={0} style={{ display: 'flex', marginTop: 6 }}>
                   <Text style={{ color: colors.textSecondary }}>
@@ -210,7 +254,16 @@ export default function ReservationsPage() {
                   )}
                 </Space>
               </div>
-              <Space wrap>
+              <Space wrap onClick={(e) => e.stopPropagation()}>
+                {needsPayment && (
+                  <Button
+                    type="primary"
+                    icon={<CreditCardOutlined />}
+                    onClick={() => router.push(`/reservations/${r.id}`)}
+                  >
+                    Pay deposit
+                  </Button>
+                )}
                 {(r.status === 'confirmed' || r.status === 'pending') && (
                   <Link href={`/messages/${r.id}`}>
                     <Button icon={<MessageOutlined />}>Message</Button>
@@ -231,9 +284,13 @@ export default function ReservationsPage() {
                     Leave review
                   </Button>
                 )}
+                <Button type="text" icon={<RightOutlined />} onClick={() => router.push(`/reservations/${r.id}`)}>
+                  Details
+                </Button>
               </Space>
             </div>
-          ))}
+            );
+          })}
       </Card>
       )}
 
@@ -278,12 +335,30 @@ export default function ReservationsPage() {
             Cancel your reservation at <Text strong>{cancelFor?.name}</Text>? This cannot be undone.
           </Text>
           <div>
-            <Text style={{ display: 'block', marginBottom: 6 }}>Cancellation reason</Text>
+            <Text style={{ display: 'block', marginBottom: 6 }}>Reason (optional)</Text>
+            <Select
+              allowClear
+              placeholder="Select a reason"
+              style={{ width: '100%' }}
+              value={cancelReasonPreset}
+              onChange={setCancelReasonPreset}
+              options={RESERVATION_CANCELLATION_REASONS.map((reason) => ({
+                value: reason,
+                label: reason,
+              }))}
+            />
+          </div>
+          <div>
+            <Text style={{ display: 'block', marginBottom: 6 }}>Additional details (optional)</Text>
             <Input.TextArea
               rows={3}
-              value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
-              placeholder="e.g. Change of plans, running late, booked elsewhere…"
+              value={cancelReasonDetails}
+              onChange={(e) => setCancelReasonDetails(e.target.value)}
+              placeholder={
+                cancelReasonPreset === 'Other'
+                  ? 'Tell us more about why you are cancelling…'
+                  : 'Add any extra context for the restaurant…'
+              }
               maxLength={500}
               showCount
             />

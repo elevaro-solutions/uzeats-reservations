@@ -1,5 +1,30 @@
 import { gql } from '@apollo/client';
 
+export const MY_RESTAURANTS_OVERVIEW = gql`
+  query MyRestaurantsOverview(
+    $search: String
+    $status: RestaurantStatus
+    $city: String
+  ) {
+    myRestaurants(search: $search, status: $status, city: $city) {
+      id
+      name
+      status
+      cuisine
+      address {
+        city
+        state
+      }
+      tables {
+        id
+      }
+      shifts {
+        id
+      }
+    }
+  }
+`;
+
 export const MY_RESTAURANTS = gql`
   query MyRestaurants(
     $search: String
@@ -17,6 +42,7 @@ export const MY_RESTAURANTS = gql`
       photos
       phone
       website
+      menuUrl
       address {
         line1
         city
@@ -254,6 +280,7 @@ export const ADMIN_RESTAURANTS = gql`
         priceRange
         phone
         website
+        menuUrl
         photos
         ownerId
         featured
@@ -266,8 +293,17 @@ export const ADMIN_RESTAURANTS = gql`
         spendAlertThresholdCents
         useSmartAssign
         posEnabled
-        address { line1 line2 city state zip country }
+        address { line1 line2 city state zip country neighborhood }
         location { lat lng }
+        diningStyles
+        discoveryOccasions
+        meals
+        dietaryTags
+        amenities
+        wheelchairAccessible
+        faq { question answer }
+        featuredIn { title description url logoUrl }
+        termsAndConditions
         widgetTheme { primaryColor buttonText showReviews }
         subscription { id plan status trialEndsAt monthlyPriceCents }
         createdAt
@@ -331,9 +367,10 @@ export const ADMIN_UPDATE_RESTAURANT = gql`
       cuisine
       description
       priceRange
-      phone
-      website
-      photos
+        phone
+        website
+        menuUrl
+        photos
       ownerId
       featured
       featuredUntil
@@ -1276,6 +1313,58 @@ export const DELETE_PLAN_PACKAGE = gql`
   }
 `;
 
+export const RESTAURANT_PROFILE = gql`
+  query RestaurantProfile($id: ID!) {
+    restaurant(id: $id) {
+      id
+      name
+      slug
+      description
+      cuisine
+      priceRange
+      photos
+      phone
+      website
+      menuUrl
+      address {
+        line1
+        line2
+        city
+        state
+        zip
+        country
+        neighborhood
+      }
+      location {
+        lat
+        lng
+      }
+      depositRequired
+      depositAmountCents
+      loyaltyEnabled
+      loyaltyPointsPerVisit
+      loyaltyMinRedeemPoints
+      diningStyles
+      discoveryOccasions
+      meals
+      dietaryTags
+      amenities
+      wheelchairAccessible
+      faq {
+        question
+        answer
+      }
+      featuredIn {
+        title
+        description
+        url
+        logoUrl
+      }
+      termsAndConditions
+    }
+  }
+`;
+
 export const UPDATE_RESTAURANT = gql`
   mutation UpdateRestaurant($id: ID!, $input: RestaurantInput!) {
     updateRestaurant(id: $id, input: $input) {
@@ -1288,6 +1377,7 @@ export const UPDATE_RESTAURANT = gql`
       photos
       phone
       website
+      menuUrl
       address {
         line1
         city
@@ -1304,6 +1394,23 @@ export const UPDATE_RESTAURANT = gql`
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
+      diningStyles
+      discoveryOccasions
+      meals
+      dietaryTags
+      amenities
+      wheelchairAccessible
+      faq {
+        question
+        answer
+      }
+      featuredIn {
+        title
+        description
+        url
+        logoUrl
+      }
+      termsAndConditions
     }
   }
 `;
@@ -1555,6 +1662,22 @@ export const SEND_MESSAGE = gql`
 export const MARK_CONVERSATION_READ = gql`
   mutation MarkConversationRead($reservationId: ID!) {
     markConversationRead(reservationId: $reservationId)
+  }
+`;
+
+export const RESTAURANT_INQUIRIES = gql`
+  query RestaurantInquiries($restaurantId: ID!) {
+    restaurantInquiries(restaurantId: $restaurantId) {
+      id restaurantId senderName senderEmail userId message readAt createdAt
+    }
+  }
+`;
+
+export const MARK_RESTAURANT_INQUIRY_READ = gql`
+  mutation MarkRestaurantInquiryRead($id: ID!) {
+    markRestaurantInquiryRead(id: $id) {
+      id readAt
+    }
   }
 `;
 

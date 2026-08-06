@@ -4,6 +4,28 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.19.0] — 2026-08-06
+
+### Added
+
+- Restaurant bookmarks/saved feature with `RestaurantBookmark` model and diner `/saved` page
+- Restaurant inquiry system: `RestaurantInquiry` model and contact forms on restaurant pages
+- Email branding service for customizable restaurant email templates
+- Enhanced restaurant detail page with modular sections: photo gallery, reviews, FAQ, terms, about, featured-in, and menu
+- `RestaurantMessageModal` and `ReservationConfirmModal` for improved booking UX
+- Dashboard restaurant profile page (`/profile`) with `RestaurantProfileFields` component
+- Individual reservation detail page at `/reservations/[id]`
+- `useUrlListFilters` hook for dashboard list filtering
+- Calendar utilities (`calendar.ts`) and restaurant terms/links helpers
+
+### Changed
+
+- `SlotPicker` component expanded with richer date/time selection and availability display
+- Dashboard messages page redesigned with enhanced inquiry handling
+- Restaurant detail page refactored into composable section components
+- `useActiveRestaurant` hook improved for multi-restaurant profile management
+- GraphQL schema extended with bookmark and inquiry types, queries, and mutations
+
 ## [0.18.0] — 2026-08-04
 
 ### Added

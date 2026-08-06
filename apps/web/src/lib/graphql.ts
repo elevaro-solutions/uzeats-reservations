@@ -51,14 +51,30 @@ export const RESTAURANT_DETAIL = gql`
       }
       phone
       website
+      menuUrl
       diningStyles
+      discoveryOccasions
       dietaryTags
       amenities
       meals
       wheelchairAccessible
+      featured
+      faq {
+        question
+        answer
+      }
+      featuredIn {
+        title
+        description
+        url
+        logoUrl
+      }
+      termsAndConditions
       photos
       averageRating
       reviewCount
+      isSaved
+      isFavorite
       depositRequired
       depositAmountCents
       loyaltyEnabled
@@ -75,6 +91,7 @@ export const RESTAURANT_DETAIL = gql`
             description
             priceCents
             dietary
+            photoUrl
           }
         }
       }
@@ -146,13 +163,17 @@ export const MY_RESERVATIONS = gql`
       id
       status
       slotStart
+      slotEnd
       partySize
       occasion
       guestNotes
+      depositAmountCents
+      depositStatus
       loyaltyPointsEarned
       restaurant {
         id
         name
+        slug
         photos
         address {
           city
@@ -166,6 +187,88 @@ export const MY_RESERVATIONS = gql`
         floorArea
       }
     }
+  }
+`;
+
+export const MY_RESERVATION = gql`
+  query MyReservation($id: ID!) {
+    myReservation(id: $id) {
+      id
+      status
+      slotStart
+      slotEnd
+      partySize
+      occasion
+      guestNotes
+      depositAmountCents
+      depositStatus
+      clientSecret
+      loyaltyPointsEarned
+      restaurant {
+        id
+        name
+        slug
+        photos
+        phone
+        address {
+          line1
+          line2
+          city
+          state
+          zip
+        }
+      }
+      tables {
+        id
+        name
+        photoUrl
+        floorArea
+      }
+    }
+  }
+`;
+
+export const MY_SAVED_RESTAURANTS = gql`
+  query MySavedRestaurants($kind: RestaurantBookmarkKind!) {
+    mySavedRestaurants(kind: $kind) {
+      id
+      name
+      slug
+      cuisine
+      priceRange
+      photos
+      averageRating
+      reviewCount
+      address {
+        city
+        state
+        neighborhood
+      }
+    }
+  }
+`;
+
+export const SAVE_RESTAURANT = gql`
+  mutation SaveRestaurant($restaurantId: ID!) {
+    saveRestaurant(restaurantId: $restaurantId)
+  }
+`;
+
+export const UNSAVE_RESTAURANT = gql`
+  mutation UnsaveRestaurant($restaurantId: ID!) {
+    unsaveRestaurant(restaurantId: $restaurantId)
+  }
+`;
+
+export const FAVORITE_RESTAURANT = gql`
+  mutation FavoriteRestaurant($restaurantId: ID!) {
+    favoriteRestaurant(restaurantId: $restaurantId)
+  }
+`;
+
+export const UNFAVORITE_RESTAURANT = gql`
+  mutation UnfavoriteRestaurant($restaurantId: ID!) {
+    unfavoriteRestaurant(restaurantId: $restaurantId)
   }
 `;
 
@@ -258,6 +361,7 @@ export const RESTAURANT_REVIEWS = gql`
         rating
         comment
         createdAt
+        ownerReply
         diner {
           firstName
           lastName
@@ -288,6 +392,15 @@ export const REQUEST_PASSWORD_RESET = gql`
 export const SUBMIT_CONTACT_FORM = gql`
   mutation SubmitContactForm($input: ContactFormInput!) {
     submitContactForm(input: $input) {
+      success
+      message
+    }
+  }
+`;
+
+export const SEND_RESTAURANT_INQUIRY = gql`
+  mutation SendRestaurantInquiry($input: RestaurantInquiryInput!) {
+    sendRestaurantInquiry(input: $input) {
       success
       message
     }

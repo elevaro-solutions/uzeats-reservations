@@ -41,6 +41,16 @@ export function isStubPaymentIntent(paymentIntentId: string) {
   return paymentIntentId.startsWith('pi_dev_');
 }
 
+export async function retrievePaymentIntentClientSecret(paymentIntentId: string) {
+  if (isStubPaymentIntent(paymentIntentId)) {
+    return `${paymentIntentId}_secret_dev`;
+  }
+  const client = getStripe();
+  if (!client) return null;
+  const intent = await client.paymentIntents.retrieve(paymentIntentId);
+  return intent.client_secret ?? null;
+}
+
 export async function refundDeposit(paymentIntentId: string) {
   const client = getStripe();
   if (!client || paymentIntentId.startsWith('pi_dev_')) return { id: 're_dev' };

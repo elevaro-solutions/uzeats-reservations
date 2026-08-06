@@ -37,6 +37,7 @@ import {
 import { EmailTemplate } from '../models/EmailTemplate.js';
 import { getPlatformConfig, mapPlatformConfig } from './platformConfig.js';
 import { sendEmail } from './notifications.js';
+import { emailDetailBox, emailNotice, emailParagraph } from './emailBranding.js';
 import { logAudit } from './audit.js';
 
 /** Platform admin inbox used for destructive-action 2FA codes. */
@@ -97,20 +98,33 @@ export async function requestAdminDeleteUserCode(input: {
   });
 
   const name = `${target.firstName} ${target.lastName}`.trim();
+  const body = [
+    'A platform admin requested deletion of a user account.',
+    '',
+    `User: ${name} (${target.email || target.phone || target._id})`,
+    `Role: ${target.role}`,
+    `User ID: ${target._id}`,
+    '',
+    `Confirmation code: ${code}`,
+    '',
+    'This code expires in 10 minutes. If you did not expect this, ignore the email.',
+  ].join('\n');
+  const htmlBody = [
+    emailParagraph('A platform admin requested deletion of a user account.'),
+    emailDetailBox([
+      { label: 'User', value: `${name} (${target.email || target.phone || target._id})` },
+      { label: 'Role', value: target.role },
+      { label: 'User ID', value: target._id.toString() },
+    ]),
+    emailNotice(`<strong>Confirmation code:</strong> <span style="font-size:20px;font-weight:700;letter-spacing:0.1em;">${code}</span>`),
+    emailParagraph('This code expires in 10 minutes. If you did not expect this, ignore the email.'),
+  ].join('');
+
   await sendEmail(
     ADMIN_DELETE_2FA_EMAIL,
     'Tablevera admin — confirm user deletion',
-    [
-      'A platform admin requested deletion of a user account.',
-      '',
-      `User: ${name} (${target.email || target.phone || target._id})`,
-      `Role: ${target.role}`,
-      `User ID: ${target._id}`,
-      '',
-      `Confirmation code: ${code}`,
-      '',
-      'This code expires in 10 minutes. If you did not expect this, ignore the email.',
-    ].join('\n'),
+    body,
+    { htmlBody },
   );
 
   return {

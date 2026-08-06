@@ -71,6 +71,8 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 ## Features
 
 - Restaurant search (city, cuisine, text, nearby geo) with **list and map views**, infinite scroll, SEO landing pages, and live availability slots
+- **Bookmarks/Saved** — diners can save favorite restaurants and view them at `/saved`
+- **Restaurant inquiries** — contact restaurants directly from the detail page
 - Google Places address autocomplete and device near-me (falls back to curated US cities)
 - Concurrent-safe booking via atomic table slot claims (no replica set required)
 - Deposits via Stripe PaymentIntents (manual capture; stubbed without keys)
@@ -80,9 +82,11 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Menus + DO Spaces presigned uploads (stubbed without keys)
 - Notifications: email (SendGrid or Resend), Telegram bot, web/Expo push, in-app inbox + channel prefs
 - Auth: email/password (forgot/reset on web and partner dashboard), Google OAuth, Twilio phone OTP
-- Partner Settings hub, notifications prefs, multi-restaurant selector, self-registration, and onboarding checklist
+- Partner Settings hub, notifications prefs, multi-restaurant selector, self-registration, onboarding checklist, and **profile page**
+- **Email branding** — customizable email templates per restaurant
 - Shareable booking links (`/r/:slug`) and **Booking widget** page for embed script copy
-- Owner phone / walk-in bookings, reservation edit, and reservation-scoped messaging
+- Owner phone / walk-in bookings, reservation edit, reservation-scoped messaging, and **individual reservation detail pages**
+- Enhanced restaurant detail pages with photo gallery, reviews, FAQ, terms, about, and menu sections
 - Platform admin: users, restaurants (create/edit/delete), invoices, revenue, support, moderation, templates, config, and annual billing discounts
 - Embeddable booking widget with per-restaurant theme
 - Public contact form, cookie consent, and legal pages (privacy, terms, cookies)

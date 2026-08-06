@@ -27,6 +27,7 @@ const restaurantSchema = new Schema(
     },
     phone: { type: String },
     website: { type: String },
+    menuUrl: { type: String },
     photos: [{ type: String }],
     status: {
       type: String,
@@ -65,6 +66,21 @@ const restaurantSchema = new Schema(
     dietaryTags: [{ type: String, index: true }],
     amenities: [{ type: String, index: true }],
     wheelchairAccessible: { type: Boolean, default: false, index: true },
+    faq: [
+      {
+        question: { type: String, required: true },
+        answer: { type: String, required: true },
+      },
+    ],
+    featuredIn: [
+      {
+        title: { type: String, required: true },
+        description: { type: String },
+        url: { type: String },
+        logoUrl: { type: String },
+      },
+    ],
+    termsAndConditions: { type: String, default: '' },
   },
   { timestamps: true },
 );

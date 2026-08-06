@@ -53,6 +53,12 @@ const { Text } = Typography;
 
 const TOOL_LINKS = [
   {
+    href: '/profile',
+    title: 'Public profile',
+    description: 'Photos, features, FAQ, and press mentions',
+    icon: <ReadOutlined />,
+  },
+  {
     href: '/menu',
     title: 'Menu',
     description: 'Sections, dishes, dietary tags, and photos',

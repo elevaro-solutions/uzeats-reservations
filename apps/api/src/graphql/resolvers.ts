@@ -24,6 +24,12 @@ import {
 } from '@reservations/shared';
 import { assertCanAssignRole } from '../services/roleAccess.js';
 import { submitContactForm } from '../services/contactForm.js';
+import { sendRestaurantInquiry } from '../services/restaurantInquiry.js';
+import {
+  isRestaurantBookmarked,
+  listBookmarkedRestaurants,
+  setRestaurantBookmark,
+} from '../services/restaurantBookmarks.js';
 import {
   registerWithEmail,
   loginWithEmail,
@@ -105,6 +111,7 @@ import {
   SurveyResponse,
   SurveyConfig,
   Message,
+  RestaurantInquiry,
   AccessRule,
   Promotion,
   BoostCampaign,
@@ -117,10 +124,12 @@ import {
   updateStripeSubscription,
   createDepositIntent,
   isStubPaymentIntent,
+  retrievePaymentIntentClientSecret,
 } from '../services/stripe.js';
 import { logAudit } from '../services/audit.js';
 import { createRestaurantSubscription } from '../services/restaurantSubscription.js';
 import { provisionDefaultRestaurantSetup } from '../services/restaurantSetup.js';
+import { restaurantInputToDb } from '../lib/restaurantInput.js';
 import { requireAuth, requireAdmin, requireSuperAdmin, requireRole, type GraphQLContext } from './context.js';
 import { NotFoundError } from '../lib/errors.js';
 import {
@@ -139,6 +148,7 @@ import {
   mapReview,
   mapWaitlistEntry,
   mapMessage,
+  mapRestaurantInquiry,
   mapAccessRule,
   mapPromotion,
   mapGiftCard,
@@ -261,6 +271,14 @@ export const resolvers = {
         })),
       };
     },
+    isSaved: async (r: { id: string }, _: unknown, ctx: GraphQLContext) => {
+      if (!ctx.user) return false;
+      return isRestaurantBookmarked(ctx.user._id.toString(), r.id, 'saved');
+    },
+    isFavorite: async (r: { id: string }, _: unknown, ctx: GraphQLContext) => {
+      if (!ctx.user) return false;
+      return isRestaurantBookmarked(ctx.user._id.toString(), r.id, 'favorite');
+    },
   },
 
   Reservation: {
@@ -275,6 +293,18 @@ export const resolvers = {
     tables: async (r: { tableIds: string[] }) => {
       const tables = await Table.find({ _id: { $in: r.tableIds } });
       return tables.map(mapTable);
+    },
+    clientSecret: async (
+      r: { id: string; dinerId: string; depositStatus: string; clientSecret?: string | null },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => {
+      if (r.clientSecret) return r.clientSecret;
+      if (!ctx.user || r.dinerId !== ctx.user._id.toString()) return null;
+      if (r.depositStatus !== 'requires_payment') return null;
+      const doc = await Reservation.findById(r.id).select('stripePaymentIntentId depositStatus');
+      if (!doc?.stripePaymentIntentId || doc.depositStatus !== 'requires_payment') return null;
+      return retrievePaymentIntentClientSecret(doc.stripePaymentIntentId);
     },
   },
 
@@ -640,6 +670,23 @@ export const resolvers = {
       const user = requireAuth(ctx);
       const items = await Reservation.find({ dinerId: user._id }).sort({ slotStart: -1 });
       return items.map((r) => mapReservation(r));
+    },
+
+    myReservation: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      const reservation = await Reservation.findById(args.id);
+      if (!reservation || !reservation.dinerId.equals(user._id)) return null;
+      return mapReservation(reservation);
+    },
+
+    mySavedRestaurants: async (
+      _: unknown,
+      args: { kind: 'saved' | 'favorite' },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const restaurants = await listBookmarkedRestaurants(user._id.toString(), args.kind);
+      return restaurants.map((r) => mapRestaurant(r));
     },
 
     restaurantReservations: async (
@@ -1468,6 +1515,19 @@ export const resolvers = {
       return items.map(mapMessage);
     },
 
+    restaurantInquiries: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      const items = await RestaurantInquiry.find({ restaurantId: args.restaurantId }).sort({
+        createdAt: -1,
+      });
+      return items.map(mapRestaurantInquiry);
+    },
+
     myConversations: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
       const latest = await Message.aggregate([
@@ -1772,6 +1832,29 @@ export const resolvers = {
     submitContactForm: async (_: unknown, args: { input: unknown }) =>
       submitContactForm(args.input),
 
+    sendRestaurantInquiry: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) =>
+      sendRestaurantInquiry(args.input, { user: ctx.user }),
+
+    saveRestaurant: async (_: unknown, args: { restaurantId: string }, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      return setRestaurantBookmark(user._id.toString(), args.restaurantId, 'saved', true);
+    },
+
+    unsaveRestaurant: async (_: unknown, args: { restaurantId: string }, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      return setRestaurantBookmark(user._id.toString(), args.restaurantId, 'saved', false);
+    },
+
+    favoriteRestaurant: async (_: unknown, args: { restaurantId: string }, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      return setRestaurantBookmark(user._id.toString(), args.restaurantId, 'favorite', true);
+    },
+
+    unfavoriteRestaurant: async (_: unknown, args: { restaurantId: string }, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      return setRestaurantBookmark(user._id.toString(), args.restaurantId, 'favorite', false);
+    },
+
     createRestaurant: async (
       _: unknown,
       args: { input: unknown; plan?: string | null },
@@ -1780,9 +1863,8 @@ export const resolvers = {
       const user = requireAuth(ctx);
       const input = restaurantInputSchema.parse(args.input);
       const doc = await Restaurant.create({
-        ...input,
+        ...restaurantInputToDb(input),
         slug: slugify(input.name),
-        location: { type: 'Point', coordinates: [input.location.lng, input.location.lat] },
         ownerId: user._id,
         status: 'pending',
       });
@@ -1824,10 +1906,7 @@ export const resolvers = {
       const input = restaurantInputSchema.parse(args.input);
       const doc = await Restaurant.findByIdAndUpdate(
         args.id,
-        {
-          ...input,
-          location: { type: 'Point', coordinates: [input.location.lng, input.location.lat] },
-        },
+        restaurantInputToDb(input),
         { new: true },
       );
       if (!doc) throw new Error('Restaurant not found');
@@ -3462,6 +3541,26 @@ export const resolvers = {
         { $set: { readAt: new Date() } },
       );
       return true;
+    },
+
+    markRestaurantInquiryRead: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const inquiry = await RestaurantInquiry.findById(args.id);
+      if (!inquiry) throw new Error('Inquiry not found');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        inquiry.restaurantId.toString(),
+        user.role,
+      );
+      if (!inquiry.readAt) {
+        inquiry.readAt = new Date();
+        await inquiry.save();
+      }
+      return mapRestaurantInquiry(inquiry);
     },
 
     // ---- Access rules ----

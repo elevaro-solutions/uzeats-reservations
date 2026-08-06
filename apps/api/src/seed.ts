@@ -575,6 +575,12 @@ async function seed() {
       });
       await Restaurant.findByIdAndUpdate(restaurant._id, {
         allowGuestTableSelection: true,
+        termsAndConditions: [
+          'Reservations at Samarkand Palace are held for 15 minutes from the booked time.',
+          'A $25.00 per guest deposit is required at booking and is applied to your final bill.',
+          'Cancellations made at least 24 hours before your reservation are eligible for a full deposit refund.',
+          'For parties of 8 or more, please contact the restaurant directly to confirm seating arrangements.',
+        ].join('\n\n'),
       });
     }
 

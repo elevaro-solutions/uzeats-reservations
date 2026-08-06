@@ -2450,3 +2450,892 @@ a {
     width: 100%;
   }
 }
+
+/* ── Restaurant profile page ─────────────────────────────────────────────── */
+
+.rt-restaurant-page {
+  background: #fff;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  padding-left: calc(50vw - 50%);
+  padding-right: calc(50vw - 50%);
+  min-height: calc(100vh - var(--header-height));
+}
+
+.rt-restaurant-profile {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px 64px;
+}
+
+.rt-restaurant-gallery {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 8px;
+  height: 380px;
+  margin: 0 -16px 24px;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.rt-restaurant-gallery--single {
+  grid-template-columns: 1fr;
+  height: 320px;
+}
+
+.rt-restaurant-gallery--single img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  cursor: pointer;
+}
+
+.rt-restaurant-gallery__hero,
+.rt-restaurant-gallery__thumb {
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  overflow: hidden;
+  background: var(--color-border-subtle);
+  position: relative;
+}
+
+.rt-restaurant-gallery__hero img,
+.rt-restaurant-gallery__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.rt-restaurant-gallery__hero:hover img,
+.rt-restaurant-gallery__thumb:hover img {
+  transform: scale(1.03);
+}
+
+.rt-restaurant-gallery__side {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 8px;
+}
+
+.rt-restaurant-gallery__more {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(26, 24, 22, 0.55);
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.rt-restaurant-lightbox__inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.rt-restaurant-lightbox__inner img {
+  max-width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+}
+
+.rt-restaurant-lightbox__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  color: #fff;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  z-index: 2;
+}
+
+.rt-restaurant-lightbox__nav--prev {
+  left: 16px;
+}
+.rt-restaurant-lightbox__nav--next {
+  right: 16px;
+}
+
+.rt-restaurant-lightbox__counter {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: 14px;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 4px 12px;
+  border-radius: 999px;
+}
+
+.rt-restaurant-profile__header {
+  margin-bottom: 8px;
+}
+
+.rt-restaurant-profile__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.rt-restaurant-profile__rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rt-restaurant-profile__address {
+  display: block;
+  font-size: 14px;
+}
+
+.rt-restaurant-nav {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--color-border);
+  margin: 0 -16px 32px;
+  padding: 0 16px;
+  position: sticky;
+  top: var(--header-height);
+  z-index: 10;
+  background: #fff;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.rt-restaurant-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.rt-restaurant-nav__item {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 14px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+  font-family: inherit;
+}
+
+.rt-restaurant-nav__item:hover {
+  color: var(--color-text);
+}
+
+.rt-restaurant-nav__item--active {
+  color: var(--color-brand);
+  border-bottom-color: var(--color-brand);
+  font-weight: 600;
+}
+
+.rt-restaurant-profile__content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rt-restaurant-profile__booking-sticky {
+  position: sticky;
+  top: calc(var(--header-height) + 56px);
+}
+
+.rt-restaurant-booking-card {
+  border: 1px solid var(--color-border) !important;
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-lg) !important;
+}
+
+.rt-restaurant-booking-card .ant-card-head {
+  min-height: auto !important;
+  padding: 12px 16px !important;
+}
+
+.rt-restaurant-booking-card .ant-card-head-title {
+  font-size: 15px !important;
+}
+
+.rt-restaurant-booking-card .ant-card-body {
+  padding: 12px 16px 16px !important;
+}
+
+.rt-restaurant-booking-card__intro {
+  display: block;
+  margin-bottom: 10px !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
+.rt-restaurant-booking-card__loyalty {
+  display: block;
+  margin-bottom: 10px !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+}
+
+.rt-restaurant-booking-card__cancellation {
+  display: block;
+  margin-top: 10px !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+}
+
+.rt-restaurant-booking-card__date-row {
+  margin-bottom: 10px !important;
+}
+
+.rt-restaurant-booking-card__form {
+  margin-top: 12px !important;
+}
+
+.rt-restaurant-booking-card .ant-form-item {
+  margin-bottom: 12px !important;
+}
+
+.rt-restaurant-booking-card .ant-form-item-label > label {
+  font-size: 13px !important;
+  height: auto !important;
+}
+
+.rt-restaurant-booking-card .ant-picker,
+.rt-restaurant-booking-card .ant-select-selector,
+.rt-restaurant-booking-card .ant-input,
+.rt-restaurant-booking-card .ant-input-affix-wrapper,
+.rt-restaurant-booking-card .ant-input-number {
+  font-size: 13px !important;
+}
+
+.rt-restaurant-booking-card .ant-picker,
+.rt-restaurant-booking-card .ant-select-single {
+  height: 36px !important;
+}
+
+.rt-restaurant-booking-card .ant-select-selector {
+  min-height: 36px !important;
+}
+
+.rt-restaurant-booking-card .rt-slot-picker {
+  gap: 6px;
+}
+
+.rt-restaurant-booking-card .rt-slot-picker button {
+  min-height: 36px !important;
+  padding: 6px 8px !important;
+  font-size: 13px !important;
+}
+
+.rt-restaurant-booking-card .rt-slot-picker__toggle {
+  margin-top: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+.rt-restaurant-booking-card .rt-slot-picker--loading .rt-slot-picker__skeleton {
+  height: 36px;
+}
+
+.rt-restaurant-booking-card .ant-btn-primary {
+  height: 40px !important;
+  font-size: 14px !important;
+  padding-inline: 18px !important;
+}
+
+.rt-restaurant-booking-card .ant-alert {
+  margin-bottom: 10px !important;
+  padding: 8px 12px !important;
+  font-size: 13px;
+}
+
+.rt-restaurant-booking-card__loyalty-panel {
+  padding: 10px 12px !important;
+  border-radius: var(--radius-md);
+  background: var(--color-brand-50);
+  border: 1px solid var(--color-brand-100);
+}
+
+.rt-restaurant-booking-card__table-pick {
+  margin-top: 12px;
+}
+
+.rt-restaurant-booking-card__table-pick .ant-card-cover img {
+  height: 72px !important;
+}
+
+.rt-restaurant-section {
+  padding: 32px 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.rt-restaurant-section:last-child {
+  border-bottom: none;
+}
+
+.rt-restaurant-section__title {
+  margin-top: 0 !important;
+  margin-bottom: 20px !important;
+}
+
+.rt-restaurant-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.rt-restaurant-section__header .rt-restaurant-section__title {
+  margin-bottom: 0 !important;
+}
+
+.rt-restaurant-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.rt-restaurant-tag {
+  border-radius: 999px !important;
+  border: 1px solid var(--color-border) !important;
+  background: var(--color-surface) !important;
+  color: var(--color-text-secondary) !important;
+  font-size: 13px !important;
+  padding: 2px 12px !important;
+  margin: 0 !important;
+}
+
+.rt-restaurant-tag--small {
+  font-size: 11px !important;
+  padding: 0 8px !important;
+}
+
+.rt-restaurant-about__text {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+  margin-bottom: 0 !important;
+}
+
+.rt-restaurant-about__read-more {
+  border: none;
+  background: none;
+  color: var(--color-brand);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 0 0 4px;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.rt-restaurant-link {
+  color: var(--color-brand);
+  font-weight: 600;
+  text-decoration: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  padding: 0;
+}
+
+.rt-restaurant-link:hover {
+  text-decoration: underline;
+}
+
+.rt-restaurant-btn-outline {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px 20px;
+  border: 1px solid var(--color-brand);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-brand);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    background 0.15s,
+    color 0.15s;
+  text-align: center;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.rt-restaurant-btn-outline:hover {
+  background: var(--color-brand-50);
+}
+
+/* Slot picker — compact popular times + expandable full list */
+.rt-slot-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.rt-slot-picker--loading .rt-slot-picker__skeleton {
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    90deg,
+    var(--color-border-subtle) 25%,
+    var(--color-surface) 50%,
+    var(--color-border-subtle) 75%
+  );
+  background-size: 200% 100%;
+  animation: rt-slot-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes rt-slot-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.rt-slot-picker--expanded {
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.rt-slot-picker__toggle {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  color: var(--color-brand);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: center;
+  border-radius: var(--radius-md);
+  transition: background 0.15s;
+}
+
+.rt-slot-picker__toggle:hover {
+  background: var(--color-brand-50);
+}
+
+.rt-restaurant-menu__section {
+  margin-bottom: 24px;
+}
+
+.rt-restaurant-menu__section-title {
+  margin-bottom: 12px !important;
+  color: var(--color-text) !important;
+}
+
+.rt-restaurant-menu__item {
+  display: flex;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.rt-restaurant-menu__item-photo {
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.rt-restaurant-menu__item-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.rt-restaurant-menu__item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.rt-restaurant-menu__price {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.rt-restaurant-menu__item-desc {
+  display: block;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.rt-restaurant-menu__dietary {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.rt-restaurant-reviews__summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rt-restaurant-reviews {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.rt-restaurant-review {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.rt-restaurant-review:last-child {
+  border-bottom: none;
+}
+
+.rt-restaurant-review__header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.rt-restaurant-review__avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-brand-100);
+  color: var(--color-brand-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.rt-restaurant-review__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.rt-restaurant-review__comment {
+  margin: 10px 0 0 52px !important;
+  color: var(--color-text-secondary) !important;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.rt-restaurant-review__reply {
+  margin: 12px 0 0 52px;
+  padding: 12px 16px;
+  background: var(--color-brand-50);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--color-brand-200);
+}
+
+.rt-restaurant-photos-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.rt-restaurant-photos-grid img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+}
+
+.rt-restaurant-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.rt-restaurant-actions__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.rt-restaurant-actions__btn--primary {
+  background: var(--color-brand-600);
+  color: #fff;
+  border: 1px solid var(--color-brand-600);
+}
+
+.rt-restaurant-actions__btn--primary:hover {
+  background: var(--color-brand-700);
+  border-color: var(--color-brand-700);
+  color: #fff;
+}
+
+.rt-restaurant-actions .rt-restaurant-actions__btn.ant-btn {
+  border-radius: 999px;
+  border-color: var(--color-border);
+  color: var(--color-text);
+  background: #fff;
+}
+
+.rt-restaurant-actions .rt-restaurant-actions__btn.ant-btn:hover {
+  border-color: var(--color-brand-300);
+  color: var(--color-brand-700);
+  background: var(--color-brand-50);
+}
+
+.rt-restaurant-map {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 28px;
+  border: 1px solid var(--color-border);
+}
+
+.rt-restaurant-map__directions {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--color-brand-700);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.rt-restaurant-map__directions:hover {
+  border-color: var(--color-brand-300);
+  color: var(--color-brand-800);
+  background: var(--color-brand-50);
+}
+
+.rt-restaurant-terms {
+  padding: 20px 22px;
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.rt-restaurant-terms__paragraph {
+  margin-bottom: 12px !important;
+  color: var(--color-text-secondary);
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+.rt-restaurant-terms__paragraph:last-child {
+  margin-bottom: 0 !important;
+}
+
+.rt-reservation-confirm-terms__body {
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-subtle);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+
+.rt-reservation-confirm-terms__body .ant-typography {
+  margin-bottom: 8px !important;
+  font-size: 13px !important;
+  color: var(--color-text-secondary) !important;
+}
+
+.rt-reservation-confirm-terms__body .ant-typography:last-child {
+  margin-bottom: 0 !important;
+}
+
+.rt-restaurant-map iframe {
+  display: block;
+  width: 100%;
+  height: 220px;
+  border: none;
+}
+
+.rt-restaurant-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px 32px;
+}
+
+.rt-restaurant-detail {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.rt-restaurant-detail__icon {
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.rt-restaurant-detail__label {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.rt-restaurant-detail__value {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.rt-restaurant-featured-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.rt-restaurant-featured-card {
+  display: flex;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.rt-restaurant-featured-card__icon {
+  font-size: 22px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.rt-restaurant-featured-card__desc {
+  display: block;
+  font-size: 13px;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.rt-restaurant-offer-card {
+  height: 100%;
+  background: var(--color-brand-50) !important;
+  border-color: var(--color-brand-100) !important;
+}
+
+.rt-restaurant-experience-card {
+  height: 100%;
+  overflow: hidden;
+}
+
+.rt-restaurant-faq {
+  background: transparent !important;
+}
+
+.rt-restaurant-faq .ant-collapse-item {
+  border-bottom: 1px solid var(--color-border-subtle) !important;
+  background: transparent !important;
+}
+
+.rt-restaurant-faq .ant-collapse-header {
+  padding: 16px 0 !important;
+  align-items: center !important;
+}
+
+.rt-restaurant-faq .ant-collapse-content-box {
+  padding: 0 0 16px !important;
+}
+
+.rt-restaurant-faq__question {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--color-text);
+}
+
+.rt-restaurant-faq__answer {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+@media (max-width: 992px) {
+  .rt-restaurant-gallery {
+    height: 260px;
+  }
+
+  .rt-restaurant-profile__booking-sticky {
+    position: static;
+  }
+
+  .rt-restaurant-details-grid,
+  .rt-restaurant-featured-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rt-restaurant-photos-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 576px) {
+  .rt-restaurant-gallery {
+    grid-template-columns: 1fr;
+    height: 220px;
+  }
+
+  .rt-restaurant-gallery__side {
+    display: none;
+  }
+
+  .rt-restaurant-review__comment,
+  .rt-restaurant-review__reply {
+    margin-left: 0 !important;
+  }
+}

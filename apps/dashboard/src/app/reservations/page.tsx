@@ -1,8 +1,8 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Button,
   Card,
@@ -115,6 +115,9 @@ function SectionLabel({ children }: { children: string }) {
 function ReservationsPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const reservationIdParam = searchParams.get('reservationId');
+  const openedReservationIdRef = useRef<string | null>(null);
   const [date, setDate] = useState(dayjs());
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<ReservationRow | null>(null);
@@ -148,6 +151,23 @@ function ReservationsPageContent() {
     skip: !activeRestaurantId,
     variables: { restaurantId: activeRestaurantId, date: date.format('YYYY-MM-DD'), limit, offset },
   });
+
+  const listItems = (data?.restaurantReservations?.items ?? []) as ReservationRow[];
+  const reservationInList = useMemo(
+    () => (reservationIdParam ? listItems.find((r) => r.id === reservationIdParam) : undefined),
+    [listItems, reservationIdParam],
+  );
+
+  const { data: lookupData, loading: lookupLoading } = useQuery(RESTAURANT_RESERVATIONS, {
+    skip: !activeRestaurantId || !reservationIdParam || !!reservationInList,
+    variables: { restaurantId: activeRestaurantId, limit: 200, offset: 0 },
+  });
+
+  const lookedUpReservation = useMemo(() => {
+    if (!reservationIdParam || reservationInList) return undefined;
+    const items = (lookupData?.restaurantReservations?.items ?? []) as ReservationRow[];
+    return items.find((r) => r.id === reservationIdParam);
+  }, [lookupData, reservationIdParam, reservationInList]);
   const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
   const [createReservation, { loading: creating }] = useMutation(CREATE_OWNER_RESERVATION);
   const [updateReservation, { loading: updating }] = useMutation(UPDATE_RESERVATION);
@@ -232,6 +252,38 @@ function ReservationsPageContent() {
       slotTime: r.slotStart,
     });
   };
+
+  useEffect(() => {
+    if (!reservationIdParam || openedReservationIdRef.current === reservationIdParam) return;
+
+    const reservation = reservationInList ?? lookedUpReservation;
+    if (!reservation) {
+      if (!lookupLoading && lookupData && !reservationInList) {
+        message.warning('Reservation not found');
+        openedReservationIdRef.current = reservationIdParam;
+        router.replace('/reservations', { scroll: false });
+      }
+      return;
+    }
+
+    const slot = dayjs(reservation.slotStart);
+    if (!slot.isSame(date, 'day')) {
+      setDate(slot);
+      return;
+    }
+
+    openEdit(reservation);
+    openedReservationIdRef.current = reservationIdParam;
+    router.replace('/reservations', { scroll: false });
+  }, [
+    reservationIdParam,
+    reservationInList,
+    lookedUpReservation,
+    lookupLoading,
+    lookupData,
+    date,
+    router,
+  ]);
 
   const runStatusUpdate = async (
     id: string,

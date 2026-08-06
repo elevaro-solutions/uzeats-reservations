@@ -53,6 +53,24 @@ export const adminCreateOwnerSchema = z.object({
   phone: phoneSchema.optional(),
 });
 
+export const restaurantFaqItemSchema = z.object({
+  question: z.string().min(1).max(300),
+  answer: z.string().min(1).max(2000),
+});
+
+export const restaurantFeaturedInItemSchema = z.object({
+  title: z.string().min(1).max(120),
+  description: z.string().max(500).optional(),
+  url: z
+    .union([z.string().url(), z.literal('')])
+    .optional()
+    .transform((v) => (v === '' || v == null ? undefined : v)),
+  logoUrl: z
+    .union([z.string().url(), z.literal('')])
+    .optional()
+    .transform((v) => (v === '' || v == null ? undefined : v)),
+});
+
 export const restaurantInputSchema = z.object({
   name: z.string().min(1).max(120),
   description: z.string().max(2000).optional(),
@@ -80,6 +98,10 @@ export const restaurantInputSchema = z.object({
     .union([z.string().url(), z.literal('')])
     .optional()
     .transform((v) => (v === '' || v == null ? undefined : v)),
+  menuUrl: z
+    .union([z.string().url(), z.literal('')])
+    .optional()
+    .transform((v) => (v === '' || v == null ? undefined : v)),
   depositRequired: z.boolean().default(false),
   depositAmountCents: z.number().int().min(0).default(0),
   loyaltyEnabled: z.boolean().default(false),
@@ -93,6 +115,16 @@ export const restaurantInputSchema = z.object({
   dietaryTags: z.array(z.enum(DIETARY_TAGS)).default([]),
   amenities: z.array(z.enum(AMENITIES)).default([]),
   wheelchairAccessible: z.boolean().default(false),
+  faq: z.array(restaurantFaqItemSchema).default([]),
+  featuredIn: z.array(restaurantFeaturedInItemSchema).default([]),
+  termsAndConditions: z.string().max(8000).optional(),
+});
+
+export const restaurantInquiryInputSchema = z.object({
+  restaurantId: z.string().min(1),
+  message: z.string().min(1).max(2000),
+  name: z.string().min(1).max(120).optional(),
+  email: z.string().email().optional(),
 });
 
 /** Partner signup: account + restaurant listing + selected plan. */
@@ -228,6 +260,7 @@ export const searchRestaurantsSchema = z.object({
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RestaurantInput = z.infer<typeof restaurantInputSchema>;
+export type RestaurantInquiryInput = z.infer<typeof restaurantInquiryInputSchema>;
 export type RegisterRestaurantPartnerInput = z.infer<typeof registerRestaurantPartnerSchema>;
 export type TableInput = z.infer<typeof tableInputSchema>;
 export type ShiftInput = z.infer<typeof shiftInputSchema>;

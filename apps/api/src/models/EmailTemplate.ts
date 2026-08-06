@@ -1,4 +1,13 @@
 import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
+import {
+  emailButton,
+  emailDetailBox,
+  emailGreeting,
+  emailLinkFallback,
+  emailMuted,
+  emailNotice,
+  emailParagraph,
+} from '../services/emailBranding.js';
 
 const emailTemplateSchema = new Schema(
   {
@@ -41,8 +50,13 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     name: 'Password reset',
     subject: 'Reset your Tablevera password',
     description: 'Sent when a user or admin requests a password reset.',
-    bodyHtml:
-      '<p>Hi {{firstName}},</p><p>We received a request to reset your password.</p><p style="margin:24px 0;"><a href="{{resetUrl}}" style="display:inline-block;padding:12px 24px;background:#2d5a3d;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">Reset password</a></p><p style="font-size:14px;color:#666;">Or copy this link:<br><a href="{{resetUrl}}">{{resetUrl}}</a></p><p style="font-size:14px;color:#666;">This link expires in 1 hour. If you didn\'t request this, you can ignore this email.</p>',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('We received a request to reset your Tablevera password. Click the button below to choose a new password.'),
+      emailButton('{{resetUrl}}', 'Reset password'),
+      emailLinkFallback('{{resetUrl}}'),
+      emailMuted('This link expires in 1 hour. If you didn\'t request this, you can safely ignore this email.'),
+    ].join(''),
     bodyText:
       'Hi {{firstName}},\n\nWe received a request to reset your Tablevera password.\n\nUse this link to reset your password:\n{{resetUrl}}\n\nThis link expires in 1 hour. If you did not request a reset, you can ignore this email.',
   },
@@ -51,8 +65,16 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     name: 'Booking confirmation',
     subject: 'Reservation confirmed at {{restaurantName}}',
     description: 'Sent after a diner books successfully.',
-    bodyHtml:
-      '<p>Hi {{firstName}},</p><p>Your reservation at <strong>{{restaurantName}}</strong> on {{date}} for {{partySize}} is confirmed.</p>',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('Great news — your reservation is confirmed. We look forward to seeing you.'),
+      emailDetailBox([
+        { label: 'Restaurant', value: '{{restaurantName}}' },
+        { label: 'Date & time', value: '{{date}}' },
+        { label: 'Party size', value: '{{partySize}}' },
+      ]),
+      emailMuted('Need to make changes? Visit your reservations in the Tablevera app.'),
+    ].join(''),
     bodyText:
       'Hi {{firstName}},\n\nYour reservation at {{restaurantName}} on {{date}} for {{partySize}} is confirmed.',
   },
@@ -61,8 +83,15 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     name: 'Booking reminder',
     subject: 'Reminder: {{restaurantName}} tomorrow',
     description: 'Pre-visit reminder.',
-    bodyHtml:
-      '<p>Hi {{firstName}},</p><p>Reminder: you have a reservation at {{restaurantName}} on {{date}}.</p>',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('Just a friendly reminder about your upcoming reservation.'),
+      emailDetailBox([
+        { label: 'Restaurant', value: '{{restaurantName}}' },
+        { label: 'Date & time', value: '{{date}}' },
+      ]),
+      emailMuted('We hope you have a wonderful dining experience.'),
+    ].join(''),
     bodyText:
       'Hi {{firstName}},\n\nReminder: you have a reservation at {{restaurantName}} on {{date}}.',
   },
@@ -71,8 +100,15 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     name: 'Booking cancelled',
     subject: 'Reservation cancelled — {{restaurantName}}',
     description: 'Sent when a booking is cancelled.',
-    bodyHtml:
-      '<p>Hi {{firstName}},</p><p>Your reservation at {{restaurantName}} on {{date}} was cancelled.</p>',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('Your reservation has been cancelled.'),
+      emailDetailBox([
+        { label: 'Restaurant', value: '{{restaurantName}}' },
+        { label: 'Date & time', value: '{{date}}' },
+      ]),
+      emailMuted('If you didn\'t request this cancellation or have questions, please contact the restaurant directly.'),
+    ].join(''),
     bodyText:
       'Hi {{firstName}},\n\nYour reservation at {{restaurantName}} on {{date}} was cancelled.',
   },
@@ -81,18 +117,28 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     name: 'Waitlist available',
     subject: 'A table opened up at {{restaurantName}}',
     description: 'Waitlist availability notification.',
-    bodyHtml:
-      '<p>Hi {{firstName}},</p><p>A table is available at {{restaurantName}}. Book soon before it fills again.</p>',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('Good news — a table just became available at <strong>{{restaurantName}}</strong>. Spots fill quickly, so book now to secure your seat.'),
+      emailButton('{{bookUrl}}', 'Book now'),
+      emailMuted('This availability may be limited. If you no longer need a table, you can ignore this email.'),
+    ].join(''),
     bodyText:
-      'Hi {{firstName}},\n\nA table is available at {{restaurantName}}. Book soon before it fills again.',
+      'Hi {{firstName}},\n\nA table is available at {{restaurantName}}. Book soon before it fills again.\n\n{{bookUrl}}',
   },
   {
     key: 'staff_invite',
     name: 'Staff invite',
     subject: 'You are invited to {{restaurantName}} on Tablevera',
     description: 'Sent when an admin or owner invites staff.',
-    bodyHtml:
-      '<p>Hi {{firstName}},</p><p>You have been invited to manage {{restaurantName}} as {{role}}.</p><p><a href="{{inviteUrl}}">Accept invite</a></p>',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('You\'ve been invited to join <strong>{{restaurantName}}</strong> on Tablevera as <strong>{{role}}</strong>.'),
+      emailParagraph('Accept the invitation to access your restaurant dashboard, manage reservations, and collaborate with your team.'),
+      emailButton('{{inviteUrl}}', 'Accept invitation'),
+      emailLinkFallback('{{inviteUrl}}'),
+      emailMuted('If you weren\'t expecting this invitation, you can safely ignore this email.'),
+    ].join(''),
     bodyText:
       'Hi {{firstName}},\n\nYou have been invited to manage {{restaurantName}} as {{role}}.\n{{inviteUrl}}',
   },
@@ -101,8 +147,13 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     name: 'Restaurant approved',
     subject: '{{restaurantName}} is live on Tablevera',
     description: 'Sent when a restaurant listing is approved.',
-    bodyHtml:
-      '<p>Hi {{firstName}},</p><p>{{restaurantName}} has been approved and is now visible to diners.</p>',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('Congratulations — <strong>{{restaurantName}}</strong> has been approved and is now live on Tablevera.'),
+      emailNotice('Diners can now discover your restaurant, view availability, and make reservations online.'),
+      emailButton('{{dashboardUrl}}', 'Go to dashboard'),
+      emailMuted('Need help getting started? Visit our help center or reach out to our support team.'),
+    ].join(''),
     bodyText:
       'Hi {{firstName}},\n\n{{restaurantName}} has been approved and is now visible to diners.',
   },
@@ -111,8 +162,17 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     name: 'Invoice ready',
     subject: 'Invoice {{invoiceNumber}} is ready',
     description: 'Sent when a platform invoice is generated.',
-    bodyHtml:
-      '<p>Hi {{firstName}},</p><p>Invoice {{invoiceNumber}} for {{period}} totaling {{amount}} is ready.</p>',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('Your invoice is ready for review.'),
+      emailDetailBox([
+        { label: 'Invoice', value: '{{invoiceNumber}}' },
+        { label: 'Period', value: '{{period}}' },
+        { label: 'Amount', value: '{{amount}}' },
+      ]),
+      emailButton('{{invoiceUrl}}', 'View invoice'),
+      emailMuted('If you have questions about this invoice, please contact our billing team.'),
+    ].join(''),
     bodyText:
       'Hi {{firstName}},\n\nInvoice {{invoiceNumber}} for {{period}} totaling {{amount}} is ready.',
   },

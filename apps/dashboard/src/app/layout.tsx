@@ -23,11 +23,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html component="RootLayout" lang="en" className={sans.variable}>
+    <html component="RootLayout" lang="en" className={sans.variable} suppressHydrationWarning>
       <head>
         <PaletteStyles />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <AntdRegistry>
           <Providers>
             <DashShell>{children}</DashShell>

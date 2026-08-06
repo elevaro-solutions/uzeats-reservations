@@ -18,6 +18,9 @@ import { mapNotificationPreferences } from '../lib/notificationPreferences.js';
 import { releaseTableSlotClaims } from './tableSlotClaims.js';
 import { captureDeposit } from './stripe.js';
 import { sendTelegramNotification } from './telegram.js';
+import { textToEmailHtml, wrapEmailHtml } from './emailBranding.js';
+
+export { wrapEmailHtml } from './emailBranding.js';
 
 const connection = { url: env.REDIS_URL };
 
@@ -70,43 +73,14 @@ async function sendViaSendGrid(
   }
 }
 
-export function wrapEmailHtml(innerHtml: string) {
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Tablevera</title>
-</head>
-<body style="margin:0;padding:0;background:#f6f4ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a1a;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f6f4ef;padding:32px 16px;">
-    <tr>
-      <td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:12px;padding:32px;">
-          <tr>
-            <td style="padding-bottom:24px;font-size:20px;font-weight:700;color:#2d5a3d;">Tablevera</td>
-          </tr>
-          <tr>
-            <td style="font-size:16px;line-height:1.6;">${innerHtml}</td>
-          </tr>
-          <tr>
-            <td style="padding-top:32px;font-size:12px;color:#888;">© Tablevera</td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>`;
-}
-
 export async function sendEmail(
   to: string,
   title: string,
   body: string,
   options?: { htmlBody?: string },
 ) {
-  const htmlBody = options?.htmlBody ? wrapEmailHtml(options.htmlBody) : undefined;
+  const innerHtml = options?.htmlBody ?? textToEmailHtml(body);
+  const htmlBody = wrapEmailHtml(innerHtml);
 
   if (env.SENDGRID_API_KEY) {
     await sendViaSendGrid(to, title, body, htmlBody);

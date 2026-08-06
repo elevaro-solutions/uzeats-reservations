@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { NetworkStatus } from '@apollo/client';
 import { useQuery, useMutation } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import {
@@ -35,7 +36,13 @@ import {
 } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { isPlatformAdmin } from '@/lib/roles';
-import { MY_RESTAURANTS, MY_RESTAURANT_LOCATIONS_META, CREATE_RESTAURANT, PLANS } from '@/lib/graphql';
+import {
+  MY_RESTAURANTS_OVERVIEW,
+  MY_RESTAURANT_LOCATIONS_META,
+  CREATE_RESTAURANT,
+  PLANS,
+} from '@/lib/graphql';
+import { useUrlListFilters } from '@/lib/useUrlListFilters';
 import { addressSelectionToFields } from '@/lib/address';
 import {
   priceRangeOptions,
@@ -102,20 +109,31 @@ export default function OverviewPage() {
   const [createStep, setCreateStep] = useState(0);
   const [selectedPlan, setSelectedPlan] = useState('core');
   const [createForm] = Form.useForm();
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>();
-  const [cityFilter, setCityFilter] = useState<string>();
+  const {
+    search: searchInput,
+    searchQuery,
+    status: statusFilter,
+    city: cityFilter,
+    setSearch,
+    setStatus: setStatusFilter,
+    setCity: setCityFilter,
+  } = useUrlListFilters({ search: 'q', status: 'status', city: 'city' });
   const { data: metaData, refetch: refetchMeta } = useQuery(MY_RESTAURANT_LOCATIONS_META, {
     skip: !user,
   });
-  const { data, refetch } = useQuery(MY_RESTAURANTS, {
-    skip: !user,
-    variables: {
-      search: search || undefined,
-      status: statusFilter,
-      city: cityFilter,
+  const { data, refetch, loading: restaurantsLoading, networkStatus } = useQuery(
+    MY_RESTAURANTS_OVERVIEW,
+    {
+      skip: !user,
+      fetchPolicy: 'cache-and-network',
+      notifyOnNetworkStatusChange: true,
+      variables: {
+        search: searchQuery || undefined,
+        status: statusFilter,
+        city: cityFilter,
+      },
     },
-  });
+  );
   const { data: plansData } = useQuery(PLANS, { skip: !user });
 
   const closeCreateForm = () => {
@@ -289,7 +307,13 @@ export default function OverviewPage() {
     [],
   );
 
-  const hasActiveFilters = Boolean(search || statusFilter || cityFilter);
+  const hasActiveFilters = Boolean(searchInput || statusFilter || cityFilter);
+  const isSearchPending = searchInput !== searchQuery;
+  const isFetchingResults =
+    isSearchPending ||
+    restaurantsLoading ||
+    networkStatus === NetworkStatus.refetch ||
+    networkStatus === NetworkStatus.setVariables;
 
   return (
     <div component="OverviewPage" style={{ display: 'contents' }}><Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
@@ -668,8 +692,10 @@ export default function OverviewPage() {
                 placeholder="Search name, cuisine, or city"
                 allowClear
                 style={{ width: 280 }}
-                value={search}
+                value={searchInput}
+                loading={isFetchingResults}
                 onChange={(e) => setSearch(e.target.value)}
+                onClear={() => setSearch('')}
               />
               <Select
                 placeholder="Status"

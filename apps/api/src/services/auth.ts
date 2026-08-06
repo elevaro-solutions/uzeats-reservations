@@ -7,6 +7,7 @@ import { env } from '../config/env.js';
 import { User } from '../models/User.js';
 import { notifyUser } from './notifications.js';
 import { renderEmailTemplate } from './emailTemplates.js';
+import { emailNotice } from './emailBranding.js';
 import { getPlatformConfig } from './platformConfig.js';
 import { generateUniqueReferralCode } from '../lib/referralCode.js';
 import { AuthenticationError } from '../lib/errors.js';
@@ -283,7 +284,7 @@ async function sendPasswordResetEmail(
     ? `A platform admin started a password reset for your account.\n\n${rendered.bodyText}`
     : rendered.bodyText;
   const htmlBody = adminInitiated
-    ? `<p>A platform admin started a password reset for your account.</p>${rendered.bodyHtml}`
+    ? `${emailNotice('A platform admin started a password reset for your account.')}${rendered.bodyHtml}`
     : rendered.bodyHtml;
 
   await notifyUser(user._id.toString(), {

@@ -54,10 +54,12 @@ import {
   CompassOutlined,
   CodeOutlined,
   ToolOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useEffect, useMemo, useState } from 'react';
+import { buildRestaurantBookingUrl } from '@reservations/shared';
 import { TableveraWordmark, colors, radii, spacing, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import {
@@ -113,29 +115,45 @@ const SETTINGS_PREFIXES = [
   '/notifications',
 ];
 
-function notificationHref(n: AppNotification): string {
-  let data: Record<string, unknown> = {};
+function parseNotificationData(data: string | null | undefined): Record<string, unknown> {
+  if (!data) return {};
   try {
-    data = n.data ? JSON.parse(n.data) : {};
+    return JSON.parse(data) as Record<string, unknown>;
   } catch {
-    data = {};
+    return {};
   }
+}
+
+function reservationManageHref(data: Record<string, unknown>): string {
+  return typeof data.reservationId === 'string'
+    ? `/reservations?reservationId=${encodeURIComponent(data.reservationId)}`
+    : '/reservations';
+}
+
+function notificationHref(n: AppNotification): string {
+  const data = parseNotificationData(n.data);
 
   switch (n.type) {
     case 'new_message':
       return typeof data.reservationId === 'string'
         ? `/messages?reservationId=${data.reservationId}`
         : '/messages';
+    case 'restaurant_inquiry':
+      return typeof data.inquiryId === 'string'
+        ? `/messages?inquiryId=${data.inquiryId}`
+        : '/messages';
     case 'new_reservation':
     case 'reservation_confirmed':
     case 'reservation_reminder':
-      return '/reservations';
+      return reservationManageHref(data);
     case 'waitlist_available':
     case 'waitlist_ready':
     case 'waitlist_notified':
       return '/waitlist';
     case 'guest_spend_alert':
-      return data.reservationId ? '/reservations' : '/guests';
+      return typeof data.reservationId === 'string'
+        ? reservationManageHref(data)
+        : '/guests';
     case 'review_reply':
       return '/reviews';
     default:
@@ -164,6 +182,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const isAdmin = user ? isPlatformAdmin(user.role) && !isImpersonating : false;
   const isSuperAdminUser = user ? isSuperAdmin(user.role) && !isImpersonating : false;
   const isPartner =
@@ -205,9 +224,12 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     if (isPlatformAdmin(user.role) && !isImpersonating) return;
     const saved = localStorage.getItem('activeRestaurantId');
     const list = restaurantsData?.myRestaurants ?? [];
+    const fromUrl = searchParams.get('restaurant');
+    const validFromUrl = fromUrl && list.some((r: { id: string }) => r.id === fromUrl) ? fromUrl : undefined;
     const valid = list.some((r: { id: string }) => r.id === saved);
-    setRestaurantId(valid ? saved! : list[0]?.id);
-  }, [user, restaurantsData, isPartner, isImpersonating]);
+    const next = validFromUrl ?? (valid ? saved! : list[0]?.id);
+    setRestaurantId(next);
+  }, [user, restaurantsData, isPartner, isImpersonating, searchParams]);
 
   useEffect(() => {
     const onChange = (e: Event) => {
@@ -248,6 +270,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       '/messages',
       '/reviews',
       '/marketing',
+      '/profile',
       '/booking-widget',
       '/campaigns',
       '/experiences',
@@ -261,17 +284,25 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     return pathname;
   }, [pathname]);
 
+  const restaurants = restaurantsData?.myRestaurants ?? [];
+  const restaurantIds = restaurants.map((r: { id: string }) => r.id);
+  const activeRestaurantId = validatedRestaurantId(restaurantId, restaurantIds);
+  const activeRestaurant = restaurants.find((r: { id: string }) => r.id === activeRestaurantId);
+  const dinerPageUrl = useMemo(() => {
+    if (!activeRestaurant) return null;
+    return buildRestaurantBookingUrl(getPublicWebUrl(), {
+      slug: (activeRestaurant as { slug?: string | null }).slug,
+      id: activeRestaurant.id,
+    });
+  }, [activeRestaurant]);
+
   if (!user || (user.role === 'diner' && !isImpersonating)) {
     return <>{children}</>;
   }
 
-  const restaurants = restaurantsData?.myRestaurants ?? [];
-  const restaurantIds = restaurants.map((r: { id: string }) => r.id);
-  const activeRestaurantId = validatedRestaurantId(restaurantId, restaurantIds);
   const restaurantSelectOptions = buildRestaurantSelectOptions(restaurants);
   const notifications: AppNotification[] = notifData?.myNotifications ?? [];
   const unreadCount: number = notifData?.unreadNotificationCount ?? 0;
-  const activeRestaurant = restaurants.find((r: { id: string }) => r.id === activeRestaurantId);
   const onboardingSteps = activeRestaurant ? getOnboardingSteps(activeRestaurant) : [];
   const onboardingProgress = getOnboardingProgress(onboardingSteps);
   const showOnboardingBanner =
@@ -309,6 +340,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       label: 'Grow',
       children: [
         item('/marketing', <RocketOutlined />, 'Marketing'),
+        item('/profile', <ShopOutlined />, 'Public profile'),
         item('/booking-widget', <CodeOutlined />, 'Booking widget'),
         item('/campaigns', <MailOutlined />, 'Campaigns'),
         item('/experiences', <GiftOutlined />, 'Experiences'),
@@ -682,6 +714,12 @@ export function DashShell({ children }: { children: React.ReactNode }) {
                     setRestaurantId(id);
                     localStorage.setItem('activeRestaurantId', id);
                     window.dispatchEvent(new CustomEvent('rt-restaurant-change', { detail: id }));
+                    const params = new URLSearchParams(searchParams.toString());
+                    if (restaurants.length > 1) params.set('restaurant', id);
+                    else params.delete('restaurant');
+                    const qs = params.toString();
+                    const nextUrl = qs ? `${pathname}?${qs}` : pathname;
+                    router.replace(nextUrl, { scroll: false });
                   }}
                   options={restaurantSelectOptions}
                   showSearch={restaurants.length >= MANY_LOCATIONS_THRESHOLD}
@@ -689,6 +727,19 @@ export function DashShell({ children }: { children: React.ReactNode }) {
                   variant="borderless"
                   popupMatchSelectWidth={320}
                 />
+                {dinerPageUrl && (
+                  <Button
+                    type="default"
+                    size="small"
+                    icon={<EyeOutlined />}
+                    href={dinerPageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ flexShrink: 0 }}
+                  >
+                    View as diner
+                  </Button>
+                )}
               </>
             )}
           </div>

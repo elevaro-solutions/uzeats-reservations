@@ -177,6 +177,17 @@ export const DEFAULT_TURN_TIME_MINUTES = 90;
 export const REMINDER_HOURS = [24, 2] as const;
 export const CANCELLATION_REFUND_HOURS = 24;
 
+/** Predefined reasons diners can pick when cancelling a reservation. */
+export const RESERVATION_CANCELLATION_REASONS = [
+  'Change of plans',
+  'Running late',
+  'Booked elsewhere',
+  'Party size changed',
+  'Duplicate booking',
+  'Unexpected circumstances',
+  'Other',
+] as const;
+
 /** Delivery channels shown as preference matrix columns. */
 export const NOTIFICATION_CHANNELS = ['sms', 'email', 'webPush', 'platform'] as const;
 

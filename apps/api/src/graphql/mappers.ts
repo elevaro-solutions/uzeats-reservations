@@ -45,6 +45,7 @@ export function mapRestaurant(r: any) {
     },
     phone: r.phone,
     website: r.website,
+    menuUrl: r.menuUrl ?? null,
     photos: r.photos ?? [],
     status: r.status,
     ownerId: r.ownerId.toString(),
@@ -72,6 +73,19 @@ export function mapRestaurant(r: any) {
     dietaryTags: r.dietaryTags ?? [],
     amenities: r.amenities ?? [],
     wheelchairAccessible: r.wheelchairAccessible ?? false,
+    faq: (r.faq ?? []).map((item: { question: string; answer: string }) => ({
+      question: item.question,
+      answer: item.answer,
+    })),
+    featuredIn: (r.featuredIn ?? []).map(
+      (item: { title: string; description?: string; url?: string; logoUrl?: string }) => ({
+        title: item.title,
+        description: item.description ?? null,
+        url: item.url ?? null,
+        logoUrl: item.logoUrl ?? null,
+      }),
+    ),
+    termsAndConditions: r.termsAndConditions?.trim() || null,
     createdAt: r.createdAt,
   };
 }
@@ -174,6 +188,19 @@ export function mapWaitlistEntry(w: any) {
     partiesAhead: w._eta?.partiesAhead ?? null,
     estimatedWaitMinutes: w._eta?.estimatedWaitMinutes ?? null,
     estimatedReadyAt: w._eta?.estimatedReadyAt ?? null,
+  };
+}
+
+export function mapRestaurantInquiry(i: any) {
+  return {
+    id: i._id.toString(),
+    restaurantId: i.restaurantId.toString(),
+    senderName: i.senderName,
+    senderEmail: i.senderEmail,
+    userId: i.userId?.toString() ?? null,
+    message: i.message,
+    readAt: i.readAt ?? null,
+    createdAt: i.createdAt,
   };
 }
 

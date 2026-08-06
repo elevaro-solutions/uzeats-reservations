@@ -25,11 +25,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html component="RootLayout" lang="en" className={sans.variable}>
+    <html component="RootLayout" lang="en" className={sans.variable} suppressHydrationWarning>
       <head>
         <PaletteStyles />
       </head>
-      <body style={{ fontFamily: 'var(--font-sans), system-ui, sans-serif' }}>
+      <body suppressHydrationWarning style={{ fontFamily: 'var(--font-sans), system-ui, sans-serif' }}>
         <AntdRegistry>
           <Providers>
             <ErrorBoundary>

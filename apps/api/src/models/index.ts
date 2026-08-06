@@ -24,6 +24,8 @@ export { GuestProfile } from './GuestProfile.js';
 export { Campaign } from './Campaign.js';
 export { SurveyResponse, SurveyConfig } from './Survey.js';
 export { Message } from './Message.js';
+export { RestaurantInquiry } from './RestaurantInquiry.js';
+export { RestaurantBookmark } from './RestaurantBookmark.js';
 export { AccessRule } from './AccessRule.js';
 export { Promotion, BoostCampaign } from './Marketing.js';
 export { Integration } from './Integration.js';
