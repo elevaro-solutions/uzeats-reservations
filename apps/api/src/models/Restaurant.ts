@@ -42,6 +42,8 @@ const restaurantSchema = new Schema(
     reviewCount: { type: Number, default: 0 },
     useSmartAssign: { type: Boolean, default: true },
     allowGuestTableSelection: { type: Boolean, default: false },
+    reservationsEnabled: { type: Boolean, default: true },
+    reservationsVisible: { type: Boolean, default: true },
     posApiKey: { type: String, sparse: true, unique: true },
     posEnabled: { type: Boolean, default: false },
     // Marketing: featured placement boosts search ranking while active

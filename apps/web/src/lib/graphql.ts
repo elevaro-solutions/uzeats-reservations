@@ -81,6 +81,8 @@ export const RESTAURANT_DETAIL = gql`
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
       allowGuestTableSelection
+      reservationsEnabled
+      reservationsVisible
       menu {
         sections {
           id

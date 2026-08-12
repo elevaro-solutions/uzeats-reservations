@@ -2261,6 +2261,13 @@ export const resolvers = {
         throw new Error('Waitlist is temporarily unavailable');
       }
       const input = waitlistInputSchema.parse(args.input);
+      const restaurant = await Restaurant.findById(input.restaurantId);
+      if (!restaurant || restaurant.status !== 'approved') {
+        throw new Error('Restaurant not available');
+      }
+      if (restaurant.reservationsEnabled === false) {
+        throw new Error('This restaurant is not accepting online reservations');
+      }
       const doc = await WaitlistEntry.create({
         ...input,
         dinerId: user._id,
@@ -3815,6 +3822,8 @@ export const resolvers = {
         spendAlertThresholdCents?: number;
         useSmartAssign?: boolean;
         allowGuestTableSelection?: boolean;
+        reservationsEnabled?: boolean;
+        reservationsVisible?: boolean;
         posEnabled?: boolean;
         widgetTheme?: { primaryColor?: string; buttonText?: string; showReviews?: boolean };
       },
@@ -3834,6 +3843,8 @@ export const resolvers = {
       if (args.allowGuestTableSelection != null) {
         update.allowGuestTableSelection = args.allowGuestTableSelection;
       }
+      if (args.reservationsEnabled != null) update.reservationsEnabled = args.reservationsEnabled;
+      if (args.reservationsVisible != null) update.reservationsVisible = args.reservationsVisible;
       if (args.posEnabled != null) update.posEnabled = args.posEnabled;
       if (args.widgetTheme) {
         await requireFeature(args.restaurantId, 'customWidget');

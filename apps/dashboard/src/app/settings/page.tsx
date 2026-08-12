@@ -197,6 +197,8 @@ export default function SettingsPage() {
       settingsForm.setFieldsValue({
         useSmartAssign: settings.useSmartAssign ?? false,
         allowGuestTableSelection: settings.allowGuestTableSelection ?? false,
+        reservationsEnabled: settings.reservationsEnabled ?? true,
+        reservationsVisible: settings.reservationsVisible ?? true,
         posEnabled: settings.posEnabled ?? false,
         spendAlertDollars: (settings.spendAlertThresholdCents ?? 0) / 100,
         primaryColor: settings.widgetTheme?.primaryColor ?? colors.brand[600],
@@ -210,6 +212,8 @@ export default function SettingsPage() {
     spendAlertDollars?: number;
     useSmartAssign?: boolean;
     allowGuestTableSelection?: boolean;
+    reservationsEnabled?: boolean;
+    reservationsVisible?: boolean;
     posEnabled?: boolean;
     primaryColor?: string;
     buttonText?: string;
@@ -223,6 +227,8 @@ export default function SettingsPage() {
           spendAlertThresholdCents: Math.round((values.spendAlertDollars ?? 0) * 100),
           useSmartAssign: values.useSmartAssign ?? false,
           allowGuestTableSelection: values.allowGuestTableSelection ?? false,
+          reservationsEnabled: values.reservationsEnabled ?? true,
+          reservationsVisible: values.reservationsVisible ?? true,
           posEnabled: values.posEnabled ?? false,
           widgetTheme: {
             primaryColor: values.primaryColor,
@@ -680,6 +686,36 @@ export default function SettingsPage() {
               onFinish={handleSettingsFinish}
               requiredMark="optional"
             >
+              <FormSection
+                title="Online reservations"
+                description="Control whether guests can book online and see the booking widget."
+              >
+                <Row gutter={[24, 8]}>
+                  <Col xs={12} md={8}>
+                    <Form.Item
+                      name="reservationsEnabled"
+                      label="Accept online reservations"
+                      tooltip="When disabled, guests cannot make new online reservations. You can still create reservations manually from the dashboard."
+                      valuePropName="checked"
+                    >
+                      <Switch />
+                    </Form.Item>
+                  </Col>
+                  <Col xs={12} md={8}>
+                    <Form.Item
+                      name="reservationsVisible"
+                      label="Show booking widget"
+                      tooltip="When disabled, the booking form is hidden on your public profile. Useful if you want to temporarily hide reservations without fully disabling them."
+                      valuePropName="checked"
+                    >
+                      <Switch />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </FormSection>
+
+              <Divider style={{ margin: `${spacing.md}px 0 ${spacing.lg}px` }} />
+
               <FormSection
                 title="Operations"
                 description="Automation and alerts for day-of service."

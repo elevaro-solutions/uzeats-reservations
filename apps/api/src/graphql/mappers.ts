@@ -58,6 +58,8 @@ export function mapRestaurant(r: any) {
     spendAlertThresholdCents: r.spendAlertThresholdCents ?? 0,
     useSmartAssign: r.useSmartAssign !== false,
     allowGuestTableSelection: r.allowGuestTableSelection ?? false,
+    reservationsEnabled: r.reservationsEnabled !== false,
+    reservationsVisible: r.reservationsVisible !== false,
     posEnabled: r.posEnabled ?? false,
     loyaltyEnabled: r.loyaltyEnabled ?? false,
     loyaltyPointsPerVisit: r.loyaltyPointsPerVisit ?? 50,

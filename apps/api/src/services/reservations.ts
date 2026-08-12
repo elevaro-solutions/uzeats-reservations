@@ -141,6 +141,10 @@ export async function createReservation(input: {
     throw new ValidationError('Restaurant not available');
   }
 
+  if (restaurant.reservationsEnabled === false) {
+    throw new ValidationError('This restaurant is not accepting online reservations');
+  }
+
   if (input.tableId && !restaurant.allowGuestTableSelection) {
     throw new ValidationError('Table selection is not enabled for this restaurant');
   }

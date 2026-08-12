@@ -746,6 +746,7 @@ export default function RestaurantPage() {
 
           <Col xs={24} lg={10}>
             <div className="rt-restaurant-profile__booking-sticky">
+          {restaurant.reservationsVisible !== false ? (
           <Card
             id="booking-form"
             title="Make a reservation"
@@ -1105,6 +1106,32 @@ export default function RestaurantPage() {
               </Text>
             </Form>
           </Card>
+          ) : (
+          <Card
+            id="booking-form"
+            title="Contact to reserve"
+            className="rt-restaurant-booking-card"
+          >
+            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+              <Text type="secondary">
+                Online reservations are currently unavailable. Please contact the restaurant directly to make a reservation.
+              </Text>
+              {restaurant.phone && (
+                <Button type="primary" size="large" href={`tel:${restaurant.phone}`}>
+                  Call {restaurant.phone}
+                </Button>
+              )}
+              {restaurant.website && (
+                <Button size="large" href={restaurant.website} target="_blank" rel="noopener noreferrer">
+                  Visit website
+                </Button>
+              )}
+              <Button size="large" onClick={() => setMessageOpen(true)}>
+                Send a message
+              </Button>
+            </Space>
+          </Card>
+          )}
             </div>
           </Col>
         </Row>

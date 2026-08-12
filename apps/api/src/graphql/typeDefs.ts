@@ -116,6 +116,8 @@ export const typeDefs = `#graphql
     spendAlertThresholdCents: Int!
     useSmartAssign: Boolean!
     allowGuestTableSelection: Boolean!
+    reservationsEnabled: Boolean!
+    reservationsVisible: Boolean!
     posEnabled: Boolean!
     loyaltyEnabled: Boolean!
     loyaltyPointsPerVisit: Int!
@@ -2194,6 +2196,8 @@ export const typeDefs = `#graphql
       spendAlertThresholdCents: Int
       useSmartAssign: Boolean
       allowGuestTableSelection: Boolean
+      reservationsEnabled: Boolean
+      reservationsVisible: Boolean
       posEnabled: Boolean
       widgetTheme: WidgetThemeInput
     ): Restaurant!

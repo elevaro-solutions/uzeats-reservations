@@ -4,6 +4,17 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.20.0] — 2026-08-12
+
+### Added
+
+- Partner settings toggles to accept online reservations and show or hide the public booking widget
+- Public restaurant page contact-to-reserve card when the booking widget is hidden (call, website, or message)
+
+### Changed
+
+- Online reservation and waitlist creation are blocked when a restaurant has disabled online reservations
+
 ## [0.19.0] — 2026-08-06
 
 ### Added

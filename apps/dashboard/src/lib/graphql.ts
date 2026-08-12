@@ -2118,7 +2118,7 @@ export const GENERATE_POS_API_KEY = gql`
 export const RESTAURANT_SETTINGS = gql`
   query RestaurantSettings($id: ID) {
     restaurant(id: $id) {
-      id name featured featuredUntil spendAlertThresholdCents useSmartAssign allowGuestTableSelection posEnabled
+      id name featured featuredUntil spendAlertThresholdCents useSmartAssign allowGuestTableSelection reservationsEnabled reservationsVisible posEnabled
       widgetTheme { primaryColor buttonText showReviews }
     }
   }
@@ -2130,6 +2130,8 @@ export const UPDATE_RESTAURANT_SETTINGS = gql`
     $spendAlertThresholdCents: Int
     $useSmartAssign: Boolean
     $allowGuestTableSelection: Boolean
+    $reservationsEnabled: Boolean
+    $reservationsVisible: Boolean
     $posEnabled: Boolean
     $widgetTheme: WidgetThemeInput
   ) {
@@ -2138,10 +2140,12 @@ export const UPDATE_RESTAURANT_SETTINGS = gql`
       spendAlertThresholdCents: $spendAlertThresholdCents
       useSmartAssign: $useSmartAssign
       allowGuestTableSelection: $allowGuestTableSelection
+      reservationsEnabled: $reservationsEnabled
+      reservationsVisible: $reservationsVisible
       posEnabled: $posEnabled
       widgetTheme: $widgetTheme
     ) {
-      id spendAlertThresholdCents useSmartAssign allowGuestTableSelection posEnabled
+      id spendAlertThresholdCents useSmartAssign allowGuestTableSelection reservationsEnabled reservationsVisible posEnabled
       widgetTheme { primaryColor buttonText showReviews }
     }
   }
