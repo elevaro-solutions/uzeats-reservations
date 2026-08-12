@@ -37,3 +37,10 @@ Restaurant hours on Tablevera come from each venue’s active reservation shifts
 - Phone: +1 (650) 770-7788
 - Address: 20844 Waterbeach Place, Sterling, VA 20165, USA
 - Contact form: https://tablevera.online/contact
+
+## Legal
+
+- Privacy: https://tablevera.online/privacy
+- Terms: https://tablevera.online/terms
+- SMS opt-in & messaging terms: https://tablevera.online/sms
+- Cookies: https://tablevera.online/cookies

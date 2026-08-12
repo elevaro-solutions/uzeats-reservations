@@ -9,6 +9,7 @@ import {
   CheckCircleFilled,
   HeartOutlined,
   MailOutlined,
+  MessageOutlined,
   TrophyOutlined,
 } from '@ant-design/icons';
 import { PageHeader, colors, radii, shadows } from '@reservations/ui';
@@ -84,6 +85,8 @@ export default function ProfilePage() {
   const [pushPref, setPushPref] = useState(false);
   const [availabilityAlerts, setAvailabilityAlerts] = useState(true);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [smsAlerts, setSmsAlerts] = useState(false);
+  const [smsLoading, setSmsLoading] = useState(false);
 
   useEffect(() => {
     if (pushSubscription) setPushPref(true);
@@ -99,6 +102,39 @@ export default function ProfilePage() {
       prefs.email === false && prefs.webPush === false && prefs.platform === false;
     setAvailabilityAlerts(!explicitOff);
   }, [user?.notificationPreferences?.availabilityAlerts]);
+
+  useEffect(() => {
+    const reservationSms = user?.notificationPreferences?.reservationUpdates?.sms;
+    const waitlistSms = user?.notificationPreferences?.waitlistAvailable?.sms;
+    const availabilitySms = user?.notificationPreferences?.availabilityAlerts?.sms;
+    setSmsAlerts(Boolean(reservationSms || waitlistSms || availabilitySms));
+  }, [user?.notificationPreferences]);
+
+  const persistSmsAlerts = useCallback(
+    async (enabled: boolean) => {
+      setSmsLoading(true);
+      setSmsAlerts(enabled);
+      try {
+        await updatePrefs({
+          variables: {
+            input: {
+              reservationUpdates: { sms: enabled },
+              waitlistAvailable: { sms: enabled },
+              availabilityAlerts: { sms: enabled },
+            },
+          },
+        });
+        await refreshMe();
+        message.success(enabled ? 'SMS alerts enabled' : 'SMS alerts turned off');
+      } catch (err) {
+        setSmsAlerts(!enabled);
+        message.error(err instanceof Error ? err.message : 'Could not update SMS preferences');
+      } finally {
+        setSmsLoading(false);
+      }
+    },
+    [updatePrefs, refreshMe],
+  );
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -408,6 +444,29 @@ export default function ProfilePage() {
               avatar={<MailOutlined style={{ fontSize: 20, color: colors.brand[600] }} />}
               title="Email"
               description="Reservation confirmations, reminders, and updates"
+            />
+          </List.Item>
+
+          <List.Item
+            extra={
+              <Switch
+                checked={smsAlerts}
+                loading={smsLoading}
+                onChange={(checked) => void persistSmsAlerts(checked)}
+                style={smsAlerts ? { background: colors.brand[600] } : undefined}
+              />
+            }
+          >
+            <List.Item.Meta
+              avatar={<MessageOutlined style={{ fontSize: 20, color: colors.brand[600] }} />}
+              title="SMS text messages"
+              description={
+                <>
+                  Transactional texts for reservations and waitlist alerts. Msg &amp; data rates may
+                  apply. Reply STOP to cancel.{' '}
+                  <Link href="/sms">SMS Terms</Link>
+                </>
+              }
             />
           </List.Item>
 

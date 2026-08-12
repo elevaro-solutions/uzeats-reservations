@@ -28,6 +28,7 @@ export function LegalPageLayout({
   relatedLinks = [
     { href: '/privacy', label: 'Privacy Policy' },
     { href: '/terms', label: 'Terms of Service' },
+    { href: '/sms', label: 'SMS Messaging Terms' },
     { href: '/cookies', label: 'Cookie Policy' },
     { href: '/contact', label: 'Contact us' },
   ],

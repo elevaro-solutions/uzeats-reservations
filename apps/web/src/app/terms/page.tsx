@@ -12,6 +12,7 @@ const TOC = [
   { id: 'acceptance', label: 'Acceptance of terms' },
   { id: 'service', label: 'Our service' },
   { id: 'accounts', label: 'Accounts & eligibility' },
+  { id: 'sms', label: 'SMS messaging' },
   { id: 'bookings', label: 'Reservations & bookings' },
   { id: 'cancellations', label: 'Cancellations & no-shows' },
   { id: 'payments', label: 'Deposits & payments' },
@@ -74,7 +75,24 @@ export default function TermsOfServicePage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="bookings" title="4. Reservations & bookings">
+      <LegalSection id="sms" title="4. SMS messaging">
+        <Paragraph>
+          By providing a mobile phone number and completing the applicable opt-in (for example,
+          account registration disclosure, requesting an OTP, enabling SMS in notification
+          preferences, or joining a waitlist with your number), you consent to receive SMS from{' '}
+          {COMPANY_NAME} for verification, reservation updates, waitlist alerts, and other
+          service-related messages described in our{' '}
+          <Link href="/sms">SMS Messaging Terms & Opt-In</Link>.
+        </Paragraph>
+        <Paragraph>
+          Message and data rates may apply. Message frequency varies. Reply <Text strong>STOP</Text>{' '}
+          to cancel SMS or <Text strong>HELP</Text> for help. Consent is not required as a condition
+          of purchase. See our <Link href="/privacy">Privacy Policy</Link> for how we handle phone
+          numbers.
+        </Paragraph>
+      </LegalSection>
+
+      <LegalSection id="bookings" title="5. Reservations & bookings">
         <Paragraph>
           A reservation is a request to dine at a specific restaurant, date, time, and party size.
           Confirmation depends on restaurant availability and any deposit or policy requirements shown
@@ -93,7 +111,7 @@ export default function TermsOfServicePage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="cancellations" title="5. Cancellations & no-shows">
+      <LegalSection id="cancellations" title="6. Cancellations & no-shows">
         <Paragraph>
           <Text strong>Cancellations:</Text> You may cancel eligible reservations through the Service.
           We encourage cancelling at least 2 hours before your reservation so the restaurant can
@@ -112,7 +130,7 @@ export default function TermsOfServicePage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="payments" title="6. Deposits & payments">
+      <LegalSection id="payments" title="7. Deposits & payments">
         <Paragraph>
           Some restaurants require a deposit or prepayment to secure a table. Payments are processed
           by Stripe, our payment partner. {COMPANY_NAME} does not store full card numbers on our
@@ -125,7 +143,7 @@ export default function TermsOfServicePage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="loyalty" title="7. Loyalty program">
+      <LegalSection id="loyalty" title="8. Loyalty program">
         <Paragraph>
           Eligible completed visits may earn loyalty points that can be redeemed for discounts or
           perks on future bookings, as described in the Service. Points have no cash value, are
@@ -138,7 +156,7 @@ export default function TermsOfServicePage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="content" title="8. Reviews & user content">
+      <LegalSection id="content" title="9. Reviews & user content">
         <Paragraph>
           You may submit ratings, reviews, photos, or messages only for reservations you completed
           or experiences you genuinely had. Content must be truthful, relevant, and respectful.
@@ -157,7 +175,7 @@ export default function TermsOfServicePage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="partners" title="9. Restaurant partners">
+      <LegalSection id="partners" title="10. Restaurant partners">
         <Paragraph>
           Restaurants listed on {COMPANY_NAME} are independent businesses. They are responsible for
           menu accuracy, pricing, allergens, service quality, staffing, and honoring confirmed
@@ -169,7 +187,7 @@ export default function TermsOfServicePage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="conduct" title="10. Acceptable use">
+      <LegalSection id="conduct" title="11. Acceptable use">
         <Paragraph>You agree not to:</Paragraph>
         <ul>
           <li>Create fake accounts, bots, or fraudulent reservations</li>
@@ -180,7 +198,7 @@ export default function TermsOfServicePage() {
         </ul>
       </LegalSection>
 
-      <LegalSection id="liability" title="11. Disclaimers & liability">
+      <LegalSection id="liability" title="12. Disclaimers & liability">
         <Paragraph>
           THE SERVICE IS PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE.&quot; TO THE FULLEST
           EXTENT PERMITTED BY LAW, {COMPANY_NAME.toUpperCase()} DISCLAIMS WARRANTIES OF
@@ -198,7 +216,7 @@ export default function TermsOfServicePage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="disputes" title="12. Dispute resolution">
+      <LegalSection id="disputes" title="13. Dispute resolution">
         <Paragraph>
           Before filing a claim, contact us at{' '}
           <a href={`mailto:${LEGAL_CONTACT.legal}`}>{LEGAL_CONTACT.legal}</a> so we can try to
@@ -213,7 +231,7 @@ export default function TermsOfServicePage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="changes" title="13. Changes & termination">
+      <LegalSection id="changes" title="14. Changes & termination">
         <Paragraph>
           We may update these Terms from time to time. Material changes will be communicated by email
           or in-product notice at least 30 days before they take effect, when practicable. Continued
@@ -226,7 +244,7 @@ export default function TermsOfServicePage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="contact" title="14. Contact">
+      <LegalSection id="contact" title="15. Contact">
         <Paragraph>
           Questions about these Terms:{' '}
           <Text copyable>

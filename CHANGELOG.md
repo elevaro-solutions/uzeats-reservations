@@ -4,6 +4,19 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.24.0] — 2026-08-13
+
+### Added
+
+- Public SMS terms and opt-in page (`/sms`) with standalone consent form for Twilio Toll-Free Verification
+- Optional SMS consent on diner registration and profile toggle for reservation/waitlist/availability texts
+- Twilio TFV registration brief (`docs/twilio-sms-use-cases.md`)
+
+### Changed
+
+- Privacy and Terms pages document transactional SMS, STOP/HELP, and link to `/sms`
+- Sitemap, footer legal nav, and `llms.txt` include the SMS page
+
 ## [0.23.0] — 2026-08-12
 
 ### Added

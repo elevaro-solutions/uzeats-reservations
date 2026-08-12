@@ -627,6 +627,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Link href="/contact">Contact</Link>
                 <Link href="/privacy">Privacy</Link>
                 <Link href="/terms">Terms</Link>
+                <Link href="/sms">SMS terms</Link>
                 <Link href="/cookies">Cookies</Link>
                 <button type="button" className="rt-site-footer__cookie-btn" onClick={openCookieSettings}>
                   Cookie settings

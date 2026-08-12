@@ -421,8 +421,9 @@ export const UPDATE_NOTIFICATION_PREFERENCES = gql`
     updateNotificationPreferences(input: $input) {
       id
       notificationPreferences {
-        reservationUpdates { email webPush platform }
-        availabilityAlerts { email webPush platform }
+        reservationUpdates { sms email webPush platform }
+        waitlistAvailable { sms email webPush platform }
+        availabilityAlerts { sms email webPush platform }
       }
     }
   }

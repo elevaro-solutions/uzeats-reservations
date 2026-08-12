@@ -13,6 +13,7 @@ const TOC = [
   { id: 'overview', label: 'Overview' },
   { id: 'collect', label: 'Information we collect' },
   { id: 'use', label: 'How we use information' },
+  { id: 'sms', label: 'SMS & text messages' },
   { id: 'share', label: 'How we share information' },
   { id: 'cookies', label: 'Cookies & similar tech' },
   { id: 'retention', label: 'Data retention' },
@@ -98,7 +99,26 @@ export default function PrivacyPolicyPage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="share" title="4. How we share information">
+      <LegalSection id="sms" title="4. SMS & text messages">
+        <Paragraph>
+          If you provide a mobile number, we may send SMS for account verification (one-time
+          passcodes), reservation confirmations and reminders, waitlist and availability alerts, and
+          — only if you enable them — optional loyalty or feedback notifications. Message and data
+          rates may apply.
+        </Paragraph>
+        <Paragraph>
+          SMS for most notification types is off by default and can be managed in your profile.
+          Providing a phone number for waitlist entry or requesting an OTP constitutes consent for
+          those specific messages. Reply <Text strong>STOP</Text> to opt out of SMS, or{' '}
+          <Text strong>HELP</Text> for assistance.
+        </Paragraph>
+        <Paragraph>
+          Full opt-in language, message types, and examples are in our{' '}
+          <Link href="/sms">SMS Messaging Terms & Opt-In</Link> page.
+        </Paragraph>
+      </LegalSection>
+
+      <LegalSection id="share" title="5. How we share information">
         <Paragraph>
           <Text strong>Restaurants you book with:</Text> We share your name, contact details, booking
           information, dietary or occasion notes you provide, and relevant loyalty status so the venue
@@ -124,7 +144,7 @@ export default function PrivacyPolicyPage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="cookies" title="5. Cookies & similar technologies">
+      <LegalSection id="cookies" title="6. Cookies & similar technologies">
         <Paragraph>
           We use cookies, local storage, and similar technologies to keep you signed in, remember
           preferences, measure performance, and — with your consent — support analytics and
@@ -141,7 +161,7 @@ export default function PrivacyPolicyPage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="retention" title="6. Data retention">
+      <LegalSection id="retention" title="7. Data retention">
         <Paragraph>
           We keep account information while your account is active. Reservation and transaction
           records are retained for up to 3 years for loyalty accounting, fraud prevention, and
@@ -155,7 +175,7 @@ export default function PrivacyPolicyPage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="rights" title="7. Your privacy rights">
+      <LegalSection id="rights" title="8. Your privacy rights">
         <Paragraph>Depending on where you live, you may have the right to:</Paragraph>
         <ul>
           <li>Access a copy of the personal data we hold about you</li>
@@ -181,7 +201,7 @@ export default function PrivacyPolicyPage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="security" title="8. Security">
+      <LegalSection id="security" title="9. Security">
         <Paragraph>
           We implement technical and organizational measures including encryption in transit (TLS),
           access controls, monitoring, and secure development practices. No method of transmission or
@@ -190,7 +210,7 @@ export default function PrivacyPolicyPage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="children" title="9. Children's privacy">
+      <LegalSection id="children" title="10. Children's privacy">
         <Paragraph>
           The Service is not directed to children under 16, and we do not knowingly collect personal
           information from them. If you believe a child has provided us data, contact us and we will
@@ -198,7 +218,7 @@ export default function PrivacyPolicyPage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="international" title="10. International transfers">
+      <LegalSection id="international" title="11. International transfers">
         <Paragraph>
           We may process and store information in the United States and other countries where we or
           our service providers operate. When we transfer personal data internationally, we use
@@ -206,7 +226,7 @@ export default function PrivacyPolicyPage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="changes" title="11. Policy changes">
+      <LegalSection id="changes" title="12. Policy changes">
         <Paragraph>
           We may update this Privacy Policy from time to time. Material changes will be communicated
           by email or prominent notice in the Service before they take effect, when practicable.
@@ -214,7 +234,7 @@ export default function PrivacyPolicyPage() {
         </Paragraph>
       </LegalSection>
 
-      <LegalSection id="contact" title="12. Contact us">
+      <LegalSection id="contact" title="13. Contact us">
         <Paragraph>
           Privacy questions, data requests, or general support:{' '}
           <Text copyable>

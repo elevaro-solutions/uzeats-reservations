@@ -81,7 +81,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Platform + per-restaurant loyalty (tiers, referrals, expiry) with gift cards and promotion codes
 - Reviews after completed visits (post-visit prompt to review and save the restaurant)
 - Menus + DO Spaces presigned uploads (stubbed without keys; image types only)
-- Notifications: email (SendGrid or Resend), Telegram bot, web/Expo push (service worker on diner web), in-app inbox + channel prefs
+- Notifications: email (SendGrid or Resend), Telegram bot, web/Expo push (service worker on diner web), in-app inbox + channel prefs; transactional SMS with public `/sms` opt-in
 - Auth: email/password (forgot/reset on web and partner dashboard), Google OAuth, Twilio phone OTP; browser sessions use HttpOnly cookies
 - Partner Settings hub, notifications prefs, multi-restaurant selector, self-registration, onboarding checklist, **profile page**, and toggles to accept online reservations or hide the booking widget
 - **Email branding** — customizable email templates per restaurant
@@ -90,7 +90,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Enhanced restaurant detail pages with photo gallery, reviews, FAQ, terms, about, and menu sections
 - Platform admin: users, restaurants (create/edit/delete), invoices, revenue, support, moderation, templates, config, and annual billing discounts
 - Embeddable booking widget with per-restaurant theme
-- Public contact form, cookie consent, and legal pages (privacy, terms, cookies)
+- Public contact form, cookie consent, and legal pages (privacy, terms, SMS messaging/opt-in, cookies)
 - Super-admin developer page for deployment env-var health (secret values masked)
 
 ## Design system

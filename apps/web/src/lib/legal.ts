@@ -1,4 +1,4 @@
-export const LEGAL_LAST_UPDATED = 'July 29, 2026';
+export const LEGAL_LAST_UPDATED = 'August 13, 2026';
 
 /** Single support inbox for all contact topics (general, privacy, legal). */
 export const SUPPORT_EMAIL = 'support@tablevera.online';

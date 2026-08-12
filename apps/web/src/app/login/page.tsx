@@ -3,18 +3,20 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Button, Divider, Form, Input, Tabs, message } from 'antd';
+import { Button, Checkbox, Divider, Form, Input, Tabs, message } from 'antd';
 import {
   LockOutlined,
   MailOutlined,
   UserOutlined,
 } from '@ant-design/icons';
+import { useMutation } from '@apollo/client/react';
 import { PhoneInput, colors, typography, usPhoneRules } from '@reservations/ui';
 import { isSafeInternalPath } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { AuthLayout } from '@/components/AuthLayout';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { getDashboardUrl } from '@/lib/urls';
+import { UPDATE_NOTIFICATION_PREFERENCES } from '@/lib/graphql';
 
 export default function LoginPage() {
   return (
@@ -30,6 +32,10 @@ function LoginContent() {
   const search = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [updatePrefs] = useMutation(UPDATE_NOTIFICATION_PREFERENCES);
+  const preferRegisterTab = search.get('tab') === 'register' || search.get('smsOptIn') === '1';
+  const prefillPhone = search.get('phone') ?? undefined;
+  const prefillSmsOptIn = search.get('smsOptIn') === '1';
 
   const goNext = () => {
     const next = search.get('next');
@@ -61,6 +67,7 @@ function LoginContent() {
         centered
         size="large"
         style={{ marginBottom: 4 }}
+        defaultActiveKey={preferRegisterTab ? 'register' : 'login'}
         items={[
           {
             key: 'login',
@@ -143,7 +150,11 @@ function LoginContent() {
               <Form
                 layout="vertical"
                 requiredMark={false}
-                initialValues={{ referralCode: search.get('ref') ?? undefined }}
+                initialValues={{
+                  referralCode: search.get('ref') ?? undefined,
+                  phone: prefillPhone,
+                  smsConsent: prefillSmsOptIn,
+                }}
                 onFinish={async (values) => {
                   setLoading(true);
                   try {
@@ -155,6 +166,21 @@ function LoginContent() {
                       phone: values.phone,
                       referralCode: values.referralCode?.trim() || undefined,
                     });
+                    if (values.smsConsent) {
+                      try {
+                        await updatePrefs({
+                          variables: {
+                            input: {
+                              reservationUpdates: { sms: true },
+                              waitlistAvailable: { sms: true },
+                              availabilityAlerts: { sms: true },
+                            },
+                          },
+                        });
+                      } catch {
+                        // Account is created; SMS prefs can be fixed in profile.
+                      }
+                    }
                     message.success('Account created');
                     goNext();
                   } catch (err) {
@@ -206,8 +232,29 @@ function LoginContent() {
                   name="phone"
                   label="Phone number"
                   rules={usPhoneRules({ required: true })}
+                  extra={
+                    <span style={{ color: colors.textTertiary, fontSize: typography.fontSize.xs }}>
+                      Used for account verification and reservation-related texts when SMS is enabled.
+                      Msg &amp; data rates may apply.
+                    </span>
+                  }
                 >
                   <PhoneInput size="large" />
+                </Form.Item>
+                <Form.Item
+                  name="smsConsent"
+                  valuePropName="checked"
+                  style={{ marginBottom: 16 }}
+                >
+                  <Checkbox>
+                    Optional: text me reservation updates and waitlist alerts from Tablevera.
+                    Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out,
+                    HELP for help. Not required to create an account. See{' '}
+                    <Link href="/sms" target="_blank" onClick={(e) => e.stopPropagation()}>
+                      SMS Terms
+                    </Link>
+                    .
+                  </Checkbox>
                 </Form.Item>
                 <Form.Item
                   name="password"

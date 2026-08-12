@@ -18,8 +18,9 @@ const USER_FIELDS = `
   referralCode
   telegramChatId
   notificationPreferences {
-    reservationUpdates { email webPush platform }
-    availabilityAlerts { email webPush platform }
+    reservationUpdates { sms email webPush platform }
+    waitlistAvailable { sms email webPush platform }
+    availabilityAlerts { sms email webPush platform }
   }
 `;
 
@@ -68,8 +69,9 @@ export type AuthUser = {
   referralCode?: string | null;
   telegramChatId?: string | null;
   notificationPreferences?: {
-    reservationUpdates?: { email?: boolean; webPush?: boolean; platform?: boolean };
-    availabilityAlerts?: { email?: boolean; webPush?: boolean; platform?: boolean };
+    reservationUpdates?: { sms?: boolean; email?: boolean; webPush?: boolean; platform?: boolean };
+    waitlistAvailable?: { sms?: boolean; email?: boolean; webPush?: boolean; platform?: boolean };
+    availabilityAlerts?: { sms?: boolean; email?: boolean; webPush?: boolean; platform?: boolean };
   };
 };
 
@@ -118,8 +120,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               loyaltyCompletedVisits loyaltyTier loyaltyTierName
               loyaltyPointsExpireAt referralCode telegramChatId
               notificationPreferences {
-                reservationUpdates { email webPush platform }
-                availabilityAlerts { email webPush platform }
+                reservationUpdates { sms email webPush platform }
+                waitlistAvailable { sms email webPush platform }
+                availabilityAlerts { sms email webPush platform }
               }
             }
           }`,
