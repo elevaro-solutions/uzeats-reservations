@@ -24,6 +24,11 @@ import {
   CONFIRM_DEPOSIT,
 } from '@/lib/graphql';
 import { EditReservationModal } from '@/components/EditReservationModal';
+import {
+  displayReservationStatus,
+  isReservationPast,
+  isReservationUpcoming,
+} from '@/lib/reservationDisplay';
 
 const { Text, Title } = Typography;
 
@@ -136,8 +141,13 @@ export default function ReservationDetailPage() {
 
   const needsPayment =
     r.depositStatus === 'requires_payment' && r.depositAmountCents > 0 && !!r.clientSecret;
-  const isUpcoming = ['pending', 'confirmed', 'seated'].includes(r.status);
+  const upcoming = isReservationUpcoming(r);
+  const past = isReservationPast(r);
+  const canManage = upcoming && (r.status === 'confirmed' || r.status === 'pending');
   const restaurantPath = buildRestaurantBookingPath(r.restaurant?.slug, r.restaurant?.id);
+  const bookAgainPath = r.partySize
+    ? `${restaurantPath}?party=${r.partySize}`
+    : restaurantPath;
 
   const confirmCancel = async () => {
     if (!cancelReasonPreset) {
@@ -219,10 +229,10 @@ export default function ReservationDetailPage() {
           hour: 'numeric',
           minute: '2-digit',
         })}
-        extra={<StatusTag status={r.status} />}
+        extra={<StatusTag status={displayReservationStatus(r)} />}
       />
 
-      {needsPayment && (
+      {needsPayment && upcoming && (
         <Alert
           type="warning"
           showIcon
@@ -371,7 +381,7 @@ export default function ReservationDetailPage() {
       </Card>
 
       <Space wrap>
-        {isUpcoming && (
+        {upcoming && (
           <Button
             icon={<CalendarOutlined />}
             onClick={() =>
@@ -387,25 +397,33 @@ export default function ReservationDetailPage() {
             Add to calendar
           </Button>
         )}
-        <Link href={restaurantPath}>
-          <Button>View restaurant</Button>
-        </Link>
-        {(r.status === 'confirmed' || r.status === 'pending') && (
+        {past ? (
+          <Link href={bookAgainPath}>
+            <Button type="primary" icon={<CalendarOutlined />}>
+              Book again
+            </Button>
+          </Link>
+        ) : (
+          <Link href={restaurantPath}>
+            <Button>View restaurant</Button>
+          </Link>
+        )}
+        {canManage && (
           <Button icon={<EditOutlined />} onClick={() => setEditOpen(true)}>
             Edit reservation
           </Button>
         )}
-        {(r.status === 'confirmed' || r.status === 'pending') && (
+        {canManage && (
           <Link href={`/messages/${r.id}`}>
             <Button icon={<MessageOutlined />}>Message</Button>
           </Link>
         )}
-        {needsPayment && (
+        {needsPayment && upcoming && (
           <Button type="primary" icon={<CreditCardOutlined />} onClick={() => setPayOpen(true)}>
             Pay deposit
           </Button>
         )}
-        {(r.status === 'confirmed' || r.status === 'pending') && (
+        {canManage && (
           <Button danger onClick={() => setCancelOpen(true)}>
             Cancel reservation
           </Button>

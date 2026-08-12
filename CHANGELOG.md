@@ -4,6 +4,18 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.21.1] — 2026-08-12
+
+### Added
+
+- "Book again" on past reservations (pre-fills party size)
+- Compact actions menu (edit / message / cancel) on the reservations list
+- `past` status style on `StatusTag` for elapsed bookings
+
+### Fixed
+
+- Elapsed pending/confirmed/seated reservations no longer look active; edit, cancel, deposit, and message actions are limited to upcoming bookings
+
 ## [0.21.0] — 2026-08-12
 
 ### Added

@@ -11,6 +11,7 @@ const STYLES: Record<string, StatusStyle> = {
   completed: { color: colors.success, background: colors.successBg },
   cancelled: { color: colors.textSecondary, background: colors.neutral[100] },
   no_show: { color: colors.error, background: colors.errorBg },
+  past: { color: colors.textSecondary, background: colors.neutral[100] },
   approved: { color: colors.success, background: colors.successBg },
   rejected: { color: colors.error, background: colors.errorBg },
   suspended: { color: colors.warning, background: colors.warningBg },

@@ -1,20 +1,35 @@
 'use client';
 
 import { useMutation, useQuery } from '@apollo/client/react';
-import { Button, Card, Rate, Space, Typography, message, Modal, Input, Select, Spin, Tag } from 'antd';
-import { CalendarOutlined, MessageOutlined, SearchOutlined, CreditCardOutlined, RightOutlined, EditOutlined } from '@ant-design/icons';
+import { Button, Card, Dropdown, Rate, Space, Typography, message, Modal, Input, Select, Spin, Tag } from 'antd';
+import type { MenuProps } from 'antd';
+import {
+  CalendarOutlined,
+  MessageOutlined,
+  SearchOutlined,
+  CreditCardOutlined,
+  RightOutlined,
+  EditOutlined,
+  MoreOutlined,
+  CloseCircleOutlined,
+} from '@ant-design/icons';
 import Link from 'next/link';
 import { StatusTag, PageHeader, EmptyState, colors, radii, shadows, typography, pickRestaurantPhoto } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { RESERVATION_CANCELLATION_REASONS } from '@reservations/shared';
+import { RESERVATION_CANCELLATION_REASONS, buildRestaurantBookingPath } from '@reservations/shared';
 import {
   MY_RESERVATIONS,
   UPDATE_RESERVATION_STATUS,
   CREATE_REVIEW,
 } from '@/lib/graphql';
 import { EditReservationModal } from '@/components/EditReservationModal';
+import {
+  displayReservationStatus,
+  isReservationPast,
+  isReservationUpcoming,
+} from '@/lib/reservationDisplay';
 
 function buildCancellationReason(preset: string, details: string): string | undefined {
   const trimmedDetails = details.trim();
@@ -22,6 +37,15 @@ function buildCancellationReason(preset: string, details: string): string | unde
   if (preset) return preset;
   if (trimmedDetails) return trimmedDetails;
   return undefined;
+}
+
+function bookAgainPath(r: {
+  partySize?: number;
+  restaurant?: { id?: string; slug?: string } | null;
+}): string {
+  const path = buildRestaurantBookingPath(r.restaurant?.slug, r.restaurant?.id);
+  if (!r.partySize) return path;
+  return `${path}?party=${r.partySize}`;
 }
 
 const { Text } = Typography;
@@ -135,6 +159,8 @@ export default function ReservationsPage() {
           {reservations.map((r: any, idx: number, arr: any[]) => {
             const needsPayment =
               r.depositStatus === 'requires_payment' && (r.depositAmountCents ?? 0) > 0;
+            const upcoming = isReservationUpcoming(r);
+            const past = isReservationPast(r);
             return (
             <div
               key={r.id}
@@ -220,8 +246,8 @@ export default function ReservationsPage() {
                   >
                     {r.restaurant?.name}
                   </Link>
-                  <StatusTag status={r.status} />
-                  {needsPayment && <Tag color="gold">Deposit due</Tag>}
+                  <StatusTag status={displayReservationStatus(r)} />
+                  {needsPayment && upcoming && <Tag color="gold">Deposit due</Tag>}
                 </Space>
                 <Space orientation="vertical" size={0} style={{ display: 'flex', marginTop: 6 }}>
                   <Text style={{ color: colors.textSecondary }}>
@@ -269,7 +295,7 @@ export default function ReservationsPage() {
                 </Space>
               </div>
               <Space wrap onClick={(e) => e.stopPropagation()}>
-                {needsPayment && (
+                {needsPayment && upcoming && (
                   <Button
                     type="primary"
                     icon={<CreditCardOutlined />}
@@ -278,30 +304,53 @@ export default function ReservationsPage() {
                     Pay deposit
                   </Button>
                 )}
-                {(r.status === 'confirmed' || r.status === 'pending') && (
-                  <Button icon={<EditOutlined />} onClick={() => setEditFor(r)}>
-                    Edit
-                  </Button>
-                )}
-                {(r.status === 'confirmed' || r.status === 'pending') && (
-                  <Link href={`/messages/${r.id}`}>
-                    <Button icon={<MessageOutlined />}>Message</Button>
-                  </Link>
-                )}
-                {(r.status === 'confirmed' || r.status === 'pending') && (
-                  <Button
-                    danger
-                    onClick={() =>
-                      setCancelFor({ id: r.id, name: r.restaurant?.name ?? 'this restaurant' })
-                    }
-                  >
-                    Cancel
-                  </Button>
-                )}
                 {r.status === 'completed' && (
                   <Button type="primary" ghost onClick={() => setReviewFor(r.id)}>
                     Leave review
                   </Button>
+                )}
+                {past && r.restaurant?.id && (
+                  <Button
+                    icon={<CalendarOutlined />}
+                    onClick={() => router.push(bookAgainPath(r))}
+                  >
+                    Book again
+                  </Button>
+                )}
+                {upcoming && (r.status === 'confirmed' || r.status === 'pending') && (
+                  <Dropdown
+                    menu={{
+                      items: [
+                        {
+                          key: 'edit',
+                          icon: <EditOutlined />,
+                          label: 'Edit',
+                          onClick: () => setEditFor(r),
+                        },
+                        {
+                          key: 'message',
+                          icon: <MessageOutlined />,
+                          label: 'Message',
+                          onClick: () => router.push(`/messages/${r.id}`),
+                        },
+                        {
+                          key: 'cancel',
+                          icon: <CloseCircleOutlined />,
+                          label: 'Cancel',
+                          danger: true,
+                          onClick: () =>
+                            setCancelFor({
+                              id: r.id,
+                              name: r.restaurant?.name ?? 'this restaurant',
+                            }),
+                        },
+                      ] satisfies MenuProps['items'],
+                    }}
+                    trigger={['click']}
+                    placement="bottomRight"
+                  >
+                    <Button icon={<MoreOutlined />} aria-label="More actions" />
+                  </Dropdown>
                 )}
                 <Button type="text" icon={<RightOutlined />} onClick={() => router.push(`/reservations/${r.id}`)}>
                   Details
