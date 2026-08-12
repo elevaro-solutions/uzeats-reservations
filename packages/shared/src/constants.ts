@@ -216,6 +216,8 @@ export const NOTIFICATION_TYPE_TO_EVENT: Record<string, NotificationEvent> = {
   waitlist_notified: 'waitlistAvailable',
   guest_spend_alert: 'guestSpendAlert',
   reservation_confirmed: 'reservationUpdates',
+  reservation_cancelled: 'reservationUpdates',
+  reservation_updated: 'reservationUpdates',
   reservation_reminder: 'reservationUpdates',
   review_reply: 'reviewReply',
   survey_invitation: 'surveyInvitation',

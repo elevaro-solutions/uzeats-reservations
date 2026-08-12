@@ -39,8 +39,13 @@ export async function getFeatures(restaurantId: string): Promise<PlanFeatures & 
   if (!sub || sub.status === 'cancelled' || sub.status === 'paused') {
     return { ...basicFeatures };
   }
-  const features = (sub.features ?? {}) as unknown as PlanFeatures & { premiumSmsAddon?: boolean };
-  return { ...basicFeatures, ...JSON.parse(JSON.stringify(features)) };
+  const plan = await getEffectivePlan(sub.plan);
+  const planFeatures = plan?.features ?? basicFeatures;
+  const stored = (sub.features ?? {}) as unknown as PlanFeatures & { premiumSmsAddon?: boolean };
+  return {
+    ...planFeatures,
+    premiumSmsAddon: Boolean(stored.premiumSmsAddon),
+  };
 }
 
 export async function requireFeature(restaurantId: string, feature: FeatureKey) {

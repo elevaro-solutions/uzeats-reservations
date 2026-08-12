@@ -2,9 +2,9 @@
 
 import { useMutation, useQuery } from '@apollo/client/react';
 import { Button, Card, Rate, Space, Typography, message, Modal, Input, Select, Spin, Tag } from 'antd';
-import { CalendarOutlined, MessageOutlined, SearchOutlined, CreditCardOutlined, RightOutlined } from '@ant-design/icons';
+import { CalendarOutlined, MessageOutlined, SearchOutlined, CreditCardOutlined, RightOutlined, EditOutlined } from '@ant-design/icons';
 import Link from 'next/link';
-import { StatusTag, PageHeader, EmptyState, colors, radii, shadows, typography } from '@reservations/ui';
+import { StatusTag, PageHeader, EmptyState, colors, radii, shadows, typography, pickRestaurantPhoto } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -14,6 +14,7 @@ import {
   UPDATE_RESERVATION_STATUS,
   CREATE_REVIEW,
 } from '@/lib/graphql';
+import { EditReservationModal } from '@/components/EditReservationModal';
 
 function buildCancellationReason(preset: string, details: string): string | undefined {
   const trimmedDetails = details.trim();
@@ -28,13 +29,17 @@ const { Text } = Typography;
 export default function ReservationsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { data, loading, refetch } = useQuery(MY_RESERVATIONS, { skip: !user });
+  const { data, loading, refetch } = useQuery(MY_RESERVATIONS, {
+    skip: !user,
+    fetchPolicy: 'network-only',
+  });
   const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
   const [createReview] = useMutation(CREATE_REVIEW);
   const [reviewFor, setReviewFor] = useState<string | null>(null);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [cancelFor, setCancelFor] = useState<{ id: string; name: string } | null>(null);
+  const [editFor, setEditFor] = useState<any | null>(null);
   const [cancelReasonPreset, setCancelReasonPreset] = useState<string | undefined>();
   const [cancelReasonDetails, setCancelReasonDetails] = useState('');
   const [cancelling, setCancelling] = useState(false);
@@ -62,7 +67,15 @@ export default function ReservationsPage() {
 
   const confirmCancel = async () => {
     if (!cancelFor) return;
-    const reason = buildCancellationReason(cancelReasonPreset ?? '', cancelReasonDetails);
+    if (!cancelReasonPreset) {
+      message.warning('Please select a cancellation reason');
+      throw new Error('reason required');
+    }
+    if (cancelReasonPreset === 'Other' && !cancelReasonDetails.trim()) {
+      message.warning('Please add a few details');
+      throw new Error('details required');
+    }
+    const reason = buildCancellationReason(cancelReasonPreset, cancelReasonDetails);
     setCancelling(true);
     try {
       await updateStatus({
@@ -165,7 +178,7 @@ export default function ReservationsPage() {
                 {r.restaurant?.photos?.[0] ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={r.restaurant.photos[0]}
+                    src={pickRestaurantPhoto(r.restaurant.photos)}
                     alt=""
                     width={72}
                     height={72}
@@ -230,7 +243,8 @@ export default function ReservationsPage() {
                         Table: {r.tables[0].name}
                         {r.tables[0].floorArea ? ` · ${r.tables[0].floorArea}` : ''}
                       </Text>
-                      {r.tables[0].photoUrl && (
+                      {r.tables[0].photoUrl &&
+                        !r.tables[0].photoUrl.includes('1551782450-a2132b4ba21d') && (
                         <img
                           src={r.tables[0].photoUrl}
                           alt={r.tables[0].name}
@@ -262,6 +276,11 @@ export default function ReservationsPage() {
                     onClick={() => router.push(`/reservations/${r.id}`)}
                   >
                     Pay deposit
+                  </Button>
+                )}
+                {(r.status === 'confirmed' || r.status === 'pending') && (
+                  <Button icon={<EditOutlined />} onClick={() => setEditFor(r)}>
+                    Edit
                   </Button>
                 )}
                 {(r.status === 'confirmed' || r.status === 'pending') && (
@@ -326,7 +345,11 @@ export default function ReservationsPage() {
         onCancel={closeCancelModal}
         onOk={confirmCancel}
         okText="Yes, cancel"
-        okButtonProps={{ danger: true, loading: cancelling }}
+        okButtonProps={{
+          danger: true,
+          loading: cancelling,
+          disabled: !cancelReasonPreset || (cancelReasonPreset === 'Other' && !cancelReasonDetails.trim()),
+        }}
         cancelText="Keep reservation"
         destroyOnClose
       >
@@ -335,7 +358,9 @@ export default function ReservationsPage() {
             Cancel your reservation at <Text strong>{cancelFor?.name}</Text>? This cannot be undone.
           </Text>
           <div>
-            <Text style={{ display: 'block', marginBottom: 6 }}>Reason (optional)</Text>
+            <Text style={{ display: 'block', marginBottom: 6 }}>
+              Reason <Text type="danger">*</Text>
+            </Text>
             <Select
               allowClear
               placeholder="Select a reason"
@@ -365,6 +390,13 @@ export default function ReservationsPage() {
           </div>
         </Space>
       </Modal>
+
+      <EditReservationModal
+        open={!!editFor}
+        reservation={editFor}
+        onClose={() => setEditFor(null)}
+        onUpdated={() => refetch()}
+      />
     </div>
   );
 }

@@ -1,1 +1,7 @@
-export { isPlatformAdmin, isSuperAdmin, canEditUser } from '@reservations/shared';
+export {
+  isPlatformAdmin,
+  isSuperAdmin,
+  canEditUser,
+  canManageBilling,
+  canCreateRestaurant,
+} from '@reservations/shared';

@@ -217,10 +217,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           icon: <LogoutOutlined />,
           label: 'Log out',
           danger: true,
-          onClick: () => {
-            logout();
-            router.push('/login');
-          },
         },
       ]
     : [];
@@ -462,7 +458,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 />
               </Dropdown>
 
-              <Dropdown menu={{ items: accountMenu }} placement="bottomRight" trigger={['click']}>
+              <Dropdown
+                menu={{
+                  items: accountMenu,
+                  onClick: ({ key }) => {
+                    if (key === 'logout') {
+                      void logout();
+                      return;
+                    }
+                    if (key === 'profile') router.push('/profile');
+                    if (key === 'notification-settings') router.push('/profile#notifications');
+                    if (key === 'reservations') router.push('/reservations');
+                    if (key === 'saved') router.push('/saved');
+                    if (key === 'waitlist') router.push('/waitlist');
+                  },
+                }}
+                placement="bottomRight"
+                trigger={['click']}
+              >
                 <button
                   type="button"
                   aria-label="Account menu"

@@ -72,7 +72,15 @@ function PreShiftTab({ restaurantId }: { restaurantId?: string }) {
         </Button>
       </Space>
 
-      {error && <Empty description="Report unavailable" />}
+      {error && (
+        <Empty
+          description={
+            error.message?.includes('not included in your current plan')
+              ? error.message
+              : 'Report unavailable'
+          }
+        />
+      )}
       {report && (
         <>
           <Card size="small">

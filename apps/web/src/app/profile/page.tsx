@@ -18,6 +18,7 @@ import { LOYALTY, loyaltyRedeemProgress, resolveLoyaltyTier, buildRestaurantBook
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { UPDATE_NOTIFICATION_PREFERENCES } from '@/lib/graphql';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -85,38 +86,56 @@ export default function ProfilePage() {
   const { data: restaurantLoyaltyData } = useQuery(MY_RESTAURANT_LOYALTY, { skip: !user });
   const [linkTelegram] = useMutation(LINK_TELEGRAM);
   const [registerPush] = useMutation(REGISTER_PUSH);
+  const [updatePrefs] = useMutation(UPDATE_NOTIFICATION_PREFERENCES);
   const [pushSubscription, setPushSubscription] = useState<PushSubscription | null>(null);
   const [pushPermission, setPushPermission] = useState<NotificationPermission>('default');
   const [pushLoading, setPushLoading] = useState(false);
+  const [pushPref, setPushPref] = useState(false);
+
+  useEffect(() => {
+    if (pushSubscription) setPushPref(true);
+  }, [pushSubscription]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
       setPushPermission(Notification.permission);
     }
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then((reg) => {
-        reg.pushManager.getSubscription().then((sub) => {
-          setPushSubscription(sub);
-        });
+    if (!('serviceWorker' in navigator)) return;
+    void navigator.serviceWorker.register('/sw.js').then((reg) => {
+      void reg.pushManager.getSubscription().then((sub) => {
+        setPushSubscription(sub);
       });
-    }
+    });
   }, []);
 
+  const persistPushPref = useCallback(
+    async (enabled: boolean) => {
+      setPushPref(enabled);
+      await updatePrefs({
+        variables: { input: { reservationUpdates: { webPush: enabled } } },
+      });
+      await refreshMe();
+    },
+    [updatePrefs, refreshMe],
+  );
+
   const subscribeToPush = useCallback(async () => {
-    if (!VAPID_PUBLIC_KEY) {
-      message.warning('Push notifications are not configured on this server');
-      return;
-    }
     setPushLoading(true);
     try {
+      await persistPushPref(true);
+      if (!VAPID_PUBLIC_KEY || !('serviceWorker' in navigator) || !('Notification' in window)) {
+        message.success('Push notifications enabled for this account');
+        return;
+      }
+      const registration = await navigator.serviceWorker.register('/sw.js');
       const permission = await Notification.requestPermission();
       setPushPermission(permission);
       if (permission !== 'granted') {
-        message.warning('Notification permission denied');
+        message.warning('Browser permission denied — you will still get in-app alerts');
         return;
       }
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.subscribe({
+      const ready = await navigator.serviceWorker.ready;
+      const subscription = await (ready ?? registration).pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY).buffer as ArrayBuffer,
       });
@@ -126,19 +145,27 @@ export default function ProfilePage() {
       });
       message.success('Push notifications enabled');
     } catch (err) {
-      message.error(err instanceof Error ? err.message : 'Failed to subscribe');
+      message.error(err instanceof Error ? err.message : 'Failed to enable push notifications');
     } finally {
       setPushLoading(false);
     }
-  }, [registerPush]);
+  }, [persistPushPref, registerPush]);
 
   const unsubscribeFromPush = useCallback(async () => {
-    if (pushSubscription) {
-      await pushSubscription.unsubscribe();
-      setPushSubscription(null);
+    setPushLoading(true);
+    try {
+      if (pushSubscription) {
+        await pushSubscription.unsubscribe();
+        setPushSubscription(null);
+      }
+      await persistPushPref(false);
       message.success('Push notifications disabled');
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Failed to disable push notifications');
+    } finally {
+      setPushLoading(false);
     }
-  }, [pushSubscription]);
+  }, [pushSubscription, persistPushPref]);
 
   if (authLoading) {
     return (
@@ -371,32 +398,26 @@ export default function ProfilePage() {
 
           <List.Item
             extra={
-              pushSubscription ? (
-                <Switch
-                  checked
-                  onChange={unsubscribeFromPush}
-                  style={{ background: colors.brand[600] }}
-                />
-              ) : (
-                <Switch
-                  checked={false}
-                  loading={pushLoading}
-                  onChange={subscribeToPush}
-                />
-              )
+              <Switch
+                checked={pushPref || Boolean(pushSubscription)}
+                loading={pushLoading}
+                onChange={(checked) => {
+                  if (checked) void subscribeToPush();
+                  else void unsubscribeFromPush();
+                }}
+                style={pushPref || pushSubscription ? { background: colors.brand[600] } : undefined}
+              />
             }
           >
             <List.Item.Meta
               avatar={<BellOutlined style={{ fontSize: 20, color: colors.brand[600] }} />}
               title="Push notifications"
               description={
-                !VAPID_PUBLIC_KEY
-                  ? 'Push notifications are not configured on this server'
-                  : pushPermission === 'denied'
-                    ? 'Permission denied — enable notifications in browser settings'
-                    : pushSubscription
-                      ? 'Receiving push notifications in this browser'
-                      : 'Get notified about reservation updates in your browser'
+                pushPermission === 'denied'
+                  ? 'Permission denied — enable notifications in browser settings'
+                  : pushPref || pushSubscription
+                    ? 'You will receive reservation updates in this browser when allowed'
+                    : 'Get notified about reservation updates in your browser'
               }
             />
           </List.Item>

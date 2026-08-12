@@ -45,6 +45,7 @@ const CORE_FEATURES: FeatureKey[] = [
   'twoWayMessaging',
   'spendAlerts',
   'ticketedEvents',
+  'preShift',
   'featuredPlacement',
   'boostCampaigns',
 ];

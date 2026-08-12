@@ -454,10 +454,6 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       icon: <LogoutOutlined />,
       label: 'Log out',
       danger: true,
-      onClick: () => {
-        logout();
-        router.push('/login');
-      },
     },
   ];
 
@@ -773,7 +769,22 @@ export function DashShell({ children }: { children: React.ReactNode }) {
               />
             </Dropdown>
 
-            <Dropdown menu={{ items: profileMenu }} placement="bottomRight" trigger={['click']}>
+            <Dropdown
+              menu={{
+                items: profileMenu,
+                onClick: ({ key }) => {
+                  if (key === 'logout') {
+                    void logout();
+                    return;
+                  }
+                  if (key === 'settings') router.push('/settings');
+                  if (key === 'notification-settings') router.push('/notifications');
+                  if (key === 'admin-config') router.push('/admin/config');
+                },
+              }}
+              placement="bottomRight"
+              trigger={['click']}
+            >
               <button
                 type="button"
                 aria-label="Account menu"

@@ -489,6 +489,28 @@ export async function updateReservationStatus(
     await releaseTableSlotClaims(reservation._id);
   }
 
+  if (status === 'cancelled') {
+    const restaurantName = restaurant?.name ?? 'the restaurant';
+    await notifyUser(
+      reservation.dinerId.toString(),
+      {
+        type: 'reservation_cancelled',
+        title: 'Reservation cancelled',
+        body: `Your reservation at ${restaurantName} has been cancelled.`,
+        data: { reservationId: reservation._id.toString() },
+      },
+      { smsRestaurantId: reservation.restaurantId.toString() },
+    );
+    if (isDiner) {
+      await notifyRestaurantStaff(reservation.restaurantId.toString(), {
+        type: 'reservation_cancelled',
+        title: 'Reservation cancelled',
+        body: `A guest cancelled their reservation at ${restaurantName}.`,
+        data: { reservationId: reservation._id.toString() },
+      });
+    }
+  }
+
   if (status === 'cancelled' || status === 'no_show') {
     await notifyWaitlistOnCancellation(reservation);
   }
@@ -764,7 +786,7 @@ export async function createOwnerReservation(input: {
 
 const EDITABLE_STATUSES = new Set(['pending', 'confirmed', 'seated']);
 
-/** Owner/staff edit of party size, time, table, notes, or occasion. */
+/** Owner/staff/diner edit of party size, time, table, notes, or occasion. */
 export async function updateReservationDetails(
   reservationId: string,
   actorId: string,
@@ -786,11 +808,15 @@ export async function updateReservationDetails(
     (restaurant.ownerId.equals(actorId) ||
       user?.restaurantIds?.some((id) => id.equals(restaurant._id)));
   const isAdmin = user ? isPlatformAdmin(user.role) : false;
-  if (!isOwner && !isAdmin) throw new ForbiddenError();
+  const isDiner = reservation.dinerId.equals(actorId);
+  if (!isOwner && !isAdmin && !isDiner) throw new ForbiddenError();
 
   if (!EDITABLE_STATUSES.has(reservation.status)) {
     throw new ValidationError(`Cannot edit a ${reservation.status} reservation`);
   }
+
+  const requestedTableId =
+    isDiner && restaurant?.allowGuestTableSelection === false ? undefined : input.tableId;
 
   const partySize = input.partySize ?? reservation.partySize;
   const slotStart = input.slotStart ?? reservation.slotStart;
@@ -800,7 +826,7 @@ export async function updateReservationDetails(
   const timeOrPartyChanged =
     partySize !== reservation.partySize ||
     slotStart.getTime() !== reservation.slotStart.getTime() ||
-    Boolean(input.tableId);
+    Boolean(requestedTableId);
 
   if (timeOrPartyChanged) {
     const accessViolation = await checkAccessRules({
@@ -818,7 +844,7 @@ export async function updateReservationDetails(
       slotStart,
       slotEnd,
       dinerId: reservation.dinerId.toString(),
-      tableId: input.tableId,
+      tableId: requestedTableId,
       useSmartAssign: restaurant?.useSmartAssign !== false,
     });
     if (!table) {
@@ -869,6 +895,29 @@ export async function updateReservationDetails(
   if (input.guestNotes !== undefined) reservation.guestNotes = input.guestNotes;
 
   await reservation.save();
+
+  const restaurantName = restaurant?.name ?? 'the restaurant';
+  const when = reservation.slotStart.toLocaleString();
+  if (isDiner) {
+    await notifyRestaurantStaff(reservation.restaurantId.toString(), {
+      type: 'reservation_updated',
+      title: 'Reservation updated',
+      body: `A guest updated their reservation at ${restaurantName} (${when}, party of ${reservation.partySize}).`,
+      data: { reservationId: reservation._id.toString() },
+    });
+  } else {
+    await notifyUser(
+      reservation.dinerId.toString(),
+      {
+        type: 'reservation_updated',
+        title: 'Reservation updated',
+        body: `Your reservation at ${restaurantName} was updated.`,
+        data: { reservationId: reservation._id.toString() },
+      },
+      { smsRestaurantId: reservation.restaurantId.toString() },
+    );
+  }
+
   return reservation;
 }
 

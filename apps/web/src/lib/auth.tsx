@@ -16,6 +16,10 @@ const USER_FIELDS = `
   loyaltyTierName
   loyaltyPointsExpireAt
   referralCode
+  telegramChatId
+  notificationPreferences {
+    reservationUpdates { email webPush platform }
+  }
 `;
 
 const LOGIN = gql`
@@ -63,7 +67,17 @@ const ME = gql`
       loyaltyTierName
       loyaltyPointsExpireAt
       referralCode
+      telegramChatId
+      notificationPreferences {
+        reservationUpdates { email webPush platform }
+      }
     }
+  }
+`;
+
+const LOGOUT = gql`
+  mutation Logout($refreshToken: String) {
+    logout(refreshToken: $refreshToken)
   }
 `;
 
@@ -80,6 +94,10 @@ export type AuthUser = {
   loyaltyTierName?: string;
   loyaltyPointsExpireAt?: string | null;
   referralCode?: string | null;
+  telegramChatId?: string | null;
+  notificationPreferences?: {
+    reservationUpdates?: { email?: boolean; webPush?: boolean; platform?: boolean };
+  };
 };
 
 type AuthContextValue = {
@@ -95,7 +113,7 @@ type AuthContextValue = {
     phone?: string;
     referralCode?: string;
   }) => Promise<void>;
-  logout: () => void;
+  logout: () => void | Promise<void>;
   refreshMe: () => Promise<void>;
 };
 
@@ -107,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loginMutation] = useMutation(LOGIN);
   const [googleLoginMutation] = useMutation(LOGIN_WITH_GOOGLE);
   const [registerMutation] = useMutation(REGISTER);
+  const [logoutMutation] = useMutation(LOGOUT);
 
   const persist = (accessToken: string, refreshToken: string, nextUser: AuthUser) => {
     localStorage.setItem('accessToken', accessToken);
@@ -133,7 +152,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             me {
               id email phone firstName lastName role loyaltyPoints
               loyaltyCompletedVisits loyaltyTier loyaltyTierName
-              loyaltyPointsExpireAt referralCode
+              loyaltyPointsExpireAt referralCode telegramChatId
+              notificationPreferences { reservationUpdates { email webPush platform } }
             }
           }`,
         }),
@@ -176,10 +196,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     persist(data.register.accessToken, data.register.refreshToken, data.register.user);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    const refreshToken = localStorage.getItem('refreshToken');
+    try {
+      await logoutMutation({ variables: { refreshToken: refreshToken || undefined } });
+    } catch {
+      // still clear the local session
+    }
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     setUser(null);
+    window.location.assign('/login');
   };
 
   const value = useMemo(

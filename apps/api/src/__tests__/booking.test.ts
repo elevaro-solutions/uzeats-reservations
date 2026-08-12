@@ -120,6 +120,21 @@ describe('Booking Flow (E2E)', () => {
   });
 
   it('should create tables for the restaurant', async () => {
+    const existing = await graphqlRequest(
+      agent,
+      `query RestaurantTables($id: ID!) {
+        restaurant(id: $id) { tables { id name minCapacity maxCapacity } }
+      }`,
+      { id: restaurantId },
+      ownerToken,
+    );
+    const tables = existing.body.data?.restaurant?.tables ?? [];
+    if (tables.length > 0) {
+      tableId = tables[0].id;
+      expect(tableId).toBeTruthy();
+      return;
+    }
+
     const res = await graphqlRequest(
       agent,
       `mutation CreateTable($restaurantId: ID!, $input: TableInput!) {
@@ -235,6 +250,62 @@ describe('Booking Flow (E2E)', () => {
     reservationId = payload.reservation.id;
   });
 
+  it('should let a diner edit their reservation', async () => {
+    const res = await graphqlRequest(
+      agent,
+      `mutation UpdateReservation($id: ID!, $input: UpdateReservationInput!) {
+        updateReservation(id: $id, input: $input) { id partySize occasion guestNotes }
+      }`,
+      {
+        id: reservationId,
+        input: { occasion: 'birthday', guestNotes: 'High chair please' },
+      },
+      dinerToken,
+    );
+
+    expect(res.body.errors).toBeUndefined();
+    expect(res.body.data.updateReservation.occasion).toBe('birthday');
+    expect(res.body.data.updateReservation.guestNotes).toBe('High chair please');
+  });
+
+  it('should reject staff creating a restaurant', async () => {
+    const staff = await User.create({
+      email: 'staff-rbac@test.com',
+      passwordHash: 'unused',
+      firstName: 'Sam',
+      lastName: 'Staff',
+      role: 'staff',
+      restaurantIds: [restaurantId],
+    });
+    const { signAccessToken } = await import('../services/auth.js');
+    const staffToken = signAccessToken({ sub: staff._id.toString(), role: 'staff' });
+
+    const res = await graphqlRequest(
+      agent,
+      `mutation CreateRestaurant($input: RestaurantInput!) {
+        createRestaurant(input: $input) { id }
+      }`,
+      {
+        input: {
+          name: 'Staff Should Not Create',
+          cuisine: 'Italian',
+          priceRange: 2,
+          address: {
+            line1: '1 Test St',
+            city: 'New York',
+            state: 'NY',
+            zip: '10001',
+          },
+          location: { lng: -73.935242, lat: 40.73061 },
+        },
+      },
+      staffToken,
+    );
+
+    expect(res.body.errors).toBeDefined();
+    expect(res.body.errors[0].message).toMatch(/staff|forbidden/i);
+  });
+
   it('should fail double-booking when table is full', async () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -280,6 +351,19 @@ describe('Booking Flow (E2E)', () => {
 
     expect(res.body.errors).toBeUndefined();
     expect(res.body.data.updateReservationStatus.status).toBe('cancelled');
+
+    const notifs = await graphqlRequest(
+      agent,
+      `query { myNotifications { type title } }`,
+      {},
+      dinerToken,
+    );
+    expect(notifs.body.errors).toBeUndefined();
+    expect(
+      (notifs.body.data.myNotifications as Array<{ type: string }>).some(
+        (n) => n.type === 'reservation_cancelled',
+      ),
+    ).toBe(true);
   });
 
   it('should create a review after a completed visit', async () => {

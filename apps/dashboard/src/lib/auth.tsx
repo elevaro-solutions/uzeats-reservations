@@ -22,6 +22,12 @@ const LOGIN = gql`
   }
 `;
 
+const LOGOUT = gql`
+  mutation Logout($refreshToken: String) {
+    logout(refreshToken: $refreshToken)
+  }
+`;
+
 export type DashUser = {
   id: string;
   email?: string | null;
@@ -47,7 +53,7 @@ const AuthContext = createContext<{
   setSession: (accessToken: string, refreshToken: string, user: DashUser) => void;
   beginImpersonation: (accessToken: string, user: DashUser, impersonator: Impersonator) => void;
   endImpersonation: () => void;
-  logout: () => void;
+  logout: () => void | Promise<void>;
 } | null>(null);
 
 const ADMIN_BACKUP_ACCESS = 'dashAdminAccessToken';
@@ -59,6 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [impersonator, setImpersonator] = useState<Impersonator | null>(null);
   const [loading, setLoading] = useState(true);
   const [loginMutation] = useMutation(LOGIN);
+  const [logoutMutation] = useMutation(LOGOUT);
 
   const refreshMe = useCallback(async () => {
     const token = localStorage.getItem('dashAccessToken');
@@ -159,7 +166,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setSession(data.login.accessToken, data.login.refreshToken, nextUser);
   };
 
-  const logout = () => {
+  const clearLocalSession = () => {
     localStorage.removeItem('dashAccessToken');
     localStorage.removeItem('dashRefreshToken');
     localStorage.removeItem(ADMIN_BACKUP_ACCESS);
@@ -167,6 +174,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem(ADMIN_BACKUP_USER);
     setUser(null);
     setImpersonator(null);
+  };
+
+  const logout = async () => {
+    const refreshToken = localStorage.getItem('dashRefreshToken');
+    try {
+      await logoutMutation({ variables: { refreshToken: refreshToken || undefined } });
+    } catch {
+      // still clear the local session
+    }
+    clearLocalSession();
+    window.location.assign('/login');
   };
 
   const value = useMemo(

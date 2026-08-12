@@ -80,12 +80,12 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Platform + per-restaurant loyalty (tiers, referrals, expiry) with gift cards and promotion codes
 - Reviews after completed visits
 - Menus + DO Spaces presigned uploads (stubbed without keys)
-- Notifications: email (SendGrid or Resend), Telegram bot, web/Expo push, in-app inbox + channel prefs
+- Notifications: email (SendGrid or Resend), Telegram bot, web/Expo push (service worker on diner web), in-app inbox + channel prefs
 - Auth: email/password (forgot/reset on web and partner dashboard), Google OAuth, Twilio phone OTP
 - Partner Settings hub, notifications prefs, multi-restaurant selector, self-registration, onboarding checklist, **profile page**, and toggles to accept online reservations or hide the booking widget
 - **Email branding** — customizable email templates per restaurant
 - Shareable booking links (`/r/:slug`) and **Booking widget** page for embed script copy
-- Owner phone / walk-in bookings, reservation edit, reservation-scoped messaging, and **individual reservation detail pages**
+- Owner phone / walk-in bookings, **diner and partner reservation edit**, reservation-scoped messaging, and **individual reservation detail pages**
 - Enhanced restaurant detail pages with photo gallery, reviews, FAQ, terms, about, and menu sections
 - Platform admin: users, restaurants (create/edit/delete), invoices, revenue, support, moderation, templates, config, and annual billing discounts
 - Embeddable booking widget with per-restaurant theme
@@ -136,4 +136,4 @@ pnpm seed         # seed restaurants, tables, shifts, users (keeps admins)
 pnpm seed -- --clear  # delete seed data only; admin/super_admin accounts untouched
 ```
 
-**Roles:** `super_admin` can permanently delete users/restaurants and wipe seed data. Regular `admin` has read/write access to most platform ops but cannot modify super admins or perform destructive deletes.
+**Roles:** `super_admin` can permanently delete users/restaurants and wipe seed data. Regular `admin` has read/write access to most platform ops but cannot modify super admins or perform destructive deletes. Staff can operate a venue but cannot add restaurants or manage billing.

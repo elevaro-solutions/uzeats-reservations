@@ -4,6 +4,28 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.21.0] — 2026-08-12
+
+### Added
+
+- Diners can edit upcoming reservations (date, time, party size, occasion, notes)
+- Cancellation and update notifications for diners and restaurant staff
+- Web push service worker (`/sw.js`) and profile toggle that persists notification preferences
+- Server-side logout that revokes the refresh token on diner web and partner dashboard
+- Required cancellation reason presets (details required when choosing Other)
+- `canManageBilling` / `canCreateRestaurant` role helpers; staff cannot add venues or change plans
+- Pre-shift reports included in Core plan features
+
+### Changed
+
+- Plan feature checks use the current plan definition instead of stale stored feature flags
+- Restaurant photo picker skips a broken Unsplash fallback and prefers valid listing photos
+- Account menus route logout through the shared auth logout mutation
+
+### Fixed
+
+- Booking E2E tests reuse existing tables and cover diner edits, staff restaurant-create denial, and cancel notifications
+
 ## [0.20.0] — 2026-08-12
 
 ### Added

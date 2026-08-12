@@ -35,7 +35,7 @@ import {
   typography,
 } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
-import { isPlatformAdmin } from '@/lib/roles';
+import { isPlatformAdmin, canCreateRestaurant } from '@/lib/roles';
 import {
   MY_RESTAURANTS_OVERVIEW,
   MY_RESTAURANT_LOCATIONS_META,
@@ -287,6 +287,7 @@ export default function OverviewPage() {
 
   const restaurants: OwnerRestaurant[] = data?.myRestaurants ?? [];
   const totalLocations = metaData?.myRestaurantLocationsMeta?.total ?? restaurants.length;
+  const canAddLocation = Boolean(user && canCreateRestaurant(user.role));
   const showLocationFilters = totalLocations >= MANY_LOCATIONS_THRESHOLD;
 
   const cityOptions = useMemo(
@@ -321,6 +322,7 @@ export default function OverviewPage() {
         title="Overview"
         subtitle="Your venues at a glance — jump into service or add a new listing"
         extra={
+          canAddLocation ? (
           <Button
             type="primary"
             size="large"
@@ -331,6 +333,7 @@ export default function OverviewPage() {
           >
             {showCreate ? 'Cancel' : 'Add restaurant'}
           </Button>
+          ) : undefined
         }
       />
 
@@ -679,9 +682,11 @@ export default function OverviewPage() {
           title="No restaurants yet"
           description="Add your first venue to start taking reservations."
           action={
+            canAddLocation ? (
             <Button type="primary" onClick={() => setShowCreate(true)}>
               Add restaurant
             </Button>
+            ) : undefined
           }
         />
       ) : (
@@ -730,11 +735,11 @@ export default function OverviewPage() {
                   : 'Add your first venue to start taking reservations.'
               }
               action={
-                hasActiveFilters ? undefined : (
+                hasActiveFilters ? undefined : canAddLocation ? (
                   <Button type="primary" onClick={() => setShowCreate(true)}>
                     Add restaurant
                   </Button>
-                )
+                ) : undefined
               }
             />
           ) : (

@@ -34,6 +34,7 @@ import dayjs from 'dayjs';
 import { getPlanDiscountLabel } from '@reservations/shared';
 import { PlanPrice } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
+import { canManageBilling } from '@/lib/roles';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS,
@@ -148,6 +149,7 @@ export default function BillingPage() {
 
   const smsIncludedInPlan = Boolean(subscription?.features?.premiumSms);
   const smsAddonEnabled = Boolean(subscription?.features?.premiumSmsAddon);
+  const canEditBilling = Boolean(user && canManageBilling(user.role));
 
   return (
     <div component="BillingPage" style={{ display: 'contents' }}><Space orientation="vertical" size={24} style={{ width: '100%' }}>
@@ -200,7 +202,7 @@ export default function BillingPage() {
             </Descriptions>
 
             <div style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {subscription.status !== 'cancelled' &&
+              {canEditBilling && subscription.status !== 'cancelled' &&
                 plans
                   .filter((p: any) => p.key !== subscription.plan)
                   .map((p: any) => (
@@ -212,10 +214,13 @@ export default function BillingPage() {
                       Switch to {p.name} ({formatCents(p.monthlyPriceCents)}/mo)
                     </Button>
                   ))}
-              {subscription.status !== 'cancelled' && (
+              {canEditBilling && subscription.status !== 'cancelled' && (
                 <Button danger onClick={handleCancel} loading={cancelling}>
                   Cancel Subscription
                 </Button>
+              )}
+              {!canEditBilling && (
+                <Text type="secondary">Only the restaurant owner can change or cancel this plan.</Text>
               )}
             </div>
           </Card>
@@ -322,7 +327,7 @@ export default function BillingPage() {
               ) : (
                 <Switch
                   checked={smsAddonEnabled}
-                  disabled={subscription.plan === 'basic'}
+                  disabled={!canEditBilling || subscription.plan === 'basic'}
                   loading={togglingSms}
                   onChange={handleTogglePremiumSms}
                   checkedChildren="On"
@@ -387,11 +392,14 @@ export default function BillingPage() {
                       type="primary"
                       onClick={() => handleSubscribe(plan.key)}
                       loading={creating}
+                      disabled={!canEditBilling}
                       block
                     >
-                      {plan.trialDays > 0
-                        ? `Start ${plan.trialDays}-day trial`
-                        : 'Subscribe'}
+                      {!canEditBilling
+                        ? 'Owner only'
+                        : plan.trialDays > 0
+                          ? `Start ${plan.trialDays}-day trial`
+                          : 'Subscribe'}
                     </Button>,
                   ]}
                 >

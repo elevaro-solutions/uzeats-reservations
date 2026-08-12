@@ -14,6 +14,16 @@ export function isSuperAdmin(role: string): role is UserRole {
   return role === 'super_admin';
 }
 
+/** Owners and platform admins may change plans, cancel, or subscribe. Staff is view-only. */
+export function canManageBilling(role: string): boolean {
+  return role === 'restaurant_owner' || isPlatformAdmin(role);
+}
+
+/** Staff cannot add locations; diners may convert to owners via onboarding. */
+export function canCreateRestaurant(role: string): boolean {
+  return role !== 'staff';
+}
+
 /** Whether `actorRole` may modify a user with `targetRole`. */
 export function canEditUser(actorRole: string, targetRole: string): boolean {
   if (isSuperAdmin(targetRole) && !isSuperAdmin(actorRole)) return false;

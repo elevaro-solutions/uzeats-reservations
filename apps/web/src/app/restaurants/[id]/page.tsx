@@ -23,7 +23,7 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import { StarFilled } from '@ant-design/icons';
-import { SlotPicker, priceRangeLabel, colors, radii } from '@reservations/ui';
+import { SlotPicker, priceRangeLabel, colors, radii, pickRestaurantPhoto } from '@reservations/ui';
 import {
   OCCASIONS,
   LOYALTY,
@@ -47,6 +47,7 @@ import {
   AVAILABILITY,
   CREATE_RESERVATION,
   CONFIRM_DEPOSIT,
+  MY_RESERVATIONS,
   JOIN_WAITLIST,
   BOOKABLE_TABLES,
   RESTAURANT_REVIEWS,
@@ -200,7 +201,10 @@ export default function RestaurantPage() {
     skip: !user || !restaurantId,
   });
 
-  const [createReservation, { loading: booking }] = useMutation(CREATE_RESERVATION);
+  const [createReservation, { loading: booking }] = useMutation(CREATE_RESERVATION, {
+    refetchQueries: [{ query: MY_RESERVATIONS }],
+    awaitRefetchQueries: true,
+  });
   const [confirmDeposit] = useMutation(CONFIRM_DEPOSIT);
   const [joinWaitlist, { loading: waitlisting }] = useMutation(JOIN_WAITLIST);
 
@@ -404,13 +408,16 @@ export default function RestaurantPage() {
       });
       const payload = (result as any)?.createReservation;
       const bookedTable = payload?.reservation?.tables?.[0];
-      const successInfo = bookedTable
-        ? {
-            tableName: bookedTable.name,
-            photoUrl: bookedTable.photoUrl,
-            floorArea: bookedTable.floorArea,
-          }
-        : null;
+      const restaurantPhotos = payload?.reservation?.restaurant?.photos as string[] | undefined;
+      const successInfo = {
+        tableName: bookedTable?.name,
+        photoUrl: pickRestaurantPhoto([
+          ...(restaurantPhotos ?? []),
+          bookedTable?.photoUrl,
+          ...(restaurant.photos ?? []),
+        ]),
+        floorArea: bookedTable?.floorArea,
+      };
       if (payload?.clientSecret) {
         const cs = payload.clientSecret as string;
         setConfirmOpen(false);

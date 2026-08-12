@@ -21,6 +21,8 @@ import {
   type AnnualBillingSettings,
   isPlatformAdmin,
   assertCanEditUser,
+  canManageBilling,
+  canCreateRestaurant,
 } from '@reservations/shared';
 import { assertCanAssignRole } from '../services/roleAccess.js';
 import { submitContactForm } from '../services/contactForm.js';
@@ -131,7 +133,7 @@ import { createRestaurantSubscription } from '../services/restaurantSubscription
 import { provisionDefaultRestaurantSetup } from '../services/restaurantSetup.js';
 import { restaurantInputToDb } from '../lib/restaurantInput.js';
 import { requireAuth, requireAdmin, requireSuperAdmin, requireRole, type GraphQLContext } from './context.js';
-import { NotFoundError } from '../lib/errors.js';
+import { ForbiddenError, NotFoundError } from '../lib/errors.js';
 import {
   mapUser,
   mapRestaurant,
@@ -221,6 +223,12 @@ async function assertRestaurantAccess(userId: string, restaurantId: string, role
     const user = await User.findById(userId);
     const allowed = user?.restaurantIds?.some((id) => id.equals(restaurantId));
     if (!allowed) throw new Error('Forbidden');
+  }
+}
+
+function assertCanManageBilling(role: string) {
+  if (!canManageBilling(role)) {
+    throw new ForbiddenError('Only the restaurant owner can manage billing');
   }
 }
 
@@ -1861,6 +1869,9 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
+      if (!canCreateRestaurant(user.role)) {
+        throw new ForbiddenError('Staff accounts cannot add restaurants');
+      }
       const input = restaurantInputSchema.parse(args.input);
       const doc = await Restaurant.create({
         ...restaurantInputToDb(input),
@@ -2727,6 +2738,7 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      assertCanManageBilling(user.role);
 
       const planDef = await getEffectivePlan(args.plan);
       if (!planDef) throw new Error(`Invalid plan: ${args.plan}`);
@@ -2752,6 +2764,7 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      assertCanManageBilling(user.role);
 
       const sub = await Subscription.findOne({ restaurantId: args.restaurantId });
       if (!sub) throw new Error('No subscription found');
@@ -2783,6 +2796,7 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      assertCanManageBilling(user.role);
 
       const planDef = await getEffectivePlan(args.plan);
       if (!planDef) throw new Error(`Invalid plan: ${args.plan}`);
@@ -3932,6 +3946,7 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      assertCanManageBilling(user.role);
       const sub = await Subscription.findOne({ restaurantId: args.restaurantId });
       if (!sub) throw new Error('No subscription found');
       if (sub.plan === 'basic') {

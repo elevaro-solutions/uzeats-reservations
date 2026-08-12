@@ -137,6 +137,7 @@ export const CREATE_RESERVATION = gql`
         depositStatus
         restaurant {
           name
+          photos
         }
         tables {
           id
@@ -378,6 +379,36 @@ export const UPDATE_RESERVATION_STATUS = gql`
     updateReservationStatus(id: $id, status: $status, reason: $reason) {
       id
       status
+    }
+  }
+`;
+
+export const UPDATE_RESERVATION = gql`
+  mutation UpdateReservation($id: ID!, $input: UpdateReservationInput!) {
+    updateReservation(id: $id, input: $input) {
+      id
+      status
+      slotStart
+      partySize
+      occasion
+      guestNotes
+      tables {
+        id
+        name
+        photoUrl
+        floorArea
+      }
+    }
+  }
+`;
+
+export const UPDATE_NOTIFICATION_PREFERENCES = gql`
+  mutation UpdateNotificationPreferences($input: NotificationPreferencesInput!) {
+    updateNotificationPreferences(input: $input) {
+      id
+      notificationPreferences {
+        reservationUpdates { email webPush platform }
+      }
     }
   }
 `;
