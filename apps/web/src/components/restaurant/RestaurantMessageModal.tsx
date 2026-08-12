@@ -25,7 +25,7 @@ export function RestaurantMessageModal({ open, restaurantId, restaurantName, onC
     if (!open) return;
     form.setFieldsValue({
       name: user ? [user.firstName, user.lastName].filter(Boolean).join(' ') : undefined,
-      email: user?.email,
+      email: user?.email ?? undefined,
       message: '',
     });
   }, [open, user, form]);

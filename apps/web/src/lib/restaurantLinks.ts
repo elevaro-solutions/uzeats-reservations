@@ -1,4 +1,4 @@
-type Address = {
+export type Address = {
   line1: string;
   line2?: string | null;
   city: string;

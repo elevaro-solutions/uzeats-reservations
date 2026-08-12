@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 import { AntdRegistry } from '@ant-design/nextjs-registry';
 import { Providers } from '@/lib/apollo';
@@ -30,7 +31,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body suppressHydrationWarning>
         <AntdRegistry>
           <Providers>
-            <DashShell>{children}</DashShell>
+            <Suspense fallback={null}>
+              <DashShell>{children}</DashShell>
+            </Suspense>
           </Providers>
         </AntdRegistry>
       </body>

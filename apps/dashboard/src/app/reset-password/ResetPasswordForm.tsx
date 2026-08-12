@@ -108,7 +108,7 @@ export default function ResetPasswordForm() {
                 message: 'Password must include a lowercase letter',
               },
               {
-                pattern: /[A-Z]/
+                pattern: /[A-Z]/,
                 message: 'Password must include an uppercase letter',
               },
               {

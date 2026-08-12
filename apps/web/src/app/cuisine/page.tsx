@@ -1,11 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Typography } from 'antd';
 import { JsonLd } from '@/components/JsonLd';
 import { listCuisinesForIndex } from '@/lib/discoveryIndex';
 import { breadcrumbJsonLd, discoveryLandingMetadata, itemListJsonLd } from '@/lib/seo';
-
-const { Title, Paragraph, Text } = Typography;
 
 const PAGE_DESCRIPTION =
   'Explore restaurants by cuisine on Tablevera — Italian, Japanese, Mexican, Mediterranean, and more with live reservations.';
@@ -40,12 +37,12 @@ export default async function CuisineIndexPage() {
           }),
         ]}
       />
-      <Title level={1} style={{ marginBottom: 8 }}>
+      <h1 style={{ marginBottom: 8, fontSize: 32, fontWeight: 700, lineHeight: 1.25 }}>
         Restaurants by cuisine
-      </Title>
-      <Paragraph type="secondary" style={{ marginBottom: 32, fontSize: 16 }}>
+      </h1>
+      <p style={{ marginBottom: 32, fontSize: 16, color: 'rgba(0,0,0,0.45)' }}>
         Pick a cuisine to see restaurants with open tables you can reserve instantly.
-      </Paragraph>
+      </p>
       <ul
         style={{
           listStyle: 'none',
@@ -61,9 +58,9 @@ export default async function CuisineIndexPage() {
             <Link href={`/cuisine/${cuisine.slug}`} style={{ fontSize: 16 }}>
               {cuisine.label}
               {typeof cuisine.count === 'number' ? (
-                <Text type="secondary" style={{ marginLeft: 8, fontSize: 14 }}>
+                <span style={{ marginLeft: 8, fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>
                   ({cuisine.count})
-                </Text>
+                </span>
               ) : null}
             </Link>
           </li>

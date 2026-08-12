@@ -1,11 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Typography } from 'antd';
 import { JsonLd } from '@/components/JsonLd';
 import { listNeighborhoodsForIndex } from '@/lib/discoveryIndex';
 import { breadcrumbJsonLd, discoveryLandingMetadata, itemListJsonLd } from '@/lib/seo';
-
-const { Title, Paragraph, Text } = Typography;
 
 const PAGE_DESCRIPTION =
   'Browse restaurant reservations by neighborhood — SoHo, Williamsburg, Brickell, Center City, and more on Tablevera.';
@@ -40,21 +37,21 @@ export default async function NeighborhoodsIndexPage() {
           }),
         ]}
       />
-      <Title level={1} style={{ marginBottom: 8 }}>
+      <h1 style={{ marginBottom: 8, fontSize: 32, fontWeight: 700, lineHeight: 1.25 }}>
         Restaurants by neighborhood
-      </Title>
-      <Paragraph type="secondary" style={{ marginBottom: 32, fontSize: 16 }}>
+      </h1>
+      <p style={{ marginBottom: 32, fontSize: 16, color: 'rgba(0,0,0,0.45)' }}>
         Explore walkable dining areas and reserve tables with live availability.
-      </Paragraph>
+      </p>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 12 }}>
         {neighborhoods.map((n) => (
           <li key={n.slug}>
             <Link href={`/neighborhoods/${n.slug}`} style={{ fontSize: 16 }}>
               {n.label}
               {typeof n.count === 'number' ? (
-                <Text type="secondary" style={{ marginLeft: 8, fontSize: 14 }}>
+                <span style={{ marginLeft: 8, fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>
                   ({n.count})
-                </Text>
+                </span>
               ) : null}
             </Link>
           </li>

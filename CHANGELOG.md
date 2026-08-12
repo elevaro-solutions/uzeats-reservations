@@ -4,6 +4,13 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.24.1] — 2026-08-13
+
+### Fixed
+
+- Web production build: Twitter image config, discovery index pages, and related TypeScript issues
+- Dashboard production build: reset-password parse error and Suspense around `useSearchParams`
+
 ## [0.24.0] — 2026-08-13
 
 ### Added

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Button, Checkbox, Descriptions, Modal, Typography } from 'antd';
+import { Button, Checkbox, Descriptions, Modal, Typography, type DescriptionsProps } from 'antd';
 import { resolveRestaurantTerms } from '@/lib/restaurantTerms';
 
 const { Text, Paragraph, Link } = Typography;
@@ -73,7 +73,7 @@ export function ReservationConfirmModal({
   });
   const termsParagraphs = termsText.split(/\n\s*\n/).filter(Boolean);
 
-  const items = [
+  const items: NonNullable<DescriptionsProps['items']> = [
     { key: 'restaurant', label: 'Restaurant', children: restaurantName },
     { key: 'date', label: 'Date', children: details.dateLabel },
     { key: 'time', label: 'Time', children: details.timeLabel },
@@ -219,5 +219,3 @@ export function ReservationConfirmModal({
     </Modal>
   );
 }
-
-export { formatOccasion };

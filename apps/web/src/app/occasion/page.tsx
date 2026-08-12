@@ -1,11 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Typography } from 'antd';
 import { JsonLd } from '@/components/JsonLd';
 import { listOccasionsForIndex } from '@/lib/discoveryIndex';
 import { breadcrumbJsonLd, discoveryLandingMetadata, itemListJsonLd } from '@/lib/seo';
-
-const { Title, Paragraph, Text } = Typography;
 
 const PAGE_DESCRIPTION =
   'Find restaurants for date night, birthdays, business meals, group dining, and more. Book with live availability on Tablevera.';
@@ -40,21 +37,21 @@ export default async function OccasionIndexPage() {
           }),
         ]}
       />
-      <Title level={1} style={{ marginBottom: 8 }}>
+      <h1 style={{ marginBottom: 8, fontSize: 32, fontWeight: 700, lineHeight: 1.25 }}>
         Restaurants by occasion
-      </Title>
-      <Paragraph type="secondary" style={{ marginBottom: 32, fontSize: 16 }}>
+      </h1>
+      <p style={{ marginBottom: 32, fontSize: 16, color: 'rgba(0,0,0,0.45)' }}>
         Match the mood — then reserve a table with live availability.
-      </Paragraph>
+      </p>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 12 }}>
         {occasions.map((occasion) => (
           <li key={occasion.slug}>
             <Link href={`/occasion/${occasion.slug}`} style={{ fontSize: 16 }}>
               {occasion.label}
               {typeof occasion.count === 'number' ? (
-                <Text type="secondary" style={{ marginLeft: 8, fontSize: 14 }}>
+                <span style={{ marginLeft: 8, fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>
                   ({occasion.count})
-                </Text>
+                </span>
               ) : null}
             </Link>
           </li>

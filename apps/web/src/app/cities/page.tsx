@@ -1,11 +1,8 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Typography } from 'antd';
 import { JsonLd } from '@/components/JsonLd';
 import { listCitiesForIndex } from '@/lib/discoveryIndex';
 import { breadcrumbJsonLd, discoveryLandingMetadata, itemListJsonLd } from '@/lib/seo';
-
-const { Title, Paragraph, Text } = Typography;
 
 const PAGE_DESCRIPTION =
   'Browse Tablevera restaurant reservations by city. Find live availability across New York, New Jersey, Florida, Pennsylvania, and more.';
@@ -40,21 +37,21 @@ export default async function CitiesIndexPage() {
           }),
         ]}
       />
-      <Title level={1} style={{ marginBottom: 8 }}>
+      <h1 style={{ marginBottom: 8, fontSize: 32, fontWeight: 700, lineHeight: 1.25 }}>
         Restaurants by city
-      </Title>
-      <Paragraph type="secondary" style={{ marginBottom: 32, fontSize: 16 }}>
+      </h1>
+      <p style={{ marginBottom: 32, fontSize: 16, color: 'rgba(0,0,0,0.45)' }}>
         Choose a city to browse restaurants with live table availability on Tablevera.
-      </Paragraph>
+      </p>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 12 }}>
         {cities.map((c) => (
           <li key={c.slug}>
             <Link href={`/cities/${c.slug}`} style={{ fontSize: 16 }}>
               {c.label}
               {typeof c.count === 'number' ? (
-                <Text type="secondary" style={{ marginLeft: 8, fontSize: 14 }}>
+                <span style={{ marginLeft: 8, fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>
                   ({c.count})
-                </Text>
+                </span>
               ) : null}
             </Link>
           </li>
