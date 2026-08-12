@@ -174,7 +174,7 @@ function AdminUsersPageContent() {
     try {
       const res = await startImpersonation({ variables: { userId: record.id } });
       const payload = res.data?.startImpersonation;
-      beginImpersonation(payload.accessToken, payload.user, payload.impersonator);
+      beginImpersonation(payload.user, payload.impersonator);
       message.success(`Viewing as ${payload.user.firstName}`);
       window.location.href = '/';
     } catch (err: any) {

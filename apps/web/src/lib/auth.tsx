@@ -25,8 +25,6 @@ const USER_FIELDS = `
 const LOGIN = gql`
   mutation Login($input: LoginInput!) {
     login(input: $input) {
-      accessToken
-      refreshToken
       user { ${USER_FIELDS} }
     }
   }
@@ -35,8 +33,6 @@ const LOGIN = gql`
 const REGISTER = gql`
   mutation Register($input: RegisterInput!) {
     register(input: $input) {
-      accessToken
-      refreshToken
       user { ${USER_FIELDS} }
     }
   }
@@ -45,39 +41,14 @@ const REGISTER = gql`
 const LOGIN_WITH_GOOGLE = gql`
   mutation LoginWithGoogle($idToken: String!) {
     loginWithGoogle(idToken: $idToken) {
-      accessToken
-      refreshToken
       user { ${USER_FIELDS} }
     }
   }
 `;
 
-const ME = gql`
-  query Me {
-    me {
-      id
-      email
-      phone
-      firstName
-      lastName
-      role
-      loyaltyPoints
-      loyaltyCompletedVisits
-      loyaltyTier
-      loyaltyTierName
-      loyaltyPointsExpireAt
-      referralCode
-      telegramChatId
-      notificationPreferences {
-        reservationUpdates { email webPush platform }
-      }
-    }
-  }
-`;
-
 const LOGOUT = gql`
-  mutation Logout($refreshToken: String) {
-    logout(refreshToken: $refreshToken)
+  mutation Logout {
+    logout
   }
 `;
 
@@ -119,6 +90,8 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const API_URI = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/graphql';
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -127,25 +100,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [registerMutation] = useMutation(REGISTER);
   const [logoutMutation] = useMutation(LOGOUT);
 
-  const persist = (accessToken: string, refreshToken: string, nextUser: AuthUser) => {
-    localStorage.setItem('accessToken', accessToken);
-    localStorage.setItem('refreshToken', refreshToken);
-    setUser(nextUser);
-  };
-
   const refreshMe = useCallback(async () => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
-      setUser(null);
-      setLoading(false);
-      return;
-    }
     try {
-      const res = await fetch(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/graphql', {
+      const res = await fetch(API_URI, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          'X-Client-App': 'web',
         },
         body: JSON.stringify({
           query: `query Me {
@@ -168,19 +130,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // Migrate away from legacy localStorage tokens.
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
     void refreshMe();
   }, [refreshMe]);
 
   const login = async (email: string, password: string) => {
     const result = await loginMutation({ variables: { input: { email, password } } });
     const data = result.data as any;
-    persist(data.login.accessToken, data.login.refreshToken, data.login.user);
+    setUser(data.login.user);
   };
 
   const loginGoogle = async (idToken: string) => {
     const result = await googleLoginMutation({ variables: { idToken } });
     const data = result.data as any;
-    persist(data.loginWithGoogle.accessToken, data.loginWithGoogle.refreshToken, data.loginWithGoogle.user);
+    setUser(data.loginWithGoogle.user);
   };
 
   const register = async (input: {
@@ -193,18 +158,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }) => {
     const result = await registerMutation({ variables: { input } });
     const data = result.data as any;
-    persist(data.register.accessToken, data.register.refreshToken, data.register.user);
+    setUser(data.register.user);
   };
 
   const logout = async () => {
-    const refreshToken = localStorage.getItem('refreshToken');
     try {
-      await logoutMutation({ variables: { refreshToken: refreshToken || undefined } });
+      await logoutMutation();
     } catch {
       // still clear the local session
     }
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
     setUser(null);
     window.location.assign('/login');
   };

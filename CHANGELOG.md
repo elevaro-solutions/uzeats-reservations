@@ -4,6 +4,30 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.22.0] — 2026-08-12
+
+### Added
+
+- HttpOnly auth cookies for diner web and partner dashboard (`x-client-app`), with hashed refresh/reset tokens and hashed POS/integration API keys
+- API hardening: Helmet, GraphQL depth/complexity limits, stricter auth/upload/partner rate limits, production Stripe/Telegram webhook secret checks
+- Discovery hub pages (`/cities`, `/cuisine`, `/occasion`, `/neighborhoods`), richer sitemap (including `/r/:slug`), `llms.txt`, and Organization/WebSite JSON-LD
+- Restaurant page SSR split with opening-hours schema and FAQ helpers for SEO
+- Reservations list segments (upcoming / past / deposit due) and post-visit review + save modal
+- Canonical redirect from `/restaurants/:slug` to `/r/:slug`
+- Developer env checklist masks secret values
+
+### Changed
+
+- Default public site URL is `https://tablevera.online`; robots disallow additional account routes
+- Gift-card public validation no longer returns recipient PII or full balance
+- Stripe customer/subscription IDs only returned to users with restaurant access
+- Uploads restricted to JPEG/PNG/WebP/GIF; partner API CORS limited to configured origins
+- Dev phone OTP only when `AUTH_DEV_OTP=true` outside production
+
+### Fixed
+
+- Registration role clamped so signup cannot escalate privileges via config defaults
+
 ## [0.21.1] — 2026-08-12
 
 ### Added

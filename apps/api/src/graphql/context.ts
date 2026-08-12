@@ -1,7 +1,8 @@
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { isPlatformAdmin, PLATFORM_ADMIN_ROLES, type UserRole } from '@reservations/shared';
 import { User } from '../models/User.js';
 import { verifyAccessToken } from '../services/auth.js';
+import { getAccessTokenFromRequest } from '../services/authCookies.js';
 import type { UserDocument } from '../models/User.js';
 import { AuthenticationError, ForbiddenError } from '../lib/errors.js';
 
@@ -9,26 +10,33 @@ export interface GraphQLContext {
   user: UserDocument | null;
   impersonator: UserDocument | null;
   req: Request;
+  res: Response;
 }
 
-export async function createContext({ req }: { req: Request }): Promise<GraphQLContext> {
-  const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
-    return { user: null, impersonator: null, req };
+export async function createContext({
+  req,
+  res,
+}: {
+  req: Request;
+  res: Response;
+}): Promise<GraphQLContext> {
+  const token = getAccessTokenFromRequest(req);
+  if (!token) {
+    return { user: null, impersonator: null, req, res };
   }
   try {
-    const payload = verifyAccessToken(header.slice(7));
+    const payload = verifyAccessToken(token);
     const user = await User.findById(payload.sub);
     let impersonator: UserDocument | null = null;
     if (payload.impersonatorId) {
       impersonator = await User.findById(payload.impersonatorId);
       if (!impersonator || !isPlatformAdmin(impersonator.role)) {
-        return { user: null, impersonator: null, req };
+        return { user: null, impersonator: null, req, res };
       }
     }
-    return { user, impersonator, req };
+    return { user, impersonator, req, res };
   } catch {
-    return { user: null, impersonator: null, req };
+    return { user: null, impersonator: null, req, res };
   }
 }
 

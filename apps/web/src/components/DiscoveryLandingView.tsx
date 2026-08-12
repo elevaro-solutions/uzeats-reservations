@@ -43,7 +43,7 @@ import { DiscoverySearchPanel } from '@/components/DiscoverySearchPanel';
 import { MapFiltersSidebar, countActiveDiscoveryFilters } from '@/components/MapFiltersSidebar';
 import { DiscoveryBreadcrumbs } from '@/components/DiscoveryBreadcrumbs';
 import { JsonLd } from '@/components/JsonLd';
-import { breadcrumbJsonLd, faqJsonLd, itemListJsonLd } from '@/lib/seo';
+import { itemListJsonLd } from '@/lib/seo';
 import type { BreadcrumbItem } from '@/lib/seo';
 
 const { Title, Paragraph, Text } = Typography;
@@ -229,21 +229,16 @@ function DiscoveryLandingContent({
       name: r.name,
       url: buildRestaurantBookingPath(r.slug, r.id),
     }));
+    if (!items.length) return [];
     return [
-      breadcrumbJsonLd(breadcrumbs),
-      faqJsonLd(meta.faq),
-      ...(items.length
-        ? [
-            itemListJsonLd({
-              name: meta.heading,
-              description: meta.description,
-              url: canonicalPath,
-              items,
-            }),
-          ]
-        : []),
+      itemListJsonLd({
+        name: meta.heading,
+        description: meta.description,
+        url: canonicalPath,
+        items,
+      }),
     ];
-  }, [breadcrumbs, meta, restaurants, canonicalPath]);
+  }, [meta, restaurants, canonicalPath]);
 
   const applyLocation = useCallback(
     (location: LocationSelection, fromDevice = false) => {
@@ -538,7 +533,7 @@ function DiscoveryLandingContent({
 
   return (
     <div className="rt-discovery-landing">
-      <JsonLd data={schemaBlocks} />
+      {schemaBlocks.length > 0 ? <JsonLd data={schemaBlocks} /> : null}
 
       {viewMode === 'map' ? (
         <div className="rt-map-page">

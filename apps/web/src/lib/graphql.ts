@@ -83,6 +83,12 @@ export const RESTAURANT_DETAIL = gql`
       allowGuestTableSelection
       reservationsEnabled
       reservationsVisible
+      shifts {
+        daysOfWeek
+        startTime
+        endTime
+        active
+      }
       menu {
         sections {
           id
@@ -173,11 +179,13 @@ export const MY_RESERVATIONS = gql`
       depositAmountCents
       depositStatus
       loyaltyPointsEarned
+      hasReview
       restaurant {
         id
         name
         slug
         photos
+        isSaved
         address {
           city
           state
@@ -207,12 +215,14 @@ export const MY_RESERVATION = gql`
       depositStatus
       clientSecret
       loyaltyPointsEarned
+      hasReview
       restaurant {
         id
         name
         slug
         photos
         phone
+        isSaved
         address {
           line1
           line2

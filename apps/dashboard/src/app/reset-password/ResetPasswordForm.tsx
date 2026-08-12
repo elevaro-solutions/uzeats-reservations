@@ -103,6 +103,18 @@ export default function ResetPasswordForm() {
             rules={[
               { required: true, message: 'Please enter a new password' },
               { min: 8, message: 'Password must be at least 8 characters' },
+              {
+                pattern: /[a-z]/,
+                message: 'Password must include a lowercase letter',
+              },
+              {
+                pattern: /[A-Z]/
+                message: 'Password must include an uppercase letter',
+              },
+              {
+                pattern: /\d/,
+                message: 'Password must include a number',
+              },
             ]}
           >
             <Input.Password

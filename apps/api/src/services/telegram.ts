@@ -132,7 +132,10 @@ export async function handleTelegramUpdate(update: TelegramUpdate): Promise<void
 }
 
 export function verifyTelegramWebhookSecret(req: Request): boolean {
-  if (!env.TELEGRAM_WEBHOOK_SECRET) return true;
+  if (!env.TELEGRAM_WEBHOOK_SECRET) {
+    // Never accept unverified webhooks — configure the secret before enabling Telegram.
+    return false;
+  }
   const header = req.headers['x-telegram-bot-api-secret-token'];
   return typeof header === 'string' && header === env.TELEGRAM_WEBHOOK_SECRET;
 }
@@ -229,7 +232,9 @@ export async function startTelegramBot(): Promise<void> {
 
   if (env.NODE_ENV === 'production' && env.API_PUBLIC_URL) {
     if (!env.TELEGRAM_WEBHOOK_SECRET) {
-      logger.warn('[telegram] TELEGRAM_WEBHOOK_SECRET is not set — webhook requests are not verified');
+      throw new Error(
+        '[telegram] TELEGRAM_WEBHOOK_SECRET is required in production when using webhooks',
+      );
     }
     await registerTelegramWebhook();
     return;

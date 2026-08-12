@@ -443,6 +443,16 @@ export interface DeveloperEnvRow {
 
 export type EnvSource = Record<string, string | undefined>;
 
+const SENSITIVE_ENV_KEY =
+  /(SECRET|TOKEN|PASSWORD|PRIVATE|API_KEY|AUTH_TOKEN|MONGODB_URI|REDIS_URL|WEBHOOK)/i;
+
+/** Mask secret env values for the developer page (keep last 4 chars when long enough). */
+export function maskEnvValue(key: string, value: string): string {
+  if (!SENSITIVE_ENV_KEY.test(key)) return value;
+  if (value.length <= 8) return '********';
+  return `********${value.slice(-4)}`;
+}
+
 function envValue(key: string, source: EnvSource): string {
   return (source[key] ?? '').trim();
 }
@@ -577,7 +587,7 @@ export function buildDeveloperEnvRows(
         group,
         requirement: def?.requirement ?? 'recommended',
         description: def?.description,
-        value: configured ? value : null,
+        value: configured ? maskEnvValue(key, value) : null,
         configured,
         applicable,
         missing: required && !configured,

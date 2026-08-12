@@ -1,55 +1,67 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { cityLandingMeta, citySlug } from '@reservations/shared';
+import { cityLandingMeta } from '@reservations/shared';
+import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
 import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
-import { POPULAR_CITIES, findCityBySlug } from '@/lib/cities';
+import {
+  listCityLandingParams,
+  listCitiesForIndex,
+  resolveCityBySlug,
+} from '@/lib/discoveryIndex';
+import { discoveryLandingMetadata } from '@/lib/seo';
+import type { BreadcrumbItem } from '@/lib/seo';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
 export async function generateStaticParams() {
-  return POPULAR_CITIES.map((c) => ({ slug: citySlug(c.city, c.state) }));
+  return listCityLandingParams();
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const city = findCityBySlug(slug);
+  const city = await resolveCityBySlug(slug);
   if (!city) return {};
   const meta = cityLandingMeta(city.city, city.state);
-  return {
+  return discoveryLandingMetadata({
     title: meta.title,
     description: meta.description,
-    alternates: { canonical: `/cities/${slug}` },
-  };
+    canonicalPath: `/cities/${slug}`,
+  });
 }
 
 export default async function CityLandingPage({ params }: PageProps) {
   const { slug } = await params;
-  const city = findCityBySlug(slug);
+  const city = await resolveCityBySlug(slug);
   if (!city) notFound();
 
   const meta = cityLandingMeta(city.city, city.state);
+  const canonicalPath = `/cities/${slug}`;
+  const breadcrumbs: BreadcrumbItem[] = [
+    { name: 'Home', href: '/' },
+    { name: 'Cities', href: '/cities' },
+    { name: `${city.city}, ${city.state}` },
+  ];
+
+  const related = (await listCitiesForIndex())
+    .filter((c) => c.slug !== slug)
+    .slice(0, 6)
+    .map((c) => ({ href: `/cities/${c.slug}`, label: c.label }));
 
   return (
-    <DiscoveryLandingView
-      meta={meta}
-      canonicalPath={`/cities/${slug}`}
-      preset={{
-        city: city.city,
-        lat: city.lat,
-        lng: city.lng,
-        locationLabel: `${city.city}, ${city.state}`,
-      }}
-      breadcrumbs={[
-        { name: 'Home', href: '/' },
-        { name: 'Cities', href: `/cities/${citySlug('New York', 'NY')}` },
-        { name: `${city.city}, ${city.state}` },
-      ]}
-      relatedLinks={POPULAR_CITIES.filter((c) => c.city !== city.city || c.state !== city.state)
-        .slice(0, 6)
-        .map((c) => ({
-          href: `/cities/${citySlug(c.city, c.state)}`,
-          label: `${c.city}, ${c.state}`,
-        }))}
-    />
+    <>
+      <DiscoveryLandingSchema breadcrumbs={breadcrumbs} faq={meta.faq} />
+      <DiscoveryLandingView
+        meta={meta}
+        canonicalPath={canonicalPath}
+        preset={{
+          city: city.city,
+          lat: city.lat,
+          lng: city.lng,
+          locationLabel: `${city.city}, ${city.state}`,
+        }}
+        breadcrumbs={breadcrumbs}
+        relatedLinks={related}
+      />
+    </>
   );
 }

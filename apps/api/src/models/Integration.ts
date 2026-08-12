@@ -4,6 +4,9 @@ import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
  * Third-party booking integration (affiliate sites, Google Reserve, etc.).
  * Each partner gets an API key scoped to a restaurant and can create
  * reservations through the partner REST API.
+ *
+ * New keys are stored as `apiKeyHash` (+ display `apiKeyPrefix`). Legacy
+ * plaintext `apiKey` values are migrated on first successful auth.
  */
 const integrationSchema = new Schema(
   {
@@ -14,7 +17,10 @@ const integrationSchema = new Schema(
       required: true,
     },
     name: { type: String, required: true },
-    apiKey: { type: String, required: true, unique: true },
+    /** @deprecated Prefer apiKeyHash — kept for legacy rows until migrated. */
+    apiKey: { type: String, unique: true, sparse: true },
+    apiKeyHash: { type: String, unique: true, sparse: true },
+    apiKeyPrefix: { type: String },
     enabled: { type: Boolean, default: true },
     bookingsCount: { type: Number, default: 0 },
     lastUsedAt: { type: Date },

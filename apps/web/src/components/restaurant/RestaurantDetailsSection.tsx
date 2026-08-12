@@ -38,6 +38,7 @@ type Props = {
   dietaryTags?: string[];
   wheelchairAccessible?: boolean;
   location?: { lat: number; lng: number } | null;
+  openingHoursLines?: string[];
 };
 
 type DetailRow = {
@@ -58,6 +59,7 @@ export function RestaurantDetailsSection({
   dietaryTags = [],
   wheelchairAccessible,
   location,
+  openingHoursLines = [],
 }: Props) {
   const fullAddress = formatRestaurantAddress(address);
 
@@ -105,6 +107,19 @@ export function RestaurantDetailsSection({
       label: 'Cuisine',
       value: cuisine,
     },
+    openingHoursLines.length > 0
+      ? {
+          icon: <ClockCircleOutlined />,
+          label: 'Hours',
+          value: (
+            <div style={{ display: 'grid', gap: 2 }}>
+              {openingHoursLines.map((line) => (
+                <span key={line}>{line}</span>
+              ))}
+            </div>
+          ),
+        }
+      : null,
     address.neighborhood
       ? {
           icon: <EnvironmentOutlined />,

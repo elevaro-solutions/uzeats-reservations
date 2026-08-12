@@ -9,6 +9,7 @@ import { notifyUser } from './notifications.js';
 import { renderEmailTemplate } from './emailTemplates.js';
 import { emailNotice } from './emailBranding.js';
 import { getPlatformConfig } from './platformConfig.js';
+import { clampRegistrationRole } from './roleAccess.js';
 import { generateUniqueReferralCode } from '../lib/referralCode.js';
 import { AuthenticationError } from '../lib/errors.js';
 
@@ -33,9 +34,14 @@ export async function verifyPassword(password: string, hash: string) {
   return bcrypt.compare(password, hash);
 }
 
-export function signAccessToken(payload: JwtPayload) {
+/** SHA-256 hex digest for opaque tokens stored at rest (refresh, reset, API keys). */
+export function hashOpaqueToken(token: string) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+export function signAccessToken(payload: JwtPayload, expiresIn?: string) {
   return jwt.sign(payload, env.JWT_ACCESS_SECRET, {
-    expiresIn: env.JWT_ACCESS_EXPIRES,
+    expiresIn: expiresIn ?? env.JWT_ACCESS_EXPIRES,
   } as jwt.SignOptions);
 }
 
@@ -66,7 +72,7 @@ export async function issueTokens(user: {
   const accessToken = signAccessToken(payload);
   const refreshToken = signRefreshToken(payload);
   await User.findByIdAndUpdate(user._id, {
-    $addToSet: { refreshTokens: refreshToken },
+    $addToSet: { refreshTokens: hashOpaqueToken(refreshToken) },
   });
   return { accessToken, refreshToken };
 }
@@ -103,7 +109,7 @@ export async function registerWithEmail(input: {
     firstName: input.firstName,
     lastName: input.lastName,
     phone: input.phone,
-    role: (config.defaultSignupRole as UserRole) || 'diner',
+    role: clampRegistrationRole(config.defaultSignupRole, 'diner'),
     emailVerified: false,
     referralCode: await generateUniqueReferralCode(input.firstName),
     referredByUserId,
@@ -169,12 +175,24 @@ export async function loginWithGoogle(idToken: string) {
 
 const otpStore = new Map<string, { code: string; expiresAt: number }>();
 
+/** Dev OTP is only for non-production when AUTH_DEV_OTP=true — never when Twilio is merely unset. */
+function useDevOtp(): boolean {
+  return Boolean(env.AUTH_DEV_OTP) && env.NODE_ENV !== 'production';
+}
+
+function assertTwilioConfigured() {
+  if (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN || !env.TWILIO_VERIFY_SERVICE_SID) {
+    throw new Error('Phone authentication is not configured');
+  }
+}
+
 export async function requestPhoneOtp(phone: string) {
-  if (env.AUTH_DEV_OTP || !env.TWILIO_ACCOUNT_SID) {
+  if (useDevOtp()) {
     otpStore.set(phone, { code: '123456', expiresAt: Date.now() + 10 * 60 * 1000 });
     return { success: true, message: 'Dev OTP: 123456' };
   }
 
+  assertTwilioConfigured();
   const twilio = await import('twilio');
   const client = twilio.default(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN);
   await client.verify.v2.services(env.TWILIO_VERIFY_SERVICE_SID).verifications.create({
@@ -192,11 +210,12 @@ export async function verifyPhoneOtp(input: {
 }) {
   let valid = false;
 
-  if (env.AUTH_DEV_OTP || !env.TWILIO_ACCOUNT_SID) {
+  if (useDevOtp()) {
     const stored = otpStore.get(input.phone);
     valid = !!stored && stored.code === input.code && stored.expiresAt > Date.now();
     if (valid) otpStore.delete(input.phone);
   } else {
+    assertTwilioConfigured();
     const twilio = await import('twilio');
     const client = twilio.default(env.TWILIO_ACCOUNT_SID, env.TWILIO_AUTH_TOKEN);
     const check = await client.verify.v2
@@ -229,16 +248,25 @@ export async function verifyPhoneOtp(input: {
 export async function refreshTokens(refreshToken: string) {
   const payload = verifyRefreshToken(refreshToken);
   const user = await User.findById(payload.sub);
-  if (!user || !user.refreshTokens.includes(refreshToken)) {
+  const tokenHash = hashOpaqueToken(refreshToken);
+  // Accept hashed tokens; also accept legacy plaintext entries until they rotate out.
+  const stored = user?.refreshTokens ?? [];
+  const hasToken = stored.includes(tokenHash) || stored.includes(refreshToken);
+  if (!user || !hasToken) {
     throw new Error('Invalid refresh token');
   }
-  await User.findByIdAndUpdate(user._id, { $pull: { refreshTokens: refreshToken } });
+  await User.findByIdAndUpdate(user._id, {
+    $pull: { refreshTokens: { $in: [tokenHash, refreshToken] } },
+  });
   return issueTokens(user);
 }
 
 export async function logout(userId: string, refreshToken?: string) {
   if (refreshToken) {
-    await User.findByIdAndUpdate(userId, { $pull: { refreshTokens: refreshToken } });
+    const tokenHash = hashOpaqueToken(refreshToken);
+    await User.findByIdAndUpdate(userId, {
+      $pull: { refreshTokens: { $in: [tokenHash, refreshToken] } },
+    });
   } else {
     await User.findByIdAndUpdate(userId, { refreshTokens: [] });
   }
@@ -265,10 +293,10 @@ function passwordResetAppForRole(role: UserRole): 'web' | 'dashboard' {
 async function createPasswordResetToken(userId: string, app: 'web' | 'dashboard') {
   const token = crypto.randomUUID();
   await User.findByIdAndUpdate(userId, {
-    passwordResetToken: token,
+    passwordResetToken: hashOpaqueToken(token),
     passwordResetExpires: new Date(Date.now() + 60 * 60 * 1000),
   });
-  return `${passwordResetBaseUrl(app)}/reset-password?token=${token}`;
+  return { token, resetUrl: `${passwordResetBaseUrl(app)}/reset-password?token=${token}` };
 }
 
 async function sendPasswordResetEmail(
@@ -305,7 +333,7 @@ export async function requestPasswordReset(email: string, app?: 'web' | 'dashboa
   }
 
   const resetApp = app ?? passwordResetAppForRole(user.role);
-  const resetUrl = await createPasswordResetToken(user._id.toString(), resetApp);
+  const { resetUrl } = await createPasswordResetToken(user._id.toString(), resetApp);
   await sendPasswordResetEmail(user, resetUrl);
 
   return { success: true, message: 'If that email exists, a reset link has been sent.' };
@@ -321,7 +349,7 @@ export async function adminCreatePasswordReset(input: {
   if (!user.email) throw new Error('User has no email address');
 
   const resetApp = passwordResetAppForRole(user.role);
-  const resetUrl = await createPasswordResetToken(user._id.toString(), resetApp);
+  const { resetUrl } = await createPasswordResetToken(user._id.toString(), resetApp);
   let emailed = false;
 
   if (input.sendEmail !== false) {
@@ -341,10 +369,18 @@ export async function adminCreatePasswordReset(input: {
 }
 
 export async function resetPassword(token: string, newPassword: string) {
-  const user = await User.findOne({
-    passwordResetToken: token,
+  const tokenHash = hashOpaqueToken(token);
+  let user = await User.findOne({
+    passwordResetToken: tokenHash,
     passwordResetExpires: { $gt: new Date() },
   });
+  // Legacy plaintext tokens until they expire.
+  if (!user) {
+    user = await User.findOne({
+      passwordResetToken: token,
+      passwordResetExpires: { $gt: new Date() },
+    });
+  }
   if (!user) {
     throw new Error('Invalid or expired reset token');
   }

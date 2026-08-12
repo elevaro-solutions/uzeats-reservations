@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { Restaurant } from '../models/Restaurant.js';
+import { hashOpaqueToken } from '../services/auth.js';
 import { logger } from '../lib/logger.js';
 
 export interface PosAuthRequest extends Request {
@@ -20,7 +21,22 @@ export async function posAuth(req: PosAuthRequest, res: Response, next: NextFunc
       return;
     }
 
-    const restaurant = await Restaurant.findOne({ posApiKey: apiKey });
+    const keyHash = hashOpaqueToken(apiKey);
+    let restaurant = await Restaurant.findOne({ posApiKeyHash: keyHash });
+    if (!restaurant) {
+      restaurant = await Restaurant.findOne({ posApiKey: apiKey });
+      if (restaurant) {
+        await Restaurant.updateOne(
+          { _id: restaurant._id },
+          {
+            $set: { posApiKeyHash: keyHash },
+            $unset: { posApiKey: 1 },
+          },
+        );
+        restaurant.posApiKeyHash = keyHash as any;
+        restaurant.posApiKey = undefined as any;
+      }
+    }
     if (!restaurant) {
       res.status(401).json({ error: 'Invalid API key' });
       return;

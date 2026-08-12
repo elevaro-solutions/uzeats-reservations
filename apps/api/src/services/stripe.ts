@@ -41,6 +41,30 @@ export function isStubPaymentIntent(paymentIntentId: string) {
   return paymentIntentId.startsWith('pi_dev_');
 }
 
+/**
+ * Ensures a PaymentIntent was actually authorized/paid before confirming a booking.
+ * Stub intents (`pi_dev_*`) are only allowed outside production.
+ */
+export async function assertPaymentIntentAuthorized(paymentIntentId: string) {
+  if (isStubPaymentIntent(paymentIntentId)) {
+    if (env.NODE_ENV === 'production') {
+      throw new Error('Invalid payment intent');
+    }
+    return;
+  }
+
+  const client = getStripe();
+  if (!client) {
+    throw new Error('Payment processing unavailable');
+  }
+
+  const intent = await client.paymentIntents.retrieve(paymentIntentId);
+  // Manual-capture deposits land in requires_capture; auto-capture / tickets may be succeeded.
+  if (intent.status !== 'requires_capture' && intent.status !== 'succeeded') {
+    throw new Error(`Payment not completed (status: ${intent.status})`);
+  }
+}
+
 export async function retrievePaymentIntentClientSecret(paymentIntentId: string) {
   if (isStubPaymentIntent(paymentIntentId)) {
     return `${paymentIntentId}_secret_dev`;

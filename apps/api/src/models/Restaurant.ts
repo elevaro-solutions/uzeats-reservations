@@ -45,6 +45,7 @@ const restaurantSchema = new Schema(
     reservationsEnabled: { type: Boolean, default: true },
     reservationsVisible: { type: Boolean, default: true },
     posApiKey: { type: String, sparse: true, unique: true },
+    posApiKeyHash: { type: String, sparse: true, unique: true },
     posEnabled: { type: Boolean, default: false },
     // Marketing: featured placement boosts search ranking while active
     featured: { type: Boolean, default: false, index: true },

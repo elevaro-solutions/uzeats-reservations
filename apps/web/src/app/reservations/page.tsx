@@ -1,7 +1,20 @@
 'use client';
 
 import { useMutation, useQuery } from '@apollo/client/react';
-import { Button, Card, Dropdown, Rate, Space, Typography, message, Modal, Input, Select, Spin, Tag } from 'antd';
+import {
+  Button,
+  Card,
+  Dropdown,
+  Space,
+  Typography,
+  message,
+  Modal,
+  Input,
+  Select,
+  Spin,
+  Tag,
+  Segmented,
+} from 'antd';
 import type { MenuProps } from 'antd';
 import {
   CalendarOutlined,
@@ -12,23 +25,29 @@ import {
   EditOutlined,
   MoreOutlined,
   CloseCircleOutlined,
+  StarOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { StatusTag, PageHeader, EmptyState, colors, radii, shadows, typography, pickRestaurantPhoto } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { RESERVATION_CANCELLATION_REASONS, buildRestaurantBookingPath } from '@reservations/shared';
 import {
   MY_RESERVATIONS,
   UPDATE_RESERVATION_STATUS,
-  CREATE_REVIEW,
 } from '@/lib/graphql';
 import { EditReservationModal } from '@/components/EditReservationModal';
+import { PostVisitModal } from '@/components/PostVisitModal';
 import {
+  canLeaveReview,
+  defaultReservationSegment,
   displayReservationStatus,
+  filterReservationsBySegment,
   isReservationPast,
   isReservationUpcoming,
+  needsDepositPayment,
+  type ReservationListSegment,
 } from '@/lib/reservationDisplay';
 
 function buildCancellationReason(preset: string, details: string): string | undefined {
@@ -50,6 +69,17 @@ function bookAgainPath(r: {
 
 const { Text } = Typography;
 
+type ReviewTarget = {
+  id: string;
+  partySize?: number;
+  restaurant?: {
+    id?: string;
+    name?: string;
+    slug?: string;
+    isSaved?: boolean;
+  } | null;
+};
+
 export default function ReservationsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -58,15 +88,32 @@ export default function ReservationsPage() {
     fetchPolicy: 'network-only',
   });
   const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
-  const [createReview] = useMutation(CREATE_REVIEW);
-  const [reviewFor, setReviewFor] = useState<string | null>(null);
-  const [rating, setRating] = useState(5);
-  const [comment, setComment] = useState('');
+  const [reviewFor, setReviewFor] = useState<ReviewTarget | null>(null);
   const [cancelFor, setCancelFor] = useState<{ id: string; name: string } | null>(null);
   const [editFor, setEditFor] = useState<any | null>(null);
   const [cancelReasonPreset, setCancelReasonPreset] = useState<string | undefined>();
   const [cancelReasonDetails, setCancelReasonDetails] = useState('');
   const [cancelling, setCancelling] = useState(false);
+  const [segment, setSegment] = useState<ReservationListSegment>('upcoming');
+  const [segmentInitialized, setSegmentInitialized] = useState(false);
+
+  const reservations = (data as any)?.myReservations ?? [];
+  const upcomingCount = reservations.filter(isReservationUpcoming).length;
+  const pastCount = reservations.filter(isReservationPast).length;
+  const depositCount = reservations.filter(needsDepositPayment).length;
+  const filtered = filterReservationsBySegment(reservations, segment);
+
+  useEffect(() => {
+    if (loading || segmentInitialized || reservations.length === 0) return;
+    setSegment(defaultReservationSegment(reservations));
+    setSegmentInitialized(true);
+  }, [loading, reservations, segmentInitialized]);
+
+  useEffect(() => {
+    if (segment === 'deposit' && depositCount === 0 && segmentInitialized) {
+      setSegment(upcomingCount > 0 ? 'upcoming' : 'past');
+    }
+  }, [segment, depositCount, upcomingCount, segmentInitialized]);
 
   if (authLoading) {
     return (
@@ -80,8 +127,6 @@ export default function ReservationsPage() {
     router.replace('/login?next=/reservations');
     return null;
   }
-
-  const reservations = (data as any)?.myReservations ?? [];
 
   const closeCancelModal = () => {
     setCancelFor(null);
@@ -115,11 +160,29 @@ export default function ReservationsPage() {
     }
   };
 
+  const emptyCopy: Record<
+    ReservationListSegment,
+    { title: string; description: string }
+  > = {
+    upcoming: {
+      title: 'No upcoming reservations',
+      description: 'Book a table for your next night out — it only takes a minute.',
+    },
+    past: {
+      title: 'No past reservations',
+      description: 'Completed and cancelled bookings will show up here.',
+    },
+    deposit: {
+      title: 'No deposits due',
+      description: 'When a restaurant requires a deposit, it will appear in this list.',
+    },
+  };
+
   return (
-    <div component="ReservationsPage" style={{ maxWidth: 800 }}>
+    <div style={{ maxWidth: 800 }}>
       <PageHeader
         title="My reservations"
-        subtitle="Upcoming and past bookings in one place"
+        subtitle="Upcoming, past, and deposits in one place"
         extra={
           <Button type="primary" icon={<SearchOutlined />} onClick={() => router.push('/')}>
             Book a table
@@ -149,244 +212,276 @@ export default function ReservationsPage() {
           }
         />
       ) : (
-      <Card
-        style={{
-          borderRadius: radii.lg,
-          border: `1px solid ${colors.bordersubtle}`,
-          boxShadow: shadows.sm,
-        }}
-      >
-          {reservations.map((r: any, idx: number, arr: any[]) => {
-            const needsPayment =
-              r.depositStatus === 'requires_payment' && (r.depositAmountCents ?? 0) > 0;
-            const upcoming = isReservationUpcoming(r);
-            const past = isReservationPast(r);
-            return (
-            <div
-              key={r.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => router.push(`/reservations/${r.id}`)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  router.push(`/reservations/${r.id}`);
-                }
-              }}
+        <>
+          <div style={{ marginBottom: 16 }}>
+            <Segmented
+              value={segment}
+              onChange={(value) => setSegment(value as ReservationListSegment)}
+              options={[
+                { label: `Upcoming (${upcomingCount})`, value: 'upcoming' },
+                ...(depositCount > 0
+                  ? [{ label: `Needs deposit (${depositCount})`, value: 'deposit' as const }]
+                  : []),
+                { label: `Past (${pastCount})`, value: 'past' },
+              ]}
+              block
+              style={{ fontWeight: typography.fontWeight.semibold }}
+            />
+          </div>
+
+          {filtered.length === 0 ? (
+            <EmptyState
+              icon={<CalendarOutlined />}
+              title={emptyCopy[segment].title}
+              description={emptyCopy[segment].description}
+              action={
+                segment !== 'past' ? (
+                  <Button type="primary" onClick={() => router.push('/')}>
+                    Find a table
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <Card
               style={{
-                display: 'flex',
-                gap: 16,
-                alignItems: 'flex-start',
-                padding: '20px 0',
-                borderBottom: idx < arr.length - 1 ? `1px solid ${colors.bordersubtle}` : 'none',
-                flexWrap: 'wrap',
-                cursor: 'pointer',
-                borderRadius: radii.md,
-                transition: 'background 0.15s ease',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = colors.brand[50];
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
+                borderRadius: radii.lg,
+                border: `1px solid ${colors.bordersubtle}`,
+                boxShadow: shadows.sm,
               }}
             >
-              <div
-                style={{
-                  width: 72,
-                  height: 72,
-                  borderRadius: radii.md,
-                  overflow: 'hidden',
-                  flexShrink: 0,
-                  background: colors.brand[50],
-                }}
-              >
-                {r.restaurant?.photos?.[0] ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={pickRestaurantPhoto(r.restaurant.photos)}
-                    alt=""
-                    width={72}
-                    height={72}
-                    style={{ objectFit: 'cover', width: '100%', height: '100%' }}
-                  />
-                ) : (
+              {filtered.map((r: any, idx: number, arr: any[]) => {
+                const needsPayment = needsDepositPayment(r);
+                const upcoming = isReservationUpcoming(r);
+                const past = isReservationPast(r);
+                const reviewable = canLeaveReview(r);
+                return (
                   <div
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: colors.brand[400],
-                      fontSize: 22,
+                    key={r.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => router.push(`/reservations/${r.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        router.push(`/reservations/${r.id}`);
+                      }
                     }}
-                  >
-                    <CalendarOutlined />
-                  </div>
-                )}
-              </div>
-              <div style={{ flex: 1, minWidth: 180 }}>
-                <Space size={8} wrap>
-                  <Link
-                    href={`/reservations/${r.id}`}
-                    onClick={(e) => e.stopPropagation()}
                     style={{
-                      color: colors.brand[700],
-                      fontWeight: 600,
-                      fontSize: typography.fontSize.md,
-                      textDecoration: 'none',
+                      display: 'flex',
+                      gap: 16,
+                      alignItems: 'flex-start',
+                      padding: '20px 0',
+                      borderBottom: idx < arr.length - 1 ? `1px solid ${colors.bordersubtle}` : 'none',
+                      flexWrap: 'wrap',
+                      cursor: 'pointer',
+                      borderRadius: radii.md,
+                      transition: 'background 0.15s ease',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.textDecoration = 'underline';
+                      e.currentTarget.style.background = colors.brand[50];
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.textDecoration = 'none';
+                      e.currentTarget.style.background = 'transparent';
                     }}
                   >
-                    {r.restaurant?.name}
-                  </Link>
-                  <StatusTag status={displayReservationStatus(r)} />
-                  {needsPayment && upcoming && <Tag color="gold">Deposit due</Tag>}
-                </Space>
-                <Space orientation="vertical" size={0} style={{ display: 'flex', marginTop: 6 }}>
-                  <Text style={{ color: colors.textSecondary }}>
-                    {new Date(r.slotStart).toLocaleString()} · {r.partySize} guests
-                  </Text>
-                  {r.occasion !== 'none' && (
-                    <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                      Occasion: {r.occasion}
-                    </Text>
-                  )}
-                  {r.guestNotes && (
-                    <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                      {r.guestNotes}
-                    </Text>
-                  )}
-                  {r.tables?.[0] && (
-                    <div style={{ marginTop: 8 }}>
-                      <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                        Table: {r.tables[0].name}
-                        {r.tables[0].floorArea ? ` · ${r.tables[0].floorArea}` : ''}
-                      </Text>
-                      {r.tables[0].photoUrl &&
-                        !r.tables[0].photoUrl.includes('1551782450-a2132b4ba21d') && (
+                    <div
+                      style={{
+                        width: 72,
+                        height: 72,
+                        borderRadius: radii.md,
+                        overflow: 'hidden',
+                        flexShrink: 0,
+                        background: colors.brand[50],
+                      }}
+                    >
+                      {r.restaurant?.photos?.[0] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
-                          src={r.tables[0].photoUrl}
-                          alt={r.tables[0].name}
-                          style={{
-                            display: 'block',
-                            marginTop: 8,
-                            width: '100%',
-                            maxWidth: 220,
-                            borderRadius: radii.md,
-                            objectFit: 'cover',
-                            maxHeight: 120,
-                          }}
+                          src={pickRestaurantPhoto(r.restaurant.photos)}
+                          alt=""
+                          width={72}
+                          height={72}
+                          style={{ objectFit: 'cover', width: '100%', height: '100%' }}
                         />
+                      ) : (
+                        <div
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: colors.brand[400],
+                            fontSize: 22,
+                          }}
+                        >
+                          <CalendarOutlined />
+                        </div>
                       )}
                     </div>
-                  )}
-                  {r.loyaltyPointsEarned > 0 && (
-                    <Text style={{ color: colors.success, fontSize: typography.fontSize.sm }}>
-                      +{r.loyaltyPointsEarned} points earned
-                    </Text>
-                  )}
-                </Space>
-              </div>
-              <Space wrap onClick={(e) => e.stopPropagation()}>
-                {needsPayment && upcoming && (
-                  <Button
-                    type="primary"
-                    icon={<CreditCardOutlined />}
-                    onClick={() => router.push(`/reservations/${r.id}`)}
-                  >
-                    Pay deposit
-                  </Button>
-                )}
-                {r.status === 'completed' && (
-                  <Button type="primary" ghost onClick={() => setReviewFor(r.id)}>
-                    Leave review
-                  </Button>
-                )}
-                {past && r.restaurant?.id && (
-                  <Button
-                    icon={<CalendarOutlined />}
-                    onClick={() => router.push(bookAgainPath(r))}
-                  >
-                    Book again
-                  </Button>
-                )}
-                {upcoming && (r.status === 'confirmed' || r.status === 'pending') && (
-                  <Dropdown
-                    menu={{
-                      items: [
-                        {
-                          key: 'edit',
-                          icon: <EditOutlined />,
-                          label: 'Edit',
-                          onClick: () => setEditFor(r),
-                        },
-                        {
-                          key: 'message',
-                          icon: <MessageOutlined />,
-                          label: 'Message',
-                          onClick: () => router.push(`/messages/${r.id}`),
-                        },
-                        {
-                          key: 'cancel',
-                          icon: <CloseCircleOutlined />,
-                          label: 'Cancel',
-                          danger: true,
-                          onClick: () =>
-                            setCancelFor({
+                    <div style={{ flex: 1, minWidth: 180 }}>
+                      <Space size={8} wrap>
+                        <Link
+                          href={`/reservations/${r.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{
+                            color: colors.brand[700],
+                            fontWeight: 600,
+                            fontSize: typography.fontSize.md,
+                            textDecoration: 'none',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.textDecoration = 'underline';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.textDecoration = 'none';
+                          }}
+                        >
+                          {r.restaurant?.name}
+                        </Link>
+                        <StatusTag status={displayReservationStatus(r)} />
+                        {needsPayment && <Tag color="gold">Deposit due</Tag>}
+                        {reviewable && <Tag color="blue">Review pending</Tag>}
+                      </Space>
+                      <Space orientation="vertical" size={0} style={{ display: 'flex', marginTop: 6 }}>
+                        <Text style={{ color: colors.textSecondary }}>
+                          {new Date(r.slotStart).toLocaleString()} · {r.partySize} guests
+                        </Text>
+                        {r.occasion !== 'none' && (
+                          <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+                            Occasion: {r.occasion}
+                          </Text>
+                        )}
+                        {r.guestNotes && (
+                          <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+                            {r.guestNotes}
+                          </Text>
+                        )}
+                        {r.tables?.[0] && (
+                          <div style={{ marginTop: 8 }}>
+                            <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+                              Table: {r.tables[0].name}
+                              {r.tables[0].floorArea ? ` · ${r.tables[0].floorArea}` : ''}
+                            </Text>
+                            {r.tables[0].photoUrl &&
+                              !r.tables[0].photoUrl.includes('1551782450-a2132b4ba21d') && (
+                              <img
+                                src={r.tables[0].photoUrl}
+                                alt={r.tables[0].name}
+                                style={{
+                                  display: 'block',
+                                  marginTop: 8,
+                                  width: '100%',
+                                  maxWidth: 220,
+                                  borderRadius: radii.md,
+                                  objectFit: 'cover',
+                                  maxHeight: 120,
+                                }}
+                              />
+                            )}
+                          </div>
+                        )}
+                        {r.loyaltyPointsEarned > 0 && (
+                          <Text style={{ color: colors.success, fontSize: typography.fontSize.sm }}>
+                            +{r.loyaltyPointsEarned} points earned
+                          </Text>
+                        )}
+                      </Space>
+                    </div>
+                    <Space wrap onClick={(e) => e.stopPropagation()}>
+                      {needsPayment && (
+                        <Button
+                          type="primary"
+                          icon={<CreditCardOutlined />}
+                          onClick={() => router.push(`/reservations/${r.id}`)}
+                        >
+                          Pay deposit
+                        </Button>
+                      )}
+                      {reviewable && (
+                        <Button
+                          type="primary"
+                          ghost
+                          icon={<StarOutlined />}
+                          onClick={() =>
+                            setReviewFor({
                               id: r.id,
-                              name: r.restaurant?.name ?? 'this restaurant',
-                            }),
-                        },
-                      ] satisfies MenuProps['items'],
-                    }}
-                    trigger={['click']}
-                    placement="bottomRight"
-                  >
-                    <Button icon={<MoreOutlined />} aria-label="More actions" />
-                  </Dropdown>
-                )}
-                <Button type="text" icon={<RightOutlined />} onClick={() => router.push(`/reservations/${r.id}`)}>
-                  Details
-                </Button>
-              </Space>
-            </div>
-            );
-          })}
-      </Card>
+                              partySize: r.partySize,
+                              restaurant: r.restaurant,
+                            })
+                          }
+                        >
+                          Leave review
+                        </Button>
+                      )}
+                      {past && r.restaurant?.id && (
+                        <Button
+                          icon={<CalendarOutlined />}
+                          onClick={() => router.push(bookAgainPath(r))}
+                        >
+                          Book again
+                        </Button>
+                      )}
+                      {upcoming && (r.status === 'confirmed' || r.status === 'pending') && (
+                        <Dropdown
+                          menu={{
+                            items: [
+                              {
+                                key: 'edit',
+                                icon: <EditOutlined />,
+                                label: 'Edit',
+                                onClick: () => setEditFor(r),
+                              },
+                              {
+                                key: 'message',
+                                icon: <MessageOutlined />,
+                                label: 'Message',
+                                onClick: () => router.push(`/messages/${r.id}`),
+                              },
+                              {
+                                key: 'cancel',
+                                icon: <CloseCircleOutlined />,
+                                label: 'Cancel',
+                                danger: true,
+                                onClick: () =>
+                                  setCancelFor({
+                                    id: r.id,
+                                    name: r.restaurant?.name ?? 'this restaurant',
+                                  }),
+                              },
+                            ] satisfies MenuProps['items'],
+                          }}
+                          trigger={['click']}
+                          placement="bottomRight"
+                        >
+                          <Button icon={<MoreOutlined />} aria-label="More actions" />
+                        </Dropdown>
+                      )}
+                      <Button
+                        type="text"
+                        icon={<RightOutlined />}
+                        onClick={() => router.push(`/reservations/${r.id}`)}
+                      >
+                        Details
+                      </Button>
+                    </Space>
+                  </div>
+                );
+              })}
+            </Card>
+          )}
+        </>
       )}
 
-      <Modal
-        title="Leave a review"
+      <PostVisitModal
         open={!!reviewFor}
-        onCancel={() => setReviewFor(null)}
-        onOk={async () => {
-          await createReview({
-            variables: { input: { reservationId: reviewFor, rating, comment } },
-          });
-          message.success('Thanks for your review!');
-          setReviewFor(null);
-          setComment('');
-          refetch();
-        }}
-        okText="Submit review"
-      >
-        <Space orientation="vertical" style={{ width: '100%' }}>
-          <Rate value={rating} onChange={setRating} />
-          <Input.TextArea
-            rows={4}
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="How was your visit?"
-          />
-        </Space>
-      </Modal>
+        reservationId={reviewFor?.id ?? null}
+        partySize={reviewFor?.partySize}
+        restaurant={reviewFor?.restaurant}
+        onClose={() => setReviewFor(null)}
+        onCompleted={() => refetch()}
+      />
 
       <Modal
         title="Cancel reservation?"
@@ -397,7 +492,9 @@ export default function ReservationsPage() {
         okButtonProps={{
           danger: true,
           loading: cancelling,
-          disabled: !cancelReasonPreset || (cancelReasonPreset === 'Other' && !cancelReasonDetails.trim()),
+          disabled:
+            !cancelReasonPreset ||
+            (cancelReasonPreset === 'Other' && !cancelReasonDetails.trim()),
         }}
         cancelText="Keep reservation"
         destroyOnClose

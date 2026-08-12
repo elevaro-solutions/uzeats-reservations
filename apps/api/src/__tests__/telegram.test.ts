@@ -40,7 +40,7 @@ describe('telegram bot', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string) as { chat_id: number; text: string };
-    expect(body.chat_id).toBe(123456789);
+    expect(Number(body.chat_id)).toBe(123456789);
     expect(body.text).toContain('123456789');
     expect(body.text).toContain('Welcome to Tablevera');
   });
@@ -60,8 +60,26 @@ describe('telegram bot', () => {
     expect(body.text).toContain('/start');
   });
 
-  it('skips webhook secret check when not configured', () => {
+  it('rejects webhook when secret is not configured', () => {
     const req = { headers: {} } as Parameters<typeof verifyTelegramWebhookSecret>[0];
-    expect(verifyTelegramWebhookSecret(req)).toBe(true);
+    expect(verifyTelegramWebhookSecret(req)).toBe(false);
+  });
+
+  it('accepts webhook when secret header matches', async () => {
+    const { env } = await import('../config/env.js');
+    const previous = env.TELEGRAM_WEBHOOK_SECRET;
+    (env as { TELEGRAM_WEBHOOK_SECRET: string }).TELEGRAM_WEBHOOK_SECRET = 'test-secret';
+    try {
+      const req = {
+        headers: { 'x-telegram-bot-api-secret-token': 'test-secret' },
+      } as unknown as Parameters<typeof verifyTelegramWebhookSecret>[0];
+      expect(verifyTelegramWebhookSecret(req)).toBe(true);
+      const bad = {
+        headers: { 'x-telegram-bot-api-secret-token': 'wrong' },
+      } as unknown as Parameters<typeof verifyTelegramWebhookSecret>[0];
+      expect(verifyTelegramWebhookSecret(bad)).toBe(false);
+    } finally {
+      (env as { TELEGRAM_WEBHOOK_SECRET: string }).TELEGRAM_WEBHOOK_SECRET = previous;
+    }
   });
 });

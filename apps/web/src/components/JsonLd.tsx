@@ -6,7 +6,10 @@ export function JsonLd({ data }: { data: Record<string, unknown> | Record<string
         <script
           key={index}
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(block) }}
+          dangerouslySetInnerHTML={{
+            // Escape `<` so a string value cannot break out of the script tag.
+            __html: JSON.stringify(block).replace(/</g, '\\u003c'),
+          }}
         />
       ))}
     </>

@@ -10,17 +10,17 @@ import { AuthProvider } from '@/lib/auth';
 
 const API_URI = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/graphql';
 
-const httpLink = new HttpLink({ uri: API_URI });
-
-const authLink = setContext((_, { headers }) => {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('dashAccessToken') : null;
-  return {
-    headers: {
-      ...headers,
-      authorization: token ? `Bearer ${token}` : '',
-    },
-  };
+const httpLink = new HttpLink({
+  uri: API_URI,
+  credentials: 'include',
 });
+
+const authLink = setContext((_, { headers }) => ({
+  headers: {
+    ...headers,
+    'X-Client-App': 'dashboard',
+  },
+}));
 
 let isRefreshing = false;
 let pendingRequests: Array<() => void> = [];
@@ -39,10 +39,6 @@ const errorLink = onError(({ error, operation, forward }) => {
   if (isRefreshing) {
     return new Observable((subscriber) => {
       pendingRequests.push(() => {
-        const token = localStorage.getItem('dashAccessToken');
-        operation.setContext((prev) => ({
-          headers: { ...prev.headers, authorization: token ? `Bearer ${token}` : '' },
-        }));
         forward(operation).subscribe(subscriber);
       });
     });
@@ -51,43 +47,29 @@ const errorLink = onError(({ error, operation, forward }) => {
   isRefreshing = true;
 
   return new Observable((subscriber) => {
-    const refreshToken = localStorage.getItem('dashRefreshToken');
-    if (!refreshToken) {
-      localStorage.removeItem('dashAccessToken');
-      localStorage.removeItem('dashRefreshToken');
-      window.location.href = '/login';
-      subscriber.error(error);
-      return;
-    }
-
     fetch(API_URI, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Client-App': 'dashboard',
+      },
       body: JSON.stringify({
-        query: `mutation refreshToken($refreshToken: String!) { refreshToken(refreshToken: $refreshToken) { accessToken refreshToken user { id } } }`,
-        variables: { refreshToken },
+        query: `mutation RefreshToken { refreshToken { accessToken user { id } } }`,
       }),
     })
       .then((res) => res.json())
       .then((result) => {
-        const data = result?.data?.refreshToken;
-        if (!data?.accessToken) throw new Error('Refresh failed');
-
-        localStorage.setItem('dashAccessToken', data.accessToken);
-        localStorage.setItem('dashRefreshToken', data.refreshToken);
+        if (result?.errors?.length || !result?.data?.refreshToken) {
+          throw new Error('Refresh failed');
+        }
         isRefreshing = false;
         resolvePendingRequests();
-
-        operation.setContext((prev) => ({
-          headers: { ...prev.headers, authorization: `Bearer ${data.accessToken}` },
-        }));
         forward(operation).subscribe(subscriber);
       })
       .catch(() => {
         isRefreshing = false;
         pendingRequests = [];
-        localStorage.removeItem('dashAccessToken');
-        localStorage.removeItem('dashRefreshToken');
         window.location.href = '/login';
         subscriber.error(error);
       });

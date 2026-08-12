@@ -21,12 +21,15 @@ export async function startImpersonation(adminId: string, targetUserId: string) 
   if (!target) throw new Error('User not found');
   if (isPlatformAdmin(target.role)) throw new Error('Cannot impersonate another platform admin');
 
-  const accessToken = signAccessToken({
-    sub: target._id.toString(),
-    role: target.role,
-    email: target.email ?? undefined,
-    impersonatorId: admin._id.toString(),
-  });
+  const accessToken = signAccessToken(
+    {
+      sub: target._id.toString(),
+      role: target.role,
+      email: target.email ?? undefined,
+      impersonatorId: admin._id.toString(),
+    },
+    '1h',
+  );
 
   // Short-lived: no refresh token for impersonation sessions
   return {

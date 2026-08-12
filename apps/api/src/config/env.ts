@@ -62,6 +62,18 @@ if (parsed.NODE_ENV === 'production') {
       '[env] STRIPE_SECRET_KEY is required in production — deposit-enabled restaurants cannot function without it',
     );
   }
+
+  if (!parsed.STRIPE_WEBHOOK_SECRET) {
+    throw new Error(
+      '[env] STRIPE_WEBHOOK_SECRET is required in production — Stripe webhooks must be verified',
+    );
+  }
+
+  if (parsed.TELEGRAM_BOT_TOKEN && !parsed.TELEGRAM_WEBHOOK_SECRET) {
+    throw new Error(
+      '[env] TELEGRAM_WEBHOOK_SECRET is required in production when TELEGRAM_BOT_TOKEN is set',
+    );
+  }
 }
 
 export const env = parsed;

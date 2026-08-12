@@ -17,7 +17,16 @@ import {
 } from './discovery.js';
 
 export const emailSchema = z.string().email().toLowerCase();
-export const passwordSchema = z.string().min(8).max(128);
+
+/** Min 8 chars with upper, lower, and a digit. Special chars recommended but optional. */
+export const passwordSchema = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .max(128, 'Password must be at most 128 characters')
+  .regex(/[a-z]/, 'Password must include a lowercase letter')
+  .regex(/[A-Z]/, 'Password must include an uppercase letter')
+  .regex(/\d/, 'Password must include a number');
+
 export const phoneSchema = z.string().regex(/^\+?[1-9]\d{7,14}$/);
 
 export const registerSchema = z.object({

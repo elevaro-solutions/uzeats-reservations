@@ -4,19 +4,24 @@ import {
   DISCOVERY_OCCASIONS,
   cuisineSlug,
   discoverySlug,
-  citySlug,
-  neighborhoodSlug,
 } from '@reservations/shared';
-import { POPULAR_CITIES, POPULAR_NEIGHBORHOODS } from '@/lib/cities';
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://tablevera.com';
+import {
+  listCityLandingParams,
+  listNeighborhoodLandingParams,
+} from '@/lib/discoveryIndex';
+import { fetchRestaurantSitemapEntries } from '@/lib/restaurantSeoFetch';
+import { getSiteUrl } from '@/lib/seo';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = SITE_URL.replace(/\/$/, '');
+  const base = getSiteUrl();
   const now = new Date();
 
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${base}/`, lastModified: now, changeFrequency: 'daily', priority: 1 },
+    { url: `${base}/cities`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${base}/cuisine`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${base}/occasion`, lastModified: now, changeFrequency: 'weekly', priority: 0.65 },
+    { url: `${base}/neighborhoods`, lastModified: now, changeFrequency: 'weekly', priority: 0.65 },
     { url: `${base}/pricing`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${base}/contact`, lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
     { url: `${base}/privacy`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
@@ -38,19 +43,39 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  const cityPages = POPULAR_CITIES.map((city) => ({
-    url: `${base}/cities/${citySlug(city.city, city.state)}`,
+  const [cityParams, neighborhoodParams, restaurantEntries] = await Promise.all([
+    listCityLandingParams(),
+    listNeighborhoodLandingParams(),
+    fetchRestaurantSitemapEntries(),
+  ]);
+
+  const cityPages = cityParams.map(({ slug }) => ({
+    url: `${base}/cities/${slug}`,
     lastModified: now,
     changeFrequency: 'weekly' as const,
     priority: 0.85,
   }));
 
-  const neighborhoodPages = POPULAR_NEIGHBORHOODS.map((n) => ({
-    url: `${base}/neighborhoods/${neighborhoodSlug(n.neighborhood, n.city, n.state)}`,
+  const neighborhoodPages = neighborhoodParams.map(({ slug }) => ({
+    url: `${base}/neighborhoods/${slug}`,
     lastModified: now,
     changeFrequency: 'weekly' as const,
     priority: 0.75,
   }));
 
-  return [...staticPages, ...cuisinePages, ...occasionPages, ...cityPages, ...neighborhoodPages];
+  const restaurantPages = restaurantEntries.map((r) => ({
+    url: `${base}/r/${r.slug}`,
+    lastModified: r.createdAt ? new Date(r.createdAt) : now,
+    changeFrequency: 'weekly' as const,
+    priority: 0.9,
+  }));
+
+  return [
+    ...staticPages,
+    ...cuisinePages,
+    ...occasionPages,
+    ...cityPages,
+    ...neighborhoodPages,
+    ...restaurantPages,
+  ];
 }

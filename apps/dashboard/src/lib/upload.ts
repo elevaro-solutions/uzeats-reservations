@@ -10,13 +10,13 @@ function graphqlUrl() {
 async function createUploadUrl(
   filename: string,
   contentType: string,
-  token: string | null,
 ): Promise<UploadResult & { uploadUrl: string }> {
   const res = await fetch(graphqlUrl(), {
     method: 'POST',
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'X-Client-App': 'dashboard',
     },
     body: JSON.stringify({
       query: `mutation CreateUploadUrl($filename: String!, $contentType: String!) {
@@ -83,11 +83,9 @@ export async function uploadFile(
   filename: string,
   options?: { onProgress?: (percent: number) => void },
 ): Promise<UploadResult> {
-  const token =
-    typeof window !== 'undefined' ? localStorage.getItem('dashAccessToken') : null;
   const contentType = file.type || 'application/octet-stream';
 
-  const { uploadUrl, publicUrl, key } = await createUploadUrl(filename, contentType, token);
+  const { uploadUrl, publicUrl, key } = await createUploadUrl(filename, contentType);
   await putToPresignedUrl(uploadUrl, file, contentType, options?.onProgress);
 
   return { publicUrl, key };

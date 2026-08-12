@@ -18,6 +18,7 @@ import {
   inHouseWaitlistInputSchema,
   createBlackoutInputSchema,
   normalizeAnnualBillingSettings,
+  passwordSchema,
   type AnnualBillingSettings,
   isPlatformAdmin,
   assertCanEditUser,
@@ -43,7 +44,17 @@ import {
   requestPasswordReset,
   resetPassword,
   adminCreatePasswordReset,
+  hashOpaqueToken,
 } from '../services/auth.js';
+import {
+  authPayloadTokens,
+  beginImpersonationCookies,
+  clearAuthCookies,
+  endImpersonationCookies,
+  getRefreshTokenFromRequest,
+  resolveBrowserAuthApp,
+  setAuthCookies,
+} from '../services/authCookies.js';
 import { registerRestaurantPartner } from '../services/partnerRegister.js';
 import {
   buildAdminRestaurantFilter,
@@ -88,7 +99,7 @@ import {
 } from '../services/giftCards.js';
 import { GiftCard } from '../models/GiftCard.js';
 import { ensureUserReferralCode } from '../lib/referralCode.js';
-import { buildUploadKey, createUploadUrl } from '../services/spaces.js';
+import { assertAllowedUploadContentType, buildUploadKey, createUploadUrl } from '../services/spaces.js';
 import {
   User,
   Restaurant,
@@ -127,6 +138,7 @@ import {
   createDepositIntent,
   isStubPaymentIntent,
   retrievePaymentIntentClientSecret,
+  assertPaymentIntentAuthorized,
 } from '../services/stripe.js';
 import { logAudit } from '../services/audit.js';
 import { createRestaurantSubscription } from '../services/restaurantSubscription.js';
@@ -194,14 +206,14 @@ import {
   applyPlatformConfigFeatureFlags,
 } from '../services/adminOpsResolvers.js';
 
-function mapSubscription(sub: any) {
+function mapSubscription(sub: any, opts?: { includeStripeIds?: boolean }) {
   return {
     id: sub._id.toString(),
     restaurantId: sub.restaurantId.toString(),
     plan: sub.plan,
     status: sub.status,
-    stripeCustomerId: sub.stripeCustomerId ?? null,
-    stripeSubscriptionId: sub.stripeSubscriptionId ?? null,
+    stripeCustomerId: opts?.includeStripeIds ? (sub.stripeCustomerId ?? null) : null,
+    stripeSubscriptionId: opts?.includeStripeIds ? (sub.stripeSubscriptionId ?? null) : null,
     currentPeriodStart: sub.currentPeriodStart ?? null,
     currentPeriodEnd: sub.currentPeriodEnd ?? null,
     trialEndsAt: sub.trialEndsAt ?? null,
@@ -245,10 +257,19 @@ export const resolvers = {
   },
 
   Restaurant: {
-    subscription: async (r: { id: string }) => {
+    subscription: async (r: { id: string }, _: unknown, ctx: GraphQLContext) => {
       const sub = await Subscription.findOne({ restaurantId: r.id });
       if (!sub) return null;
-      return mapSubscription(sub);
+      let includeStripeIds = false;
+      if (ctx.user) {
+        try {
+          await assertRestaurantAccess(ctx.user._id.toString(), r.id, ctx.user.role);
+          includeStripeIds = true;
+        } catch {
+          includeStripeIds = false;
+        }
+      }
+      return mapSubscription(sub, { includeStripeIds });
     },
     tables: async (r: { id: string }) => {
       const tables = await Table.find({ restaurantId: r.id });
@@ -301,6 +322,11 @@ export const resolvers = {
     tables: async (r: { tableIds: string[] }) => {
       const tables = await Table.find({ _id: { $in: r.tableIds } });
       return tables.map(mapTable);
+    },
+    hasReview: async (r: { id: string; hasReview?: boolean }) => {
+      if (typeof r.hasReview === 'boolean') return r.hasReview;
+      const existing = await Review.findOne({ reservationId: r.id }).select('_id');
+      return !!existing;
     },
     clientSecret: async (
       r: { id: string; dinerId: string; depositStatus: string; clientSecret?: string | null },
@@ -506,10 +532,23 @@ export const resolvers = {
           code: args.code,
           depositCents: args.depositCents,
         });
+        // Public validation must not leak recipient PII or full balance beyond the discount applied.
         return {
           valid: true,
           message: null,
-          giftCard: mapGiftCard(giftCard),
+          giftCard: {
+            id: giftCard._id.toString(),
+            restaurantId: giftCard.restaurantId.toString(),
+            code: giftCard.code,
+            initialBalanceCents: 0,
+            balanceCents: discountCents,
+            recipientName: null,
+            recipientEmail: null,
+            expiresAt: giftCard.expiresAt ?? null,
+            note: '',
+            active: giftCard.active,
+            createdAt: giftCard.createdAt,
+          },
           discountCents,
           discountedDepositCents: Math.max(0, args.depositCents - discountCents),
         };
@@ -561,7 +600,14 @@ export const resolvers = {
       const [cityRows, neighborhoodRows, cuisineRows, occasionRows] = await Promise.all([
         Restaurant.aggregate([
           { $match: approved },
-          { $group: { _id: { city: '$address.city', state: '$address.state' }, count: { $sum: 1 } } },
+          {
+            $group: {
+              _id: { city: '$address.city', state: '$address.state' },
+              count: { $sum: 1 },
+              lng: { $avg: { $arrayElemAt: ['$location.coordinates', 0] } },
+              lat: { $avg: { $arrayElemAt: ['$location.coordinates', 1] } },
+            },
+          },
           { $match: { count: { $gte: 1 } } },
           { $sort: { count: -1 } },
         ]),
@@ -575,6 +621,8 @@ export const resolvers = {
                 state: '$address.state',
               },
               count: { $sum: 1 },
+              lng: { $avg: { $arrayElemAt: ['$location.coordinates', 0] } },
+              lat: { $avg: { $arrayElemAt: ['$location.coordinates', 1] } },
             },
           },
           { $match: { count: { $gte: 1 } } },
@@ -600,34 +648,59 @@ export const resolvers = {
       );
 
       return {
-        cities: cityRows.map((row: { _id: { city: string; state: string }; count: number }) => ({
-          slug: citySlug(row._id.city, row._id.state),
-          label: `${row._id.city}, ${row._id.state}`,
-          count: row.count,
-          city: row._id.city,
-          state: row._id.state,
-        })),
+        cities: cityRows.map(
+          (row: {
+            _id: { city: string; state: string };
+            count: number;
+            lat?: number;
+            lng?: number;
+          }) => ({
+            slug: citySlug(row._id.city, row._id.state),
+            label: `${row._id.city}, ${row._id.state}`,
+            count: row.count,
+            city: row._id.city,
+            state: row._id.state,
+            neighborhood: null,
+            lat: row.lat ?? null,
+            lng: row.lng ?? null,
+          }),
+        ),
         neighborhoods: neighborhoodRows.map(
           (row: {
             _id: { neighborhood: string; city: string; state: string };
             count: number;
+            lat?: number;
+            lng?: number;
           }) => ({
             slug: neighborhoodSlug(row._id.neighborhood, row._id.city, row._id.state),
             label: `${row._id.neighborhood}, ${row._id.city}`,
             count: row.count,
             city: row._id.city,
             state: row._id.state,
+            neighborhood: row._id.neighborhood,
+            lat: row.lat ?? null,
+            lng: row.lng ?? null,
           }),
         ),
         cuisines: cuisineRows.map((row: { _id: string; count: number }) => ({
           slug: cuisineSlug(row._id),
           label: row._id,
           count: row.count,
+          city: null,
+          state: null,
+          neighborhood: null,
+          lat: null,
+          lng: null,
         })),
         occasions: occasionRows.map((row: { _id: string; count: number }) => ({
           slug: discoverySlug(row._id),
           label: row._id,
           count: row.count,
+          city: null,
+          state: null,
+          neighborhood: null,
+          lat: null,
+          lng: null,
         })),
       };
     },
@@ -677,14 +750,22 @@ export const resolvers = {
     myReservations: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
       const items = await Reservation.find({ dinerId: user._id }).sort({ slotStart: -1 });
-      return items.map((r) => mapReservation(r));
+      const reviews = await Review.find({
+        reservationId: { $in: items.map((r) => r._id) },
+      }).select('reservationId');
+      const reviewed = new Set(reviews.map((rev) => rev.reservationId.toString()));
+      return items.map((r) => ({
+        ...mapReservation(r),
+        hasReview: reviewed.has(r._id.toString()),
+      }));
     },
 
     myReservation: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
       const reservation = await Reservation.findById(args.id);
       if (!reservation || !reservation.dinerId.equals(user._id)) return null;
-      return mapReservation(reservation);
+      const hasReview = !!(await Review.findOne({ reservationId: reservation._id }).select('_id'));
+      return { ...mapReservation(reservation), hasReview };
     },
 
     mySavedRestaurants: async (
@@ -1024,7 +1105,7 @@ export const resolvers = {
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
       const sub = await Subscription.findOne({ restaurantId: args.restaurantId });
       if (!sub) return null;
-      return mapSubscription(sub);
+      return mapSubscription(sub, { includeStripeIds: true });
     },
 
     plans: async () => getEffectivePlans(),
@@ -1210,9 +1291,22 @@ export const resolvers = {
       });
     },
 
-    experience: async (_: unknown, args: { id: string }) => {
+    experience: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
       const doc = await Experience.findById(args.id);
-      return doc ? mapExperience(doc) : null;
+      if (!doc) return null;
+      const isPublic = doc.status === 'published' || doc.status === 'sold_out';
+      if (isPublic) return mapExperience(doc);
+      if (!ctx.user) return null;
+      try {
+        await assertRestaurantAccess(
+          ctx.user._id.toString(),
+          doc.restaurantId.toString(),
+          ctx.user.role,
+        );
+        return mapExperience(doc);
+      } catch {
+        return null;
+      }
     },
 
     myTickets: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
@@ -1668,7 +1762,7 @@ export const resolvers = {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
       const items = await Integration.find({ restaurantId: args.restaurantId }).sort({ createdAt: -1 });
-      return items.map(mapIntegration);
+      return items.map((i) => mapIntegration(i));
     },
 
     preShiftReport: async (
@@ -1756,43 +1850,47 @@ export const resolvers = {
   },
 
   Mutation: {
-    register: async (_: unknown, args: { input: unknown }) => {
+    register: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
       const input = registerSchema.parse(args.input);
       const result = await registerWithEmail(input);
+      const app = resolveBrowserAuthApp(ctx.req);
+      if (app) setAuthCookies(ctx.res, result, app);
       return {
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
+        ...authPayloadTokens(ctx.req, result),
         user: mapUser(result.user),
       };
     },
 
-    registerRestaurantPartner: async (_: unknown, args: { input: unknown }) => {
+    registerRestaurantPartner: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
       const input = registerRestaurantPartnerSchema.parse(args.input);
       const result = await registerRestaurantPartner(input);
+      const app = resolveBrowserAuthApp(ctx.req);
+      if (app) setAuthCookies(ctx.res, result, app);
       return {
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
+        ...authPayloadTokens(ctx.req, result),
         user: mapUser(result.user),
         restaurant: mapRestaurant(result.restaurant),
-        subscription: mapSubscription(result.subscription),
+        subscription: mapSubscription(result.subscription, { includeStripeIds: true }),
       };
     },
 
-    login: async (_: unknown, args: { input: unknown }) => {
+    login: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
       const input = loginSchema.parse(args.input);
       const result = await loginWithEmail(input.email, input.password);
+      const app = resolveBrowserAuthApp(ctx.req);
+      if (app) setAuthCookies(ctx.res, result, app);
       return {
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
+        ...authPayloadTokens(ctx.req, result),
         user: mapUser(result.user),
       };
     },
 
-    loginWithGoogle: async (_: unknown, args: { idToken: string }) => {
+    loginWithGoogle: async (_: unknown, args: { idToken: string }, ctx: GraphQLContext) => {
       const result = await loginWithGoogle(args.idToken);
+      const app = resolveBrowserAuthApp(ctx.req);
+      if (app) setAuthCookies(ctx.res, result, app);
       return {
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
+        ...authPayloadTokens(ctx.req, result),
         user: mapUser(result.user),
       };
     },
@@ -1800,29 +1898,60 @@ export const resolvers = {
     requestPhoneOtp: async (_: unknown, args: { phone: string }) =>
       requestPhoneOtp(args.phone),
 
-    verifyPhoneOtp: async (_: unknown, args: { input: unknown }) => {
+    verifyPhoneOtp: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
       const input = phoneOtpVerifySchema.parse(args.input);
       const result = await verifyPhoneOtp(input);
+      const app = resolveBrowserAuthApp(ctx.req);
+      if (app) setAuthCookies(ctx.res, result, app);
       return {
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken,
+        ...authPayloadTokens(ctx.req, result),
         user: mapUser(result.user),
       };
     },
 
-    refreshToken: async (_: unknown, args: { refreshToken: string }) => {
-      const tokens = await refreshTokens(args.refreshToken);
+    refreshToken: async (
+      _: unknown,
+      args: { refreshToken?: string | null },
+      ctx: GraphQLContext,
+    ) => {
+      const refresh = getRefreshTokenFromRequest(ctx.req, args.refreshToken);
+      if (!refresh) throw new Error('Invalid refresh token');
+      const tokens = await refreshTokens(refresh);
+      const app = resolveBrowserAuthApp(ctx.req);
+      if (app) setAuthCookies(ctx.res, tokens, app);
       const payload = JSON.parse(
         Buffer.from(tokens.accessToken.split('.')[1]!, 'base64').toString(),
       );
       const user = await User.findById(payload.sub);
       if (!user) throw new Error('User not found');
-      return { ...tokens, user: mapUser(user) };
+      return { ...authPayloadTokens(ctx.req, tokens), user: mapUser(user) };
     },
 
     logout: async (_: unknown, args: { refreshToken?: string }, ctx: GraphQLContext) => {
-      const user = requireAuth(ctx);
-      return logout(user._id.toString(), args.refreshToken);
+      const app = resolveBrowserAuthApp(ctx.req);
+      const refresh = getRefreshTokenFromRequest(ctx.req, args.refreshToken);
+      if (app) clearAuthCookies(ctx.res, app);
+
+      if (ctx.user) {
+        return logout(ctx.user._id.toString(), refresh ?? undefined);
+      }
+      if (refresh) {
+        try {
+          const { verifyRefreshToken } = await import('../services/auth.js');
+          const payload = verifyRefreshToken(refresh);
+          return logout(payload.sub, refresh);
+        } catch {
+          return true;
+        }
+      }
+      return true;
+    },
+
+    endImpersonation: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      requireAuth(ctx);
+      if (!ctx.impersonator) throw new Error('Not impersonating');
+      const restored = endImpersonationCookies(ctx.res, ctx.req);
+      return restored;
     },
 
     requestPasswordReset: async (
@@ -1834,8 +1963,10 @@ export const resolvers = {
         args.app === 'dashboard' ? 'dashboard' : args.app === 'web' ? 'web' : undefined,
       ),
 
-    resetPassword: async (_: unknown, args: { token: string; newPassword: string }) =>
-      resetPassword(args.token, args.newPassword),
+    resetPassword: async (_: unknown, args: { token: string; newPassword: string }) => {
+      const newPassword = passwordSchema.parse(args.newPassword);
+      return resetPassword(args.token, newPassword);
+    },
 
     submitContactForm: async (_: unknown, args: { input: unknown }) =>
       submitContactForm(args.input),
@@ -2382,8 +2513,9 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       requireAuth(ctx);
-      const key = buildUploadKey(args.filename);
-      return createUploadUrl({ key, contentType: args.contentType });
+      const contentType = assertAllowedUploadContentType(args.contentType);
+      const key = buildUploadKey(args.filename, contentType);
+      return createUploadUrl({ key, contentType });
     },
 
     setUserRole: async (
@@ -2512,8 +2644,17 @@ export const resolvers = {
         'invoicePrefix',
         'currency',
       ] as const;
+      const safeRoles = ['diner', 'restaurant_owner', 'staff'] as const;
       for (const key of allowed) {
         if (args.input[key] !== undefined) {
+          if (
+            (key === 'defaultSignupRole' ||
+              key === 'defaultPartnerRole' ||
+              key === 'defaultStaffRole') &&
+            !(safeRoles as readonly string[]).includes(String(args.input[key]))
+          ) {
+            throw new Error(`Invalid ${key}: must be diner, restaurant_owner, or staff`);
+          }
           (doc as any)[key] = args.input[key];
         }
       }
@@ -2754,7 +2895,7 @@ export const resolvers = {
         actorId: user._id.toString(),
       });
 
-      return mapSubscription(sub);
+      return mapSubscription(sub, { includeStripeIds: true });
     },
 
     cancelSubscription: async (
@@ -2786,7 +2927,7 @@ export const resolvers = {
         details: { restaurantId: args.restaurantId },
       });
 
-      return mapSubscription(sub);
+      return mapSubscription(sub, { includeStripeIds: true });
     },
 
     changePlan: async (
@@ -2825,7 +2966,7 @@ export const resolvers = {
         details: { plan: planKey, restaurantId: args.restaurantId },
       });
 
-      return mapSubscription(sub);
+      return mapSubscription(sub, { includeStripeIds: true });
     },
 
     registerPushToken: async (
@@ -3046,6 +3187,8 @@ export const resolvers = {
       });
       if (!ticket) throw new Error('Ticket not found');
       if (ticket.status !== 'pending') return mapTicket(ticket);
+
+      await assertPaymentIntentAuthorized(args.paymentIntentId);
 
       ticket.status = 'confirmed';
       ticket.confirmationCode = `TKT-${Date.now().toString(36).toUpperCase()}`;
@@ -3424,8 +3567,11 @@ export const resolvers = {
       await requireFeature(args.restaurantId, 'posIntegration');
       const apiKey = `pos_${crypto.randomBytes(24).toString('hex')}`;
       await Restaurant.findByIdAndUpdate(args.restaurantId, {
-        posApiKey: apiKey,
-        posEnabled: true,
+        $set: {
+          posApiKeyHash: hashOpaqueToken(apiKey),
+          posEnabled: true,
+        },
+        $unset: { posApiKey: 1 },
       });
       await logAudit({
         actorId: user._id.toString(),
@@ -3751,14 +3897,16 @@ export const resolvers = {
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
       const validProviders = ['google_reserve', 'partner_site', 'affiliate', 'other'];
       if (!validProviders.includes(args.provider)) throw new Error('Invalid provider');
+      const apiKey = `int_${crypto.randomBytes(24).toString('hex')}`;
       const doc = await Integration.create({
         restaurantId: args.restaurantId,
         provider: args.provider,
         name: args.name,
-        apiKey: `int_${crypto.randomBytes(24).toString('hex')}`,
+        apiKeyHash: hashOpaqueToken(apiKey),
+        apiKeyPrefix: apiKey.slice(0, 12),
         enabled: true,
       });
-      return mapIntegration(doc);
+      return mapIntegration(doc, { revealApiKey: apiKey });
     },
 
     setIntegrationEnabled: async (
@@ -3962,7 +4110,7 @@ export const resolvers = {
         resourceId: sub._id.toString(),
         details: { enabled: args.enabled },
       });
-      return mapSubscription(sub);
+      return mapSubscription(sub, { includeStripeIds: true });
     },
     ...adminOpsMutation,
   },

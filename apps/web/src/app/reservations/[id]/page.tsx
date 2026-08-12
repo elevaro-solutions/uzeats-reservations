@@ -1,13 +1,15 @@
 'use client';
 
 import { useMutation, useQuery } from '@apollo/client/react';
-import { Alert, Button, Card, Input, Modal, Rate, Select, Space, Spin, Typography, message } from 'antd';
+import { Alert, Button, Card, Input, Modal, Select, Space, Spin, Typography, message } from 'antd';
 import {
   ArrowLeftOutlined,
+  BookOutlined,
   CalendarOutlined,
   CreditCardOutlined,
   EditOutlined,
   MessageOutlined,
+  StarOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -20,11 +22,13 @@ import { addReservationToCalendar } from '@/lib/calendar';
 import {
   MY_RESERVATION,
   UPDATE_RESERVATION_STATUS,
-  CREATE_REVIEW,
   CONFIRM_DEPOSIT,
+  SAVE_RESTAURANT,
 } from '@/lib/graphql';
 import { EditReservationModal } from '@/components/EditReservationModal';
+import { PostVisitModal } from '@/components/PostVisitModal';
 import {
+  canLeaveReview,
   displayReservationStatus,
   isReservationPast,
   isReservationUpcoming,
@@ -44,12 +48,10 @@ export default function ReservationDetailPage() {
   });
 
   const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
-  const [createReview] = useMutation(CREATE_REVIEW);
   const [confirmDeposit] = useMutation(CONFIRM_DEPOSIT);
+  const [saveRestaurant, { loading: saving }] = useMutation(SAVE_RESTAURANT);
 
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [rating, setRating] = useState(5);
-  const [comment, setComment] = useState('');
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReasonPreset, setCancelReasonPreset] = useState<string | undefined>();
   const [cancelReasonDetails, setCancelReasonDetails] = useState('');
@@ -117,12 +119,14 @@ export default function ReservationDetailPage() {
     depositStatus: string;
     clientSecret?: string | null;
     loyaltyPointsEarned: number;
+    hasReview?: boolean;
     restaurant?: {
       id: string;
       name: string;
       slug?: string;
       photos?: string[];
       phone?: string;
+      isSaved?: boolean;
       address?: {
         line1?: string;
         line2?: string;
@@ -143,9 +147,10 @@ export default function ReservationDetailPage() {
     r.depositStatus === 'requires_payment' && r.depositAmountCents > 0 && !!r.clientSecret;
   const upcoming = isReservationUpcoming(r);
   const past = isReservationPast(r);
+  const reviewable = canLeaveReview(r);
   const canManage = upcoming && (r.status === 'confirmed' || r.status === 'pending');
   const restaurantPath = buildRestaurantBookingPath(r.restaurant?.slug, r.restaurant?.id);
-  const bookAgainPath = r.partySize
+  const bookAgainHref = r.partySize
     ? `${restaurantPath}?party=${r.partySize}`
     : restaurantPath;
 
@@ -187,6 +192,17 @@ export default function ReservationDetailPage() {
     message.success('Deposit authorized — reservation confirmed');
     setPayOpen(false);
     refetch();
+  };
+
+  const handleSaveRestaurant = async () => {
+    if (!r.restaurant?.id) return;
+    try {
+      await saveRestaurant({ variables: { restaurantId: r.restaurant.id } });
+      message.success('Restaurant saved');
+      refetch();
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Could not save restaurant');
+    }
   };
 
   return (
@@ -246,6 +262,21 @@ export default function ReservationDetailPage() {
               onClick={() => setPayOpen(true)}
             >
               Pay deposit
+            </Button>
+          }
+        />
+      )}
+
+      {reviewable && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="How was your visit?"
+          description="Leave a quick review, optionally save the restaurant, then book again when you're ready."
+          action={
+            <Button type="primary" icon={<StarOutlined />} onClick={() => setReviewOpen(true)}>
+              Leave review
             </Button>
           }
         />
@@ -398,8 +429,8 @@ export default function ReservationDetailPage() {
           </Button>
         )}
         {past ? (
-          <Link href={bookAgainPath}>
-            <Button type="primary" icon={<CalendarOutlined />}>
+          <Link href={bookAgainHref}>
+            <Button type={reviewable ? 'default' : 'primary'} icon={<CalendarOutlined />}>
               Book again
             </Button>
           </Link>
@@ -407,6 +438,15 @@ export default function ReservationDetailPage() {
           <Link href={restaurantPath}>
             <Button>View restaurant</Button>
           </Link>
+        )}
+        {past && r.restaurant?.id && !r.restaurant.isSaved && (
+          <Button
+            icon={<BookOutlined />}
+            loading={saving}
+            onClick={handleSaveRestaurant}
+          >
+            Save restaurant
+          </Button>
         )}
         {canManage && (
           <Button icon={<EditOutlined />} onClick={() => setEditOpen(true)}>
@@ -428,8 +468,8 @@ export default function ReservationDetailPage() {
             Cancel reservation
           </Button>
         )}
-        {r.status === 'completed' && (
-          <Button type="primary" ghost onClick={() => setReviewOpen(true)}>
+        {reviewable && (
+          <Button type="primary" ghost icon={<StarOutlined />} onClick={() => setReviewOpen(true)}>
             Leave review
           </Button>
         )}
@@ -453,31 +493,14 @@ export default function ReservationDetailPage() {
         )}
       </Modal>
 
-      <Modal
-        title="Leave a review"
+      <PostVisitModal
         open={reviewOpen}
-        onCancel={() => setReviewOpen(false)}
-        onOk={async () => {
-          await createReview({
-            variables: { input: { reservationId: r.id, rating, comment } },
-          });
-          message.success('Thanks for your review!');
-          setReviewOpen(false);
-          setComment('');
-          refetch();
-        }}
-        okText="Submit review"
-      >
-        <Space orientation="vertical" style={{ width: '100%' }}>
-          <Rate value={rating} onChange={setRating} />
-          <Input.TextArea
-            rows={4}
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="How was your visit?"
-          />
-        </Space>
-      </Modal>
+        reservationId={r.id}
+        partySize={r.partySize}
+        restaurant={r.restaurant}
+        onClose={() => setReviewOpen(false)}
+        onCompleted={() => refetch()}
+      />
 
       <Modal
         title="Cancel reservation?"
@@ -492,7 +515,9 @@ export default function ReservationDetailPage() {
         okButtonProps={{
           danger: true,
           loading: cancelling,
-          disabled: !cancelReasonPreset || (cancelReasonPreset === 'Other' && !cancelReasonDetails.trim()),
+          disabled:
+            !cancelReasonPreset ||
+            (cancelReasonPreset === 'Other' && !cancelReasonDetails.trim()),
         }}
         cancelText="Keep reservation"
         destroyOnClose
@@ -519,7 +544,8 @@ export default function ReservationDetailPage() {
           </div>
           <div>
             <Text style={{ display: 'block', marginBottom: 6 }}>
-              Additional details {cancelReasonPreset === 'Other' ? <Text type="danger">*</Text> : '(optional)'}
+              Additional details{' '}
+              {cancelReasonPreset === 'Other' ? <Text type="danger">*</Text> : '(optional)'}
             </Text>
             <Input.TextArea
               rows={3}

@@ -76,13 +76,31 @@ export default function IntegrationsPage() {
   const handleCreate = async () => {
     try {
       const values = await form.validateFields();
-      await createIntegration({
+      const res = await createIntegration({
         variables: { restaurantId: activeRestaurantId, provider: values.provider, name: values.name },
       });
+      const createdKey = res.data?.createIntegration?.apiKey as string | undefined;
       message.success('Integration created');
       setModalOpen(false);
       form.resetFields();
       refetch();
+      if (createdKey && !createdKey.includes('…')) {
+        Modal.info({
+          title: 'Copy your API key now',
+          content: (
+            <div>
+              <Paragraph type="secondary">
+                This full key is shown only once. Store it securely — later views are redacted.
+              </Paragraph>
+              <Paragraph copyable code>
+                {createdKey}
+              </Paragraph>
+            </div>
+          ),
+          okText: 'Done',
+          width: 520,
+        });
+      }
     } catch (err: any) {
       if (err?.message) message.error(err.message);
     }
@@ -147,14 +165,16 @@ export default function IntegrationsPage() {
                 render: (key: string) => (
                   <Space>
                     <Text code style={{ fontSize: 12 }}>
-                      {key.length > 16 ? `${key.slice(0, 8)}…${key.slice(-4)}` : key}
+                      {key}
                     </Text>
-                    <Button
-                      size="small"
-                      type="text"
-                      icon={<CopyOutlined />}
-                      onClick={() => copyToClipboard(key)}
-                    />
+                    {!key.includes('…') && (
+                      <Button
+                        size="small"
+                        type="text"
+                        icon={<CopyOutlined />}
+                        onClick={() => copyToClipboard(key)}
+                      />
+                    )}
                   </Space>
                 ),
               },

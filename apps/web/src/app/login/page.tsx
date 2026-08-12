@@ -215,10 +215,13 @@ function LoginContent() {
                   rules={[
                     { required: true, message: 'Enter a password' },
                     { min: 8, message: 'At least 8 characters' },
+                    { pattern: /[a-z]/, message: 'Include a lowercase letter' },
+                    { pattern: /[A-Z]/, message: 'Include an uppercase letter' },
+                    { pattern: /\d/, message: 'Include a number' },
                   ]}
                   extra={
                     <span style={{ color: colors.textTertiary, fontSize: typography.fontSize.xs }}>
-                      Must be at least 8 characters
+                      At least 8 characters with upper, lower, and a number
                     </span>
                   }
                 >

@@ -1,4 +1,4 @@
-import type { RegisterRestaurantPartnerInput, UserRole } from '@reservations/shared';
+import type { RegisterRestaurantPartnerInput } from '@reservations/shared';
 import { Restaurant } from '../models/Restaurant.js';
 import { User } from '../models/User.js';
 import { logAudit } from './audit.js';
@@ -6,6 +6,7 @@ import { hashPassword, issueTokens } from './auth.js';
 import { getEffectivePlan, getPlatformConfig } from './platformConfig.js';
 import { createRestaurantSubscription } from './restaurantSubscription.js';
 import { provisionDefaultRestaurantSetup } from './restaurantSetup.js';
+import { clampRegistrationRole } from './roleAccess.js';
 
 function slugify(name: string) {
   return name
@@ -35,7 +36,7 @@ export async function registerRestaurantPartner(input: RegisterRestaurantPartner
     firstName: input.account.firstName,
     lastName: input.account.lastName,
     phone: input.account.phone,
-    role: (config.defaultPartnerRole as UserRole) || 'restaurant_owner',
+    role: clampRegistrationRole(config.defaultPartnerRole, 'restaurant_owner'),
     emailVerified: false,
   });
 

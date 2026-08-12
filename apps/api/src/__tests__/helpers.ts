@@ -19,7 +19,7 @@ export async function createTestApp(): Promise<{
     '/graphql',
     express.json(),
     expressMiddleware(server, {
-      context: async ({ req }) => createContext({ req }),
+      context: async ({ req, res }) => createContext({ req, res }),
     }),
   );
 

@@ -50,6 +50,10 @@ import {
 } from './adminDeleteUser.js';
 import { clearSeedData as wipeSeedData } from './seedData.js';
 import { assertCanAssignRole } from './roleAccess.js';
+import {
+  beginImpersonationCookies,
+  resolveBrowserAuthApp,
+} from './authCookies.js';
 
 function csvEscape(value: unknown) {
   const s = value == null ? '' : String(value);
@@ -148,7 +152,7 @@ export const adminOpsQuery = {
 };
 
 export const adminOpsMutation = {
-  startImpersonation: async (
+    startImpersonation: async (
     _: unknown,
     args: { userId: string },
     ctx: GraphQLContext,
@@ -161,8 +165,12 @@ export const adminOpsMutation = {
       resource: 'User',
       resourceId: args.userId,
     });
+    if (resolveBrowserAuthApp(ctx.req) === 'dashboard') {
+      beginImpersonationCookies(ctx.res, ctx.req, result.accessToken);
+    }
+    const exposeTokens = resolveBrowserAuthApp(ctx.req) !== 'dashboard';
     return {
-      accessToken: result.accessToken,
+      accessToken: exposeTokens ? result.accessToken : '',
       user: mapUser(result.user),
       impersonator: mapUser(result.impersonator),
       expiresInSeconds: result.expiresInSeconds,
@@ -209,6 +217,9 @@ export const adminOpsMutation = {
     const target = await User.findById(args.userId);
     if (!target) throw new Error('User not found');
     assertCanEditUser(admin.role, target.role);
+    if (args.role) {
+      await assertCanAssignRole(admin.role, args.role);
+    }
     const user = await assignUserToRestaurants({
       userId: args.userId,
       restaurantIds: args.restaurantIds,

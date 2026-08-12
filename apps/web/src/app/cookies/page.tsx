@@ -21,11 +21,11 @@ const TOC = [
 const COOKIE_TABLE = [
   {
     key: '1',
-    name: 'accessToken / refreshToken',
-    type: 'localStorage',
+    name: 'tv_web_access / tv_web_refresh',
+    type: 'Cookie (HttpOnly)',
     category: 'Essential',
-    purpose: 'Keeps you signed in and refreshes your session securely.',
-    duration: 'Session / 30 days',
+    purpose: 'Keeps you signed in. Tokens are stored in HttpOnly cookies so browser scripts cannot read them.',
+    duration: '15 minutes / 7 days',
   },
   {
     key: '2',

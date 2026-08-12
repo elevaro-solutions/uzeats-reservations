@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { Integration } from '../models/Integration.js';
 import { Restaurant } from '../models/Restaurant.js';
+import { hashOpaqueToken } from '../services/auth.js';
 import { logger } from '../lib/logger.js';
 
 export interface IntegrationAuthRequest extends Request {
@@ -21,7 +22,33 @@ export async function integrationAuth(
       return;
     }
 
-    const integration = await Integration.findOne({ apiKey: header.slice(7) });
+    const rawKey = header.slice(7);
+    if (!rawKey) {
+      res.status(401).json({ error: 'Invalid API key' });
+      return;
+    }
+
+    const keyHash = hashOpaqueToken(rawKey);
+    let integration = await Integration.findOne({ apiKeyHash: keyHash });
+    if (!integration) {
+      // Legacy plaintext keys — migrate on successful use.
+      integration = await Integration.findOne({ apiKey: rawKey });
+      if (integration) {
+        await Integration.updateOne(
+          { _id: integration._id },
+          {
+            $set: {
+              apiKeyHash: keyHash,
+              apiKeyPrefix: rawKey.slice(0, 12),
+            },
+            $unset: { apiKey: 1 },
+          },
+        );
+        integration.apiKeyHash = keyHash as any;
+        integration.apiKeyPrefix = rawKey.slice(0, 12) as any;
+        integration.apiKey = undefined as any;
+      }
+    }
     if (!integration) {
       res.status(401).json({ error: 'Invalid API key' });
       return;

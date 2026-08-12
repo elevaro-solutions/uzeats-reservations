@@ -1,8 +1,14 @@
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://tablevera.com';
+import type { Metadata } from 'next';
+
+export const DEFAULT_SITE_URL = 'https://tablevera.online';
+
+export function getSiteUrl(): string {
+  return (process.env.NEXT_PUBLIC_SITE_URL ?? DEFAULT_SITE_URL).replace(/\/$/, '');
+}
 
 export function absoluteUrl(path: string): string {
   if (path.startsWith('http')) return path;
-  return `${SITE_URL.replace(/\/$/, '')}${path.startsWith('/') ? path : `/${path}`}`;
+  return `${getSiteUrl()}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
 export function priceRangeSymbols(level: number): string {
@@ -85,6 +91,12 @@ export function restaurantJsonLd(restaurant: {
   dietaryTags?: string[];
   amenities?: string[];
   meals?: string[];
+  openingHoursSpecification?: Array<{
+    '@type': 'OpeningHoursSpecification';
+    dayOfWeek: string;
+    opens: string;
+    closes: string;
+  }>;
 }) {
   const path = restaurant.slug ? `/r/${restaurant.slug}` : `/restaurants/${restaurant.id}`;
   const servesCuisine = [restaurant.cuisine, ...(restaurant.dietaryTags ?? [])].filter(Boolean);
@@ -94,7 +106,9 @@ export function restaurantJsonLd(restaurant: {
     '@type': ['Restaurant', 'LocalBusiness', 'FoodEstablishment'],
     '@id': absoluteUrl(path),
     name: restaurant.name,
-    description: restaurant.description || `${restaurant.name} — ${restaurant.cuisine} in ${restaurant.address.city}, ${restaurant.address.state}`,
+    description:
+      restaurant.description ||
+      `${restaurant.name} — ${restaurant.cuisine} in ${restaurant.address.city}, ${restaurant.address.state}`,
     url: absoluteUrl(path),
     image: restaurant.photos?.[0] ? [restaurant.photos[0]] : undefined,
     telephone: restaurant.phone ?? undefined,
@@ -129,6 +143,9 @@ export function restaurantJsonLd(restaurant: {
           },
         }
       : {}),
+    ...(restaurant.openingHoursSpecification?.length
+      ? { openingHoursSpecification: restaurant.openingHoursSpecification }
+      : {}),
     amenityFeature: (restaurant.amenities ?? []).map((name) => ({
       '@type': 'LocationFeatureSpecification',
       name,
@@ -138,6 +155,61 @@ export function restaurantJsonLd(restaurant: {
       '@type': 'ReserveAction',
       target: absoluteUrl(path),
       name: 'Reserve a table',
+    },
+  };
+}
+
+export function organizationJsonLd() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: 'Tablevera',
+    url: getSiteUrl(),
+    logo: absoluteUrl('/brand/tablevera_icon_v2.svg'),
+  };
+}
+
+export function websiteJsonLd() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: 'Tablevera',
+    url: getSiteUrl(),
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: `${getSiteUrl()}/?q={search_term_string}`,
+      },
+      'query-input': 'required name=search_term_string',
+    },
+  };
+}
+
+/** Shared Metadata for discovery landing templates. */
+export function discoveryLandingMetadata(params: {
+  title: string;
+  description: string;
+  canonicalPath: string;
+}): Metadata {
+  const url = absoluteUrl(params.canonicalPath);
+  return {
+    title: params.title,
+    description: params.description,
+    alternates: { canonical: params.canonicalPath },
+    openGraph: {
+      type: 'website',
+      title: params.title,
+      description: params.description,
+      url,
+      siteName: 'Tablevera',
+      images: [{ url: '/brand/tablevera_icon_v2.svg', alt: 'Tablevera' }],
+    },
+    twitter: {
+      card: 'summary',
+      title: params.title,
+      description: params.description,
+      images: ['/brand/tablevera_icon_v2.svg'],
     },
   };
 }

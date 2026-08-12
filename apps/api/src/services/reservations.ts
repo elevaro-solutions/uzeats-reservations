@@ -14,7 +14,7 @@ import {
   createDepositIntent,
   refundDeposit,
   captureDeposit,
-  isStubPaymentIntent,
+  assertPaymentIntentAuthorized,
 } from './stripe.js';
 import { earnPoints, redeemPoints, refundRedeemedPoints, awardDepositPoints, awardFirstBookingBonus, awardCompletedVisitPoints, reverseDepositPoints } from './loyalty.js';
 import {
@@ -49,20 +49,9 @@ async function findOrCreateDiner(guest: {
   let diner = null;
   if (guest.email) diner = await User.findOne({ email: guest.email.toLowerCase() });
   if (!diner && guest.phone) diner = await User.findOne({ phone: guest.phone });
-  if (diner) {
-    const updates: Record<string, string> = {};
-    if (guest.firstName && diner.firstName !== guest.firstName) updates.firstName = guest.firstName;
-    if (guest.lastName !== undefined && diner.lastName !== guest.lastName) {
-      updates.lastName = guest.lastName;
-    }
-    if (guest.phone && !diner.phone) updates.phone = guest.phone;
-    if (guest.email && !diner.email) updates.email = guest.email.toLowerCase();
-    if (Object.keys(updates).length > 0) {
-      Object.assign(diner, updates);
-      await diner.save();
-    }
-    return diner;
-  }
+  // Link the reservation to an existing diner when email/phone matches, but never
+  // overwrite their profile from unauthenticated guest input.
+  if (diner) return diner;
 
   return User.create({
     email: guest.email?.toLowerCase(),
@@ -373,9 +362,8 @@ export async function confirmDepositPayment(input: {
     return reservation;
   }
 
-  if (!isStubPaymentIntent(input.paymentIntentId)) {
-    // Real Stripe: webhook usually confirms; this is a client-side fallback after Elements.
-  }
+  // Client confirm is only allowed after Stripe has authorized/captured the intent.
+  await assertPaymentIntentAuthorized(input.paymentIntentId);
 
   return confirmDeposit(input.paymentIntentId);
 }

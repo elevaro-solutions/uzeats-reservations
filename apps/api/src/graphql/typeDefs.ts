@@ -255,6 +255,7 @@ export const typeDefs = `#graphql
     source: ReservationSource!
     totalSpendCents: Int!
     seatedAt: DateTime
+    hasReview: Boolean!
     createdAt: DateTime!
   }
 
@@ -1479,6 +1480,9 @@ export const typeDefs = `#graphql
     count: Int!
     city: String
     state: String
+    neighborhood: String
+    lat: Float
+    lng: Float
   }
 
   type DiscoveryIndex {
@@ -1987,7 +1991,7 @@ export const typeDefs = `#graphql
     loginWithGoogle(idToken: String!): AuthPayload!
     requestPhoneOtp(phone: String!): MessagePayload!
     verifyPhoneOtp(input: PhoneOtpVerifyInput!): AuthPayload!
-    refreshToken(refreshToken: String!): AuthPayload!
+    refreshToken(refreshToken: String): AuthPayload!
     logout(refreshToken: String): Boolean!
     requestPasswordReset(email: String!, app: String): MessagePayload!
     resetPassword(token: String!, newPassword: String!): MessagePayload!
@@ -2059,6 +2063,7 @@ export const typeDefs = `#graphql
     createPlanPackage(input: CreatePlanPackageInput!): PlanInfo!
     deletePlanPackage(key: String!): Boolean!
     startImpersonation(userId: ID!): ImpersonationPayload!
+    endImpersonation: Boolean!
     inviteStaff(
       email: String!
       firstName: String!

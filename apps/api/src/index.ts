@@ -1,10 +1,13 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import mongoose from 'mongoose';
 import { Redis } from 'ioredis';
 import { rateLimit } from 'express-rate-limit';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@as-integrations/express5';
+import depthLimit from 'graphql-depth-limit';
+import { createComplexityLimitRule } from 'graphql-validation-complexity';
 import { ZodError } from 'zod';
 import { env } from './config/env.js';
 import { connectDb } from './db.js';
@@ -35,6 +38,15 @@ async function main() {
 
   const app = express();
 
+  app.use(
+    helmet({
+      // API-only: no HTML CSP; allow cross-origin GraphQL/fetch from web apps.
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
+
   const graphqlLimiter = rateLimit({
     windowMs: 60 * 1000,
     limit: 100,
@@ -43,9 +55,53 @@ async function main() {
     message: { errors: [{ message: 'Too many requests, please try again later' }] },
   });
 
+  const authGraphqlLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 30,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { errors: [{ message: 'Too many auth attempts, please try again later' }] },
+  });
+
+  const partnerLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 60,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { error: 'Too many requests' },
+  });
+
+  const uploadLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 20,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { error: 'Too many uploads' },
+  });
+
+  const SENSITIVE_GRAPHQL =
+    /\b(login|register|registerRestaurantPartner|requestPhoneOtp|verifyPhoneOtp|requestPasswordReset|resetPassword|validateGiftCard|refreshToken)\b/i;
+
+  function isSensitiveGraphql(req: express.Request) {
+    const body = req.body as { operationName?: string; query?: string } | undefined;
+    const haystack = `${body?.operationName ?? ''}\n${body?.query ?? ''}`;
+    return SENSITIVE_GRAPHQL.test(haystack);
+  }
+
   const server = new ApolloServer({
     typeDefs,
     resolvers,
+    introspection: env.NODE_ENV !== 'production',
+    validationRules: [
+      depthLimit(12),
+      createComplexityLimitRule(25_000, {
+        onCost: (cost) => {
+          if (env.NODE_ENV !== 'production' && cost > 5_000) {
+            logger.debug({ cost }, '[graphql] query cost');
+          }
+        },
+      }),
+    ],
     formatError(formattedError, error) {
       const original = (error as { originalError?: Error }).originalError;
 
@@ -140,12 +196,20 @@ async function main() {
     origin: env.CORS_ORIGINS.split(',').map((s) => s.trim()),
   }), posRouter);
 
-  // Partner booking API (third-party sites, affiliates, Google Reserve)
-  app.use('/api/partner', express.json(), cors(), partnerRouter);
-
   const corsOrigins = env.CORS_ORIGINS.split(',').map((s) => s.trim());
+
+  // Partner booking API (third-party sites, affiliates, Google Reserve)
+  app.use(
+    '/api/partner',
+    partnerLimiter,
+    express.json(),
+    cors({ origin: corsOrigins }),
+    partnerRouter,
+  );
+
   app.use(
     '/api/uploads',
+    uploadLimiter,
     cors({ origin: corsOrigins, credentials: true }),
     express.raw({ type: () => true, limit: '10mb' }),
     uploadsRouter,
@@ -160,6 +224,13 @@ async function main() {
     }),
     express.json({ limit: '2mb' }),
     (req, res, next) => {
+      if (isSensitiveGraphql(req)) {
+        authGraphqlLimiter(req, res, next);
+        return;
+      }
+      next();
+    },
+    (req, res, next) => {
       const start = Date.now();
       res.on('finish', () => {
         const body = req.body as { operationName?: string } | undefined;
@@ -172,7 +243,7 @@ async function main() {
       next();
     },
     expressMiddleware(server, {
-      context: async ({ req }) => createContext({ req }),
+      context: async ({ req, res }) => createContext({ req, res }),
     }),
   );
 

@@ -254,7 +254,7 @@ function RegisterForm() {
       });
 
       const payload = data.registerRestaurantPartner;
-      setSession(payload.accessToken, payload.refreshToken, payload.user);
+      setSession(payload.user);
       localStorage.setItem('activeRestaurantId', payload.restaurant.id);
       message.success(
         `${payload.restaurant.name} submitted — ${planInfo.name}${planInfo.trialDays > 0 ? ' trial started' : ' selected'}`,
@@ -430,6 +430,9 @@ function RegisterForm() {
                 rules={[
                   { required: true, message: 'Required' },
                   { min: 8, message: 'At least 8 characters' },
+                  { pattern: /[a-z]/, message: 'Include a lowercase letter' },
+                  { pattern: /[A-Z]/, message: 'Include an uppercase letter' },
+                  { pattern: /\d/, message: 'Include a number' },
                 ]}
               >
                 <Input.Password size="large" autoComplete="new-password" />

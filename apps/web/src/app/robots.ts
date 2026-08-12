@@ -1,14 +1,24 @@
 import type { MetadataRoute } from 'next';
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://tablevera.com';
+import { getSiteUrl } from '@/lib/seo';
 
 export default function robots(): MetadataRoute.Robots {
-  const base = SITE_URL.replace(/\/$/, '');
+  const base = getSiteUrl();
   return {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/login', '/register', '/profile', '/reservations', '/messages/'],
+      disallow: [
+        '/login',
+        '/register',
+        '/profile',
+        '/reservations',
+        '/messages/',
+        '/saved',
+        '/waitlist',
+        '/forgot-password',
+        '/reset-password',
+        '/survey/',
+      ],
     },
     sitemap: `${base}/sitemap.xml`,
   };

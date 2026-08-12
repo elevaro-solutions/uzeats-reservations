@@ -118,11 +118,15 @@ export function cuisineLandingMeta(cuisine: string): DiscoveryLandingMeta {
     faq: [
       {
         question: `How do I book a ${lower} restaurant on Tablevera?`,
-        answer: `Search ${lower} restaurants by location, pick your date and party size, then choose an available time slot. Confirmation is instant and free for diners.`,
+        answer: `Open the ${cuisine} restaurants page, set your city or enable Near Me, then choose a date and party size. Pick an open time slot on the restaurant page — confirmation is instant and free for diners. You can add special requests, dietary notes, or a promo code before you confirm.`,
       },
       {
         question: `Can I filter ${lower} restaurants by dietary needs?`,
-        answer: 'Yes — use dietary filters for halal, kosher, vegetarian, vegan, gluten-free, and allergy-aware options.',
+        answer: `Yes. Use dietary filters for Halal, Kosher, Vegetarian, Vegan, Gluten-Free, and Allergy-Aware listings, then refine by price, rating, and amenities such as outdoor seating or private dining. Always mention allergies in special requests so the restaurant can prepare.`,
+      },
+      {
+        question: `Are ${lower} restaurant reservations free on Tablevera?`,
+        answer: `Reservations are free for diners. Some restaurants require a refundable deposit per guest that is applied to your bill; deposit details appear on the restaurant page before you book.`,
       },
     ],
   };
@@ -138,11 +142,16 @@ export function occasionLandingMeta(occasion: DiscoveryOccasion): DiscoveryLandi
     faq: [
       {
         question: `What makes a restaurant good for ${lower}?`,
-        answer: 'We tag venues by dining style, amenities, and occasion so you can quickly find atmospheres that fit your celebration or meeting.',
+        answer: `Venues tagged for ${lower} typically match the atmosphere, seating style, and amenities guests expect for that occasion — for example romantic dining styles for date night, or private dining and larger tables for group events. Combine occasion filters with cuisine and price to narrow the list.`,
       },
       {
         question: 'Can I book for a large party?',
-        answer: 'Filter by group dining or private event, then check real-time availability for your headcount before you reserve.',
+        answer:
+          'Yes. Set your party size before searching so you only see restaurants with open tables for that headcount. For bigger groups, filter by Group Dining or Private Event, then review the restaurant’s deposit and cancellation terms before confirming.',
+      },
+      {
+        question: `How far in advance should I reserve for ${lower}?`,
+        answer: `Popular ${lower} times fill quickly on weekends. Book as soon as your date is set, or join the waitlist on the restaurant page if your preferred slot is taken. You can usually modify or cancel from your Tablevera reservations according to the venue’s policy.`,
       },
     ],
   };
@@ -156,12 +165,16 @@ export function cityLandingMeta(city: string, state: string): DiscoveryLandingMe
     intro: `Whether you are planning a weeknight dinner or a special celebration, browse ${city}'s dining scene with map search, filters, and instant reservations.`,
     faq: [
       {
-        question: `How many restaurants are in ${city} on Tablevera?`,
-        answer: `Our directory grows weekly — search ${city} to see current listings with ratings, cuisines, and open reservation times.`,
+        question: `How do I find restaurants in ${city}, ${state}?`,
+        answer: `This page lists bookable restaurants in ${city}. Use cuisine, price, occasion, and dietary filters, or switch to map view to browse by neighborhood. Choose a date and party size to see live availability before you reserve.`,
       },
       {
         question: `Can I find restaurants near me in ${city}?`,
-        answer: 'Yes — enable location or pick a neighborhood to see nearby venues sorted by distance with available tables.',
+        answer: `Yes. Tap Near Me to center results on your location, or search a neighborhood within ${city}. Results prioritize nearby venues with open tables for your selected date and party size.`,
+      },
+      {
+        question: `Is booking a table in ${city} free for diners?`,
+        answer: `Yes — Tablevera is free for diners. A restaurant may ask for a per-guest deposit that is applied to your check; any deposit amount is shown before you confirm the reservation.`,
       },
     ],
   };
@@ -179,12 +192,16 @@ export function neighborhoodLandingMeta(
     intro: `Discover the best places to eat in ${neighborhood} — walkable favorites and hidden gems with live reservation slots.`,
     faq: [
       {
-        question: `What cuisines are popular in ${neighborhood}?`,
-        answer: `Browse our ${neighborhood} listings to see top cuisines, ratings, and price ranges updated in real time.`,
+        question: `What restaurants can I book in ${neighborhood}?`,
+        answer: `This page shows Tablevera partners in ${neighborhood}, ${city}. Sort and filter by cuisine, price, rating, occasion, and amenities, then open a restaurant to pick a live time slot for your party size.`,
       },
       {
         question: `How do I use Near Me in ${neighborhood}?`,
-        answer: 'Tap Near Me or search the neighborhood to center the map and list on your area, then filter by meal time and party size.',
+        answer: `Tap Near Me to use your device location, or keep the search centered on ${neighborhood}. Then set date, time preferences, and party size so the list and map only show tables you can actually reserve.`,
+      },
+      {
+        question: `Can I reserve same-day in ${neighborhood}?`,
+        answer: `Often yes. Select today’s date and your party size to see open slots across ${neighborhood}. If a preferred time is full, try nearby times or join that restaurant’s waitlist when available.`,
       },
     ],
   };

@@ -1,7 +1,9 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import mongoose from 'mongoose';
 import request from 'supertest';
 import { createTestApp, graphqlRequest, registerUser, loginUser } from './helpers.js';
+import { hashOpaqueToken } from '../services/auth.js';
+import crypto from 'node:crypto';
 
 describe('Authentication (E2E)', () => {
   let agent: request.Agent;
@@ -187,6 +189,9 @@ describe('Authentication (E2E)', () => {
 
   describe('Password reset', () => {
     it('should request a password reset and complete reset with token', async () => {
+      const fixedToken = '11111111-2222-3333-4444-555555555555';
+      const uuidSpy = vi.spyOn(crypto, 'randomUUID').mockReturnValue(fixedToken);
+
       await registerUser(agent, {
         email: 'reset@test.com',
         password: 'OldPassword1!',
@@ -208,7 +213,7 @@ describe('Authentication (E2E)', () => {
       const user = await mongoose.connection.db!
         .collection('users')
         .findOne({ email: 'reset@test.com' });
-      expect(user?.passwordResetToken).toBeTruthy();
+      expect(user?.passwordResetToken).toBe(hashOpaqueToken(fixedToken));
       expect(user?.passwordResetExpires).toBeTruthy();
 
       const resetRes = await graphqlRequest(
@@ -216,8 +221,10 @@ describe('Authentication (E2E)', () => {
         `mutation ResetPassword($token: String!, $newPassword: String!) {
           resetPassword(token: $token, newPassword: $newPassword) { success message }
         }`,
-        { token: user!.passwordResetToken, newPassword: 'NewPassword1!' },
+        { token: fixedToken, newPassword: 'NewPassword1!' },
       );
+
+      uuidSpy.mockRestore();
 
       expect(resetRes.body.errors).toBeUndefined();
       expect(resetRes.body.data.resetPassword.success).toBe(true);

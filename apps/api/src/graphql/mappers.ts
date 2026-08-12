@@ -291,13 +291,22 @@ export function mapBoostCampaign(b: any) {
   };
 }
 
-export function mapIntegration(i: any) {
+export function mapIntegration(i: any, opts?: { revealApiKey?: string }) {
+  const prefix = i.apiKeyPrefix as string | undefined;
+  const legacyKey = i.apiKey as string | undefined;
+  const redacted =
+    opts?.revealApiKey ??
+    (prefix
+      ? `${prefix}…`
+      : legacyKey
+        ? `${legacyKey.slice(0, 8)}…${legacyKey.slice(-4)}`
+        : '');
   return {
     id: i._id.toString(),
     restaurantId: i.restaurantId.toString(),
     provider: i.provider,
     name: i.name,
-    apiKey: i.apiKey,
+    apiKey: redacted,
     enabled: i.enabled,
     bookingsCount: i.bookingsCount ?? 0,
     lastUsedAt: i.lastUsedAt ?? null,

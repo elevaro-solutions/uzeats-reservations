@@ -70,7 +70,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 
 ## Features
 
-- Restaurant search (city, cuisine, text, nearby geo) with **list and map views**, infinite scroll, SEO landing pages, and live availability slots
+- Restaurant search (city, cuisine, text, nearby geo) with **list and map views**, infinite scroll, SEO landing pages (city/cuisine/occasion/neighborhood hubs), and live availability slots
 - **Bookmarks/Saved** — diners can save favorite restaurants and view them at `/saved`
 - **Restaurant inquiries** — contact restaurants directly from the detail page
 - Google Places address autocomplete and device near-me (falls back to curated US cities)
@@ -78,19 +78,19 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Deposits via Stripe PaymentIntents (manual capture; stubbed without keys)
 - Waitlist + auto-notify on cancellation
 - Platform + per-restaurant loyalty (tiers, referrals, expiry) with gift cards and promotion codes
-- Reviews after completed visits
-- Menus + DO Spaces presigned uploads (stubbed without keys)
+- Reviews after completed visits (post-visit prompt to review and save the restaurant)
+- Menus + DO Spaces presigned uploads (stubbed without keys; image types only)
 - Notifications: email (SendGrid or Resend), Telegram bot, web/Expo push (service worker on diner web), in-app inbox + channel prefs
-- Auth: email/password (forgot/reset on web and partner dashboard), Google OAuth, Twilio phone OTP
+- Auth: email/password (forgot/reset on web and partner dashboard), Google OAuth, Twilio phone OTP; browser sessions use HttpOnly cookies
 - Partner Settings hub, notifications prefs, multi-restaurant selector, self-registration, onboarding checklist, **profile page**, and toggles to accept online reservations or hide the booking widget
 - **Email branding** — customizable email templates per restaurant
 - Shareable booking links (`/r/:slug`) and **Booking widget** page for embed script copy
-- Owner phone / walk-in bookings, **diner and partner reservation edit**, reservation-scoped messaging, and **individual reservation detail pages**
+- Owner phone / walk-in bookings, **diner and partner reservation edit**, reservation-scoped messaging, and **individual reservation detail pages** (upcoming / past / deposit filters)
 - Enhanced restaurant detail pages with photo gallery, reviews, FAQ, terms, about, and menu sections
 - Platform admin: users, restaurants (create/edit/delete), invoices, revenue, support, moderation, templates, config, and annual billing discounts
 - Embeddable booking widget with per-restaurant theme
 - Public contact form, cookie consent, and legal pages (privacy, terms, cookies)
-- Super-admin developer page for deployment env-var health
+- Super-admin developer page for deployment env-var health (secret values masked)
 
 ## Design system
 
@@ -107,7 +107,7 @@ JWT_ACCESS_SECRET=...
 JWT_REFRESH_SECRET=...
 ```
 
-Optional integrations: `STRIPE_*`, `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `SENDGRID_API_KEY` (or `RESEND_API_KEY`), `TELEGRAM_BOT_TOKEN` (+ `API_PUBLIC_URL` / `TELEGRAM_WEBHOOK_SECRET` in production), `DO_SPACES_*`, `VAPID_*`, `NEXT_PUBLIC_SITE_URL` (canonical URLs for sitemap/SEO), `ELEVARO_LEADS_API_KEY` (contact form lead ingest). Dashboard only: `NEXT_PUBLIC_SHOW_DEV_CREDENTIALS=true` shows seed login hints on `/login`.
+Optional integrations: `STRIPE_*` (production requires `STRIPE_WEBHOOK_SECRET`), `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `SENDGRID_API_KEY` (or `RESEND_API_KEY`), `TELEGRAM_BOT_TOKEN` (+ `API_PUBLIC_URL` / `TELEGRAM_WEBHOOK_SECRET` in production when the bot is enabled), `DO_SPACES_*`, `VAPID_*`, `NEXT_PUBLIC_SITE_URL` (canonical URLs for sitemap/SEO; defaults to `https://tablevera.online`), `ELEVARO_LEADS_API_KEY` (contact form lead ingest). Dashboard only: `NEXT_PUBLIC_SHOW_DEV_CREDENTIALS=true` shows seed login hints on `/login`.
 
 For password reset emails, set `WEB_APP_URL` and `DASHBOARD_APP_URL` on the API so reset links land on the correct app.
 

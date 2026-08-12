@@ -1,13 +1,17 @@
 import { Router } from 'express';
 import { createContext } from '../graphql/context.js';
-import { buildUploadKey, uploadObject } from '../services/spaces.js';
+import {
+  assertAllowedUploadContentType,
+  buildUploadKey,
+  uploadObject,
+} from '../services/spaces.js';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
 export const uploadsRouter: ReturnType<typeof Router> = Router();
 
 uploadsRouter.post('/', async (req, res) => {
-  const ctx = await createContext({ req });
+  const ctx = await createContext({ req, res });
   if (!ctx.user) {
     res.status(401).json({ error: 'Authentication required' });
     return;
@@ -19,10 +23,20 @@ uploadsRouter.post('/', async (req, res) => {
     return;
   }
 
-  const contentType =
-    typeof req.headers['content-type'] === 'string'
-      ? req.headers['content-type']
-      : 'application/octet-stream';
+  let contentType: string;
+  try {
+    contentType = assertAllowedUploadContentType(
+      typeof req.headers['content-type'] === 'string'
+        ? req.headers['content-type']
+        : 'application/octet-stream',
+    );
+  } catch (err) {
+    res.status(400).json({
+      error: err instanceof Error ? err.message : 'Unsupported file type',
+    });
+    return;
+  }
+
   const body = req.body as Buffer;
 
   if (!Buffer.isBuffer(body) || body.length === 0) {
@@ -36,7 +50,7 @@ uploadsRouter.post('/', async (req, res) => {
   }
 
   try {
-    const key = buildUploadKey(filename);
+    const key = buildUploadKey(filename, contentType);
     const result = await uploadObject({ key, contentType, body });
     res.json(result);
   } catch (err) {

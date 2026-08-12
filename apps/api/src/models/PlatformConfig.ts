@@ -31,17 +31,17 @@ const platformConfigSchema = new Schema(
     supportPhone: { type: String, default: '' },
     defaultSignupRole: {
       type: String,
-      enum: ['diner', 'restaurant_owner', 'staff', 'admin'],
+      enum: ['diner', 'restaurant_owner', 'staff'],
       default: 'diner',
     },
     defaultPartnerRole: {
       type: String,
-      enum: ['diner', 'restaurant_owner', 'staff', 'admin'],
+      enum: ['diner', 'restaurant_owner', 'staff'],
       default: 'restaurant_owner',
     },
     defaultStaffRole: {
       type: String,
-      enum: ['diner', 'restaurant_owner', 'staff', 'admin'],
+      enum: ['diner', 'restaurant_owner', 'staff'],
       default: 'staff',
     },
     maintenanceMode: { type: Boolean, default: false },
