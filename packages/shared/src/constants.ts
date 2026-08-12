@@ -21,6 +21,19 @@ export const OCCASIONS = [
   'other',
 ] as const;
 
+/** Booking occasions diners can pick (excludes "none"). */
+export const BOOKABLE_OCCASIONS = OCCASIONS.filter((o) => o !== 'none');
+
+export const OCCASION_LABELS: Record<(typeof OCCASIONS)[number], string> = {
+  none: 'None',
+  birthday: 'Birthday',
+  anniversary: 'Anniversary',
+  business: 'Business',
+  date: 'Date night',
+  celebration: 'Celebration',
+  other: 'Other',
+};
+
 export const PRICE_RANGES = [1, 2, 3, 4] as const;
 
 export const CUISINES = [
@@ -198,6 +211,7 @@ export const NOTIFICATION_EVENTS = [
   'newMessage',
   'newReservation',
   'waitlistAvailable',
+  'availabilityAlerts',
   'guestSpendAlert',
   'reservationUpdates',
   'reviewReply',
@@ -214,6 +228,7 @@ export const NOTIFICATION_TYPE_TO_EVENT: Record<string, NotificationEvent> = {
   waitlist_available: 'waitlistAvailable',
   waitlist_ready: 'waitlistAvailable',
   waitlist_notified: 'waitlistAvailable',
+  saved_restaurant_available: 'availabilityAlerts',
   guest_spend_alert: 'guestSpendAlert',
   reservation_confirmed: 'reservationUpdates',
   reservation_cancelled: 'reservationUpdates',

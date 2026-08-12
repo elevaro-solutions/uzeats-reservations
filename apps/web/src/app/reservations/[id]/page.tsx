@@ -120,6 +120,8 @@ export default function ReservationDetailPage() {
     clientSecret?: string | null;
     loyaltyPointsEarned: number;
     hasReview?: boolean;
+    packageTitle?: string | null;
+    packagePriceCents?: number;
     restaurant?: {
       id: string;
       name: string;
@@ -317,6 +319,20 @@ export default function ReservationDetailPage() {
               <Text type="secondary">Occasion</Text>
               <div>
                 <Text>{r.occasion}</Text>
+              </div>
+            </div>
+          )}
+
+          {r.packageTitle && (
+            <div>
+              <Text type="secondary">Package</Text>
+              <div>
+                <Text>
+                  {r.packageTitle}
+                  {(r.packagePriceCents ?? 0) > 0
+                    ? ` · $${((r.packagePriceCents ?? 0) / 100).toFixed(2)}`
+                    : ''}
+                </Text>
               </div>
             </div>
           )}

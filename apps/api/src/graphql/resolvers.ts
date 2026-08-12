@@ -17,6 +17,7 @@ import {
   promotionInputSchema,
   inHouseWaitlistInputSchema,
   createBlackoutInputSchema,
+  restaurantPackageInputSchema,
   normalizeAnnualBillingSettings,
   passwordSchema,
   type AnnualBillingSettings,
@@ -116,6 +117,7 @@ import {
   Invoice,
   Experience,
   Ticket,
+  RestaurantPackage,
   PrivateDiningSpace,
   PrivateDiningInquiry,
   RestaurantGroup,
@@ -145,7 +147,7 @@ import { createRestaurantSubscription } from '../services/restaurantSubscription
 import { provisionDefaultRestaurantSetup } from '../services/restaurantSetup.js';
 import { restaurantInputToDb } from '../lib/restaurantInput.js';
 import { requireAuth, requireAdmin, requireSuperAdmin, requireRole, type GraphQLContext } from './context.js';
-import { ForbiddenError, NotFoundError } from '../lib/errors.js';
+import { ForbiddenError, NotFoundError, ValidationError } from '../lib/errors.js';
 import {
   mapUser,
   mapRestaurant,
@@ -154,6 +156,7 @@ import {
   mapReservation,
   mapExperience,
   mapTicket,
+  mapRestaurantPackage,
   mapPrivateDiningSpace,
   mapPrivateDiningInquiry,
   mapGuestProfile,
@@ -1291,6 +1294,28 @@ export const resolvers = {
       });
     },
 
+    restaurantPackages: async (
+      _: unknown,
+      args: { restaurantId: string; activeOnly?: boolean | null },
+      ctx: GraphQLContext,
+    ) => {
+      const filter: Record<string, unknown> = { restaurantId: args.restaurantId };
+      const activeOnly = args.activeOnly !== false;
+      if (activeOnly) {
+        filter.active = true;
+      } else if (ctx.user) {
+        await assertRestaurantAccess(
+          ctx.user._id.toString(),
+          args.restaurantId,
+          ctx.user.role,
+        );
+      } else {
+        filter.active = true;
+      }
+      const items = await RestaurantPackage.find(filter).sort({ createdAt: -1 });
+      return items.map(mapRestaurantPackage);
+    },
+
     experience: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
       const doc = await Experience.findById(args.id);
       if (!doc) return null;
@@ -2250,6 +2275,7 @@ export const resolvers = {
         giftCardCode: input.giftCardCode,
         source: (rawInput as any).source,
         tableId: input.tableId,
+        packageId: input.packageId,
       });
       await logAudit({
         actorId: user._id.toString(),
@@ -3121,6 +3147,85 @@ export const resolvers = {
       exp.status = exp.status === 'published' ? 'draft' : 'published';
       await exp.save();
       return mapExperience(exp);
+    },
+
+    createRestaurantPackage: async (
+      _: unknown,
+      args: { restaurantId: string; input: unknown },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      const input = restaurantPackageInputSchema.parse(args.input);
+      if (
+        input.minPartySize != null &&
+        input.maxPartySize != null &&
+        input.minPartySize > input.maxPartySize
+      ) {
+        throw new ValidationError('minPartySize cannot exceed maxPartySize');
+      }
+      const doc = await RestaurantPackage.create({
+        restaurantId: args.restaurantId,
+        title: input.title,
+        description: input.description ?? '',
+        priceCents: input.priceCents,
+        pricePerGuest: input.pricePerGuest ?? false,
+        includes: input.includes ?? [],
+        photoUrl: input.photoUrl || undefined,
+        occasions: input.occasions ?? [],
+        minPartySize: input.minPartySize ?? undefined,
+        maxPartySize: input.maxPartySize ?? undefined,
+        active: input.active ?? true,
+      });
+      return mapRestaurantPackage(doc);
+    },
+
+    updateRestaurantPackage: async (
+      _: unknown,
+      args: { id: string; input: unknown },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const existing = await RestaurantPackage.findById(args.id);
+      if (!existing) throw new NotFoundError('Package');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        existing.restaurantId.toString(),
+        user.role,
+      );
+      const input = restaurantPackageInputSchema.parse(args.input);
+      if (
+        input.minPartySize != null &&
+        input.maxPartySize != null &&
+        input.minPartySize > input.maxPartySize
+      ) {
+        throw new ValidationError('minPartySize cannot exceed maxPartySize');
+      }
+      existing.title = input.title;
+      existing.description = input.description ?? '';
+      existing.priceCents = input.priceCents;
+      existing.pricePerGuest = input.pricePerGuest ?? false;
+      existing.includes = input.includes ?? [];
+      existing.photoUrl = input.photoUrl || undefined;
+      existing.occasions = input.occasions ?? [];
+      existing.minPartySize = input.minPartySize ?? undefined;
+      existing.maxPartySize = input.maxPartySize ?? undefined;
+      existing.active = input.active ?? true;
+      await existing.save();
+      return mapRestaurantPackage(existing);
+    },
+
+    deleteRestaurantPackage: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      const existing = await RestaurantPackage.findById(args.id);
+      if (!existing) throw new NotFoundError('Package');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        existing.restaurantId.toString(),
+        user.role,
+      );
+      await existing.deleteOne();
+      return true;
     },
 
     purchaseTicket: async (

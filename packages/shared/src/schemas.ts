@@ -179,6 +179,23 @@ export const reservationInputSchema = z.object({
   promoCode: z.string().min(1).max(40).optional(),
   giftCardCode: z.string().min(1).max(40).optional(),
   tableId: z.string().min(1).optional(),
+  packageId: z.string().min(1).optional(),
+});
+
+export const restaurantPackageInputSchema = z.object({
+  title: z.string().min(1).max(120),
+  description: z.string().max(2000).optional().default(''),
+  priceCents: z.number().int().min(0).max(1_000_000),
+  pricePerGuest: z.boolean().optional().default(false),
+  includes: z.array(z.string().min(1).max(120)).max(20).optional().default([]),
+  photoUrl: z.string().max(500).optional().nullable(),
+  occasions: z
+    .array(z.enum(['birthday', 'anniversary', 'business', 'date', 'celebration', 'other']))
+    .optional()
+    .default([]),
+  minPartySize: z.number().int().min(1).max(50).optional().nullable(),
+  maxPartySize: z.number().int().min(1).max(50).optional().nullable(),
+  active: z.boolean().optional().default(true),
 });
 
 export const ownerGuestInputSchema = z.object({
@@ -233,6 +250,7 @@ export const notificationPreferencesSchema = z.object({
   newMessage: notificationChannelPreferencesSchema.nullish(),
   newReservation: notificationChannelPreferencesSchema.nullish(),
   waitlistAvailable: notificationChannelPreferencesSchema.nullish(),
+  availabilityAlerts: notificationChannelPreferencesSchema.nullish(),
   guestSpendAlert: notificationChannelPreferencesSchema.nullish(),
   reservationUpdates: notificationChannelPreferencesSchema.nullish(),
   reviewReply: notificationChannelPreferencesSchema.nullish(),
@@ -274,6 +292,7 @@ export type RegisterRestaurantPartnerInput = z.infer<typeof registerRestaurantPa
 export type TableInput = z.infer<typeof tableInputSchema>;
 export type ShiftInput = z.infer<typeof shiftInputSchema>;
 export type ReservationInput = z.infer<typeof reservationInputSchema>;
+export type RestaurantPackageInput = z.infer<typeof restaurantPackageInputSchema>;
 export type OwnerReservationInput = z.infer<typeof ownerReservationInputSchema>;
 export type UpdateReservationInput = z.infer<typeof updateReservationInputSchema>;
 export type WaitlistInput = z.infer<typeof waitlistInputSchema>;

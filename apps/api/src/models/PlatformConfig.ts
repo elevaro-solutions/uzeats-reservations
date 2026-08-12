@@ -27,8 +27,8 @@ const planOverrideSchema = new Schema(
 const platformConfigSchema = new Schema(
   {
     key: { type: String, required: true, unique: true, default: 'default' },
-    supportEmail: { type: String, default: 'support@reservations.local' },
-    supportPhone: { type: String, default: '' },
+    supportEmail: { type: String, default: 'support@tablevera.online' },
+    supportPhone: { type: String, default: '+16507707788' },
     defaultSignupRole: {
       type: String,
       enum: ['diner', 'restaurant_owner', 'staff'],

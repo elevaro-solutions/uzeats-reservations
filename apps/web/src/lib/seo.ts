@@ -166,6 +166,23 @@ export function organizationJsonLd() {
     name: 'Tablevera',
     url: getSiteUrl(),
     logo: absoluteUrl('/brand/tablevera_icon_v2.svg'),
+    email: 'support@tablevera.online',
+    telephone: '+16507707788',
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: '20844 Waterbeach Place',
+      addressLocality: 'Sterling',
+      addressRegion: 'VA',
+      postalCode: '20165',
+      addressCountry: 'US',
+    },
+    contactPoint: {
+      '@type': 'ContactPoint',
+      contactType: 'customer support',
+      email: 'support@tablevera.online',
+      telephone: '+16507707788',
+      url: absoluteUrl('/contact'),
+    },
   };
 }
 
@@ -203,13 +220,11 @@ export function discoveryLandingMetadata(params: {
       description: params.description,
       url,
       siteName: 'Tablevera',
-      images: [{ url: '/brand/tablevera_icon_v2.svg', alt: 'Tablevera' }],
     },
     twitter: {
-      card: 'summary',
+      card: 'summary_large_image',
       title: params.title,
       description: params.description,
-      images: ['/brand/tablevera_icon_v2.svg'],
     },
   };
 }

@@ -573,6 +573,26 @@ html {
   color: rgba(255, 255, 255, 0.62);
 }
 
+.rt-site-footer__contact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.rt-site-footer__contact a {
+  color: rgba(255, 255, 255, 0.72);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.rt-site-footer__contact a:hover {
+  color: #fff;
+}
+
 .rt-site-footer__links {
   display: flex;
   flex-wrap: wrap;
@@ -2017,7 +2037,9 @@ a {
 }
 
 .contact-direct-email {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 600;
   font-size: 14px;
   color: var(--color-brand);
@@ -2025,6 +2047,21 @@ a {
 
 .contact-direct-email:hover {
   text-decoration: underline;
+}
+
+.contact-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.contact-details-address {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
 }
 
 .contact-message-preview {

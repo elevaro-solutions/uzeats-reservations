@@ -20,6 +20,9 @@ const reservationSchema = new Schema(
       default: 'none',
     },
     guestNotes: { type: String, default: '' },
+    packageId: { type: Schema.Types.ObjectId, ref: 'RestaurantPackage' },
+    packageTitle: { type: String },
+    packagePriceCents: { type: Number, default: 0 },
     depositAmountCents: { type: Number, default: 0 },
     stripePaymentIntentId: { type: String },
     depositStatus: {

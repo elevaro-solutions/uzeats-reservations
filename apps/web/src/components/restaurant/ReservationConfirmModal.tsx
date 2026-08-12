@@ -17,6 +17,8 @@ export type ReservationConfirmDetails = {
   tableName?: string;
   tableFloorArea?: string;
   depositCents: number;
+  packageTitle?: string;
+  packagePriceCents?: number;
   promoDiscountCents?: number;
   promoTitle?: string;
   giftCardDiscountCents?: number;
@@ -41,7 +43,7 @@ function formatUsd(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
-function formatOccasion(value: string) {
+export function formatOccasion(value: string) {
   return value === 'none' ? 'None' : value.charAt(0).toUpperCase() + value.slice(1);
 }
 
@@ -82,6 +84,16 @@ export function ReservationConfirmModal({
     },
     { key: 'occasion', label: 'Occasion', children: details.occasionLabel },
   ];
+
+  if (details.packageTitle) {
+    items.push({
+      key: 'package',
+      label: 'Package',
+      children: details.packagePriceCents
+        ? `${details.packageTitle} (+${formatUsd(details.packagePriceCents)})`
+        : details.packageTitle,
+    });
+  }
 
   if (details.guestName) {
     items.push({ key: 'guest', label: 'Name', children: details.guestName });

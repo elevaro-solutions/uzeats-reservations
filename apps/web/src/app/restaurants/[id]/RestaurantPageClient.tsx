@@ -26,6 +26,8 @@ import { StarFilled } from '@ant-design/icons';
 import { SlotPicker, priceRangeLabel, colors, radii, pickRestaurantPhoto } from '@reservations/ui';
 import {
   OCCASIONS,
+  BOOKABLE_OCCASIONS,
+  OCCASION_LABELS,
   LOYALTY,
   RESTAURANT_LOYALTY,
   pointsToDiscountCents,
@@ -53,6 +55,7 @@ import {
   RESTAURANT_REVIEWS,
   PROMOTIONS,
   EXPERIENCES,
+  RESTAURANT_PACKAGES,
   MY_RESTAURANT_LOYALTY_BALANCE,
   VALIDATE_PROMOTION,
   BEST_PROMOTION,
@@ -106,6 +109,7 @@ export default function RestaurantPageClient() {
     floorArea?: string;
   } | null>(null);
   const [occasion, setOccasion] = useState('none');
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [redeemPoints, setRedeemPoints] = useState<number>(0);
   const [redeemRestaurantPoints, setRedeemRestaurantPoints] = useState<number>(0);
@@ -196,6 +200,10 @@ export default function RestaurantPageClient() {
     variables: { restaurantId: restaurantId!, upcoming: true, limit: 50, offset: 0 },
     skip: !restaurantId,
   });
+  const { data: packagesData } = useQuery(RESTAURANT_PACKAGES, {
+    variables: { restaurantId: restaurantId!, activeOnly: true },
+    skip: !restaurantId,
+  });
   const { data: restaurantLoyaltyData } = useQuery(MY_RESTAURANT_LOYALTY_BALANCE, {
     variables: { restaurantId: restaurantId! },
     skip: !user || !restaurantId,
@@ -209,10 +217,55 @@ export default function RestaurantPageClient() {
   const [joinWaitlist, { loading: waitlisting }] = useMutation(JOIN_WAITLIST);
 
   const slots = (availData as any)?.availability ?? [];
-  const grossDepositCents =
+  const allPackages = (packagesData as { restaurantPackages?: Array<{
+    id: string;
+    title: string;
+    description: string;
+    priceCents: number;
+    pricePerGuest: boolean;
+    includes: string[];
+    photoUrl?: string | null;
+    occasions: string[];
+    minPartySize?: number | null;
+    maxPartySize?: number | null;
+  }> } | undefined)?.restaurantPackages ?? [];
+
+  const matchingPackages = useMemo(() => {
+    return allPackages.filter((pkg) => {
+      if (pkg.minPartySize != null && partySize < pkg.minPartySize) return false;
+      if (pkg.maxPartySize != null && partySize > pkg.maxPartySize) return false;
+      if (!pkg.occasions?.length) return true;
+      if (occasion === 'none') return false;
+      return pkg.occasions.includes(occasion);
+    });
+  }, [allPackages, occasion, partySize]);
+
+  const selectedPackage = matchingPackages.find((p) => p.id === selectedPackageId) ?? null;
+  const packagePriceCents = selectedPackage
+    ? selectedPackage.pricePerGuest
+      ? selectedPackage.priceCents * partySize
+      : selectedPackage.priceCents
+    : 0;
+
+  useEffect(() => {
+    if (selectedPackageId && !matchingPackages.some((p) => p.id === selectedPackageId)) {
+      setSelectedPackageId(null);
+    }
+  }, [matchingPackages, selectedPackageId]);
+
+  useEffect(() => {
+    const occasionParam = search.get('occasion');
+    if (!occasionParam) return;
+    if (OCCASIONS.includes(occasionParam as (typeof OCCASIONS)[number])) {
+      setOccasion(occasionParam);
+    }
+  }, [search]);
+
+  const tableDepositCents =
     restaurant?.depositRequired && restaurant.depositAmountCents > 0
       ? restaurant.depositAmountCents * partySize
       : 0;
+  const grossDepositCents = tableDepositCents + packagePriceCents;
   const redeemProgress = loyaltyRedeemProgress(user?.loyaltyPoints ?? 0);
   const restaurantLoyaltyBalance = (restaurantLoyaltyData as any)?.myRestaurantLoyaltyBalance ?? 0;
   const restaurantMinRedeem =
@@ -403,6 +456,7 @@ export default function RestaurantPageClient() {
             ...(promoCode.trim() ? { promoCode: promoCode.trim().toUpperCase() } : {}),
             ...(giftCardCode.trim() ? { giftCardCode: giftCardCode.trim().toUpperCase() } : {}),
             ...(selectedTableId ? { tableId: selectedTableId } : {}),
+            ...(selectedPackageId ? { packageId: selectedPackageId } : {}),
           },
         },
       });
@@ -819,18 +873,91 @@ export default function RestaurantPageClient() {
                 validateStatus={fieldErrors.occasion ? 'error' : undefined}
                 help={fieldErrors.occasion}
               >
-                <Select
-                  value={occasion}
-                  onChange={(v) => {
-                    setOccasion(v);
-                    clearFieldError('occasion');
-                  }}
-                  options={OCCASIONS.map((o) => ({
-                    value: o,
-                    label: o === 'none' ? 'None' : o.charAt(0).toUpperCase() + o.slice(1),
-                  }))}
-                />
+                <Space size={[8, 8]} wrap>
+                  <Tag.CheckableTag
+                    checked={occasion === 'none'}
+                    onChange={() => {
+                      setOccasion('none');
+                      clearFieldError('occasion');
+                    }}
+                  >
+                    None
+                  </Tag.CheckableTag>
+                  {BOOKABLE_OCCASIONS.map((o) => (
+                    <Tag.CheckableTag
+                      key={o}
+                      checked={occasion === o}
+                      onChange={(checked) => {
+                        setOccasion(checked ? o : 'none');
+                        clearFieldError('occasion');
+                      }}
+                    >
+                      {OCCASION_LABELS[o]}
+                    </Tag.CheckableTag>
+                  ))}
+                </Space>
               </Form.Item>
+
+              {matchingPackages.length > 0 && (
+                <Form.Item label="Add a package">
+                  <Space orientation="vertical" size={8} style={{ width: '100%' }}>
+                    <Tag.CheckableTag
+                      checked={!selectedPackageId}
+                      onChange={(checked) => {
+                        if (checked) setSelectedPackageId(null);
+                      }}
+                    >
+                      No package
+                    </Tag.CheckableTag>
+                    {matchingPackages.map((pkg) => {
+                      const price = pkg.pricePerGuest
+                        ? pkg.priceCents * partySize
+                        : pkg.priceCents;
+                      const selected = selectedPackageId === pkg.id;
+                      return (
+                        <Card
+                          key={pkg.id}
+                          size="small"
+                          hoverable
+                          onClick={() => setSelectedPackageId(selected ? null : pkg.id)}
+                          style={{
+                            borderColor: selected ? colors.brand[500] : undefined,
+                            background: selected ? colors.brand[50] : undefined,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <Space orientation="vertical" size={4} style={{ width: '100%' }}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                gap: 8,
+                              }}
+                            >
+                              <Text strong>{pkg.title}</Text>
+                              <Text strong style={{ color: colors.brand[700] }}>
+                                +${(price / 100).toFixed(2)}
+                                {pkg.pricePerGuest ? ' total' : ''}
+                              </Text>
+                            </div>
+                            {pkg.description && (
+                              <Text type="secondary" style={{ fontSize: 13 }}>
+                                {pkg.description}
+                              </Text>
+                            )}
+                            {pkg.includes?.length > 0 && (
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                Includes: {pkg.includes.join(' · ')}
+                              </Text>
+                            )}
+                          </Space>
+                        </Card>
+                      );
+                    })}
+                  </Space>
+                </Form.Item>
+              )}
+
               <Form.Item
                 label="Special requests"
                 validateStatus={fieldErrors.guestNotes ? 'error' : undefined}
@@ -1125,6 +1252,8 @@ export default function RestaurantPageClient() {
           tableName: selectedTable?.name,
           tableFloorArea: selectedTable?.floorArea,
           depositCents: finalDepositCents,
+          packageTitle: selectedPackage?.title,
+          packagePriceCents: packagePriceCents || undefined,
           promoDiscountCents: activePromo?.valid ? activePromo.discountCents : undefined,
           promoTitle: activePromo?.valid ? activePromo.promotion?.title : undefined,
           giftCardDiscountCents: giftValidation?.valid ? giftValidation.discountCents : undefined,

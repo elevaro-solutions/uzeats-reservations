@@ -76,7 +76,8 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Google Places address autocomplete and device near-me (falls back to curated US cities)
 - Concurrent-safe booking via atomic table slot claims (no replica set required)
 - Deposits via Stripe PaymentIntents (manual capture; stubbed without keys)
-- Waitlist + auto-notify on cancellation
+- **Restaurant packages** — occasion/party-sized add-ons partners manage in the dashboard and diners select at booking
+- Waitlist + auto-notify on cancellation; **favorite availability alerts** when a near-term table opens
 - Platform + per-restaurant loyalty (tiers, referrals, expiry) with gift cards and promotion codes
 - Reviews after completed visits (post-visit prompt to review and save the restaurant)
 - Menus + DO Spaces presigned uploads (stubbed without keys; image types only)

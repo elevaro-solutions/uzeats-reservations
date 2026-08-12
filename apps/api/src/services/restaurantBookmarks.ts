@@ -22,6 +22,24 @@ export async function listBookmarkedRestaurants(userId: string, kind: Restaurant
   return ids.map((id) => byId.get(id.toString())).filter(Boolean);
 }
 
+/** Users who bookmarked a restaurant (oldest first) — used for cancellation alerts. */
+export async function listBookmarkUserIds(
+  restaurantId: string,
+  kind: RestaurantBookmarkKind,
+  options?: { excludeUserId?: string; limit?: number },
+): Promise<string[]> {
+  const limit = Math.max(1, Math.min(options?.limit ?? 5, 20));
+  const filter: Record<string, unknown> = { restaurantId, kind };
+  if (options?.excludeUserId) {
+    filter.userId = { $ne: options.excludeUserId };
+  }
+  const bookmarks = await RestaurantBookmark.find(filter)
+    .sort({ createdAt: 1 })
+    .limit(limit)
+    .select('userId');
+  return bookmarks.map((b) => b.userId.toString());
+}
+
 export async function setRestaurantBookmark(
   userId: string,
   restaurantId: string,

@@ -19,6 +19,7 @@ const USER_FIELDS = `
   telegramChatId
   notificationPreferences {
     reservationUpdates { email webPush platform }
+    availabilityAlerts { email webPush platform }
   }
 `;
 
@@ -68,6 +69,7 @@ export type AuthUser = {
   telegramChatId?: string | null;
   notificationPreferences?: {
     reservationUpdates?: { email?: boolean; webPush?: boolean; platform?: boolean };
+    availabilityAlerts?: { email?: boolean; webPush?: boolean; platform?: boolean };
   };
 };
 
@@ -115,7 +117,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               id email phone firstName lastName role loyaltyPoints
               loyaltyCompletedVisits loyaltyTier loyaltyTierName
               loyaltyPointsExpireAt referralCode telegramChatId
-              notificationPreferences { reservationUpdates { email webPush platform } }
+              notificationPreferences {
+                reservationUpdates { email webPush platform }
+                availabilityAlerts { email webPush platform }
+              }
             }
           }`,
         }),

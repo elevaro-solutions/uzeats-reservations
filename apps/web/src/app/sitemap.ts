@@ -1,13 +1,9 @@
 import type { MetadataRoute } from 'next';
 import {
-  CUISINES,
-  DISCOVERY_OCCASIONS,
-  cuisineSlug,
-  discoverySlug,
-} from '@reservations/shared';
-import {
   listCityLandingParams,
+  listCuisineLandingParams,
   listNeighborhoodLandingParams,
+  listOccasionLandingParams,
 } from '@/lib/discoveryIndex';
 import { fetchRestaurantSitemapEntries } from '@/lib/restaurantSeoFetch';
 import { getSiteUrl } from '@/lib/seo';
@@ -29,25 +25,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/cookies`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
   ];
 
-  const cuisinePages = CUISINES.filter((c) => c !== 'Other').map((cuisine) => ({
-    url: `${base}/cuisine/${cuisineSlug(cuisine)}`,
+  const [cityParams, neighborhoodParams, cuisineParams, occasionParams, restaurantEntries] =
+    await Promise.all([
+      listCityLandingParams(),
+      listNeighborhoodLandingParams(),
+      listCuisineLandingParams(),
+      listOccasionLandingParams(),
+      fetchRestaurantSitemapEntries(),
+    ]);
+
+  const cuisinePages = cuisineParams.map(({ slug }) => ({
+    url: `${base}/cuisine/${slug}`,
     lastModified: now,
     changeFrequency: 'weekly' as const,
     priority: 0.8,
   }));
 
-  const occasionPages = DISCOVERY_OCCASIONS.map((occasion) => ({
-    url: `${base}/occasion/${discoverySlug(occasion)}`,
+  const occasionPages = occasionParams.map(({ slug }) => ({
+    url: `${base}/occasion/${slug}`,
     lastModified: now,
     changeFrequency: 'weekly' as const,
     priority: 0.7,
   }));
-
-  const [cityParams, neighborhoodParams, restaurantEntries] = await Promise.all([
-    listCityLandingParams(),
-    listNeighborhoodLandingParams(),
-    fetchRestaurantSitemapEntries(),
-  ]);
 
   const cityPages = cityParams.map(({ slug }) => ({
     url: `${base}/cities/${slug}`,

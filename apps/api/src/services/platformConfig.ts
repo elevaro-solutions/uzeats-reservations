@@ -52,8 +52,8 @@ const BUILTIN_KEYS = Object.keys(PLANS) as PlanKey[];
 export const BUILTIN_PLAN_KEYS = new Set<string>(BUILTIN_KEYS);
 
 const DEFAULTS = {
-  supportEmail: 'support@reservations.local',
-  supportPhone: '',
+  supportEmail: 'support@tablevera.online',
+  supportPhone: '+16507707788',
   defaultSignupRole: 'diner' as UserRole,
   defaultPartnerRole: 'restaurant_owner' as UserRole,
   defaultStaffRole: 'staff' as UserRole,

@@ -154,7 +154,7 @@ export default function SavedRestaurantsPage() {
     <div style={{ maxWidth: 800 }}>
       <PageHeader
         title="Saved restaurants"
-        subtitle="Your bookmarked spots and favorites"
+        subtitle="Bookmarked spots and favorites — heart a place to get alerts when a table opens up"
       />
 
       <Tabs
@@ -184,7 +184,13 @@ export default function SavedRestaurantsPage() {
             children: favoriteLoading ? (
               <Card loading style={{ minHeight: 120 }} />
             ) : (
-              <RestaurantList items={favorites} emptyTitle="No favorite restaurants" />
+              <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+                <Text type="secondary" style={{ display: 'block' }}>
+                  Favorites get table-open alerts when someone cancels within 48 hours.{' '}
+                  <Link href="/profile#notifications">Manage alerts</Link>
+                </Text>
+                <RestaurantList items={favorites} emptyTitle="No favorite restaurants" />
+              </Space>
             ),
           },
         ]}

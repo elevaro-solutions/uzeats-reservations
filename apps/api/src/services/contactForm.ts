@@ -15,11 +15,7 @@ import {
   escapeHtml,
 } from './emailBranding.js';
 
-const CONTACT_EMAILS = {
-  general: 'hello@tablevera.online',
-  privacy: 'privacy@tablevera.online',
-  legal: 'legal@tablevera.online',
-} as const;
+const SUPPORT_EMAIL = 'support@tablevera.online';
 
 const TOPIC_LABELS: Record<(typeof CONTACT_FORM_TOPICS)[number], string> = {
   general: 'General inquiry',
@@ -29,10 +25,8 @@ const TOPIC_LABELS: Record<(typeof CONTACT_FORM_TOPICS)[number], string> = {
   legal: 'Legal & terms',
 };
 
-function getTopicEmail(topic: ContactFormInput['topic']) {
-  if (topic === 'privacy') return CONTACT_EMAILS.privacy;
-  if (topic === 'legal') return CONTACT_EMAILS.legal;
-  return CONTACT_EMAILS.general;
+function getTopicEmail() {
+  return SUPPORT_EMAIL;
 }
 
 function getTopicLabel(topic: ContactFormInput['topic']) {
@@ -41,7 +35,7 @@ function getTopicLabel(topic: ContactFormInput['topic']) {
 
 async function sendContactNotificationEmail(input: ContactFormInput) {
   const topicLabel = getTopicLabel(input.topic);
-  const recipient = getTopicEmail(input.topic);
+  const recipient = getTopicEmail();
   const subject = `[Tablevera] ${topicLabel}`;
   const body = [
     `New contact form submission`,

@@ -1,13 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Typography } from 'antd';
-import { CUISINES, cuisineSlug } from '@reservations/shared';
 import { JsonLd } from '@/components/JsonLd';
+import { listCuisinesForIndex } from '@/lib/discoveryIndex';
 import { breadcrumbJsonLd, discoveryLandingMetadata, itemListJsonLd } from '@/lib/seo';
 
-const { Title, Paragraph } = Typography;
-
-const cuisineList = CUISINES.filter((c) => c !== 'Other' && c !== 'Uzbek');
+const { Title, Paragraph, Text } = Typography;
 
 const PAGE_DESCRIPTION =
   'Explore restaurants by cuisine on Tablevera — Italian, Japanese, Mexican, Mediterranean, and more with live reservations.';
@@ -18,14 +16,15 @@ export const metadata: Metadata = discoveryLandingMetadata({
   canonicalPath: '/cuisine',
 });
 
-export default function CuisineIndexPage() {
+export default async function CuisineIndexPage() {
+  const cuisineList = await listCuisinesForIndex();
   const breadcrumbs = [
     { name: 'Home', href: '/' },
     { name: 'Cuisines' },
   ];
   const items = cuisineList.map((cuisine) => ({
-    name: cuisine,
-    url: `/cuisine/${cuisineSlug(cuisine)}`,
+    name: cuisine.label,
+    url: `/cuisine/${cuisine.slug}`,
   }));
 
   return (
@@ -58,9 +57,14 @@ export default function CuisineIndexPage() {
         }}
       >
         {cuisineList.map((cuisine) => (
-          <li key={cuisine}>
-            <Link href={`/cuisine/${cuisineSlug(cuisine)}`} style={{ fontSize: 16 }}>
-              {cuisine}
+          <li key={cuisine.slug}>
+            <Link href={`/cuisine/${cuisine.slug}`} style={{ fontSize: 16 }}>
+              {cuisine.label}
+              {typeof cuisine.count === 'number' ? (
+                <Text type="secondary" style={{ marginLeft: 8, fontSize: 14 }}>
+                  ({cuisine.count})
+                </Text>
+              ) : null}
             </Link>
           </li>
         ))}

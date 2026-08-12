@@ -39,7 +39,12 @@ import { BoostCampaign } from '../models/Marketing.js';
 import { claimTableSlots, releaseTableSlotClaims } from './tableSlotClaims.js';
 import { getBookableTables } from './floorPlanOps.js';
 import { partySizeMatches, timeWindowMatches } from './waitlistEta.js';
+import { listBookmarkUserIds } from './restaurantBookmarks.js';
+import { RestaurantPackage } from '../models/RestaurantPackage.js';
 
+/** Only alert favorites when the freed slot is soon (same urgency as walk-in demand). */
+const AVAILABILITY_ALERT_MAX_HOURS = 48;
+const AVAILABILITY_ALERT_USER_CAP = 5;
 async function findOrCreateDiner(guest: {
   firstName: string;
   lastName?: string;
@@ -124,6 +129,7 @@ export async function createReservation(input: {
   giftCardCode?: string;
   source?: string;
   tableId?: string;
+  packageId?: string;
 }) {
   const restaurant = await Restaurant.findById(input.restaurantId);
   if (!restaurant || restaurant.status !== 'approved') {
@@ -145,6 +151,36 @@ export async function createReservation(input: {
   });
   if (accessViolation) throw new ValidationError(accessViolation);
 
+  let packageTitle: string | undefined;
+  let packagePriceCents = 0;
+  let packageId: string | undefined;
+  if (input.packageId) {
+    const pkg = await RestaurantPackage.findById(input.packageId);
+    if (!pkg || pkg.restaurantId.toString() !== input.restaurantId || !pkg.active) {
+      throw new ValidationError('Package is not available');
+    }
+    const occasion = input.occasion ?? 'none';
+    const packageOccasions = (pkg.occasions ?? []) as string[];
+    if (
+      packageOccasions.length &&
+      occasion !== 'none' &&
+      !packageOccasions.includes(occasion)
+    ) {
+      throw new ValidationError('This package is not available for the selected occasion');
+    }
+    if (pkg.minPartySize != null && input.partySize < pkg.minPartySize) {
+      throw new ValidationError(`This package requires at least ${pkg.minPartySize} guests`);
+    }
+    if (pkg.maxPartySize != null && input.partySize > pkg.maxPartySize) {
+      throw new ValidationError(`This package allows at most ${pkg.maxPartySize} guests`);
+    }
+    packageId = pkg._id.toString();
+    packageTitle = pkg.title;
+    packagePriceCents = pkg.pricePerGuest
+      ? pkg.priceCents * input.partySize
+      : pkg.priceCents;
+  }
+
   const turn = await getTurnTimeMinutes(input.restaurantId, input.slotStart);
   const slotEnd = new Date(input.slotStart.getTime() + turn * 60_000);
 
@@ -161,10 +197,11 @@ export async function createReservation(input: {
 
   const priorReservations = await Reservation.countDocuments({ dinerId: input.dinerId });
 
-  const grossDepositCents =
+  const tableDepositCents =
     restaurant.depositRequired && restaurant.depositAmountCents > 0
       ? restaurant.depositAmountCents * input.partySize
       : 0;
+  const grossDepositCents = tableDepositCents + packagePriceCents;
 
   let pointsToRedeem = 0;
   let restaurantPointsToRedeem = 0;
@@ -266,6 +303,9 @@ export async function createReservation(input: {
     occasion: input.occasion ?? 'none',
     guestNotes: input.guestNotes ?? '',
     source: input.source ?? 'network',
+    packageId,
+    packageTitle,
+    packagePriceCents,
     depositAmountCents,
     stripePaymentIntentId,
     depositStatus,
@@ -501,6 +541,7 @@ export async function updateReservationStatus(
 
   if (status === 'cancelled' || status === 'no_show') {
     await notifyWaitlistOnCancellation(reservation);
+    await notifyFavoriteDinersOnCancellation(reservation);
   }
 
   if (status === 'completed') {
@@ -578,6 +619,50 @@ async function notifyWaitlistOnCancellation(reservation: {
       },
     },
     { smsRestaurantId: reservation.restaurantId.toString() },
+  );
+}
+
+/**
+ * Ping diners who favorited the restaurant when a near-term table frees up.
+ * Complements waitlist (explicit intent) with favorites (high interest, no date prefs).
+ */
+async function notifyFavoriteDinersOnCancellation(reservation: {
+  restaurantId: mongoose.Types.ObjectId;
+  dinerId: mongoose.Types.ObjectId;
+  partySize: number;
+  slotStart: Date;
+}) {
+  const hoursUntil = (reservation.slotStart.getTime() - Date.now()) / 3_600_000;
+  if (hoursUntil < 0 || hoursUntil > AVAILABILITY_ALERT_MAX_HOURS) return;
+
+  const userIds = await listBookmarkUserIds(reservation.restaurantId.toString(), 'favorite', {
+    excludeUserId: reservation.dinerId.toString(),
+    limit: AVAILABILITY_ALERT_USER_CAP,
+  });
+  if (userIds.length === 0) return;
+
+  const restaurant = await Restaurant.findById(reservation.restaurantId).select('name slug');
+  const restaurantName = restaurant?.name ?? 'a restaurant you favorited';
+  const date = reservation.slotStart.toISOString().slice(0, 10);
+  const timeLabel = reservation.slotStart.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+  await Promise.all(
+    userIds.map((userId) =>
+      notifyUser(userId, {
+        type: 'saved_restaurant_available',
+        title: 'A table opened up!',
+        body: `${restaurantName} has an opening on ${date} at ${timeLabel} (${reservation.partySize} guests). Book before it's gone.`,
+        data: {
+          restaurantId: reservation.restaurantId.toString(),
+          slug: restaurant?.slug ?? null,
+          slot: reservation.slotStart.toISOString(),
+          partySize: reservation.partySize,
+        },
+      }),
+    ),
   );
 }
 

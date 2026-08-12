@@ -11,6 +11,7 @@ export { LoyaltyTransaction, Notification } from './Loyalty.js';
 export { AuditLog } from './AuditLog.js';
 export { Experience } from './Experience.js';
 export { Ticket } from './Ticket.js';
+export { RestaurantPackage } from './RestaurantPackage.js';
 export { PrivateDiningSpace, PrivateDiningInquiry } from './PrivateDining.js';
 export { Subscription } from './Subscription.js';
 export { CoverFee } from './CoverFee.js';

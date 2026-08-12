@@ -1,27 +1,25 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import {
-  CUISINES,
-  cuisineLandingMeta,
-  cuisineSlug,
-  slugToCuisine,
-} from '@reservations/shared';
+import { cuisineLandingMeta } from '@reservations/shared';
 import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
 import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
+import {
+  listCuisineLandingParams,
+  listCuisinesForIndex,
+  resolveCuisineBySlug,
+} from '@/lib/discoveryIndex';
 import { discoveryLandingMetadata } from '@/lib/seo';
 import type { BreadcrumbItem } from '@/lib/seo';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
 export async function generateStaticParams() {
-  return CUISINES.filter((c) => c !== 'Other').map((cuisine) => ({
-    slug: cuisineSlug(cuisine),
-  }));
+  return listCuisineLandingParams();
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const cuisine = slugToCuisine(slug, CUISINES);
+  const cuisine = await resolveCuisineBySlug(slug);
   if (!cuisine) return {};
   const meta = cuisineLandingMeta(cuisine);
   return discoveryLandingMetadata({
@@ -33,7 +31,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function CuisineLandingPage({ params }: PageProps) {
   const { slug } = await params;
-  const cuisine = slugToCuisine(slug, CUISINES);
+  const cuisine = await resolveCuisineBySlug(slug);
   if (!cuisine) notFound();
 
   const meta = cuisineLandingMeta(cuisine);
@@ -44,6 +42,11 @@ export default async function CuisineLandingPage({ params }: PageProps) {
     { name: cuisine },
   ];
 
+  const related = (await listCuisinesForIndex())
+    .filter((c) => c.slug !== slug)
+    .slice(0, 8)
+    .map((c) => ({ href: `/cuisine/${c.slug}`, label: c.label }));
+
   return (
     <>
       <DiscoveryLandingSchema breadcrumbs={breadcrumbs} faq={meta.faq} />
@@ -52,9 +55,7 @@ export default async function CuisineLandingPage({ params }: PageProps) {
         canonicalPath={canonicalPath}
         preset={{ cuisine }}
         breadcrumbs={breadcrumbs}
-        relatedLinks={CUISINES.filter((c) => c !== cuisine && c !== 'Other')
-          .slice(0, 8)
-          .map((c) => ({ href: `/cuisine/${cuisineSlug(c)}`, label: c }))}
+        relatedLinks={related}
       />
     </>
   );

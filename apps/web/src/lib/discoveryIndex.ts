@@ -1,5 +1,15 @@
 import { cache } from 'react';
-import { citySlug, neighborhoodSlug } from '@reservations/shared';
+import {
+  CUISINES,
+  DISCOVERY_OCCASIONS,
+  citySlug,
+  cuisineSlug,
+  discoverySlug,
+  neighborhoodSlug,
+  slugToCuisine,
+  slugToOccasion,
+  type DiscoveryOccasion,
+} from '@reservations/shared';
 import {
   DEFAULT_LOCATION,
   POPULAR_CITIES,
@@ -128,6 +138,27 @@ export async function resolveNeighborhoodBySlug(slug: string): Promise<Neighborh
   };
 }
 
+export async function resolveCuisineBySlug(slug: string): Promise<string | null> {
+  const known = slugToCuisine(slug, CUISINES);
+  if (known && known !== 'Other') return known;
+
+  const index = await fetchDiscoveryIndex();
+  const entry = index.cuisines.find((c) => c.slug === slug);
+  return entry?.label ?? null;
+}
+
+export async function resolveOccasionBySlug(slug: string): Promise<DiscoveryOccasion | null> {
+  const known = slugToOccasion(slug);
+  if (known) return known;
+
+  const index = await fetchDiscoveryIndex();
+  const entry = index.occasions.find((o) => o.slug === slug);
+  if (!entry?.label) return null;
+  return (DISCOVERY_OCCASIONS as readonly string[]).includes(entry.label)
+    ? (entry.label as DiscoveryOccasion)
+    : null;
+}
+
 export async function listCityLandingParams(): Promise<Array<{ slug: string }>> {
   const index = await fetchDiscoveryIndex();
   const slugs = new Set<string>([
@@ -144,6 +175,27 @@ export async function listNeighborhoodLandingParams(): Promise<Array<{ slug: str
     ...index.neighborhoods.map((n) => n.slug),
   ]);
   return [...slugs].map((slug) => ({ slug }));
+}
+
+/** Prefer live inventory; fall back to curated list when the API is empty at build time. */
+export async function listCuisineLandingParams(): Promise<Array<{ slug: string }>> {
+  const index = await fetchDiscoveryIndex();
+  if (index.cuisines.length > 0) {
+    return index.cuisines
+      .filter((c) => c.label && c.label !== 'Other')
+      .map((c) => ({ slug: c.slug }));
+  }
+  return CUISINES.filter((c) => c !== 'Other').map((cuisine) => ({
+    slug: cuisineSlug(cuisine),
+  }));
+}
+
+export async function listOccasionLandingParams(): Promise<Array<{ slug: string }>> {
+  const index = await fetchDiscoveryIndex();
+  if (index.occasions.length > 0) {
+    return index.occasions.map((o) => ({ slug: o.slug }));
+  }
+  return DISCOVERY_OCCASIONS.map((occasion) => ({ slug: discoverySlug(occasion) }));
 }
 
 export async function listCitiesForIndex(): Promise<
@@ -189,4 +241,37 @@ export async function listNeighborhoodsForIndex(): Promise<
   }
 
   return [...bySlug.values()].sort((a, b) => a.label.localeCompare(b.label));
+}
+
+export async function listCuisinesForIndex(): Promise<
+  Array<{ slug: string; label: string; count?: number }>
+> {
+  const index = await fetchDiscoveryIndex();
+  if (index.cuisines.length > 0) {
+    return index.cuisines
+      .filter((c) => c.label !== 'Other')
+      .map((c) => ({ slug: c.slug, label: c.label, count: c.count }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  return CUISINES.filter((c) => c !== 'Other' && c !== 'Uzbek').map((cuisine) => ({
+    slug: cuisineSlug(cuisine),
+    label: cuisine,
+  }));
+}
+
+export async function listOccasionsForIndex(): Promise<
+  Array<{ slug: string; label: string; count?: number }>
+> {
+  const index = await fetchDiscoveryIndex();
+  if (index.occasions.length > 0) {
+    return index.occasions
+      .map((o) => ({ slug: o.slug, label: o.label, count: o.count }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  return DISCOVERY_OCCASIONS.map((occasion) => ({
+    slug: discoverySlug(occasion),
+    label: occasion,
+  }));
 }

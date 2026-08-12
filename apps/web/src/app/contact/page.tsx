@@ -23,9 +23,11 @@ import {
   ArrowRightOutlined,
   ClockCircleOutlined,
   CustomerServiceOutlined,
+  EnvironmentOutlined,
   LockOutlined,
   MailOutlined,
   MessageOutlined,
+  PhoneOutlined,
   QuestionCircleOutlined,
   SafetyCertificateOutlined,
   SendOutlined,
@@ -34,22 +36,22 @@ import {
 } from '@ant-design/icons';
 import { colors, radii, shadows, typography } from '@reservations/ui';
 import { SUBMIT_CONTACT_FORM } from '@/lib/graphql';
+import {
+  COMPANY_ADDRESS_DISPLAY,
+  COMPANY_PHONE,
+  COMPANY_PHONE_DISPLAY,
+  SUPPORT_EMAIL,
+} from '@/lib/legal';
 
 const { Title, Paragraph, Text } = Typography;
 const { TextArea } = Input;
 
-const CONTACT_EMAILS = {
-  general: 'hello@tablevera.online',
-  privacy: 'privacy@tablevera.online',
-  legal: 'legal@tablevera.online',
-} as const;
-
 const TOPIC_OPTIONS = [
-  { value: 'general', label: 'General inquiry', email: CONTACT_EMAILS.general },
-  { value: 'restaurant', label: 'Restaurant partnership', email: CONTACT_EMAILS.general },
-  { value: 'support', label: 'Account & booking support', email: CONTACT_EMAILS.general },
-  { value: 'privacy', label: 'Privacy & data requests', email: CONTACT_EMAILS.privacy },
-  { value: 'legal', label: 'Legal & terms', email: CONTACT_EMAILS.legal },
+  { value: 'general', label: 'General inquiry', email: SUPPORT_EMAIL },
+  { value: 'restaurant', label: 'Restaurant partnership', email: SUPPORT_EMAIL },
+  { value: 'support', label: 'Account & booking support', email: SUPPORT_EMAIL },
+  { value: 'privacy', label: 'Privacy & data requests', email: SUPPORT_EMAIL },
+  { value: 'legal', label: 'Legal & terms', email: SUPPORT_EMAIL },
 ] as const;
 
 const CONTACT_CHANNELS = [
@@ -57,27 +59,27 @@ const CONTACT_CHANNELS = [
     icon: <MailOutlined />,
     title: 'General inquiries',
     description: 'Reservations, accounts, and platform questions.',
-    email: CONTACT_EMAILS.general,
+    email: SUPPORT_EMAIL,
   },
   {
     icon: <ShopOutlined />,
     title: 'Restaurant partners',
     description: 'List your restaurant or explore our plans.',
-    email: CONTACT_EMAILS.general,
+    email: SUPPORT_EMAIL,
     link: { href: '/pricing', label: 'View pricing' },
   },
   {
     icon: <SafetyCertificateOutlined />,
     title: 'Privacy requests',
     description: 'Data access, correction, deletion, and rights.',
-    email: CONTACT_EMAILS.privacy,
+    email: SUPPORT_EMAIL,
     link: { href: '/privacy', label: 'Privacy policy' },
   },
   {
     icon: <QuestionCircleOutlined />,
     title: 'Legal',
     description: 'Terms of service and legal matters.',
-    email: CONTACT_EMAILS.legal,
+    email: SUPPORT_EMAIL,
     link: { href: '/terms', label: 'Terms of service' },
   },
 ] as const;
@@ -115,8 +117,8 @@ const FAQ_ITEMS = [
     children: (
       <>
         Email{' '}
-        <a href={`mailto:${CONTACT_EMAILS.privacy}`} style={{ color: colors.brand[600] }}>
-          {CONTACT_EMAILS.privacy}
+        <a href={`mailto:${SUPPORT_EMAIL}`} style={{ color: colors.brand[600] }}>
+          {SUPPORT_EMAIL}
         </a>{' '}
         or use the form with the &quot;Privacy & data requests&quot; topic. See our{' '}
         <Link href="/privacy" style={{ color: colors.brand[600] }}>
@@ -423,14 +425,19 @@ function ContactContent() {
               <div className="contact-info-card">
                 <CustomerServiceOutlined style={{ fontSize: 20, color: colors.brand[600], marginBottom: 12 }} />
                 <Title level={5} style={{ margin: '0 0 8px' }}>
-                  Prefer email directly?
+                  Contact details
                 </Title>
-                <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: typography.fontSize.sm }}>
-                  Reach us at any of the addresses shown above, or start with:
-                </Text>
-                <a href={`mailto:${CONTACT_EMAILS.general}`} className="contact-direct-email">
-                  {CONTACT_EMAILS.general}
-                </a>
+                <div className="contact-details-list">
+                  <a href={`mailto:${SUPPORT_EMAIL}`} className="contact-direct-email">
+                    <MailOutlined /> {SUPPORT_EMAIL}
+                  </a>
+                  <a href={`tel:${COMPANY_PHONE}`} className="contact-direct-email">
+                    <PhoneOutlined /> {COMPANY_PHONE_DISPLAY}
+                  </a>
+                  <span className="contact-details-address">
+                    <EnvironmentOutlined /> {COMPANY_ADDRESS_DISPLAY}
+                  </span>
+                </div>
               </div>
 
               <Alert

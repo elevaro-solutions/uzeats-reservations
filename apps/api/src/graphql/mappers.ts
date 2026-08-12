@@ -151,6 +151,9 @@ export function mapReservation(r: any, clientSecret?: string | null) {
     source: r.source ?? 'network',
     totalSpendCents: r.totalSpendCents ?? 0,
     seatedAt: r.seatedAt ?? null,
+    packageId: r.packageId?.toString() ?? null,
+    packageTitle: r.packageTitle ?? null,
+    packagePriceCents: r.packagePriceCents ?? 0,
     createdAt: r.createdAt,
   };
 }
@@ -333,6 +336,24 @@ export function mapExperience(e: any) {
     includes: e.includes ?? [],
     tags: e.tags ?? [],
     createdAt: e.createdAt,
+  };
+}
+
+export function mapRestaurantPackage(p: any) {
+  return {
+    id: p._id.toString(),
+    restaurantId: p.restaurantId.toString(),
+    title: p.title,
+    description: p.description ?? '',
+    priceCents: p.priceCents ?? 0,
+    pricePerGuest: !!p.pricePerGuest,
+    includes: p.includes ?? [],
+    photoUrl: p.photoUrl ?? null,
+    occasions: p.occasions ?? [],
+    minPartySize: p.minPartySize ?? null,
+    maxPartySize: p.maxPartySize ?? null,
+    active: p.active !== false,
+    createdAt: p.createdAt,
   };
 }
 

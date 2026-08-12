@@ -4,6 +4,20 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.23.0] — 2026-08-12
+
+### Added
+
+- Restaurant packages (partner CRUD at `/packages`) that diners can add at booking; package price rolls into deposit
+- Availability alerts for favorited restaurants when a near-term table frees up (`availabilityAlerts` preference)
+- Default Open Graph / Twitter share images
+- Company contact block in the diner footer; occasion chips and package picker on the restaurant booking form
+
+### Changed
+
+- Sitemap cuisine/occasion URLs come from live discovery index data
+- Legal and contact pages refreshed; `llms.txt` and SEO helpers updated
+
 ## [0.22.0] — 2026-08-12
 
 ### Added

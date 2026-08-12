@@ -28,6 +28,12 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { TableveraBrand, colors, layout, radii, typography } from '@reservations/ui';
+import {
+  COMPANY_ADDRESS_DISPLAY,
+  COMPANY_PHONE,
+  COMPANY_PHONE_DISPLAY,
+  SUPPORT_EMAIL,
+} from '@/lib/legal';
 import { useAuth } from '@/lib/auth';
 import {
   MARK_ALL_NOTIFICATIONS_READ,
@@ -72,6 +78,29 @@ function reservationDetailHref(data: Record<string, unknown>): string {
     : '/reservations';
 }
 
+function availabilityAlertHref(data: Record<string, unknown>): string {
+  const restaurantId = typeof data.restaurantId === 'string' ? data.restaurantId : null;
+  const slug = typeof data.slug === 'string' ? data.slug : null;
+  if (!restaurantId && !slug) return '/saved';
+
+  const path = slug ? `/r/${slug}` : `/restaurants/${restaurantId}`;
+  const params = new URLSearchParams();
+  if (typeof data.slot === 'string') {
+    const slotDate = new Date(data.slot);
+    if (Number.isFinite(slotDate.getTime())) {
+      params.set('date', slotDate.toISOString().slice(0, 10));
+      params.set('slot', data.slot);
+    }
+  }
+  if (typeof data.partySize === 'number' && data.partySize > 0) {
+    params.set('party', String(data.partySize));
+  } else if (typeof data.partySize === 'string' && data.partySize) {
+    params.set('party', data.partySize);
+  }
+  const qs = params.toString();
+  return qs ? `${path}?${qs}` : path;
+}
+
 function notificationHref(n: AppNotification): string {
   const data = parseNotificationData(n.data);
 
@@ -88,6 +117,8 @@ function notificationHref(n: AppNotification): string {
     case 'waitlist_ready':
     case 'waitlist_notified':
       return '/waitlist';
+    case 'saved_restaurant_available':
+      return availabilityAlertHref(data);
     case 'review_reply':
     case 'survey_invitation':
       return reservationDetailHref(data);
@@ -553,6 +584,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <p className="rt-site-footer__desc">
               Book the best tables in seconds — free for diners, built for restaurants.
             </p>
+            <div className="rt-site-footer__contact">
+              <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+              <a href={`tel:${COMPANY_PHONE}`}>{COMPANY_PHONE_DISPLAY}</a>
+              <span>{COMPANY_ADDRESS_DISPLAY}</span>
+            </div>
           </div>
 
           <div className="rt-site-footer__links">
@@ -577,22 +613,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div>
               <div className="rt-site-footer__heading">Explore</div>
               <div className="rt-site-footer__list">
-                <Link href="/cities/new-york-ny">New York restaurants</Link>
-                <Link href="/cuisine/italian">Italian restaurants</Link>
-                <Link href="/occasion/date-night">Date night</Link>
-                <Link href="/neighborhoods/soho-new-york-ny">SoHo restaurants</Link>
+                <Link href="/cities">Cities</Link>
+                <Link href="/cuisine">Cuisines</Link>
+                <Link href="/occasion">Occasions</Link>
+                <Link href="/neighborhoods">Neighborhoods</Link>
+                <Link href="/cities/new-york-ny">New York</Link>
+                <Link href="/cuisine/italian">Italian</Link>
               </div>
             </div>
             <div>
               <div className="rt-site-footer__heading">Company</div>
               <div className="rt-site-footer__list">
+                <Link href="/contact">Contact</Link>
                 <Link href="/privacy">Privacy</Link>
                 <Link href="/terms">Terms</Link>
                 <Link href="/cookies">Cookies</Link>
                 <button type="button" className="rt-site-footer__cookie-btn" onClick={openCookieSettings}>
                   Cookie settings
                 </button>
-                <Link href="/contact">Contact</Link>
               </div>
             </div>
           </div>

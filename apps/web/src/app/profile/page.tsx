@@ -3,14 +3,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
-import { Button, Card, Form, Input, List, Space, Spin, Switch, Tag, Typography, message } from 'antd';
+import { Card, List, Space, Spin, Switch, Tag, Typography, message } from 'antd';
 import {
   BellOutlined,
   CheckCircleFilled,
-  CloseCircleFilled,
-  LinkOutlined,
+  HeartOutlined,
   MailOutlined,
-  SendOutlined,
   TrophyOutlined,
 } from '@ant-design/icons';
 import { PageHeader, colors, radii, shadows } from '@reservations/ui';
@@ -20,7 +18,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { UPDATE_NOTIFICATION_PREFERENCES } from '@/lib/graphql';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 const MY_LOYALTY = gql`
   query MyLoyalty {
@@ -54,12 +52,6 @@ const MY_RESTAURANT_LOYALTY = gql`
   }
 `;
 
-const LINK_TELEGRAM = gql`
-  mutation LinkTelegram($chatId: String!) {
-    linkTelegram(chatId: $chatId)
-  }
-`;
-
 const REGISTER_PUSH = gql`
   mutation RegisterPushToken($token: String!, $platform: String!) {
     registerPushToken(token: $token, platform: $platform)
@@ -84,17 +76,29 @@ export default function ProfilePage() {
   const router = useRouter();
   const { data } = useQuery(MY_LOYALTY, { skip: !user });
   const { data: restaurantLoyaltyData } = useQuery(MY_RESTAURANT_LOYALTY, { skip: !user });
-  const [linkTelegram] = useMutation(LINK_TELEGRAM);
   const [registerPush] = useMutation(REGISTER_PUSH);
   const [updatePrefs] = useMutation(UPDATE_NOTIFICATION_PREFERENCES);
   const [pushSubscription, setPushSubscription] = useState<PushSubscription | null>(null);
   const [pushPermission, setPushPermission] = useState<NotificationPermission>('default');
   const [pushLoading, setPushLoading] = useState(false);
   const [pushPref, setPushPref] = useState(false);
+  const [availabilityAlerts, setAvailabilityAlerts] = useState(true);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
 
   useEffect(() => {
     if (pushSubscription) setPushPref(true);
   }, [pushSubscription]);
+
+  useEffect(() => {
+    const prefs = user?.notificationPreferences?.availabilityAlerts;
+    if (!prefs) {
+      setAvailabilityAlerts(true);
+      return;
+    }
+    const explicitOff =
+      prefs.email === false && prefs.webPush === false && prefs.platform === false;
+    setAvailabilityAlerts(!explicitOff);
+  }, [user?.notificationPreferences?.availabilityAlerts]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -115,6 +119,38 @@ export default function ProfilePage() {
         variables: { input: { reservationUpdates: { webPush: enabled } } },
       });
       await refreshMe();
+    },
+    [updatePrefs, refreshMe],
+  );
+
+  const persistAvailabilityAlerts = useCallback(
+    async (enabled: boolean) => {
+      setAvailabilityLoading(true);
+      setAvailabilityAlerts(enabled);
+      try {
+        await updatePrefs({
+          variables: {
+            input: {
+              availabilityAlerts: {
+                email: enabled,
+                webPush: enabled,
+                platform: enabled,
+              },
+            },
+          },
+        });
+        await refreshMe();
+        message.success(
+          enabled
+            ? 'You’ll get alerts when tables open at your favorites'
+            : 'Availability alerts turned off',
+        );
+      } catch (err) {
+        setAvailabilityAlerts(!enabled);
+        message.error(err instanceof Error ? err.message : 'Could not update preferences');
+      } finally {
+        setAvailabilityLoading(false);
+      }
     },
     [updatePrefs, refreshMe],
   );
@@ -182,7 +218,6 @@ export default function ProfilePage() {
     return null;
   }
 
-  const telegramLinked = !!(user as any)?.telegramChatId;
   const redeemProgress = loyaltyRedeemProgress(user?.loyaltyPoints ?? 0);
   const tier = resolveLoyaltyTier(user?.loyaltyCompletedVisits ?? 0);
   const restaurantBalances = (restaurantLoyaltyData as any)?.myRestaurantLoyalty ?? [];
@@ -378,26 +413,6 @@ export default function ProfilePage() {
 
           <List.Item
             extra={
-              telegramLinked ? (
-                <Tag icon={<CheckCircleFilled />} color="success">Linked</Tag>
-              ) : (
-                <Tag icon={<CloseCircleFilled />} color="default">Not linked</Tag>
-              )
-            }
-          >
-            <List.Item.Meta
-              avatar={<SendOutlined style={{ fontSize: 20, color: colors.brand[600] }} />}
-              title="Telegram"
-              description={
-                telegramLinked
-                  ? 'Receiving instant notifications via Telegram'
-                  : 'Link your Telegram to get instant notifications'
-              }
-            />
-          </List.Item>
-
-          <List.Item
-            extra={
               <Switch
                 checked={pushPref || Boolean(pushSubscription)}
                 loading={pushLoading}
@@ -421,62 +436,24 @@ export default function ProfilePage() {
               }
             />
           </List.Item>
-        </List>
 
-        {!telegramLinked && (
-          <Card
-            size="small"
-            style={{
-              marginTop: 16,
-              background: colors.brand[50],
-              border: `1px solid ${colors.brand[100]}`,
-              borderRadius: radii.md,
-            }}
+          <List.Item
+            extra={
+              <Switch
+                checked={availabilityAlerts}
+                loading={availabilityLoading}
+                onChange={(checked) => void persistAvailabilityAlerts(checked)}
+                style={availabilityAlerts ? { background: colors.brand[600] } : undefined}
+              />
+            }
           >
-            <Title level={5} style={{ marginTop: 0 }}>
-              <SendOutlined style={{ marginRight: 8, color: colors.brand[600] }} />
-              Link Telegram
-            </Title>
-            <Paragraph type="secondary" style={{ marginBottom: 12 }}>
-              1. Open{' '}
-              <a
-                href="https://t.me/uzeatsbot"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: colors.brand[600] }}
-              >
-                @uzeatsbot <LinkOutlined />
-              </a>{' '}
-              in Telegram
-              <br />
-              2. Send <Text code>/start</Text> to the bot
-              <br />
-              3. The bot will reply with your Chat ID — paste it below
-            </Paragraph>
-            <Form
-              layout="inline"
-              onFinish={async (values) => {
-                try {
-                  await linkTelegram({ variables: { chatId: values.chatId } });
-                  message.success('Telegram linked successfully');
-                  refreshMe();
-                } catch (err) {
-                  message.error(err instanceof Error ? err.message : 'Failed to link Telegram');
-                }
-              }}
-            >
-              <Form.Item
-                name="chatId"
-                rules={[{ required: true, message: 'Enter your Telegram chat ID' }]}
-              >
-                <Input placeholder="e.g. 123456789" style={{ width: 200 }} />
-              </Form.Item>
-              <Button type="primary" htmlType="submit">
-                Link
-              </Button>
-            </Form>
-          </Card>
-        )}
+            <List.Item.Meta
+              avatar={<HeartOutlined style={{ fontSize: 20, color: colors.brand[600] }} />}
+              title="Favorite table alerts"
+              description="When someone cancels at a restaurant you favorited (within 48 hours), we’ll nudge you to book the opening"
+            />
+          </List.Item>
+        </List>
       </Card>
 
       <Card

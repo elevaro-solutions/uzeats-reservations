@@ -24,6 +24,7 @@ const notificationPreferencesSchema = new Schema(
     newMessage: { type: notificationChannelPreferencesSchema, default: () => ({}) },
     newReservation: { type: notificationChannelPreferencesSchema, default: () => ({}) },
     waitlistAvailable: { type: notificationChannelPreferencesSchema, default: () => ({}) },
+    availabilityAlerts: { type: notificationChannelPreferencesSchema, default: () => ({}) },
     guestSpendAlert: { type: notificationChannelPreferencesSchema, default: () => ({}) },
     reservationUpdates: { type: notificationChannelPreferencesSchema, default: () => ({}) },
     reviewReply: { type: notificationChannelPreferencesSchema, default: () => ({}) },

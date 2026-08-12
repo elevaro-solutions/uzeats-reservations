@@ -1,25 +1,25 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import {
-  DISCOVERY_OCCASIONS,
-  occasionLandingMeta,
-  slugToOccasion,
-  discoverySlug,
-} from '@reservations/shared';
+import { occasionLandingMeta } from '@reservations/shared';
 import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
 import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
+import {
+  listOccasionLandingParams,
+  listOccasionsForIndex,
+  resolveOccasionBySlug,
+} from '@/lib/discoveryIndex';
 import { discoveryLandingMetadata } from '@/lib/seo';
 import type { BreadcrumbItem } from '@/lib/seo';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
 export async function generateStaticParams() {
-  return DISCOVERY_OCCASIONS.map((occasion) => ({ slug: discoverySlug(occasion) }));
+  return listOccasionLandingParams();
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const occasion = slugToOccasion(slug);
+  const occasion = await resolveOccasionBySlug(slug);
   if (!occasion) return {};
   const meta = occasionLandingMeta(occasion);
   return discoveryLandingMetadata({
@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function OccasionLandingPage({ params }: PageProps) {
   const { slug } = await params;
-  const occasion = slugToOccasion(slug);
+  const occasion = await resolveOccasionBySlug(slug);
   if (!occasion) notFound();
 
   const meta = occasionLandingMeta(occasion);
@@ -42,6 +42,10 @@ export default async function OccasionLandingPage({ params }: PageProps) {
     { name: occasion },
   ];
 
+  const related = (await listOccasionsForIndex())
+    .filter((o) => o.slug !== slug)
+    .map((o) => ({ href: `/occasion/${o.slug}`, label: o.label }));
+
   return (
     <>
       <DiscoveryLandingSchema breadcrumbs={breadcrumbs} faq={meta.faq} />
@@ -50,10 +54,7 @@ export default async function OccasionLandingPage({ params }: PageProps) {
         canonicalPath={canonicalPath}
         preset={{ occasion }}
         breadcrumbs={breadcrumbs}
-        relatedLinks={DISCOVERY_OCCASIONS.filter((o) => o !== occasion).map((o) => ({
-          href: `/occasion/${discoverySlug(o)}`,
-          label: o,
-        }))}
+        relatedLinks={related}
       />
     </>
   );

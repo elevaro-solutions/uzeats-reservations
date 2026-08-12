@@ -33,6 +33,7 @@ Restaurant hours on Tablevera come from each venue’s active reservation shifts
 
 ## Contact
 
-- General: hello@tablevera.online
-- Privacy: privacy@tablevera.online
-- Legal: legal@tablevera.online
+- Email: support@tablevera.online
+- Phone: +1 (650) 770-7788
+- Address: 20844 Waterbeach Place, Sterling, VA 20165, USA
+- Contact form: https://tablevera.online/contact

@@ -31,6 +31,7 @@ export const typeDefs = `#graphql
     newMessage: NotificationChannelPreferences!
     newReservation: NotificationChannelPreferences!
     waitlistAvailable: NotificationChannelPreferences!
+    availabilityAlerts: NotificationChannelPreferences!
     guestSpendAlert: NotificationChannelPreferences!
     reservationUpdates: NotificationChannelPreferences!
     reviewReply: NotificationChannelPreferences!
@@ -49,6 +50,7 @@ export const typeDefs = `#graphql
     newMessage: NotificationChannelPreferencesInput
     newReservation: NotificationChannelPreferencesInput
     waitlistAvailable: NotificationChannelPreferencesInput
+    availabilityAlerts: NotificationChannelPreferencesInput
     guestSpendAlert: NotificationChannelPreferencesInput
     reservationUpdates: NotificationChannelPreferencesInput
     reviewReply: NotificationChannelPreferencesInput
@@ -256,6 +258,9 @@ export const typeDefs = `#graphql
     totalSpendCents: Int!
     seatedAt: DateTime
     hasReview: Boolean!
+    packageId: ID
+    packageTitle: String
+    packagePriceCents: Int!
     createdAt: DateTime!
   }
 
@@ -1106,6 +1111,22 @@ export const typeDefs = `#graphql
     createdAt: DateTime!
   }
 
+  type RestaurantPackage {
+    id: ID!
+    restaurantId: ID!
+    title: String!
+    description: String!
+    priceCents: Int!
+    pricePerGuest: Boolean!
+    includes: [String!]!
+    photoUrl: String
+    occasions: [String!]!
+    minPartySize: Int
+    maxPartySize: Int
+    active: Boolean!
+    createdAt: DateTime!
+  }
+
   type PrivateDiningInquiry {
     id: ID!
     restaurantId: ID!
@@ -1405,6 +1426,7 @@ export const typeDefs = `#graphql
     giftCardCode: String
     source: ReservationSource
     tableId: ID
+    packageId: ID
   }
 
   input OwnerGuestInput {
@@ -1522,6 +1544,19 @@ export const typeDefs = `#graphql
     ticketPriceCents: Int!
     includes: [String!]
     tags: [String!]
+  }
+
+  input RestaurantPackageInput {
+    title: String!
+    description: String
+    priceCents: Int!
+    pricePerGuest: Boolean
+    includes: [String!]
+    photoUrl: String
+    occasions: [String!]
+    minPartySize: Int
+    maxPartySize: Int
+    active: Boolean
   }
 
   input PrivateDiningSpaceInput {
@@ -1943,6 +1978,7 @@ export const typeDefs = `#graphql
     groupAnalytics(groupId: ID!): GroupAnalytics!
 
     experiences(restaurantId: ID, upcoming: Boolean, limit: Int, offset: Int): ExperienceConnection!
+    restaurantPackages(restaurantId: ID!, activeOnly: Boolean): [RestaurantPackage!]!
     experience(id: ID!): Experience
     myTickets: [Ticket!]!
 
@@ -2150,6 +2186,10 @@ export const typeDefs = `#graphql
     purchaseTicket(experienceId: ID!, quantity: Int!): Ticket!
     confirmTicketPayment(paymentIntentId: String!): Ticket!
     cancelTicket(id: ID!): Ticket!
+
+    createRestaurantPackage(restaurantId: ID!, input: RestaurantPackageInput!): RestaurantPackage!
+    updateRestaurantPackage(id: ID!, input: RestaurantPackageInput!): RestaurantPackage!
+    deleteRestaurantPackage(id: ID!): Boolean!
 
     createPrivateDiningSpace(restaurantId: ID!, input: PrivateDiningSpaceInput!): PrivateDiningSpace!
     updatePrivateDiningSpace(id: ID!, input: PrivateDiningSpaceInput!): PrivateDiningSpace!

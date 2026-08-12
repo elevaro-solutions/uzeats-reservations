@@ -5,7 +5,7 @@ import { Typography } from 'antd';
 import { SafetyCertificateOutlined } from '@ant-design/icons';
 import { LegalPageLayout, LegalSection } from '@/components/LegalPageLayout';
 import { openCookieSettings } from '@/components/CookieConsent';
-import { COMPANY_NAME, LEGAL_CONTACT } from '@/lib/legal';
+import { COMPANY_NAME, LEGAL_CONTACT, COMPANY_ADDRESS_DISPLAY, COMPANY_PHONE, COMPANY_PHONE_DISPLAY } from '@/lib/legal';
 
 const { Paragraph, Text } = Typography;
 
@@ -216,14 +216,17 @@ export default function PrivacyPolicyPage() {
 
       <LegalSection id="contact" title="12. Contact us">
         <Paragraph>
-          Privacy questions or data requests:{' '}
+          Privacy questions, data requests, or general support:{' '}
           <Text copyable>
             <a href={`mailto:${LEGAL_CONTACT.privacy}`}>{LEGAL_CONTACT.privacy}</a>
           </Text>
         </Paragraph>
         <Paragraph>
-          General support:{' '}
-          <a href={`mailto:${LEGAL_CONTACT.general}`}>{LEGAL_CONTACT.general}</a>
+          Phone:{' '}
+          <a href={`tel:${COMPANY_PHONE}`}>{COMPANY_PHONE_DISPLAY}</a>
+        </Paragraph>
+        <Paragraph>
+          Mail: {COMPANY_ADDRESS_DISPLAY}
         </Paragraph>
       </LegalSection>
     </LegalPageLayout>

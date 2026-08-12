@@ -387,6 +387,14 @@ export default function ReservationsPage() {
                             +{r.loyaltyPointsEarned} points earned
                           </Text>
                         )}
+                        {r.packageTitle && (
+                          <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+                            Package: {r.packageTitle}
+                            {r.packagePriceCents > 0
+                              ? ` (+$${(r.packagePriceCents / 100).toFixed(2)})`
+                              : ''}
+                          </Text>
+                        )}
                       </Space>
                     </div>
                     <Space wrap onClick={(e) => e.stopPropagation()}>

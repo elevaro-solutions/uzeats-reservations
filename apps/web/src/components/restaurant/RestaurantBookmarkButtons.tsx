@@ -76,7 +76,7 @@ export function RestaurantBookmarkButtons({
         message.success('Removed from favorites');
       } else {
         await favoriteRestaurant({ variables: { restaurantId } });
-        message.success('Added to favorites');
+        message.success('Added to favorites — we’ll alert you if a table opens up');
       }
     } catch (err) {
       message.error(err instanceof Error ? err.message : 'Could not update favorites');

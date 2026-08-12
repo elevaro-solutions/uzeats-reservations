@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Table, Typography } from 'antd';
 import { SafetyCertificateOutlined } from '@ant-design/icons';
 import { LegalPageLayout, LegalSection } from '@/components/LegalPageLayout';
-import { COMPANY_NAME, LEGAL_CONTACT } from '@/lib/legal';
+import { COMPANY_NAME, LEGAL_CONTACT, COMPANY_ADDRESS_DISPLAY, COMPANY_PHONE, COMPANY_PHONE_DISPLAY } from '@/lib/legal';
 import { openCookieSettings } from '@/components/CookieConsent';
 
 const { Paragraph, Text } = Typography;
@@ -158,6 +158,13 @@ export default function CookiePolicyPage() {
           <Text copyable>
             <a href={`mailto:${LEGAL_CONTACT.privacy}`}>{LEGAL_CONTACT.privacy}</a>
           </Text>
+        </Paragraph>
+        <Paragraph>
+          Phone:{' '}
+          <a href={`tel:${COMPANY_PHONE}`}>{COMPANY_PHONE_DISPLAY}</a>
+        </Paragraph>
+        <Paragraph>
+          Mail: {COMPANY_ADDRESS_DISPLAY}
         </Paragraph>
       </LegalSection>
     </LegalPageLayout>

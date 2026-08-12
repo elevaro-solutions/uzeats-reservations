@@ -180,6 +180,8 @@ export const MY_RESERVATIONS = gql`
       depositStatus
       loyaltyPointsEarned
       hasReview
+      packageTitle
+      packagePriceCents
       restaurant {
         id
         name
@@ -216,6 +218,8 @@ export const MY_RESERVATION = gql`
       clientSecret
       loyaltyPointsEarned
       hasReview
+      packageTitle
+      packagePriceCents
       restaurant {
         id
         name
@@ -418,6 +422,7 @@ export const UPDATE_NOTIFICATION_PREFERENCES = gql`
       id
       notificationPreferences {
         reservationUpdates { email webPush platform }
+        availabilityAlerts { email webPush platform }
       }
     }
   }
@@ -592,6 +597,24 @@ export const EXPERIENCES = gql`
         status
         tags
       }
+    }
+  }
+`;
+
+export const RESTAURANT_PACKAGES = gql`
+  query RestaurantPackages($restaurantId: ID!, $activeOnly: Boolean) {
+    restaurantPackages(restaurantId: $restaurantId, activeOnly: $activeOnly) {
+      id
+      title
+      description
+      priceCents
+      pricePerGuest
+      includes
+      photoUrl
+      occasions
+      minPartySize
+      maxPartySize
+      active
     }
   }
 `;

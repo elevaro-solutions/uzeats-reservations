@@ -30,13 +30,11 @@ export const metadata: Metadata = {
     siteName: 'Tablevera',
     title: 'Tablevera — Find and book restaurants',
     description: 'Discover restaurants and reserve tables across the USA in seconds.',
-    images: [{ url: '/brand/tablevera_icon_v2.svg', alt: 'Tablevera' }],
   },
   twitter: {
-    card: 'summary',
+    card: 'summary_large_image',
     title: 'Tablevera — Find and book restaurants',
     description: 'Discover restaurants and reserve tables across the USA in seconds.',
-    images: ['/brand/tablevera_icon_v2.svg'],
   },
   icons: {
     icon: [{ url: '/brand/tablevera_icon_v2.svg', type: 'image/svg+xml' }],
