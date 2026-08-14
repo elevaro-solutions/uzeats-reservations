@@ -1,32 +1,8 @@
 import { Subscription } from '../models/Subscription.js';
-import { type FeatureKey, type PlanFeatures } from '../config/plans.js';
+import { FEATURE_LABELS, type FeatureKey, type PlanFeatures } from '../config/plans.js';
 import { getEffectivePlan } from './platformConfig.js';
 import { PlanFeatureError } from '../lib/errors.js';
-
-const FEATURE_LABELS: Partial<Record<FeatureKey, string>> = {
-  floorPlans: 'Customizable floor plans',
-  smartAssign: 'Smart Assign',
-  waitlist: 'Waitlist',
-  premiumSms: 'Premium SMS messaging',
-  guestProfiles360: '360 guest profiles',
-  emailCampaigns: 'Automated email campaigns',
-  customWidget: 'Customizable booking widget',
-  analytics: 'Advanced analytics',
-  accessRules: 'Access Rules',
-  posIntegration: 'POS integration',
-  twoWayMessaging: 'Two-way messaging',
-  spendAlerts: 'Guest spend alerts',
-  ticketedEvents: 'Ticketed events & experiences',
-  preShift: 'Pre-shift reports',
-  autoTags: 'Automated guest tags',
-  surveys: 'Custom post-dining surveys',
-  revenueForecasting: 'Revenue forecasting',
-  customReports: 'Custom report builder',
-  multiLocationAnalytics: 'Multi-location analytics',
-  promotions: 'Promotion & offer management',
-  featuredPlacement: 'Featured placement',
-  boostCampaigns: 'Boost campaigns',
-};
+import { applyPendingPlanChangeIfDue } from './planChange.js';
 
 /**
  * Effective feature set for a restaurant. Restaurants without an active
@@ -39,6 +15,7 @@ export async function getFeatures(restaurantId: string): Promise<PlanFeatures & 
   if (!sub || sub.status === 'cancelled' || sub.status === 'paused') {
     return { ...basicFeatures };
   }
+  await applyPendingPlanChangeIfDue(sub);
   const plan = await getEffectivePlan(sub.plan);
   const planFeatures = plan?.features ?? basicFeatures;
   const stored = (sub.features ?? {}) as unknown as PlanFeatures & { premiumSmsAddon?: boolean };

@@ -308,24 +308,36 @@ function parseAddressComponents(components: RawAddressComponent[]): Partial<Addr
   const route = find('route')?.long_name;
   const line1 = [streetNumber, route].filter(Boolean).join(' ') || undefined;
 
-  const city =
-    find('locality')?.long_name ??
-    find('postal_town')?.long_name ??
-    find('administrative_area_level_3')?.long_name;
-
-  const neighborhood =
-    find('neighborhood')?.long_name ??
-    find('sublocality_level_1')?.long_name ??
-    find('sublocality')?.long_name;
-
   return {
     line1,
-    city,
-    neighborhood,
+    neighborhood: find('neighborhood')?.long_name,
     state: find('administrative_area_level_1')?.short_name,
     zip: find('postal_code')?.long_name,
     country: find('country')?.short_name,
   };
+}
+
+/**
+ * City is the comma-separated token immediately before the state initials.
+ * "2060 East 19th Street, Brooklyn, NY, USA" → Brooklyn
+ * "2060 McNair Farms Dr, Sterling, VA 20165, USA" → Sterling
+ */
+function cityBeforeState(formatted: string, state?: string): string | undefined {
+  const parts = formatted
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length < 2) return undefined;
+
+  const stateIdx = parts.findIndex((part) => {
+    const token = part.split(/\s+/)[0]?.toUpperCase();
+    if (!token || !/^[A-Z]{2}$/.test(token)) return false;
+    if (state) return token === state.toUpperCase();
+    return part === token || /^[A-Z]{2}(\s+\d{5}(-\d{4})?)?$/i.test(part);
+  });
+
+  if (stateIdx > 0) return parts[stateIdx - 1];
+  return undefined;
 }
 
 export async function resolveAddress(placeId: string): Promise<AddressSelection | null> {
@@ -350,12 +362,15 @@ export async function resolveAddress(placeId: string): Promise<AddressSelection 
           resolve(null);
           return;
         }
+        const parsed = parseAddressComponents(result.address_components ?? []);
+        const label = result.formatted_address || result.name || 'Selected location';
         resolve({
           placeId,
-          label: result.formatted_address || result.name || 'Selected location',
+          label,
           lat: result.geometry?.location.lat(),
           lng: result.geometry?.location.lng(),
-          ...parseAddressComponents(result.address_components ?? []),
+          ...parsed,
+          city: cityBeforeState(label, parsed.state),
         });
       },
     );

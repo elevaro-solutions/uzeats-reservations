@@ -3,6 +3,7 @@ import { Subscription } from '../models/Subscription.js';
 import { getPlatformConfig } from './platformConfig.js';
 import { mapInvoice } from './invoices.js';
 import { logger } from '../lib/logger.js';
+import { applyPendingPlanChangeIfDue } from './planChange.js';
 
 function mapStripeInvoiceStatus(
   status: string | null | undefined,
@@ -109,6 +110,17 @@ export async function syncStripeInvoice(stripeInvoice: {
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
 
+  if (status === 'paid' && restaurantId) {
+    await Subscription.updateOne(
+      { restaurantId, status: 'past_due' },
+      { $set: { amountDueCents: 0, status: 'active' } },
+    );
+    await Subscription.updateOne(
+      { restaurantId, status: { $ne: 'past_due' } },
+      { $set: { amountDueCents: 0 } },
+    );
+  }
+
   return doc ? mapInvoice(doc) : null;
 }
 
@@ -176,4 +188,5 @@ export async function handleStripeSubscriptionEvent(eventType: string, subscript
     sub.cancelledAt = new Date(subscription.canceled_at * 1000);
   }
   await sub.save();
+  await applyPendingPlanChangeIfDue(sub);
 }

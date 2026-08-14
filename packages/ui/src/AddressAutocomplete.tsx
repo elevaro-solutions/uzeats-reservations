@@ -9,6 +9,7 @@ import { colors, typography } from './tokens';
 import {
   fetchPlacePredictions,
   getGooglePlacesAvailability,
+  loadGooglePlaces,
   resolveAddress,
   subscribeGooglePlacesAvailability,
   type AddressSelection,
@@ -75,7 +76,7 @@ export function useGooglePlacesAvailability() {
  *   static options, or to a plain text input when none are given.
  */
 export function AddressAutocomplete({
-  value = '',
+  value,
   onChange,
   onSelect,
   placeholder = 'Start typing an address',
@@ -91,6 +92,17 @@ export function AddressAutocomplete({
 }: AddressAutocompleteProps) {
   const availability = useGooglePlacesAvailability();
   const useGoogle = availability !== 'unavailable';
+  const isControlled = value !== undefined;
+  const [uncontrolledValue, setUncontrolledValue] = useState('');
+  const query = isControlled ? value : uncontrolledValue;
+
+  const setQuery = useCallback(
+    (next: string) => {
+      if (!isControlled) setUncontrolledValue(next);
+      onChange?.(next);
+    },
+    [isControlled, onChange],
+  );
 
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
   const [searching, setSearching] = useState(false);
@@ -101,8 +113,13 @@ export function AddressAutocomplete({
 
   useEffect(() => {
     if (!useGoogle) return;
+    void loadGooglePlaces();
+  }, [useGoogle]);
 
-    const trimmed = value.trim();
+  useEffect(() => {
+    if (!useGoogle) return;
+
+    const trimmed = query.trim();
     if (trimmed.length < MIN_QUERY_LENGTH) {
       setPredictions([]);
       setSearching(false);
@@ -126,7 +143,7 @@ export function AddressAutocomplete({
     }, debounceMs);
 
     return () => clearTimeout(timer);
-  }, [value, useGoogle, debounceMs, country, searchTypesKey]);
+  }, [query, useGoogle, debounceMs, country, searchTypesKey]);
 
   const googleOptions = useMemo(
     (): DefaultOptionType[] =>
@@ -184,6 +201,8 @@ export function AddressAutocomplete({
       size="large"
       disabled={disabled}
       placeholder={effectivePlaceholder}
+      autoComplete="off"
+      name="restaurant-address-search"
       {...inputProps}
     />
   );
@@ -196,9 +215,11 @@ export function AddressAutocomplete({
         disabled={disabled}
         placeholder={effectivePlaceholder}
         style={style}
-        value={value}
+        value={query}
+        autoComplete="off"
+        name="restaurant-address-search"
         onChange={(e) => {
-          onChange?.(e.target.value);
+          setQuery(e.target.value);
         }}
         {...inputProps}
       />
@@ -206,8 +227,8 @@ export function AddressAutocomplete({
   }
 
   return (
-    <div component="AddressAutocomplete" style={{ display: 'contents' }}><AutoComplete       value={value}
-      onChange={onChange}
+    <div component="AddressAutocomplete" style={{ display: 'contents' }}><AutoComplete       value={query}
+      onChange={setQuery}
       disabled={disabled}
       options={useGoogle ? googleOptions : fallbackOptions}
       popupMatchSelectWidth={popupMatchSelectWidth ?? true}
@@ -215,7 +236,7 @@ export function AddressAutocomplete({
       notFoundContent={
         useGoogle && searching
           ? 'Searching addresses…'
-          : useGoogle && value.trim().length >= MIN_QUERY_LENGTH
+          : useGoogle && query.trim().length >= MIN_QUERY_LENGTH
             ? 'No addresses found'
             : undefined
       }

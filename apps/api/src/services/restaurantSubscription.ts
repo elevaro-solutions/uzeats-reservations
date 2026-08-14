@@ -1,7 +1,13 @@
-import { Subscription } from '../models/Subscription.js';
+import { Subscription, type SubscriptionDocument } from '../models/Subscription.js';
 import { getEffectivePlan } from './platformConfig.js';
-import { createStripeCustomer, createStripeSubscription } from './stripe.js';
+import {
+  createStripeCustomer,
+  createStripeSubscription,
+  type StripeSubscriptionPayment,
+} from './stripe.js';
 import { logAudit } from './audit.js';
+
+export type CreatedRestaurantSubscription = SubscriptionDocument & StripeSubscriptionPayment;
 
 export async function createRestaurantSubscription(input: {
   restaurantId: string;
@@ -9,7 +15,8 @@ export async function createRestaurantSubscription(input: {
   customerEmail?: string;
   customerName: string;
   actorId?: string;
-}) {
+  collectPaymentMethod?: boolean;
+}): Promise<CreatedRestaurantSubscription> {
   const planDef = await getEffectivePlan(input.plan);
   if (!planDef) throw new Error(`Invalid plan: ${input.plan}`);
   const planKey = planDef.key;
@@ -23,11 +30,15 @@ export async function createRestaurantSubscription(input: {
     metadata: { restaurantId: input.restaurantId },
   });
 
+  const collectPaymentMethod =
+    Boolean(input.collectPaymentMethod) && planDef.monthlyPriceCents > 0;
+
   const stripeSub = await createStripeSubscription({
     customerId: customer.id,
     priceAmountCents: planDef.monthlyPriceCents,
     trialDays: planDef.trialDays || undefined,
     metadata: { restaurantId: input.restaurantId, plan: planKey },
+    collectPaymentMethod,
   });
 
   const sub = await Subscription.create({
@@ -59,5 +70,8 @@ export async function createRestaurantSubscription(input: {
     });
   }
 
-  return sub;
+  return Object.assign(sub, {
+    clientSecret: stripeSub.clientSecret ?? null,
+    paymentMode: stripeSub.paymentMode ?? null,
+  }) as CreatedRestaurantSubscription;
 }

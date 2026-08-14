@@ -156,6 +156,12 @@ importers:
       '@reservations/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@stripe/react-stripe-js':
+        specifier: ^6.7.0
+        version: 6.7.0(@stripe/stripe-js@9.9.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@stripe/stripe-js':
+        specifier: ^9.9.0
+        version: 9.9.0
       antd:
         specifier: ^6.5.0
         version: 6.5.0(luxon@3.7.2)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)

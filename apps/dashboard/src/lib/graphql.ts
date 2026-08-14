@@ -1466,9 +1466,13 @@ export const MY_SUBSCRIPTION = gql`
       currentPeriodEnd
       trialEndsAt
       cancelledAt
+      pendingPlan
+      pendingPlanEffectiveAt
+      lastPaidPlanChangeAt
       monthlyPriceCents
       networkCoverFeeCents
       websiteCoverFeeCents
+      amountDueCents
       features {
         floorPlans smartAssign waitlist premiumSms premiumSmsAddon
         guestProfiles360 emailCampaigns customWidget analytics dedicatedSupport
@@ -1500,6 +1504,18 @@ export const PLANS = gql`
         guestProfiles360 emailCampaigns customWidget analytics dedicatedSupport
       }
     }
+  }
+`;
+
+export const PARTNER_EMAIL_AVAILABLE = gql`
+  query PartnerEmailAvailable($email: String!) {
+    partnerEmailAvailable(email: $email)
+  }
+`;
+
+export const PARTNER_RESTAURANT_NAME_AVAILABLE = gql`
+  query PartnerRestaurantNameAvailable($name: String!) {
+    partnerRestaurantNameAvailable(name: $name)
   }
 `;
 
@@ -1543,6 +1559,8 @@ export const REGISTER_RESTAURANT_PARTNER = gql`
         status
         trialEndsAt
       }
+      clientSecret
+      paymentMode
     }
   }
 `;
@@ -1558,7 +1576,74 @@ export const CANCEL_SUBSCRIPTION = gql`
 export const CHANGE_PLAN = gql`
   mutation ChangePlan($restaurantId: ID!, $plan: String!) {
     changePlan(restaurantId: $restaurantId, plan: $plan) {
-      id plan status monthlyPriceCents networkCoverFeeCents websiteCoverFeeCents
+      clientSecret
+      paymentMode
+      amountDueCents
+      subscription {
+        id
+        plan
+        status
+        monthlyPriceCents
+        networkCoverFeeCents
+        websiteCoverFeeCents
+        amountDueCents
+        pendingPlan
+        pendingPlanEffectiveAt
+      }
+    }
+  }
+`;
+
+export const PLAN_CHANGE_PAYMENT = gql`
+  query PlanChangePayment($restaurantId: ID!) {
+    planChangePayment(restaurantId: $restaurantId) {
+      clientSecret
+      paymentMode
+      amountDueCents
+    }
+  }
+`;
+
+export const CONFIRM_PLAN_CHANGE_PAYMENT = gql`
+  mutation ConfirmPlanChangePayment($restaurantId: ID!) {
+    confirmPlanChangePayment(restaurantId: $restaurantId) {
+      id
+      status
+      amountDueCents
+    }
+  }
+`;
+
+export const PREVIEW_PLAN_CHANGE = gql`
+  query PreviewPlanChange($restaurantId: ID!, $plan: String!) {
+    previewPlanChange(restaurantId: $restaurantId, plan: $plan) {
+      fromPlan
+      toPlan
+      direction
+      allowed
+      blockedReason
+      immediate
+      effectiveAt
+      proratedChargeCents
+      featuresLost
+      featuresGained
+      currentMonthlyPriceCents
+      nextMonthlyPriceCents
+      currentNetworkCoverFeeCents
+      nextNetworkCoverFeeCents
+      currentWebsiteCoverFeeCents
+      nextWebsiteCoverFeeCents
+    }
+  }
+`;
+
+export const CANCEL_PENDING_PLAN_CHANGE = gql`
+  mutation CancelPendingPlanChange($restaurantId: ID!) {
+    cancelPendingPlanChange(restaurantId: $restaurantId) {
+      id
+      plan
+      pendingPlan
+      pendingPlanEffectiveAt
     }
   }
 `;

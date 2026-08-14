@@ -56,7 +56,7 @@ import {
   resolveBrowserAuthApp,
   setAuthCookies,
 } from '../services/authCookies.js';
-import { registerRestaurantPartner } from '../services/partnerRegister.js';
+import { registerRestaurantPartner, isRestaurantNameAvailable } from '../services/partnerRegister.js';
 import {
   buildAdminRestaurantFilter,
   buildOwnerRestaurantFilter,
@@ -136,14 +136,23 @@ import {
 import crypto from 'node:crypto';
 import {
   cancelStripeSubscription,
-  updateStripeSubscription,
   createDepositIntent,
   isStubPaymentIntent,
   retrievePaymentIntentClientSecret,
   assertPaymentIntentAuthorized,
+  getOpenSubscriptionPayment,
 } from '../services/stripe.js';
 import { logAudit } from '../services/audit.js';
 import { createRestaurantSubscription } from '../services/restaurantSubscription.js';
+import {
+  applyPendingPlanChangeIfDue,
+  cancelPendingPlanChange,
+  changeRestaurantPlan,
+  getPlanChangePayment,
+  markPlanChangePaid,
+  previewPlanChange,
+} from '../services/planChange.js';
+import { estimateUpgradeProrationCents } from '../services/planChangePolicy.js';
 import { provisionDefaultRestaurantSetup } from '../services/restaurantSetup.js';
 import { restaurantInputToDb } from '../lib/restaurantInput.js';
 import { requireAuth, requireAdmin, requireSuperAdmin, requireRole, type GraphQLContext } from './context.js';
@@ -221,6 +230,10 @@ function mapSubscription(sub: any, opts?: { includeStripeIds?: boolean }) {
     currentPeriodEnd: sub.currentPeriodEnd ?? null,
     trialEndsAt: sub.trialEndsAt ?? null,
     cancelledAt: sub.cancelledAt ?? null,
+    pendingPlan: sub.pendingPlan ?? null,
+    pendingPlanEffectiveAt: sub.pendingPlanEffectiveAt ?? null,
+    lastPaidPlanChangeAt: sub.lastPaidPlanChangeAt ?? null,
+    amountDueCents: sub.amountDueCents ?? 0,
     monthlyPriceCents: sub.monthlyPriceCents,
     networkCoverFeeCents: sub.networkCoverFeeCents,
     websiteCoverFeeCents: sub.websiteCoverFeeCents ?? 0,
@@ -1108,10 +1121,78 @@ export const resolvers = {
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
       const sub = await Subscription.findOne({ restaurantId: args.restaurantId });
       if (!sub) return null;
-      return mapSubscription(sub, { includeStripeIds: true });
+      await applyPendingPlanChangeIfDue(sub);
+      const stubStripe =
+        !sub.stripeSubscriptionId || String(sub.stripeSubscriptionId).startsWith('sub_dev_');
+      if (
+        stubStripe &&
+        !(sub.amountDueCents > 0) &&
+        sub.lastPaidPlanChangeAt &&
+        sub.monthlyPriceCents > 0 &&
+        sub.currentPeriodStart &&
+        sub.currentPeriodEnd &&
+        sub.lastPaidPlanChangeAt >= sub.currentPeriodStart &&
+        sub.lastPaidPlanChangeAt <= sub.currentPeriodEnd
+      ) {
+        const due = estimateUpgradeProrationCents({
+          fromPriceCents: 0,
+          toPriceCents: sub.monthlyPriceCents,
+          now: sub.lastPaidPlanChangeAt,
+          periodStart: sub.currentPeriodStart,
+          periodEnd: sub.currentPeriodEnd,
+        });
+        if (due > 0) {
+          sub.amountDueCents = due;
+          sub.status = 'past_due';
+          await sub.save();
+        }
+      }
+      const mapped = mapSubscription(sub, { includeStripeIds: true });
+      let amountDueCents = sub.amountDueCents ?? 0;
+      if (sub.stripeSubscriptionId) {
+        const open = await getOpenSubscriptionPayment(sub.stripeSubscriptionId);
+        if (open.amountDueCents > amountDueCents) amountDueCents = open.amountDueCents;
+      }
+      return { ...mapped, amountDueCents };
+    },
+
+    previewPlanChange: async (
+      _: unknown,
+      args: { restaurantId: string; plan: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      assertCanManageBilling(user.role);
+      return previewPlanChange(args.restaurantId, args.plan);
+    },
+
+    planChangePayment: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      assertCanManageBilling(user.role);
+      const result = await getPlanChangePayment(args.restaurantId);
+      return {
+        subscription: mapSubscription(result.subscription, { includeStripeIds: true }),
+        clientSecret: result.clientSecret,
+        paymentMode: result.paymentMode,
+        amountDueCents: result.amountDueCents,
+      };
     },
 
     plans: async () => getEffectivePlans(),
+    partnerEmailAvailable: async (_: unknown, args: { email: string }) => {
+      const email = args.email.trim().toLowerCase();
+      if (!email) return false;
+      const existing = await User.findOne({ email }).select('_id').lean();
+      return !existing;
+    },
+    partnerRestaurantNameAvailable: async (_: unknown, args: { name: string }) =>
+      isRestaurantNameAvailable(args.name),
 
     annualBillingSettings: async () => getAnnualBillingSettings(),
 
@@ -1896,6 +1977,8 @@ export const resolvers = {
         user: mapUser(result.user),
         restaurant: mapRestaurant(result.restaurant),
         subscription: mapSubscription(result.subscription, { includeStripeIds: true }),
+        clientSecret: result.subscription.clientSecret ?? null,
+        paymentMode: result.subscription.paymentMode ?? null,
       };
     },
 
@@ -2964,34 +3047,43 @@ export const resolvers = {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
       assertCanManageBilling(user.role);
-
-      const planDef = await getEffectivePlan(args.plan);
-      if (!planDef) throw new Error(`Invalid plan: ${args.plan}`);
-      const planKey = planDef.key;
-
-      const sub = await Subscription.findOne({ restaurantId: args.restaurantId });
-      if (!sub) throw new Error('No subscription found');
-      if (sub.status === 'cancelled') throw new Error('Cannot change a cancelled subscription');
-
-      if (sub.stripeSubscriptionId) {
-        await updateStripeSubscription(sub.stripeSubscriptionId, planDef.monthlyPriceCents);
-      }
-
-      sub.plan = planKey;
-      sub.monthlyPriceCents = planDef.monthlyPriceCents;
-      sub.networkCoverFeeCents = planDef.networkCoverFeeCents;
-      sub.websiteCoverFeeCents = planDef.websiteCoverFeeCents;
-      sub.features = { ...planDef.features } as any;
-      await sub.save();
-
-      await logAudit({
+      const result = await changeRestaurantPlan({
+        restaurantId: args.restaurantId,
+        plan: args.plan,
         actorId: user._id.toString(),
-        action: 'changePlan',
-        resource: 'Subscription',
-        resourceId: sub._id.toString(),
-        details: { plan: planKey, restaurantId: args.restaurantId },
       });
+      return {
+        subscription: mapSubscription(result.subscription, { includeStripeIds: true }),
+        clientSecret: result.clientSecret,
+        paymentMode: result.paymentMode,
+        amountDueCents: result.amountDueCents,
+      };
+    },
 
+    confirmPlanChangePayment: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      assertCanManageBilling(user.role);
+      const sub = await markPlanChangePaid(args.restaurantId);
+      return mapSubscription(sub, { includeStripeIds: true });
+    },
+
+    cancelPendingPlanChange: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      assertCanManageBilling(user.role);
+      const sub = await cancelPendingPlanChange({
+        restaurantId: args.restaurantId,
+        actorId: user._id.toString(),
+      });
       return mapSubscription(sub, { includeStripeIds: true });
     },
 

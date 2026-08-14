@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useMutation, useQuery } from '@/lib/apollo-hooks';
+import { useMutation, useQuery, useLazyQuery } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import {
   Badge,
@@ -44,8 +44,13 @@ import {
   CREATE_SUBSCRIPTION,
   CANCEL_SUBSCRIPTION,
   CHANGE_PLAN,
+  PREVIEW_PLAN_CHANGE,
+  CANCEL_PENDING_PLAN_CHANGE,
   SET_PREMIUM_SMS_ADDON,
+  PLAN_CHANGE_PAYMENT,
+  CONFIRM_PLAN_CHANGE_PAYMENT,
 } from '@/lib/graphql';
+import { SignupPaymentForm, type SignupPaymentMode } from '@/components/SignupPaymentForm';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -87,7 +92,18 @@ export default function BillingPage() {
   const [createSubscription, { loading: creating }] = useMutation(CREATE_SUBSCRIPTION);
   const [cancelSubscription, { loading: cancelling }] = useMutation(CANCEL_SUBSCRIPTION);
   const [changePlan, { loading: changing }] = useMutation(CHANGE_PLAN);
+  const [cancelPendingPlan, { loading: cancellingPending }] = useMutation(CANCEL_PENDING_PLAN_CHANGE);
+  const [previewPlanChange] = useLazyQuery(PREVIEW_PLAN_CHANGE);
+  const [loadPlanChangePayment] = useLazyQuery(PLAN_CHANGE_PAYMENT);
+  const [confirmPlanPayment] = useMutation(CONFIRM_PLAN_CHANGE_PAYMENT);
   const [setPremiumSmsAddon, { loading: togglingSms }] = useMutation(SET_PREMIUM_SMS_ADDON);
+  const [upgradePayment, setUpgradePayment] = useState<{
+    clientSecret: string;
+    paymentMode: SignupPaymentMode;
+    planName: string;
+    monthlyLabel: string;
+    amountDueCents: number;
+  } | null>(null);
 
   const subscription = subData?.mySubscription;
   const plans = plansData?.plans ?? [];
@@ -116,8 +132,106 @@ export default function BillingPage() {
 
   const handleChangePlan = async (plan: string) => {
     if (!activeRestaurantId) return;
-    await changePlan({ variables: { restaurantId: activeRestaurantId, plan } });
-    refetchSub();
+    try {
+      const { data } = await previewPlanChange({
+        variables: { restaurantId: activeRestaurantId, plan },
+        fetchPolicy: 'network-only',
+      });
+      const preview = data?.previewPlanChange;
+      if (!preview) {
+        message.error('Could not load plan change details');
+        return;
+      }
+      if (!preview.allowed) {
+        Modal.warning({
+          title: 'This plan change is not available',
+          content: preview.blockedReason ?? 'You cannot switch to this plan right now.',
+        });
+        return;
+      }
+
+      const target = plans.find((p: { key: string; name: string }) => p.key === plan);
+      const title = preview.immediate
+        ? `Upgrade to ${target?.name ?? plan}?`
+        : `Schedule downgrade to ${target?.name ?? plan}?`;
+      const effective = preview.effectiveAt
+        ? dayjs(preview.effectiveAt).format('MMM D, YYYY')
+        : 'the next billing date';
+
+      Modal.confirm({
+        title,
+        width: 520,
+        okText: preview.immediate ? 'Upgrade now' : 'Schedule downgrade',
+        content: (
+          <div>
+            <Paragraph>
+              {preview.immediate
+                ? `This takes effect immediately. You will be charged a prorated amount today: ${formatCents(preview.proratedChargeCents)}.`
+                : `You keep your current plan, features, and cover fees until ${effective}. Then the new price and cover fees apply.`}
+            </Paragraph>
+            <Paragraph type="secondary" style={{ marginBottom: 8 }}>
+              {formatCents(preview.currentMonthlyPriceCents)}/mo → {formatCents(preview.nextMonthlyPriceCents)}/mo
+              {preview.currentNetworkCoverFeeCents !== preview.nextNetworkCoverFeeCents
+                ? ` · Network cover ${formatCents(preview.currentNetworkCoverFeeCents)} → ${formatCents(preview.nextNetworkCoverFeeCents)}`
+                : ''}
+            </Paragraph>
+            {preview.featuresGained.length > 0 ? (
+              <Paragraph>
+                <Text strong>You will gain: </Text>
+                {preview.featuresGained.join(', ')}
+              </Paragraph>
+            ) : null}
+            {preview.featuresLost.length > 0 ? (
+              <Paragraph>
+                <Text strong>You will lose: </Text>
+                {preview.featuresLost.join(', ')}
+              </Paragraph>
+            ) : null}
+          </div>
+        ),
+        onOk: async () => {
+          try {
+            const { data: changeData } = await changePlan({
+              variables: { restaurantId: activeRestaurantId, plan },
+            });
+            const payload = changeData?.changePlan;
+            refetchSub();
+            if (payload?.clientSecret) {
+              setUpgradePayment({
+                clientSecret: payload.clientSecret,
+                paymentMode: payload.paymentMode === 'setup' ? 'setup' : 'payment',
+                planName: target?.name ?? plan,
+                monthlyLabel: formatCents(preview.nextMonthlyPriceCents),
+                amountDueCents: payload.amountDueCents || preview.proratedChargeCents,
+              });
+              return;
+            }
+            message.success(
+              preview.immediate ? 'Plan upgraded' : `Downgrade scheduled for ${effective}`,
+            );
+          } catch (err: unknown) {
+            message.error(err instanceof Error ? err.message : 'Could not change plan');
+            throw err;
+          }
+        },
+      });
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Could not change plan');
+    }
+  };
+
+  const handleCancelPending = () => {
+    if (!activeRestaurantId) return;
+    Modal.confirm({
+      title: 'Keep your current plan?',
+      content: 'This cancels the scheduled downgrade. Nothing changes until you pick a new plan.',
+      okText: 'Keep current plan',
+      onOk: async () => {
+        await cancelPendingPlan({ variables: { restaurantId: activeRestaurantId } });
+        message.success('Scheduled plan change cancelled');
+        refetchSub();
+      },
+    });
   };
 
   const handleTogglePremiumSms = async (enabled: boolean) => {
@@ -150,6 +264,34 @@ export default function BillingPage() {
   const smsIncludedInPlan = Boolean(subscription?.features?.premiumSms);
   const smsAddonEnabled = Boolean(subscription?.features?.premiumSmsAddon);
   const canEditBilling = Boolean(user && canManageBilling(user.role));
+  const amountDueNow = Number(subscription?.amountDueCents ?? 0);
+  const isTrialing = subscription?.status === 'trialing' && amountDueNow <= 0;
+  const isFreePlan = Boolean(subscription && subscription.monthlyPriceCents === 0 && amountDueNow <= 0);
+  const upgradedThisPeriod = Boolean(
+    subscription?.lastPaidPlanChangeAt &&
+      subscription?.currentPeriodStart &&
+      !dayjs(subscription.lastPaidPlanChangeAt).isBefore(dayjs(subscription.currentPeriodStart), 'day'),
+  );
+
+  const openDuePayment = async () => {
+    if (!activeRestaurantId || !subscription) return;
+    const { data } = await loadPlanChangePayment({
+      variables: { restaurantId: activeRestaurantId },
+      fetchPolicy: 'network-only',
+    });
+    const payload = data?.planChangePayment;
+    if (!payload?.clientSecret) {
+      message.error('Could not start payment');
+      return;
+    }
+    setUpgradePayment({
+      clientSecret: payload.clientSecret,
+      paymentMode: payload.paymentMode === 'setup' ? 'setup' : 'payment',
+      planName: String(subscription.plan),
+      monthlyLabel: formatCents(subscription.monthlyPriceCents),
+      amountDueCents: payload.amountDueCents || amountDueNow,
+    });
+  };
 
   return (
     <div component="BillingPage" style={{ display: 'contents' }}><Space orientation="vertical" size={24} style={{ width: '100%' }}>
@@ -177,9 +319,29 @@ export default function BillingPage() {
                   {subscription.status.toUpperCase()}
                 </Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="Monthly Price">
-                <Text strong>{formatCents(subscription.monthlyPriceCents)}</Text>/mo
-              </Descriptions.Item>
+              {isTrialing ? (
+                <Descriptions.Item label="Amount due this period">
+                  <Text strong>$0.00</Text>
+                  <Text type="secondary"> (free trial)</Text>
+                </Descriptions.Item>
+              ) : isFreePlan ? (
+                <Descriptions.Item label="Monthly price">
+                  <Text strong>$0.00</Text>
+                  <Text type="secondary"> /mo · free plan</Text>
+                </Descriptions.Item>
+              ) : (
+                <Descriptions.Item label="Monthly price">
+                  <Text strong>{formatCents(subscription.monthlyPriceCents)}</Text>/mo
+                </Descriptions.Item>
+              )}
+              {amountDueNow > 0 && (
+                <Descriptions.Item label="Amount due now">
+                  <Text strong style={{ color: '#cf1322' }}>
+                    {formatCents(amountDueNow)}
+                  </Text>
+                  <Text type="secondary"> (prorated upgrade — pay to keep this plan)</Text>
+                </Descriptions.Item>
+              )}
               <Descriptions.Item label="Network Cover Fee">
                 {formatCents(subscription.networkCoverFeeCents)} per cover
               </Descriptions.Item>
@@ -189,19 +351,59 @@ export default function BillingPage() {
                   : `${formatCents(subscription.websiteCoverFeeCents)} per cover`}
               </Descriptions.Item>
               {subscription.currentPeriodEnd && (
-                <Descriptions.Item label="Current Period">
+                <Descriptions.Item
+                  label={isTrialing ? 'Trial period' : 'Current billing period'}
+                >
                   {dayjs(subscription.currentPeriodStart).format('MMM D')} &ndash;{' '}
                   {dayjs(subscription.currentPeriodEnd).format('MMM D, YYYY')}
                 </Descriptions.Item>
               )}
-              {subscription.trialEndsAt && (
-                <Descriptions.Item label="Trial Ends">
+              {isTrialing && subscription.trialEndsAt ? (
+                <>
+                  <Descriptions.Item label="Price after trial">
+                    <Text strong>{formatCents(subscription.monthlyPriceCents)}</Text>/mo
+                    <Text type="secondary">
+                      {' '}
+                      starting {dayjs(subscription.trialEndsAt).format('MMM D, YYYY')}
+                    </Text>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="First charge">
+                    {dayjs(subscription.trialEndsAt).format('MMM D, YYYY')} ·{' '}
+                    {formatCents(subscription.monthlyPriceCents)}
+                  </Descriptions.Item>
+                </>
+              ) : isFreePlan ? (
+                <Descriptions.Item label="Next charge">None — free plan</Descriptions.Item>
+              ) : subscription.currentPeriodEnd ? (
+                <Descriptions.Item label="Next recurring charge">
+                  {dayjs(subscription.currentPeriodEnd).format('MMM D, YYYY')} ·{' '}
+                  {formatCents(subscription.monthlyPriceCents)}
+                  {upgradedThisPeriod || amountDueNow > 0 ? (
+                    <Text type="secondary"> (full monthly rate after today&apos;s proration)</Text>
+                  ) : null}
+                </Descriptions.Item>
+              ) : null}
+              {subscription.status !== 'trialing' && subscription.trialEndsAt && (
+                <Descriptions.Item label="Trial ended">
                   {dayjs(subscription.trialEndsAt).format('MMM D, YYYY')}
+                </Descriptions.Item>
+              )}
+              {subscription.pendingPlan && (
+                <Descriptions.Item label="Scheduled change">
+                  {subscription.pendingPlan} on{' '}
+                  {subscription.pendingPlanEffectiveAt
+                    ? dayjs(subscription.pendingPlanEffectiveAt).format('MMM D, YYYY')
+                    : 'next renewal'}
                 </Descriptions.Item>
               )}
             </Descriptions>
 
             <div style={{ marginTop: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {canEditBilling && amountDueNow > 0 && (
+                <Button type="primary" onClick={() => void openDuePayment()}>
+                  Pay {formatCents(amountDueNow)} now
+                </Button>
+              )}
               {canEditBilling && subscription.status !== 'cancelled' &&
                 plans
                   .filter((p: any) => p.key !== subscription.plan)
@@ -214,6 +416,11 @@ export default function BillingPage() {
                       Switch to {p.name} ({formatCents(p.monthlyPriceCents)}/mo)
                     </Button>
                   ))}
+              {canEditBilling && subscription.pendingPlan && (
+                <Button onClick={handleCancelPending} loading={cancellingPending}>
+                  Cancel scheduled change
+                </Button>
+              )}
               {canEditBilling && subscription.status !== 'cancelled' && (
                 <Button danger onClick={handleCancel} loading={cancelling}>
                   Cancel Subscription
@@ -447,6 +654,32 @@ export default function BillingPage() {
           </Row>
         </>
       )}
+      <Modal
+        title="Complete your upgrade"
+        open={Boolean(upgradePayment)}
+        footer={null}
+        destroyOnHidden
+        onCancel={() => setUpgradePayment(null)}
+      >
+        {upgradePayment ? (
+          <SignupPaymentForm
+            clientSecret={upgradePayment.clientSecret}
+            paymentMode={upgradePayment.paymentMode}
+            planName={upgradePayment.planName}
+            monthlyLabel={upgradePayment.monthlyLabel}
+            trialDays={0}
+            description={`Pay ${formatCents(upgradePayment.amountDueCents)} now (prorated for the rest of this period). Recurring ${upgradePayment.monthlyLabel}/mo starts on the next billing date.`}
+            onSuccess={() => {
+              if (activeRestaurantId) {
+                void confirmPlanPayment({ variables: { restaurantId: activeRestaurantId } });
+              }
+              setUpgradePayment(null);
+              message.success('Payment received');
+              refetchSub();
+            }}
+          />
+        ) : null}
+      </Modal>
     </Space></div>
   );
 }

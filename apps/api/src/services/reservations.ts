@@ -690,6 +690,8 @@ async function recordCoverFee(reservation: any) {
 
     const sub = await Subscription.findOne({ restaurantId: reservation.restaurantId });
     if (!sub) return;
+    const { applyPendingPlanChangeIfDue } = await import('./planChange.js');
+    await applyPendingPlanChangeIfDue(sub);
 
     let feeCents: number;
     if (source === 'website' || source === 'widget') {

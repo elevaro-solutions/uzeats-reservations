@@ -94,3 +94,29 @@ export const PLANS = {
 } as const;
 
 export type PlanKey = keyof typeof PLANS;
+
+export const FEATURE_LABELS: Record<FeatureKey, string> = {
+  floorPlans: 'Customizable floor plans',
+  smartAssign: 'Smart Assign',
+  waitlist: 'Waitlist',
+  premiumSms: 'Premium SMS messaging',
+  guestProfiles360: '360 guest profiles',
+  emailCampaigns: 'Automated email campaigns',
+  customWidget: 'Customizable booking widget',
+  analytics: 'Advanced analytics',
+  dedicatedSupport: 'Dedicated account manager',
+  accessRules: 'Access Rules',
+  posIntegration: 'POS integration',
+  twoWayMessaging: 'Two-way messaging',
+  spendAlerts: 'Guest spend alerts',
+  ticketedEvents: 'Ticketed events & experiences',
+  preShift: 'Pre-shift reports',
+  autoTags: 'Automated guest tags',
+  surveys: 'Custom post-dining surveys',
+  revenueForecasting: 'Revenue forecasting',
+  customReports: 'Custom report builder',
+  multiLocationAnalytics: 'Multi-location analytics',
+  promotions: 'Promotion & offer management',
+  featuredPlacement: 'Featured placement',
+  boostCampaigns: 'Boost campaigns',
+};

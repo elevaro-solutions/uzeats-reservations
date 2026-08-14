@@ -421,6 +421,10 @@ export const typeDefs = `#graphql
     currentPeriodEnd: DateTime
     trialEndsAt: DateTime
     cancelledAt: DateTime
+    pendingPlan: String
+    pendingPlanEffectiveAt: DateTime
+    lastPaidPlanChangeAt: DateTime
+    amountDueCents: Int!
     monthlyPriceCents: Int!
     networkCoverFeeCents: Int!
     websiteCoverFeeCents: Int!
@@ -453,6 +457,32 @@ export const typeDefs = `#graphql
     visibleOnPricing: Boolean!
     isCustom: Boolean!
     features: SubscriptionFeatures!
+  }
+
+  type PlanChangePreview {
+    fromPlan: String!
+    toPlan: String!
+    direction: String!
+    allowed: Boolean!
+    blockedReason: String
+    immediate: Boolean!
+    effectiveAt: DateTime
+    proratedChargeCents: Int!
+    featuresLost: [String!]!
+    featuresGained: [String!]!
+    currentMonthlyPriceCents: Int!
+    nextMonthlyPriceCents: Int!
+    currentNetworkCoverFeeCents: Int!
+    nextNetworkCoverFeeCents: Int!
+    currentWebsiteCoverFeeCents: Int!
+    nextWebsiteCoverFeeCents: Int!
+  }
+
+  type PlanChangePayload {
+    subscription: SubscriptionType!
+    clientSecret: String
+    paymentMode: String
+    amountDueCents: Int!
   }
 
   type CoverFeeSummary {
@@ -1378,6 +1408,8 @@ export const typeDefs = `#graphql
     user: User!
     restaurant: Restaurant!
     subscription: SubscriptionType!
+    clientSecret: String
+    paymentMode: String
   }
 
   input TableInput {
@@ -1970,7 +2002,11 @@ export const typeDefs = `#graphql
     flaggedContent(limit: Int): FlaggedContent!
     auditLogs(limit: Int, offset: Int): AuditLogConnection!
     mySubscription(restaurantId: ID!): SubscriptionType
+    previewPlanChange(restaurantId: ID!, plan: String!): PlanChangePreview!
+    planChangePayment(restaurantId: ID!): PlanChangePayload!
     plans: [PlanInfo!]!
+    partnerEmailAvailable(email: String!): Boolean!
+    partnerRestaurantNameAvailable(name: String!): Boolean!
     annualBillingSettings: AnnualBillingSettings!
     coverFeeSummary(restaurantId: ID!, period: String): CoverFeeSummary!
 
@@ -2162,7 +2198,9 @@ export const typeDefs = `#graphql
     syncStripeInvoices(limit: Int): StripeSyncResult!
     createSubscription(restaurantId: ID!, plan: String!): SubscriptionType!
     cancelSubscription(restaurantId: ID!): SubscriptionType!
-    changePlan(restaurantId: ID!, plan: String!): SubscriptionType!
+    changePlan(restaurantId: ID!, plan: String!): PlanChangePayload!
+    confirmPlanChangePayment(restaurantId: ID!): SubscriptionType!
+    cancelPendingPlanChange(restaurantId: ID!): SubscriptionType!
 
     registerPushToken(token: String!, platform: String!): Boolean!
     linkTelegram(chatId: String!): Boolean!

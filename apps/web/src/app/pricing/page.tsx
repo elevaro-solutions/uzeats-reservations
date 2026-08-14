@@ -78,10 +78,8 @@ const featureCategories: FeatureCategory[] = [
       { name: 'Advanced inventory controls', basic: false, core: true, pro: true },
       { name: 'Access Rules', basic: false, core: true, pro: true },
       { name: 'In-house and online waitlist', basic: false, core: true, pro: true },
-      { name: 'POS integration', basic: false, core: true, pro: true },
       { name: 'Mobile app with floor plan', basic: false, core: true, pro: true },
       { name: 'Automated reservation messages', basic: true, core: true, pro: true },
-      { name: 'Premium SMS Messaging', basic: false, core: '$15/mo add-on', pro: true },
     ],
   },
   {
@@ -93,7 +91,6 @@ const featureCategories: FeatureCategory[] = [
       { name: 'Real-time guest spend alerts', basic: false, core: true, pro: true },
       { name: 'Two-way messaging', basic: false, core: true, pro: true },
       { name: 'Pre-shift report', basic: false, core: false, pro: true },
-      { name: 'Automated email campaigns', basic: false, core: false, pro: true },
       { name: 'Automated guest tags', basic: false, core: false, pro: true },
       { name: 'Custom post-dining surveys', basic: false, core: false, pro: true },
     ],
@@ -125,7 +122,6 @@ const featureCategories: FeatureCategory[] = [
     features: [
       { name: 'Boost campaigns (pay-per-cover)', basic: true, core: true, pro: true },
       { name: 'Featured placement on Tablevera', basic: false, core: true, pro: true },
-      { name: 'Email marketing campaigns', basic: false, core: false, pro: true },
       { name: 'Promotion & offer management', basic: false, core: false, pro: true },
     ],
   },
@@ -203,13 +199,13 @@ const PLAN_HIGHLIGHTS: Record<PlanKey, string[]> = {
   core: [
     'Floor plans & Smart Assign',
     'Free website reservations',
-    'POS integration & waitlist',
+    'In-house and online waitlist',
     '360° guest profiles',
   ],
   pro: [
-    'Automated email campaigns',
-    'Premium SMS included',
+    'Advanced guest insights',
     'Revenue forecasting',
+    'Custom report builder',
     'Dedicated account manager',
   ],
 };

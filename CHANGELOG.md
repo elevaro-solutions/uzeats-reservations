@@ -4,6 +4,21 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.25.0] — 2026-08-15
+
+### Added
+
+- Partner plan changes with preview: upgrades take effect immediately with prorated charge; downgrades schedule at period end
+- Stripe Payment Element on partner signup and billing (card setup or first invoice)
+- `previewPlanChange` / `changePlan` / `planChangePayment` GraphQL APIs and plan-change policy tests
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` required on diner web and partner dashboard for Stripe.js
+
+### Changed
+
+- One paid upgrade per billing period; downgrades blocked while a trial is active
+- Pending plan changes apply when the period ends (and on Stripe sync / feature checks)
+- Address autocomplete Places loader and dashboard register/billing UI for card collection
+
 ## [0.24.1] — 2026-08-13
 
 ### Fixed

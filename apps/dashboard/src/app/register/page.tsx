@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useMutation, useQuery } from '@/lib/apollo-hooks';
+import { useMutation, useQuery, useLazyQuery } from '@/lib/apollo-hooks';
 import {
   Button,
   Form,
@@ -17,7 +17,9 @@ import {
   Typography,
   message,
   Spin,
+  Alert,
 } from 'antd';
+import dayjs from 'dayjs';
 import { CUISINES } from '@reservations/shared';
 import { AddressAutocomplete, PhoneInput, PlanPrice, colors, formatPhoneDisplay, toE164Us, typography, usPhoneRules } from '@reservations/ui';
 import { formatPlanDollars, getPlanDiscountLabel, getPlanPriceDisplay } from '@reservations/shared';
@@ -25,7 +27,8 @@ import { AuthLayout } from '@/components/AuthLayout';
 import { useAuth } from '@/lib/auth';
 import { getPublicWebUrl } from '@/lib/webUrl';
 import { addressSelectionToFields } from '@/lib/address';
-import { PLANS, REGISTER_RESTAURANT_PARTNER } from '@/lib/graphql';
+import { PARTNER_EMAIL_AVAILABLE, PARTNER_RESTAURANT_NAME_AVAILABLE, PLANS, REGISTER_RESTAURANT_PARTNER } from '@/lib/graphql';
+import { SignupPaymentForm, type SignupPaymentMode } from '@/components/SignupPaymentForm';
 import {
   priceRangeOptions,
   restaurantFieldTooltips as tips,
@@ -80,6 +83,20 @@ const FALLBACK_PLAN_OPTIONS: PlanOption[] = [
 ];
 
 
+type PendingSignup = {
+  user: {
+    id: string;
+    email?: string | null;
+    firstName: string;
+    lastName: string;
+    role: string;
+    restaurantIds: string[];
+  };
+  restaurant: { id: string; name: string };
+  clientSecret: string;
+  paymentMode: SignupPaymentMode;
+};
+
 function RegisterForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -88,6 +105,14 @@ function RegisterForm() {
   const [plan, setPlan] = useState(() => searchParams.get('plan') || 'core');
   const [form] = Form.useForm();
   const [registerPartner, { loading }] = useMutation(REGISTER_RESTAURANT_PARTNER);
+  const [checkEmailAvailable] = useLazyQuery(PARTNER_EMAIL_AVAILABLE, { fetchPolicy: 'network-only' });
+  const [checkRestaurantNameAvailable] = useLazyQuery(PARTNER_RESTAURANT_NAME_AVAILABLE, {
+    fetchPolicy: 'network-only',
+  });
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [checkingName, setCheckingName] = useState(false);
+  const [pendingSignup, setPendingSignup] = useState<PendingSignup | null>(null);
+  const [addressDetailsOpen, setAddressDetailsOpen] = useState(false);
   const { data: plansData } = useQuery(PLANS);
 
   const planOptions = useMemo((): PlanOption[] => {
@@ -134,6 +159,13 @@ function RegisterForm() {
     [plan, planOptions],
   );
 
+  const isFreePlan = planInfo.pricing.monthlyPriceCents <= 0;
+
+  const chargingStartsOn = useMemo(() => {
+    if (isFreePlan || planInfo.trialDays <= 0) return null;
+    return dayjs().add(planInfo.trialDays, 'day').format('MMM D, YYYY');
+  }, [isFreePlan, planInfo.trialDays]);
+
   useEffect(() => {
     const requested = searchParams.get('plan');
     if (!requested || !planOptions.length) return;
@@ -144,10 +176,10 @@ function RegisterForm() {
   }, [searchParams, planOptions, form]);
 
   useEffect(() => {
-    if (!authLoading && user) router.replace('/');
-  }, [authLoading, user, router]);
+    if (!authLoading && user && !pendingSignup) router.replace('/');
+  }, [authLoading, user, router, pendingSignup]);
 
-  if (authLoading || user) {
+  if (authLoading || (user && !pendingSignup)) {
     return (
       <div style={{ textAlign: 'center', padding: 48 }}>
         <Spin />
@@ -160,31 +192,45 @@ function RegisterForm() {
       if (step === 0) {
         await form.validateFields(['plan']);
       } else if (step === 1) {
-        await form.validateFields([
-          'firstName',
-          'lastName',
-          'email',
-          'ownerPhone',
-          'password',
-          'confirmPassword',
-        ]);
+        setCheckingEmail(true);
+        try {
+          await form.validateFields([
+            'firstName',
+            'lastName',
+            'email',
+            'ownerPhone',
+            'password',
+            'confirmPassword',
+          ]);
+        } finally {
+          setCheckingEmail(false);
+        }
       } else if (step === 2) {
-        await form.validateFields([
-          'name',
-          'cuisine',
-          'description',
-          'phone',
-          'website',
-          'line1',
-          'city',
-          'state',
-          'zip',
-          'priceRange',
-          'lat',
-          'lng',
-        ]);
+        if (!addressDetailsOpen) {
+          message.warning('Search and select an address to continue.');
+          return;
+        }
+        setCheckingName(true);
+        try {
+          await form.validateFields([
+            'name',
+            'cuisine',
+            'description',
+            'phone',
+            'website',
+            'line1',
+            'city',
+            'state',
+            'zip',
+            'priceRange',
+            'lat',
+            'lng',
+          ]);
+        } finally {
+          setCheckingName(false);
+        }
       }
-      setStep((s) => Math.min(s + 1, 3));
+      setStep((s) => Math.min(s + 1, 4));
     } catch {
       /* validation errors shown by Form */
     }
@@ -254,12 +300,23 @@ function RegisterForm() {
       });
 
       const payload = data.registerRestaurantPartner;
-      setSession(payload.user);
       localStorage.setItem('activeRestaurantId', payload.restaurant.id);
-      message.success(
-        `${payload.restaurant.name} submitted — ${planInfo.name}${planInfo.trialDays > 0 ? ' trial started' : ' selected'}`,
-      );
-      router.push('/onboarding');
+
+      const mode = payload.paymentMode === 'setup' ? 'setup' : 'payment';
+      const needsPayment = Boolean(payload.clientSecret) && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+
+      if (needsPayment && payload.clientSecret) {
+        setPendingSignup({
+          user: payload.user,
+          restaurant: payload.restaurant,
+          clientSecret: payload.clientSecret,
+          paymentMode: mode,
+        });
+        setStep(4);
+        return;
+      }
+
+      finishToDashboard(payload.user, payload.restaurant.name);
     } catch (err) {
       const errorFields =
         err && typeof err === 'object' && 'errorFields' in err
@@ -293,8 +350,30 @@ function RegisterForm() {
         }
         return;
       }
-      message.error(err instanceof Error ? err.message : 'Registration failed. Please try again.');
+      const msg = err instanceof Error ? err.message : '';
+      if (/already exists|duplicate key|slug/i.test(msg)) {
+        form.setFields([
+          {
+            name: 'name',
+            errors: ['A restaurant with this name already exists. Choose a different name.'],
+          },
+        ]);
+        setStep(2);
+        return;
+      }
+      message.error(msg || 'Registration failed. Please try again.');
     }
+  };
+
+  const finishToDashboard = (
+    nextUser: PendingSignup['user'],
+    restaurantName: string,
+  ) => {
+    setSession(nextUser);
+    message.success(
+      `${restaurantName} submitted — ${planInfo.name}${planInfo.trialDays > 0 ? ' trial started' : ' selected'}`,
+    );
+    router.push('/');
   };
 
   return (
@@ -305,13 +384,26 @@ function RegisterForm() {
       <Steps
         size="small"
         current={step}
+        responsive={false}
+        labelPlacement="vertical"
+        className="register-steps"
         style={{ marginBottom: 28 }}
-        items={[
-          { title: 'Plan' },
-          { title: 'Account' },
-          { title: 'Business' },
-          { title: 'Confirm' },
-        ]}
+        items={
+          isFreePlan
+            ? [
+                { title: 'Plan' },
+                { title: 'Account' },
+                { title: 'Business' },
+                { title: 'Confirm' },
+              ]
+            : [
+                { title: 'Plan' },
+                { title: 'Account' },
+                { title: 'Business' },
+                { title: 'Confirm' },
+                { title: 'Payment' },
+              ]
+        }
       />
 
       <Form
@@ -367,12 +459,19 @@ function RegisterForm() {
                   {planInfo.discountLabel}
                 </Tag>
               ) : null}
-              {planInfo.trialDays > 0 ? (
+              {isFreePlan ? (
+                <Tag color="green">Free plan</Tag>
+              ) : planInfo.trialDays > 0 ? (
                 <Tag color="green">Free {planInfo.trialDays}-day trial</Tag>
               ) : (
                 <Tag>No free trial</Tag>
               )}
             </div>
+            {chargingStartsOn ? (
+              <Text type="secondary" style={{ fontSize: typography.fontSize.sm, display: 'block', marginTop: 10 }}>
+                You will not be charged until {chargingStartsOn}.
+              </Text>
+            ) : null}
           </div>
           <Text type="secondary" style={{ fontSize: typography.fontSize.xs }}>
             Prefer a different tier?{' '}
@@ -406,9 +505,31 @@ function RegisterForm() {
               <Form.Item
                 name="email"
                 label="Work email"
+                validateTrigger="onBlur"
                 rules={[
                   { required: true, message: 'Required' },
                   { type: 'email', message: 'Enter a valid email' },
+                  {
+                    validator: async (_, value) => {
+                      const email = typeof value === 'string' ? value.trim() : '';
+                      if (!email || !email.includes('@')) return Promise.resolve();
+                      try {
+                        const { data } = await checkEmailAvailable({ variables: { email } });
+                        if (!data?.partnerEmailAvailable) {
+                          return Promise.reject(
+                            new Error(
+                              'This email is already registered. Sign in or use a different email.',
+                            ),
+                          );
+                        }
+                        return Promise.resolve();
+                      } catch {
+                        return Promise.reject(
+                          new Error('Could not verify this email. Please try again.'),
+                        );
+                      }
+                    },
+                  },
                 ]}
               >
                 <Input size="large" autoComplete="email" placeholder="you@restaurant.com" />
@@ -468,9 +589,29 @@ function RegisterForm() {
                 name="name"
                 label="Restaurant name"
                 tooltip={tips.name}
+                validateTrigger="onBlur"
                 rules={[
                   { required: true, message: 'Required' },
                   { max: 120, message: 'Max 120 characters' },
+                  {
+                    validator: async (_, value) => {
+                      const name = typeof value === 'string' ? value.trim() : '';
+                      if (!name) return Promise.resolve();
+                      try {
+                        const { data } = await checkRestaurantNameAvailable({ variables: { name } });
+                        if (!data?.partnerRestaurantNameAvailable) {
+                          return Promise.reject(
+                            new Error('A restaurant with this name already exists. Choose a different name.'),
+                          );
+                        }
+                        return Promise.resolve();
+                      } catch {
+                        return Promise.reject(
+                          new Error('Could not verify this restaurant name. Please try again.'),
+                        );
+                      }
+                    },
+                  },
                 ]}
               >
                 <Input size="large" maxLength={120} showCount />
@@ -549,31 +690,42 @@ function RegisterForm() {
             </Col>
             <Col span={24}>
               <Form.Item
+                label="Address search"
+                tooltip="Search Google Places to fill street, city, state, ZIP, and map coordinates."
+                style={{ marginBottom: addressDetailsOpen ? 16 : 24 }}
+              >
+                <AddressAutocomplete
+                  placeholder="Start typing an address"
+                  style={{ width: '100%' }}
+                  inputProps={{ size: 'large', style: { width: '100%' } }}
+                  onSelect={(selection) => {
+                    form.setFieldsValue(addressSelectionToFields(selection));
+                    setAddressDetailsOpen(true);
+                  }}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={24} style={{ display: addressDetailsOpen ? undefined : 'none' }}>
+              <Form.Item
                 name="line1"
                 label="Street address"
                 tooltip={tips.line1}
                 rules={[{ required: true, message: 'Required' }]}
               >
-                <AddressAutocomplete
-                  placeholder="Start typing an address"
-                  inputProps={{ size: 'large' }}
-                  onSelect={(selection) =>
-                    form.setFieldsValue(addressSelectionToFields(selection))
-                  }
-                />
+                <Input size="large" autoComplete="street-address" />
               </Form.Item>
             </Col>
-            <Col xs={24} sm={10}>
+            <Col xs={24} sm={10} style={{ display: addressDetailsOpen ? undefined : 'none' }}>
               <Form.Item
                 name="city"
                 label="City"
                 tooltip={tips.city}
                 rules={[{ required: true, message: 'Required' }]}
               >
-                <Input size="large" />
+                <Input size="large" autoComplete="address-level2" />
               </Form.Item>
             </Col>
-            <Col xs={12} sm={7}>
+            <Col xs={12} sm={7} style={{ display: addressDetailsOpen ? undefined : 'none' }}>
               <Form.Item
                 name="state"
                 label="State"
@@ -583,10 +735,15 @@ function RegisterForm() {
                   { len: 2, message: '2-letter code' },
                 ]}
               >
-                <Input size="large" maxLength={2} style={{ textTransform: 'uppercase' }} />
+                <Input
+                  size="large"
+                  maxLength={2}
+                  autoComplete="address-level1"
+                  style={{ textTransform: 'uppercase' }}
+                />
               </Form.Item>
             </Col>
-            <Col xs={12} sm={7}>
+            <Col xs={12} sm={7} style={{ display: addressDetailsOpen ? undefined : 'none' }}>
               <Form.Item
                 name="zip"
                 label="ZIP"
@@ -596,7 +753,7 @@ function RegisterForm() {
                   { min: 5, max: 10, message: '5–10 characters' },
                 ]}
               >
-                <Input size="large" maxLength={10} />
+                <Input size="large" maxLength={10} autoComplete="postal-code" />
               </Form.Item>
             </Col>
             <Form.Item name="lat" hidden rules={[{ required: true }]}>
@@ -617,7 +774,17 @@ function RegisterForm() {
               marginBottom: 8,
             }}
           >
-            <ConfirmRow label="Plan" value={`${planInfo.name} (${planInfo.monthly}/mo)`} />
+            <ConfirmRow
+              label="Plan"
+              value={
+                isFreePlan
+                  ? `${planInfo.name} (Free)`
+                  : `${planInfo.name} (${planInfo.monthly}/mo)`
+              }
+            />
+            {chargingStartsOn ? (
+              <ConfirmRow label="Charging starts" value={chargingStartsOn} />
+            ) : null}
             <ConfirmRow
               label="Owner"
               value={`${form.getFieldValue('firstName') ?? ''} ${form.getFieldValue('lastName') ?? ''}`.trim()}
@@ -638,15 +805,39 @@ function RegisterForm() {
             <ConfirmRow label="Phone" value={formatPhoneDisplay(form.getFieldValue('phone'))} />
             <Text type="secondary" style={{ fontSize: typography.fontSize.sm, marginTop: 4 }}>
               Your listing will be pending approval.
-              {planInfo.trialDays > 0
-                ? ` Your ${planInfo.trialDays}-day ${planInfo.name} trial starts immediately.`
-                : ` Your ${planInfo.name} subscription starts immediately.`}
+              {isFreePlan
+                ? ` No payment is required for the ${planInfo.name} plan.`
+                : planInfo.trialDays > 0 && chargingStartsOn
+                  ? ` Add a payment method to start your ${planInfo.trialDays}-day ${planInfo.name} trial. Charging starts ${chargingStartsOn}.`
+                  : ` Enter payment details to start your ${planInfo.name} subscription.`}
             </Text>
           </div>
         </div>
 
+        <div style={{ display: step === 4 ? 'block' : 'none' }}>
+          {pendingSignup ? (
+            <SignupPaymentForm
+              clientSecret={pendingSignup.clientSecret}
+              paymentMode={pendingSignup.paymentMode}
+              planName={planInfo.name}
+              monthlyLabel={planInfo.monthly}
+              trialDays={planInfo.trialDays}
+              chargingStartsOn={chargingStartsOn}
+              onSuccess={() =>
+                finishToDashboard(pendingSignup.user, pendingSignup.restaurant.name)
+              }
+            />
+          ) : (
+            <Alert
+              type="info"
+              message="Continue from the confirm step to enter payment details."
+              showIcon
+            />
+          )}
+        </div>
+
         <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-          {step > 0 && (
+          {step > 0 && step < 4 && (
             <Button size="large" onClick={() => setStep((s) => s - 1)} style={{ flex: 1 }}>
               Back
             </Button>
@@ -656,11 +847,12 @@ function RegisterForm() {
               type="primary"
               size="large"
               onClick={goNext}
+              loading={checkingEmail || checkingName}
               style={{ flex: 1, background: colors.brand[600] }}
             >
               Continue
             </Button>
-          ) : (
+          ) : step === 3 ? (
             <Button
               type="primary"
               size="large"
@@ -668,9 +860,9 @@ function RegisterForm() {
               onClick={submit}
               style={{ flex: 1, background: colors.brand[600] }}
             >
-              Start free trial
+              {isFreePlan ? 'Create account' : 'Continue to payment'}
             </Button>
-          )}
+          ) : null}
         </div>
       </Form>
 

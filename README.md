@@ -83,7 +83,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Menus + DO Spaces presigned uploads (stubbed without keys; image types only)
 - Notifications: email (SendGrid or Resend), Telegram bot, web/Expo push (service worker on diner web), in-app inbox + channel prefs; transactional SMS with public `/sms` opt-in
 - Auth: email/password (forgot/reset on web and partner dashboard), Google OAuth, Twilio phone OTP; browser sessions use HttpOnly cookies
-- Partner Settings hub, notifications prefs, multi-restaurant selector, self-registration, onboarding checklist, **profile page**, and toggles to accept online reservations or hide the booking widget
+- Partner Settings hub, notifications prefs, multi-restaurant selector, self-registration with Stripe card collection, plan change preview (prorated upgrades / scheduled downgrades), onboarding checklist, **profile page**, and toggles to accept online reservations or hide the booking widget
 - **Email branding** — customizable email templates per restaurant
 - Shareable booking links (`/r/:slug`) and **Booking widget** page for embed script copy
 - Owner phone / walk-in bookings, **diner and partner reservation edit**, reservation-scoped messaging, and **individual reservation detail pages** (upcoming / past / deposit filters)
@@ -108,7 +108,7 @@ JWT_ACCESS_SECRET=...
 JWT_REFRESH_SECRET=...
 ```
 
-Optional integrations: `STRIPE_*` (production requires `STRIPE_WEBHOOK_SECRET`), `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `SENDGRID_API_KEY` (or `RESEND_API_KEY`), `TELEGRAM_BOT_TOKEN` (+ `API_PUBLIC_URL` / `TELEGRAM_WEBHOOK_SECRET` in production when the bot is enabled), `DO_SPACES_*`, `VAPID_*`, `NEXT_PUBLIC_SITE_URL` (canonical URLs for sitemap/SEO; defaults to `https://tablevera.online`), `ELEVARO_LEADS_API_KEY` (contact form lead ingest). Dashboard only: `NEXT_PUBLIC_SHOW_DEV_CREDENTIALS=true` shows seed login hints on `/login`.
+Optional integrations: `STRIPE_*` (production requires `STRIPE_WEBHOOK_SECRET`), `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (web + dashboard Stripe.js for deposits and partner signup/billing), `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `SENDGRID_API_KEY` (or `RESEND_API_KEY`), `TELEGRAM_BOT_TOKEN` (+ `API_PUBLIC_URL` / `TELEGRAM_WEBHOOK_SECRET` in production when the bot is enabled), `DO_SPACES_*`, `VAPID_*`, `NEXT_PUBLIC_SITE_URL` (canonical URLs for sitemap/SEO; defaults to `https://tablevera.online`), `ELEVARO_LEADS_API_KEY` (contact form lead ingest). Dashboard only: `NEXT_PUBLIC_SHOW_DEV_CREDENTIALS=true` shows seed login hints on `/login`.
 
 For password reset emails, set `WEB_APP_URL` and `DASHBOARD_APP_URL` on the API so reset links land on the correct app.
 

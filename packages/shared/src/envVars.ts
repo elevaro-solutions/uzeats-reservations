@@ -394,9 +394,10 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     key: 'NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY',
     label: 'Stripe publishable key',
     group: 'payments',
-    apps: ['web'],
-    requirement: 'recommended',
-    description: 'Client-side Stripe.js initialization.',
+    apps: ['web', 'dashboard'],
+    requirement: 'required',
+    description:
+      'Client-side Stripe.js key for diner deposits and partner signup payment. Required on dashboard and web.',
   },
   {
     key: 'NEXT_PUBLIC_VAPID_PUBLIC_KEY',
