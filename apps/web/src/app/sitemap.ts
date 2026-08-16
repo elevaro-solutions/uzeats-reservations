@@ -5,6 +5,7 @@ import {
   listNeighborhoodLandingParams,
   listOccasionLandingParams,
 } from '@/lib/discoveryIndex';
+import { fetchBlogSitemapEntries } from '@/lib/blogSeoFetch';
 import { fetchRestaurantSitemapEntries } from '@/lib/restaurantSeoFetch';
 import { getSiteUrl } from '@/lib/seo';
 
@@ -18,6 +19,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/cuisine`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
     { url: `${base}/occasion`, lastModified: now, changeFrequency: 'weekly', priority: 0.65 },
     { url: `${base}/neighborhoods`, lastModified: now, changeFrequency: 'weekly', priority: 0.65 },
+    { url: `${base}/blog`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${base}/for-restaurants`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${base}/pricing`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${base}/contact`, lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
     { url: `${base}/privacy`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
@@ -26,13 +29,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/cookies`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
   ];
 
-  const [cityParams, neighborhoodParams, cuisineParams, occasionParams, restaurantEntries] =
+  const [cityParams, neighborhoodParams, cuisineParams, occasionParams, restaurantEntries, blogEntries] =
     await Promise.all([
       listCityLandingParams(),
       listNeighborhoodLandingParams(),
       listCuisineLandingParams(),
       listOccasionLandingParams(),
       fetchRestaurantSitemapEntries(),
+      fetchBlogSitemapEntries(),
     ]);
 
   const cuisinePages = cuisineParams.map(({ slug }) => ({
@@ -70,6 +74,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.9,
   }));
 
+  const blogPages = blogEntries.map((p) => ({
+    url: `${base}/blog/${p.slug}`,
+    lastModified: p.lastModified ? new Date(p.lastModified) : now,
+    changeFrequency: 'monthly' as const,
+    priority: 0.65,
+  }));
+
   return [
     ...staticPages,
     ...cuisinePages,
@@ -77,5 +88,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...cityPages,
     ...neighborhoodPages,
     ...restaurantPages,
+    ...blogPages,
   ];
 }

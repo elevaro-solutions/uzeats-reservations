@@ -203,6 +203,54 @@ export function websiteJsonLd() {
   };
 }
 
+export function articleJsonLd(post: {
+  title: string;
+  slug: string;
+  excerpt?: string | null;
+  bodyHtml?: string | null;
+  coverImageUrl?: string | null;
+  publishedAt?: string | Date | null;
+  updatedAt?: string | Date | null;
+  seoDescription?: string | null;
+  authorName?: string | null;
+  tags?: string[];
+}) {
+  const path = `/blog/${post.slug}`;
+  const description =
+    post.seoDescription ||
+    post.excerpt ||
+    `${post.title} — Tablevera restaurant reservations insights`;
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: post.title,
+    description,
+    url: absoluteUrl(path),
+    mainEntityOfPage: absoluteUrl(path),
+    image: post.coverImageUrl ? [post.coverImageUrl] : undefined,
+    datePublished: post.publishedAt ? new Date(post.publishedAt).toISOString() : undefined,
+    dateModified: post.updatedAt
+      ? new Date(post.updatedAt).toISOString()
+      : post.publishedAt
+        ? new Date(post.publishedAt).toISOString()
+        : undefined,
+    author: {
+      '@type': 'Person',
+      name: post.authorName || 'Tablevera',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Tablevera',
+      logo: {
+        '@type': 'ImageObject',
+        url: absoluteUrl('/brand/tablevera_icon_v2.svg'),
+      },
+    },
+    keywords: post.tags?.length ? post.tags.join(', ') : undefined,
+  };
+}
+
 /** Shared Metadata for discovery landing templates. */
 export function discoveryLandingMetadata(params: {
   title: string;

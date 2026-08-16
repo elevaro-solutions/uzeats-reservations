@@ -66,7 +66,7 @@ const CONTACT_CHANNELS = [
     title: 'Restaurant partners',
     description: 'List your restaurant or explore our plans.',
     email: SUPPORT_EMAIL,
-    link: { href: '/pricing', label: 'View pricing' },
+    link: { href: '/for-restaurants', label: 'For restaurants' },
   },
   {
     icon: <SafetyCertificateOutlined />,
@@ -103,10 +103,14 @@ const FAQ_ITEMS = [
     children: (
       <>
         Visit our{' '}
-        <Link href="/pricing" style={{ color: colors.brand[600], fontWeight: 600 }}>
-          pricing page
+        <Link href="/for-restaurants" style={{ color: colors.brand[600], fontWeight: 600 }}>
+          restaurant page
         </Link>{' '}
-        to compare plans, or send us a message with the &quot;Restaurant partnership&quot; topic.
+        or{' '}
+        <Link href="/pricing" style={{ color: colors.brand[600], fontWeight: 600 }}>
+          compare plans
+        </Link>
+        , or send us a message with the &quot;Restaurant partnership&quot; topic.
         Every plan includes a free 30-day trial.
       </>
     ),

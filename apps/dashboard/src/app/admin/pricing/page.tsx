@@ -134,6 +134,14 @@ function centsToDollars(cents: number) {
   return cents / 100;
 }
 
+function featuresInput(features: Record<string, unknown> | undefined | null) {
+  if (!features) return {};
+  const { __typename: _typename, ...rest } = features;
+  return Object.fromEntries(
+    Object.entries(rest).filter(([, value]) => typeof value === 'boolean'),
+  );
+}
+
 function trialPeriodValue(trialDays: number): number | 'custom' {
   if (trialDays <= 0) return 30;
   return (TRIAL_PRESETS as readonly number[]).includes(trialDays) ? trialDays : 'custom';
@@ -204,7 +212,7 @@ export default function AdminPricingPage() {
       trialPeriod: trialPeriodValue(days),
       customTrialDays: days > 0 && !(TRIAL_PRESETS as readonly number[]).includes(days) ? days : 7,
       visibleOnPricing: plan.visibleOnPricing !== false,
-      features: plan.features ?? {},
+      features: featuresInput(plan.features),
     });
   }, [plans, activeKey, form]);
 
@@ -212,12 +220,16 @@ export default function AdminPricingPage() {
 
   const resolveTrialDays = (values: {
     trialEnabled?: boolean;
-    trialPeriod?: number | 'custom';
+    trialPeriod?: number | 'custom' | string;
     customTrialDays?: number;
   }) => {
-    if (!values.trialEnabled) return 0;
-    if (values.trialPeriod === 'custom') return Math.max(1, values.customTrialDays ?? 1);
-    return Number(values.trialPeriod ?? 30);
+    if (values.trialEnabled !== true) return 0;
+    if (values.trialPeriod === 'custom') {
+      const custom = Number(values.customTrialDays);
+      return Number.isFinite(custom) ? Math.min(365, Math.max(1, Math.round(custom))) : 1;
+    }
+    const days = Number(values.trialPeriod ?? 30);
+    return Number.isFinite(days) && days > 0 ? days : 30;
   };
 
   const resolveDiscountInput = (values: {
@@ -310,7 +322,8 @@ export default function AdminPricingPage() {
 
   const onSave = async () => {
     try {
-      const values = await form.validateFields();
+      await form.validateFields();
+      const values = form.getFieldsValue(true);
       const discount = resolveDiscountInput(values);
       await updatePlan({
         variables: {
@@ -329,7 +342,7 @@ export default function AdminPricingPage() {
             websiteCoverFeeCents: dollarsToCents(values.websiteCoverFee),
             trialDays: resolveTrialDays(values),
             visibleOnPricing: values.visibleOnPricing,
-            features: values.features,
+            features: featuresInput(values.features),
           },
         },
       });
@@ -343,7 +356,8 @@ export default function AdminPricingPage() {
 
   const onCreate = async () => {
     try {
-      const values = await createForm.validateFields();
+      await createForm.validateFields();
+      const values = createForm.getFieldsValue(true);
       const discount = resolveDiscountInput(values);
       const result = await createPlan({
         variables: {
@@ -361,7 +375,7 @@ export default function AdminPricingPage() {
             websiteCoverFeeCents: dollarsToCents(values.websiteCoverFee),
             trialDays: resolveTrialDays(values),
             visibleOnPricing: values.visibleOnPricing !== false,
-            features: values.features ?? {},
+            features: featuresInput(values.features),
           },
         },
       });
@@ -569,7 +583,7 @@ export default function AdminPricingPage() {
     );
   };
 
-  const trialFields = (enabled: boolean, period: number | 'custom') => (
+  const trialFields = (enabled: boolean, period: number | 'custom' | string) => (
     <>
       <Form.Item
         name="trialEnabled"
@@ -580,35 +594,33 @@ export default function AdminPricingPage() {
       >
         <Switch checkedChildren="On" unCheckedChildren="Off" />
       </Form.Item>
-      {enabled ? (
-        <>
-          <Form.Item
-            name="trialPeriod"
-            label="Trial period"
-            tooltip={FIELD_TIPS.trialPeriod}
-            rules={[{ required: true }]}
-          >
-            <Radio.Group optionType="button" buttonStyle="solid">
-              {TRIAL_PRESETS.map((d) => (
-                <Radio.Button key={d} value={d}>
-                  {d} {d === 1 ? 'day' : 'days'}
-                </Radio.Button>
-              ))}
-              <Radio.Button value="custom">Custom</Radio.Button>
-            </Radio.Group>
-          </Form.Item>
-          {period === 'custom' ? (
-            <Form.Item
-              name="customTrialDays"
-              label="Custom trial days"
-              tooltip={FIELD_TIPS.customTrialDays}
-              rules={[{ required: true, type: 'number', min: 1 }]}
-            >
-              <InputNumber min={1} max={365} style={{ width: '100%' }} addonAfter="days" />
-            </Form.Item>
-          ) : null}
-        </>
-      ) : null}
+      <Form.Item
+        name="trialPeriod"
+        label="Trial period"
+        tooltip={FIELD_TIPS.trialPeriod}
+        hidden={!enabled}
+        rules={enabled ? [{ required: true }] : []}
+      >
+        <Radio.Group optionType="button" buttonStyle="solid">
+          {TRIAL_PRESETS.map((d) => (
+            <Radio.Button key={d} value={d}>
+              {d} {d === 1 ? 'day' : 'days'}
+            </Radio.Button>
+          ))}
+          <Radio.Button value="custom">Custom</Radio.Button>
+        </Radio.Group>
+      </Form.Item>
+      <Form.Item
+        name="customTrialDays"
+        label="Custom trial days"
+        tooltip={FIELD_TIPS.customTrialDays}
+        hidden={!enabled || period !== 'custom'}
+        rules={
+          enabled && period === 'custom' ? [{ required: true, type: 'number', min: 1 }] : []
+        }
+      >
+        <InputNumber min={1} max={365} style={{ width: '100%' }} addonAfter="days" />
+      </Form.Item>
     </>
   );
 

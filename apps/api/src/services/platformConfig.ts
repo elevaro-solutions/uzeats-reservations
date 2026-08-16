@@ -135,14 +135,28 @@ export function pickDiscountOverrides(input: {
   };
 }
 
+export function toPlainPlanOverride(value: unknown): PlanOverrideFields {
+  if (!value || typeof value !== 'object') return {};
+  if (typeof (value as { toObject?: () => unknown }).toObject === 'function') {
+    return (value as { toObject: () => PlanOverrideFields }).toObject();
+  }
+  return { ...(value as PlanOverrideFields) };
+}
+
 export function getPlanOverridesMap(
   doc: PlatformConfigDocument,
 ): Record<string, PlanOverrideFields> {
   const raw = (doc as any).planOverrides;
   if (!raw) return {};
-  if (raw instanceof Map) return Object.fromEntries(raw.entries());
-  if (typeof raw === 'object') return { ...raw };
-  return {};
+  const entries =
+    raw instanceof Map
+      ? [...raw.entries()]
+      : typeof raw === 'object'
+        ? Object.entries(raw)
+        : [];
+  return Object.fromEntries(
+    entries.map(([key, value]) => [key, toPlainPlanOverride(value)]),
+  );
 }
 
 export function slugifyPlanKey(name: string): string {
@@ -198,7 +212,8 @@ function mapOverrideToPlan(
     annualFreeMonths: pricing.annualFreeMonths,
     networkCoverFeeCents: override?.networkCoverFeeCents ?? base?.networkCoverFeeCents ?? 0,
     websiteCoverFeeCents: override?.websiteCoverFeeCents ?? base?.websiteCoverFeeCents ?? 0,
-    trialDays: override?.trialDays ?? base?.trialDays ?? 0,
+    trialDays:
+      typeof override?.trialDays === 'number' ? override.trialDays : (base?.trialDays ?? 0),
     visibleOnPricing:
       override?.visibleOnPricing !== undefined
         ? Boolean(override.visibleOnPricing)

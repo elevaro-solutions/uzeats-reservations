@@ -7,86 +7,63 @@ function graphqlUrl() {
   return process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/graphql';
 }
 
-async function createUploadUrl(
-  filename: string,
-  contentType: string,
-): Promise<UploadResult & { uploadUrl: string }> {
-  const res = await fetch(graphqlUrl(), {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Client-App': 'dashboard',
-    },
-    body: JSON.stringify({
-      query: `mutation CreateUploadUrl($filename: String!, $contentType: String!) {
-        createUploadUrl(filename: $filename, contentType: $contentType) {
-          uploadUrl publicUrl key
-        }
-      }`,
-      variables: { filename, contentType },
-    }),
-  });
-
-  const json = (await res.json()) as {
-    data?: { createUploadUrl: UploadResult & { uploadUrl: string } };
-    errors?: Array<{ message: string }>;
-  };
-
-  if (json.errors?.length) {
-    throw new Error(json.errors[0]?.message ?? 'Failed to create upload URL');
-  }
-
-  const payload = json.data?.createUploadUrl;
-  if (!payload?.uploadUrl) {
-    throw new Error('Failed to create upload URL');
-  }
-
-  return payload;
+function uploadsUrl() {
+  return graphqlUrl().replace(/\/graphql\/?$/, '') + '/api/uploads';
 }
 
-function putToPresignedUrl(
-  uploadUrl: string,
-  file: Blob,
-  contentType: string,
-  onProgress?: (percent: number) => void,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable && onProgress) {
-        onProgress(Math.round((e.loaded / e.total) * 100));
-      }
-    });
-
-    xhr.addEventListener('load', () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-        return;
-      }
-      reject(new Error(`Upload failed: ${xhr.status}`));
-    });
-
-    xhr.addEventListener('error', () => reject(new Error('Upload failed')));
-
-    xhr.open('PUT', uploadUrl);
-    xhr.setRequestHeader('Content-Type', contentType);
-    xhr.setRequestHeader('x-amz-acl', 'public-read');
-    xhr.send(file);
-  });
-}
-
-/** Upload via DO Spaces presigned URL (GraphQL createUploadUrl → PUT). */
+/**
+ * Upload via API proxy (server → DigitalOcean Spaces).
+ * Prefer this over browser PUTs to Spaces — bucket CORS often blocks those.
+ */
 export async function uploadFile(
   file: Blob,
   filename: string,
   options?: { onProgress?: (percent: number) => void },
 ): Promise<UploadResult> {
   const contentType = file.type || 'application/octet-stream';
+  const url = uploadsUrl();
 
-  const { uploadUrl, publicUrl, key } = await createUploadUrl(filename, contentType);
-  await putToPresignedUrl(uploadUrl, file, contentType, options?.onProgress);
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
 
-  return { publicUrl, key };
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable && options?.onProgress) {
+        options.onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status < 200 || xhr.status >= 300) {
+        let message = `Upload failed: ${xhr.status}`;
+        try {
+          const json = JSON.parse(xhr.responseText) as { error?: string };
+          if (json.error) message = json.error;
+        } catch {
+          /* keep status message */
+        }
+        reject(new Error(message));
+        return;
+      }
+
+      try {
+        const json = JSON.parse(xhr.responseText) as UploadResult;
+        if (!json.publicUrl || !json.key) {
+          reject(new Error('Upload failed: invalid response'));
+          return;
+        }
+        resolve(json);
+      } catch {
+        reject(new Error('Upload failed: invalid response'));
+      }
+    });
+
+    xhr.addEventListener('error', () => reject(new Error('Upload failed')));
+
+    xhr.open('POST', url);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader('Content-Type', contentType);
+    xhr.setRequestHeader('X-Upload-Filename', filename);
+    xhr.setRequestHeader('X-Client-App', 'dashboard');
+    xhr.send(file);
+  });
 }

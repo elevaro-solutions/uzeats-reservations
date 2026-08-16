@@ -4,6 +4,20 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.26.0] — 2026-08-17
+
+### Added
+
+- Public blog (`/blog`, `/blog/:slug`) with Article JSON-LD, sitemap entries, and admin CMS (`/admin/blog`)
+- Partner marketing page at `/for-restaurants` with dedicated nav, contact-sales path, and photography
+- Mobile nav drawer on diner web; restaurant marketing shell routes home to `/for-restaurants`
+
+### Changed
+
+- Annual plan prices display as billed yearly (with monthly equivalent note) on pricing and PlanPrice
+- Admin pricing trial/feature form handling and plan override serialization
+- Dashboard AuthLayout and register/signup payment UI polish; upload helper improvements
+
 ## [0.25.0] — 2026-08-15
 
 ### Added

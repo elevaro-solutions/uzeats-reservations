@@ -53,9 +53,11 @@ export function PlanPrice({
     const strikeLabel =
       display.primarySuffix === ' / first month'
         ? `${formatPlanDollars(display.originalCents)}/mo`
-        : display.discountTag?.includes('annual') || display.discountTag?.includes('free on annual')
-          ? `${formatPlanDollars(display.originalCents)}/mo`
-          : formatPlanDollars(display.originalCents);
+        : display.primarySuffix.includes('year')
+          ? `${formatPlanDollars(display.originalCents)}/yr`
+          : display.discountTag?.includes('annual') || display.discountTag?.includes('free on annual')
+            ? `${formatPlanDollars(display.originalCents)}/mo`
+            : formatPlanDollars(display.originalCents);
     strikeContent = (
       <Text
         delete

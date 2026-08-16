@@ -1018,6 +1018,56 @@ export const typeDefs = `#graphql
     updatedAt: DateTime!
   }
 
+  enum BlogPostStatus { draft published archived }
+
+  type BlogPostFaqItem {
+    question: String!
+    answer: String!
+  }
+
+  input BlogPostFaqItemInput {
+    question: String!
+    answer: String!
+  }
+
+  type BlogPost {
+    id: ID!
+    title: String!
+    slug: String!
+    excerpt: String!
+    bodyHtml: String!
+    coverImageUrl: String
+    status: BlogPostStatus!
+    publishedAt: DateTime
+    seoTitle: String!
+    seoDescription: String!
+    tags: [String!]!
+    faq: [BlogPostFaqItem!]!
+    authorId: ID
+    author: User
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type BlogPostConnection {
+    items: [BlogPost!]!
+    total: Int!
+  }
+
+  input BlogPostInput {
+    title: String!
+    slug: String
+    excerpt: String
+    bodyHtml: String!
+    coverImageUrl: String
+    status: BlogPostStatus
+    seoTitle: String
+    seoDescription: String
+    tags: [String!]
+    faq: [BlogPostFaqItemInput!]
+    publishedAt: DateTime
+  }
+
   type ChurnAlert {
     id: ID!
     alertType: String!
@@ -1997,6 +2047,15 @@ export const typeDefs = `#graphql
     ): SupportTicketConnection!
     supportTicket(id: ID!): SupportTicket!
     emailTemplates: [EmailTemplate!]!
+    adminBlogPosts(
+      search: String
+      status: BlogPostStatus
+      limit: Int
+      offset: Int
+    ): BlogPostConnection!
+    adminBlogPost(id: ID!): BlogPost
+    blogPosts(tag: String, limit: Int, offset: Int): BlogPostConnection!
+    blogPost(slug: String!): BlogPost
     churnAlerts: [ChurnAlert!]!
     slaMetrics: SlaMetrics!
     flaggedContent(limit: Int): FlaggedContent!
@@ -2188,6 +2247,10 @@ export const typeDefs = `#graphql
       bodyText: String
       name: String
     ): EmailTemplate!
+    createBlogPost(input: BlogPostInput!): BlogPost!
+    updateBlogPost(id: ID!, input: BlogPostInput!): BlogPost!
+    deleteBlogPost(id: ID!): Boolean!
+    publishBlogPost(id: ID!): BlogPost!
     flagReview(id: ID!, reason: String): FlaggedContentItem!
     unflagReview(id: ID!): FlaggedContentItem!
     setReviewHiddenAdmin(id: ID!, hidden: Boolean!): FlaggedContentItem!

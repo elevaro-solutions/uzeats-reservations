@@ -12,6 +12,7 @@ import {
   Row,
   Col,
   Select,
+  Segmented,
   Steps,
   Tag,
   Typography,
@@ -21,8 +22,16 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import { CUISINES } from '@reservations/shared';
-import { AddressAutocomplete, PhoneInput, PlanPrice, colors, formatPhoneDisplay, toE164Us, typography, usPhoneRules } from '@reservations/ui';
-import { formatPlanDollars, getPlanDiscountLabel, getPlanPriceDisplay } from '@reservations/shared';
+import { AddressAutocomplete, PhoneInput, PlanPrice, colors, formatPhoneDisplay, toE164Us, typography, usPhoneRules, type BillingPeriod } from '@reservations/ui';
+import {
+  formatPlanDollars,
+  getAnnualSavingsPercentFromSettings,
+  getPlanDiscountLabel,
+  getPlanPriceDisplay,
+  normalizeAnnualBillingSettings,
+  planForBillingPeriod,
+  type AnnualBillingSettings,
+} from '@reservations/shared';
 import { AuthLayout } from '@/components/AuthLayout';
 import { useAuth } from '@/lib/auth';
 import { getPublicWebUrl } from '@/lib/webUrl';
@@ -39,7 +48,7 @@ const { Text } = Typography;
 type PlanOption = {
   key: string;
   name: string;
-  monthly: string;
+  priceLabel: string;
   blurb: string;
   trialDays: number;
   discountLabel: string | null;
@@ -48,39 +57,56 @@ type PlanOption = {
     originalMonthlyPriceCents?: number | null;
     discountType?: string | null;
     discountPercent?: number | null;
+    discountAmountCents?: number | null;
     annualFreeMonths?: number | null;
   };
 };
 
-const FALLBACK_PLAN_OPTIONS: PlanOption[] = [
+const FALLBACK_PLAN_OPTIONS: Omit<PlanOption, 'priceLabel' | 'discountLabel'>[] = [
   {
     key: 'basic',
     name: 'Basic',
-    monthly: '$49',
     blurb: 'Essential reservation management to get started.',
     trialDays: 30,
-    discountLabel: null,
     pricing: { monthlyPriceCents: 4900 },
   },
   {
     key: 'core',
     name: 'Core',
-    monthly: '$99',
     blurb: 'Table management, waitlist, and free website covers.',
     trialDays: 30,
-    discountLabel: null,
     pricing: { monthlyPriceCents: 9900 },
   },
   {
     key: 'pro',
     name: 'Pro',
-    monthly: '$199',
     blurb: 'Full suite with guest insights, campaigns, and SMS.',
     trialDays: 30,
-    discountLabel: null,
     pricing: { monthlyPriceCents: 19900 },
   },
 ];
+
+function parseBillingPeriod(value: string | null): BillingPeriod {
+  return value === 'annual' ? 'annual' : 'monthly';
+}
+
+function toPlanOption(
+  plan: Omit<PlanOption, 'priceLabel' | 'discountLabel'>,
+  billingPeriod: BillingPeriod,
+  annualBilling: AnnualBillingSettings,
+): PlanOption {
+  const periodPricing = planForBillingPeriod(plan.pricing, billingPeriod, {
+    annualBilling,
+    planKey: plan.key,
+  });
+  const display = getPlanPriceDisplay(periodPricing);
+  const suffix = display.primarySuffix.includes('year') ? '/yr' : '/mo';
+  return {
+    ...plan,
+    priceLabel: `${formatPlanDollars(display.primaryCents)}${suffix}`,
+    discountLabel: getPlanDiscountLabel(periodPricing),
+  };
+}
 
 
 type PendingSignup = {
@@ -103,6 +129,9 @@ function RegisterForm() {
   const { user, loading: authLoading, setSession } = useAuth();
   const [step, setStep] = useState(0);
   const [plan, setPlan] = useState(() => searchParams.get('plan') || 'core');
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>(() =>
+    parseBillingPeriod(searchParams.get('billing')),
+  );
   const [form] = Form.useForm();
   const [registerPartner, { loading }] = useMutation(REGISTER_RESTAURANT_PARTNER);
   const [checkEmailAvailable] = useLazyQuery(PARTNER_EMAIL_AVAILABLE, { fetchPolicy: 'network-only' });
@@ -114,6 +143,14 @@ function RegisterForm() {
   const [pendingSignup, setPendingSignup] = useState<PendingSignup | null>(null);
   const [addressDetailsOpen, setAddressDetailsOpen] = useState(false);
   const { data: plansData } = useQuery(PLANS);
+
+  const annualBilling: AnnualBillingSettings = useMemo(
+    () =>
+      normalizeAnnualBillingSettings(
+        (plansData as { annualBillingSettings?: AnnualBillingSettings })?.annualBillingSettings,
+      ),
+    [plansData],
+  );
 
   const planOptions = useMemo((): PlanOption[] => {
     const fromApi = ((plansData as any)?.plans ?? []) as Array<{
@@ -129,34 +166,35 @@ function RegisterForm() {
       trialDays: number;
       visibleOnPricing?: boolean;
     }>;
-    if (!fromApi.length) return FALLBACK_PLAN_OPTIONS;
-    const visible = fromApi.filter((p) => p.visibleOnPricing !== false);
-    const list = visible.length ? visible : fromApi;
-    return list.map((p) => {
-      const pricing = {
-        monthlyPriceCents: p.monthlyPriceCents,
-        originalMonthlyPriceCents: p.originalMonthlyPriceCents,
-        discountType: p.discountType,
-        discountPercent: p.discountPercent,
-        discountAmountCents: p.discountAmountCents,
-        annualFreeMonths: p.annualFreeMonths,
-      };
-      const display = getPlanPriceDisplay(pricing);
-      return {
-        key: p.key,
-        name: p.name,
-        monthly: formatPlanDollars(display.primaryCents),
-        blurb: p.description?.trim() || `${p.name} package`,
-        trialDays: p.trialDays ?? 0,
-        discountLabel: getPlanDiscountLabel(pricing),
-        pricing,
-      };
-    });
-  }, [plansData]);
+    const base: Omit<PlanOption, 'priceLabel' | 'discountLabel'>[] = fromApi.length
+      ? (() => {
+          const visible = fromApi.filter((p) => p.visibleOnPricing !== false);
+          const list = visible.length ? visible : fromApi;
+          return list.map((p) => ({
+            key: p.key,
+            name: p.name,
+            blurb: p.description?.trim() || `${p.name} package`,
+            trialDays: p.trialDays ?? 0,
+            pricing: {
+              monthlyPriceCents: p.monthlyPriceCents,
+              originalMonthlyPriceCents: p.originalMonthlyPriceCents,
+              discountType: p.discountType,
+              discountPercent: p.discountPercent,
+              discountAmountCents: p.discountAmountCents,
+              annualFreeMonths: p.annualFreeMonths,
+            },
+          }));
+        })()
+      : FALLBACK_PLAN_OPTIONS;
+    return base.map((p) => toPlanOption(p, billingPeriod, annualBilling));
+  }, [plansData, billingPeriod, annualBilling]);
 
   const planInfo = useMemo(
-    () => planOptions.find((p) => p.key === plan) ?? planOptions[0] ?? FALLBACK_PLAN_OPTIONS[1],
-    [plan, planOptions],
+    () =>
+      planOptions.find((p) => p.key === plan) ??
+      planOptions[0] ??
+      toPlanOption(FALLBACK_PLAN_OPTIONS[1], billingPeriod, annualBilling),
+    [plan, planOptions, billingPeriod, annualBilling],
   );
 
   const isFreePlan = planInfo.pricing.monthlyPriceCents <= 0;
@@ -166,6 +204,15 @@ function RegisterForm() {
     return dayjs().add(planInfo.trialDays, 'day').format('MMM D, YYYY');
   }, [isFreePlan, planInfo.trialDays]);
 
+  const annualToggleLabel = useMemo(() => {
+    if (!annualBilling.enabled) return 'Annual';
+    if (annualBilling.discountType === 'percent_off') {
+      return `Annual (${annualBilling.discountPercent}% off)`;
+    }
+    const savings = getAnnualSavingsPercentFromSettings(annualBilling);
+    return savings > 0 ? `Annual (${savings}% off)` : 'Annual';
+  }, [annualBilling]);
+
   useEffect(() => {
     const requested = searchParams.get('plan');
     if (!requested || !planOptions.length) return;
@@ -174,6 +221,13 @@ function RegisterForm() {
       form.setFieldValue('plan', requested);
     }
   }, [searchParams, planOptions, form]);
+
+  useEffect(() => {
+    const requested = searchParams.get('billing');
+    if (requested === 'annual' || requested === 'monthly') {
+      setBillingPeriod(requested);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!authLoading && user && !pendingSignup) router.replace('/');
@@ -419,6 +473,18 @@ function RegisterForm() {
         }}
       >
         <div style={{ display: step === 0 ? 'block' : 'none' }}>
+          <div style={{ marginBottom: 16, textAlign: 'center' }}>
+            <Segmented
+              value={billingPeriod}
+              onChange={(value) => setBillingPeriod(value as BillingPeriod)}
+              options={[
+                { label: 'Monthly', value: 'monthly' },
+                { label: annualToggleLabel, value: 'annual' },
+              ]}
+              size="large"
+              block
+            />
+          </div>
           <Form.Item
             name="plan"
             label="Subscription plan"
@@ -433,7 +499,7 @@ function RegisterForm() {
               }}
               options={planOptions.map((p) => ({
                 value: p.key,
-                label: `${p.name} — ${p.monthly}/mo`,
+                label: `${p.name} — ${p.priceLabel}`,
               }))}
             />
           </Form.Item>
@@ -449,7 +515,13 @@ function RegisterForm() {
             <Text strong style={{ display: 'block', marginBottom: 4 }}>
               {planInfo.name}
             </Text>
-            <PlanPrice plan={planInfo.pricing} size="medium" />
+            <PlanPrice
+              plan={planInfo.pricing}
+              planKey={planInfo.key}
+              size="medium"
+              billingPeriod={billingPeriod}
+              annualBilling={annualBilling}
+            />
             <Text type="secondary" style={{ fontSize: typography.fontSize.sm, display: 'block', marginTop: 8 }}>
               {planInfo.blurb}
             </Text>
@@ -779,7 +851,7 @@ function RegisterForm() {
               value={
                 isFreePlan
                   ? `${planInfo.name} (Free)`
-                  : `${planInfo.name} (${planInfo.monthly}/mo)`
+                  : `${planInfo.name} (${planInfo.priceLabel})`
               }
             />
             {chargingStartsOn ? (
@@ -820,7 +892,7 @@ function RegisterForm() {
               clientSecret={pendingSignup.clientSecret}
               paymentMode={pendingSignup.paymentMode}
               planName={planInfo.name}
-              monthlyLabel={planInfo.monthly}
+              monthlyLabel={planInfo.priceLabel}
               trialDays={planInfo.trialDays}
               chargingStartsOn={chargingStartsOn}
               onSuccess={() =>

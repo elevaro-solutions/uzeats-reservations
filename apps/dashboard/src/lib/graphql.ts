@@ -881,6 +881,97 @@ export const UPDATE_EMAIL_TEMPLATE = gql`
   }
 `;
 
+export const ADMIN_BLOG_POSTS = gql`
+  query AdminBlogPosts($search: String, $status: BlogPostStatus, $limit: Int, $offset: Int) {
+    adminBlogPosts(search: $search, status: $status, limit: $limit, offset: $offset) {
+      total
+      items {
+        id
+        title
+        slug
+        excerpt
+        bodyHtml
+        coverImageUrl
+        status
+        publishedAt
+        seoTitle
+        seoDescription
+        tags
+        faq { question answer }
+        authorId
+        author { id firstName lastName }
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
+export const CREATE_BLOG_POST = gql`
+  mutation CreateBlogPost($input: BlogPostInput!) {
+    createBlogPost(input: $input) {
+      id
+      title
+      slug
+      excerpt
+      bodyHtml
+      coverImageUrl
+      status
+      publishedAt
+      seoTitle
+      seoDescription
+      tags
+      faq { question answer }
+      authorId
+      author { id firstName lastName }
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const UPDATE_BLOG_POST = gql`
+  mutation UpdateBlogPost($id: ID!, $input: BlogPostInput!) {
+    updateBlogPost(id: $id, input: $input) {
+      id
+      title
+      slug
+      excerpt
+      bodyHtml
+      coverImageUrl
+      status
+      publishedAt
+      seoTitle
+      seoDescription
+      tags
+      faq { question answer }
+      authorId
+      author { id firstName lastName }
+      createdAt
+      updatedAt
+    }
+  }
+`;
+
+export const DELETE_BLOG_POST = gql`
+  mutation DeleteBlogPost($id: ID!) {
+    deleteBlogPost(id: $id)
+  }
+`;
+
+export const PUBLISH_BLOG_POST = gql`
+  mutation PublishBlogPost($id: ID!) {
+    publishBlogPost(id: $id) {
+      id
+      title
+      slug
+      status
+      publishedAt
+      updatedAt
+    }
+  }
+`;
+
 export const CHURN_ALERTS = gql`
   query ChurnAlerts {
     churnAlerts {
@@ -1503,6 +1594,14 @@ export const PLANS = gql`
         floorPlans smartAssign waitlist premiumSms
         guestProfiles360 emailCampaigns customWidget analytics dedicatedSupport
       }
+    }
+    annualBillingSettings {
+      enabled
+      scope
+      planKeys
+      discountType
+      freeMonths
+      discountPercent
     }
   }
 `;

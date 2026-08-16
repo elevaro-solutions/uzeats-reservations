@@ -113,12 +113,12 @@ export function resolvePlanPricing(input: PlanPricingFields): {
     };
   }
 
-  if (discountType === 'annual_percent_off' && discountPercent) {
+  if (discountType === 'annual_percent_off') {
     return {
       monthlyPriceCents,
       originalMonthlyPriceCents: null,
       discountType,
-      discountPercent,
+      discountPercent: discountPercent ?? 0,
       discountAmountCents: null,
       annualFreeMonths: null,
     };
@@ -223,7 +223,16 @@ export function planForBillingPeriod(
     return plan;
   }
 
-  return plan;
+  if (plan.discountType === 'annual_percent_off') {
+    return plan;
+  }
+
+  return {
+    ...plan,
+    discountType: 'annual_percent_off',
+    discountPercent: 0,
+    annualFreeMonths: null,
+  };
 }
 
 export function formatAnnualSavingsNote(
@@ -298,12 +307,12 @@ export function getPlanPriceDisplay(plan: PlanPricingFields): PlanPriceDisplay {
       const annual = computeAnnualSavings(resolved.monthlyPriceCents, freeMonths);
       const effectiveMonthlyCents = Math.round(annual.annualDiscountedCents / 12);
       return {
-        primaryCents: effectiveMonthlyCents,
-        primarySuffix: ' / month',
-        originalCents: resolved.monthlyPriceCents,
+        primaryCents: annual.annualDiscountedCents,
+        primarySuffix: ' / year',
+        originalCents: annual.annualFullCents,
         showStrikethrough: true,
         discountTag: `${freeMonths} month${freeMonths === 1 ? '' : 's'} free on annual`,
-        secondaryNote: `${formatPlanDollars(annual.annualDiscountedCents)}/year billed annually`,
+        secondaryNote: `${formatPlanDollars(effectiveMonthlyCents)}/mo equivalent, billed annually`,
         savingsNote: formatAnnualSavingsNote(
           annual.annualSavingsCents,
           annual.annualSavingsPercent,
@@ -316,31 +325,24 @@ export function getPlanPriceDisplay(plan: PlanPricingFields): PlanPriceDisplay {
     }
     case 'annual_percent_off': {
       const percent = resolved.discountPercent ?? 0;
-      if (percent <= 0) {
-        return {
-          primaryCents: resolved.monthlyPriceCents,
-          primarySuffix: ' / month',
-          originalCents: null,
-          showStrikethrough: false,
-          discountTag: null,
-          secondaryNote: null,
-          ...emptySavings,
-        };
-      }
       const annualFullCents = resolved.monthlyPriceCents * 12;
-      const annualDiscountedCents = computeDiscountedPriceCents(annualFullCents, percent);
+      const annualDiscountedCents =
+        percent > 0 ? computeDiscountedPriceCents(annualFullCents, percent) : annualFullCents;
       const annualSavingsCents = annualFullCents - annualDiscountedCents;
       const annualSavingsPercent =
         annualFullCents > 0 ? Math.round((annualSavingsCents / annualFullCents) * 100) : 0;
       const effectiveMonthlyCents = Math.round(annualDiscountedCents / 12);
       return {
-        primaryCents: effectiveMonthlyCents,
-        primarySuffix: ' / month',
-        originalCents: resolved.monthlyPriceCents,
-        showStrikethrough: true,
-        discountTag: `${percent}% off annual billing`,
-        secondaryNote: `${formatPlanDollars(annualDiscountedCents)}/year billed annually`,
-        savingsNote: formatAnnualSavingsNote(annualSavingsCents, annualSavingsPercent),
+        primaryCents: annualDiscountedCents,
+        primarySuffix: ' / year',
+        originalCents: annualFullCents,
+        showStrikethrough: percent > 0 && annualDiscountedCents < annualFullCents,
+        discountTag: percent > 0 ? `${percent}% off annual billing` : null,
+        secondaryNote: `${formatPlanDollars(effectiveMonthlyCents)}/mo equivalent, billed annually`,
+        savingsNote:
+          annualSavingsCents > 0
+            ? formatAnnualSavingsNote(annualSavingsCents, annualSavingsPercent)
+            : null,
         annualFullCents,
         annualDiscountedCents,
         annualSavingsCents,

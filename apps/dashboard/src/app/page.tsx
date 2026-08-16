@@ -22,7 +22,7 @@ import {
   Typography,
   message,
 } from 'antd';
-import { CUISINES, RESTAURANT_STATUSES, formatPlanDollars, getPlanDiscountLabel, getPlanPriceDisplay } from '@reservations/shared';
+import { CUISINES, RESTAURANT_STATUSES, formatPlanDollars, getPlanDiscountLabel, getPlanPriceDisplay, planForBillingPeriod } from '@reservations/shared';
 import {
   AddressAutocomplete,
   EmptyState,
@@ -262,14 +262,14 @@ export default function OverviewPage() {
         discountAmountCents: p.discountAmountCents,
         annualFreeMonths: p.annualFreeMonths,
       };
-      const display = getPlanPriceDisplay(pricing);
+      const display = getPlanPriceDisplay(planForBillingPeriod(pricing, 'monthly'));
       return {
         key: p.key,
         name: p.name,
         monthly: formatPlanDollars(display.primaryCents),
         blurb: p.description?.trim() || `${p.name} package`,
         trialDays: p.trialDays ?? 0,
-        discountLabel: getPlanDiscountLabel(pricing),
+        discountLabel: getPlanDiscountLabel(planForBillingPeriod(pricing, 'monthly')),
         pricing,
       };
     });

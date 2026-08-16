@@ -1,4 +1,4 @@
-import { restaurantInputSchema, adminCreateOwnerSchema, assertCanEditUser, type UserRole } from '@reservations/shared';
+import { restaurantInputSchema, adminCreateOwnerSchema, assertCanEditUser, blogPostInputSchema, type UserRole } from '@reservations/shared';
 import { restaurantInputToDb } from '../lib/restaurantInput.js';
 import { Review } from '../models/Review.js';
 import { Message } from '../models/Message.js';
@@ -39,6 +39,14 @@ import {
   mapEmailTemplate,
   updateEmailTemplate,
 } from './emailTemplates.js';
+import {
+  createBlogPost,
+  deleteBlogPost,
+  getBlogPostById,
+  listAdminBlogPosts,
+  publishBlogPost,
+  updateBlogPost,
+} from './blogPosts.js';
 import { getPlatformConfig, mapPlatformConfig } from './platformConfig.js';
 import { listRecentStripeInvoices } from './stripe.js';
 import { syncStripeInvoice } from './stripeSync.js';
@@ -129,6 +137,20 @@ export const adminOpsQuery = {
     requireAdmin(ctx);
     const items = await listEmailTemplates();
     return items.map(mapEmailTemplate);
+  },
+
+  adminBlogPosts: async (
+    _: unknown,
+    args: { search?: string; status?: string; limit?: number; offset?: number },
+    ctx: GraphQLContext,
+  ) => {
+    requireAdmin(ctx);
+    return listAdminBlogPosts(args);
+  },
+
+  adminBlogPost: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    requireAdmin(ctx);
+    return getBlogPostById(args.id);
   },
 
   churnAlerts: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
@@ -693,6 +715,65 @@ export const adminOpsMutation = {
       details: { key: args.key },
     });
     return mapEmailTemplate(doc);
+  },
+
+  createBlogPost: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
+    const admin = requireAdmin(ctx);
+    const input = blogPostInputSchema.parse(args.input);
+    const post = await createBlogPost(input, admin._id.toString());
+    await logAudit({
+      actorId: admin._id.toString(),
+      action: 'createBlogPost',
+      resource: 'BlogPost',
+      resourceId: post.id,
+      details: { slug: post.slug, status: post.status },
+    });
+    return post;
+  },
+
+  updateBlogPost: async (
+    _: unknown,
+    args: { id: string; input: unknown },
+    ctx: GraphQLContext,
+  ) => {
+    const admin = requireAdmin(ctx);
+    const input = blogPostInputSchema.parse(args.input);
+    const post = await updateBlogPost(args.id, input);
+    await logAudit({
+      actorId: admin._id.toString(),
+      action: 'updateBlogPost',
+      resource: 'BlogPost',
+      resourceId: post.id,
+      details: { slug: post.slug, status: post.status },
+    });
+    return post;
+  },
+
+  deleteBlogPost: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    const admin = requireAdmin(ctx);
+    const ok = await deleteBlogPost(args.id);
+    if (ok) {
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: 'deleteBlogPost',
+        resource: 'BlogPost',
+        resourceId: args.id,
+      });
+    }
+    return ok;
+  },
+
+  publishBlogPost: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    const admin = requireAdmin(ctx);
+    const post = await publishBlogPost(args.id);
+    await logAudit({
+      actorId: admin._id.toString(),
+      action: 'publishBlogPost',
+      resource: 'BlogPost',
+      resourceId: post.id,
+      details: { slug: post.slug },
+    });
+    return post;
   },
 
   flagReview: async (

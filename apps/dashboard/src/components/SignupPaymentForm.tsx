@@ -131,7 +131,7 @@ export function SignupPaymentForm({
     <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <div>
         <Text strong style={{ display: 'block', marginBottom: 4 }}>
-          {planName} — {monthlyLabel}/mo
+          {planName} — {monthlyLabel}
         </Text>
         <Text type="secondary" style={{ fontSize: 13 }}>
           {description

@@ -34,6 +34,7 @@ import {
   listBookmarkedRestaurants,
   setRestaurantBookmark,
 } from '../services/restaurantBookmarks.js';
+import { getBlogPostBySlug, listPublishedBlogPosts } from '../services/blogPosts.js';
 import {
   registerWithEmail,
   loginWithEmail,
@@ -202,6 +203,7 @@ import {
   mapAnnualBillingSettings,
   isFeatureEnabled,
   pickDiscountOverrides,
+  toPlainPlanOverride,
   uniquePlanKey,
 } from '../services/platformConfig.js';
 import { getDeveloperInfo } from '../services/developerInfo.js';
@@ -455,6 +457,13 @@ export const resolvers = {
       return mapUser({ ...user.toObject(), referralCode });
     },
     ...adminOpsQuery,
+
+    blogPosts: async (
+      _: unknown,
+      args: { tag?: string; limit?: number; offset?: number },
+    ) => listPublishedBlogPosts(args),
+
+    blogPost: async (_: unknown, args: { slug: string }) => getBlogPostBySlug(args.slug),
 
     restaurant: async (_: unknown, args: { id?: string; slug?: string }) => {
       const doc = args.id
@@ -2822,7 +2831,7 @@ export const resolvers = {
       }
       const doc = await getPlatformConfig();
       const overrides = getPlanOverridesMap(doc);
-      const existing = overrides[key] ?? {};
+      const existing = toPlainPlanOverride(overrides[key]);
       if (!BUILTIN_PLAN_KEYS.has(key) && !overrides[key]) {
         throw new Error('Plan not found. Create it first.');
       }

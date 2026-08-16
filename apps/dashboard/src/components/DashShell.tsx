@@ -399,6 +399,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       label: 'Platform',
       children: [
         item('/admin/config', <ControlOutlined />, 'Configuration'),
+        item('/admin/blog', <FileTextOutlined />, 'Blog'),
         item('/admin/templates', <MailOutlined />, 'Email templates'),
         item('/admin/sla', <DashboardOutlined />, 'SLA metrics'),
         item('/admin/audit', <AuditOutlined />, 'Audit logs'),

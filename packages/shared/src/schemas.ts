@@ -284,6 +284,40 @@ export const searchRestaurantsSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
 
+export const BLOG_POST_STATUSES = ['draft', 'published', 'archived'] as const;
+
+export const blogPostInputSchema = z.object({
+  title: z.string().min(1).max(200),
+  slug: z
+    .union([
+      z.literal(''),
+      z
+        .string()
+        .min(1)
+        .max(120)
+        .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug must be lowercase letters, numbers, and hyphens'),
+    ])
+    .optional()
+    .transform((v) => (!v ? undefined : v)),
+  excerpt: z.string().max(500).optional().default(''),
+  bodyHtml: z.string().min(1).max(100_000),
+  coverImageUrl: z
+    .union([z.string().url(), z.literal('')])
+    .optional()
+    .transform((v) => (v === '' || v == null ? '' : v)),
+  status: z.enum(BLOG_POST_STATUSES).default('draft'),
+  seoTitle: z.string().max(70).optional().default(''),
+  seoDescription: z.string().max(160).optional().default(''),
+  tags: z
+    .array(z.string().min(1).max(40).trim().toLowerCase())
+    .max(20)
+    .default([]),
+  faq: z.array(restaurantFaqItemSchema).max(20).default([]),
+  publishedAt: z.coerce.date().optional().nullable(),
+});
+
+export type BlogPostInput = z.infer<typeof blogPostInputSchema>;
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RestaurantInput = z.infer<typeof restaurantInputSchema>;

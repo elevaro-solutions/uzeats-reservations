@@ -19,6 +19,7 @@ export { Invoice } from './Invoice.js';
 export { PlatformConfig } from './PlatformConfig.js';
 export { SupportTicket } from './SupportTicket.js';
 export { EmailTemplate } from './EmailTemplate.js';
+export { BlogPost } from './BlogPost.js';
 export { StaffInvite } from './StaffInvite.js';
 export { RestaurantGroup } from './RestaurantGroup.js';
 export { GuestProfile } from './GuestProfile.js';

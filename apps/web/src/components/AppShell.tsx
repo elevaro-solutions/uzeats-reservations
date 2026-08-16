@@ -10,21 +10,24 @@ import {
   Badge,
   Avatar,
   Dropdown,
+  Drawer,
   List,
   Empty,
   Spin,
 } from 'antd';
 import type { MenuProps } from 'antd';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@apollo/client/react';
-import { useState } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useState } from 'react';
 import {
   BellOutlined,
   BookOutlined,
   CalendarOutlined,
   CheckOutlined,
   ClockCircleOutlined,
+  CloseOutlined,
   LogoutOutlined,
+  MenuOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { TableveraBrand, colors, layout, radii, typography } from '@reservations/ui';
@@ -139,10 +142,31 @@ function formatRelativeTime(iso: string) {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={null}>
+      <AppShellInner>{children}</AppShellInner>
+    </Suspense>
+  );
+}
+
+function AppShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { user, logout, loading: authLoading } = useAuth();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Soft navigations can keep the previous page's scroll offset (e.g. for-restaurants → pricing).
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.location.hash) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [pathname]);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
 
   const {
     data: notifData,
@@ -164,14 +188,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isAuthRoute = AUTH_PATHS.some((p) => pathname.startsWith(p));
   const isFullWidthPage =
     pathname === '/' ||
+    pathname === '/for-restaurants' ||
     pathname.startsWith('/cities/') ||
     pathname.startsWith('/cuisine/') ||
     pathname.startsWith('/neighborhoods/') ||
     pathname.startsWith('/occasion/');
-  const isRestaurantMarketing = pathname.startsWith('/pricing');
+  const isRestaurantMarketing =
+    pathname.startsWith('/for-restaurants') ||
+    pathname.startsWith('/pricing') ||
+    (pathname.startsWith('/contact') && searchParams.get('topic') === 'restaurant');
   const dashboardUrl = getDashboardUrl();
   const signInHref = isRestaurantMarketing ? `${dashboardUrl}/login` : '/login';
-  const getStartedHref = isRestaurantMarketing ? `${dashboardUrl}/register` : '/login';
+  const getStartedHref = isRestaurantMarketing ? '/pricing' : '/login';
+  const getStartedLabel = isRestaurantMarketing ? 'Register restaurant' : 'Get started';
+  const homeHref = isRestaurantMarketing ? '/for-restaurants' : '/';
 
   if (isAuthRoute) {
     return <>{children}</>;
@@ -182,8 +212,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const unreadCount: number =
     (notifData as { unreadNotificationCount?: number } | undefined)?.unreadNotificationCount ?? 0;
 
-  // Diner app: only customer booking surfaces (no partner/admin links when signed in).
-  const navItems = [
+  const dinerNavItems = [
     { key: '/', label: <Link href="/">Find a table</Link> },
     ...(user
       ? [
@@ -192,8 +221,68 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           { key: '/waitlist', label: <Link href="/waitlist">Waitlist</Link> },
           { key: '/profile', label: <Link href="/profile">Profile</Link> },
         ]
-      : [{ key: '/pricing', label: <Link href="/pricing">For restaurants</Link> }]),
+      : [
+          {
+            key: '/for-restaurants',
+            label: (
+              <Link href="/for-restaurants" target="_blank" rel="noopener noreferrer">
+                For restaurants
+              </Link>
+            ),
+          },
+        ]),
   ];
+
+  const restaurantNavItems = [
+    { key: '/for-restaurants', label: <Link href="/for-restaurants">For restaurants</Link> },
+    { key: '/pricing', label: <Link href="/pricing">Pricing</Link> },
+    {
+      key: '/contact?topic=restaurant',
+      label: <Link href="/contact?topic=restaurant">Contact sales</Link>,
+    },
+  ];
+
+  const navItems = isRestaurantMarketing ? restaurantNavItems : dinerNavItems;
+
+  const mobileNavLinks = isRestaurantMarketing
+    ? [
+        { href: '/for-restaurants', label: 'For restaurants' },
+        { href: '/pricing', label: 'Pricing' },
+        { href: '/contact?topic=restaurant', label: 'Contact sales' },
+      ]
+    : user
+      ? [
+          { href: '/', label: 'Find a table' },
+          { href: '/reservations', label: 'My reservations' },
+          { href: '/saved', label: 'Saved' },
+          { href: '/waitlist', label: 'Waitlist' },
+          { href: '/profile', label: 'Profile' },
+          { href: '/blog', label: 'Blog' },
+        ]
+      : [
+          { href: '/', label: 'Find a table' },
+          { href: '/for-restaurants', label: 'For restaurants', newTab: true },
+          { href: '/blog', label: 'Blog' },
+        ];
+
+  const selectedNavKey = (() => {
+    if (isRestaurantMarketing) {
+      if (pathname.startsWith('/pricing')) return '/pricing';
+      if (pathname.startsWith('/contact')) return '/contact?topic=restaurant';
+      return '/for-restaurants';
+    }
+    if (pathname === '/' || pathname.startsWith('/restaurants') || pathname.startsWith('/r/')) {
+      return '/';
+    }
+    if (pathname.startsWith('/profile')) return '/profile';
+    if (pathname.startsWith('/reservations')) return '/reservations';
+    if (pathname.startsWith('/waitlist')) return '/waitlist';
+    if (pathname.startsWith('/saved')) return '/saved';
+    if (pathname.startsWith('/for-restaurants') || pathname.startsWith('/pricing')) {
+      return '/for-restaurants';
+    }
+    return pathname;
+  })();
 
   const accountMenu: MenuProps['items'] = user
     ? [
@@ -417,42 +506,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           zIndex: 100,
           display: 'flex',
           alignItems: 'center',
-          gap: 20,
           width: '100%',
           height: layout.headerHeight,
           lineHeight: `${layout.headerHeight}px`,
         }}
       >
-        <Link href="/" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+        <Link
+          href={homeHref}
+          className="rt-site-header__brand"
+          style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 10 }}
+          aria-label={isRestaurantMarketing ? 'Tablevera Partner Hub' : 'Tablevera'}
+        >
           <TableveraBrand iconSize={34} surface="dark" />
+          {isRestaurantMarketing ? <span className="rt-site-header__hub">Partner Hub</span> : null}
         </Link>
 
         <Menu
           mode="horizontal"
           theme="dark"
-          selectedKeys={[
-            pathname === '/' || pathname.startsWith('/restaurants')
-              ? '/'
-              : pathname.startsWith('/pricing')
-                ? '/pricing'
-                : pathname.startsWith('/profile')
-                  ? '/profile'
-                  : pathname.startsWith('/reservations')
-                    ? '/reservations'
-                    : pathname.startsWith('/waitlist')
-                      ? '/waitlist'
-                      : pathname,
-          ]}
+          selectedKeys={[selectedNavKey]}
+          className="rt-site-header__nav"
           style={{ flex: 1, border: 'none', minWidth: 0, background: 'transparent' }}
           items={navItems}
         />
 
-        <Space size={8}>
+        <Space size={8} className="rt-site-header__actions">
           {authLoading ? (
             <div style={{ width: 120, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
               <Spin size="small" />
             </div>
-          ) : user ? (
+          ) : user && !isRestaurantMarketing ? (
             <>
               <Dropdown
                 trigger={['click']}
@@ -539,22 +622,82 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Dropdown>
             </>
           ) : (
-            <>
-              <Button type="text" className="rt-site-header__sign-in" href={signInHref}>
-                Sign in
-              </Button>
-              <Button
-                type="primary"
-                className="rt-site-header__cta"
-                href={getStartedHref}
-                style={{ borderRadius: radii.pill, paddingInline: 18 }}
-              >
-                Get started
-              </Button>
-            </>
+            <Button type="text" className="rt-site-header__sign-in" href={signInHref}>
+              Sign in
+            </Button>
           )}
+
+          <Button
+            type="primary"
+            className="rt-site-header__cta"
+            href={getStartedHref}
+            style={{ borderRadius: radii.pill }}
+          >
+            <span className="rt-site-header__cta-full">{getStartedLabel}</span>
+            <span className="rt-site-header__cta-short">
+              {isRestaurantMarketing ? 'Register' : 'Get started'}
+            </span>
+          </Button>
+
+          <Button
+            type="text"
+            className="rt-site-header__menu-btn"
+            aria-label={mobileNavOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileNavOpen}
+            onClick={() => setMobileNavOpen((open) => !open)}
+            icon={mobileNavOpen ? <CloseOutlined /> : <MenuOutlined />}
+          />
         </Space>
       </Header>
+
+      <Drawer
+        placement="right"
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        width={300}
+        className="rt-site-header__drawer"
+        styles={{
+          body: { padding: '12px 16px 24px', background: colors.brand[600] },
+          header: {
+            background: colors.brand[600],
+            borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+          },
+        }}
+        title={
+          <Text strong style={{ color: '#fff' }}>
+            Menu
+          </Text>
+        }
+        closeIcon={<CloseOutlined style={{ color: 'rgba(255, 255, 255, 0.85)' }} />}
+      >
+        <nav className="rt-mobile-nav" aria-label="Mobile">
+          {mobileNavLinks.map((item) => {
+            const newTab = 'newTab' in item && item.newTab;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`rt-mobile-nav__link${selectedNavKey === item.href ? ' is-active' : ''}`}
+                onClick={() => setMobileNavOpen(false)}
+                {...(newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {(!user || isRestaurantMarketing) && (
+          <div className="rt-mobile-nav__actions">
+            <Button block href={signInHref} className="rt-mobile-nav__sign-in">
+              Sign in
+            </Button>
+            <Button block type="primary" href={getStartedHref} className="rt-mobile-nav__cta">
+              {getStartedLabel}
+            </Button>
+          </div>
+        )}
+      </Drawer>
 
       <Content
         style={{
@@ -575,8 +718,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       >
         <div className="rt-site-footer__inner">
           <div className="rt-site-footer__brand">
-            <Link href="/" style={{ textDecoration: 'none', display: 'inline-flex' }}>
+            <Link
+              href={homeHref}
+              style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 10 }}
+              aria-label={isRestaurantMarketing ? 'Tablevera Partner Hub' : 'Tablevera'}
+            >
               <TableveraBrand iconSize={38} surface="dark" />
+              {isRestaurantMarketing ? <span className="rt-site-header__hub">Partner Hub</span> : null}
             </Link>
             <p className="rt-site-footer__tagline">
               Discover. Reserve. Dine.
@@ -595,17 +743,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div>
               <div className="rt-site-footer__heading">Product</div>
               <div className="rt-site-footer__list">
-                <Link href="/">Find a table</Link>
-                {user ? (
+                {isRestaurantMarketing ? (
                   <>
-                    <Link href="/reservations">My reservations</Link>
-                    <Link href="/waitlist">Waitlist</Link>
-                    <Link href="/profile">Profile</Link>
+                    <Link href="/for-restaurants">For restaurants</Link>
+                    <Link href="/pricing">Pricing</Link>
+                    <Link href="/contact?topic=restaurant">Contact sales</Link>
+                    <a href={signInHref}>Partner sign in</a>
                   </>
                 ) : (
                   <>
-                    <Link href="/pricing">For restaurants</Link>
-                    <a href={signInHref}>Sign in</a>
+                    <Link href="/">Find a table</Link>
+                    {user ? (
+                      <>
+                        <Link href="/reservations">My reservations</Link>
+                        <Link href="/waitlist">Waitlist</Link>
+                        <Link href="/profile">Profile</Link>
+                      </>
+                    ) : (
+                      <>
+                        <Link href="/for-restaurants" target="_blank" rel="noopener noreferrer">
+                          For restaurants
+                        </Link>
+                        <Link href="/pricing">Pricing</Link>
+                        <a href={signInHref}>Sign in</a>
+                      </>
+                    )}
                   </>
                 )}
               </div>
@@ -624,6 +786,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div>
               <div className="rt-site-footer__heading">Company</div>
               <div className="rt-site-footer__list">
+                <Link href="/blog">Blog</Link>
                 <Link href="/contact">Contact</Link>
                 <Link href="/privacy">Privacy</Link>
                 <Link href="/terms">Terms</Link>

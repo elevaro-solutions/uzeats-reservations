@@ -444,7 +444,10 @@ export default function PricingPage() {
   const coreColumnIndex = comparisonPlans.indexOf('core');
 
   const startTrial = (plan: string = selectedPlan) => {
-    window.open(`${DASHBOARD_URL}/register?plan=${plan}`, '_blank');
+    window.open(
+      `${DASHBOARD_URL}/register?plan=${encodeURIComponent(plan)}&billing=${billingPeriod}`,
+      '_blank',
+    );
   };
 
   return (
@@ -524,9 +527,14 @@ export default function PricingPage() {
             const strikeLabel =
               display.primarySuffix === ' / first month'
                 ? `${formatPlanDollars(display.originalCents!)}/mo`
-                : billingPeriod === 'annual' || display.discountTag?.includes('annual')
-                  ? `${formatPlanDollars(display.originalCents!)}/mo`
+                : billingPeriod === 'annual' || display.primarySuffix.includes('year')
+                  ? `${formatPlanDollars(display.originalCents!)}/yr`
                   : formatPlanDollars(display.originalCents!);
+            const priceSuffix = display.primarySuffix.includes('year')
+              ? '/yr'
+              : display.primarySuffix === ' / first month'
+                ? '/first mo'
+                : '/mo';
 
             return (
               <Col xs={24} md={8} key={plan.key} style={{ display: 'flex' }}>
@@ -551,7 +559,7 @@ export default function PricingPage() {
                     ) : null}
                     <div className="pricing-plan-card__price">
                       {formatPlanDollars(display.primaryCents)}
-                      <span className="pricing-plan-card__price-suffix">/mo</span>
+                      <span className="pricing-plan-card__price-suffix">{priceSuffix}</span>
                     </div>
                   </div>
 

@@ -10,6 +10,7 @@ import {
   TeamOutlined,
   ControlOutlined,
   TagOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { PageHeader, colors, radii, spacing } from '@reservations/ui';
 import { ADMIN_STATS } from '@/lib/graphql';
@@ -78,6 +79,12 @@ const shortcuts = [
     title: 'Plans & pricing',
     desc: 'Edit packages and cover fees',
     icon: <TagOutlined />,
+  },
+  {
+    href: '/admin/blog',
+    title: 'Blog articles',
+    desc: 'SEO and AEO content for the public site',
+    icon: <FileTextOutlined />,
   },
   {
     href: '/admin/config',

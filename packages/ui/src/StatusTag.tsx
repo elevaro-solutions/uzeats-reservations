@@ -19,6 +19,9 @@ const STYLES: Record<string, StatusStyle> = {
   notified: { color: colors.info, background: colors.infoBg },
   booked: { color: colors.success, background: colors.successBg },
   expired: { color: colors.textSecondary, background: colors.neutral[100] },
+  draft: { color: colors.textSecondary, background: colors.neutral[100] },
+  published: { color: colors.success, background: colors.successBg },
+  archived: { color: colors.warning, background: colors.warningBg },
 };
 
 const FALLBACK: StatusStyle = { color: colors.textSecondary, background: colors.neutral[100] };
