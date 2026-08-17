@@ -51,11 +51,16 @@ function readEnvFiles(paths: string[]): Record<string, string> {
   return merged;
 }
 
-function buildApiSource(fileEnv: Record<string, string>): Record<string, string | undefined> {
+function buildAppSource(
+  app: EnvApp,
+  fileEnv: Record<string, string>,
+): Record<string, string | undefined> {
   const source: Record<string, string | undefined> = { ...fileEnv };
 
+  // Runtime/process env wins over files so Dokku `config:set` (and mirrored
+  // NEXT_PUBLIC_* on the API) shows up on the Developer checklist.
   for (const def of ENV_VAR_DEFINITIONS) {
-    if (def.apps.includes('api') && process.env[def.key] !== undefined) {
+    if (def.apps.includes(app) && process.env[def.key] !== undefined) {
       source[def.key] = process.env[def.key];
     }
   }
@@ -69,17 +74,19 @@ function buildApiSource(fileEnv: Record<string, string>): Record<string, string 
 
 function readAppSources(): Record<EnvApp, Record<string, string | undefined>> {
   const apiFile = readEnvFiles([resolve(repoRoot, 'apps/api/.env')]);
+  const webFile = readEnvFiles([
+    resolve(repoRoot, 'apps/web/.env.local'),
+    resolve(repoRoot, 'apps/web/.env'),
+  ]);
+  const dashboardFile = readEnvFiles([
+    resolve(repoRoot, 'apps/dashboard/.env.local'),
+    resolve(repoRoot, 'apps/dashboard/.env'),
+  ]);
 
   return {
-    api: buildApiSource(apiFile),
-    web: readEnvFiles([
-      resolve(repoRoot, 'apps/web/.env.local'),
-      resolve(repoRoot, 'apps/web/.env'),
-    ]),
-    dashboard: readEnvFiles([
-      resolve(repoRoot, 'apps/dashboard/.env.local'),
-      resolve(repoRoot, 'apps/dashboard/.env'),
-    ]),
+    api: buildAppSource('api', apiFile),
+    web: buildAppSource('web', webFile),
+    dashboard: buildAppSource('dashboard', dashboardFile),
   };
 }
 
