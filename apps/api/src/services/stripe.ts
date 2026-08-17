@@ -247,7 +247,7 @@ export async function payOpenSubscriptionInvoice(subscriptionId: string) {
   });
   const invoice = sub.latest_invoice;
   if (!invoice || typeof invoice !== 'object') return;
-  if (invoice.status === 'open' && (invoice.amount_due ?? 0) > 0) {
+  if (invoice.status === 'open' && (invoice.amount_due ?? 0) > 0 && invoice.id) {
     await client.invoices.pay(invoice.id);
   }
 }

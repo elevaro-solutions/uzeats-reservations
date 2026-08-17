@@ -193,8 +193,8 @@ export async function markPlanChangePaid(restaurantId: string) {
   const sub = await Subscription.findOne({ restaurantId });
   if (!sub) throw new Error('No subscription found');
   await syncPaidSubscriptionAfterCard({
-    customerId: sub.stripeCustomerId,
-    subscriptionId: sub.stripeSubscriptionId,
+    customerId: sub.stripeCustomerId ?? undefined,
+    subscriptionId: sub.stripeSubscriptionId ?? undefined,
     monthlyPriceCents: sub.monthlyPriceCents,
   });
   sub.amountDueCents = 0;
