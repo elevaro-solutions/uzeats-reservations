@@ -146,7 +146,6 @@ export const theme: ThemeConfig = {
     },
     Steps: {
       colorPrimary: colors.brand[600],
-      finishIconBorderColor: colors.brand[600],
     },
   },
 };

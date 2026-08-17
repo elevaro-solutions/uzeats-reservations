@@ -35,7 +35,7 @@ const POST_SELECTION = `
   updatedAt
 `;
 
-const BLOG_FETCH = { revalidate: 30, tags: ['blog-posts'] } as const;
+const BLOG_FETCH = { revalidate: 30, tags: ['blog-posts'] };
 
 export const fetchPublishedBlogPosts = cache(async (limit = 50, offset = 0) => {
   const data = await serverGraphql<{
