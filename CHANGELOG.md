@@ -4,6 +4,17 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.26.1] — 2026-08-18
+
+### Fixed
+
+- Booking widget GraphQL CORS: API reflects any origin so embeds work on restaurant websites
+- Default widget `data-api-url` points to `https://api.tablevera.online/graphql`
+
+### Docs
+
+- Widget README documents local/static HTML embed testing with an explicit API URL
+
 ## [0.26.0] — 2026-08-17
 
 ### Added

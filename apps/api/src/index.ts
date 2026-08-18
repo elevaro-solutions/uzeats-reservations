@@ -219,7 +219,11 @@ async function main() {
     '/graphql',
     graphqlLimiter,
     cors({
-      origin: corsOrigins,
+      // Reflect any Origin so the booking widget works on restaurant websites.
+      // Auth cookies are SameSite=Lax on the API host, so cross-site widget
+      // POSTs cannot use a diner/partner session. CORS_ORIGINS still gates
+      // cookie-authenticated first-party routes (uploads, dashboard).
+      origin: true,
       credentials: true,
     }),
     express.json({ limit: '2mb' }),

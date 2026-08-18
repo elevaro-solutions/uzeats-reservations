@@ -2,7 +2,7 @@ import { STYLES } from './styles';
 import { createInlineWidget, createButtonWidget } from './ui';
 import type { WidgetConfig, WidgetTheme } from './api';
 
-const DEFAULT_API_URL = 'https://tablevera.online/graphql';
+const DEFAULT_API_URL = 'https://api.tablevera.online/graphql';
 const DEFAULT_APP_URL = 'https://tablevera.online';
 
 function init() {

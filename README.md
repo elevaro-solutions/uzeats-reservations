@@ -125,7 +125,7 @@ Full steps: [`docs/deploy.md`](./docs/deploy.md).
    - `web` / `dashboard`: Next.js build + start on 3000/3001
 4. **Spaces** — create a bucket for restaurant/menu photos; set CDN URL.
 5. Point Stripe webhooks to `https://api.yourdomain.com/webhooks/stripe`.
-6. **Widget** — `pnpm --filter @reservations/web build` builds and copies `widget.js` to the web app (`/widget.js`). Partners copy embed code from **Booking widget** in the dashboard.
+6. **Widget** — `pnpm --filter @reservations/web build` builds and copies `widget.js` to the web app (`/widget.js`). Partners copy embed code from **Booking widget** in the dashboard. The widget defaults to `https://api.tablevera.online/graphql` (override with `data-api-url`).
 
 ## Project scripts
 

@@ -25,7 +25,7 @@ All configuration is done via `data-*` attributes on the script tag:
 | ---------------------- | -------- | ---------------------------------- | ---------------------------------------------------------------- |
 | `data-restaurant-id`   | Yes      | —                                  | Your restaurant's ID from the Tablevera dashboard             |
 | `data-mode`            | No       | `inline`                           | `inline` — full form embedded on page. `button` — compact button that opens a modal |
-| `data-api-url`         | No       | `https://tablevera.online/graphql` | API endpoint (useful for staging/development)                    |
+| `data-api-url`         | No       | `https://api.tablevera.online/graphql` | API endpoint (useful for staging/development)                    |
 | `data-app-url`         | No       | `https://tablevera.online`         | Web app base URL for the final booking redirect                  |
 
 ## Display Modes
@@ -87,6 +87,18 @@ pnpm dev
 ```
 
 The built file is output to `dist/widget.iife.js`.
+
+To try the widget from a static HTML page (for example Live Server on `http://127.0.0.1:5500`), point it at the API explicitly:
+
+```html
+<script
+  src="https://tablevera.online/widget.js"
+  data-restaurant-id="YOUR_RESTAURANT_ID"
+  data-api-url="https://api.tablevera.online/graphql"
+></script>
+```
+
+For a local API, use `data-api-url="http://localhost:4000/graphql"` after the API is running.
 
 ## Deployment
 

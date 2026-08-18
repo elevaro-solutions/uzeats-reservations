@@ -166,7 +166,8 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     group: 'urls',
     apps: ['api'],
     requirement: 'recommended',
-    description: 'Comma-separated allowed browser origins.',
+    description:
+      'Comma-separated allowed browser origins for first-party routes (uploads, POS, partner). GraphQL reflects any origin so the booking widget can be embedded on restaurant sites.',
   },
   {
     key: 'WEB_APP_URL',
