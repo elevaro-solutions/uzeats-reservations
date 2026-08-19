@@ -112,8 +112,8 @@ function HomePageContent() {
   const hasExplicitLocation = filters.lat != null && filters.lng != null;
   const selectedLocation: LocationSelection = {
     label: filters.locationLabel ?? cityLabel(DEFAULT_LOCATION),
-    lat: hasExplicitLocation ? filters.lat : DEFAULT_LOCATION.lat,
-    lng: hasExplicitLocation ? filters.lng : DEFAULT_LOCATION.lng,
+    lat: filters.lat != null && filters.lng != null ? filters.lat : DEFAULT_LOCATION.lat,
+    lng: filters.lat != null && filters.lng != null ? filters.lng : DEFAULT_LOCATION.lng,
   };
 
   useEffect(() => {
