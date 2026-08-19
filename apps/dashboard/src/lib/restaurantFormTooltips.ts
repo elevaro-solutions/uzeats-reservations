@@ -26,7 +26,7 @@ export const restaurantFieldTooltips = {
   lat: 'Latitude in decimal degrees (−90 to 90). Used for map search. Example: 40.7128.',
   lng: 'Longitude in decimal degrees (−180 to 180). Used for map search. Example: −74.006.',
   depositRequired: 'When on, guests must pay a per-guest deposit to hold the reservation.',
-  depositAmountCents: 'Deposit charged per guest, in cents (e.g. 2500 = $25.00).',
+  depositAmountCents: 'Deposit charged per guest, in USD (e.g. 25.00 = $25.00).',
   loyaltyEnabled:
     'Run a loyalty program for this restaurant. Guests earn points per completed visit and can redeem against deposits.',
   loyaltyPointsPerVisit: 'Points awarded when a guest completes a visit at your restaurant.',

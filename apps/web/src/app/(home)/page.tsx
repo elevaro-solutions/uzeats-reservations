@@ -89,9 +89,7 @@ function HomePageContent() {
   const router = useRouter();
   const { filters, replaceFilters } = useDiscoveryUrlSync();
   const [queryDraft, setQueryDraft] = useState(filters.query);
-  const [locationInput, setLocationInput] = useState(
-    filters.locationLabel ?? cityLabel(DEFAULT_LOCATION),
-  );
+  const [locationInput, setLocationInput] = useState(filters.locationLabel ?? '');
   const [geoLoading, setGeoLoading] = useState(false);
   const { viewMode, setViewMode } = useDiscoveryViewMode();
   const [selectedMapRestaurantId, setSelectedMapRestaurantId] = useState<string | null>(null);
@@ -111,10 +109,11 @@ function HomePageContent() {
   const partySize = filters.partySize;
   const date = dayjs(filters.date);
   const usingDeviceLocation = filters.nearMe;
+  const hasExplicitLocation = filters.lat != null && filters.lng != null;
   const selectedLocation: LocationSelection = {
     label: filters.locationLabel ?? cityLabel(DEFAULT_LOCATION),
-    lat: filters.lat ?? DEFAULT_LOCATION.lat,
-    lng: filters.lng ?? DEFAULT_LOCATION.lng,
+    lat: hasExplicitLocation ? filters.lat : DEFAULT_LOCATION.lat,
+    lng: hasExplicitLocation ? filters.lng : DEFAULT_LOCATION.lng,
   };
 
   useEffect(() => {
@@ -122,7 +121,7 @@ function HomePageContent() {
   }, [filters.query]);
 
   useEffect(() => {
-    setLocationInput(filters.locationLabel ?? cityLabel(DEFAULT_LOCATION));
+    setLocationInput(filters.locationLabel ?? '');
   }, [filters.locationLabel]);
 
   useEffect(() => {
@@ -216,9 +215,9 @@ function HomePageContent() {
   const clearLocation = useCallback(() => {
     setLocationInput('');
     replaceFilters({
-      lat: DEFAULT_LOCATION.lat,
-      lng: DEFAULT_LOCATION.lng,
-      locationLabel: cityLabel(DEFAULT_LOCATION),
+      lat: undefined,
+      lng: undefined,
+      locationLabel: undefined,
       nearMe: false,
     });
   }, [replaceFilters]);
@@ -255,11 +254,11 @@ function HomePageContent() {
       partySize,
       date: dateStr,
       requireAvailability: true,
-      lat: selectedLocation.lat,
-      lng: selectedLocation.lng,
-      radiusKm: NEARBY_RADIUS_KM,
-      city: selectedLocation.city,
-      neighborhood: selectedLocation.neighborhood,
+      lat: hasExplicitLocation ? selectedLocation.lat : undefined,
+      lng: hasExplicitLocation ? selectedLocation.lng : undefined,
+      radiusKm: hasExplicitLocation ? NEARBY_RADIUS_KM : undefined,
+      city: hasExplicitLocation ? selectedLocation.city : undefined,
+      neighborhood: hasExplicitLocation ? selectedLocation.neighborhood : undefined,
     }),
     [
       searchQuery,
@@ -275,6 +274,7 @@ function HomePageContent() {
       accessibleOnly,
       partySize,
       dateStr,
+      hasExplicitLocation,
       selectedLocation.lat,
       selectedLocation.lng,
       selectedLocation.city,
@@ -319,7 +319,9 @@ function HomePageContent() {
 
   const resultsTitle = usingDeviceLocation
     ? 'Restaurants near you'
-    : `Restaurants near ${selectedLocation.label.split(',').slice(0, 2).join(',').trim()}`;
+    : hasExplicitLocation
+      ? `Restaurants near ${selectedLocation.label.split(',').slice(0, 2).join(',').trim()}`
+      : 'Restaurants';
 
   const clearCategoryFilters = useCallback(() => {
     replaceFilters({ categoryIds: [], cuisine: undefined });

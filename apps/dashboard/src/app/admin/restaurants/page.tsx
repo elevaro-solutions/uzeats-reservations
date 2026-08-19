@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
   Button,
@@ -29,6 +29,7 @@ import type { FormInstance } from 'antd/es/form';
 import {
   EditOutlined,
   DeleteOutlined,
+  ImportOutlined,
   SearchOutlined,
   PlusOutlined,
   UserAddOutlined,
@@ -48,6 +49,7 @@ import {
 } from '@reservations/ui';
 import PhotoUpload from '@/components/PhotoUpload';
 import CuisineSelect from '@/components/CuisineSelect';
+import ImportRestaurantModal, { type ImportedRestaurantData } from '@/components/ImportRestaurantModal';
 import { RestaurantProfileFields } from '@/components/RestaurantProfileFields';
 import {
   ADMIN_RESTAURANTS,
@@ -62,6 +64,7 @@ import {
   REMOVE_USER_RESTAURANT,
   RESTAURANT_TEAM,
   SET_RESTAURANT_STATUS,
+  UPSERT_MENU,
 } from '@/lib/graphql';
 import { addressSelectionToFields } from '@/lib/address';
 import {
@@ -72,6 +75,7 @@ import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { isPlatformAdmin, isSuperAdmin } from '@/lib/roles';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { useUrlListFilters } from '@/lib/useUrlListFilters';
+import { buildMenuSectionsFromImport } from '@/lib/importedMenu';
 
 const CREATE_STEPS = [
   { title: 'Owner' },
@@ -202,6 +206,174 @@ function mapCreateApiErrorToFields(
 }
 
 const { Text, Title } = Typography;
+
+// ─── Plan Selector ────────────────────────────────────────────────────────────
+
+type PlanInfo = {
+  key: string;
+  name: string;
+  monthlyPriceCents?: number;
+  trialDays?: number;
+  annualFreeMonths?: number;
+};
+
+function PlanSelector({
+  plans,
+  value,
+  onChange,
+}: {
+  plans: PlanInfo[];
+  value?: string;
+  onChange?: (key: string | undefined) => void;
+}) {
+  const [billing, setBilling] = useState<'monthly' | 'annual'>('monthly');
+
+  const visiblePlans = plans.filter((p) => p.key !== 'free' && (p as { isCustom?: boolean }).isCustom !== true);
+
+  const annualMonthlyPrice = (monthly: number, freeMonths: number) => {
+    const paidMonths = 12 - freeMonths;
+    return Math.round((monthly * paidMonths) / 12);
+  };
+  const annualTotalPrice = (monthly: number, freeMonths: number) => monthly * (12 - freeMonths);
+
+  const annualDiscountPercent = (freeMonths: number) =>
+    Math.round((freeMonths / 12) * 100);
+
+  const fmt = (cents: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(
+      cents / 100,
+    );
+
+  const activePlan = visiblePlans.find((p) => p.key === value);
+  const trialDays = activePlan?.trialDays ?? 0;
+  const trialEndLabel =
+    trialDays > 0
+      ? new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+        })
+      : null;
+
+  const selectedMonthlyPriceCents =
+    activePlan && billing === 'annual'
+      ? annualMonthlyPrice(activePlan.monthlyPriceCents ?? 0, activePlan.annualFreeMonths ?? 2)
+      : activePlan?.monthlyPriceCents ?? 0;
+  const selectedAnnualPriceCents =
+    activePlan && billing === 'annual'
+      ? annualTotalPrice(activePlan.monthlyPriceCents ?? 0, activePlan.annualFreeMonths ?? 2)
+      : 0;
+  const regularAnnualPriceCents = (activePlan?.monthlyPriceCents ?? 0) * 12;
+  const annualSavingsCents =
+    billing === 'annual' ? Math.max(0, regularAnnualPriceCents - selectedAnnualPriceCents) : 0;
+  const selectedFreeMonths = activePlan?.annualFreeMonths ?? 2;
+
+  const packageLabel = activePlan
+    ? `${activePlan.name} — ${
+        billing === 'annual'
+          ? `${selectedAnnualPriceCents > 0 ? fmt(selectedAnnualPriceCents) : 'Free'}/year`
+          : `${selectedMonthlyPriceCents > 0 ? fmt(selectedMonthlyPriceCents) : 'Free'}/mo`
+      }`
+    : undefined;
+
+  return (
+    <Space orientation="vertical" size={12} style={{ width: '100%' }}>
+      <Segmented
+        block
+        options={[
+          { label: 'Monthly', value: 'monthly' },
+          { label: `Annual (${annualDiscountPercent(visiblePlans[0]?.annualFreeMonths ?? 2)}% off)`, value: 'annual' },
+        ]}
+        value={billing}
+        onChange={(v) => setBilling(v as 'monthly' | 'annual')}
+      />
+
+      <Form.Item label="Subscription plan" style={{ marginBottom: 0 }}>
+        <Select
+          value={value}
+          onChange={(next) => onChange?.(next)}
+          allowClear
+          placeholder="Assign now or later"
+          options={[
+            ...visiblePlans.map((plan) => {
+              const monthly = plan.monthlyPriceCents ?? 0;
+              const freeMonths = plan.annualFreeMonths ?? 2;
+              const effectiveMonthly = billing === 'annual' ? annualMonthlyPrice(monthly, freeMonths) : monthly;
+              const effectiveAnnual = annualTotalPrice(monthly, freeMonths);
+              return {
+                value: plan.key,
+                label:
+                  billing === 'annual'
+                    ? `${plan.name} — ${monthly === 0 ? 'Free' : `${fmt(effectiveAnnual)}/year`}`
+                    : `${plan.name} — ${monthly === 0 ? 'Free' : `${fmt(effectiveMonthly)}/mo`}`,
+              };
+            }),
+          ]}
+        />
+      </Form.Item>
+
+      {activePlan ? (
+        <div
+          style={{
+            border: '1px solid #ece7df',
+            borderRadius: 10,
+            background: '#f8f6f3',
+            padding: '14px 16px',
+          }}
+        >
+          <Space direction="vertical" size={2}>
+            <Text strong style={{ fontSize: 20, lineHeight: '28px' }}>
+              {activePlan.name}
+            </Text>
+            {billing === 'annual' && regularAnnualPriceCents > selectedAnnualPriceCents ? (
+              <Text delete type="secondary" style={{ fontSize: 24, lineHeight: '28px' }}>
+                {fmt(regularAnnualPriceCents)}/yr
+              </Text>
+            ) : null}
+            <Text strong style={{ fontSize: 36, lineHeight: '40px' }}>
+              {billing === 'annual'
+                ? selectedAnnualPriceCents > 0
+                  ? fmt(selectedAnnualPriceCents)
+                  : 'Free'
+                : selectedMonthlyPriceCents > 0
+                  ? fmt(selectedMonthlyPriceCents)
+                  : 'Free'}
+              <Text type="secondary" style={{ fontSize: 24, fontWeight: 500 }}>
+                {billing === 'annual' ? '/ year' : '/ month'}
+              </Text>
+            </Text>
+            {billing === 'annual' && selectedMonthlyPriceCents > 0 ? (
+              <Text type="secondary" style={{ fontSize: 24, lineHeight: '30px' }}>
+                {fmt(selectedMonthlyPriceCents)}/mo equivalent, billed annually
+              </Text>
+            ) : (
+              <Text type="secondary">{packageLabel}</Text>
+            )}
+            {billing === 'annual' && annualSavingsCents > 0 ? (
+              <Text style={{ color: '#389e0d', fontWeight: 600, fontSize: 24, lineHeight: '30px' }}>
+                Save {fmt(annualSavingsCents)}/year ({annualDiscountPercent(selectedFreeMonths)}% off vs paying monthly)
+              </Text>
+            ) : null}
+            <Text type="secondary">{activePlan.name} package</Text>
+            {billing === 'annual' && selectedFreeMonths > 0 ? (
+              <Tag color="gold" bordered={false} style={{ width: 'fit-content' }}>
+                {selectedFreeMonths} months free on annual
+              </Tag>
+            ) : null}
+            {trialDays > 0 ? (
+              <Tag color="green" bordered={false} style={{ width: 'fit-content' }}>
+                Free {trialDays}-day trial
+              </Tag>
+            ) : null}
+            {trialEndLabel ? (
+              <Text type="secondary">You will not be charged until {trialEndLabel}.</Text>
+            ) : null}
+          </Space>
+        </div>
+      ) : null}
+    </Space>
+  );
+}
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
@@ -338,22 +510,35 @@ function AdminRestaurantsContent() {
   const [changePlan, { loading: changingPlan }] = useMutation(CHANGE_PLAN);
   const [assignUserRestaurants, { loading: assigningUser }] = useMutation(ASSIGN_USER_RESTAURANTS);
   const [removeUserRestaurant] = useMutation(REMOVE_USER_RESTAURANT);
+  const [upsertMenu] = useMutation(UPSERT_MENU);
 
   const [editing, setEditing] = useState<RestaurantRecord | null>(null);
   const [editTab, setEditTab] = useState('details');
   const [showCreate, setShowCreate] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [createStep, setCreateStep] = useState(0);
   const [ownerMode, setOwnerMode] = useState<OwnerMode>('new');
   const [photos, setPhotos] = useState<string[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<string>();
+  const [selectedRestaurantStatus, setSelectedRestaurantStatus] = useState<string>();
   const [assignUserId, setAssignUserId] = useState<string>();
   const [assignRole, setAssignRole] = useState('staff');
+  const [pendingImportedMenuSections, setPendingImportedMenuSections] = useState<
+    Array<{ name: string; items: Array<{ name: string; description: string; priceCents: number; dietary: string[]; available: boolean }> }>
+  >([]);
 
   const [form] = Form.useForm();
   const [createForm] = Form.useForm();
+  const lastGeocodedCreateAddressRef = useRef('');
 
-  const plans = (plansData?.plans ?? []) as Array<{ key: string; name: string; trialDays?: number }>;
-  const planOptions = plans.map((p) => ({ value: p.key, label: p.name }));
+  const createLine1 = Form.useWatch('line1', createForm);
+  const createCity = Form.useWatch('city', createForm);
+  const createState = Form.useWatch('state', createForm);
+  const createZip = Form.useWatch('zip', createForm);
+
+  const plans = (plansData?.plans ?? []) as PlanInfo[];
+  const defaultPlanKey =
+    plans.find((p) => p.key !== 'free' && (p as { isCustom?: boolean }).isCustom !== true)?.key;
 
   const { data: teamData, refetch: refetchTeam } = useQuery(RESTAURANT_TEAM, {
     skip: !editing?.id,
@@ -386,6 +571,7 @@ function AdminRestaurantsContent() {
     setEditTab('details');
     setPhotos(editing.photos ?? []);
     setSelectedPlan(editing.subscription?.plan);
+    setSelectedRestaurantStatus(editing.status);
     form.setFieldsValue({
       name: editing.name,
       description: editing.description ?? '',
@@ -434,12 +620,87 @@ function AdminRestaurantsContent() {
     });
   }, [editing, form]);
 
+  useEffect(() => {
+    if (!showCreate || !defaultPlanKey) return;
+    if (!createForm.getFieldValue('plan')) {
+      createForm.setFieldValue('plan', defaultPlanKey);
+    }
+  }, [showCreate, defaultPlanKey, createForm]);
+
   const closeCreate = () => {
     setShowCreate(false);
     setCreateStep(0);
     setOwnerMode('new');
+    lastGeocodedCreateAddressRef.current = '';
     createForm.resetFields();
     setPhotos([]);
+    setPendingImportedMenuSections([]);
+  };
+
+  useEffect(() => {
+    if (!showCreate) return;
+
+    const line1 = String(createLine1 ?? '').trim();
+    const city = String(createCity ?? '').trim();
+    const state = String(createState ?? '').trim().toUpperCase();
+    const zip = String(createZip ?? '').trim();
+    const hasFullAddress = line1 && city && state && zip;
+    if (!hasFullAddress) {
+      return;
+    }
+
+    const normalizedAddress = `${line1}, ${city}, ${state} ${zip}`;
+    if (normalizedAddress === lastGeocodedCreateAddressRef.current) {
+      return;
+    }
+    createForm.setFieldsValue({ lat: undefined, lng: undefined });
+
+    const timer = setTimeout(() => {
+      const googleMaps = (window as Window & { google?: any }).google?.maps;
+      if (!googleMaps?.Geocoder) return;
+
+      const geocoder = new googleMaps.Geocoder();
+      geocoder.geocode(
+        { address: normalizedAddress },
+        (results: Array<{ geometry?: { location?: { lat: () => number; lng: () => number } } }>, status: string) => {
+          if (status !== 'OK') return;
+          const location = results?.[0]?.geometry?.location;
+          if (!location) return;
+          lastGeocodedCreateAddressRef.current = normalizedAddress;
+          createForm.setFieldsValue({
+            lat: Number(location.lat().toFixed(6)),
+            lng: Number(location.lng().toFixed(6)),
+          });
+        },
+      );
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [showCreate, createLine1, createCity, createState, createZip, createForm]);
+
+  const handleAdminImport = (data: ImportedRestaurantData) => {
+    // Pre-fill all extracted fields
+    createForm.setFieldsValue({
+      name: data.name ?? createForm.getFieldValue('name'),
+      cuisine: data.cuisine ?? createForm.getFieldValue('cuisine'),
+      priceRange: data.priceRange ?? createForm.getFieldValue('priceRange'),
+      description: data.description ?? createForm.getFieldValue('description'),
+      phone: data.phone ?? createForm.getFieldValue('phone'),
+      website: data.website ?? createForm.getFieldValue('website'),
+      ...(data.address?.line1 ? { line1: data.address.line1 } : {}),
+      ...(data.address?.city ? { city: data.address.city } : {}),
+      ...(data.address?.state ? { state: data.address.state } : {}),
+      ...(data.address?.zip ? { zip: data.address.zip } : {}),
+    });
+
+    if (!showCreate) {
+      setOwnerMode('new');
+      setShowCreate(true);
+    }
+    setPendingImportedMenuSections(buildMenuSectionsFromImport(data));
+    // Return to the first step so the user starts by choosing or creating the owner.
+    setCreateStep(0);
+    message.success(`Imported "${data.name ?? 'restaurant'}" — continue from the owner step.`);
   };
 
   const getOwnerMode = () =>
@@ -449,7 +710,7 @@ function AdminRestaurantsContent() {
     try {
       const mode = getOwnerMode();
       if (createStep === 0) {
-        await createForm.validateFields(['ownerMode', ...ownerFieldsForMode(mode), 'status']);
+        await createForm.validateFields(['ownerMode', ...ownerFieldsForMode(mode), 'plan', 'status']);
       } else if (createStep === 1) {
         await createForm.validateFields(['name', 'cuisine', 'priceRange', 'phone', 'website']);
       } else if (createStep === 2) {
@@ -539,6 +800,7 @@ function AdminRestaurantsContent() {
       await createForm.validateFields([
         'ownerMode',
         ...ownerFieldsForMode(mode),
+        'plan',
         'status',
         'name',
         'cuisine',
@@ -569,7 +831,7 @@ function AdminRestaurantsContent() {
             }
           : undefined;
 
-      await createRestaurant({
+      const result = await createRestaurant({
         variables: {
           ownerId: values.ownerMode === 'existing' ? values.ownerId : undefined,
           ownerInput,
@@ -578,6 +840,16 @@ function AdminRestaurantsContent() {
           input: buildRestaurantInput(values, photos),
         },
       });
+
+      const createdRestaurantId = result.data?.adminCreateRestaurant?.id as string | undefined;
+      if (createdRestaurantId && pendingImportedMenuSections.length > 0) {
+        await upsertMenu({
+          variables: {
+            restaurantId: createdRestaurantId,
+            input: { sections: pendingImportedMenuSections },
+          },
+        });
+      }
     } catch (err: unknown) {
       if (isFormValidationError(err) && err.errorFields.length) {
         await revealCreateFieldErrors(createForm, err.errorFields, setCreateStep, setOwnerMode);
@@ -588,29 +860,48 @@ function AdminRestaurantsContent() {
     }
   };
 
-  const applyPlan = async () => {
-    if (!editing || !selectedPlan) return;
+  const applyPackageAndStatus = async () => {
+    if (!editing) return;
     try {
-      if (editing.subscription) {
-        await changePlan({
-          variables: { restaurantId: editing.id, plan: selectedPlan },
-        });
-        message.success('Package updated');
-      } else {
-        await createSubscription({
-          variables: { restaurantId: editing.id, plan: selectedPlan },
-        });
-        message.success('Package assigned');
+      let hasChanges = false;
+
+      if (selectedPlan && selectedPlan !== editing.subscription?.plan) {
+        if (editing.subscription) {
+          await changePlan({
+            variables: { restaurantId: editing.id, plan: selectedPlan },
+          });
+          message.success('Package updated');
+        } else {
+          await createSubscription({
+            variables: { restaurantId: editing.id, plan: selectedPlan },
+          });
+          message.success('Package assigned');
+        }
+        hasChanges = true;
       }
+
+      if (selectedRestaurantStatus && selectedRestaurantStatus !== editing.status) {
+        await setStatus({ variables: { id: editing.id, status: selectedRestaurantStatus } });
+        message.success('Status updated');
+        hasChanges = true;
+      }
+
+      if (!hasChanges) {
+        message.info('No package or status changes to apply');
+        return;
+      }
+
       const refreshed = await refetch();
       const updated = refreshed.data?.adminRestaurants?.items?.find(
         (r: RestaurantRecord) => r.id === editing.id,
       );
       if (updated) setEditing(updated);
     } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : 'Failed to update package');
+      message.error(err instanceof Error ? err.message : 'Failed to update package or status');
     }
   };
+
+  const updateDisabled = !selectedPlan || !selectedRestaurantStatus;
 
   const handleAssignUser = async () => {
     if (!editing || !assignUserId) return;
@@ -904,17 +1195,25 @@ function AdminRestaurantsContent() {
           title="Restaurants"
           subtitle="Create venues, assign packages and accounts, and manage full restaurant profiles."
           extra={
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => {
-                setCreateStep(0);
-                setOwnerMode('new');
-                setShowCreate(true);
-              }}
-            >
-              Add restaurant
-            </Button>
+            <Space>
+              <Button
+                icon={<ImportOutlined />}
+                onClick={() => setShowImport(true)}
+              >
+                Import from file
+              </Button>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => {
+                  setCreateStep(0);
+                  setOwnerMode('new');
+                  setShowCreate(true);
+                }}
+              >
+                Add restaurant
+              </Button>
+            </Space>
           }
         />
         <Card>
@@ -946,6 +1245,7 @@ function AdminRestaurantsContent() {
               loading={loading}
               rowKey="id"
               dataSource={data?.adminRestaurants?.items ?? []}
+              scroll={{ y: 420, x: 'max-content' }}
               pagination={tablePagination(data?.adminRestaurants?.total ?? 0, {
                 showSizeChanger: true,
               })}
@@ -1045,8 +1345,6 @@ function AdminRestaurantsContent() {
               ownerMode: 'new',
               status: 'approved',
               priceRange: 2,
-              lat: 40.7128,
-              lng: -74.006,
               depositRequired: false,
               depositAmountCents: 0,
               loyaltyEnabled: false,
@@ -1172,19 +1470,19 @@ function AdminRestaurantsContent() {
 
               <Divider plain>Package & status</Divider>
               <Row gutter={16}>
-                <Col xs={24} sm={12}>
-                  <Form.Item name="plan" label="Package">
-                    <Select
-                      options={planOptions}
-                      allowClear
-                      placeholder="Optional — assign billing package"
-                    />
+                <Col span={24}>
+                  <Form.Item
+                    name="plan"
+                    label="Package"
+                    rules={[{ required: true, message: 'Select a subscription plan' }]}
+                  >
+                    <PlanSelector plans={plans} />
                   </Form.Item>
                 </Col>
-                <Col xs={24} sm={12}>
+                <Col span={24}>
                   <Form.Item
                     name="status"
-                    label="Initial status"
+                    label="Restaurant status"
                     rules={[{ required: true, message: 'Select an initial status' }]}
                   >
                     <Select options={STATUS_OPTIONS} />
@@ -1194,12 +1492,23 @@ function AdminRestaurantsContent() {
             </div>
 
             <div style={{ display: createStep === 1 ? 'block' : 'none' }}>
-              <Title level={5} style={{ marginTop: 0 }}>
-                Restaurant details
-              </Title>
-              <Text type="secondary" style={{ display: 'block', marginBottom: spacing.md }}>
-                Basic information guests will see on the listing.
-              </Text>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: spacing.md }}>
+                <div>
+                  <Title level={5} style={{ marginTop: 0, marginBottom: 4 }}>
+                    Restaurant details
+                  </Title>
+                  <Text type="secondary">
+                    Basic information guests will see on the listing.
+                  </Text>
+                </div>
+                <Button
+                  icon={<ImportOutlined />}
+                  size="small"
+                  onClick={() => setShowImport(true)}
+                >
+                  Import from DoorDash / Uber Eats
+                </Button>
+              </div>
               <Row gutter={16}>
                 <Col span={24}>
                   <Form.Item name="name" label="Name" rules={[{ required: true, message: 'Enter a restaurant name' }]} tooltip={tips.name}>
@@ -1270,24 +1579,20 @@ function AdminRestaurantsContent() {
                 <Col span={24}>
                   <Form.Item label="Address search">
                     <AddressAutocomplete
+                      style={{ width: '100%' }}
                       onSelect={(selection) => {
                         createForm.setFieldsValue(addressSelectionToFields(selection));
                       }}
                     />
                   </Form.Item>
                 </Col>
-                <Col span={16}>
+                <Col span={24}>
                   <Form.Item
                     name="line1"
                     label="Street"
                     rules={[{ required: true, message: 'Enter a street address' }]}
                     tooltip={tips.line1}
                   >
-                    <Input />
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item name="line2" label="Apt / suite">
                     <Input />
                   </Form.Item>
                 </Col>
@@ -1516,46 +1821,26 @@ function AdminRestaurantsContent() {
                 label: 'Package',
                 children: (
                   <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-                    {editing?.subscription ? (
-                      <Card size="small" styles={{ body: { padding: spacing.md } }}>
-                        <Space orientation="vertical" size={4}>
-                          <Text strong>Current package</Text>
-                          <Text>
-                            {formatPlanLabel(editing.subscription.plan, plans)}
-                            <Tag style={{ marginLeft: 8 }}>{editing.subscription.status}</Tag>
-                          </Text>
-                          {editing.subscription.trialEndsAt && (
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                              Trial ends {new Date(editing.subscription.trialEndsAt).toLocaleDateString()}
-                            </Text>
-                          )}
-                        </Space>
-                      </Card>
-                    ) : (
-                      <Text type="secondary">No billing package assigned yet.</Text>
-                    )}
-                    <div>
-                      <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                        {editing?.subscription ? 'Change package' : 'Assign package'}
-                      </Text>
-                      <Space wrap>
+                    <Form layout="vertical">
+                      <Form.Item label="Package" required style={{ marginBottom: spacing.md }}>
+                        <PlanSelector plans={plans} value={selectedPlan} onChange={setSelectedPlan} />
+                      </Form.Item>
+                      <Form.Item label="Restaurant status" required style={{ marginBottom: spacing.md }}>
                         <Select
-                          style={{ width: 220 }}
-                          placeholder="Select package"
-                          value={selectedPlan}
-                          onChange={setSelectedPlan}
-                          options={planOptions}
+                          value={selectedRestaurantStatus}
+                          onChange={setSelectedRestaurantStatus}
+                          options={STATUS_OPTIONS}
                         />
-                        <Button
-                          type="primary"
-                          loading={assigningPlan || changingPlan}
-                          disabled={!selectedPlan}
-                          onClick={applyPlan}
-                        >
-                          {editing?.subscription ? 'Update package' : 'Assign package'}
-                        </Button>
-                      </Space>
-                    </div>
+                      </Form.Item>
+                      <Button
+                        type="primary"
+                        loading={assigningPlan || changingPlan}
+                        disabled={updateDisabled}
+                        onClick={applyPackageAndStatus}
+                      >
+                        Update package & status
+                      </Button>
+                    </Form>
                   </Space>
                 ),
               },
@@ -1634,6 +1919,12 @@ function AdminRestaurantsContent() {
             ]}
           />
         </Modal>
+
+        <ImportRestaurantModal
+          open={showImport}
+          onClose={() => setShowImport(false)}
+          onImport={handleAdminImport}
+        />
       </Space>
     </div>
   );

@@ -85,10 +85,10 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Menus + DO Spaces presigned uploads (stubbed without keys; image types only)
 - Notifications: email (SendGrid or Resend), Telegram bot, web/Expo push (service worker on diner web), in-app inbox + channel prefs; transactional SMS with public `/sms` opt-in
 - Auth: email/password (forgot/reset on web and partner dashboard), Google OAuth, Twilio phone OTP; browser sessions use HttpOnly cookies
-- Partner Settings hub, notifications prefs, multi-restaurant selector, self-registration with Stripe card collection, plan change preview (prorated upgrades / scheduled downgrades), onboarding checklist, **profile page**, and toggles to accept online reservations or hide the booking widget
+- Partner Settings hub, notifications prefs, multi-restaurant selector, self-registration with Stripe card collection, plan change preview (prorated upgrades / scheduled downgrades), onboarding checklist, **profile page**, toggles to accept online reservations or hide the booking widget, and admin import from DoorDash/Uber Eats MHTML
 - **Email branding** — customizable email templates per restaurant
 - Shareable booking links (`/r/:slug`) and **Booking widget** page for embed script copy
-- Owner phone / walk-in bookings, **diner and partner reservation edit**, reservation-scoped messaging, and **individual reservation detail pages** (upcoming / past / deposit filters)
+- Owner phone / walk-in bookings, **diner and partner reservation edit**, reservation-scoped messaging, and **individual reservation detail pages** (upcoming / past / deposit filters) plus diner **billing history** (`/billing`)
 - Enhanced restaurant detail pages with photo gallery, reviews, FAQ, terms, about, and menu sections
 - Platform admin: users, restaurants (create/edit/delete), invoices, revenue, support, moderation, templates, config, and annual billing discounts
 - Embeddable booking widget with per-restaurant theme

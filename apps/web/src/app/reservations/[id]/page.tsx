@@ -444,6 +444,7 @@ export default function ReservationDetailPage() {
             Add to calendar
           </Button>
         )}
+        {r.depositAmountCents > 0 && <Button onClick={() => router.push('/billing')}>Billing & invoices</Button>}
         {past ? (
           <Link href={bookAgainHref}>
             <Button type={reviewable ? 'default' : 'primary'} icon={<CalendarOutlined />}>

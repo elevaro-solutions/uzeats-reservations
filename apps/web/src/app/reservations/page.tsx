@@ -184,9 +184,12 @@ export default function ReservationsPage() {
         title="My reservations"
         subtitle="Upcoming, past, and deposits in one place"
         extra={
-          <Button type="primary" icon={<SearchOutlined />} onClick={() => router.push('/')}>
-            Book a table
-          </Button>
+          <Space wrap>
+            <Button onClick={() => router.push('/billing')}>Billing & invoices</Button>
+            <Button type="primary" icon={<SearchOutlined />} onClick={() => router.push('/')}>
+              Book a table
+            </Button>
+          </Space>
         }
       />
 

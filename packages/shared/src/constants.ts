@@ -217,6 +217,7 @@ export const NOTIFICATION_EVENTS = [
   'reviewReply',
   'surveyInvitation',
   'loyaltyUpdates',
+  'accountUpdates',
 ] as const;
 
 export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
@@ -239,6 +240,8 @@ export const NOTIFICATION_TYPE_TO_EVENT: Record<string, NotificationEvent> = {
   points_earned: 'loyaltyUpdates',
   points_redeemed: 'loyaltyUpdates',
   points_refunded: 'loyaltyUpdates',
+  restaurant_created: 'accountUpdates',
+  invoice_ready: 'accountUpdates',
 };
 
 export const DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES: Record<NotificationChannel, boolean> = {

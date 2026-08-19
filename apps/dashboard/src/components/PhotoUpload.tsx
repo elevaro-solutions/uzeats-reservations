@@ -131,7 +131,7 @@ export default function PhotoUpload({
           multiple
           showUploadList={false}
           beforeUpload={handleUpload}
-          style={{ maxWidth: 480 }}
+          style={{ width: '100%' }}
         >
           <p className="ant-upload-drag-icon">
             <InboxOutlined style={{ color: BRAND, fontSize: 36 }} />

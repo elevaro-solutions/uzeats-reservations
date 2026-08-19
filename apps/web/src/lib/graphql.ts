@@ -170,6 +170,7 @@ export const MY_RESERVATIONS = gql`
   query MyReservations {
     myReservations {
       id
+      createdAt
       status
       slotStart
       slotEnd

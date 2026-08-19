@@ -4,6 +4,22 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.27.0] — 2026-08-19
+
+### Added
+
+- Admin restaurant import flow from DoorDash/Uber Eats MHTML files (`/api/import-restaurant`) with dashboard import modal and menu prefill
+- Diner billing history page (`/billing`) summarizing deposit authorized/captured/refunded/pending totals
+
+### Changed
+
+- Admin restaurant create/edit package selector now includes monthly/annual price presentation, trial timing, and combined package+status updates
+- Dashboard overview and settings plan cards align with annual billing display helpers
+
+### Fixed
+
+- Email template variable extraction supports underscores in placeholder names
+
 ## [0.26.1] — 2026-08-18
 
 ### Fixed

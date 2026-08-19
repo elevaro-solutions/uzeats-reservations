@@ -27,6 +27,7 @@ import {
   ClusterOutlined,
   CodeOutlined,
   FormOutlined,
+  ImportOutlined,
   LockOutlined,
   ReadOutlined,
   StopOutlined,
@@ -41,13 +42,16 @@ import {
   UPDATE_RESTAURANT,
   RESTAURANT_SETTINGS,
   UPDATE_RESTAURANT_SETTINGS,
+  UPSERT_MENU,
 } from '@/lib/graphql';
 import PhotoUpload from '@/components/PhotoUpload';
+import ImportRestaurantModal, { type ImportedRestaurantData } from '@/components/ImportRestaurantModal';
 import {
   priceRangeOptions,
   restaurantFieldTooltips as tips,
 } from '@/lib/restaurantFormTooltips';
 import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
+import { buildMenuSectionsFromImport } from '@/lib/importedMenu';
 
 const { Text } = Typography;
 
@@ -132,6 +136,7 @@ export default function SettingsPage() {
   const [form] = Form.useForm();
   const [settingsForm] = Form.useForm();
   const [photos, setPhotos] = useState<string[]>([]);
+  const [showImport, setShowImport] = useState(false);
   const { data, loading: dataLoading, refetch } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurantIds = useMemo(
     () => (data?.myRestaurants ?? []).map((r: { id: string }) => r.id),
@@ -139,6 +144,7 @@ export default function SettingsPage() {
   );
   const { restaurantId, setRestaurantId } = useActiveRestaurant(restaurantIds);
   const [updateRestaurant, { loading: saving }] = useMutation(UPDATE_RESTAURANT);
+  const [upsertMenu] = useMutation(UPSERT_MENU);
   const { data: settingsData, refetch: refetchSettings } = useQuery(RESTAURANT_SETTINGS, {
     skip: !restaurantId,
     variables: { id: restaurantId },
@@ -281,6 +287,46 @@ export default function SettingsPage() {
     }
   };
 
+  const handleOwnerImport = (data: ImportedRestaurantData) => {
+    form.setFieldsValue({
+      name: data.name ?? form.getFieldValue('name'),
+      cuisine: data.cuisine ?? form.getFieldValue('cuisine'),
+      priceRange: data.priceRange ?? form.getFieldValue('priceRange'),
+      description: data.description ?? form.getFieldValue('description'),
+      phone: data.phone ?? form.getFieldValue('phone'),
+      website: data.website ?? form.getFieldValue('website'),
+      ...(data.address?.line1 ? { line1: data.address.line1 } : {}),
+      ...(data.address?.city ? { city: data.address.city } : {}),
+      ...(data.address?.state ? { state: data.address.state } : {}),
+      ...(data.address?.zip ? { zip: data.address.zip } : {}),
+    });
+
+    const importedSections = buildMenuSectionsFromImport(data);
+    if (restaurantId && importedSections.length > 0) {
+      void upsertMenu({
+        variables: {
+          restaurantId,
+          input: { sections: importedSections },
+        },
+      })
+        .then(() => {
+          message.success(`Imported and saved ${data.menuItems?.length ?? 0} menu items to Menu.`);
+          void refetch();
+        })
+        .catch((err: unknown) => {
+          message.warning(
+            `Profile details were imported, but menu items failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`,
+          );
+        });
+    }
+
+    // Scroll to the address autocomplete so the user can refine with Google Places
+    requestAnimationFrame(() => {
+      form.scrollToField('line1', { behavior: 'smooth', block: 'center' });
+    });
+    message.success(`Imported "${data.name ?? 'restaurant'}" — use Address search to confirm the location, then save.`);
+  };
+
   if (dataLoading) {
     return <Spin size="large" style={{ display: 'block', margin: '80px auto' }} />;
   }
@@ -291,16 +337,24 @@ export default function SettingsPage() {
         title="Settings"
         subtitle="Restaurant profile, booking preferences, and setup tools"
         extra={
-          <Select
-            style={{ width: 260 }}
-            value={restaurantId}
-            onChange={setRestaurantId}
-            options={(data?.myRestaurants ?? []).map((r: { id: string; name: string }) => ({
-              value: r.id,
-              label: r.name,
-            }))}
-            placeholder="Select restaurant"
-          />
+          <Space wrap>
+            <Button
+              icon={<ImportOutlined />}
+              onClick={() => setShowImport(true)}
+            >
+              Import from DoorDash / Uber Eats
+            </Button>
+            <Select
+              style={{ width: 260 }}
+              value={restaurantId}
+              onChange={setRestaurantId}
+              options={(data?.myRestaurants ?? []).map((r: { id: string; name: string }) => ({
+                value: r.id,
+                label: r.name,
+              }))}
+              placeholder="Select restaurant"
+            />
+          </Space>
         }
       />
 
@@ -591,11 +645,13 @@ export default function SettingsPage() {
                   <Col xs={12} md={8}>
                     <Form.Item
                       name="depositAmountCents"
-                      label="Deposit (cents / guest)"
+                      label="Deposit (USD / guest)"
                       tooltip={tips.depositAmountCents}
                       rules={[{ type: 'number', min: 0, message: 'Must be 0 or greater' }]}
+                      getValueProps={(value) => ({ value: ((value as number | undefined) ?? 0) / 100 })}
+                      normalize={(value) => Math.round((Number(value) || 0) * 100)}
                     >
-                      <InputNumber min={0} precision={0} style={{ width: '100%' }} />
+                      <InputNumber min={0} precision={2} step={0.01} style={{ width: '100%' }} />
                     </Form.Item>
                   </Col>
                 </Row>
@@ -856,6 +912,12 @@ export default function SettingsPage() {
           </Text>
         </Card>
       )}
+
+      <ImportRestaurantModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onImport={handleOwnerImport}
+      />
     </Space></div>
   );
 }

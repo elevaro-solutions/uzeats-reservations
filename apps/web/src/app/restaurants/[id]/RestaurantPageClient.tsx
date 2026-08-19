@@ -9,6 +9,7 @@ import {
   Card,
   Col,
   DatePicker,
+  Descriptions,
   Form,
   Input,
   InputNumber,
@@ -22,7 +23,7 @@ import {
   Tag,
 } from 'antd';
 import dayjs from 'dayjs';
-import { StarFilled } from '@ant-design/icons';
+import { CheckCircleFilled, StarFilled } from '@ant-design/icons';
 import { SlotPicker, priceRangeLabel, colors, radii, pickRestaurantPhoto } from '@reservations/ui';
 import {
   OCCASIONS,
@@ -107,6 +108,10 @@ export default function RestaurantPageClient() {
     tableName?: string;
     photoUrl?: string | null;
     floorArea?: string;
+    dateLabel: string;
+    timeLabel: string;
+    partySize: number;
+    occasionLabel: string;
   } | null>(null);
   const [occasion, setOccasion] = useState('none');
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
@@ -161,7 +166,15 @@ export default function RestaurantPageClient() {
     reservationId: string;
     amountCents: number;
     paymentIntentId: string;
-    tableInfo?: { tableName?: string; photoUrl?: string | null; floorArea?: string } | null;
+    tableInfo?: {
+      tableName?: string;
+      photoUrl?: string | null;
+      floorArea?: string;
+      dateLabel: string;
+      timeLabel: string;
+      partySize: number;
+      occasionLabel: string;
+    } | null;
   } | null>(null);
 
   const { data } = useQuery(RESTAURANT_DETAIL, {
@@ -471,6 +484,13 @@ export default function RestaurantPageClient() {
           ...(restaurant.photos ?? []),
         ]),
         floorArea: bookedTable?.floorArea,
+        dateLabel: date.format('dddd, MMMM D, YYYY'),
+        timeLabel: new Date(selectedSlot).toLocaleTimeString([], {
+          hour: 'numeric',
+          minute: '2-digit',
+        }),
+        partySize,
+        occasionLabel: formatOccasion(occasion),
       };
       if (payload?.clientSecret) {
         const cs = payload.clientSecret as string;
@@ -557,6 +577,14 @@ export default function RestaurantPageClient() {
   const restaurantFaq = buildRestaurantFaq({ ...restaurant, openingHoursLines });
 
   const reviews = (reviewsData as any)?.restaurantReviews?.items ?? [];
+  const bookingSuccessDateLabel = bookingSuccess?.dateLabel ?? date.format('dddd, MMMM D, YYYY');
+  const bookingSuccessTimeLabel =
+    bookingSuccess?.timeLabel ??
+    (selectedSlot
+      ? new Date(selectedSlot).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+      : '—');
+  const bookingSuccessPartySize = bookingSuccess?.partySize ?? partySize;
+  const bookingSuccessOccasionLabel = bookingSuccess?.occasionLabel ?? formatOccasion(occasion);
 
   return (
     <div component="RestaurantPage" style={{ display: 'contents' }}>
@@ -1276,29 +1304,76 @@ export default function RestaurantPageClient() {
         open={!!bookingSuccess}
         title="Reservation confirmed"
         onOk={() => {
-          setBookingSuccess(null);
           router.push('/reservations');
         }}
         onCancel={() => {
           setBookingSuccess(null);
-          router.push('/reservations');
         }}
         okText="View reservations"
-        cancelButtonProps={{ style: { display: 'none' } }}
-        width={480}
+        cancelText="Close"
+        width={500}
+        centered
+        okButtonProps={{
+          size: 'large',
+          style: {
+            minWidth: 180,
+            height: 42,
+            borderRadius: 999,
+            fontWeight: 600,
+          },
+        }}
       >
         {bookingSuccess && (
-          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-            <Text>
-              Your table: <Text strong>{bookingSuccess.tableName}</Text>
-              {bookingSuccess.floorArea ? ` · ${bookingSuccess.floorArea}` : ''}
+          <Space
+            direction="vertical"
+            size={14}
+            style={{ width: '100%' }}
+            styles={{ item: { width: '100%' } }}
+          >
+            <Space size={8} align="center">
+              <CheckCircleFilled style={{ color: '#1f7a63' }} />
+              <Text strong style={{ fontSize: 15 }}>
+                Your table: {bookingSuccess.tableName || 'Assigned by host'}
+                {bookingSuccess.floorArea ? ` · ${bookingSuccess.floorArea}` : ''}
+              </Text>
+            </Space>
+            <Text type="secondary">
+              We sent your confirmation details and booking status to your reservations page.
             </Text>
-            {bookingSuccess.photoUrl && (
+            <Descriptions
+              size="small"
+              column={1}
+              bordered
+              items={[
+                { key: 'date', label: 'Date', children: bookingSuccessDateLabel },
+                { key: 'time', label: 'Time', children: bookingSuccessTimeLabel },
+                {
+                  key: 'guests',
+                  label: 'Guests',
+                  children: `${bookingSuccessPartySize} ${
+                    bookingSuccessPartySize === 1 ? 'guest' : 'guests'
+                  }`,
+                },
+                { key: 'occasion', label: 'Occasion', children: bookingSuccessOccasionLabel },
+              ]}
+            />
+            {bookingSuccess.photoUrl ? (
               <img
                 src={bookingSuccess.photoUrl}
                 alt={bookingSuccess.tableName ?? 'Your table'}
-                style={{ width: '100%', borderRadius: 8, maxHeight: 240, objectFit: 'cover' }}
+                style={{ width: '100%', borderRadius: 14, maxHeight: 250, objectFit: 'cover' }}
               />
+            ) : (
+              <div
+                style={{
+                  borderRadius: 14,
+                  border: '1px solid #e8e8e8',
+                  background: '#fafafa',
+                  padding: '18px 16px',
+                }}
+              >
+                <Text type="secondary">Need to change anything? You can manage this booking anytime.</Text>
+              </div>
             )}
           </Space>
         )}

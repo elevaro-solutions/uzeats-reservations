@@ -26,6 +26,7 @@ import { AppError, formatMongooseError } from './lib/errors.js';
 import { posRouter } from './routes/pos.js';
 import { partnerRouter } from './routes/partner.js';
 import { uploadsRouter } from './routes/uploads.js';
+import { importRestaurantRouter } from './routes/importRestaurant.js';
 
 const startedAt = Date.now();
 
@@ -213,6 +214,14 @@ async function main() {
     cors({ origin: corsOrigins, credentials: true }),
     express.raw({ type: () => true, limit: '10mb' }),
     uploadsRouter,
+  );
+
+  app.use(
+    '/api/import-restaurant',
+    uploadLimiter,
+    cors({ origin: corsOrigins, credentials: true }),
+    express.raw({ type: () => true, limit: '50mb' }),
+    importRestaurantRouter,
   );
 
   app.use(

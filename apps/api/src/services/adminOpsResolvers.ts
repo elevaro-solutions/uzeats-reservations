@@ -50,7 +50,11 @@ import {
 import { getPlatformConfig, mapPlatformConfig } from './platformConfig.js';
 import { listRecentStripeInvoices } from './stripe.js';
 import { syncStripeInvoice } from './stripeSync.js';
-import { getPlatformRevenueReport } from './invoices.js';
+import { generateInvoicesForPeriod, getPlatformRevenueReport } from './invoices.js';
+import { notifyUser } from './notifications.js';
+import { renderEmailTemplate } from './emailTemplates.js';
+import { env } from '../config/env.js';
+import { logger } from '../lib/logger.js';
 import {
   adminDeleteUser,
   adminDeleteRestaurant,
@@ -476,6 +480,7 @@ export const adminOpsMutation = {
           customerEmail: owner.email ?? undefined,
           customerName: doc.name,
           actorId: admin._id.toString(),
+          collectPaymentMethod: true,
         });
       } catch (err) {
         await Restaurant.findByIdAndDelete(doc._id);
@@ -499,6 +504,59 @@ export const adminOpsMutation = {
         status,
       },
     });
+
+    // Send onboarding email + in-app notification to the owner.
+    // Done in a fire-and-forget block so a notification failure never rolls back the creation.
+    void (async () => {
+      try {
+        // Generate current-period invoice for the new restaurant (idempotent).
+        if (args.plan) {
+          const period = new Date().toISOString().slice(0, 7); // 'YYYY-MM'
+          await generateInvoicesForPeriod(period);
+        }
+
+        // Find the most recent invoice for this restaurant, if any.
+        const invoice = await Invoice.findOne({ restaurantId: doc._id }).sort({ createdAt: -1 });
+
+        const billingUrl = `${env.DASHBOARD_APP_URL || 'https://dashboard.tablevera.com'}/billing`;
+        const firstName = owner.firstName ?? owner.email?.split('@')[0] ?? 'there';
+        const planLabel = args.plan ? String(args.plan).toUpperCase() : 'None';
+
+        const formatAmount = (cents: number) =>
+          new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
+
+        const formatDate = (d: Date) =>
+          d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        const { subject, bodyHtml, bodyText } = await renderEmailTemplate('restaurant_created', {
+          firstName,
+          restaurantName: doc.name,
+          plan: planLabel,
+          invoiceNumber: invoice?.number ?? '—',
+          amount: invoice ? formatAmount(invoice.totalCents) : '—',
+          dueDate: invoice?.dueDate ? formatDate(invoice.dueDate) : '—',
+          billingUrl,
+        });
+
+        await notifyUser(owner._id.toString(), {
+          type: 'restaurant_created',
+          title: subject,
+          body: bodyText || `Your restaurant ${doc.name} has been created on Tablevera.`,
+          htmlBody: bodyHtml,
+          data: {
+            restaurantId: doc._id.toString(),
+            invoiceId: invoice?._id?.toString(),
+          },
+        });
+
+        logger.info(
+          { restaurantId: doc._id.toString(), ownerId: owner._id.toString() },
+          '[adminCreateRestaurant] owner notified',
+        );
+      } catch (err) {
+        logger.error({ err }, '[adminCreateRestaurant] failed to send owner notification');
+      }
+    })();
 
     return mapRestaurant(doc);
   },

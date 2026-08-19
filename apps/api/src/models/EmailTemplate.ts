@@ -23,6 +23,7 @@ const emailTemplateSchema = new Schema(
         'waitlist_available',
         'staff_invite',
         'restaurant_approved',
+        'restaurant_created',
         'invoice_ready',
       ],
     },
@@ -156,6 +157,28 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     ].join(''),
     bodyText:
       'Hi {{firstName}},\n\n{{restaurantName}} has been approved and is now visible to diners.',
+  },
+  {
+    key: 'restaurant_created',
+    name: 'Restaurant created — onboarding & invoice',
+    subject: 'Welcome to Tablevera — {{restaurantName}} is ready',
+    description: 'Sent to the owner when an admin creates their restaurant account. Includes onboarding next steps and first invoice details.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('Your restaurant <strong>{{restaurantName}}</strong> has been set up on Tablevera. Here\'s what to do next to go live.'),
+      emailDetailBox([
+        { label: 'Restaurant', value: '{{restaurantName}}' },
+        { label: 'Package', value: '{{plan}}' },
+        { label: 'Invoice', value: '{{invoiceNumber}}' },
+        { label: 'Amount due', value: '{{amount}}' },
+        { label: 'Due date', value: '{{dueDate}}' },
+      ]),
+      emailButton('{{billingUrl}}', 'Pay invoice & complete setup'),
+      emailNotice('Once payment is confirmed your listing goes live and guests can start booking.'),
+      emailMuted('Questions? Reply to this email or visit our help center.'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\n{{restaurantName}} has been created on Tablevera.\n\nPackage: {{plan}}\nInvoice: {{invoiceNumber}}\nAmount due: {{amount}}\nDue: {{dueDate}}\n\nPay here: {{billingUrl}}\n\nOnce payment is confirmed your listing goes live.',
   },
   {
     key: 'invoice_ready',

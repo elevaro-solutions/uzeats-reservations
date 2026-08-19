@@ -13,6 +13,7 @@ import {
   Input,
   InputNumber,
   Row,
+  Segmented,
   Select,
   Space,
   Statistic,
@@ -22,7 +23,17 @@ import {
   Typography,
   message,
 } from 'antd';
-import { CUISINES, RESTAURANT_STATUSES, formatPlanDollars, getPlanDiscountLabel, getPlanPriceDisplay, planForBillingPeriod } from '@reservations/shared';
+import {
+  CUISINES,
+  RESTAURANT_STATUSES,
+  formatPlanDollars,
+  getAnnualSavingsPercentFromSettings,
+  getPlanDiscountLabel,
+  getPlanPriceDisplay,
+  normalizeAnnualBillingSettings,
+  planForBillingPeriod,
+  type AnnualBillingSettings,
+} from '@reservations/shared';
 import {
   AddressAutocomplete,
   EmptyState,
@@ -33,6 +44,7 @@ import {
   radii,
   spacing,
   typography,
+  type BillingPeriod,
 } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { isPlatformAdmin, canCreateRestaurant } from '@/lib/roles';
@@ -58,7 +70,7 @@ const { Text } = Typography;
 type PlanOption = {
   key: string;
   name: string;
-  monthly: string;
+  priceLabel: string;
   blurb: string;
   trialDays: number;
   discountLabel: string | null;
@@ -67,39 +79,52 @@ type PlanOption = {
     originalMonthlyPriceCents?: number | null;
     discountType?: string | null;
     discountPercent?: number | null;
+    discountAmountCents?: number | null;
     annualFreeMonths?: number | null;
   };
 };
 
-const FALLBACK_PLAN_OPTIONS: PlanOption[] = [
+const FALLBACK_PLAN_OPTIONS: Omit<PlanOption, 'priceLabel' | 'discountLabel'>[] = [
   {
     key: 'basic',
     name: 'Basic',
-    monthly: '$49',
     blurb: 'Essential reservation management to get started.',
     trialDays: 30,
-    discountLabel: null,
     pricing: { monthlyPriceCents: 4900 },
   },
   {
     key: 'core',
     name: 'Core',
-    monthly: '$99',
     blurb: 'Table management, waitlist, and free website covers.',
     trialDays: 30,
-    discountLabel: null,
     pricing: { monthlyPriceCents: 9900 },
   },
   {
     key: 'pro',
     name: 'Pro',
-    monthly: '$199',
     blurb: 'Full suite with guest insights, campaigns, and SMS.',
     trialDays: 30,
-    discountLabel: null,
     pricing: { monthlyPriceCents: 19900 },
   },
 ];
+
+function toPlanOption(
+  plan: Omit<PlanOption, 'priceLabel' | 'discountLabel'>,
+  billingPeriod: BillingPeriod,
+  annualBilling: AnnualBillingSettings,
+): PlanOption {
+  const periodPricing = planForBillingPeriod(plan.pricing, billingPeriod, {
+    annualBilling,
+    planKey: plan.key,
+  });
+  const display = getPlanPriceDisplay(periodPricing);
+  const suffix = display.primarySuffix.includes('year') ? '/yr' : '/mo';
+  return {
+    ...plan,
+    priceLabel: `${formatPlanDollars(display.primaryCents)}${suffix}`,
+    discountLabel: getPlanDiscountLabel(periodPricing),
+  };
+}
 
 export default function OverviewPage() {
   const { user, loading: authLoading } = useAuth();
@@ -108,6 +133,7 @@ export default function OverviewPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [createStep, setCreateStep] = useState(0);
   const [selectedPlan, setSelectedPlan] = useState('core');
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
   const [createForm] = Form.useForm();
   const {
     search: searchInput,
@@ -140,6 +166,7 @@ export default function OverviewPage() {
     setShowCreate(false);
     setCreateStep(0);
     setSelectedPlan('core');
+    setBillingPeriod('monthly');
     createForm.resetFields();
   };
 
@@ -236,6 +263,14 @@ export default function OverviewPage() {
     }
   };
 
+  const annualBilling: AnnualBillingSettings = useMemo(
+    () =>
+      normalizeAnnualBillingSettings(
+        (plansData as { annualBillingSettings?: AnnualBillingSettings })?.annualBillingSettings,
+      ),
+    [plansData],
+  );
+
   const planOptions = useMemo((): PlanOption[] => {
     const fromApi = ((plansData as { plans?: Array<{
       key: string;
@@ -248,37 +283,46 @@ export default function OverviewPage() {
       discountAmountCents?: number | null;
       annualFreeMonths?: number | null;
       trialDays: number;
-      visibleOnPricing?: boolean;
+      isCustom?: boolean;
     }> })?.plans ?? []);
-    if (!fromApi.length) return FALLBACK_PLAN_OPTIONS;
-    const visible = fromApi.filter((p) => p.visibleOnPricing !== false);
-    const list = visible.length ? visible : fromApi;
-    return list.map((p) => {
-      const pricing = {
-        monthlyPriceCents: p.monthlyPriceCents,
-        originalMonthlyPriceCents: p.originalMonthlyPriceCents,
-        discountType: p.discountType,
-        discountPercent: p.discountPercent,
-        discountAmountCents: p.discountAmountCents,
-        annualFreeMonths: p.annualFreeMonths,
-      };
-      const display = getPlanPriceDisplay(planForBillingPeriod(pricing, 'monthly'));
-      return {
-        key: p.key,
-        name: p.name,
-        monthly: formatPlanDollars(display.primaryCents),
-        blurb: p.description?.trim() || `${p.name} package`,
-        trialDays: p.trialDays ?? 0,
-        discountLabel: getPlanDiscountLabel(planForBillingPeriod(pricing, 'monthly')),
-        pricing,
-      };
-    });
-  }, [plansData]);
+    const base: Omit<PlanOption, 'priceLabel' | 'discountLabel'>[] = fromApi.length
+      ? (() => {
+          const list = fromApi.filter((p) => p.key !== 'free' && p.isCustom !== true);
+          return list.map((p) => ({
+            key: p.key,
+            name: p.name,
+            blurb: p.description?.trim() || `${p.name} package`,
+            trialDays: p.trialDays ?? 0,
+            pricing: {
+              monthlyPriceCents: p.monthlyPriceCents,
+              originalMonthlyPriceCents: p.originalMonthlyPriceCents,
+              discountType: p.discountType,
+              discountPercent: p.discountPercent,
+              discountAmountCents: p.discountAmountCents,
+              annualFreeMonths: p.annualFreeMonths,
+            },
+          }));
+        })()
+      : FALLBACK_PLAN_OPTIONS;
+    return base.map((p) => toPlanOption(p, billingPeriod, annualBilling));
+  }, [plansData, billingPeriod, annualBilling]);
 
   const planInfo = useMemo(
-    () => planOptions.find((p) => p.key === selectedPlan) ?? planOptions[0] ?? FALLBACK_PLAN_OPTIONS[1],
-    [selectedPlan, planOptions],
+    () =>
+      planOptions.find((p) => p.key === selectedPlan) ??
+      planOptions[0] ??
+      toPlanOption(FALLBACK_PLAN_OPTIONS[1], billingPeriod, annualBilling),
+    [selectedPlan, planOptions, billingPeriod, annualBilling],
   );
+
+  const annualToggleLabel = useMemo(() => {
+    if (!annualBilling.enabled) return 'Annual';
+    if (annualBilling.discountType === 'percent_off') {
+      return `Annual (${annualBilling.discountPercent}% off)`;
+    }
+    const savings = getAnnualSavingsPercentFromSettings(annualBilling);
+    return savings > 0 ? `Annual (${savings}% off)` : 'Annual';
+  }, [annualBilling]);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -368,6 +412,18 @@ export default function OverviewPage() {
               <p className="rt-form-section-desc">
                 Each location has its own subscription. Billing starts after your free trial.
               </p>
+              <div style={{ marginBottom: 16, maxWidth: 420 }}>
+                <Segmented
+                  value={billingPeriod}
+                  onChange={(value) => setBillingPeriod(value as BillingPeriod)}
+                  options={[
+                    { label: 'Monthly', value: 'monthly' },
+                    { label: annualToggleLabel, value: 'annual' },
+                  ]}
+                  size="large"
+                  block
+                />
+              </div>
               <Row gutter={[24, 8]}>
                 <Col xs={24} md={12}>
                   <Form.Item
@@ -383,7 +439,7 @@ export default function OverviewPage() {
                       }}
                       options={planOptions.map((p) => ({
                         value: p.key,
-                        label: `${p.name} — ${p.monthly}/mo`,
+                        label: `${p.name} — ${p.priceLabel}`,
                       }))}
                     />
                   </Form.Item>
@@ -401,7 +457,13 @@ export default function OverviewPage() {
                     <Text strong style={{ display: 'block', marginBottom: 4 }}>
                       {planInfo.name}
                     </Text>
-                    <PlanPrice plan={planInfo.pricing} size="medium" />
+                    <PlanPrice
+                      plan={planInfo.pricing}
+                      planKey={planInfo.key}
+                      size="medium"
+                      billingPeriod={billingPeriod}
+                      annualBilling={annualBilling}
+                    />
                     <Text
                       type="secondary"
                       style={{ fontSize: typography.fontSize.sm, display: 'block', marginTop: 8 }}
@@ -588,12 +650,14 @@ export default function OverviewPage() {
               <Col xs={12} md={8}>
                 <Form.Item
                   name="depositAmountCents"
-                  label="Deposit (cents / guest)"
+                  label="Deposit (USD / guest)"
                   tooltip={tips.depositAmountCents}
                   initialValue={0}
                   rules={[{ type: 'number', min: 0, message: 'Must be 0 or greater' }]}
+                  getValueProps={(value) => ({ value: ((value as number | undefined) ?? 0) / 100 })}
+                  normalize={(value) => Math.round((Number(value) || 0) * 100)}
                 >
-                  <InputNumber min={0} precision={0} style={{ width: '100%' }} />
+                  <InputNumber min={0} precision={2} step={0.01} style={{ width: '100%' }} />
                 </Form.Item>
               </Col>
             </Row>
@@ -610,7 +674,11 @@ export default function OverviewPage() {
               >
                 <ConfirmRow
                   label="Plan"
-                  value={`${planInfo.name} (${planInfo.monthly}/mo)`}
+                  value={`${planInfo.name} (${planInfo.priceLabel})`}
+                />
+                <ConfirmRow
+                  label="Billing"
+                  value={billingPeriod === 'annual' ? 'Annual' : 'Monthly'}
                 />
                 <ConfirmRow label="Restaurant" value={createForm.getFieldValue('name')} />
                 <ConfirmRow label="Cuisine" value={createForm.getFieldValue('cuisine')} />
