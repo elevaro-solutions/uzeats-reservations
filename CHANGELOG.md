@@ -19,6 +19,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Audit GraphQL queries support filter options and resource filters
 - Restaurant search filter helpers and shared schema/constants formatting updates
 
+### Fixed
+
+- Docs OTP verification now stores codes in Redis instead of process memory, so verify works after API restarts
+- Invalid or expired docs OTP codes show a clear message instead of "Internal server error"
+
 ## [0.29.0] — 2026-08-20
 
 ### Added

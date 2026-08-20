@@ -18,16 +18,15 @@ import {
 import { isPlatformAdmin } from "@reservations/shared";
 import { mapUser } from "../graphql/mappers.js";
 import type { DocsAccessRequestDocument } from "../models/DocsAccessRequest.js";
+import { ForbiddenError, ValidationError } from "../lib/errors.js";
+import { consumeDocsOtp, storeDocsOtp } from "./docsOtpStore.js";
 
 const DOCS_ACCESS_JWT_EXPIRES = "30d";
-const DOCS_OTP_TTL_MS = 10 * 60 * 1000;
 
 interface DocsAccessJwtPayload {
   email: string;
   type: "docs_access";
 }
-
-const docsOtpStore = new Map<string, { code: string; expiresAt: number }>();
 
 function useDevOtp() {
   return Boolean(env.AUTH_DEV_OTP) && env.NODE_ENV !== "production";
@@ -193,7 +192,7 @@ export async function requestDocsAccessOtp(rawEmail: string) {
   }
 
   const code = useDevOtp() ? "123456" : generateOtpCode();
-  docsOtpStore.set(email, { code, expiresAt: Date.now() + DOCS_OTP_TTL_MS });
+  await storeDocsOtp(email, code);
 
   if (useDevOtp()) {
     return {
@@ -225,19 +224,16 @@ export async function verifyDocsAccessOtp(
   const email = emailSchema.parse(rawEmail);
   const code = rawCode.trim();
   if (!/^\d{4,8}$/.test(code)) {
-    throw new Error("Invalid verification code");
+    throw new ValidationError("Invalid verification code");
   }
   if (!(await isEmailApproved(email))) {
-    throw new Error("Access has been revoked for this email");
+    throw new ForbiddenError("Access has been revoked for this email");
   }
 
-  const stored = docsOtpStore.get(email);
-  const valid =
-    !!stored && stored.code === code && stored.expiresAt > Date.now();
+  const valid = await consumeDocsOtp(email, code);
   if (!valid) {
-    throw new Error("Invalid or expired verification code");
+    throw new ValidationError("Invalid or expired verification code");
   }
-  docsOtpStore.delete(email);
 
   return issueDocsSession(email, res);
 }
