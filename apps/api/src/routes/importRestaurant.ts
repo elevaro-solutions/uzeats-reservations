@@ -35,6 +35,20 @@ function inferContentTypeFromUrl(url: string): string {
   return 'image/jpeg';
 }
 
+function readJsonPayload(body: unknown): { imageUrl?: string; filename?: string } | null {
+  if (body && typeof body === 'object' && !Buffer.isBuffer(body)) {
+    return body as { imageUrl?: string; filename?: string };
+  }
+  if (Buffer.isBuffer(body)) {
+    try {
+      return JSON.parse(body.toString('utf-8')) as { imageUrl?: string; filename?: string };
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 /**
  * POST /api/import-restaurant/upload-image
  *
@@ -48,10 +62,8 @@ importRestaurantRouter.post('/upload-image', async (req, res) => {
     return;
   }
 
-  let payload: { imageUrl?: string; filename?: string } = {};
-  try {
-    payload = JSON.parse((req.body as Buffer).toString('utf-8')) as { imageUrl?: string; filename?: string };
-  } catch {
+  let payload = readJsonPayload(req.body);
+  if (!payload) {
     res.status(400).json({ error: 'Invalid JSON body' });
     return;
   }
