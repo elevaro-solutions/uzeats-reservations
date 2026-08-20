@@ -15,6 +15,7 @@ import { RestaurantProfileFields } from '@/components/RestaurantProfileFields';
 import ImportRestaurantModal, { type ImportedRestaurantData } from '@/components/ImportRestaurantModal';
 import { applyRestaurantImportToForm } from '@/lib/applyRestaurantImport';
 import { buildMenuSectionsFromImport } from '@/lib/importedMenu';
+import { uploadImportedMenuImageToSpaces } from '@/lib/importMenuImages';
 import {
   buildRestaurantInput,
   profileValuesFromRestaurant,
@@ -76,23 +77,46 @@ export default function ProfilePage() {
   const handleImport = (data: ImportedRestaurantData) => {
     applyRestaurantImportToForm(form, data);
 
-    const importedSections = buildMenuSectionsFromImport(data);
-    if (restaurant?.id && importedSections.length > 0) {
-      void upsertMenu({
-        variables: {
-          restaurantId: restaurant.id,
-          input: { sections: importedSections },
-        },
+    if (data.coverImageUrl) {
+      void uploadImportedMenuImageToSpaces({
+        imageUrl: data.coverImageUrl,
+        filenameHint: 'restaurant-cover.jpg',
       })
-        .then(() => {
-          message.success(`Imported and saved ${data.menuItems?.length ?? 0} menu items to Menu.`);
-          refetch();
+        .then((photoUrl) => {
+          if (!photoUrl) return;
+          setPhotos((prev) => [photoUrl, ...prev.filter((url) => url !== photoUrl)]);
         })
-        .catch((err: unknown) => {
-          message.warning(
-            `Profile details were imported, but menu items failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`,
-          );
+        .catch(() => {
+          /* non-fatal */
         });
+    }
+
+    if (restaurant?.id && (data.menuItems?.length ?? 0) > 0) {
+      void (async () => {
+        const importedSections = await buildMenuSectionsFromImport(data, {
+          resolvePhotoUrl: async (item, index) => {
+            if (!item.imageUrl) return undefined;
+            return uploadImportedMenuImageToSpaces({
+              imageUrl: item.imageUrl,
+              filenameHint: `menu-item-${index + 1}.jpg`,
+            });
+          },
+        });
+
+        if (importedSections.length === 0) return;
+        await upsertMenu({
+          variables: {
+            restaurantId: restaurant.id,
+            input: { sections: importedSections },
+          },
+        });
+        message.success(`Imported and saved ${data.menuItems?.length ?? 0} menu items to Menu.`);
+        await refetch();
+      })().catch((err: unknown) => {
+        message.warning(
+          `Profile details were imported, but menu items failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        );
+      });
     }
 
     requestAnimationFrame(() => {
