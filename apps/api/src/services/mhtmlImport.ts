@@ -61,6 +61,16 @@ function stripHtml(html: string): string {
     .trim();
 }
 
+function decodePartBody(part: string, rawBody: string): string {
+  if (/Content-Transfer-Encoding:\s*quoted-printable/i.test(part)) {
+    return decodeQuotedPrintable(rawBody);
+  }
+  if (/Content-Transfer-Encoding:\s*base64/i.test(part)) {
+    return Buffer.from(rawBody.replace(/\s/g, ''), 'base64').toString('utf-8');
+  }
+  return rawBody;
+}
+
 /** Extract the HTML body from MHTML content */
 function extractHtmlFromMhtml(mhtmlContent: string): { html: string; sourceUrl: string } {
   const sourceUrlMatch = mhtmlContent.match(/Snapshot-Content-Location:\s*(.+)/i);
@@ -77,12 +87,11 @@ function extractHtmlFromMhtml(mhtmlContent: string): { html: string; sourceUrl: 
 
   for (const part of parts) {
     if (part.includes('Content-Type: text/html')) {
-      const isQP = /Content-Transfer-Encoding:\s*quoted-printable/i.test(part);
       const bodyStart = part.indexOf('\r\n\r\n');
       const altBodyStart = part.indexOf('\n\n');
       const start = bodyStart !== -1 ? bodyStart + 4 : altBodyStart !== -1 ? altBodyStart + 2 : 0;
-      const rawBody = part.slice(start);
-      const html = isQP ? decodeQuotedPrintable(rawBody) : rawBody;
+      const rawBody = part.slice(start).replace(/\r?\n--[\s\S]*$/, '');
+      const html = decodePartBody(part, rawBody);
       return { html, sourceUrl };
     }
   }
@@ -375,6 +384,49 @@ function parseUberEats(html: string, text: string): ImportedRestaurantData {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+export function isSupportedDeliveryUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    return (
+      (host === 'doordash.com'
+        || host.endsWith('.doordash.com')
+        || host === 'ubereats.com'
+        || host.endsWith('.ubereats.com'))
+      && /\/store\//i.test(parsed.pathname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function normalizeDeliveryUrl(url: string): string {
+  const parsed = new URL(url.trim());
+  parsed.hash = '';
+  return parsed.toString();
+}
+
+/**
+ * Parse saved HTML (MHTML body, standalone HTML export, or fetched page HTML).
+ */
+export function parseRestaurantHtml(html: string, sourceUrl = ''): ImportedRestaurantData {
+  const text = stripHtml(html);
+  const source = detectSource(sourceUrl, html);
+
+  if (source === 'doordash') {
+    return parseDoorDash(html, text);
+  }
+  if (source === 'ubereats') {
+    return parseUberEats(html, text);
+  }
+
+  const data: ImportedRestaurantData = { source: 'unknown' };
+  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  if (titleMatch) data.name = stripHtml(titleMatch[1]!).replace(/\s*[-|].*$/, '').trim();
+  data.rawText = text.slice(0, 500);
+  return data;
+}
+
 /**
  * Parse an MHTML file buffer and return structured restaurant data.
  * Supports DoorDash and Uber Eats formats.
@@ -382,22 +434,21 @@ function parseUberEats(html: string, text: string): ImportedRestaurantData {
 export function parseMhtmlRestaurant(mhtmlBuffer: Buffer): ImportedRestaurantData {
   const mhtmlContent = mhtmlBuffer.toString('utf-8');
   const { html, sourceUrl } = extractHtmlFromMhtml(mhtmlContent);
-  const text = stripHtml(html);
-  const source = detectSource(sourceUrl, html);
+  return parseRestaurantHtml(html, sourceUrl);
+}
 
-  let data: ImportedRestaurantData;
+export function parseRestaurantFile(buffer: Buffer, filename = ''): ImportedRestaurantData {
+  const content = buffer.toString('utf-8');
+  const lowerName = filename.toLowerCase();
+  const isMhtml =
+    lowerName.endsWith('.mhtml')
+    || lowerName.endsWith('.mht')
+    || /multipart\/related/i.test(content.slice(0, 500))
+    || /Snapshot-Content-Location:/i.test(content.slice(0, 500));
 
-  if (source === 'doordash') {
-    data = parseDoorDash(html, text);
-  } else if (source === 'ubereats') {
-    data = parseUberEats(html, text);
-  } else {
-    // Best-effort generic parse
-    data = { source: 'unknown' };
-    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-    if (titleMatch) data.name = stripHtml(titleMatch[1]!).replace(/\s*[-|].*$/, '').trim();
-    data.rawText = text.slice(0, 500);
+  if (isMhtml) {
+    return parseMhtmlRestaurant(buffer);
   }
 
-  return data;
+  return parseRestaurantHtml(content);
 }

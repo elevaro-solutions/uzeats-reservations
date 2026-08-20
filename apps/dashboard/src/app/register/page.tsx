@@ -20,6 +20,7 @@ import {
   Spin,
   Alert,
 } from 'antd';
+import { ImportOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { CUISINES } from '@reservations/shared';
 import { AddressAutocomplete, PhoneInput, PlanPrice, colors, formatPhoneDisplay, toE164Us, typography, usPhoneRules, type BillingPeriod } from '@reservations/ui';
@@ -42,6 +43,8 @@ import {
   priceRangeOptions,
   restaurantFieldTooltips as tips,
 } from '@/lib/restaurantFormTooltips';
+import ImportRestaurantModal, { type ImportedRestaurantData } from '@/components/ImportRestaurantModal';
+import { applyRestaurantImportToForm } from '@/lib/applyRestaurantImport';
 
 const { Text } = Typography;
 
@@ -142,6 +145,7 @@ function RegisterForm() {
   const [checkingName, setCheckingName] = useState(false);
   const [pendingSignup, setPendingSignup] = useState<PendingSignup | null>(null);
   const [addressDetailsOpen, setAddressDetailsOpen] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const { data: plansData } = useQuery(PLANS);
 
   const annualBilling: AnnualBillingSettings = useMemo(
@@ -430,6 +434,15 @@ function RegisterForm() {
     router.push('/');
   };
 
+  const handleRegisterImport = (data: ImportedRestaurantData) => {
+    applyRestaurantImportToForm(form, data);
+    if (data.address?.line1 || data.address?.city || data.address?.state || data.address?.zip) {
+      setAddressDetailsOpen(true);
+    }
+    setStep(2);
+    message.success(`Imported "${data.name ?? 'restaurant'}" — confirm your address, then continue.`);
+  };
+
   return (
     <div component="RegisterForm" style={{ display: 'contents' }}><AuthLayout       heading="Register your restaurant"
       subheading="Pick a plan, create your owner account, and tell us about your venue."
@@ -655,6 +668,11 @@ function RegisterForm() {
         </div>
 
         <div style={{ display: step === 2 ? 'block' : 'none' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+            <Button icon={<ImportOutlined />} onClick={() => setShowImport(true)}>
+              Import from DoorDash / Uber Eats
+            </Button>
+          </div>
           <Row gutter={16}>
             <Col span={24}>
               <Form.Item
@@ -955,6 +973,11 @@ function RegisterForm() {
           Sign in
         </Link>
       </p>
+      <ImportRestaurantModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onImport={handleRegisterImport}
+      />
     </AuthLayout></div>
   );
 }

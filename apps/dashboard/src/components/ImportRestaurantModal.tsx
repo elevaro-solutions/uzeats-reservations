@@ -6,16 +6,19 @@ import {
   Badge,
   Button,
   Descriptions,
+  Input,
   Modal,
   Space,
   Spin,
+  Tabs,
   Tag,
   Typography,
   Upload,
 } from 'antd';
-import { CloudUploadOutlined, ImportOutlined, ShopOutlined } from '@ant-design/icons';
+import { CloudUploadOutlined, ImportOutlined, LinkOutlined } from '@ant-design/icons';
+import { isSupportedDeliveryImportUrl } from '@/lib/applyRestaurantImport';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 export interface ImportedRestaurantData {
   source: 'doordash' | 'ubereats' | 'unknown';
@@ -52,7 +55,15 @@ function apiBaseUrl() {
   return graphqlUrl.replace(/\/graphql\/?$/, '');
 }
 
-async function parseRestaurantMhtml(file: File): Promise<ImportedRestaurantData> {
+async function parseImportResponse(res: Response): Promise<ImportedRestaurantData> {
+  const json = (await res.json()) as { ok?: boolean; data?: ImportedRestaurantData; error?: string };
+  if (!res.ok || !json.ok) {
+    throw new Error(json.error ?? `Server returned ${res.status}`);
+  }
+  return json.data!;
+}
+
+async function parseRestaurantFile(file: File): Promise<ImportedRestaurantData> {
   const url = `${apiBaseUrl()}/api/import-restaurant`;
   const buffer = await file.arrayBuffer();
 
@@ -62,15 +73,28 @@ async function parseRestaurantMhtml(file: File): Promise<ImportedRestaurantData>
     headers: {
       'Content-Type': 'application/octet-stream',
       'X-Client-App': 'dashboard',
+      'X-Filename': file.name,
     },
     body: buffer,
   });
 
-  const json = (await res.json()) as { ok?: boolean; data?: ImportedRestaurantData; error?: string };
-  if (!res.ok || !json.ok) {
-    throw new Error(json.error ?? `Server returned ${res.status}`);
-  }
-  return json.data!;
+  return parseImportResponse(res);
+}
+
+async function parseRestaurantUrl(pageUrl: string): Promise<ImportedRestaurantData> {
+  const url = `${apiBaseUrl()}/api/import-restaurant`;
+
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Client-App': 'dashboard',
+    },
+    body: JSON.stringify({ url: pageUrl.trim() }),
+  });
+
+  return parseImportResponse(res);
 }
 
 const SOURCE_LABELS: Record<string, string> = {
@@ -97,10 +121,34 @@ const SOURCE_STYLES: Record<string, { background: string; color: string; borderC
   },
 };
 
+function MhtmlInstructions({ pageUrl }: { pageUrl?: string }) {
+  return (
+    <ol style={{ margin: 0, paddingLeft: 20 }}>
+      <li>
+        Open the restaurant page on <strong>DoorDash</strong> or <strong>Uber Eats</strong>
+        {pageUrl ? (
+          <>
+            {' '}
+            (<a href={pageUrl} target="_blank" rel="noreferrer">your link</a>)
+          </>
+        ) : null}
+        .
+      </li>
+      <li>
+        Press <kbd>Ctrl+S</kbd> (or <kbd>⌘+S</kbd> on Mac) and choose{' '}
+        <strong>Webpage, Single File (.mhtml)</strong> or <strong>Webpage, HTML only (.html)</strong>.
+      </li>
+      <li>Upload the saved file here.</li>
+    </ol>
+  );
+}
+
 export default function ImportRestaurantModal({ open, onClose, onImport }: ImportRestaurantModalProps) {
+  const [mode, setMode] = useState<'url' | 'file'>('url');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<ImportedRestaurantData | null>(null);
+  const [pageUrl, setPageUrl] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
@@ -111,21 +159,53 @@ export default function ImportRestaurantModal({ open, onClose, onImport }: Impor
 
   const handleClose = () => {
     reset();
+    setPageUrl('');
+    setMode('url');
     onClose();
   };
 
   const handleFile = async (file: File) => {
-    if (!file.name.endsWith('.mhtml') && !file.name.endsWith('.mht') && file.type !== 'text/html') {
-      setError('Please select an .mhtml file saved from DoorDash or Uber Eats.');
+    const lower = file.name.toLowerCase();
+    const allowed =
+      lower.endsWith('.mhtml')
+      || lower.endsWith('.mht')
+      || lower.endsWith('.html')
+      || lower.endsWith('.htm')
+      || file.type === 'text/html';
+    if (!allowed) {
+      setError('Please select an .mhtml or .html file saved from DoorDash or Uber Eats.');
       return;
     }
     setError(null);
     setLoading(true);
     try {
-      const data = await parseRestaurantMhtml(file);
+      const data = await parseRestaurantFile(file);
       setPreview(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to parse file');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUrlImport = async () => {
+    const trimmed = pageUrl.trim();
+    if (!trimmed) {
+      setError('Paste a DoorDash or Uber Eats restaurant link.');
+      return;
+    }
+    if (!isSupportedDeliveryImportUrl(trimmed)) {
+      setError('Link must be a DoorDash or Uber Eats restaurant page (URL contains /store/).');
+      return;
+    }
+
+    setError(null);
+    setLoading(true);
+    try {
+      const data = await parseRestaurantUrl(trimmed);
+      setPreview(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to import from link');
     } finally {
       setLoading(false);
     }
@@ -155,7 +235,7 @@ export default function ImportRestaurantModal({ open, onClose, onImport }: Impor
         preview
           ? [
               <Button key="back" onClick={reset}>
-                Upload Different File
+                Start Over
               </Button>,
               <Button key="cancel" onClick={handleClose}>
                 Cancel
@@ -173,58 +253,110 @@ export default function ImportRestaurantModal({ open, onClose, onImport }: Impor
     >
       {!preview && !loading && (
         <div>
-          <Alert
-            type="info"
-            showIcon
-            style={{ marginBottom: 16 }}
-            message="How to export a restaurant page"
-            description={
-              <ol style={{ margin: 0, paddingLeft: 20 }}>
-                <li>Open the restaurant page on <strong>DoorDash</strong> or <strong>Uber Eats</strong> in your browser.</li>
-                <li>Press <kbd>Ctrl+S</kbd> (or <kbd>⌘+S</kbd> on Mac) and choose <strong>Webpage, Single File (.mhtml)</strong>.</li>
-                <li>Upload the saved <code>.mhtml</code> file here.</li>
-              </ol>
-            }
+          <Tabs
+            activeKey={mode}
+            onChange={(key) => {
+              setMode(key as 'url' | 'file');
+              setError(null);
+            }}
+            items={[
+              {
+                key: 'url',
+                label: 'Paste link',
+                children: (
+                  <div>
+                    <Alert
+                      type="info"
+                      showIcon
+                      style={{ marginBottom: 16 }}
+                      message="Import from a DoorDash or Uber Eats URL"
+                      description="We try to fetch the page automatically. If the delivery app blocks it, use the Upload file tab with a saved .mhtml file."
+                    />
+                    <Space.Compact style={{ width: '100%', marginBottom: 12 }}>
+                      <Input
+                        prefix={<LinkOutlined />}
+                        placeholder="https://www.doordash.com/store/... or https://www.ubereats.com/store/..."
+                        value={pageUrl}
+                        onChange={(e) => setPageUrl(e.target.value)}
+                        onPressEnter={() => void handleUrlImport()}
+                      />
+                      <Button type="primary" onClick={() => void handleUrlImport()}>
+                        Import
+                      </Button>
+                    </Space.Compact>
+                    {pageUrl.trim() && !isSupportedDeliveryImportUrl(pageUrl) && (
+                      <Alert
+                        type="warning"
+                        showIcon
+                        style={{ marginBottom: 12 }}
+                        message="Use a restaurant page link that includes /store/ in the path."
+                      />
+                    )}
+                    <Alert
+                      type="info"
+                      showIcon={false}
+                      message="If link import fails"
+                      description={<MhtmlInstructions pageUrl={pageUrl.trim() || undefined} />}
+                    />
+                  </div>
+                ),
+              },
+              {
+                key: 'file',
+                label: 'Upload file',
+                children: (
+                  <div>
+                    <Alert
+                      type="info"
+                      showIcon
+                      style={{ marginBottom: 16 }}
+                      message="How to export a restaurant page"
+                      description={<MhtmlInstructions pageUrl={pageUrl.trim() || undefined} />}
+                    />
+                    <div
+                      style={{
+                        border: '2px dashed #d9d9d9',
+                        borderRadius: 8,
+                        padding: '40px 20px',
+                        textAlign: 'center',
+                        cursor: 'pointer',
+                        background: '#fafafa',
+                        transition: 'border-color 0.2s',
+                      }}
+                      onClick={() => inputRef.current?.click()}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const file = e.dataTransfer.files[0];
+                        if (file) void handleFile(file);
+                      }}
+                    >
+                      <CloudUploadOutlined style={{ fontSize: 48, color: '#bbb', marginBottom: 12 }} />
+                      <div>
+                        <Text strong>Click to select or drag & drop a saved page file</Text>
+                      </div>
+                      <div>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          Supports .mhtml, .mht, and .html from DoorDash or Uber Eats
+                        </Text>
+                      </div>
+                      <input
+                        ref={inputRef}
+                        type="file"
+                        accept=".mhtml,.mht,.html,.htm"
+                        style={{ display: 'none' }}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) void handleFile(file);
+                          e.target.value = '';
+                        }}
+                      />
+                    </div>
+                  </div>
+                ),
+              },
+            ]}
           />
-          <div
-            style={{
-              border: '2px dashed #d9d9d9',
-              borderRadius: 8,
-              padding: '40px 20px',
-              textAlign: 'center',
-              cursor: 'pointer',
-              background: '#fafafa',
-              transition: 'border-color 0.2s',
-            }}
-            onClick={() => inputRef.current?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              const file = e.dataTransfer.files[0];
-              if (file) void handleFile(file);
-            }}
-          >
-            <CloudUploadOutlined style={{ fontSize: 48, color: '#bbb', marginBottom: 12 }} />
-            <div>
-              <Text strong>Click to select or drag & drop an .mhtml file</Text>
-            </div>
-            <div>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                Supports DoorDash and Uber Eats restaurant pages
-              </Text>
-            </div>
-            <input
-              ref={inputRef}
-              type="file"
-              accept=".mhtml,.mht"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void handleFile(file);
-                e.target.value = '';
-              }}
-            />
-          </div>
           {error && <Alert type="error" message={error} style={{ marginTop: 12 }} showIcon />}
         </div>
       )}
@@ -340,7 +472,7 @@ export default function ImportRestaurantModal({ open, onClose, onImport }: Impor
                 ))}
               </div>
               <Text type="secondary" style={{ fontSize: 12, marginTop: 4, display: 'block' }}>
-                Menu items will be available after restaurant creation under Menu management.
+                Menu items will be saved to Menu when possible.
               </Text>
             </div>
           )}

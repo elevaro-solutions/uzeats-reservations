@@ -220,7 +220,13 @@ async function main() {
     '/api/import-restaurant',
     uploadLimiter,
     cors({ origin: corsOrigins, credentials: true }),
-    express.raw({ type: () => true, limit: '50mb' }),
+    (req, res, next) => {
+      if (req.is('application/json')) {
+        express.json({ limit: '4kb' })(req, res, next);
+        return;
+      }
+      express.raw({ type: () => true, limit: '50mb' })(req, res, next);
+    },
     importRestaurantRouter,
   );
 

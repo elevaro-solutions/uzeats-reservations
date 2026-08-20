@@ -5,13 +5,16 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { Button, Card, Divider, Form, Select, Space, Spin, Typography, message } from 'antd';
-import { ArrowRightOutlined, ReadOutlined } from '@ant-design/icons';
+import { ArrowRightOutlined, ImportOutlined, ReadOutlined } from '@ant-design/icons';
 import { PageHeader, colors, radii, spacing } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
-import { MY_RESTAURANTS, RESTAURANT_PROFILE, UPDATE_RESTAURANT } from '@/lib/graphql';
+import { MY_RESTAURANTS, RESTAURANT_PROFILE, UPDATE_RESTAURANT, UPSERT_MENU } from '@/lib/graphql';
 import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
 import PhotoUpload from '@/components/PhotoUpload';
 import { RestaurantProfileFields } from '@/components/RestaurantProfileFields';
+import ImportRestaurantModal, { type ImportedRestaurantData } from '@/components/ImportRestaurantModal';
+import { applyRestaurantImportToForm } from '@/lib/applyRestaurantImport';
+import { buildMenuSectionsFromImport } from '@/lib/importedMenu';
 import {
   buildRestaurantInput,
   profileValuesFromRestaurant,
@@ -25,6 +28,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const [form] = Form.useForm<RestaurantProfileFormValues>();
   const [photos, setPhotos] = useState<string[]>([]);
+  const [showImport, setShowImport] = useState(false);
 
   const { data: listData, loading: listLoading } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurantIds = useMemo(
@@ -39,6 +43,7 @@ export default function ProfilePage() {
   });
 
   const [updateRestaurant, { loading: saving }] = useMutation(UPDATE_RESTAURANT);
+  const [upsertMenu] = useMutation(UPSERT_MENU);
 
   const restaurant = profileData?.restaurant;
 
@@ -68,6 +73,34 @@ export default function ProfilePage() {
     }
   };
 
+  const handleImport = (data: ImportedRestaurantData) => {
+    applyRestaurantImportToForm(form, data);
+
+    const importedSections = buildMenuSectionsFromImport(data);
+    if (restaurant?.id && importedSections.length > 0) {
+      void upsertMenu({
+        variables: {
+          restaurantId: restaurant.id,
+          input: { sections: importedSections },
+        },
+      })
+        .then(() => {
+          message.success(`Imported and saved ${data.menuItems?.length ?? 0} menu items to Menu.`);
+          refetch();
+        })
+        .catch((err: unknown) => {
+          message.warning(
+            `Profile details were imported, but menu items failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`,
+          );
+        });
+    }
+
+    requestAnimationFrame(() => {
+      form.scrollToField('description', { behavior: 'smooth', block: 'center' });
+    });
+    message.success(`Imported "${data.name ?? 'restaurant'}" — confirm the address, then save.`);
+  };
+
   if (listLoading || authLoading) {
     return <Spin size="large" style={{ display: 'block', margin: '80px auto' }} />;
   }
@@ -78,16 +111,21 @@ export default function ProfilePage() {
         title="Public profile"
         subtitle="Manage what diners see on your restaurant page — photos, features, FAQ, and press mentions"
         extra={
-          <Select
-            style={{ width: 260 }}
-            value={restaurantId}
-            onChange={setRestaurantId}
-            options={(listData?.myRestaurants ?? []).map((r: { id: string; name: string }) => ({
-              value: r.id,
-              label: r.name,
-            }))}
-            placeholder="Select restaurant"
-          />
+          <Space wrap>
+            <Button icon={<ImportOutlined />} onClick={() => setShowImport(true)}>
+              Import from DoorDash / Uber Eats
+            </Button>
+            <Select
+              style={{ width: 260 }}
+              value={restaurantId}
+              onChange={setRestaurantId}
+              options={(listData?.myRestaurants ?? []).map((r: { id: string; name: string }) => ({
+                value: r.id,
+                label: r.name,
+              }))}
+              placeholder="Select restaurant"
+            />
+          </Space>
         }
       />
 
@@ -146,6 +184,11 @@ export default function ProfilePage() {
           <Text type="secondary">Select a restaurant to edit its public profile.</Text>
         </Card>
       )}
+      <ImportRestaurantModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onImport={handleImport}
+      />
     </Space>
   );
 }

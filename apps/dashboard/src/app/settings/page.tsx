@@ -46,6 +46,7 @@ import {
 } from '@/lib/graphql';
 import PhotoUpload from '@/components/PhotoUpload';
 import ImportRestaurantModal, { type ImportedRestaurantData } from '@/components/ImportRestaurantModal';
+import { applyRestaurantImportToForm } from '@/lib/applyRestaurantImport';
 import {
   priceRangeOptions,
   restaurantFieldTooltips as tips,
@@ -289,18 +290,7 @@ export default function SettingsPage() {
   };
 
   const handleOwnerImport = (data: ImportedRestaurantData) => {
-    form.setFieldsValue({
-      name: data.name ?? form.getFieldValue('name'),
-      cuisine: data.cuisine ?? form.getFieldValue('cuisine'),
-      priceRange: data.priceRange ?? form.getFieldValue('priceRange'),
-      description: data.description ?? form.getFieldValue('description'),
-      phone: data.phone ?? form.getFieldValue('phone'),
-      website: data.website ?? form.getFieldValue('website'),
-      ...(data.address?.line1 ? { line1: data.address.line1 } : {}),
-      ...(data.address?.city ? { city: data.address.city } : {}),
-      ...(data.address?.state ? { state: data.address.state } : {}),
-      ...(data.address?.zip ? { zip: data.address.zip } : {}),
-    });
+    applyRestaurantImportToForm(form, data);
 
     if (data.coverImageUrl) {
       void uploadImportedMenuImageToSpaces({

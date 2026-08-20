@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { createContext } from '../graphql/context.js';
-import { parseMhtmlRestaurant } from '../services/mhtmlImport.js';
+import { parseRestaurantFile } from '../services/mhtmlImport.js';
+import { fetchRestaurantFromUrl, RestaurantUrlImportError } from '../services/restaurantUrlImport.js';
 import { buildUploadKey, uploadObject } from '../services/spaces.js';
 
 const MAX_BYTES = 50 * 1024 * 1024; // 50 MB — MHTML files can be large
@@ -15,6 +16,10 @@ const ALLOWED_IMPORT_IMAGE_HOSTS = [
 ];
 
 export const importRestaurantRouter: ReturnType<typeof Router> = Router();
+
+function isEmptyImport(data: { source: string; name?: string }) {
+  return data.source === 'unknown' && !data.name;
+}
 
 function canImportImageFromHost(hostname: string): boolean {
   const host = hostname.toLowerCase();
@@ -112,8 +117,9 @@ importRestaurantRouter.post('/upload-image', async (req, res) => {
 /**
  * POST /api/import-restaurant
  *
- * Accepts a raw MHTML file body (Content-Type: application/octet-stream or text/html).
- * Returns structured restaurant data parsed from a DoorDash or Uber Eats page.
+ * Accepts either:
+ * - JSON body `{ "url": "https://..." }` — tries to fetch and parse (may be blocked by DD/UE)
+ * - Raw MHTML/HTML file body (Content-Type: application/octet-stream or text/html)
  *
  * Requires authentication (any logged-in user: admin or restaurant_owner).
  */
@@ -124,10 +130,36 @@ importRestaurantRouter.post('/', async (req, res) => {
     return;
   }
 
+  const contentType = String(req.headers['content-type'] ?? '');
+
+  if (contentType.includes('application/json')) {
+    const body = req.body as { url?: string } | undefined;
+    const url = typeof body?.url === 'string' ? body.url.trim() : '';
+    if (!url) {
+      res.status(400).json({ error: 'Missing url — send { "url": "https://..." }' });
+      return;
+    }
+
+    try {
+      const data = await fetchRestaurantFromUrl(url);
+      res.json({ ok: true, data });
+    } catch (err) {
+      if (err instanceof RestaurantUrlImportError) {
+        const status = err.code === 'invalid_url' ? 400 : 422;
+        res.status(status).json({ error: err.message, code: err.code });
+        return;
+      }
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Import failed' });
+    }
+    return;
+  }
+
   const body = req.body as Buffer;
 
   if (!Buffer.isBuffer(body) || body.length === 0) {
-    res.status(400).json({ error: 'Empty body — send the raw MHTML file as the request body' });
+    res.status(400).json({
+      error: 'Empty body — upload an .mhtml/.html file or send JSON { "url": "..." }',
+    });
     return;
   }
 
@@ -137,11 +169,12 @@ importRestaurantRouter.post('/', async (req, res) => {
   }
 
   try {
-    const data = parseMhtmlRestaurant(body);
+    const filename = String(req.headers['x-filename'] ?? '');
+    const data = parseRestaurantFile(body, filename);
 
-    if (data.source === 'unknown' && !data.name) {
+    if (isEmptyImport(data)) {
       res.status(422).json({
-        error: 'Could not extract restaurant data. Make sure the file is a saved DoorDash or Uber Eats restaurant page.',
+        error: 'Could not extract restaurant data. Save the DoorDash or Uber Eats restaurant page as .mhtml and try again.',
         data,
       });
       return;

@@ -4,6 +4,20 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.28.1] — 2026-08-20
+
+### Added
+
+- Restaurant import modal **Paste link** tab for DoorDash / Uber Eats URLs (with MHTML fallback when blocked)
+- Import from DoorDash / Uber Eats on partner **Public profile** and **Register** flows
+- Unit tests for MHTML/HTML restaurant import parsing
+
+### Changed
+
+- Import modal accepts `.html` exports in addition to `.mhtml`, with clearer blocked-link instructions
+- `/api/import-restaurant` accepts JSON `{ "url" }` or uploaded page files; parser supports base64 MHTML parts
+- Settings and admin import handlers share common form prefill helper
+
 ## [0.28.0] — 2026-08-20
 
 ### Added

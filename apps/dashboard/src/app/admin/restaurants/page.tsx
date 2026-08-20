@@ -50,6 +50,7 @@ import {
 import PhotoUpload from '@/components/PhotoUpload';
 import CuisineSelect from '@/components/CuisineSelect';
 import ImportRestaurantModal, { type ImportedRestaurantData } from '@/components/ImportRestaurantModal';
+import { applyRestaurantImportToForm } from '@/lib/applyRestaurantImport';
 import { RestaurantProfileFields } from '@/components/RestaurantProfileFields';
 import {
   ADMIN_RESTAURANTS,
@@ -680,19 +681,7 @@ function AdminRestaurantsContent() {
   }, [showCreate, createLine1, createCity, createState, createZip, createForm]);
 
   const handleAdminImport = (data: ImportedRestaurantData) => {
-    // Pre-fill all extracted fields
-    createForm.setFieldsValue({
-      name: data.name ?? createForm.getFieldValue('name'),
-      cuisine: data.cuisine ?? createForm.getFieldValue('cuisine'),
-      priceRange: data.priceRange ?? createForm.getFieldValue('priceRange'),
-      description: data.description ?? createForm.getFieldValue('description'),
-      phone: data.phone ?? createForm.getFieldValue('phone'),
-      website: data.website ?? createForm.getFieldValue('website'),
-      ...(data.address?.line1 ? { line1: data.address.line1 } : {}),
-      ...(data.address?.city ? { city: data.address.city } : {}),
-      ...(data.address?.state ? { state: data.address.state } : {}),
-      ...(data.address?.zip ? { zip: data.address.zip } : {}),
-    });
+    applyRestaurantImportToForm(createForm, data);
 
     if (data.coverImageUrl) {
       void uploadImportedMenuImageToSpaces({
