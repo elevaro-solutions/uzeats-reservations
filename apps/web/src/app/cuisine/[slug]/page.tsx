@@ -6,6 +6,7 @@ import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
 import {
   listCuisineLandingParams,
   listCuisinesForIndex,
+  listCitiesForIndex,
   resolveCuisineBySlug,
 } from '@/lib/discoveryIndex';
 import { discoveryLandingMetadata } from '@/lib/seo';
@@ -42,14 +43,27 @@ export default async function CuisineLandingPage({ params }: PageProps) {
     { name: cuisine },
   ];
 
-  const related = (await listCuisinesForIndex())
-    .filter((c) => c.slug !== slug)
-    .slice(0, 8)
-    .map((c) => ({ href: `/cuisine/${c.slug}`, label: c.label }));
+  const [cuisines, cities] = await Promise.all([listCuisinesForIndex(), listCitiesForIndex()]);
+  const related = [
+    ...cities.slice(0, 8).map((c) => ({
+      href: `/cuisine/${slug}/${c.slug}`,
+      label: `${cuisine} in ${c.label}`,
+    })),
+    ...cuisines
+      .filter((c) => c.slug !== slug)
+      .slice(0, 6)
+      .map((c) => ({ href: `/cuisine/${c.slug}`, label: c.label })),
+  ];
 
   return (
     <>
-      <DiscoveryLandingSchema breadcrumbs={breadcrumbs} faq={meta.faq} />
+      <DiscoveryLandingSchema
+        breadcrumbs={breadcrumbs}
+        faq={meta.faq}
+        canonicalPath={canonicalPath}
+        heading={meta.heading}
+        description={meta.description}
+      />
       <DiscoveryLandingView
         meta={meta}
         canonicalPath={canonicalPath}

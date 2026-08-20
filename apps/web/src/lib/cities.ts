@@ -3,7 +3,7 @@
  * (no NEXT_PUBLIC_GOOGLE_MAPS_API_KEY). Coordinates match the API seed.
  */
 
-import { citySlug, neighborhoodSlug } from '@reservations/shared';
+import { citySlug, neighborhoodSlug, landmarkSlug } from '@reservations/shared';
 
 export const US_STATE_NAMES: Record<string, string> = {
   NY: 'New York',
@@ -90,4 +90,51 @@ export function findNeighborhoodBySlug(slug: string): NeighborhoodOption | undef
   return POPULAR_NEIGHBORHOODS.find(
     (n) => neighborhoodSlug(n.neighborhood, n.city, n.state) === slug,
   );
+}
+
+export interface StateOption {
+  code: string;
+  name: string;
+  lat: number;
+  lng: number;
+}
+
+/** Approximate state centroids for map-centered SEO landing pages. */
+export const POPULAR_STATES: StateOption[] = [
+  { code: 'NY', name: 'New York', lat: 42.9538, lng: -75.5268 },
+  { code: 'NJ', name: 'New Jersey', lat: 40.0583, lng: -74.4057 },
+  { code: 'FL', name: 'Florida', lat: 27.6648, lng: -81.5158 },
+  { code: 'PA', name: 'Pennsylvania', lat: 41.2033, lng: -77.1945 },
+];
+
+export function findStateBySlug(slug: string): StateOption | undefined {
+  return POPULAR_STATES.find((s) => s.code.toLowerCase() === slug.toLowerCase());
+}
+
+export interface LandmarkOption {
+  landmark: string;
+  city: string;
+  state: string;
+  lat: number;
+  lng: number;
+}
+
+/** Curated landmarks for “restaurants near” SEO / AEO pages. */
+export const POPULAR_LANDMARKS: LandmarkOption[] = [
+  { landmark: 'Times Square', city: 'New York', state: 'NY', lat: 40.758, lng: -73.9855 },
+  { landmark: 'Empire State Building', city: 'New York', state: 'NY', lat: 40.7484, lng: -73.9857 },
+  { landmark: 'Central Park', city: 'New York', state: 'NY', lat: 40.7829, lng: -73.9654 },
+  { landmark: 'Brooklyn Bridge', city: 'Brooklyn', state: 'NY', lat: 40.7061, lng: -73.9969 },
+  { landmark: 'Statue of Liberty', city: 'Jersey City', state: 'NJ', lat: 40.6892, lng: -74.0445 },
+  { landmark: 'South Beach', city: 'Miami', state: 'FL', lat: 25.7826, lng: -80.1341 },
+  { landmark: 'Walt Disney World', city: 'Orlando', state: 'FL', lat: 28.3852, lng: -81.5639 },
+  { landmark: 'Independence Hall', city: 'Philadelphia', state: 'PA', lat: 39.9489, lng: -75.15 },
+];
+
+export function landmarkLabel(l: Pick<LandmarkOption, 'landmark' | 'city' | 'state'>): string {
+  return `${l.landmark}, ${l.city}, ${l.state}`;
+}
+
+export function findLandmarkBySlug(slug: string): LandmarkOption | undefined {
+  return POPULAR_LANDMARKS.find((l) => landmarkSlug(l.landmark, l.state) === slug);
 }

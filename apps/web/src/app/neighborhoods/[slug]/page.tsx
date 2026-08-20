@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { neighborhoodLandingMeta } from '@reservations/shared';
+import { neighborhoodLandingMeta, citySlug } from '@reservations/shared';
 import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
 import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
 import {
@@ -42,19 +42,34 @@ export default async function NeighborhoodLandingPage({ params }: PageProps) {
     { name: hood.neighborhood },
   ];
 
-  const related = (await listNeighborhoodsForIndex())
-    .filter((n) => n.slug !== slug)
-    .slice(0, 6)
-    .map((n) => ({ href: `/neighborhoods/${n.slug}`, label: n.label }));
+  const related = [
+    {
+      href: `/near-me/restaurants/${citySlug(hood.city, hood.state)}`,
+      label: `Restaurants near me in ${hood.city}, ${hood.state}`,
+    },
+    { href: `/near-me/neighborhoods/${slug}`, label: `Restaurants near me in ${hood.neighborhood}` },
+    { href: `/cities/${citySlug(hood.city, hood.state)}`, label: `Restaurants in ${hood.city}` },
+    ...(await listNeighborhoodsForIndex())
+      .filter((n) => n.slug !== slug)
+      .slice(0, 6)
+      .map((n) => ({ href: `/neighborhoods/${n.slug}`, label: n.label })),
+  ];
 
   return (
     <>
-      <DiscoveryLandingSchema breadcrumbs={breadcrumbs} faq={meta.faq} />
+      <DiscoveryLandingSchema
+        breadcrumbs={breadcrumbs}
+        faq={meta.faq}
+        canonicalPath={canonicalPath}
+        heading={meta.heading}
+        description={meta.description}
+      />
       <DiscoveryLandingView
         meta={meta}
         canonicalPath={canonicalPath}
         preset={{
           city: hood.city,
+          state: hood.state,
           neighborhood: hood.neighborhood,
           lat: hood.lat,
           lng: hood.lng,

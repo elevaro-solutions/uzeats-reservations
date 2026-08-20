@@ -57,6 +57,11 @@ export default async function NeighborhoodsIndexPage() {
           </li>
         ))}
       </ul>
+      <p style={{ marginTop: 32, fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>
+        Also explore <Link href="/near-me">near me neighborhoods</Link>,{' '}
+        <Link href="/landmarks">landmarks</Link>, and{' '}
+        <Link href="/top-locations">top locations</Link>.
+      </p>
     </div>
   );
 }

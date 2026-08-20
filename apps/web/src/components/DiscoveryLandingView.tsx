@@ -59,15 +59,29 @@ const HERO_HIGHLIGHTS = [
 export type DiscoverySearchPreset = {
   cuisine?: string;
   city?: string;
+  state?: string;
   neighborhood?: string;
   occasion?: string;
   diningStyle?: string;
   meal?: string;
   dietary?: string;
   amenity?: string;
+  /** Discovery category chip ids from RESTAURANT_DISCOVERY_CATEGORIES. */
+  categoryIds?: string[];
+  /** Free-text query seed (used when category has a text query). */
+  query?: string;
+  topRatedOnly?: boolean;
   lat?: number;
   lng?: number;
+  /** Override default nearby radius (e.g. landmark proximity). */
+  radiusKm?: number;
   locationLabel?: string;
+  /**
+   * When true, search uses lat/lng + radiusKm.
+   * When omitted: geo only for neighborhoods or when the diner enables Near Me.
+   * City/state/cuisine hubs match by address fields so SEO pages are not emptied by centroid radius.
+   */
+  useGeo?: boolean;
 };
 
 type DiscoveryLandingViewProps = {
@@ -98,7 +112,7 @@ function DiscoveryLandingContent({
   const router = useRouter();
   const presetLocation = useMemo(() => defaultPresetLocation(preset), [preset]);
   const { filters, replaceFilters } = useDiscoveryUrlSync();
-  const [queryDraft, setQueryDraft] = useState(filters.query);
+  const [queryDraft, setQueryDraft] = useState(filters.query || preset.query || '');
   const [locationInput, setLocationInput] = useState(
     filters.locationLabel ?? presetLocation.label,
   );
@@ -110,8 +124,11 @@ function DiscoveryLandingContent({
   const partySize = filters.partySize;
   const date = dayjs(filters.date);
   const mapPriceRange = filters.priceRange;
-  const topRatedOnly = filters.topRatedOnly;
+  const topRatedOnly = filters.topRatedOnly || Boolean(preset.topRatedOnly);
   const accessibleOnly = filters.accessibleOnly;
+  const categoryIds =
+    filters.categoryIds.length > 0 ? filters.categoryIds : (preset.categoryIds ?? []);
+  const searchQuery = filters.query || preset.query || '';
   const occasions = filters.occasions.length
     ? filters.occasions
     : preset.occasion
@@ -141,10 +158,15 @@ function DiscoveryLandingContent({
     city: preset.city,
     neighborhood: preset.neighborhood,
   };
+  const searchRadiusKm = preset.radiusKm ?? NEARBY_RADIUS_KM;
+  const preferGeo =
+    usingDeviceLocation ||
+    preset.useGeo === true ||
+    (preset.useGeo !== false && Boolean(preset.neighborhood));
 
   useEffect(() => {
-    setQueryDraft(filters.query);
-  }, [filters.query]);
+    setQueryDraft(filters.query || preset.query || '');
+  }, [filters.query, preset.query]);
 
   useEffect(() => {
     setLocationInput(filters.locationLabel ?? presetLocation.label);
@@ -152,12 +174,13 @@ function DiscoveryLandingContent({
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (queryDraft !== filters.query) {
+      const effectiveQuery = filters.query || preset.query || '';
+      if (queryDraft !== effectiveQuery && queryDraft !== filters.query) {
         replaceFilters({ query: queryDraft });
       }
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [queryDraft, filters.query, replaceFilters]);
+  }, [queryDraft, filters.query, preset.query, replaceFilters]);
 
   useEffect(() => {
     const media = window.matchMedia('(min-width: 961px)');
@@ -176,10 +199,12 @@ function DiscoveryLandingContent({
 
   const searchInput = useMemo(
     () => ({
-      query: filters.query || undefined,
+      query: searchQuery || undefined,
       cuisine: preset.cuisine,
       city: preset.city,
+      state: preset.state,
       neighborhood: preset.neighborhood,
+      categoryIds: categoryIds.length ? categoryIds : undefined,
       occasions: occasions.length ? occasions : undefined,
       diningStyles: diningStyles.length ? diningStyles : undefined,
       meals: meals.length ? meals : undefined,
@@ -190,16 +215,19 @@ function DiscoveryLandingContent({
       wheelchairAccessible: accessibleOnly || undefined,
       partySize,
       date: dateStr,
-      requireAvailability: true,
-      lat: selectedLocation.lat,
-      lng: selectedLocation.lng,
-      radiusKm: NEARBY_RADIUS_KM,
+      // Keep restaurants visible for SEO/AEO; slot availability still loads on each card.
+      requireAvailability: false,
+      lat: preferGeo ? selectedLocation.lat : undefined,
+      lng: preferGeo ? selectedLocation.lng : undefined,
+      radiusKm: preferGeo ? searchRadiusKm : undefined,
     }),
     [
-      filters.query,
+      searchQuery,
       preset.cuisine,
       preset.city,
+      preset.state,
       preset.neighborhood,
+      categoryIds,
       occasions,
       diningStyles,
       meals,
@@ -210,8 +238,10 @@ function DiscoveryLandingContent({
       accessibleOnly,
       partySize,
       dateStr,
+      preferGeo,
       selectedLocation.lat,
       selectedLocation.lng,
+      searchRadiusKm,
     ],
   );
 
@@ -313,22 +343,23 @@ function DiscoveryLandingContent({
 
   const clearFilters = useCallback(() => {
     replaceFilters({
-      query: '',
+      query: preset.query ?? '',
       priceRange: undefined,
-      topRatedOnly: false,
+      topRatedOnly: Boolean(preset.topRatedOnly),
       accessibleOnly: false,
+      categoryIds: preset.categoryIds ?? [],
       occasions: preset.occasion ? [preset.occasion] : [],
       diningStyles: preset.diningStyle ? [preset.diningStyle] : [],
       meals: preset.meal ? [preset.meal] : [],
       dietaryTags: preset.dietary ? [preset.dietary] : [],
       amenities: preset.amenity ? [preset.amenity] : [],
     });
-    setQueryDraft('');
+    setQueryDraft(preset.query ?? '');
     setSelectedMapRestaurantId(null);
   }, [preset, replaceFilters]);
 
   const mapFilterState = {
-    categoryIds: [] as string[],
+    categoryIds,
     priceRange: mapPriceRange,
     occasions,
     diningStyles,
@@ -340,14 +371,14 @@ function DiscoveryLandingContent({
   };
 
   const urlFilterState = {
-    categoryIds: [] as string[],
+    categoryIds: filters.categoryIds.length ? filters.categoryIds : categoryIds,
     priceRange: filters.priceRange,
     occasions: filters.occasions,
     diningStyles: filters.diningStyles,
     meals: filters.meals,
     dietaryTags: filters.dietaryTags,
     amenities: filters.amenities,
-    topRatedOnly: filters.topRatedOnly,
+    topRatedOnly: filters.topRatedOnly || Boolean(preset.topRatedOnly),
     accessibleOnly: filters.accessibleOnly,
   };
 
@@ -463,8 +494,8 @@ function DiscoveryLandingContent({
   const emptyState = (
     <EmptyState
       icon={<SearchOutlined />}
-      title="No matching restaurants with open tables"
-      description="Try adjusting filters, date, or expanding your search area."
+      title="No matching restaurants yet"
+      description="Try clearing filters, picking another date, or browsing a related city, cuisine, or near-me page below."
     />
   );
 
@@ -498,7 +529,11 @@ function DiscoveryLandingContent({
 
   const heroBadgeLabel = preset.city
     ? `${preset.city}${preset.neighborhood ? ` · ${preset.neighborhood}` : ''}`
-    : 'Explore & book instantly';
+    : preset.state
+      ? preset.locationLabel ?? preset.state
+      : preset.topRatedOnly
+        ? 'Top rated'
+        : 'Explore & book instantly';
 
   const landingFooter = (
     <div className="rt-discovery-landing__footer">

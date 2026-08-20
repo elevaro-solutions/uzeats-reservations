@@ -6,6 +6,7 @@ import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
 import {
   listCityLandingParams,
   listCitiesForIndex,
+  listCuisinesForIndex,
   resolveCityBySlug,
 } from '@/lib/discoveryIndex';
 import { discoveryLandingMetadata } from '@/lib/seo';
@@ -44,23 +45,41 @@ export default async function CityLandingPage({ params }: PageProps) {
 
   const related = (await listCitiesForIndex())
     .filter((c) => c.slug !== slug)
-    .slice(0, 6)
+    .slice(0, 4)
     .map((c) => ({ href: `/cities/${c.slug}`, label: c.label }));
+
+  const cuisines = await listCuisinesForIndex();
+  const crossLinks = [
+    { href: `/top-restaurants/${slug}`, label: `Top restaurants in ${city.city}` },
+    { href: `/near-me/restaurants/${slug}`, label: `Restaurants near me in ${city.city}` },
+    ...cuisines.slice(0, 4).map((c) => ({
+      href: `/cuisine/${c.slug}/${slug}`,
+      label: `${c.label} in ${city.city}`,
+    })),
+    ...related,
+  ];
 
   return (
     <>
-      <DiscoveryLandingSchema breadcrumbs={breadcrumbs} faq={meta.faq} />
+      <DiscoveryLandingSchema
+        breadcrumbs={breadcrumbs}
+        faq={meta.faq}
+        canonicalPath={canonicalPath}
+        heading={meta.heading}
+        description={meta.description}
+      />
       <DiscoveryLandingView
         meta={meta}
         canonicalPath={canonicalPath}
         preset={{
           city: city.city,
+          state: city.state,
           lat: city.lat,
           lng: city.lng,
           locationLabel: `${city.city}, ${city.state}`,
         }}
         breadcrumbs={breadcrumbs}
-        relatedLinks={related}
+        relatedLinks={crossLinks}
       />
     </>
   );

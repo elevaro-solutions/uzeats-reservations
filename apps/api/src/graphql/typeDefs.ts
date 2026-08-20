@@ -1559,6 +1559,7 @@ export const typeDefs = `#graphql
     categoryIds: [String!]
     priceRange: Int
     city: String
+    state: String
     neighborhood: String
     lat: Float
     lng: Float

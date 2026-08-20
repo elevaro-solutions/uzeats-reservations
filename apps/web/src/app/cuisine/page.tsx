@@ -66,6 +66,10 @@ export default async function CuisineIndexPage() {
           </li>
         ))}
       </ul>
+      <p style={{ marginTop: 32, fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>
+        Looking for a city? Open a cuisine, then pick a city — or browse{' '}
+        <Link href="/categories">categories</Link> and <Link href="/cities">cities</Link>.
+      </p>
     </div>
   );
 }

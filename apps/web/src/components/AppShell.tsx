@@ -193,7 +193,13 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/cities/') ||
     pathname.startsWith('/cuisine/') ||
     pathname.startsWith('/neighborhoods/') ||
-    pathname.startsWith('/occasion/');
+    pathname.startsWith('/occasion/') ||
+    pathname.startsWith('/top-restaurants') ||
+    pathname.startsWith('/top-locations') ||
+    pathname.startsWith('/states/') ||
+    pathname.startsWith('/landmarks/') ||
+    pathname.startsWith('/near-me') ||
+    pathname.startsWith('/categories/');
   const isRestaurantMarketing =
     pathname.startsWith('/for-restaurants') ||
     pathname.startsWith('/pricing') ||
@@ -785,12 +791,19 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             <div>
               <div className="rt-site-footer__heading">Explore</div>
               <div className="rt-site-footer__list">
+                <Link href="/top-restaurants">Top restaurants</Link>
+                <Link href="/top-locations">Top locations</Link>
+                <Link href="/near-me">Restaurants near me</Link>
+                <Link href="/near-me/restaurants">Near me by city & state</Link>
+                <Link href="/near-me/food">Food near me</Link>
+                <Link href="/near-me/meals">Meals near me</Link>
                 <Link href="/cities">Cities</Link>
-                <Link href="/cuisine">Cuisines</Link>
-                <Link href="/occasion">Occasions</Link>
+                <Link href="/states">States</Link>
                 <Link href="/neighborhoods">Neighborhoods</Link>
-                <Link href="/cities/new-york-ny">New York</Link>
-                <Link href="/cuisine/italian">Italian</Link>
+                <Link href="/landmarks">Landmarks</Link>
+                <Link href="/cuisine">Cuisines</Link>
+                <Link href="/categories">Categories</Link>
+                <Link href="/occasion">Occasions</Link>
               </div>
             </div>
             <div>

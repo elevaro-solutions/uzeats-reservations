@@ -276,3 +276,64 @@ export function discoveryLandingMetadata(params: {
     },
   };
 }
+
+/** WebPage schema with speakable FAQ-friendly copy for answer engines. */
+export function webPageJsonLd(params: {
+  name: string;
+  description: string;
+  url: string;
+}) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebPage',
+    name: params.name,
+    description: params.description,
+    url: absoluteUrl(params.url),
+    isPartOf: {
+      '@type': 'WebSite',
+      name: 'Tablevera',
+      url: getSiteUrl(),
+    },
+    speakable: {
+      '@type': 'SpeakableSpecification',
+      cssSelector: ['h1', '.rt-discovery-landing__footer'],
+    },
+  };
+}
+
+/** HowTo schema for “book a table” flows cited by answer engines. */
+export function howToBookJsonLd(placeLabel?: string) {
+  const name = placeLabel
+    ? `How to book a restaurant in ${placeLabel} on Tablevera`
+    : 'How to book a restaurant on Tablevera';
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'HowTo',
+    name,
+    description:
+      'Find a restaurant on Tablevera, choose date and party size, pick a live time slot, and confirm instantly — free for diners.',
+    totalTime: 'PT5M',
+    step: [
+      {
+        '@type': 'HowToStep',
+        name: 'Choose a location or Near Me',
+        text: 'Open a city, cuisine, neighborhood, landmark, or near-me page — or tap Near Me to use your device location.',
+      },
+      {
+        '@type': 'HowToStep',
+        name: 'Set date and party size',
+        text: 'Select when you want to dine and how many guests so results show bookable tables.',
+      },
+      {
+        '@type': 'HowToStep',
+        name: 'Pick a restaurant and time slot',
+        text: 'Open a restaurant page, review ratings, amenities, and deposit details, then choose an open time.',
+      },
+      {
+        '@type': 'HowToStep',
+        name: 'Confirm your reservation',
+        text: 'Add special requests if needed and confirm. Reservations are free for diners; any deposit is shown before you book.',
+      },
+    ],
+  };
+}

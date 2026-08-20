@@ -14,8 +14,10 @@ export function useInfiniteRestaurantSearch(
   const [page, setPage] = useState(1);
   const [items, setItems] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
+  const [exhausted, setExhausted] = useState(false);
   const filterKey = useMemo(() => JSON.stringify(searchInput), [searchInput]);
   const prevFilterKey = useRef(filterKey);
+  const itemIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (prevFilterKey.current !== filterKey) {
@@ -23,6 +25,8 @@ export function useInfiniteRestaurantSearch(
       setPage(1);
       setItems([]);
       setTotal(0);
+      setExhausted(false);
+      itemIdsRef.current = new Set();
     }
   }, [filterKey]);
 
@@ -41,19 +45,30 @@ export function useInfiniteRestaurantSearch(
   useEffect(() => {
     const result = (data as any)?.searchRestaurants;
     if (!result) return;
+    // Ignore stale Apollo cache while variables (page) are in flight.
+    if (result.page != null && result.page !== page) return;
+
+    const pageItems = result.items ?? [];
     setTotal(result.total);
+
     if (page === 1) {
-      setItems(result.items ?? []);
+      itemIdsRef.current = new Set(pageItems.map((r: any) => r.id));
+      setItems(pageItems);
+      setExhausted(pageItems.length === 0 || pageItems.length < pageSize);
       return;
     }
-    setItems((prev) => {
-      const existingIds = new Set(prev.map((r) => r.id));
-      const next = (result.items ?? []).filter((r: any) => !existingIds.has(r.id));
-      return [...prev, ...next];
-    });
-  }, [data, page]);
 
-  const hasMore = items.length < total;
+    const next = pageItems.filter((r: any) => !itemIdsRef.current.has(r.id));
+    if (pageItems.length === 0 || next.length === 0 || pageItems.length < pageSize) {
+      setExhausted(true);
+    }
+    if (next.length === 0) return;
+
+    for (const r of next) itemIdsRef.current.add(r.id);
+    setItems((prev) => [...prev, ...next]);
+  }, [data, page, pageSize]);
+
+  const hasMore = !exhausted && items.length < total;
   const loadingMore = loading && page > 1;
   const initialLoading = loading && page === 1 && items.length === 0;
 

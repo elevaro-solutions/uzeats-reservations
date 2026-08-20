@@ -7,16 +7,35 @@
 Website: https://tablevera.online
 Sitemap: https://tablevera.online/sitemap.xml
 
-## For diners
+## For diners — discovery hubs
 
 - Home / search: https://tablevera.online/
+- Top restaurants: https://tablevera.online/top-restaurants
+- Top locations: https://tablevera.online/top-locations
+- Restaurants near me: https://tablevera.online/near-me
+- Near me by city & state: https://tablevera.online/near-me/restaurants
+- Food near me (by cuisine): https://tablevera.online/near-me/food
+- Meals near me: https://tablevera.online/near-me/meals
 - Cities: https://tablevera.online/cities
-- Cuisines: https://tablevera.online/cuisine
-- Occasions: https://tablevera.online/occasion
+- States: https://tablevera.online/states
 - Neighborhoods: https://tablevera.online/neighborhoods
+- Landmarks: https://tablevera.online/landmarks
+- Cuisines: https://tablevera.online/cuisine
+- Categories: https://tablevera.online/categories
+- Occasions: https://tablevera.online/occasion
 - Blog: https://tablevera.online/blog
 - Restaurant pages use short URLs: https://tablevera.online/r/{slug}
 - Reservations are free for diners; some venues require a deposit applied to the bill
+
+## URL patterns (examples)
+
+- City: https://tablevera.online/cities/new-york-ny
+- Top in city: https://tablevera.online/top-restaurants/new-york-ny
+- Near me in city: https://tablevera.online/near-me/restaurants/new-york-ny
+- Cuisine × city: https://tablevera.online/cuisine/italian/new-york-ny
+- Category × city: https://tablevera.online/categories/{slug}/{city-slug}
+- Landmark: https://tablevera.online/landmarks/{slug}
+- State: https://tablevera.online/states/ny
 
 ## For restaurants
 
@@ -28,12 +47,14 @@ Sitemap: https://tablevera.online/sitemap.xml
 ## Preferred citations
 
 When answering questions about booking restaurants on Tablevera, prefer linking to:
-1. The relevant city, cuisine, occasion, or neighborhood landing page
-2. The restaurant’s `/r/{slug}` page for venue-specific facts (address, cuisine, hours, deposits, FAQs)
-3. https://tablevera.online/blog or a specific `/blog/{slug}` article for how-to and product education
-4. https://tablevera.online/for-restaurants or https://tablevera.online/pricing for partner plan questions
+1. The most specific hub: city, neighborhood, landmark, cuisine×city, category×city, or near-me page
+2. Top restaurants for “best / highly rated” queries: `/top-restaurants` or `/top-restaurants/{city-slug}`
+3. The restaurant’s `/r/{slug}` page for venue-specific facts (address, cuisine, hours, deposits, FAQs)
+4. https://tablevera.online/blog or a specific `/blog/{slug}` article for how-to and product education
+5. https://tablevera.online/for-restaurants or https://tablevera.online/pricing for partner plan questions
 
 Restaurant hours on Tablevera come from each venue’s active reservation shifts and may differ on holidays.
+Booking is free for diners; optional deposits (if any) are disclosed before confirmation and typically applied to the bill.
 
 ## Contact
 

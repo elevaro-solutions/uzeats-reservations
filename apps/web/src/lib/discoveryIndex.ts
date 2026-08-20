@@ -2,22 +2,35 @@ import { cache } from 'react';
 import {
   CUISINES,
   DISCOVERY_OCCASIONS,
+  MEALS,
+  RESTAURANT_DISCOVERY_CATEGORIES,
   citySlug,
   cuisineSlug,
   discoverySlug,
+  landmarkSlug,
+  mealSlug,
   neighborhoodSlug,
   slugToCuisine,
+  slugToMeal,
   slugToOccasion,
+  stateSlug,
   type DiscoveryOccasion,
+  type Meal,
 } from '@reservations/shared';
 import {
   DEFAULT_LOCATION,
   POPULAR_CITIES,
+  POPULAR_LANDMARKS,
   POPULAR_NEIGHBORHOODS,
+  POPULAR_STATES,
   findCityBySlug,
+  findLandmarkBySlug,
   findNeighborhoodBySlug,
+  findStateBySlug,
   type CityOption,
+  type LandmarkOption,
   type NeighborhoodOption,
+  type StateOption,
 } from '@/lib/cities';
 import { serverGraphql } from '@/lib/serverGraphql';
 
@@ -274,4 +287,105 @@ export async function listOccasionsForIndex(): Promise<
     slug: discoverySlug(occasion),
     label: occasion,
   }));
+}
+
+export function listStatesForIndex(): Array<{ slug: string; label: string; code: string }> {
+  return POPULAR_STATES.map((s) => ({
+    slug: stateSlug(s.code),
+    label: s.name,
+    code: s.code,
+  })).sort((a, b) => a.label.localeCompare(b.label));
+}
+
+export function listStateLandingParams(): Array<{ slug: string }> {
+  return POPULAR_STATES.map((s) => ({ slug: stateSlug(s.code) }));
+}
+
+export function resolveStateBySlug(slug: string): StateOption | null {
+  return findStateBySlug(slug) ?? null;
+}
+
+export function listLandmarksForIndex(): Array<{ slug: string; label: string }> {
+  return POPULAR_LANDMARKS.map((l) => ({
+    slug: landmarkSlug(l.landmark, l.state),
+    label: `${l.landmark}, ${l.city}`,
+  })).sort((a, b) => a.label.localeCompare(b.label));
+}
+
+export function listLandmarkLandingParams(): Array<{ slug: string }> {
+  return POPULAR_LANDMARKS.map((l) => ({ slug: landmarkSlug(l.landmark, l.state) }));
+}
+
+export function resolveLandmarkBySlug(slug: string): LandmarkOption | null {
+  return findLandmarkBySlug(slug) ?? null;
+}
+
+export type DiscoveryCategoryOption = (typeof RESTAURANT_DISCOVERY_CATEGORIES)[number];
+
+export function listCategoriesForIndex(): Array<{ slug: string; label: string }> {
+  return RESTAURANT_DISCOVERY_CATEGORIES.map((c) => ({
+    slug: c.id,
+    label: c.label,
+  })).sort((a, b) => a.label.localeCompare(b.label));
+}
+
+export function listCategoryLandingParams(): Array<{ slug: string }> {
+  return RESTAURANT_DISCOVERY_CATEGORIES.map((c) => ({ slug: c.id }));
+}
+
+export function resolveCategoryBySlug(slug: string): DiscoveryCategoryOption | null {
+  return RESTAURANT_DISCOVERY_CATEGORIES.find((c) => c.id === slug) ?? null;
+}
+
+export function listMealsForIndex(): Array<{ slug: string; label: string }> {
+  return MEALS.map((meal) => ({
+    slug: mealSlug(meal),
+    label: meal,
+  }));
+}
+
+export function listMealLandingParams(): Array<{ slug: string }> {
+  return MEALS.map((meal) => ({ slug: mealSlug(meal) }));
+}
+
+export function resolveMealBySlug(slug: string): Meal | null {
+  return slugToMeal(slug) ?? null;
+}
+
+export async function listCuisineCityLandingParams(): Promise<
+  Array<{ slug: string; citySlug: string }>
+> {
+  const cuisines = await listCuisineLandingParams();
+  const cities = POPULAR_CITIES.map((c) => citySlug(c.city, c.state));
+  const params: Array<{ slug: string; citySlug: string }> = [];
+  for (const { slug } of cuisines) {
+    for (const city of cities) {
+      params.push({ slug, citySlug: city });
+    }
+  }
+  return params;
+}
+
+export async function listCategoryCityLandingParams(): Promise<
+  Array<{ slug: string; citySlug: string }>
+> {
+  const categories = listCategoryLandingParams();
+  const cities = POPULAR_CITIES.map((c) => citySlug(c.city, c.state));
+  const params: Array<{ slug: string; citySlug: string }> = [];
+  for (const { slug } of categories) {
+    for (const city of cities) {
+      params.push({ slug, citySlug: city });
+    }
+  }
+  return params;
+}
+
+export function categorySearchPreset(category: DiscoveryCategoryOption): {
+  cuisine?: string;
+  categoryIds: string[];
+} {
+  return {
+    cuisine: 'cuisine' in category ? category.cuisine : undefined,
+    categoryIds: [category.id],
+  };
 }

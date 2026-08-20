@@ -265,6 +265,7 @@ export const searchRestaurantsSchema = z.object({
   categoryIds: z.array(z.string()).optional(),
   priceRange: z.number().int().min(1).max(4).optional(),
   city: z.string().optional(),
+  state: z.string().optional(),
   neighborhood: z.string().optional(),
   lat: z.number().optional(),
   lng: z.number().optional(),

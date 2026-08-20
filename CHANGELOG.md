@@ -4,6 +4,19 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.29.0] — 2026-08-20
+
+### Added
+
+- Expanded discovery SEO hubs: states, landmarks, categories, top restaurants/locations, near-me (food/meals/cities), and cuisine×city / category×city landings
+- Shared discovery meta helpers and `DiscoveryHubIndex` for hub listing pages with richer FAQ/JSON-LD
+- Sitemap, robots, and `llms.txt` coverage for the new discovery URL patterns
+
+### Changed
+
+- City/cuisine/neighborhood landing copy and FAQ expanded with city-specific intros and booking guidance
+- Discovery landing schema and infinite search wired for the new hub filters
+
 ## [0.28.1] — 2026-08-20
 
 ### Added

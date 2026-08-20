@@ -19,7 +19,7 @@ export function InfiniteScrollSentinel({
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!hasMore) return;
+    if (!hasMore || loading) return;
     const el = sentinelRef.current;
     if (!el) return;
 
@@ -34,7 +34,7 @@ export function InfiniteScrollSentinel({
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [hasMore, onLoadMore, root]);
+  }, [hasMore, loading, onLoadMore, root]);
 
   if (!hasMore && !loading) return null;
 

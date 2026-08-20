@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Typography } from 'antd';
 import { TrophyOutlined, FireOutlined, StarOutlined, LinkOutlined } from '@ant-design/icons';
-import { discoverySlug } from '@reservations/shared';
+import { citySlug as toCitySlug, cuisineSlug as toCuisineSlug, neighborhoodSlug as toNeighborhoodSlug } from '@reservations/shared';
 import { colors } from '@reservations/ui';
 
 const { Title, Text } = Typography;
@@ -34,10 +34,10 @@ export function RestaurantFeaturedIn({
   reviewCount,
   entries = [],
 }: Props) {
-  const citySlug = `${discoverySlug(address.city)}-${address.state.toLowerCase()}`;
-  const cuisineSlug = discoverySlug(cuisine);
-  const neighborhoodSlug = address.neighborhood
-    ? `${discoverySlug(address.neighborhood)}-${discoverySlug(address.city)}-${address.state.toLowerCase()}`
+  const cityPath = toCitySlug(address.city, address.state);
+  const cuisinePath = toCuisineSlug(cuisine);
+  const neighborhoodPath = address.neighborhood
+    ? toNeighborhoodSlug(address.neighborhood, address.city, address.state)
     : null;
 
   const curated = entries.map((item) => ({
@@ -69,22 +69,40 @@ export function RestaurantFeaturedIn({
                 icon: <StarOutlined style={{ color: colors.rating }} />,
                 title: 'Highly rated',
                 description: `Guests rate ${name} ${averageRating!.toFixed(1)} stars across ${reviewCount} reviews.`,
+                href: `/top-restaurants/${cityPath}`,
               }
             : null,
           {
             icon: <FireOutlined style={{ color: colors.brand[600] }} />,
             title: `Popular ${cuisine} in ${address.city}`,
             description: `Discover more ${cuisine.toLowerCase()} restaurants in ${address.city}.`,
-            href: `/cuisine/${cuisineSlug}`,
+            href: `/cuisine/${cuisinePath}/${cityPath}`,
           },
           address.neighborhood
             ? {
                 icon: <FireOutlined style={{ color: colors.brand[500] }} />,
                 title: `${address.neighborhood} favorite`,
                 description: `Explore top dining spots in ${address.neighborhood}, ${address.city}.`,
-                href: neighborhoodSlug ? `/neighborhoods/${neighborhoodSlug}` : `/cities/${citySlug}`,
+                href: neighborhoodPath ? `/neighborhoods/${neighborhoodPath}` : `/cities/${cityPath}`,
               }
-            : null,
+            : {
+                icon: <FireOutlined style={{ color: colors.brand[500] }} />,
+                title: `${address.city} dining`,
+                description: `Explore restaurants in ${address.city}, ${address.state}.`,
+                href: `/cities/${cityPath}`,
+              },
+          {
+            icon: <FireOutlined style={{ color: colors.brand[400] }} />,
+            title: `Restaurants near me in ${address.city}`,
+            description: `Find restaurants near me in ${address.city}, ${address.state}.`,
+            href: `/near-me/restaurants/${cityPath}`,
+          },
+          {
+            icon: <FireOutlined style={{ color: colors.brand[300] }} />,
+            title: `${cuisine} restaurants near me in ${address.city}`,
+            description: `Discover ${cuisine.toLowerCase()} restaurants near me in ${address.city}, ${address.state}.`,
+            href: `/near-me/food/${cuisinePath}/${cityPath}`,
+          },
         ].filter(Boolean) as Array<{
           icon: React.ReactNode;
           title: string;

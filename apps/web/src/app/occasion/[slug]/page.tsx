@@ -48,7 +48,13 @@ export default async function OccasionLandingPage({ params }: PageProps) {
 
   return (
     <>
-      <DiscoveryLandingSchema breadcrumbs={breadcrumbs} faq={meta.faq} />
+      <DiscoveryLandingSchema
+        breadcrumbs={breadcrumbs}
+        faq={meta.faq}
+        canonicalPath={canonicalPath}
+        heading={meta.heading}
+        description={meta.description}
+      />
       <DiscoveryLandingView
         meta={meta}
         canonicalPath={canonicalPath}

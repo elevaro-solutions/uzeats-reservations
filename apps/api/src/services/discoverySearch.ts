@@ -70,6 +70,7 @@ export function buildDiscoverySearchFilter(
 
   if (input.priceRange) filter.priceRange = input.priceRange;
   if (input.city) filter['address.city'] = new RegExp(`^${escapeRegex(input.city)}$`, 'i');
+  if (input.state) filter['address.state'] = new RegExp(`^${escapeRegex(input.state)}$`, 'i');
   if (input.neighborhood) {
     filter['address.neighborhood'] = new RegExp(`^${escapeRegex(input.neighborhood)}$`, 'i');
   }
@@ -139,20 +140,19 @@ export async function filterByAvailability<T extends RestaurantLike>(
   partySize: number,
   time?: string,
 ): Promise<T[]> {
-  const available: T[] = [];
-  await Promise.all(
+  // Preserve input order — pushing inside Promise.all made pagination
+  // non-deterministic and caused the client infinite-scroll loop.
+  const flags = await Promise.all(
     restaurants.map(async (restaurant) => {
       const slots = await getAvailability({
         restaurantId: restaurant._id.toString(),
         date,
         partySize,
       });
-      if (slots.some((s) => s.available && slotMatchesTime(s.time, time))) {
-        available.push(restaurant);
-      }
+      return slots.some((s) => s.available && slotMatchesTime(s.time, time));
     }),
   );
-  return available;
+  return restaurants.filter((_, index) => flags[index]);
 }
 
 export async function restaurantIdsWithAvailability(
