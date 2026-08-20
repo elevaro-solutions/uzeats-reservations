@@ -35,7 +35,8 @@ export interface ImportedRestaurantData {
   rating?: number;
   reviewCount?: number;
   menuCategories?: string[];
-  menuItems?: Array<{ name: string; description?: string; price?: number; category?: string }>;
+  menuItems?: Array<{ name: string; description?: string; price?: number; category?: string; imageUrl?: string }>;
+  coverImageUrl?: string;
   hours?: string;
 }
 

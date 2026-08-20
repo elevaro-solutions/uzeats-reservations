@@ -76,6 +76,7 @@ import { isPlatformAdmin, isSuperAdmin } from '@/lib/roles';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { useUrlListFilters } from '@/lib/useUrlListFilters';
 import { buildMenuSectionsFromImport } from '@/lib/importedMenu';
+import { uploadImportedMenuImageToSpaces } from '@/lib/importMenuImages';
 
 const CREATE_STEPS = [
   { title: 'Owner' },
@@ -524,7 +525,7 @@ function AdminRestaurantsContent() {
   const [assignUserId, setAssignUserId] = useState<string>();
   const [assignRole, setAssignRole] = useState('staff');
   const [pendingImportedMenuSections, setPendingImportedMenuSections] = useState<
-    Array<{ name: string; items: Array<{ name: string; description: string; priceCents: number; dietary: string[]; available: boolean }> }>
+    Awaited<ReturnType<typeof buildMenuSectionsFromImport>>
   >([]);
 
   const [form] = Form.useForm();
@@ -693,11 +694,36 @@ function AdminRestaurantsContent() {
       ...(data.address?.zip ? { zip: data.address.zip } : {}),
     });
 
+    if (data.coverImageUrl) {
+      void uploadImportedMenuImageToSpaces({
+        imageUrl: data.coverImageUrl,
+        filenameHint: 'restaurant-cover.jpg',
+      })
+        .then((photoUrl) => {
+          if (!photoUrl) return;
+          setPhotos((prev) => [photoUrl, ...prev.filter((url) => url !== photoUrl)]);
+        })
+        .catch(() => {
+          /* non-fatal */
+        });
+    }
+
     if (!showCreate) {
       setOwnerMode('new');
       setShowCreate(true);
     }
-    setPendingImportedMenuSections(buildMenuSectionsFromImport(data));
+    void (async () => {
+      const importedSections = await buildMenuSectionsFromImport(data, {
+        resolvePhotoUrl: async (item, index) => {
+          if (!item.imageUrl) return undefined;
+          return uploadImportedMenuImageToSpaces({
+            imageUrl: item.imageUrl,
+            filenameHint: `menu-item-${index + 1}.jpg`,
+          });
+        },
+      });
+      setPendingImportedMenuSections(importedSections);
+    })();
     // Return to the first step so the user starts by choosing or creating the owner.
     setCreateStep(0);
     message.success(`Imported "${data.name ?? 'restaurant'}" — continue from the owner step.`);

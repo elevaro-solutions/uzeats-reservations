@@ -3,6 +3,7 @@ type ImportedMenuItem = {
   description?: string;
   price?: number;
   category?: string;
+  imageUrl?: string;
 };
 
 type ImportedRestaurantData = {
@@ -15,6 +16,7 @@ type MenuItemInput = {
   priceCents: number;
   dietary: string[];
   available: boolean;
+  photoUrl?: string;
 };
 
 type MenuSectionInput = {
@@ -22,10 +24,16 @@ type MenuSectionInput = {
   items: MenuItemInput[];
 };
 
-export function buildMenuSectionsFromImport(data: ImportedRestaurantData): MenuSectionInput[] {
+export async function buildMenuSectionsFromImport(
+  data: ImportedRestaurantData,
+  options?: {
+    resolvePhotoUrl?: (item: ImportedMenuItem, itemIndex: number) => Promise<string | undefined>;
+  },
+): Promise<MenuSectionInput[]> {
   const items = data.menuItems ?? [];
   const sectionMap = new Map<string, MenuItemInput[]>();
   const seenBySection = new Map<string, Set<string>>();
+  let itemIndex = 0;
 
   for (const item of items) {
     const name = String(item.name ?? '').trim();
@@ -39,6 +47,10 @@ export function buildMenuSectionsFromImport(data: ImportedRestaurantData): MenuS
     namesInSection.add(normalizedKey);
     seenBySection.set(sectionName, namesInSection);
 
+    const photoUrl = options?.resolvePhotoUrl
+      ? await options.resolvePhotoUrl(item, itemIndex)
+      : undefined;
+
     const sectionItems = sectionMap.get(sectionName) ?? [];
     sectionItems.push({
       name,
@@ -46,8 +58,10 @@ export function buildMenuSectionsFromImport(data: ImportedRestaurantData): MenuS
       priceCents: Number.isFinite(item.price) ? Math.max(0, Math.round(item.price!)) : 0,
       dietary: [],
       available: true,
+      photoUrl,
     });
     sectionMap.set(sectionName, sectionItems);
+    itemIndex += 1;
   }
 
   return Array.from(sectionMap.entries()).map(([name, sectionItems]) => ({

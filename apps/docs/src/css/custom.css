@@ -1,0 +1,137 @@
+/**
+ * Tablevera diner brand — Forest & Gold (palette 1 from packages/ui).
+ * Neutrals and type match packages/ui/src/tokens.ts.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+:root {
+  /* Brand green scale */
+  --tv-brand-50: #f0f7f4;
+  --tv-brand-100: #dceee6;
+  --tv-brand-200: #b5d9c8;
+  --tv-brand-300: #7fb89a;
+  --tv-brand-400: #3d8f6f;
+  --tv-brand-500: #1d6b52;
+  --tv-brand-600: #0b3d2e;
+  --tv-brand-700: #093224;
+  --tv-brand-800: #07271c;
+  --tv-brand-900: #051c14;
+  --tv-brand-rgb: 11, 61, 46;
+
+  /* Antique gold accent */
+  --tv-accent-400: #c5a059;
+  --tv-accent-500: #a8843f;
+  --tv-accent-rgb: 197, 160, 89;
+
+  /* Warm neutrals */
+  --tv-neutral-25: #fcfbfa;
+  --tv-neutral-50: #f7f5f2;
+  --tv-neutral-100: #f0ede8;
+  --tv-neutral-200: #e3dfd8;
+  --tv-neutral-400: #a39e94;
+  --tv-neutral-600: #5a554d;
+  --tv-neutral-900: #1a1816;
+  --tv-hero-mid: #071f18;
+
+  --ifm-color-primary: var(--tv-brand-600);
+  --ifm-color-primary-dark: var(--tv-brand-700);
+  --ifm-color-primary-darker: var(--tv-brand-700);
+  --ifm-color-primary-darkest: var(--tv-brand-800);
+  --ifm-color-primary-light: var(--tv-brand-500);
+  --ifm-color-primary-lighter: var(--tv-brand-400);
+  --ifm-color-primary-lightest: var(--tv-brand-300);
+
+  --ifm-background-color: var(--tv-neutral-50);
+  --ifm-background-surface-color: #ffffff;
+  --ifm-navbar-background-color: #ffffff;
+  --ifm-footer-background-color: var(--tv-hero-mid);
+  --ifm-footer-color: var(--tv-neutral-100);
+  --ifm-footer-link-color: var(--tv-accent-400);
+  --ifm-footer-title-color: #ffffff;
+
+  --ifm-font-color-base: var(--tv-neutral-900);
+  --ifm-font-color-secondary: var(--tv-neutral-600);
+  --ifm-heading-color: var(--tv-neutral-900);
+  --ifm-link-color: var(--tv-brand-600);
+  --ifm-link-hover-color: var(--tv-brand-500);
+
+  --ifm-font-family-base: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --ifm-heading-font-weight: 700;
+  --ifm-code-font-size: 95%;
+  --ifm-global-radius: 12px;
+  --ifm-button-border-radius: 12px;
+
+  --docusaurus-highlighted-code-line-bg: rgba(var(--tv-brand-rgb), 0.08);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: var(--tv-brand-300);
+  --ifm-color-primary-dark: var(--tv-brand-400);
+  --ifm-color-primary-darker: var(--tv-brand-500);
+  --ifm-color-primary-darkest: var(--tv-brand-600);
+  --ifm-color-primary-light: var(--tv-brand-200);
+  --ifm-color-primary-lighter: var(--tv-brand-100);
+  --ifm-color-primary-lightest: var(--tv-brand-50);
+
+  --ifm-background-color: #0d1512;
+  --ifm-background-surface-color: #14201b;
+  --ifm-navbar-background-color: #14201b;
+  --ifm-footer-background-color: #051c14;
+  --ifm-link-color: var(--tv-brand-300);
+  --ifm-link-hover-color: var(--tv-accent-400);
+
+  --docusaurus-highlighted-code-line-bg: rgba(var(--tv-brand-rgb), 0.25);
+}
+
+.hero--primary {
+  --ifm-hero-background-color: var(--tv-hero-mid);
+  --ifm-hero-text-color: var(--tv-neutral-50);
+  background: linear-gradient(
+    145deg,
+    var(--tv-hero-mid) 0%,
+    var(--tv-brand-600) 55%,
+    var(--tv-brand-700) 100%
+  );
+}
+
+.hero--primary .button--secondary {
+  background: var(--tv-accent-400);
+  border-color: var(--tv-accent-400);
+  color: var(--tv-brand-900);
+  font-weight: 600;
+}
+
+.hero--primary .button--secondary:hover {
+  background: var(--tv-accent-500);
+  border-color: var(--tv-accent-500);
+  color: #ffffff;
+}
+
+.navbar {
+  box-shadow: 0 1px 3px rgba(26, 24, 22, 0.05), 0 1px 2px rgba(26, 24, 22, 0.04);
+  border-bottom: 1px solid var(--tv-neutral-200);
+}
+
+.navbar__title {
+  font-weight: 700;
+  color: var(--tv-brand-600);
+}
+
+[data-theme='dark'] .navbar__title {
+  color: var(--tv-brand-200);
+}
+
+.menu__link--active:not(.menu__link--sublist),
+.table-of-contents__link--active {
+  color: var(--tv-brand-600);
+  font-weight: 600;
+}
+
+.pagination-nav__link:hover {
+  border-color: var(--tv-brand-400);
+}
+
+.footer__link-item:hover {
+  color: #ffffff;
+}

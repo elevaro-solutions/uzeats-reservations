@@ -1,0 +1,8 @@
+{
+  "label": "Platform admins",
+  "position": 5,
+  "link": {
+    "type": "generated-index",
+    "description": "Operate the Tablevera platform: users, restaurants, billing, and support."
+  }
+}

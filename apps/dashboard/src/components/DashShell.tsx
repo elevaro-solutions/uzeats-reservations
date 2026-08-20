@@ -450,7 +450,23 @@ export function DashShell({ children }: { children: React.ReactNode }) {
             label: 'Notification settings',
             onClick: () => router.push('/notifications'),
           },
+          {
+            key: 'billing',
+            icon: <DollarOutlined />,
+            label: 'Billing',
+            onClick: () => router.push('/billing'),
+          },
         ]),
+    ...(isAdmin
+      ? [
+          {
+            key: 'invoices',
+            icon: <FileDoneOutlined />,
+            label: 'Invoices',
+            onClick: () => router.push('/admin/invoices'),
+          },
+        ]
+      : []),
     { type: 'divider' },
     {
       key: 'logout',
@@ -782,6 +798,8 @@ export function DashShell({ children }: { children: React.ReactNode }) {
                   }
                   if (key === 'settings') router.push('/settings');
                   if (key === 'notification-settings') router.push('/notifications');
+                  if (key === 'billing') router.push('/billing');
+                  if (key === 'invoices') router.push('/admin/invoices');
                   if (key === 'admin-config') router.push('/admin/config');
                 },
               }}

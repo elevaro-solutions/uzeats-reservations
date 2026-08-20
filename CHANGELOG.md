@@ -4,6 +4,20 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.28.0] — 2026-08-20
+
+### Added
+
+- Docusaurus documentation app (`apps/docs` on port 3002) for developers, diners, staff, admins, architecture, and LLM agents
+- Restaurant import uploads cover and menu item images from DoorDash/Uber Eats into Spaces (`/api/import-restaurant/upload-image`)
+- Partner overview cards/table view toggle (persisted in localStorage)
+- Account-menu shortcuts to diner billing and partner billing / admin invoices
+
+### Changed
+
+- MHTML import extracts cover and per-item image URLs; dashboard settings/admin import save photos with the menu
+- Turbo build outputs include Docusaurus `build/**`
+
 ## [0.27.0] — 2026-08-19
 
 ### Added

@@ -52,6 +52,7 @@ import {
 } from '@/lib/restaurantFormTooltips';
 import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
 import { buildMenuSectionsFromImport } from '@/lib/importedMenu';
+import { uploadImportedMenuImageToSpaces } from '@/lib/importMenuImages';
 
 const { Text } = Typography;
 
@@ -301,23 +302,46 @@ export default function SettingsPage() {
       ...(data.address?.zip ? { zip: data.address.zip } : {}),
     });
 
-    const importedSections = buildMenuSectionsFromImport(data);
-    if (restaurantId && importedSections.length > 0) {
-      void upsertMenu({
-        variables: {
-          restaurantId,
-          input: { sections: importedSections },
-        },
+    if (data.coverImageUrl) {
+      void uploadImportedMenuImageToSpaces({
+        imageUrl: data.coverImageUrl,
+        filenameHint: 'restaurant-cover.jpg',
       })
-        .then(() => {
-          message.success(`Imported and saved ${data.menuItems?.length ?? 0} menu items to Menu.`);
-          void refetch();
+        .then((photoUrl) => {
+          if (!photoUrl) return;
+          setPhotos((prev) => [photoUrl, ...prev.filter((url) => url !== photoUrl)]);
         })
-        .catch((err: unknown) => {
-          message.warning(
-            `Profile details were imported, but menu items failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`,
-          );
+        .catch(() => {
+          /* non-fatal */
         });
+    }
+
+    if (restaurantId && (data.menuItems?.length ?? 0) > 0) {
+      void (async () => {
+        const importedSections = await buildMenuSectionsFromImport(data, {
+          resolvePhotoUrl: async (item, index) => {
+            if (!item.imageUrl) return undefined;
+            return uploadImportedMenuImageToSpaces({
+              imageUrl: item.imageUrl,
+              filenameHint: `menu-item-${index + 1}.jpg`,
+            });
+          },
+        });
+
+        if (importedSections.length === 0) return;
+        await upsertMenu({
+          variables: {
+            restaurantId,
+            input: { sections: importedSections },
+          },
+        });
+        message.success(`Imported and saved ${data.menuItems?.length ?? 0} menu items to Menu.`);
+        await refetch();
+      })().catch((err: unknown) => {
+        message.warning(
+          `Profile details were imported, but menu items failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        );
+      });
     }
 
     // Scroll to the address autocomplete so the user can refine with Google Places

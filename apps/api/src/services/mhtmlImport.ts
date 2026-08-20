@@ -10,6 +10,7 @@ export interface ImportedMenuItem {
   description?: string;
   price?: number; // in cents
   category?: string;
+  imageUrl?: string;
 }
 
 export interface ImportedRestaurantData {
@@ -31,6 +32,7 @@ export interface ImportedRestaurantData {
   reviewCount?: number;
   menuCategories?: string[];
   menuItems?: ImportedMenuItem[];
+  coverImageUrl?: string;
   hours?: string;
   /** Raw extracted text for debugging */
   rawText?: string;
@@ -152,10 +154,39 @@ function cleanInlineHtml(raw: string): string {
   return stripHtml(decodeHtmlEntities(raw)).replace(/\s+/g, ' ').trim();
 }
 
+function extractHttpImageUrl(raw?: string): string | undefined {
+  const value = raw?.trim();
+  if (!value) return undefined;
+  if (value.startsWith('http://') || value.startsWith('https://')) return value;
+  return undefined;
+}
+
+function extractCoverImageUrl(html: string): string | undefined {
+  const metaPatterns = [
+    /<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i,
+    /<meta[^>]+content="([^"]+)"[^>]+property="og:image"/i,
+    /<meta[^>]+name="twitter:image"[^>]+content="([^"]+)"/i,
+    /<meta[^>]+content="([^"]+)"[^>]+name="twitter:image"/i,
+  ];
+
+  for (const pattern of metaPatterns) {
+    const match = extractHttpImageUrl(html.match(pattern)?.[1]);
+    if (match) return match;
+  }
+
+  return undefined;
+}
+
+function extractFirstImageInBlock(block: string): string | undefined {
+  const imgMatch = block.match(/<img[^>]+src="([^"]+)"/i)?.[1];
+  return extractHttpImageUrl(imgMatch);
+}
+
 // ─── DoorDash Parser ──────────────────────────────────────────────────────────
 
 function parseDoorDash(html: string, text: string): ImportedRestaurantData {
   const data: ImportedRestaurantData = { source: 'doordash' };
+  data.coverImageUrl = extractCoverImageUrl(html);
 
   // Name: from <title> or heading
   const titleMatch = html.match(/<title[^>]*>Order\s+(.+?)\s*[-|]/i);
@@ -217,22 +248,28 @@ function parseDoorDash(html: string, text: string): ImportedRestaurantData {
   data.menuCategories = menuCategories;
 
   // DoorDash saves menu cards with explicit title, subtitle, and price markup.
-  // Parsing the card HTML is much more reliable than guessing from flattened text.
+  // Images usually appear after the price, so parse each MenuItem block directly.
   const menuItems: ImportedMenuItem[] = [];
-  const itemMatches = Array.from(
-    html.matchAll(
-      /<div[^>]*data-testid="MenuItem"[\s\S]*?<h3[^>]*>([\s\S]*?)<\/h3>(?:[\s\S]*?<span[^>]*data-telemetry-id="storeMenuItem.subtitle"[^>]*>([\s\S]*?)<\/span>)?[\s\S]*?<span[^>]*data-testid="StoreMenuItemPrice"[^>]*>\$([\d.]+)<\/span>/gi,
-    ),
-  );
   const itemSeen = new Set<string>();
+  const menuItemMarker = 'data-testid="MenuItem"';
+  let searchFrom = 0;
 
-  for (const match of itemMatches) {
-    const name = cleanInlineHtml(match[1]!);
+  for (const block of html.split(menuItemMarker).slice(1)) {
+    const itemBlock = block.split(menuItemMarker)[0] ?? block;
+    const itemIndex = html.indexOf(menuItemMarker, searchFrom);
+    if (itemIndex === -1) break;
+    searchFrom = itemIndex + menuItemMarker.length;
+
+    const name = cleanInlineHtml(itemBlock.match(/<h3[^>]*>([\s\S]*?)<\/h3>/i)?.[1] ?? '');
     if (!name || itemSeen.has(name)) continue;
 
-    const description = match[2] ? cleanInlineHtml(match[2]) : undefined;
-    const price = parsePriceCents(match[3]!);
-    const itemIndex = match.index ?? 0;
+    const descriptionRaw = itemBlock.match(
+      /<span[^>]*data-telemetry-id="storeMenuItem.subtitle"[^>]*>([\s\S]*?)<\/span>/i,
+    )?.[1];
+    const description = descriptionRaw ? cleanInlineHtml(descriptionRaw) : undefined;
+    const priceRaw = itemBlock.match(/data-testid="StoreMenuItemPrice"[^>]*>\$([\d.]+)/i)?.[1];
+    const price = priceRaw ? parsePriceCents(priceRaw) : undefined;
+    const imageUrl = extractFirstImageInBlock(itemBlock);
 
     let category: string | undefined;
     for (const categoryMatch of categoryMatches) {
@@ -244,7 +281,7 @@ function parseDoorDash(html: string, text: string): ImportedRestaurantData {
     }
 
     itemSeen.add(name);
-    menuItems.push({ name, description, price, category });
+    menuItems.push({ name, description, price, category, imageUrl });
   }
 
   if (menuItems.length > 0) {
@@ -258,6 +295,7 @@ function parseDoorDash(html: string, text: string): ImportedRestaurantData {
 
 function parseUberEats(html: string, text: string): ImportedRestaurantData {
   const data: ImportedRestaurantData = { source: 'ubereats' };
+  data.coverImageUrl = extractCoverImageUrl(html);
 
   // Name from title
   const titleMatch = html.match(/<title[^>]*>Order\s+(.+?)\s*[-|]/i);

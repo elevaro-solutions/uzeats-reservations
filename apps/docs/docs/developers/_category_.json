@@ -1,0 +1,8 @@
+{
+  "label": "Developers",
+  "position": 2,
+  "link": {
+    "type": "generated-index",
+    "description": "Set up the monorepo, run apps locally, and ship changes."
+  }
+}

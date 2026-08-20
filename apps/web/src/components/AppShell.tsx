@@ -26,6 +26,7 @@ import {
   CheckOutlined,
   ClockCircleOutlined,
   CloseOutlined,
+  CreditCardOutlined,
   LogoutOutlined,
   MenuOutlined,
   UserOutlined,
@@ -331,6 +332,12 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           label: 'My waitlist',
           onClick: () => router.push('/waitlist'),
         },
+        {
+          key: 'billing',
+          icon: <CreditCardOutlined />,
+          label: 'Billing & invoices',
+          onClick: () => router.push('/billing'),
+        },
         { type: 'divider' },
         {
           key: 'logout',
@@ -585,6 +592,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                     if (key === 'reservations') router.push('/reservations');
                     if (key === 'saved') router.push('/saved');
                     if (key === 'waitlist') router.push('/waitlist');
+                    if (key === 'billing') router.push('/billing');
                   },
                 }}
                 placement="bottomRight"
@@ -627,17 +635,19 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             </Button>
           )}
 
-          <Button
-            type="primary"
-            className="rt-site-header__cta"
-            href={getStartedHref}
-            style={{ borderRadius: radii.pill }}
-          >
-            <span className="rt-site-header__cta-full">{getStartedLabel}</span>
-            <span className="rt-site-header__cta-short">
-              {isRestaurantMarketing ? 'Register' : 'Get started'}
-            </span>
-          </Button>
+          {!user && (
+            <Button
+              type="primary"
+              className="rt-site-header__cta"
+              href={getStartedHref}
+              style={{ borderRadius: radii.pill }}
+            >
+              <span className="rt-site-header__cta-full">{getStartedLabel}</span>
+              <span className="rt-site-header__cta-short">
+                {isRestaurantMarketing ? 'Register' : 'Get started'}
+              </span>
+            </Button>
+          )}
 
           <Button
             type="text"
@@ -687,7 +697,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {(!user || isRestaurantMarketing) && (
+        {!user && (
           <div className="rt-mobile-nav__actions">
             <Button block href={signInHref} className="rt-mobile-nav__sign-in">
               Sign in

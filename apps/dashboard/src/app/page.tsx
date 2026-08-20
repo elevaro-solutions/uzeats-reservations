@@ -19,10 +19,12 @@ import {
   Statistic,
   Steps,
   Switch,
+  Table,
   Tag,
   Typography,
   message,
 } from 'antd';
+import { AppstoreOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import {
   CUISINES,
   RESTAURANT_STATUSES,
@@ -66,6 +68,21 @@ import {
 } from '@/lib/restaurants';
 
 const { Text } = Typography;
+
+type OverviewViewMode = 'cards' | 'table';
+
+const OVERVIEW_VIEW_STORAGE_KEY = 'rt-overview-view';
+
+function readOverviewViewMode(): OverviewViewMode {
+  if (typeof window === 'undefined') return 'cards';
+  const stored = localStorage.getItem(OVERVIEW_VIEW_STORAGE_KEY);
+  return stored === 'table' ? 'table' : 'cards';
+}
+
+function selectRestaurant(id: string) {
+  localStorage.setItem('activeRestaurantId', id);
+  window.dispatchEvent(new CustomEvent('rt-restaurant-change', { detail: id }));
+}
 
 type PlanOption = {
   key: string;
@@ -135,6 +152,7 @@ export default function OverviewPage() {
   const [selectedPlan, setSelectedPlan] = useState('core');
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
   const [createForm] = Form.useForm();
+  const [viewMode, setViewMode] = useState<OverviewViewMode>(() => readOverviewViewMode());
   const {
     search: searchInput,
     searchQuery,
@@ -359,6 +377,27 @@ export default function OverviewPage() {
     restaurantsLoading ||
     networkStatus === NetworkStatus.refetch ||
     networkStatus === NetworkStatus.setVariables;
+
+  const handleViewModeChange = (value: OverviewViewMode) => {
+    setViewMode(value);
+    localStorage.setItem(OVERVIEW_VIEW_STORAGE_KEY, value);
+  };
+
+  const navigateToRestaurant = (id: string, path: string) => {
+    selectRestaurant(id);
+    router.push(path);
+  };
+
+  const viewToggle = (
+    <Segmented
+      value={viewMode}
+      onChange={(value) => handleViewModeChange(value as OverviewViewMode)}
+      options={[
+        { label: 'Cards', value: 'cards', icon: <AppstoreOutlined /> },
+        { label: 'Table', value: 'table', icon: <UnorderedListOutlined /> },
+      ]}
+    />
+  );
 
   return (
     <div component="OverviewPage" style={{ display: 'contents' }}><Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
@@ -759,39 +798,55 @@ export default function OverviewPage() {
         />
       ) : (
         <>
-          {showLocationFilters && (
-            <Space wrap style={{ width: '100%' }}>
-              <Input.Search
-                placeholder="Search name, cuisine, or city"
-                allowClear
-                style={{ width: 280 }}
-                value={searchInput}
-                loading={isFetchingResults}
-                onChange={(e) => setSearch(e.target.value)}
-                onClear={() => setSearch('')}
-              />
-              <Select
-                placeholder="Status"
-                allowClear
-                style={{ width: 160 }}
-                value={statusFilter}
-                onChange={setStatusFilter}
-                options={statusOptions}
-              />
-              {cityOptions.length > 1 && (
-                <Select
-                  placeholder="City"
+          {(showLocationFilters || restaurants.length > 0) && (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+              flexWrap: 'wrap',
+              gap: spacing.md,
+              width: '100%',
+            }}
+          >
+            {showLocationFilters ? (
+              <Space wrap>
+                <Input.Search
+                  placeholder="Search name, cuisine, or city"
                   allowClear
-                  style={{ width: 180 }}
-                  value={cityFilter}
-                  onChange={setCityFilter}
-                  options={cityOptions}
+                  style={{ width: 280 }}
+                  value={searchInput}
+                  loading={isFetchingResults}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onClear={() => setSearch('')}
                 />
-              )}
-              <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                {restaurants.length} of {totalLocations} locations
-              </Text>
-            </Space>
+                <Select
+                  placeholder="Status"
+                  allowClear
+                  style={{ width: 160 }}
+                  value={statusFilter}
+                  onChange={setStatusFilter}
+                  options={statusOptions}
+                />
+                {cityOptions.length > 1 && (
+                  <Select
+                    placeholder="City"
+                    allowClear
+                    style={{ width: 180 }}
+                    value={cityFilter}
+                    onChange={setCityFilter}
+                    options={cityOptions}
+                  />
+                )}
+                <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+                  {restaurants.length} of {totalLocations} locations
+                </Text>
+              </Space>
+            ) : (
+              <span />
+            )}
+            {restaurants.length > 0 ? viewToggle : null}
+          </div>
           )}
 
           {restaurants.length === 0 ? (
@@ -810,86 +865,156 @@ export default function OverviewPage() {
                 ) : undefined
               }
             />
+          ) : viewMode === 'table' ? (
+            <Table<OwnerRestaurant>
+              rowKey="id"
+              dataSource={restaurants}
+              loading={isFetchingResults}
+              pagination={false}
+              scroll={{ x: 'max-content' }}
+              columns={[
+                {
+                  title: 'Name',
+                  dataIndex: 'name',
+                  render: (name: string, r) => {
+                    const isInactive = r.status === 'rejected' || r.status === 'suspended';
+                    return (
+                      <Space orientation="vertical" size={0}>
+                        <Text strong style={{ opacity: isInactive ? 0.85 : 1 }}>
+                          {name}
+                        </Text>
+                        {isInactive && (
+                          <Text type="danger" style={{ fontSize: typography.fontSize.sm }}>
+                            Not active
+                          </Text>
+                        )}
+                      </Space>
+                    );
+                  },
+                },
+                {
+                  title: 'Status',
+                  dataIndex: 'status',
+                  render: (status: string) => <StatusTag status={status} />,
+                },
+                { title: 'Cuisine', dataIndex: 'cuisine' },
+                {
+                  title: 'Location',
+                  render: (_: unknown, r) => `${r.address.city}, ${r.address.state}`,
+                },
+                {
+                  title: 'Tables',
+                  width: 90,
+                  render: (_: unknown, r) => r.tables?.length ?? 0,
+                },
+                {
+                  title: 'Shifts',
+                  width: 90,
+                  render: (_: unknown, r) => r.shifts?.length ?? 0,
+                },
+                {
+                  title: 'Actions',
+                  fixed: 'right',
+                  width: 280,
+                  render: (_: unknown, r) => {
+                    const isInactive = r.status === 'rejected' || r.status === 'suspended';
+                    return (
+                      <Space size={4} wrap>
+                        <Button
+                          type="link"
+                          size="small"
+                          disabled={isInactive}
+                          style={{ color: isInactive ? undefined : colors.brand[600], paddingInline: 4 }}
+                          onClick={() => navigateToRestaurant(r.id, '/reservations')}
+                        >
+                          Reservations
+                        </Button>
+                        <Button
+                          type="link"
+                          size="small"
+                          disabled={isInactive}
+                          style={{ color: isInactive ? undefined : colors.brand[600], paddingInline: 4 }}
+                          onClick={() => navigateToRestaurant(r.id, '/floor-plan')}
+                        >
+                          Floor
+                        </Button>
+                        <Button
+                          type="link"
+                          size="small"
+                          disabled={isInactive}
+                          style={{ color: isInactive ? undefined : colors.brand[600], paddingInline: 4 }}
+                          onClick={() => navigateToRestaurant(r.id, '/settings')}
+                        >
+                          Settings
+                        </Button>
+                      </Space>
+                    );
+                  },
+                },
+              ]}
+            />
           ) : (
-        <Row gutter={[16, 16]}>
-          {restaurants.map((r) => {
-            const isInactive = r.status === 'rejected' || r.status === 'suspended';
-            return (
-            <Col key={r.id} xs={24} md={12} lg={8}>
-              <Card
-                title={r.name}
-                extra={<StatusTag status={r.status} />}
-                style={{ borderRadius: radii.lg, height: '100%', opacity: isInactive ? 0.85 : 1 }}
-                styles={{ body: { paddingTop: spacing.sm } }}
-                actions={[
-                  <Button
-                    key="res"
-                    type="link"
-                    disabled={isInactive}
-                    style={{ color: isInactive ? undefined : colors.brand[600] }}
-                    onClick={() => {
-                      localStorage.setItem('activeRestaurantId', r.id);
-                      window.dispatchEvent(
-                        new CustomEvent('rt-restaurant-change', { detail: r.id }),
-                      );
-                      router.push('/reservations');
-                    }}
-                  >
-                    Reservations
-                  </Button>,
-                  <Button
-                    key="floor"
-                    type="link"
-                    disabled={isInactive}
-                    style={{ color: isInactive ? undefined : colors.brand[600] }}
-                    onClick={() => {
-                      localStorage.setItem('activeRestaurantId', r.id);
-                      window.dispatchEvent(
-                        new CustomEvent('rt-restaurant-change', { detail: r.id }),
-                      );
-                      router.push('/floor-plan');
-                    }}
-                  >
-                    Floor
-                  </Button>,
-                  <Button
-                    key="settings"
-                    type="link"
-                    disabled={isInactive}
-                    style={{ color: isInactive ? undefined : colors.brand[600] }}
-                    onClick={() => {
-                      localStorage.setItem('activeRestaurantId', r.id);
-                      window.dispatchEvent(
-                        new CustomEvent('rt-restaurant-change', { detail: r.id }),
-                      );
-                      router.push('/settings');
-                    }}
-                  >
-                    Settings
-                  </Button>,
-                ]}
-              >
-                {isInactive && (
-                  <Text type="danger" style={{ display: 'block', marginBottom: spacing.sm }}>
-                    This location is not active. Contact support if you believe this is an error.
-                  </Text>
-                )}
-                <Text type="secondary">
-                  {r.cuisine} · {r.address.city}, {r.address.state}
-                </Text>
-                <Row gutter={12} style={{ marginTop: spacing.md }}>
-                  <Col span={12}>
-                    <Statistic title="Tables" value={r.tables?.length ?? 0} />
+            <Row gutter={[16, 16]}>
+              {restaurants.map((r) => {
+                const isInactive = r.status === 'rejected' || r.status === 'suspended';
+                return (
+                  <Col key={r.id} xs={24} md={12} lg={8}>
+                    <Card
+                      title={r.name}
+                      extra={<StatusTag status={r.status} />}
+                      style={{ borderRadius: radii.lg, height: '100%', opacity: isInactive ? 0.85 : 1 }}
+                      styles={{ body: { paddingTop: spacing.sm } }}
+                      actions={[
+                        <Button
+                          key="res"
+                          type="link"
+                          disabled={isInactive}
+                          style={{ color: isInactive ? undefined : colors.brand[600] }}
+                          onClick={() => navigateToRestaurant(r.id, '/reservations')}
+                        >
+                          Reservations
+                        </Button>,
+                        <Button
+                          key="floor"
+                          type="link"
+                          disabled={isInactive}
+                          style={{ color: isInactive ? undefined : colors.brand[600] }}
+                          onClick={() => navigateToRestaurant(r.id, '/floor-plan')}
+                        >
+                          Floor
+                        </Button>,
+                        <Button
+                          key="settings"
+                          type="link"
+                          disabled={isInactive}
+                          style={{ color: isInactive ? undefined : colors.brand[600] }}
+                          onClick={() => navigateToRestaurant(r.id, '/settings')}
+                        >
+                          Settings
+                        </Button>,
+                      ]}
+                    >
+                      {isInactive && (
+                        <Text type="danger" style={{ display: 'block', marginBottom: spacing.sm }}>
+                          This location is not active. Contact support if you believe this is an error.
+                        </Text>
+                      )}
+                      <Text type="secondary">
+                        {r.cuisine} · {r.address.city}, {r.address.state}
+                      </Text>
+                      <Row gutter={12} style={{ marginTop: spacing.md }}>
+                        <Col span={12}>
+                          <Statistic title="Tables" value={r.tables?.length ?? 0} />
+                        </Col>
+                        <Col span={12}>
+                          <Statistic title="Shifts" value={r.shifts?.length ?? 0} />
+                        </Col>
+                      </Row>
+                    </Card>
                   </Col>
-                  <Col span={12}>
-                    <Statistic title="Shifts" value={r.shifts?.length ?? 0} />
-                  </Col>
-                </Row>
-              </Card>
-            </Col>
-            );
-          })}
-        </Row>
+                );
+              })}
+            </Row>
           )}
         </>
       )}

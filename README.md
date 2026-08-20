@@ -6,6 +6,8 @@ Primary domain: [https://tablevera.online](https://tablevera.online)
 
 See [CHANGELOG.md](./CHANGELOG.md) for release history.
 
+**Documentation:** [apps/docs](./apps/docs) — Docusaurus site with guides for developers, diners, staff, admins, architecture, and LLM agents. Run locally at http://localhost:3002 (`pnpm --filter @reservations/docs dev`).
+
 ## Monorepo
 
 | App / package | Port | Description |
@@ -14,6 +16,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for release history.
 | `apps/web` | 3000 | Diner-facing Next.js app |
 | `apps/dashboard` | 3001 | Restaurant partner + platform admin |
 | `apps/mobile` | Expo | React Native diner app |
+| `apps/docs` | 3002 | Docusaurus documentation site |
 | `packages/shared` | — | Zod schemas, constants, types |
 | `packages/ui` | — | Design tokens, Ant Design theme, shared components |
 | `packages/widget` | — | Embeddable booking widget |
@@ -55,6 +58,7 @@ pnpm dev
 - Partner dashboard: http://localhost:3001  
 - GraphQL: http://localhost:4000/graphql  
 - Mobile: `pnpm --filter @reservations/mobile dev`
+- Docs: http://localhost:3002 (`pnpm --filter @reservations/docs dev`)
 
 ## Demo accounts
 
@@ -85,7 +89,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Menus + DO Spaces presigned uploads (stubbed without keys; image types only)
 - Notifications: email (SendGrid or Resend), Telegram bot, web/Expo push (service worker on diner web), in-app inbox + channel prefs; transactional SMS with public `/sms` opt-in
 - Auth: email/password (forgot/reset on web and partner dashboard), Google OAuth, Twilio phone OTP; browser sessions use HttpOnly cookies
-- Partner Settings hub, notifications prefs, multi-restaurant selector, self-registration with Stripe card collection, plan change preview (prorated upgrades / scheduled downgrades), onboarding checklist, **profile page**, toggles to accept online reservations or hide the booking widget, and admin import from DoorDash/Uber Eats MHTML
+- Partner Settings hub, notifications prefs, multi-restaurant selector, self-registration with Stripe card collection, plan change preview (prorated upgrades / scheduled downgrades), onboarding checklist, **profile page**, toggles to accept online reservations or hide the booking widget, and admin import from DoorDash/Uber Eats MHTML (including menu photos)
 - **Email branding** — customizable email templates per restaurant
 - Shareable booking links (`/r/:slug`) and **Booking widget** page for embed script copy
 - Owner phone / walk-in bookings, **diner and partner reservation edit**, reservation-scoped messaging, and **individual reservation detail pages** (upcoming / past / deposit filters) plus diner **billing history** (`/billing`)

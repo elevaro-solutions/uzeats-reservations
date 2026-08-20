@@ -1,0 +1,8 @@
+{
+  "label": "LLM docs",
+  "position": 7,
+  "link": {
+    "type": "generated-index",
+    "description": "Structured context for AI coding agents working in this repository."
+  }
+}
