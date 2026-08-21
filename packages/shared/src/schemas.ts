@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 import {
   USER_ROLES,
   RESTAURANT_STATUSES,
@@ -7,25 +7,25 @@ import {
   PRICE_RANGES,
   CUISINES,
   WAITLIST_STATUSES,
-} from './constants.js';
+} from "./constants.js";
 import {
   AMENITIES,
   DIETARY_TAGS,
   DINING_STYLES,
   DISCOVERY_OCCASIONS,
   MEALS,
-} from './discovery.js';
+} from "./discovery.js";
 
 export const emailSchema = z.string().email().toLowerCase();
 
 /** Min 8 chars with upper, lower, and a digit. Special chars recommended but optional. */
 export const passwordSchema = z
   .string()
-  .min(8, 'Password must be at least 8 characters')
-  .max(128, 'Password must be at most 128 characters')
-  .regex(/[a-z]/, 'Password must include a lowercase letter')
-  .regex(/[A-Z]/, 'Password must include an uppercase letter')
-  .regex(/\d/, 'Password must include a number');
+  .min(8, "Password must be at least 8 characters")
+  .max(128, "Password must be at most 128 characters")
+  .regex(/[a-z]/, "Password must include a lowercase letter")
+  .regex(/[A-Z]/, "Password must include an uppercase letter")
+  .regex(/\d/, "Password must include a number");
 
 export const phoneSchema = z.string().regex(/^\+?[1-9]\d{7,14}$/);
 
@@ -71,13 +71,13 @@ export const restaurantFeaturedInItemSchema = z.object({
   title: z.string().min(1).max(120),
   description: z.string().max(500).optional(),
   url: z
-    .union([z.string().url(), z.literal('')])
+    .union([z.string().url(), z.literal("")])
     .optional()
-    .transform((v) => (v === '' || v == null ? undefined : v)),
+    .transform((v) => (v === "" || v == null ? undefined : v)),
   logoUrl: z
-    .union([z.string().url(), z.literal('')])
+    .union([z.string().url(), z.literal("")])
     .optional()
-    .transform((v) => (v === '' || v == null ? undefined : v)),
+    .transform((v) => (v === "" || v == null ? undefined : v)),
 });
 
 export const restaurantInputSchema = z.object({
@@ -88,15 +88,17 @@ export const restaurantInputSchema = z.object({
     .min(2)
     .max(60)
     .trim()
-    .refine((v) => v.length > 0, 'Cuisine is required'),
-  priceRange: z.number().int().min(1).max(4) as z.ZodType<(typeof PRICE_RANGES)[number]>,
+    .refine((v) => v.length > 0, "Cuisine is required"),
+  priceRange: z.number().int().min(1).max(4) as z.ZodType<
+    (typeof PRICE_RANGES)[number]
+  >,
   address: z.object({
     line1: z.string().min(1),
     line2: z.string().optional(),
     city: z.string().min(1),
     state: z.string().min(2).max(2),
     zip: z.string().min(5).max(10),
-    country: z.string().default('US'),
+    country: z.string().default("US"),
   }),
   location: z.object({
     lng: z.number().min(-180).max(180),
@@ -104,13 +106,13 @@ export const restaurantInputSchema = z.object({
   }),
   phone: phoneSchema.optional(),
   website: z
-    .union([z.string().url(), z.literal('')])
+    .union([z.string().url(), z.literal("")])
     .optional()
-    .transform((v) => (v === '' || v == null ? undefined : v)),
+    .transform((v) => (v === "" || v == null ? undefined : v)),
   menuUrl: z
-    .union([z.string().url(), z.literal('')])
+    .union([z.string().url(), z.literal("")])
     .optional()
-    .transform((v) => (v === '' || v == null ? undefined : v)),
+    .transform((v) => (v === "" || v == null ? undefined : v)),
   depositRequired: z.boolean().default(false),
   depositAmountCents: z.number().int().min(0).default(0),
   loyaltyEnabled: z.boolean().default(false),
@@ -152,7 +154,7 @@ export const tableInputSchema = z.object({
   name: z.string().min(1).max(40),
   minCapacity: z.number().int().min(1).max(50),
   maxCapacity: z.number().int().min(1).max(50),
-  floorArea: z.string().max(60).default('Main'),
+  floorArea: z.string().max(60).default("Main"),
   combinable: z.boolean().default(false),
   active: z.boolean().default(true),
   photoUrl: z.string().url().optional().nullable(),
@@ -172,7 +174,7 @@ export const reservationInputSchema = z.object({
   restaurantId: z.string().min(1),
   partySize: z.number().int().min(1).max(50),
   slotStart: z.string().datetime(),
-  occasion: z.enum(OCCASIONS).default('none'),
+  occasion: z.enum(OCCASIONS).default("none"),
   guestNotes: z.string().max(500).optional(),
   redeemPoints: z.number().int().min(0).optional(),
   redeemRestaurantPoints: z.number().int().min(0).optional(),
@@ -184,13 +186,22 @@ export const reservationInputSchema = z.object({
 
 export const restaurantPackageInputSchema = z.object({
   title: z.string().min(1).max(120),
-  description: z.string().max(2000).optional().default(''),
+  description: z.string().max(2000).optional().default(""),
   priceCents: z.number().int().min(0).max(1_000_000),
   pricePerGuest: z.boolean().optional().default(false),
   includes: z.array(z.string().min(1).max(120)).max(20).optional().default([]),
   photoUrl: z.string().max(500).optional().nullable(),
   occasions: z
-    .array(z.enum(['birthday', 'anniversary', 'business', 'date', 'celebration', 'other']))
+    .array(
+      z.enum([
+        "birthday",
+        "anniversary",
+        "business",
+        "date",
+        "celebration",
+        "other",
+      ]),
+    )
     .optional()
     .default([]),
   minPartySize: z.number().int().min(1).max(50).optional().nullable(),
@@ -200,7 +211,7 @@ export const restaurantPackageInputSchema = z.object({
 
 export const ownerGuestInputSchema = z.object({
   firstName: z.string().min(1).max(80),
-  lastName: z.string().max(80).optional().default(''),
+  lastName: z.string().max(80).optional().default(""),
   phone: z.string().min(7).max(20).optional(),
   email: z.string().email().toLowerCase().optional(),
 });
@@ -209,9 +220,9 @@ export const ownerReservationInputSchema = z.object({
   restaurantId: z.string().min(1),
   partySize: z.number().int().min(1).max(50),
   slotStart: z.string().datetime(),
-  occasion: z.enum(OCCASIONS).default('none'),
+  occasion: z.enum(OCCASIONS).default("none"),
   guestNotes: z.string().max(500).optional(),
-  source: z.enum(['phone', 'walkin']).default('phone'),
+  source: z.enum(["phone", "walkin"]).default("phone"),
   guest: ownerGuestInputSchema,
   tableId: z.string().min(1).optional(),
   seatImmediately: z.boolean().optional().default(false),
@@ -229,8 +240,14 @@ export const waitlistInputSchema = z.object({
   restaurantId: z.string().min(1),
   partySize: z.number().int().min(1).max(50),
   preferredDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  preferredTimeStart: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-  preferredTimeEnd: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  preferredTimeStart: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional(),
+  preferredTimeEnd: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional(),
 });
 
 export const reviewInputSchema = z.object({
@@ -270,8 +287,14 @@ export const searchRestaurantsSchema = z.object({
   lat: z.number().optional(),
   lng: z.number().optional(),
   radiusKm: z.number().min(0.5).max(100).default(25),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  time: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  time: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .optional(),
   partySize: z.number().int().min(1).max(50).default(2),
   occasions: z.array(z.enum(DISCOVERY_OCCASIONS)).optional(),
   diningStyles: z.array(z.enum(DINING_STYLES)).optional(),
@@ -285,30 +308,33 @@ export const searchRestaurantsSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
 
-export const BLOG_POST_STATUSES = ['draft', 'published', 'archived'] as const;
+export const BLOG_POST_STATUSES = ["draft", "published", "archived"] as const;
 
 export const blogPostInputSchema = z.object({
   title: z.string().min(1).max(200),
   slug: z
     .union([
-      z.literal(''),
+      z.literal(""),
       z
         .string()
         .min(1)
         .max(120)
-        .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug must be lowercase letters, numbers, and hyphens'),
+        .regex(
+          /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+          "Slug must be lowercase letters, numbers, and hyphens",
+        ),
     ])
     .optional()
     .transform((v) => (!v ? undefined : v)),
-  excerpt: z.string().max(500).optional().default(''),
+  excerpt: z.string().max(500).optional().default(""),
   bodyHtml: z.string().min(1).max(100_000),
   coverImageUrl: z
-    .union([z.string().url(), z.literal('')])
+    .union([z.string().url(), z.literal("")])
     .optional()
-    .transform((v) => (v === '' || v == null ? '' : v)),
-  status: z.enum(BLOG_POST_STATUSES).default('draft'),
-  seoTitle: z.string().max(70).optional().default(''),
-  seoDescription: z.string().max(160).optional().default(''),
+    .transform((v) => (v === "" || v == null ? "" : v)),
+  status: z.enum(BLOG_POST_STATUSES).default("draft"),
+  seoTitle: z.string().max(70).optional().default(""),
+  seoDescription: z.string().max(160).optional().default(""),
   tags: z
     .array(z.string().min(1).max(40).trim().toLowerCase())
     .max(20)
@@ -322,25 +348,35 @@ export type BlogPostInput = z.infer<typeof blogPostInputSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RestaurantInput = z.infer<typeof restaurantInputSchema>;
-export type RestaurantInquiryInput = z.infer<typeof restaurantInquiryInputSchema>;
-export type RegisterRestaurantPartnerInput = z.infer<typeof registerRestaurantPartnerSchema>;
+export type RestaurantInquiryInput = z.infer<
+  typeof restaurantInquiryInputSchema
+>;
+export type RegisterRestaurantPartnerInput = z.infer<
+  typeof registerRestaurantPartnerSchema
+>;
 export type TableInput = z.infer<typeof tableInputSchema>;
 export type ShiftInput = z.infer<typeof shiftInputSchema>;
 export type ReservationInput = z.infer<typeof reservationInputSchema>;
-export type RestaurantPackageInput = z.infer<typeof restaurantPackageInputSchema>;
+export type RestaurantPackageInput = z.infer<
+  typeof restaurantPackageInputSchema
+>;
 export type OwnerReservationInput = z.infer<typeof ownerReservationInputSchema>;
-export type UpdateReservationInput = z.infer<typeof updateReservationInputSchema>;
+export type UpdateReservationInput = z.infer<
+  typeof updateReservationInputSchema
+>;
 export type WaitlistInput = z.infer<typeof waitlistInputSchema>;
 export type ReviewInput = z.infer<typeof reviewInputSchema>;
-export type NotificationPreferencesInput = z.infer<typeof notificationPreferencesSchema>;
+export type NotificationPreferencesInput = z.infer<
+  typeof notificationPreferencesSchema
+>;
 export type SearchRestaurantsInput = z.infer<typeof searchRestaurantsSchema>;
 
 export const CONTACT_FORM_TOPICS = [
-  'general',
-  'restaurant',
-  'support',
-  'privacy',
-  'legal',
+  "general",
+  "restaurant",
+  "support",
+  "privacy",
+  "legal",
 ] as const;
 
 export const contactFormInputSchema = z.object({
@@ -351,6 +387,18 @@ export const contactFormInputSchema = z.object({
 });
 
 export type ContactFormInput = z.infer<typeof contactFormInputSchema>;
+
+export const requestDocsAccessInputSchema = z.object({
+  email: emailSchema,
+  firstName: z.string().trim().min(1).max(80).optional(),
+  lastName: z.string().trim().min(1).max(80).optional(),
+  company: z.string().trim().max(120).optional(),
+  reason: z.string().trim().min(10).max(2000).optional(),
+});
+
+export type RequestDocsAccessInput = z.infer<
+  typeof requestDocsAccessInputSchema
+>;
 
 const dateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const timeStringSchema = z.string().regex(/^\d{2}:\d{2}$/);

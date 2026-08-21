@@ -20,6 +20,55 @@ export const typeDefs = `#graphql
     message: String!
   }
 
+  enum DocsAccessRequestStatus { pending approved denied }
+
+  type DocsAccessEmailStatus {
+    approved: Boolean!
+    pending: Boolean!
+    denied: Boolean!
+  }
+
+  type DocsAccessSession {
+    granted: Boolean!
+    email: String
+  }
+
+  type DocsAccessAuthPayload {
+    granted: Boolean!
+    email: String!
+    accessToken: String!
+  }
+
+  type DocsAccessRequest {
+    id: ID!
+    email: String!
+    firstName: String
+    lastName: String
+    company: String
+    reason: String
+    status: DocsAccessRequestStatus!
+    notes: String
+    createdAt: DateTime!
+    updatedAt: DateTime!
+    reviewedAt: DateTime
+    reviewer: User
+  }
+
+  type DocsAccessRequestConnection {
+    items: [DocsAccessRequest!]!
+    total: Int!
+    limit: Int!
+    offset: Int!
+  }
+
+  input RequestDocsAccessInput {
+    email: String!
+    firstName: String
+    lastName: String
+    company: String
+    reason: String
+  }
+
   type NotificationChannelPreferences {
     sms: Boolean!
     email: Boolean!
@@ -513,6 +562,12 @@ export const typeDefs = `#graphql
     cities: [String!]!
   }
 
+  type AdminRestaurantFilterMeta {
+    total: Int!
+    cities: [String!]!
+    cuisines: [String!]!
+  }
+
   type UserConnection {
     items: [User!]!
     total: Int!
@@ -522,6 +577,12 @@ export const typeDefs = `#graphql
   type AuditLogConnection {
     items: [AuditLog!]!
     total: Int!
+  }
+
+  type AuditLogFilterOptions {
+    actors: [User!]!
+    actions: [String!]!
+    resources: [String!]!
   }
 
   type ReservationConnection {
@@ -1131,6 +1192,7 @@ export const typeDefs = `#graphql
     resource: String!
     resourceId: String
     details: String
+    ip: String
     createdAt: DateTime!
   }
 
@@ -2026,13 +2088,16 @@ export const typeDefs = `#graphql
     adminRestaurants(
       status: RestaurantStatus
       search: String
+      city: String
+      cuisine: String
       limit: Int
       offset: Int
     ): RestaurantConnection!
+    adminRestaurantFilterMeta: AdminRestaurantFilterMeta!
     adminStats: PlatformStats!
     adminLoyaltyStats: LoyaltyPlatformStats!
     adminReferralLeaders(limit: Int): [ReferralLeader!]!
-    adminUsers(search: String, limit: Int, offset: Int): UserConnection!
+    adminUsers(search: String, role: UserRole, limit: Int, offset: Int): UserConnection!
     adminInvoices(status: InvoiceStatus, search: String, limit: Int, offset: Int): InvoiceConnection!
     adminRevenueReport(period: String): PlatformRevenueReport!
     platformConfig: PlatformConfig!
@@ -2060,7 +2125,9 @@ export const typeDefs = `#graphql
     churnAlerts: [ChurnAlert!]!
     slaMetrics: SlaMetrics!
     flaggedContent(limit: Int): FlaggedContent!
-    auditLogs(limit: Int, offset: Int): AuditLogConnection!
+    auditLogs(actorId: ID, action: String, resource: String, limit: Int, offset: Int): AuditLogConnection!
+    auditLog(id: ID!): AuditLog
+    auditLogFilterOptions: AuditLogFilterOptions!
     mySubscription(restaurantId: ID!): SubscriptionType
     previewPlanChange(restaurantId: ID!, plan: String!): PlanChangePreview!
     planChangePayment(restaurantId: ID!): PlanChangePayload!
@@ -2114,6 +2181,15 @@ export const typeDefs = `#graphql
     multiLocationAnalytics(period: String): MultiLocationAnalytics!
 
     reservationForSurvey(reservationId: ID!): Reservation
+
+    docsAccessSession: DocsAccessSession!
+    checkDocsAccessEmail(email: String!): DocsAccessEmailStatus!
+    adminDocsAccessRequests(
+      status: DocsAccessRequestStatus
+      search: String
+      limit: Int
+      offset: Int
+    ): DocsAccessRequestConnection!
   }
 
   type Mutation {
@@ -2129,6 +2205,9 @@ export const typeDefs = `#graphql
     resetPassword(token: String!, newPassword: String!): MessagePayload!
     submitContactForm(input: ContactFormInput!): MessagePayload!
     sendRestaurantInquiry(input: RestaurantInquiryInput!): MessagePayload!
+    requestDocsAccess(input: RequestDocsAccessInput!): MessagePayload!
+    requestDocsAccessOtp(email: String!): MessagePayload!
+    verifyDocsAccessOtp(email: String!, code: String!): DocsAccessAuthPayload!
     saveRestaurant(restaurantId: ID!): Boolean!
     unsaveRestaurant(restaurantId: ID!): Boolean!
     favoriteRestaurant(restaurantId: ID!): Boolean!
@@ -2228,6 +2307,13 @@ export const typeDefs = `#graphql
       restaurantId: ID
       requesterId: ID
     ): SupportTicket!
+    reviewDocsAccessRequest(
+      id: ID!
+      status: DocsAccessRequestStatus!
+      notes: String
+    ): DocsAccessRequest!
+    grantDocsAccess(email: String!, notes: String): DocsAccessRequest!
+    adminSendDocsAccessOtp(email: String!): MessagePayload!
     addSupportNote(ticketId: ID!, body: String!): SupportTicket!
     updateSupportNote(ticketId: ID!, noteId: ID!, body: String!): SupportTicket!
     deleteSupportNote(ticketId: ID!, noteId: ID!): SupportTicket!

@@ -12,7 +12,16 @@ type Options = {
  * Keeps list filters in URL search params so views are shareable and back/forward works.
  */
 export function useUrlListFilters(
-  keys: { search?: string; status?: string; city?: string },
+  keys: {
+    search?: string;
+    status?: string;
+    city?: string;
+    cuisine?: string;
+    role?: string;
+    actor?: string;
+    action?: string;
+    resource?: string;
+  },
   options: Options = {},
 ) {
   const { searchDebounceMs = 300 } = options;
@@ -25,8 +34,23 @@ export function useUrlListFilters(
       search: keys.search ? (searchParams.get(keys.search) ?? '') : '',
       status: keys.status ? (searchParams.get(keys.status) ?? undefined) : undefined,
       city: keys.city ? (searchParams.get(keys.city) ?? undefined) : undefined,
+      cuisine: keys.cuisine ? (searchParams.get(keys.cuisine) ?? undefined) : undefined,
+      role: keys.role ? (searchParams.get(keys.role) ?? undefined) : undefined,
+      actor: keys.actor ? (searchParams.get(keys.actor) ?? undefined) : undefined,
+      action: keys.action ? (searchParams.get(keys.action) ?? undefined) : undefined,
+      resource: keys.resource ? (searchParams.get(keys.resource) ?? undefined) : undefined,
     }),
-    [keys.search, keys.status, keys.city, searchParams],
+    [
+      keys.search,
+      keys.status,
+      keys.city,
+      keys.cuisine,
+      keys.role,
+      keys.actor,
+      keys.action,
+      keys.resource,
+      searchParams,
+    ],
   );
 
   const [searchDraft, setSearchDraft] = useState(filters.search);
@@ -91,6 +115,46 @@ export function useUrlListFilters(
     [keys.city, replaceParams],
   );
 
+  const setCuisine = useCallback(
+    (value: string | undefined) => {
+      if (!keys.cuisine) return;
+      replaceParams({ [keys.cuisine]: value });
+    },
+    [keys.cuisine, replaceParams],
+  );
+
+  const setRole = useCallback(
+    (value: string | undefined) => {
+      if (!keys.role) return;
+      replaceParams({ [keys.role]: value });
+    },
+    [keys.role, replaceParams],
+  );
+
+  const setActor = useCallback(
+    (value: string | undefined) => {
+      if (!keys.actor) return;
+      replaceParams({ [keys.actor]: value });
+    },
+    [keys.actor, replaceParams],
+  );
+
+  const setAction = useCallback(
+    (value: string | undefined) => {
+      if (!keys.action) return;
+      replaceParams({ [keys.action]: value });
+    },
+    [keys.action, replaceParams],
+  );
+
+  const setResource = useCallback(
+    (value: string | undefined) => {
+      if (!keys.resource) return;
+      replaceParams({ [keys.resource]: value });
+    },
+    [keys.resource, replaceParams],
+  );
+
   return {
     /** Live search input value (updates immediately). */
     search: searchDraft,
@@ -98,8 +162,18 @@ export function useUrlListFilters(
     searchQuery: filters.search,
     status: filters.status,
     city: filters.city,
+    cuisine: filters.cuisine,
+    role: filters.role,
+    actor: filters.actor,
+    action: filters.action,
+    resource: filters.resource,
     setSearch,
     setStatus,
     setCity,
+    setCuisine,
+    setRole,
+    setActor,
+    setAction,
+    setResource,
   };
 }

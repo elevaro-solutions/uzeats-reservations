@@ -4,6 +4,21 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.30.0] — 2026-08-21
+
+### Added
+
+- Docs site access gate: request + OTP login for approved emails, HttpOnly docs cookie, and admin **Docs access** queue (`/admin/docs-access`)
+- `DOCS_APP_URL` / `DOCS_API_URL` wiring so the docs app talks to the API (CORS includes localhost:3002 by default)
+- Admin audit log filters (actor / action / resource), copy-to-clipboard, and detail page
+- URL list filters for cuisine and role on admin restaurants/users
+- Discovery **Load more** button replacing infinite-scroll sentinel
+
+### Changed
+
+- Audit GraphQL queries support filter options and resource filters
+- Restaurant search filter helpers and shared schema/constants formatting updates
+
 ## [0.29.0] — 2026-08-20
 
 ### Added

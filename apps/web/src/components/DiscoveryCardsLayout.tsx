@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { Typography } from 'antd';
 import { typography } from '@reservations/ui';
 import { DiscoveryFiltersDrawer } from './DiscoveryFiltersDrawer';
-import { InfiniteScrollSentinel } from './InfiniteScrollSentinel';
+import { LoadMoreButton } from './LoadMoreButton';
 import { StickyFiltersSidebar } from './StickyFiltersSidebar';
 
 const { Text } = Typography;
@@ -20,7 +20,6 @@ type DiscoveryCardsLayoutProps = {
   hasMore: boolean;
   loadingMore?: boolean;
   onLoadMore: () => void;
-  scrollRoot?: Element | null;
   children: ReactNode;
 };
 
@@ -35,7 +34,6 @@ export function DiscoveryCardsLayout({
   hasMore,
   loadingMore,
   onLoadMore,
-  scrollRoot,
   children,
 }: DiscoveryCardsLayoutProps) {
   const drawerContent = filtersDrawerContent ?? filtersSidebar;
@@ -77,12 +75,7 @@ export function DiscoveryCardsLayout({
 
         <div className="rt-cards-page__content">
           {children}
-          <InfiniteScrollSentinel
-            onLoadMore={onLoadMore}
-            hasMore={hasMore}
-            loading={loadingMore}
-            root={scrollRoot}
-          />
+          <LoadMoreButton onLoadMore={onLoadMore} hasMore={hasMore} loading={loadingMore} />
         </div>
       </section>
     </div>

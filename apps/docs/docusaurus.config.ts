@@ -14,6 +14,20 @@ const config: Config = {
   url: 'https://docs.tablevera.online',
   baseUrl: '/',
 
+  customFields: {
+    apiUrl: process.env.DOCS_API_URL ?? 'http://localhost:4000/graphql',
+  },
+
+  headTags: [
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'docs-api-url',
+        content: process.env.DOCS_API_URL ?? 'http://localhost:4000/graphql',
+      },
+    },
+  ],
+
   onBrokenLinks: 'throw',
 
   i18n: {

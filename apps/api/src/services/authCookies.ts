@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { parseCookie, stringifySetCookie } from 'cookie';
 import { env } from '../config/env.js';
 
-export type BrowserAuthApp = 'web' | 'dashboard';
+export type BrowserAuthApp = 'web' | 'dashboard' | 'docs';
 
 const ACCESS_MAX_AGE_SEC = 15 * 60;
 const REFRESH_MAX_AGE_SEC = 7 * 24 * 60 * 60;
@@ -18,7 +18,7 @@ function cookieNames(app: BrowserAuthApp) {
   };
 }
 
-function serializeAuthCookie(name: string, value: string, maxAgeSec: number) {
+function serializeAuthCookie(name: string, value: string, maxAgeSec: number, domain?: string) {
   const secure = env.NODE_ENV === 'production';
   return stringifySetCookie({
     name,
@@ -28,13 +28,14 @@ function serializeAuthCookie(name: string, value: string, maxAgeSec: number) {
     sameSite: 'lax',
     path: '/',
     maxAge: maxAgeSec,
+    ...(domain ? { domain } : {}),
   });
 }
 
 export function resolveBrowserAuthApp(req: Request): BrowserAuthApp | null {
   const header = req.headers['x-client-app'];
   const value = Array.isArray(header) ? header[0] : header;
-  if (value === 'web' || value === 'dashboard') return value;
+  if (value === 'web' || value === 'dashboard' || value === 'docs') return value;
   return null;
 }
 
@@ -148,6 +149,50 @@ export function endImpersonationCookies(res: Response, req: Request): boolean {
   clearCookie(res, names.adminAccess);
   clearCookie(res, names.adminRefresh);
   return true;
+}
+
+const DOCS_ACCESS_COOKIE = 'tv_docs_access';
+const DOCS_ACCESS_MAX_AGE_SEC = 30 * 24 * 60 * 60;
+
+function docsCookieDomain() {
+  return env.NODE_ENV === 'production' ? '.tablevera.online' : undefined;
+}
+
+export function getDocsAccessTokenFromRequest(req: Request): string | null {
+  const cookies = readCookies(req);
+  return cookies[DOCS_ACCESS_COOKIE] || null;
+}
+
+export function setDocsAccessCookie(res: Response, token: string) {
+  const serialized = serializeAuthCookie(
+    DOCS_ACCESS_COOKIE,
+    token,
+    DOCS_ACCESS_MAX_AGE_SEC,
+    docsCookieDomain(),
+  );
+  const existing = res.getHeader('Set-Cookie');
+  if (!existing) {
+    res.setHeader('Set-Cookie', serialized);
+    return;
+  }
+  const list = Array.isArray(existing) ? existing : [String(existing)];
+  res.setHeader('Set-Cookie', [...list, serialized]);
+}
+
+export function clearDocsAccessCookie(res: Response) {
+  const serialized = serializeAuthCookie(
+    DOCS_ACCESS_COOKIE,
+    '',
+    0,
+    docsCookieDomain(),
+  );
+  const existing = res.getHeader('Set-Cookie');
+  if (!existing) {
+    res.setHeader('Set-Cookie', serialized);
+    return;
+  }
+  const list = Array.isArray(existing) ? existing : [String(existing)];
+  res.setHeader('Set-Cookie', [...list, serialized]);
 }
 
 /** Browser clients get empty tokens in GraphQL body so XSS cannot read them. */

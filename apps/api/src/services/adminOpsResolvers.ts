@@ -60,6 +60,12 @@ import {
   adminDeleteRestaurant,
   requestAdminDeleteUserCode,
 } from './adminDeleteUser.js';
+import {
+  adminListDocsAccessRequests,
+  adminSendDocsAccessOtp,
+  grantDocsAccess,
+  reviewDocsAccessRequest,
+} from './docsAccess.js';
 import { clearSeedData as wipeSeedData } from './seedData.js';
 import { assertCanAssignRole } from './roleAccess.js';
 import {
@@ -174,6 +180,20 @@ export const adminOpsQuery = {
   ) => {
     requireAdmin(ctx);
     return listFlaggedContent(args.limit ?? 50);
+  },
+
+  adminDocsAccessRequests: async (
+    _: unknown,
+    args: {
+      status?: string;
+      search?: string;
+      limit?: number;
+      offset?: number;
+    },
+    ctx: GraphQLContext,
+  ) => {
+    requireAdmin(ctx);
+    return adminListDocsAccessRequests(args);
   },
 };
 
@@ -675,6 +695,41 @@ export const adminOpsMutation = {
     const admin = requireAdmin(ctx);
     const { id, ...input } = args;
     return updateSupportTicket(id, input, admin._id.toString());
+  },
+
+  reviewDocsAccessRequest: async (
+    _: unknown,
+    args: { id: string; status: string; notes?: string | null },
+    ctx: GraphQLContext,
+  ) => {
+    const admin = requireAdmin(ctx);
+    if (args.status !== 'approved' && args.status !== 'denied') {
+      throw new Error('Status must be approved or denied');
+    }
+    return reviewDocsAccessRequest(
+      args.id,
+      args.status,
+      admin._id.toString(),
+      args.notes,
+    );
+  },
+
+  grantDocsAccess: async (
+    _: unknown,
+    args: { email: string; notes?: string | null },
+    ctx: GraphQLContext,
+  ) => {
+    const admin = requireAdmin(ctx);
+    return grantDocsAccess(args.email, admin._id.toString(), args.notes);
+  },
+
+  adminSendDocsAccessOtp: async (
+    _: unknown,
+    args: { email: string },
+    ctx: GraphQLContext,
+  ) => {
+    requireAdmin(ctx);
+    return adminSendDocsAccessOtp(args.email);
   },
 
   addSupportNote: async (

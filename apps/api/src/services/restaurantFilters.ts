@@ -4,6 +4,7 @@ type RestaurantSearchArgs = {
   search?: string;
   status?: string;
   city?: string;
+  cuisine?: string;
 };
 
 function escapeRegex(value: string) {
@@ -15,7 +16,16 @@ export function buildRestaurantSearchClauses(
 ): Record<string, unknown>[] {
   const clauses: Record<string, unknown>[] = [];
   if (args.status) clauses.push({ status: args.status });
-  if (args.city) clauses.push({ 'address.city': args.city });
+  if (args.city?.trim()) {
+    clauses.push({
+      'address.city': new RegExp(`^${escapeRegex(args.city.trim())}$`, 'i'),
+    });
+  }
+  if (args.cuisine?.trim()) {
+    clauses.push({
+      cuisine: new RegExp(`^${escapeRegex(args.cuisine.trim())}$`, 'i'),
+    });
+  }
   if (args.search?.trim()) {
     const regex = new RegExp(escapeRegex(args.search.trim()), 'i');
     clauses.push({

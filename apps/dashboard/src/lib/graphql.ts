@@ -265,10 +265,19 @@ export const ADMIN_RESTAURANTS = gql`
   query AdminRestaurants(
     $status: RestaurantStatus
     $search: String
+    $city: String
+    $cuisine: String
     $limit: Int
     $offset: Int
   ) {
-    adminRestaurants(status: $status, search: $search, limit: $limit, offset: $offset) {
+    adminRestaurants(
+      status: $status
+      search: $search
+      city: $city
+      cuisine: $cuisine
+      limit: $limit
+      offset: $offset
+    ) {
       total
       items {
         id
@@ -308,6 +317,16 @@ export const ADMIN_RESTAURANTS = gql`
         subscription { id plan status trialEndsAt monthlyPriceCents }
         createdAt
       }
+    }
+  }
+`;
+
+export const ADMIN_RESTAURANT_FILTER_META = gql`
+  query AdminRestaurantFilterMeta {
+    adminRestaurantFilterMeta {
+      total
+      cities
+      cuisines
     }
   }
 `;
@@ -416,8 +435,8 @@ export const SET_RESTAURANT_STATUS = gql`
 `;
 
 export const ADMIN_USERS = gql`
-  query AdminUsers($search: String, $limit: Int, $offset: Int) {
-    adminUsers(search: $search, limit: $limit, offset: $offset) {
+  query AdminUsers($search: String, $role: UserRole, $limit: Int, $offset: Int) {
+    adminUsers(search: $search, role: $role, limit: $limit, offset: $offset) {
       total
       hasSuperAdmin
       items { id email phone firstName lastName role loyaltyPoints emailVerified phoneVerified restaurantIds createdAt }
@@ -1748,13 +1767,32 @@ export const CANCEL_PENDING_PLAN_CHANGE = gql`
 `;
 
 export const AUDIT_LOGS = gql`
-  query AuditLogs($limit: Int, $offset: Int) {
-    auditLogs(limit: $limit, offset: $offset) {
+  query AuditLogs($actorId: ID, $action: String, $resource: String, $limit: Int, $offset: Int) {
+    auditLogs(actorId: $actorId, action: $action, resource: $resource, limit: $limit, offset: $offset) {
       total
       items {
-        id actorId action resource resourceId details createdAt
+        id actorId action resource resourceId details ip createdAt
         actor { id firstName lastName email }
       }
+    }
+  }
+`;
+
+export const AUDIT_LOG = gql`
+  query AuditLog($id: ID!) {
+    auditLog(id: $id) {
+      id actorId action resource resourceId details ip createdAt
+      actor { id firstName lastName email role }
+    }
+  }
+`;
+
+export const AUDIT_LOG_FILTER_OPTIONS = gql`
+  query AuditLogFilterOptions {
+    auditLogFilterOptions {
+      actions
+      resources
+      actors { id firstName lastName email }
     }
   }
 `;
@@ -2473,6 +2511,73 @@ export const SET_PREMIUM_SMS_ADDON = gql`
     setPremiumSmsAddon(restaurantId: $restaurantId, enabled: $enabled) {
       id plan
       features { premiumSms premiumSmsAddon }
+    }
+  }
+`;
+
+export const ADMIN_DOCS_ACCESS_REQUESTS = gql`
+  query AdminDocsAccessRequests(
+    $status: DocsAccessRequestStatus
+    $search: String
+    $limit: Int
+    $offset: Int
+  ) {
+    adminDocsAccessRequests(status: $status, search: $search, limit: $limit, offset: $offset) {
+      total
+      limit
+      offset
+      items {
+        id
+        email
+        firstName
+        lastName
+        company
+        reason
+        status
+        notes
+        createdAt
+        reviewedAt
+        reviewer {
+          id
+          firstName
+          lastName
+          email
+        }
+      }
+    }
+  }
+`;
+
+export const REVIEW_DOCS_ACCESS_REQUEST = gql`
+  mutation ReviewDocsAccessRequest(
+    $id: ID!
+    $status: DocsAccessRequestStatus!
+    $notes: String
+  ) {
+    reviewDocsAccessRequest(id: $id, status: $status, notes: $notes) {
+      id
+      status
+      notes
+      reviewedAt
+    }
+  }
+`;
+
+export const GRANT_DOCS_ACCESS = gql`
+  mutation GrantDocsAccess($email: String!, $notes: String) {
+    grantDocsAccess(email: $email, notes: $notes) {
+      id
+      email
+      status
+    }
+  }
+`;
+
+export const ADMIN_SEND_DOCS_ACCESS_OTP = gql`
+  mutation AdminSendDocsAccessOtp($email: String!) {
+    adminSendDocsAccessOtp(email: $email) {
+      success
+      message
     }
   }
 `;

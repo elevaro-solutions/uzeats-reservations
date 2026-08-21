@@ -28,6 +28,13 @@ import {
 } from '@reservations/shared';
 import { assertCanAssignRole } from '../services/roleAccess.js';
 import { submitContactForm } from '../services/contactForm.js';
+import {
+  checkDocsAccessEmail,
+  getDocsAccessSession,
+  requestDocsAccess,
+  requestDocsAccessOtp,
+  verifyDocsAccessOtp,
+} from '../services/docsAccess.js';
 import { sendRestaurantInquiry } from '../services/restaurantInquiry.js';
 import {
   isRestaurantBookmarked,
@@ -181,6 +188,7 @@ import {
   mapGiftCard,
   mapBoostCampaign,
   mapIntegration,
+  mapAuditLog,
   slugify,
 } from './mappers.js';
 import { notifyUser, notifyRestaurantStaff } from '../services/notifications.js';
@@ -995,7 +1003,14 @@ export const resolvers = {
 
     adminRestaurants: async (
       _: unknown,
-      args: { status?: string; search?: string; limit?: number; offset?: number },
+      args: {
+        status?: string;
+        search?: string;
+        city?: string;
+        cuisine?: string;
+        limit?: number;
+        offset?: number;
+      },
       ctx: GraphQLContext,
     ) => {
       requireAdmin(ctx);
@@ -1008,6 +1023,28 @@ export const resolvers = {
         map: mapRestaurant,
       });
       return { ...result, page: Math.floor(result.offset / result.limit) + 1 };
+    },
+
+    adminRestaurantFilterMeta: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      requireAdmin(ctx);
+      const [total, cityRows, cuisineRows] = await Promise.all([
+        Restaurant.countDocuments(),
+        Restaurant.aggregate<{ _id: string }>([
+          { $group: { _id: '$address.city' } },
+          { $match: { _id: { $nin: [null, ''] } } },
+          { $sort: { _id: 1 } },
+        ]),
+        Restaurant.aggregate<{ _id: string }>([
+          { $group: { _id: '$cuisine' } },
+          { $match: { _id: { $nin: [null, ''] } } },
+          { $sort: { _id: 1 } },
+        ]),
+      ]);
+      return {
+        total,
+        cities: cityRows.map((row) => row._id),
+        cuisines: cuisineRows.map((row) => row._id),
+      };
     },
 
     adminStats: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
@@ -1059,11 +1096,12 @@ export const resolvers = {
 
     adminUsers: async (
       _: unknown,
-      args: { search?: string; limit?: number; offset?: number },
+      args: { search?: string; role?: string; limit?: number; offset?: number },
       ctx: GraphQLContext,
     ) => {
       requireAdmin(ctx);
       const filter: Record<string, unknown> = {};
+      if (args.role) filter.role = args.role;
       if (args.search?.trim()) {
         const regex = new RegExp(args.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
         filter.$or = [{ email: regex }, { firstName: regex }, { lastName: regex }];
@@ -1099,26 +1137,51 @@ export const resolvers = {
 
     auditLogs: async (
       _: unknown,
-      args: { limit?: number; offset?: number },
+      args: {
+        actorId?: string;
+        action?: string;
+        resource?: string;
+        limit?: number;
+        offset?: number;
+      },
       ctx: GraphQLContext,
     ) => {
       requireAdmin(ctx);
-      return paginateQuery(AuditLog, {}, {
+      const filter: Record<string, unknown> = {};
+      if (args.actorId?.trim()) filter.actorId = args.actorId.trim();
+      if (args.action?.trim()) filter.action = args.action.trim();
+      if (args.resource?.trim()) filter.resource = args.resource.trim();
+      return paginateQuery(AuditLog, filter, {
         sort: { createdAt: -1 },
         limit: args.limit,
         offset: args.offset,
         defaultLimit: 25,
         maxLimit: 200,
-        map: (l: any) => ({
-          id: l._id.toString(),
-          actorId: l.actorId.toString(),
-          action: l.action,
-          resource: l.resource,
-          resourceId: l.resourceId,
-          details: l.details ? JSON.stringify(l.details) : null,
-          createdAt: l.createdAt,
-        }),
+        map: mapAuditLog,
       });
+    },
+
+    auditLog: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+      requireAdmin(ctx);
+      const doc = await AuditLog.findById(args.id);
+      return doc ? mapAuditLog(doc) : null;
+    },
+
+    auditLogFilterOptions: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      requireAdmin(ctx);
+      const [actions, resources, actorIds] = await Promise.all([
+        AuditLog.distinct('action'),
+        AuditLog.distinct('resource'),
+        AuditLog.distinct('actorId'),
+      ]);
+      const actors = actorIds.length
+        ? await User.find({ _id: { $in: actorIds } }).sort({ firstName: 1, lastName: 1 })
+        : [];
+      return {
+        actors: actors.map(mapUser),
+        actions: (actions as string[]).filter(Boolean).sort(),
+        resources: (resources as string[]).filter(Boolean).sort(),
+      };
     },
 
     mySubscription: async (
@@ -1955,6 +2018,12 @@ export const resolvers = {
       if (!reservation || !reservation.dinerId.equals(user._id)) return null;
       return mapReservation(reservation);
     },
+
+    docsAccessSession: async (_: unknown, __: unknown, ctx: GraphQLContext) =>
+      getDocsAccessSession(ctx.req),
+
+    checkDocsAccessEmail: async (_: unknown, args: { email: string }) =>
+      checkDocsAccessEmail(args.email),
   },
 
   RestaurantGroup: {
@@ -2087,6 +2156,18 @@ export const resolvers = {
 
     submitContactForm: async (_: unknown, args: { input: unknown }) =>
       submitContactForm(args.input),
+
+    requestDocsAccess: async (_: unknown, args: { input: unknown }) =>
+      requestDocsAccess(args.input),
+
+    requestDocsAccessOtp: async (_: unknown, args: { email: string }) =>
+      requestDocsAccessOtp(args.email),
+
+    verifyDocsAccessOtp: async (
+      _: unknown,
+      args: { email: string; code: string },
+      ctx: GraphQLContext,
+    ) => verifyDocsAccessOtp(args.email, args.code, ctx.res),
 
     sendRestaurantInquiry: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) =>
       sendRestaurantInquiry(args.input, { user: ctx.user }),

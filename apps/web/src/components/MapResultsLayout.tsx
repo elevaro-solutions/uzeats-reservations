@@ -1,13 +1,13 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Typography } from 'antd';
 import { typography } from '@reservations/ui';
 import { DiscoveryFiltersDrawer } from './DiscoveryFiltersDrawer';
 import { RestaurantDiscoveryMap } from './RestaurantDiscoveryMap';
 import { MapListRestaurantCard } from './MapListRestaurantCard';
-import { InfiniteScrollSentinel } from './InfiniteScrollSentinel';
+import { LoadMoreButton } from './LoadMoreButton';
 
 const { Text } = Typography;
 
@@ -57,7 +57,6 @@ export function MapResultsLayout({
   emptyContent,
 }: MapResultsLayoutProps) {
   const cardRefs = useRef<Record<string, HTMLElement | null>>({});
-  const [listEl, setListEl] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -104,7 +103,7 @@ export function MapResultsLayout({
           </Text>
         </div>
 
-        <div ref={setListEl} className="rt-map-page__list">
+        <div className="rt-map-page__list">
           {restaurants.length === 0 && emptyContent ? (
             emptyContent
           ) : (
@@ -127,12 +126,7 @@ export function MapResultsLayout({
                   />
                 </div>
               ))}
-              <InfiniteScrollSentinel
-                onLoadMore={onLoadMore}
-                hasMore={hasMore}
-                loading={loadingMore}
-                root={listEl}
-              />
+              <LoadMoreButton onLoadMore={onLoadMore} hasMore={hasMore} loading={loadingMore} />
             </>
           )}
         </div>

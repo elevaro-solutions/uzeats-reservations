@@ -54,6 +54,7 @@ import { applyRestaurantImportToForm } from '@/lib/applyRestaurantImport';
 import { RestaurantProfileFields } from '@/components/RestaurantProfileFields';
 import {
   ADMIN_RESTAURANTS,
+  ADMIN_RESTAURANT_FILTER_META,
   ADMIN_CREATE_RESTAURANT,
   ADMIN_DELETE_RESTAURANT,
   ADMIN_UPDATE_RESTAURANT,
@@ -465,9 +466,21 @@ function formatPlanLabel(planKey: string, plans: Array<{ key: string; name: stri
 function AdminRestaurantsContent() {
   const { ready, user } = useRequireAdmin();
   const canDeleteRestaurants = user ? isSuperAdmin(user.role) : false;
-  const { search, status: statusFilter, setSearch, setStatus: setStatusFilter } = useUrlListFilters({
+  const {
+    search,
+    searchQuery,
+    status: statusFilter,
+    city: cityFilter,
+    cuisine: cuisineFilter,
+    setSearch,
+    setStatus: setStatusFilter,
+    setCity: setCityFilter,
+    setCuisine: setCuisineFilter,
+  } = useUrlListFilters({
     search: 'q',
     status: 'status',
+    city: 'city',
+    cuisine: 'cuisine',
   });
   const { limit, offset, setPagination, tablePagination } = useUrlPagination({
     defaultPageSize: 20,
@@ -475,11 +488,16 @@ function AdminRestaurantsContent() {
   const { data, refetch, loading } = useQuery(ADMIN_RESTAURANTS, {
     skip: !ready,
     variables: {
-      search: search || undefined,
+      search: searchQuery || undefined,
       status: statusFilter,
+      city: cityFilter,
+      cuisine: cuisineFilter,
       limit,
       offset,
     },
+  });
+  const { data: filterMetaData, refetch: refetchFilterMeta } = useQuery(ADMIN_RESTAURANT_FILTER_META, {
+    skip: !ready,
   });
   const { data: usersData } = useQuery(ADMIN_USERS, {
     skip: !ready,
@@ -493,6 +511,7 @@ function AdminRestaurantsContent() {
       message.success('Restaurant created');
       closeCreate();
       refetch();
+      refetchFilterMeta();
     },
   });
   const [updateRestaurant, { loading: saving }] = useMutation(ADMIN_UPDATE_RESTAURANT, {
@@ -500,12 +519,14 @@ function AdminRestaurantsContent() {
       message.success('Restaurant updated');
       setEditing(null);
       refetch();
+      refetchFilterMeta();
     },
   });
   const [deleteRestaurant] = useMutation(ADMIN_DELETE_RESTAURANT, {
     onCompleted: () => {
       message.success('Restaurant deleted');
       refetch();
+      refetchFilterMeta();
     },
   });
   const [createSubscription, { loading: assigningPlan }] = useMutation(CREATE_SUBSCRIPTION);
@@ -1023,6 +1044,16 @@ function AdminRestaurantsContent() {
 
   if (!ready) return null;
 
+  const matchingTotal = data?.adminRestaurants?.total ?? 0;
+  const overallTotal = filterMetaData?.adminRestaurantFilterMeta?.total ?? matchingTotal;
+  const hasActiveFilters = Boolean(searchQuery || statusFilter || cityFilter || cuisineFilter);
+  const cityOptions = (filterMetaData?.adminRestaurantFilterMeta?.cities ?? []).map(
+    (city: string) => ({ value: city, label: city }),
+  );
+  const cuisineOptions = (filterMetaData?.adminRestaurantFilterMeta?.cuisines ?? []).map(
+    (cuisine: string) => ({ value: cuisine, label: cuisine }),
+  );
+
   const restaurantFormFields = (formInstance: typeof form, isCreate = false) => (
   <>
     <Row gutter={16}>
@@ -1233,7 +1264,7 @@ function AdminRestaurantsContent() {
         />
         <Card>
           <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-            <Space wrap>
+            <Space wrap align="center">
               <Input
                 placeholder="Search name, cuisine, or location..."
                 prefix={<SearchOutlined />}
@@ -1242,12 +1273,12 @@ function AdminRestaurantsContent() {
                   setSearch(e.target.value);
                 }}
                 allowClear
-                style={{ width: 300 }}
+                style={{ width: 280 }}
               />
               <Select
                 placeholder="Status"
                 allowClear
-                style={{ width: 160 }}
+                style={{ width: 150 }}
                 value={statusFilter}
                 onChange={(value) => {
                   setStatusFilter(value);
@@ -1255,13 +1286,44 @@ function AdminRestaurantsContent() {
                 }}
                 options={STATUS_OPTIONS}
               />
+              <Select
+                placeholder="Location"
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                style={{ width: 180 }}
+                value={cityFilter}
+                onChange={(value) => {
+                  setCityFilter(value);
+                  setPagination(1);
+                }}
+                options={cityOptions}
+              />
+              <Select
+                placeholder="Cuisine"
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                style={{ width: 180 }}
+                value={cuisineFilter}
+                onChange={(value) => {
+                  setCuisineFilter(value);
+                  setPagination(1);
+                }}
+                options={cuisineOptions}
+              />
+              <Text type="secondary">
+                {hasActiveFilters
+                  ? `${matchingTotal} of ${overallTotal} restaurant${overallTotal === 1 ? '' : 's'}`
+                  : `${overallTotal} restaurant${overallTotal === 1 ? '' : 's'}`}
+              </Text>
             </Space>
             <Table
               loading={loading}
               rowKey="id"
               dataSource={data?.adminRestaurants?.items ?? []}
               scroll={{ y: 420, x: 'max-content' }}
-              pagination={tablePagination(data?.adminRestaurants?.total ?? 0, {
+              pagination={tablePagination(matchingTotal, {
                 showSizeChanger: true,
               })}
               columns={[

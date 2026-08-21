@@ -199,4 +199,18 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     bodyText:
       'Hi {{firstName}},\n\nInvoice {{invoiceNumber}} for {{period}} totaling {{amount}} is ready.',
   },
+  {
+    key: 'docs_access_otp',
+    name: 'Docs access verification code',
+    subject: 'Your Tablevera docs verification code',
+    description: 'One-time code for approved docs.tablevera.online access.',
+    bodyHtml: [
+      emailParagraph('You requested access to <strong>Tablevera Docs</strong>.'),
+      emailParagraph('Enter this verification code on the docs site. It expires in 10 minutes.'),
+      emailDetailBox([{ label: 'Verification code', value: '{{code}}' }]),
+      emailMuted('If you did not request this code, you can safely ignore this email.'),
+    ].join(''),
+    bodyText:
+      'You requested access to Tablevera Docs.\n\nYour verification code: {{code}}\n\nThis code expires in 10 minutes. If you did not request it, ignore this email.',
+  },
 ] as const;

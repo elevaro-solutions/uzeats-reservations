@@ -1,0 +1,151 @@
+.wrap {
+  min-height: calc(100vh - var(--ifm-navbar-height));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+}
+
+.card {
+  width: min(100%, 480px);
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 1.75rem;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+}
+
+.brand {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.brand h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.35rem;
+}
+
+.brand p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.95rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.form label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.form input,
+.form textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+}
+
+.form button {
+  margin-top: 0.25rem;
+  border: 0;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  background: #0f172a;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.secondary {
+  background: transparent !important;
+  color: #475569 !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.hint {
+  margin: 0;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.success {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.success p {
+  margin: 0;
+  color: #166534;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.note {
+  margin: 0.75rem 0 0;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.error {
+  margin: 0.75rem 0 0;
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+[data-theme='dark'] .wrap {
+  background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
+}
+
+[data-theme='dark'] .card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+[data-theme='dark'] .brand p,
+[data-theme='dark'] .hint {
+  color: #94a3b8;
+}
+
+[data-theme='dark'] .form label {
+  color: #e2e8f0;
+}
+
+[data-theme='dark'] .form input,
+[data-theme='dark'] .form textarea {
+  background: #0f172a;
+  border-color: #475569;
+  color: #f8fafc;
+}
+
+[data-theme='dark'] .form button {
+  background: #2563eb;
+}
+
+[data-theme='dark'] .secondary {
+  color: #cbd5e1 !important;
+  border-color: #475569 !important;
+}

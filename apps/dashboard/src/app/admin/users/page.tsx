@@ -46,6 +46,7 @@ import {
 import { useAuth } from '@/lib/auth';
 import { isPlatformAdmin, isSuperAdmin, canEditUser } from '@/lib/roles';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
+import { useUrlListFilters } from '@/lib/useUrlListFilters';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 
 const { Paragraph, Text } = Typography;
@@ -64,7 +65,12 @@ function AdminUsersPageContent() {
   const canDeleteUsers = user ? isSuperAdmin(user.role) : false;
   const canEditRecord = (record: { role: string }) =>
     user ? canEditUser(user.role, record.role) : false;
-  const [search, setSearch] = useState('');
+  const { search, searchQuery, role: roleFilter, setSearch, setRole: setRoleFilter } =
+    useUrlListFilters({
+      search: 'q',
+      role: 'role',
+    });
+  const roleParam = ROLES.some((r) => r.value === roleFilter) ? roleFilter : undefined;
   const [resetModal, setResetModal] = useState<{
     userId: string;
     name: string;
@@ -88,12 +94,17 @@ function AdminUsersPageContent() {
   const [inviteForm] = Form.useForm();
   const [assignForm] = Form.useForm();
   const [editForm] = Form.useForm();
-  const { limit, offset, setPagination, tablePagination } = useUrlPagination({
+  const { limit, offset, tablePagination } = useUrlPagination({
     defaultPageSize: 20,
   });
   const { data, loading, refetch } = useQuery(ADMIN_USERS, {
     skip: !ready,
-    variables: { search: search || undefined, limit, offset },
+    variables: {
+      search: searchQuery || undefined,
+      role: roleParam,
+      limit,
+      offset,
+    },
   });
   const { data: restaurantsData } = useQuery(ADMIN_RESTAURANTS, {
     skip: !ready,
@@ -385,17 +396,24 @@ function AdminUsersPageContent() {
                 description="Assign the Super Admin role to a platform admin account. After that, only super admins can grant admin or super admin roles."
               />
             )}
-            <Input
-              placeholder="Search by name or email..."
-              prefix={<SearchOutlined />}
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPagination(1);
-              }}
-              allowClear
-              style={{ maxWidth: 360 }}
-            />
+            <Space wrap>
+              <Input
+                placeholder="Search by name or email..."
+                prefix={<SearchOutlined />}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                allowClear
+                style={{ width: 300 }}
+              />
+              <Select
+                placeholder="Role"
+                allowClear
+                style={{ width: 180 }}
+                value={roleParam}
+                onChange={(value) => setRoleFilter(value)}
+                options={ROLES}
+              />
+            </Space>
             <Table
               loading={loading}
               rowKey="id"

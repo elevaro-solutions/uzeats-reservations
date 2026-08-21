@@ -10,7 +10,7 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(16),
   JWT_ACCESS_EXPIRES: z.string().default('15m'),
   JWT_REFRESH_EXPIRES: z.string().default('7d'),
-  CORS_ORIGINS: z.string().default('http://localhost:3000,http://localhost:3001'),
+  CORS_ORIGINS: z.string().default('http://localhost:3000,http://localhost:3001,http://localhost:3002'),
   GOOGLE_CLIENT_ID: z.string().optional().default(''),
   GOOGLE_CLIENT_SECRET: z.string().optional().default(''),
   TWILIO_ACCOUNT_SID: z.string().optional().default(''),
@@ -20,6 +20,7 @@ const envSchema = z.object({
   // Leave unset in production to fall back to CORS_ORIGINS; .env.example sets localhost for dev.
   WEB_APP_URL: z.string().default(''),
   DASHBOARD_APP_URL: z.string().default(''),
+  DOCS_APP_URL: z.string().default(''),
   AUTH_DEV_OTP: z
     .string()
     .optional()

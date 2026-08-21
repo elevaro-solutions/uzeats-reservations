@@ -468,6 +468,19 @@ export function mapSurveyResponse(s: any) {
   };
 }
 
+export function mapAuditLog(l: any) {
+  return {
+    id: l._id.toString(),
+    actorId: l.actorId.toString(),
+    action: l.action,
+    resource: l.resource,
+    resourceId: l.resourceId ?? null,
+    details: l.details != null ? JSON.stringify(l.details) : null,
+    ip: l.ip ?? null,
+    createdAt: l.createdAt,
+  };
+}
+
 export function slugify(name: string) {
   return `${name
     .toLowerCase()

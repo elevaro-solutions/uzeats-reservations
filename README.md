@@ -6,7 +6,7 @@ Primary domain: [https://tablevera.online](https://tablevera.online)
 
 See [CHANGELOG.md](./CHANGELOG.md) for release history.
 
-**Documentation:** [apps/docs](./apps/docs) — Docusaurus site with guides for developers, diners, staff, admins, architecture, and LLM agents. Run locally at http://localhost:3002 (`pnpm --filter @reservations/docs dev`).
+**Documentation:** [apps/docs](./apps/docs) — Docusaurus site with guides for developers, diners, staff, admins, architecture, and LLM agents. Access is gated (request + OTP for approved emails). Run locally at http://localhost:3002 (`pnpm --filter @reservations/docs dev`).
 
 ## Monorepo
 
@@ -94,7 +94,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Shareable booking links (`/r/:slug`) and **Booking widget** page for embed script copy
 - Owner phone / walk-in bookings, **diner and partner reservation edit**, reservation-scoped messaging, and **individual reservation detail pages** (upcoming / past / deposit filters) plus diner **billing history** (`/billing`)
 - Enhanced restaurant detail pages with photo gallery, reviews, FAQ, terms, about, and menu sections
-- Platform admin: users, restaurants (create/edit/delete), invoices, revenue, support, moderation, templates, config, and annual billing discounts
+- Platform admin: users, restaurants (create/edit/delete), invoices, revenue, support, moderation, templates, config, annual billing discounts, **docs access** requests, and richer audit log filters
 - Embeddable booking widget with per-restaurant theme
 - Public contact form, cookie consent, and legal pages (privacy, terms, SMS messaging/opt-in, cookies)
 - Super-admin developer page for deployment env-var health (secret values masked)
@@ -116,7 +116,7 @@ JWT_REFRESH_SECRET=...
 
 Optional integrations: `STRIPE_*` (production requires `STRIPE_WEBHOOK_SECRET`), `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (web + dashboard Stripe.js for deposits and partner signup/billing), `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `SENDGRID_API_KEY` (or `RESEND_API_KEY`), `TELEGRAM_BOT_TOKEN` (+ `API_PUBLIC_URL` / `TELEGRAM_WEBHOOK_SECRET` in production when the bot is enabled), `DO_SPACES_*`, `VAPID_*`, `NEXT_PUBLIC_SITE_URL` (canonical URLs for sitemap/SEO; defaults to `https://tablevera.online`), `ELEVARO_LEADS_API_KEY` (contact form lead ingest). Dashboard only: `NEXT_PUBLIC_SHOW_DEV_CREDENTIALS=true` shows seed login hints on `/login`.
 
-For password reset emails, set `WEB_APP_URL` and `DASHBOARD_APP_URL` on the API so reset links land on the correct app.
+For password reset emails, set `WEB_APP_URL` and `DASHBOARD_APP_URL` on the API so reset links land on the correct app. For the docs site, set `DOCS_APP_URL` on the API and `DOCS_API_URL` on the docs build (GraphQL endpoint).
 
 ## Deploy notes (DigitalOcean)
 

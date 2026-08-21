@@ -1384,6 +1384,12 @@ html.rt-map-view .rt-site-footer {
   padding: 20px;
 }
 
+.rt-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0 8px;
+}
+
 @media (max-width: 1100px) {
   .rt-cards-page__split {
     grid-template-columns: 200px minmax(0, 1fr);
