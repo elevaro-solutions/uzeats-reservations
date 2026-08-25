@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { topRestaurantsLandingMeta } from '@reservations/shared';
+import { topRestaurantsLandingMeta, seoCuisineInCityLabel, seoTierRestaurantsIn } from '@reservations/shared';
 import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
 import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
 import {
@@ -49,12 +49,12 @@ export default async function TopRestaurantsCityPage({ params }: PageProps) {
     { href: `/near-me/restaurants/${slug}`, label: `Restaurants near me in ${city.city}` },
     ...cuisines.slice(0, 4).map((c) => ({
       href: `/cuisine/${c.slug}/${slug}`,
-      label: `${c.label} in ${city.city}`,
+      label: seoCuisineInCityLabel(c.label, `${city.city}, ${city.state}`),
     })),
     ...cities
       .filter((c) => c.slug !== slug)
       .slice(0, 4)
-      .map((c) => ({ href: `/top-restaurants/${c.slug}`, label: `Top in ${c.label}` })),
+      .map((c) => ({ href: `/top-restaurants/${c.slug}`, label: seoTierRestaurantsIn('top', c.label) })),
   ];
 
   return (

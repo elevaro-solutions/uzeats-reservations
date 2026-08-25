@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { cuisineLandingMeta } from '@reservations/shared';
+import { cuisineLandingMeta, seoCuisineInCityLabel, seoCuisineLinkLabel } from '@reservations/shared';
 import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
 import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
 import {
@@ -47,12 +47,12 @@ export default async function CuisineLandingPage({ params }: PageProps) {
   const related = [
     ...cities.slice(0, 8).map((c) => ({
       href: `/cuisine/${slug}/${c.slug}`,
-      label: `${cuisine} in ${c.label}`,
+      label: seoCuisineInCityLabel(cuisine, c.label),
     })),
     ...cuisines
       .filter((c) => c.slug !== slug)
       .slice(0, 6)
-      .map((c) => ({ href: `/cuisine/${c.slug}`, label: c.label })),
+      .map((c) => ({ href: `/cuisine/${c.slug}`, label: seoCuisineLinkLabel(c.label) })),
   ];
 
   return (

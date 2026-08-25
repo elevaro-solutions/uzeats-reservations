@@ -1,6 +1,12 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { seoOccasionLinkLabel, seoOccasionLinkParts } from '@reservations/shared';
 import { JsonLd } from '@/components/JsonLd';
+import { DiscoveryIndexRowList } from '@/components/DiscoveryIndexRowList';
+import {
+  occasionIndexDescription,
+  occasionIndexImageAlt,
+  occasionIndexImageSrc,
+} from '@/lib/discoveryIndexContent';
 import { listOccasionsForIndex } from '@/lib/discoveryIndex';
 import { breadcrumbJsonLd, discoveryLandingMetadata, itemListJsonLd } from '@/lib/seo';
 
@@ -20,7 +26,7 @@ export default async function OccasionIndexPage() {
     { name: 'Occasions' },
   ];
   const items = occasions.map((occasion) => ({
-    name: occasion.label,
+    name: seoOccasionLinkLabel(occasion.label),
     url: `/occasion/${occasion.slug}`,
   }));
 
@@ -43,20 +49,25 @@ export default async function OccasionIndexPage() {
       <p style={{ marginBottom: 32, fontSize: 16, color: 'rgba(0,0,0,0.45)' }}>
         Match the mood — then reserve a table with live availability.
       </p>
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 12 }}>
-        {occasions.map((occasion) => (
-          <li key={occasion.slug}>
-            <Link href={`/occasion/${occasion.slug}`} style={{ fontSize: 16 }}>
-              {occasion.label}
-              {typeof occasion.count === 'number' ? (
-                <span style={{ marginLeft: 8, fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>
-                  ({occasion.count})
-                </span>
-              ) : null}
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <DiscoveryIndexRowList
+        items={occasions.map((occasion) => ({
+          slug: occasion.slug,
+          href: `/occasion/${occasion.slug}`,
+          labelParts: seoOccasionLinkParts(occasion.label),
+          description: occasionIndexDescription(
+            occasion.slug,
+            occasion.label,
+            occasion.description,
+          ),
+          imageSrc: occasionIndexImageSrc(
+            occasion.slug,
+            occasion.label,
+            occasion.imageUrl,
+          ),
+          imageAlt: occasionIndexImageAlt(occasion.label),
+          count: occasion.count,
+        }))}
+      />
     </div>
   );
 }

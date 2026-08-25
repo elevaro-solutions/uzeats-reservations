@@ -49,6 +49,8 @@ export default async function NearMeRestaurantsStatePage({ params }: PageProps) 
   );
   const related = [
     { href: `/states/${slug}`, label: `All restaurants in ${state.name}` },
+    { href: `/top-restaurants/state/${slug}`, label: `Top restaurants in ${state.name}` },
+    { href: `/best-restaurants/state/${slug}`, label: `Best restaurants in ${state.name}` },
     ...cities.map((c) => ({
       href: `/near-me/restaurants/${c.slug}`,
       label: `Restaurants near me in ${c.label}`,

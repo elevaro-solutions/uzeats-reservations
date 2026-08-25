@@ -1,6 +1,11 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { cuisineInCityLandingMeta } from '@reservations/shared';
+import {
+  cuisineInCityLandingMeta,
+  seoCuisineInCityLabel,
+  seoCuisineLinkLabel,
+  seoTierRestaurantsIn,
+} from '@reservations/shared';
 import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
 import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
 import {
@@ -51,22 +56,22 @@ export default async function CuisineCityLandingPage({ params }: PageProps) {
 
   const [cities, cuisines] = await Promise.all([listCitiesForIndex(), listCuisinesForIndex()]);
   const related = [
-    { href: `/cuisine/${slug}`, label: `All ${cuisine}` },
-    { href: `/cities/${citySlug}`, label: `Restaurants in ${city.city}` },
-    { href: `/top-restaurants/${citySlug}`, label: `Top in ${city.city}` },
+    { href: `/cuisine/${slug}`, label: seoCuisineLinkLabel(cuisine) },
+    { href: `/cities/${citySlug}`, label: seoTierRestaurantsIn('best', `${city.city}, ${city.state}`) },
+    { href: `/top-restaurants/${citySlug}`, label: seoTierRestaurantsIn('top', `${city.city}, ${city.state}`) },
     ...cities
       .filter((c) => c.slug !== citySlug)
       .slice(0, 4)
       .map((c) => ({
         href: `/cuisine/${slug}/${c.slug}`,
-        label: `${cuisine} in ${c.label}`,
+        label: seoCuisineInCityLabel(cuisine, c.label),
       })),
     ...cuisines
       .filter((c) => c.slug !== slug)
       .slice(0, 4)
       .map((c) => ({
         href: `/cuisine/${c.slug}/${citySlug}`,
-        label: `${c.label} in ${city.city}`,
+        label: seoCuisineInCityLabel(c.label, `${city.city}, ${city.state}`),
       })),
   ];
 

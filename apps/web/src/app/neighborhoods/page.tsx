@@ -1,6 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { seoTierRestaurantsIn, seoTierRestaurantsInParts } from '@reservations/shared';
 import { JsonLd } from '@/components/JsonLd';
+import { DiscoveryIndexRowList } from '@/components/DiscoveryIndexRowList';
+import {
+  neighborhoodIndexDescription,
+  neighborhoodIndexImageAlt,
+  neighborhoodIndexImageSrc,
+} from '@/lib/discoveryIndexContent';
 import { listNeighborhoodsForIndex } from '@/lib/discoveryIndex';
 import { breadcrumbJsonLd, discoveryLandingMetadata, itemListJsonLd } from '@/lib/seo';
 
@@ -20,7 +27,7 @@ export default async function NeighborhoodsIndexPage() {
     { name: 'Neighborhoods' },
   ];
   const items = neighborhoods.map((n) => ({
-    name: n.label,
+    name: seoTierRestaurantsIn('best', n.label),
     url: `/neighborhoods/${n.slug}`,
   }));
 
@@ -43,20 +50,17 @@ export default async function NeighborhoodsIndexPage() {
       <p style={{ marginBottom: 32, fontSize: 16, color: 'rgba(0,0,0,0.45)' }}>
         Explore walkable dining areas and reserve tables with live availability.
       </p>
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 12 }}>
-        {neighborhoods.map((n) => (
-          <li key={n.slug}>
-            <Link href={`/neighborhoods/${n.slug}`} style={{ fontSize: 16 }}>
-              {n.label}
-              {typeof n.count === 'number' ? (
-                <span style={{ marginLeft: 8, fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>
-                  ({n.count})
-                </span>
-              ) : null}
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <DiscoveryIndexRowList
+        items={neighborhoods.map((n) => ({
+          slug: n.slug,
+          href: `/neighborhoods/${n.slug}`,
+          labelParts: seoTierRestaurantsInParts('best', n.label),
+          description: neighborhoodIndexDescription(n.slug, n.label),
+          imageSrc: neighborhoodIndexImageSrc(n.slug, n.label),
+          imageAlt: neighborhoodIndexImageAlt(n.label),
+          count: n.count,
+        }))}
+      />
       <p style={{ marginTop: 32, fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>
         Also explore <Link href="/near-me">near me neighborhoods</Link>,{' '}
         <Link href="/landmarks">landmarks</Link>, and{' '}

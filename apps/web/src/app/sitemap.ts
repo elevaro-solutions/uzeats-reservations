@@ -22,6 +22,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${base}/`, lastModified: now, changeFrequency: 'daily', priority: 1 },
     { url: `${base}/top-restaurants`, lastModified: now, changeFrequency: 'weekly', priority: 0.85 },
+    { url: `${base}/best-restaurants`, lastModified: now, changeFrequency: 'weekly', priority: 0.85 },
     { url: `${base}/top-locations`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${base}/near-me`, lastModified: now, changeFrequency: 'weekly', priority: 0.85 },
     { url: `${base}/near-me/restaurants`, lastModified: now, changeFrequency: 'weekly', priority: 0.85 },
@@ -63,8 +64,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     listCuisineLandingParams(),
     listOccasionLandingParams(),
     Promise.resolve(listStateLandingParams()),
-    Promise.resolve(listLandmarkLandingParams()),
-    Promise.resolve(listCategoryLandingParams()),
+    listLandmarkLandingParams(),
+    listCategoryLandingParams(),
     Promise.resolve(listMealLandingParams()),
     listCuisineCityLandingParams(),
     listCategoryCityLandingParams(),
@@ -123,6 +124,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const topRestaurantCityPages = cityParams.map(({ slug }) => ({
     url: `${base}/top-restaurants/${slug}`,
+    lastModified: now,
+    changeFrequency: 'weekly' as const,
+    priority: 0.85,
+  }));
+
+  const topRestaurantStatePages = stateParams.map(({ slug }) => ({
+    url: `${base}/top-restaurants/state/${slug}`,
+    lastModified: now,
+    changeFrequency: 'weekly' as const,
+    priority: 0.85,
+  }));
+
+  const bestRestaurantStatePages = stateParams.map(({ slug }) => ({
+    url: `${base}/best-restaurants/state/${slug}`,
     lastModified: now,
     changeFrequency: 'weekly' as const,
     priority: 0.85,
@@ -224,6 +239,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...landmarkPages,
     ...categoryPages,
     ...topRestaurantCityPages,
+    ...topRestaurantStatePages,
+    ...bestRestaurantStatePages,
     ...nearMeRestaurantStatePages,
     ...nearMeRestaurantCityPages,
     ...nearMeNeighborhoodPages,

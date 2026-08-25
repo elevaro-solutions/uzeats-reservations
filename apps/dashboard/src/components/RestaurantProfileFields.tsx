@@ -8,11 +8,43 @@ import {
   DINING_STYLES,
   DISCOVERY_OCCASIONS,
   MEALS,
+  RESTAURANT_DISCOVERY_CATEGORIES,
 } from '@reservations/shared';
+import { useQuery } from '@/lib/apollo-hooks';
+import { DISCOVERY_TAXONOMIES } from '@/lib/graphql';
 
 const { Text } = Typography;
 
 export function RestaurantProfileFields() {
+  const { data: occasionData } = useQuery(DISCOVERY_TAXONOMIES, {
+    variables: { kind: 'occasion' },
+  });
+  const { data: categoryData } = useQuery(DISCOVERY_TAXONOMIES, {
+    variables: { kind: 'category' },
+  });
+  const { data: landmarkData } = useQuery(DISCOVERY_TAXONOMIES, {
+    variables: { kind: 'landmark' },
+  });
+  const occasionOptions = (
+    occasionData?.discoveryTaxonomies?.length
+      ? occasionData.discoveryTaxonomies.map((o: { label: string }) => o.label)
+      : [...DISCOVERY_OCCASIONS]
+  ).map((v: string) => ({ value: v, label: v }));
+  const categoryOptions = (
+    categoryData?.discoveryTaxonomies?.length
+      ? categoryData.discoveryTaxonomies.map((c: { slug: string; label: string }) => ({
+          value: c.slug,
+          label: c.label,
+        }))
+      : RESTAURANT_DISCOVERY_CATEGORIES.map((c) => ({ value: c.id, label: c.label }))
+  );
+  const landmarkOptions = (landmarkData?.discoveryTaxonomies ?? []).map(
+    (l: { slug: string; label: string; city?: string | null }) => ({
+      value: l.slug,
+      label: l.city ? `${l.label}, ${l.city}` : l.label,
+    }),
+  );
+
   return (
     <>
       <Form.Item
@@ -39,13 +71,45 @@ export function RestaurantProfileFields() {
 
       <Row gutter={[16, 0]}>
         <Col xs={24} md={12}>
+          <Form.Item
+            name="categoryIds"
+            label="Categories"
+            extra="Controls which discovery category pages and filters this restaurant appears in."
+          >
+            <Select
+              mode="multiple"
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="Select categories"
+              options={categoryOptions}
+            />
+          </Form.Item>
+        </Col>
+        <Col xs={24} md={12}>
+          <Form.Item
+            name="landmarkIds"
+            label="Landmarks"
+            extra="Associates this restaurant with “near landmark” discovery pages."
+          >
+            <Select
+              mode="multiple"
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="Select landmarks"
+              options={landmarkOptions}
+            />
+          </Form.Item>
+        </Col>
+        <Col xs={24} md={12}>
           <Form.Item name="diningStyles" label="Dining styles">
             <Select mode="multiple" placeholder="Select styles" options={DINING_STYLES.map((v) => ({ value: v, label: v }))} />
           </Form.Item>
         </Col>
         <Col xs={24} md={12}>
           <Form.Item name="discoveryOccasions" label="Good for">
-            <Select mode="multiple" placeholder="Select occasions" options={DISCOVERY_OCCASIONS.map((v) => ({ value: v, label: v }))} />
+            <Select mode="multiple" placeholder="Select occasions" options={occasionOptions} />
           </Form.Item>
         </Col>
         <Col xs={24} md={12}>

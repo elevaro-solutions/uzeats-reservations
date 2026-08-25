@@ -2,6 +2,9 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import mongoose from "mongoose";
+import { createReadStream } from "node:fs";
+import { access } from "node:fs/promises";
+import path from "node:path";
 import { Redis } from "ioredis";
 import { rateLimit } from "express-rate-limit";
 import { ApolloServer } from "@apollo/server";
@@ -30,6 +33,15 @@ import { posRouter } from "./routes/pos.js";
 import { partnerRouter } from "./routes/partner.js";
 import { uploadsRouter } from "./routes/uploads.js";
 import { importRestaurantRouter } from "./routes/importRestaurant.js";
+import { LOCAL_UPLOAD_DIR } from "./services/spaces.js";
+
+const LOCAL_UPLOAD_CONTENT_TYPES: Record<string, string> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+};
 
 const startedAt = Date.now();
 
@@ -232,6 +244,31 @@ async function main() {
     cors({ origin: corsOrigins }),
     partnerRouter,
   );
+
+  app.get("/api/uploads/local/:filename", async (req, res, next) => {
+    try {
+      const filename = path.basename(decodeURIComponent(req.params.filename));
+      if (!filename) {
+        res.status(400).json({ error: "Invalid filename" });
+        return;
+      }
+      const filePath = path.join(LOCAL_UPLOAD_DIR, filename);
+      await access(filePath);
+      const ext = path.extname(filename).toLowerCase();
+      res.setHeader(
+        "Content-Type",
+        LOCAL_UPLOAD_CONTENT_TYPES[ext] ?? "application/octet-stream",
+      );
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      createReadStream(filePath).pipe(res);
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
+        res.status(404).json({ error: "Not found" });
+        return;
+      }
+      next(err);
+    }
+  });
 
   app.use(
     "/api/uploads",

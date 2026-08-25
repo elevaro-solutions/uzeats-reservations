@@ -178,7 +178,7 @@ export function cuisineLandingMeta(cuisine: string): DiscoveryLandingMeta {
   };
 }
 
-export function occasionLandingMeta(occasion: DiscoveryOccasion): DiscoveryLandingMeta {
+export function occasionLandingMeta(occasion: string): DiscoveryLandingMeta {
   const lower = occasion.toLowerCase();
   return {
     title: `${occasion} Restaurants — Reserve Your Table | Tablevera`,
@@ -312,12 +312,86 @@ export function topRestaurantsLandingMeta(city?: string, state?: string): Discov
       {
         question: 'How do I find top restaurants near me?',
         answer:
-          'Open Top Restaurants and tap Near Me, or browse a city or landmark page and enable the top-rated filter. Set your date and party size to see bookable tables.',
+          'Open Top Restaurants and tap Near Me, or browse a city, state, or landmark page and enable the top-rated filter. Set your date and party size to see bookable tables.',
       },
       {
         question: 'Are top restaurant reservations free?',
         answer:
           'Yes for diners. A venue may collect a per-guest deposit that is applied to your check; any deposit is shown before you confirm.',
+      },
+    ],
+  };
+}
+
+export function topRestaurantsInStateMeta(stateName: string, stateCode: string): DiscoveryLandingMeta {
+  return {
+    title: `Top Restaurants in ${stateName} (${stateCode}) — Highly Rated | Tablevera`,
+    description: `Browse top-rated restaurants in ${stateName}. Compare menus, ratings, and live table availability — reserve instantly on Tablevera.`,
+    heading: `Top restaurants in ${stateName}`,
+    intro: `Highly rated dining across ${stateName}. Filter by city, cuisine, price, and occasion, then book with live availability.`,
+    faq: [
+      {
+        question: `How are top restaurants in ${stateName} ranked?`,
+        answer: `This list highlights Tablevera partners in ${stateName} with strong guest ratings (typically 4.5+). Narrow by city, cuisine, price, or occasion to match your plans.`,
+      },
+      {
+        question: `Can I book a top-rated restaurant in ${stateCode} tonight?`,
+        answer: `Often yes. Set today’s date and your party size to see open slots. Jump to a city hub in ${stateName} for a tighter search.`,
+      },
+      {
+        question: `Is reserving a top restaurant in ${stateName} free?`,
+        answer: `Reservations are free for diners on Tablevera. Any per-guest deposit is shown before you confirm and is typically applied to your bill.`,
+      },
+    ],
+  };
+}
+
+export function bestRestaurantsLandingMeta(): DiscoveryLandingMeta {
+  return {
+    title: 'Best Restaurants — Book Highly Rated Tables | Tablevera',
+    description:
+      'Discover the best restaurants with live reservations. Browse by state, city, cuisine, and occasion — book free on Tablevera.',
+    heading: 'Best restaurants',
+    intro:
+      'Find standout dining with strong guest ratings and real-time table availability. Start by state or city, then refine by cuisine and occasion.',
+    faq: [
+      {
+        question: 'How do you choose the best restaurants?',
+        answer:
+          'Best restaurants highlight Tablevera partners with strong average guest ratings (typically 4.5+). You can still filter by location, cuisine, price, and amenities.',
+      },
+      {
+        question: 'What is the difference between best and top restaurants?',
+        answer:
+          'Both surface highly rated partners. Best restaurants pages emphasize state and city browse hubs; top restaurants is the same rating filter with city-focused landings.',
+      },
+      {
+        question: 'Are best restaurant reservations free?',
+        answer:
+          'Yes for diners. A venue may collect a per-guest deposit applied to your check; details appear before you confirm.',
+      },
+    ],
+  };
+}
+
+export function bestRestaurantsInStateMeta(stateName: string, stateCode: string): DiscoveryLandingMeta {
+  return {
+    title: `Best Restaurants in ${stateName} (${stateCode}) | Tablevera`,
+    description: `Find the best restaurants in ${stateName}. Compare ratings, menus, and live table availability — reserve free on Tablevera.`,
+    heading: `Best restaurants in ${stateName}`,
+    intro: `Explore the best places to eat across ${stateName} — highly rated partners with filters for city, cuisine, price, and occasion.`,
+    faq: [
+      {
+        question: `What are the best restaurants in ${stateName}?`,
+        answer: `This page lists highly rated Tablevera partners in ${stateName} (typically 4.5+). Use city and cuisine filters to narrow the list.`,
+      },
+      {
+        question: `Can I find the best restaurants near me in ${stateCode}?`,
+        answer: `Yes. Tap Near Me on this page, or open restaurants near me in ${stateName} for a proximity-first list you can still filter by rating.`,
+      },
+      {
+        question: `Is booking the best restaurants in ${stateName} free?`,
+        answer: `Reservations are free for diners. Deposit details, if required, appear before you confirm.`,
       },
     ],
   };
@@ -635,6 +709,136 @@ export function categoryLandingMeta(
       },
     ],
   };
+}
+
+/** SEO-friendly discovery link labels (best/top … restaurants). */
+export type SeoRestaurantTier = 'best' | 'top';
+
+export type SeoLinkLabelParts = {
+  before: string;
+  highlight: string;
+  after: string;
+};
+
+export function seoLinkLabelText(parts: SeoLinkLabelParts): string {
+  return `${parts.before}${parts.highlight}${parts.after}`;
+}
+
+const OCCASION_STYLE_CATEGORY_IDS = new Set([
+  'romantic',
+  'birthdays',
+  'fun',
+  'casual',
+  'groups',
+  'fine-dining',
+  'kid-friendly',
+]);
+
+export function isOccasionStyleCategory(categoryId: string): boolean {
+  return OCCASION_STYLE_CATEGORY_IDS.has(categoryId);
+}
+
+/** Best/Top {cuisine|category} restaurants — e.g. "Best Italian restaurants". */
+export function seoTierCategoryRestaurantsParts(
+  tier: SeoRestaurantTier,
+  name: string,
+): SeoLinkLabelParts {
+  const prefix = tier === 'best' ? 'Best ' : 'Top ';
+  return { before: prefix, highlight: name, after: ' restaurants' };
+}
+
+export function seoTierCategoryRestaurants(tier: SeoRestaurantTier, name: string): string {
+  return seoLinkLabelText(seoTierCategoryRestaurantsParts(tier, name));
+}
+
+/** Best restaurants for {occasion} — e.g. "Best restaurants for date night". */
+export function seoBestRestaurantsForOccasionParts(occasion: string): SeoLinkLabelParts {
+  return { before: 'Best restaurants for ', highlight: occasion.toLowerCase(), after: '' };
+}
+
+export function seoBestRestaurantsForOccasion(occasion: string): string {
+  return seoLinkLabelText(seoBestRestaurantsForOccasionParts(occasion));
+}
+
+/** Best/Top restaurants in {place} — e.g. "Best restaurants in New York, NY". */
+export function seoTierRestaurantsInParts(tier: SeoRestaurantTier, place: string): SeoLinkLabelParts {
+  const prefix = tier === 'best' ? 'Best ' : 'Top ';
+  return { before: `${prefix}restaurants in `, highlight: place, after: '' };
+}
+
+export function seoTierRestaurantsIn(tier: SeoRestaurantTier, place: string): string {
+  return seoLinkLabelText(seoTierRestaurantsInParts(tier, place));
+}
+
+/** Best/Top restaurants near {landmark} — e.g. "Best restaurants near Times Square". */
+export function seoTierRestaurantsNearParts(
+  tier: SeoRestaurantTier,
+  landmark: string,
+): SeoLinkLabelParts {
+  const prefix = tier === 'best' ? 'Best ' : 'Top ';
+  return { before: `${prefix}restaurants near `, highlight: landmark, after: '' };
+}
+
+export function seoTierRestaurantsNear(tier: SeoRestaurantTier, landmark: string): string {
+  return seoLinkLabelText(seoTierRestaurantsNearParts(tier, landmark));
+}
+
+export function seoCategoryLinkParts(
+  label: string,
+  categoryId: string,
+  tier: SeoRestaurantTier = 'best',
+): SeoLinkLabelParts {
+  if (isOccasionStyleCategory(categoryId)) {
+    return seoBestRestaurantsForOccasionParts(label);
+  }
+  return seoTierCategoryRestaurantsParts(tier, label);
+}
+
+export function seoCategoryLinkLabel(
+  label: string,
+  categoryId: string,
+  tier: SeoRestaurantTier = 'best',
+): string {
+  return seoLinkLabelText(seoCategoryLinkParts(label, categoryId, tier));
+}
+
+export function seoCategoryInCityLabel(
+  label: string,
+  categoryId: string,
+  cityLabel: string,
+  tier: SeoRestaurantTier = 'best',
+): string {
+  if (isOccasionStyleCategory(categoryId)) {
+    return `Best restaurants for ${label.toLowerCase()} in ${cityLabel}`;
+  }
+  return `${tier === 'best' ? 'Best' : 'Top'} ${label} restaurants in ${cityLabel}`;
+}
+
+export function seoCuisineLinkParts(
+  cuisine: string,
+  tier: SeoRestaurantTier = 'best',
+): SeoLinkLabelParts {
+  return seoTierCategoryRestaurantsParts(tier, cuisine);
+}
+
+export function seoCuisineLinkLabel(cuisine: string, tier: SeoRestaurantTier = 'best'): string {
+  return seoLinkLabelText(seoCuisineLinkParts(cuisine, tier));
+}
+
+export function seoCuisineInCityLabel(
+  cuisine: string,
+  cityLabel: string,
+  tier: SeoRestaurantTier = 'best',
+): string {
+  return `${tier === 'best' ? 'Best' : 'Top'} ${cuisine} restaurants in ${cityLabel}`;
+}
+
+export function seoOccasionLinkParts(occasion: string): SeoLinkLabelParts {
+  return seoBestRestaurantsForOccasionParts(occasion);
+}
+
+export function seoOccasionLinkLabel(occasion: string): string {
+  return seoLinkLabelText(seoOccasionLinkParts(occasion));
 }
 
 export function cuisineInCityLandingMeta(

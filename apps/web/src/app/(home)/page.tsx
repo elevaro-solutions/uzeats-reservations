@@ -38,6 +38,7 @@ import { useInfiniteRestaurantSearch } from '@/lib/useInfiniteRestaurantSearch';
 import { useDiscoveryViewMode } from '@/lib/useDiscoveryViewMode';
 import { useDiscoveryUrlSync } from '@/lib/useDiscoveryFilters';
 import { DEFAULT_LOCATION, cityLabel } from '@/lib/cities';
+import { geolocationErrorMessage, resolveDeviceLocation } from '@/lib/deviceLocation';
 import type { LocationSelection } from '@/components/AddressAutocomplete';
 import { MapResultsLayout } from '@/components/MapResultsLayout';
 import { DiscoveryCardsLayout } from '@/components/DiscoveryCardsLayout';
@@ -173,36 +174,29 @@ function HomePageContent() {
     [replaceFilters],
   );
 
-  const requestLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      message.error('Geolocation is not supported by your browser');
-      return;
-    }
+  const requestLocation = useCallback(async () => {
     setGeoLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        applyLocation(
-          {
-            label: 'Near me',
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          },
-          true,
-        );
-        setGeoLoading(false);
-        message.success('Showing restaurants near you');
-      },
-      (err) => {
-        setGeoLoading(false);
-        message.error(
-          err.code === err.PERMISSION_DENIED
-            ? 'Location access denied — please enable it in browser settings'
-            : 'Could not determine your location',
-        );
-      },
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
+    try {
+      const location = await resolveDeviceLocation();
+      setLocationInput(location.label);
+      applyLocation(location, true);
+      message.success(`Showing restaurants near ${location.label}`);
+    } catch (err) {
+      message.error(geolocationErrorMessage(err));
+    } finally {
+      setGeoLoading(false);
+    }
   }, [applyLocation]);
+
+  useEffect(() => {
+    if (!filters.nearMe) return;
+    const label = filters.locationLabel?.trim().toLowerCase();
+    // `?near=1` without a resolved city/state — request device location once.
+    if (filters.lat != null && filters.lng != null && label && label !== 'near me') return;
+    void requestLocation();
+    // Intentionally run once on mount for near=1 entry points.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const clearDeviceLocation = useCallback(() => {
     applyLocation({
@@ -317,10 +311,16 @@ function HomePageContent() {
   });
   const topRestaurants = (topData as any)?.searchRestaurants?.items ?? [];
 
-  const resultsTitle = usingDeviceLocation
-    ? 'Restaurants near you'
-    : hasExplicitLocation
-      ? `Restaurants near ${selectedLocation.label.split(',').slice(0, 2).join(',').trim()}`
+  const locationLabel = selectedLocation.label.trim();
+  const hasResolvedNearMeLabel =
+    usingDeviceLocation &&
+    locationLabel.length > 0 &&
+    locationLabel.toLowerCase() !== 'near me';
+
+  const resultsTitle = hasResolvedNearMeLabel || hasExplicitLocation
+    ? `Restaurants near ${locationLabel.split(',').slice(0, 2).join(',').trim()}`
+    : usingDeviceLocation
+      ? 'Restaurants near you'
       : 'Restaurants';
 
   const clearCategoryFilters = useCallback(() => {

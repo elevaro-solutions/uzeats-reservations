@@ -174,6 +174,8 @@ export const typeDefs = `#graphql
     loyaltyPointsPerVisit: Int!
     loyaltyMinRedeemPoints: Int!
     widgetTheme: WidgetTheme!
+    categoryIds: [String!]!
+    landmarkIds: [String!]!
     diningStyles: [String!]!
     discoveryOccasions: [String!]!
     meals: [String!]!
@@ -1129,6 +1131,50 @@ export const typeDefs = `#graphql
     publishedAt: DateTime
   }
 
+  enum DiscoveryTaxonomyKind { category cuisine occasion landmark }
+
+  type DiscoveryTaxonomyItem {
+    id: ID!
+    kind: DiscoveryTaxonomyKind!
+    slug: String!
+    label: String!
+    description: String!
+    imageUrl: String
+    iconUrl: String
+    sortOrder: Int!
+    active: Boolean!
+    cuisine: String
+    query: String
+    city: String
+    state: String
+    lat: Float
+    lng: Float
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type DiscoveryTaxonomyConnection {
+    items: [DiscoveryTaxonomyItem!]!
+    total: Int!
+  }
+
+  input DiscoveryTaxonomyInput {
+    kind: DiscoveryTaxonomyKind!
+    label: String!
+    slug: String
+    description: String
+    imageUrl: String
+    iconUrl: String
+    sortOrder: Int
+    active: Boolean
+    cuisine: String
+    query: String
+    city: String
+    state: String
+    lat: Float
+    lng: Float
+  }
+
   type ChurnAlert {
     id: ID!
     alertType: String!
@@ -1467,6 +1513,8 @@ export const typeDefs = `#graphql
     loyaltyMinRedeemPoints: Int
     photos: [String!]
     neighborhood: String
+    categoryIds: [String!]
+    landmarkIds: [String!]
     diningStyles: [String!]
     discoveryOccasions: [String!]
     meals: [String!]
@@ -1619,6 +1667,7 @@ export const typeDefs = `#graphql
     cuisine: String
     cuisines: [String!]
     categoryIds: [String!]
+    landmarkIds: [String!]
     priceRange: Int
     city: String
     state: String
@@ -2122,6 +2171,16 @@ export const typeDefs = `#graphql
     adminBlogPost(id: ID!): BlogPost
     blogPosts(tag: String, limit: Int, offset: Int): BlogPostConnection!
     blogPost(slug: String!): BlogPost
+    adminDiscoveryTaxonomies(
+      kind: DiscoveryTaxonomyKind!
+      search: String
+      active: Boolean
+      limit: Int
+      offset: Int
+    ): DiscoveryTaxonomyConnection!
+    adminDiscoveryTaxonomy(id: ID!): DiscoveryTaxonomyItem
+    discoveryTaxonomies(kind: DiscoveryTaxonomyKind): [DiscoveryTaxonomyItem!]!
+    discoveryTaxonomy(kind: DiscoveryTaxonomyKind!, slug: String!): DiscoveryTaxonomyItem
     churnAlerts: [ChurnAlert!]!
     slaMetrics: SlaMetrics!
     flaggedContent(limit: Int): FlaggedContent!
@@ -2338,6 +2397,9 @@ export const typeDefs = `#graphql
     updateBlogPost(id: ID!, input: BlogPostInput!): BlogPost!
     deleteBlogPost(id: ID!): Boolean!
     publishBlogPost(id: ID!): BlogPost!
+    createDiscoveryTaxonomy(input: DiscoveryTaxonomyInput!): DiscoveryTaxonomyItem!
+    updateDiscoveryTaxonomy(id: ID!, input: DiscoveryTaxonomyInput!): DiscoveryTaxonomyItem!
+    deleteDiscoveryTaxonomy(id: ID!): Boolean!
     flagReview(id: ID!, reason: String): FlaggedContentItem!
     unflagReview(id: ID!): FlaggedContentItem!
     setReviewHiddenAdmin(id: ID!, hidden: Boolean!): FlaggedContentItem!

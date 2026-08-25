@@ -69,6 +69,8 @@ export function mapRestaurant(r: any) {
       buttonText: r.widgetTheme?.buttonText ?? 'Reserve a table',
       showReviews: r.widgetTheme?.showReviews ?? true,
     },
+    categoryIds: r.categoryIds ?? [],
+    landmarkIds: r.landmarkIds ?? [],
     diningStyles: r.diningStyles ?? [],
     discoveryOccasions: r.discoveryOccasions ?? [],
     meals: r.meals ?? [],

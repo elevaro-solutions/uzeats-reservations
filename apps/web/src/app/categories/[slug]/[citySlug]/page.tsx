@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { categoryLandingMeta } from '@reservations/shared';
+import { categoryLandingMeta, seoCategoryInCityLabel, seoCategoryLinkLabel, seoTierRestaurantsIn } from '@reservations/shared';
 import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
 import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
 import {
@@ -22,7 +22,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug, citySlug } = await params;
   const [category, city] = await Promise.all([
-    Promise.resolve(resolveCategoryBySlug(slug)),
+    resolveCategoryBySlug(slug),
     resolveCityBySlug(citySlug),
   ]);
   if (!category || !city) return {};
@@ -36,8 +36,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function CategoryCityLandingPage({ params }: PageProps) {
   const { slug, citySlug } = await params;
-  const category = resolveCategoryBySlug(slug);
-  const city = await resolveCityBySlug(citySlug);
+  const [category, city] = await Promise.all([
+    resolveCategoryBySlug(slug),
+    resolveCityBySlug(citySlug),
+  ]);
   if (!category || !city) notFound();
 
   const meta = categoryLandingMeta(category.label, city.city, city.state);
@@ -50,15 +52,15 @@ export default async function CategoryCityLandingPage({ params }: PageProps) {
   ];
 
   const related = [
-    { href: `/categories/${slug}`, label: `All ${category.label}` },
-    { href: `/cities/${citySlug}`, label: `Restaurants in ${city.city}` },
-    { href: `/top-restaurants/${citySlug}`, label: `Top in ${city.city}` },
+    { href: `/categories/${slug}`, label: seoCategoryLinkLabel(category.label, slug) },
+    { href: `/cities/${citySlug}`, label: seoTierRestaurantsIn('best', `${city.city}, ${city.state}`) },
+    { href: `/top-restaurants/${citySlug}`, label: seoTierRestaurantsIn('top', `${city.city}, ${city.state}`) },
     ...(await listCitiesForIndex())
       .filter((c) => c.slug !== citySlug)
       .slice(0, 6)
       .map((c) => ({
         href: `/categories/${slug}/${c.slug}`,
-        label: `${category.label} in ${c.label}`,
+        label: seoCategoryInCityLabel(category.label, slug, c.label),
       })),
   ];
 

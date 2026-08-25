@@ -13,13 +13,13 @@ import type { BreadcrumbItem } from '@/lib/seo';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
-export function generateStaticParams() {
+export async function generateStaticParams() {
   return listLandmarkLandingParams();
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const landmark = resolveLandmarkBySlug(slug);
+  const landmark = await resolveLandmarkBySlug(slug);
   if (!landmark) return {};
   const meta = nearMeLandingMeta(landmark.landmark);
   return discoveryLandingMetadata({
@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function NearMeLandmarkPage({ params }: PageProps) {
   const { slug } = await params;
-  const landmark = resolveLandmarkBySlug(slug);
+  const landmark = await resolveLandmarkBySlug(slug);
   if (!landmark) notFound();
 
   const meta = nearMeLandingMeta(landmark.landmark);
@@ -43,10 +43,11 @@ export default async function NearMeLandmarkPage({ params }: PageProps) {
     { name: landmark.landmark },
   ];
 
+  const relatedLandmarks = await listLandmarksForIndex();
   const related = [
     { href: `/landmarks/${slug}`, label: `Restaurants near ${landmark.landmark}` },
     { href: `/near-me/restaurants/${cityPath}`, label: `Restaurants near me in ${landmark.city}` },
-    ...listLandmarksForIndex()
+    ...relatedLandmarks
       .filter((l) => l.slug !== slug)
       .slice(0, 6)
       .map((l) => ({ href: `/near-me/landmarks/${l.slug}`, label: `Near ${l.label}` })),
@@ -72,6 +73,7 @@ export default async function NearMeLandmarkPage({ params }: PageProps) {
           locationLabel: `${landmark.landmark}, ${landmark.city}`,
           radiusKm: 8,
           useGeo: true,
+          landmarkIds: [slug],
         }}
         breadcrumbs={breadcrumbs}
         relatedLinks={related}

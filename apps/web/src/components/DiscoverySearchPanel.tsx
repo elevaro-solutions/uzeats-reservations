@@ -60,6 +60,11 @@ export function DiscoverySearchPanel({
   onClearCategory,
 }: DiscoverySearchPanelProps) {
   const isMap = variant === 'map';
+  const trimmedLocation = locationInput.trim();
+  const hasResolvedLocation =
+    trimmedLocation.length > 0 && trimmedLocation.toLowerCase() !== 'near me';
+  // Keep the resolved city/region in the WHERE field; only show the generic tag while locating.
+  const showNearMeTag = usingDeviceLocation && !hasResolvedLocation;
 
   return (
     <div
@@ -109,10 +114,10 @@ export function DiscoverySearchPanel({
       <span className="rt-search-divider" aria-hidden />
       <div className="rt-search-field rt-sf-where">
         <span className="rt-search-label">Where</span>
-        {usingDeviceLocation ? (
+        {showNearMeTag ? (
           <Tag
             color={colors.brand[600]}
-            closable
+            closable={!geoLoading}
             onClose={onClearDeviceLocation}
             style={{
               height: 40,
@@ -124,7 +129,8 @@ export function DiscoverySearchPanel({
               margin: '0 4px 2px',
             }}
           >
-            <EnvironmentFilled style={{ marginRight: 6 }} /> Near me — closest tables first
+            <EnvironmentFilled style={{ marginRight: 6 }} />
+            {geoLoading ? 'Locating…' : 'Near me — closest tables first'}
           </Tag>
         ) : (
           <AddressAutocomplete
@@ -132,7 +138,7 @@ export function DiscoverySearchPanel({
             onChange={onLocationInputChange}
             onSelectLocation={onSelectLocation}
             onUseMyLocation={onUseMyLocation}
-            onClear={onClearLocation}
+            onClear={usingDeviceLocation ? onClearDeviceLocation : onClearLocation}
             geoLoading={geoLoading}
             variant="borderless"
           />

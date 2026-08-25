@@ -77,6 +77,7 @@ export default async function NearMeRestaurantsPage() {
           locationLabel: 'Near me',
           radiusKm: 16,
           useGeo: true,
+          autoLocate: true,
         }}
         breadcrumbs={breadcrumbs}
         relatedLinks={related}

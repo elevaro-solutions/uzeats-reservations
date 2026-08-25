@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { env } from '../config/env.js';
@@ -18,6 +20,9 @@ const EXT_BY_TYPE: Record<string, string> = {
   'image/webp': 'webp',
   'image/gif': 'gif',
 };
+
+/** Local fallback when DO Spaces credentials are missing (dev). */
+export const LOCAL_UPLOAD_DIR = path.resolve(process.cwd(), '.data', 'uploads');
 
 export function assertAllowedUploadContentType(contentType: string) {
   const normalized = contentType.split(';')[0]?.trim().toLowerCase() ?? '';
@@ -56,6 +61,27 @@ function publicUrlForKey(key: string) {
   return `${base}/${key}`;
 }
 
+function apiPublicBase() {
+  if (env.API_PUBLIC_URL?.trim()) return env.API_PUBLIC_URL.replace(/\/$/, '');
+  return `http://localhost:${env.PORT}`;
+}
+
+function localPublicUrl(key: string) {
+  // Serve via API: GET /api/uploads/local/<filename>
+  const filename = key.replace(/^uploads\//, '');
+  return `${apiPublicBase()}/api/uploads/local/${encodeURIComponent(filename)}`;
+}
+
+async function saveLocalObject(input: { key: string; body: Buffer }) {
+  const filename = input.key.replace(/^uploads\//, '');
+  await mkdir(LOCAL_UPLOAD_DIR, { recursive: true });
+  await writeFile(path.join(LOCAL_UPLOAD_DIR, filename), input.body);
+  return {
+    publicUrl: localPublicUrl(input.key),
+    key: input.key,
+  };
+}
+
 export async function uploadObject(input: {
   key: string;
   contentType: string;
@@ -64,10 +90,7 @@ export async function uploadObject(input: {
   const contentType = assertAllowedUploadContentType(input.contentType);
   const client = getClient();
   if (!client) {
-    return {
-      publicUrl: `https://picsum.photos/seed/${encodeURIComponent(input.key)}/800/600`,
-      key: input.key,
-    };
+    return saveLocalObject({ key: input.key, body: input.body });
   }
 
   await client.send(
@@ -93,9 +116,10 @@ export async function createUploadUrl(input: {
   const contentType = assertAllowedUploadContentType(input.contentType);
   const client = getClient();
   if (!client) {
+    // Browser PUT to Spaces isn't available locally — clients should POST /api/uploads.
     return {
-      uploadUrl: `https://example.invalid/upload/${input.key}`,
-      publicUrl: `https://picsum.photos/seed/${encodeURIComponent(input.key)}/800/600`,
+      uploadUrl: '',
+      publicUrl: localPublicUrl(input.key),
       key: input.key,
     };
   }

@@ -1,4 +1,12 @@
-import { restaurantInputSchema, adminCreateOwnerSchema, assertCanEditUser, blogPostInputSchema, type UserRole } from '@reservations/shared';
+import {
+  restaurantInputSchema,
+  adminCreateOwnerSchema,
+  assertCanEditUser,
+  blogPostInputSchema,
+  discoveryTaxonomyInputSchema,
+  type DiscoveryTaxonomyKind,
+  type UserRole,
+} from '@reservations/shared';
 import { restaurantInputToDb } from '../lib/restaurantInput.js';
 import { Review } from '../models/Review.js';
 import { Message } from '../models/Message.js';
@@ -47,6 +55,13 @@ import {
   publishBlogPost,
   updateBlogPost,
 } from './blogPosts.js';
+import {
+  createDiscoveryTaxonomy,
+  deleteDiscoveryTaxonomy,
+  getDiscoveryTaxonomyById,
+  listAdminDiscoveryTaxonomies,
+  updateDiscoveryTaxonomy,
+} from './discoveryTaxonomy.js';
 import { getPlatformConfig, mapPlatformConfig } from './platformConfig.js';
 import { listRecentStripeInvoices } from './stripe.js';
 import { syncStripeInvoice } from './stripeSync.js';
@@ -161,6 +176,26 @@ export const adminOpsQuery = {
   adminBlogPost: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
     requireAdmin(ctx);
     return getBlogPostById(args.id);
+  },
+
+  adminDiscoveryTaxonomies: async (
+    _: unknown,
+    args: {
+      kind: DiscoveryTaxonomyKind;
+      search?: string;
+      active?: boolean;
+      limit?: number;
+      offset?: number;
+    },
+    ctx: GraphQLContext,
+  ) => {
+    requireAdmin(ctx);
+    return listAdminDiscoveryTaxonomies(args);
+  },
+
+  adminDiscoveryTaxonomy: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    requireAdmin(ctx);
+    return getDiscoveryTaxonomyById(args.id);
   },
 
   churnAlerts: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
@@ -887,6 +922,52 @@ export const adminOpsMutation = {
       details: { slug: post.slug },
     });
     return post;
+  },
+
+  createDiscoveryTaxonomy: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
+    const admin = requireAdmin(ctx);
+    const input = discoveryTaxonomyInputSchema.parse(args.input);
+    const item = await createDiscoveryTaxonomy(input);
+    await logAudit({
+      actorId: admin._id.toString(),
+      action: 'createDiscoveryTaxonomy',
+      resource: 'DiscoveryTaxonomy',
+      resourceId: item.id,
+      details: { kind: item.kind, slug: item.slug },
+    });
+    return item;
+  },
+
+  updateDiscoveryTaxonomy: async (
+    _: unknown,
+    args: { id: string; input: unknown },
+    ctx: GraphQLContext,
+  ) => {
+    const admin = requireAdmin(ctx);
+    const input = discoveryTaxonomyInputSchema.parse(args.input);
+    const item = await updateDiscoveryTaxonomy(args.id, input);
+    await logAudit({
+      actorId: admin._id.toString(),
+      action: 'updateDiscoveryTaxonomy',
+      resource: 'DiscoveryTaxonomy',
+      resourceId: item.id,
+      details: { kind: item.kind, slug: item.slug },
+    });
+    return item;
+  },
+
+  deleteDiscoveryTaxonomy: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    const admin = requireAdmin(ctx);
+    const ok = await deleteDiscoveryTaxonomy(args.id);
+    if (ok) {
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: 'deleteDiscoveryTaxonomy',
+        resource: 'DiscoveryTaxonomy',
+        resourceId: args.id,
+      });
+    }
+    return ok;
   },
 
   flagReview: async (

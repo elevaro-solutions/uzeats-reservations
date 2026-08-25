@@ -24,6 +24,8 @@ type RestaurantBase = {
   loyaltyPointsPerVisit: number;
   loyaltyMinRedeemPoints: number;
   photos: string[];
+  categoryIds?: string[];
+  landmarkIds?: string[];
   diningStyles?: string[];
   discoveryOccasions?: string[];
   meals?: string[];
@@ -43,6 +45,8 @@ type RestaurantBase = {
 export type RestaurantProfileFormValues = {
   description?: string;
   neighborhood?: string;
+  categoryIds?: string[];
+  landmarkIds?: string[];
   diningStyles?: string[];
   discoveryOccasions?: string[];
   meals?: string[];
@@ -88,6 +92,8 @@ export function buildRestaurantInput(
     loyaltyMinRedeemPoints: base.loyaltyMinRedeemPoints,
     photos: photos ?? base.photos,
     neighborhood: profile?.neighborhood ?? base.address.neighborhood ?? undefined,
+    categoryIds: profile?.categoryIds ?? base.categoryIds ?? [],
+    landmarkIds: profile?.landmarkIds ?? base.landmarkIds ?? [],
     diningStyles: (profile?.diningStyles ?? base.diningStyles ?? []) as RestaurantInput['diningStyles'],
     discoveryOccasions: (profile?.discoveryOccasions ??
       base.discoveryOccasions ??
@@ -114,6 +120,8 @@ export function profileValuesFromRestaurant(restaurant: RestaurantBase): Restaur
   return {
     description: restaurant.description ?? '',
     neighborhood: restaurant.address.neighborhood ?? '',
+    categoryIds: restaurant.categoryIds ?? [],
+    landmarkIds: restaurant.landmarkIds ?? [],
     diningStyles: restaurant.diningStyles ?? [],
     discoveryOccasions: restaurant.discoveryOccasions ?? [],
     meals: restaurant.meals ?? [],

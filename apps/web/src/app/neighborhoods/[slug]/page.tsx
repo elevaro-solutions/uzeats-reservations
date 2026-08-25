@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { neighborhoodLandingMeta, citySlug } from '@reservations/shared';
+import { neighborhoodLandingMeta, citySlug, seoTierRestaurantsIn } from '@reservations/shared';
 import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
 import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
 import {
@@ -48,11 +48,11 @@ export default async function NeighborhoodLandingPage({ params }: PageProps) {
       label: `Restaurants near me in ${hood.city}, ${hood.state}`,
     },
     { href: `/near-me/neighborhoods/${slug}`, label: `Restaurants near me in ${hood.neighborhood}` },
-    { href: `/cities/${citySlug(hood.city, hood.state)}`, label: `Restaurants in ${hood.city}` },
+    { href: `/cities/${citySlug(hood.city, hood.state)}`, label: seoTierRestaurantsIn('best', `${hood.city}, ${hood.state}`) },
     ...(await listNeighborhoodsForIndex())
       .filter((n) => n.slug !== slug)
       .slice(0, 6)
-      .map((n) => ({ href: `/neighborhoods/${n.slug}`, label: n.label })),
+      .map((n) => ({ href: `/neighborhoods/${n.slug}`, label: seoTierRestaurantsIn('best', n.label) })),
   ];
 
   return (

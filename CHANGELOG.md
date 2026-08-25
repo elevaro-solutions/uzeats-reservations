@@ -4,6 +4,22 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.31.0] — 2026-08-25
+
+### Added
+
+- Admin **Discovery** taxonomy CMS (`/admin/discovery`) for categories, cuisines, occasions, and landmarks (images, sort order, active flag)
+- Magnific stock image proxy (`/api/discovery-image`) for discovery hub thumbnails; `MAGNIFIC_API_KEY` env
+- Local file upload fallback when DO Spaces is unset (`GET /api/uploads/local/:filename`, `.data/uploads`)
+- Restaurant `categoryIds` / `landmarkIds` and discovery search by landmark
+- `/best-restaurants` hubs and top-restaurants-by-state pages; richer discovery index rows and SEO link labels
+
+### Changed
+
+- Discovery hubs load taxonomy from the API (with seed defaults) instead of hard-coded lists only
+- Photo upload and restaurant profile fields support discovery taxonomy assignment
+- Google Places loader helpers expanded for address/device location flows
+
 ## [0.30.0] — 2026-08-21
 
 ### Added

@@ -54,6 +54,8 @@ export const RESTAURANT_DETAIL = gql`
       menuUrl
       diningStyles
       discoveryOccasions
+      categoryIds
+      landmarkIds
       dietaryTags
       amenities
       meals

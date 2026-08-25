@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { topRestaurantsLandingMeta } from '@reservations/shared';
+import { topRestaurantsLandingMeta, seoTierRestaurantsIn, seoTierRestaurantsNear } from '@reservations/shared';
 import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
 import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
 import {
@@ -28,26 +28,28 @@ export default async function TopRestaurantsPage() {
 
   const [cities, landmarks, states] = await Promise.all([
     listCitiesForIndex(),
-    Promise.resolve(listLandmarksForIndex()),
+    listLandmarksForIndex(),
     Promise.resolve(listStatesForIndex()),
   ]);
 
   const related = [
+    { href: '/best-restaurants', label: 'Best restaurants' },
+    { href: '/states', label: 'Browse by state' },
     { href: '/top-locations', label: 'Top locations' },
     { href: '/near-me', label: 'Restaurants near me' },
     { href: '/near-me/food', label: 'Food near me' },
     { href: '/near-me/meals', label: 'Meals near me' },
+    ...states.map((s) => ({
+      href: `/top-restaurants/state/${s.slug}`,
+      label: seoTierRestaurantsIn('top', s.label),
+    })),
     ...cities.slice(0, 8).map((c) => ({
       href: `/top-restaurants/${c.slug}`,
-      label: `Top in ${c.label}`,
-    })),
-    ...states.map((s) => ({
-      href: `/near-me/restaurants/state/${s.slug}`,
-      label: `Restaurants near me in ${s.label}`,
+      label: seoTierRestaurantsIn('top', c.label),
     })),
     ...landmarks.slice(0, 4).map((l) => ({
       href: `/near-me/landmarks/${l.slug}`,
-      label: `Restaurants near ${l.label}`,
+      label: seoTierRestaurantsNear('top', l.label),
     })),
     { href: '/categories', label: 'Categories' },
     { href: '/cuisine', label: 'Cuisines' },

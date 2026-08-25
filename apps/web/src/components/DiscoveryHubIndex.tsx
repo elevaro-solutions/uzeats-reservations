@@ -1,11 +1,13 @@
 import Link from 'next/link';
+import type { SeoLinkLabelParts } from '@reservations/shared';
 import { JsonLd } from '@/components/JsonLd';
+import { SeoDiscoveryLinkLabel } from '@/components/SeoDiscoveryLinkLabel';
 import { breadcrumbJsonLd, faqJsonLd, itemListJsonLd, webPageJsonLd } from '@/lib/seo';
 import type { BreadcrumbItem } from '@/lib/seo';
 
 export type DiscoveryHubSection = {
   heading: string;
-  links: Array<{ href: string; label: string; count?: number }>;
+  links: Array<{ href: string; label: string; labelParts?: SeoLinkLabelParts; count?: number }>;
 };
 
 type DiscoveryHubIndexProps = {
@@ -69,7 +71,11 @@ export function DiscoveryHubIndex({
             {section.links.map((link) => (
               <li key={link.href}>
                 <Link href={link.href} style={{ fontSize: 16 }}>
-                  {link.label}
+                  {link.labelParts ? (
+                    <SeoDiscoveryLinkLabel parts={link.labelParts} />
+                  ) : (
+                    link.label
+                  )}
                   {typeof link.count === 'number' ? (
                     <span style={{ marginLeft: 8, fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>
                       ({link.count})

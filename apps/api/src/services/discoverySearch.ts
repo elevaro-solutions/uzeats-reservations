@@ -1,7 +1,7 @@
 import type { Types } from 'mongoose';
 import type { SearchRestaurantsInput } from '@reservations/shared';
-import { RESTAURANT_DISCOVERY_CATEGORIES } from '@reservations/shared';
 import { getAvailability } from './availability.js';
+import { listActiveCategoryDefs } from './discoveryTaxonomy.js';
 
 type RestaurantLike = { _id: Types.ObjectId | { toString(): string } };
 
@@ -19,26 +19,30 @@ function appendAndClause(filter: Record<string, unknown>, clause: Record<string,
   Object.assign(filter, { $and: [{ ...rest }, clause] });
 }
 
-function buildCategoryOrClause(categoryIds: string[]): Record<string, unknown> | null {
-  const categories = RESTAURANT_DISCOVERY_CATEGORIES.filter((c) => categoryIds.includes(c.id));
-  if (categories.length === 0) return null;
+function buildCategoryOrClause(
+  categoryIds: string[],
+  categories: Array<{ id: string; cuisine?: string; query?: string }>,
+): Record<string, unknown> | null {
+  const matched = categories.filter((c) => categoryIds.includes(c.id));
+  if (matched.length === 0) return null;
 
-  const or: Record<string, unknown>[] = [];
-  for (const category of categories) {
-    if ('cuisine' in category) or.push({ cuisine: category.cuisine });
-    if ('query' in category) {
+  const ids = matched.map((c) => c.id);
+  const or: Record<string, unknown>[] = [{ categoryIds: { $in: ids } }];
+  for (const category of matched) {
+    if (category.cuisine) or.push({ cuisine: category.cuisine });
+    if (category.query) {
       const pattern = new RegExp(escapeRegex(category.query), 'i');
       or.push({
         $or: [{ name: pattern }, { cuisine: pattern }, { description: pattern }],
       });
     }
   }
-  return or.length ? { $or: or } : null;
+  return { $or: or };
 }
 
-export function buildDiscoverySearchFilter(
+export async function buildDiscoverySearchFilter(
   input: SearchRestaurantsInput,
-): Record<string, unknown> {
+): Promise<Record<string, unknown>> {
   const filter: Record<string, unknown> = { status: 'approved' };
   const usingGeo = input.lat != null && input.lng != null;
 
@@ -81,10 +85,11 @@ export function buildDiscoverySearchFilter(
   if (input.amenities?.length) filter.amenities = { $in: input.amenities };
   if (input.minRating != null) filter.averageRating = { $gte: input.minRating };
 
-  const categoryClause = input.categoryIds?.length
-    ? buildCategoryOrClause(input.categoryIds)
-    : null;
-  if (categoryClause) appendAndClause(filter, categoryClause);
+  if (input.categoryIds?.length) {
+    const categories = await listActiveCategoryDefs();
+    const categoryClause = buildCategoryOrClause(input.categoryIds, categories);
+    if (categoryClause) appendAndClause(filter, categoryClause);
+  }
 
   if (input.wheelchairAccessible) {
     const accessibilityClause = {
@@ -106,25 +111,47 @@ export function applyGeoToFilter(
   input: SearchRestaurantsInput,
 ): { filter: Record<string, unknown>; countFilter: Record<string, unknown>; usingGeo: boolean } {
   const usingGeo = input.lat != null && input.lng != null;
-  const countFilter = { ...filter };
+  const landmarkIds = [...new Set((input.landmarkIds ?? []).map((id) => id.trim()).filter(Boolean))];
+
+  const cloneFilter = () => ({
+    ...filter,
+    ...(Array.isArray(filter.$and) ? { $and: [...(filter.$and as unknown[])] } : {}),
+  });
 
   if (usingGeo) {
     const coordinates = [input.lng!, input.lat!];
     const maxDistanceMeters = (input.radiusKm ?? 25) * 1000;
+    const geoWithin = {
+      $geoWithin: {
+        $centerSphere: [coordinates, maxDistanceMeters / 6_378_100],
+      },
+    };
+
+    if (landmarkIds.length) {
+      // Tagged landmarks OR nearby — $near cannot sit inside $or.
+      const clause = {
+        $or: [{ landmarkIds: { $in: landmarkIds } }, { location: geoWithin }],
+      };
+      appendAndClause(filter, clause);
+      const countFilter = cloneFilter();
+      return { filter, countFilter, usingGeo };
+    }
+
     filter.location = {
       $near: {
         $geometry: { type: 'Point', coordinates },
         $maxDistance: maxDistanceMeters,
       },
     };
-    countFilter.location = {
-      $geoWithin: {
-        $centerSphere: [coordinates, maxDistanceMeters / 6_378_100],
-      },
-    };
+    const countFilter = cloneFilter();
+    countFilter.location = geoWithin;
+    return { filter, countFilter, usingGeo };
   }
 
-  return { filter, countFilter, usingGeo };
+  if (landmarkIds.length) {
+    filter.landmarkIds = { $in: landmarkIds };
+  }
+  return { filter, countFilter: cloneFilter(), usingGeo };
 }
 
 function slotMatchesTime(isoTime: string, timeHm?: string): boolean {

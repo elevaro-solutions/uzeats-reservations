@@ -195,6 +195,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/neighborhoods/') ||
     pathname.startsWith('/occasion/') ||
     pathname.startsWith('/top-restaurants') ||
+    pathname.startsWith('/best-restaurants') ||
     pathname.startsWith('/top-locations') ||
     pathname.startsWith('/states/') ||
     pathname.startsWith('/landmarks/') ||
@@ -208,7 +209,8 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   const signInHref = isRestaurantMarketing ? `${dashboardUrl}/login` : '/login';
   const getStartedHref = isRestaurantMarketing ? '/pricing' : '/login';
   const getStartedLabel = isRestaurantMarketing ? 'Register restaurant' : 'Get started';
-  const homeHref = isRestaurantMarketing ? '/for-restaurants' : '/';
+  const homeHref =
+    isRestaurantMarketing && !pathname.startsWith('/for-restaurants') ? '/for-restaurants' : '/';
 
   if (isAuthRoute) {
     return <>{children}</>;
@@ -528,7 +530,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           href={homeHref}
           className="rt-site-header__brand"
           style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 10 }}
-          aria-label={isRestaurantMarketing ? 'Tablevera Partner Hub' : 'Tablevera'}
+          aria-label={homeHref === '/' ? 'Tablevera' : 'Tablevera Partner Hub'}
         >
           <TableveraBrand iconSize={34} surface="dark" />
           {isRestaurantMarketing ? <span className="rt-site-header__hub">Partner Hub</span> : null}
@@ -737,7 +739,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             <Link
               href={homeHref}
               style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 10 }}
-              aria-label={isRestaurantMarketing ? 'Tablevera Partner Hub' : 'Tablevera'}
+              aria-label={homeHref === '/' ? 'Tablevera' : 'Tablevera Partner Hub'}
             >
               <TableveraBrand iconSize={38} surface="dark" />
               {isRestaurantMarketing ? <span className="rt-site-header__hub">Partner Hub</span> : null}
@@ -792,13 +794,14 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               <div className="rt-site-footer__heading">Explore</div>
               <div className="rt-site-footer__list">
                 <Link href="/top-restaurants">Top restaurants</Link>
+                <Link href="/best-restaurants">Best restaurants</Link>
                 <Link href="/top-locations">Top locations</Link>
                 <Link href="/near-me">Restaurants near me</Link>
                 <Link href="/near-me/restaurants">Near me by city & state</Link>
                 <Link href="/near-me/food">Food near me</Link>
                 <Link href="/near-me/meals">Meals near me</Link>
                 <Link href="/cities">Cities</Link>
-                <Link href="/states">States</Link>
+                <Link href="/states">Browse by state</Link>
                 <Link href="/neighborhoods">Neighborhoods</Link>
                 <Link href="/landmarks">Landmarks</Link>
                 <Link href="/cuisine">Cuisines</Link>

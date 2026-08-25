@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { seoTierRestaurantsIn, seoTierRestaurantsInParts } from '@reservations/shared';
 import { JsonLd } from '@/components/JsonLd';
+import { DiscoveryIndexRowList } from '@/components/DiscoveryIndexRowList';
+import { cityIndexDescription, cityIndexImageAlt, cityIndexImageSrc } from '@/lib/discoveryIndexContent';
 import { listCitiesForIndex } from '@/lib/discoveryIndex';
 import {
   breadcrumbJsonLd,
@@ -44,7 +47,7 @@ export default async function CitiesIndexPage() {
     { name: 'Cities' },
   ];
   const items = cities.map((c) => ({
-    name: c.label,
+    name: seoTierRestaurantsIn('best', c.label),
     url: `/cities/${c.slug}`,
   }));
 
@@ -74,20 +77,17 @@ export default async function CitiesIndexPage() {
         Choose a city to browse restaurants with live table availability on Tablevera. Each city hub
         links to top restaurants, near-me pages, and cuisine × city combinations for deeper search.
       </p>
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 12 }}>
-        {cities.map((c) => (
-          <li key={c.slug}>
-            <Link href={`/cities/${c.slug}`} style={{ fontSize: 16 }}>
-              {c.label}
-              {typeof c.count === 'number' ? (
-                <span style={{ marginLeft: 8, fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>
-                  ({c.count})
-                </span>
-              ) : null}
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <DiscoveryIndexRowList
+        items={cities.map((c) => ({
+          slug: c.slug,
+          href: `/cities/${c.slug}`,
+          labelParts: seoTierRestaurantsInParts('best', c.label),
+          description: cityIndexDescription(c.slug, c.label),
+          imageSrc: cityIndexImageSrc(c.slug, c.label),
+          imageAlt: cityIndexImageAlt(c.label),
+          count: c.count,
+        }))}
+      />
       <section style={{ marginTop: 48 }}>
         <h2 style={{ marginBottom: 16, fontSize: 20, fontWeight: 600 }}>
           Frequently asked questions

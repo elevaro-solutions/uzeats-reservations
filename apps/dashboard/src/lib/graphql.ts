@@ -304,6 +304,8 @@ export const ADMIN_RESTAURANTS = gql`
         posEnabled
         address { line1 line2 city state zip country neighborhood }
         location { lat lng }
+        categoryIds
+        landmarkIds
         diningStyles
         discoveryOccasions
         meals
@@ -991,6 +993,87 @@ export const PUBLISH_BLOG_POST = gql`
   }
 `;
 
+const DISCOVERY_TAXONOMY_FIELDS = `
+  id
+  kind
+  slug
+  label
+  description
+  imageUrl
+  iconUrl
+  sortOrder
+  active
+  cuisine
+  query
+  city
+  state
+  lat
+  lng
+  createdAt
+  updatedAt
+`;
+
+export const ADMIN_DISCOVERY_TAXONOMIES = gql`
+  query AdminDiscoveryTaxonomies(
+    $kind: DiscoveryTaxonomyKind!
+    $search: String
+    $active: Boolean
+    $limit: Int
+    $offset: Int
+  ) {
+    adminDiscoveryTaxonomies(
+      kind: $kind
+      search: $search
+      active: $active
+      limit: $limit
+      offset: $offset
+    ) {
+      total
+      items {
+        ${DISCOVERY_TAXONOMY_FIELDS}
+      }
+    }
+  }
+`;
+
+export const CREATE_DISCOVERY_TAXONOMY = gql`
+  mutation CreateDiscoveryTaxonomy($input: DiscoveryTaxonomyInput!) {
+    createDiscoveryTaxonomy(input: $input) {
+      ${DISCOVERY_TAXONOMY_FIELDS}
+    }
+  }
+`;
+
+export const UPDATE_DISCOVERY_TAXONOMY = gql`
+  mutation UpdateDiscoveryTaxonomy($id: ID!, $input: DiscoveryTaxonomyInput!) {
+    updateDiscoveryTaxonomy(id: $id, input: $input) {
+      ${DISCOVERY_TAXONOMY_FIELDS}
+    }
+  }
+`;
+
+export const DELETE_DISCOVERY_TAXONOMY = gql`
+  mutation DeleteDiscoveryTaxonomy($id: ID!) {
+    deleteDiscoveryTaxonomy(id: $id)
+  }
+`;
+
+export const DISCOVERY_TAXONOMIES = gql`
+  query DiscoveryTaxonomies($kind: DiscoveryTaxonomyKind) {
+    discoveryTaxonomies(kind: $kind) {
+      id
+      kind
+      slug
+      label
+      imageUrl
+      iconUrl
+      active
+      city
+      state
+    }
+  }
+`;
+
 export const CHURN_ALERTS = gql`
   query ChurnAlerts {
     churnAlerts {
@@ -1454,6 +1537,8 @@ export const RESTAURANT_PROFILE = gql`
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
+      categoryIds
+      landmarkIds
       diningStyles
       discoveryOccasions
       meals
@@ -1504,6 +1589,8 @@ export const UPDATE_RESTAURANT = gql`
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
+      categoryIds
+      landmarkIds
       diningStyles
       discoveryOccasions
       meals

@@ -74,7 +74,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 
 ## Features
 
-- Restaurant search (city, cuisine, text, nearby geo) with **list and map views**, infinite scroll, SEO landing pages (city/state/cuisine/occasion/neighborhood/landmark hubs, cuisine×city, near-me, top restaurants), and live availability slots
+- Restaurant search (city, cuisine, text, nearby geo) with **list and map views**, infinite scroll, SEO landing pages (city/state/cuisine/occasion/neighborhood/landmark hubs, cuisine×city, near-me, top/best restaurants), and live availability slots — taxonomy managed in admin **Discovery**
 - **Blog** — published articles with SEO metadata; platform admins manage posts in the dashboard
 - **For restaurants** marketing page (`/for-restaurants`) plus public pricing and contact-sales flows
 - **Bookmarks/Saved** — diners can save favorite restaurants and view them at `/saved`
@@ -86,7 +86,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Waitlist + auto-notify on cancellation; **favorite availability alerts** when a near-term table opens
 - Platform + per-restaurant loyalty (tiers, referrals, expiry) with gift cards and promotion codes
 - Reviews after completed visits (post-visit prompt to review and save the restaurant)
-- Menus + DO Spaces presigned uploads (stubbed without keys; image types only)
+- Menus + DO Spaces uploads (local `.data/uploads` fallback without Spaces keys; image types only)
 - Notifications: email (SendGrid or Resend), Telegram bot, web/Expo push (service worker on diner web), in-app inbox + channel prefs; transactional SMS with public `/sms` opt-in
 - Auth: email/password (forgot/reset on web and partner dashboard), Google OAuth, Twilio phone OTP; browser sessions use HttpOnly cookies
 - Partner Settings hub, notifications prefs, multi-restaurant selector, self-registration with Stripe card collection, plan change preview (prorated upgrades / scheduled downgrades), onboarding checklist, **profile page**, toggles to accept online reservations or hide the booking widget, and **DoorDash/Uber Eats import** (link or saved page, including menu photos) from Settings, profile, register, and admin restaurant create
@@ -94,7 +94,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Shareable booking links (`/r/:slug`) and **Booking widget** page for embed script copy
 - Owner phone / walk-in bookings, **diner and partner reservation edit**, reservation-scoped messaging, and **individual reservation detail pages** (upcoming / past / deposit filters) plus diner **billing history** (`/billing`)
 - Enhanced restaurant detail pages with photo gallery, reviews, FAQ, terms, about, and menu sections
-- Platform admin: users, restaurants (create/edit/delete), invoices, revenue, support, moderation, templates, config, annual billing discounts, **docs access** requests, and richer audit log filters
+- Platform admin: users, restaurants (create/edit/delete), **discovery taxonomy**, invoices, revenue, support, moderation, templates, config, annual billing discounts, **docs access** requests, and richer audit log filters
 - Embeddable booking widget with per-restaurant theme
 - Public contact form, cookie consent, and legal pages (privacy, terms, SMS messaging/opt-in, cookies)
 - Super-admin developer page for deployment env-var health (secret values masked)
@@ -114,7 +114,7 @@ JWT_ACCESS_SECRET=...
 JWT_REFRESH_SECRET=...
 ```
 
-Optional integrations: `STRIPE_*` (production requires `STRIPE_WEBHOOK_SECRET`), `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (web + dashboard Stripe.js for deposits and partner signup/billing), `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `SENDGRID_API_KEY` (or `RESEND_API_KEY`), `TELEGRAM_BOT_TOKEN` (+ `API_PUBLIC_URL` / `TELEGRAM_WEBHOOK_SECRET` in production when the bot is enabled), `DO_SPACES_*`, `VAPID_*`, `NEXT_PUBLIC_SITE_URL` (canonical URLs for sitemap/SEO; defaults to `https://tablevera.online`), `ELEVARO_LEADS_API_KEY` (contact form lead ingest). Dashboard only: `NEXT_PUBLIC_SHOW_DEV_CREDENTIALS=true` shows seed login hints on `/login`.
+Optional integrations: `STRIPE_*` (production requires `STRIPE_WEBHOOK_SECRET`), `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (web + dashboard Stripe.js for deposits and partner signup/billing), `TWILIO_*`, `GOOGLE_CLIENT_ID` + `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (Gmail login; must match), `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`, `SENDGRID_API_KEY` (or `RESEND_API_KEY`), `TELEGRAM_BOT_TOKEN` (+ `API_PUBLIC_URL` / `TELEGRAM_WEBHOOK_SECRET` in production when the bot is enabled), `DO_SPACES_*`, `VAPID_*`, `NEXT_PUBLIC_SITE_URL` (canonical URLs for sitemap/SEO; defaults to `https://tablevera.online`), `MAGNIFIC_API_KEY` (discovery hub stock thumbnails), `ELEVARO_LEADS_API_KEY` (contact form lead ingest). Dashboard only: `NEXT_PUBLIC_SHOW_DEV_CREDENTIALS=true` shows seed login hints on `/login`.
 
 For password reset emails, set `WEB_APP_URL` and `DASHBOARD_APP_URL` on the API so reset links land on the correct app. For the docs site, set `DOCS_APP_URL` on the API and `DOCS_API_URL` on the docs build (GraphQL endpoint).
 

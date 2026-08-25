@@ -1,6 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { seoTierRestaurantsNear, seoTierRestaurantsNearParts } from '@reservations/shared';
 import { JsonLd } from '@/components/JsonLd';
+import { DiscoveryIndexRowList } from '@/components/DiscoveryIndexRowList';
+import {
+  landmarkIndexDescription,
+  landmarkIndexImageAlt,
+  landmarkIndexImageSrc,
+} from '@/lib/discoveryIndexContent';
 import { listLandmarksForIndex } from '@/lib/discoveryIndex';
 import { breadcrumbJsonLd, discoveryLandingMetadata, itemListJsonLd } from '@/lib/seo';
 
@@ -13,14 +20,14 @@ export const metadata: Metadata = discoveryLandingMetadata({
   canonicalPath: '/landmarks',
 });
 
-export default function LandmarksIndexPage() {
-  const landmarks = listLandmarksForIndex();
+export default async function LandmarksIndexPage() {
+  const landmarks = await listLandmarksForIndex();
   const breadcrumbs = [
     { name: 'Home', href: '/' },
     { name: 'Landmarks' },
   ];
   const items = landmarks.map((l) => ({
-    name: l.label,
+    name: seoTierRestaurantsNear('best', l.label),
     url: `/landmarks/${l.slug}`,
   }));
 
@@ -43,15 +50,16 @@ export default function LandmarksIndexPage() {
       <p style={{ marginBottom: 32, fontSize: 16, color: 'rgba(0,0,0,0.45)' }}>
         Pick a landmark to browse nearby restaurants with open tables you can reserve instantly.
       </p>
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 12 }}>
-        {landmarks.map((l) => (
-          <li key={l.slug}>
-            <Link href={`/landmarks/${l.slug}`} style={{ fontSize: 16 }}>
-              {l.label}
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <DiscoveryIndexRowList
+        items={landmarks.map((l) => ({
+          slug: l.slug,
+          href: `/landmarks/${l.slug}`,
+          labelParts: seoTierRestaurantsNearParts('best', l.label),
+          description: landmarkIndexDescription(l.label, l.description),
+          imageSrc: landmarkIndexImageSrc(l.slug, l.label, l.imageUrl),
+          imageAlt: landmarkIndexImageAlt(l.label),
+        }))}
+      />
       <p style={{ marginTop: 32, fontSize: 14, color: 'rgba(0,0,0,0.45)' }}>
         Also see <Link href="/near-me">near me locations</Link> and{' '}
         <Link href="/top-locations">top locations</Link>.

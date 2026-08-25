@@ -49,6 +49,7 @@ export {
   loadGoogleMaps,
   loadGooglePlaces,
   resolveAddress,
+  reverseGeocodeLatLng,
   subscribeGooglePlacesAvailability,
   type GoogleMapsCore,
   type GooglePlacesAvailability,

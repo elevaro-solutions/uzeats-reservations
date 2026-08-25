@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { occasionLandingMeta } from '@reservations/shared';
+import { occasionLandingMeta, seoOccasionLinkLabel } from '@reservations/shared';
 import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
 import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
 import {
@@ -44,7 +44,7 @@ export default async function OccasionLandingPage({ params }: PageProps) {
 
   const related = (await listOccasionsForIndex())
     .filter((o) => o.slug !== slug)
-    .map((o) => ({ href: `/occasion/${o.slug}`, label: o.label }));
+    .map((o) => ({ href: `/occasion/${o.slug}`, label: seoOccasionLinkLabel(o.label) }));
 
   return (
     <>

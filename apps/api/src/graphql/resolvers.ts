@@ -43,6 +43,10 @@ import {
 } from '../services/restaurantBookmarks.js';
 import { getBlogPostBySlug, listPublishedBlogPosts } from '../services/blogPosts.js';
 import {
+  getDiscoveryTaxonomyBySlug,
+  listPublicDiscoveryTaxonomies,
+} from '../services/discoveryTaxonomy.js';
+import {
   registerWithEmail,
   loginWithEmail,
   loginWithGoogle,
@@ -473,6 +477,16 @@ export const resolvers = {
 
     blogPost: async (_: unknown, args: { slug: string }) => getBlogPostBySlug(args.slug),
 
+    discoveryTaxonomies: async (
+      _: unknown,
+      args: { kind?: import('@reservations/shared').DiscoveryTaxonomyKind | null },
+    ) => listPublicDiscoveryTaxonomies(args.kind),
+
+    discoveryTaxonomy: async (
+      _: unknown,
+      args: { kind: import('@reservations/shared').DiscoveryTaxonomyKind; slug: string },
+    ) => getDiscoveryTaxonomyBySlug(args.kind, args.slug),
+
     restaurant: async (_: unknown, args: { id?: string; slug?: string }) => {
       const doc = args.id
         ? await Restaurant.findById(args.id)
@@ -598,7 +612,7 @@ export const resolvers = {
 
     searchRestaurants: async (_: unknown, args: { input: unknown }) => {
       const input = searchRestaurantsSchema.parse(args.input);
-      const baseFilter = buildDiscoverySearchFilter(input);
+      const baseFilter = await buildDiscoverySearchFilter(input);
       const { filter, countFilter, usingGeo } = applyGeoToFilter(baseFilter, input);
       const skip = (input.page - 1) * input.limit;
       const requireAvailability =

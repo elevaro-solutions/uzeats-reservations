@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { stateLandingMeta } from '@reservations/shared';
+import { stateLandingMeta, seoTierRestaurantsIn } from '@reservations/shared';
 import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
 import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
 import {
@@ -48,11 +48,15 @@ export default async function StateLandingPage({ params }: PageProps) {
   );
   const related = [
     { href: `/near-me/restaurants/state/${slug}`, label: `Restaurants near me in ${state.name}` },
-    { href: `/top-restaurants`, label: 'Top restaurants' },
-    ...cities.slice(0, 6).map((c) => ({ href: `/cities/${c.slug}`, label: c.label })),
+    { href: `/top-restaurants/state/${slug}`, label: `Top restaurants in ${state.name}` },
+    { href: `/best-restaurants/state/${slug}`, label: `Best restaurants in ${state.name}` },
+    ...cities.slice(0, 6).map((c) => ({
+      href: `/cities/${c.slug}`,
+      label: seoTierRestaurantsIn('best', c.label),
+    })),
     ...listStatesForIndex()
       .filter((s) => s.slug !== slug)
-      .map((s) => ({ href: `/states/${s.slug}`, label: s.label })),
+      .map((s) => ({ href: `/states/${s.slug}`, label: seoTierRestaurantsIn('best', s.label) })),
   ];
 
   return (

@@ -7,6 +7,8 @@ import {
   citySlug,
   cuisineSlug,
   discoverySlug,
+  seoCategoryLinkLabel,
+  seoCategoryLinkParts,
   landmarkSlug,
   mealSlug,
   neighborhoodSlug,
@@ -14,7 +16,6 @@ import {
   slugToMeal,
   slugToOccasion,
   stateSlug,
-  type DiscoveryOccasion,
   type Meal,
 } from '@reservations/shared';
 import {
@@ -50,6 +51,22 @@ export type DiscoveryIndex = {
   neighborhoods: DiscoveryIndexEntry[];
   cuisines: DiscoveryIndexEntry[];
   occasions: DiscoveryIndexEntry[];
+};
+
+export type DiscoveryTaxonomyItem = {
+  id: string;
+  kind: 'category' | 'cuisine' | 'occasion' | 'landmark';
+  slug: string;
+  label: string;
+  description: string;
+  imageUrl?: string | null;
+  iconUrl?: string | null;
+  cuisine?: string | null;
+  query?: string | null;
+  city?: string | null;
+  state?: string | null;
+  lat?: number | null;
+  lng?: number | null;
 };
 
 const EMPTY_INDEX: DiscoveryIndex = {
@@ -95,6 +112,26 @@ const DISCOVERY_INDEX_QUERY = `
   }
 `;
 
+const DISCOVERY_TAXONOMIES_QUERY = `
+  query DiscoveryTaxonomies($kind: DiscoveryTaxonomyKind) {
+    discoveryTaxonomies(kind: $kind) {
+      id
+      kind
+      slug
+      label
+      description
+      imageUrl
+      iconUrl
+      cuisine
+      query
+      city
+      state
+      lat
+      lng
+    }
+  }
+`;
+
 export const fetchDiscoveryIndex = cache(async function fetchDiscoveryIndex(): Promise<DiscoveryIndex> {
   try {
     const data = await serverGraphql<{ discoveryIndex: DiscoveryIndex }>(DISCOVERY_INDEX_QUERY);
@@ -103,6 +140,24 @@ export const fetchDiscoveryIndex = cache(async function fetchDiscoveryIndex(): P
     return EMPTY_INDEX;
   }
 });
+
+export const fetchDiscoveryTaxonomies = cache(async function fetchDiscoveryTaxonomies(
+  kind?: DiscoveryTaxonomyItem['kind'],
+): Promise<DiscoveryTaxonomyItem[]> {
+  try {
+    const data = await serverGraphql<{ discoveryTaxonomies: DiscoveryTaxonomyItem[] }>(
+      DISCOVERY_TAXONOMIES_QUERY,
+      kind ? { kind } : undefined,
+    );
+    return data.discoveryTaxonomies ?? [];
+  } catch {
+    return [];
+  }
+});
+
+function taxonomyBySlug(items: DiscoveryTaxonomyItem[]) {
+  return new Map(items.map((item) => [item.slug, item]));
+}
 
 function curatedCityCoords(city: string, state: string): Pick<CityOption, 'lat' | 'lng'> | undefined {
   return POPULAR_CITIES.find(
@@ -155,21 +210,25 @@ export async function resolveCuisineBySlug(slug: string): Promise<string | null>
   const known = slugToCuisine(slug, CUISINES);
   if (known && known !== 'Other') return known;
 
+  const taxonomies = await fetchDiscoveryTaxonomies('cuisine');
+  const managed = taxonomies.find((t) => t.slug === slug);
+  if (managed?.label) return managed.label;
+
   const index = await fetchDiscoveryIndex();
   const entry = index.cuisines.find((c) => c.slug === slug);
   return entry?.label ?? null;
 }
 
-export async function resolveOccasionBySlug(slug: string): Promise<DiscoveryOccasion | null> {
+export async function resolveOccasionBySlug(slug: string): Promise<string | null> {
   const known = slugToOccasion(slug);
   if (known) return known;
 
+  const taxonomies = await fetchDiscoveryTaxonomies('occasion');
+  const managed = taxonomies.find((t) => t.slug === slug);
+  if (managed?.label) return managed.label;
+
   const index = await fetchDiscoveryIndex();
-  const entry = index.occasions.find((o) => o.slug === slug);
-  if (!entry?.label) return null;
-  return (DISCOVERY_OCCASIONS as readonly string[]).includes(entry.label)
-    ? (entry.label as DiscoveryOccasion)
-    : null;
+  return index.occasions.find((o) => o.slug === slug)?.label ?? null;
 }
 
 export async function listCityLandingParams(): Promise<Array<{ slug: string }>> {
@@ -257,13 +316,44 @@ export async function listNeighborhoodsForIndex(): Promise<
 }
 
 export async function listCuisinesForIndex(): Promise<
-  Array<{ slug: string; label: string; count?: number }>
+  Array<{
+    slug: string;
+    label: string;
+    count?: number;
+    imageUrl?: string | null;
+    description?: string | null;
+  }>
 > {
-  const index = await fetchDiscoveryIndex();
+  const [index, taxonomies] = await Promise.all([
+    fetchDiscoveryIndex(),
+    fetchDiscoveryTaxonomies('cuisine'),
+  ]);
+  const media = taxonomyBySlug(taxonomies);
+
   if (index.cuisines.length > 0) {
     return index.cuisines
       .filter((c) => c.label !== 'Other')
-      .map((c) => ({ slug: c.slug, label: c.label, count: c.count }))
+      .map((c) => {
+        const t = media.get(c.slug);
+        return {
+          slug: c.slug,
+          label: c.label,
+          count: c.count,
+          imageUrl: t?.imageUrl ?? t?.iconUrl ?? null,
+          description: t?.description ?? null,
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  if (taxonomies.length > 0) {
+    return taxonomies
+      .map((t) => ({
+        slug: t.slug,
+        label: t.label,
+        imageUrl: t.imageUrl ?? t.iconUrl ?? null,
+        description: t.description || null,
+      }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }
 
@@ -274,12 +364,43 @@ export async function listCuisinesForIndex(): Promise<
 }
 
 export async function listOccasionsForIndex(): Promise<
-  Array<{ slug: string; label: string; count?: number }>
+  Array<{
+    slug: string;
+    label: string;
+    count?: number;
+    imageUrl?: string | null;
+    description?: string | null;
+  }>
 > {
-  const index = await fetchDiscoveryIndex();
+  const [index, taxonomies] = await Promise.all([
+    fetchDiscoveryIndex(),
+    fetchDiscoveryTaxonomies('occasion'),
+  ]);
+  const media = taxonomyBySlug(taxonomies);
+
   if (index.occasions.length > 0) {
     return index.occasions
-      .map((o) => ({ slug: o.slug, label: o.label, count: o.count }))
+      .map((o) => {
+        const t = media.get(o.slug);
+        return {
+          slug: o.slug,
+          label: o.label,
+          count: o.count,
+          imageUrl: t?.imageUrl ?? t?.iconUrl ?? null,
+          description: t?.description ?? null,
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  if (taxonomies.length > 0) {
+    return taxonomies
+      .map((t) => ({
+        slug: t.slug,
+        label: t.label,
+        imageUrl: t.imageUrl ?? t.iconUrl ?? null,
+        description: t.description || null,
+      }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }
 
@@ -305,36 +426,127 @@ export function resolveStateBySlug(slug: string): StateOption | null {
   return findStateBySlug(slug) ?? null;
 }
 
-export function listLandmarksForIndex(): Array<{ slug: string; label: string }> {
+export async function listLandmarksForIndex(): Promise<
+  Array<{
+    slug: string;
+    label: string;
+    imageUrl?: string | null;
+    description?: string | null;
+  }>
+> {
+  const taxonomies = await fetchDiscoveryTaxonomies('landmark');
+  if (taxonomies.length > 0) {
+    return taxonomies
+      .map((t) => ({
+        slug: t.slug,
+        label: t.city ? `${t.label}, ${t.city}` : t.label,
+        imageUrl: t.imageUrl ?? t.iconUrl ?? null,
+        description: t.description || null,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
   return POPULAR_LANDMARKS.map((l) => ({
     slug: landmarkSlug(l.landmark, l.state),
     label: `${l.landmark}, ${l.city}`,
   })).sort((a, b) => a.label.localeCompare(b.label));
 }
 
-export function listLandmarkLandingParams(): Array<{ slug: string }> {
-  return POPULAR_LANDMARKS.map((l) => ({ slug: landmarkSlug(l.landmark, l.state) }));
+export async function listLandmarkLandingParams(): Promise<Array<{ slug: string }>> {
+  const landmarks = await listLandmarksForIndex();
+  return landmarks.map((l) => ({ slug: l.slug }));
 }
 
-export function resolveLandmarkBySlug(slug: string): LandmarkOption | null {
-  return findLandmarkBySlug(slug) ?? null;
+export async function resolveLandmarkBySlug(slug: string): Promise<LandmarkOption | null> {
+  const curated = findLandmarkBySlug(slug);
+  if (curated) return curated;
+
+  const taxonomies = await fetchDiscoveryTaxonomies('landmark');
+  const t = taxonomies.find((item) => item.slug === slug);
+  if (!t?.city || !t.state || t.lat == null || t.lng == null) return null;
+  return {
+    landmark: t.label,
+    city: t.city,
+    state: t.state,
+    lat: t.lat,
+    lng: t.lng,
+  };
 }
 
-export type DiscoveryCategoryOption = (typeof RESTAURANT_DISCOVERY_CATEGORIES)[number];
+export type DiscoveryCategoryOption = {
+  id: string;
+  label: string;
+  cuisine?: string;
+  query?: string;
+  imageUrl?: string | null;
+  description?: string | null;
+};
 
-export function listCategoriesForIndex(): Array<{ slug: string; label: string }> {
-  return RESTAURANT_DISCOVERY_CATEGORIES.map((c) => ({
-    slug: c.id,
-    label: c.label,
-  })).sort((a, b) => a.label.localeCompare(b.label));
+export async function listCategoriesForIndex(): Promise<
+  Array<{
+    slug: string;
+    label: string;
+    seoLabel: string;
+    seoLabelParts: ReturnType<typeof seoCategoryLinkParts>;
+    imageUrl?: string | null;
+    description?: string | null;
+  }>
+> {
+  const taxonomies = await fetchDiscoveryTaxonomies('category');
+  const source =
+    taxonomies.length > 0
+      ? taxonomies.map((t) => ({
+          id: t.slug,
+          label: t.label,
+          imageUrl: t.imageUrl ?? t.iconUrl ?? null,
+          description: t.description || null,
+        }))
+      : RESTAURANT_DISCOVERY_CATEGORIES.map((c) => ({
+          id: c.id,
+          label: c.label,
+          imageUrl: null as string | null,
+          description: null as string | null,
+        }));
+
+  return source
+    .map((c) => ({
+      slug: c.id,
+      label: c.label,
+      seoLabel: seoCategoryLinkLabel(c.label, c.id),
+      seoLabelParts: seoCategoryLinkParts(c.label, c.id),
+      imageUrl: c.imageUrl,
+      description: c.description,
+    }))
+    .sort((a, b) => a.label.localeCompare(b.label));
 }
 
-export function listCategoryLandingParams(): Array<{ slug: string }> {
-  return RESTAURANT_DISCOVERY_CATEGORIES.map((c) => ({ slug: c.id }));
+export async function listCategoryLandingParams(): Promise<Array<{ slug: string }>> {
+  const categories = await listCategoriesForIndex();
+  return categories.map((c) => ({ slug: c.slug }));
 }
 
-export function resolveCategoryBySlug(slug: string): DiscoveryCategoryOption | null {
-  return RESTAURANT_DISCOVERY_CATEGORIES.find((c) => c.id === slug) ?? null;
+export async function resolveCategoryBySlug(slug: string): Promise<DiscoveryCategoryOption | null> {
+  const taxonomies = await fetchDiscoveryTaxonomies('category');
+  const managed = taxonomies.find((t) => t.slug === slug);
+  if (managed) {
+    return {
+      id: managed.slug,
+      label: managed.label,
+      ...(managed.cuisine ? { cuisine: managed.cuisine } : {}),
+      ...(managed.query ? { query: managed.query } : {}),
+      imageUrl: managed.imageUrl ?? managed.iconUrl ?? null,
+      description: managed.description || null,
+    };
+  }
+
+  const curated = RESTAURANT_DISCOVERY_CATEGORIES.find((c) => c.id === slug);
+  if (!curated) return null;
+  return {
+    id: curated.id,
+    label: curated.label,
+    ...('cuisine' in curated ? { cuisine: curated.cuisine } : {}),
+    ...('query' in curated ? { query: curated.query } : {}),
+  };
 }
 
 export function listMealsForIndex(): Array<{ slug: string; label: string }> {
@@ -369,7 +581,7 @@ export async function listCuisineCityLandingParams(): Promise<
 export async function listCategoryCityLandingParams(): Promise<
   Array<{ slug: string; citySlug: string }>
 > {
-  const categories = listCategoryLandingParams();
+  const categories = await listCategoryLandingParams();
   const cities = POPULAR_CITIES.map((c) => citySlug(c.city, c.state));
   const params: Array<{ slug: string; citySlug: string }> = [];
   for (const { slug } of categories) {
@@ -385,7 +597,7 @@ export function categorySearchPreset(category: DiscoveryCategoryOption): {
   categoryIds: string[];
 } {
   return {
-    cuisine: 'cuisine' in category ? category.cuisine : undefined,
+    cuisine: category.cuisine,
     categoryIds: [category.id],
   };
 }

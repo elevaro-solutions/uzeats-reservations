@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { citySlug, landmarkLandingMeta } from '@reservations/shared';
+import { citySlug, landmarkLandingMeta, seoTierRestaurantsIn, seoTierRestaurantsNear } from '@reservations/shared';
 import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
 import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
 import {
@@ -13,13 +13,13 @@ import type { BreadcrumbItem } from '@/lib/seo';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
-export function generateStaticParams() {
+export async function generateStaticParams() {
   return listLandmarkLandingParams();
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const landmark = resolveLandmarkBySlug(slug);
+  const landmark = await resolveLandmarkBySlug(slug);
   if (!landmark) return {};
   const meta = landmarkLandingMeta(landmark.landmark, landmark.city, landmark.state);
   return discoveryLandingMetadata({
@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function LandmarkLandingPage({ params }: PageProps) {
   const { slug } = await params;
-  const landmark = resolveLandmarkBySlug(slug);
+  const landmark = await resolveLandmarkBySlug(slug);
   if (!landmark) notFound();
 
   const meta = landmarkLandingMeta(landmark.landmark, landmark.city, landmark.state);
@@ -43,14 +43,15 @@ export default async function LandmarkLandingPage({ params }: PageProps) {
     { name: landmark.landmark },
   ];
 
+  const relatedLandmarks = await listLandmarksForIndex();
   const related = [
-    { href: `/near-me/landmarks/${slug}`, label: `Near me · ${landmark.landmark}` },
-    { href: `/cities/${cityPath}`, label: `Restaurants in ${landmark.city}` },
-    { href: `/top-restaurants/${cityPath}`, label: `Top in ${landmark.city}` },
-    ...listLandmarksForIndex()
+    { href: `/near-me/landmarks/${slug}`, label: seoTierRestaurantsNear('best', landmark.landmark) },
+    { href: `/cities/${cityPath}`, label: seoTierRestaurantsIn('best', `${landmark.city}, ${landmark.state}`) },
+    { href: `/top-restaurants/${cityPath}`, label: seoTierRestaurantsIn('top', `${landmark.city}, ${landmark.state}`) },
+    ...relatedLandmarks
       .filter((l) => l.slug !== slug)
       .slice(0, 6)
-      .map((l) => ({ href: `/landmarks/${l.slug}`, label: l.label })),
+      .map((l) => ({ href: `/landmarks/${l.slug}`, label: seoTierRestaurantsNear('best', l.label) })),
   ];
 
   return (
@@ -73,6 +74,7 @@ export default async function LandmarkLandingPage({ params }: PageProps) {
           locationLabel: `${landmark.landmark}, ${landmark.city}`,
           radiusKm: 8,
           useGeo: true,
+          landmarkIds: [slug],
         }}
         breadcrumbs={breadcrumbs}
         relatedLinks={related}

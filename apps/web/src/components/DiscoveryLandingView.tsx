@@ -36,6 +36,7 @@ import { useInfiniteRestaurantSearch } from '@/lib/useInfiniteRestaurantSearch';
 import { useDiscoveryViewMode } from '@/lib/useDiscoveryViewMode';
 import { useDiscoveryUrlSync } from '@/lib/useDiscoveryFilters';
 import { DEFAULT_LOCATION, cityLabel } from '@/lib/cities';
+import { geolocationErrorMessage, resolveDeviceLocation } from '@/lib/deviceLocation';
 import type { LocationSelection } from '@/components/AddressAutocomplete';
 import { MapResultsLayout } from '@/components/MapResultsLayout';
 import { DiscoveryCardsLayout } from '@/components/DiscoveryCardsLayout';
@@ -68,6 +69,8 @@ export type DiscoverySearchPreset = {
   amenity?: string;
   /** Discovery category chip ids from RESTAURANT_DISCOVERY_CATEGORIES. */
   categoryIds?: string[];
+  /** Landmark taxonomy slugs for curated “near landmark” association. */
+  landmarkIds?: string[];
   /** Free-text query seed (used when category has a text query). */
   query?: string;
   topRatedOnly?: boolean;
@@ -82,6 +85,8 @@ export type DiscoverySearchPreset = {
    * City/state/cuisine hubs match by address fields so SEO pages are not emptied by centroid radius.
    */
   useGeo?: boolean;
+  /** On mount, request device location and fill WHERE with city/state. */
+  autoLocate?: boolean;
 };
 
 type DiscoveryLandingViewProps = {
@@ -128,6 +133,7 @@ function DiscoveryLandingContent({
   const accessibleOnly = filters.accessibleOnly;
   const categoryIds =
     filters.categoryIds.length > 0 ? filters.categoryIds : (preset.categoryIds ?? []);
+  const landmarkIds = preset.landmarkIds ?? [];
   const searchQuery = filters.query || preset.query || '';
   const occasions = filters.occasions.length
     ? filters.occasions
@@ -205,6 +211,7 @@ function DiscoveryLandingContent({
       state: preset.state,
       neighborhood: preset.neighborhood,
       categoryIds: categoryIds.length ? categoryIds : undefined,
+      landmarkIds: landmarkIds.length ? landmarkIds : undefined,
       occasions: occasions.length ? occasions : undefined,
       diningStyles: diningStyles.length ? diningStyles : undefined,
       meals: meals.length ? meals : undefined,
@@ -228,6 +235,7 @@ function DiscoveryLandingContent({
       preset.state,
       preset.neighborhood,
       categoryIds,
+      landmarkIds,
       occasions,
       diningStyles,
       meals,
@@ -282,36 +290,43 @@ function DiscoveryLandingContent({
     [replaceFilters],
   );
 
-  const requestLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      message.error('Geolocation is not supported by your browser');
+  const requestLocation = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      setGeoLoading(true);
+      try {
+        const location = await resolveDeviceLocation();
+        setLocationInput(location.label);
+        applyLocation(location, true);
+        if (!opts?.silent) {
+          message.success(`Showing restaurants near ${location.label}`);
+        }
+      } catch (err) {
+        message.error(geolocationErrorMessage(err));
+      } finally {
+        setGeoLoading(false);
+      }
+    },
+    [applyLocation],
+  );
+
+  const autoLocateAttempted = useRef(false);
+  useEffect(() => {
+    if (!preset.autoLocate || autoLocateAttempted.current) return;
+    // Skip if the diner already resolved a real place label via URL/share.
+    const existingLabel = filters.locationLabel?.trim();
+    if (
+      filters.nearMe &&
+      existingLabel &&
+      existingLabel.toLowerCase() !== 'near me' &&
+      filters.lat != null &&
+      filters.lng != null
+    ) {
+      autoLocateAttempted.current = true;
       return;
     }
-    setGeoLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        applyLocation(
-          {
-            label: 'Near me',
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          },
-          true,
-        );
-        setGeoLoading(false);
-        message.success('Showing restaurants near you');
-      },
-      (err) => {
-        setGeoLoading(false);
-        message.error(
-          err.code === err.PERMISSION_DENIED
-            ? 'Location access denied — please enable it in browser settings'
-            : 'Could not determine your location',
-        );
-      },
-      { enableHighAccuracy: true, timeout: 10000 },
-    );
-  }, [applyLocation]);
+    autoLocateAttempted.current = true;
+    void requestLocation({ silent: true });
+  }, [preset.autoLocate, filters.nearMe, filters.locationLabel, filters.lat, filters.lng, requestLocation]);
 
   const clearDeviceLocation = useCallback(() => {
     applyLocation(presetLocation);

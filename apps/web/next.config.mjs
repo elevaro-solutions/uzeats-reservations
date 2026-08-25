@@ -23,6 +23,9 @@ const nextConfig = {
     remotePatterns: [
       { protocol: 'https', hostname: 'picsum.photos' },
       { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: 'img.freepik.com' },
+      { protocol: 'https', hostname: '**.freepik.com' },
+      { protocol: 'https', hostname: 'img.b2bpic.net' },
       { protocol: 'https', hostname: '**.digitaloceanspaces.com' },
     ],
   },

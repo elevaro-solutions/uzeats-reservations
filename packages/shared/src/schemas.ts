@@ -12,7 +12,6 @@ import {
   AMENITIES,
   DIETARY_TAGS,
   DINING_STYLES,
-  DISCOVERY_OCCASIONS,
   MEALS,
 } from "./discovery.js";
 
@@ -120,8 +119,12 @@ export const restaurantInputSchema = z.object({
   loyaltyMinRedeemPoints: z.number().int().min(0).default(200),
   photos: z.array(z.string().url()).default([]),
   neighborhood: z.string().max(80).optional(),
+  categoryIds: z.array(z.string().min(1).max(120)).default([]),
+  landmarkIds: z.array(z.string().min(1).max(120)).default([]),
   diningStyles: z.array(z.enum(DINING_STYLES)).default([]),
-  discoveryOccasions: z.array(z.enum(DISCOVERY_OCCASIONS)).default([]),
+  discoveryOccasions: z
+    .array(z.string().min(1).max(60))
+    .default([]),
   meals: z.array(z.enum(MEALS)).default([]),
   dietaryTags: z.array(z.enum(DIETARY_TAGS)).default([]),
   amenities: z.array(z.enum(AMENITIES)).default([]),
@@ -277,9 +280,10 @@ export const notificationPreferencesSchema = z.object({
 
 export const searchRestaurantsSchema = z.object({
   query: z.string().optional(),
-  cuisine: z.enum(CUISINES).optional(),
-  cuisines: z.array(z.enum(CUISINES)).optional(),
+  cuisine: z.string().min(2).max(60).optional(),
+  cuisines: z.array(z.string().min(2).max(60)).optional(),
   categoryIds: z.array(z.string()).optional(),
+  landmarkIds: z.array(z.string()).optional(),
   priceRange: z.number().int().min(1).max(4).optional(),
   city: z.string().optional(),
   state: z.string().optional(),
@@ -296,7 +300,7 @@ export const searchRestaurantsSchema = z.object({
     .regex(/^\d{2}:\d{2}$/)
     .optional(),
   partySize: z.number().int().min(1).max(50).default(2),
-  occasions: z.array(z.enum(DISCOVERY_OCCASIONS)).optional(),
+  occasions: z.array(z.string().min(1).max(60)).optional(),
   diningStyles: z.array(z.enum(DINING_STYLES)).optional(),
   meals: z.array(z.enum(MEALS)).optional(),
   dietaryTags: z.array(z.enum(DIETARY_TAGS)).optional(),
@@ -344,6 +348,86 @@ export const blogPostInputSchema = z.object({
 });
 
 export type BlogPostInput = z.infer<typeof blogPostInputSchema>;
+
+export const DISCOVERY_TAXONOMY_KINDS = [
+  "category",
+  "cuisine",
+  "occasion",
+  "landmark",
+] as const;
+
+export type DiscoveryTaxonomyKind = (typeof DISCOVERY_TAXONOMY_KINDS)[number];
+
+export const discoveryTaxonomyInputSchema = z
+  .object({
+    kind: z.enum(DISCOVERY_TAXONOMY_KINDS),
+    label: z.string().min(1).max(120),
+    slug: z
+      .union([
+        z.literal(""),
+        z
+          .string()
+          .min(1)
+          .max(120)
+          .regex(
+            /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+            "Slug must be lowercase letters, numbers, and hyphens",
+          ),
+      ])
+      .optional()
+      .transform((v) => (!v ? undefined : v)),
+    description: z.string().max(500).optional().default(""),
+    imageUrl: z
+      .union([z.string().url(), z.literal("")])
+      .optional()
+      .transform((v) => (v === "" || v == null ? "" : v)),
+    iconUrl: z
+      .union([z.string().url(), z.literal("")])
+      .optional()
+      .transform((v) => (v === "" || v == null ? "" : v)),
+    sortOrder: z.number().int().min(0).max(10_000).optional().default(0),
+    active: z.boolean().optional().default(true),
+    cuisine: z.string().max(60).optional().default(""),
+    query: z.string().max(120).optional().default(""),
+    city: z.string().max(80).optional().default(""),
+    state: z.string().max(2).optional().default(""),
+    lat: z.number().min(-90).max(90).optional().nullable(),
+    lng: z.number().min(-180).max(180).optional().nullable(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.kind === "landmark") {
+      if (!val.city?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "City is required for landmarks",
+          path: ["city"],
+        });
+      }
+      if (!val.state?.trim() || val.state.trim().length !== 2) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Two-letter state code is required for landmarks",
+          path: ["state"],
+        });
+      }
+      if (val.lat == null || val.lng == null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Latitude and longitude are required for landmarks",
+          path: ["lat"],
+        });
+      }
+    }
+    if (val.kind === "category" && !val.cuisine?.trim() && !val.query?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Categories need a cuisine match and/or a search query",
+        path: ["query"],
+      });
+    }
+  });
+
+export type DiscoveryTaxonomyInput = z.infer<typeof discoveryTaxonomyInputSchema>;
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { cityLandingMeta } from '@reservations/shared';
+import { cityLandingMeta, seoCuisineInCityLabel, seoTierRestaurantsIn } from '@reservations/shared';
 import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
 import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
 import {
@@ -46,15 +46,15 @@ export default async function CityLandingPage({ params }: PageProps) {
   const related = (await listCitiesForIndex())
     .filter((c) => c.slug !== slug)
     .slice(0, 4)
-    .map((c) => ({ href: `/cities/${c.slug}`, label: c.label }));
+    .map((c) => ({ href: `/cities/${c.slug}`, label: seoTierRestaurantsIn('best', c.label) }));
 
   const cuisines = await listCuisinesForIndex();
   const crossLinks = [
-    { href: `/top-restaurants/${slug}`, label: `Top restaurants in ${city.city}` },
+    { href: `/top-restaurants/${slug}`, label: seoTierRestaurantsIn('top', `${city.city}, ${city.state}`) },
     { href: `/near-me/restaurants/${slug}`, label: `Restaurants near me in ${city.city}` },
     ...cuisines.slice(0, 4).map((c) => ({
       href: `/cuisine/${c.slug}/${slug}`,
-      label: `${c.label} in ${city.city}`,
+      label: seoCuisineInCityLabel(c.label, `${city.city}, ${city.state}`),
     })),
     ...related,
   ];

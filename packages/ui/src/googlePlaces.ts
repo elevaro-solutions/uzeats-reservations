@@ -84,6 +84,19 @@ type PlacesApi = {
   AutocompleteSessionToken: new () => unknown;
 };
 
+type GeocoderResult = {
+  formatted_address?: string;
+  address_components?: RawAddressComponent[];
+  geometry?: { location: { lat: () => number; lng: () => number } };
+};
+
+type GeocoderLike = {
+  geocode: (
+    request: { location: { lat: number; lng: number } } | { address: string },
+    callback: (results: GeocoderResult[] | null, status: string) => void,
+  ) => void;
+};
+
 export type GoogleMapsCore = {
   Map: new (
     el: HTMLElement,
@@ -104,6 +117,7 @@ export type GoogleMapsCore = {
     zIndex?: number;
   }) => GoogleMarkerInstance;
   InfoWindow: new (opts?: { content?: string }) => GoogleInfoWindowInstance;
+  Geocoder: new () => GeocoderLike;
   LatLngBounds: new () => GoogleLatLngBoundsInstance;
   LatLng: new (lat: number, lng: number) => { lat: () => number; lng: () => number };
   OverlayView: new () => GoogleOverlayViewInstance;
@@ -310,6 +324,11 @@ function parseAddressComponents(components: RawAddressComponent[]): Partial<Addr
 
   return {
     line1,
+    city:
+      find('locality')?.long_name ??
+      find('postal_town')?.long_name ??
+      find('sublocality')?.long_name ??
+      find('sublocality_level_1')?.long_name,
     neighborhood: find('neighborhood')?.long_name,
     state: find('administrative_area_level_1')?.short_name,
     zip: find('postal_code')?.long_name,
@@ -370,9 +389,57 @@ export async function resolveAddress(placeId: string): Promise<AddressSelection 
           lat: result.geometry?.location.lat(),
           lng: result.geometry?.location.lng(),
           ...parsed,
-          city: cityBeforeState(label, parsed.state),
+          city: parsed.city ?? cityBeforeState(label, parsed.state),
         });
       },
     );
+  });
+}
+
+/** Reverse-geocode coordinates to a city/state address selection. */
+export async function reverseGeocodeLatLng(
+  lat: number,
+  lng: number,
+): Promise<AddressSelection | null> {
+  const maps = await loadGoogleMaps();
+  if (!maps?.Geocoder) return null;
+
+  const geocoder = new maps.Geocoder();
+  return new Promise((resolve) => {
+    geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+      if (status === 'REQUEST_DENIED') {
+        setAvailability('unavailable');
+        resolve(null);
+        return;
+      }
+      if (status !== 'OK' || !results?.length) {
+        resolve(null);
+        return;
+      }
+
+      // Prefer a result that includes locality / postal_town for a clean city label.
+      const preferred =
+        results.find((r) =>
+          (r.address_components ?? []).some((c) =>
+            c.types.includes('locality') || c.types.includes('postal_town'),
+          ),
+        ) ?? results[0];
+
+      const parsed = parseAddressComponents(preferred.address_components ?? []);
+      const formatted = preferred.formatted_address || '';
+      const city = parsed.city ?? cityBeforeState(formatted, parsed.state);
+      const state = parsed.state;
+      const label =
+        city && state ? `${city}, ${state}` : formatted || 'Near me';
+
+      resolve({
+        label,
+        lat,
+        lng,
+        ...parsed,
+        city,
+        state,
+      });
+    });
   });
 }

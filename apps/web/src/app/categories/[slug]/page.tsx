@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { categoryLandingMeta } from '@reservations/shared';
+import { categoryLandingMeta, seoCategoryInCityLabel } from '@reservations/shared';
 import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
 import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
 import {
@@ -15,13 +15,13 @@ import type { BreadcrumbItem } from '@/lib/seo';
 
 type PageProps = { params: Promise<{ slug: string }> };
 
-export function generateStaticParams() {
+export async function generateStaticParams() {
   return listCategoryLandingParams();
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const category = resolveCategoryBySlug(slug);
+  const category = await resolveCategoryBySlug(slug);
   if (!category) return {};
   const meta = categoryLandingMeta(category.label);
   return discoveryLandingMetadata({
@@ -33,7 +33,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function CategoryLandingPage({ params }: PageProps) {
   const { slug } = await params;
-  const category = resolveCategoryBySlug(slug);
+  const category = await resolveCategoryBySlug(slug);
   if (!category) notFound();
 
   const meta = categoryLandingMeta(category.label);
@@ -45,15 +45,16 @@ export default async function CategoryLandingPage({ params }: PageProps) {
   ];
 
   const cities = await listCitiesForIndex();
+  const relatedCategories = await listCategoriesForIndex();
   const related = [
     ...cities.slice(0, 8).map((c) => ({
       href: `/categories/${slug}/${c.slug}`,
-      label: `${category.label} in ${c.label}`,
+      label: seoCategoryInCityLabel(category.label, slug, c.label),
     })),
-    ...listCategoriesForIndex()
+    ...relatedCategories
       .filter((c) => c.slug !== slug)
       .slice(0, 6)
-      .map((c) => ({ href: `/categories/${c.slug}`, label: c.label })),
+      .map((c) => ({ href: `/categories/${c.slug}`, label: c.seoLabel })),
   ];
 
   return (

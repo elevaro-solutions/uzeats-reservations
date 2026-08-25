@@ -63,6 +63,8 @@ const restaurantSchema = new Schema(
       showReviews: { type: Boolean, default: true },
     },
     // Discovery & local SEO attributes
+    categoryIds: [{ type: String, index: true }],
+    landmarkIds: [{ type: String, index: true }],
     diningStyles: [{ type: String, index: true }],
     discoveryOccasions: [{ type: String, index: true }],
     meals: [{ type: String, index: true }],

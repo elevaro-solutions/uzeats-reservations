@@ -423,6 +423,8 @@ type RestaurantRecord = {
     neighborhood?: string | null;
   };
   location?: { lat?: number; lng?: number };
+  categoryIds?: string[];
+  landmarkIds?: string[];
   diningStyles?: string[];
   discoveryOccasions?: string[];
   meals?: string[];
@@ -627,6 +629,8 @@ function AdminRestaurantsContent() {
       buttonText: editing.widgetTheme?.buttonText ?? 'Reserve a table',
       showReviews: editing.widgetTheme?.showReviews ?? true,
       neighborhood: editing.address?.neighborhood ?? '',
+      categoryIds: editing.categoryIds ?? [],
+      landmarkIds: editing.landmarkIds ?? [],
       diningStyles: editing.diningStyles ?? [],
       discoveryOccasions: editing.discoveryOccasions ?? [],
       meals: editing.meals ?? [],
@@ -789,6 +793,8 @@ function AdminRestaurantsContent() {
       lng: Number(values.lng),
     },
     neighborhood: values.neighborhood || undefined,
+    categoryIds: values.categoryIds ?? [],
+    landmarkIds: values.landmarkIds ?? [],
     diningStyles: values.diningStyles ?? [],
     discoveryOccasions: values.discoveryOccasions ?? [],
     meals: values.meals ?? [],
@@ -1322,7 +1328,7 @@ function AdminRestaurantsContent() {
               loading={loading}
               rowKey="id"
               dataSource={data?.adminRestaurants?.items ?? []}
-              scroll={{ y: 420, x: 'max-content' }}
+              scroll={{ x: 'max-content' }}
               pagination={tablePagination(matchingTotal, {
                 showSizeChanger: true,
               })}
