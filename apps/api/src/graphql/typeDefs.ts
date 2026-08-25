@@ -2192,7 +2192,7 @@ export const typeDefs = `#graphql
     planChangePayment(restaurantId: ID!): PlanChangePayload!
     plans: [PlanInfo!]!
     partnerEmailAvailable(email: String!): Boolean!
-    partnerRestaurantNameAvailable(name: String!): Boolean!
+    partnerRestaurantNameAvailable(name: String!, excludeRestaurantId: ID): Boolean!
     annualBillingSettings: AnnualBillingSettings!
     coverFeeSummary(restaurantId: ID!, period: String): CoverFeeSummary!
 

@@ -1277,8 +1277,10 @@ export const resolvers = {
       const existing = await User.findOne({ email }).select('_id').lean();
       return !existing;
     },
-    partnerRestaurantNameAvailable: async (_: unknown, args: { name: string }) =>
-      isRestaurantNameAvailable(args.name),
+    partnerRestaurantNameAvailable: async (
+      _: unknown,
+      args: { name: string; excludeRestaurantId?: string | null },
+    ) => isRestaurantNameAvailable(args.name, args.excludeRestaurantId ?? undefined),
 
     annualBillingSettings: async () => getAnnualBillingSettings(),
 

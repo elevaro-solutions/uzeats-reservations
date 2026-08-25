@@ -18,10 +18,32 @@ function restaurantSlugBase(name: string) {
   );
 }
 
-export async function isRestaurantNameAvailable(name: string): Promise<boolean> {
-  const base = restaurantSlugBase(name.trim());
-  if (!base) return false;
-  const existing = await Restaurant.findOne({ slug: base }).select('_id').lean();
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export async function isRestaurantNameAvailable(
+  name: string,
+  excludeRestaurantId?: string,
+): Promise<boolean> {
+  const trimmed = name.trim();
+  if (!trimmed) return false;
+
+  const baseSlug = restaurantSlugBase(trimmed);
+  const filter: Record<string, unknown> = {
+    $or: [
+      // Match display name (admin/owner create use timestamped slugs, so slug-only checks miss them)
+      { name: { $regex: new RegExp(`^${escapeRegex(trimmed)}$`, 'i') } },
+      // Match partner-registration base slug and timestamped slug variants
+      { slug: baseSlug },
+      { slug: { $regex: new RegExp(`^${escapeRegex(baseSlug)}-`) } },
+    ],
+  };
+  if (excludeRestaurantId) {
+    filter._id = { $ne: excludeRestaurantId };
+  }
+
+  const existing = await Restaurant.findOne(filter).select('_id').lean();
   return !existing;
 }
 

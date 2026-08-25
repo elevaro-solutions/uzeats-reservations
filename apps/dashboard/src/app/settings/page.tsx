@@ -931,6 +931,7 @@ export default function SettingsPage() {
         open={showImport}
         onClose={() => setShowImport(false)}
         onImport={handleOwnerImport}
+        excludeRestaurantId={restaurantId}
       />
     </Space></div>
   );

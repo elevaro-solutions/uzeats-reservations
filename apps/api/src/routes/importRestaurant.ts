@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { createContext } from '../graphql/context.js';
 import { parseRestaurantFile } from '../services/mhtmlImport.js';
-import { fetchRestaurantFromUrl, RestaurantUrlImportError } from '../services/restaurantUrlImport.js';
 import { buildUploadKey, uploadObject } from '../services/spaces.js';
 
 const MAX_BYTES = 50 * 1024 * 1024; // 50 MB — MHTML files can be large
@@ -129,9 +128,8 @@ importRestaurantRouter.post('/upload-image', async (req, res) => {
 /**
  * POST /api/import-restaurant
  *
- * Accepts either:
- * - JSON body `{ "url": "https://..." }` — tries to fetch and parse (may be blocked by DD/UE)
- * - Raw MHTML/HTML file body (Content-Type: application/octet-stream or text/html)
+ * Accepts raw MHTML/HTML file body (Content-Type: application/octet-stream or text/html).
+ * URL import is not supported yet — clients should upload a saved .mhtml/.html file.
  *
  * Requires authentication (any logged-in user: admin or restaurant_owner).
  */
@@ -145,24 +143,11 @@ importRestaurantRouter.post('/', async (req, res) => {
   const contentType = String(req.headers['content-type'] ?? '');
 
   if (contentType.includes('application/json')) {
-    const body = req.body as { url?: string } | undefined;
-    const url = typeof body?.url === 'string' ? body.url.trim() : '';
-    if (!url) {
-      res.status(400).json({ error: 'Missing url — send { "url": "https://..." }' });
-      return;
-    }
-
-    try {
-      const data = await fetchRestaurantFromUrl(url);
-      res.json({ ok: true, data });
-    } catch (err) {
-      if (err instanceof RestaurantUrlImportError) {
-        const status = err.code === 'invalid_url' ? 400 : 422;
-        res.status(status).json({ error: err.message, code: err.code });
-        return;
-      }
-      res.status(500).json({ error: err instanceof Error ? err.message : 'Import failed' });
-    }
+    res.status(501).json({
+      error:
+        'Import from URL is not supported yet. Save the DoorDash or Uber Eats page as .mhtml/.html and upload the file instead.',
+      code: 'url_import_unsupported',
+    });
     return;
   }
 
@@ -170,7 +155,7 @@ importRestaurantRouter.post('/', async (req, res) => {
 
   if (!Buffer.isBuffer(body) || body.length === 0) {
     res.status(400).json({
-      error: 'Empty body — upload an .mhtml/.html file or send JSON { "url": "..." }',
+      error: 'Empty body — upload an .mhtml/.html file',
     });
     return;
   }

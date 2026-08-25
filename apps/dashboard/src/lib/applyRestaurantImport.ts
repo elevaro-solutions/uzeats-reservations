@@ -52,19 +52,3 @@ export function applyRestaurantImportToForm(
     ...(next.zip ? { zip: next.zip } : {}),
   });
 }
-
-export function isSupportedDeliveryImportUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url.trim());
-    const host = parsed.hostname.toLowerCase();
-    return (
-      (host === 'doordash.com'
-        || host.endsWith('.doordash.com')
-        || host === 'ubereats.com'
-        || host.endsWith('.ubereats.com'))
-      && /\/store\//i.test(parsed.pathname)
-    );
-  } catch {
-    return false;
-  }
-}

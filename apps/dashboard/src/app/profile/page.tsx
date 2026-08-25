@@ -212,6 +212,7 @@ export default function ProfilePage() {
         open={showImport}
         onClose={() => setShowImport(false)}
         onImport={handleImport}
+        excludeRestaurantId={restaurantId}
       />
     </Space>
   );

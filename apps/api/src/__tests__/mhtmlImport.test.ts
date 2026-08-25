@@ -65,6 +65,7 @@ describe('mhtmlImport', () => {
     expect(data.cuisine).toBe('American');
     expect(data.priceRange).toBe(2);
     expect(data.rating).toBe(4.5);
+    expect(data.address).toMatchObject({ city: 'Austin', state: 'TX' });
     expect(data.menuCategories).toEqual(['Burgers']);
     expect(data.menuItems).toHaveLength(2);
     expect(data.menuItems?.[0]).toMatchObject({
@@ -72,6 +73,62 @@ describe('mhtmlImport', () => {
       price: 1250,
       category: 'Burgers',
     });
+  });
+
+  it('parses DoorDash “at street in city” addresses', () => {
+    const html = `
+<!doctype html>
+<html>
+<head>
+  <title>Order Dolan Uyghur Restaurant - Washington, DC | DoorDash</title>
+  <meta property="og:description" content="Get delivery from Dolan Uyghur Restaurant at 3518 Connecticut Avenue Northwest in Washington. Order online." />
+</head>
+<body>
+  <div>4.7 (1k+) $$ DashPass • Asian •</div>
+</body>
+</html>`;
+    const data = parseRestaurantHtml(html, 'https://www.doordash.com/store/dolan/1/');
+    expect(data.address).toMatchObject({
+      line1: '3518 Connecticut Avenue Northwest',
+      city: 'Washington',
+      state: 'DC',
+      country: 'US',
+    });
+    expect(data.rating).toBe(4.7);
+    expect(data.priceRange).toBe(2);
+  });
+
+  it('does not truncate MHTML HTML when CSS custom properties contain --', () => {
+    const mhtml = [
+      'From: <Saved by Blink>',
+      'Snapshot-Content-Location: https://www.doordash.com/store/test/1/',
+      'Content-Type: multipart/related; boundary="BOUNDARY"',
+      '',
+      '--BOUNDARY',
+      'Content-Type: text/html; charset=UTF-8',
+      'Content-Location: https://www.doordash.com/store/test/1/',
+      'Content-Transfer-Encoding: quoted-printable',
+      '',
+      '<title>Order Test Grill - DoorDash</title>',
+      '<div style=3D"--base-color-red-60: #f00">shell</div>',
+      '<meta property=3D"og:description" content=3D"Test Grill at 100 Main Street in Austin.">',
+      '<div>4.2 (100+) $$ DashPass =E2=80=A2 Burgers =E2=80=A2</div>',
+      '<h2 data-category-scroll-selector=3D"true">Burgers</h2>',
+      '<div data-testid=3D"MenuItem"><h3>Classic Burger</h3>',
+      '<span data-testid=3D"StoreMenuItemPrice">$12.50</span></div>',
+      '--BOUNDARY--',
+    ].join('\r\n');
+
+    const data = parseMhtmlRestaurant(Buffer.from(mhtml, 'utf-8'));
+    expect(data.source).toBe('doordash');
+    expect(data.name).toBe('Test Grill');
+    expect(data.cuisine).toBe('American');
+    expect(data.address).toMatchObject({
+      line1: '100 Main Street',
+      city: 'Austin',
+    });
+    expect(data.menuItems).toHaveLength(1);
+    expect(data.menuItems?.[0]).toMatchObject({ name: 'Classic Burger', price: 1250 });
   });
 
   it('parses Uber Eats HTML exports', () => {

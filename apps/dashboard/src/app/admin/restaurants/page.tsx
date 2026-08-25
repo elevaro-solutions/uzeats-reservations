@@ -750,6 +750,10 @@ function AdminRestaurantsContent() {
     try {
       const mode = getOwnerMode();
       if (createStep === 0) {
+        if (mode === 'new') {
+          const emailInput = document.getElementById('create-owner-email') as HTMLInputElement | null;
+          if (emailInput) createForm.setFieldValue('ownerEmail', emailInput.value);
+        }
         await createForm.validateFields(['ownerMode', ...ownerFieldsForMode(mode), 'plan', 'status']);
       } else if (createStep === 1) {
         await createForm.validateFields(['name', 'cuisine', 'priceRange', 'phone', 'website']);
@@ -1499,12 +1503,17 @@ function AdminRestaurantsContent() {
                     <Form.Item
                       name="ownerEmail"
                       label="Email"
+                      validateTrigger={[]}
                       rules={[
-                        { required: true, message: 'Required' },
+                        { required: true, message: 'Required', whitespace: true },
                         { type: 'email', message: 'Enter a valid email' },
                       ]}
                     >
-                      <Input autoComplete="email" placeholder="owner@restaurant.com" />
+                      <Input
+                        id="create-owner-email"
+                        autoComplete="email"
+                        placeholder="owner@restaurant.com"
+                      />
                     </Form.Item>
                   </Col>
                   <Col span={24}>

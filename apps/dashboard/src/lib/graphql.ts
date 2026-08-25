@@ -1719,8 +1719,8 @@ export const PARTNER_EMAIL_AVAILABLE = gql`
 `;
 
 export const PARTNER_RESTAURANT_NAME_AVAILABLE = gql`
-  query PartnerRestaurantNameAvailable($name: String!) {
-    partnerRestaurantNameAvailable(name: $name)
+  query PartnerRestaurantNameAvailable($name: String!, $excludeRestaurantId: ID) {
+    partnerRestaurantNameAvailable(name: $name, excludeRestaurantId: $excludeRestaurantId)
   }
 `;
 

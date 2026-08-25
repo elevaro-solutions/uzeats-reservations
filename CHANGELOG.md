@@ -4,6 +4,19 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.31.1] — 2026-08-25
+
+### Fixed
+
+- DoorDash MHTML import no longer truncates the page when CSS custom properties contain `--` (menu items were missing)
+- DoorDash address parsing from “at street in city” og:description; cuisine bullets and hours extraction improved
+- Restaurant name availability checks display name and slug variants; edits can exclude the current restaurant
+
+### Changed
+
+- Restaurant import is file upload only (`.mhtml` / `.html`); URL paste returns not-supported with clearer guidance
+- Import modal simplified around file upload; additional parser unit tests
+
 ## [0.31.0] — 2026-08-25
 
 ### Added

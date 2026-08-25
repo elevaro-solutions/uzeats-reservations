@@ -85,16 +85,34 @@ function extractHtmlFromMhtml(mhtmlContent: string): { html: string; sourceUrl: 
   const boundary = boundaryMatch[1];
   const parts = mhtmlContent.split(`--${boundary}`);
 
+  let best: { html: string; sourceUrl: string; score: number } | null = null;
+
   for (const part of parts) {
-    if (part.includes('Content-Type: text/html')) {
-      const bodyStart = part.indexOf('\r\n\r\n');
-      const altBodyStart = part.indexOf('\n\n');
-      const start = bodyStart !== -1 ? bodyStart + 4 : altBodyStart !== -1 ? altBodyStart + 2 : 0;
-      const rawBody = part.slice(start).replace(/\r?\n--[\s\S]*$/, '');
-      const html = decodePartBody(part, rawBody);
-      return { html, sourceUrl };
+    if (!/Content-Type:\s*text\/html/i.test(part)) continue;
+
+    const bodyStart = part.indexOf('\r\n\r\n');
+    const altBodyStart = part.indexOf('\n\n');
+    const start = bodyStart !== -1 ? bodyStart + 4 : altBodyStart !== -1 ? altBodyStart + 2 : 0;
+    // Do NOT strip on interior `\n--` — DoorDash CSS vars like `--base-color-…` appear in the
+    // HTML body and a greedy trim previously truncated the page to a shell (~26KB) with no menu.
+    const rawBody = part.slice(start).replace(/\r?\n--\s*$/, '').replace(/\s+$/, '');
+    const html = decodePartBody(part, rawBody);
+    const loc = part.match(/Content-Location:\s*(.+)/i)?.[1]?.trim() ?? '';
+    const score =
+      html.length
+      + (/MenuItem|StoreMenuItemPrice|data-category-scroll/i.test(html) ? 1_000_000 : 0)
+      + (/doordash\.com\/store|ubereats\.com\/store/i.test(loc) ? 100_000 : 0);
+
+    if (!best || score > best.score) {
+      best = {
+        html,
+        sourceUrl: loc || sourceUrl,
+        score,
+      };
     }
   }
+
+  if (best) return { html: best.html, sourceUrl: best.sourceUrl || sourceUrl };
 
   return { html: mhtmlContent, sourceUrl };
 }
@@ -193,6 +211,37 @@ function extractFirstImageInBlock(block: string): string | undefined {
 
 // ─── DoorDash Parser ──────────────────────────────────────────────────────────
 
+const BULLET = String.raw`[•·⋅∙\u2022\u00b7]`;
+
+function parseDoorDashAddressFromDescription(description: string): ImportedRestaurantData['address'] | undefined {
+  // "… at 3518 Connecticut Avenue Northwest in Washington."
+  const atIn = description.match(
+    /\bat\s+(\d{1,5}\s+[A-Za-z0-9][^.]{5,80}?)\s+in\s+([A-Za-z][A-Za-z\s.'-]{1,40}?)(?:\.|$)/i,
+  );
+  if (atIn) {
+    return {
+      line1: atIn[1]!.trim(),
+      city: atIn[2]!.trim(),
+      country: 'US',
+    };
+  }
+
+  // "Joe's Burgers in Austin, TX"
+  const inCityState = description.match(/\bin\s+([A-Za-z][A-Za-z\s.'-]{1,40}?),\s*([A-Z]{2})\b/);
+  if (inCityState) {
+    return { city: inCityState[1]!.trim(), state: inCityState[2]!, country: 'US' };
+  }
+
+  // Fallback: last "City, ST" occurrence
+  const cityStateMatches = [...description.matchAll(/\b([A-Za-z][A-Za-z.'-]{1,40}),\s*([A-Z]{2})\b/g)];
+  const last = cityStateMatches[cityStateMatches.length - 1];
+  if (last) {
+    return { city: last[1]!.trim(), state: last[2]!, country: 'US' };
+  }
+
+  return undefined;
+}
+
 function parseDoorDash(html: string, text: string): ImportedRestaurantData {
   const data: ImportedRestaurantData = { source: 'doordash' };
   data.coverImageUrl = extractCoverImageUrl(html);
@@ -200,14 +249,14 @@ function parseDoorDash(html: string, text: string): ImportedRestaurantData {
   // Name: from <title> or heading
   const titleMatch = html.match(/<title[^>]*>Order\s+(.+?)\s*[-|]/i);
   if (titleMatch) {
-    data.name = titleMatch[1]!.replace(/&#39;/g, "'").trim();
+    data.name = titleMatch[1]!.replace(/&#39;/g, "'").replace(/&amp;/g, '&').trim();
   }
 
-  // Rating e.g. "4.5 (2k+)"
+  // Rating e.g. "4.5 (2k+)" / "4.7 (1k+)"
   const ratingMatch = text.match(/(\d+\.\d+)\s*\((\d+[k+]*)\)/i);
   if (ratingMatch) {
     data.rating = parseFloat(ratingMatch[1]!);
-    const countStr = ratingMatch[2]!.replace('k', '000').replace('+', '');
+    const countStr = ratingMatch[2]!.replace(/k/i, '000').replace('+', '');
     data.reviewCount = parseInt(countStr, 10);
   }
 
@@ -217,24 +266,34 @@ function parseDoorDash(html: string, text: string): ImportedRestaurantData {
     data.priceRange = parsePriceRange(priceMatch[0]!);
   }
 
-  // Cuisine tags — DoorDash lists them after rating e.g. "• Burgers •"
-  const cuisineMatch = text.match(/DashPass\s*•\s*([^•\n]+?)(?:\s*•|$)/i);
+  // Cuisine tags — DoorDash lists them after rating e.g. "• Asian •" / "DashPass • Burgers"
+  const cuisineMatch = text.match(
+    new RegExp(`DashPass\\s*${BULLET}\\s*([^${BULLET}\\n]+?)(?:\\s*${BULLET}|$)`, 'i'),
+  );
   if (cuisineMatch) {
     data.cuisine = normalizeCuisine(cuisineMatch[1]!.trim());
   } else {
-    // Try title
-    const titleCuisine = text.match(/(?:American|Burgers|Pizza|Mexican|Chinese|Japanese|Thai|Indian|Italian|Mediterranean|Seafood|Turkish|Korean|Uzbek|Uyghur)/i);
+    const titleCuisine = text.match(
+      /(?:American|Burgers|Pizza|Mexican|Chinese|Japanese|Thai|Indian|Italian|Mediterranean|Seafood|Turkish|Korean|Uzbek|Uyghur|Asian)/i,
+    );
     if (titleCuisine) data.cuisine = normalizeCuisine(titleCuisine[0]!);
   }
 
-  // Location — from meta or text
-  const locationMatch = html.match(/<meta[^>]+(?:og:description|description)[^>]*content="([^"]+)"/i);
+  // Location — DoorDash og:description is usually "… at STREET in CITY."
+  const locationMatch =
+    html.match(/<meta[^>]+property=["']og:description["'][^>]*content="([^"]+)"/i)
+    || html.match(/<meta[^>]+content="([^"]+)"[^>]+property=["']og:description["']/i)
+    || html.match(/<meta[^>]+property=["']og:description["'][^>]*content='([^']+)'/i)
+    || html.match(/<meta[^>]+name=["']description["'][^>]*content="([^"]+)"/i);
   if (locationMatch) {
-    const loc = locationMatch[1]!;
-    const cityState = loc.match(/([A-Za-z\s]+),\s*([A-Z]{2})/);
-    if (cityState) {
-      data.address = { city: cityState[1]!.trim(), state: cityState[2]!, country: 'US' };
-    }
+    data.address = parseDoorDashAddressFromDescription(decodeHtmlEntities(locationMatch[1]!));
+  }
+
+  // State from page text ("Washington, DC")
+  const titleCityState = text.match(/\b([A-Za-z][A-Za-z\s]{1,30}),\s*([A-Z]{2})\b/);
+  if (data.address && titleCityState) {
+    if (!data.address.city) data.address.city = titleCityState[1]!.trim();
+    if (!data.address.state) data.address.state = titleCityState[2]!;
   }
 
   const categoryMatches = Array.from(
@@ -295,7 +354,17 @@ function parseDoorDash(html: string, text: string): ImportedRestaurantData {
 
   if (menuItems.length > 0) {
     data.menuItems = menuItems.slice(0, 200);
+    if (!data.description) {
+      const topItems = menuItems.slice(0, 3).map((i) => i.name).join(', ');
+      data.description = `Authentic ${data.cuisine ?? 'restaurant'} cuisine. Popular dishes include: ${topItems}.`;
+    }
   }
+
+  // Operating hours e.g. "11:30 am - 9:25 pm"
+  const hoursMatch = text.match(
+    /(\d{1,2}:\d{2}\s*(?:am|pm))\s*[–\-—-]\s*(\d{1,2}:\d{2}\s*(?:am|pm))/i,
+  );
+  if (hoursMatch) data.hours = `${hoursMatch[1]!} – ${hoursMatch[2]!}`;
 
   return data;
 }
