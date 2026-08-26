@@ -1,0 +1,43 @@
+---
+description: Tablevera mobile app stack, API, and how to run
+alwaysApply: true
+---
+
+# Tablevera mobile (`apps/mobile`)
+
+Expo SDK 57 + React Native + Expo Router + Apollo Client + Zustand (MMKV) +
+react-native-unistyles 3. Custom components only — no third-party UI libraries.
+Icons are Lucide paths rendered with `react-native-svg`.
+
+This is the **diner** client for Tablevera (OpenTable/Resy-style reservations).
+It lives in the `uzeats-reservations` pnpm + Turborepo monorepo as
+`@reservations/mobile`. GraphQL is served by `apps/api` at `/graphql`.
+
+## API
+
+- Default: `EXPO_PUBLIC_API_URL` or `http://localhost:4000/graphql`
+- Preview/production EAS builds use `https://api.tablevera.online/graphql`
+- Auth tokens: `expo-secure-store` (`accessToken`, `refreshToken`)
+- Prefer existing ops in `src/graphql/operations.ts`; align with
+  `apps/api/src/graphql/typeDefs.ts`
+
+## Theme
+
+- Root `unistyles.ts` — Forest & Gold light theme only
+- Typography: **DM Sans only** (see components rule)
+- Always use `theme.colors.*`, `theme.space(n)`, `theme.radius.*`
+- Never hardcode hex colors or raw pixel spacing in features/components
+
+## Run (dev client required — not Expo Go)
+
+```bash
+# from repo root
+pnpm install
+pnpm --filter @reservations/mobile start
+
+# first-time native binary (your EAS account):
+cd apps/mobile && eas build --profile development --platform ios
+# then install the build and start with --dev-client
+```
+
+Local API: start `apps/api`, set `EXPO_PUBLIC_API_URL` to your machine IP on device.

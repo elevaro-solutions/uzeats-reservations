@@ -4,6 +4,19 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.27.0] — 2026-08-26
+
+### Added
+
+- Mobile diner app rebuild: Expo Router under `src/app`, Unistyles Forest & Gold kit, feature modules, SecureStore JWT auth (email/password + Google)
+- Mobile Google Sign-In env vars (`EXPO_PUBLIC_GOOGLE_*_CLIENT_ID`) in `.env.example`
+
+### Fixed
+
+- Mobile logout now revokes server refresh tokens, clears Apollo cache, and signs out of Google
+- Failed token refresh and failed/`null` `me` clear SecureStore and drop UI session state immediately
+- Unistyles Button/Skeleton variant renamed to avoid Hermes `radius` theme collision
+
 ## [0.26.1] — 2026-08-18
 
 ### Fixed

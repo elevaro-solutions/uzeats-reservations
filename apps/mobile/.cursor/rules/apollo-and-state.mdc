@@ -1,0 +1,24 @@
+---
+description: Apollo Client and Zustand + MMKV conventions
+globs: src/graphql/**/*.{ts,tsx},src/store/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Apollo (`src/graphql`)
+
+Links: `errorLink → authLink → httpLink` → `API_URL`.
+
+- Tokens in SecureStore only — never MMKV
+- On `Authentication required`, refresh via `refreshToken` mutation then retry
+- Shared ops: `src/graphql/operations.ts`
+- Feature-specific ops may live under `src/features/<x>/api/`
+
+# Zustand + MMKV (`src/store`)
+
+```ts
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+```
+
+- Persist non-sensitive UI prefs (e.g. last search city) to MMKV
+- Auth user/session: React context + SecureStore (`src/graphql/auth.tsx`)
