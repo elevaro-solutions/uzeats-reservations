@@ -16,23 +16,25 @@ function inferContentTypeFromUrl(url: string): string {
   return 'image/jpeg';
 }
 
-async function fetchRemoteImage(sourceUrl: string) {
+async function fetchRemoteImage(
+  sourceUrl: string,
+): Promise<{ error: string } | { body: Buffer; contentType: string }> {
   const remote = await fetch(sourceUrl, {
     headers: { 'User-Agent': 'reservations-discovery-bot/1.0' },
     redirect: 'follow',
   });
 
   if (!remote.ok) {
-    return { error: `Could not download image (${remote.status})` as const };
+    return { error: `Could not download image (${remote.status})` };
   }
 
   const arrayBuffer = await remote.arrayBuffer();
   const body = Buffer.from(arrayBuffer);
   if (body.length === 0) {
-    return { error: 'Downloaded image is empty' as const };
+    return { error: 'Downloaded image is empty' };
   }
   if (body.length > MAX_BYTES) {
-    return { error: 'Image too large (max 5 MB)' as const };
+    return { error: 'Image too large (max 5 MB)' };
   }
 
   const contentTypeHeader = remote.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
@@ -115,8 +117,9 @@ discoveryMagnificRouter.post('/upload-image', async (req, res) => {
 
     const fetched = await fetchRemoteImage(sourceUrl);
     if ('error' in fetched) {
-      const status = fetched.error.includes('too large') ? 413 : 422;
-      res.status(status).json({ error: fetched.error });
+      const message = fetched.error;
+      const status = message.includes('too large') ? 413 : 422;
+      res.status(status).json({ error: message });
       return;
     }
 

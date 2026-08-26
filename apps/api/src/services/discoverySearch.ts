@@ -113,7 +113,7 @@ export function applyGeoToFilter(
   const usingGeo = input.lat != null && input.lng != null;
   const landmarkIds = [...new Set((input.landmarkIds ?? []).map((id) => id.trim()).filter(Boolean))];
 
-  const cloneFilter = () => ({
+  const cloneFilter = (): Record<string, unknown> => ({
     ...filter,
     ...(Array.isArray(filter.$and) ? { $and: [...(filter.$and as unknown[])] } : {}),
   });

@@ -4,6 +4,12 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.33.1] — 2026-08-26
+
+### Fixed
+
+- API production TypeScript build: Magnific image error narrowing and discovery geo filter clone types
+
 ## [0.33.0] — 2026-08-26
 
 ### Added
