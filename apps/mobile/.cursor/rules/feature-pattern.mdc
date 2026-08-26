@@ -1,0 +1,35 @@
+---
+description: Feature folder layout and thin Expo Router screens
+globs: src/features/**/*.{ts,tsx},src/app/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Feature pattern
+
+Screen logic lives in `src/features/<kebab-name>/`:
+
+```
+src/features/<name>/
+  <name>.feature.tsx
+  api/                     # optional GraphQL for this feature
+  components/              # feature-private UI
+  index.ts
+```
+
+Routes in `src/app/` stay thin:
+
+```tsx
+import { HomeFeature } from "@/features";
+export default function HomeScreen() {
+  return <HomeFeature />;
+}
+```
+
+## Naming
+
+- Files: kebab-case with suffix (`*.feature.tsx`, `*.component.tsx`, `*.helpers.ts`)
+- Components: PascalCase
+- GraphQL docs: SCREAMING_SNAKE (`MY_RESERVATIONS`, `BOOK`)
+
+Tabs (v1): Home | Reservations | Profile. Keep waitlist/owner flows out of the
+tab bar unless product asks for them.

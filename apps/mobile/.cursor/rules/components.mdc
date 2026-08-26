@@ -1,0 +1,53 @@
+---
+description: Design-system component conventions (Unistyles, tokens)
+globs: src/components/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Components
+
+```
+src/components/<kebab-name>/
+  <name>.component.tsx
+  helpers/                 # optional
+  index.ts
+```
+
+Import via `import { Button, Typography, Flex } from "@/components"`.
+
+## Styling
+
+```ts
+import { StyleSheet } from "react-native-unistyles";
+
+const styles = StyleSheet.create(({ space, colors, radius }) => ({
+  container: {
+    padding: space(2),
+    backgroundColor: colors.background,
+    borderRadius: radius.md,
+  },
+}));
+```
+
+- Use `space(n)` (8px grid) — never raw `padding: 16`
+- Prefer semantic colors (`primary`, `textPrimary`, `error`, …); use scale tokens
+  (`primary9`, `slate3`) only when no semantic fits
+- Variants via StyleSheet `variants` + `styles.useVariants({ … })`
+
+## Typography — DM Sans only
+
+- Always use `Typography` for text — avoid raw `<Text>` outside primitives
+- Sole family: **DM Sans** (loaded in `src/app/_layout.tsx`)
+- Weights map to named faces via `getFontFamily` — never set numeric `fontWeight`
+  or another `fontFamily` in features
+- For `TextInput`, use `FONT_FAMILY.regular` from `@/lib/fonts`
+- Weight guidance: body `regular`; labels/chips `medium`; section titles / CTAs
+  `semibold`; screen titles `bold`
+- Size tokens (fontSize / lineHeight): `text-xs` 12/16, `text-sm` 14/20,
+  `text-md` 16/22, `text-lg` 18/24, `text-xl` 20/28, `display-xs` 24/30,
+  `display-sm` 28/34, `display-md` 34/40
+
+## Buttons
+
+Hierarchy: primary filled = book/commit; secondary outlined = dismiss;
+error = destructive. Soft radius (`radius.md`) by default.
