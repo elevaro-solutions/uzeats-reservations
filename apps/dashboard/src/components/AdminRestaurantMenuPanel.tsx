@@ -204,96 +204,98 @@ export function AdminRestaurantMenuPanel({
                 >
                   <Form.List name={[sectionField.name, 'items']}>
                     {(itemFields, { add: addItem, remove: removeItem }) => (
-                      <Collapse
-                        size="small"
-                        items={itemFields.map((itemField) => ({
-                          key: String(itemField.key),
-                          label: (
-                            <Form.Item
-                              {...itemField}
-                              name={[itemField.name, 'name']}
-                              noStyle
-                              shouldUpdate
-                            >
-                              <Input
-                                placeholder="Item name"
-                                onClick={(e) => e.stopPropagation()}
-                                style={{ maxWidth: 240 }}
-                              />
-                            </Form.Item>
-                          ),
-                          extra: (
-                            <Button
-                              type="text"
-                              size="small"
-                              danger
-                              icon={<DeleteOutlined />}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeItem(itemField.name);
-                              }}
-                            />
-                          ),
-                          children: (
-                            <Space orientation="vertical" style={{ width: '100%' }} size="small">
+                      <>
+                        <Collapse
+                          size="small"
+                          items={itemFields.map((itemField) => ({
+                            key: String(itemField.key),
+                            label: (
                               <Form.Item
                                 {...itemField}
-                                name={[itemField.name, 'description']}
-                                label="Description"
-                                style={{ marginBottom: 8 }}
+                                name={[itemField.name, 'name']}
+                                noStyle
+                                shouldUpdate
                               >
-                                <Input.TextArea rows={2} />
+                                <Input
+                                  placeholder="Item name"
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{ maxWidth: 240 }}
+                                />
                               </Form.Item>
-                              <Space wrap>
+                            ),
+                            extra: (
+                              <Button
+                                type="text"
+                                size="small"
+                                danger
+                                icon={<DeleteOutlined />}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeItem(itemField.name);
+                                }}
+                              />
+                            ),
+                            children: (
+                              <Space orientation="vertical" style={{ width: '100%' }} size="small">
                                 <Form.Item
                                   {...itemField}
-                                  name={[itemField.name, 'price']}
-                                  label="Price ($)"
-                                  style={{ marginBottom: 0 }}
+                                  name={[itemField.name, 'description']}
+                                  label="Description"
+                                  style={{ marginBottom: 8 }}
                                 >
-                                  <InputNumber min={0} step={0.01} style={{ width: 120 }} />
+                                  <Input.TextArea rows={2} />
                                 </Form.Item>
-                                <Form.Item
-                                  {...itemField}
-                                  name={[itemField.name, 'dietary']}
-                                  label="Dietary"
-                                  style={{ marginBottom: 0, minWidth: 200 }}
-                                >
-                                  <Select mode="multiple" options={DIETARY_OPTIONS} allowClear />
-                                </Form.Item>
-                                <Form.Item
-                                  {...itemField}
-                                  name={[itemField.name, 'available']}
-                                  label="Available"
-                                  valuePropName="checked"
-                                  style={{ marginBottom: 0 }}
-                                >
-                                  <Switch />
-                                </Form.Item>
+                                <Space wrap>
+                                  <Form.Item
+                                    {...itemField}
+                                    name={[itemField.name, 'price']}
+                                    label="Price ($)"
+                                    style={{ marginBottom: 0 }}
+                                  >
+                                    <InputNumber min={0} step={0.01} style={{ width: 120 }} />
+                                  </Form.Item>
+                                  <Form.Item
+                                    {...itemField}
+                                    name={[itemField.name, 'dietary']}
+                                    label="Dietary"
+                                    style={{ marginBottom: 0, minWidth: 200 }}
+                                  >
+                                    <Select mode="multiple" options={DIETARY_OPTIONS} allowClear />
+                                  </Form.Item>
+                                  <Form.Item
+                                    {...itemField}
+                                    name={[itemField.name, 'available']}
+                                    label="Available"
+                                    valuePropName="checked"
+                                    style={{ marginBottom: 0 }}
+                                  >
+                                    <Switch />
+                                  </Form.Item>
+                                </Space>
                               </Space>
-                            </Space>
-                          ),
-                        }))}
-                      />
+                            ),
+                          }))}
+                        />
+                        <Button
+                          type="dashed"
+                          icon={<PlusOutlined />}
+                          onClick={() =>
+                            addItem({
+                              name: '',
+                              description: '',
+                              price: 0,
+                              dietary: [],
+                              available: true,
+                            })
+                          }
+                          style={{ marginTop: 12 }}
+                          block
+                        >
+                          Add item
+                        </Button>
+                      </>
                     )}
                   </Form.List>
-                  <Button
-                    type="dashed"
-                    icon={<PlusOutlined />}
-                    onClick={() =>
-                      addItem({
-                        name: '',
-                        description: '',
-                        price: 0,
-                        dietary: [],
-                        available: true,
-                      })
-                    }
-                    style={{ marginTop: 12 }}
-                    block
-                  >
-                    Add item
-                  </Button>
                 </Card>
               ))}
               <Button

@@ -4,6 +4,12 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.33.2] — 2026-08-26
+
+### Fixed
+
+- Dashboard production TypeScript build: menu editor types, admin restaurant menu item add, and invoice table row typing
+
 ## [0.33.1] — 2026-08-26
 
 ### Fixed

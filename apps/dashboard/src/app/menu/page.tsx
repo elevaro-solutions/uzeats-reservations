@@ -109,7 +109,7 @@ export default function MenuPage() {
 
     setMenuUrl(restaurant?.menuUrl ?? '');
 
-    const nextSections = restaurant?.menu?.sections?.length
+    const nextSections: MenuSectionForm[] = restaurant?.menu?.sections?.length
       ? restaurant.menu.sections.map(
           (s: {
             name: string;

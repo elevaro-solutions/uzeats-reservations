@@ -28,6 +28,16 @@ function money(cents: number, currency = 'usd') {
   });
 }
 
+type InvoiceRow = {
+  id: string;
+  number?: string;
+  billingPeriod?: string;
+  status: string;
+  dueDate?: string;
+  totalCents?: number;
+  currency?: string;
+};
+
 export function AdminRestaurantInvoicesPanel({ restaurantId }: { restaurantId: string }) {
   const { data, loading, refetch } = useQuery(ADMIN_INVOICES, {
     variables: { restaurantId, limit: 50, offset: 0 },
@@ -60,16 +70,16 @@ export function AdminRestaurantInvoicesPanel({ restaurantId }: { restaurantId: s
           {(data?.adminInvoices?.total ?? 0) === 1 ? '' : 's'} for this restaurant
         </Text>
       </Space>
-      <Table
+      <Table<InvoiceRow>
         loading={loading || updating}
         rowKey="id"
-        dataSource={items}
+        dataSource={items as InvoiceRow[]}
         pagination={false}
         columns={[
           {
             title: 'Number',
             dataIndex: 'number',
-            render: (number: string, r: { id: string }) => (
+            render: (number: string, r: InvoiceRow) => (
               <Link href={`/admin/invoices/${r.id}`} style={{ fontWeight: 500 }}>
                 {number}
               </Link>
@@ -94,12 +104,12 @@ export function AdminRestaurantInvoicesPanel({ restaurantId }: { restaurantId: s
             title: 'Total',
             dataIndex: 'totalCents',
             width: 120,
-            render: (v: number, r: { currency?: string }) => money(v, r.currency),
+            render: (v: number, r: InvoiceRow) => money(v, r.currency),
           },
           {
             title: 'Actions',
             width: 180,
-            render: (_: unknown, r: { id: string; status: string }) => (
+            render: (_: unknown, r: InvoiceRow) => (
               <Space size="small">
                 {r.status !== 'paid' && r.status !== 'canceled' ? (
                   <Button size="small" type="link" onClick={() => void updateStatus(r.id, 'paid')}>
