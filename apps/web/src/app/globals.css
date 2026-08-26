@@ -3599,6 +3599,89 @@ body:has(.fr-page) .ant-layout {
   margin-bottom: 0 !important;
 }
 
+.rt-restaurant-section__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.rt-restaurant-menu__search-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-brand);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.rt-restaurant-menu__search-toggle:hover,
+.rt-restaurant-menu__search-toggle.is-active {
+  background: var(--color-brand-50);
+}
+
+.rt-restaurant-menu__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.rt-restaurant-menu__search-icon {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.rt-restaurant-menu__search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--color-text);
+  padding: 0;
+}
+
+.rt-restaurant-menu__search-input::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.rt-restaurant-menu__search-clear {
+  border: none;
+  background: none;
+  color: var(--color-brand);
+  font-weight: 600;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.rt-restaurant-menu__empty {
+  display: block;
+  padding: 12px 0 8px;
+}
+
+.rt-restaurant-menu__section-count {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+}
+
 .rt-restaurant-tags {
   display: flex;
   flex-wrap: wrap;

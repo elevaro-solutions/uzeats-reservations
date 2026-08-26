@@ -308,7 +308,23 @@ export default function SettingsPage() {
 
     if (restaurantId && (data.menuItems?.length ?? 0) > 0) {
       void (async () => {
-        const importedSections = await buildMenuSectionsFromImport(data, {
+        // Persist menu text immediately; DoorDash item image uploads can be slow/flaky.
+        const quickSections = await buildMenuSectionsFromImport(data);
+        if (quickSections.length === 0) return;
+
+        await upsertMenu({
+          variables: {
+            restaurantId,
+            input: { sections: quickSections },
+          },
+        });
+        message.success(`Imported and saved ${data.menuItems?.length ?? 0} menu items to Menu.`);
+        await refetch();
+
+        const hasImages = (data.menuItems ?? []).some((item) => Boolean(item.imageUrl));
+        if (!hasImages) return;
+
+        const withPhotos = await buildMenuSectionsFromImport(data, {
           resolvePhotoUrl: async (item, index) => {
             if (!item.imageUrl) return undefined;
             return uploadImportedMenuImageToSpaces({
@@ -317,15 +333,12 @@ export default function SettingsPage() {
             });
           },
         });
-
-        if (importedSections.length === 0) return;
         await upsertMenu({
           variables: {
             restaurantId,
-            input: { sections: importedSections },
+            input: { sections: withPhotos },
           },
         });
-        message.success(`Imported and saved ${data.menuItems?.length ?? 0} menu items to Menu.`);
         await refetch();
       })().catch((err: unknown) => {
         message.warning(

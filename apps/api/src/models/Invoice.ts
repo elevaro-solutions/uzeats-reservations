@@ -6,6 +6,7 @@ const invoiceLineSchema = new Schema(
     quantity: { type: Number, default: 1 },
     unitAmountCents: { type: Number, required: true },
     amountCents: { type: Number, required: true },
+    originalAmountCents: { type: Number },
   },
   { _id: false },
 );
@@ -34,11 +35,21 @@ const invoiceSchema = new Schema(
     currency: { type: String, default: 'usd' },
     subtotalCents: { type: Number, required: true },
     totalCents: { type: Number, required: true },
+    /** Catalog / list price before any manual discount. */
+    originalTotalCents: { type: Number },
     lines: { type: [invoiceLineSchema], default: [] },
+    /** Months of plan coverage for manually created invoices. */
+    packageDurationMonths: { type: Number, min: 1 },
+    planKey: { type: String },
+    billingCycle: { type: String, enum: ['monthly', 'annual'] },
+    serviceIds: [{ type: Schema.Types.ObjectId, ref: 'PlatformService' }],
     dueDate: { type: Date, required: true },
     paidAt: { type: Date },
     canceledAt: { type: Date },
     notes: { type: String },
+    /** Public share token for payment / PDF access. */
+    payToken: { type: String, sparse: true, unique: true, index: true },
+    stripePaymentIntentId: { type: String, sparse: true, index: true },
     stripeInvoiceId: { type: String, sparse: true, unique: true },
   },
   { timestamps: true },

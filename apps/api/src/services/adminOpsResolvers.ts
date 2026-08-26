@@ -14,6 +14,10 @@ import { User } from '../models/User.js';
 import { Invoice } from '../models/Invoice.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { Subscription } from '../models/Subscription.js';
+import { Reservation } from '../models/Reservation.js';
+import { CoverFee } from '../models/CoverFee.js';
+import { SupportTicket } from '../models/SupportTicket.js';
+import { AuditLog } from '../models/AuditLog.js';
 import { requireAdmin, requireSuperAdmin, type GraphQLContext } from '../graphql/context.js';
 import { mapRestaurant, mapUser, slugify } from '../graphql/mappers.js';
 import { provisionDefaultRestaurantSetup } from './restaurantSetup.js';
@@ -66,6 +70,14 @@ import { getPlatformConfig, mapPlatformConfig } from './platformConfig.js';
 import { listRecentStripeInvoices } from './stripe.js';
 import { syncStripeInvoice } from './stripeSync.js';
 import { generateInvoicesForPeriod, getPlatformRevenueReport } from './invoices.js';
+import {
+  billingPeriodsInRange,
+  createdAtFilter,
+  formatExport,
+  iso,
+  parseExportFormat,
+  resolveExportDateRange,
+} from './adminExport.js';
 import { notifyUser } from './notifications.js';
 import { renderEmailTemplate } from './emailTemplates.js';
 import { env } from '../config/env.js';
@@ -87,16 +99,6 @@ import {
   beginImpersonationCookies,
   resolveBrowserAuthApp,
 } from './authCookies.js';
-
-function csvEscape(value: unknown) {
-  const s = value == null ? '' : String(value);
-  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
-
-function toCsv(headers: string[], rows: unknown[][]) {
-  return [headers, ...rows].map((r) => r.map(csvEscape).join(',')).join('\n');
-}
 
 function mapFlaggedReview(r: any, restaurantName?: string | null, authorName?: string | null) {
   return {
@@ -1064,100 +1066,484 @@ export const adminOpsMutation = {
 
   exportAdminCsv: async (
     _: unknown,
-    args: { type: string; period?: string },
+    args: {
+      type: string;
+      period?: string;
+      startDate?: string;
+      endDate?: string;
+      format?: string;
+    },
     ctx: GraphQLContext,
   ) => {
     requireAdmin(ctx);
-    const period = args.period ?? new Date().toISOString().slice(0, 7);
+    const format = parseExportFormat(args.format);
+    const range = resolveExportDateRange(args);
+    const createdAt = createdAtFilter(range);
+    const periods = billingPeriodsInRange(range);
+
+    const restaurantNameMap = async (ids: Array<{ toString(): string }>) => {
+      const unique = [...new Set(ids.map((id) => id.toString()))];
+      const restaurants = await Restaurant.find({ _id: { $in: unique } }).select('name');
+      return new Map(restaurants.map((r) => [r._id.toString(), r.name]));
+    };
 
     if (args.type === 'users') {
-      const users = await User.find().sort({ createdAt: -1 }).limit(5000);
-      const content = toCsv(
-        ['id', 'email', 'firstName', 'lastName', 'role', 'loyaltyPoints', 'createdAt'],
-        users.map((u) => [
-          u._id.toString(),
-          u.email,
-          u.firstName,
-          u.lastName,
-          u.role,
-          u.loyaltyPoints,
-          (u as any).createdAt?.toISOString?.() ?? '',
-        ]),
+      const users = await User.find(createdAt ? { createdAt } : {})
+        .sort({ createdAt: -1 })
+        .limit(5000);
+      return formatExport(
+        `users-${range.label}`,
+        {
+          title: `Users (${range.label})`,
+          headers: [
+            'id',
+            'email',
+            'phone',
+            'firstName',
+            'lastName',
+            'role',
+            'loyaltyPoints',
+            'emailVerified',
+            'phoneVerified',
+            'restaurantCount',
+            'createdAt',
+          ],
+          rows: users.map((u) => [
+            u._id.toString(),
+            u.email ?? '',
+            u.phone ?? '',
+            u.firstName,
+            u.lastName,
+            u.role,
+            u.loyaltyPoints,
+            u.emailVerified,
+            u.phoneVerified,
+            u.restaurantIds?.length ?? 0,
+            iso((u as any).createdAt),
+          ]),
+        },
+        format,
       );
-      return { filename: `users-${period}.csv`, content, rowCount: users.length };
+    }
+
+    if (args.type === 'restaurants') {
+      const restaurants = await Restaurant.find(createdAt ? { createdAt } : {})
+        .sort({ createdAt: -1 })
+        .limit(5000);
+      return formatExport(
+        `restaurants-${range.label}`,
+        {
+          title: `Restaurants (${range.label})`,
+          headers: [
+            'id',
+            'name',
+            'slug',
+            'status',
+            'cuisine',
+            'city',
+            'state',
+            'priceRange',
+            'averageRating',
+            'reviewCount',
+            'ownerId',
+            'createdAt',
+          ],
+          rows: restaurants.map((r) => [
+            r._id.toString(),
+            r.name,
+            r.slug ?? '',
+            r.status,
+            r.cuisine,
+            r.address?.city ?? '',
+            r.address?.state ?? '',
+            r.priceRange,
+            r.averageRating,
+            r.reviewCount,
+            r.ownerId?.toString?.() ?? '',
+            iso((r as any).createdAt),
+          ]),
+        },
+        format,
+      );
     }
 
     if (args.type === 'invoices') {
-      const invoices = await Invoice.find(
-        args.period ? { billingPeriod: period } : {},
-      )
-        .sort({ dueDate: -1 })
-        .limit(5000);
-      const restaurants = await Restaurant.find({
-        _id: { $in: invoices.map((i) => i.restaurantId) },
-      }).select('name');
-      const nameById = new Map(restaurants.map((r) => [r._id.toString(), r.name]));
-      const content = toCsv(
-        ['number', 'restaurant', 'status', 'period', 'totalCents', 'dueDate', 'paidAt'],
-        invoices.map((i) => [
-          i.number,
-          nameById.get(i.restaurantId.toString()) ?? '',
-          i.status,
-          i.billingPeriod,
-          i.totalCents,
-          i.dueDate?.toISOString?.() ?? '',
-          i.paidAt?.toISOString?.() ?? '',
-        ]),
+      const filter: Record<string, unknown> = {};
+      if (periods?.length) filter.billingPeriod = { $in: periods };
+      else if (createdAt) filter.dueDate = createdAt;
+      const invoices = await Invoice.find(filter).sort({ dueDate: -1 }).limit(5000);
+      const nameById = await restaurantNameMap(invoices.map((i) => i.restaurantId));
+      return formatExport(
+        `invoices-${range.label}`,
+        {
+          title: `Invoices (${range.label})`,
+          headers: [
+            'number',
+            'restaurant',
+            'status',
+            'period',
+            'subtotalCents',
+            'totalCents',
+            'currency',
+            'dueDate',
+            'paidAt',
+            'createdAt',
+          ],
+          rows: invoices.map((i) => [
+            i.number,
+            nameById.get(i.restaurantId.toString()) ?? '',
+            i.status,
+            i.billingPeriod,
+            i.subtotalCents,
+            i.totalCents,
+            i.currency,
+            iso(i.dueDate),
+            iso(i.paidAt),
+            iso((i as any).createdAt),
+          ]),
+        },
+        format,
       );
-      return { filename: `invoices-${period}.csv`, content, rowCount: invoices.length };
     }
 
     if (args.type === 'revenue') {
-      const report = await getPlatformRevenueReport(period);
-      const content = toCsv(
-        ['metric', 'value'],
-        [
-          ['period', report.period],
-          ['mrrCents', report.mrrCents],
-          ['arrCents', report.arrCents],
-          ['billedCents', report.billedCents],
-          ['paidCents', report.paidCents],
-          ['outstandingCents', report.outstandingCents],
-          ['coverFeeCents', report.coverFeeCents],
-          ['activeSubscriptions', report.activeSubscriptions],
-          ['trialingSubscriptions', report.trialingSubscriptions],
-          ['pastDueSubscriptions', report.pastDueSubscriptions],
-          ['cancelledSubscriptions', report.cancelledSubscriptions],
-        ],
+      if (range.label === 'all') {
+        throw new Error('Revenue export requires a date range or billing period (not all-time).');
+      }
+      if (range.period) {
+        const report = await getPlatformRevenueReport(range.period);
+        return formatExport(
+          `revenue-${range.period}`,
+          {
+            title: `Revenue summary (${range.period})`,
+            headers: ['metric', 'value'],
+            rows: [
+              ['period', report.period],
+              ['mrrCents', report.mrrCents],
+              ['arrCents', report.arrCents],
+              ['billedCents', report.billedCents],
+              ['paidCents', report.paidCents],
+              ['outstandingCents', report.outstandingCents],
+              ['invoiceCount', report.invoiceCount],
+              ['coverFeeCents', report.coverFeeCents],
+              ['covers', report.covers],
+              ['activeSubscriptions', report.activeSubscriptions],
+              ['trialingSubscriptions', report.trialingSubscriptions],
+              ['pastDueSubscriptions', report.pastDueSubscriptions],
+              ['cancelledSubscriptions', report.cancelledSubscriptions],
+            ],
+          },
+          format,
+        );
+      }
+
+      const periodList = periods ?? [];
+      if (!periodList.length) {
+        throw new Error('Revenue export requires a resolvable billing period range.');
+      }
+      const [invoiceAgg, coverAgg, activeSubs, trialingSubs, pastDueSubs, cancelledSubs, mrrAgg] =
+        await Promise.all([
+          Invoice.aggregate([
+            { $match: { billingPeriod: { $in: periodList }, status: { $ne: 'canceled' } } },
+            {
+              $group: {
+                _id: null,
+                billedCents: { $sum: '$totalCents' },
+                paidCents: {
+                  $sum: { $cond: [{ $eq: ['$status', 'paid'] }, '$totalCents', 0] },
+                },
+                outstandingCents: {
+                  $sum: {
+                    $cond: [
+                      { $in: ['$status', ['pending', 'upcoming', 'overdue']] },
+                      '$totalCents',
+                      0,
+                    ],
+                  },
+                },
+                invoiceCount: { $sum: 1 },
+              },
+            },
+          ]),
+          CoverFee.aggregate([
+            { $match: { billingPeriod: { $in: periodList } } },
+            {
+              $group: {
+                _id: null,
+                coverFeeCents: { $sum: '$feeCents' },
+                covers: { $sum: '$partySize' },
+              },
+            },
+          ]),
+          Subscription.countDocuments({ status: 'active' }),
+          Subscription.countDocuments({ status: 'trialing' }),
+          Subscription.countDocuments({ status: 'past_due' }),
+          Subscription.countDocuments({ status: 'cancelled' }),
+          Subscription.aggregate([
+            { $match: { status: { $in: ['active', 'past_due'] } } },
+            { $group: { _id: null, mrrCents: { $sum: '$monthlyPriceCents' } } },
+          ]),
+        ]);
+      const inv = invoiceAgg[0] ?? {
+        billedCents: 0,
+        paidCents: 0,
+        outstandingCents: 0,
+        invoiceCount: 0,
+      };
+      const cover = coverAgg[0] ?? { coverFeeCents: 0, covers: 0 };
+      const mrrCents = mrrAgg[0]?.mrrCents ?? 0;
+      return formatExport(
+        `revenue-${range.label}`,
+        {
+          title: `Revenue summary (${range.label})`,
+          headers: ['metric', 'value'],
+          rows: [
+            ['range', range.label],
+            ['billingPeriods', periodList.join(',')],
+            ['mrrCents', mrrCents],
+            ['arrCents', mrrCents * 12],
+            ['billedCents', inv.billedCents],
+            ['paidCents', inv.paidCents],
+            ['outstandingCents', inv.outstandingCents],
+            ['invoiceCount', inv.invoiceCount],
+            ['coverFeeCents', cover.coverFeeCents],
+            ['covers', cover.covers],
+            ['activeSubscriptions', activeSubs],
+            ['trialingSubscriptions', trialingSubs],
+            ['pastDueSubscriptions', pastDueSubs],
+            ['cancelledSubscriptions', cancelledSubs],
+          ],
+        },
+        format,
       );
-      return { filename: `revenue-${period}.csv`, content, rowCount: 11 };
     }
 
     if (args.type === 'subscriptions') {
-      const subs = await Subscription.find().sort({ updatedAt: -1 }).limit(5000);
-      const restaurants = await Restaurant.find({
-        _id: { $in: subs.map((s) => s.restaurantId) },
-      }).select('name');
-      const nameById = new Map(restaurants.map((r) => [r._id.toString(), r.name]));
-      const content = toCsv(
-        ['restaurant', 'plan', 'status', 'monthlyPriceCents', 'trialEndsAt', 'cancelledAt'],
-        subs.map((s) => [
-          nameById.get(s.restaurantId.toString()) ?? '',
-          s.plan,
-          s.status,
-          s.monthlyPriceCents,
-          s.trialEndsAt?.toISOString?.() ?? '',
-          s.cancelledAt?.toISOString?.() ?? '',
-        ]),
+      const filter: Record<string, unknown> = {};
+      if (createdAt) filter.updatedAt = createdAt;
+      const subs = await Subscription.find(filter).sort({ updatedAt: -1 }).limit(5000);
+      const nameById = await restaurantNameMap(subs.map((s) => s.restaurantId));
+      return formatExport(
+        `subscriptions-${range.label}`,
+        {
+          title: `Subscriptions (${range.label})`,
+          headers: [
+            'restaurant',
+            'plan',
+            'status',
+            'monthlyPriceCents',
+            'networkCoverFeeCents',
+            'trialEndsAt',
+            'currentPeriodStart',
+            'currentPeriodEnd',
+            'cancelledAt',
+            'updatedAt',
+          ],
+          rows: subs.map((s) => [
+            nameById.get(s.restaurantId.toString()) ?? '',
+            s.plan,
+            s.status,
+            s.monthlyPriceCents,
+            s.networkCoverFeeCents,
+            iso(s.trialEndsAt),
+            iso(s.currentPeriodStart),
+            iso(s.currentPeriodEnd),
+            iso(s.cancelledAt),
+            iso((s as any).updatedAt),
+          ]),
+        },
+        format,
       );
-      return {
-        filename: `subscriptions-${period}.csv`,
-        content,
-        rowCount: subs.length,
-      };
     }
 
-    throw new Error('Unsupported export type. Use users, invoices, revenue, or subscriptions.');
+    if (args.type === 'reservations') {
+      const filter: Record<string, unknown> = {};
+      if (createdAt) filter.slotStart = createdAt;
+      const reservations = await Reservation.find(filter)
+        .sort({ slotStart: -1 })
+        .limit(5000);
+      const nameById = await restaurantNameMap(reservations.map((r) => r.restaurantId));
+      return formatExport(
+        `reservations-${range.label}`,
+        {
+          title: `Reservations (${range.label})`,
+          headers: [
+            'id',
+            'restaurant',
+            'dinerId',
+            'partySize',
+            'status',
+            'source',
+            'occasion',
+            'slotStart',
+            'slotEnd',
+            'depositAmountCents',
+            'depositStatus',
+            'totalSpendCents',
+            'createdAt',
+          ],
+          rows: reservations.map((r) => [
+            r._id.toString(),
+            nameById.get(r.restaurantId.toString()) ?? '',
+            r.dinerId?.toString?.() ?? '',
+            r.partySize,
+            r.status,
+            r.source,
+            r.occasion,
+            iso(r.slotStart),
+            iso(r.slotEnd),
+            r.depositAmountCents,
+            r.depositStatus,
+            r.totalSpendCents,
+            iso((r as any).createdAt),
+          ]),
+        },
+        format,
+      );
+    }
+
+    if (args.type === 'cover_fees') {
+      const filter: Record<string, unknown> = {};
+      if (periods?.length) filter.billingPeriod = { $in: periods };
+      else if (createdAt) filter.createdAt = createdAt;
+      const fees = await CoverFee.find(filter).sort({ createdAt: -1 }).limit(5000);
+      const nameById = await restaurantNameMap(fees.map((f) => f.restaurantId));
+      return formatExport(
+        `cover-fees-${range.label}`,
+        {
+          title: `Cover fees (${range.label})`,
+          headers: [
+            'id',
+            'restaurant',
+            'reservationId',
+            'dinerId',
+            'partySize',
+            'source',
+            'feeCents',
+            'status',
+            'billingPeriod',
+            'createdAt',
+          ],
+          rows: fees.map((f) => [
+            f._id.toString(),
+            nameById.get(f.restaurantId.toString()) ?? '',
+            f.reservationId?.toString?.() ?? '',
+            f.dinerId?.toString?.() ?? '',
+            f.partySize,
+            f.source,
+            f.feeCents,
+            f.status,
+            f.billingPeriod ?? '',
+            iso((f as any).createdAt),
+          ]),
+        },
+        format,
+      );
+    }
+
+    if (args.type === 'support_tickets') {
+      const filter: Record<string, unknown> = {};
+      if (createdAt) filter.createdAt = createdAt;
+      const tickets = await SupportTicket.find(filter).sort({ createdAt: -1 }).limit(5000);
+      const nameById = await restaurantNameMap(
+        tickets.filter((t) => t.restaurantId).map((t) => t.restaurantId!),
+      );
+      return formatExport(
+        `support-tickets-${range.label}`,
+        {
+          title: `Support tickets (${range.label})`,
+          headers: [
+            'id',
+            'subject',
+            'status',
+            'priority',
+            'category',
+            'restaurant',
+            'requesterId',
+            'assigneeId',
+            'createdAt',
+            'updatedAt',
+          ],
+          rows: tickets.map((t) => [
+            t._id.toString(),
+            t.subject,
+            t.status,
+            t.priority,
+            t.category,
+            t.restaurantId ? (nameById.get(t.restaurantId.toString()) ?? '') : '',
+            t.requesterId?.toString?.() ?? '',
+            t.assigneeId?.toString?.() ?? '',
+            iso((t as any).createdAt),
+            iso((t as any).updatedAt),
+          ]),
+        },
+        format,
+      );
+    }
+
+    if (args.type === 'reviews') {
+      const filter: Record<string, unknown> = {};
+      if (createdAt) filter.createdAt = createdAt;
+      const reviews = await Review.find(filter).sort({ createdAt: -1 }).limit(5000);
+      const nameById = await restaurantNameMap(reviews.map((r) => r.restaurantId));
+      return formatExport(
+        `reviews-${range.label}`,
+        {
+          title: `Reviews (${range.label})`,
+          headers: [
+            'id',
+            'restaurant',
+            'dinerId',
+            'rating',
+            'comment',
+            'hidden',
+            'flagged',
+            'flagReason',
+            'createdAt',
+          ],
+          rows: reviews.map((r) => [
+            r._id.toString(),
+            nameById.get(r.restaurantId.toString()) ?? '',
+            r.dinerId?.toString?.() ?? '',
+            r.rating,
+            r.comment ?? '',
+            r.hidden,
+            r.flagged,
+            r.flagReason ?? '',
+            iso((r as any).createdAt),
+          ]),
+        },
+        format,
+      );
+    }
+
+    if (args.type === 'audit_logs') {
+      const filter: Record<string, unknown> = {};
+      if (createdAt) filter.createdAt = createdAt;
+      const logs = await AuditLog.find(filter).sort({ createdAt: -1 }).limit(5000);
+      return formatExport(
+        `audit-logs-${range.label}`,
+        {
+          title: `Audit logs (${range.label})`,
+          headers: ['id', 'actorId', 'action', 'resource', 'resourceId', 'ip', 'details', 'createdAt'],
+          rows: logs.map((l: any) => [
+            l._id.toString(),
+            l.actorId?.toString?.() ?? '',
+            l.action,
+            l.resource,
+            l.resourceId ?? '',
+            l.ip ?? '',
+            l.details ? JSON.stringify(l.details) : '',
+            iso(l.createdAt),
+          ]),
+        },
+        format,
+      );
+    }
+
+    throw new Error(
+      'Unsupported export type. Use users, restaurants, invoices, revenue, subscriptions, reservations, cover_fees, support_tickets, reviews, or audit_logs.',
+    );
   },
 
   syncStripeInvoices: async (

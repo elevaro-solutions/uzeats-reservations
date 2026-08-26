@@ -17,6 +17,7 @@ export { Subscription } from './Subscription.js';
 export { CoverFee } from './CoverFee.js';
 export { Invoice } from './Invoice.js';
 export { PlatformConfig } from './PlatformConfig.js';
+export { PlatformService } from './PlatformService.js';
 export { SupportTicket } from './SupportTicket.js';
 export { EmailTemplate } from './EmailTemplate.js';
 export { BlogPost } from './BlogPost.js';

@@ -47,9 +47,15 @@ export async function buildMenuSectionsFromImport(
     namesInSection.add(normalizedKey);
     seenBySection.set(sectionName, namesInSection);
 
-    const photoUrl = options?.resolvePhotoUrl
-      ? await options.resolvePhotoUrl(item, itemIndex)
-      : undefined;
+    // Photo uploads must never abort the whole import (DoorDash often has dozens of images).
+    let photoUrl: string | undefined;
+    if (options?.resolvePhotoUrl) {
+      try {
+        photoUrl = await options.resolvePhotoUrl(item, itemIndex);
+      } catch {
+        photoUrl = undefined;
+      }
+    }
 
     const sectionItems = sectionMap.get(sectionName) ?? [];
     sectionItems.push({

@@ -4,6 +4,27 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.33.0] — 2026-08-26
+
+### Added
+
+- Admin **Services** catalog (`/admin/services`) for billable platform add-ons with price, slug, and sort order
+- Manual invoices with package duration, plan/billing cycle, service line items, discounts, branded PDF, email, and public pay links (`/invoice/[token]`) with Stripe card collection
+- Admin restaurant detail (`/admin/restaurants/[id]`) with manage panels for menu, reservations, invoices, and package assignment (extends billing period)
+- Admin exports: custom date range, CSV/JSON/PDF formats, and datasets for restaurants, reservations, cover fees, support tickets, reviews, and audit logs
+- Magnific stock image picker shared helpers and discovery-magnific search proxy routes for admin taxonomy and partner flows
+- API loads monorepo root `.env` then `apps/api/.env` (local overrides)
+
+### Changed
+
+- Admin restaurants list streamlined; partner dashboard home and menu editors expanded
+- Public restaurant menu section layout and styling refreshed
+- Stripe env docs clarify that invoice/deposit payments need the secret key on the API
+
+### Fixed
+
+- DoorDash/Uber Eats MHTML import prefers CDN menu photos (`src` / `data-src` / `srcset`) and merges duplicate item rows so images are less often missing
+
 ## [0.32.0] — 2026-08-26
 
 ### Added

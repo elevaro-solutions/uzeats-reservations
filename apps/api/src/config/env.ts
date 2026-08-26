@@ -1,5 +1,13 @@
-import 'dotenv/config';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import dotenv from 'dotenv';
 import { z } from 'zod';
+
+// Load monorepo root `.env` first, then `apps/api/.env` (local wins).
+const apiDir = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(apiDir, '../../../..');
+dotenv.config({ path: path.join(repoRoot, '.env') });
+dotenv.config({ path: path.join(repoRoot, 'apps/api/.env'), override: true });
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(4000),

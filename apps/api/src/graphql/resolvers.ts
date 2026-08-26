@@ -156,6 +156,7 @@ import {
 } from '../services/stripe.js';
 import { logAudit } from '../services/audit.js';
 import { createRestaurantSubscription } from '../services/restaurantSubscription.js';
+import { adminAssignRestaurantPackage as assignRestaurantPackageAsAdmin } from '../services/adminAssignPackage.js';
 import {
   applyPendingPlanChangeIfDue,
   cancelPendingPlanChange,
@@ -220,12 +221,29 @@ import {
 } from '../services/platformConfig.js';
 import { getDeveloperInfo } from '../services/developerInfo.js';
 import {
+  confirmInvoicePayment,
+  createManualInvoice,
+  ensureInvoicePayLink,
+  exportInvoicePdf,
+  exportInvoicePdfByToken,
   generateInvoicesForPeriod,
+  getInvoiceById,
+  getInvoiceByPayToken,
   getPlatformRevenueReport,
+  isEmailDeliveryConfigured,
   listInvoices,
+  resumeInvoicePayment,
+  sendInvoiceEmail,
   setInvoiceStatus,
   setInvoiceStatuses,
+  startInvoicePayment,
 } from '../services/invoices.js';
+import {
+  createPlatformService,
+  deletePlatformService,
+  listPlatformServices,
+  updatePlatformService,
+} from '../services/platformServices.js';
 import {
   adminOpsMutation,
   adminOpsQuery,
@@ -1286,11 +1304,56 @@ export const resolvers = {
 
     adminInvoices: async (
       _: unknown,
-      args: { status?: string; search?: string; limit?: number; offset?: number },
+      args: {
+        status?: string;
+        search?: string;
+        restaurantId?: string;
+        limit?: number;
+        offset?: number;
+      },
       ctx: GraphQLContext,
     ) => {
       requireAdmin(ctx);
       return listInvoices(args);
+    },
+
+    adminInvoice: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+      requireAdmin(ctx);
+      return getInvoiceById(args.id);
+    },
+
+    invoiceByPayToken: async (_: unknown, args: { token: string }) =>
+      getInvoiceByPayToken(args.token),
+
+    exportInvoicePdf: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+      requireAdmin(ctx);
+      return exportInvoicePdf(args.id);
+    },
+
+    exportInvoicePdfByToken: async (_: unknown, args: { token: string }) =>
+      exportInvoicePdfByToken(args.token),
+
+    emailDeliveryConfigured: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      requireAdmin(ctx);
+      return isEmailDeliveryConfigured();
+    },
+
+    adminPlatformServices: async (
+      _: unknown,
+      args: { active?: boolean; search?: string; limit?: number; offset?: number },
+      ctx: GraphQLContext,
+    ) => {
+      requireAdmin(ctx);
+      return listPlatformServices(args);
+    },
+
+    platformServices: async (_: unknown, args: { active?: boolean }) => {
+      const result = await listPlatformServices({
+        active: args.active ?? true,
+        limit: 200,
+        offset: 0,
+      });
+      return result.items;
     },
 
     adminRevenueReport: async (
@@ -2800,6 +2863,158 @@ export const resolvers = {
       return result;
     },
 
+    createManualInvoice: async (
+      _: unknown,
+      args: {
+        input: {
+          restaurantId: string;
+          billingPeriod: string;
+          dueDate: Date | string;
+          amountCents: number;
+          originalAmountCents?: number | null;
+          packageDurationMonths?: number | null;
+          planKey?: string | null;
+          billingCycle?: 'monthly' | 'annual' | null;
+          serviceIds?: string[] | null;
+          notes?: string | null;
+          description?: string | null;
+          markPaid?: boolean | null;
+        };
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireAdmin(ctx);
+      const invoice = await createManualInvoice(args.input);
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: 'createManualInvoice',
+        resource: 'Invoice',
+        resourceId: invoice.id,
+        details: {
+          restaurantId: args.input.restaurantId,
+          billingPeriod: args.input.billingPeriod,
+          amountCents: args.input.amountCents,
+          planKey: args.input.planKey,
+          billingCycle: args.input.billingCycle,
+          serviceIds: args.input.serviceIds,
+          packageDurationMonths: args.input.packageDurationMonths,
+          markPaid: Boolean(args.input.markPaid),
+        },
+      });
+      return invoice;
+    },
+
+    ensureInvoicePayLink: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireAdmin(ctx);
+      const invoice = await ensureInvoicePayLink(args.id);
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: 'ensureInvoicePayLink',
+        resource: 'Invoice',
+        resourceId: args.id,
+      });
+      return invoice;
+    },
+
+    sendInvoiceEmail: async (
+      _: unknown,
+      args: { id: string; toEmail?: string | null },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireAdmin(ctx);
+      const result = await sendInvoiceEmail(args.id, args.toEmail);
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: 'sendInvoiceEmail',
+        resource: 'Invoice',
+        resourceId: args.id,
+        details: { to: result.to },
+      });
+      return result;
+    },
+
+    startInvoicePayment: async (_: unknown, args: { token: string }) => {
+      // Prefer resume if PI already exists
+      return resumeInvoicePayment(args.token);
+    },
+
+    confirmInvoicePayment: async (
+      _: unknown,
+      args: { token: string; paymentIntentId: string },
+    ) => confirmInvoicePayment(args.token, args.paymentIntentId),
+
+    createPlatformService: async (
+      _: unknown,
+      args: {
+        input: {
+          name: string;
+          slug?: string | null;
+          description?: string | null;
+          priceCents: number;
+          active?: boolean | null;
+          sortOrder?: number | null;
+        };
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireAdmin(ctx);
+      const service = await createPlatformService(args.input);
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: 'createPlatformService',
+        resource: 'PlatformService',
+        resourceId: service.id,
+        details: { name: service.name, priceCents: service.priceCents },
+      });
+      return service;
+    },
+
+    updatePlatformService: async (
+      _: unknown,
+      args: {
+        id: string;
+        input: {
+          name: string;
+          slug?: string | null;
+          description?: string | null;
+          priceCents: number;
+          active?: boolean | null;
+          sortOrder?: number | null;
+        };
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireAdmin(ctx);
+      const service = await updatePlatformService(args.id, args.input);
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: 'updatePlatformService',
+        resource: 'PlatformService',
+        resourceId: args.id,
+      });
+      return service;
+    },
+
+    deletePlatformService: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireAdmin(ctx);
+      await deletePlatformService(args.id);
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: 'deletePlatformService',
+        resource: 'PlatformService',
+        resourceId: args.id,
+      });
+      return true;
+    },
+
     setInvoiceStatus: async (
       _: unknown,
       args: { id: string; status: string },
@@ -3110,6 +3325,20 @@ export const resolvers = {
         actorId: user._id.toString(),
       });
 
+      return mapSubscription(sub, { includeStripeIds: true });
+    },
+
+    adminAssignRestaurantPackage: async (
+      _: unknown,
+      args: { restaurantId: string; plan: string },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireAdmin(ctx);
+      const sub = await assignRestaurantPackageAsAdmin({
+        restaurantId: args.restaurantId,
+        plan: args.plan,
+        actorId: admin._id.toString(),
+      });
       return mapSubscription(sub, { includeStripeIds: true });
     },
 

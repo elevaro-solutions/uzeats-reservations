@@ -46,6 +46,11 @@ async function sendViaSendGrid(
   title: string,
   body: string,
   htmlBody?: string,
+  attachments?: Array<{
+    filename: string;
+    contentBase64: string;
+    contentType: string;
+  }>,
 ) {
   const content: Array<{ type: string; value: string }> = [
     { type: 'text/plain', value: body },
@@ -65,6 +70,12 @@ async function sendViaSendGrid(
       from: parseEmailFrom(env.EMAIL_FROM),
       subject: title,
       content,
+      attachments: (attachments ?? []).map((a) => ({
+        content: a.contentBase64,
+        filename: a.filename,
+        type: a.contentType,
+        disposition: 'attachment',
+      })),
     }),
   });
   if (!res.ok) {
@@ -77,18 +88,26 @@ export async function sendEmail(
   to: string,
   title: string,
   body: string,
-  options?: { htmlBody?: string },
+  options?: {
+    htmlBody?: string;
+    attachments?: Array<{
+      filename: string;
+      contentBase64: string;
+      contentType: string;
+    }>;
+  },
 ) {
   const innerHtml = options?.htmlBody ?? textToEmailHtml(body);
   const htmlBody = wrapEmailHtml(innerHtml);
+  const attachments = options?.attachments ?? [];
 
   if (env.SENDGRID_API_KEY) {
-    await sendViaSendGrid(to, title, body, htmlBody);
+    await sendViaSendGrid(to, title, body, htmlBody, attachments);
     logger.info({ to, subject: title }, '[email] sent via SendGrid');
     return;
   }
   if (!resend) {
-    logger.debug({ to, title, body, htmlBody }, '[email:dev] stub');
+    logger.debug({ to, title, body, htmlBody, attachments: attachments.length }, '[email:dev] stub');
     return;
   }
   await resend.emails.send({
@@ -97,8 +116,17 @@ export async function sendEmail(
     subject: title,
     text: body,
     html: htmlBody,
+    attachments: attachments.map((a) => ({
+      filename: a.filename,
+      content: Buffer.from(a.contentBase64, 'base64'),
+      contentType: a.contentType,
+    })),
   });
   logger.info({ to, subject: title }, '[email] sent via Resend');
+}
+
+export function isEmailDeliveryConfigured() {
+  return Boolean(env.SENDGRID_API_KEY || env.RESEND_API_KEY);
 }
 
 export async function sendSms(to: string, body: string) {

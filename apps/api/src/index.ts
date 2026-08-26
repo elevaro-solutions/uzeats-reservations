@@ -33,6 +33,7 @@ import { posRouter } from "./routes/pos.js";
 import { partnerRouter } from "./routes/partner.js";
 import { uploadsRouter } from "./routes/uploads.js";
 import { importRestaurantRouter } from "./routes/importRestaurant.js";
+import { discoveryMagnificRouter } from "./routes/discoveryMagnific.js";
 import { LOCAL_UPLOAD_DIR } from "./services/spaces.js";
 
 const LOCAL_UPLOAD_CONTENT_TYPES: Record<string, string> = {
@@ -290,6 +291,14 @@ async function main() {
       express.raw({ type: () => true, limit: "50mb" })(req, res, next);
     },
     importRestaurantRouter,
+  );
+
+  app.use(
+    "/api/discovery-magnific",
+    uploadLimiter,
+    cors({ origin: corsOrigins, credentials: true }),
+    express.json({ limit: "4kb" }),
+    discoveryMagnificRouter,
   );
 
   app.use(

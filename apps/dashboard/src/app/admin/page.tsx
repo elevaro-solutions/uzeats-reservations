@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useQuery } from '@/lib/apollo-hooks';
 import { Button, Card, Col, Row, Space, Statistic, Typography } from 'antd';
 import {
+  AppstoreOutlined,
   FileDoneOutlined,
   FundOutlined,
   ShopOutlined,
@@ -81,6 +82,12 @@ const shortcuts = [
     icon: <TagOutlined />,
   },
   {
+    href: '/admin/services',
+    title: 'Services',
+    desc: 'Paid and free invoice add-ons',
+    icon: <AppstoreOutlined />,
+  },
+  {
     href: '/admin/blog',
     title: 'Blog articles',
     desc: 'SEO and AEO content for the public site',
@@ -100,8 +107,8 @@ const shortcuts = [
   },
   {
     href: '/admin/exports',
-    title: 'CSV exports',
-    desc: 'Users, invoices, revenue downloads',
+    title: 'Data exports',
+    desc: 'CSV, JSON, and PDF downloads',
     icon: <FileDoneOutlined />,
   },
   {

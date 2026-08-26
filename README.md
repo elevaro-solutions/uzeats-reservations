@@ -94,7 +94,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Shareable booking links (`/r/:slug`) and **Booking widget** page for embed script copy
 - Owner phone / walk-in bookings, **diner and partner reservation edit**, reservation-scoped messaging, and **individual reservation detail pages** (upcoming / past / deposit filters) plus diner **billing history** (`/billing`)
 - Enhanced restaurant detail pages with photo gallery, reviews, FAQ, terms, about, and menu sections
-- Platform admin: users, restaurants (create/edit/delete), **discovery taxonomy**, invoices, revenue, support, moderation, templates, config, annual billing discounts, **docs access** requests, and richer audit log filters
+- Platform admin: users, restaurants (list + **detail manage** for menu/reservations/invoices/package), **discovery taxonomy**, **services** catalog, invoices (manual create, branded PDF, email, public Stripe pay links), exports (CSV/JSON/PDF), revenue, support, moderation, templates, config, annual billing discounts, **docs access** requests, and richer audit log filters
 - Embeddable booking widget with per-restaurant theme
 - Public contact form, cookie consent, and legal pages (privacy, terms, SMS messaging/opt-in, cookies)
 - Super-admin developer page for deployment env-var health (secret values masked)

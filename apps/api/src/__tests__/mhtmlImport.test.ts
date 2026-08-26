@@ -44,6 +44,57 @@ const UBEREATS_HTML = `
 </html>
 `;
 
+const UBEREATS_HTML_WITH_IMAGES = `
+<!doctype html>
+<html>
+<head>
+  <title>Order Silk Road - Uber Eats</title>
+  <script type="application/ld+json">
+  {
+    "@type": "Restaurant",
+    "name": "Silk Road",
+    "hasMenu": {
+      "@type": "Menu",
+      "hasMenuSection": [{
+        "@type": "MenuSection",
+        "name": "Noodles",
+        "hasMenuItem": [{
+          "@type": "MenuItem",
+          "name": "Lagman Soup",
+          "description": "Hand-pulled noodles in broth",
+          "image": "https://tb-static.uber.com/prod/image-proc/processed_images/lagman.jpg",
+          "offers": { "@type": "Offer", "price": "14.50", "priceCurrency": "USD" }
+        }]
+      }]
+    }
+  }
+  </script>
+</head>
+<body>
+  <div>4.6 x (2,000+) Uyghur</div>
+  <div>3518 Connecticut Ave Nw, Washington, DC 20008</div>
+  <div data-testid="store-catalog-section-vertical-grid">
+    <h3>Featured items</h3>
+    <li data-testid="store-item-abc123">
+      <picture><img src="https://tb-static.uber.com/prod/image-proc/processed_images/lagman-card.jpg" alt="" /></picture>
+      <div data-testid="item-thumbnail-label">
+        <span data-testid="rich-text">Lagman</span>
+        <span data-testid="rich-text">$23.04</span>
+        <span data-testid="rich-text">91% (453)</span>
+      </div>
+    </li>
+    <li data-testid="store-item-def456">
+      <img src="https://tb-static.uber.com/prod/image-proc/processed_images/manti-card.jpg" alt="" />
+      <div data-testid="item-thumbnail-label">
+        <span data-testid="rich-text">Manti</span>
+        <span data-testid="rich-text">$18.50</span>
+      </div>
+    </li>
+  </div>
+</body>
+</html>
+`;
+
 describe('mhtmlImport', () => {
   it('detects supported delivery URLs', () => {
     expect(isSupportedDeliveryUrl('https://www.doordash.com/store/joes-burgers/123/')).toBe(true);
@@ -144,6 +195,37 @@ describe('mhtmlImport', () => {
     });
     expect(data.menuItems?.length).toBeGreaterThanOrEqual(2);
     expect(data.hours).toContain('11:30 AM');
+  });
+
+  it('parses Uber Eats menu item images from DOM and JSON-LD', () => {
+    const data = parseRestaurantHtml(
+      UBEREATS_HTML_WITH_IMAGES,
+      'https://www.ubereats.com/store/silk-road/abc',
+    );
+    expect(data.source).toBe('ubereats');
+    expect(data.menuItems?.length).toBeGreaterThanOrEqual(2);
+
+    const lagman = data.menuItems?.find((item) => item.name === 'Lagman');
+    expect(lagman).toMatchObject({
+      name: 'Lagman',
+      price: 2304,
+      imageUrl: 'https://tb-static.uber.com/prod/image-proc/processed_images/lagman-card.jpg',
+    });
+
+    const manti = data.menuItems?.find((item) => item.name === 'Manti');
+    expect(manti).toMatchObject({
+      name: 'Manti',
+      price: 1850,
+      imageUrl: 'https://tb-static.uber.com/prod/image-proc/processed_images/manti-card.jpg',
+    });
+
+    const lagmanSoup = data.menuItems?.find((item) => item.name === 'Lagman Soup');
+    expect(lagmanSoup).toMatchObject({
+      name: 'Lagman Soup',
+      price: 1450,
+      category: 'Noodles',
+      imageUrl: 'https://tb-static.uber.com/prod/image-proc/processed_images/lagman.jpg',
+    });
   });
 
   it('parses quoted-printable MHTML bodies', () => {

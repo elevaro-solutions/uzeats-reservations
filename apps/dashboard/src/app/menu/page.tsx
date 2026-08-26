@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type MutableRefObject } from 'react';
+import { useEffect, useRef, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import {
@@ -10,6 +10,7 @@ import {
   Form,
   Input,
   InputNumber,
+  Menu,
   Select,
   Space,
   Switch,
@@ -90,6 +91,11 @@ export default function MenuPage() {
   const [openKeys, setOpenKeys] = useState<OpenKeysBySection>({});
   /** Latest item keys per section, updated each render for expand-all. */
   const itemKeysRef = useRef<Record<string, string[]>>({});
+  /** Form.List field name of the category shown in the side panel. */
+  const [activeSectionName, setActiveSectionName] = useState<number>(0);
+  const watchedSections = Form.useWatch('sections', form) as MenuSectionForm[] | undefined;
+  /** Item counts from nested Form.List (authoritative; useWatch can lag on nested lists). */
+  const [itemCounts, setItemCounts] = useState<Record<number, number>>({});
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -103,9 +109,8 @@ export default function MenuPage() {
 
     setMenuUrl(restaurant?.menuUrl ?? '');
 
-    if (restaurant?.menu?.sections?.length) {
-      form.setFieldsValue({
-        sections: restaurant.menu.sections.map(
+    const nextSections = restaurant?.menu?.sections?.length
+      ? restaurant.menu.sections.map(
           (s: {
             name: string;
             items: Array<{
@@ -127,21 +132,34 @@ export default function MenuPage() {
               photoUrl: i.photoUrl ?? undefined,
             })),
           }),
-        ),
-      });
-    } else {
-      form.setFieldsValue({
-        sections: [
+        )
+      : [
           {
             name: 'Starters',
             items: [{ ...EMPTY_ITEM, name: 'Soup', price: 12 }],
           },
-        ],
-      });
-    }
+        ];
+
+    form.setFieldsValue({ sections: nextSections });
+    setItemCounts(
+      Object.fromEntries(nextSections.map((s, i) => [i, s.items.length])) as Record<
+        number,
+        number
+      >,
+    );
     setOpenKeys({});
     itemKeysRef.current = {};
+    setActiveSectionName(0);
   }, [data, activeRestaurantId, form, restaurants]);
+
+  // Keep the side-tab selection in range after removals.
+  useEffect(() => {
+    const len = watchedSections?.length ?? 0;
+    if (len === 0) return;
+    if (activeSectionName >= len) {
+      setActiveSectionName(len - 1);
+    }
+  }, [watchedSections?.length, activeSectionName]);
 
   async function uploadPhoto(file: RcFile, sectionIndex: number, itemIndex: number) {
     if (file.size > 5 * 1024 * 1024) {
@@ -161,22 +179,6 @@ export default function MenuPage() {
       setUploadingPath(null);
     }
   }
-
-  const expandAll = () => {
-    const next: OpenKeysBySection = {};
-    Object.entries(itemKeysRef.current).forEach(([sectionKey, keys]) => {
-      next[sectionKey] = [...keys];
-    });
-    setOpenKeys(next);
-  };
-
-  const collapseAll = () => {
-    const next: OpenKeysBySection = {};
-    Object.keys(itemKeysRef.current).forEach((sectionKey) => {
-      next[sectionKey] = [];
-    });
-    setOpenKeys(next);
-  };
 
   return (
     <div component="MenuPage" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
@@ -250,113 +252,218 @@ export default function MenuPage() {
         </Card>
 
         <Form.List name="sections">
-          {(sections, { add: addSection, remove: removeSection }) => (
-            <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-              <Space wrap>
-                <Button icon={<NodeExpandOutlined />} onClick={expandAll}>
-                  Expand all categories
-                </Button>
-                <Button icon={<NodeCollapseOutlined />} onClick={collapseAll}>
-                  Collapse all categories
-                </Button>
-                <Text type="secondary" style={{ fontSize: 13 }}>
-                  Items start collapsed — expand a dish or use the controls to open by category
-                </Text>
-              </Space>
+          {(sections, { add: addSection, remove: removeSection }) => {
+            const activeSection =
+              sections.find((s) => s.name === activeSectionName) ?? sections[0] ?? null;
+            const activeKey = activeSection ? String(activeSection.name) : '';
 
-              {sections.map((section) => (
-                <Card
-                  key={section.key}
-                  title={
-                    <Form.Item
-                      name={[section.name, 'name']}
-                      rules={[{ required: true, message: 'Section name is required' }]}
-                      style={{ marginBottom: 0, maxWidth: 360 }}
+            const categoryMenuItems = sections.map((section, index) => {
+              const sectionData = watchedSections?.[section.name];
+              const label = sectionData?.name?.trim() || `Category ${index + 1}`;
+              const itemCount =
+                itemCounts[section.name] ??
+                sectionData?.items?.length ??
+                form.getFieldValue(['sections', section.name, 'items'])?.length ??
+                0;
+              return {
+                key: String(section.name),
+                label: (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                      width: '100%',
+                    }}
+                  >
+                    <span
+                      style={{
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
                     >
-                      <Input placeholder="Section name (e.g. Mains)" />
-                    </Form.Item>
-                  }
+                      {label}
+                    </span>
+                    <Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>
+                      {itemCount}
+                    </Text>
+                  </div>
+                ),
+              };
+            });
+
+            return (
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 16,
+                  alignItems: 'flex-start',
+                }}
+              >
+                <Card
+                  size="small"
+                  title="Categories"
+                  styles={{ body: { padding: '8px 0' } }}
+                  style={{
+                    width: 240,
+                    flexShrink: 0,
+                    position: 'sticky',
+                    top: 16,
+                  }}
                   extra={
-                    <Space wrap size={4}>
-                      <SectionExpandControls
-                        sectionKey={String(section.name)}
-                        itemKeysRef={itemKeysRef}
-                        onExpand={(keys) =>
-                          setOpenKeys((prev) => ({ ...prev, [String(section.name)]: keys }))
-                        }
-                        onCollapse={() =>
-                          setOpenKeys((prev) => ({ ...prev, [String(section.name)]: [] }))
-                        }
-                      />
-                      <Button
-                        type="text"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={() => removeSection(section.name)}
-                        disabled={sections.length <= 1}
-                      >
-                        Remove section
-                      </Button>
-                    </Space>
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<PlusOutlined />}
+                      onClick={() => {
+                        const nextIndex = sections.length;
+                        addSection({ ...EMPTY_SECTION });
+                        setItemCounts((prev) => ({
+                          ...prev,
+                          [nextIndex]: EMPTY_SECTION.items.length,
+                        }));
+                        setActiveSectionName(nextIndex);
+                      }}
+                      aria-label="Add category"
+                    />
                   }
                 >
-                  <Form.List name={[section.name, 'items']}>
-                    {(items, { add: addItem, remove: removeItem }) => {
-                      const panelKeys = items.map((item) => String(item.key));
-                      itemKeysRef.current[String(section.name)] = panelKeys;
-
-                      return (
-                        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-                          <Collapse
-                            activeKey={openKeys[String(section.name)] ?? []}
-                            onChange={(keys) =>
-                              setOpenKeys((prev) => ({
-                                ...prev,
-                                [String(section.name)]: keys as string[],
-                              }))
-                            }
-                            items={items.map((item, itemIndex) =>
-                              buildItemPanel({
-                                item,
-                                itemIndex,
-                                section,
-                                form,
-                                removeItem,
-                                itemsLength: items.length,
-                                uploadingPath,
-                                uploadPhoto,
-                              }),
-                            )}
-                          />
-                          <Button
-                            type="dashed"
-                            icon={<PlusOutlined />}
-                            onClick={() => {
-                              addItem({ ...EMPTY_ITEM });
-                              // Newly added panel key isn't known until next render;
-                              // leave collapsed to match default behavior.
-                            }}
-                            block
-                          >
-                            Add item
-                          </Button>
-                        </Space>
-                      );
-                    }}
-                  </Form.List>
+                  <Menu
+                    mode="inline"
+                    selectedKeys={activeKey ? [activeKey] : []}
+                    items={categoryMenuItems}
+                    onClick={({ key }) => setActiveSectionName(Number(key))}
+                    style={{ border: 'none' }}
+                  />
+                  {sections.length === 0 ? (
+                    <Text type="secondary" style={{ display: 'block', padding: '8px 16px' }}>
+                      No categories yet
+                    </Text>
+                  ) : null}
                 </Card>
-              ))}
 
-              <Button
-                type="dashed"
-                icon={<PlusOutlined />}
-                onClick={() => addSection({ ...EMPTY_SECTION })}
-                block
-              >
-                Add section
-              </Button>
-            </Space>
-          )}
+                <div style={{ flex: 1, minWidth: 280 }}>
+                  <Space wrap style={{ marginBottom: 12 }}>
+                    <Button
+                      icon={<NodeExpandOutlined />}
+                      onClick={() => {
+                        if (!activeSection) return;
+                        const keys = itemKeysRef.current[String(activeSection.name)] ?? [];
+                        setOpenKeys((prev) => ({
+                          ...prev,
+                          [String(activeSection.name)]: [...keys],
+                        }));
+                      }}
+                      disabled={!activeSection}
+                    >
+                      Expand items
+                    </Button>
+                    <Button
+                      icon={<NodeCollapseOutlined />}
+                      onClick={() => {
+                        if (!activeSection) return;
+                        setOpenKeys((prev) => ({
+                          ...prev,
+                          [String(activeSection.name)]: [],
+                        }));
+                      }}
+                      disabled={!activeSection}
+                    >
+                      Collapse items
+                    </Button>
+                    <Text type="secondary" style={{ fontSize: 13 }}>
+                      Switch categories in the sidebar — items start collapsed
+                    </Text>
+                  </Space>
+
+                  {sections.map((section) => {
+                    const isActive = activeSection?.name === section.name;
+                    return (
+                      <div
+                        key={section.key}
+                        style={{ display: isActive ? 'block' : 'none' }}
+                        aria-hidden={!isActive}
+                      >
+                        <Card
+                          title={
+                            <Form.Item
+                              name={[section.name, 'name']}
+                              rules={[{ required: true, message: 'Section name is required' }]}
+                              style={{ marginBottom: 0, maxWidth: 360 }}
+                            >
+                              <Input placeholder="Section name (e.g. Mains)" />
+                            </Form.Item>
+                          }
+                          extra={
+                            <Space wrap size={4}>
+                              <SectionExpandControls
+                                sectionKey={String(section.name)}
+                                itemKeysRef={itemKeysRef}
+                                onExpand={(keys) =>
+                                  setOpenKeys((prev) => ({
+                                    ...prev,
+                                    [String(section.name)]: keys,
+                                  }))
+                                }
+                                onCollapse={() =>
+                                  setOpenKeys((prev) => ({
+                                    ...prev,
+                                    [String(section.name)]: [],
+                                  }))
+                                }
+                              />
+                              <Button
+                                type="text"
+                                danger
+                                icon={<DeleteOutlined />}
+                                onClick={() => {
+                                  const removing = section.name;
+                                  const remaining = sections.filter((s) => s.name !== removing);
+                                  const prevSibling = [...remaining]
+                                    .reverse()
+                                    .find((s) => s.name < removing);
+                                  removeSection(removing);
+                                  setActiveSectionName(
+                                    remaining.length === 0
+                                      ? 0
+                                      : (prevSibling ?? remaining[0]!).name,
+                                  );
+                                }}
+                                disabled={sections.length <= 1}
+                              >
+                                Remove section
+                              </Button>
+                            </Space>
+                          }
+                        >
+                          <Form.List name={[section.name, 'items']}>
+                            {(items, { add: addItem, remove: removeItem }) => (
+                              <SectionItemsPanel
+                                section={section}
+                                items={items}
+                                addItem={addItem}
+                                removeItem={removeItem}
+                                form={form}
+                                openKeys={openKeys}
+                                setOpenKeys={setOpenKeys}
+                                itemKeysRef={itemKeysRef}
+                                uploadingPath={uploadingPath}
+                                uploadPhoto={uploadPhoto}
+                                setItemCounts={setItemCounts}
+                              />
+                            )}
+                          </Form.List>
+                        </Card>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          }}
         </Form.List>
 
         <Button type="primary" htmlType="submit" loading={loading || savingMenuUrl} style={{ marginTop: 16 }}>
@@ -364,6 +471,70 @@ export default function MenuPage() {
         </Button>
       </Form>
     </Space></div>
+  );
+}
+
+function SectionItemsPanel({
+  section,
+  items,
+  addItem,
+  removeItem,
+  form,
+  openKeys,
+  setOpenKeys,
+  itemKeysRef,
+  uploadingPath,
+  uploadPhoto,
+  setItemCounts,
+}: {
+  section: FormListFieldData;
+  items: FormListFieldData[];
+  addItem: (defaultValue?: MenuItemForm) => void;
+  removeItem: (index: number | number[]) => void;
+  form: ReturnType<typeof Form.useForm<{ sections: MenuSectionForm[] }>>[0];
+  openKeys: OpenKeysBySection;
+  setOpenKeys: Dispatch<SetStateAction<OpenKeysBySection>>;
+  itemKeysRef: MutableRefObject<Record<string, string[]>>;
+  uploadingPath: string | null;
+  uploadPhoto: (file: RcFile, sectionIndex: number, itemIndex: number) => Promise<void>;
+  setItemCounts: Dispatch<SetStateAction<Record<number, number>>>;
+}) {
+  const panelKeys = items.map((item) => String(item.key));
+  itemKeysRef.current[String(section.name)] = panelKeys;
+
+  useEffect(() => {
+    setItemCounts((prev) =>
+      prev[section.name] === items.length ? prev : { ...prev, [section.name]: items.length },
+    );
+  }, [items.length, section.name, setItemCounts]);
+
+  return (
+    <Space orientation="vertical" size={12} style={{ width: '100%' }}>
+      <Collapse
+        activeKey={openKeys[String(section.name)] ?? []}
+        onChange={(keys) =>
+          setOpenKeys((prev) => ({
+            ...prev,
+            [String(section.name)]: keys as string[],
+          }))
+        }
+        items={items.map((item, itemIndex) =>
+          buildItemPanel({
+            item,
+            itemIndex,
+            section,
+            form,
+            removeItem,
+            itemsLength: items.length,
+            uploadingPath,
+            uploadPhoto,
+          }),
+        )}
+      />
+      <Button type="dashed" icon={<PlusOutlined />} onClick={() => addItem({ ...EMPTY_ITEM })} block>
+        Add item
+      </Button>
+    </Space>
   );
 }
 

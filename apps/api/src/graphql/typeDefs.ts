@@ -681,6 +681,7 @@ export const typeDefs = `#graphql
     quantity: Int!
     unitAmountCents: Int!
     amountCents: Int!
+    originalAmountCents: Int
   }
 
   enum InvoiceStatus {
@@ -689,6 +690,11 @@ export const typeDefs = `#graphql
     paid
     canceled
     overdue
+  }
+
+  enum InvoiceBillingCycle {
+    monthly
+    annual
   }
 
   type Invoice {
@@ -702,11 +708,19 @@ export const typeDefs = `#graphql
     currency: String!
     subtotalCents: Int!
     totalCents: Int!
+    originalTotalCents: Int
+    isDiscounted: Boolean!
     lines: [InvoiceLine!]!
     dueDate: DateTime!
     paidAt: DateTime
     canceledAt: DateTime
     notes: String
+    packageDurationMonths: Int
+    planKey: String
+    billingCycle: InvoiceBillingCycle
+    serviceIds: [ID!]!
+    payToken: String
+    payUrl: String
     createdAt: DateTime!
     updatedAt: DateTime!
   }
@@ -720,6 +734,68 @@ export const typeDefs = `#graphql
     created: Int!
     skipped: Int!
     period: String!
+  }
+
+  input CreateManualInvoiceInput {
+    restaurantId: ID!
+    billingPeriod: String!
+    dueDate: DateTime!
+    amountCents: Int!
+    originalAmountCents: Int
+    packageDurationMonths: Int
+    planKey: String
+    billingCycle: InvoiceBillingCycle
+    serviceIds: [ID!]
+    notes: String
+    description: String
+    markPaid: Boolean
+  }
+
+  type InvoicePaymentSession {
+    invoice: Invoice!
+    clientSecret: String
+    paymentIntentId: String
+    alreadyPaid: Boolean!
+    isStub: Boolean!
+  }
+
+  type InvoiceExportPayload {
+    filename: String!
+    content: String!
+    mimeType: String!
+    encoding: String!
+  }
+
+  type InvoiceEmailResult {
+    sent: Boolean!
+    to: String!
+    stubbed: Boolean!
+  }
+
+  type PlatformService {
+    id: ID!
+    name: String!
+    slug: String!
+    description: String!
+    priceCents: Int!
+    active: Boolean!
+    sortOrder: Int!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type PlatformServiceConnection {
+    items: [PlatformService!]!
+    total: Int!
+  }
+
+  input PlatformServiceInput {
+    name: String!
+    slug: String
+    description: String
+    priceCents: Int!
+    active: Boolean
+    sortOrder: Int
   }
 
   type BulkInvoiceStatusResult {
@@ -1223,6 +1299,8 @@ export const typeDefs = `#graphql
     filename: String!
     content: String!
     rowCount: Int!
+    mimeType: String!
+    encoding: String!
   }
 
   type StripeSyncResult {
@@ -2147,7 +2225,14 @@ export const typeDefs = `#graphql
     adminLoyaltyStats: LoyaltyPlatformStats!
     adminReferralLeaders(limit: Int): [ReferralLeader!]!
     adminUsers(search: String, role: UserRole, limit: Int, offset: Int): UserConnection!
-    adminInvoices(status: InvoiceStatus, search: String, limit: Int, offset: Int): InvoiceConnection!
+    adminInvoices(status: InvoiceStatus, search: String, restaurantId: ID, limit: Int, offset: Int): InvoiceConnection!
+    adminInvoice(id: ID!): Invoice!
+    invoiceByPayToken(token: String!): Invoice!
+    exportInvoicePdf(id: ID!): InvoiceExportPayload!
+    exportInvoicePdfByToken(token: String!): InvoiceExportPayload!
+    emailDeliveryConfigured: Boolean!
+    adminPlatformServices(active: Boolean, search: String, limit: Int, offset: Int): PlatformServiceConnection!
+    platformServices(active: Boolean): [PlatformService!]!
     adminRevenueReport(period: String): PlatformRevenueReport!
     platformConfig: PlatformConfig!
     developerInfo: DeveloperInfo!
@@ -2324,8 +2409,18 @@ export const typeDefs = `#graphql
       posEnabled: Boolean
       widgetTheme: WidgetThemeInput
     ): Restaurant!
+    """Assign or update a restaurant package as admin. Extends billing period by one cycle."""
+    adminAssignRestaurantPackage(restaurantId: ID!, plan: String!): SubscriptionType!
     adminSendPasswordReset(userId: ID!, sendEmail: Boolean): PasswordResetLinkPayload!
     generateInvoices(period: String!): GenerateInvoicesResult!
+    createManualInvoice(input: CreateManualInvoiceInput!): Invoice!
+    ensureInvoicePayLink(id: ID!): Invoice!
+    sendInvoiceEmail(id: ID!, toEmail: String): InvoiceEmailResult!
+    startInvoicePayment(token: String!): InvoicePaymentSession!
+    confirmInvoicePayment(token: String!, paymentIntentId: String!): Invoice!
+    createPlatformService(input: PlatformServiceInput!): PlatformService!
+    updatePlatformService(id: ID!, input: PlatformServiceInput!): PlatformService!
+    deletePlatformService(id: ID!): Boolean!
     setInvoiceStatus(id: ID!, status: InvoiceStatus!): Invoice!
     setInvoiceStatuses(ids: [ID!]!, status: InvoiceStatus!): BulkInvoiceStatusResult!
     updatePlatformConfig(input: PlatformConfigInput!): PlatformConfig!
@@ -2406,7 +2501,13 @@ export const typeDefs = `#graphql
     flagMessage(id: ID!, reason: String): FlaggedContentItem!
     unflagMessage(id: ID!): FlaggedContentItem!
     setMessageHidden(id: ID!, hidden: Boolean!): FlaggedContentItem!
-    exportAdminCsv(type: String!, period: String): CsvExport!
+    exportAdminCsv(
+      type: String!
+      period: String
+      startDate: String
+      endDate: String
+      format: String
+    ): CsvExport!
     syncStripeInvoices(limit: Int): StripeSyncResult!
     createSubscription(restaurantId: ID!, plan: String!): SubscriptionType!
     cancelSubscription(restaurantId: ID!): SubscriptionType!

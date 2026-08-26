@@ -678,3 +678,71 @@ export const MARK_ALL_NOTIFICATIONS_READ = gql`
     markAllNotificationsRead
   }
 `;
+
+export const INVOICE_BY_PAY_TOKEN = gql`
+  query InvoiceByPayToken($token: String!) {
+    invoiceByPayToken(token: $token) {
+      id
+      number
+      restaurantName
+      status
+      billingPeriod
+      currency
+      totalCents
+      originalTotalCents
+      isDiscounted
+      dueDate
+      packageDurationMonths
+      planKey
+      billingCycle
+      lines {
+        description
+        quantity
+        amountCents
+        originalAmountCents
+      }
+      paidAt
+    }
+  }
+`;
+
+export const START_INVOICE_PAYMENT = gql`
+  mutation StartInvoicePayment($token: String!) {
+    startInvoicePayment(token: $token) {
+      clientSecret
+      paymentIntentId
+      alreadyPaid
+      isStub
+      invoice {
+        id
+        number
+        status
+        totalCents
+        currency
+      }
+    }
+  }
+`;
+
+export const CONFIRM_INVOICE_PAYMENT = gql`
+  mutation ConfirmInvoicePayment($token: String!, $paymentIntentId: String!) {
+    confirmInvoicePayment(token: $token, paymentIntentId: $paymentIntentId) {
+      id
+      number
+      status
+      paidAt
+      totalCents
+    }
+  }
+`;
+
+export const EXPORT_INVOICE_PDF_BY_TOKEN = gql`
+  query ExportInvoicePdfByToken($token: String!) {
+    exportInvoicePdfByToken(token: $token) {
+      filename
+      content
+      mimeType
+      encoding
+    }
+  }
+`;

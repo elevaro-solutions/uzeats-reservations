@@ -391,6 +391,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
         item('/admin/loyalty', <TrophyOutlined />, 'Loyalty'),
         item('/admin/churn', <WarningOutlined />, 'Churn alerts'),
         item('/admin/pricing', <TagOutlined />, 'Plans & pricing'),
+        item('/admin/services', <AppstoreOutlined />, 'Services'),
         item('/admin/exports', <DownloadOutlined />, 'CSV exports'),
       ],
     },

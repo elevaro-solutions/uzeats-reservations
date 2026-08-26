@@ -100,7 +100,7 @@ function extractHtmlFromMhtml(mhtmlContent: string): { html: string; sourceUrl: 
     const loc = part.match(/Content-Location:\s*(.+)/i)?.[1]?.trim() ?? '';
     const score =
       html.length
-      + (/MenuItem|StoreMenuItemPrice|data-category-scroll/i.test(html) ? 1_000_000 : 0)
+      + (/MenuItem|StoreMenuItemPrice|data-category-scroll|store-item-|item-thumbnail-label/i.test(html) ? 1_000_000 : 0)
       + (/doordash\.com\/store|ubereats\.com\/store/i.test(loc) ? 100_000 : 0);
 
     if (!best || score > best.score) {
@@ -205,8 +205,174 @@ function extractCoverImageUrl(html: string): string | undefined {
 }
 
 function extractFirstImageInBlock(block: string): string | undefined {
-  const imgMatch = block.match(/<img[^>]+src="([^"]+)"/i)?.[1];
-  return extractHttpImageUrl(imgMatch);
+  const candidates: string[] = [];
+
+  for (const match of block.matchAll(/<img[^>]+(?:src|data-src)=["']([^"']+)["']/gi)) {
+    const url = extractHttpImageUrl(match[1]);
+    if (url) candidates.push(url);
+  }
+
+  for (const match of block.matchAll(/srcset=["']([^"']+)["']/gi)) {
+    for (const part of match[1]!.split(',')) {
+      const url = extractHttpImageUrl(part.trim().split(/\s+/)[0]);
+      if (url) candidates.push(url);
+    }
+  }
+
+  const preferred = candidates.find((url) =>
+    /tb-static\.uber\.com|cdn4dd\.com|img\.cdn4dd\.com|cloudfront\.net|uber\.com\/.*image/i.test(url),
+  );
+  return preferred ?? candidates[0];
+}
+
+function mergeMenuItems(...lists: ImportedMenuItem[][]): ImportedMenuItem[] {
+  const byName = new Map<string, ImportedMenuItem>();
+
+  for (const list of lists) {
+    for (const item of list) {
+      const key = item.name.trim().toLowerCase();
+      if (!key) continue;
+      const existing = byName.get(key);
+      if (!existing) {
+        byName.set(key, { ...item, name: item.name.trim() });
+        continue;
+      }
+      if (!existing.imageUrl && item.imageUrl) existing.imageUrl = item.imageUrl;
+      if (!existing.description && item.description) existing.description = item.description;
+      if (existing.price == null && item.price != null) existing.price = item.price;
+      if (!existing.category && item.category) existing.category = item.category;
+    }
+  }
+
+  return Array.from(byName.values());
+}
+
+function collectMenuItemsFromJsonLd(
+  node: unknown,
+  out: ImportedMenuItem[],
+  category?: string,
+): void {
+  if (!node || typeof node !== 'object') return;
+  if (Array.isArray(node)) {
+    for (const child of node) collectMenuItemsFromJsonLd(child, out, category);
+    return;
+  }
+
+  const obj = node as Record<string, unknown>;
+  const type = String(obj['@type'] ?? '');
+
+  if (/MenuSection/i.test(type)) {
+    const sectionName = typeof obj.name === 'string' ? obj.name : category;
+    collectMenuItemsFromJsonLd(obj.hasMenuItem ?? obj.itemListElement, out, sectionName);
+    return;
+  }
+
+  if (/MenuItem/i.test(type) && typeof obj.name === 'string') {
+    const offer = obj.offers as Record<string, unknown> | Array<Record<string, unknown>> | undefined;
+    const offerObj = Array.isArray(offer) ? offer[0] : offer;
+    const priceRaw = offerObj?.price ?? obj.price;
+    const imageRaw = obj.image ?? obj.imageUrl;
+    const image =
+      typeof imageRaw === 'string'
+        ? imageRaw
+        : Array.isArray(imageRaw)
+          ? String(imageRaw[0] ?? '')
+          : imageRaw && typeof imageRaw === 'object' && 'url' in (imageRaw as object)
+            ? String((imageRaw as { url?: string }).url ?? '')
+            : undefined;
+
+    out.push({
+      name: obj.name,
+      description: typeof obj.description === 'string' ? obj.description : undefined,
+      price: priceRaw != null ? parsePriceCents(String(priceRaw)) : undefined,
+      category,
+      imageUrl: extractHttpImageUrl(image),
+    });
+    return;
+  }
+
+  for (const key of ['hasMenu', 'hasMenuSection', 'hasMenuItem', '@graph', 'itemListElement']) {
+    if (obj[key] != null) collectMenuItemsFromJsonLd(obj[key], out, category);
+  }
+}
+
+function parseMenuItemsFromJsonLd(html: string): ImportedMenuItem[] {
+  const items: ImportedMenuItem[] = [];
+  for (const match of html.matchAll(
+    /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi,
+  )) {
+    try {
+      collectMenuItemsFromJsonLd(JSON.parse(match[1]!), items);
+    } catch {
+      /* ignore invalid JSON-LD blocks */
+    }
+  }
+  return items;
+}
+
+/**
+ * Uber Eats menu cards use data-testid="store-item-…" with rich-text spans and <picture>/<img>.
+ */
+function parseUberEatsMenuFromDom(html: string): ImportedMenuItem[] {
+  const items: ImportedMenuItem[] = [];
+  const itemSeen = new Set<string>();
+  const markerRe = /data-testid=["'](store-item-[^"']+)["']/gi;
+  const positions: number[] = [];
+  let markerMatch: RegExpExecArray | null;
+  while ((markerMatch = markerRe.exec(html)) !== null) {
+    positions.push(markerMatch.index);
+  }
+
+  for (let i = 0; i < positions.length; i++) {
+    const start = positions[i]!;
+    const end = i + 1 < positions.length ? positions[i + 1]! : Math.min(start + 12_000, html.length);
+    const block = html.slice(start, end);
+
+    const richTexts = Array.from(
+      block.matchAll(/data-testid=["']rich-text["'][^>]*>([\s\S]*?)<\/(?:span|div)>/gi),
+    )
+      .map((m) => cleanInlineHtml(m[1]!))
+      .filter((t) => t.length > 0);
+
+    let name: string | undefined;
+    let price: number | undefined;
+    let description: string | undefined;
+
+    for (const text of richTexts) {
+      if (/^\$[\d.]+/.test(text)) {
+        if (price == null) price = parsePriceCents(text);
+        continue;
+      }
+      if (/%/.test(text) || /^\([\d,]+\+?\)$/.test(text)) continue;
+      if (!name) {
+        name = text;
+      } else if (!description && text.length >= 8 && text !== name) {
+        description = text;
+      }
+    }
+
+    if (!name) {
+      const labelHtml = block.match(
+        /data-testid=["']item-thumbnail-label["'][^>]*>([\s\S]*?)(?:<\/div>|data-testid=["']store-item-)/i,
+      )?.[1];
+      name = labelHtml ? cleanInlineHtml(labelHtml).split(/\$/)[0]?.trim() : undefined;
+    }
+
+    if (!name || name.length < 2 || itemSeen.has(name)) continue;
+    if (/^(Skip|Enter|Chevron|Heart|Menu|Rating|Star|Arrow|Search|Group|Pickup|Schedule|Opens|Closed)/i.test(name)) {
+      continue;
+    }
+
+    itemSeen.add(name);
+    items.push({
+      name,
+      description,
+      price,
+      imageUrl: extractFirstImageInBlock(block),
+    });
+  }
+
+  return items;
 }
 
 // ─── DoorDash Parser ──────────────────────────────────────────────────────────
@@ -422,21 +588,32 @@ function parseUberEats(html: string, text: string): ImportedRestaurantData {
   }
   data.menuCategories = menuCats;
 
-  // Menu items — pattern: "Name $price • % (count)" or "Name $price"
-  const menuItems: ImportedMenuItem[] = [];
-  // UberEats format: "Item Name $23.04 • 91% (453)"
+  // Prefer structured DOM / JSON-LD (includes item images). Fall back to plain-text prices.
+  const textMenuItems: ImportedMenuItem[] = [];
   const itemPattern = /([A-Z][^\n$]{3,60}?)\s+\$([\d.]+)(?:\s*•\s*[\d]+%\s*\([\d,]+\))?/g;
   let itemMatch;
   const itemSeen = new Set<string>();
   while ((itemMatch = itemPattern.exec(text)) !== null) {
     const name = itemMatch[1]!.trim();
     if (itemSeen.has(name) || name.length < 3) continue;
-    // Skip lines that look like category headers or navigation
     if (/^(Skip|Enter|Chevron|Heart|Menu|Rating|Star|Arrow|Search|Group|Pickup|Schedule|Opens|Closed|Featured|Picked)/i.test(name)) continue;
     itemSeen.add(name);
-    menuItems.push({ name, price: parsePriceCents(itemMatch[2]!) });
+    textMenuItems.push({ name, price: parsePriceCents(itemMatch[2]!) });
   }
-  data.menuItems = menuItems.slice(0, 80);
+
+  const menuItems = mergeMenuItems(
+    parseUberEatsMenuFromDom(html),
+    parseMenuItemsFromJsonLd(html),
+    textMenuItems,
+  );
+  data.menuItems = menuItems.slice(0, 200);
+
+  const categoriesFromItems = Array.from(
+    new Set(menuItems.map((item) => item.category).filter((c): c is string => Boolean(c))),
+  );
+  if (categoriesFromItems.length > 0) {
+    data.menuCategories = Array.from(new Set([...menuCats, ...categoriesFromItems]));
+  }
 
   // Build description from top-rated items
   if (menuItems.length > 0) {

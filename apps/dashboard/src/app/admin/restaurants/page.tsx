@@ -1,6 +1,8 @@
 'use client';
 
 import { Suspense, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
   Button,
@@ -13,13 +15,12 @@ import {
   InputNumber,
   Modal,
   Row,
-  Segmented,
   Select,
   Space,
   Steps,
+  Segmented,
   Switch,
   Table,
-  Tabs,
   Tag,
   Typography,
   message,
@@ -29,10 +30,10 @@ import type { FormInstance } from 'antd/es/form';
 import {
   EditOutlined,
   DeleteOutlined,
+  EyeOutlined,
   ImportOutlined,
   SearchOutlined,
   PlusOutlined,
-  UserAddOutlined,
   MoreOutlined,
   ArrowLeftOutlined,
   ArrowRightOutlined,
@@ -43,7 +44,6 @@ import {
   PageHeader,
   PhoneInput,
   StatusTag,
-  colors,
   spacing,
   usPhoneRules,
 } from '@reservations/ui';
@@ -51,20 +51,19 @@ import PhotoUpload from '@/components/PhotoUpload';
 import CuisineSelect from '@/components/CuisineSelect';
 import ImportRestaurantModal, { type ImportedRestaurantData } from '@/components/ImportRestaurantModal';
 import { applyRestaurantImportToForm } from '@/lib/applyRestaurantImport';
-import { RestaurantProfileFields } from '@/components/RestaurantProfileFields';
+import {
+  AdminManageRestaurant,
+  PlanSelector,
+  RESTAURANT_STATUS_OPTIONS,
+  type AdminRestaurantRecord,
+} from '@/components/AdminManageRestaurant';
 import {
   ADMIN_RESTAURANTS,
   ADMIN_RESTAURANT_FILTER_META,
   ADMIN_CREATE_RESTAURANT,
   ADMIN_DELETE_RESTAURANT,
-  ADMIN_UPDATE_RESTAURANT,
   ADMIN_USERS,
-  ASSIGN_USER_RESTAURANTS,
-  CHANGE_PLAN,
-  CREATE_SUBSCRIPTION,
   PLANS,
-  REMOVE_USER_RESTAURANT,
-  RESTAURANT_TEAM,
   SET_RESTAURANT_STATUS,
   UPSERT_MENU,
 } from '@/lib/graphql';
@@ -210,8 +209,6 @@ function mapCreateApiErrorToFields(
 
 const { Text, Title } = Typography;
 
-// ─── Plan Selector ────────────────────────────────────────────────────────────
-
 type PlanInfo = {
   key: string;
   name: string;
@@ -220,245 +217,7 @@ type PlanInfo = {
   annualFreeMonths?: number;
 };
 
-function PlanSelector({
-  plans,
-  value,
-  onChange,
-}: {
-  plans: PlanInfo[];
-  value?: string;
-  onChange?: (key: string | undefined) => void;
-}) {
-  const [billing, setBilling] = useState<'monthly' | 'annual'>('monthly');
-
-  const visiblePlans = plans.filter((p) => p.key !== 'free' && (p as { isCustom?: boolean }).isCustom !== true);
-
-  const annualMonthlyPrice = (monthly: number, freeMonths: number) => {
-    const paidMonths = 12 - freeMonths;
-    return Math.round((monthly * paidMonths) / 12);
-  };
-  const annualTotalPrice = (monthly: number, freeMonths: number) => monthly * (12 - freeMonths);
-
-  const annualDiscountPercent = (freeMonths: number) =>
-    Math.round((freeMonths / 12) * 100);
-
-  const fmt = (cents: number) =>
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(
-      cents / 100,
-    );
-
-  const activePlan = visiblePlans.find((p) => p.key === value);
-  const trialDays = activePlan?.trialDays ?? 0;
-  const trialEndLabel =
-    trialDays > 0
-      ? new Date(Date.now() + trialDays * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-          year: 'numeric',
-        })
-      : null;
-
-  const selectedMonthlyPriceCents =
-    activePlan && billing === 'annual'
-      ? annualMonthlyPrice(activePlan.monthlyPriceCents ?? 0, activePlan.annualFreeMonths ?? 2)
-      : activePlan?.monthlyPriceCents ?? 0;
-  const selectedAnnualPriceCents =
-    activePlan && billing === 'annual'
-      ? annualTotalPrice(activePlan.monthlyPriceCents ?? 0, activePlan.annualFreeMonths ?? 2)
-      : 0;
-  const regularAnnualPriceCents = (activePlan?.monthlyPriceCents ?? 0) * 12;
-  const annualSavingsCents =
-    billing === 'annual' ? Math.max(0, regularAnnualPriceCents - selectedAnnualPriceCents) : 0;
-  const selectedFreeMonths = activePlan?.annualFreeMonths ?? 2;
-
-  const packageLabel = activePlan
-    ? `${activePlan.name} — ${
-        billing === 'annual'
-          ? `${selectedAnnualPriceCents > 0 ? fmt(selectedAnnualPriceCents) : 'Free'}/year`
-          : `${selectedMonthlyPriceCents > 0 ? fmt(selectedMonthlyPriceCents) : 'Free'}/mo`
-      }`
-    : undefined;
-
-  return (
-    <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-      <Segmented
-        block
-        options={[
-          { label: 'Monthly', value: 'monthly' },
-          { label: `Annual (${annualDiscountPercent(visiblePlans[0]?.annualFreeMonths ?? 2)}% off)`, value: 'annual' },
-        ]}
-        value={billing}
-        onChange={(v) => setBilling(v as 'monthly' | 'annual')}
-      />
-
-      <Form.Item label="Subscription plan" style={{ marginBottom: 0 }}>
-        <Select
-          value={value}
-          onChange={(next) => onChange?.(next)}
-          allowClear
-          placeholder="Assign now or later"
-          options={[
-            ...visiblePlans.map((plan) => {
-              const monthly = plan.monthlyPriceCents ?? 0;
-              const freeMonths = plan.annualFreeMonths ?? 2;
-              const effectiveMonthly = billing === 'annual' ? annualMonthlyPrice(monthly, freeMonths) : monthly;
-              const effectiveAnnual = annualTotalPrice(monthly, freeMonths);
-              return {
-                value: plan.key,
-                label:
-                  billing === 'annual'
-                    ? `${plan.name} — ${monthly === 0 ? 'Free' : `${fmt(effectiveAnnual)}/year`}`
-                    : `${plan.name} — ${monthly === 0 ? 'Free' : `${fmt(effectiveMonthly)}/mo`}`,
-              };
-            }),
-          ]}
-        />
-      </Form.Item>
-
-      {activePlan ? (
-        <div
-          style={{
-            border: '1px solid #ece7df',
-            borderRadius: 10,
-            background: '#f8f6f3',
-            padding: '14px 16px',
-          }}
-        >
-          <Space direction="vertical" size={2}>
-            <Text strong style={{ fontSize: 20, lineHeight: '28px' }}>
-              {activePlan.name}
-            </Text>
-            {billing === 'annual' && regularAnnualPriceCents > selectedAnnualPriceCents ? (
-              <Text delete type="secondary" style={{ fontSize: 24, lineHeight: '28px' }}>
-                {fmt(regularAnnualPriceCents)}/yr
-              </Text>
-            ) : null}
-            <Text strong style={{ fontSize: 36, lineHeight: '40px' }}>
-              {billing === 'annual'
-                ? selectedAnnualPriceCents > 0
-                  ? fmt(selectedAnnualPriceCents)
-                  : 'Free'
-                : selectedMonthlyPriceCents > 0
-                  ? fmt(selectedMonthlyPriceCents)
-                  : 'Free'}
-              <Text type="secondary" style={{ fontSize: 24, fontWeight: 500 }}>
-                {billing === 'annual' ? '/ year' : '/ month'}
-              </Text>
-            </Text>
-            {billing === 'annual' && selectedMonthlyPriceCents > 0 ? (
-              <Text type="secondary" style={{ fontSize: 24, lineHeight: '30px' }}>
-                {fmt(selectedMonthlyPriceCents)}/mo equivalent, billed annually
-              </Text>
-            ) : (
-              <Text type="secondary">{packageLabel}</Text>
-            )}
-            {billing === 'annual' && annualSavingsCents > 0 ? (
-              <Text style={{ color: '#389e0d', fontWeight: 600, fontSize: 24, lineHeight: '30px' }}>
-                Save {fmt(annualSavingsCents)}/year ({annualDiscountPercent(selectedFreeMonths)}% off vs paying monthly)
-              </Text>
-            ) : null}
-            <Text type="secondary">{activePlan.name} package</Text>
-            {billing === 'annual' && selectedFreeMonths > 0 ? (
-              <Tag color="gold" bordered={false} style={{ width: 'fit-content' }}>
-                {selectedFreeMonths} months free on annual
-              </Tag>
-            ) : null}
-            {trialDays > 0 ? (
-              <Tag color="green" bordered={false} style={{ width: 'fit-content' }}>
-                Free {trialDays}-day trial
-              </Tag>
-            ) : null}
-            {trialEndLabel ? (
-              <Text type="secondary">You will not be charged until {trialEndLabel}.</Text>
-            ) : null}
-          </Space>
-        </div>
-      ) : null}
-    </Space>
-  );
-}
-
-const STATUS_OPTIONS = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'rejected', label: 'Rejected' },
-  { value: 'suspended', label: 'Suspended' },
-];
-
-const TEAM_ROLE_OPTIONS = [
-  { value: 'staff', label: 'Staff' },
-  { value: 'restaurant_owner', label: 'Restaurant owner' },
-];
-
-type RestaurantRecord = {
-  id: string;
-  name: string;
-  slug?: string;
-  status: string;
-  cuisine: string;
-  description?: string | null;
-  priceRange: number;
-  phone?: string | null;
-  website?: string | null;
-  menuUrl?: string | null;
-  photos?: string[];
-  ownerId: string;
-  featured?: boolean;
-  featuredUntil?: string | null;
-  depositRequired?: boolean;
-  depositAmountCents?: number;
-  loyaltyEnabled?: boolean;
-  loyaltyPointsPerVisit?: number;
-  loyaltyMinRedeemPoints?: number;
-  spendAlertThresholdCents?: number;
-  useSmartAssign?: boolean;
-  posEnabled?: boolean;
-  address?: {
-    line1?: string;
-    line2?: string | null;
-    city?: string;
-    state?: string;
-    zip?: string;
-    country?: string;
-    neighborhood?: string | null;
-  };
-  location?: { lat?: number; lng?: number };
-  categoryIds?: string[];
-  landmarkIds?: string[];
-  diningStyles?: string[];
-  discoveryOccasions?: string[];
-  meals?: string[];
-  dietaryTags?: string[];
-  amenities?: string[];
-  wheelchairAccessible?: boolean;
-  faq?: Array<{ question: string; answer: string }>;
-  featuredIn?: Array<{
-    title: string;
-    description?: string | null;
-    url?: string | null;
-    logoUrl?: string | null;
-  }>;
-  widgetTheme?: {
-    primaryColor?: string;
-    buttonText?: string;
-    showReviews?: boolean;
-  };
-  subscription?: {
-    id: string;
-    plan: string;
-    status: string;
-    trialEndsAt?: string | null;
-    monthlyPriceCents?: number;
-  } | null;
-};
-
-type TeamMember = {
-  id: string;
-  email?: string | null;
-  firstName: string;
-  lastName: string;
-  role: string;
-};
+type RestaurantRecord = AdminRestaurantRecord;
 
 function formatPlanLabel(planKey: string, plans: Array<{ key: string; name: string }>) {
   const match = plans.find((p) => p.key === planKey);
@@ -466,6 +225,7 @@ function formatPlanLabel(planKey: string, plans: Array<{ key: string; name: stri
 }
 
 function AdminRestaurantsContent() {
+  const router = useRouter();
   const { ready, user } = useRequireAdmin();
   const canDeleteRestaurants = user ? isSuperAdmin(user.role) : false;
   const {
@@ -508,22 +268,7 @@ function AdminRestaurantsContent() {
   const { data: plansData } = useQuery(PLANS, { skip: !ready });
 
   const [setStatus] = useMutation(SET_RESTAURANT_STATUS);
-  const [createRestaurant, { loading: creating }] = useMutation(ADMIN_CREATE_RESTAURANT, {
-    onCompleted: () => {
-      message.success('Restaurant created');
-      closeCreate();
-      refetch();
-      refetchFilterMeta();
-    },
-  });
-  const [updateRestaurant, { loading: saving }] = useMutation(ADMIN_UPDATE_RESTAURANT, {
-    onCompleted: () => {
-      message.success('Restaurant updated');
-      setEditing(null);
-      refetch();
-      refetchFilterMeta();
-    },
-  });
+  const [createRestaurant, { loading: creating }] = useMutation(ADMIN_CREATE_RESTAURANT);
   const [deleteRestaurant] = useMutation(ADMIN_DELETE_RESTAURANT, {
     onCompleted: () => {
       message.success('Restaurant deleted');
@@ -531,28 +276,20 @@ function AdminRestaurantsContent() {
       refetchFilterMeta();
     },
   });
-  const [createSubscription, { loading: assigningPlan }] = useMutation(CREATE_SUBSCRIPTION);
-  const [changePlan, { loading: changingPlan }] = useMutation(CHANGE_PLAN);
-  const [assignUserRestaurants, { loading: assigningUser }] = useMutation(ASSIGN_USER_RESTAURANTS);
-  const [removeUserRestaurant] = useMutation(REMOVE_USER_RESTAURANT);
   const [upsertMenu] = useMutation(UPSERT_MENU);
 
   const [editing, setEditing] = useState<RestaurantRecord | null>(null);
-  const [editTab, setEditTab] = useState('details');
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
   const [createStep, setCreateStep] = useState(0);
   const [ownerMode, setOwnerMode] = useState<OwnerMode>('new');
   const [photos, setPhotos] = useState<string[]>([]);
-  const [selectedPlan, setSelectedPlan] = useState<string>();
-  const [selectedRestaurantStatus, setSelectedRestaurantStatus] = useState<string>();
-  const [assignUserId, setAssignUserId] = useState<string>();
-  const [assignRole, setAssignRole] = useState('staff');
   const [pendingImportedMenuSections, setPendingImportedMenuSections] = useState<
     Awaited<ReturnType<typeof buildMenuSectionsFromImport>>
   >([]);
+  /** Raw import payload — used at create time so DoorDash image uploads cannot race past menu save. */
+  const pendingImportDataRef = useRef<ImportedRestaurantData | null>(null);
 
-  const [form] = Form.useForm();
   const [createForm] = Form.useForm();
   const lastGeocodedCreateAddressRef = useRef('');
 
@@ -565,11 +302,6 @@ function AdminRestaurantsContent() {
   const defaultPlanKey =
     plans.find((p) => p.key !== 'free' && (p as { isCustom?: boolean }).isCustom !== true)?.key;
 
-  const { data: teamData, refetch: refetchTeam } = useQuery(RESTAURANT_TEAM, {
-    skip: !editing?.id,
-    variables: { restaurantId: editing?.id ?? '' },
-  });
-
   const ownerOptions = (usersData?.adminUsers?.items ?? [])
     .filter(
       (u: { role: string }) =>
@@ -579,73 +311,6 @@ function AdminRestaurantsContent() {
       value: u.id,
       label: `${u.firstName} ${u.lastName}${u.email ? ` (${u.email})` : ''}`,
     }));
-
-  const assignableUserOptions = (usersData?.adminUsers?.items ?? [])
-    .filter((u: { id: string; role: string }) => {
-      if (isPlatformAdmin(u.role)) return false;
-      const teamIds = (teamData?.restaurantTeam ?? []).map((m: { id: string }) => m.id);
-      return !teamIds.includes(u.id);
-    })
-    .map((u: { id: string; firstName: string; lastName: string; email?: string; role: string }) => ({
-      value: u.id,
-      label: `${u.firstName} ${u.lastName}${u.email ? ` (${u.email})` : ''} — ${u.role}`,
-    }));
-
-  useEffect(() => {
-    if (!editing) return;
-    setEditTab('details');
-    setPhotos(editing.photos ?? []);
-    setSelectedPlan(editing.subscription?.plan);
-    setSelectedRestaurantStatus(editing.status);
-    form.setFieldsValue({
-      name: editing.name,
-      description: editing.description ?? '',
-      cuisine: editing.cuisine,
-      priceRange: editing.priceRange,
-      phone: editing.phone ?? '',
-      website: editing.website ?? '',
-      menuUrl: editing.menuUrl ?? '',
-      depositRequired: editing.depositRequired,
-      depositAmountCents: editing.depositAmountCents
-        ? editing.depositAmountCents / 100
-        : 0,
-      loyaltyEnabled: Boolean(editing.loyaltyEnabled),
-      loyaltyPointsPerVisit: editing.loyaltyPointsPerVisit ?? 50,
-      loyaltyMinRedeemPoints: editing.loyaltyMinRedeemPoints ?? 200,
-      featured: Boolean(editing.featured),
-      ownerId: editing.ownerId,
-      line1: editing.address?.line1,
-      line2: editing.address?.line2 ?? '',
-      city: editing.address?.city,
-      state: editing.address?.state,
-      zip: editing.address?.zip,
-      country: editing.address?.country ?? 'US',
-      lat: editing.location?.lat,
-      lng: editing.location?.lng,
-      useSmartAssign: editing.useSmartAssign ?? false,
-      posEnabled: editing.posEnabled ?? false,
-      spendAlertDollars: (editing.spendAlertThresholdCents ?? 0) / 100,
-      primaryColor: editing.widgetTheme?.primaryColor ?? colors.brand[600],
-      buttonText: editing.widgetTheme?.buttonText ?? 'Reserve a table',
-      showReviews: editing.widgetTheme?.showReviews ?? true,
-      neighborhood: editing.address?.neighborhood ?? '',
-      categoryIds: editing.categoryIds ?? [],
-      landmarkIds: editing.landmarkIds ?? [],
-      diningStyles: editing.diningStyles ?? [],
-      discoveryOccasions: editing.discoveryOccasions ?? [],
-      meals: editing.meals ?? [],
-      dietaryTags: editing.dietaryTags ?? [],
-      amenities: editing.amenities ?? [],
-      wheelchairAccessible: editing.wheelchairAccessible ?? false,
-      faq: (editing.faq ?? []).map((item) => ({ question: item.question, answer: item.answer })),
-      featuredIn: (editing.featuredIn ?? []).map((item) => ({
-        title: item.title,
-        description: item.description ?? '',
-        url: item.url ?? '',
-        logoUrl: item.logoUrl ?? '',
-      })),
-    });
-  }, [editing, form]);
 
   useEffect(() => {
     if (!showCreate || !defaultPlanKey) return;
@@ -662,6 +327,7 @@ function AdminRestaurantsContent() {
     createForm.resetFields();
     setPhotos([]);
     setPendingImportedMenuSections([]);
+    pendingImportDataRef.current = null;
   };
 
   useEffect(() => {
@@ -707,6 +373,7 @@ function AdminRestaurantsContent() {
 
   const handleAdminImport = (data: ImportedRestaurantData) => {
     applyRestaurantImportToForm(createForm, data);
+    pendingImportDataRef.current = data;
 
     if (data.coverImageUrl) {
       void uploadImportedMenuImageToSpaces({
@@ -726,8 +393,17 @@ function AdminRestaurantsContent() {
       setOwnerMode('new');
       setShowCreate(true);
     }
+
+    // Save menu text/prices immediately. DoorDash includes many item images; waiting on those
+    // uploads used to leave pendingImportedMenuSections empty when the restaurant was created.
     void (async () => {
-      const importedSections = await buildMenuSectionsFromImport(data, {
+      const quickSections = await buildMenuSectionsFromImport(data);
+      setPendingImportedMenuSections(quickSections);
+
+      const hasImages = (data.menuItems ?? []).some((item) => Boolean(item.imageUrl));
+      if (!hasImages || quickSections.length === 0) return;
+
+      const withPhotos = await buildMenuSectionsFromImport(data, {
         resolvePhotoUrl: async (item, index) => {
           if (!item.imageUrl) return undefined;
           return uploadImportedMenuImageToSpaces({
@@ -736,8 +412,12 @@ function AdminRestaurantsContent() {
           });
         },
       });
-      setPendingImportedMenuSections(importedSections);
+      // Only apply photo enrichment if this import is still the active one.
+      if (pendingImportDataRef.current === data) {
+        setPendingImportedMenuSections(withPhotos);
+      }
     })();
+
     // Return to the first step so the user starts by choosing or creating the owner.
     setCreateStep(0);
     message.success(`Imported "${data.name ?? 'restaurant'}" — continue from the owner step.`);
@@ -814,32 +494,6 @@ function AdminRestaurantsContent() {
     }> | undefined) ?? [],
   });
 
-  const onSave = async () => {
-    if (!editing) return;
-    try {
-      const values = await form.validateFields();
-      await updateRestaurant({
-        variables: {
-          id: editing.id,
-          featured: values.featured,
-          ownerId: values.ownerId,
-          spendAlertThresholdCents: Math.round((Number(values.spendAlertDollars) || 0) * 100),
-          useSmartAssign: Boolean(values.useSmartAssign),
-          posEnabled: Boolean(values.posEnabled),
-          widgetTheme: {
-            primaryColor: values.primaryColor,
-            buttonText: values.buttonText,
-            showReviews: Boolean(values.showReviews),
-          },
-          input: buildRestaurantInput(values, photos),
-        },
-      });
-    } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'errorFields' in err) return;
-      message.error(err instanceof Error ? err.message : 'Failed to update restaurant');
-    }
-  };
-
   const onCreate = async () => {
     const mode = getOwnerMode();
     try {
@@ -877,6 +531,12 @@ function AdminRestaurantsContent() {
             }
           : undefined;
 
+      const importData = pendingImportDataRef.current;
+      let menuSections = pendingImportedMenuSections;
+      if (menuSections.length === 0 && (importData?.menuItems?.length ?? 0) > 0) {
+        menuSections = await buildMenuSectionsFromImport(importData!);
+      }
+
       const result = await createRestaurant({
         variables: {
           ownerId: values.ownerMode === 'existing' ? values.ownerId : undefined,
@@ -888,14 +548,31 @@ function AdminRestaurantsContent() {
       });
 
       const createdRestaurantId = result.data?.adminCreateRestaurant?.id as string | undefined;
-      if (createdRestaurantId && pendingImportedMenuSections.length > 0) {
-        await upsertMenu({
-          variables: {
-            restaurantId: createdRestaurantId,
-            input: { sections: pendingImportedMenuSections },
-          },
-        });
+      if (createdRestaurantId && menuSections.length > 0) {
+        try {
+          await upsertMenu({
+            variables: {
+              restaurantId: createdRestaurantId,
+              input: { sections: menuSections },
+            },
+          });
+        } catch (menuErr: unknown) {
+          message.warning(
+            `Restaurant created, but menu import failed: ${
+              menuErr instanceof Error ? menuErr.message : 'Unknown error'
+            }`,
+          );
+          closeCreate();
+          refetch();
+          refetchFilterMeta();
+          return;
+        }
       }
+
+      message.success('Restaurant created');
+      closeCreate();
+      refetch();
+      refetchFilterMeta();
     } catch (err: unknown) {
       if (isFormValidationError(err) && err.errorFields.length) {
         await revealCreateFieldErrors(createForm, err.errorFields, setCreateStep, setOwnerMode);
@@ -906,82 +583,14 @@ function AdminRestaurantsContent() {
     }
   };
 
-  const applyPackageAndStatus = async () => {
-    if (!editing) return;
-    try {
-      let hasChanges = false;
-
-      if (selectedPlan && selectedPlan !== editing.subscription?.plan) {
-        if (editing.subscription) {
-          await changePlan({
-            variables: { restaurantId: editing.id, plan: selectedPlan },
-          });
-          message.success('Package updated');
-        } else {
-          await createSubscription({
-            variables: { restaurantId: editing.id, plan: selectedPlan },
-          });
-          message.success('Package assigned');
-        }
-        hasChanges = true;
-      }
-
-      if (selectedRestaurantStatus && selectedRestaurantStatus !== editing.status) {
-        await setStatus({ variables: { id: editing.id, status: selectedRestaurantStatus } });
-        message.success('Status updated');
-        hasChanges = true;
-      }
-
-      if (!hasChanges) {
-        message.info('No package or status changes to apply');
-        return;
-      }
-
-      const refreshed = await refetch();
-      const updated = refreshed.data?.adminRestaurants?.items?.find(
-        (r: RestaurantRecord) => r.id === editing.id,
-      );
-      if (updated) setEditing(updated);
-    } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : 'Failed to update package or status');
-    }
-  };
-
-  const updateDisabled = !selectedPlan || !selectedRestaurantStatus;
-
-  const handleAssignUser = async () => {
-    if (!editing || !assignUserId) return;
-    try {
-      await assignUserRestaurants({
-        variables: {
-          userId: assignUserId,
-          restaurantIds: [editing.id],
-          role: assignRole,
-        },
-      });
-      message.success('Account assigned');
-      setAssignUserId(undefined);
-      await refetchTeam();
-    } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : 'Failed to assign account');
-    }
-  };
-
-  const handleRemoveUser = async (userId: string) => {
-    if (!editing) return;
-    try {
-      await removeUserRestaurant({
-        variables: { userId, restaurantId: editing.id },
-      });
-      message.success('Account removed');
-      await refetchTeam();
-    } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : 'Failed to remove account');
-    }
-  };
-
   const actionItems = (r: RestaurantRecord): MenuProps['items'] => {
     const items: NonNullable<MenuProps['items']> = [
+      {
+        key: 'view',
+        icon: <EyeOutlined />,
+        label: 'View as diner',
+        onClick: () => router.push(`/admin/restaurants/${r.id}`),
+      },
       {
         key: 'edit',
         icon: <EditOutlined />,
@@ -1064,186 +673,6 @@ function AdminRestaurantsContent() {
     (cuisine: string) => ({ value: cuisine, label: cuisine }),
   );
 
-  const restaurantFormFields = (formInstance: typeof form, isCreate = false) => (
-  <>
-    <Row gutter={16}>
-      <Col span={12}>
-        <Form.Item name="name" label="Name" rules={[{ required: true }]} tooltip={tips.name}>
-          <Input maxLength={120} />
-        </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item name="cuisine" label="Cuisine" rules={[{ required: true }]} tooltip={tips.cuisine}>
-          <CuisineSelect />
-        </Form.Item>
-      </Col>
-      <Col span={24}>
-        <Form.Item name="description" label="Description" tooltip={tips.description}>
-          <Input.TextArea rows={3} maxLength={2000} />
-        </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item name="priceRange" label="Price range" rules={[{ required: true }]} tooltip={tips.priceRange}>
-          <Select options={priceRangeOptions} />
-        </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item name="phone" label="Phone" rules={usPhoneRules({ required: false })} tooltip={tips.phone}>
-          <PhoneInput />
-        </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item name="website" label="Website" tooltip={tips.website}>
-          <Input placeholder="https://" />
-        </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item name="menuUrl" label="Full menu URL" tooltip="External link for View full menu on the public restaurant page">
-          <Input placeholder="https://" />
-        </Form.Item>
-      </Col>
-      {!isCreate && (
-        <Col span={12}>
-          <Form.Item name="ownerId" label="Owner" rules={[{ required: true }]}>
-            <Select
-              options={ownerOptions}
-              showSearch
-              optionFilterProp="label"
-              placeholder="Select owner account"
-            />
-          </Form.Item>
-        </Col>
-      )}
-      <Col span={24}>
-        <Form.Item label="Photos">
-          <PhotoUpload value={photos} onChange={setPhotos} maxCount={10} />
-        </Form.Item>
-      </Col>
-      <Col span={24}>
-        <Form.Item label="Address search">
-          <AddressAutocomplete
-            onSelect={(selection) => {
-              formInstance.setFieldsValue(addressSelectionToFields(selection));
-            }}
-          />
-        </Form.Item>
-      </Col>
-      <Col span={16}>
-        <Form.Item name="line1" label="Street" rules={[{ required: true }]} tooltip={tips.line1}>
-          <Input />
-        </Form.Item>
-      </Col>
-      <Col span={8}>
-        <Form.Item name="line2" label="Apt / suite">
-          <Input />
-        </Form.Item>
-      </Col>
-      <Col span={8}>
-        <Form.Item name="city" label="City" rules={[{ required: true }]} tooltip={tips.city}>
-          <Input />
-        </Form.Item>
-      </Col>
-      <Col span={8}>
-        <Form.Item name="state" label="State" rules={[{ required: true }]} tooltip={tips.state}>
-          <Input maxLength={2} />
-        </Form.Item>
-      </Col>
-      <Col span={8}>
-        <Form.Item name="zip" label="ZIP" rules={[{ required: true }]} tooltip={tips.zip}>
-          <Input />
-        </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item name="lat" label="Latitude" rules={[{ required: true }]} tooltip={tips.lat}>
-          <InputNumber style={{ width: '100%' }} step={0.000001} />
-        </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item name="lng" label="Longitude" rules={[{ required: true }]} tooltip={tips.lng}>
-          <InputNumber style={{ width: '100%' }} step={0.000001} />
-        </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item
-          name="depositRequired"
-          label="Deposit required"
-          valuePropName="checked"
-          tooltip={tips.depositRequired}
-        >
-          <Switch />
-        </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item name="depositAmountCents" label="Deposit amount (USD)" tooltip={tips.depositAmountCents}>
-          <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
-        </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item
-          name="loyaltyEnabled"
-          label="Loyalty program"
-          valuePropName="checked"
-          tooltip={tips.loyaltyEnabled}
-        >
-          <Switch />
-        </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item name="loyaltyPointsPerVisit" label="Points per visit" tooltip={tips.loyaltyPointsPerVisit}>
-          <InputNumber min={0} style={{ width: '100%' }} />
-        </Form.Item>
-      </Col>
-      <Col span={12}>
-        <Form.Item name="loyaltyMinRedeemPoints" label="Min redeem points" tooltip={tips.loyaltyMinRedeemPoints}>
-          <InputNumber min={0} style={{ width: '100%' }} />
-        </Form.Item>
-      </Col>
-      {!isCreate && (
-        <>
-          <Col span={12}>
-            <Form.Item name="featured" label="Featured listing" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item name="useSmartAssign" label="Smart assign" valuePropName="checked" tooltip={tips.useSmartAssign}>
-              <Switch />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item name="posEnabled" label="POS enabled" valuePropName="checked" tooltip={tips.posEnabled}>
-              <Switch />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item name="spendAlertDollars" label="Spend alert (USD)" tooltip={tips.spendAlertDollars}>
-              <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item name="primaryColor" label="Widget color" tooltip={tips.primaryColor}>
-              <Input placeholder="#0b3d2e" />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item name="buttonText" label="Widget button text" tooltip={tips.buttonText}>
-              <Input />
-            </Form.Item>
-          </Col>
-          <Col span={12}>
-            <Form.Item name="showReviews" label="Show reviews on widget" valuePropName="checked" tooltip={tips.showReviews}>
-              <Switch />
-            </Form.Item>
-          </Col>
-        </>
-      )}
-      <Form.Item name="country" hidden>
-        <Input />
-      </Form.Item>
-    </Row>
-  </>
-  );
-
   return (
     <div component="AdminRestaurantsContent" style={{ display: 'contents' }}>
       <Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
@@ -1294,7 +723,7 @@ function AdminRestaurantsContent() {
                   setStatusFilter(value);
                   setPagination(1);
                 }}
-                options={STATUS_OPTIONS}
+                options={RESTAURANT_STATUS_OPTIONS}
               />
               <Select
                 placeholder="Location"
@@ -1337,7 +766,15 @@ function AdminRestaurantsContent() {
                 showSizeChanger: true,
               })}
               columns={[
-                { title: 'Name', dataIndex: 'name' },
+                {
+                  title: 'Name',
+                  dataIndex: 'name',
+                  render: (name: string, r: RestaurantRecord) => (
+                    <Link href={`/admin/restaurants/${r.id}`} style={{ fontWeight: 500 }}>
+                      {name}
+                    </Link>
+                  ),
+                },
                 { title: 'Cuisine', dataIndex: 'cuisine' },
                 {
                   title: 'Location',
@@ -1577,7 +1014,7 @@ function AdminRestaurantsContent() {
                     label="Restaurant status"
                     rules={[{ required: true, message: 'Select an initial status' }]}
                   >
-                    <Select options={STATUS_OPTIONS} />
+                    <Select options={RESTAURANT_STATUS_OPTIONS} />
                   </Form.Item>
                 </Col>
               </Row>
@@ -1867,150 +1304,16 @@ function AdminRestaurantsContent() {
           </Form>
         </Modal>
 
-        <Modal
-          title={editing ? `Manage — ${editing.name}` : 'Manage restaurant'}
+        <AdminManageRestaurant
+          restaurant={editing}
           open={Boolean(editing)}
-          onCancel={() => setEditing(null)}
-          width={800}
-          destroyOnClose
-          footer={
-            editTab === 'details' || editTab === 'profile'
-              ? [
-                  <Button key="cancel" onClick={() => setEditing(null)}>Cancel</Button>,
-                  <Button key="save" type="primary" loading={saving} onClick={onSave}>
-                    Save changes
-                  </Button>,
-                ]
-              : [
-                  <Button key="close" onClick={() => setEditing(null)}>Close</Button>,
-                ]
-          }
-        >
-          <Tabs
-            activeKey={editTab}
-            onChange={setEditTab}
-            items={[
-              {
-                key: 'details',
-                label: 'Details',
-                children: (
-                  <Form form={form} layout="vertical">
-                    {restaurantFormFields(form)}
-                  </Form>
-                ),
-              },
-              {
-                key: 'profile',
-                label: 'Public profile',
-                children: (
-                  <Form form={form} layout="vertical">
-                    <RestaurantProfileFields />
-                  </Form>
-                ),
-              },
-              {
-                key: 'package',
-                label: 'Package',
-                children: (
-                  <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-                    <Form layout="vertical">
-                      <Form.Item label="Package" required style={{ marginBottom: spacing.md }}>
-                        <PlanSelector plans={plans} value={selectedPlan} onChange={setSelectedPlan} />
-                      </Form.Item>
-                      <Form.Item label="Restaurant status" required style={{ marginBottom: spacing.md }}>
-                        <Select
-                          value={selectedRestaurantStatus}
-                          onChange={setSelectedRestaurantStatus}
-                          options={STATUS_OPTIONS}
-                        />
-                      </Form.Item>
-                      <Button
-                        type="primary"
-                        loading={assigningPlan || changingPlan}
-                        disabled={updateDisabled}
-                        onClick={applyPackageAndStatus}
-                      >
-                        Update package & status
-                      </Button>
-                    </Form>
-                  </Space>
-                ),
-              },
-              {
-                key: 'team',
-                label: 'Accounts',
-                children: (
-                  <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-                    <Table<TeamMember>
-                      size="small"
-                      rowKey="id"
-                      dataSource={(teamData?.restaurantTeam ?? []) as TeamMember[]}
-                      pagination={false}
-                      columns={[
-                        {
-                          title: 'Name',
-                          render: (_: unknown, member) => `${member.firstName} ${member.lastName}`,
-                        },
-                        { title: 'Email', dataIndex: 'email' },
-                        {
-                          title: 'Role',
-                          dataIndex: 'role',
-                          render: (role: string, record) => (
-                            <Space>
-                              <Tag>{role}</Tag>
-                              {record.id === editing?.ownerId && <Tag color="blue">Owner</Tag>}
-                            </Space>
-                          ),
-                        },
-                        {
-                          title: '',
-                          width: 100,
-                          render: (_: unknown, record) =>
-                            record.id !== editing?.ownerId ? (
-                              <Button
-                                size="small"
-                                danger
-                                onClick={() => handleRemoveUser(record.id)}
-                              >
-                                Remove
-                              </Button>
-                            ) : null,
-                        },
-                      ]}
-                    />
-                    <Divider plain>Assign account</Divider>
-                    <Space wrap align="start">
-                      <Select
-                        style={{ width: 280 }}
-                        placeholder="Select user to assign"
-                        value={assignUserId}
-                        onChange={setAssignUserId}
-                        options={assignableUserOptions}
-                        showSearch
-                        optionFilterProp="label"
-                      />
-                      <Select
-                        style={{ width: 160 }}
-                        value={assignRole}
-                        onChange={setAssignRole}
-                        options={TEAM_ROLE_OPTIONS}
-                      />
-                      <Button
-                        type="primary"
-                        icon={<UserAddOutlined />}
-                        loading={assigningUser}
-                        disabled={!assignUserId}
-                        onClick={handleAssignUser}
-                      >
-                        Assign
-                      </Button>
-                    </Space>
-                  </Space>
-                ),
-              },
-            ]}
-          />
-        </Modal>
+          onClose={() => setEditing(null)}
+          onSaved={(updated) => {
+            setEditing(updated);
+            refetch();
+            refetchFilterMeta();
+          }}
+        />
 
         <ImportRestaurantModal
           open={showImport}

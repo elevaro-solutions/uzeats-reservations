@@ -37,6 +37,35 @@ export async function createDepositIntent(input: {
   return { ...intent, isStub: false as const };
 }
 
+/** One-off invoice payment (automatic capture). */
+export async function createInvoicePaymentIntent(input: {
+  amountCents: number;
+  currency?: string;
+  metadata: Record<string, string>;
+}) {
+  const client = getStripe();
+  if (!client) {
+    if (env.NODE_ENV === 'production') {
+      throw new Error('Payment processing unavailable');
+    }
+    const id = `pi_dev_${Date.now()}`;
+    return {
+      id,
+      client_secret: `${id}_secret_dev`,
+      status: 'requires_payment_method',
+      isStub: true as const,
+    };
+  }
+
+  const intent = await client.paymentIntents.create({
+    amount: input.amountCents,
+    currency: (input.currency || env.STRIPE_CURRENCY).toLowerCase(),
+    metadata: input.metadata,
+    automatic_payment_methods: { enabled: true },
+  });
+  return { ...intent, isStub: false as const };
+}
+
 export function isStubPaymentIntent(paymentIntentId: string) {
   return paymentIntentId.startsWith('pi_dev_');
 }
@@ -61,6 +90,26 @@ export async function assertPaymentIntentAuthorized(paymentIntentId: string) {
   const intent = await client.paymentIntents.retrieve(paymentIntentId);
   // Manual-capture deposits land in requires_capture; auto-capture / tickets may be succeeded.
   if (intent.status !== 'requires_capture' && intent.status !== 'succeeded') {
+    throw new Error(`Payment not completed (status: ${intent.status})`);
+  }
+}
+
+/** Invoice payments use automatic capture — require succeeded. */
+export async function assertPaymentIntentSucceeded(paymentIntentId: string) {
+  if (isStubPaymentIntent(paymentIntentId)) {
+    if (env.NODE_ENV === 'production') {
+      throw new Error('Invalid payment intent');
+    }
+    return;
+  }
+
+  const client = getStripe();
+  if (!client) {
+    throw new Error('Payment processing unavailable');
+  }
+
+  const intent = await client.paymentIntents.retrieve(paymentIntentId);
+  if (intent.status !== 'succeeded') {
     throw new Error(`Payment not completed (status: ${intent.status})`);
   }
 }

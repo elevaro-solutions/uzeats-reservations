@@ -28,6 +28,7 @@ import {
 import { PageHeader, spacing } from '@reservations/ui';
 import { discoveryStockImageTerm } from '@reservations/shared';
 import PhotoUpload from '@/components/PhotoUpload';
+import MagnificStockPicker from '@/components/MagnificStockPicker';
 import {
   ADMIN_DISCOVERY_TAXONOMIES,
   CREATE_DISCOVERY_TAXONOMY,
@@ -150,6 +151,13 @@ function KindPanel({ kind, hint }: { kind: TaxonomyKind; hint: string }) {
     defaultPreviewLabel && defaultPreviewSlug
       ? defaultStockImageUrl(kind, defaultPreviewSlug, defaultPreviewLabel)
       : null;
+  const magnificSearchTerm =
+    defaultPreviewLabel && defaultPreviewSlug
+      ? discoveryStockImageTerm(kind, defaultPreviewSlug, defaultPreviewLabel)
+      : '';
+  const magnificFilenameHint = defaultPreviewSlug
+    ? `discovery-${kind}-${defaultPreviewSlug}.jpg`
+    : 'discovery-taxonomy.jpg';
 
   const openCreate = () => {
     setEditing(null);
@@ -516,6 +524,16 @@ function KindPanel({ kind, hint }: { kind: TaxonomyKind; hint: string }) {
                   placeholderSrc={!(imagePhotosWatch?.length) ? defaultPreviewSrc : null}
                 />
               </Form.Item>
+              {magnificSearchTerm ? (
+                <div style={{ marginTop: 12 }}>
+                  <MagnificStockPicker
+                    searchTerm={magnificSearchTerm}
+                    filenameHint={magnificFilenameHint}
+                    disabled={saving}
+                    onAccept={(publicUrl) => form.setFieldValue('imagePhotos', [publicUrl])}
+                  />
+                </div>
+              ) : null}
             </Col>
             <Col xs={24} md={12}>
               <Form.Item

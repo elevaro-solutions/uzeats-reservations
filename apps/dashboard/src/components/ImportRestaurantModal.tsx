@@ -246,7 +246,7 @@ export default function ImportRestaurantModal({
                 loading={confirming}
                 onClick={() => void handleConfirm()}
               >
-                Use This Data
+                Import restaurant
               </Button>,
             ]
           : [

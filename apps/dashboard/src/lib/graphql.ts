@@ -261,6 +261,47 @@ export const RESTAURANT_LOYALTY_STATS = gql`
   }
 `;
 
+const ADMIN_RESTAURANT_FIELDS = `
+  id
+  name
+  slug
+  status
+  cuisine
+  description
+  priceRange
+  phone
+  website
+  menuUrl
+  photos
+  ownerId
+  featured
+  featuredUntil
+  depositRequired
+  depositAmountCents
+  loyaltyEnabled
+  loyaltyPointsPerVisit
+  loyaltyMinRedeemPoints
+  spendAlertThresholdCents
+  useSmartAssign
+  posEnabled
+  address { line1 line2 city state zip country neighborhood }
+  location { lat lng }
+  categoryIds
+  landmarkIds
+  diningStyles
+  discoveryOccasions
+  meals
+  dietaryTags
+  amenities
+  wheelchairAccessible
+  faq { question answer }
+  featuredIn { title description url logoUrl }
+  termsAndConditions
+  widgetTheme { primaryColor buttonText showReviews }
+  subscription { id plan status trialEndsAt currentPeriodStart currentPeriodEnd monthlyPriceCents }
+  createdAt
+`;
+
 export const ADMIN_RESTAURANTS = gql`
   query AdminRestaurants(
     $status: RestaurantStatus
@@ -280,44 +321,29 @@ export const ADMIN_RESTAURANTS = gql`
     ) {
       total
       items {
-        id
-        name
-        slug
-        status
-        cuisine
-        description
-        priceRange
-        phone
-        website
-        menuUrl
-        photos
-        ownerId
-        featured
-        featuredUntil
-        depositRequired
-        depositAmountCents
-        loyaltyEnabled
-        loyaltyPointsPerVisit
-        loyaltyMinRedeemPoints
-        spendAlertThresholdCents
-        useSmartAssign
-        posEnabled
-        address { line1 line2 city state zip country neighborhood }
-        location { lat lng }
-        categoryIds
-        landmarkIds
-        diningStyles
-        discoveryOccasions
-        meals
-        dietaryTags
-        amenities
-        wheelchairAccessible
-        faq { question answer }
-        featuredIn { title description url logoUrl }
-        termsAndConditions
-        widgetTheme { primaryColor buttonText showReviews }
-        subscription { id plan status trialEndsAt monthlyPriceCents }
-        createdAt
+        ${ADMIN_RESTAURANT_FIELDS}
+      }
+    }
+  }
+`;
+
+/** Single restaurant for admin diner preview / manage (public restaurant query). */
+export const ADMIN_RESTAURANT = gql`
+  query AdminRestaurant($id: ID!) {
+    restaurant(id: $id) {
+      ${ADMIN_RESTAURANT_FIELDS}
+      menu {
+        sections {
+          name
+          items {
+            name
+            description
+            priceCents
+            dietary
+            available
+            photoUrl
+          }
+        }
       }
     }
   }
@@ -406,7 +432,7 @@ export const ADMIN_UPDATE_RESTAURANT = gql`
       address { line1 line2 city state zip country }
       location { lat lng }
       widgetTheme { primaryColor buttonText showReviews }
-      subscription { id plan status trialEndsAt monthlyPriceCents }
+      subscription { id plan status trialEndsAt currentPeriodStart currentPeriodEnd monthlyPriceCents }
     }
   }
 `;
@@ -1139,9 +1165,25 @@ export const SET_MESSAGE_HIDDEN = gql`
 `;
 
 export const EXPORT_ADMIN_CSV = gql`
-  mutation ExportAdminCsv($type: String!, $period: String) {
-    exportAdminCsv(type: $type, period: $period) {
-      filename content rowCount
+  mutation ExportAdminCsv(
+    $type: String!
+    $period: String
+    $startDate: String
+    $endDate: String
+    $format: String
+  ) {
+    exportAdminCsv(
+      type: $type
+      period: $period
+      startDate: $startDate
+      endDate: $endDate
+      format: $format
+    ) {
+      filename
+      content
+      rowCount
+      mimeType
+      encoding
     }
   }
 `;
@@ -1195,8 +1237,20 @@ export const RESET_PASSWORD = gql`
 `;
 
 export const ADMIN_INVOICES = gql`
-  query AdminInvoices($status: InvoiceStatus, $search: String, $limit: Int, $offset: Int) {
-    adminInvoices(status: $status, search: $search, limit: $limit, offset: $offset) {
+  query AdminInvoices(
+    $status: InvoiceStatus
+    $search: String
+    $restaurantId: ID
+    $limit: Int
+    $offset: Int
+  ) {
+    adminInvoices(
+      status: $status
+      search: $search
+      restaurantId: $restaurantId
+      limit: $limit
+      offset: $offset
+    ) {
       total
       items {
         id
@@ -1208,17 +1262,64 @@ export const ADMIN_INVOICES = gql`
         currency
         subtotalCents
         totalCents
+        originalTotalCents
+        isDiscounted
         dueDate
         paidAt
         canceledAt
+        notes
+        packageDurationMonths
+        planKey
+        billingCycle
+        serviceIds
+        payToken
+        payUrl
         lines {
           description
           quantity
           unitAmountCents
           amountCents
+          originalAmountCents
         }
         createdAt
       }
+    }
+  }
+`;
+
+export const ADMIN_INVOICE = gql`
+  query AdminInvoice($id: ID!) {
+    adminInvoice(id: $id) {
+      id
+      number
+      restaurantId
+      restaurantName
+      status
+      billingPeriod
+      currency
+      subtotalCents
+      totalCents
+      originalTotalCents
+      isDiscounted
+      dueDate
+      paidAt
+      canceledAt
+      notes
+      packageDurationMonths
+      planKey
+      billingCycle
+      serviceIds
+      payToken
+      payUrl
+      lines {
+        description
+        quantity
+        unitAmountCents
+        amountCents
+        originalAmountCents
+      }
+      createdAt
+      updatedAt
     }
   }
 `;
@@ -1230,6 +1331,133 @@ export const GENERATE_INVOICES = gql`
       skipped
       period
     }
+  }
+`;
+
+export const CREATE_MANUAL_INVOICE = gql`
+  mutation CreateManualInvoice($input: CreateManualInvoiceInput!) {
+    createManualInvoice(input: $input) {
+      id
+      number
+      restaurantId
+      restaurantName
+      status
+      billingPeriod
+      currency
+      subtotalCents
+      totalCents
+      originalTotalCents
+      isDiscounted
+      dueDate
+      packageDurationMonths
+      planKey
+      billingCycle
+      payUrl
+      notes
+    }
+  }
+`;
+
+export const ENSURE_INVOICE_PAY_LINK = gql`
+  mutation EnsureInvoicePayLink($id: ID!) {
+    ensureInvoicePayLink(id: $id) {
+      id
+      payToken
+      payUrl
+    }
+  }
+`;
+
+export const SEND_INVOICE_EMAIL = gql`
+  mutation SendInvoiceEmail($id: ID!, $toEmail: String) {
+    sendInvoiceEmail(id: $id, toEmail: $toEmail) {
+      sent
+      to
+      stubbed
+    }
+  }
+`;
+
+export const EMAIL_DELIVERY_CONFIGURED = gql`
+  query EmailDeliveryConfigured {
+    emailDeliveryConfigured
+  }
+`;
+
+export const EXPORT_INVOICE_PDF = gql`
+  query ExportInvoicePdf($id: ID!) {
+    exportInvoicePdf(id: $id) {
+      filename
+      content
+      mimeType
+      encoding
+    }
+  }
+`;
+
+export const ADMIN_PLATFORM_SERVICES = gql`
+  query AdminPlatformServices($active: Boolean, $search: String, $limit: Int, $offset: Int) {
+    adminPlatformServices(active: $active, search: $search, limit: $limit, offset: $offset) {
+      total
+      items {
+        id
+        name
+        slug
+        description
+        priceCents
+        active
+        sortOrder
+        updatedAt
+      }
+    }
+  }
+`;
+
+export const PLATFORM_SERVICES = gql`
+  query PlatformServices($active: Boolean) {
+    platformServices(active: $active) {
+      id
+      name
+      slug
+      description
+      priceCents
+      active
+      sortOrder
+    }
+  }
+`;
+
+export const CREATE_PLATFORM_SERVICE = gql`
+  mutation CreatePlatformService($input: PlatformServiceInput!) {
+    createPlatformService(input: $input) {
+      id
+      name
+      slug
+      description
+      priceCents
+      active
+      sortOrder
+    }
+  }
+`;
+
+export const UPDATE_PLATFORM_SERVICE = gql`
+  mutation UpdatePlatformService($id: ID!, $input: PlatformServiceInput!) {
+    updatePlatformService(id: $id, input: $input) {
+      id
+      name
+      slug
+      description
+      priceCents
+      active
+      sortOrder
+    }
+  }
+`;
+
+export const DELETE_PLATFORM_SERVICE = gql`
+  mutation DeletePlatformService($id: ID!) {
+    deletePlatformService(id: $id)
   }
 `;
 
@@ -1736,6 +1964,20 @@ export const CREATE_SUBSCRIPTION = gql`
   mutation CreateSubscription($restaurantId: ID!, $plan: String!) {
     createSubscription(restaurantId: $restaurantId, plan: $plan) {
       id plan status monthlyPriceCents
+    }
+  }
+`;
+
+export const ADMIN_ASSIGN_RESTAURANT_PACKAGE = gql`
+  mutation AdminAssignRestaurantPackage($restaurantId: ID!, $plan: String!) {
+    adminAssignRestaurantPackage(restaurantId: $restaurantId, plan: $plan) {
+      id
+      plan
+      status
+      monthlyPriceCents
+      currentPeriodStart
+      currentPeriodEnd
+      trialEndsAt
     }
   }
 `;
