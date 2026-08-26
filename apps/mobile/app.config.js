@@ -20,6 +20,10 @@ const config = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.tablevera.app",
+    infoPlist: {
+      NSLocationWhenInUseUsageDescription:
+        "Tablevera uses your location to show restaurants near you.",
+    },
   },
   android: {
     adaptiveIcon: {
@@ -27,6 +31,7 @@ const config = {
       backgroundColor: "#0b3d2e",
     },
     package: "com.tablevera.app",
+    permissions: ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
   },
   plugins: [
     "expo-router",
@@ -42,6 +47,13 @@ const config = {
       },
     ],
     "expo-font",
+    [
+      "expo-location",
+      {
+        locationWhenInUsePermission:
+          "Tablevera uses your location to show restaurants near you.",
+      },
+    ],
     [
       "@react-native-google-signin/google-signin",
       {

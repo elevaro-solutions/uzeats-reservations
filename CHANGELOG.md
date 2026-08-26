@@ -4,6 +4,18 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.33.0] — 2026-08-26
+
+### Added
+
+- Mobile home discovery feed: location-aware sections, dining styles, bookings carousel, and live restaurant search
+- Mobile restaurant search screen and restaurant profile route
+- Restaurant card favorites toggle (GraphQL) with hours and cuisine meta chips
+
+### Changed
+
+- Mobile restaurant cards use soft shadow elevation, photo overlays for rating/favorite, and tighter home section spacing
+
 ## [0.32.0] — 2026-08-26
 
 ### Added

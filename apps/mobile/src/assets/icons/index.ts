@@ -10,3 +10,8 @@ export { XIcon } from "./icons/x.icon";
 export { EyeIcon } from "./icons/eye.icon";
 export { EyeOffIcon } from "./icons/eye-off.icon";
 export { ChevronLeftIcon } from "./icons/chevron-left.icon";
+export { ChevronDownIcon } from "./icons/chevron-down.icon";
+export { MapPinIcon } from "./icons/map-pin.icon";
+export { SlidersHorizontalIcon } from "./icons/sliders-horizontal.icon";
+export { HeartIcon } from "./icons/heart.icon";
+export { ClockIcon } from "./icons/clock.icon";

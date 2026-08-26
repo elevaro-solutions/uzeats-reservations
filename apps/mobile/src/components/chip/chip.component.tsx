@@ -26,12 +26,17 @@ export function Chip({
 }: ChipProps) {
   styles.useVariants({ size, selected });
 
-  const textSize = (`text-${size === "xs" ? "xs" : size === "lg" ? "md" : "sm"}`) as TypographySize;
+  const textSize =
+    `text-${size === "xs" ? "xs" : size === "lg" ? "md" : "sm"}` as TypographySize;
 
   return (
     <Pressable onPress={onPress} style={[styles.container, style]}>
       {renderIcon({ icon, style: styles.icon })}
-      <Typography weight="medium" size={textSize} color="textPrimary">
+      <Typography
+        weight="semibold"
+        size={textSize}
+        color={selected ? "inverse" : "textPrimary"}
+      >
         {children}
       </Typography>
     </Pressable>
@@ -48,8 +53,8 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
         lg: { width: 20, height: 20 },
       },
       selected: {
-        true: { color: colors.primary },
-        false: { color: colors.textSecondary },
+        true: { color: colors.white },
+        false: { color: colors.textPrimary },
       },
     },
   },
@@ -57,7 +62,7 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     flexDirection: "row",
     alignItems: "center",
     gap: space(0.75),
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderRadius: radius.full,
     variants: {
       size: {
@@ -69,11 +74,11 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
       selected: {
         true: {
           borderColor: colors.primary,
-          backgroundColor: colors.primarySubtle,
+          backgroundColor: colors.primary,
         },
         false: {
-          borderColor: colors.border,
-          backgroundColor: colors.surface,
+          borderColor: colors.slate3,
+          backgroundColor: colors.slate1,
         },
       },
     },

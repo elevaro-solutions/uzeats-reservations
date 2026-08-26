@@ -48,6 +48,20 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="search"
+            options={{
+              headerShown: true,
+              title: "Search",
+            }}
+          />
+          <Stack.Screen
+            name="restaurant/[id]"
+            options={{
+              headerShown: true,
+              title: "Restaurant",
+            }}
+          />
+          <Stack.Screen
             name="demo"
             options={{
               headerShown: true,

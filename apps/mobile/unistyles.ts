@@ -114,6 +114,15 @@ const lightTheme = {
     lg: 16,
     full: 999,
   },
+  shadows: {
+    card: {
+      shadowColor: lightPalette.black,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 16,
+      elevation: 4,
+    },
+  },
   colors: {
     ...lightPalette,
     error: lightPalette.red9,
