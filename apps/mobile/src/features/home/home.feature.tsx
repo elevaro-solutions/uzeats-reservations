@@ -1,7 +1,7 @@
 import { useQuery } from "@apollo/client";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { ScrollView } from "react-native";
+import { Alert, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
@@ -9,6 +9,7 @@ import { Flex } from "@/components";
 import {
   buildHomeFeedInput,
   useLocationPermission,
+  type AddressSelection,
   type DiscoveryIndexData,
   type SearchRestaurantsResult,
 } from "@/features/discovery";
@@ -25,6 +26,7 @@ import { CuisinesSection } from "./components/cuisines-section.component";
 import { DiningStylesGrid } from "./components/dining-styles-grid.component";
 import { HomeHeader } from "./components/home-header.component";
 import { HomeRestaurantSection } from "./components/home-restaurant-section.component";
+import { LocationPermissionModal } from "./components/location-permission-modal.component";
 import { LocationSheet } from "./components/location-sheet.component";
 import { SectionHeader } from "./components/section-header.component";
 import type { DiningStyleTile } from "./data/dining-styles";
@@ -41,9 +43,16 @@ export function HomeFeature() {
   const { user } = useAuth();
   const discovery = useAppStore((s) => s.discovery);
   const setDiscovery = useAppStore((s) => s.setDiscovery);
-  const { useCurrentLocation, status: locationStatus, errorMessage } =
-    useLocationPermission();
+  const {
+    useCurrentLocation,
+    getPermission,
+    status: locationStatus,
+    errorMessage,
+    clearError,
+    openAppSettings,
+  } = useLocationPermission();
   const [locationOpen, setLocationOpen] = useState(false);
+  const [permissionOpen, setPermissionOpen] = useState(false);
 
   const locationLabel = discovery.nearMe
     ? (discovery.locationLabel ?? "Near you")
@@ -200,8 +209,37 @@ export function HomeFeature() {
   }
 
   async function handleUseLocation() {
-    const ok = await useCurrentLocation();
-    if (ok) setLocationOpen(false);
+    clearError();
+    const result = await useCurrentLocation();
+    if (result.ok) {
+      setLocationOpen(false);
+      return;
+    }
+    if (result.needsSettings) {
+      Alert.alert(
+        "Enable location",
+        "Turn on location access for Tablevera in Settings to see restaurants near you.",
+        [
+          { text: "Not now", style: "cancel" },
+          { text: "Open Settings", onPress: () => void openAppSettings() },
+        ],
+      );
+    }
+  }
+
+  /** Soft-ask only when the system prompt can still appear; otherwise request directly. */
+  async function handleNearMePress() {
+    clearError();
+    const existing = await getPermission();
+    if (existing.status === "granted") {
+      await handleUseLocation();
+      return;
+    }
+    if (existing.status === "denied" && existing.canAskAgain === false) {
+      await handleUseLocation();
+      return;
+    }
+    setPermissionOpen(true);
   }
 
   function handleSelectCity(city: string, state?: string | null) {
@@ -212,6 +250,18 @@ export function HomeFeature() {
       lat: undefined,
       lng: undefined,
       locationLabel: undefined,
+    });
+    setLocationOpen(false);
+  }
+
+  function handleSelectPlace(place: AddressSelection) {
+    setDiscovery({
+      nearMe: true,
+      lat: place.lat,
+      lng: place.lng,
+      locationLabel: place.label,
+      city: place.city ?? place.label,
+      state: place.state,
     });
     setLocationOpen(false);
   }
@@ -279,10 +329,24 @@ export function HomeFeature() {
         visible={locationOpen}
         cities={cities}
         currentLabel={locationLabel}
+        highlightCitySelection={!discovery.nearMe}
         nearMeLoading={locationStatus === "requesting"}
         onClose={() => setLocationOpen(false)}
         onSelectCity={handleSelectCity}
-        onUseCurrentLocation={handleUseLocation}
+        onSelectPlace={handleSelectPlace}
+        onUseCurrentLocation={() => {
+          void handleNearMePress();
+        }}
+      />
+
+      <LocationPermissionModal
+        visible={permissionOpen}
+        loading={locationStatus === "requesting"}
+        onClose={() => setPermissionOpen(false)}
+        onAllow={() => {
+          setPermissionOpen(false);
+          void handleUseLocation();
+        }}
       />
     </>
   );

@@ -4,6 +4,17 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.35.0] — 2026-08-27
+
+### Added
+
+- Mobile location sheet: Google Places address search, near-me card, and soft location permission prompt
+- Navigation icon and shared `useDebouncedValue` hook for search and places autocomplete
+
+### Changed
+
+- Location sheet UI: neutral list rows, search input styling, and refactored permission/places helpers
+
 ## [0.34.0] — 2026-08-27
 
 ### Added

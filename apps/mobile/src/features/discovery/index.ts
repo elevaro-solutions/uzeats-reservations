@@ -13,8 +13,17 @@ export {
   buildHomeFeedInput,
   type SearchRestaurantsInput,
 } from "./helpers/build-search-input.helpers";
+export {
+  fetchPlacePredictions,
+  fetchPlaceDetails,
+  hasGoogleMapsApiKey,
+  type PlacePrediction,
+  type AddressSelection,
+} from "./helpers/place-autocomplete.helpers";
 export { useInfiniteRestaurantSearch } from "./hooks/use-infinite-restaurant-search.hook";
 export { useLocationPermission } from "./hooks/use-location-permission.hook";
+export type { UseCurrentLocationResult } from "./hooks/use-location-permission.hook";
+export { usePlacePredictions } from "./hooks/use-place-predictions.hook";
 export { useToggleFavorite } from "./hooks/use-toggle-favorite.hook";
 export type {
   RestaurantListItem,

@@ -24,7 +24,7 @@ import { SearchDiscovery } from "./components/search-discovery.component";
 import { SearchHeader } from "./components/search-header.component";
 import { SearchResults } from "./components/search-results.component";
 import { SearchSuggestions } from "./components/search-suggestions.component";
-import { useDebouncedValue } from "./hooks/use-debounced-value.hook";
+import { useDebouncedValue } from "@/lib/use-debounced-value";
 import { useSearchMode } from "./hooks/use-search-mode.hook";
 import {
   RECENT_SEARCHES_LIMIT,

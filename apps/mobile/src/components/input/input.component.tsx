@@ -123,7 +123,7 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     gap: space(1),
     borderWidth: 1,
     borderRadius: radius.md,
-    borderColor: focused ? colors.primary : colors.border,
+    borderColor: focused ? colors.primary6 : colors.border,
     backgroundColor: colors.background,
     variants: {
       size: {
