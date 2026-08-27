@@ -1,6 +1,7 @@
 export { Flex } from "./flex";
 export { Typography } from "./typography";
 export { Button } from "./button";
+export { IconButton } from "./icon-button";
 export { Input } from "./input";
 export { Chip } from "./chip";
 export { Divider } from "./divider";

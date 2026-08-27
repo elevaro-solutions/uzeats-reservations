@@ -4,6 +4,23 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.34.0] — 2026-08-27
+
+### Added
+
+- Mobile search redesign: titled header, mixed idle discovery layouts, shortcut + active filter chips, and richer results empty state
+- Search discovery API: trending terms, recent history, suggestions, and search event recording
+- IconButton kit component and TrendingUp icon for search chips
+
+### Changed
+
+- Selected filter chips use neutral filled pills; browse chips use softer corners and denser padding
+- Home and restaurant profile screens split into focused section components
+
+### Fixed
+
+- Restaurant name search matches prefixes/substrings (e.g. "sam" → Samarkand) instead of whole-word `$text` only
+
 ## [0.33.0] — 2026-08-26
 
 ### Added

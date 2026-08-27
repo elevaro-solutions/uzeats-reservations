@@ -12,6 +12,7 @@ import {
   AMENITIES,
   DIETARY_TAGS,
   DINING_STYLES,
+  DISCOVERY_OCCASIONS,
   MEALS,
 } from "./discovery.js";
 
@@ -454,6 +455,51 @@ export type NotificationPreferencesInput = z.infer<
   typeof notificationPreferencesSchema
 >;
 export type SearchRestaurantsInput = z.infer<typeof searchRestaurantsSchema>;
+
+export const discoveryIndexInputSchema = z.object({
+  city: z.string().optional(),
+  state: z.string().optional(),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
+  radiusKm: z.number().min(0.5).max(100).optional(),
+});
+
+export const searchSuggestionsInputSchema = z.object({
+  query: z.string().trim().min(1).max(120),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
+  radiusKm: z.number().min(0.5).max(100).optional(),
+  limit: z.number().int().min(1).max(10).default(8),
+});
+
+export const trendingSearchesInputSchema = z.object({
+  city: z.string().optional(),
+  state: z.string().optional(),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
+  radiusKm: z.number().min(0.5).max(100).optional(),
+  limit: z.number().int().min(1).max(20).default(8),
+});
+
+export const recordSearchInputSchema = z.object({
+  query: z.string().trim().max(120).optional(),
+  cuisine: z.string().min(2).max(60).optional(),
+  diningStyles: z.array(z.enum(DINING_STYLES)).optional(),
+  occasions: z.array(z.enum(DISCOVERY_OCCASIONS)).optional(),
+  meals: z.array(z.enum(MEALS)).optional(),
+  dietaryTags: z.array(z.enum(DIETARY_TAGS)).optional(),
+  amenities: z.array(z.enum(AMENITIES)).optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  restaurantId: z.string().optional(),
+});
+
+export type DiscoveryIndexInput = z.infer<typeof discoveryIndexInputSchema>;
+export type SearchSuggestionsInput = z.infer<typeof searchSuggestionsInputSchema>;
+export type TrendingSearchesInput = z.infer<typeof trendingSearchesInputSchema>;
+export type RecordSearchInput = z.infer<typeof recordSearchInputSchema>;
 
 export const CONTACT_FORM_TOPICS = [
   "general",

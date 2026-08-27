@@ -32,3 +32,5 @@ export { RestaurantBookmark } from './RestaurantBookmark.js';
 export { AccessRule } from './AccessRule.js';
 export { Promotion, BoostCampaign } from './Marketing.js';
 export { Integration } from './Integration.js';
+export { SearchEvent } from './SearchEvent.js';
+export { UserSearchHistory } from './UserSearchHistory.js';

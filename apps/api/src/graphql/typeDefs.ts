@@ -1701,11 +1701,94 @@ export const typeDefs = `#graphql
     lng: Float
   }
 
+  input DiscoveryIndexInput {
+    city: String
+    state: String
+    lat: Float
+    lng: Float
+    radiusKm: Float
+  }
+
   type DiscoveryIndex {
     cities: [DiscoveryIndexEntry!]!
     neighborhoods: [DiscoveryIndexEntry!]!
     cuisines: [DiscoveryIndexEntry!]!
     occasions: [DiscoveryIndexEntry!]!
+    meals: [DiscoveryIndexEntry!]!
+    diningStyles: [DiscoveryIndexEntry!]!
+    dietaryTags: [DiscoveryIndexEntry!]!
+    amenities: [DiscoveryIndexEntry!]!
+  }
+
+  type SearchSuggestion {
+    id: ID!
+    name: String!
+    cuisine: String!
+    photoUrl: String
+    addressLine: String!
+  }
+
+  input SearchSuggestionsInput {
+    query: String!
+    city: String
+    state: String
+    lat: Float
+    lng: Float
+    radiusKm: Float
+    limit: Int
+  }
+
+  enum TrendingSearchKind {
+    QUERY
+    CUISINE
+    OCCASION
+    MEAL
+    DINING_STYLE
+    DIETARY
+    AMENITY
+  }
+
+  type TrendingSearchTerm {
+    term: String!
+    kind: TrendingSearchKind!
+    count: Int!
+  }
+
+  input TrendingSearchesInput {
+    city: String
+    state: String
+    lat: Float
+    lng: Float
+    radiusKm: Float
+    limit: Int
+  }
+
+  type RecentSearchEntry {
+    id: ID!
+    label: String!
+    query: String
+    cuisine: String
+    diningStyles: [String!]!
+    occasions: [String!]!
+    meals: [String!]!
+    dietaryTags: [String!]!
+    amenities: [String!]!
+    city: String
+    state: String
+    searchedAt: DateTime!
+  }
+
+  input RecordSearchInput {
+    query: String
+    cuisine: String
+    diningStyles: [String!]
+    occasions: [String!]
+    meals: [String!]
+    dietaryTags: [String!]
+    amenities: [String!]
+    city: String
+    state: String
+    restaurantId: ID
   }
 
   input MenuItemInput {
@@ -2110,7 +2193,10 @@ export const typeDefs = `#graphql
     ): PromotionValidation!
     validateGiftCard(restaurantId: ID!, code: String!, depositCents: Int!): GiftCardValidation!
     searchRestaurants(input: SearchRestaurantsInput!): RestaurantConnection!
-    discoveryIndex: DiscoveryIndex!
+    discoveryIndex(input: DiscoveryIndexInput): DiscoveryIndex!
+    searchSuggestions(input: SearchSuggestionsInput!): [SearchSuggestion!]!
+    trendingSearches(input: TrendingSearchesInput!): [TrendingSearchTerm!]!
+    myRecentSearches(limit: Int): [RecentSearchEntry!]!
     availability(restaurantId: ID!, date: String!, partySize: Int!): [AvailabilitySlot!]!
     bookableTables(restaurantId: ID!, slotStart: DateTime!, partySize: Int!): [Table!]!
     floorPlanOps(restaurantId: ID!, date: String): FloorPlanOpsPayload!
@@ -2271,6 +2357,9 @@ export const typeDefs = `#graphql
     unsaveRestaurant(restaurantId: ID!): Boolean!
     favoriteRestaurant(restaurantId: ID!): Boolean!
     unfavoriteRestaurant(restaurantId: ID!): Boolean!
+    recordSearch(input: RecordSearchInput!): Boolean!
+    clearRecentSearch(id: ID!): Boolean!
+    clearRecentSearches: Boolean!
 
     createRestaurant(input: RestaurantInput!, plan: String): Restaurant!
     updateRestaurant(id: ID!, input: RestaurantInput!): Restaurant!

@@ -18,6 +18,7 @@ export type SearchRestaurantsInput = {
   diningStyles?: string[];
   occasions?: string[];
   meals?: string[];
+  dietaryTags?: string[];
   amenities?: string[];
   page?: number;
   limit?: number;
@@ -46,6 +47,7 @@ export function buildSearchInput(
   if (filters.diningStyles?.length) input.diningStyles = filters.diningStyles;
   if (filters.occasions?.length) input.occasions = filters.occasions;
   if (filters.meals?.length) input.meals = filters.meals;
+  if (filters.dietaryTags?.length) input.dietaryTags = filters.dietaryTags;
   if (filters.amenities?.length) input.amenities = filters.amenities;
 
   applyLocationToInput(filters, input);

@@ -39,6 +39,7 @@ export function Input({
   disabled = false,
   editable = true,
   onChangeText,
+  placeholderTextColor,
   ...props
 }: InputProps) {
   const [focused, setFocused] = useState(false);
@@ -75,7 +76,9 @@ export function Input({
             setFocused(false);
             props.onBlur?.(e);
           }}
-          placeholderTextColor={styles.placeholder.color}
+          placeholderTextColor={
+            placeholderTextColor ?? styles.placeholder.color
+          }
           style={styles.input}
         />
         {suffix}

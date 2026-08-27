@@ -15,3 +15,4 @@ export { MapPinIcon } from "./icons/map-pin.icon";
 export { SlidersHorizontalIcon } from "./icons/sliders-horizontal.icon";
 export { HeartIcon } from "./icons/heart.icon";
 export { ClockIcon } from "./icons/clock.icon";
+export { TrendingUpIcon } from "./icons/trending-up.icon";

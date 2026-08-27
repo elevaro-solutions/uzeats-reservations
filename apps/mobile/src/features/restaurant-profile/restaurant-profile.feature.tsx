@@ -1,12 +1,7 @@
 import { useQuery } from "@apollo/client";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useLayoutEffect, useState } from "react";
-import {
-  Alert,
-  Image,
-  ScrollView,
-  View,
-} from "react-native";
+import { useLayoutEffect } from "react";
+import { Alert, ScrollView, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -22,44 +17,17 @@ import {
 import {
   formatFullAddress,
   formatPriceRange,
+  formatShortHours,
 } from "@/features/discovery";
 import { RESTAURANT, useAuth } from "@/graphql";
 
-type RestaurantDetail = {
-  id: string;
-  name: string;
-  description?: string | null;
-  cuisine: string;
-  priceRange: number;
-  photos: string[];
-  averageRating: number;
-  reviewCount: number;
-  featured?: boolean;
-  wheelchairAccessible?: boolean;
-  amenities?: string[];
-  address: {
-    line1: string;
-    line2?: string | null;
-    city: string;
-    state: string;
-    zip?: string | null;
-    neighborhood?: string | null;
-  };
-  shifts?: Array<{
-    daysOfWeek: number[];
-    startTime: string;
-    endTime: string;
-    active: boolean;
-  }>;
-};
+import { BookFooter } from "./components/book-footer.component";
+import { RestaurantAbout } from "./components/restaurant-about.component";
+import { RestaurantHero } from "./components/restaurant-hero.component";
+import type { RestaurantQueryData } from "./types";
 
-function hoursSummary(
-  shifts: RestaurantDetail["shifts"],
-): string | null {
-  const active = (shifts ?? []).filter((s) => s.active);
-  if (active.length === 0) return null;
-  const first = active[0];
-  return `${first.startTime} – ${first.endTime}`;
+function spacePad(n: number): number {
+  return n > 0 ? n : 24;
 }
 
 export function RestaurantProfileFeature() {
@@ -69,15 +37,15 @@ export function RestaurantProfileFeature() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
-  const [descExpanded, setDescExpanded] = useState(false);
 
-  const { data, loading, error, refetch } = useQuery<{
-    restaurant: RestaurantDetail | null;
-  }>(RESTAURANT, {
-    variables: { id },
-    skip: !id,
-    fetchPolicy: "cache-and-network",
-  });
+  const { data, loading, error, refetch } = useQuery<RestaurantQueryData>(
+    RESTAURANT,
+    {
+      variables: { id },
+      skip: !id,
+      fetchPolicy: "cache-and-network",
+    },
+  );
 
   const restaurant = data?.restaurant;
 
@@ -134,7 +102,11 @@ export function RestaurantProfileFeature() {
           title="Restaurant not found"
           description="It may have been removed or is no longer listed."
         >
-          <Button variant="outlined" color="secondary" onPress={() => router.back()}>
+          <Button
+            variant="outlined"
+            color="secondary"
+            onPress={() => router.back()}
+          >
             Go back
           </Button>
         </Empty>
@@ -142,10 +114,7 @@ export function RestaurantProfileFeature() {
     );
   }
 
-  const photo = restaurant.photos?.[0];
-  const hours = hoursSummary(restaurant.shifts);
-  const description = restaurant.description?.trim() ?? "";
-  const longDesc = description.length > 180;
+  const hours = formatShortHours(restaurant.shifts);
 
   return (
     <View style={styles.root}>
@@ -156,22 +125,7 @@ export function RestaurantProfileFeature() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {photo ? (
-          <Image
-            source={{ uri: photo }}
-            style={styles.hero}
-            resizeMode="cover"
-            accessibilityLabel={restaurant.name}
-          />
-        ) : (
-          <Flex
-            style={styles.heroPlaceholder}
-            justifyContent="center"
-            alignItems="center"
-          >
-            <Typography color="muted">No photo</Typography>
-          </Flex>
-        )}
+        <RestaurantHero name={restaurant.name} photo={restaurant.photos?.[0]} />
 
         <Flex gap={2} style={styles.body}>
           {restaurant.featured ? (
@@ -191,11 +145,7 @@ export function RestaurantProfileFeature() {
             justifyContent="space-between"
             gap={1}
           >
-            <Typography
-              size="display-xs"
-              weight="bold"
-              style={styles.name}
-            >
+            <Typography size="display-xs" weight="bold" style={styles.name}>
               {restaurant.name}
             </Typography>
             <Flex direction="row" alignItems="center" gap={0.5}>
@@ -228,33 +178,12 @@ export function RestaurantProfileFeature() {
 
           {hours ? (
             <Flex style={styles.hoursBox}>
-              <Typography size="text-sm">
-                Hours: {hours}
-              </Typography>
+              <Typography size="text-sm">Hours: {hours}</Typography>
             </Flex>
           ) : null}
 
-          {description ? (
-            <Flex gap={0.75}>
-              <Typography weight="semibold" size="text-lg">
-                About
-              </Typography>
-              <Typography color="secondary" size="text-sm">
-                {descExpanded || !longDesc
-                  ? description
-                  : `${description.slice(0, 180).trim()}…`}
-              </Typography>
-              {longDesc ? (
-                <Button
-                  size="sm"
-                  variant="text"
-                  color="primary"
-                  onPress={() => setDescExpanded((v) => !v)}
-                >
-                  {descExpanded ? "Show less" : "Show more"}
-                </Button>
-              ) : null}
-            </Flex>
+          {restaurant.description ? (
+            <RestaurantAbout description={restaurant.description} />
           ) : null}
 
           {restaurant.amenities && restaurant.amenities.length > 0 ? (
@@ -270,22 +199,9 @@ export function RestaurantProfileFeature() {
         </Flex>
       </ScrollView>
 
-      <View
-        style={[
-          styles.footer,
-          { paddingBottom: Math.max(insets.bottom, 16) },
-        ]}
-      >
-        <Button fullWidth size="lg" onPress={onBook}>
-          Book
-        </Button>
-      </View>
+      <BookFooter bottomInset={insets.bottom} onBook={onBook} />
     </View>
   );
-}
-
-function spacePad(n: number): number {
-  return n > 0 ? n : 24;
 }
 
 const styles = StyleSheet.create(({ space, radius, colors }) => ({
@@ -300,16 +216,6 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     padding: space(2),
     flex: 1,
     backgroundColor: colors.background,
-  },
-  hero: {
-    width: "100%",
-    height: 240,
-    backgroundColor: colors.surface,
-  },
-  heroPlaceholder: {
-    width: "100%",
-    height: 240,
-    backgroundColor: colors.surface,
   },
   body: {
     padding: space(2),
@@ -332,16 +238,5 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     padding: space(1.5),
     borderRadius: radius.md,
     backgroundColor: colors.surface,
-  },
-  footer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: space(2),
-    paddingTop: space(1.5),
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.background,
   },
 }));

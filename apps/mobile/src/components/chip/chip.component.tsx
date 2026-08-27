@@ -1,7 +1,8 @@
 import { ReactElement, ReactNode } from "react";
 import { Pressable, StyleProp, ViewStyle } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import { XIcon } from "@/assets";
 import { renderIcon } from "@/lib/helpers";
 import { IconPropsType } from "@/types";
 
@@ -10,6 +11,7 @@ import { Typography, TypographySize } from "../typography";
 export type ChipProps = {
   children: ReactNode;
   onPress?: () => void;
+  onDismiss?: () => void;
   selected?: boolean;
   size?: "xs" | "sm" | "md" | "lg";
   icon?: ReactElement<IconPropsType>;
@@ -20,11 +22,13 @@ export function Chip({
   icon,
   style,
   onPress,
+  onDismiss,
   children,
   selected = false,
   size = "md",
 }: ChipProps) {
-  styles.useVariants({ size, selected });
+  const { theme } = useUnistyles();
+  styles.useVariants({ size, selected, dismissible: Boolean(onDismiss) });
 
   const textSize =
     `text-${size === "xs" ? "xs" : size === "lg" ? "md" : "sm"}` as TypographySize;
@@ -36,9 +40,27 @@ export function Chip({
         weight="semibold"
         size={textSize}
         color={selected ? "inverse" : "textPrimary"}
+        numberOfLines={1}
       >
         {children}
       </Typography>
+      {onDismiss ? (
+        <Pressable
+          onPress={(event) => {
+            event.stopPropagation?.();
+            onDismiss();
+          }}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Remove filter"
+          style={styles.dismissBtn}
+        >
+          <XIcon
+            size={14}
+            color={selected ? theme.colors.slate5 : theme.colors.textPrimary}
+          />
+        </Pressable>
+      ) : null}
     </Pressable>
   );
 }
@@ -58,28 +80,36 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
       },
     },
   },
+  dismissBtn: {
+    marginLeft: space(0.25),
+  },
   container: {
     flexDirection: "row",
     alignItems: "center",
     gap: space(0.75),
     borderWidth: 1.5,
-    borderRadius: radius.full,
+    borderRadius: radius.lg,
     variants: {
       size: {
-        xs: { paddingVertical: 4, paddingHorizontal: space(1) },
-        sm: { paddingVertical: 6, paddingHorizontal: space(1.25) },
-        md: { paddingVertical: 8, paddingHorizontal: space(1.5) },
-        lg: { paddingVertical: 10, paddingHorizontal: space(2) },
+        xs: { paddingVertical: 4, paddingHorizontal: space(1.25) },
+        sm: { paddingVertical: 6, paddingHorizontal: space(1.5) },
+        md: { paddingVertical: 8, paddingHorizontal: space(2) },
+        lg: { paddingVertical: 10, paddingHorizontal: space(2.5) },
       },
       selected: {
         true: {
-          borderColor: colors.primary,
-          backgroundColor: colors.primary,
+          borderRadius: radius.full,
+          borderColor: colors.textPrimary,
+          backgroundColor: colors.textPrimary,
         },
         false: {
           borderColor: colors.slate3,
           backgroundColor: colors.slate1,
         },
+      },
+      dismissible: {
+        true: { borderRadius: radius.full },
+        false: {},
       },
     },
   },

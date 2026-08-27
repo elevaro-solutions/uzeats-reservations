@@ -45,6 +45,7 @@ export type DiscoveryFilters = {
   diningStyles?: string[];
   occasions?: string[];
   meals?: string[];
+  dietaryTags?: string[];
   amenities?: string[];
 };
 
