@@ -1,4 +1,4 @@
-import type { DiscoveryIndexEntry } from "@/features/discovery";
+import type { DiscoveryIndexEntry } from "../types";
 
 export function filterCitiesByQuery(
   cities: DiscoveryIndexEntry[],

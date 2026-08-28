@@ -10,15 +10,15 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { NavigationIcon, SearchIcon, XIcon } from "@/assets";
 import { Flex, IconButton, Input, Typography } from "@/components";
-import {
-  fetchPlaceDetails,
-  usePlacePredictions,
-  type AddressSelection,
-  type DiscoveryIndexEntry,
-  type PlacePrediction,
-} from "@/features/discovery";
 
 import { filterCitiesByQuery } from "../helpers/filter-cities.helpers";
+import {
+  fetchPlaceDetails,
+  type AddressSelection,
+  type PlacePrediction,
+} from "../helpers/place-autocomplete.helpers";
+import { usePlacePredictions } from "../hooks/use-place-predictions.hook";
+import type { DiscoveryIndexEntry } from "../types";
 import { LocationResultRow } from "./location-result-row.component";
 
 export type LocationSheetProps = {

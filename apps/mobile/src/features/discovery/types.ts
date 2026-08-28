@@ -51,3 +51,12 @@ export type DiscoveryIndexData = {
   cuisines: DiscoveryIndexEntry[];
   occasions: DiscoveryIndexEntry[];
 };
+
+export type ScopedDiscoveryIndexData = {
+  cuisines: DiscoveryIndexEntry[];
+  occasions: DiscoveryIndexEntry[];
+  meals: DiscoveryIndexEntry[];
+  diningStyles: DiscoveryIndexEntry[];
+  dietaryTags: DiscoveryIndexEntry[];
+  amenities: DiscoveryIndexEntry[];
+};

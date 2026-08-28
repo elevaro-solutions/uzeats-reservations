@@ -32,7 +32,8 @@ export function buildSearchInput(
   const input: SearchRestaurantsInput = {
     partySize: filters.partySize,
     date: filters.date,
-    requireAvailability: Boolean(filters.date),
+    // Only require open tables when a time is chosen; date/party alone browse the directory.
+    requireAvailability: Boolean(filters.time),
     ...overrides,
   };
 

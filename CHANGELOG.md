@@ -4,6 +4,29 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.37.0] — 2026-08-28
+
+### Added
+
+- Shared discovery feature: cuisine chips, dining styles grid, location sheet/permission, and restaurant card exports used by Home and Search
+- Search hooks for data fetching, handlers, and filter draft lifecycle; filters sheet split into focused subcomponents
+
+### Changed
+
+- Home and Search import discovery UI from `@/features/discovery` instead of duplicated home/search modules
+- Search availability requires a reservation time; date/time/party chips appear when a time is selected
+- Filters sheet header copy clarifies facet-only clear ("Clear facets")
+
+### Fixed
+
+- Search mode returns to results when the query matches the committed search again
+- Top rated "See all" preserves the 4.5+ rating filter
+- Location permission deny in the filters sheet no longer clears live near-me state
+- Recent searches, browse shortcuts, and filter apply record the correct filter payload
+- Recent search restore replaces stale facets and applies saved city/state
+- Clearing the search field clears committed query; near me alone no longer skips browse
+- Stale suggestion rows while typing; filter draft no longer resets when the store updates underneath
+
 ## [0.36.0] — 2026-08-28
 
 ### Added

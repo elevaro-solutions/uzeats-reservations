@@ -2,10 +2,13 @@ import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Flex, InlineAlert, RestaurantCardSkeleton, Typography } from "@/components";
-import { RestaurantCard, type RestaurantListItem } from "@/features/discovery";
+import {
+  RestaurantCard,
+  SectionHeader,
+  type RestaurantListItem,
+} from "@/features/discovery";
 
 import { HOME_LIST_LIMIT } from "../home.constants";
-import { SectionHeader } from "./section-header.component";
 
 export type HomeRestaurantSectionProps = {
   title: string;

@@ -53,10 +53,16 @@ export function useLocationPermission() {
   );
 
   const deny = useCallback(
-    (message: string, needsSettings = false): UseCurrentLocationResult => {
+    (
+      message: string,
+      needsSettings = false,
+      applyToStore = true,
+    ): UseCurrentLocationResult => {
       setStatus("denied");
       setErrorMessage(message);
-      setDiscovery({ ...NEAR_ME_CLEARED });
+      if (applyToStore) {
+        setDiscovery({ ...NEAR_ME_CLEARED });
+      }
       return { ok: false, needsSettings };
     },
     [setDiscovery],
@@ -82,6 +88,7 @@ export function useLocationPermission() {
             return deny(
               "Location access is turned off. Enable it in Settings to see restaurants near you.",
               true,
+              applyToStore,
             );
           }
 
@@ -95,6 +102,7 @@ export function useLocationPermission() {
                 ? "Location access is turned off. Enable it in Settings to see restaurants near you."
                 : "Location access was denied. Showing restaurants in your selected city instead.",
               needsSettings,
+              applyToStore,
             );
           }
         }

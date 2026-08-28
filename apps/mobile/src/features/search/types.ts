@@ -1,22 +1,12 @@
 import type { DiscoveryFilters } from "@/store";
+import type {
+  DiscoveryIndexEntry,
+  ScopedDiscoveryIndexData,
+} from "@/features/discovery";
 
-export type DiscoveryIndexEntry = {
-  slug: string;
-  label: string;
-  count: number;
-  city?: string | null;
-  state?: string | null;
-  neighborhood?: string | null;
-};
+import { DEFAULT_DRAFT_FILTER_FIELDS } from "./helpers/filter-draft.helpers";
 
-export type ScopedDiscoveryIndexData = {
-  cuisines: DiscoveryIndexEntry[];
-  occasions: DiscoveryIndexEntry[];
-  meals: DiscoveryIndexEntry[];
-  diningStyles: DiscoveryIndexEntry[];
-  dietaryTags: DiscoveryIndexEntry[];
-  amenities: DiscoveryIndexEntry[];
-};
+export type { DiscoveryIndexEntry, ScopedDiscoveryIndexData };
 
 export type SearchSuggestion = {
   id: string;
@@ -108,6 +98,7 @@ export function buildRecordSearchInput(
   };
 }
 
+/** Facets / query that should show results. Near me alone stays on browse. */
 export function hasActiveSearchFilters(discovery: DiscoveryFilters): boolean {
   return Boolean(
     discovery.query.trim() ||
@@ -119,15 +110,26 @@ export function hasActiveSearchFilters(discovery: DiscoveryFilters): boolean {
       discovery.amenities?.length ||
       discovery.priceRange ||
       discovery.minRating ||
-      discovery.wheelchairAccessible ||
-      discovery.nearMe,
+      discovery.wheelchairAccessible,
   );
 }
 
 export function applyRecentSearchEntry(
   entry: RecentSearchEntry,
 ): Partial<DiscoveryFilters> {
+  const location = entry.city
+    ? {
+        city: entry.city,
+        state: entry.state ?? undefined,
+        nearMe: false,
+        lat: undefined,
+        lng: undefined,
+        locationLabel: undefined,
+      }
+    : {};
+
   return {
+    ...clearBrowseFilters(),
     query: entry.query ?? "",
     cuisine: entry.cuisine ?? undefined,
     diningStyles: entry.diningStyles.length ? entry.diningStyles : undefined,
@@ -135,6 +137,7 @@ export function applyRecentSearchEntry(
     meals: entry.meals.length ? entry.meals : undefined,
     dietaryTags: entry.dietaryTags.length ? entry.dietaryTags : undefined,
     amenities: entry.amenities.length ? entry.amenities : undefined,
+    ...location,
   };
 }
 
@@ -167,11 +170,6 @@ export function applyTrendingTerm(
 export function clearBrowseFilters(): Partial<DiscoveryFilters> {
   return {
     query: "",
-    cuisine: undefined,
-    diningStyles: undefined,
-    occasions: undefined,
-    meals: undefined,
-    dietaryTags: undefined,
-    amenities: undefined,
+    ...DEFAULT_DRAFT_FILTER_FIELDS,
   };
 }

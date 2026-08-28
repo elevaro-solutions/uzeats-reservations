@@ -1,35 +1,34 @@
 import { ScrollView } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import {
-  Chip,
-  CUISINE_CHIP_WIDTHS,
-  ChipRowSkeleton,
-  Flex,
-} from "@/components";
-import { SectionHeader } from "@/features/home/components/section-header.component";
-import { splitCuisineRows } from "@/features/home/helpers/split-cuisine-rows.helpers";
+import { Chip, CUISINE_CHIP_WIDTHS, ChipRowSkeleton, Flex } from "@/components";
 
+import { splitCuisineRows } from "../helpers/split-cuisine-rows.helpers";
 import type { DiscoveryIndexEntry } from "../types";
+import { SectionHeader } from "./section-header.component";
 
-export type DiscoveryCuisineSectionProps = {
+export type CuisineChipSectionProps = {
+  title: string;
   loading: boolean;
   cuisines: DiscoveryIndexEntry[];
+  hideWhenEmpty?: boolean;
   onPress: (label: string) => void;
 };
 
-export function DiscoveryCuisineSection({
+export function CuisineChipSection({
+  title,
   loading,
   cuisines,
+  hideWhenEmpty = false,
   onPress,
-}: DiscoveryCuisineSectionProps) {
+}: CuisineChipSectionProps) {
   const [row1, row2] = splitCuisineRows(cuisines);
 
-  if (!loading && cuisines.length === 0) return null;
+  if (hideWhenEmpty && !loading && cuisines.length === 0) return null;
 
   return (
     <Flex gap={1.5}>
-      <SectionHeader title="Search by cuisine" />
+      <SectionHeader title={title} />
       {loading && cuisines.length === 0 ? (
         <ScrollView
           horizontal

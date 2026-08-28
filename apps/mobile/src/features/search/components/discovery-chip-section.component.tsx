@@ -8,7 +8,7 @@ import {
   Flex,
   TRENDING_CHIP_WIDTHS,
 } from "@/components";
-import { SectionHeader } from "@/features/home/components/section-header.component";
+import { SectionHeader } from "@/features/discovery";
 import type { IconPropsType } from "@/types";
 
 export type DiscoveryChipItem = {

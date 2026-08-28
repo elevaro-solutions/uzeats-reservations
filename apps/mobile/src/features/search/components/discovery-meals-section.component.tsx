@@ -1,26 +1,11 @@
-import { type ComponentType } from "react";
 import { Pressable, ScrollView } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { Flex, MealTileSkeleton, Typography } from "@/components";
-import { SectionHeader } from "@/features/home/components/section-header.component";
-import { CroissantIcon } from "@/features/home/icons/dining-style-icons";
-import type { IconPropsType } from "@/types";
+import { SectionHeader } from "@/features/discovery";
 
-import {
-  CoffeeMealIcon,
-  MoonMealIcon,
-  SoupMealIcon,
-  SunMealIcon,
-} from "../icons/meal-icons";
+import { MEAL_ICONS, SunMealIcon } from "../icons/meal-icons";
 import type { DiscoveryIndexEntry } from "../types";
-
-const MEAL_ICONS: Record<string, ComponentType<IconPropsType>> = {
-  Breakfast: CoffeeMealIcon,
-  Brunch: CroissantIcon,
-  Lunch: SoupMealIcon,
-  Dinner: MoonMealIcon,
-};
 
 export type DiscoveryMealsSectionProps = {
   loading: boolean;

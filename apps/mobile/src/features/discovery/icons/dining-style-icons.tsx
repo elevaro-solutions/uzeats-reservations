@@ -3,7 +3,7 @@ import { Circle, Path } from "react-native-svg";
 import { IconPropsType } from "@/types";
 import { SvgWrapper } from "@/assets/icons/components/svg-wrapper.component";
 
-/** Dining-style Lucide icons — kept in the home feature (not shared kit). */
+/** Dining-style Lucide icons for discovery tiles and filter chips. */
 
 export function WineIcon(props: IconPropsType) {
   return (

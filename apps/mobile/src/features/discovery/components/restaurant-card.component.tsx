@@ -209,7 +209,7 @@ const styles = StyleSheet.create(({ space, radius, colors, shadows }) => ({
     paddingVertical: space(0.5),
     paddingHorizontal: space(1),
     borderRadius: radius.full,
-    backgroundColor: "rgba(0, 0, 0, 0.72)",
+    backgroundColor: colors.overlay,
   },
   ratingText: {
     color: colors.white,

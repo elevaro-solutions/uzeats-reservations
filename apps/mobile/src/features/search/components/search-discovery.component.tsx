@@ -3,9 +3,12 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { ClockIcon, TrendingUpIcon } from "@/assets";
 import { DiningStylesGridSkeleton, Flex } from "@/components";
-import { DiningStylesGrid } from "@/features/home/components/dining-styles-grid.component";
-import { SectionHeader } from "@/features/home/components/section-header.component";
-import type { DiningStyleTile } from "@/features/home/data/dining-styles";
+import {
+  CuisineChipSection,
+  DiningStylesGrid,
+  SectionHeader,
+  type DiningStyleTile,
+} from "@/features/discovery";
 
 import type {
   RecentSearchEntry,
@@ -13,7 +16,6 @@ import type {
   TrendingSearchTerm,
 } from "../types";
 import { DiscoveryChipSection } from "./discovery-chip-section.component";
-import { DiscoveryCuisineSection } from "./discovery-cuisine-section.component";
 import { DiscoveryMealsSection } from "./discovery-meals-section.component";
 
 export type SearchDiscoveryProps = {
@@ -24,7 +26,13 @@ export type SearchDiscoveryProps = {
   onRecentPress: (entry: RecentSearchEntry) => void;
   onTrendingPress: (term: TrendingSearchTerm) => void;
   onBrowsePress: (
-    kind: "cuisine" | "occasion" | "meal" | "diningStyle" | "dietary" | "amenity",
+    kind:
+      | "cuisine"
+      | "occasion"
+      | "meal"
+      | "diningStyle"
+      | "dietary"
+      | "amenity",
     label: string,
   ) => void;
   onDiningStyleSelect: (tile: DiningStyleTile) => void;
@@ -60,7 +68,9 @@ export function SearchDiscovery({
               label: entry.label,
             }))}
             onPress={(item) => {
-              const entry = recent.find((recentItem) => recentItem.id === item.key);
+              const entry = recent.find(
+                (recentItem) => recentItem.id === item.key,
+              );
               if (entry) onRecentPress(entry);
             }}
           />
@@ -83,9 +93,11 @@ export function SearchDiscovery({
           }}
         />
 
-        <DiscoveryCuisineSection
+        <CuisineChipSection
+          title="Search by cuisine"
           loading={loading}
           cuisines={cuisines}
+          hideWhenEmpty
           onPress={(label) => onBrowsePress("cuisine", label)}
         />
 

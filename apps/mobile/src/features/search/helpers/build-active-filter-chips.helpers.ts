@@ -1,6 +1,12 @@
-import type { DiscoveryFilters } from "@/store";
-
 import { formatPriceRangeChip } from "@/features/discovery/helpers/format-price-range.helpers";
+import {
+  formatDisplayDate,
+  formatDisplayTime,
+  toIsoDate,
+} from "@/lib/helpers/date-time.helpers";
+import { useAppStore, type DiscoveryFilters } from "@/store";
+
+import { WHEELCHAIR_ACCESSIBLE_LABEL } from "./filter-option-icons.helpers";
 
 export type ActiveFilterChip = {
   key: string;
@@ -41,6 +47,12 @@ function pushMultiValueChips(
       },
     });
   }
+}
+
+function tomorrowIsoDate(): string {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  return toIsoDate(date);
 }
 
 const SHORTCUT_FILTERS: Array<{
@@ -123,13 +135,34 @@ export function buildActiveFilterChips(
     chips.push({
       key: "near",
       label: "Near me",
-      clear: () =>
+      clear: () => {
+        const lastSearchCity = useAppStore.getState().lastSearchCity;
         setDiscovery({
           nearMe: false,
           lat: undefined,
           lng: undefined,
           locationLabel: undefined,
-        }),
+          city: lastSearchCity || discovery.city,
+          state: undefined,
+        });
+      },
+    });
+  }
+  if (discovery.time) {
+    chips.push({
+      key: "date",
+      label: formatDisplayDate(discovery.date),
+      clear: () => setDiscovery({ date: tomorrowIsoDate(), time: undefined }),
+    });
+    chips.push({
+      key: "time",
+      label: formatDisplayTime(discovery.time),
+      clear: () => setDiscovery({ time: undefined }),
+    });
+    chips.push({
+      key: "party",
+      label: `${discovery.partySize} guest${discovery.partySize === 1 ? "" : "s"}`,
+      clear: () => setDiscovery({ partySize: 2 }),
     });
   }
   if (discovery.priceRange) {
@@ -149,7 +182,7 @@ export function buildActiveFilterChips(
   if (discovery.wheelchairAccessible) {
     chips.push({
       key: "wheelchair",
-      label: "Wheelchair accessible",
+      label: WHEELCHAIR_ACCESSIBLE_LABEL,
       clear: () => setDiscovery({ wheelchairAccessible: undefined }),
     });
   }

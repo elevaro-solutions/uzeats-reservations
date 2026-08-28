@@ -1,6 +1,8 @@
+import type { ComponentType } from "react";
 import { Path, Circle } from "react-native-svg";
 
 import { SvgWrapper } from "@/assets/icons/components/svg-wrapper.component";
+import { CroissantIcon } from "@/features/discovery";
 import type { IconPropsType } from "@/types";
 
 /** Official Lucide `coffee` (exact path data). */
@@ -44,3 +46,38 @@ export function MoonMealIcon(props: IconPropsType) {
     </SvgWrapper>
   );
 }
+
+function MartiniMealIcon(props: IconPropsType) {
+  return (
+    <SvgWrapper {...props}>
+      <Path d="M8 22h8" />
+      <Path d="M12 11v11" />
+      <Path d="m19 3-7 8-7-8Z" />
+    </SvgWrapper>
+  );
+}
+
+function CakeMealIcon(props: IconPropsType) {
+  return (
+    <SvgWrapper {...props}>
+      <Path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8" />
+      <Path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1" />
+      <Path d="M2 21h20" />
+      <Path d="M7 8v3" />
+      <Path d="M12 8v3" />
+      <Path d="M17 8v3" />
+      <Path d="M7 4h.01" />
+      <Path d="M12 4h.01" />
+      <Path d="M17 4h.01" />
+    </SvgWrapper>
+  );
+}
+
+export const MEAL_ICONS: Record<string, ComponentType<IconPropsType>> = {
+  Breakfast: CoffeeMealIcon,
+  Brunch: CroissantIcon,
+  Lunch: SoupMealIcon,
+  Dinner: MoonMealIcon,
+  "Happy Hour": MartiniMealIcon,
+  Dessert: CakeMealIcon,
+};

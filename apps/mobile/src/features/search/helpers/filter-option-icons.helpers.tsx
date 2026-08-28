@@ -2,19 +2,10 @@ import type { ComponentType } from "react";
 import { Circle, Path } from "react-native-svg";
 
 import { SvgWrapper } from "@/assets/icons/components/svg-wrapper.component";
-import {
-  CroissantIcon,
-  MusicIcon,
-  RoseIcon,
-  WineIcon,
-} from "@/features/home/icons/dining-style-icons";
+import { MusicIcon, RoseIcon, WineIcon } from "@/features/discovery";
 import type { IconPropsType } from "@/types";
 
-import {
-  CoffeeMealIcon,
-  MoonMealIcon,
-  SoupMealIcon,
-} from "../icons/meal-icons";
+import { MEAL_ICONS } from "../icons/meal-icons";
 
 function UsersIcon(props: IconPropsType) {
   return (
@@ -33,32 +24,6 @@ function UtensilsIcon(props: IconPropsType) {
       <Path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" />
       <Path d="M7 2v20" />
       <Path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3v5Z" />
-    </SvgWrapper>
-  );
-}
-
-function MartiniIcon(props: IconPropsType) {
-  return (
-    <SvgWrapper {...props}>
-      <Path d="M8 22h8" />
-      <Path d="M12 11v11" />
-      <Path d="m19 3-7 8-7-8Z" />
-    </SvgWrapper>
-  );
-}
-
-function CakeIcon(props: IconPropsType) {
-  return (
-    <SvgWrapper {...props}>
-      <Path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8" />
-      <Path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1" />
-      <Path d="M2 21h20" />
-      <Path d="M7 8v3" />
-      <Path d="M12 8v3" />
-      <Path d="M17 8v3" />
-      <Path d="M7 4h.01" />
-      <Path d="M12 4h.01" />
-      <Path d="M17 4h.01" />
     </SvgWrapper>
   );
 }
@@ -133,15 +98,6 @@ function TrophyIcon(props: IconPropsType) {
 }
 
 type IconComponent = ComponentType<IconPropsType>;
-
-const MEAL_ICONS: Record<string, IconComponent> = {
-  Breakfast: CoffeeMealIcon,
-  Brunch: CroissantIcon,
-  Lunch: SoupMealIcon,
-  Dinner: MoonMealIcon,
-  "Happy Hour": MartiniIcon,
-  Dessert: CakeIcon,
-};
 
 const DINING_STYLE_ICONS: Record<string, IconComponent> = {
   "Fine Dining": WineIcon,

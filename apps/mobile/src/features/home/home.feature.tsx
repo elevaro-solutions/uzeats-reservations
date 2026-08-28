@@ -1,15 +1,20 @@
 import { useQuery } from "@apollo/client";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
-import { Alert, ScrollView } from "react-native";
+import { useMemo } from "react";
+import { ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Flex } from "@/components";
 import {
   buildHomeFeedInput,
-  useLocationPermission,
-  type AddressSelection,
+  CuisineChipSection,
+  DiningStylesGrid,
+  LocationPermissionModal,
+  LocationSheet,
+  SectionHeader,
+  useDiscoveryLocation,
+  type DiningStyleTile,
   type DiscoveryIndexData,
   type SearchRestaurantsResult,
 } from "@/features/discovery";
@@ -17,19 +22,16 @@ import { DISCOVERY_INDEX, MY_RESERVATIONS, SEARCH, useAuth } from "@/graphql";
 import { useAppStore } from "@/store";
 
 import { BookingsCarousel } from "./components/bookings-carousel.component";
-import { CuisinesSection } from "./components/cuisines-section.component";
-import { DiningStylesGrid } from "./components/dining-styles-grid.component";
 import { HomeHeader } from "./components/home-header.component";
 import { HomeRestaurantSection } from "./components/home-restaurant-section.component";
-import { LocationPermissionModal } from "./components/location-permission-modal.component";
-import { LocationSheet } from "./components/location-sheet.component";
-import { SectionHeader } from "./components/section-header.component";
-import type { DiningStyleTile } from "./data/dining-styles";
 import {
   HOME_CUISINES_LIMIT,
   HOME_UPCOMING_BOOKINGS_LIMIT,
 } from "./home.constants";
 import { mapUpcomingBookings } from "./helpers/map-upcoming-bookings.helpers";
+import {
+  buildOpenSearchDiscoveryUpdate,
+} from "./helpers/reset-discovery-filters.helpers";
 import type { MyReservationsData } from "./types";
 
 export function HomeFeature() {
@@ -39,30 +41,22 @@ export function HomeFeature() {
   const discovery = useAppStore((s) => s.discovery);
   const setDiscovery = useAppStore((s) => s.setDiscovery);
   const {
-    useCurrentLocation,
-    getPermission,
-    status: locationStatus,
+    locationLabel,
     errorMessage,
-    clearError,
-    openAppSettings,
-  } = useLocationPermission();
-  const [locationOpen, setLocationOpen] = useState(false);
-  const [permissionOpen, setPermissionOpen] = useState(false);
+    openLocationSheet,
+    locationSheetProps,
+    permissionModalProps,
+  } = useDiscoveryLocation();
 
-  const locationLabel = discovery.nearMe
-    ? (discovery.locationLabel ?? "Near you")
-    : discovery.city;
-
-  const popularInput = useMemo(
-    () =>
-      buildHomeFeedInput({
-        city: discovery.city,
-        state: discovery.state,
-        nearMe: discovery.nearMe,
-        lat: discovery.lat,
-        lng: discovery.lng,
-        radiusKm: discovery.radiusKm,
-      }),
+  const locationInput = useMemo(
+    () => ({
+      city: discovery.city,
+      state: discovery.state,
+      nearMe: discovery.nearMe,
+      lat: discovery.lat,
+      lng: discovery.lng,
+      radiusKm: discovery.radiusKm,
+    }),
     [
       discovery.city,
       discovery.state,
@@ -73,27 +67,14 @@ export function HomeFeature() {
     ],
   );
 
+  const popularInput = useMemo(
+    () => buildHomeFeedInput(locationInput),
+    [locationInput],
+  );
+
   const topRatedInput = useMemo(
-    () =>
-      buildHomeFeedInput(
-        {
-          city: discovery.city,
-          state: discovery.state,
-          nearMe: discovery.nearMe,
-          lat: discovery.lat,
-          lng: discovery.lng,
-          radiusKm: discovery.radiusKm,
-        },
-        { minRating: 4.5 },
-      ),
-    [
-      discovery.city,
-      discovery.state,
-      discovery.nearMe,
-      discovery.lat,
-      discovery.lng,
-      discovery.radiusKm,
-    ],
+    () => buildHomeFeedInput(locationInput, { minRating: 4.5 }),
+    [locationInput],
   );
 
   const { data: indexData, loading: indexLoading } = useQuery<{
@@ -148,102 +129,18 @@ export function HomeFeature() {
   function openSearch(params?: {
     cuisine?: string;
     diningStyle?: DiningStyleTile;
+    minRating?: number;
   }) {
-    if (params?.diningStyle) {
-      setDiscovery({
-        query: "",
-        cuisine: undefined,
-        diningStyles: undefined,
-        occasions: undefined,
-        meals: undefined,
-        dietaryTags: undefined,
-        amenities: undefined,
-        minRating: undefined,
-        ...params.diningStyle.filter,
-      });
-    } else if (params?.cuisine) {
-      setDiscovery({
-        cuisine: params.cuisine,
-        query: "",
-        diningStyles: undefined,
-        occasions: undefined,
-        meals: undefined,
-        dietaryTags: undefined,
-        amenities: undefined,
-        minRating: undefined,
-      });
-    } else {
-      setDiscovery({
-        query: "",
-        cuisine: undefined,
-        diningStyles: undefined,
-        occasions: undefined,
-        meals: undefined,
-        dietaryTags: undefined,
-        amenities: undefined,
-        minRating: undefined,
-        priceRange: undefined,
-      });
-    }
+    setDiscovery(buildOpenSearchDiscoveryUpdate(params));
     router.push("/search");
   }
 
   function handleDiningStyle(tile: DiningStyleTile) {
     if (tile.kind === "more") {
-      setDiscovery({
-        diningStyles: undefined,
-        occasions: undefined,
-        meals: undefined,
-        dietaryTags: undefined,
-        amenities: undefined,
-      });
       openSearch();
       return;
     }
     openSearch({ diningStyle: tile });
-  }
-
-  async function handleUseLocation() {
-    clearError();
-    const result = await useCurrentLocation();
-    if (result.ok) {
-      setLocationOpen(false);
-      return;
-    }
-    if (result.needsSettings) {
-      Alert.alert(
-        "Enable location",
-        "Turn on location access for Tablevera in Settings to see restaurants near you.",
-        [
-          { text: "Not now", style: "cancel" },
-          { text: "Open Settings", onPress: () => void openAppSettings() },
-        ],
-      );
-    }
-  }
-
-  function handleSelectCity(city: string, state?: string | null) {
-    setDiscovery({
-      city,
-      state: state ?? undefined,
-      nearMe: false,
-      lat: undefined,
-      lng: undefined,
-      locationLabel: undefined,
-    });
-    setLocationOpen(false);
-  }
-
-  function handleSelectPlace(place: AddressSelection) {
-    setDiscovery({
-      nearMe: true,
-      lat: place.lat,
-      lng: place.lng,
-      locationLabel: place.label,
-      city: place.city ?? place.label,
-      state: place.state,
-    });
-    setLocationOpen(false);
   }
 
   return (
@@ -259,7 +156,7 @@ export function HomeFeature() {
           <HomeHeader
             locationLabel={locationLabel}
             errorMessage={errorMessage}
-            onLocationPress={() => setLocationOpen(true)}
+            onLocationPress={openLocationSheet}
             onSearchPress={() => openSearch()}
           />
 
@@ -278,10 +175,11 @@ export function HomeFeature() {
             <DiningStylesGrid onSelect={handleDiningStyle} />
           </Flex>
 
-          <CuisinesSection
+          <CuisineChipSection
+            title="Cuisines"
             loading={indexLoading}
             cuisines={cuisines}
-            onCuisinePress={(label) => openSearch({ cuisine: label })}
+            onPress={(label) => openSearch({ cuisine: label })}
           />
 
           <HomeRestaurantSection
@@ -297,27 +195,13 @@ export function HomeFeature() {
             loading={topRatedLoading}
             error={topRatedError?.message}
             items={topRated}
-            onSeeAll={() => {
-              setDiscovery({ minRating: 4.5 });
-              openSearch();
-            }}
+            onSeeAll={() => openSearch({ minRating: 4.5 })}
           />
         </Flex>
       </ScrollView>
 
-      <LocationSheet
-        visible={locationOpen}
-        cities={cities}
-        currentLabel={locationLabel}
-        highlightCitySelection={!discovery.nearMe}
-        nearMeLoading={locationStatus === "requesting"}
-        onClose={() => setLocationOpen(false)}
-        onSelectCity={handleSelectCity}
-        onSelectPlace={handleSelectPlace}
-        onUseCurrentLocation={() => {
-          void handleUseLocation();
-        }}
-      />
+      <LocationSheet {...locationSheetProps} cities={cities} />
+      <LocationPermissionModal {...permissionModalProps} />
     </>
   );
 }
