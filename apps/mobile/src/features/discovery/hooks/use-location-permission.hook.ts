@@ -15,6 +15,16 @@ export type UseCurrentLocationResult = {
   ok: boolean;
   /** True when the OS will not show the system prompt again — open Settings. */
   needsSettings?: boolean;
+  lat?: number;
+  lng?: number;
+  label?: string;
+  city?: string;
+  state?: string;
+};
+
+export type UseCurrentLocationOptions = {
+  /** When false, returns coordinates without updating discovery store. Default true. */
+  applyToStore?: boolean;
 };
 
 const NEAR_ME_CLEARED = {
@@ -53,7 +63,10 @@ export function useLocationPermission() {
   );
 
   const useCurrentLocation =
-    useCallback(async (): Promise<UseCurrentLocationResult> => {
+    useCallback(async (
+      options: UseCurrentLocationOptions = {},
+    ): Promise<UseCurrentLocationResult> => {
+      const applyToStore = options.applyToStore ?? true;
       setStatus("requesting");
       setErrorMessage(null);
 
@@ -93,31 +106,48 @@ export function useLocationPermission() {
         const { latitude, longitude } = position.coords;
 
         let label = "Near you";
+        let city: string | undefined;
+        let state: string | undefined;
         try {
           const places = await Location.reverseGeocodeAsync({
             latitude,
             longitude,
           });
-          if (places[0]?.city) label = places[0].city;
+          if (places[0]?.city) {
+            label = places[0].city;
+            city = places[0].city;
+          }
+          if (places[0]?.region) state = places[0].region;
         } catch {
           // Keep generic label if reverse geocode fails.
         }
 
-        setDiscovery({
-          nearMe: true,
+        if (applyToStore) {
+          setDiscovery({
+            nearMe: true,
+            lat: latitude,
+            lng: longitude,
+            locationLabel: label,
+            city: label,
+          });
+        }
+        setStatus("granted");
+        return {
+          ok: true,
           lat: latitude,
           lng: longitude,
-          locationLabel: label,
-          city: label,
-        });
-        setStatus("granted");
-        return { ok: true };
+          label,
+          city,
+          state,
+        };
       } catch {
         setStatus("unavailable");
         setErrorMessage(
           "Could not read your location. Showing restaurants in your selected city instead.",
         );
-        setDiscovery({ ...NEAR_ME_CLEARED });
+        if (applyToStore) {
+          setDiscovery({ ...NEAR_ME_CLEARED });
+        }
         return { ok: false };
       }
     }, [deny, setDiscovery]);

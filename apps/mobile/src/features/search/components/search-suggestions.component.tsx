@@ -2,7 +2,7 @@ import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { FONT_FAMILY } from "@/lib/fonts";
-import { Flex, Skeleton, Typography } from "@/components";
+import { Flex, SuggestionRowSkeleton, Typography } from "@/components";
 
 import { splitHighlightParts } from "../helpers/split-highlight-parts.helpers";
 import type { SearchSuggestion } from "../types";
@@ -59,9 +59,9 @@ export function SearchSuggestions({
 }: SearchSuggestionsProps) {
   if (loading && items.length === 0) {
     return (
-      <Flex gap={1.5} style={styles.padX}>
+      <Flex gap={0} style={styles.list}>
         {[1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} height={56} radius="lg" />
+          <SuggestionRowSkeleton key={i} />
         ))}
       </Flex>
     );

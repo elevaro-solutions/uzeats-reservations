@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import { Flex, InlineAlert, Skeleton, Typography } from "@/components";
+import { Flex, InlineAlert, RestaurantCardSkeleton, Typography } from "@/components";
 import { RestaurantCard, type RestaurantListItem } from "@/features/discovery";
 
 import { HOME_LIST_LIMIT } from "../home.constants";
@@ -35,7 +35,7 @@ export function HomeRestaurantSection({
       {loading && items.length === 0 ? (
         <Flex gap={2.5} style={styles.padX}>
           {[1, 2].map((i) => (
-            <Skeleton key={i} width="100%" height={240} radius="lg" />
+            <RestaurantCardSkeleton key={i} />
           ))}
         </Flex>
       ) : items.length === 0 ? (

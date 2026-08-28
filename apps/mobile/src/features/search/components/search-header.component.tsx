@@ -12,6 +12,7 @@ export type SearchHeaderProps = {
   onClearQuery: () => void;
   onSubmitSearch: () => void;
   locationLabel: string;
+  onLocationPress?: () => void;
   showSearchButton: boolean;
 };
 
@@ -21,6 +22,7 @@ export function SearchHeader({
   onClearQuery,
   onSubmitSearch,
   locationLabel,
+  onLocationPress,
   showSearchButton,
 }: SearchHeaderProps) {
   const router = useRouter();
@@ -42,18 +44,36 @@ export function SearchHeader({
           <ChevronLeftIcon size={22} color={theme.colors.textPrimary} />
         </Pressable>
 
-        <View style={styles.titleBlock} pointerEvents="none">
+        <View style={styles.titleBlock} pointerEvents="box-none">
           <Typography size="text-xl" weight="bold" align="center" numberOfLines={1}>
             Search
           </Typography>
-          <Typography
-            size="text-xs"
-            color="secondary"
-            align="center"
-            numberOfLines={1}
-          >
-            {locationLabel}
-          </Typography>
+          {onLocationPress ? (
+            <Pressable
+              onPress={onLocationPress}
+              style={styles.locationPressable}
+              accessibilityRole="button"
+              accessibilityLabel="Change search location"
+            >
+              <Typography
+                size="text-xs"
+                color="secondary"
+                align="center"
+                numberOfLines={1}
+              >
+                {locationLabel}
+              </Typography>
+            </Pressable>
+          ) : (
+            <Typography
+              size="text-xs"
+              color="secondary"
+              align="center"
+              numberOfLines={1}
+            >
+              {locationLabel}
+            </Typography>
+          )}
         </View>
 
         {/* Balances the back button so the title stays optically centered */}
@@ -120,6 +140,9 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     right: space(6),
     alignItems: "center",
     gap: space(0.25),
+  },
+  locationPressable: {
+    maxWidth: "100%",
   },
   sideSlot: {
     width: 40,

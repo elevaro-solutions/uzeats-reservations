@@ -223,7 +223,7 @@ const styles = StyleSheet.create(({ space, radius, colors, shadows }) => ({
   body: {
     paddingHorizontal: space(1.5),
     paddingTop: space(1.25),
-    paddingBottom: space(1.5),
+    paddingBottom: space(2),
   },
   metaRow: {
     flexWrap: "wrap",

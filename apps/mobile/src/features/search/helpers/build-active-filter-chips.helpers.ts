@@ -1,5 +1,7 @@
 import type { DiscoveryFilters } from "@/store";
 
+import { formatPriceRangeChip } from "@/features/discovery/helpers/format-price-range.helpers";
+
 export type ActiveFilterChip = {
   key: string;
   label: string;
@@ -133,7 +135,7 @@ export function buildActiveFilterChips(
   if (discovery.priceRange) {
     chips.push({
       key: "price",
-      label: "$".repeat(discovery.priceRange),
+      label: formatPriceRangeChip(discovery.priceRange),
       clear: () => setDiscovery({ priceRange: undefined }),
     });
   }

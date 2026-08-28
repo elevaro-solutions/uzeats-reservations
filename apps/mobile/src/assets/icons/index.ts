@@ -11,6 +11,7 @@ export { EyeIcon } from "./icons/eye.icon";
 export { EyeOffIcon } from "./icons/eye-off.icon";
 export { ChevronLeftIcon } from "./icons/chevron-left.icon";
 export { ChevronDownIcon } from "./icons/chevron-down.icon";
+export { ChevronRightIcon } from "./icons/chevron-right.icon";
 export { MapPinIcon } from "./icons/map-pin.icon";
 export { NavigationIcon } from "./icons/navigation.icon";
 export { SlidersHorizontalIcon } from "./icons/sliders-horizontal.icon";

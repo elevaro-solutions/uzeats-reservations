@@ -60,6 +60,7 @@ const config = {
         iosUrlScheme: iosUrlSchemeFromClientId(IOS_CLIENT_ID),
       },
     ],
+    "@react-native-community/datetimepicker",
   ],
   experiments: {
     typedRoutes: true,

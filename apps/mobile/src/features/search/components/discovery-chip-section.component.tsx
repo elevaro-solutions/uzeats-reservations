@@ -1,8 +1,13 @@
 import type { ReactElement } from "react";
-import { ScrollView } from "react-native";
+import { ScrollView, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import { Chip, Flex, Skeleton } from "@/components";
+import {
+  Chip,
+  ChipRowSkeleton,
+  Flex,
+  TRENDING_CHIP_WIDTHS,
+} from "@/components";
 import { SectionHeader } from "@/features/home/components/section-header.component";
 import type { IconPropsType } from "@/types";
 
@@ -32,11 +37,9 @@ export function DiscoveryChipSection({
     <Flex gap={1.5}>
       <SectionHeader title={title} />
       {loading && items.length === 0 ? (
-        <Flex direction="row" gap={1} style={styles.padX}>
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} width={88} height={36} radius="lg" />
-          ))}
-        </Flex>
+        <View style={styles.padX}>
+          <ChipRowSkeleton widths={TRENDING_CHIP_WIDTHS} />
+        </View>
       ) : (
         <ScrollView
           horizontal

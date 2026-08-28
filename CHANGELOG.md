@@ -4,6 +4,19 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.36.0] — 2026-08-28
+
+### Added
+
+- Mobile filters sheet: date/time picker, party size selector, and structured filter sections with draft/apply flow
+- DateTimeField component and `@react-native-community/datetimepicker` dependency
+- Reusable skeleton presets (chip rows, restaurant cards, meal tiles) with pulse animation
+
+### Changed
+
+- Search header shows filter summary; filter chips reflect draft vs applied state
+- Location hook can return coordinates without updating discovery store (`applyToStore`)
+
 ## [0.35.0] — 2026-08-27
 
 ### Added

@@ -10,7 +10,7 @@ import {
   Flex,
   IconButton,
   InlineAlert,
-  Skeleton,
+  RestaurantCardSkeleton,
 } from "@/components";
 import { RestaurantCard, type RestaurantListItem } from "@/features/discovery";
 import type { DiscoveryFilters } from "@/store";
@@ -109,9 +109,9 @@ export function SearchResults({
       ) : null}
 
       {loading && items.length === 0 ? (
-        <Flex gap={1.5} style={styles.padX}>
+        <Flex gap={2.5} style={styles.listContent}>
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} height={220} radius="lg" />
+            <RestaurantCardSkeleton key={i} />
           ))}
         </Flex>
       ) : (
@@ -120,7 +120,7 @@ export function SearchResults({
           style={styles.listFlex}
           keyExtractor={(item) => item.id}
           contentContainerStyle={[
-            styles.list,
+            styles.listContent,
             isEmpty ? styles.listEmpty : null,
           ]}
           onEndReached={() => {
@@ -182,13 +182,13 @@ const styles = StyleSheet.create(({ space, radius }) => ({
   padX: {
     paddingHorizontal: space(2),
   },
-  listFlex: {
-    flex: 1,
-  },
-  list: {
+  listContent: {
     paddingHorizontal: space(2),
     paddingTop: space(2.5),
     paddingBottom: space(4),
+  },
+  listFlex: {
+    flex: 1,
   },
   listEmpty: {
     flexGrow: 1,
@@ -199,7 +199,7 @@ const styles = StyleSheet.create(({ space, radius }) => ({
     paddingVertical: space(4),
   },
   separator: {
-    height: space(1.5),
+    height: space(2.5),
   },
   retry: {
     marginTop: space(1.5),

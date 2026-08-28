@@ -1,8 +1,8 @@
-import { ScrollView, View } from "react-native";
+import { ScrollView } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { ClockIcon, TrendingUpIcon } from "@/assets";
-import { Flex, Skeleton } from "@/components";
+import { DiningStylesGridSkeleton, Flex } from "@/components";
 import { DiningStylesGrid } from "@/features/home/components/dining-styles-grid.component";
 import { SectionHeader } from "@/features/home/components/section-header.component";
 import type { DiningStyleTile } from "@/features/home/data/dining-styles";
@@ -98,9 +98,7 @@ export function SearchDiscovery({
         <Flex gap={1.5}>
           <SectionHeader title="Dining styles" />
           {loading && !browse ? (
-            <View style={styles.padX}>
-              <Skeleton height={160} radius="lg" />
-            </View>
+            <DiningStylesGridSkeleton />
           ) : (
             <DiningStylesGrid onSelect={onDiningStyleSelect} />
           )}
@@ -114,8 +112,5 @@ const styles = StyleSheet.create(({ space }) => ({
   content: {
     paddingTop: space(0.5),
     paddingBottom: space(4),
-  },
-  padX: {
-    paddingHorizontal: space(2),
   },
 }));

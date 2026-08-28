@@ -2,22 +2,23 @@ import { type ComponentType } from "react";
 import { Pressable, ScrollView } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { Flex, Skeleton, Typography } from "@/components";
+import { Flex, MealTileSkeleton, Typography } from "@/components";
 import { SectionHeader } from "@/features/home/components/section-header.component";
 import { CroissantIcon } from "@/features/home/icons/dining-style-icons";
 import type { IconPropsType } from "@/types";
 
 import {
+  CoffeeMealIcon,
   MoonMealIcon,
+  SoupMealIcon,
   SunMealIcon,
-  SunriseMealIcon,
 } from "../icons/meal-icons";
 import type { DiscoveryIndexEntry } from "../types";
 
 const MEAL_ICONS: Record<string, ComponentType<IconPropsType>> = {
-  Breakfast: SunriseMealIcon,
+  Breakfast: CoffeeMealIcon,
   Brunch: CroissantIcon,
-  Lunch: SunMealIcon,
+  Lunch: SoupMealIcon,
   Dinner: MoonMealIcon,
 };
 
@@ -47,7 +48,7 @@ export function DiscoveryMealsSection({
         >
           <Flex direction="row" gap={1}>
             {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} width={88} height={72} radius="lg" />
+              <MealTileSkeleton key={i} />
             ))}
           </Flex>
         </ScrollView>

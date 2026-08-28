@@ -1,7 +1,12 @@
 import { ScrollView } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import { Chip, Flex, Skeleton } from "@/components";
+import {
+  Chip,
+  CUISINE_CHIP_WIDTHS,
+  ChipRowSkeleton,
+  Flex,
+} from "@/components";
 import { SectionHeader } from "@/features/home/components/section-header.component";
 import { splitCuisineRows } from "@/features/home/helpers/split-cuisine-rows.helpers";
 
@@ -31,18 +36,7 @@ export function DiscoveryCuisineSection({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.chipScroll}
         >
-          <Flex gap={1}>
-            <Flex direction="row" gap={1}>
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} width={88} height={36} radius="lg" />
-              ))}
-            </Flex>
-            <Flex direction="row" gap={1}>
-              {[4, 5, 6].map((i) => (
-                <Skeleton key={i} width={88} height={36} radius="lg" />
-              ))}
-            </Flex>
-          </Flex>
+          <ChipRowSkeleton widths={CUISINE_CHIP_WIDTHS} rows={2} />
         </ScrollView>
       ) : (
         <ScrollView

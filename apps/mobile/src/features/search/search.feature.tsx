@@ -1,15 +1,22 @@
 import { useLazyQuery, useMutation, useQuery } from "@apollo/client";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Flex } from "@/components";
 import {
   buildSearchInput,
   useInfiniteRestaurantSearch,
+  useLocationPermission,
+  type AddressSelection,
+  type DiscoveryIndexData,
 } from "@/features/discovery";
 import type { DiningStyleTile } from "@/features/home/data/dining-styles";
+import { LocationPermissionModal } from "@/features/home/components/location-permission-modal.component";
+import { LocationSheet } from "@/features/home/components/location-sheet.component";
 import { useAuth } from "@/graphql";
+import { DISCOVERY_INDEX } from "@/graphql/operations";
 import { useAppStore } from "@/store";
 
 import {
@@ -55,8 +62,18 @@ export function SearchFeature() {
 
   const [queryDraft, setQueryDraft] = useState(discovery.query);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [locationOpen, setLocationOpen] = useState(false);
+  const [permissionOpen, setPermissionOpen] = useState(false);
   const [committedQuery, setCommittedQuery] = useState(discovery.query);
   const debouncedQuery = useDebouncedValue(queryDraft, SEARCH_DEBOUNCE_MS);
+
+  const {
+    useCurrentLocation,
+    getPermission,
+    status: locationStatus,
+    clearError,
+    openAppSettings,
+  } = useLocationPermission();
 
   const { mode, setMode, showDiscovery, showResults, showSuggestions } =
     useSearchMode(discovery);
@@ -111,15 +128,15 @@ export function SearchFeature() {
     [discovery, committedQuery],
   );
 
-  const {
-    items,
-    loading,
-    loadingMore,
-    hasMore,
-    error,
-    loadMore,
-    refresh,
-  } = useInfiniteRestaurantSearch(searchInput, { skip: !showResults });
+  const { items, loading, loadingMore, hasMore, error, loadMore, refresh } =
+    useInfiniteRestaurantSearch(searchInput, { skip: !showResults });
+
+  const { data: indexData } = useQuery<{ discoveryIndex: DiscoveryIndexData }>(
+    DISCOVERY_INDEX,
+    { fetchPolicy: "cache-first" },
+  );
+
+  const cities = indexData?.discoveryIndex.cities ?? [];
 
   const { data: browseData, loading: browseLoading } = useQuery<{
     discoveryIndex: ScopedDiscoveryIndexData;
@@ -204,7 +221,8 @@ export function SearchFeature() {
   }
 
   function handleBrowsePress(
-    kind: "cuisine" | "occasion" | "meal" | "diningStyle" | "dietary" | "amenity",
+    kind:
+      "cuisine" | "occasion" | "meal" | "diningStyle" | "dietary" | "amenity",
     label: string,
   ) {
     const reset = clearBrowseFilters();
@@ -281,6 +299,63 @@ export function SearchFeature() {
     setMode("idle");
   }
 
+  async function handleUseLocation() {
+    clearError();
+    const result = await useCurrentLocation();
+    if (result.ok) {
+      setLocationOpen(false);
+      return;
+    }
+    if (result.needsSettings) {
+      Alert.alert(
+        "Enable location",
+        "Turn on location access for Tablevera in Settings to see restaurants near you.",
+        [
+          { text: "Not now", style: "cancel" },
+          { text: "Open Settings", onPress: () => void openAppSettings() },
+        ],
+      );
+    }
+  }
+
+  async function handleNearMePress() {
+    clearError();
+    const existing = await getPermission();
+    if (existing.status === "granted") {
+      await handleUseLocation();
+      return;
+    }
+    if (existing.status === "denied" && existing.canAskAgain === false) {
+      await handleUseLocation();
+      return;
+    }
+    setPermissionOpen(true);
+  }
+
+  function handleSelectCity(city: string, state?: string | null) {
+    setDiscovery({
+      city,
+      state: state ?? undefined,
+      nearMe: false,
+      lat: undefined,
+      lng: undefined,
+      locationLabel: undefined,
+    });
+    setLocationOpen(false);
+  }
+
+  function handleSelectPlace(place: AddressSelection) {
+    setDiscovery({
+      nearMe: true,
+      lat: place.lat,
+      lng: place.lng,
+      locationLabel: place.label,
+      city: place.city ?? place.label,
+      state: place.state,
+    });
+    setLocationOpen(false);
+  }
+
   const browse = browseData?.discoveryIndex ?? null;
   const recent = recentData?.myRecentSearches ?? [];
   const trending = trendingData?.trendingSearches ?? [];
@@ -294,6 +369,7 @@ export function SearchFeature() {
         onClearQuery={handleClearQuery}
         onSubmitSearch={() => commitSearch()}
         locationLabel={locationLabel}
+        onLocationPress={() => setLocationOpen(true)}
         showSearchButton={queryDraft.trim().length > 0}
       />
 
@@ -343,11 +419,35 @@ export function SearchFeature() {
 
       <FiltersSheet
         visible={filtersOpen}
-        browse={browse}
+        cities={cities}
         onClose={() => setFiltersOpen(false)}
         onApplied={() => {
           setMode("results");
           void recordSearch();
+        }}
+      />
+
+      <LocationSheet
+        visible={locationOpen}
+        cities={cities}
+        currentLabel={locationLabel}
+        highlightCitySelection={!discovery.nearMe}
+        nearMeLoading={locationStatus === "requesting"}
+        onClose={() => setLocationOpen(false)}
+        onSelectCity={handleSelectCity}
+        onSelectPlace={handleSelectPlace}
+        onUseCurrentLocation={() => {
+          void handleNearMePress();
+        }}
+      />
+
+      <LocationPermissionModal
+        visible={permissionOpen}
+        loading={locationStatus === "requesting"}
+        onClose={() => setPermissionOpen(false)}
+        onAllow={() => {
+          setPermissionOpen(false);
+          void handleUseLocation();
         }}
       />
     </Flex>

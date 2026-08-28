@@ -13,12 +13,7 @@ import {
   type DiscoveryIndexData,
   type SearchRestaurantsResult,
 } from "@/features/discovery";
-import {
-  DISCOVERY_INDEX,
-  MY_RESERVATIONS,
-  SEARCH,
-  useAuth,
-} from "@/graphql";
+import { DISCOVERY_INDEX, MY_RESERVATIONS, SEARCH, useAuth } from "@/graphql";
 import { useAppStore } from "@/store";
 
 import { BookingsCarousel } from "./components/bookings-carousel.component";
@@ -227,21 +222,6 @@ export function HomeFeature() {
     }
   }
 
-  /** Soft-ask only when the system prompt can still appear; otherwise request directly. */
-  async function handleNearMePress() {
-    clearError();
-    const existing = await getPermission();
-    if (existing.status === "granted") {
-      await handleUseLocation();
-      return;
-    }
-    if (existing.status === "denied" && existing.canAskAgain === false) {
-      await handleUseLocation();
-      return;
-    }
-    setPermissionOpen(true);
-  }
-
   function handleSelectCity(city: string, state?: string | null) {
     setDiscovery({
       city,
@@ -335,16 +315,6 @@ export function HomeFeature() {
         onSelectCity={handleSelectCity}
         onSelectPlace={handleSelectPlace}
         onUseCurrentLocation={() => {
-          void handleNearMePress();
-        }}
-      />
-
-      <LocationPermissionModal
-        visible={permissionOpen}
-        loading={locationStatus === "requesting"}
-        onClose={() => setPermissionOpen(false)}
-        onAllow={() => {
-          setPermissionOpen(false);
           void handleUseLocation();
         }}
       />
