@@ -4,6 +4,24 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.38.0] — 2026-08-31
+
+### Added
+
+- Mobile restaurant profile section tabs (details, menu, reviews, photos) with hero, meta, and quick actions
+- Reviews tab: rating summary, review cards, write-review CTA, and add-review sheet with star rating input
+- GraphQL `CREATE_REVIEW` mutation and `hasReview` on `MY_RESERVATIONS` for review eligibility
+- Shared `StarRatingInput` component and subtle `UserAvatar` variant for review cards
+
+### Changed
+
+- Restaurant profile screen uses full-bleed hero, overlay header, and bottom sheet content layout
+- Multiline `Input` aligns text and placeholder to the top
+
+### Fixed
+
+- Write-review CTA stays visible after submitting a review due to stale reservation cache
+
 ## [0.37.0] — 2026-08-28
 
 ### Added

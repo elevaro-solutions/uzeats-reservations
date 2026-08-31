@@ -56,8 +56,7 @@ export default function RootLayout() {
           <Stack.Screen
             name="restaurant/[id]"
             options={{
-              headerShown: true,
-              title: "Restaurant",
+              headerShown: false,
             }}
           />
           <Stack.Screen

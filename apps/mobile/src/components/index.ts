@@ -20,4 +20,6 @@ export {
 export { Empty } from "./empty";
 export { InlineAlert } from "./inline-alert";
 export { UserAvatar } from "./user-avatar";
+export { StarRatingInput } from "./star-rating-input";
+export type { StarRatingInputProps } from "./star-rating-input";
 export { DateTimeField } from "./date-time-field";

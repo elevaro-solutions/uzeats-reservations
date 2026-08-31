@@ -11,6 +11,7 @@ export type IconButtonProps = {
   disabled?: boolean;
   size?: "sm" | "md" | "lg";
   variant?: "ghost" | "surface";
+  color?: string;
   style?: StyleProp<ViewStyle>;
   accessibilityLabel: string;
 };
@@ -28,6 +29,7 @@ export function IconButton({
   disabled = false,
   size = "md",
   variant = "ghost",
+  color,
   accessibilityLabel,
 }: IconButtonProps) {
   const { theme } = useUnistyles();
@@ -48,7 +50,7 @@ export function IconButton({
     >
       {renderIcon({
         icon,
-        color: theme.colors.textPrimary,
+        color: color ?? theme.colors.textPrimary,
         style: { width: iconSize, height: iconSize },
       })}
     </Pressable>

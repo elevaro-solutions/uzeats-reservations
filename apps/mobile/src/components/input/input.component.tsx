@@ -38,12 +38,14 @@ export function Input({
   required = false,
   disabled = false,
   editable = true,
+  multiline = false,
   onChangeText,
   placeholderTextColor,
+  textAlignVertical,
   ...props
 }: InputProps) {
   const [focused, setFocused] = useState(false);
-  styles.useVariants({ size, error, disabled });
+  styles.useVariants({ size, error, disabled, multiline });
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -66,6 +68,7 @@ export function Input({
         {prefix}
         <TextInput
           {...props}
+          multiline={multiline}
           editable={editable && !disabled}
           onChangeText={onChangeText}
           onFocus={(e) => {
@@ -78,6 +81,9 @@ export function Input({
           }}
           placeholderTextColor={
             placeholderTextColor ?? styles.placeholder.color
+          }
+          textAlignVertical={
+            textAlignVertical ?? (multiline ? "top" : "center")
           }
           style={styles.input}
         />
@@ -110,6 +116,10 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     padding: 0,
     margin: 0,
     variants: {
+      multiline: {
+        true: { alignSelf: "stretch" },
+        false: {},
+      },
       size: {
         sm: { fontSize: 14, lineHeight: 20 },
         md: { fontSize: 16, lineHeight: 22 },
@@ -119,13 +129,16 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
   },
   field: (focused: boolean) => ({
     flexDirection: "row",
-    alignItems: "center",
     gap: space(1),
     borderWidth: 1,
     borderRadius: radius.md,
     borderColor: focused ? colors.primary6 : colors.border,
     backgroundColor: colors.background,
     variants: {
+      multiline: {
+        true: { alignItems: "flex-start" },
+        false: { alignItems: "center" },
+      },
       size: {
         sm: {
           minHeight: 36,

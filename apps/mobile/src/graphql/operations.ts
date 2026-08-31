@@ -76,15 +76,29 @@ export const RESTAURANT = gql`
       cuisine
       priceRange
       photos
+      phone
+      website
+      menuUrl
       depositRequired
       depositAmountCents
       averageRating
       reviewCount
       featured
+      isFavorite
       wheelchairAccessible
       amenities
       meals
       diningStyles
+      dietaryTags
+      termsAndConditions
+      location {
+        lat
+        lng
+      }
+      faq {
+        question
+        answer
+      }
       address {
         line1
         line2
@@ -98,6 +112,43 @@ export const RESTAURANT = gql`
         startTime
         endTime
         active
+      }
+      menu {
+        sections {
+          id
+          name
+          items {
+            id
+            name
+            description
+            priceCents
+            dietary
+            photoUrl
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const RESTAURANT_REVIEWS = gql`
+  query RestaurantReviews($restaurantId: ID!, $limit: Int, $offset: Int) {
+    restaurantReviews(
+      restaurantId: $restaurantId
+      limit: $limit
+      offset: $offset
+    ) {
+      total
+      items {
+        id
+        rating
+        comment
+        createdAt
+        ownerReply
+        diner {
+          firstName
+          lastName
+        }
       }
     }
   }
@@ -133,6 +184,7 @@ export const MY_RESERVATIONS = gql`
       status
       slotStart
       partySize
+      hasReview
       restaurant {
         id
         name
@@ -263,5 +315,16 @@ export const FAVORITE_RESTAURANT = gql`
 export const UNFAVORITE_RESTAURANT = gql`
   mutation UnfavoriteRestaurant($restaurantId: ID!) {
     unfavoriteRestaurant(restaurantId: $restaurantId)
+  }
+`;
+
+export const CREATE_REVIEW = gql`
+  mutation CreateReview($input: ReviewInput!) {
+    createReview(input: $input) {
+      id
+      rating
+      comment
+      createdAt
+    }
   }
 `;

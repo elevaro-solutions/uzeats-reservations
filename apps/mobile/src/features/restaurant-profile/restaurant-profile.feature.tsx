@@ -1,42 +1,41 @@
+import { useEffect, useState } from "react";
 import { useQuery } from "@apollo/client";
-import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import { useLayoutEffect } from "react";
+import { StatusBar } from "expo-status-bar";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Alert, ScrollView, View } from "react-native";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { MapPinIcon, StarIcon } from "@/assets";
 import {
   Button,
   Empty,
   Flex,
   InlineAlert,
   Skeleton,
-  Typography,
 } from "@/components";
-import {
-  formatFullAddress,
-  formatPriceRange,
-  formatShortHours,
-} from "@/features/discovery";
 import { RESTAURANT, useAuth } from "@/graphql";
 
 import { BookFooter } from "./components/book-footer.component";
-import { RestaurantAbout } from "./components/restaurant-about.component";
+import { RestaurantActions } from "./components/restaurant-actions.component";
+import { RestaurantDetailsPanel } from "./components/restaurant-details-panel.component";
 import { RestaurantHero } from "./components/restaurant-hero.component";
-import type { RestaurantQueryData } from "./types";
-
-function spacePad(n: number): number {
-  return n > 0 ? n : 24;
-}
+import { RestaurantMenuPanel } from "./components/restaurant-menu-panel.component";
+import { RestaurantMeta } from "./components/restaurant-meta.component";
+import { RestaurantOverlayHeader } from "./components/restaurant-overlay-header.component";
+import { RestaurantPhotosPanel } from "./components/restaurant-photos-panel.component";
+import { RestaurantReviewsPanel } from "./components/restaurant-reviews-panel.component";
+import { RestaurantSectionTabs } from "./components/restaurant-section-tabs.component";
+import { buildVisibleTabs } from "./helpers/restaurant-profile.helpers";
+import type { ProfileSectionTab, RestaurantQueryData } from "./types";
 
 export function RestaurantProfileFeature() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const navigation = useNavigation();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
+  const [activeTab, setActiveTab] = useState<ProfileSectionTab>("details");
 
   const { data, loading, error, refetch } = useQuery<RestaurantQueryData>(
     RESTAURANT,
@@ -48,12 +47,13 @@ export function RestaurantProfileFeature() {
   );
 
   const restaurant = data?.restaurant;
+  const tabs = restaurant ? buildVisibleTabs(restaurant) : [];
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      title: restaurant?.name ?? "Restaurant",
-    });
-  }, [navigation, restaurant?.name]);
+  useEffect(() => {
+    if (tabs.length > 0 && !tabs.includes(activeTab)) {
+      setActiveTab(tabs[0]!);
+    }
+  }, [tabs, activeTab]);
 
   function onBook() {
     if (!user) {
@@ -71,18 +71,24 @@ export function RestaurantProfileFeature() {
 
   if (loading && !restaurant) {
     return (
-      <Flex gap={2} style={styles.loading}>
-        <Skeleton height={240} radius="lg" />
-        <Skeleton height={28} width="60%" />
-        <Skeleton height={18} width="80%" />
-        <Skeleton height={80} />
+      <Flex flex={1} style={styles.root}>
+        <StatusBar style="dark" />
+        <Skeleton height={theme.space(40)} radius="lg" />
+        <Flex gap={2} style={styles.loadingBody}>
+          <Skeleton height={28} width="60%" />
+          <Skeleton height={18} width="80%" />
+          <Skeleton height={48} />
+          <Skeleton height={40} />
+          <Skeleton height={120} />
+        </Flex>
       </Flex>
     );
   }
 
-  if (error) {
+  if (error && !restaurant) {
     return (
-      <Flex gap={2} style={styles.loading}>
+      <Flex gap={2} style={styles.loadingBody}>
+        <StatusBar style="dark" />
         <InlineAlert
           tone="error"
           title="Couldn’t load restaurant"
@@ -97,7 +103,8 @@ export function RestaurantProfileFeature() {
 
   if (!restaurant) {
     return (
-      <Flex flex={1} justifyContent="center" style={styles.loading}>
+      <Flex flex={1} justifyContent="center" style={styles.loadingBody}>
+        <StatusBar style="dark" />
         <Empty
           title="Restaurant not found"
           description="It may have been removed or is no longer listed."
@@ -114,89 +121,61 @@ export function RestaurantProfileFeature() {
     );
   }
 
-  const hours = formatShortHours(restaurant.shifts);
+  const footerPad = Math.max(insets.bottom, theme.space(2)) + theme.space(9);
 
   return (
     <View style={styles.root}>
+      <StatusBar style="light" />
+      <RestaurantOverlayHeader
+        restaurantId={restaurant.id}
+        name={restaurant.name}
+        slug={restaurant.slug}
+        isFavorite={restaurant.isFavorite}
+      />
+
       <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: spacePad(insets.bottom) + 88 },
-        ]}
+        contentContainerStyle={{ paddingBottom: footerPad }}
         showsVerticalScrollIndicator={false}
       >
-        <RestaurantHero name={restaurant.name} photo={restaurant.photos?.[0]} />
+        <RestaurantHero
+          name={restaurant.name}
+          photos={restaurant.photos}
+          topInset={insets.top}
+        />
 
-        <Flex gap={2} style={styles.body}>
-          {restaurant.featured ? (
-            <Typography
-              size="text-xs"
-              weight="medium"
-              color="primary"
-              style={styles.badge}
+        <View style={styles.sheet}>
+          <Flex gap={2} style={styles.body}>
+            <RestaurantMeta restaurant={restaurant} />
+            <RestaurantActions restaurant={restaurant} />
+            <RestaurantSectionTabs
+              tabs={tabs}
+              active={activeTab}
+              onChange={setActiveTab}
+            />
+
+            <Animated.View
+              key={activeTab}
+              entering={FadeIn.duration(180)}
+              exiting={FadeOut.duration(120)}
             >
-              Featured
-            </Typography>
-          ) : null}
-
-          <Flex
-            direction="row"
-            alignItems="flex-start"
-            justifyContent="space-between"
-            gap={1}
-          >
-            <Typography size="display-xs" weight="bold" style={styles.name}>
-              {restaurant.name}
-            </Typography>
-            <Flex direction="row" alignItems="center" gap={0.5}>
-              <StarIcon size={16} color={theme.colors.accent} />
-              <Typography weight="semibold">
-                {restaurant.averageRating > 0
-                  ? restaurant.averageRating.toFixed(1)
-                  : "New"}
-              </Typography>
-              {restaurant.reviewCount > 0 ? (
-                <Typography size="text-sm" color="secondary">
-                  ({restaurant.reviewCount})
-                </Typography>
+              {activeTab === "details" ? (
+                <RestaurantDetailsPanel restaurant={restaurant} />
               ) : null}
-            </Flex>
+              {activeTab === "menu" ? (
+                <RestaurantMenuPanel restaurant={restaurant} />
+              ) : null}
+              {activeTab === "reviews" ? (
+                <RestaurantReviewsPanel restaurant={restaurant} />
+              ) : null}
+              {activeTab === "photos" ? (
+                <RestaurantPhotosPanel
+                  name={restaurant.name}
+                  photos={restaurant.photos ?? []}
+                />
+              ) : null}
+            </Animated.View>
           </Flex>
-
-          <Typography color="secondary">
-            {restaurant.cuisine}
-            {" · "}
-            {formatPriceRange(restaurant.priceRange)}
-          </Typography>
-
-          <Flex direction="row" alignItems="flex-start" gap={1}>
-            <MapPinIcon size={18} color={theme.colors.primary} />
-            <Typography size="text-sm" color="secondary" style={styles.flex1}>
-              {formatFullAddress(restaurant.address)}
-            </Typography>
-          </Flex>
-
-          {hours ? (
-            <Flex style={styles.hoursBox}>
-              <Typography size="text-sm">Hours: {hours}</Typography>
-            </Flex>
-          ) : null}
-
-          {restaurant.description ? (
-            <RestaurantAbout description={restaurant.description} />
-          ) : null}
-
-          {restaurant.amenities && restaurant.amenities.length > 0 ? (
-            <Flex gap={1}>
-              <Typography weight="semibold" size="text-lg">
-                Amenities
-              </Typography>
-              <Typography size="text-sm" color="secondary">
-                {restaurant.amenities.join(" · ")}
-              </Typography>
-            </Flex>
-          ) : null}
-        </Flex>
+        </View>
       </ScrollView>
 
       <BookFooter bottomInset={insets.bottom} onBook={onBook} />
@@ -204,39 +183,26 @@ export function RestaurantProfileFeature() {
   );
 }
 
-const styles = StyleSheet.create(({ space, radius, colors }) => ({
+const styles = StyleSheet.create(({ space, colors }) => ({
   root: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
-    backgroundColor: colors.background,
-  },
-  loading: {
+  loadingBody: {
     padding: space(2),
     flex: 1,
     backgroundColor: colors.background,
   },
-  body: {
-    padding: space(2),
-  },
-  badge: {
-    alignSelf: "flex-start",
-    paddingHorizontal: space(1),
-    paddingVertical: space(0.5),
-    borderRadius: radius.full,
-    backgroundColor: colors.primarySubtle,
+  sheet: {
+    marginTop: -space(2.5),
+    backgroundColor: colors.background,
+    borderTopLeftRadius: space(3),
+    borderTopRightRadius: space(3),
     overflow: "hidden",
   },
-  name: {
-    flex: 1,
-  },
-  flex1: {
-    flex: 1,
-  },
-  hoursBox: {
-    padding: space(1.5),
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
+  body: {
+    paddingHorizontal: space(2),
+    paddingTop: space(2.5),
+    paddingBottom: space(2),
   },
 }));

@@ -18,3 +18,6 @@ export { SlidersHorizontalIcon } from "./icons/sliders-horizontal.icon";
 export { HeartIcon } from "./icons/heart.icon";
 export { ClockIcon } from "./icons/clock.icon";
 export { TrendingUpIcon } from "./icons/trending-up.icon";
+export { ShareIcon } from "./icons/share.icon";
+export { PhoneIcon } from "./icons/phone.icon";
+export { GlobeIcon } from "./icons/globe.icon";
