@@ -57,6 +57,7 @@ import {
   PROMOTIONS,
   EXPERIENCES,
   RESTAURANT_PACKAGES,
+  PRIVATE_DINING_SPACES,
   MY_RESTAURANT_LOYALTY_BALANCE,
   VALIDATE_PROMOTION,
   BEST_PROMOTION,
@@ -91,6 +92,25 @@ import { buildCancellationPolicySummary } from '@/lib/restaurantTerms';
 
 const { Title, Paragraph, Text } = Typography;
 
+function experienceDateBounds(exp: { date: string; endDate?: string | null }) {
+  const start = dayjs(exp.date).format('YYYY-MM-DD');
+  const end = dayjs(exp.endDate ?? exp.date).format('YYYY-MM-DD');
+  return { start, end };
+}
+
+function formatExperienceDateLabel(exp: { date: string; endDate?: string | null }) {
+  const start = dayjs(exp.date);
+  const end = dayjs(exp.endDate ?? exp.date);
+  if (start.isSame(end, 'day')) return start.format('MMM D, YYYY');
+  if (start.isSame(end, 'year')) return `${start.format('MMM D')} – ${end.format('MMM D, YYYY')}`;
+  return `${start.format('MMM D, YYYY')} – ${end.format('MMM D, YYYY')}`;
+}
+
+function isDateInExperienceRange(dateStr: string, exp: { date: string; endDate?: string | null }) {
+  const { start, end } = experienceDateBounds(exp);
+  return dateStr >= start && dateStr <= end;
+}
+
 export default function RestaurantPageClient() {
   const params = useParams<{ id: string }>();
   const slugOrId = params.id;
@@ -115,6 +135,8 @@ export default function RestaurantPageClient() {
   } | null>(null);
   const [occasion, setOccasion] = useState('none');
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
+  const [selectedPrivateSpaceId, setSelectedPrivateSpaceId] = useState<string | null>(null);
+  const [selectedExperienceId, setSelectedExperienceId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [redeemPoints, setRedeemPoints] = useState<number>(0);
   const [redeemRestaurantPoints, setRedeemRestaurantPoints] = useState<number>(0);
@@ -217,6 +239,10 @@ export default function RestaurantPageClient() {
     variables: { restaurantId: restaurantId!, activeOnly: true },
     skip: !restaurantId,
   });
+  const { data: privateSpacesData } = useQuery(PRIVATE_DINING_SPACES, {
+    variables: { restaurantId: restaurantId! },
+    skip: !restaurantId,
+  });
   const { data: restaurantLoyaltyData } = useQuery(MY_RESTAURANT_LOYALTY_BALANCE, {
     variables: { restaurantId: restaurantId! },
     skip: !user || !restaurantId,
@@ -260,11 +286,103 @@ export default function RestaurantPageClient() {
       : selectedPackage.priceCents
     : 0;
 
+  const privateSpaces = (privateSpacesData as { privateDiningSpaces?: Array<{
+    id: string;
+    name: string;
+    description?: string | null;
+    minGuests: number;
+    maxGuests: number;
+    rentalFeeCents: number;
+    minimumSpendCents: number;
+    photoUrl?: string | null;
+  }> } | undefined)?.privateDiningSpaces ?? [];
+
+  const matchingPrivateSpaces = useMemo(() => {
+    return privateSpaces.filter((space) => {
+      if (partySize < space.minGuests) return false;
+      if (partySize > space.maxGuests) return false;
+      return true;
+    });
+  }, [privateSpaces, partySize]);
+
+  const selectedPrivateSpace =
+    matchingPrivateSpaces.find((s) => s.id === selectedPrivateSpaceId) ?? null;
+  const privateSpacePriceCents = selectedPrivateSpace?.rentalFeeCents ?? 0;
+
+  const experiences = (experiencesData as any)?.experiences?.items ?? [];
+  const selectedDateStr = date.format('YYYY-MM-DD');
+  const matchingExperiences = useMemo(() => {
+    return experiences.filter((e: {
+      id: string;
+      date: string;
+      endDate?: string | null;
+      status: string;
+      availableTickets?: number;
+    }) => {
+      if (e.status !== 'published') return false;
+      if (!isDateInExperienceRange(selectedDateStr, e)) return false;
+      return (e.availableTickets ?? 0) >= partySize;
+    });
+  }, [experiences, selectedDateStr, partySize]);
+
+  const selectExperienceFromCard = useCallback(
+    (exp: {
+      id: string;
+      date: string;
+      endDate?: string | null;
+      status: string;
+      availableTickets?: number;
+      title: string;
+    }) => {
+      if (exp.status === 'sold_out' || (exp.availableTickets ?? 0) < 1) {
+        message.warning('This experience is sold out');
+        return;
+      }
+      if ((exp.availableTickets ?? 0) < partySize) {
+        message.warning(
+          `Only ${exp.availableTickets} ticket${exp.availableTickets === 1 ? '' : 's'} left — reduce party size to book “${exp.title}”`,
+        );
+        return;
+      }
+      const { start, end } = experienceDateBounds(exp);
+      const keepCurrentDate = selectedDateStr >= start && selectedDateStr <= end;
+      const nextDate = keepCurrentDate ? date : dayjs(start);
+      updateBooking({
+        date: nextDate,
+        selectedSlot: keepCurrentDate ? undefined : null,
+      });
+      setSelectedExperienceId(exp.id);
+      document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+    [date, partySize, selectedDateStr, updateBooking],
+  );
+
+  const selectedExperience =
+    matchingExperiences.find((e: { id: string }) => e.id === selectedExperienceId) ?? null;
+  const experiencePriceCents = selectedExperience
+    ? selectedExperience.ticketPriceCents * partySize
+    : 0;
+
   useEffect(() => {
     if (selectedPackageId && !matchingPackages.some((p) => p.id === selectedPackageId)) {
       setSelectedPackageId(null);
     }
   }, [matchingPackages, selectedPackageId]);
+
+  useEffect(() => {
+    if (selectedPrivateSpaceId && !matchingPrivateSpaces.some((s) => s.id === selectedPrivateSpaceId)) {
+      setSelectedPrivateSpaceId(null);
+    }
+  }, [matchingPrivateSpaces, selectedPrivateSpaceId]);
+
+  useEffect(() => {
+    if (
+      selectedExperienceId &&
+      !matchingExperiences.some((e: { id: string }) => e.id === selectedExperienceId)
+    ) {
+      setSelectedExperienceId(null);
+    }
+  }, [matchingExperiences, selectedExperienceId]);
 
   useEffect(() => {
     const occasionParam = search.get('occasion');
@@ -278,7 +396,8 @@ export default function RestaurantPageClient() {
     restaurant?.depositRequired && restaurant.depositAmountCents > 0
       ? restaurant.depositAmountCents * partySize
       : 0;
-  const grossDepositCents = tableDepositCents + packagePriceCents;
+  const grossDepositCents =
+    tableDepositCents + packagePriceCents + privateSpacePriceCents + experiencePriceCents;
   const redeemProgress = loyaltyRedeemProgress(user?.loyaltyPoints ?? 0);
   const restaurantLoyaltyBalance = (restaurantLoyaltyData as any)?.myRestaurantLoyaltyBalance ?? 0;
   const restaurantMinRedeem =
@@ -343,7 +462,6 @@ export default function RestaurantPageClient() {
   const selectedTable = bookableTables.find((t: { id: string }) => t.id === selectedTableId);
   const availableCount = slots.filter((s: any) => s.available).length;
   const promotions = (promotionsData as any)?.promotions?.items ?? [];
-  const experiences = (experiencesData as any)?.experiences?.items ?? [];
 
   useEffect(() => {
     if (availLoading || !selectedSlot) return;
@@ -470,6 +588,8 @@ export default function RestaurantPageClient() {
             ...(giftCardCode.trim() ? { giftCardCode: giftCardCode.trim().toUpperCase() } : {}),
             ...(selectedTableId ? { tableId: selectedTableId } : {}),
             ...(selectedPackageId ? { packageId: selectedPackageId } : {}),
+            ...(selectedPrivateSpaceId ? { privateDiningSpaceId: selectedPrivateSpaceId } : {}),
+            ...(selectedExperienceId ? { experienceId: selectedExperienceId } : {}),
           },
         },
       });
@@ -693,42 +813,54 @@ export default function RestaurantPageClient() {
                 <div className="rt-restaurant-section">
                   <Title level={3} className="rt-restaurant-section__title">Experiences & events</Title>
                   <Row gutter={[16, 16]}>
-                    {experiences.map((e: any) => (
-                      <Col xs={24} md={12} lg={8} key={e.id}>
-                        <Card
-                          size="small"
-                          className="rt-restaurant-experience-card"
-                          cover={
-                            e.photoUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={e.photoUrl}
-                                alt={e.title}
-                                style={{ height: 140, objectFit: 'cover' }}
-                              />
-                            ) : undefined
-                          }
-                        >
-                          <Space orientation="vertical" size={4} style={{ width: '100%' }}>
-                            <Text strong>{e.title}</Text>
-                            <Text type="secondary" style={{ fontSize: 13 }}>
-                              {dayjs(e.date).format('MMM D, YYYY')} · {e.startTime}–{e.endTime}
-                            </Text>
-                            <Space>
-                              <Tag>{String(e.type).replace(/_/g, ' ')}</Tag>
-                              <Text strong>${(e.ticketPriceCents / 100).toFixed(2)}</Text>
-                            </Space>
-                            {e.status === 'sold_out' ? (
-                              <Tag color="red">Sold out</Tag>
-                            ) : (
-                              <Text type="secondary" style={{ fontSize: 12 }}>
-                                {e.availableTickets} tickets left
+                    {experiences.map((e: any) => {
+                      const soldOut = e.status === 'sold_out' || (e.availableTickets ?? 0) < 1;
+                      const selected = selectedExperienceId === e.id;
+                      return (
+                        <Col xs={24} md={12} lg={8} key={e.id}>
+                          <Card
+                            size="small"
+                            hoverable={!soldOut}
+                            className="rt-restaurant-experience-card"
+                            onClick={() => selectExperienceFromCard(e)}
+                            style={{
+                              cursor: soldOut ? 'not-allowed' : 'pointer',
+                              opacity: soldOut ? 0.7 : 1,
+                              borderColor: selected ? colors.brand[500] : undefined,
+                              background: selected ? colors.brand[50] : undefined,
+                            }}
+                            cover={
+                              e.photoUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={e.photoUrl}
+                                  alt={e.title}
+                                  style={{ height: 140, objectFit: 'cover' }}
+                                />
+                              ) : undefined
+                            }
+                          >
+                            <Space orientation="vertical" size={4} style={{ width: '100%' }}>
+                              <Text strong>{e.title}</Text>
+                              <Text type="secondary" style={{ fontSize: 13 }}>
+                                {formatExperienceDateLabel(e)} · {e.startTime}–{e.endTime}
                               </Text>
-                            )}
-                          </Space>
-                        </Card>
-                      </Col>
-                    ))}
+                              <Space>
+                                <Tag>{String(e.type).replace(/_/g, ' ')}</Tag>
+                                <Text strong>${(e.ticketPriceCents / 100).toFixed(2)}</Text>
+                              </Space>
+                              {soldOut ? (
+                                <Tag color="red">Sold out</Tag>
+                              ) : (
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                  {e.availableTickets} tickets left · Click to book
+                                </Text>
+                              )}
+                            </Space>
+                          </Card>
+                        </Col>
+                      );
+                    })}
                   </Row>
                 </div>
               )}
@@ -976,6 +1108,133 @@ export default function RestaurantPageClient() {
                             {pkg.includes?.length > 0 && (
                               <Text type="secondary" style={{ fontSize: 12 }}>
                                 Includes: {pkg.includes.join(' · ')}
+                              </Text>
+                            )}
+                          </Space>
+                        </Card>
+                      );
+                    })}
+                  </Space>
+                </Form.Item>
+              )}
+
+              {matchingPrivateSpaces.length > 0 && (
+                <Form.Item label="Private room (extra fee)">
+                  <Space orientation="vertical" size={8} style={{ width: '100%' }}>
+                    <Tag.CheckableTag
+                      checked={!selectedPrivateSpaceId}
+                      onChange={(checked) => {
+                        if (checked) setSelectedPrivateSpaceId(null);
+                      }}
+                    >
+                      No private room
+                    </Tag.CheckableTag>
+                    {matchingPrivateSpaces.map((space) => {
+                      const selected = selectedPrivateSpaceId === space.id;
+                      return (
+                        <Card
+                          key={space.id}
+                          size="small"
+                          hoverable
+                          onClick={() => setSelectedPrivateSpaceId(selected ? null : space.id)}
+                          style={{
+                            borderColor: selected ? colors.brand[500] : undefined,
+                            background: selected ? colors.brand[50] : undefined,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <Space orientation="vertical" size={4} style={{ width: '100%' }}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                gap: 8,
+                              }}
+                            >
+                              <Text strong>{space.name}</Text>
+                              {space.rentalFeeCents > 0 ? (
+                                <Text strong style={{ color: colors.brand[700] }}>
+                                  +${(space.rentalFeeCents / 100).toFixed(2)}
+                                </Text>
+                              ) : (
+                                <Text type="secondary">Included</Text>
+                              )}
+                            </div>
+                            {space.description && (
+                              <Text type="secondary" style={{ fontSize: 13 }}>
+                                {space.description}
+                              </Text>
+                            )}
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              {space.minGuests}–{space.maxGuests} guests
+                              {space.minimumSpendCents > 0
+                                ? ` · $${(space.minimumSpendCents / 100).toFixed(2)} min spend`
+                                : ''}
+                            </Text>
+                          </Space>
+                        </Card>
+                      );
+                    })}
+                  </Space>
+                </Form.Item>
+              )}
+
+              {matchingExperiences.length > 0 && (
+                <Form.Item label="Experience add-on">
+                  <Space orientation="vertical" size={8} style={{ width: '100%' }}>
+                    <Tag.CheckableTag
+                      checked={!selectedExperienceId}
+                      onChange={(checked) => {
+                        if (checked) setSelectedExperienceId(null);
+                      }}
+                    >
+                      No experience
+                    </Tag.CheckableTag>
+                    {matchingExperiences.map((exp: {
+                      id: string;
+                      title: string;
+                      description?: string;
+                      ticketPriceCents: number;
+                      date: string;
+                      endDate?: string | null;
+                      startTime: string;
+                      endTime: string;
+                      type: string;
+                    }) => {
+                      const price = exp.ticketPriceCents * partySize;
+                      const selected = selectedExperienceId === exp.id;
+                      return (
+                        <Card
+                          key={exp.id}
+                          size="small"
+                          hoverable
+                          onClick={() => setSelectedExperienceId(selected ? null : exp.id)}
+                          style={{
+                            borderColor: selected ? colors.brand[500] : undefined,
+                            background: selected ? colors.brand[50] : undefined,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <Space orientation="vertical" size={4} style={{ width: '100%' }}>
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                gap: 8,
+                              }}
+                            >
+                              <Text strong>{exp.title}</Text>
+                              <Text strong style={{ color: colors.brand[700] }}>
+                                +${(price / 100).toFixed(2)}
+                              </Text>
+                            </div>
+                            <Text type="secondary" style={{ fontSize: 13 }}>
+                              {formatExperienceDateLabel(exp)} · {exp.startTime}–{exp.endTime} ·{' '}
+                              {String(exp.type).replace(/_/g, ' ')}
+                            </Text>
+                            {exp.description && (
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                {exp.description}
                               </Text>
                             )}
                           </Space>
@@ -1282,6 +1541,10 @@ export default function RestaurantPageClient() {
           depositCents: finalDepositCents,
           packageTitle: selectedPackage?.title,
           packagePriceCents: packagePriceCents || undefined,
+          privateDiningSpaceName: selectedPrivateSpace?.name,
+          privateDiningPriceCents: privateSpacePriceCents || undefined,
+          experienceTitle: selectedExperience?.title,
+          experiencePriceCents: experiencePriceCents || undefined,
           promoDiscountCents: activePromo?.valid ? activePromo.discountCents : undefined,
           promoTitle: activePromo?.valid ? activePromo.promotion?.title : undefined,
           giftCardDiscountCents: giftValidation?.valid ? giftValidation.discountCents : undefined,

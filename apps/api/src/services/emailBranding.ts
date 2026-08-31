@@ -21,8 +21,8 @@ export const EMAIL_BRAND = {
   siteUrl: 'https://tablevera.online',
 } as const;
 
-export function escapeHtml(value: string) {
-  return value
+export function escapeHtml(value: string | null | undefined) {
+  return String(value ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

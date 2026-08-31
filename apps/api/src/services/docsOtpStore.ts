@@ -1,5 +1,6 @@
 import { Redis } from 'ioredis';
 import { env } from '../config/env.js';
+import { logger } from '../lib/logger.js';
 
 const DOCS_OTP_TTL_SEC = 10 * 60;
 const KEY_PREFIX = 'docs_otp:';
@@ -28,7 +29,13 @@ export async function storeDocsOtp(email: string, code: string): Promise<void> {
     memoryStore.set(email, { code, expiresAt: Date.now() + DOCS_OTP_TTL_SEC * 1000 });
     return;
   }
-  await getRedis().setex(redisKey(email), DOCS_OTP_TTL_SEC, code);
+  try {
+    await getRedis().setex(redisKey(email), DOCS_OTP_TTL_SEC, code);
+  } catch (err) {
+    // Single-instance fallback so OTP still works if Redis blips.
+    memoryStore.set(email, { code, expiresAt: Date.now() + DOCS_OTP_TTL_SEC * 1000 });
+    logger.error({ err, email }, '[docsOtpStore] Redis setex failed; using memory fallback');
+  }
 }
 
 export async function consumeDocsOtp(email: string, code: string): Promise<boolean> {
@@ -40,9 +47,20 @@ export async function consumeDocsOtp(email: string, code: string): Promise<boole
   }
 
   const key = redisKey(email);
-  const client = getRedis();
-  const stored = await client.get(key);
-  if (!stored || stored !== code) return false;
-  await client.del(key);
+  try {
+    const client = getRedis();
+    const stored = await client.get(key);
+    if (stored && stored === code) {
+      await client.del(key);
+      memoryStore.delete(email);
+      return true;
+    }
+  } catch (err) {
+    logger.error({ err, email }, '[docsOtpStore] Redis get/del failed; checking memory fallback');
+  }
+
+  const stored = memoryStore.get(email);
+  if (!stored || stored.code !== code || stored.expiresAt <= Date.now()) return false;
+  memoryStore.delete(email);
   return true;
 }

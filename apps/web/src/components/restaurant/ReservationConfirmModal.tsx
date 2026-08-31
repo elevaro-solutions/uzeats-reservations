@@ -19,6 +19,10 @@ export type ReservationConfirmDetails = {
   depositCents: number;
   packageTitle?: string;
   packagePriceCents?: number;
+  privateDiningSpaceName?: string;
+  privateDiningPriceCents?: number;
+  experienceTitle?: string;
+  experiencePriceCents?: number;
   promoDiscountCents?: number;
   promoTitle?: string;
   giftCardDiscountCents?: number;
@@ -92,6 +96,26 @@ export function ReservationConfirmModal({
       children: details.packagePriceCents
         ? `${details.packageTitle} (+${formatUsd(details.packagePriceCents)})`
         : details.packageTitle,
+    });
+  }
+
+  if (details.privateDiningSpaceName) {
+    items.push({
+      key: 'private-room',
+      label: 'Private room',
+      children: details.privateDiningPriceCents
+        ? `${details.privateDiningSpaceName} (+${formatUsd(details.privateDiningPriceCents)})`
+        : details.privateDiningSpaceName,
+    });
+  }
+
+  if (details.experienceTitle) {
+    items.push({
+      key: 'experience',
+      label: 'Experience',
+      children: details.experiencePriceCents
+        ? `${details.experienceTitle} (+${formatUsd(details.experiencePriceCents)})`
+        : details.experienceTitle,
     });
   }
 

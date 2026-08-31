@@ -156,6 +156,13 @@ export function mapReservation(r: any, clientSecret?: string | null) {
     packageId: r.packageId?.toString() ?? null,
     packageTitle: r.packageTitle ?? null,
     packagePriceCents: r.packagePriceCents ?? 0,
+    privateDiningSpaceId: r.privateDiningSpaceId?.toString() ?? null,
+    privateDiningSpaceName: r.privateDiningSpaceName ?? null,
+    privateDiningPriceCents: r.privateDiningPriceCents ?? 0,
+    experienceId: r.experienceId?.toString() ?? null,
+    experienceTitle: r.experienceTitle ?? null,
+    experiencePriceCents: r.experiencePriceCents ?? 0,
+    experienceTicketQty: r.experienceTicketQty ?? 0,
     createdAt: r.createdAt,
   };
 }
@@ -328,6 +335,7 @@ export function mapExperience(e: any) {
     type: e.type,
     photoUrl: e.photoUrl ?? null,
     date: e.date,
+    endDate: e.endDate ?? e.date,
     startTime: e.startTime,
     endTime: e.endTime,
     maxGuests: e.maxGuests,

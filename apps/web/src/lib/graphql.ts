@@ -594,6 +594,7 @@ export const EXPERIENCES = gql`
         type
         photoUrl
         date
+        endDate
         startTime
         endTime
         ticketPriceCents
@@ -618,6 +619,23 @@ export const RESTAURANT_PACKAGES = gql`
       occasions
       minPartySize
       maxPartySize
+      active
+    }
+  }
+`;
+
+export const PRIVATE_DINING_SPACES = gql`
+  query PrivateDiningSpaces($restaurantId: ID!) {
+    privateDiningSpaces(restaurantId: $restaurantId) {
+      id
+      name
+      description
+      minGuests
+      maxGuests
+      rentalFeeCents
+      minimumSpendCents
+      photoUrl
+      amenities
       active
     }
   }

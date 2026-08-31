@@ -55,6 +55,7 @@ import {
   CodeOutlined,
   ToolOutlined,
   EyeOutlined,
+  BookOutlined,
 } from '@ant-design/icons';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
@@ -259,6 +260,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     }
     const exact = [
       '/',
+      '/restaurants',
       '/onboarding',
       '/reservations',
       '/waitlist',
@@ -318,7 +320,8 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       type: 'group' as const,
       label: 'Service',
       children: [
-        item('/', <AppstoreOutlined />, 'Overview'),
+        item('/', <DashboardOutlined />, 'Overview'),
+        item('/restaurants', <ShopOutlined />, 'My restaurants'),
         item('/reservations', <CalendarOutlined />, 'Reservations'),
         item('/waitlist', <ClockCircleOutlined />, 'Waitlist'),
         item('/floor-ops', <AppstoreOutlined />, 'Floor ops'),
@@ -402,6 +405,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
         item('/admin/config', <ControlOutlined />, 'Configuration'),
         item('/admin/discovery', <CompassOutlined />, 'Discovery'),
         item('/admin/blog', <FileTextOutlined />, 'Blog'),
+        item('/admin/docs-access', <BookOutlined />, 'Docs access'),
         item('/admin/templates', <MailOutlined />, 'Email templates'),
         item('/admin/sla', <DashboardOutlined />, 'SLA metrics'),
         item('/admin/audit', <AuditOutlined />, 'Audit logs'),

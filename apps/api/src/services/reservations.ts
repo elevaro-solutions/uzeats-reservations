@@ -41,10 +41,38 @@ import { getBookableTables } from './floorPlanOps.js';
 import { partySizeMatches, timeWindowMatches } from './waitlistEta.js';
 import { listBookmarkUserIds } from './restaurantBookmarks.js';
 import { RestaurantPackage } from '../models/RestaurantPackage.js';
+import { PrivateDiningSpace } from '../models/PrivateDining.js';
+import { Experience } from '../models/Experience.js';
 
 /** Only alert favorites when the freed slot is soon (same urgency as walk-in demand). */
 const AVAILABILITY_ALERT_MAX_HOURS = 48;
 const AVAILABILITY_ALERT_USER_CAP = 5;
+
+async function reserveExperienceTickets(experienceId: string, quantity: number) {
+  const exp = await Experience.findById(experienceId);
+  if (!exp) throw new ValidationError('Experience is not available');
+  const available = exp.maxGuests - (exp.ticketsSold ?? 0);
+  if (available < quantity) {
+    throw new ValidationError('Not enough experience tickets available');
+  }
+  await Experience.findByIdAndUpdate(experienceId, { $inc: { ticketsSold: quantity } });
+  const updated = await Experience.findById(experienceId);
+  if (updated && updated.ticketsSold >= updated.maxGuests) {
+    updated.status = 'sold_out';
+    await updated.save();
+  }
+}
+
+async function releaseExperienceTickets(experienceId: string, quantity: number) {
+  if (!quantity) return;
+  await Experience.findByIdAndUpdate(experienceId, { $inc: { ticketsSold: -quantity } });
+  const exp = await Experience.findById(experienceId);
+  if (exp && exp.status === 'sold_out' && exp.ticketsSold < exp.maxGuests) {
+    exp.status = 'published';
+    await exp.save();
+  }
+}
+
 async function findOrCreateDiner(guest: {
   firstName: string;
   lastName?: string;
@@ -130,6 +158,8 @@ export async function createReservation(input: {
   source?: string;
   tableId?: string;
   packageId?: string;
+  privateDiningSpaceId?: string;
+  experienceId?: string;
 }) {
   const restaurant = await Restaurant.findById(input.restaurantId);
   if (!restaurant || restaurant.status !== 'approved') {
@@ -181,6 +211,53 @@ export async function createReservation(input: {
       : pkg.priceCents;
   }
 
+  let privateDiningSpaceName: string | undefined;
+  let privateDiningPriceCents = 0;
+  let privateDiningSpaceId: string | undefined;
+  if (input.privateDiningSpaceId) {
+    const space = await PrivateDiningSpace.findById(input.privateDiningSpaceId);
+    if (!space || space.restaurantId.toString() !== input.restaurantId || !space.active) {
+      throw new ValidationError('Private room is not available');
+    }
+    if (input.partySize < space.minGuests) {
+      throw new ValidationError(`This private room requires at least ${space.minGuests} guests`);
+    }
+    if (input.partySize > space.maxGuests) {
+      throw new ValidationError(`This private room allows at most ${space.maxGuests} guests`);
+    }
+    privateDiningSpaceId = space._id.toString();
+    privateDiningSpaceName = space.name;
+    privateDiningPriceCents = space.rentalFeeCents ?? 0;
+  }
+
+  let experienceTitle: string | undefined;
+  let experiencePriceCents = 0;
+  let experienceId: string | undefined;
+  let experienceTicketQty = 0;
+  if (input.experienceId) {
+    const exp = await Experience.findById(input.experienceId);
+    if (!exp || exp.restaurantId.toString() !== input.restaurantId) {
+      throw new ValidationError('Experience is not available');
+    }
+    if (exp.status !== 'published') {
+      throw new ValidationError('Experience is not available for booking');
+    }
+    const slotDay = input.slotStart.toISOString().slice(0, 10);
+    const expStart = exp.date.toISOString().slice(0, 10);
+    const expEnd = (exp.endDate ?? exp.date).toISOString().slice(0, 10);
+    if (slotDay < expStart || slotDay > expEnd) {
+      throw new ValidationError('Experience is not available on the selected date');
+    }
+    const available = exp.maxGuests - (exp.ticketsSold ?? 0);
+    if (available < input.partySize) {
+      throw new ValidationError('Not enough experience tickets for your party size');
+    }
+    experienceId = exp._id.toString();
+    experienceTitle = exp.title;
+    experienceTicketQty = input.partySize;
+    experiencePriceCents = exp.ticketPriceCents * input.partySize;
+  }
+
   const turn = await getTurnTimeMinutes(input.restaurantId, input.slotStart);
   const slotEnd = new Date(input.slotStart.getTime() + turn * 60_000);
 
@@ -201,7 +278,8 @@ export async function createReservation(input: {
     restaurant.depositRequired && restaurant.depositAmountCents > 0
       ? restaurant.depositAmountCents * input.partySize
       : 0;
-  const grossDepositCents = tableDepositCents + packagePriceCents;
+  const grossDepositCents =
+    tableDepositCents + packagePriceCents + privateDiningPriceCents + experiencePriceCents;
 
   let pointsToRedeem = 0;
   let restaurantPointsToRedeem = 0;
@@ -306,6 +384,13 @@ export async function createReservation(input: {
     packageId,
     packageTitle,
     packagePriceCents,
+    privateDiningSpaceId,
+    privateDiningSpaceName,
+    privateDiningPriceCents,
+    experienceId,
+    experienceTitle,
+    experiencePriceCents,
+    experienceTicketQty,
     depositAmountCents,
     stripePaymentIntentId,
     depositStatus,
@@ -344,6 +429,9 @@ export async function createReservation(input: {
     }
     if (giftCardId && giftCardDiscountCents > 0) {
       await redeemGiftCardBalance(giftCardId, giftCardDiscountCents);
+    }
+    if (experienceId && experienceTicketQty > 0) {
+      await reserveExperienceTickets(experienceId, experienceTicketQty);
     }
   } catch (err) {
     await releaseTableSlotClaims(reservation._id);
@@ -450,6 +538,12 @@ export async function updateReservationStatus(
   if (status === 'cancelled') {
     reservation.cancelledAt = new Date();
     reservation.cancellationReason = reason;
+    if (reservation.experienceId && reservation.experienceTicketQty > 0) {
+      await releaseExperienceTickets(
+        reservation.experienceId.toString(),
+        reservation.experienceTicketQty,
+      );
+    }
     const hoursUntil =
       (reservation.slotStart.getTime() - Date.now()) / (1000 * 60 * 60);
     if (

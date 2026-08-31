@@ -5,21 +5,66 @@ export const MY_RESTAURANTS_OVERVIEW = gql`
     $search: String
     $status: RestaurantStatus
     $city: String
+    $limit: Int
+    $offset: Int
   ) {
-    myRestaurants(search: $search, status: $status, city: $city) {
-      id
-      name
-      status
-      cuisine
-      address {
+    myRestaurantsConnection(
+      search: $search
+      status: $status
+      city: $city
+      limit: $limit
+      offset: $offset
+    ) {
+      items {
+        id
+        name
+        status
+        cuisine
+        address {
+          city
+          state
+        }
+        tables {
+          id
+        }
+        shifts {
+          id
+        }
+      }
+      total
+      page
+      limit
+    }
+  }
+`;
+
+export const MY_OWNER_OVERVIEW = gql`
+  query MyOwnerOverview($date: String) {
+    myOwnerOverview(date: $date) {
+      locationsTotal
+      locationsActive
+      locationsPending
+      locationsInactive
+      todayReservations
+      todayCovers
+      openWaitlist
+      unreadNotifications
+      averageRating
+      reviewCount
+      locations {
+        restaurantId
+        name
+        status
+        cuisine
         city
         state
-      }
-      tables {
-        id
-      }
-      shifts {
-        id
+        averageRating
+        reviewCount
+        todayReservations
+        todayCovers
+        openWaitlist
+        tableCount
+        shiftCount
       }
     }
   }
@@ -458,6 +503,24 @@ export const SET_RESTAURANT_STATUS = gql`
   mutation SetRestaurantStatus($id: ID!, $status: RestaurantStatus!) {
     setRestaurantStatus(id: $id, status: $status) {
       id status
+    }
+  }
+`;
+
+export const SET_RESTAURANT_STATUSES = gql`
+  mutation SetRestaurantStatuses($ids: [ID!]!, $status: RestaurantStatus!) {
+    setRestaurantStatuses(ids: $ids, status: $status) {
+      updated
+      items { id status name }
+    }
+  }
+`;
+
+export const ADMIN_DELETE_RESTAURANTS = gql`
+  mutation AdminDeleteRestaurants($ids: [ID!]!) {
+    adminDeleteRestaurants(ids: $ids) {
+      deleted
+      errors
     }
   }
 `;

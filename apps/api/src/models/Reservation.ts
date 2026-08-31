@@ -23,6 +23,13 @@ const reservationSchema = new Schema(
     packageId: { type: Schema.Types.ObjectId, ref: 'RestaurantPackage' },
     packageTitle: { type: String },
     packagePriceCents: { type: Number, default: 0 },
+    privateDiningSpaceId: { type: Schema.Types.ObjectId, ref: 'PrivateDiningSpace' },
+    privateDiningSpaceName: { type: String },
+    privateDiningPriceCents: { type: Number, default: 0 },
+    experienceId: { type: Schema.Types.ObjectId, ref: 'Experience' },
+    experienceTitle: { type: String },
+    experiencePriceCents: { type: Number, default: 0 },
+    experienceTicketQty: { type: Number, default: 0 },
     depositAmountCents: { type: Number, default: 0 },
     stripePaymentIntentId: { type: String },
     depositStatus: {

@@ -25,6 +25,7 @@ const emailTemplateSchema = new Schema(
         'restaurant_approved',
         'restaurant_created',
         'invoice_ready',
+        'docs_access_otp',
       ],
     },
     name: { type: String, required: true },

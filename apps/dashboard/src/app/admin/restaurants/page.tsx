@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useRef, useState } from 'react';
+import type { Key } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
@@ -62,9 +63,11 @@ import {
   ADMIN_RESTAURANT_FILTER_META,
   ADMIN_CREATE_RESTAURANT,
   ADMIN_DELETE_RESTAURANT,
+  ADMIN_DELETE_RESTAURANTS,
   ADMIN_USERS,
   PLANS,
   SET_RESTAURANT_STATUS,
+  SET_RESTAURANT_STATUSES,
   UPSERT_MENU,
 } from '@/lib/graphql';
 import { addressSelectionToFields } from '@/lib/address';
@@ -268,6 +271,8 @@ function AdminRestaurantsContent() {
   const { data: plansData } = useQuery(PLANS, { skip: !ready });
 
   const [setStatus] = useMutation(SET_RESTAURANT_STATUS);
+  const [setStatuses, { loading: bulkUpdating }] = useMutation(SET_RESTAURANT_STATUSES);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
   const [createRestaurant, { loading: creating }] = useMutation(ADMIN_CREATE_RESTAURANT);
   const [deleteRestaurant] = useMutation(ADMIN_DELETE_RESTAURANT, {
     onCompleted: () => {
@@ -276,6 +281,7 @@ function AdminRestaurantsContent() {
       refetchFilterMeta();
     },
   });
+  const [deleteRestaurants, { loading: bulkDeleting }] = useMutation(ADMIN_DELETE_RESTAURANTS);
   const [upsertMenu] = useMutation(UPSERT_MENU);
 
   const [editing, setEditing] = useState<RestaurantRecord | null>(null);
@@ -661,6 +667,51 @@ function AdminRestaurantsContent() {
     return items;
   };
 
+  const bulkUpdateStatus = async (status: string) => {
+    const ids = selectedRowKeys.map(String);
+    if (!ids.length) return;
+    try {
+      const res = await setStatuses({ variables: { ids, status } });
+      const updated = res.data?.setRestaurantStatuses?.updated ?? ids.length;
+      message.success(`Updated ${updated} restaurant${updated === 1 ? '' : 's'}`);
+      setSelectedRowKeys([]);
+      refetch();
+      refetchFilterMeta();
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Bulk update failed');
+    }
+  };
+
+  const bulkDelete = () => {
+    const ids = selectedRowKeys.map(String);
+    if (!ids.length) return;
+    Modal.confirm({
+      title: `Delete ${ids.length} restaurant${ids.length === 1 ? '' : 's'}?`,
+      content:
+        'Permanently deletes the selected restaurants and all related records. This cannot be undone.',
+      okText: 'Delete permanently',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          const res = await deleteRestaurants({ variables: { ids } });
+          const deleted = res.data?.adminDeleteRestaurants?.deleted ?? 0;
+          const errors = res.data?.adminDeleteRestaurants?.errors ?? [];
+          if (deleted > 0) {
+            message.success(`Deleted ${deleted} restaurant${deleted === 1 ? '' : 's'}`);
+          }
+          if (errors.length) {
+            message.warning(errors.join('; '));
+          }
+          setSelectedRowKeys([]);
+          refetch();
+          refetchFilterMeta();
+        } catch (err: unknown) {
+          message.error(err instanceof Error ? err.message : 'Bulk delete failed');
+        }
+      },
+    });
+  };
+
   if (!ready) return null;
 
   const matchingTotal = data?.adminRestaurants?.total ?? 0;
@@ -757,11 +808,56 @@ function AdminRestaurantsContent() {
                   : `${overallTotal} restaurant${overallTotal === 1 ? '' : 's'}`}
               </Text>
             </Space>
+            {selectedRowKeys.length > 0 && (
+              <Space wrap>
+                <Text type="secondary">{selectedRowKeys.length} selected</Text>
+                <Button
+                  size="small"
+                  loading={bulkUpdating}
+                  onClick={() => bulkUpdateStatus('approved')}
+                >
+                  Approve
+                </Button>
+                <Button
+                  size="small"
+                  loading={bulkUpdating}
+                  onClick={() => bulkUpdateStatus('rejected')}
+                >
+                  Reject
+                </Button>
+                <Button
+                  size="small"
+                  loading={bulkUpdating}
+                  onClick={() => bulkUpdateStatus('suspended')}
+                >
+                  Suspend
+                </Button>
+                {canDeleteRestaurants && (
+                  <Button
+                    size="small"
+                    danger
+                    loading={bulkDeleting}
+                    onClick={bulkDelete}
+                  >
+                    Delete
+                  </Button>
+                )}
+                <Button size="small" onClick={() => setSelectedRowKeys([])}>
+                  Clear
+                </Button>
+              </Space>
+            )}
             <Table
               loading={loading}
               rowKey="id"
               dataSource={data?.adminRestaurants?.items ?? []}
               scroll={{ x: 'max-content' }}
+              onChange={() => setSelectedRowKeys([])}
+              rowSelection={{
+                selectedRowKeys,
+                onChange: setSelectedRowKeys,
+                preserveSelectedRowKeys: true,
+              }}
               pagination={tablePagination(matchingTotal, {
                 showSizeChanger: true,
               })}

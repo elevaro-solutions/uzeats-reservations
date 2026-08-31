@@ -4,6 +4,24 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.34.0] — 2026-09-01
+
+### Added
+
+- Partner **My restaurants** page and multi-location owner overview (today’s covers, waitlist, ratings per location)
+- Admin bulk restaurant approve / reject / suspend and bulk delete
+- Reservations can include experiences and private dining spaces (price and ticket qty on the booking)
+- Experience optional `endDate` for multi-day events
+- TipTap rich-text editor and live preview for admin email templates
+- Docs access OTP email template (`docs_access_otp`) with branded fallback when no custom template is set
+- Admin user-delete confirmation codes stored in Redis (with in-memory test fallback)
+
+### Changed
+
+- Partner dashboard home overview rebuilt around the multi-location owner stats query
+- Public restaurant page supports booking with an attached experience
+- Docs access nav link added under admin; OTP send/store errors are clearer when email or Redis fails
+
 ## [0.33.2] — 2026-08-26
 
 ### Fixed

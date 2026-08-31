@@ -110,7 +110,7 @@ export async function sendEmail(
     logger.debug({ to, title, body, htmlBody, attachments: attachments.length }, '[email:dev] stub');
     return;
   }
-  await resend.emails.send({
+  const result = await resend.emails.send({
     from: env.EMAIL_FROM,
     to,
     subject: title,
@@ -122,6 +122,9 @@ export async function sendEmail(
       contentType: a.contentType,
     })),
   });
+  if (result.error) {
+    throw new Error(`Resend failed: ${result.error.message}`);
+  }
   logger.info({ to, subject: title }, '[email] sent via Resend');
 }
 

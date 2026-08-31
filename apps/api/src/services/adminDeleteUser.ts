@@ -35,21 +35,22 @@ import {
   WaitlistEntry,
 } from '../models/index.js';
 import { EmailTemplate } from '../models/EmailTemplate.js';
+import { NotFoundError, ValidationError } from '../lib/errors.js';
 import { getPlatformConfig, mapPlatformConfig } from './platformConfig.js';
-import { sendEmail } from './notifications.js';
+import { isEmailDeliveryConfigured, sendEmail } from './notifications.js';
 import { emailDetailBox, emailNotice, emailParagraph } from './emailBranding.js';
 import { logAudit } from './audit.js';
+import {
+  clearAdminDeleteCode,
+  consumeAdminDeleteCode,
+  storeAdminDeleteCode,
+} from './adminDeleteCodeStore.js';
 
 /** Platform admin inbox used for destructive-action 2FA codes. */
 export const ADMIN_DELETE_2FA_EMAIL = 'support.uzeats@gmail.com';
 
-const deleteCodeStore = new Map<
-  string,
-  { code: string; expiresAt: number; adminId: string; userId: string }
->();
-
-function codeStoreKey(adminId: string, userId: string) {
-  return `${adminId}:${userId}`;
+function useDevOtp() {
+  return Boolean(env.AUTH_DEV_OTP) && env.NODE_ENV !== 'production';
 }
 
 function generateCode() {
@@ -74,9 +75,9 @@ export async function requestAdminDeleteUserCode(input: {
   userId: string;
 }) {
   const target = await User.findById(input.userId);
-  if (!target) throw new Error('User not found');
+  if (!target) throw new NotFoundError('User');
   if (target._id.toString() === input.adminId) {
-    throw new Error('You cannot delete your own account');
+    throw new ValidationError('You cannot delete your own account');
   }
 
   const requires2FA = await isAdminDelete2FARequired();
@@ -89,20 +90,26 @@ export async function requestAdminDeleteUserCode(input: {
     };
   }
 
-  const code = env.AUTH_DEV_OTP ? '123456' : generateCode();
-  deleteCodeStore.set(codeStoreKey(input.adminId, input.userId), {
-    code,
-    expiresAt: Date.now() + 10 * 60 * 1000,
-    adminId: input.adminId,
-    userId: input.userId,
-  });
+  const code = useDevOtp() ? '123456' : generateCode();
+  await storeAdminDeleteCode(input.adminId, input.userId, code);
 
-  const name = `${target.firstName} ${target.lastName}`.trim();
+  if (useDevOtp()) {
+    return {
+      success: true,
+      requires2FA: true,
+      message: 'Dev OTP: 123456',
+      emailedTo: ADMIN_DELETE_2FA_EMAIL,
+    };
+  }
+
+  const name = `${target.firstName ?? ''} ${target.lastName ?? ''}`.trim() || 'Unknown user';
+  const role = target.role ?? 'unknown';
+  const identity = target.email || target.phone || target._id.toString();
   const body = [
     'A platform admin requested deletion of a user account.',
     '',
-    `User: ${name} (${target.email || target.phone || target._id})`,
-    `Role: ${target.role}`,
+    `User: ${name} (${identity})`,
+    `Role: ${role}`,
     `User ID: ${target._id}`,
     '',
     `Confirmation code: ${code}`,
@@ -112,43 +119,49 @@ export async function requestAdminDeleteUserCode(input: {
   const htmlBody = [
     emailParagraph('A platform admin requested deletion of a user account.'),
     emailDetailBox([
-      { label: 'User', value: `${name} (${target.email || target.phone || target._id})` },
-      { label: 'Role', value: target.role },
+      { label: 'User', value: `${name} (${identity})` },
+      { label: 'Role', value: role },
       { label: 'User ID', value: target._id.toString() },
     ]),
     emailNotice(`<strong>Confirmation code:</strong> <span style="font-size:20px;font-weight:700;letter-spacing:0.1em;">${code}</span>`),
     emailParagraph('This code expires in 10 minutes. If you did not expect this, ignore the email.'),
   ].join('');
 
-  await sendEmail(
-    ADMIN_DELETE_2FA_EMAIL,
-    'Tablevera admin — confirm user deletion',
-    body,
-    { htmlBody },
-  );
+  if (!isEmailDeliveryConfigured()) {
+    throw new ValidationError(
+      'Email delivery is not configured — set RESEND_API_KEY or SENDGRID_API_KEY on the API server.',
+    );
+  }
+
+  try {
+    await sendEmail(
+      ADMIN_DELETE_2FA_EMAIL,
+      'Tablevera admin — confirm user deletion',
+      body,
+      { htmlBody },
+    );
+  } catch (err) {
+    await clearAdminDeleteCode(input.adminId, input.userId);
+    const detail = err instanceof Error ? err.message : 'Unknown error';
+    throw new ValidationError(`Failed to send confirmation email: ${detail}`);
+  }
 
   return {
     success: true,
     requires2FA: true,
-    message: env.AUTH_DEV_OTP
-      ? `Dev OTP sent to ${ADMIN_DELETE_2FA_EMAIL}: 123456`
-      : `Confirmation code sent to ${ADMIN_DELETE_2FA_EMAIL}`,
+    message: `Confirmation code sent to ${ADMIN_DELETE_2FA_EMAIL}`,
     emailedTo: ADMIN_DELETE_2FA_EMAIL,
   };
 }
 
-function consumeDeleteCode(adminId: string, userId: string, code: string | null | undefined) {
-  const key = codeStoreKey(adminId, userId);
-  const stored = deleteCodeStore.get(key);
-  if (!stored) throw new Error('No confirmation code requested — request a new code first');
-  if (stored.expiresAt < Date.now()) {
-    deleteCodeStore.delete(key);
-    throw new Error('Confirmation code expired — request a new code');
+async function consumeDeleteCode(adminId: string, userId: string, code: string | null | undefined) {
+  if (!code?.trim()) {
+    throw new ValidationError('Invalid confirmation code');
   }
-  if (!code || stored.code !== code.trim()) {
-    throw new Error('Invalid confirmation code');
+  const valid = await consumeAdminDeleteCode(adminId, userId, code.trim());
+  if (!valid) {
+    throw new ValidationError('Invalid or expired confirmation code — request a new code');
   }
-  deleteCodeStore.delete(key);
 }
 
 async function deleteRestaurantCascade(restaurantIds: mongoose.Types.ObjectId[]) {
@@ -270,24 +283,24 @@ export async function adminDeleteUser(input: {
   code?: string | null;
 }) {
   const target = await User.findById(input.userId);
-  if (!target) throw new Error('User not found');
+  if (!target) throw new NotFoundError('User');
   if (target._id.toString() === input.adminId) {
-    throw new Error('You cannot delete your own account');
+    throw new ValidationError('You cannot delete your own account');
   }
 
   if (target.role === 'super_admin') {
     const superAdminCount = await User.countDocuments({ role: 'super_admin' });
-    if (superAdminCount <= 1) throw new Error('Cannot delete the last super admin account');
+    if (superAdminCount <= 1) throw new ValidationError('Cannot delete the last super admin account');
   }
 
   if (target.role === 'admin') {
     const adminCount = await User.countDocuments({ role: 'admin' });
-    if (adminCount <= 1) throw new Error('Cannot delete the last admin account');
+    if (adminCount <= 1) throw new ValidationError('Cannot delete the last admin account');
   }
 
   const requires2FA = await isAdminDelete2FARequired();
   if (requires2FA) {
-    consumeDeleteCode(input.adminId, input.userId, input.code);
+    await consumeDeleteCode(input.adminId, input.userId, input.code);
   }
 
   const deletedCounts = await deleteUserRelatedRecords(target._id);

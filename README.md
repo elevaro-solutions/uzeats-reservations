@@ -92,9 +92,10 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Partner Settings hub, notifications prefs, multi-restaurant selector, self-registration with Stripe card collection, plan change preview (prorated upgrades / scheduled downgrades), onboarding checklist, **profile page**, toggles to accept online reservations or hide the booking widget, and **DoorDash/Uber Eats import** (saved `.mhtml`/`.html` page, including menu photos) from Settings, profile, register, and admin restaurant create
 - **Email branding** — customizable email templates per restaurant
 - Shareable booking links (`/r/:slug`) and **Booking widget** page for embed script copy
-- Owner phone / walk-in bookings, **diner and partner reservation edit**, reservation-scoped messaging, and **individual reservation detail pages** (upcoming / past / deposit filters) plus diner **billing history** (`/billing`)
+- Owner phone / walk-in bookings, **diner and partner reservation edit**, reservation-scoped messaging, and **individual reservation detail pages** (upcoming / past / deposit filters) plus diner **billing history** (`/billing`); bookings can attach **experiences** and private dining spaces
+- Partner **My restaurants** multi-location overview alongside the home dashboard
 - Enhanced restaurant detail pages with photo gallery, reviews, FAQ, terms, about, and menu sections
-- Platform admin: users, restaurants (list + **detail manage** for menu/reservations/invoices/package), **discovery taxonomy**, **services** catalog, invoices (manual create, branded PDF, email, public Stripe pay links), exports (CSV/JSON/PDF), revenue, support, moderation, templates, config, annual billing discounts, **docs access** requests, and richer audit log filters
+- Platform admin: users, restaurants (list + **detail manage** for menu/reservations/invoices/package, **bulk status/delete**), **discovery taxonomy**, **services** catalog, invoices (manual create, branded PDF, email, public Stripe pay links), exports (CSV/JSON/PDF), revenue, support, moderation, **TipTap email templates** with preview, config, annual billing discounts, **docs access** requests, and richer audit log filters
 - Embeddable booking widget with per-restaurant theme
 - Public contact form, cookie consent, and legal pages (privacy, terms, SMS messaging/opt-in, cookies)
 - Super-admin developer page for deployment env-var health (secret values masked)

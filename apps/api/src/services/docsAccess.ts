@@ -9,7 +9,7 @@ import { DocsAccessRequest } from "../models/DocsAccessRequest.js";
 import { User } from "../models/User.js";
 import type { UserDocument } from "../models/User.js";
 import { renderEmailTemplate } from "./emailTemplates.js";
-import { sendEmail } from "./notifications.js";
+import { isEmailDeliveryConfigured, sendEmail } from "./notifications.js";
 import { logAudit } from "./audit.js";
 import {
   getDocsAccessTokenFromRequest,
@@ -20,6 +20,12 @@ import { mapUser } from "../graphql/mappers.js";
 import type { DocsAccessRequestDocument } from "../models/DocsAccessRequest.js";
 import { ForbiddenError, ValidationError } from "../lib/errors.js";
 import { consumeDocsOtp, storeDocsOtp } from "./docsOtpStore.js";
+import { logger } from "../lib/logger.js";
+import {
+  emailDetailBox,
+  emailMuted,
+  emailParagraph,
+} from "./emailBranding.js";
 
 const DOCS_ACCESS_JWT_EXPIRES = "30d";
 
@@ -181,6 +187,30 @@ export async function requestDocsAccess(rawInput: unknown) {
   };
 }
 
+const DOCS_OTP_FALLBACK = {
+  subject: "Your Tablevera docs verification code",
+  bodyHtml: [
+    emailParagraph("You requested access to <strong>Tablevera Docs</strong>."),
+    emailParagraph(
+      "Enter this verification code on the docs site. It expires in 10 minutes.",
+    ),
+    emailDetailBox([{ label: "Verification code", value: "{{code}}" }]),
+    emailMuted(
+      "If you did not request this code, you can safely ignore this email.",
+    ),
+  ].join(""),
+  bodyText:
+    "You requested access to Tablevera Docs.\n\nYour verification code: {{code}}\n\nThis code expires in 10 minutes. If you did not request it, ignore this email.",
+};
+
+function renderDocsOtpFallback(code: string) {
+  return {
+    subject: DOCS_OTP_FALLBACK.subject,
+    bodyHtml: DOCS_OTP_FALLBACK.bodyHtml.replace(/\{\{code\}\}/g, code),
+    bodyText: DOCS_OTP_FALLBACK.bodyText.replace(/\{\{code\}\}/g, code),
+  };
+}
+
 export async function requestDocsAccessOtp(rawEmail: string) {
   const email = emailSchema.parse(rawEmail);
   if (!(await isEmailApproved(email))) {
@@ -192,7 +222,14 @@ export async function requestDocsAccessOtp(rawEmail: string) {
   }
 
   const code = useDevOtp() ? "123456" : generateOtpCode();
-  await storeDocsOtp(email, code);
+  try {
+    await storeDocsOtp(email, code);
+  } catch (err) {
+    logger.error({ err, email }, "[docsAccess] failed to store OTP");
+    throw new ValidationError(
+      "Could not start verification. Please try again in a moment.",
+    );
+  }
 
   if (useDevOtp()) {
     return {
@@ -201,13 +238,35 @@ export async function requestDocsAccessOtp(rawEmail: string) {
     };
   }
 
-  const rendered = await renderEmailTemplate("docs_access_otp", {
-    code,
-    email,
-  });
-  await sendEmail(email, rendered.subject, rendered.bodyText, {
-    htmlBody: rendered.bodyHtml,
-  });
+  if (!isEmailDeliveryConfigured()) {
+    throw new ValidationError(
+      "Email delivery is not configured — set RESEND_API_KEY or SENDGRID_API_KEY on the API server.",
+    );
+  }
+
+  let rendered: { subject: string; bodyHtml: string; bodyText: string };
+  try {
+    rendered = await renderEmailTemplate("docs_access_otp", {
+      code,
+      email,
+    });
+  } catch (err) {
+    logger.warn(
+      { err, email },
+      "[docsAccess] docs_access_otp template missing; using fallback",
+    );
+    rendered = renderDocsOtpFallback(code);
+  }
+
+  try {
+    await sendEmail(email, rendered.subject, rendered.bodyText, {
+      htmlBody: rendered.bodyHtml,
+    });
+  } catch (err) {
+    logger.error({ err, email }, "[docsAccess] failed to send OTP email");
+    const detail = err instanceof Error ? err.message : "Unknown error";
+    throw new ValidationError(`Failed to send verification email: ${detail}`);
+  }
 
   return {
     success: true,

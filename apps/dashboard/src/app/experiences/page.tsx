@@ -35,7 +35,7 @@ const EXPERIENCES = gql`
     experiences(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
       total
       items {
-        id title type date startTime endTime maxGuests ticketPriceCents ticketsSold status description photoUrl
+        id title type date endDate startTime endTime maxGuests ticketPriceCents ticketsSold status description photoUrl
       }
     }
   }
@@ -128,12 +128,18 @@ function ExperiencesPageContent() {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
+      const [rangeStart, rangeEnd] = values.dateRange ?? [];
+      if (!rangeStart || !rangeEnd) {
+        message.error('Select a date range');
+        return;
+      }
       const input = {
         title: values.title,
         description: values.description,
         type: values.type,
         photoUrl: values.photoUrls?.[0] || values.photoUrl || undefined,
-        date: values.date.toISOString(),
+        date: rangeStart.startOf('day').toISOString(),
+        endDate: rangeEnd.startOf('day').toISOString(),
         startTime: values.startTime,
         endTime: values.endTime,
         maxGuests: values.maxGuests,
@@ -179,6 +185,7 @@ function ExperiencesPageContent() {
     description?: string;
     type: string;
     date: string;
+    endDate?: string;
     startTime: string;
     endTime: string;
     maxGuests: number;
@@ -190,7 +197,7 @@ function ExperiencesPageContent() {
       title: record.title,
       description: record.description,
       type: record.type,
-      date: dayjs(record.date),
+      dateRange: [dayjs(record.date), dayjs(record.endDate ?? record.date)],
       startTime: record.startTime,
       endTime: record.endTime,
       maxGuests: record.maxGuests,
@@ -210,10 +217,14 @@ function ExperiencesPageContent() {
       render: (t: string) => typeLabels[t] ?? t,
     },
     {
-      title: 'Date',
-      dataIndex: 'date',
-      key: 'date',
-      render: (d: string) => dayjs(d).format('MMM D, YYYY'),
+      title: 'Dates',
+      key: 'dates',
+      render: (_: unknown, r: { date: string; endDate?: string }) => {
+        const start = dayjs(r.date);
+        const end = dayjs(r.endDate ?? r.date);
+        if (start.isSame(end, 'day')) return start.format('MMM D, YYYY');
+        return `${start.format('MMM D')} – ${end.format('MMM D, YYYY')}`;
+      },
     },
     {
       title: 'Time',
@@ -305,9 +316,9 @@ function ExperiencesPageContent() {
               options={Object.entries(typeLabels).map(([value, label]) => ({ value, label }))}
             />
           </Form.Item>
-          <Space>
-            <Form.Item name="date" label="Date" rules={[{ required: true }]}>
-              <DatePicker />
+          <Space wrap>
+            <Form.Item name="dateRange" label="Date range" rules={[{ required: true, message: 'Select dates' }]}>
+              <DatePicker.RangePicker />
             </Form.Item>
             <Form.Item name="startTime" label="Start Time" rules={[{ required: true }]}>
               <Input placeholder="18:00" />

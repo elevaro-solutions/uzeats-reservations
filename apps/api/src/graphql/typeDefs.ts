@@ -312,6 +312,13 @@ export const typeDefs = `#graphql
     packageId: ID
     packageTitle: String
     packagePriceCents: Int!
+    privateDiningSpaceId: ID
+    privateDiningSpaceName: String
+    privateDiningPriceCents: Int!
+    experienceId: ID
+    experienceTitle: String
+    experiencePriceCents: Int!
+    experienceTicketQty: Int!
     createdAt: DateTime!
   }
 
@@ -564,6 +571,36 @@ export const typeDefs = `#graphql
     cities: [String!]!
   }
 
+  type OwnerLocationOverview {
+    restaurantId: ID!
+    name: String!
+    status: RestaurantStatus!
+    cuisine: String!
+    city: String!
+    state: String!
+    averageRating: Float!
+    reviewCount: Int!
+    todayReservations: Int!
+    todayCovers: Int!
+    openWaitlist: Int!
+    tableCount: Int!
+    shiftCount: Int!
+  }
+
+  type OwnerOverview {
+    locationsTotal: Int!
+    locationsActive: Int!
+    locationsPending: Int!
+    locationsInactive: Int!
+    todayReservations: Int!
+    todayCovers: Int!
+    openWaitlist: Int!
+    unreadNotifications: Int!
+    averageRating: Float!
+    reviewCount: Int!
+    locations: [OwnerLocationOverview!]!
+  }
+
   type AdminRestaurantFilterMeta {
     total: Int!
     cities: [String!]!
@@ -801,6 +838,16 @@ export const typeDefs = `#graphql
   type BulkInvoiceStatusResult {
     updated: Int!
     items: [Invoice!]!
+  }
+
+  type BulkRestaurantStatusResult {
+    updated: Int!
+    items: [Restaurant!]!
+  }
+
+  type BulkDeleteRestaurantsResult {
+    deleted: Int!
+    errors: [String!]!
   }
 
   type PlanBreakdown {
@@ -1335,6 +1382,7 @@ export const typeDefs = `#graphql
     type: ExperienceType!
     photoUrl: String
     date: DateTime!
+    endDate: DateTime!
     startTime: String!
     endTime: String!
     maxGuests: Int!
@@ -1697,6 +1745,8 @@ export const typeDefs = `#graphql
     source: ReservationSource
     tableId: ID
     packageId: ID
+    privateDiningSpaceId: ID
+    experienceId: ID
   }
 
   input OwnerGuestInput {
@@ -1810,6 +1860,7 @@ export const typeDefs = `#graphql
     type: ExperienceType!
     photoUrl: String
     date: DateTime!
+    endDate: DateTime
     startTime: String!
     endTime: String!
     maxGuests: Int!
@@ -2210,6 +2261,14 @@ export const typeDefs = `#graphql
       status: RestaurantStatus
       city: String
     ): [Restaurant!]!
+    myRestaurantsConnection(
+      search: String
+      status: RestaurantStatus
+      city: String
+      limit: Int
+      offset: Int
+    ): RestaurantConnection!
+    myOwnerOverview(date: String): OwnerOverview!
     myRestaurantLocationsMeta: MyRestaurantLocationsMeta!
     restaurantTeam(restaurantId: ID!): [User!]!
     adminRestaurants(
@@ -2360,6 +2419,8 @@ export const typeDefs = `#graphql
     createRestaurant(input: RestaurantInput!, plan: String): Restaurant!
     updateRestaurant(id: ID!, input: RestaurantInput!): Restaurant!
     setRestaurantStatus(id: ID!, status: RestaurantStatus!): Restaurant!
+    setRestaurantStatuses(ids: [ID!]!, status: RestaurantStatus!): BulkRestaurantStatusResult!
+    adminDeleteRestaurants(ids: [ID!]!): BulkDeleteRestaurantsResult!
 
     createTable(restaurantId: ID!, input: TableInput!): Table!
     updateTable(id: ID!, input: TableInput!): Table!

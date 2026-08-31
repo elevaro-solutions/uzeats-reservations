@@ -73,6 +73,7 @@ import {
   buildAdminRestaurantFilter,
   buildOwnerRestaurantFilter,
 } from '../services/restaurantFilters.js';
+import { buildOwnerOverview } from '../services/ownerOverview.js';
 import {
   applyGeoToFilter,
   buildDiscoverySearchFilter,
@@ -157,6 +158,10 @@ import {
 import { logAudit } from '../services/audit.js';
 import { createRestaurantSubscription } from '../services/restaurantSubscription.js';
 import { adminAssignRestaurantPackage as assignRestaurantPackageAsAdmin } from '../services/adminAssignPackage.js';
+import {
+  setRestaurantStatuses,
+  adminDeleteRestaurants,
+} from '../services/adminBulkRestaurants.js';
 import {
   applyPendingPlanChangeIfDue,
   cancelPendingPlanChange,
@@ -1015,6 +1020,43 @@ export const resolvers = {
       return items.map(mapRestaurant);
     },
 
+    myRestaurantsConnection: async (
+      _: unknown,
+      args: {
+        search?: string;
+        status?: string;
+        city?: string;
+        limit?: number;
+        offset?: number;
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const filter = buildOwnerRestaurantFilter(user, args);
+      const result = await paginateQuery(Restaurant, filter, {
+        sort: { name: 1 },
+        limit: args.limit,
+        offset: args.offset,
+        defaultLimit: 12,
+        maxLimit: 100,
+        map: mapRestaurant,
+      });
+      return { ...result, page: Math.floor(result.offset / result.limit) + 1 };
+    },
+
+    myOwnerOverview: async (
+      _: unknown,
+      args: { date?: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const date =
+        args.date && /^\d{4}-\d{2}-\d{2}$/.test(args.date)
+          ? args.date
+          : new Date().toISOString().slice(0, 10);
+      return buildOwnerOverview(user, date);
+    },
+
     myRestaurantLocationsMeta: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
       const baseFilter = buildOwnerRestaurantFilter(user);
@@ -1514,8 +1556,17 @@ export const resolvers = {
       const filter: Record<string, unknown> = {};
       if (args.restaurantId) filter.restaurantId = args.restaurantId;
       if (args.upcoming) {
-        filter.date = { $gte: new Date() };
+        const now = new Date();
         filter.status = { $in: ['published', 'sold_out'] };
+        filter.$or = [
+          { endDate: { $gte: now } },
+          {
+            $and: [
+              { $or: [{ endDate: null }, { endDate: { $exists: false } }] },
+              { date: { $gte: now } },
+            ],
+          },
+        ];
       }
       return paginateQuery(Experience, filter, {
         sort: { date: 1 },
@@ -2357,6 +2408,26 @@ export const resolvers = {
       return mapRestaurant(doc);
     },
 
+    setRestaurantStatuses: async (
+      _: unknown,
+      args: { ids: string[]; status: string },
+      ctx: GraphQLContext,
+    ) => {
+      return setRestaurantStatuses(
+        args.ids,
+        args.status as 'pending' | 'approved' | 'rejected' | 'suspended',
+        ctx,
+      );
+    },
+
+    adminDeleteRestaurants: async (
+      _: unknown,
+      args: { ids: string[] },
+      ctx: GraphQLContext,
+    ) => {
+      return adminDeleteRestaurants(args.ids, ctx);
+    },
+
     createTable: async (
       _: unknown,
       args: { restaurantId: string; input: unknown },
@@ -2528,6 +2599,8 @@ export const resolvers = {
         source: (rawInput as any).source,
         tableId: input.tableId,
         packageId: input.packageId,
+        privateDiningSpaceId: input.privateDiningSpaceId,
+        experienceId: input.experienceId,
       });
       await logAudit({
         actorId: user._id.toString(),
@@ -3539,7 +3612,20 @@ export const resolvers = {
       const user = requireAuth(ctx);
       await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
       await requireFeature(args.restaurantId, 'ticketedEvents');
-      const doc = await Experience.create({ ...args.input, restaurantId: args.restaurantId });
+      const start = new Date(args.input.date);
+      const end = new Date(args.input.endDate ?? args.input.date);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        throw new ValidationError('Invalid experience dates');
+      }
+      if (end < start) {
+        throw new ValidationError('End date must be on or after the start date');
+      }
+      const doc = await Experience.create({
+        ...args.input,
+        date: start,
+        endDate: end,
+        restaurantId: args.restaurantId,
+      });
       return mapExperience(doc);
     },
 
@@ -3552,7 +3638,15 @@ export const resolvers = {
       const existing = await Experience.findById(args.id);
       if (!existing) throw new NotFoundError('Experience');
       await assertRestaurantAccess(user._id.toString(), existing.restaurantId.toString(), user.role);
-      Object.assign(existing, args.input);
+      const start = new Date(args.input.date ?? existing.date);
+      const end = new Date(args.input.endDate ?? args.input.date ?? existing.endDate ?? existing.date);
+      if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+        throw new ValidationError('Invalid experience dates');
+      }
+      if (end < start) {
+        throw new ValidationError('End date must be on or after the start date');
+      }
+      Object.assign(existing, args.input, { date: start, endDate: end });
       await existing.save();
       return mapExperience(existing);
     },

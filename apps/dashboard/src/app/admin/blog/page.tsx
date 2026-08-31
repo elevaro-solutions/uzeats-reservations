@@ -26,6 +26,7 @@ import {
 } from '@ant-design/icons';
 import { PageHeader, StatusTag, spacing } from '@reservations/ui';
 import PhotoUpload from '@/components/PhotoUpload';
+import { RichTextEditor } from '@/components/RichTextEditor';
 import {
   ADMIN_BLOG_POSTS,
   CREATE_BLOG_POST,
@@ -374,11 +375,11 @@ function AdminBlogPageContent() {
 
           <Form.Item
             name="bodyHtml"
-            label="Body (HTML)"
+            label="Body"
             rules={[{ required: true, message: 'Body is required' }]}
-            extra="Use simple HTML: <p>, <h2>, <ul>, <a>, <strong>. Avoid scripts and inline styles."
+            extra="Write visually or switch to HTML source via the code icon. Prefer simple tags: paragraphs, headings, lists, links."
           >
-            <Input.TextArea rows={12} placeholder="<p>Start writing…</p>" />
+            <RichTextEditor minHeight={280} placeholder="Start writing…" />
           </Form.Item>
 
           <Form.Item name="coverPhotos" label="Cover image" valuePropName="value">

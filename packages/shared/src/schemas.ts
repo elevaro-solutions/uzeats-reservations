@@ -185,6 +185,8 @@ export const reservationInputSchema = z.object({
   giftCardCode: z.string().min(1).max(40).optional(),
   tableId: z.string().min(1).optional(),
   packageId: z.string().min(1).optional(),
+  privateDiningSpaceId: z.string().min(1).optional(),
+  experienceId: z.string().min(1).optional(),
 });
 
 export const restaurantPackageInputSchema = z.object({

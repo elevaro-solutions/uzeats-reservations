@@ -12,6 +12,7 @@ const experienceSchema = new Schema(
     },
     photoUrl: { type: String },
     date: { type: Date, required: true },
+    endDate: { type: Date },
     startTime: { type: String, required: true },
     endTime: { type: String, required: true },
     maxGuests: { type: Number, required: true },
@@ -29,7 +30,9 @@ const experienceSchema = new Schema(
 );
 
 experienceSchema.index({ restaurantId: 1, date: 1 });
+experienceSchema.index({ restaurantId: 1, endDate: 1 });
 experienceSchema.index({ status: 1, date: 1 });
+experienceSchema.index({ status: 1, endDate: 1 });
 
 export type ExperienceDocument = InferSchemaType<typeof experienceSchema> & {
   _id: mongoose.Types.ObjectId;
