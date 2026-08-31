@@ -1,12 +1,8 @@
-import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import { StyleSheet } from "react-native-unistyles";
 
-import { StarIcon } from "@/assets";
-import { Flex, Typography, UserAvatar } from "@/components";
+import { Flex, StarRatingDisplay, Typography, UserAvatar } from "@/components";
 
-import {
-  dinerDisplayName,
-  formatReviewDate,
-} from "../helpers/restaurant-profile.helpers";
+import { dinerDisplayName } from "../helpers/restaurant-profile.helpers";
 import { formatRelativeReviewDate } from "../helpers/review.helpers";
 import type { RestaurantReview } from "../types";
 
@@ -16,8 +12,6 @@ export type ReviewCardProps = {
 };
 
 export function ReviewCard({ review, isLast = false }: ReviewCardProps) {
-  const { theme } = useUnistyles();
-
   return (
     <Flex gap={1.5} style={[styles.card, isLast ? styles.cardLast : undefined]}>
       <Flex
@@ -39,18 +33,7 @@ export function ReviewCard({ review, isLast = false }: ReviewCardProps) {
               {dinerDisplayName(review.diner)}
             </Typography>
             <Flex direction="row" alignItems="center" gap={0.75}>
-              {Array.from({ length: 5 }).map((_, index) => (
-                <StarIcon
-                  key={index}
-                  size={14}
-                  filled={index < review.rating}
-                  color={
-                    index < review.rating
-                      ? theme.colors.accent
-                      : theme.colors.border
-                  }
-                />
-              ))}
+              <StarRatingDisplay rating={review.rating} size={14} />
               <Typography size="text-sm" weight="semibold">
                 {review.rating.toFixed(1)}
               </Typography>
@@ -59,8 +42,7 @@ export function ReviewCard({ review, isLast = false }: ReviewCardProps) {
         </Flex>
 
         <Typography size="text-xs" color="muted" style={styles.date}>
-          {formatRelativeReviewDate(review.createdAt) ||
-            formatReviewDate(review.createdAt)}
+          {formatRelativeReviewDate(review.createdAt)}
         </Typography>
       </Flex>
 

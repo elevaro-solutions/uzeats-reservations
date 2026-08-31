@@ -1,8 +1,8 @@
-import { Image, Pressable, ScrollView } from "react-native";
+import { Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { StyleSheet } from "react-native-unistyles";
 
-import { Flex, Typography } from "@/components";
+import { Flex, RemoteImage, Typography } from "@/components";
 
 export type BookingCarouselItem = {
   id: string;
@@ -41,10 +41,10 @@ export function BookingsCarousel({ items }: BookingsCarouselProps) {
         >
           <Flex direction="row" gap={1.5} alignItems="center">
             {item.photo ? (
-              <Image
-                source={{ uri: item.photo }}
+              <RemoteImage
+                uri={item.photo}
                 style={styles.thumb}
-                resizeMode="cover"
+                recyclingKey={item.id}
               />
             ) : (
               <Flex style={styles.thumbPlaceholder} />
@@ -81,14 +81,14 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     backgroundColor: colors.primarySubtle,
   },
   thumb: {
-    width: 56,
-    height: 56,
+    width: space(7),
+    height: space(7),
     borderRadius: radius.md,
     backgroundColor: colors.surface,
   },
   thumbPlaceholder: {
-    width: 56,
-    height: 56,
+    width: space(7),
+    height: space(7),
     borderRadius: radius.md,
     backgroundColor: colors.surface,
   },

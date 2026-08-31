@@ -1,9 +1,9 @@
-import { Image, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { useRouter } from "expo-router";
 import { StyleSheet } from "react-native-unistyles";
 
 import { ClockIcon, HeartIcon, StarIcon } from "@/assets";
-import { Flex, Typography } from "@/components";
+import { Flex, RemoteImage, Typography } from "@/components";
 
 import { formatCardAddress } from "../helpers/format-location.helpers";
 import { formatShortHours } from "../helpers/format-short-hours.helpers";
@@ -52,10 +52,10 @@ export function RestaurantCard({
       >
         <View style={styles.imageWrap}>
           {photo ? (
-            <Image
-              source={{ uri: photo }}
+            <RemoteImage
+              uri={photo}
               style={styles.image}
-              resizeMode="cover"
+              recyclingKey={restaurant.id}
               accessibilityLabel={restaurant.name}
             />
           ) : (

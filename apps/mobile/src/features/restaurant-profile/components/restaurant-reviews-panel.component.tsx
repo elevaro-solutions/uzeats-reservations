@@ -74,32 +74,12 @@ export function RestaurantReviewsPanel({
       <Flex gap={2} style={styles.panel}>
         <InlineAlert
           tone="error"
-          title="Couldn’t load reviews"
+          title="Couldn't load reviews"
           message={error.message}
         />
         <Button variant="outlined" color="secondary" onPress={() => refetch()}>
           Try again
         </Button>
-      </Flex>
-    );
-  }
-
-  if (items.length === 0) {
-    return (
-      <Flex gap={2} style={styles.panel}>
-        <ReviewsSummary
-          averageRating={restaurant.averageRating}
-          reviewCount={total}
-        />
-        {cta}
-        <AddReviewSheet
-          visible={sheetOpen}
-          restaurantName={restaurant.name}
-          restaurantPhoto={restaurant.photos?.[0]}
-          reservationId={reviewEligibility.reservationId}
-          onClose={() => setSheetOpen(false)}
-          onSubmitted={handleReviewSubmitted}
-        />
       </Flex>
     );
   }
@@ -113,15 +93,17 @@ export function RestaurantReviewsPanel({
 
       {cta}
 
-      <Flex gap={3} style={styles.list}>
-        {items.map((review, index) => (
-          <ReviewCard
-            key={review.id}
-            review={review}
-            isLast={index === items.length - 1}
-          />
-        ))}
-      </Flex>
+      {items.length > 0 ? (
+        <Flex gap={3} style={styles.list}>
+          {items.map((review, index) => (
+            <ReviewCard
+              key={review.id}
+              review={review}
+              isLast={index === items.length - 1}
+            />
+          ))}
+        </Flex>
+      ) : null}
 
       <AddReviewSheet
         visible={sheetOpen}

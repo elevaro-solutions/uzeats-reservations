@@ -4,26 +4,14 @@ import { useMemo } from "react";
 import { MY_RESERVATIONS, useAuth } from "@/graphql";
 
 import { canLeaveReview } from "../helpers/review.helpers";
-
-export type MyReservationItem = {
-  id: string;
-  status: string;
-  hasReview: boolean;
-  restaurant: {
-    id: string;
-  };
-};
-
-export type MyReservationsQueryData = {
-  myReservations: MyReservationItem[];
-};
+import type { MyReservationsQueryData, WriteReviewCtaState } from "../types";
 
 export type ReviewableReservationResult = {
   loading: boolean;
   reservationId: string | null;
   canReview: boolean;
   hasReviewed: boolean;
-  ctaState: "eligible" | "already_reviewed" | "not_eligible" | "sign_in_required";
+  ctaState: WriteReviewCtaState;
   refetchReservations: () => Promise<unknown>;
 };
 

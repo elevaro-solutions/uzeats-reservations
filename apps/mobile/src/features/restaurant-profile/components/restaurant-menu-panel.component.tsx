@@ -1,7 +1,7 @@
-import { Image, Linking } from "react-native";
+import { Linking } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import { Button, Empty, Flex, Typography } from "@/components";
+import { Button, Empty, Flex, RemoteImage, Typography } from "@/components";
 
 import { buildWebsiteUrl } from "../helpers/restaurant-links.helpers";
 import { formatMenuPrice } from "../helpers/restaurant-profile.helpers";
@@ -19,11 +19,10 @@ function MenuItemRow({ item }: { item: RestaurantMenuItem }) {
   return (
     <Flex direction="row" gap={1.5} alignItems="center">
       {photoUrl ? (
-        <Image
-          source={{ uri: photoUrl }}
+        <RemoteImage
+          uri={photoUrl}
           style={styles.photo}
-          resizeMode="cover"
-          accessibilityIgnoresInvertColors
+          recyclingKey={item.id}
         />
       ) : null}
 

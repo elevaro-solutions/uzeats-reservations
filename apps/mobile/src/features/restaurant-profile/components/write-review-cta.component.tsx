@@ -4,11 +4,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { StarIcon } from "@/assets";
 import { Button, Flex, Typography } from "@/components";
 
-export type WriteReviewCtaState =
-  | "eligible"
-  | "already_reviewed"
-  | "not_eligible"
-  | "sign_in_required";
+import type { WriteReviewCtaState } from "../types";
 
 export type WriteReviewCtaProps = {
   state: WriteReviewCtaState;

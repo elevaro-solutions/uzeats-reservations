@@ -36,8 +36,3 @@ export function formatRelativeReviewDate(iso: string): string {
 
   return formatReviewDate(iso);
 }
-
-export function filledStarCount(rating: number): number {
-  if (rating <= 0) return 0;
-  return Math.min(5, Math.max(0, Math.round(rating)));
-}

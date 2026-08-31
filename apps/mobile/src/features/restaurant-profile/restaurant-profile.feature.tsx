@@ -7,13 +7,7 @@ import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import {
-  Button,
-  Empty,
-  Flex,
-  InlineAlert,
-  Skeleton,
-} from "@/components";
+import { Flex } from "@/components";
 import { RESTAURANT, useAuth } from "@/graphql";
 
 import { BookFooter } from "./components/book-footer.component";
@@ -25,6 +19,11 @@ import { RestaurantMeta } from "./components/restaurant-meta.component";
 import { RestaurantOverlayHeader } from "./components/restaurant-overlay-header.component";
 import { RestaurantPhotosPanel } from "./components/restaurant-photos-panel.component";
 import { RestaurantReviewsPanel } from "./components/restaurant-reviews-panel.component";
+import {
+  RestaurantProfileError,
+  RestaurantProfileLoading,
+  RestaurantProfileNotFound,
+} from "./components/restaurant-profile-states.component";
 import { RestaurantSectionTabs } from "./components/restaurant-section-tabs.component";
 import { buildVisibleTabs } from "./helpers/restaurant-profile.helpers";
 import type { ProfileSectionTab, RestaurantQueryData } from "./types";
@@ -65,60 +64,25 @@ export function RestaurantProfileFeature() {
     }
     Alert.alert(
       "Booking coming soon",
-      "You’ll be able to reserve a table here in a future update.",
+      "You'll be able to reserve a table here in a future update.",
     );
   }
 
   if (loading && !restaurant) {
-    return (
-      <Flex flex={1} style={styles.root}>
-        <StatusBar style="dark" />
-        <Skeleton height={theme.space(40)} radius="lg" />
-        <Flex gap={2} style={styles.loadingBody}>
-          <Skeleton height={28} width="60%" />
-          <Skeleton height={18} width="80%" />
-          <Skeleton height={48} />
-          <Skeleton height={40} />
-          <Skeleton height={120} />
-        </Flex>
-      </Flex>
-    );
+    return <RestaurantProfileLoading />;
   }
 
   if (error && !restaurant) {
     return (
-      <Flex gap={2} style={styles.loadingBody}>
-        <StatusBar style="dark" />
-        <InlineAlert
-          tone="error"
-          title="Couldn’t load restaurant"
-          message={error.message}
-        />
-        <Button variant="outlined" color="secondary" onPress={() => refetch()}>
-          Try again
-        </Button>
-      </Flex>
+      <RestaurantProfileError
+        message={error.message}
+        onRetry={() => refetch()}
+      />
     );
   }
 
   if (!restaurant) {
-    return (
-      <Flex flex={1} justifyContent="center" style={styles.loadingBody}>
-        <StatusBar style="dark" />
-        <Empty
-          title="Restaurant not found"
-          description="It may have been removed or is no longer listed."
-        >
-          <Button
-            variant="outlined"
-            color="secondary"
-            onPress={() => router.back()}
-          >
-            Go back
-          </Button>
-        </Empty>
-      </Flex>
-    );
+    return <RestaurantProfileNotFound />;
   }
 
   const footerPad = Math.max(insets.bottom, theme.space(2)) + theme.space(9);
@@ -185,11 +149,6 @@ export function RestaurantProfileFeature() {
 
 const styles = StyleSheet.create(({ space, colors }) => ({
   root: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  loadingBody: {
-    padding: space(2),
     flex: 1,
     backgroundColor: colors.background,
   },

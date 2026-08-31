@@ -1,8 +1,13 @@
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { FONT_FAMILY } from "@/lib/fonts";
-import { Flex, SuggestionRowSkeleton, Typography } from "@/components";
+import {
+  Flex,
+  RemoteImage,
+  SuggestionRowSkeleton,
+  Typography,
+} from "@/components";
 
 import { splitHighlightParts } from "../helpers/split-highlight-parts.helpers";
 import type { SearchSuggestion } from "../types";
@@ -28,7 +33,11 @@ function SuggestionRow({
   return (
     <Pressable onPress={() => onSelect(item)} style={styles.row}>
       {item.photoUrl ? (
-        <Image source={{ uri: item.photoUrl }} style={styles.avatar} />
+        <RemoteImage
+          uri={item.photoUrl}
+          style={styles.avatar}
+          recyclingKey={item.id}
+        />
       ) : (
         <View style={[styles.avatar, styles.avatarFallback]} />
       )}
@@ -107,8 +116,8 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     paddingVertical: space(1.25),
   },
   avatar: {
-    width: 40,
-    height: 40,
+    width: space(5),
+    height: space(5),
     borderRadius: radius.full,
   },
   avatarFallback: {

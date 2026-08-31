@@ -1,22 +1,11 @@
 import { useState } from "react";
-import {
-  Dimensions,
-  FlatList,
-  Image,
-  Modal,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  Pressable,
-  View,
-} from "react-native";
-import { StatusBar } from "expo-status-bar";
+import { Dimensions, Pressable } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { XIcon } from "@/assets";
-import { Empty, Flex, IconButton, Typography } from "@/components";
+import { Empty, Flex, RemoteImage, Typography } from "@/components";
 
 import { DetailSectionHeader } from "./detail-section-header.component";
+import { PhotoLightbox } from "./photo-lightbox.component";
 
 const THUMB_RATIO = 5 / 4;
 
@@ -25,106 +14,12 @@ export type RestaurantPhotosPanelProps = {
   photos: string[];
 };
 
-type PhotoLightboxProps = {
-  name: string;
-  photos: string[];
-  initialIndex: number;
-  visible: boolean;
-  onClose: () => void;
-};
-
 function buildGallerySubtitle(name: string, count: number): string {
   const base = `Take a look inside ${name}`;
   if (count > 1) {
     return `${base} · ${count} photos`;
   }
   return base;
-}
-
-function PhotoLightbox({
-  name,
-  photos,
-  initialIndex,
-  visible,
-  onClose,
-}: PhotoLightboxProps) {
-  const { theme } = useUnistyles();
-  const insets = useSafeAreaInsets();
-  const width = Dimensions.get("window").width;
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
-
-  function onViewerScrollEnd(e: NativeSyntheticEvent<NativeScrollEvent>) {
-    const next = Math.round(e.nativeEvent.contentOffset.x / width);
-    setCurrentIndex(next);
-  }
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      presentationStyle="overFullScreen"
-      statusBarTranslucent
-      onRequestClose={onClose}
-    >
-      <View style={styles.viewer} accessibilityViewIsModal>
-        <StatusBar style="light" />
-        <Flex
-          direction="row"
-          justifyContent="flex-end"
-          style={[styles.viewerBar, { paddingTop: insets.top + theme.space(1) }]}
-        >
-          <IconButton
-            icon={<XIcon />}
-            variant="surface"
-            color={theme.colors.textPrimary}
-            accessibilityLabel="Close gallery"
-            onPress={onClose}
-            style={styles.closeBtn}
-          />
-        </Flex>
-        <View style={styles.carousel}>
-          <FlatList
-            data={photos}
-            horizontal
-            pagingEnabled
-            style={styles.carouselList}
-            initialScrollIndex={initialIndex}
-            getItemLayout={(_, i) => ({
-              length: width,
-              offset: width * i,
-              index: i,
-            })}
-            onMomentumScrollEnd={onViewerScrollEnd}
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(uri, i) => `${uri}-viewer-${i}`}
-            renderItem={({ item }) => (
-              <View style={[styles.slide, { width }]}>
-                <Image
-                  source={{ uri: item }}
-                  style={styles.fullImage}
-                  resizeMode="contain"
-                  accessibilityLabel={name}
-                />
-              </View>
-            )}
-          />
-        </View>
-        <View
-          style={[
-            styles.counterWrap,
-            { paddingBottom: insets.bottom + theme.space(3) },
-          ]}
-        >
-          <View style={styles.counterPill}>
-            <Typography color="inverse" size="text-sm" weight="medium">
-              {currentIndex + 1} / {photos.length}
-            </Typography>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
 }
 
 export function RestaurantPhotosPanel({
@@ -169,13 +64,13 @@ export function RestaurantPhotosPanel({
               accessibilityLabel={`${name} photo ${index + 1}`}
               style={({ pressed }) => [pressed ? styles.thumbPressed : null]}
             >
-              <Image
-                source={{ uri }}
+              <RemoteImage
+                uri={uri}
                 style={[
                   styles.thumb,
                   { width: colWidth, height: thumbHeight },
                 ]}
-                resizeMode="cover"
+                recyclingKey={`${uri}-${index}`}
               />
             </Pressable>
           ))}
@@ -202,44 +97,5 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
   },
   thumbPressed: {
     opacity: 0.88,
-  },
-  viewer: {
-    flex: 1,
-    backgroundColor: colors.black,
-  },
-  viewerBar: {
-    paddingHorizontal: space(2),
-    paddingBottom: space(1),
-  },
-  closeBtn: {
-    backgroundColor: colors.white,
-    opacity: 0.92,
-    borderRadius: radius.full,
-  },
-  carousel: {
-    flex: 1,
-    minHeight: 0,
-  },
-  carouselList: {
-    flex: 1,
-  },
-  slide: {
-    height: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  fullImage: {
-    width: "100%",
-    height: "100%",
-  },
-  counterWrap: {
-    alignItems: "center",
-    paddingTop: space(1),
-  },
-  counterPill: {
-    paddingHorizontal: space(2),
-    paddingVertical: space(0.75),
-    borderRadius: radius.full,
-    backgroundColor: "rgba(255, 255, 255, 0.18)",
   },
 }));

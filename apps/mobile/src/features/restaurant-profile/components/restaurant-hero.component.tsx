@@ -2,7 +2,6 @@ import { useRef, useState } from "react";
 import {
   Dimensions,
   FlatList,
-  Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
   View,
@@ -10,7 +9,7 @@ import {
 } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { Flex, Typography } from "@/components";
+import { Flex, RemoteImage, Typography } from "@/components";
 
 export type RestaurantHeroProps = {
   name: string;
@@ -68,11 +67,12 @@ export function RestaurantHero({
         onMomentumScrollEnd={onMomentumScrollEnd}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig.current}
-        renderItem={({ item }) => (
-          <Image
-            source={{ uri: item }}
+        renderItem={({ item, index }) => (
+          <RemoteImage
+            uri={item}
             style={{ width, height }}
-            resizeMode="cover"
+            priority="high"
+            recyclingKey={`${item}-${index}`}
             accessibilityLabel={name}
           />
         )}

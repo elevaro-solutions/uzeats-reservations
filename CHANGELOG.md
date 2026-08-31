@@ -4,6 +4,19 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.39.0] — 2026-08-31
+
+### Added
+
+- Shared `RemoteImage` component powered by `expo-image` (memory-disk cache) for restaurant photos across discovery, search, home, and profile
+- Shared `StarRatingDisplay` for review cards and summary
+- Restaurant profile extractions pieces: photo lightbox, hours accordion, loading/error/empty states, and `useCreateReview` hook
+
+### Changed
+
+- Restaurant profile book footer uses sticky shadow and larger CTA
+- Image call sites use stable `recyclingKey` values and theme spacing tokens
+
 ## [0.38.0] — 2026-08-31
 
 ### Added

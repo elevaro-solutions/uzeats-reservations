@@ -1,18 +1,17 @@
-import { useState } from "react";
 import { Linking, Pressable } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { ChevronDownIcon, MapPinIcon, StarIcon } from "@/assets";
+import { MapPinIcon, StarIcon } from "@/assets";
 import { Flex, Typography } from "@/components";
 import {
   formatFullAddress,
   formatPriceRangeLabel,
-  formatShortHours,
 } from "@/features/discovery";
 
-import { formatOpeningHoursLines } from "../helpers/opening-hours.helpers";
 import { buildMapsSearchUrl } from "../helpers/restaurant-links.helpers";
 import type { RestaurantDetail } from "../types";
+
+import { RestaurantHours } from "./restaurant-hours.component";
 
 export type RestaurantMetaProps = {
   restaurant: RestaurantDetail;
@@ -20,9 +19,6 @@ export type RestaurantMetaProps = {
 
 export function RestaurantMeta({ restaurant }: RestaurantMetaProps) {
   const { theme } = useUnistyles();
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-  const shortHours = formatShortHours(restaurant.shifts);
-  const scheduleLines = formatOpeningHoursLines(restaurant.shifts ?? []);
   const addressLabel = formatFullAddress(restaurant.address);
   const mapsUrl = buildMapsSearchUrl(restaurant.address, restaurant.location);
 
@@ -84,53 +80,7 @@ export function RestaurantMeta({ restaurant }: RestaurantMetaProps) {
         </Flex>
       </Pressable>
 
-      {shortHours || scheduleLines.length > 0 ? (
-        <Flex style={styles.hoursBox} gap={1}>
-          <Pressable
-            onPress={() =>
-              scheduleLines.length > 0 && setScheduleOpen((v) => !v)
-            }
-            disabled={scheduleLines.length === 0}
-            accessibilityRole="button"
-            accessibilityLabel="Opening schedule"
-          >
-            <Flex
-              direction="row"
-              alignItems="center"
-              justifyContent="space-between"
-              gap={1}
-            >
-              <Typography size="text-sm" style={styles.hoursLabel}>
-                Hours{shortHours ? `: ${shortHours}` : ""}
-              </Typography>
-              {scheduleLines.length > 0 ? (
-                <Flex
-                  direction="row"
-                  alignItems="center"
-                  gap={0.5}
-                  style={styles.scheduleCluster}
-                >
-                  <Typography size="text-sm" weight="medium" color="primary">
-                    Schedule
-                  </Typography>
-                  <ChevronDownIcon
-                    size={16}
-                    color={theme.colors.primary}
-                    style={scheduleOpen ? styles.chevronOpen : undefined}
-                  />
-                </Flex>
-              ) : null}
-            </Flex>
-          </Pressable>
-          {scheduleOpen
-            ? scheduleLines.map((line) => (
-                <Typography key={line} size="text-sm" color="secondary">
-                  {line}
-                </Typography>
-              ))
-            : null}
-        </Flex>
-      ) : null}
+      <RestaurantHours shifts={restaurant.shifts} />
     </Flex>
   );
 }
@@ -146,21 +96,5 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
   },
   flex1: {
     flex: 1,
-  },
-  hoursLabel: {
-    flex: 1,
-    flexShrink: 1,
-    minWidth: 0,
-  },
-  scheduleCluster: {
-    flexShrink: 0,
-  },
-  hoursBox: {
-    padding: space(1.5),
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-  },
-  chevronOpen: {
-    transform: [{ rotate: "180deg" }],
   },
 }));

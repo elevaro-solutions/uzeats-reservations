@@ -48,13 +48,3 @@ export function dinerDisplayName(diner?: {
   const full = `${first} ${last}`.trim();
   return full || "Guest";
 }
-
-export function dinerInitials(diner?: {
-  firstName?: string | null;
-  lastName?: string | null;
-} | null): string {
-  const first = diner?.firstName?.trim()?.[0] ?? "";
-  const last = diner?.lastName?.trim()?.[0] ?? "";
-  const initials = `${first}${last}`.toUpperCase();
-  return initials || "G";
-}

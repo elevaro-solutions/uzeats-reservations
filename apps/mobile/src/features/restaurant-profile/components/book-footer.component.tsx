@@ -14,23 +14,25 @@ export function BookFooter({ bottomInset, onBook }: BookFooterProps) {
 
   return (
     <View style={[styles.footer, { paddingBottom: padBottom }]}>
-      <Button fullWidth size="lg" onPress={onBook}>
+      <Button fullWidth size="xl" onPress={onBook}>
         Book
       </Button>
     </View>
   );
 }
 
-const styles = StyleSheet.create(({ space, colors }) => ({
+const styles = StyleSheet.create(({ space, colors, shadows }) => ({
   footer: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
+    zIndex: 1,
     paddingHorizontal: space(2),
     paddingTop: space(1.5),
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: colors.slate3,
     backgroundColor: colors.background,
+    ...shadows.stickyFooter,
   },
 }));

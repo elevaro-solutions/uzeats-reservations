@@ -85,3 +85,22 @@ export type RestaurantReviewsQueryData = {
 };
 
 export type ProfileSectionTab = "details" | "menu" | "reviews" | "photos";
+
+export type WriteReviewCtaState =
+  | "eligible"
+  | "already_reviewed"
+  | "not_eligible"
+  | "sign_in_required";
+
+export type MyReservationItem = {
+  id: string;
+  status: string;
+  hasReview: boolean;
+  restaurant: {
+    id: string;
+  };
+};
+
+export type MyReservationsQueryData = {
+  myReservations: MyReservationItem[];
+};
