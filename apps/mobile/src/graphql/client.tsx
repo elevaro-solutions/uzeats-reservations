@@ -8,6 +8,7 @@ import {
 } from "@apollo/client";
 import { setContext } from "@apollo/client/link/context";
 import { onError } from "@apollo/client/link/error";
+import { StripeProvider } from "@stripe/stripe-react-native";
 import * as SecureStore from "expo-secure-store";
 import { ReactNode } from "react";
 
@@ -116,10 +117,15 @@ export const apolloClient = new ApolloClient({
   cache: new InMemoryCache(),
 });
 
+const STRIPE_PUBLISHABLE_KEY =
+  process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
+
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <ApolloProvider client={apolloClient}>
-      <AuthProvider>{children}</AuthProvider>
-    </ApolloProvider>
+    <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
+      <ApolloProvider client={apolloClient}>
+        <AuthProvider>{children}</AuthProvider>
+      </ApolloProvider>
+    </StripeProvider>
   );
 }

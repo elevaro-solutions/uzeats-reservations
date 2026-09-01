@@ -91,6 +91,11 @@ export const RESTAURANT = gql`
       diningStyles
       dietaryTags
       termsAndConditions
+      allowGuestTableSelection
+      reservationsEnabled
+      reservationsVisible
+      loyaltyEnabled
+      loyaltyMinRedeemPoints
       location {
         lat
         lng
@@ -181,18 +186,34 @@ export const MY_RESERVATIONS = gql`
   query MyReservations {
     myReservations {
       id
+      createdAt
       status
       slotStart
+      slotEnd
       partySize
+      occasion
+      guestNotes
+      depositAmountCents
+      depositStatus
+      loyaltyPointsEarned
       hasReview
+      packageTitle
       restaurant {
         id
         name
+        slug
         photos
         address {
           line1
           city
+          state
         }
+      }
+      tables {
+        id
+        name
+        photoUrl
+        floorArea
       }
     }
   }

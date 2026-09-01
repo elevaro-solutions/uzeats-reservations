@@ -60,6 +60,18 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="restaurant/[id]/book"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="booking/confirmation"
+            options={{ headerShown: false, gestureEnabled: false }}
+          />
+          <Stack.Screen
+            name="reservations/[id]"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
             name="demo"
             options={{
               headerShown: true,

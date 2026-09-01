@@ -48,6 +48,9 @@ export type RestaurantDetail = {
   diningStyles?: string[];
   dietaryTags?: string[];
   termsAndConditions?: string | null;
+  allowGuestTableSelection?: boolean;
+  reservationsEnabled?: boolean;
+  reservationsVisible?: boolean;
   location?: RestaurantLocation | null;
   faq?: RestaurantFaqItem[] | null;
   address: RestaurantAddress & {

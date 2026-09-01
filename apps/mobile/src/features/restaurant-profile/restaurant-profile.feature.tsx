@@ -55,17 +55,28 @@ export function RestaurantProfileFeature() {
   }, [tabs, activeTab]);
 
   function onBook() {
+    if (!id) return;
+
     if (!user) {
       router.push({
         pathname: "/sign-in",
-        params: { next: `/restaurant/${id}` },
+        params: { next: `/restaurant/${id}/book` },
       });
       return;
     }
-    Alert.alert(
-      "Booking coming soon",
-      "You'll be able to reserve a table here in a future update.",
-    );
+
+    if (restaurant?.reservationsVisible === false) {
+      Alert.alert(
+        "Contact to reserve",
+        "This restaurant does not accept online reservations.",
+      );
+      return;
+    }
+
+    router.push({
+      pathname: "/restaurant/[id]/book",
+      params: { id },
+    });
   }
 
   if (loading && !restaurant) {

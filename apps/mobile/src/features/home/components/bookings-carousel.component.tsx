@@ -34,8 +34,8 @@ export function BookingsCarousel({ items }: BookingsCarouselProps) {
           style={styles.card}
           onPress={() =>
             router.push({
-              pathname: "/restaurant/[id]",
-              params: { id: item.restaurantId },
+              pathname: "/reservations/[id]",
+              params: { id: item.id },
             })
           }
         >

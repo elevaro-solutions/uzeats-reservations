@@ -60,7 +60,16 @@ const config = {
         iosUrlScheme: iosUrlSchemeFromClientId(IOS_CLIENT_ID),
       },
     ],
-    "@react-native-community/datetimepicker",
+    [
+      "@react-native-community/datetimepicker",
+    ],
+    [
+      "@stripe/stripe-react-native",
+      {
+        "merchantIdentifier": "merchant.com.tablevera.app",
+        "enableGooglePay": true,
+      },
+    ],
   ],
   experiments: {
     typedRoutes: true,

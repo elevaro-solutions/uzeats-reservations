@@ -4,6 +4,22 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.40.0] — 2026-09-01
+
+### Added
+
+- Mobile two-step restaurant booking flow (date/time, then preferences, contacts, add-ons, and deposit)
+- Booking confirmation screen and reservation detail screen with navigation from home and reservations list
+- Reservations list with upcoming, past, and pay-deposit segments
+- Premium party size bottom sheet with preset chips and separate 9+ stepper panel
+- Stripe React Native integration for deposit payments (`EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY`)
+- Lucide occasion icons (cake, wine, briefcase, party popper, sparkles) and check icon asset
+
+### Changed
+
+- Restaurant profile Book CTA routes signed-in diners to the booking flow when online reservations are enabled
+- Home bookings carousel opens reservation detail instead of the restaurant profile
+
 ## [0.39.0] — 2026-08-31
 
 ### Added
