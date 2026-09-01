@@ -114,6 +114,22 @@ const lightTheme = {
     lg: 16,
     full: 999,
   },
+  shadows: {
+    card: {
+      shadowColor: lightPalette.black,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 16,
+      elevation: 4,
+    },
+    stickyFooter: {
+      shadowColor: lightPalette.black,
+      shadowOffset: { width: 0, height: -4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+  },
   colors: {
     ...lightPalette,
     error: lightPalette.red9,
@@ -123,6 +139,7 @@ const lightTheme = {
     surface: lightPalette.slate2,
     warning: lightPalette.amber10,
     overlay: "rgba(0, 0, 0, 0.5)",
+    overlayLight: "rgba(255, 255, 255, 0.18)",
     textMuted: lightPalette.slate9,
     primary: lightPalette.primary9,
     errorPress: lightPalette.red11,

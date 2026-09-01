@@ -3,17 +3,64 @@ import { gql } from "@apollo/client";
 export const SEARCH = gql`
   query Search($input: SearchRestaurantsInput!) {
     searchRestaurants(input: $input) {
+      total
+      page
+      limit
       items {
         id
         name
+        slug
         cuisine
         priceRange
-        averageRating
         photos
+        averageRating
+        reviewCount
+        featured
+        isFavorite
         address {
+          line1
           city
           state
+          neighborhood
         }
+        shifts {
+          daysOfWeek
+          startTime
+          endTime
+          active
+        }
+      }
+    }
+  }
+`;
+
+export const DISCOVERY_INDEX = gql`
+  query DiscoveryIndex {
+    discoveryIndex {
+      cities {
+        slug
+        label
+        count
+        city
+        state
+      }
+      neighborhoods {
+        slug
+        label
+        count
+        city
+        state
+        neighborhood
+      }
+      cuisines {
+        slug
+        label
+        count
+      }
+      occasions {
+        slug
+        label
+        count
       }
     }
   }
@@ -24,17 +71,84 @@ export const RESTAURANT = gql`
     restaurant(id: $id) {
       id
       name
+      slug
       description
       cuisine
+      priceRange
       photos
+      phone
+      website
+      menuUrl
       depositRequired
       depositAmountCents
       averageRating
+      reviewCount
+      featured
+      isFavorite
+      wheelchairAccessible
+      amenities
+      meals
+      diningStyles
+      dietaryTags
+      termsAndConditions
+      location {
+        lat
+        lng
+      }
+      faq {
+        question
+        answer
+      }
       address {
         line1
+        line2
         city
         state
         zip
+        neighborhood
+      }
+      shifts {
+        daysOfWeek
+        startTime
+        endTime
+        active
+      }
+      menu {
+        sections {
+          id
+          name
+          items {
+            id
+            name
+            description
+            priceCents
+            dietary
+            photoUrl
+          }
+        }
+      }
+    }
+  }
+`;
+
+export const RESTAURANT_REVIEWS = gql`
+  query RestaurantReviews($restaurantId: ID!, $limit: Int, $offset: Int) {
+    restaurantReviews(
+      restaurantId: $restaurantId
+      limit: $limit
+      offset: $offset
+    ) {
+      total
+      items {
+        id
+        rating
+        comment
+        createdAt
+        ownerReply
+        diner {
+          firstName
+          lastName
+        }
       }
     }
   }
@@ -70,10 +184,15 @@ export const MY_RESERVATIONS = gql`
       status
       slotStart
       partySize
+      hasReview
       restaurant {
         id
         name
         photos
+        address {
+          line1
+          city
+        }
       }
     }
   }
@@ -183,6 +302,29 @@ export const ME = gql`
       loyaltyTier
       loyaltyTierName
       referralCode
+    }
+  }
+`;
+
+export const FAVORITE_RESTAURANT = gql`
+  mutation FavoriteRestaurant($restaurantId: ID!) {
+    favoriteRestaurant(restaurantId: $restaurantId)
+  }
+`;
+
+export const UNFAVORITE_RESTAURANT = gql`
+  mutation UnfavoriteRestaurant($restaurantId: ID!) {
+    unfavoriteRestaurant(restaurantId: $restaurantId)
+  }
+`;
+
+export const CREATE_REVIEW = gql`
+  mutation CreateReview($input: ReviewInput!) {
+    createReview(input: $input) {
+      id
+      rating
+      comment
+      createdAt
     }
   }
 `;

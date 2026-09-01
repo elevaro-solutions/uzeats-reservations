@@ -44,23 +44,18 @@ export async function buildDiscoverySearchFilter(
   input: SearchRestaurantsInput,
 ): Promise<Record<string, unknown>> {
   const filter: Record<string, unknown> = { status: 'approved' };
-  const usingGeo = input.lat != null && input.lng != null;
 
   if (input.query) {
-    if (usingGeo) {
-      const q = input.query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      if (q) {
-        const pattern = new RegExp(q, 'i');
-        filter.$or = [
-          { name: pattern },
-          { cuisine: pattern },
-          { description: pattern },
-          { 'address.city': pattern },
-          { 'address.neighborhood': pattern },
-        ];
-      }
-    } else {
-      filter.$text = { $search: input.query };
+    const q = escapeRegex(input.query.trim());
+    if (q) {
+      const pattern = new RegExp(q, 'i');
+      filter.$or = [
+        { name: pattern },
+        { cuisine: pattern },
+        { description: pattern },
+        { 'address.city': pattern },
+        { 'address.neighborhood': pattern },
+      ];
     }
   }
 

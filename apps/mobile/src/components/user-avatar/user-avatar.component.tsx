@@ -7,6 +7,7 @@ export type UserAvatarProps = {
   firstName?: string;
   lastName?: string;
   size?: "sm" | "md" | "lg";
+  variant?: "primary" | "subtle";
 };
 
 function initials(firstName?: string, lastName?: string) {
@@ -19,14 +20,15 @@ export function UserAvatar({
   firstName,
   lastName,
   size = "md",
+  variant = "primary",
 }: UserAvatarProps) {
-  styles.useVariants({ size });
+  styles.useVariants({ size, variant });
 
   return (
     <View style={styles.avatar}>
       <Typography
         weight="semibold"
-        color="inverse"
+        color={variant === "subtle" ? "textPrimary" : "inverse"}
         size={size === "lg" ? "text-lg" : size === "sm" ? "text-xs" : "text-sm"}
       >
         {initials(firstName, lastName)}
@@ -40,8 +42,11 @@ const styles = StyleSheet.create(({ radius, colors }) => ({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radius.full,
-    backgroundColor: colors.primary,
     variants: {
+      variant: {
+        primary: { backgroundColor: colors.primary },
+        subtle: { backgroundColor: colors.secondarySubtle },
+      },
       size: {
         sm: { width: 32, height: 32 },
         md: { width: 40, height: 40 },

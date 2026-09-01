@@ -4,10 +4,91 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [0.34.0] — 2026-09-01
+## [0.39.0] — 2026-08-31
 
 ### Added
 
+- Shared `RemoteImage` component powered by `expo-image` (memory-disk cache) for restaurant photos across discovery, search, home, and profile
+- Shared `StarRatingDisplay` for review cards and summary
+- Restaurant profile extractions pieces: photo lightbox, hours accordion, loading/error/empty states, and `useCreateReview` hook
+
+### Changed
+
+- Restaurant profile book footer uses sticky shadow and larger CTA
+- Image call sites use stable `recyclingKey` values and theme spacing tokens
+
+## [0.38.0] — 2026-08-31
+
+### Added
+
+- Mobile restaurant profile section tabs (details, menu, reviews, photos) with hero, meta, and quick actions
+- Reviews tab: rating summary, review cards, write-review CTA, and add-review sheet with star rating input
+- GraphQL `CREATE_REVIEW` mutation and `hasReview` on `MY_RESERVATIONS` for review eligibility
+- Shared `StarRatingInput` component and subtle `UserAvatar` variant for review cards
+
+### Changed
+
+- Restaurant profile screen uses full-bleed hero, overlay header, and bottom sheet content layout
+- Multiline `Input` aligns text and placeholder to the top
+
+### Fixed
+
+- Write-review CTA stays visible after submitting a review due to stale reservation cache
+
+## [0.37.0] — 2026-08-28
+
+### Added
+
+- Shared discovery feature: cuisine chips, dining styles grid, location sheet/permission, and restaurant card exports used by Home and Search
+- Search hooks for data fetching, handlers, and filter draft lifecycle; filters sheet split into focused subcomponents
+
+### Changed
+
+- Home and Search import discovery UI from `@/features/discovery` instead of duplicated home/search modules
+- Search availability requires a reservation time; date/time/party chips appear when a time is selected
+- Filters sheet header copy clarifies facet-only clear ("Clear facets")
+
+### Fixed
+
+- Search mode returns to results when the query matches the committed search again
+- Top rated "See all" preserves the 4.5+ rating filter
+- Location permission deny in the filters sheet no longer clears live near-me state
+- Recent searches, browse shortcuts, and filter apply record the correct filter payload
+- Recent search restore replaces stale facets and applies saved city/state
+- Clearing the search field clears committed query; near me alone no longer skips browse
+- Stale suggestion rows while typing; filter draft no longer resets when the store updates underneath
+
+## [0.36.0] — 2026-08-28
+
+### Added
+
+- Mobile filters sheet: date/time picker, party size selector, and structured filter sections with draft/apply flow
+- DateTimeField component and `@react-native-community/datetimepicker` dependency
+- Reusable skeleton presets (chip rows, restaurant cards, meal tiles) with pulse animation
+
+### Changed
+
+- Search header shows filter summary; filter chips reflect draft vs applied state
+- Location hook can return coordinates without updating discovery store (`applyToStore`)
+
+## [0.35.0] — 2026-08-27
+
+### Added
+
+- Mobile location sheet: Google Places address search, near-me card, and soft location permission prompt
+- Navigation icon and shared `useDebouncedValue` hook for search and places autocomplete
+
+### Changed
+
+- Location sheet UI: neutral list rows, search input styling, and refactored permission/places helpers
+
+## [0.34.0] — 2026-08-27 / 2026-09-01
+
+### Added
+
+- Mobile search redesign: titled header, mixed idle discovery layouts, shortcut + active filter chips, and richer results empty state
+- Search discovery API: trending terms, recent history, suggestions, and search event recording
+- IconButton kit component and TrendingUp icon for search chips
 - Partner **My restaurants** page and multi-location owner overview (today’s covers, waitlist, ratings per location)
 - Admin bulk restaurant approve / reject / suspend and bulk delete
 - Reservations can include experiences and private dining spaces (price and ticket qty on the booking)
@@ -18,9 +99,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Selected filter chips use neutral filled pills; browse chips use softer corners and denser padding
+- Home and restaurant profile screens split into focused section components
 - Partner dashboard home overview rebuilt around the multi-location owner stats query
 - Public restaurant page supports booking with an attached experience
 - Docs access nav link added under admin; OTP send/store errors are clearer when email or Redis fails
+
+### Fixed
+
+- Restaurant name search matches prefixes/substrings (e.g. "sam" → Samarkand) instead of whole-word `$text` only
 
 ## [0.33.2] — 2026-08-26
 
@@ -38,6 +125,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Mobile home discovery feed: location-aware sections, dining styles, bookings carousel, and live restaurant search
+- Mobile restaurant search screen and restaurant profile route
+- Restaurant card favorites toggle (GraphQL) with hours and cuisine meta chips
 - Admin **Services** catalog (`/admin/services`) for billable platform add-ons with price, slug, and sort order
 - Manual invoices with package duration, plan/billing cycle, service line items, discounts, branded PDF, email, and public pay links (`/invoice/[token]`) with Stripe card collection
 - Admin restaurant detail (`/admin/restaurants/[id]`) with manage panels for menu, reservations, invoices, and package assignment (extends billing period)
@@ -47,6 +137,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Mobile restaurant cards use soft shadow elevation, photo overlays for rating/favorite, and tighter home section spacing
 - Admin restaurants list streamlined; partner dashboard home and menu editors expanded
 - Public restaurant menu section layout and styling refreshed
 - Stripe env docs clarify that invoice/deposit payments need the secret key on the API

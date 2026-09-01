@@ -13,6 +13,10 @@ import {
   reviewInputSchema,
   notificationPreferencesSchema,
   searchRestaurantsSchema,
+  discoveryIndexInputSchema,
+  searchSuggestionsInputSchema,
+  trendingSearchesInputSchema,
+  recordSearchInputSchema,
   accessRuleInputSchema,
   promotionInputSchema,
   inHouseWaitlistInputSchema,
@@ -79,6 +83,15 @@ import {
   buildDiscoverySearchFilter,
   filterByAvailability,
 } from '../services/discoverySearch.js';
+import {
+  clearRecentSearch,
+  clearRecentSearches,
+  getDiscoveryIndex,
+  getMyRecentSearches,
+  getTrendingSearches,
+  recordSearch,
+  searchRestaurantSuggestions,
+} from '../services/searchDiscovery.js';
 import { getAvailability, getTurnTimeMinutes } from '../services/availability.js';
 import { getFloorPlanOps, getBookableTables } from '../services/floorPlanOps.js';
 import { enrichWaitlistEntries, enrichWaitlistEntry } from '../services/waitlistEta.js';
@@ -665,114 +678,26 @@ export const resolvers = {
       };
     },
 
-    discoveryIndex: async () => {
-      const approved = { status: 'approved' };
-      const [cityRows, neighborhoodRows, cuisineRows, occasionRows] = await Promise.all([
-        Restaurant.aggregate([
-          { $match: approved },
-          {
-            $group: {
-              _id: { city: '$address.city', state: '$address.state' },
-              count: { $sum: 1 },
-              lng: { $avg: { $arrayElemAt: ['$location.coordinates', 0] } },
-              lat: { $avg: { $arrayElemAt: ['$location.coordinates', 1] } },
-            },
-          },
-          { $match: { count: { $gte: 1 } } },
-          { $sort: { count: -1 } },
-        ]),
-        Restaurant.aggregate([
-          { $match: { ...approved, 'address.neighborhood': { $exists: true, $ne: '' } } },
-          {
-            $group: {
-              _id: {
-                neighborhood: '$address.neighborhood',
-                city: '$address.city',
-                state: '$address.state',
-              },
-              count: { $sum: 1 },
-              lng: { $avg: { $arrayElemAt: ['$location.coordinates', 0] } },
-              lat: { $avg: { $arrayElemAt: ['$location.coordinates', 1] } },
-            },
-          },
-          { $match: { count: { $gte: 1 } } },
-          { $sort: { count: -1 } },
-        ]),
-        Restaurant.aggregate([
-          { $match: approved },
-          { $group: { _id: '$cuisine', count: { $sum: 1 } } },
-          { $match: { count: { $gte: 1 } } },
-          { $sort: { count: -1 } },
-        ]),
-        Restaurant.aggregate([
-          { $match: { ...approved, discoveryOccasions: { $exists: true, $not: { $size: 0 } } } },
-          { $unwind: '$discoveryOccasions' },
-          { $group: { _id: '$discoveryOccasions', count: { $sum: 1 } } },
-          { $match: { count: { $gte: 1 } } },
-          { $sort: { count: -1 } },
-        ]),
-      ]);
+    discoveryIndex: async (_: unknown, args: { input?: unknown }) => {
+      const input = args.input
+        ? discoveryIndexInputSchema.parse(args.input)
+        : undefined;
+      return getDiscoveryIndex(input);
+    },
 
-      const { citySlug, neighborhoodSlug, cuisineSlug, discoverySlug } = await import(
-        '@reservations/shared'
-      );
+    searchSuggestions: async (_: unknown, args: { input: unknown }) => {
+      const input = searchSuggestionsInputSchema.parse(args.input);
+      return searchRestaurantSuggestions(input);
+    },
 
-      return {
-        cities: cityRows.map(
-          (row: {
-            _id: { city: string; state: string };
-            count: number;
-            lat?: number;
-            lng?: number;
-          }) => ({
-            slug: citySlug(row._id.city, row._id.state),
-            label: `${row._id.city}, ${row._id.state}`,
-            count: row.count,
-            city: row._id.city,
-            state: row._id.state,
-            neighborhood: null,
-            lat: row.lat ?? null,
-            lng: row.lng ?? null,
-          }),
-        ),
-        neighborhoods: neighborhoodRows.map(
-          (row: {
-            _id: { neighborhood: string; city: string; state: string };
-            count: number;
-            lat?: number;
-            lng?: number;
-          }) => ({
-            slug: neighborhoodSlug(row._id.neighborhood, row._id.city, row._id.state),
-            label: `${row._id.neighborhood}, ${row._id.city}`,
-            count: row.count,
-            city: row._id.city,
-            state: row._id.state,
-            neighborhood: row._id.neighborhood,
-            lat: row.lat ?? null,
-            lng: row.lng ?? null,
-          }),
-        ),
-        cuisines: cuisineRows.map((row: { _id: string; count: number }) => ({
-          slug: cuisineSlug(row._id),
-          label: row._id,
-          count: row.count,
-          city: null,
-          state: null,
-          neighborhood: null,
-          lat: null,
-          lng: null,
-        })),
-        occasions: occasionRows.map((row: { _id: string; count: number }) => ({
-          slug: discoverySlug(row._id),
-          label: row._id,
-          count: row.count,
-          city: null,
-          state: null,
-          neighborhood: null,
-          lat: null,
-          lng: null,
-        })),
-      };
+    trendingSearches: async (_: unknown, args: { input: unknown }) => {
+      const input = trendingSearchesInputSchema.parse(args.input);
+      return getTrendingSearches(input);
+    },
+
+    myRecentSearches: async (_: unknown, args: { limit?: number }, ctx: GraphQLContext) => {
+      if (!ctx.user) return [];
+      return getMyRecentSearches(ctx.user._id.toString(), args.limit ?? 8);
     },
 
     availability: async (
@@ -2320,6 +2245,21 @@ export const resolvers = {
     unfavoriteRestaurant: async (_: unknown, args: { restaurantId: string }, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
       return setRestaurantBookmark(user._id.toString(), args.restaurantId, 'favorite', false);
+    },
+
+    recordSearch: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
+      const input = recordSearchInputSchema.parse(args.input);
+      return recordSearch(input, ctx.user?._id.toString());
+    },
+
+    clearRecentSearch: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      return clearRecentSearch(user._id.toString(), args.id);
+    },
+
+    clearRecentSearches: async (_: unknown, _args: unknown, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      return clearRecentSearches(user._id.toString());
     },
 
     createRestaurant: async (
