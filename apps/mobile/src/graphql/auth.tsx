@@ -24,6 +24,10 @@ import {
   REGISTER,
   REQUEST_PASSWORD_RESET,
 } from "./operations";
+import {
+  refreshSessionTokens,
+  TokenRefreshError,
+} from "./token-refresh.helpers";
 
 export type MobileUser = {
   id: string;
@@ -101,6 +105,29 @@ async function signOutGoogleBestEffort() {
   }
 }
 
+const ME_QUERY = `query Me {
+  me {
+    id email firstName lastName role loyaltyPoints
+    loyaltyCompletedVisits loyaltyTier loyaltyTierName referralCode
+  }
+}`;
+
+async function fetchMe(accessToken: string): Promise<MobileUser | null> {
+  const res = await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ query: ME_QUERY }),
+  });
+  if (!res.ok) {
+    throw new Error(`Me query failed with HTTP ${res.status}`);
+  }
+  const json = await res.json();
+  return (json.data?.me as MobileUser | null | undefined) ?? null;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const apolloClient = useApolloClient();
   const [user, setUser] = useState<MobileUser | null>(null);
@@ -114,42 +141,57 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     return subscribeSessionInvalidated(() => {
       setUser(null);
+      void apolloClient.clearStore().catch(() => undefined);
     });
-  }, []);
+  }, [apolloClient]);
 
   const refreshMe = useCallback(async () => {
-    const token = await SecureStore.getItemAsync("accessToken");
-    if (!token) {
+    const accessToken = await SecureStore.getItemAsync("accessToken");
+    const refreshToken = await SecureStore.getItemAsync("refreshToken");
+
+    if (!accessToken && !refreshToken) {
       setUser(null);
       setLoading(false);
       return;
     }
+
     try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          query: `query Me {
-            me {
-              id email firstName lastName role loyaltyPoints
-              loyaltyCompletedVisits loyaltyTier loyaltyTierName referralCode
-            }
-          }`,
-        }),
-      });
-      const json = await res.json();
-      const me = (json.data?.me as MobileUser | null | undefined) ?? null;
-      if (!me || json.errors?.length) {
+      let me: MobileUser | null = null;
+      if (accessToken) {
+        me = await fetchMe(accessToken);
+      }
+
+      if (!me) {
+        if (!refreshToken) {
+          await clearStoredTokens();
+          setUser(null);
+          return;
+        }
+
+        try {
+          const tokens = await refreshSessionTokens();
+          me = await fetchMe(tokens.accessToken);
+        } catch (error) {
+          if (error instanceof TokenRefreshError && error.reason === "network") {
+            // Keep tokens; session can restore when connectivity returns.
+            setUser(null);
+            return;
+          }
+          await clearStoredTokens();
+          setUser(null);
+          return;
+        }
+      }
+
+      if (!me) {
         await clearStoredTokens();
         setUser(null);
         return;
       }
+
       setUser(me);
     } catch {
-      await clearStoredTokens();
+      // Transient network / parse errors — do not wipe a still-valid refresh token.
       setUser(null);
     } finally {
       setLoading(false);
@@ -226,11 +268,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
-    const refreshToken = await SecureStore.getItemAsync("refreshToken");
+    const storedRefresh = await SecureStore.getItemAsync("refreshToken");
 
     try {
       await logoutMutation({
-        variables: { refreshToken: refreshToken ?? null },
+        variables: { refreshToken: storedRefresh ?? null },
       });
     } catch {
       // Best-effort server revoke; always clear local session.

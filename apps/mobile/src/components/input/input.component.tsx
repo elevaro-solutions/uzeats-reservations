@@ -13,6 +13,12 @@ import { FONT_FAMILY } from "@/lib/fonts";
 
 import { Typography } from "../typography";
 
+const MULTILINE_LINE_HEIGHT = {
+  sm: 20,
+  md: 22,
+  lg: 24,
+} as const;
+
 export type InputProps = TextInputProps & {
   label?: string;
   error?: boolean;
@@ -39,6 +45,7 @@ export function Input({
   disabled = false,
   editable = true,
   multiline = false,
+  numberOfLines,
   onChangeText,
   placeholderTextColor,
   textAlignVertical,
@@ -46,6 +53,12 @@ export function Input({
 }: InputProps) {
   const [focused, setFocused] = useState(false);
   styles.useVariants({ size, error, disabled, multiline });
+
+  const multilineLines = Math.max(numberOfLines ?? 3, 3);
+  const fieldPaddingY = size === "sm" ? 12 : size === "lg" ? 20 : 16;
+  const multilineMinHeight = multiline
+    ? MULTILINE_LINE_HEIGHT[size] * multilineLines + fieldPaddingY
+    : undefined;
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -62,14 +75,20 @@ export function Input({
       ) : null}
       <Pressable
         disabled={disabled}
-        style={[styles.field(focused), style as StyleProp<ViewStyle>]}
+        style={[
+          styles.field(focused),
+          multilineMinHeight ? { minHeight: multilineMinHeight } : null,
+          style as StyleProp<ViewStyle>,
+        ]}
         onPress={() => undefined}
       >
         {prefix}
         <TextInput
           {...props}
           multiline={multiline}
+          numberOfLines={multiline ? multilineLines : numberOfLines}
           editable={editable && !disabled}
+          accessibilityState={{ disabled }}
           onChangeText={onChangeText}
           onFocus={(e) => {
             setFocused(true);
@@ -80,12 +99,23 @@ export function Input({
             props.onBlur?.(e);
           }}
           placeholderTextColor={
-            placeholderTextColor ?? styles.placeholder.color
+            placeholderTextColor ??
+            (disabled
+              ? styles.placeholderDisabled.color
+              : styles.placeholder.color)
           }
           textAlignVertical={
             textAlignVertical ?? (multiline ? "top" : "center")
           }
-          style={styles.input}
+          style={[
+            styles.input,
+            multiline
+              ? {
+                  lineHeight: MULTILINE_LINE_HEIGHT[size],
+                  minHeight: MULTILINE_LINE_HEIGHT[size] * multilineLines,
+                }
+              : null,
+          ]}
         />
         {suffix}
       </Pressable>
@@ -109,21 +139,29 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
   placeholder: {
     color: colors.textMuted,
   },
+  placeholderDisabled: {
+    color: colors.slate7,
+  },
   input: {
     flex: 1,
     color: colors.textPrimary,
     fontFamily: FONT_FAMILY.regular,
     padding: 0,
     margin: 0,
+    includeFontPadding: false,
     variants: {
       multiline: {
         true: { alignSelf: "stretch" },
         false: {},
       },
       size: {
-        sm: { fontSize: 14, lineHeight: 20 },
-        md: { fontSize: 16, lineHeight: 22 },
-        lg: { fontSize: 18, lineHeight: 24 },
+        sm: { fontSize: 14 },
+        md: { fontSize: 16 },
+        lg: { fontSize: 18 },
+      },
+      disabled: {
+        true: { color: colors.slate7 },
+        false: {},
       },
     },
   },

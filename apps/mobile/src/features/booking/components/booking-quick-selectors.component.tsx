@@ -17,6 +17,7 @@ import { Button, Flex, IconButton, Typography } from "@/components";
 import { parseIsoDate, toIsoDate } from "@/lib/helpers/date-time.helpers";
 
 import { formatQuickDateLabel } from "../helpers/booking-date-label.helpers";
+import { formatGuestCount } from "../helpers/format-guest-count.helpers";
 import { PartySizeChipPicker } from "../../search/components/party-size-chip-picker.component";
 
 export type BookingQuickSelectorsProps = {
@@ -106,8 +107,8 @@ export function BookingQuickSelectors({
   }
 
   const dateLabel = formatQuickDateLabel(date);
-  const guestLabel = `${partySize} guest${partySize === 1 ? "" : "s"}`;
-  const doneLabel = `Done · ${draftPartySize} guest${draftPartySize === 1 ? "" : "s"}`;
+  const guestLabel = formatGuestCount(partySize);
+  const doneLabel = `Done · ${formatGuestCount(draftPartySize)}`;
 
   return (
     <>

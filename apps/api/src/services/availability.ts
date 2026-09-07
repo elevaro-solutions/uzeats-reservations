@@ -26,9 +26,12 @@ export async function getAvailability(params: {
   restaurantId: string;
   date: string; // YYYY-MM-DD
   partySize: number;
+  /** Injectable clock for tests; defaults to real now. */
+  now?: Date;
 }): Promise<AvailabilitySlot[]> {
   const restaurant = await Restaurant.findById(params.restaurantId);
   if (!restaurant || restaurant.status !== 'approved') return [];
+  const now = params.now ?? new Date();
 
   const day = new Date(`${params.date}T12:00:00`);
   const dayOfWeek = day.getDay();
@@ -92,8 +95,14 @@ export async function getAvailability(params: {
     const end = dateAt(params.date, shift.endTime);
 
     while (cursor < end) {
+      if (cursor.getTime() <= now.getTime()) {
+        cursor = new Date(cursor.getTime() + interval * 60_000);
+        continue;
+      }
+
+      // endTime is last seating window (exclusive): allow starts until end,
+      // even when turn time extends past the shift close.
       const slotEnd = new Date(cursor.getTime() + turn * 60_000);
-      if (slotEnd > end) break;
 
       const inBlackout = blackouts.some((b) => {
         if (b.allDay) return true;

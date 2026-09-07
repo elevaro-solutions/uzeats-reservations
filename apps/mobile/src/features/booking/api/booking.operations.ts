@@ -92,6 +92,19 @@ export const JOIN_WAITLIST = gql`
   }
 `;
 
+export const MY_WAITLIST = gql`
+  query MyWaitlist {
+    myWaitlist {
+      id
+      restaurantId
+      preferredDate
+      status
+      position
+      estimatedWaitMinutes
+    }
+  }
+`;
+
 export const MY_RESTAURANT_LOYALTY_BALANCE = gql`
   query MyRestaurantLoyaltyBalance($restaurantId: ID!) {
     myRestaurantLoyaltyBalance(restaurantId: $restaurantId)
@@ -260,7 +273,14 @@ export const BOOKING_RESTAURANT = gql`
       allowGuestTableSelection
       reservationsEnabled
       reservationsVisible
-      termsAndConditions
+      shifts {
+        id
+        name
+        daysOfWeek
+        startTime
+        endTime
+        active
+      }
       address {
         line1
         line2
@@ -268,6 +288,10 @@ export const BOOKING_RESTAURANT = gql`
         state
         zip
         neighborhood
+      }
+      tables {
+        maxCapacity
+        active
       }
     }
   }

@@ -1,4 +1,8 @@
+import { MAX_BOOKABLE_PARTY_SIZE } from "@/lib/party-size";
+
 import type { AvailabilitySlot } from "../types";
+
+export { MAX_BOOKABLE_PARTY_SIZE };
 
 export function isSlotStillAvailable(
   slots: AvailabilitySlot[],
@@ -12,7 +16,11 @@ export function canProceedToDetails(
   selectedSlot: string | null,
   partySize: number,
 ): boolean {
-  return Boolean(selectedSlot) && partySize >= 1 && partySize <= 50;
+  return (
+    Boolean(selectedSlot) &&
+    partySize >= 1 &&
+    partySize <= MAX_BOOKABLE_PARTY_SIZE
+  );
 }
 
 export function filterExperiencesForDate<

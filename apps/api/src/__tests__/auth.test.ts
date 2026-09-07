@@ -123,6 +123,124 @@ describe('Authentication (E2E)', () => {
       expect(data.refreshToken).toBeTruthy();
       expect(data.user.id).toBeTruthy();
     });
+
+    it('should allow reuse of the previous refresh token within the grace window', async () => {
+      const registered = await registerUser(agent, {
+        email: 'refresh-grace@test.com',
+        password: 'RefreshPass1!',
+        firstName: 'Grace',
+        lastName: 'Reuse',
+      });
+
+      const first = await graphqlRequest(
+        agent,
+        `mutation RefreshToken($refreshToken: String!) {
+          refreshToken(refreshToken: $refreshToken) {
+            accessToken
+            refreshToken
+          }
+        }`,
+        { refreshToken: registered.refreshToken },
+      );
+      expect(first.body.errors).toBeUndefined();
+      expect(first.body.data.refreshToken.refreshToken).toBeTruthy();
+
+      const reuse = await graphqlRequest(
+        agent,
+        `mutation RefreshToken($refreshToken: String!) {
+          refreshToken(refreshToken: $refreshToken) {
+            accessToken
+            refreshToken
+          }
+        }`,
+        { refreshToken: registered.refreshToken },
+      );
+      expect(reuse.body.errors).toBeUndefined();
+      expect(reuse.body.data.refreshToken.accessToken).toBeTruthy();
+      expect(reuse.body.data.refreshToken.refreshToken).toBeTruthy();
+    });
+
+    it('should reject a rotated refresh token after the grace window expires', async () => {
+      const { User } = await import('../models/User.js');
+      const { hashOpaqueToken } = await import('../services/auth.js');
+      const registered = await registerUser(agent, {
+        email: 'refresh-expired-grace@test.com',
+        password: 'RefreshPass1!',
+        firstName: 'Expired',
+        lastName: 'Grace',
+      });
+
+      const first = await graphqlRequest(
+        agent,
+        `mutation RefreshToken($refreshToken: String!) {
+          refreshToken(refreshToken: $refreshToken) {
+            accessToken
+            refreshToken
+          }
+        }`,
+        { refreshToken: registered.refreshToken },
+      );
+      expect(first.body.errors).toBeUndefined();
+
+      // Simulate grace expiry: clear grace and ensure the old hash is not stored.
+      const updated = await User.findByIdAndUpdate(
+        registered.user.id,
+        {
+          $unset: { refreshTokenGrace: 1 },
+          $pull: {
+            refreshTokens: {
+              $in: [
+                hashOpaqueToken(registered.refreshToken),
+                registered.refreshToken,
+              ],
+            },
+          },
+        },
+        { new: true },
+      );
+      expect(updated).toBeTruthy();
+
+      const reuse = await graphqlRequest(
+        agent,
+        `mutation RefreshToken($refreshToken: String!) {
+          refreshToken(refreshToken: $refreshToken) { accessToken }
+        }`,
+        { refreshToken: registered.refreshToken },
+      );
+      expect(reuse.body.errors).toBeDefined();
+      expect(reuse.body.errors[0].message).toMatch(/invalid refresh token/i);
+    });
+
+    it('should restore me after refresh when access token is no longer valid', async () => {
+      const registered = await registerUser(agent, {
+        email: 'refresh-me@test.com',
+        password: 'RefreshPass1!',
+        firstName: 'Restore',
+        lastName: 'Me',
+      });
+
+      const refreshed = await graphqlRequest(
+        agent,
+        `mutation RefreshToken($refreshToken: String!) {
+          refreshToken(refreshToken: $refreshToken) {
+            accessToken
+            refreshToken
+          }
+        }`,
+        { refreshToken: registered.refreshToken },
+      );
+      expect(refreshed.body.errors).toBeUndefined();
+      const accessToken = refreshed.body.data.refreshToken.accessToken as string;
+
+      const meRes = await graphqlRequest(
+        agent,
+        `query { me { id email } }`,
+        {},
+        accessToken,
+      );
+      expect(meRes.body.errors).toBeUndefined();
+      expect(meRes.body.data.me.id).toBe(registered.user.id);
+    });
   });
 
   describe('Logout', () => {

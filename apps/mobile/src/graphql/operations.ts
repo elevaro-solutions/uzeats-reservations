@@ -207,6 +207,7 @@ export const MY_RESERVATIONS = gql`
           line1
           city
           state
+          neighborhood
         }
       }
       tables {

@@ -2701,6 +2701,17 @@ export const resolvers = {
       if (restaurant.reservationsEnabled === false) {
         throw new Error('This restaurant is not accepting online reservations');
       }
+
+      const existing = await WaitlistEntry.findOne({
+        dinerId: user._id,
+        restaurantId: input.restaurantId,
+        preferredDate: input.preferredDate,
+        status: { $in: ['waiting', 'notified'] },
+      });
+      if (existing) {
+        throw new ValidationError('You are already on the waitlist for this date');
+      }
+
       const doc = await WaitlistEntry.create({
         ...input,
         dinerId: user._id,

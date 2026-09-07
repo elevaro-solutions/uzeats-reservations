@@ -59,6 +59,11 @@ export function verifyRefreshToken(token: string): JwtPayload {
   return jwt.verify(token, env.JWT_REFRESH_SECRET) as JwtPayload;
 }
 
+/** Max concurrent refresh sessions per user (devices / logins). */
+const MAX_REFRESH_TOKENS = 10;
+/** Window where a just-rotated refresh token may be presented again. */
+const REFRESH_REUSE_GRACE_MS = 30_000;
+
 export async function issueTokens(user: {
   _id: { toString(): string };
   role: UserRole;
@@ -71,9 +76,13 @@ export async function issueTokens(user: {
   };
   const accessToken = signAccessToken(payload);
   const refreshToken = signRefreshToken(payload);
-  await User.findByIdAndUpdate(user._id, {
-    $addToSet: { refreshTokens: hashOpaqueToken(refreshToken) },
-  });
+  const tokenHash = hashOpaqueToken(refreshToken);
+  const doc = await User.findById(user._id).select('refreshTokens');
+  const existing = (doc?.refreshTokens ?? []) as string[];
+  const next = [...existing.filter((t) => t !== tokenHash), tokenHash].slice(
+    -MAX_REFRESH_TOKENS,
+  );
+  await User.findByIdAndUpdate(user._id, { refreshTokens: next });
   return { accessToken, refreshToken };
 }
 
@@ -248,15 +257,33 @@ export async function verifyPhoneOtp(input: {
 export async function refreshTokens(refreshToken: string) {
   const payload = verifyRefreshToken(refreshToken);
   const user = await User.findById(payload.sub);
-  const tokenHash = hashOpaqueToken(refreshToken);
-  // Accept hashed tokens; also accept legacy plaintext entries until they rotate out.
-  const stored = user?.refreshTokens ?? [];
-  const hasToken = stored.includes(tokenHash) || stored.includes(refreshToken);
-  if (!user || !hasToken) {
+  if (!user) {
     throw new Error('Invalid refresh token');
   }
+  const tokenHash = hashOpaqueToken(refreshToken);
+  // Accept hashed tokens; also accept legacy plaintext entries until they rotate out.
+  const stored = user.refreshTokens ?? [];
+  const hasToken = stored.includes(tokenHash) || stored.includes(refreshToken);
+  const grace = user.refreshTokenGrace as
+    | { hash?: string; expiresAt?: Date | string }
+    | null
+    | undefined;
+  const graceExpiresAt = grace?.expiresAt ? new Date(grace.expiresAt).getTime() : 0;
+  const inGrace =
+    !!grace?.hash && grace.hash === tokenHash && graceExpiresAt > Date.now();
+
+  if (!hasToken && !inGrace) {
+    throw new Error('Invalid refresh token');
+  }
+
   await User.findByIdAndUpdate(user._id, {
     $pull: { refreshTokens: { $in: [tokenHash, refreshToken] } },
+    $set: {
+      refreshTokenGrace: {
+        hash: tokenHash,
+        expiresAt: new Date(Date.now() + REFRESH_REUSE_GRACE_MS),
+      },
+    },
   });
   return issueTokens(user);
 }
@@ -266,9 +293,13 @@ export async function logout(userId: string, refreshToken?: string) {
     const tokenHash = hashOpaqueToken(refreshToken);
     await User.findByIdAndUpdate(userId, {
       $pull: { refreshTokens: { $in: [tokenHash, refreshToken] } },
+      $unset: { refreshTokenGrace: 1 },
     });
   } else {
-    await User.findByIdAndUpdate(userId, { refreshTokens: [] });
+    await User.findByIdAndUpdate(userId, {
+      refreshTokens: [],
+      $unset: { refreshTokenGrace: 1 },
+    });
   }
   return true;
 }
@@ -389,6 +420,7 @@ export async function resetPassword(token: string, newPassword: string) {
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
   user.refreshTokens = [];
+  user.refreshTokenGrace = undefined;
   await user.save();
 
   return { success: true, message: 'Password has been reset successfully.' };

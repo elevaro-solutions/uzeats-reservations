@@ -625,7 +625,7 @@ async function seed() {
       await Shift.create({
         restaurantId: restaurant._id,
         name: 'Lunch',
-        daysOfWeek: [1, 2, 3, 4, 5],
+        daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
         startTime: '11:30',
         endTime: '14:30',
         slotIntervalMinutes: 15,

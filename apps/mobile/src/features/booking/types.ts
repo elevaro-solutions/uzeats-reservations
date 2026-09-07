@@ -87,7 +87,7 @@ export type RestaurantBookingInfo = {
   allowGuestTableSelection: boolean;
   reservationsEnabled?: boolean | null;
   reservationsVisible?: boolean | null;
-  termsAndConditions?: string | null;
+  shifts?: BookingShift[] | null;
   address?: {
     line1?: string | null;
     line2?: string | null;
@@ -96,36 +96,16 @@ export type RestaurantBookingInfo = {
     zip?: string | null;
     neighborhood?: string | null;
   } | null;
+  tables?: { maxCapacity: number; active: boolean }[] | null;
+};
+
+export type BookingShift = {
+  id: string;
+  name: string;
+  daysOfWeek: number[];
+  startTime: string;
+  endTime: string;
+  active: boolean;
 };
 
 export type BookingStep = "datetime" | "details";
-
-export type CreatedReservation = {
-  id: string;
-  status: string;
-  slotStart: string;
-  partySize: number;
-  depositAmountCents?: number | null;
-  depositStatus?: string | null;
-  restaurant?: {
-    id?: string;
-    name?: string;
-    slug?: string | null;
-    photos?: string[] | null;
-    averageRating?: number | null;
-    reviewCount?: number | null;
-    address?: {
-      line1?: string | null;
-      city?: string | null;
-      state?: string | null;
-    } | null;
-  } | null;
-  tables?: BookableTable[] | null;
-};
-
-export type DepositInfo = {
-  clientSecret: string;
-  reservationId: string;
-  amountCents: number;
-  paymentIntentId: string;
-};

@@ -4,6 +4,27 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.41.0] — 2026-09-07
+
+### Added
+
+- Mobile booking flow split into datetime/details steps with dedicated hooks for data, form state, pricing, submit, and waitlist
+- Waitlist empty state, success modal, and party-too-large handling in the booking flow
+- Refresh-token reuse grace period and capped refresh sessions on the API; shared JWT expiry parsing for auth cookies
+- Mobile token-refresh helpers with more reliable Apollo retry on expired sessions
+- Availability and JWT expiry unit tests; Lunch weekend seed coverage and repair script
+
+### Changed
+
+- Availability omits past slots and treats shift `endTime` as the last seating start
+- Restaurant profile loading skeleton mirrors the loaded layout (hero, sheet, actions, tabs, Book footer)
+- Home bookings carousel and party-size pickers refined for booking/home consistency
+
+### Fixed
+
+- Reject creating reservations for slots that have already started
+- Block duplicate waitlist entries for the same diner, restaurant, and date
+
 ## [0.40.0] — 2026-09-01
 
 ### Added

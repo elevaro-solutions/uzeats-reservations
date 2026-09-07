@@ -14,6 +14,10 @@ import { ReactNode } from "react";
 
 import { AuthProvider, clearStoredTokens, notifySessionInvalidated } from "./auth";
 import { API_URL } from "./config";
+import {
+  isUnauthenticatedGraphQLError,
+  refreshSessionTokens,
+} from "./token-refresh.helpers";
 
 export { API_URL };
 
@@ -29,34 +33,53 @@ const authLink = setContext(async (_, { headers }) => {
   };
 });
 
+type PendingRequest = {
+  resolve: () => void;
+  reject: (error: unknown) => void;
+};
+
 let isRefreshing = false;
-let pendingRequests: Array<() => void> = [];
+let pendingRequests: PendingRequest[] = [];
 
 function resolvePendingRequests() {
-  pendingRequests.forEach((cb) => cb());
+  pendingRequests.forEach(({ resolve }) => resolve());
+  pendingRequests = [];
+}
+
+function rejectPendingRequests(error: unknown) {
+  pendingRequests.forEach(({ reject }) => reject(error));
   pendingRequests = [];
 }
 
 const errorLink = onError(({ graphQLErrors, operation, forward }) => {
-  if (!graphQLErrors) return;
+  if (!graphQLErrors?.length) return;
 
-  const authError = graphQLErrors.find(
-    (e) => e.message === "Authentication required",
-  );
+  const authError = graphQLErrors.find(isUnauthenticatedGraphQLError);
   if (!authError) return;
 
   if (isRefreshing) {
     return new Observable((subscriber) => {
-      pendingRequests.push(async () => {
-        const token = await SecureStore.getItemAsync("accessToken");
-        const oldContext = operation.getContext();
-        operation.setContext({
-          headers: {
-            ...oldContext.headers,
-            authorization: token ? `Bearer ${token}` : "",
-          },
-        });
-        forward(operation).subscribe(subscriber);
+      pendingRequests.push({
+        resolve: () => {
+          void (async () => {
+            try {
+              const token = await SecureStore.getItemAsync("accessToken");
+              const oldContext = operation.getContext();
+              operation.setContext({
+                headers: {
+                  ...oldContext.headers,
+                  authorization: token ? `Bearer ${token}` : "",
+                },
+              });
+              forward(operation).subscribe(subscriber);
+            } catch (error) {
+              subscriber.error(error);
+            }
+          })();
+        },
+        reject: (error) => {
+          subscriber.error(error);
+        },
       });
     });
   }
@@ -66,30 +89,7 @@ const errorLink = onError(({ graphQLErrors, operation, forward }) => {
   return new Observable((subscriber) => {
     (async () => {
       try {
-        const refreshToken = await SecureStore.getItemAsync("refreshToken");
-        if (!refreshToken) throw new Error("No refresh token");
-
-        const res = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query: `mutation refreshToken($refreshToken: String!) {
-              refreshToken(refreshToken: $refreshToken) {
-                accessToken
-                refreshToken
-                user { id }
-              }
-            }`,
-            variables: { refreshToken },
-          }),
-        });
-
-        const result = await res.json();
-        const data = result?.data?.refreshToken;
-        if (!data?.accessToken) throw new Error("Refresh failed");
-
-        await SecureStore.setItemAsync("accessToken", data.accessToken);
-        await SecureStore.setItemAsync("refreshToken", data.refreshToken);
+        const tokens = await refreshSessionTokens();
         isRefreshing = false;
         resolvePendingRequests();
 
@@ -97,13 +97,13 @@ const errorLink = onError(({ graphQLErrors, operation, forward }) => {
         operation.setContext({
           headers: {
             ...oldContext.headers,
-            authorization: `Bearer ${data.accessToken}`,
+            authorization: `Bearer ${tokens.accessToken}`,
           },
         });
         forward(operation).subscribe(subscriber);
-      } catch {
+      } catch (error) {
         isRefreshing = false;
-        pendingRequests = [];
+        rejectPendingRequests(error);
         await clearStoredTokens();
         notifySessionInvalidated();
         subscriber.error(authError);
@@ -114,7 +114,14 @@ const errorLink = onError(({ graphQLErrors, operation, forward }) => {
 
 export const apolloClient = new ApolloClient({
   link: from([errorLink, authLink, httpLink]),
-  cache: new InMemoryCache(),
+  cache: new InMemoryCache({
+    typePolicies: {
+      // Address has no id; merge partial selections (e.g. SEARCH vs MY_RESERVATIONS)
+      Address: {
+        merge: true,
+      },
+    },
+  }),
 });
 
 const STRIPE_PUBLISHABLE_KEY =

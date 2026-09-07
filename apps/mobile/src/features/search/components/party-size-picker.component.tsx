@@ -2,10 +2,10 @@ import { Pressable } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { Chip, Flex, Typography } from "@/components";
+import { MAX_BOOKABLE_PARTY_SIZE } from "@/lib/party-size";
 
 const PRESET_SIZES = [1, 2, 3, 4, 5, 6, 7] as const;
 const MIN_PARTY = 1;
-const MAX_PARTY = 50;
 
 export type PartySizePickerProps = {
   value: number;
@@ -21,7 +21,7 @@ export function PartySizePicker({ value, onChange }: PartySizePickerProps) {
   }
 
   function increment() {
-    onChange(Math.min(MAX_PARTY, value + 1));
+    onChange(Math.min(MAX_BOOKABLE_PARTY_SIZE, value + 1));
   }
 
   function decrement() {

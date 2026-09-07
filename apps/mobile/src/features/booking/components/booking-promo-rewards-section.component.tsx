@@ -5,7 +5,7 @@ import { Chip, Flex, Input, Typography } from "@/components";
 import { LOYALTY } from "@reservations/shared";
 
 import { formatCents } from "../helpers/booking-pricing.helpers";
-import { BookingSectionCard } from "./booking-section-card.component";
+import { BookingSection } from "./booking-section.component";
 
 export type BookingPromoRewardsSectionProps = {
   promoCode: string;
@@ -54,7 +54,7 @@ export function BookingPromoRewardsSection({
     restaurantLoyaltyBalance >= restaurantMinRedeem;
 
   return (
-    <BookingSectionCard title="Promo & rewards">
+    <BookingSection title="Promo & rewards">
       <Input
         label="Promo code"
         value={promoCode}
@@ -105,7 +105,7 @@ export function BookingPromoRewardsSection({
           {formatCents(finalDepositCents)}
         </Typography>
       </View>
-    </BookingSectionCard>
+    </BookingSection>
   );
 }
 

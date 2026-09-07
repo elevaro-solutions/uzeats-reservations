@@ -390,6 +390,7 @@ function EditReservationModal({
             slots={slots}
             selectedSlot={slotStart}
             onSelectSlot={setSlotStart}
+            date={date}
           />
         )}
         <Flex direction="row" gap={1} flexWrap="wrap">

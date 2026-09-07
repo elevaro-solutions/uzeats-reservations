@@ -62,6 +62,11 @@ const userSchema = new Schema(
     phoneVerified: { type: Boolean, default: false },
     restaurantIds: [{ type: Schema.Types.ObjectId, ref: 'Restaurant' }],
     refreshTokens: [{ type: String }],
+    /** Allows one reuse of a just-rotated refresh token (lost-response recovery). */
+    refreshTokenGrace: {
+      hash: { type: String },
+      expiresAt: { type: Date },
+    },
     passwordResetToken: { type: String },
     passwordResetExpires: { type: Date },
   },

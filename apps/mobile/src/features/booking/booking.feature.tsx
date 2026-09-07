@@ -1,6 +1,5 @@
-import { useMutation, useQuery } from "@apollo/client";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { Alert, ScrollView, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,78 +13,28 @@ import {
   Loader,
   Typography,
 } from "@/components";
-import { MY_RESERVATIONS, useAuth } from "@/graphql";
-import {
-  getGraphQLErrorCode,
-  getGraphQLErrorMessage,
-  getValidationIssues,
-  toFieldErrors,
-} from "@/lib/graphql-errors";
+import { useAuth } from "@/graphql";
+import { tomorrowIsoDate } from "@/lib/helpers/date-time.helpers";
 import { useAppStore } from "@/store";
-import {
-  LOYALTY,
-  RESTAURANT_LOYALTY,
-} from "@reservations/shared";
 
-import {
-  BEST_PROMOTION,
-  BOOKABLE_TABLES,
-  BOOKING_AVAILABILITY,
-  BOOKING_RESTAURANT,
-  CONFIRM_DEPOSIT,
-  CREATE_RESERVATION,
-  EXPERIENCES,
-  JOIN_WAITLIST,
-  MY_RESTAURANT_LOYALTY_BALANCE,
-  PRIVATE_DINING_SPACES,
-  RESTAURANT_PACKAGES,
-  VALIDATE_GIFT_CARD,
-  VALIDATE_PROMOTION,
-} from "./api/booking.operations";
-import { BookingAddonsSection } from "./components/booking-addons-section.component";
 import { BookingConfirmSheet } from "./components/booking-confirm-sheet.component";
-import { BookingContactsCard } from "./components/booking-contacts-card.component";
-import { BookingPreferencesSection } from "./components/booking-preferences-section.component";
-import { BookingPromoRewardsSection } from "./components/booking-promo-rewards-section.component";
-import { BookingQuickSelectors } from "./components/booking-quick-selectors.component";
-import { BookingSectionCard } from "./components/booking-section-card.component";
-import { BookingTablePicker } from "./components/booking-table-picker.component";
-import { BookingTimeSections } from "./components/booking-time-sections.component";
-import { BookingWaitlistChips } from "./components/booking-waitlist-chips.component";
-import {
-  clearBookingDraft,
-  loadBookingDraft,
-  saveBookingDraft,
-} from "./helpers/booking-draft.helpers";
-import {
-  computeDepositBeforePromo,
-  computeFinalDepositCents,
-} from "./helpers/booking-pricing.helpers";
-import {
-  canProceedToDetails,
-  filterExperiencesForDate,
-  filterPackagesForParty,
-  filterPrivateSpacesForParty,
-  isSlotStillAvailable,
-} from "./helpers/booking-validation.helpers";
+import { BookingDatetimeStep } from "./components/booking-datetime-step.component";
+import { BookingDetailsStep } from "./components/booking-details-step.component";
+import { BookingWaitlistSuccessModal } from "./components/booking-waitlist-success-modal.component";
+import { saveBookingDraft } from "./helpers/booking-draft.helpers";
+import { canProceedToDetails } from "./helpers/booking-validation.helpers";
 import {
   clampBookingDate,
   findNearbyAvailableSlots,
-  tomorrowIsoDate,
 } from "./helpers/time-slots.helpers";
+import { useBookingData } from "./hooks/use-booking-data.hook";
 import {
-  extractPaymentIntentId,
-  useDepositPayment,
-} from "./hooks/use-deposit-payment.hook";
-import type {
-  AvailabilitySlot,
-  BookableExperience,
-  BookablePackage,
-  BookableTable,
-  BookingStep,
-  PrivateDiningSpace,
-  RestaurantBookingInfo,
-} from "./types";
+  useBookingFormState,
+  useBookingSelectionSync,
+} from "./hooks/use-booking-form-state.hook";
+import { useBookingPricing } from "./hooks/use-booking-pricing.hook";
+import { useBookingSubmit } from "./hooks/use-booking-submit.hook";
+import { useBookingWaitlist } from "./hooks/use-booking-waitlist.hook";
 
 export function BookingFeature() {
   const { id, resume } = useLocalSearchParams<{ id: string; resume?: string }>();
@@ -96,254 +45,170 @@ export function BookingFeature() {
   const discovery = useAppStore((s) => s.discovery);
   const setDiscovery = useAppStore((s) => s.setDiscovery);
 
-  const [step, setStep] = useState<BookingStep>("datetime");
-  const [date, setDate] = useState(() =>
-    clampBookingDate(discovery.date || tomorrowIsoDate()),
-  );
-  const [partySize, setPartySize] = useState(discovery.partySize || 2);
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
-  const [occasion, setOccasion] = useState("none");
-  const [notes, setNotes] = useState("");
-  const [promoCode, setPromoCode] = useState("");
-  const [giftCardCode, setGiftCardCode] = useState("");
-  const [redeemPoints, setRedeemPoints] = useState(0);
-  const [redeemRestaurantPoints, setRedeemRestaurantPoints] = useState(0);
-  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(
-    null,
-  );
-  const [selectedExperienceId, setSelectedExperienceId] = useState<
-    string | null
-  >(null);
-  const [selectedPrivateSpaceId, setSelectedPrivateSpaceId] = useState<
-    string | null
-  >(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [slotStaleMessage, setSlotStaleMessage] = useState<string | null>(null);
-  const [nearbyReferenceTime, setNearbyReferenceTime] = useState<string | null>(
-    null,
-  );
-  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const form = useBookingFormState({
+    restaurantId: id,
+    resume,
+    initialDate: discovery.date || tomorrowIsoDate(),
+    initialPartySize: discovery.partySize || 2,
+  });
 
-  const isSubmittingRef = useRef(false);
-  const draftRestoredRef = useRef(false);
-
-  const { paying, payDeposit, clearError } = useDepositPayment();
+  const userName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Guest";
 
   const {
-    data: restaurantData,
-    loading: restaurantLoading,
-    error: restaurantError,
-  } = useQuery<{ restaurant: RestaurantBookingInfo | null }>(
-    BOOKING_RESTAURANT,
-    {
-      variables: { id },
-      skip: !id,
-    },
-  );
-
-  const restaurant = restaurantData?.restaurant;
-
-  const {
-    data: availabilityData,
-    loading: availabilityLoading,
-    refetch: refetchAvailability,
-  } = useQuery<{ availability: AvailabilitySlot[] }>(BOOKING_AVAILABILITY, {
-    variables: { restaurantId: id, date, partySize },
-    skip: !id || !restaurant?.reservationsVisible,
-    fetchPolicy: "network-only",
+    restaurant,
+    restaurantLoading,
+    restaurantError,
+    slots,
+    availableCount,
+    availabilityLoading,
+    refetchAvailability,
+    tables,
+    tablesLoading,
+    packages,
+    experiences,
+    privateSpaces,
+    restaurantLoyaltyBalance,
+    maxBookablePartySize,
+    partyTooLarge,
+    isOnWaitlist,
+    refetchMyWaitlist,
+  } = useBookingData({
+    restaurantId: id,
+    date: form.date,
+    partySize: form.partySize,
+    selectedSlot: form.selectedSlot,
+    step: form.step,
+    userId: user?.id,
   });
 
-  const slots = availabilityData?.availability ?? [];
-  const availableCount = slots.filter((s) => s.available).length;
-
-  const { data: tablesData, loading: tablesLoading } = useQuery<{
-    bookableTables: BookableTable[];
-  }>(BOOKABLE_TABLES, {
-    variables: {
-      restaurantId: id,
-      slotStart: selectedSlot,
-      partySize,
-    },
-    skip:
-      !id ||
-      !selectedSlot ||
-      !restaurant?.allowGuestTableSelection ||
-      step !== "details",
-    fetchPolicy: "network-only",
+  useBookingSelectionSync({
+    availabilityLoading,
+    slots,
+    packages,
+    experiences,
+    privateSpaces,
+    tables,
+    selectedSlot: form.selectedSlot,
+    selectedTableId: form.selectedTableId,
+    selectedPackageId: form.selectedPackageId,
+    selectedExperienceId: form.selectedExperienceId,
+    selectedPrivateSpaceId: form.selectedPrivateSpaceId,
+    setSelectedSlot: form.setSelectedSlot,
+    setSelectedTableId: form.setSelectedTableId,
+    setSelectedPackageId: form.setSelectedPackageId,
+    setSelectedExperienceId: form.setSelectedExperienceId,
+    setSelectedPrivateSpaceId: form.setSelectedPrivateSpaceId,
+    setSlotStaleMessage: form.setSlotStaleMessage,
   });
 
-  const { data: packagesData } = useQuery<{
-    restaurantPackages: BookablePackage[];
-  }>(RESTAURANT_PACKAGES, {
-    variables: { restaurantId: id, activeOnly: true },
-    skip: !id || step !== "details",
-  });
-
-  const { data: experiencesData } = useQuery<{
-    experiences: { items: BookableExperience[] };
-  }>(EXPERIENCES, {
-    variables: { restaurantId: id, upcoming: true, limit: 20 },
-    skip: !id || step !== "details",
-  });
-
-  const { data: privateSpacesData } = useQuery<{
-    privateDiningSpaces: PrivateDiningSpace[];
-  }>(PRIVATE_DINING_SPACES, {
-    variables: { restaurantId: id },
-    skip: !id || step !== "details",
-  });
-
-  const { data: restaurantLoyaltyData } = useQuery<{
-    myRestaurantLoyaltyBalance: number;
-  }>(MY_RESTAURANT_LOYALTY_BALANCE, {
-    variables: { restaurantId: id },
-    skip: !id || !user || step !== "details",
-  });
-
-  const packages = useMemo(
-    () =>
-      filterPackagesForParty(packagesData?.restaurantPackages ?? [], partySize),
-    [packagesData, partySize],
-  );
-
-  const experiences = useMemo(
-    () =>
-      filterExperiencesForDate(
-        experiencesData?.experiences?.items ?? [],
-        date,
-      ),
-    [experiencesData, date],
-  );
-
-  const privateSpaces = useMemo(
-    () =>
-      filterPrivateSpacesForParty(
-        privateSpacesData?.privateDiningSpaces ?? [],
-        partySize,
-      ),
-    [privateSpacesData, partySize],
-  );
-
-  const selectedTable = tablesData?.bookableTables.find(
-    (t) => t.id === selectedTableId,
-  );
-
-  const selectedPackage = packages.find((p) => p.id === selectedPackageId);
+  const selectedTable = tables.find((t) => t.id === form.selectedTableId);
+  const selectedPackage = packages.find((p) => p.id === form.selectedPackageId);
   const selectedExperience = experiences.find(
-    (e) => e.id === selectedExperienceId,
+    (e) => e.id === form.selectedExperienceId,
   );
   const selectedPrivateSpace = privateSpaces.find(
-    (s) => s.id === selectedPrivateSpaceId,
+    (s) => s.id === form.selectedPrivateSpaceId,
   );
 
-  const restaurantMinRedeem =
-    restaurant?.loyaltyMinRedeemPoints ??
-    RESTAURANT_LOYALTY.DEFAULT_MIN_REDEEM_POINTS;
-  const restaurantLoyaltyBalance =
-    restaurantLoyaltyData?.myRestaurantLoyaltyBalance ?? 0;
-
-  const pricingInput = useMemo(
-    () => ({
-      restaurant: restaurant!,
-      partySize,
-      selectedTable,
-      selectedPackage,
-      selectedPrivateSpace,
-      selectedExperience,
-      redeemPoints,
-      redeemRestaurantPoints,
-      restaurantLoyaltyBalance,
-    }),
-    [
+  const { restaurantMinRedeem, finalDepositCents, activePromo, giftValidation } =
+    useBookingPricing({
+      restaurantId: id,
       restaurant,
-      partySize,
+      step: form.step,
+      partySize: form.partySize,
+      selectedSlot: form.selectedSlot,
+      promoCode: form.promoCode,
+      giftCardCode: form.giftCardCode,
+      redeemPoints: form.redeemPoints,
+      redeemRestaurantPoints: form.redeemRestaurantPoints,
+      restaurantLoyaltyBalance,
       selectedTable,
       selectedPackage,
       selectedPrivateSpace,
       selectedExperience,
-      redeemPoints,
-      redeemRestaurantPoints,
-      restaurantLoyaltyBalance,
-    ],
-  );
-
-  const depositBeforePromo = restaurant
-    ? computeDepositBeforePromo(pricingInput)
-    : 0;
-
-  const { data: promoValidationData } = useQuery(VALIDATE_PROMOTION, {
-    variables: {
-      restaurantId: id,
-      code: promoCode.trim().toUpperCase(),
-      slotStart: selectedSlot,
-      depositCents: depositBeforePromo,
-    },
-    skip:
-      !id ||
-      !promoCode.trim() ||
-      !selectedSlot ||
-      depositBeforePromo <= 0 ||
-      step !== "details",
-  });
-
-  const { data: bestPromoData } = useQuery(BEST_PROMOTION, {
-    variables: {
-      restaurantId: id,
-      slotStart: selectedSlot,
-      depositCents: depositBeforePromo,
-    },
-    skip:
-      !id ||
-      !!promoCode.trim() ||
-      !selectedSlot ||
-      depositBeforePromo <= 0 ||
-      step !== "details",
-  });
-
-  const promoValidation = (promoValidationData as { validatePromotion?: { valid: boolean; message?: string; discountCents: number } })?.validatePromotion;
-  const bestPromotion = (bestPromoData as { bestPromotion?: { valid: boolean; message?: string; discountCents: number } })?.bestPromotion;
-  const activePromo = promoCode.trim() ? promoValidation : bestPromotion;
-
-  const depositAfterPromo = Math.max(
-    0,
-    depositBeforePromo - (activePromo?.valid ? activePromo.discountCents : 0),
-  );
-
-  const { data: giftValidationData } = useQuery(VALIDATE_GIFT_CARD, {
-    variables: {
-      restaurantId: id,
-      code: giftCardCode.trim().toUpperCase(),
-      depositCents: depositAfterPromo,
-    },
-    skip:
-      !id ||
-      !giftCardCode.trim() ||
-      depositAfterPromo <= 0 ||
-      step !== "details",
-  });
-
-  const giftValidation = (giftValidationData as { validateGiftCard?: { valid: boolean; message?: string; discountCents: number } })?.validateGiftCard;
-
-  const finalDepositCents = restaurant
-    ? computeFinalDepositCents({
-        ...pricingInput,
-        activePromo: activePromo ?? null,
-        giftValidation: giftValidation ?? null,
-      })
-    : 0;
+    });
 
   const nearbySlots = useMemo(() => {
-    if (!nearbyReferenceTime) return [];
-    return findNearbyAvailableSlots(slots, nearbyReferenceTime);
-  }, [slots, nearbyReferenceTime]);
+    if (!form.nearbyReferenceTime) return [];
+    return findNearbyAvailableSlots(slots, form.nearbyReferenceTime);
+  }, [slots, form.nearbyReferenceTime]);
 
-  const [createReservation, { loading: creating }] =
-    useMutation(CREATE_RESERVATION);
-  const [confirmDeposit] = useMutation(CONFIRM_DEPOSIT);
-  const [joinWaitlist] = useMutation(JOIN_WAITLIST);
+  const persistDraft = useCallback(() => {
+    if (!id) return;
+    saveBookingDraft({
+      restaurantId: id,
+      date: form.date,
+      partySize: form.partySize,
+      selectedSlot: form.selectedSlot,
+      selectedTableId: form.selectedTableId,
+      occasion: form.occasion,
+      notes: form.notes,
+      promoCode: form.promoCode,
+      giftCardCode: form.giftCardCode,
+      redeemPoints: form.redeemPoints,
+      redeemRestaurantPoints: form.redeemRestaurantPoints,
+    });
+  }, [
+    id,
+    form.date,
+    form.partySize,
+    form.selectedSlot,
+    form.selectedTableId,
+    form.occasion,
+    form.notes,
+    form.promoCode,
+    form.giftCardCode,
+    form.redeemPoints,
+    form.redeemRestaurantPoints,
+  ]);
+
+  const {
+    confirmOpen,
+    setConfirmOpen,
+    submitError,
+    creating,
+    paying,
+    openConfirm,
+    submitBooking,
+  } = useBookingSubmit({
+    restaurantId: id,
+    restaurant,
+    user,
+    selectedSlot: form.selectedSlot,
+    partySize: form.partySize,
+    occasion: form.occasion,
+    notes: form.notes,
+    promoCode: form.promoCode,
+    giftCardCode: form.giftCardCode,
+    redeemPoints: form.redeemPoints,
+    redeemRestaurantPoints: form.redeemRestaurantPoints,
+    restaurantLoyaltyBalance,
+    restaurantMinRedeem,
+    selectedTableId: form.selectedTableId,
+    selectedPackageId: form.selectedPackageId,
+    selectedPrivateSpaceId: form.selectedPrivateSpaceId,
+    selectedExperienceId: form.selectedExperienceId,
+    termsAccepted: form.termsAccepted,
+    slots,
+    refetchAvailability,
+    persistDraft,
+    onSlotBecameUnavailable: form.onSlotBecameUnavailable,
+  });
+
+  const {
+    waitlistLoading,
+    waitlistSuccess,
+    dismissWaitlistSuccess,
+    onJoinWaitlist,
+  } = useBookingWaitlist({
+    restaurantId: id,
+    user,
+    partySize: form.partySize,
+    date: form.date,
+    persistDraft,
+    refetchMyWaitlist,
+  });
 
   useEffect(() => {
     const clamped = clampBookingDate(discovery.date || tomorrowIsoDate());
@@ -352,263 +217,17 @@ export function BookingFeature() {
     }
   }, [discovery.date, setDiscovery]);
 
-  useEffect(() => {
-    if (!id || draftRestoredRef.current || resume !== "1") return;
-    const draft = loadBookingDraft(id);
-    if (!draft) return;
-    draftRestoredRef.current = true;
-    setDate(clampBookingDate(draft.date));
-    setPartySize(draft.partySize);
-    if (draft.selectedSlot) setSelectedSlot(draft.selectedSlot);
-    setOccasion(draft.occasion);
-    setNotes(draft.notes);
-    setPromoCode(draft.promoCode);
-    setGiftCardCode(draft.giftCardCode);
-    setRedeemPoints(draft.redeemPoints);
-    setRedeemRestaurantPoints(draft.redeemRestaurantPoints);
-    if (draft.selectedTableId) setSelectedTableId(draft.selectedTableId);
-    if (draft.selectedSlot) setStep("details");
-  }, [id, resume]);
-
-  useEffect(() => {
-    if (availabilityLoading || !selectedSlot) return;
-    if (!isSlotStillAvailable(slots, selectedSlot)) {
-      setSelectedSlot(null);
-      setSelectedTableId(null);
-      setSlotStaleMessage("That time is no longer available — pick another slot.");
-    }
-  }, [availabilityLoading, slots, selectedSlot]);
-
-  useEffect(() => {
-    setSelectedTableId(null);
-  }, [selectedSlot, partySize]);
-
-  const persistDraft = useCallback(() => {
-    if (!id) return;
-    saveBookingDraft({
-      restaurantId: id,
-      date,
-      partySize,
-      selectedSlot,
-      selectedTableId,
-      occasion,
-      notes,
-      promoCode,
-      giftCardCode,
-      redeemPoints,
-      redeemRestaurantPoints,
-    });
-  }, [
-    id,
-    date,
-    partySize,
-    selectedSlot,
-    selectedTableId,
-    occasion,
-    notes,
-    promoCode,
-    giftCardCode,
-    redeemPoints,
-    redeemRestaurantPoints,
-  ]);
-
-  function onSelectDate(iso: string) {
-    setDate(iso);
-    setSelectedSlot(null);
-    setNearbyReferenceTime(null);
-    setSlotStaleMessage(null);
-  }
-
-  function onPartySizeChange(size: number) {
-    setPartySize(size);
-    setSelectedSlot(null);
-    setNearbyReferenceTime(null);
-    setSlotStaleMessage(null);
-  }
-
   function goBack() {
-    if (step === "details") {
-      setStep("datetime");
-      return;
-    }
+    if (form.goBackFromDetails()) return;
     router.back();
   }
 
   function onContinueFromDateTime() {
-    if (!canProceedToDetails(selectedSlot, partySize)) {
+    if (!canProceedToDetails(form.selectedSlot, form.partySize)) {
       Alert.alert("Select a time", "Please choose an available time slot.");
       return;
     }
-    setStep("details");
-  }
-
-  function openConfirm() {
-    if (!user) {
-      persistDraft();
-      router.push({
-        pathname: "/sign-in",
-        params: { next: `/restaurant/${id}/book?resume=1` },
-      });
-      return;
-    }
-    if (!selectedSlot || !isSlotStillAvailable(slots, selectedSlot)) {
-      Alert.alert(
-        "Time unavailable",
-        "That time is no longer available. Please pick another slot.",
-      );
-      setStep("datetime");
-      setSelectedSlot(null);
-      return;
-    }
-    setSubmitError(null);
-    setConfirmOpen(true);
-  }
-
-  async function submitBooking() {
-    if (!user || !selectedSlot || !restaurant || !id) return;
-    if (isSubmittingRef.current) return;
-    if (!termsAccepted) return;
-
-    isSubmittingRef.current = true;
-    setSubmitError(null);
-
-    try {
-      const { data: freshAvail } = await refetchAvailability();
-      const freshSlots = freshAvail?.availability ?? [];
-      if (!isSlotStillAvailable(freshSlots, selectedSlot)) {
-        setConfirmOpen(false);
-        setStep("datetime");
-        setSelectedSlot(null);
-        setSubmitError("That time is no longer available — pick another slot.");
-        return;
-      }
-
-      const canRedeemRestaurant =
-        restaurant.loyaltyEnabled &&
-        restaurantLoyaltyBalance >= restaurantMinRedeem;
-
-      const { data: result } = await createReservation({
-        variables: {
-          input: {
-            restaurantId: id,
-            partySize,
-            slotStart: selectedSlot,
-            occasion,
-            guestNotes: notes.trim() || undefined,
-            ...(redeemPoints >= LOYALTY.MIN_REDEEM_POINTS ? { redeemPoints } : {}),
-            ...(canRedeemRestaurant &&
-            redeemRestaurantPoints >= restaurantMinRedeem
-              ? { redeemRestaurantPoints }
-              : {}),
-            ...(promoCode.trim()
-              ? { promoCode: promoCode.trim().toUpperCase() }
-              : {}),
-            ...(giftCardCode.trim()
-              ? { giftCardCode: giftCardCode.trim().toUpperCase() }
-              : {}),
-            ...(selectedTableId ? { tableId: selectedTableId } : {}),
-            ...(selectedPackageId ? { packageId: selectedPackageId } : {}),
-            ...(selectedPrivateSpaceId
-              ? { privateDiningSpaceId: selectedPrivateSpaceId }
-              : {}),
-            ...(selectedExperienceId
-              ? { experienceId: selectedExperienceId }
-              : {}),
-          },
-        },
-        refetchQueries: [{ query: MY_RESERVATIONS }],
-      });
-
-      const payload = result?.createReservation;
-      const reservation = payload?.reservation;
-      if (!reservation?.id) {
-        throw new Error("Booking failed");
-      }
-
-      clearBookingDraft(id);
-      setConfirmOpen(false);
-
-      if (payload.clientSecret) {
-        clearError();
-        const paid = await payDeposit({
-          clientSecret: payload.clientSecret,
-          merchantName: restaurant.name,
-        });
-        if (!paid) {
-          setSubmitError("Payment was not completed. You can pay from your reservations.");
-          router.push({
-            pathname: "/reservations/[id]",
-            params: { id: reservation.id },
-          });
-          return;
-        }
-
-        const paymentIntentId = extractPaymentIntentId(payload.clientSecret);
-        try {
-          await confirmDeposit({ variables: { paymentIntentId } });
-        } catch {
-          // webhook may reconcile
-        }
-      }
-
-      router.replace({
-        pathname: "/booking/confirmation",
-        params: { reservationId: reservation.id },
-      });
-    } catch (err) {
-      const issues = getValidationIssues(err);
-      if (issues.length > 0) {
-        const fieldErrors = toFieldErrors(issues);
-        setSubmitError(
-          Object.values(fieldErrors)[0] ??
-            "Please fix the highlighted fields and try again.",
-        );
-        return;
-      }
-      const code = getGraphQLErrorCode(err);
-      if (code === "CONFLICT") {
-        setConfirmOpen(false);
-        setStep("datetime");
-        setSelectedSlot(null);
-      }
-      setSubmitError(getGraphQLErrorMessage(err, "Booking failed"));
-    } finally {
-      isSubmittingRef.current = false;
-    }
-  }
-
-  async function onJoinWaitlist() {
-    if (!user) {
-      persistDraft();
-      router.push({
-        pathname: "/sign-in",
-        params: { next: `/restaurant/${id}/book?resume=1` },
-      });
-      return;
-    }
-    if (!id) return;
-    setWaitlistLoading(true);
-    try {
-      const { data } = await joinWaitlist({
-        variables: {
-          input: {
-            restaurantId: id,
-            partySize,
-            preferredDate: date,
-          },
-        },
-      });
-      const entry = data?.joinWaitlist;
-      const eta =
-        entry?.position != null && entry?.estimatedWaitMinutes != null
-          ? ` You are #${entry.position} · ~${entry.estimatedWaitMinutes} min wait.`
-          : "";
-      Alert.alert("Waitlist", `Added to waitlist.${eta}`);
-    } catch (err) {
-      Alert.alert("Waitlist", getGraphQLErrorMessage(err, "Could not join waitlist"));
-    } finally {
-      setWaitlistLoading(false);
-    }
+    form.onContinueFromDateTime();
   }
 
   if (restaurantLoading && !restaurant) {
@@ -645,10 +264,11 @@ export function BookingFeature() {
     );
   }
 
-  const userName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Guest";
   const continueLabel = restaurant.allowGuestTableSelection
     ? "Choose table"
     : "Continue";
+
+  const hasJoinedWaitlist = isOnWaitlist || waitlistSuccess != null;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -679,124 +299,75 @@ export function BookingFeature() {
         ]}
         keyboardShouldPersistTaps="handled"
       >
-        {slotStaleMessage ? (
+        {form.slotStaleMessage ? (
           <InlineAlert
             tone="warning"
-            message={slotStaleMessage}
-            onDismiss={() => setSlotStaleMessage(null)}
+            message={form.slotStaleMessage}
+            onDismiss={() => form.setSlotStaleMessage(null)}
             style={styles.alert}
           />
         ) : null}
 
-        {step === "datetime" ? (
-          <Flex gap={2} style={styles.stepContent}>
-            <BookingQuickSelectors
-              date={date}
-              partySize={partySize}
-              onDateChange={onSelectDate}
-              onPartySizeChange={onPartySizeChange}
-            />
-
-            <BookingTimeSections
-              slots={slots}
-              selectedSlot={selectedSlot}
-              loading={availabilityLoading}
-              showEmpty={!availabilityLoading}
-              onSelectSlot={(time) => {
-                setSelectedSlot(time);
-                setSlotStaleMessage(null);
-                setNearbyReferenceTime(null);
-              }}
-              onUnavailablePress={(time) => setNearbyReferenceTime(time)}
-            />
-
-            {!availabilityLoading &&
-            (nearbySlots.length > 0 || availableCount === 0) ? (
-              <BookingSectionCard>
-                <BookingWaitlistChips
-                  nearbySlots={nearbySlots}
-                  onSelectSlot={(time) => {
-                    setSelectedSlot(time);
-                    setNearbyReferenceTime(null);
-                  }}
-                  onJoinWaitlist={onJoinWaitlist}
-                  waitlistLoading={waitlistLoading}
-                  showWaitlist={availableCount === 0}
-                />
-              </BookingSectionCard>
-            ) : null}
-          </Flex>
+        {form.step === "datetime" ? (
+          <BookingDatetimeStep
+            date={form.date}
+            partySize={form.partySize}
+            slots={slots}
+            selectedSlot={form.selectedSlot}
+            availabilityLoading={availabilityLoading}
+            nearbySlots={nearbySlots}
+            availableCount={availableCount}
+            waitlistLoading={waitlistLoading}
+            isOnWaitlist={hasJoinedWaitlist}
+            shifts={restaurant.shifts}
+            partyTooLarge={partyTooLarge}
+            maxBookablePartySize={maxBookablePartySize}
+            restaurantPhone={restaurant.phone}
+            onDateChange={form.onSelectDate}
+            onPartySizeChange={form.onPartySizeChange}
+            onSelectSlot={form.onSelectSlot}
+            onUnavailablePress={form.setNearbyReferenceTime}
+            onJoinWaitlist={onJoinWaitlist}
+            onSelectNearbySlot={form.onSelectNearbySlot}
+          />
         ) : (
-          <Flex gap={2} style={styles.stepContent}>
-            {restaurant.allowGuestTableSelection ? (
-              <BookingSectionCard title="Your table">
-                <BookingTablePicker
-                  tables={tablesData?.bookableTables ?? []}
-                  selectedTableId={selectedTableId}
-                  onSelectTable={setSelectedTableId}
-                  loading={tablesLoading}
-                />
-              </BookingSectionCard>
-            ) : (
-              <BookingSectionCard title="Your table">
-                <InlineAlert
-                  tone="info"
-                  message="Your table will be assigned automatically."
-                />
-              </BookingSectionCard>
-            )}
-
-            {packages.length > 0 ||
-            experiences.length > 0 ||
-            privateSpaces.length > 0 ? (
-              <BookingSectionCard title="Add-ons">
-                <BookingAddonsSection
-                  packages={packages}
-                  experiences={experiences}
-                  privateSpaces={privateSpaces}
-                  selectedPackageId={selectedPackageId}
-                  selectedExperienceId={selectedExperienceId}
-                  selectedPrivateSpaceId={selectedPrivateSpaceId}
-                  onSelectPackage={setSelectedPackageId}
-                  onSelectExperience={setSelectedExperienceId}
-                  onSelectPrivateSpace={setSelectedPrivateSpaceId}
-                />
-              </BookingSectionCard>
-            ) : null}
-
-            <BookingPreferencesSection
-              occasion={occasion}
-              notes={notes}
-              onOccasionChange={setOccasion}
-              onNotesChange={setNotes}
-            />
-
-            <BookingPromoRewardsSection
-              promoCode={promoCode}
-              giftCardCode={giftCardCode}
-              redeemPoints={redeemPoints}
-              redeemRestaurantPoints={redeemRestaurantPoints}
-              platformPoints={user?.loyaltyPoints ?? 0}
-              restaurantLoyaltyBalance={restaurantLoyaltyBalance}
-              restaurantLoyaltyEnabled={!!restaurant.loyaltyEnabled}
-              restaurantMinRedeem={restaurantMinRedeem}
-              finalDepositCents={finalDepositCents}
-              promoMessage={activePromo?.message}
-              promoValid={activePromo?.valid}
-              giftMessage={giftValidation?.message}
-              giftValid={giftValidation?.valid}
-              onPromoCodeChange={setPromoCode}
-              onGiftCardCodeChange={setGiftCardCode}
-              onRedeemPointsChange={setRedeemPoints}
-              onRedeemRestaurantPointsChange={setRedeemRestaurantPoints}
-            />
-
-            <BookingContactsCard
-              userName={userName}
-              userEmail={user?.email ?? ""}
-              isSignedIn={!!user}
-            />
-          </Flex>
+          <BookingDetailsStep
+            allowGuestTableSelection={restaurant.allowGuestTableSelection}
+            tables={tables}
+            selectedTableId={form.selectedTableId}
+            tablesLoading={tablesLoading}
+            onSelectTable={form.setSelectedTableId}
+            packages={packages}
+            experiences={experiences}
+            privateSpaces={privateSpaces}
+            selectedPackageId={form.selectedPackageId}
+            selectedExperienceId={form.selectedExperienceId}
+            selectedPrivateSpaceId={form.selectedPrivateSpaceId}
+            onSelectPackage={form.setSelectedPackageId}
+            onSelectExperience={form.setSelectedExperienceId}
+            onSelectPrivateSpace={form.setSelectedPrivateSpaceId}
+            occasion={form.occasion}
+            notes={form.notes}
+            onOccasionChange={form.setOccasion}
+            onNotesChange={form.setNotes}
+            promoCode={form.promoCode}
+            giftCardCode={form.giftCardCode}
+            redeemPoints={form.redeemPoints}
+            redeemRestaurantPoints={form.redeemRestaurantPoints}
+            platformPoints={user?.loyaltyPoints ?? 0}
+            restaurantLoyaltyBalance={restaurantLoyaltyBalance}
+            restaurantLoyaltyEnabled={!!restaurant.loyaltyEnabled}
+            restaurantMinRedeem={restaurantMinRedeem}
+            finalDepositCents={finalDepositCents}
+            promoMessage={activePromo?.message}
+            promoValid={activePromo?.valid ?? undefined}
+            giftMessage={giftValidation?.message}
+            giftValid={giftValidation?.valid ?? undefined}
+            onPromoCodeChange={form.setPromoCode}
+            onGiftCardCodeChange={form.setGiftCardCode}
+            onRedeemPointsChange={form.setRedeemPoints}
+            onRedeemRestaurantPointsChange={form.setRedeemRestaurantPoints}
+          />
         )}
       </ScrollView>
 
@@ -806,11 +377,11 @@ export function BookingFeature() {
           { paddingBottom: Math.max(insets.bottom, theme.space(2)) },
         ]}
       >
-        {step === "datetime" ? (
+        {form.step === "datetime" ? (
           <Button
             fullWidth
             size="xl"
-            disabled={!canProceedToDetails(selectedSlot, partySize)}
+            disabled={!canProceedToDetails(form.selectedSlot, form.partySize)}
             onPress={onContinueFromDateTime}
           >
             {continueLabel}
@@ -828,15 +399,22 @@ export function BookingFeature() {
         onConfirm={submitBooking}
         loading={creating || paying}
         userName={userName}
-        userEmail={user?.email ?? ""}
-        slotStart={selectedSlot ?? ""}
-        partySize={partySize}
-        occasion={occasion}
+        slotStart={form.selectedSlot ?? ""}
+        partySize={form.partySize}
+        occasion={form.occasion}
+        notes={form.notes}
         tableName={selectedTable?.name}
         depositCents={finalDepositCents}
-        termsAccepted={termsAccepted}
-        onTermsAcceptedChange={setTermsAccepted}
+        termsAccepted={form.termsAccepted}
+        onTermsAcceptedChange={form.setTermsAccepted}
         errorMessage={submitError}
+      />
+
+      <BookingWaitlistSuccessModal
+        visible={waitlistSuccess != null}
+        onClose={dismissWaitlistSuccess}
+        position={waitlistSuccess?.position}
+        estimatedWaitMinutes={waitlistSuccess?.estimatedWaitMinutes}
       />
     </View>
   );
@@ -853,15 +431,15 @@ const styles = StyleSheet.create(({ space, colors, shadows, radius }) => ({
   },
   topBar: {
     paddingHorizontal: space(2),
-    paddingBottom: space(2),
+    paddingBottom: space(2.5),
   },
   backBtn: {
-    width: 40,
-    height: 40,
+    width: space(5),
+    height: space(5),
     borderRadius: radius.full,
   },
   sideSlot: {
-    width: 40,
+    width: space(5),
   },
   titleBlock: {
     flex: 1,
@@ -870,15 +448,11 @@ const styles = StyleSheet.create(({ space, colors, shadows, radius }) => ({
   },
   scroll: {
     flexGrow: 1,
-    paddingTop: space(1.5),
-  },
-  stepContent: {
-    flexGrow: 1,
-    paddingBottom: space(1),
+    paddingTop: space(2),
   },
   alert: {
     marginHorizontal: space(2),
-    marginBottom: space(1),
+    marginBottom: space(1.5),
   },
   footer: {
     position: "absolute",
@@ -886,7 +460,7 @@ const styles = StyleSheet.create(({ space, colors, shadows, radius }) => ({
     right: 0,
     bottom: 0,
     paddingHorizontal: space(2),
-    paddingTop: space(1.5),
+    paddingTop: space(2),
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.background,

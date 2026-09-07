@@ -161,7 +161,7 @@ export function HomeFeature() {
           />
 
           {upcomingBookings.length > 0 ? (
-            <Flex gap={1.5}>
+            <Flex gap={1} style={styles.bookingsSection}>
               <SectionHeader
                 title="My bookings"
                 onActionPress={() => router.push("/reservations")}
@@ -210,5 +210,9 @@ const styles = StyleSheet.create(({ space, colors }) => ({
   content: {
     paddingBottom: space(5),
     backgroundColor: colors.background,
+  },
+  bookingsSection: {
+    // Tighten against the parent Flex gap before Dining Styles
+    marginBottom: -space(1.5),
   },
 }));

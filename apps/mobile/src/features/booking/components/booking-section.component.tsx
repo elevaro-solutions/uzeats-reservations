@@ -4,21 +4,21 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { Typography } from "@/components";
 
-export type BookingSectionCardProps = {
+export type BookingSectionProps = {
   title?: string;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
 };
 
-export function BookingSectionCard({
+export function BookingSection({
   title,
   children,
   style,
-}: BookingSectionCardProps) {
+}: BookingSectionProps) {
   return (
-    <View style={[styles.card, style]}>
+    <View style={[styles.section, style]}>
       {title ? (
-        <Typography weight="semibold" size="text-md">
+        <Typography size="text-xs" weight="medium" color="secondary">
           {title}
         </Typography>
       ) : null}
@@ -27,14 +27,9 @@ export function BookingSectionCard({
   );
 }
 
-const styles = StyleSheet.create(({ space, radius, colors }) => ({
-  card: {
+const styles = StyleSheet.create(({ space }) => ({
+  section: {
     marginHorizontal: space(2),
-    padding: space(2),
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-    gap: space(1.5),
+    gap: space(2),
   },
 }));

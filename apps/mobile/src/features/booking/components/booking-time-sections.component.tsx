@@ -1,19 +1,13 @@
 import { Pressable, View, useWindowDimensions } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { Flex, InlineAlert, Loader, Typography } from "@/components";
+import { Flex, Loader, Typography } from "@/components";
 
 import {
   formatSlotTime,
-  groupSlotsByTimeOfDay,
+  groupSlotsByShift,
 } from "../helpers/time-slots.helpers";
-import type { AvailabilitySlot } from "../types";
-
-const GROUP_LABELS = {
-  morning: "Morning",
-  day: "Day",
-  evening: "Evening",
-} as const;
+import type { AvailabilitySlot, BookingShift } from "../types";
 
 const GRID_COLUMNS = 3;
 
@@ -24,6 +18,10 @@ export type BookingTimeSectionsProps = {
   onUnavailablePress?: (time: string) => void;
   loading?: boolean;
   showEmpty?: boolean;
+  /** When provided, sections use real shift names (Lunch / Dinner). */
+  shifts?: BookingShift[] | null;
+  /** YYYY-MM-DD — required with shifts for day-of-week matching. */
+  date?: string;
 };
 
 export function BookingTimeSections({
@@ -33,19 +31,24 @@ export function BookingTimeSections({
   onUnavailablePress,
   loading = false,
   showEmpty = false,
+  shifts,
+  date,
 }: BookingTimeSectionsProps) {
   const { theme } = useUnistyles();
   const { width: screenWidth } = useWindowDimensions();
-  const grouped = groupSlotsByTimeOfDay(slots);
+
+  const groups = groupSlotsByShift(
+    slots,
+    shifts ?? [],
+    date ?? new Date().toISOString().slice(0, 10),
+  );
 
   const horizontalPadding = theme.space(2) * 2;
   const gap = theme.space(1);
   const chipWidth =
     (screenWidth - horizontalPadding - gap * (GRID_COLUMNS - 1)) / GRID_COLUMNS;
 
-  const hasVisibleGroups = (
-    Object.keys(GROUP_LABELS) as Array<keyof typeof GROUP_LABELS>
-  ).some((group) => grouped[group].length > 0);
+  const hasVisibleGroups = groups.length > 0;
 
   return (
     <Flex gap={1.5} style={styles.wrapper}>
@@ -61,44 +64,32 @@ export function BookingTimeSections({
           >
             <Loader />
           </Flex>
-        ) : showEmpty && !hasVisibleGroups ? (
-          <InlineAlert
-            tone="info"
-            message="No times available for this date — try another day or join the waitlist."
-          />
-        ) : (
+        ) : showEmpty && !hasVisibleGroups ? null : (
           <Flex gap={2.5}>
-            {(
-              Object.keys(GROUP_LABELS) as Array<keyof typeof GROUP_LABELS>
-            ).map((group) => {
-              const groupSlots = grouped[group];
-              if (groupSlots.length === 0) return null;
-
-              return (
-                <View key={group}>
-                  <Typography
-                    weight="medium"
-                    size="text-xs"
-                    color="secondary"
-                    style={styles.groupTitle}
-                  >
-                    {GROUP_LABELS[group]}
-                  </Typography>
-                  <Flex direction="row" gap={1} flexWrap="wrap">
-                    {groupSlots.map((slot) => (
-                      <TimeSlotChip
-                        key={slot.time}
-                        slot={slot}
-                        selected={selectedSlot === slot.time}
-                        width={chipWidth}
-                        onSelect={onSelectSlot}
-                        onUnavailablePress={onUnavailablePress}
-                      />
-                    ))}
-                  </Flex>
-                </View>
-              );
-            })}
+            {groups.map((group) => (
+              <View key={group.id}>
+                <Typography
+                  weight="medium"
+                  size="text-xs"
+                  color="secondary"
+                  style={styles.groupTitle}
+                >
+                  {group.name}
+                </Typography>
+                <Flex direction="row" gap={1} flexWrap="wrap">
+                  {group.slots.map((slot) => (
+                    <TimeSlotChip
+                      key={slot.time}
+                      slot={slot}
+                      selected={selectedSlot === slot.time}
+                      width={chipWidth}
+                      onSelect={onSelectSlot}
+                      onUnavailablePress={onUnavailablePress}
+                    />
+                  ))}
+                </Flex>
+              </View>
+            ))}
           </Flex>
         )}
       </View>

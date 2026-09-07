@@ -170,6 +170,10 @@ export async function createReservation(input: {
     throw new ValidationError('This restaurant is not accepting online reservations');
   }
 
+  if (input.slotStart.getTime() <= Date.now()) {
+    throw new ValidationError('That time is no longer available — pick a future slot');
+  }
+
   if (input.tableId && !restaurant.allowGuestTableSelection) {
     throw new ValidationError('Table selection is not enabled for this restaurant');
   }

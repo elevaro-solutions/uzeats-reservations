@@ -27,3 +27,4 @@ export { BriefcaseIcon } from "./icons/briefcase.icon";
 export { PartyPopperIcon } from "./icons/party-popper.icon";
 export { SparklesIcon } from "./icons/sparkles.icon";
 export { CheckIcon } from "./icons/check.icon";
+export { ArmchairIcon } from "./icons/armchair.icon";

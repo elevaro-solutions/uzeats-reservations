@@ -26,11 +26,20 @@ export type InlineAlertProps = {
 
 const TONE_KEYS: Record<
   InlineAlertTone,
-  { accent: "info" | "success" | "warning" | "error"; subtle: "infoSubtle" | "successSubtle" | "warningSubtle" | "errorSubtle" }
+  {
+    /** Darker step for icon/text contrast on the subtle fill (esp. warning amber). */
+    accent: "info" | "success" | "amber11" | "error";
+    subtle:
+      | "infoSubtle"
+      | "successSubtle"
+      | "warningSubtle"
+      | "errorSubtle";
+  }
 > = {
   info: { accent: "info", subtle: "infoSubtle" },
   success: { accent: "success", subtle: "successSubtle" },
-  warning: { accent: "warning", subtle: "warningSubtle" },
+  // amber10 (warning) on amber3 is nearly invisible; amber11 reads clearly
+  warning: { accent: "amber11", subtle: "warningSubtle" },
   error: { accent: "error", subtle: "errorSubtle" },
 };
 

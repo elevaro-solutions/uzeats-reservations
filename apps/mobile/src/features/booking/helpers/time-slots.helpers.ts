@@ -1,15 +1,20 @@
-import { toIsoDate } from "@/lib/helpers/date-time.helpers";
+import {
+  formatSlotDateTime,
+  parseIsoDate,
+  toIsoDate,
+  todayIsoDate,
+} from "@/lib/helpers/date-time.helpers";
 
-import type { AvailabilitySlot } from "../types";
+import type { AvailabilitySlot, BookingShift } from "../types";
+
+export { todayIsoDate, tomorrowIsoDate } from "@/lib/helpers/date-time.helpers";
 
 export const BOOKING_MAX_DAYS_AHEAD = 90;
 
-export type TimeOfDayGroup = "morning" | "day" | "evening";
-
-export type GroupedSlots = {
-  morning: AvailabilitySlot[];
-  day: AvailabilitySlot[];
-  evening: AvailabilitySlot[];
+export type ShiftSlotGroup = {
+  id: string;
+  name: string;
+  slots: AvailabilitySlot[];
 };
 
 function getSlotMinutes(time: string): number {
@@ -17,46 +22,80 @@ function getSlotMinutes(time: string): number {
   return d.getHours() * 60 + d.getMinutes();
 }
 
-function timeOfDayGroup(time: string): TimeOfDayGroup {
-  const mins = getSlotMinutes(time);
-  if (mins < 12 * 60) return "morning";
-  if (mins < 17 * 60) return "day";
-  return "evening";
+function hmToMinutes(hm: string): number {
+  const [h, m] = hm.split(":").map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
 }
 
-export function groupSlotsByTimeOfDay(slots: AvailabilitySlot[]): GroupedSlots {
-  const grouped: GroupedSlots = { morning: [], day: [], evening: [] };
+/**
+ * Group availability slots under the restaurant's real shifts for `dateIso`
+ * (YYYY-MM-DD). Slot start must fall in [startTime, endTime).
+ */
+export function groupSlotsByShift(
+  slots: AvailabilitySlot[],
+  shifts: BookingShift[],
+  dateIso: string,
+): ShiftSlotGroup[] {
+  const day = parseIsoDate(dateIso) ?? new Date(`${dateIso}T12:00:00`);
+  const dayOfWeek = day.getDay();
+
+  const dayShifts = shifts
+    .filter(
+      (s) =>
+        s.active !== false &&
+        Array.isArray(s.daysOfWeek) &&
+        s.daysOfWeek.includes(dayOfWeek),
+    )
+    .slice()
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+
+  if (dayShifts.length === 0) {
+    return slots.length > 0
+      ? [{ id: "available", name: "Available", slots: [...slots].sort((a, b) => a.time.localeCompare(b.time)) }]
+      : [];
+  }
+
+  const groups: ShiftSlotGroup[] = dayShifts.map((s) => ({
+    id: s.id,
+    name: s.name,
+    slots: [],
+  }));
+  const unmatched: AvailabilitySlot[] = [];
+
   for (const slot of slots) {
-    grouped[timeOfDayGroup(slot.time)].push(slot);
+    const mins = getSlotMinutes(slot.time);
+    const matchIndex = dayShifts.findIndex((s) => {
+      const start = hmToMinutes(s.startTime);
+      const end = hmToMinutes(s.endTime);
+      return mins >= start && mins < end;
+    });
+    if (matchIndex >= 0) {
+      groups[matchIndex]!.slots.push(slot);
+    } else {
+      unmatched.push(slot);
+    }
   }
-  for (const key of Object.keys(grouped) as TimeOfDayGroup[]) {
-    grouped[key].sort((a, b) => a.time.localeCompare(b.time));
+
+  const result = groups
+    .map((g) => ({
+      ...g,
+      slots: g.slots.sort((a, b) => a.time.localeCompare(b.time)),
+    }))
+    .filter((g) => g.slots.length > 0);
+
+  if (unmatched.length > 0) {
+    result.push({
+      id: "other",
+      name: "Other",
+      slots: unmatched.sort((a, b) => a.time.localeCompare(b.time)),
+    });
   }
-  return grouped;
+
+  return result;
 }
 
 export function formatSlotTime(time: string): string {
-  return new Date(time).toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
-export function formatSlotTime24(time: string): string {
-  const date = new Date(time);
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${hours}:${minutes}`;
-}
-
-export function getOperatingHoursLabel(slots: AvailabilitySlot[]): string | null {
-  if (slots.length === 0) return null;
-
-  const sorted = [...slots].sort((a, b) => a.time.localeCompare(b.time));
-  const start = formatSlotTime24(sorted[0]!.time);
-  const end = formatSlotTime24(sorted[sorted.length - 1]!.time);
-
-  return `Hours: ${start} – ${end}`;
+  return formatSlotDateTime(time);
 }
 
 export function formatSlotDateLong(time: string): string {
@@ -84,8 +123,15 @@ export function findNearbyAvailableSlots(
     .map(({ slot }) => slot);
 }
 
-export function todayIsoDate(): string {
-  return toIsoDate(new Date());
+/** Keep only slots whose start is strictly after `now`. */
+export function filterFutureSlots(
+  slots: AvailabilitySlot[],
+  now: number = Date.now(),
+): AvailabilitySlot[] {
+  return slots.filter((s) => {
+    const t = new Date(s.time).getTime();
+    return Number.isFinite(t) && t > now;
+  });
 }
 
 export function maxBookableIsoDate(): string {
@@ -99,12 +145,6 @@ export function clampBookingDate(iso: string): string {
   if (iso < today) return today;
   if (iso > max) return max;
   return iso;
-}
-
-export function isDateBookable(iso: string): boolean {
-  const today = todayIsoDate();
-  const max = maxBookableIsoDate();
-  return iso >= today && iso <= max;
 }
 
 export function getBookableDaysInMonth(
@@ -133,21 +173,9 @@ export function buildDateRange(startIso: string, count: number): string[] {
   for (let i = 0; i < count; i++) {
     const date = new Date(start);
     date.setDate(start.getDate() + i);
-    const yy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, "0");
-    const dd = String(date.getDate()).padStart(2, "0");
-    dates.push(`${yy}-${mm}-${dd}`);
+    dates.push(toIsoDate(date));
   }
   return dates;
-}
-
-export function tomorrowIsoDate(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
 }
 
 export function shortReservationRef(id: string): string {

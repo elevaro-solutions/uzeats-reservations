@@ -1,11 +1,15 @@
 import type { Request, Response } from 'express';
 import { parseCookie, stringifySetCookie } from 'cookie';
 import { env } from '../config/env.js';
+import { parseJwtExpiresToSeconds } from '../lib/jwtExpires.js';
 
 export type BrowserAuthApp = 'web' | 'dashboard' | 'docs';
 
-const ACCESS_MAX_AGE_SEC = 15 * 60;
-const REFRESH_MAX_AGE_SEC = 7 * 24 * 60 * 60;
+const ACCESS_MAX_AGE_SEC = parseJwtExpiresToSeconds(env.JWT_ACCESS_EXPIRES, 15 * 60);
+const REFRESH_MAX_AGE_SEC = parseJwtExpiresToSeconds(
+  env.JWT_REFRESH_EXPIRES,
+  7 * 24 * 60 * 60,
+);
 const IMPERSONATION_MAX_AGE_SEC = 60 * 60;
 
 function cookieNames(app: BrowserAuthApp) {

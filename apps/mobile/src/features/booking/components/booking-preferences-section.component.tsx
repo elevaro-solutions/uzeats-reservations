@@ -1,5 +1,5 @@
 import { ComponentType } from "react";
-import { Pressable } from "react-native";
+import { Pressable, ScrollView } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import {
@@ -18,7 +18,9 @@ import {
   type Occasion,
 } from "@reservations/shared";
 
-import { BookingSectionCard } from "./booking-section-card.component";
+import { BookingSection } from "./booking-section.component";
+
+const OCCASION_ROWS = splitIntoRows(BOOKABLE_OCCASIONS, 2);
 
 const OCCASION_ICONS: Partial<
   Record<Occasion, ComponentType<IconPropsType>>
@@ -32,9 +34,9 @@ const OCCASION_ICONS: Partial<
 };
 
 export type BookingPreferencesSectionProps = {
-  occasion: string;
+  occasion: Occasion;
   notes: string;
-  onOccasionChange: (value: string) => void;
+  onOccasionChange: (value: Occasion) => void;
   onNotesChange: (value: string) => void;
 };
 
@@ -45,31 +47,58 @@ export function BookingPreferencesSection({
   onNotesChange,
 }: BookingPreferencesSectionProps) {
   return (
-    <BookingSectionCard title="Booking preferences">
+    <BookingSection title="Booking preferences">
       <Input
         label="Comment for restaurant"
         value={notes}
         onChangeText={onNotesChange}
         placeholder="Allergies, seating preferences…"
         multiline
-        numberOfLines={3}
+        numberOfLines={4}
         maxLength={500}
-        containerStyle={styles.notesInput}
-        style={styles.notesField}
       />
 
-      <Flex direction="row" gap={1} flexWrap="wrap">
-        {BOOKABLE_OCCASIONS.map((value) => (
-          <OccasionChip
-            key={value}
-            value={value}
-            selected={occasion === value}
-            onPress={() => onOccasionChange(value)}
-          />
-        ))}
+      <Flex gap={1.25}>
+        <Typography size="text-xs" weight="medium" color="secondary">
+          Occasion
+        </Typography>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.occasionScrollView}
+          contentContainerStyle={styles.occasionScrollContent}
+        >
+          <Flex gap={1.25} alignItems="flex-start">
+            {OCCASION_ROWS.map((row) => (
+              <Flex
+                key={row.join("-")}
+                direction="row"
+                gap={1.25}
+                alignItems="flex-start"
+              >
+                {row.map((value) => (
+                  <OccasionChip
+                    key={value}
+                    value={value}
+                    selected={occasion === value}
+                    onPress={() => onOccasionChange(value)}
+                  />
+                ))}
+              </Flex>
+            ))}
+          </Flex>
+        </ScrollView>
       </Flex>
-    </BookingSectionCard>
+    </BookingSection>
   );
+}
+
+function splitIntoRows<T>(items: readonly T[], rowCount: number): T[][] {
+  const rows: T[][] = Array.from({ length: rowCount }, () => []);
+  items.forEach((item, index) => {
+    rows[index % rowCount].push(item);
+  });
+  return rows;
 }
 
 function OccasionChip({
@@ -84,25 +113,28 @@ function OccasionChip({
   const { theme } = useUnistyles();
   const Icon = OCCASION_ICONS[value];
   const label = OCCASION_LABELS[value];
+  const accentColor = selected
+    ? theme.colors.white
+    : theme.colors.textPrimary;
 
   return (
     <Pressable
       onPress={onPress}
-      style={[
+      style={({ pressed }) => [
         styles.occasionChip,
-        selected && {
-          borderColor: theme.colors.primary,
-          borderWidth: 2,
-        },
+        selected && styles.occasionChipSelected,
+        pressed && styles.occasionChipPressed,
       ]}
       accessibilityRole="button"
       accessibilityState={{ selected }}
     >
       <Flex direction="row" alignItems="center" gap={0.5}>
-        {Icon ? (
-          <Icon size={16} color={theme.colors.textPrimary} />
-        ) : null}
-        <Typography size="text-sm" weight={selected ? "semibold" : "medium"}>
+        {Icon ? <Icon size={16} color={accentColor} /> : null}
+        <Typography
+          size="text-sm"
+          weight="semibold"
+          color={selected ? "inverse" : "textPrimary"}
+        >
           {label}
         </Typography>
       </Flex>
@@ -111,25 +143,28 @@ function OccasionChip({
 }
 
 const styles = StyleSheet.create(({ space, radius, colors }) => ({
-  notesInput: {
-    gap: space(0.75),
+  occasionScrollView: {
+    marginHorizontal: -space(2),
   },
-  notesField: {
-    borderWidth: 0,
-    borderBottomWidth: 1,
-    borderRadius: 0,
-    borderColor: colors.border,
-    paddingHorizontal: 0,
-    paddingVertical: space(0.75),
-    minHeight: space(5),
-    backgroundColor: colors.background,
+  occasionScrollContent: {
+    gap: space(1),
+    paddingHorizontal: space(2),
   },
   occasionChip: {
+    alignSelf: "flex-start",
+    flexShrink: 0,
     paddingVertical: space(0.75),
     paddingHorizontal: space(1.5),
     borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
+    borderWidth: 1.5,
+    borderColor: colors.slate3,
+    backgroundColor: colors.slate1,
+  },
+  occasionChipSelected: {
+    borderColor: colors.secondary,
+    backgroundColor: colors.secondary,
+  },
+  occasionChipPressed: {
+    opacity: 0.85,
   },
 }));

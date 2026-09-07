@@ -9,14 +9,14 @@ import {
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { Typography } from "@/components";
+import { MAX_BOOKABLE_PARTY_SIZE } from "@/lib/party-size";
 
 const MIN_PARTY = 1;
-const MAX_PARTY = 50;
 const ROW_HEIGHT = 44;
 const VISIBLE_ROWS = 5;
 
 const PARTY_VALUES = Array.from(
-  { length: MAX_PARTY - MIN_PARTY + 1 },
+  { length: MAX_BOOKABLE_PARTY_SIZE - MIN_PARTY + 1 },
   (_, index) => MIN_PARTY + index,
 );
 

@@ -35,12 +35,29 @@ export function toIsoDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+export function todayIsoDate(): string {
+  return toIsoDate(new Date());
+}
+
+export function tomorrowIsoDate(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return toIsoDate(d);
+}
+
 export function formatDisplayDate(iso: string): string {
   const date = parseIsoDate(iso);
   if (!date) return iso;
   const weekday = WEEKDAY[date.getDay()];
   const month = MONTH[date.getMonth()];
   return `${weekday}, ${month} ${date.getDate()}`;
+}
+
+/** Today / Tomorrow when applicable, otherwise short weekday+date. */
+export function formatRelativeDayLabel(iso: string): string {
+  if (iso === todayIsoDate()) return "Today";
+  if (iso === tomorrowIsoDate()) return "Tomorrow";
+  return formatDisplayDate(iso);
 }
 
 export function parseTime24(time: string): { hours: number; minutes: number } | null {
@@ -63,6 +80,14 @@ export function formatDisplayTime(time?: string): string {
   const hour12 = hours % 12 || 12;
   if (minutes === 0) return `${hour12}:00 ${period}`;
   return `${hour12}:${String(minutes).padStart(2, "0")} ${period}`;
+}
+
+/** Locale time from an ISO datetime string (e.g. reservation slotStart). */
+export function formatSlotDateTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 export function timeToDate(time: string): Date {
