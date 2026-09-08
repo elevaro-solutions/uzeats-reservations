@@ -29,27 +29,30 @@ import {
   assertCanEditUser,
   canManageBilling,
   canCreateRestaurant,
-} from '@reservations/shared';
-import { assertCanAssignRole } from '../services/roleAccess.js';
-import { submitContactForm } from '../services/contactForm.js';
+} from "@reservations/shared";
+import { assertCanAssignRole } from "../services/roleAccess.js";
+import { submitContactForm } from "../services/contactForm.js";
 import {
   checkDocsAccessEmail,
   getDocsAccessSession,
   requestDocsAccess,
   requestDocsAccessOtp,
   verifyDocsAccessOtp,
-} from '../services/docsAccess.js';
-import { sendRestaurantInquiry } from '../services/restaurantInquiry.js';
+} from "../services/docsAccess.js";
+import { sendRestaurantInquiry } from "../services/restaurantInquiry.js";
 import {
   isRestaurantBookmarked,
   listBookmarkedRestaurants,
   setRestaurantBookmark,
-} from '../services/restaurantBookmarks.js';
-import { getBlogPostBySlug, listPublishedBlogPosts } from '../services/blogPosts.js';
+} from "../services/restaurantBookmarks.js";
+import {
+  getBlogPostBySlug,
+  listPublishedBlogPosts,
+} from "../services/blogPosts.js";
 import {
   getDiscoveryTaxonomyBySlug,
   listPublicDiscoveryTaxonomies,
-} from '../services/discoveryTaxonomy.js';
+} from "../services/discoveryTaxonomy.js";
 import {
   registerWithEmail,
   loginWithEmail,
@@ -62,7 +65,7 @@ import {
   resetPassword,
   adminCreatePasswordReset,
   hashOpaqueToken,
-} from '../services/auth.js';
+} from "../services/auth.js";
 import {
   authPayloadTokens,
   beginImpersonationCookies,
@@ -71,18 +74,21 @@ import {
   getRefreshTokenFromRequest,
   resolveBrowserAuthApp,
   setAuthCookies,
-} from '../services/authCookies.js';
-import { registerRestaurantPartner, isRestaurantNameAvailable } from '../services/partnerRegister.js';
+} from "../services/authCookies.js";
+import {
+  registerRestaurantPartner,
+  isRestaurantNameAvailable,
+} from "../services/partnerRegister.js";
 import {
   buildAdminRestaurantFilter,
   buildOwnerRestaurantFilter,
-} from '../services/restaurantFilters.js';
-import { buildOwnerOverview } from '../services/ownerOverview.js';
+} from "../services/restaurantFilters.js";
+import { buildOwnerOverview } from "../services/ownerOverview.js";
 import {
   applyGeoToFilter,
   buildDiscoverySearchFilter,
   filterByAvailability,
-} from '../services/discoverySearch.js';
+} from "../services/discoverySearch.js";
 import {
   clearRecentSearch,
   clearRecentSearches,
@@ -91,11 +97,20 @@ import {
   getTrendingSearches,
   recordSearch,
   searchRestaurantSuggestions,
-} from '../services/searchDiscovery.js';
-import { getAvailability, getTurnTimeMinutes } from '../services/availability.js';
-import { getBookingWindow } from '../services/accessRules.js';
-import { getFloorPlanOps, getBookableTables } from '../services/floorPlanOps.js';
-import { enrichWaitlistEntries, enrichWaitlistEntry } from '../services/waitlistEta.js';
+} from "../services/searchDiscovery.js";
+import {
+  getAvailability,
+  getTurnTimeMinutes,
+} from "../services/availability.js";
+import { getBookingWindow } from "../services/accessRules.js";
+import {
+  getFloorPlanOps,
+  getBookableTables,
+} from "../services/floorPlanOps.js";
+import {
+  enrichWaitlistEntries,
+  enrichWaitlistEntry,
+} from "../services/waitlistEta.js";
 import {
   createReservation,
   createOwnerReservation,
@@ -104,30 +119,37 @@ import {
   updateReservationStatus,
   confirmDepositPayment,
   seatReservationAtTable,
-} from '../services/reservations.js';
-import { paginateQuery, normalizePagination } from '../lib/pagination.js';
-import { getLoyaltyHistory, awardReviewPoints } from '../services/loyalty.js';
+} from "../services/reservations.js";
+import { paginateQuery, normalizePagination } from "../lib/pagination.js";
+import { getLoyaltyHistory, awardReviewPoints } from "../services/loyalty.js";
 import {
   getMyRestaurantLoyaltyBalances,
   getRestaurantLoyaltyBalance,
   getRestaurantLoyaltyHistory,
-} from '../services/restaurantLoyalty.js';
-import { getAdminLoyaltyStats, getAdminReferralLeaders } from '../services/loyaltyStats.js';
-import { getRestaurantLoyaltyStats } from '../services/restaurantLoyaltyStats.js';
+} from "../services/restaurantLoyalty.js";
+import {
+  getAdminLoyaltyStats,
+  getAdminReferralLeaders,
+} from "../services/loyaltyStats.js";
+import { getRestaurantLoyaltyStats } from "../services/restaurantLoyaltyStats.js";
 import {
   resolvePromotionDiscount,
   findBestAutoPromotion,
-} from '../services/promotionCodes.js';
-import { getPromotionStats } from '../services/promotionStats.js';
+} from "../services/promotionCodes.js";
+import { getPromotionStats } from "../services/promotionStats.js";
 import {
   issueGiftCard,
   redeemGiftCardBalance,
   resolveGiftCardDiscount,
   setGiftCardActive,
-} from '../services/giftCards.js';
-import { GiftCard } from '../models/GiftCard.js';
-import { ensureUserReferralCode } from '../lib/referralCode.js';
-import { assertAllowedUploadContentType, buildUploadKey, createUploadUrl } from '../services/spaces.js';
+} from "../services/giftCards.js";
+import { GiftCard } from "../models/GiftCard.js";
+import { ensureUserReferralCode } from "../lib/referralCode.js";
+import {
+  assertAllowedUploadContentType,
+  buildUploadKey,
+  createUploadUrl,
+} from "../services/spaces.js";
 import {
   User,
   Restaurant,
@@ -159,8 +181,8 @@ import {
   BoostCampaign,
   Integration,
   Notification,
-} from '../models/index.js';
-import crypto from 'node:crypto';
+} from "../models/index.js";
+import crypto from "node:crypto";
 import {
   cancelStripeSubscription,
   createDepositIntent,
@@ -168,14 +190,14 @@ import {
   retrievePaymentIntentClientSecret,
   assertPaymentIntentAuthorized,
   getOpenSubscriptionPayment,
-} from '../services/stripe.js';
-import { logAudit } from '../services/audit.js';
-import { createRestaurantSubscription } from '../services/restaurantSubscription.js';
-import { adminAssignRestaurantPackage as assignRestaurantPackageAsAdmin } from '../services/adminAssignPackage.js';
+} from "../services/stripe.js";
+import { logAudit } from "../services/audit.js";
+import { createRestaurantSubscription } from "../services/restaurantSubscription.js";
+import { adminAssignRestaurantPackage as assignRestaurantPackageAsAdmin } from "../services/adminAssignPackage.js";
 import {
   setRestaurantStatuses,
   adminDeleteRestaurants,
-} from '../services/adminBulkRestaurants.js';
+} from "../services/adminBulkRestaurants.js";
 import {
   applyPendingPlanChangeIfDue,
   cancelPendingPlanChange,
@@ -183,12 +205,22 @@ import {
   getPlanChangePayment,
   markPlanChangePaid,
   previewPlanChange,
-} from '../services/planChange.js';
-import { estimateUpgradeProrationCents } from '../services/planChangePolicy.js';
-import { provisionDefaultRestaurantSetup } from '../services/restaurantSetup.js';
-import { restaurantInputToDb } from '../lib/restaurantInput.js';
-import { requireAuth, requireAdmin, requireSuperAdmin, requireRole, type GraphQLContext } from './context.js';
-import { ForbiddenError, NotFoundError, ValidationError } from '../lib/errors.js';
+} from "../services/planChange.js";
+import { estimateUpgradeProrationCents } from "../services/planChangePolicy.js";
+import { provisionDefaultRestaurantSetup } from "../services/restaurantSetup.js";
+import { restaurantInputToDb } from "../lib/restaurantInput.js";
+import {
+  requireAuth,
+  requireAdmin,
+  requireSuperAdmin,
+  requireRole,
+  type GraphQLContext,
+} from "./context.js";
+import {
+  ForbiddenError,
+  NotFoundError,
+  ValidationError,
+} from "../lib/errors.js";
 import {
   mapUser,
   mapRestaurant,
@@ -214,16 +246,19 @@ import {
   mapIntegration,
   mapAuditLog,
   slugify,
-} from './mappers.js';
-import { notifyUser, notifyRestaurantStaff } from '../services/notifications.js';
-import { requireFeature } from '../services/plans.js';
-import { executeCampaign, scheduleCampaign } from '../services/campaigns.js';
+} from "./mappers.js";
+import {
+  notifyUser,
+  notifyRestaurantStaff,
+} from "../services/notifications.js";
+import { requireFeature } from "../services/plans.js";
+import { executeCampaign, scheduleCampaign } from "../services/campaigns.js";
 import {
   buildPreShiftReport,
   buildRevenueForecast,
   buildCustomReport,
   buildMultiLocationAnalytics,
-} from '../services/reports.js';
+} from "../services/reports.js";
 import {
   BUILTIN_PLAN_KEYS,
   getEffectivePlan,
@@ -237,8 +272,8 @@ import {
   pickDiscountOverrides,
   toPlainPlanOverride,
   uniquePlanKey,
-} from '../services/platformConfig.js';
-import { getDeveloperInfo } from '../services/developerInfo.js';
+} from "../services/platformConfig.js";
+import { getDeveloperInfo } from "../services/developerInfo.js";
 import {
   confirmInvoicePayment,
   createManualInvoice,
@@ -256,18 +291,18 @@ import {
   setInvoiceStatus,
   setInvoiceStatuses,
   startInvoicePayment,
-} from '../services/invoices.js';
+} from "../services/invoices.js";
 import {
   createPlatformService,
   deletePlatformService,
   listPlatformServices,
   updatePlatformService,
-} from '../services/platformServices.js';
+} from "../services/platformServices.js";
 import {
   adminOpsMutation,
   adminOpsQuery,
   applyPlatformConfigFeatureFlags,
-} from '../services/adminOpsResolvers.js';
+} from "../services/adminOpsResolvers.js";
 
 function mapSubscription(sub: any, opts?: { includeStripeIds?: boolean }) {
   return {
@@ -275,8 +310,12 @@ function mapSubscription(sub: any, opts?: { includeStripeIds?: boolean }) {
     restaurantId: sub.restaurantId.toString(),
     plan: sub.plan,
     status: sub.status,
-    stripeCustomerId: opts?.includeStripeIds ? (sub.stripeCustomerId ?? null) : null,
-    stripeSubscriptionId: opts?.includeStripeIds ? (sub.stripeSubscriptionId ?? null) : null,
+    stripeCustomerId: opts?.includeStripeIds
+      ? (sub.stripeCustomerId ?? null)
+      : null,
+    stripeSubscriptionId: opts?.includeStripeIds
+      ? (sub.stripeSubscriptionId ?? null)
+      : null,
     currentPeriodStart: sub.currentPeriodStart ?? null,
     currentPeriodEnd: sub.currentPeriodEnd ?? null,
     trialEndsAt: sub.trialEndsAt ?? null,
@@ -294,20 +333,24 @@ function mapSubscription(sub: any, opts?: { includeStripeIds?: boolean }) {
   };
 }
 
-async function assertRestaurantAccess(userId: string, restaurantId: string, role: string) {
-  if (isPlatformAdmin(role as import('@reservations/shared').UserRole)) return;
+async function assertRestaurantAccess(
+  userId: string,
+  restaurantId: string,
+  role: string,
+) {
+  if (isPlatformAdmin(role as import("@reservations/shared").UserRole)) return;
   const restaurant = await Restaurant.findById(restaurantId);
-  if (!restaurant) throw new Error('Restaurant not found');
+  if (!restaurant) throw new Error("Restaurant not found");
   if (!restaurant.ownerId.equals(userId)) {
     const user = await User.findById(userId);
     const allowed = user?.restaurantIds?.some((id) => id.equals(restaurantId));
-    if (!allowed) throw new Error('Forbidden');
+    if (!allowed) throw new Error("Forbidden");
   }
 }
 
 function assertCanManageBilling(role: string) {
   if (!canManageBilling(role)) {
-    throw new ForbiddenError('Only the restaurant owner can manage billing');
+    throw new ForbiddenError("Only the restaurant owner can manage billing");
   }
 }
 
@@ -316,7 +359,7 @@ export const resolvers = {
     serialize: (v: Date | string) => (v instanceof Date ? v.toISOString() : v),
     parseValue: (v: string) => new Date(v),
     parseLiteral: (ast: { kind: string; value?: string }) =>
-      ast.kind === 'StringValue' && ast.value ? new Date(ast.value) : null,
+      ast.kind === "StringValue" && ast.value ? new Date(ast.value) : null,
   },
 
   User: {
@@ -324,13 +367,21 @@ export const resolvers = {
   },
 
   Restaurant: {
-    subscription: async (r: { id: string }, _: unknown, ctx: GraphQLContext) => {
+    subscription: async (
+      r: { id: string },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => {
       const sub = await Subscription.findOne({ restaurantId: r.id });
       if (!sub) return null;
       let includeStripeIds = false;
       if (ctx.user) {
         try {
-          await assertRestaurantAccess(ctx.user._id.toString(), r.id, ctx.user.role);
+          await assertRestaurantAccess(
+            ctx.user._id.toString(),
+            r.id,
+            ctx.user.role,
+          );
           includeStripeIds = true;
         } catch {
           includeStripeIds = false;
@@ -369,11 +420,11 @@ export const resolvers = {
     },
     isSaved: async (r: { id: string }, _: unknown, ctx: GraphQLContext) => {
       if (!ctx.user) return false;
-      return isRestaurantBookmarked(ctx.user._id.toString(), r.id, 'saved');
+      return isRestaurantBookmarked(ctx.user._id.toString(), r.id, "saved");
     },
     isFavorite: async (r: { id: string }, _: unknown, ctx: GraphQLContext) => {
       if (!ctx.user) return false;
-      return isRestaurantBookmarked(ctx.user._id.toString(), r.id, 'favorite');
+      return isRestaurantBookmarked(ctx.user._id.toString(), r.id, "favorite");
     },
     bookingWindow: async (r: { id: string }) => getBookingWindow(r.id),
   },
@@ -392,20 +443,33 @@ export const resolvers = {
       return tables.map(mapTable);
     },
     hasReview: async (r: { id: string; hasReview?: boolean }) => {
-      if (typeof r.hasReview === 'boolean') return r.hasReview;
-      const existing = await Review.findOne({ reservationId: r.id }).select('_id');
+      if (typeof r.hasReview === "boolean") return r.hasReview;
+      const existing = await Review.findOne({ reservationId: r.id }).select(
+        "_id",
+      );
       return !!existing;
     },
     clientSecret: async (
-      r: { id: string; dinerId: string; depositStatus: string; clientSecret?: string | null },
+      r: {
+        id: string;
+        dinerId: string;
+        depositStatus: string;
+        clientSecret?: string | null;
+      },
       _: unknown,
       ctx: GraphQLContext,
     ) => {
       if (r.clientSecret) return r.clientSecret;
       if (!ctx.user || r.dinerId !== ctx.user._id.toString()) return null;
-      if (r.depositStatus !== 'requires_payment') return null;
-      const doc = await Reservation.findById(r.id).select('stripePaymentIntentId depositStatus');
-      if (!doc?.stripePaymentIntentId || doc.depositStatus !== 'requires_payment') return null;
+      if (r.depositStatus !== "requires_payment") return null;
+      const doc = await Reservation.findById(r.id).select(
+        "stripePaymentIntentId depositStatus",
+      );
+      if (
+        !doc?.stripePaymentIntentId ||
+        doc.depositStatus !== "requires_payment"
+      )
+        return null;
       return retrievePaymentIntentClientSecret(doc.stripePaymentIntentId);
     },
   },
@@ -513,16 +577,22 @@ export const resolvers = {
       args: { tag?: string; limit?: number; offset?: number },
     ) => listPublishedBlogPosts(args),
 
-    blogPost: async (_: unknown, args: { slug: string }) => getBlogPostBySlug(args.slug),
+    blogPost: async (_: unknown, args: { slug: string }) =>
+      getBlogPostBySlug(args.slug),
 
     discoveryTaxonomies: async (
       _: unknown,
-      args: { kind?: import('@reservations/shared').DiscoveryTaxonomyKind | null },
+      args: {
+        kind?: import("@reservations/shared").DiscoveryTaxonomyKind | null;
+      },
     ) => listPublicDiscoveryTaxonomies(args.kind),
 
     discoveryTaxonomy: async (
       _: unknown,
-      args: { kind: import('@reservations/shared').DiscoveryTaxonomyKind; slug: string },
+      args: {
+        kind: import("@reservations/shared").DiscoveryTaxonomyKind;
+        slug: string;
+      },
     ) => getDiscoveryTaxonomyBySlug(args.kind, args.slug),
 
     restaurant: async (_: unknown, args: { id?: string; slug?: string }) => {
@@ -536,7 +606,12 @@ export const resolvers = {
 
     validatePromotion: async (
       _: unknown,
-      args: { restaurantId: string; code: string; slotStart: string; depositCents: number },
+      args: {
+        restaurantId: string;
+        code: string;
+        slotStart: string;
+        depositCents: number;
+      },
     ) => {
       try {
         const slotStart = new Date(args.slotStart);
@@ -551,13 +626,16 @@ export const resolvers = {
           message: null,
           promotion: mapPromotion(promotion),
           discountCents,
-          discountedDepositCents: Math.max(0, args.depositCents - discountCents),
+          discountedDepositCents: Math.max(
+            0,
+            args.depositCents - discountCents,
+          ),
           autoApplied: false,
         };
       } catch (err) {
         return {
           valid: false,
-          message: err instanceof Error ? err.message : 'Invalid promotion',
+          message: err instanceof Error ? err.message : "Invalid promotion",
           promotion: null,
           discountCents: 0,
           discountedDepositCents: args.depositCents,
@@ -580,7 +658,7 @@ export const resolvers = {
         if (!best) {
           return {
             valid: false,
-            message: 'No automatic promotion available',
+            message: "No automatic promotion available",
             promotion: null,
             discountCents: 0,
             discountedDepositCents: args.depositCents,
@@ -592,13 +670,16 @@ export const resolvers = {
           message: null,
           promotion: mapPromotion(best.promotion),
           discountCents: best.discountCents,
-          discountedDepositCents: Math.max(0, args.depositCents - best.discountCents),
+          discountedDepositCents: Math.max(
+            0,
+            args.depositCents - best.discountCents,
+          ),
           autoApplied: true,
         };
       } catch (err) {
         return {
           valid: false,
-          message: err instanceof Error ? err.message : 'Invalid promotion',
+          message: err instanceof Error ? err.message : "Invalid promotion",
           promotion: null,
           discountCents: 0,
           discountedDepositCents: args.depositCents,
@@ -630,17 +711,20 @@ export const resolvers = {
             recipientName: null,
             recipientEmail: null,
             expiresAt: giftCard.expiresAt ?? null,
-            note: '',
+            note: "",
             active: giftCard.active,
             createdAt: giftCard.createdAt,
           },
           discountCents,
-          discountedDepositCents: Math.max(0, args.depositCents - discountCents),
+          discountedDepositCents: Math.max(
+            0,
+            args.depositCents - discountCents,
+          ),
         };
       } catch (err) {
         return {
           valid: false,
-          message: err instanceof Error ? err.message : 'Invalid gift card',
+          message: err instanceof Error ? err.message : "Invalid gift card",
           giftCard: null,
           discountCents: 0,
           discountedDepositCents: args.depositCents,
@@ -651,14 +735,21 @@ export const resolvers = {
     searchRestaurants: async (_: unknown, args: { input: unknown }) => {
       const input = searchRestaurantsSchema.parse(args.input);
       const baseFilter = await buildDiscoverySearchFilter(input);
-      const { filter, countFilter, usingGeo } = applyGeoToFilter(baseFilter, input);
+      const { filter, countFilter, usingGeo } = applyGeoToFilter(
+        baseFilter,
+        input,
+      );
       const skip = (input.page - 1) * input.limit;
       const requireAvailability =
         input.requireAvailability !== false && Boolean(input.date);
 
-      const fetchLimit = requireAvailability ? Math.min(input.limit * 4, 100) : input.limit;
+      const fetchLimit = requireAvailability
+        ? Math.min(input.limit * 4, 100)
+        : input.limit;
 
-      const query = Restaurant.find(filter).skip(requireAvailability ? 0 : skip).limit(fetchLimit);
+      const query = Restaurant.find(filter)
+        .skip(requireAvailability ? 0 : skip)
+        .limit(fetchLimit);
       if (!usingGeo) query.sort({ featured: -1, averageRating: -1 });
 
       let [items, total] = await Promise.all([
@@ -667,7 +758,12 @@ export const resolvers = {
       ]);
 
       if (requireAvailability && input.date) {
-        const available = await filterByAvailability(items, input.date, input.partySize, input.time);
+        const available = await filterByAvailability(
+          items,
+          input.date,
+          input.partySize,
+          input.time,
+        );
         total = available.length;
         items = available.slice(skip, skip + input.limit);
       }
@@ -697,7 +793,11 @@ export const resolvers = {
       return getTrendingSearches(input);
     },
 
-    myRecentSearches: async (_: unknown, args: { limit?: number }, ctx: GraphQLContext) => {
+    myRecentSearches: async (
+      _: unknown,
+      args: { limit?: number },
+      ctx: GraphQLContext,
+    ) => {
       if (!ctx.user) return [];
       return getMyRecentSearches(ctx.user._id.toString(), args.limit ?? 8);
     },
@@ -711,7 +811,10 @@ export const resolvers = {
       _: unknown,
       args: { restaurantId: string; slotStart: Date; partySize: number },
     ) => {
-      const slotStart = args.slotStart instanceof Date ? args.slotStart : new Date(args.slotStart);
+      const slotStart =
+        args.slotStart instanceof Date
+          ? args.slotStart
+          : new Date(args.slotStart);
       const turn = await getTurnTimeMinutes(args.restaurantId, slotStart);
       const slotEnd = new Date(slotStart.getTime() + turn * 60_000);
       const tables = await getBookableTables({
@@ -729,14 +832,20 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       const ops = await getFloorPlanOps(args.restaurantId, args.date);
       return {
         date: ops.date,
         tables: ops.tables.map((state) => ({
           table: mapTable(state.table),
           status: state.status,
-          reservation: state.reservation ? mapReservation(state.reservation) : null,
+          reservation: state.reservation
+            ? mapReservation(state.reservation)
+            : null,
           seatedMinutes: state.seatedMinutes,
           turnMinutesRemaining: state.turnMinutesRemaining,
         })),
@@ -746,43 +855,67 @@ export const resolvers = {
 
     myReservations: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
-      const items = await Reservation.find({ dinerId: user._id }).sort({ slotStart: -1 });
+      const items = await Reservation.find({ dinerId: user._id }).sort({
+        slotStart: -1,
+      });
       const reviews = await Review.find({
         reservationId: { $in: items.map((r) => r._id) },
-      }).select('reservationId');
-      const reviewed = new Set(reviews.map((rev) => rev.reservationId.toString()));
+      }).select("reservationId");
+      const reviewed = new Set(
+        reviews.map((rev) => rev.reservationId.toString()),
+      );
       return items.map((r) => ({
         ...mapReservation(r),
         hasReview: reviewed.has(r._id.toString()),
       }));
     },
 
-    myReservation: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    myReservation: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const reservation = await Reservation.findById(args.id);
       if (!reservation || !reservation.dinerId.equals(user._id)) return null;
-      const hasReview = !!(await Review.findOne({ reservationId: reservation._id }).select('_id'));
+      const hasReview = !!(await Review.findOne({
+        reservationId: reservation._id,
+      }).select("_id"));
       return { ...mapReservation(reservation), hasReview };
     },
 
     mySavedRestaurants: async (
       _: unknown,
-      args: { kind: 'saved' | 'favorite' },
+      args: { kind: "saved" | "favorite" },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      const restaurants = await listBookmarkedRestaurants(user._id.toString(), args.kind);
+      const restaurants = await listBookmarkedRestaurants(
+        user._id.toString(),
+        args.kind,
+      );
       return restaurants.map((r) => mapRestaurant(r));
     },
 
     restaurantReservations: async (
       _: unknown,
-      args: { restaurantId: string; date?: string; limit?: number; offset?: number },
+      args: {
+        restaurantId: string;
+        date?: string;
+        limit?: number;
+        offset?: number;
+      },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      const filter: Record<string, unknown> = { restaurantId: args.restaurantId };
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      const filter: Record<string, unknown> = {
+        restaurantId: args.restaurantId,
+      };
       if (args.date) {
         const start = new Date(`${args.date}T00:00:00`);
         const end = new Date(`${args.date}T23:59:59`);
@@ -799,7 +932,9 @@ export const resolvers = {
 
     myWaitlist: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
-      const items = await WaitlistEntry.find({ dinerId: user._id }).sort({ createdAt: -1 });
+      const items = await WaitlistEntry.find({ dinerId: user._id }).sort({
+        createdAt: -1,
+      });
       const enriched = await enrichWaitlistEntries(items);
       return enriched.map(({ entry, eta }) => {
         (entry as any)._eta = eta;
@@ -813,17 +948,24 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       const { limit, offset } = normalizePagination(
         { limit: args.limit, offset: args.offset },
         { limit: 50, max: 100 },
       );
       const filter = {
         restaurantId: args.restaurantId,
-        status: { $in: ['waiting', 'notified'] },
+        status: { $in: ["waiting", "notified"] },
       };
       const [docs, total] = await Promise.all([
-        WaitlistEntry.find(filter).sort({ createdAt: 1 }).skip(offset).limit(limit),
+        WaitlistEntry.find(filter)
+          .sort({ createdAt: 1 })
+          .skip(offset)
+          .limit(limit),
         WaitlistEntry.countDocuments(filter),
       ]);
       const enriched = await enrichWaitlistEntries(docs);
@@ -847,13 +989,19 @@ export const resolvers = {
       let includeHidden = false;
       if (ctx.user) {
         try {
-          await assertRestaurantAccess(ctx.user._id.toString(), args.restaurantId, ctx.user.role);
+          await assertRestaurantAccess(
+            ctx.user._id.toString(),
+            args.restaurantId,
+            ctx.user.role,
+          );
           includeHidden = true;
         } catch {
           includeHidden = false;
         }
       }
-      const filter: Record<string, unknown> = { restaurantId: args.restaurantId };
+      const filter: Record<string, unknown> = {
+        restaurantId: args.restaurantId,
+      };
       if (!includeHidden) filter.hidden = { $ne: true };
       return paginateQuery(Review, filter, {
         sort: { createdAt: -1 },
@@ -876,7 +1024,11 @@ export const resolvers = {
       }));
     },
 
-    myRestaurantLoyalty: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+    myRestaurantLoyalty: async (
+      _: unknown,
+      __: unknown,
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       return getMyRestaurantLoyaltyBalances(user._id.toString());
     },
@@ -887,7 +1039,10 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      return getRestaurantLoyaltyBalance(args.restaurantId, user._id.toString());
+      return getRestaurantLoyaltyBalance(
+        args.restaurantId,
+        user._id.toString(),
+      );
     },
 
     myRestaurantLoyaltyHistory: async (
@@ -912,10 +1067,13 @@ export const resolvers = {
       const offset = Math.max(args.offset ?? 0, 0);
       const filter = {
         userId: user._id,
-        channel: 'in_app',
+        channel: "in_app",
       };
       const [docs, total] = await Promise.all([
-        Notification.find(filter).sort({ createdAt: -1 }).skip(offset).limit(limit),
+        Notification.find(filter)
+          .sort({ createdAt: -1 })
+          .skip(offset)
+          .limit(limit),
         Notification.countDocuments(filter),
       ]);
       return {
@@ -932,11 +1090,15 @@ export const resolvers = {
       };
     },
 
-    unreadNotificationCount: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+    unreadNotificationCount: async (
+      _: unknown,
+      __: unknown,
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       return Notification.countDocuments({
         userId: user._id,
-        channel: 'in_app',
+        channel: "in_app",
         $or: [{ readAt: null }, { readAt: { $exists: false } }],
       });
     },
@@ -990,15 +1152,19 @@ export const resolvers = {
       return buildOwnerOverview(user, date);
     },
 
-    myRestaurantLocationsMeta: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+    myRestaurantLocationsMeta: async (
+      _: unknown,
+      __: unknown,
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const baseFilter = buildOwnerRestaurantFilter(user);
       const [total, cityRows] = await Promise.all([
         Restaurant.countDocuments(baseFilter),
         Restaurant.aggregate<{ _id: string }>([
           { $match: baseFilter },
-          { $group: { _id: '$address.city' } },
-          { $match: { _id: { $nin: [null, ''] } } },
+          { $group: { _id: "$address.city" } },
+          { $match: { _id: { $nin: [null, ""] } } },
           { $sort: { _id: 1 } },
         ]),
       ]);
@@ -1032,18 +1198,22 @@ export const resolvers = {
       return { ...result, page: Math.floor(result.offset / result.limit) + 1 };
     },
 
-    adminRestaurantFilterMeta: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+    adminRestaurantFilterMeta: async (
+      _: unknown,
+      __: unknown,
+      ctx: GraphQLContext,
+    ) => {
       requireAdmin(ctx);
       const [total, cityRows, cuisineRows] = await Promise.all([
         Restaurant.countDocuments(),
         Restaurant.aggregate<{ _id: string }>([
-          { $group: { _id: '$address.city' } },
-          { $match: { _id: { $nin: [null, ''] } } },
+          { $group: { _id: "$address.city" } },
+          { $match: { _id: { $nin: [null, ""] } } },
           { $sort: { _id: 1 } },
         ]),
         Restaurant.aggregate<{ _id: string }>([
-          { $group: { _id: '$cuisine' } },
-          { $match: { _id: { $nin: [null, ''] } } },
+          { $group: { _id: "$cuisine" } },
+          { $match: { _id: { $nin: [null, ""] } } },
           { $sort: { _id: 1 } },
         ]),
       ]);
@@ -1068,13 +1238,17 @@ export const resolvers = {
         User.countDocuments(),
         Restaurant.countDocuments(),
         Reservation.countDocuments(),
-        Restaurant.countDocuments({ status: 'pending' }),
-        Subscription.countDocuments({ status: { $in: ['active', 'trialing'] } }),
+        Restaurant.countDocuments({ status: "pending" }),
+        Subscription.countDocuments({
+          status: { $in: ["active", "trialing"] },
+        }),
         Subscription.aggregate([
-          { $match: { status: { $in: ['active', 'past_due'] } } },
-          { $group: { _id: null, mrrCents: { $sum: '$monthlyPriceCents' } } },
+          { $match: { status: { $in: ["active", "past_due"] } } },
+          { $group: { _id: null, mrrCents: { $sum: "$monthlyPriceCents" } } },
         ]),
-        Invoice.countDocuments({ status: { $in: ['pending', 'overdue', 'upcoming'] } }),
+        Invoice.countDocuments({
+          status: { $in: ["pending", "overdue", "upcoming"] },
+        }),
       ]);
       return {
         users,
@@ -1110,8 +1284,15 @@ export const resolvers = {
       const filter: Record<string, unknown> = {};
       if (args.role) filter.role = args.role;
       if (args.search?.trim()) {
-        const regex = new RegExp(args.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-        filter.$or = [{ email: regex }, { firstName: regex }, { lastName: regex }];
+        const regex = new RegExp(
+          args.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+          "i",
+        );
+        filter.$or = [
+          { email: regex },
+          { firstName: regex },
+          { lastName: regex },
+        ];
       }
       const [page, hasSuperAdmin] = await Promise.all([
         paginateQuery(User, filter, {
@@ -1122,7 +1303,7 @@ export const resolvers = {
           maxLimit: 100,
           map: mapUser,
         }),
-        User.countDocuments({ role: 'super_admin' }).then((n) => n > 0),
+        User.countDocuments({ role: "super_admin" }).then((n) => n > 0),
       ]);
       return { ...page, hasSuperAdmin };
     },
@@ -1133,9 +1314,13 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       const restaurant = await Restaurant.findById(args.restaurantId);
-      if (!restaurant) throw new Error('Restaurant not found');
+      if (!restaurant) throw new Error("Restaurant not found");
       const team = await User.find({
         $or: [{ _id: restaurant.ownerId }, { restaurantIds: restaurant._id }],
       }).sort({ firstName: 1, lastName: 1 });
@@ -1174,15 +1359,22 @@ export const resolvers = {
       return doc ? mapAuditLog(doc) : null;
     },
 
-    auditLogFilterOptions: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+    auditLogFilterOptions: async (
+      _: unknown,
+      __: unknown,
+      ctx: GraphQLContext,
+    ) => {
       requireAdmin(ctx);
       const [actions, resources, actorIds] = await Promise.all([
-        AuditLog.distinct('action'),
-        AuditLog.distinct('resource'),
-        AuditLog.distinct('actorId'),
+        AuditLog.distinct("action"),
+        AuditLog.distinct("resource"),
+        AuditLog.distinct("actorId"),
       ]);
       const actors = actorIds.length
-        ? await User.find({ _id: { $in: actorIds } }).sort({ firstName: 1, lastName: 1 })
+        ? await User.find({ _id: { $in: actorIds } }).sort({
+            firstName: 1,
+            lastName: 1,
+          })
         : [];
       return {
         actors: actors.map(mapUser),
@@ -1197,12 +1389,19 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      const sub = await Subscription.findOne({ restaurantId: args.restaurantId });
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      const sub = await Subscription.findOne({
+        restaurantId: args.restaurantId,
+      });
       if (!sub) return null;
       await applyPendingPlanChangeIfDue(sub);
       const stubStripe =
-        !sub.stripeSubscriptionId || String(sub.stripeSubscriptionId).startsWith('sub_dev_');
+        !sub.stripeSubscriptionId ||
+        String(sub.stripeSubscriptionId).startsWith("sub_dev_");
       if (
         stubStripe &&
         !(sub.amountDueCents > 0) &&
@@ -1222,7 +1421,7 @@ export const resolvers = {
         });
         if (due > 0) {
           sub.amountDueCents = due;
-          sub.status = 'past_due';
+          sub.status = "past_due";
           await sub.save();
         }
       }
@@ -1230,7 +1429,8 @@ export const resolvers = {
       let amountDueCents = sub.amountDueCents ?? 0;
       if (sub.stripeSubscriptionId) {
         const open = await getOpenSubscriptionPayment(sub.stripeSubscriptionId);
-        if (open.amountDueCents > amountDueCents) amountDueCents = open.amountDueCents;
+        if (open.amountDueCents > amountDueCents)
+          amountDueCents = open.amountDueCents;
       }
       return { ...mapped, amountDueCents };
     },
@@ -1241,7 +1441,11 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       assertCanManageBilling(user.role);
       return previewPlanChange(args.restaurantId, args.plan);
     },
@@ -1252,11 +1456,17 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       assertCanManageBilling(user.role);
       const result = await getPlanChangePayment(args.restaurantId);
       return {
-        subscription: mapSubscription(result.subscription, { includeStripeIds: true }),
+        subscription: mapSubscription(result.subscription, {
+          includeStripeIds: true,
+        }),
         clientSecret: result.clientSecret,
         paymentMode: result.paymentMode,
         amountDueCents: result.amountDueCents,
@@ -1267,13 +1477,17 @@ export const resolvers = {
     partnerEmailAvailable: async (_: unknown, args: { email: string }) => {
       const email = args.email.trim().toLowerCase();
       if (!email) return false;
-      const existing = await User.findOne({ email }).select('_id').lean();
+      const existing = await User.findOne({ email }).select("_id").lean();
       return !existing;
     },
     partnerRestaurantNameAvailable: async (
       _: unknown,
       args: { name: string; excludeRestaurantId?: string | null },
-    ) => isRestaurantNameAvailable(args.name, args.excludeRestaurantId ?? undefined),
+    ) =>
+      isRestaurantNameAvailable(
+        args.name,
+        args.excludeRestaurantId ?? undefined,
+      ),
 
     annualBillingSettings: async () => getAnnualBillingSettings(),
 
@@ -1292,7 +1506,11 @@ export const resolvers = {
       return listInvoices(args);
     },
 
-    adminInvoice: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    adminInvoice: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       requireAdmin(ctx);
       return getInvoiceById(args.id);
     },
@@ -1300,7 +1518,11 @@ export const resolvers = {
     invoiceByPayToken: async (_: unknown, args: { token: string }) =>
       getInvoiceByPayToken(args.token),
 
-    exportInvoicePdf: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    exportInvoicePdf: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       requireAdmin(ctx);
       return exportInvoicePdf(args.id);
     },
@@ -1308,14 +1530,23 @@ export const resolvers = {
     exportInvoicePdfByToken: async (_: unknown, args: { token: string }) =>
       exportInvoicePdfByToken(args.token),
 
-    emailDeliveryConfigured: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+    emailDeliveryConfigured: async (
+      _: unknown,
+      __: unknown,
+      ctx: GraphQLContext,
+    ) => {
       requireAdmin(ctx);
       return isEmailDeliveryConfigured();
     },
 
     adminPlatformServices: async (
       _: unknown,
-      args: { active?: boolean; search?: string; limit?: number; offset?: number },
+      args: {
+        active?: boolean;
+        search?: string;
+        limit?: number;
+        offset?: number;
+      },
       ctx: GraphQLContext,
     ) => {
       requireAdmin(ctx);
@@ -1357,7 +1588,11 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
 
       const period = args.period ?? new Date().toISOString().slice(0, 7);
       const fees = await CoverFee.find({
@@ -1377,18 +1612,40 @@ export const resolvers = {
         totalCovers += fee.partySize;
         totalFeeCents += fee.feeCents;
         switch (fee.source) {
-          case 'network': networkCovers += fee.partySize; break;
-          case 'website': websiteCovers += fee.partySize; break;
-          case 'widget': widgetCovers += fee.partySize; break;
-          case 'phone': phoneCovers += fee.partySize; break;
-          case 'walkin': walkinCovers += fee.partySize; break;
+          case "network":
+            networkCovers += fee.partySize;
+            break;
+          case "website":
+            websiteCovers += fee.partySize;
+            break;
+          case "widget":
+            widgetCovers += fee.partySize;
+            break;
+          case "phone":
+            phoneCovers += fee.partySize;
+            break;
+          case "walkin":
+            walkinCovers += fee.partySize;
+            break;
         }
       }
 
-      return { totalCovers, totalFeeCents, networkCovers, websiteCovers, widgetCovers, phoneCovers, walkinCovers };
+      return {
+        totalCovers,
+        totalFeeCents,
+        networkCovers,
+        websiteCovers,
+        widgetCovers,
+        phoneCovers,
+        walkinCovers,
+      };
     },
 
-    myRestaurantGroups: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+    myRestaurantGroups: async (
+      _: unknown,
+      __: unknown,
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const groups = await RestaurantGroup.find({
         $or: [{ ownerId: user._id }, { adminUserIds: user._id }],
@@ -1415,21 +1672,23 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const group = await RestaurantGroup.findById(args.groupId);
-      if (!group) throw new Error('Group not found');
+      if (!group) throw new Error("Group not found");
       if (
         !group.ownerId.equals(user._id) &&
         !group.adminUserIds.some((id) => id.equals(user._id)) &&
         !isPlatformAdmin(user.role)
       ) {
-        throw new Error('Forbidden');
+        throw new Error("Forbidden");
       }
 
       const restaurantIds = group.restaurantIds;
-      const restaurants = await Restaurant.find({ _id: { $in: restaurantIds } });
+      const restaurants = await Restaurant.find({
+        _id: { $in: restaurantIds },
+      });
 
       const reservations = await Reservation.find({
         restaurantId: { $in: restaurantIds },
-        status: { $in: ['confirmed', 'seated', 'completed'] },
+        status: { $in: ["confirmed", "seated", "completed"] },
       });
 
       let totalReservations = 0;
@@ -1451,11 +1710,18 @@ export const resolvers = {
         }
       }
 
-      const totalRating = restaurants.reduce((sum, r) => sum + (r.averageRating ?? 0), 0);
-      const averageRating = restaurants.length > 0 ? totalRating / restaurants.length : 0;
+      const totalRating = restaurants.reduce(
+        (sum, r) => sum + (r.averageRating ?? 0),
+        0,
+      );
+      const averageRating =
+        restaurants.length > 0 ? totalRating / restaurants.length : 0;
 
       const reservationsByRestaurant = restaurants.map((rest) => {
-        const stats = byRestaurant.get(rest._id.toString()) ?? { count: 0, covers: 0 };
+        const stats = byRestaurant.get(rest._id.toString()) ?? {
+          count: 0,
+          covers: 0,
+        };
         return {
           restaurant: mapRestaurant(rest),
           reservationCount: stats.count,
@@ -1484,13 +1750,18 @@ export const resolvers = {
 
     experiences: async (
       _: unknown,
-      args: { restaurantId?: string; upcoming?: boolean; limit?: number; offset?: number },
+      args: {
+        restaurantId?: string;
+        upcoming?: boolean;
+        limit?: number;
+        offset?: number;
+      },
     ) => {
       const filter: Record<string, unknown> = {};
       if (args.restaurantId) filter.restaurantId = args.restaurantId;
       if (args.upcoming) {
         const now = new Date();
-        filter.status = { $in: ['published', 'sold_out'] };
+        filter.status = { $in: ["published", "sold_out"] };
         filter.$or = [
           { endDate: { $gte: now } },
           {
@@ -1515,7 +1786,9 @@ export const resolvers = {
       args: { restaurantId: string; activeOnly?: boolean | null },
       ctx: GraphQLContext,
     ) => {
-      const filter: Record<string, unknown> = { restaurantId: args.restaurantId };
+      const filter: Record<string, unknown> = {
+        restaurantId: args.restaurantId,
+      };
       const activeOnly = args.activeOnly !== false;
       if (activeOnly) {
         filter.active = true;
@@ -1528,14 +1801,20 @@ export const resolvers = {
       } else {
         filter.active = true;
       }
-      const items = await RestaurantPackage.find(filter).sort({ createdAt: -1 });
+      const items = await RestaurantPackage.find(filter).sort({
+        createdAt: -1,
+      });
       return items.map(mapRestaurantPackage);
     },
 
-    experience: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    experience: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const doc = await Experience.findById(args.id);
       if (!doc) return null;
-      const isPublic = doc.status === 'published' || doc.status === 'sold_out';
+      const isPublic = doc.status === "published" || doc.status === "sold_out";
       if (isPublic) return mapExperience(doc);
       if (!ctx.user) return null;
       try {
@@ -1552,7 +1831,9 @@ export const resolvers = {
 
     myTickets: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
-      const items = await Ticket.find({ dinerId: user._id }).sort({ createdAt: -1 });
+      const items = await Ticket.find({ dinerId: user._id }).sort({
+        createdAt: -1,
+      });
       return items.map((t) => mapTicket(t));
     },
 
@@ -1570,7 +1851,11 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       return paginateQuery(
         PrivateDiningInquiry,
         { restaurantId: args.restaurantId },
@@ -1586,7 +1871,9 @@ export const resolvers = {
 
     myInquiries: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
-      const items = await PrivateDiningInquiry.find({ dinerId: user._id }).sort({ createdAt: -1 });
+      const items = await PrivateDiningInquiry.find({ dinerId: user._id }).sort(
+        { createdAt: -1 },
+      );
       return items.map(mapPrivateDiningInquiry);
     },
 
@@ -1596,7 +1883,11 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       return getRestaurantLoyaltyStats(args.restaurantId);
     },
 
@@ -1613,16 +1904,25 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      const filter: Record<string, unknown> = { restaurantId: args.restaurantId };
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      const filter: Record<string, unknown> = {
+        restaurantId: args.restaurantId,
+      };
       if (args.tag) filter.tags = args.tag;
       if (args.vipStatus) filter.vipStatus = args.vipStatus;
 
       if (args.search?.trim()) {
-        const regex = new RegExp(args.search.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        const regex = new RegExp(
+          args.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+          "i",
+        );
         const matchingUsers = await User.find({
           $or: [{ firstName: regex }, { lastName: regex }, { email: regex }],
-        }).select('_id');
+        }).select("_id");
         filter.dinerId = { $in: matchingUsers.map((u) => u._id) };
       }
 
@@ -1642,7 +1942,11 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       const doc = await GuestProfile.findOne({
         restaurantId: args.restaurantId,
         dinerId: args.dinerId,
@@ -1656,21 +1960,33 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      return paginateQuery(Campaign, { restaurantId: args.restaurantId }, {
-        sort: { createdAt: -1 },
-        limit: args.limit,
-        offset: args.offset,
-        defaultLimit: 20,
-        map: mapCampaign,
-      });
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      return paginateQuery(
+        Campaign,
+        { restaurantId: args.restaurantId },
+        {
+          sort: { createdAt: -1 },
+          limit: args.limit,
+          offset: args.offset,
+          defaultLimit: 20,
+          map: mapCampaign,
+        },
+      );
     },
 
     campaign: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
       const doc = await Campaign.findById(args.id);
       if (!doc) return null;
-      await assertRestaurantAccess(user._id.toString(), doc.restaurantId.toString(), user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        doc.restaurantId.toString(),
+        user.role,
+      );
       return mapCampaign(doc);
     },
 
@@ -1680,15 +1996,23 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      return paginateQuery(SurveyResponse, { restaurantId: args.restaurantId }, {
-        sort: { submittedAt: -1 },
-        limit: args.limit,
-        offset: args.offset,
-        defaultLimit: 20,
-        maxLimit: 200,
-        map: mapSurveyResponse,
-      });
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      return paginateQuery(
+        SurveyResponse,
+        { restaurantId: args.restaurantId },
+        {
+          sort: { submittedAt: -1 },
+          limit: args.limit,
+          offset: args.offset,
+          defaultLimit: 20,
+          maxLimit: 200,
+          map: mapSurveyResponse,
+        },
+      );
     },
 
     surveyStats: async (
@@ -1697,25 +2021,43 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       const stats = await SurveyResponse.aggregate([
-        { $match: { restaurantId: new (await import('mongoose')).default.Types.ObjectId(args.restaurantId) } },
+        {
+          $match: {
+            restaurantId: new (await import("mongoose")).default.Types.ObjectId(
+              args.restaurantId,
+            ),
+          },
+        },
         {
           $group: {
             _id: null,
             totalResponses: { $sum: 1 },
-            avgOverall: { $avg: '$overallRating' },
-            avgFood: { $avg: '$foodRating' },
-            avgService: { $avg: '$serviceRating' },
-            avgAmbience: { $avg: '$ambienceRating' },
-            avgValue: { $avg: '$valueRating' },
-            recommendCount: { $sum: { $cond: ['$wouldRecommend', 1, 0] } },
+            avgOverall: { $avg: "$overallRating" },
+            avgFood: { $avg: "$foodRating" },
+            avgService: { $avg: "$serviceRating" },
+            avgAmbience: { $avg: "$ambienceRating" },
+            avgValue: { $avg: "$valueRating" },
+            recommendCount: { $sum: { $cond: ["$wouldRecommend", 1, 0] } },
           },
         },
       ]);
       const s = stats[0];
       if (!s) {
-        return { totalResponses: 0, avgOverall: 0, avgFood: 0, avgService: 0, avgAmbience: 0, avgValue: 0, recommendPercent: 0 };
+        return {
+          totalResponses: 0,
+          avgOverall: 0,
+          avgFood: 0,
+          avgService: 0,
+          avgAmbience: 0,
+          avgValue: 0,
+          recommendPercent: 0,
+        };
       }
       return {
         totalResponses: s.totalResponses,
@@ -1724,9 +2066,10 @@ export const resolvers = {
         avgService: Math.round((s.avgService ?? 0) * 10) / 10,
         avgAmbience: Math.round((s.avgAmbience ?? 0) * 10) / 10,
         avgValue: Math.round((s.avgValue ?? 0) * 10) / 10,
-        recommendPercent: s.totalResponses > 0
-          ? Math.round((s.recommendCount / s.totalResponses) * 100)
-          : 0,
+        recommendPercent:
+          s.totalResponses > 0
+            ? Math.round((s.recommendCount / s.totalResponses) * 100)
+            : 0,
       };
     },
 
@@ -1738,7 +2081,9 @@ export const resolvers = {
       // Readable by any authenticated user: diners need the question toggles
       // to render the survey form, and the config holds nothing sensitive.
       requireAuth(ctx);
-      const doc = await SurveyConfig.findOne({ restaurantId: args.restaurantId });
+      const doc = await SurveyConfig.findOne({
+        restaurantId: args.restaurantId,
+      });
       if (!doc) return null;
       return {
         id: doc._id.toString(),
@@ -1758,8 +2103,12 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      const mongoose = (await import('mongoose')).default;
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      const mongoose = (await import("mongoose")).default;
       const latest = await Message.aggregate([
         {
           $match: {
@@ -1770,14 +2119,19 @@ export const resolvers = {
         { $sort: { createdAt: -1 } },
         {
           $group: {
-            _id: '$reservationId',
-            dinerId: { $first: '$dinerId' },
-            restaurantId: { $first: '$restaurantId' },
-            lastMessage: { $first: '$$ROOT' },
+            _id: "$reservationId",
+            dinerId: { $first: "$dinerId" },
+            restaurantId: { $first: "$restaurantId" },
+            lastMessage: { $first: "$$ROOT" },
             unreadCount: {
               $sum: {
                 $cond: [
-                  { $and: [{ $eq: ['$senderType', 'diner'] }, { $eq: ['$readAt', null] }] },
+                  {
+                    $and: [
+                      { $eq: ["$senderType", "diner"] },
+                      { $eq: ["$readAt", null] },
+                    ],
+                  },
                   1,
                   0,
                 ],
@@ -1786,7 +2140,7 @@ export const resolvers = {
           },
         },
         { $match: { _id: { $ne: null } } },
-        { $sort: { 'lastMessage.createdAt': -1 } },
+        { $sort: { "lastMessage.createdAt": -1 } },
       ]);
       return latest.map((c) => ({
         reservationId: c._id.toString(),
@@ -1815,10 +2169,12 @@ export const resolvers = {
         );
       }
 
-      const lastMessage = await Message.findOne({ reservationId: args.reservationId }).sort({
+      const lastMessage = await Message.findOne({
+        reservationId: args.reservationId,
+      }).sort({
         createdAt: -1,
       });
-      const unreadSenderType = isDiner ? 'restaurant' : 'diner';
+      const unreadSenderType = isDiner ? "restaurant" : "diner";
       const unreadCount = await Message.countDocuments({
         reservationId: args.reservationId,
         senderType: unreadSenderType,
@@ -1841,7 +2197,7 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const reservation = await Reservation.findById(args.reservationId);
-      if (!reservation) throw new Error('Reservation not found');
+      if (!reservation) throw new Error("Reservation not found");
 
       const isDiner = reservation.dinerId.equals(user._id);
       if (!isDiner) {
@@ -1852,7 +2208,9 @@ export const resolvers = {
         );
       }
 
-      const items = await Message.find({ reservationId: args.reservationId }).sort({
+      const items = await Message.find({
+        reservationId: args.reservationId,
+      }).sort({
         createdAt: 1,
       });
       return items.map(mapMessage);
@@ -1864,8 +2222,14 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      const items = await RestaurantInquiry.find({ restaurantId: args.restaurantId }).sort({
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      const items = await RestaurantInquiry.find({
+        restaurantId: args.restaurantId,
+      }).sort({
         createdAt: -1,
       });
       return items.map(mapRestaurantInquiry);
@@ -1878,14 +2242,19 @@ export const resolvers = {
         { $sort: { createdAt: -1 } },
         {
           $group: {
-            _id: '$reservationId',
-            dinerId: { $first: '$dinerId' },
-            restaurantId: { $first: '$restaurantId' },
-            lastMessage: { $first: '$$ROOT' },
+            _id: "$reservationId",
+            dinerId: { $first: "$dinerId" },
+            restaurantId: { $first: "$restaurantId" },
+            lastMessage: { $first: "$$ROOT" },
             unreadCount: {
               $sum: {
                 $cond: [
-                  { $and: [{ $eq: ['$senderType', 'restaurant'] }, { $eq: ['$readAt', null] }] },
+                  {
+                    $and: [
+                      { $eq: ["$senderType", "restaurant"] },
+                      { $eq: ["$readAt", null] },
+                    ],
+                  },
                   1,
                   0,
                 ],
@@ -1894,7 +2263,7 @@ export const resolvers = {
           },
         },
         { $match: { _id: { $ne: null } } },
-        { $sort: { 'lastMessage.createdAt': -1 } },
+        { $sort: { "lastMessage.createdAt": -1 } },
       ]);
       return latest.map((c) => ({
         reservationId: c._id.toString(),
@@ -1911,15 +2280,31 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      const rules = await AccessRule.find({ restaurantId: args.restaurantId }).sort({ createdAt: -1 });
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      const rules = await AccessRule.find({
+        restaurantId: args.restaurantId,
+      }).sort({ createdAt: -1 });
       return rules.map(mapAccessRule);
     },
 
-    blackouts: async (_: unknown, args: { restaurantId: string }, ctx: GraphQLContext) => {
+    blackouts: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      const items = await Blackout.find({ restaurantId: args.restaurantId }).sort({ date: 1 });
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      const items = await Blackout.find({
+        restaurantId: args.restaurantId,
+      }).sort({ date: 1 });
       return items.map((doc) => ({
         id: doc._id.toString(),
         restaurantId: doc.restaurantId.toString(),
@@ -1933,15 +2318,34 @@ export const resolvers = {
 
     promotions: async (
       _: unknown,
-      args: { restaurantId: string; activeOnly?: boolean; limit?: number; offset?: number },
+      args: {
+        restaurantId: string;
+        activeOnly?: boolean;
+        limit?: number;
+        offset?: number;
+      },
     ) => {
-      const filter: Record<string, unknown> = { restaurantId: args.restaurantId };
+      const filter: Record<string, unknown> = {
+        restaurantId: args.restaurantId,
+      };
       if (args.activeOnly) {
         filter.active = true;
         const today = new Date().toISOString().slice(0, 10);
         filter.$and = [
-          { $or: [{ startDate: { $exists: false } }, { startDate: null }, { startDate: { $lte: today } }] },
-          { $or: [{ endDate: { $exists: false } }, { endDate: null }, { endDate: { $gte: today } }] },
+          {
+            $or: [
+              { startDate: { $exists: false } },
+              { startDate: null },
+              { startDate: { $lte: today } },
+            ],
+          },
+          {
+            $or: [
+              { endDate: { $exists: false } },
+              { endDate: null },
+              { endDate: { $gte: today } },
+            ],
+          },
         ];
       }
       return paginateQuery(Promotion, filter, {
@@ -1959,7 +2363,11 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       return getPromotionStats(args.restaurantId, args.days ?? 30);
     },
 
@@ -1969,14 +2377,22 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      return paginateQuery(GiftCard, { restaurantId: args.restaurantId }, {
-        sort: { createdAt: -1 },
-        limit: args.limit,
-        offset: args.offset,
-        defaultLimit: 50,
-        map: mapGiftCard,
-      });
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      return paginateQuery(
+        GiftCard,
+        { restaurantId: args.restaurantId },
+        {
+          sort: { createdAt: -1 },
+          limit: args.limit,
+          offset: args.offset,
+          defaultLimit: 50,
+          map: mapGiftCard,
+        },
+      );
     },
 
     boostCampaigns: async (
@@ -1985,14 +2401,22 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      return paginateQuery(BoostCampaign, { restaurantId: args.restaurantId }, {
-        sort: { createdAt: -1 },
-        limit: args.limit,
-        offset: args.offset,
-        defaultLimit: 20,
-        map: mapBoostCampaign,
-      });
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      return paginateQuery(
+        BoostCampaign,
+        { restaurantId: args.restaurantId },
+        {
+          sort: { createdAt: -1 },
+          limit: args.limit,
+          offset: args.offset,
+          defaultLimit: 20,
+          map: mapBoostCampaign,
+        },
+      );
     },
 
     integrations: async (
@@ -2001,8 +2425,14 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      const items = await Integration.find({ restaurantId: args.restaurantId }).sort({ createdAt: -1 });
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      const items = await Integration.find({
+        restaurantId: args.restaurantId,
+      }).sort({ createdAt: -1 });
       return items.map((i) => mapIntegration(i));
     },
 
@@ -2012,8 +2442,12 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      await requireFeature(args.restaurantId, 'preShift');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      await requireFeature(args.restaurantId, "preShift");
       return buildPreShiftReport(args.restaurantId, args.date, args.shiftId);
     },
 
@@ -2023,22 +2457,46 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      await requireFeature(args.restaurantId, 'revenueForecasting');
-      return buildRevenueForecast(args.restaurantId, Math.min(args.days ?? 14, 60));
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      await requireFeature(args.restaurantId, "revenueForecasting");
+      return buildRevenueForecast(
+        args.restaurantId,
+        Math.min(args.days ?? 14, 60),
+      );
     },
 
     customReport: async (
       _: unknown,
-      args: { input: { restaurantId: string; metrics: string[]; groupBy: string; startDate: string; endDate: string } },
+      args: {
+        input: {
+          restaurantId: string;
+          metrics: string[];
+          groupBy: string;
+          startDate: string;
+          endDate: string;
+        };
+      },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.input.restaurantId, user.role);
-      await requireFeature(args.input.restaurantId, 'customReports');
-      const groupBy = args.input.groupBy as 'day' | 'week' | 'month' | 'source' | 'status' | 'occasion';
-      if (!['day', 'week', 'month', 'source', 'status', 'occasion'].includes(groupBy)) {
-        throw new Error('Invalid groupBy');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.input.restaurantId,
+        user.role,
+      );
+      await requireFeature(args.input.restaurantId, "customReports");
+      const groupBy = args.input.groupBy as
+        "day" | "week" | "month" | "source" | "status" | "occasion";
+      if (
+        !["day", "week", "month", "source", "status", "occasion"].includes(
+          groupBy,
+        )
+      ) {
+        throw new Error("Invalid groupBy");
       }
       return buildCustomReport({ ...args.input, groupBy });
     },
@@ -2051,23 +2509,29 @@ export const resolvers = {
       const user = requireAuth(ctx);
       const restaurants = await Restaurant.find({
         $or: [{ ownerId: user._id }, { _id: { $in: user.restaurantIds } }],
-      }).select('_id');
+      }).select("_id");
       const ids = restaurants.map((r) => r._id.toString());
       if (ids.length === 0) {
-        return { totalReservations: 0, totalCovers: 0, totalRevenueCents: 0, locations: [] };
+        return {
+          totalReservations: 0,
+          totalCovers: 0,
+          totalRevenueCents: 0,
+          locations: [],
+        };
       }
       // Gate on the first restaurant with the feature; any subscribed location unlocks the rollup
       let allowed = false;
       for (const id of ids) {
         try {
-          await requireFeature(id, 'multiLocationAnalytics');
+          await requireFeature(id, "multiLocationAnalytics");
           allowed = true;
           break;
         } catch {
           // keep checking
         }
       }
-      if (!allowed) throw new Error('Multi-location analytics requires the Pro plan');
+      if (!allowed)
+        throw new Error("Multi-location analytics requires the Pro plan");
       return buildMultiLocationAnalytics(ids, args.period);
     },
 
@@ -2097,7 +2561,11 @@ export const resolvers = {
   },
 
   Mutation: {
-    register: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
+    register: async (
+      _: unknown,
+      args: { input: unknown },
+      ctx: GraphQLContext,
+    ) => {
       const input = registerSchema.parse(args.input);
       const result = await registerWithEmail(input);
       const app = resolveBrowserAuthApp(ctx.req);
@@ -2108,7 +2576,11 @@ export const resolvers = {
       };
     },
 
-    registerRestaurantPartner: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
+    registerRestaurantPartner: async (
+      _: unknown,
+      args: { input: unknown },
+      ctx: GraphQLContext,
+    ) => {
       const input = registerRestaurantPartnerSchema.parse(args.input);
       const result = await registerRestaurantPartner(input);
       const app = resolveBrowserAuthApp(ctx.req);
@@ -2117,13 +2589,19 @@ export const resolvers = {
         ...authPayloadTokens(ctx.req, result),
         user: mapUser(result.user),
         restaurant: mapRestaurant(result.restaurant),
-        subscription: mapSubscription(result.subscription, { includeStripeIds: true }),
+        subscription: mapSubscription(result.subscription, {
+          includeStripeIds: true,
+        }),
         clientSecret: result.subscription.clientSecret ?? null,
         paymentMode: result.subscription.paymentMode ?? null,
       };
     },
 
-    login: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
+    login: async (
+      _: unknown,
+      args: { input: unknown },
+      ctx: GraphQLContext,
+    ) => {
       const input = loginSchema.parse(args.input);
       const result = await loginWithEmail(input.email, input.password);
       const app = resolveBrowserAuthApp(ctx.req);
@@ -2134,7 +2612,11 @@ export const resolvers = {
       };
     },
 
-    loginWithGoogle: async (_: unknown, args: { idToken: string }, ctx: GraphQLContext) => {
+    loginWithGoogle: async (
+      _: unknown,
+      args: { idToken: string },
+      ctx: GraphQLContext,
+    ) => {
       const result = await loginWithGoogle(args.idToken);
       const app = resolveBrowserAuthApp(ctx.req);
       if (app) setAuthCookies(ctx.res, result, app);
@@ -2147,7 +2629,11 @@ export const resolvers = {
     requestPhoneOtp: async (_: unknown, args: { phone: string }) =>
       requestPhoneOtp(args.phone),
 
-    verifyPhoneOtp: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
+    verifyPhoneOtp: async (
+      _: unknown,
+      args: { input: unknown },
+      ctx: GraphQLContext,
+    ) => {
       const input = phoneOtpVerifySchema.parse(args.input);
       const result = await verifyPhoneOtp(input);
       const app = resolveBrowserAuthApp(ctx.req);
@@ -2164,19 +2650,23 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const refresh = getRefreshTokenFromRequest(ctx.req, args.refreshToken);
-      if (!refresh) throw new Error('Invalid refresh token');
+      if (!refresh) throw new Error("Invalid refresh token");
       const tokens = await refreshTokens(refresh);
       const app = resolveBrowserAuthApp(ctx.req);
       if (app) setAuthCookies(ctx.res, tokens, app);
       const payload = JSON.parse(
-        Buffer.from(tokens.accessToken.split('.')[1]!, 'base64').toString(),
+        Buffer.from(tokens.accessToken.split(".")[1]!, "base64").toString(),
       );
       const user = await User.findById(payload.sub);
-      if (!user) throw new Error('User not found');
+      if (!user) throw new Error("User not found");
       return { ...authPayloadTokens(ctx.req, tokens), user: mapUser(user) };
     },
 
-    logout: async (_: unknown, args: { refreshToken?: string }, ctx: GraphQLContext) => {
+    logout: async (
+      _: unknown,
+      args: { refreshToken?: string },
+      ctx: GraphQLContext,
+    ) => {
       const app = resolveBrowserAuthApp(ctx.req);
       const refresh = getRefreshTokenFromRequest(ctx.req, args.refreshToken);
       if (app) clearAuthCookies(ctx.res, app);
@@ -2186,7 +2676,7 @@ export const resolvers = {
       }
       if (refresh) {
         try {
-          const { verifyRefreshToken } = await import('../services/auth.js');
+          const { verifyRefreshToken } = await import("../services/auth.js");
           const payload = verifyRefreshToken(refresh);
           return logout(payload.sub, refresh);
         } catch {
@@ -2198,7 +2688,7 @@ export const resolvers = {
 
     endImpersonation: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       requireAuth(ctx);
-      if (!ctx.impersonator) throw new Error('Not impersonating');
+      if (!ctx.impersonator) throw new Error("Not impersonating");
       const restored = endImpersonationCookies(ctx.res, ctx.req);
       return restored;
     },
@@ -2209,10 +2699,17 @@ export const resolvers = {
     ) =>
       requestPasswordReset(
         args.email,
-        args.app === 'dashboard' ? 'dashboard' : args.app === 'web' ? 'web' : undefined,
+        args.app === "dashboard"
+          ? "dashboard"
+          : args.app === "web"
+            ? "web"
+            : undefined,
       ),
 
-    resetPassword: async (_: unknown, args: { token: string; newPassword: string }) => {
+    resetPassword: async (
+      _: unknown,
+      args: { token: string; newPassword: string },
+    ) => {
       const newPassword = passwordSchema.parse(args.newPassword);
       return resetPassword(args.token, newPassword);
     },
@@ -2232,40 +2729,91 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => verifyDocsAccessOtp(args.email, args.code, ctx.res),
 
-    sendRestaurantInquiry: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) =>
-      sendRestaurantInquiry(args.input, { user: ctx.user }),
+    sendRestaurantInquiry: async (
+      _: unknown,
+      args: { input: unknown },
+      ctx: GraphQLContext,
+    ) => sendRestaurantInquiry(args.input, { user: ctx.user }),
 
-    saveRestaurant: async (_: unknown, args: { restaurantId: string }, ctx: GraphQLContext) => {
+    saveRestaurant: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
-      return setRestaurantBookmark(user._id.toString(), args.restaurantId, 'saved', true);
+      return setRestaurantBookmark(
+        user._id.toString(),
+        args.restaurantId,
+        "saved",
+        true,
+      );
     },
 
-    unsaveRestaurant: async (_: unknown, args: { restaurantId: string }, ctx: GraphQLContext) => {
+    unsaveRestaurant: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
-      return setRestaurantBookmark(user._id.toString(), args.restaurantId, 'saved', false);
+      return setRestaurantBookmark(
+        user._id.toString(),
+        args.restaurantId,
+        "saved",
+        false,
+      );
     },
 
-    favoriteRestaurant: async (_: unknown, args: { restaurantId: string }, ctx: GraphQLContext) => {
+    favoriteRestaurant: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
-      return setRestaurantBookmark(user._id.toString(), args.restaurantId, 'favorite', true);
+      return setRestaurantBookmark(
+        user._id.toString(),
+        args.restaurantId,
+        "favorite",
+        true,
+      );
     },
 
-    unfavoriteRestaurant: async (_: unknown, args: { restaurantId: string }, ctx: GraphQLContext) => {
+    unfavoriteRestaurant: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
-      return setRestaurantBookmark(user._id.toString(), args.restaurantId, 'favorite', false);
+      return setRestaurantBookmark(
+        user._id.toString(),
+        args.restaurantId,
+        "favorite",
+        false,
+      );
     },
 
-    recordSearch: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
+    recordSearch: async (
+      _: unknown,
+      args: { input: unknown },
+      ctx: GraphQLContext,
+    ) => {
       const input = recordSearchInputSchema.parse(args.input);
       return recordSearch(input, ctx.user?._id.toString());
     },
 
-    clearRecentSearch: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    clearRecentSearch: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       return clearRecentSearch(user._id.toString(), args.id);
     },
 
-    clearRecentSearches: async (_: unknown, _args: unknown, ctx: GraphQLContext) => {
+    clearRecentSearches: async (
+      _: unknown,
+      _args: unknown,
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       return clearRecentSearches(user._id.toString());
     },
@@ -2277,18 +2825,18 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       if (!canCreateRestaurant(user.role)) {
-        throw new ForbiddenError('Staff accounts cannot add restaurants');
+        throw new ForbiddenError("Staff accounts cannot add restaurants");
       }
       const input = restaurantInputSchema.parse(args.input);
       const doc = await Restaurant.create({
         ...restaurantInputToDb(input),
         slug: slugify(input.name),
         ownerId: user._id,
-        status: 'pending',
+        status: "pending",
       });
       await User.findByIdAndUpdate(user._id, {
         $addToSet: { restaurantIds: doc._id },
-        role: user.role === 'diner' ? 'restaurant_owner' : user.role,
+        role: user.role === "diner" ? "restaurant_owner" : user.role,
       });
 
       await provisionDefaultRestaurantSetup(doc._id);
@@ -2327,7 +2875,7 @@ export const resolvers = {
         restaurantInputToDb(input),
         { new: true },
       );
-      if (!doc) throw new Error('Restaurant not found');
+      if (!doc) throw new Error("Restaurant not found");
       return mapRestaurant(doc);
     },
 
@@ -2342,14 +2890,14 @@ export const resolvers = {
         { status: args.status },
         { new: true },
       );
-      if (!doc) throw new Error('Restaurant not found');
-      if (args.status === 'approved') {
+      if (!doc) throw new Error("Restaurant not found");
+      if (args.status === "approved") {
         await provisionDefaultRestaurantSetup(doc._id);
       }
       await logAudit({
         actorId: admin._id.toString(),
-        action: 'setRestaurantStatus',
-        resource: 'Restaurant',
+        action: "setRestaurantStatus",
+        resource: "Restaurant",
         resourceId: args.id,
         details: { status: args.status },
       });
@@ -2363,7 +2911,7 @@ export const resolvers = {
     ) => {
       return setRestaurantStatuses(
         args.ids,
-        args.status as 'pending' | 'approved' | 'rejected' | 'suspended',
+        args.status as "pending" | "approved" | "rejected" | "suspended",
         ctx,
       );
     },
@@ -2382,9 +2930,16 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       const input = tableInputSchema.parse(args.input);
-      const doc = await Table.create({ ...input, restaurantId: args.restaurantId });
+      const doc = await Table.create({
+        ...input,
+        restaurantId: args.restaurantId,
+      });
       return mapTable(doc);
     },
 
@@ -2395,7 +2950,7 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const existing = await Table.findById(args.id);
-      if (!existing) throw new Error('Table not found');
+      if (!existing) throw new Error("Table not found");
       await assertRestaurantAccess(
         user._id.toString(),
         existing.restaurantId.toString(),
@@ -2407,10 +2962,14 @@ export const resolvers = {
       return mapTable(existing);
     },
 
-    deleteTable: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    deleteTable: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const existing = await Table.findById(args.id);
-      if (!existing) throw new Error('Table not found');
+      if (!existing) throw new Error("Table not found");
       await assertRestaurantAccess(
         user._id.toString(),
         existing.restaurantId.toString(),
@@ -2419,10 +2978,13 @@ export const resolvers = {
       await existing.deleteOne();
       await logAudit({
         actorId: user._id.toString(),
-        action: 'deleteTable',
-        resource: 'Table',
+        action: "deleteTable",
+        resource: "Table",
         resourceId: args.id,
-        details: { restaurantId: existing.restaurantId.toString(), name: existing.name },
+        details: {
+          restaurantId: existing.restaurantId.toString(),
+          name: existing.name,
+        },
       });
       return true;
     },
@@ -2433,9 +2995,16 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       const input = shiftInputSchema.parse(args.input);
-      const doc = await Shift.create({ ...input, restaurantId: args.restaurantId });
+      const doc = await Shift.create({
+        ...input,
+        restaurantId: args.restaurantId,
+      });
       return mapShift(doc);
     },
 
@@ -2446,7 +3015,7 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const existing = await Shift.findById(args.id);
-      if (!existing) throw new Error('Shift not found');
+      if (!existing) throw new Error("Shift not found");
       await assertRestaurantAccess(
         user._id.toString(),
         existing.restaurantId.toString(),
@@ -2458,10 +3027,14 @@ export const resolvers = {
       return mapShift(existing);
     },
 
-    deleteShift: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    deleteShift: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const existing = await Shift.findById(args.id);
-      if (!existing) throw new Error('Shift not found');
+      if (!existing) throw new Error("Shift not found");
       await assertRestaurantAccess(
         user._id.toString(),
         existing.restaurantId.toString(),
@@ -2470,10 +3043,13 @@ export const resolvers = {
       await existing.deleteOne();
       await logAudit({
         actorId: user._id.toString(),
-        action: 'deleteShift',
-        resource: 'Shift',
+        action: "deleteShift",
+        resource: "Shift",
         resourceId: args.id,
-        details: { restaurantId: existing.restaurantId.toString(), name: existing.name },
+        details: {
+          restaurantId: existing.restaurantId.toString(),
+          name: existing.name,
+        },
       });
       return true;
     },
@@ -2495,7 +3071,11 @@ export const resolvers = {
         reason: args.reason,
         allDay: args.allDay,
       });
-      await assertRestaurantAccess(user._id.toString(), input.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        input.restaurantId,
+        user.role,
+      );
       const doc = await Blackout.create({
         restaurantId: input.restaurantId,
         date: input.date,
@@ -2513,10 +3093,14 @@ export const resolvers = {
       };
     },
 
-    deleteBlackout: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    deleteBlackout: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const existing = await Blackout.findById(args.id);
-      if (!existing) throw new NotFoundError('Blackout');
+      if (!existing) throw new NotFoundError("Blackout");
       await assertRestaurantAccess(
         user._id.toString(),
         existing.restaurantId.toString(),
@@ -2526,7 +3110,11 @@ export const resolvers = {
       return true;
     },
 
-    createReservation: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
+    createReservation: async (
+      _: unknown,
+      args: { input: unknown },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const rawInput = args.input as Record<string, unknown>;
       if (rawInput.slotStart instanceof Date) {
@@ -2552,10 +3140,13 @@ export const resolvers = {
       });
       await logAudit({
         actorId: user._id.toString(),
-        action: 'createReservation',
-        resource: 'Reservation',
+        action: "createReservation",
+        resource: "Reservation",
         resourceId: result.reservation._id.toString(),
-        details: { restaurantId: input.restaurantId, partySize: input.partySize },
+        details: {
+          restaurantId: input.restaurantId,
+          partySize: input.partySize,
+        },
       });
       return {
         reservation: mapReservation(result.reservation, result.clientSecret),
@@ -2563,16 +3154,24 @@ export const resolvers = {
       };
     },
 
-    createOwnerReservation: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
+    createOwnerReservation: async (
+      _: unknown,
+      args: { input: unknown },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const rawInput = args.input as Record<string, unknown>;
       if (rawInput.slotStart instanceof Date) {
         rawInput.slotStart = rawInput.slotStart.toISOString();
       }
       const input = ownerReservationInputSchema.parse(rawInput);
-      await assertRestaurantAccess(user._id.toString(), input.restaurantId, user.role);
-      if (input.source && !['phone', 'walkin'].includes(input.source)) {
-        throw new Error('Owner bookings must use phone or walkin source');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        input.restaurantId,
+        user.role,
+      );
+      if (input.source && !["phone", "walkin"].includes(input.source)) {
+        throw new Error("Owner bookings must use phone or walkin source");
       }
       const reservation = await createOwnerReservation({
         restaurantId: input.restaurantId,
@@ -2587,8 +3186,8 @@ export const resolvers = {
       });
       await logAudit({
         actorId: user._id.toString(),
-        action: 'createOwnerReservation',
-        resource: 'Reservation',
+        action: "createOwnerReservation",
+        resource: "Reservation",
         resourceId: reservation._id.toString(),
         details: {
           restaurantId: input.restaurantId,
@@ -2609,7 +3208,7 @@ export const resolvers = {
         paymentIntentId: args.paymentIntentId,
         dinerId: user._id.toString(),
       });
-      if (!reservation) throw new Error('Payment confirmation failed');
+      if (!reservation) throw new Error("Payment confirmation failed");
       return mapReservation(reservation);
     },
 
@@ -2624,17 +3223,21 @@ export const resolvers = {
         rawInput.slotStart = rawInput.slotStart.toISOString();
       }
       const input = updateReservationInputSchema.parse(rawInput);
-      const reservation = await updateReservationDetails(args.id, user._id.toString(), {
-        partySize: input.partySize,
-        slotStart: input.slotStart ? new Date(input.slotStart) : undefined,
-        occasion: input.occasion,
-        guestNotes: input.guestNotes,
-        tableId: input.tableId,
-      });
+      const reservation = await updateReservationDetails(
+        args.id,
+        user._id.toString(),
+        {
+          partySize: input.partySize,
+          slotStart: input.slotStart ? new Date(input.slotStart) : undefined,
+          occasion: input.occasion,
+          guestNotes: input.guestNotes,
+          tableId: input.tableId,
+        },
+      );
       await logAudit({
         actorId: user._id.toString(),
-        action: 'updateReservation',
-        resource: 'Reservation',
+        action: "updateReservation",
+        resource: "Reservation",
         resourceId: args.id,
         details: input,
       });
@@ -2655,8 +3258,8 @@ export const resolvers = {
       );
       await logAudit({
         actorId: user._id.toString(),
-        action: 'updateReservationStatus',
-        resource: 'Reservation',
+        action: "updateReservationStatus",
+        resource: "Reservation",
         resourceId: args.id,
         details: { status: args.status, reason: args.reason },
       });
@@ -2676,100 +3279,119 @@ export const resolvers = {
       );
       await logAudit({
         actorId: user._id.toString(),
-        action: 'seatReservationAtTable',
-        resource: 'Reservation',
+        action: "seatReservationAtTable",
+        resource: "Reservation",
         resourceId: args.reservationId,
         details: { tableId: args.tableId },
       });
       return mapReservation(reservation);
     },
 
-    deleteReservation: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    deleteReservation: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       await deleteReservation(args.id, user._id.toString());
       await logAudit({
         actorId: user._id.toString(),
-        action: 'deleteReservation',
-        resource: 'Reservation',
+        action: "deleteReservation",
+        resource: "Reservation",
         resourceId: args.id,
       });
       return true;
     },
 
-    joinWaitlist: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
+    joinWaitlist: async (
+      _: unknown,
+      args: { input: unknown },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
-      if (!(await isFeatureEnabled('waitlist'))) {
-        throw new Error('Waitlist is temporarily unavailable');
+      if (!(await isFeatureEnabled("waitlist"))) {
+        throw new Error("Waitlist is temporarily unavailable");
       }
       const input = waitlistInputSchema.parse(args.input);
       const restaurant = await Restaurant.findById(input.restaurantId);
-      if (!restaurant || restaurant.status !== 'approved') {
-        throw new Error('Restaurant not available');
+      if (!restaurant || restaurant.status !== "approved") {
+        throw new Error("Restaurant not available");
       }
       if (restaurant.reservationsEnabled === false) {
-        throw new Error('This restaurant is not accepting online reservations');
+        throw new Error("This restaurant is not accepting online reservations");
       }
 
       const existing = await WaitlistEntry.findOne({
         dinerId: user._id,
         restaurantId: input.restaurantId,
         preferredDate: input.preferredDate,
-        status: { $in: ['waiting', 'notified'] },
+        status: { $in: ["waiting", "notified"] },
       });
       if (existing) {
-        throw new ValidationError('You are already on the waitlist for this date');
+        throw new ValidationError(
+          "You are already on the waitlist for this date",
+        );
       }
 
       const doc = await WaitlistEntry.create({
         ...input,
         dinerId: user._id,
-        source: 'online',
-        status: 'waiting',
+        source: "online",
+        status: "waiting",
       });
       const { entry, eta } = await enrichWaitlistEntry(doc);
       (entry as any)._eta = eta;
       return mapWaitlistEntry(entry);
     },
 
-    cancelWaitlist: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    cancelWaitlist: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const entry = await WaitlistEntry.findById(args.id);
-      if (!entry || !entry.dinerId?.equals(user._id)) throw new Error('Not found');
-      entry.status = 'cancelled';
+      if (!entry || !entry.dinerId?.equals(user._id))
+        throw new Error("Not found");
+      entry.status = "cancelled";
       await entry.save();
       return true;
     },
 
-    createReview: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {
+    createReview: async (
+      _: unknown,
+      args: { input: unknown },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
-      if (!(await isFeatureEnabled('reviews'))) {
-        throw new Error('Reviews are temporarily unavailable');
+      if (!(await isFeatureEnabled("reviews"))) {
+        throw new Error("Reviews are temporarily unavailable");
       }
       const input = reviewInputSchema.parse(args.input);
       const reservation = await Reservation.findById(input.reservationId);
       if (!reservation || !reservation.dinerId.equals(user._id)) {
-        throw new Error('Reservation not found');
+        throw new Error("Reservation not found");
       }
-      if (reservation.status !== 'completed') {
-        throw new Error('Can only review completed visits');
+      if (reservation.status !== "completed") {
+        throw new Error("Can only review completed visits");
       }
       const existing = await Review.findOne({ reservationId: reservation._id });
-      if (existing) throw new Error('Already reviewed');
+      if (existing) throw new Error("Already reviewed");
 
       const review: any = await Review.create({
         restaurantId: reservation.restaurantId,
         dinerId: user._id,
         reservationId: reservation._id,
         rating: input.rating,
-        comment: input.comment ?? '',
+        comment: input.comment ?? "",
       });
 
       const stats = await Review.aggregate([
         { $match: { restaurantId: reservation.restaurantId } },
         {
           $group: {
-            _id: '$restaurantId',
-            averageRating: { $avg: '$rating' },
+            _id: "$restaurantId",
+            averageRating: { $avg: "$rating" },
             reviewCount: { $sum: 1 },
           },
         },
@@ -2792,7 +3414,11 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       const menu = await Menu.findOneAndUpdate(
         { restaurantId: args.restaurantId },
         { sections: args.input.sections },
@@ -2834,22 +3460,28 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const admin = requireAdmin(ctx);
-      const validRoles = ['diner', 'restaurant_owner', 'staff', 'admin', 'super_admin'];
-      if (!validRoles.includes(args.role)) throw new Error('Invalid role');
+      const validRoles = [
+        "diner",
+        "restaurant_owner",
+        "staff",
+        "admin",
+        "super_admin",
+      ];
+      if (!validRoles.includes(args.role)) throw new Error("Invalid role");
       await assertCanAssignRole(admin.role, args.role);
       const existing = await User.findById(args.userId);
-      if (!existing) throw new Error('User not found');
+      if (!existing) throw new Error("User not found");
       assertCanEditUser(admin.role, existing.role);
       const target = await User.findByIdAndUpdate(
         args.userId,
         { role: args.role },
         { new: true },
       );
-      if (!target) throw new Error('User not found');
+      if (!target) throw new Error("User not found");
       await logAudit({
         actorId: admin._id.toString(),
-        action: 'setUserRole',
-        resource: 'User',
+        action: "setUserRole",
+        resource: "User",
         resourceId: args.userId,
         details: { newRole: args.role },
       });
@@ -2863,7 +3495,7 @@ export const resolvers = {
     ) => {
       const admin = requireAdmin(ctx);
       const target = await User.findById(args.userId);
-      if (!target) throw new Error('User not found');
+      if (!target) throw new Error("User not found");
       assertCanEditUser(admin.role, target.role);
       const result = await adminCreatePasswordReset({
         userId: args.userId,
@@ -2871,8 +3503,8 @@ export const resolvers = {
       });
       await logAudit({
         actorId: admin._id.toString(),
-        action: 'adminSendPasswordReset',
-        resource: 'User',
+        action: "adminSendPasswordReset",
+        resource: "User",
         resourceId: args.userId,
         details: { emailed: result.emailed, email: result.email },
       });
@@ -2888,8 +3520,8 @@ export const resolvers = {
       const result = await generateInvoicesForPeriod(args.period);
       await logAudit({
         actorId: admin._id.toString(),
-        action: 'generateInvoices',
-        resource: 'Invoice',
+        action: "generateInvoices",
+        resource: "Invoice",
         details: result,
       });
       return result;
@@ -2906,7 +3538,7 @@ export const resolvers = {
           originalAmountCents?: number | null;
           packageDurationMonths?: number | null;
           planKey?: string | null;
-          billingCycle?: 'monthly' | 'annual' | null;
+          billingCycle?: "monthly" | "annual" | null;
           serviceIds?: string[] | null;
           notes?: string | null;
           description?: string | null;
@@ -2919,8 +3551,8 @@ export const resolvers = {
       const invoice = await createManualInvoice(args.input);
       await logAudit({
         actorId: admin._id.toString(),
-        action: 'createManualInvoice',
-        resource: 'Invoice',
+        action: "createManualInvoice",
+        resource: "Invoice",
         resourceId: invoice.id,
         details: {
           restaurantId: args.input.restaurantId,
@@ -2945,8 +3577,8 @@ export const resolvers = {
       const invoice = await ensureInvoicePayLink(args.id);
       await logAudit({
         actorId: admin._id.toString(),
-        action: 'ensureInvoicePayLink',
-        resource: 'Invoice',
+        action: "ensureInvoicePayLink",
+        resource: "Invoice",
         resourceId: args.id,
       });
       return invoice;
@@ -2961,8 +3593,8 @@ export const resolvers = {
       const result = await sendInvoiceEmail(args.id, args.toEmail);
       await logAudit({
         actorId: admin._id.toString(),
-        action: 'sendInvoiceEmail',
-        resource: 'Invoice',
+        action: "sendInvoiceEmail",
+        resource: "Invoice",
         resourceId: args.id,
         details: { to: result.to },
       });
@@ -2997,8 +3629,8 @@ export const resolvers = {
       const service = await createPlatformService(args.input);
       await logAudit({
         actorId: admin._id.toString(),
-        action: 'createPlatformService',
-        resource: 'PlatformService',
+        action: "createPlatformService",
+        resource: "PlatformService",
         resourceId: service.id,
         details: { name: service.name, priceCents: service.priceCents },
       });
@@ -3024,8 +3656,8 @@ export const resolvers = {
       const service = await updatePlatformService(args.id, args.input);
       await logAudit({
         actorId: admin._id.toString(),
-        action: 'updatePlatformService',
-        resource: 'PlatformService',
+        action: "updatePlatformService",
+        resource: "PlatformService",
         resourceId: args.id,
       });
       return service;
@@ -3040,8 +3672,8 @@ export const resolvers = {
       await deletePlatformService(args.id);
       await logAudit({
         actorId: admin._id.toString(),
-        action: 'deletePlatformService',
-        resource: 'PlatformService',
+        action: "deletePlatformService",
+        resource: "PlatformService",
         resourceId: args.id,
       });
       return true;
@@ -3055,12 +3687,12 @@ export const resolvers = {
       const admin = requireAdmin(ctx);
       const invoice = await setInvoiceStatus(
         args.id,
-        args.status as 'upcoming' | 'pending' | 'paid' | 'canceled' | 'overdue',
+        args.status as "upcoming" | "pending" | "paid" | "canceled" | "overdue",
       );
       await logAudit({
         actorId: admin._id.toString(),
-        action: 'setInvoiceStatus',
-        resource: 'Invoice',
+        action: "setInvoiceStatus",
+        resource: "Invoice",
         resourceId: args.id,
         details: { status: args.status },
       });
@@ -3075,13 +3707,17 @@ export const resolvers = {
       const admin = requireAdmin(ctx);
       const result = await setInvoiceStatuses(
         args.ids,
-        args.status as 'upcoming' | 'pending' | 'paid' | 'canceled' | 'overdue',
+        args.status as "upcoming" | "pending" | "paid" | "canceled" | "overdue",
       );
       await logAudit({
         actorId: admin._id.toString(),
-        action: 'setInvoiceStatuses',
-        resource: 'Invoice',
-        details: { status: args.status, ids: args.ids, updated: result.updated },
+        action: "setInvoiceStatuses",
+        resource: "Invoice",
+        details: {
+          status: args.status,
+          ids: args.ids,
+          updated: result.updated,
+        },
       });
       return result;
     },
@@ -3094,52 +3730,60 @@ export const resolvers = {
       const admin = requireAdmin(ctx);
       const doc = await getPlatformConfig();
       const allowed = [
-        'supportEmail',
-        'supportPhone',
-        'defaultSignupRole',
-        'defaultPartnerRole',
-        'defaultStaffRole',
-        'maintenanceMode',
-        'allowPublicRegistration',
-        'allowPartnerRegistration',
-        'requireAdminDelete2FA',
-        'invoicePrefix',
-        'currency',
+        "supportEmail",
+        "supportPhone",
+        "defaultSignupRole",
+        "defaultPartnerRole",
+        "defaultStaffRole",
+        "maintenanceMode",
+        "allowPublicRegistration",
+        "allowPartnerRegistration",
+        "requireAdminDelete2FA",
+        "invoicePrefix",
+        "currency",
       ] as const;
-      const safeRoles = ['diner', 'restaurant_owner', 'staff'] as const;
+      const safeRoles = ["diner", "restaurant_owner", "staff"] as const;
       for (const key of allowed) {
         if (args.input[key] !== undefined) {
           if (
-            (key === 'defaultSignupRole' ||
-              key === 'defaultPartnerRole' ||
-              key === 'defaultStaffRole') &&
+            (key === "defaultSignupRole" ||
+              key === "defaultPartnerRole" ||
+              key === "defaultStaffRole") &&
             !(safeRoles as readonly string[]).includes(String(args.input[key]))
           ) {
-            throw new Error(`Invalid ${key}: must be diner, restaurant_owner, or staff`);
+            throw new Error(
+              `Invalid ${key}: must be diner, restaurant_owner, or staff`,
+            );
           }
           (doc as any)[key] = args.input[key];
         }
       }
-      if (args.input.featureFlags && typeof args.input.featureFlags === 'object') {
+      if (
+        args.input.featureFlags &&
+        typeof args.input.featureFlags === "object"
+      ) {
         await applyPlatformConfigFeatureFlags(
           doc,
           args.input.featureFlags as Record<string, boolean | undefined>,
         );
       }
-      if (args.input.annualBilling && typeof args.input.annualBilling === 'object') {
+      if (
+        args.input.annualBilling &&
+        typeof args.input.annualBilling === "object"
+      ) {
         const current = mapAnnualBillingSettings(doc);
         const next = normalizeAnnualBillingSettings({
           ...current,
           ...(args.input.annualBilling as Partial<AnnualBillingSettings>),
         });
         (doc as any).annualBilling = next;
-        doc.markModified('annualBilling');
+        doc.markModified("annualBilling");
       }
       await doc.save();
       await logAudit({
         actorId: admin._id.toString(),
-        action: 'updatePlatformConfig',
-        resource: 'PlatformConfig',
+        action: "updatePlatformConfig",
+        resource: "PlatformConfig",
         resourceId: doc._id.toString(),
         details: args.input,
       });
@@ -3171,18 +3815,20 @@ export const resolvers = {
       const admin = requireAdmin(ctx);
       const key = args.input.key.trim().toLowerCase();
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key)) {
-        throw new Error('Invalid plan key');
+        throw new Error("Invalid plan key");
       }
       const doc = await getPlatformConfig();
       const overrides = getPlanOverridesMap(doc);
       const existing = toPlainPlanOverride(overrides[key]);
       if (!BUILTIN_PLAN_KEYS.has(key) && !overrides[key]) {
-        throw new Error('Plan not found. Create it first.');
+        throw new Error("Plan not found. Create it first.");
       }
       const next = {
         ...existing,
         ...(args.input.name !== undefined ? { name: args.input.name } : {}),
-        ...(args.input.description !== undefined ? { description: args.input.description } : {}),
+        ...(args.input.description !== undefined
+          ? { description: args.input.description }
+          : {}),
         ...(args.input.monthlyPriceCents !== undefined
           ? { monthlyPriceCents: args.input.monthlyPriceCents }
           : {}),
@@ -3205,7 +3851,9 @@ export const resolvers = {
         ...(args.input.websiteCoverFeeCents !== undefined
           ? { websiteCoverFeeCents: args.input.websiteCoverFeeCents }
           : {}),
-        ...(args.input.trialDays !== undefined ? { trialDays: args.input.trialDays } : {}),
+        ...(args.input.trialDays !== undefined
+          ? { trialDays: args.input.trialDays }
+          : {}),
         ...(args.input.visibleOnPricing !== undefined
           ? { visibleOnPricing: args.input.visibleOnPricing }
           : {}),
@@ -3214,7 +3862,7 @@ export const resolvers = {
               features: {
                 ...(existing.features instanceof Map
                   ? Object.fromEntries(existing.features)
-                  : existing.features ?? {}),
+                  : (existing.features ?? {})),
                 ...args.input.features,
               },
             }
@@ -3226,17 +3874,17 @@ export const resolvers = {
       } else {
         (doc.planOverrides as any)[key] = next;
       }
-      doc.markModified('planOverrides');
+      doc.markModified("planOverrides");
       await doc.save();
       await logAudit({
         actorId: admin._id.toString(),
-        action: 'updatePlanPackage',
-        resource: 'PlatformConfig',
+        action: "updatePlanPackage",
+        resource: "PlatformConfig",
         details: { plan: key },
       });
       const plans = await getEffectivePlans();
       const plan = plans.find((p) => p.key === key);
-      if (!plan) throw new Error('Plan not found after update');
+      if (!plan) throw new Error("Plan not found after update");
       return plan;
     },
 
@@ -3263,11 +3911,14 @@ export const resolvers = {
     ) => {
       const admin = requireAdmin(ctx);
       const name = args.input.name.trim();
-      if (!name) throw new Error('Package name is required');
+      if (!name) throw new Error("Package name is required");
 
       const doc = await getPlatformConfig();
       const overrides = getPlanOverridesMap(doc);
-      const existingKeys = new Set([...BUILTIN_PLAN_KEYS, ...Object.keys(overrides)]);
+      const existingKeys = new Set([
+        ...BUILTIN_PLAN_KEYS,
+        ...Object.keys(overrides),
+      ]);
       const key = uniquePlanKey(name, existingKeys);
 
       const next = {
@@ -3294,41 +3945,45 @@ export const resolvers = {
       } else {
         (doc.planOverrides as any)[key] = next;
       }
-      doc.markModified('planOverrides');
+      doc.markModified("planOverrides");
       await doc.save();
       await logAudit({
         actorId: admin._id.toString(),
-        action: 'createPlanPackage',
-        resource: 'PlatformConfig',
+        action: "createPlanPackage",
+        resource: "PlatformConfig",
         details: { plan: key },
       });
       const plans = await getEffectivePlans();
       const plan = plans.find((p) => p.key === key);
-      if (!plan) throw new Error('Plan not found after create');
+      if (!plan) throw new Error("Plan not found after create");
       return plan;
     },
 
-    deletePlanPackage: async (_: unknown, args: { key: string }, ctx: GraphQLContext) => {
+    deletePlanPackage: async (
+      _: unknown,
+      args: { key: string },
+      ctx: GraphQLContext,
+    ) => {
       const admin = requireAdmin(ctx);
       const key = args.key.trim().toLowerCase();
       if (BUILTIN_PLAN_KEYS.has(key)) {
-        throw new Error('Built-in packages cannot be deleted');
+        throw new Error("Built-in packages cannot be deleted");
       }
       const doc = await getPlatformConfig();
       const overrides = getPlanOverridesMap(doc);
-      if (!overrides[key]) throw new Error('Plan not found');
+      if (!overrides[key]) throw new Error("Plan not found");
 
       if ((doc as any).planOverrides instanceof Map) {
         (doc as any).planOverrides.delete(key);
       } else {
         delete (doc.planOverrides as any)[key];
       }
-      doc.markModified('planOverrides');
+      doc.markModified("planOverrides");
       await doc.save();
       await logAudit({
         actorId: admin._id.toString(),
-        action: 'deletePlanPackage',
-        resource: 'PlatformConfig',
+        action: "deletePlanPackage",
+        resource: "PlatformConfig",
         details: { plan: key },
       });
       return true;
@@ -3340,14 +3995,18 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       assertCanManageBilling(user.role);
 
       const planDef = await getEffectivePlan(args.plan);
       if (!planDef) throw new Error(`Invalid plan: ${args.plan}`);
 
       const restaurant = await Restaurant.findById(args.restaurantId);
-      if (!restaurant) throw new Error('Restaurant not found');
+      if (!restaurant) throw new Error("Restaurant not found");
 
       const sub = await createRestaurantSubscription({
         restaurantId: args.restaurantId,
@@ -3380,25 +4039,31 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       assertCanManageBilling(user.role);
 
-      const sub = await Subscription.findOne({ restaurantId: args.restaurantId });
-      if (!sub) throw new Error('No subscription found');
-      if (sub.status === 'cancelled') throw new Error('Already cancelled');
+      const sub = await Subscription.findOne({
+        restaurantId: args.restaurantId,
+      });
+      if (!sub) throw new Error("No subscription found");
+      if (sub.status === "cancelled") throw new Error("Already cancelled");
 
       if (sub.stripeSubscriptionId) {
         await cancelStripeSubscription(sub.stripeSubscriptionId);
       }
 
-      sub.status = 'cancelled';
+      sub.status = "cancelled";
       sub.cancelledAt = new Date();
       await sub.save();
 
       await logAudit({
         actorId: user._id.toString(),
-        action: 'cancelSubscription',
-        resource: 'Subscription',
+        action: "cancelSubscription",
+        resource: "Subscription",
         resourceId: sub._id.toString(),
         details: { restaurantId: args.restaurantId },
       });
@@ -3412,7 +4077,11 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       assertCanManageBilling(user.role);
       const result = await changeRestaurantPlan({
         restaurantId: args.restaurantId,
@@ -3420,7 +4089,9 @@ export const resolvers = {
         actorId: user._id.toString(),
       });
       return {
-        subscription: mapSubscription(result.subscription, { includeStripeIds: true }),
+        subscription: mapSubscription(result.subscription, {
+          includeStripeIds: true,
+        }),
         clientSecret: result.clientSecret,
         paymentMode: result.paymentMode,
         amountDueCents: result.amountDueCents,
@@ -3433,7 +4104,11 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       assertCanManageBilling(user.role);
       const sub = await markPlanChangePaid(args.restaurantId);
       return mapSubscription(sub, { includeStripeIds: true });
@@ -3445,7 +4120,11 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       assertCanManageBilling(user.role);
       const sub = await cancelPendingPlanChange({
         restaurantId: args.restaurantId,
@@ -3469,10 +4148,14 @@ export const resolvers = {
       return true;
     },
 
-    linkTelegram: async (_: unknown, args: { chatId: string }, ctx: GraphQLContext) => {
+    linkTelegram: async (
+      _: unknown,
+      args: { chatId: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const chatId = args.chatId.trim();
-      const { verifyTelegramChat } = await import('../services/telegram.js');
+      const { verifyTelegramChat } = await import("../services/telegram.js");
       await verifyTelegramChat(chatId);
       await User.findByIdAndUpdate(user._id, { telegramChatId: chatId });
       return true;
@@ -3486,7 +4169,7 @@ export const resolvers = {
       const user = requireAuth(ctx);
       const filter: Record<string, unknown> = {
         userId: user._id,
-        channel: 'in_app',
+        channel: "in_app",
         $or: [{ readAt: null }, { readAt: { $exists: false } }],
       };
       if (args.ids?.length) filter._id = { $in: args.ids };
@@ -3494,12 +4177,16 @@ export const resolvers = {
       return true;
     },
 
-    markAllNotificationsRead: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+    markAllNotificationsRead: async (
+      _: unknown,
+      __: unknown,
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       await Notification.updateMany(
         {
           userId: user._id,
-          channel: 'in_app',
+          channel: "in_app",
           $or: [{ readAt: null }, { readAt: { $exists: false } }],
         },
         { $set: { readAt: new Date() } },
@@ -3532,34 +4219,46 @@ export const resolvers = {
       const isSelf = targetId === actor._id.toString();
 
       if (!isSelf) {
-        if (!args.restaurantId) throw new Error('restaurantId is required to update another user');
-        await assertRestaurantAccess(actor._id.toString(), args.restaurantId, actor.role);
-        if (!isPlatformAdmin(actor.role) && actor.role !== 'restaurant_owner') {
-          throw new Error('Only owners can update team notification preferences');
+        if (!args.restaurantId)
+          throw new Error("restaurantId is required to update another user");
+        await assertRestaurantAccess(
+          actor._id.toString(),
+          args.restaurantId,
+          actor.role,
+        );
+        if (!isPlatformAdmin(actor.role) && actor.role !== "restaurant_owner") {
+          throw new Error(
+            "Only owners can update team notification preferences",
+          );
         }
         const restaurant = await Restaurant.findById(args.restaurantId);
-        if (!restaurant) throw new Error('Restaurant not found');
+        if (!restaurant) throw new Error("Restaurant not found");
         const target = await User.findById(targetId);
-        if (!target) throw new Error('User not found');
+        if (!target) throw new Error("User not found");
         const onTeam =
           restaurant.ownerId.equals(targetId) ||
           target.restaurantIds?.some((id) => id.equals(args.restaurantId!));
-        if (!onTeam) throw new Error('User is not on this restaurant team');
+        if (!onTeam) throw new Error("User is not on this restaurant team");
       }
 
       const $set: Record<string, boolean> = {};
       for (const [eventKey, channels] of Object.entries(input)) {
-        if (!channels || typeof channels !== 'object') continue;
+        if (!channels || typeof channels !== "object") continue;
         for (const [channelKey, value] of Object.entries(channels)) {
-          if (typeof value === 'boolean') {
+          if (typeof value === "boolean") {
             $set[`notificationPreferences.${eventKey}.${channelKey}`] = value;
           }
         }
       }
-      if (Object.keys($set).length === 0) throw new Error('No preferences to update');
+      if (Object.keys($set).length === 0)
+        throw new Error("No preferences to update");
 
-      const updated = await User.findByIdAndUpdate(targetId, { $set }, { new: true });
-      if (!updated) throw new Error('User not found');
+      const updated = await User.findByIdAndUpdate(
+        targetId,
+        { $set },
+        { new: true },
+      );
+      if (!updated) throw new Error("User not found");
       return mapUser(updated);
     },
 
@@ -3569,15 +4268,21 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      await requireFeature(args.restaurantId, 'ticketedEvents');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      await requireFeature(args.restaurantId, "ticketedEvents");
       const start = new Date(args.input.date);
       const end = new Date(args.input.endDate ?? args.input.date);
       if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-        throw new ValidationError('Invalid experience dates');
+        throw new ValidationError("Invalid experience dates");
       }
       if (end < start) {
-        throw new ValidationError('End date must be on or after the start date');
+        throw new ValidationError(
+          "End date must be on or after the start date",
+        );
       }
       const doc = await Experience.create({
         ...args.input,
@@ -3595,36 +4300,63 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const existing = await Experience.findById(args.id);
-      if (!existing) throw new NotFoundError('Experience');
-      await assertRestaurantAccess(user._id.toString(), existing.restaurantId.toString(), user.role);
+      if (!existing) throw new NotFoundError("Experience");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        existing.restaurantId.toString(),
+        user.role,
+      );
       const start = new Date(args.input.date ?? existing.date);
-      const end = new Date(args.input.endDate ?? args.input.date ?? existing.endDate ?? existing.date);
+      const end = new Date(
+        args.input.endDate ??
+          args.input.date ??
+          existing.endDate ??
+          existing.date,
+      );
       if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-        throw new ValidationError('Invalid experience dates');
+        throw new ValidationError("Invalid experience dates");
       }
       if (end < start) {
-        throw new ValidationError('End date must be on or after the start date');
+        throw new ValidationError(
+          "End date must be on or after the start date",
+        );
       }
       Object.assign(existing, args.input, { date: start, endDate: end });
       await existing.save();
       return mapExperience(existing);
     },
 
-    deleteExperience: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    deleteExperience: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const existing = await Experience.findById(args.id);
-      if (!existing) throw new NotFoundError('Experience');
-      await assertRestaurantAccess(user._id.toString(), existing.restaurantId.toString(), user.role);
+      if (!existing) throw new NotFoundError("Experience");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        existing.restaurantId.toString(),
+        user.role,
+      );
       await existing.deleteOne();
       return true;
     },
 
-    publishExperience: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    publishExperience: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const exp = await Experience.findById(args.id);
-      if (!exp) throw new Error('Experience not found');
-      await assertRestaurantAccess(user._id.toString(), exp.restaurantId.toString(), user.role);
-      exp.status = exp.status === 'published' ? 'draft' : 'published';
+      if (!exp) throw new Error("Experience not found");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        exp.restaurantId.toString(),
+        user.role,
+      );
+      exp.status = exp.status === "published" ? "draft" : "published";
       await exp.save();
       return mapExperience(exp);
     },
@@ -3635,19 +4367,23 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       const input = restaurantPackageInputSchema.parse(args.input);
       if (
         input.minPartySize != null &&
         input.maxPartySize != null &&
         input.minPartySize > input.maxPartySize
       ) {
-        throw new ValidationError('minPartySize cannot exceed maxPartySize');
+        throw new ValidationError("minPartySize cannot exceed maxPartySize");
       }
       const doc = await RestaurantPackage.create({
         restaurantId: args.restaurantId,
         title: input.title,
-        description: input.description ?? '',
+        description: input.description ?? "",
         priceCents: input.priceCents,
         pricePerGuest: input.pricePerGuest ?? false,
         includes: input.includes ?? [],
@@ -3667,7 +4403,7 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const existing = await RestaurantPackage.findById(args.id);
-      if (!existing) throw new NotFoundError('Package');
+      if (!existing) throw new NotFoundError("Package");
       await assertRestaurantAccess(
         user._id.toString(),
         existing.restaurantId.toString(),
@@ -3679,10 +4415,10 @@ export const resolvers = {
         input.maxPartySize != null &&
         input.minPartySize > input.maxPartySize
       ) {
-        throw new ValidationError('minPartySize cannot exceed maxPartySize');
+        throw new ValidationError("minPartySize cannot exceed maxPartySize");
       }
       existing.title = input.title;
-      existing.description = input.description ?? '';
+      existing.description = input.description ?? "";
       existing.priceCents = input.priceCents;
       existing.pricePerGuest = input.pricePerGuest ?? false;
       existing.includes = input.includes ?? [];
@@ -3695,10 +4431,14 @@ export const resolvers = {
       return mapRestaurantPackage(existing);
     },
 
-    deleteRestaurantPackage: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    deleteRestaurantPackage: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const existing = await RestaurantPackage.findById(args.id);
-      if (!existing) throw new NotFoundError('Package');
+      if (!existing) throw new NotFoundError("Package");
       await assertRestaurantAccess(
         user._id.toString(),
         existing.restaurantId.toString(),
@@ -3715,19 +4455,23 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const exp = await Experience.findById(args.experienceId);
-      if (!exp) throw new Error('Experience not found');
-      if (exp.status !== 'published') throw new Error('Experience is not available for purchase');
+      if (!exp) throw new Error("Experience not found");
+      if (exp.status !== "published")
+        throw new Error("Experience is not available for purchase");
 
       const available = exp.maxGuests - (exp.ticketsSold ?? 0);
-      if (available < args.quantity) throw new Error('Not enough tickets available');
+      if (available < args.quantity)
+        throw new Error("Not enough tickets available");
 
       const serviceFeeMultiplier = 1.02;
-      const totalPriceCents = Math.round(exp.ticketPriceCents * args.quantity * serviceFeeMultiplier);
+      const totalPriceCents = Math.round(
+        exp.ticketPriceCents * args.quantity * serviceFeeMultiplier,
+      );
 
       const intent = await createDepositIntent({
         amountCents: totalPriceCents,
         metadata: {
-          type: 'ticket',
+          type: "ticket",
           experienceId: args.experienceId,
           dinerId: user._id.toString(),
           quantity: String(args.quantity),
@@ -3740,11 +4484,11 @@ export const resolvers = {
         quantity: args.quantity,
         totalPriceCents,
         stripePaymentIntentId: intent.id,
-        status: 'pending',
+        status: "pending",
       });
 
       if (intent.isStub) {
-        ticket.status = 'confirmed';
+        ticket.status = "confirmed";
         ticket.confirmationCode = `TKT-${Date.now().toString(36).toUpperCase()}`;
         await ticket.save();
         await Experience.findByIdAndUpdate(args.experienceId, {
@@ -3752,7 +4496,7 @@ export const resolvers = {
         });
         const updated = await Experience.findById(args.experienceId);
         if (updated && updated.ticketsSold >= updated.maxGuests) {
-          updated.status = 'sold_out';
+          updated.status = "sold_out";
           await updated.save();
         }
       }
@@ -3770,12 +4514,12 @@ export const resolvers = {
         stripePaymentIntentId: args.paymentIntentId,
         dinerId: user._id,
       });
-      if (!ticket) throw new Error('Ticket not found');
-      if (ticket.status !== 'pending') return mapTicket(ticket);
+      if (!ticket) throw new Error("Ticket not found");
+      if (ticket.status !== "pending") return mapTicket(ticket);
 
       await assertPaymentIntentAuthorized(args.paymentIntentId);
 
-      ticket.status = 'confirmed';
+      ticket.status = "confirmed";
       ticket.confirmationCode = `TKT-${Date.now().toString(36).toUpperCase()}`;
       await ticket.save();
 
@@ -3784,23 +4528,28 @@ export const resolvers = {
       });
       const exp = await Experience.findById(ticket.experienceId);
       if (exp && exp.ticketsSold >= exp.maxGuests) {
-        exp.status = 'sold_out';
+        exp.status = "sold_out";
         await exp.save();
       }
 
       return mapTicket(ticket);
     },
 
-    cancelTicket: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    cancelTicket: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const ticket = await Ticket.findById(args.id);
-      if (!ticket || !ticket.dinerId.equals(user._id)) throw new Error('Ticket not found');
-      if (ticket.status !== 'confirmed' && ticket.status !== 'pending') {
-        throw new Error('Ticket cannot be cancelled');
+      if (!ticket || !ticket.dinerId.equals(user._id))
+        throw new Error("Ticket not found");
+      if (ticket.status !== "confirmed" && ticket.status !== "pending") {
+        throw new Error("Ticket cannot be cancelled");
       }
 
-      const wasConfirmed = ticket.status === 'confirmed';
-      ticket.status = 'cancelled';
+      const wasConfirmed = ticket.status === "confirmed";
+      ticket.status = "cancelled";
       await ticket.save();
 
       if (wasConfirmed) {
@@ -3818,8 +4567,15 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      const doc = await PrivateDiningSpace.create({ ...args.input, restaurantId: args.restaurantId });
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      const doc = await PrivateDiningSpace.create({
+        ...args.input,
+        restaurantId: args.restaurantId,
+      });
       return mapPrivateDiningSpace(doc);
     },
 
@@ -3830,18 +4586,30 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const existing = await PrivateDiningSpace.findById(args.id);
-      if (!existing) throw new NotFoundError('Private dining space');
-      await assertRestaurantAccess(user._id.toString(), existing.restaurantId.toString(), user.role);
+      if (!existing) throw new NotFoundError("Private dining space");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        existing.restaurantId.toString(),
+        user.role,
+      );
       Object.assign(existing, args.input);
       await existing.save();
       return mapPrivateDiningSpace(existing);
     },
 
-    deletePrivateDiningSpace: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    deletePrivateDiningSpace: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const existing = await PrivateDiningSpace.findById(args.id);
-      if (!existing) throw new NotFoundError('Private dining space');
-      await assertRestaurantAccess(user._id.toString(), existing.restaurantId.toString(), user.role);
+      if (!existing) throw new NotFoundError("Private dining space");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        existing.restaurantId.toString(),
+        user.role,
+      );
       await existing.deleteOne();
       return true;
     },
@@ -3855,7 +4623,7 @@ export const resolvers = {
       const doc = await PrivateDiningInquiry.create({
         ...args.input,
         dinerId: user._id,
-        status: 'pending',
+        status: "pending",
       });
       return mapPrivateDiningInquiry(doc);
     },
@@ -3867,8 +4635,12 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const inquiry = await PrivateDiningInquiry.findById(args.id);
-      if (!inquiry) throw new Error('Inquiry not found');
-      await assertRestaurantAccess(user._id.toString(), inquiry.restaurantId.toString(), user.role);
+      if (!inquiry) throw new Error("Inquiry not found");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        inquiry.restaurantId.toString(),
+        user.role,
+      );
       inquiry.status = args.status as any;
       if (args.response) inquiry.restaurantResponse = args.response;
       await inquiry.save();
@@ -3883,9 +4655,13 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       const update: Record<string, unknown> = { ...args.input };
-      if (typeof update.customFields === 'string') {
+      if (typeof update.customFields === "string") {
         try {
           update.customFields = JSON.parse(update.customFields as string);
         } catch {
@@ -3906,7 +4682,11 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       const doc = await GuestProfile.findOneAndUpdate(
         { restaurantId: args.restaurantId, dinerId: args.dinerId },
         { $addToSet: { tags: args.tag } },
@@ -3921,13 +4701,17 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       const doc = await GuestProfile.findOneAndUpdate(
         { restaurantId: args.restaurantId, dinerId: args.dinerId },
         { $pull: { tags: args.tag } },
         { new: true },
       );
-      if (!doc) throw new Error('Guest profile not found');
+      if (!doc) throw new Error("Guest profile not found");
       return mapGuestProfile(doc);
     },
 
@@ -3939,15 +4723,22 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      await requireFeature(args.restaurantId, 'emailCampaigns');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      await requireFeature(args.restaurantId, "emailCampaigns");
       const doc = await Campaign.create({
         ...args.input,
         restaurantId: args.restaurantId,
-        status: args.input.scheduledAt ? 'scheduled' : 'draft',
+        status: args.input.scheduledAt ? "scheduled" : "draft",
       });
       if (args.input.scheduledAt) {
-        await scheduleCampaign(doc._id.toString(), new Date(args.input.scheduledAt));
+        await scheduleCampaign(
+          doc._id.toString(),
+          new Date(args.input.scheduledAt),
+        );
       }
       return mapCampaign(doc);
     },
@@ -3959,35 +4750,59 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const doc = await Campaign.findById(args.id);
-      if (!doc) throw new Error('Campaign not found');
-      await assertRestaurantAccess(user._id.toString(), doc.restaurantId.toString(), user.role);
-      if (doc.status === 'sent') throw new Error('Cannot edit a sent campaign');
+      if (!doc) throw new Error("Campaign not found");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        doc.restaurantId.toString(),
+        user.role,
+      );
+      if (doc.status === "sent") throw new Error("Cannot edit a sent campaign");
       Object.assign(doc, args.input);
       if (args.input.scheduledAt) {
-        doc.status = 'scheduled';
-        await scheduleCampaign(doc._id.toString(), new Date(args.input.scheduledAt));
+        doc.status = "scheduled";
+        await scheduleCampaign(
+          doc._id.toString(),
+          new Date(args.input.scheduledAt),
+        );
       }
       await doc.save();
       return mapCampaign(doc);
     },
 
-    deleteCampaign: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    deleteCampaign: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const doc = await Campaign.findById(args.id);
-      if (!doc) throw new Error('Campaign not found');
-      await assertRestaurantAccess(user._id.toString(), doc.restaurantId.toString(), user.role);
-      if (doc.status === 'sent') throw new Error('Cannot delete a sent campaign');
-      doc.status = 'cancelled';
+      if (!doc) throw new Error("Campaign not found");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        doc.restaurantId.toString(),
+        user.role,
+      );
+      if (doc.status === "sent")
+        throw new Error("Cannot delete a sent campaign");
+      doc.status = "cancelled";
       await doc.save();
       return true;
     },
 
-    sendCampaign: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    sendCampaign: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const doc = await Campaign.findById(args.id);
-      if (!doc) throw new Error('Campaign not found');
-      await assertRestaurantAccess(user._id.toString(), doc.restaurantId.toString(), user.role);
-      await requireFeature(doc.restaurantId.toString(), 'emailCampaigns');
+      if (!doc) throw new Error("Campaign not found");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        doc.restaurantId.toString(),
+        user.role,
+      );
+      await requireFeature(doc.restaurantId.toString(), "emailCampaigns");
       const sent = await executeCampaign(args.id);
       return mapCampaign(sent);
     },
@@ -4000,8 +4815,12 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      await requireFeature(args.restaurantId, 'surveys');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      await requireFeature(args.restaurantId, "surveys");
       const doc = await SurveyConfig.findOneAndUpdate(
         { restaurantId: args.restaurantId },
         { $set: args.input },
@@ -4019,17 +4838,23 @@ export const resolvers = {
       };
     },
 
-    submitSurvey: async (_: unknown, args: { input: any }, ctx: GraphQLContext) => {
+    submitSurvey: async (
+      _: unknown,
+      args: { input: any },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const reservation = await Reservation.findById(args.input.reservationId);
       if (!reservation || !reservation.dinerId.equals(user._id)) {
-        throw new Error('Reservation not found');
+        throw new Error("Reservation not found");
       }
-      if (reservation.status !== 'completed') {
-        throw new Error('Surveys are available after a completed visit');
+      if (reservation.status !== "completed") {
+        throw new Error("Surveys are available after a completed visit");
       }
-      const existing = await SurveyResponse.findOne({ reservationId: reservation._id });
-      if (existing) throw new Error('Survey already submitted');
+      const existing = await SurveyResponse.findOne({
+        reservationId: reservation._id,
+      });
+      if (existing) throw new Error("Survey already submitted");
 
       const doc = await SurveyResponse.create({
         restaurantId: reservation.restaurantId,
@@ -4086,10 +4911,17 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const group = await RestaurantGroup.findById(args.groupId);
-      if (!group || (!group.ownerId.equals(user._id) && !isPlatformAdmin(user.role))) {
-        throw new Error('Group not found');
+      if (
+        !group ||
+        (!group.ownerId.equals(user._id) && !isPlatformAdmin(user.role))
+      ) {
+        throw new Error("Group not found");
       }
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       const doc = await RestaurantGroup.findByIdAndUpdate(
         args.groupId,
         { $addToSet: { restaurantIds: args.restaurantId } },
@@ -4117,8 +4949,11 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const group = await RestaurantGroup.findById(args.groupId);
-      if (!group || (!group.ownerId.equals(user._id) && !isPlatformAdmin(user.role))) {
-        throw new Error('Group not found');
+      if (
+        !group ||
+        (!group.ownerId.equals(user._id) && !isPlatformAdmin(user.role))
+      ) {
+        throw new Error("Group not found");
       }
       const doc = await RestaurantGroup.findByIdAndUpdate(
         args.groupId,
@@ -4148,9 +4983,13 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      await requireFeature(args.restaurantId, 'posIntegration');
-      const apiKey = `pos_${crypto.randomBytes(24).toString('hex')}`;
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      await requireFeature(args.restaurantId, "posIntegration");
+      const apiKey = `pos_${crypto.randomBytes(24).toString("hex")}`;
       await Restaurant.findByIdAndUpdate(args.restaurantId, {
         $set: {
           posApiKeyHash: hashOpaqueToken(apiKey),
@@ -4160,8 +4999,8 @@ export const resolvers = {
       });
       await logAudit({
         actorId: user._id.toString(),
-        action: 'generatePosApiKey',
-        resource: 'Restaurant',
+        action: "generatePosApiKey",
+        resource: "Restaurant",
         resourceId: args.restaurantId,
       });
       return apiKey;
@@ -4176,14 +5015,18 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const review = await Review.findById(args.reviewId);
-      if (!review) throw new Error('Review not found');
-      await assertRestaurantAccess(user._id.toString(), review.restaurantId.toString(), user.role);
+      if (!review) throw new Error("Review not found");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        review.restaurantId.toString(),
+        user.role,
+      );
       review.ownerReply = args.reply;
       review.ownerRepliedAt = new Date();
       await review.save();
       await notifyUser(review.dinerId.toString(), {
-        type: 'review_reply',
-        title: 'The restaurant replied to your review',
+        type: "review_reply",
+        title: "The restaurant replied to your review",
         body: args.reply.slice(0, 200),
         data: { reviewId: args.reviewId },
       });
@@ -4197,8 +5040,12 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const review = await Review.findById(args.reviewId);
-      if (!review) throw new Error('Review not found');
-      await assertRestaurantAccess(user._id.toString(), review.restaurantId.toString(), user.role);
+      if (!review) throw new Error("Review not found");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        review.restaurantId.toString(),
+        user.role,
+      );
       review.hidden = args.hidden;
       await review.save();
       return mapReview(review);
@@ -4212,23 +5059,27 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      if (!args.body.trim()) throw new Error('Message cannot be empty');
+      if (!args.body.trim()) throw new Error("Message cannot be empty");
 
       const reservation = await Reservation.findById(args.reservationId);
-      if (!reservation) throw new Error('Reservation not found');
+      if (!reservation) throw new Error("Reservation not found");
 
       const restaurantId = reservation.restaurantId.toString();
       const dinerId = reservation.dinerId.toString();
 
-      let senderType: 'restaurant' | 'diner' = 'diner';
+      let senderType: "restaurant" | "diner" = "diner";
       if (reservation.dinerId.equals(user._id)) {
-        senderType = 'diner';
+        senderType = "diner";
       } else {
-        await assertRestaurantAccess(user._id.toString(), restaurantId, user.role);
-        senderType = 'restaurant';
+        await assertRestaurantAccess(
+          user._id.toString(),
+          restaurantId,
+          user.role,
+        );
+        senderType = "restaurant";
       }
 
-      await requireFeature(restaurantId, 'twoWayMessaging');
+      await requireFeature(restaurantId, "twoWayMessaging");
 
       const doc = await Message.create({
         restaurantId,
@@ -4239,13 +5090,13 @@ export const resolvers = {
         body: args.body.trim(),
       });
 
-      if (senderType === 'restaurant') {
+      if (senderType === "restaurant") {
         const restaurant = await Restaurant.findById(restaurantId);
         await notifyUser(
           dinerId,
           {
-            type: 'new_message',
-            title: `Message from ${restaurant?.name ?? 'the restaurant'}`,
+            type: "new_message",
+            title: `Message from ${restaurant?.name ?? "the restaurant"}`,
             body: args.body.slice(0, 200),
             data: { restaurantId, reservationId: args.reservationId },
           },
@@ -4253,8 +5104,8 @@ export const resolvers = {
         );
       } else {
         await notifyRestaurantStaff(restaurantId, {
-          type: 'new_message',
-          title: 'New guest message',
+          type: "new_message",
+          title: "New guest message",
           body: args.body.slice(0, 200),
           data: { restaurantId, dinerId, reservationId: args.reservationId },
         });
@@ -4270,18 +5121,18 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const reservation = await Reservation.findById(args.reservationId);
-      if (!reservation) throw new Error('Reservation not found');
+      if (!reservation) throw new Error("Reservation not found");
 
-      let readSenderType = 'restaurant';
+      let readSenderType = "restaurant";
       if (reservation.dinerId.equals(user._id)) {
-        readSenderType = 'restaurant';
+        readSenderType = "restaurant";
       } else {
         await assertRestaurantAccess(
           user._id.toString(),
           reservation.restaurantId.toString(),
           user.role,
         );
-        readSenderType = 'diner';
+        readSenderType = "diner";
       }
 
       await Message.updateMany(
@@ -4302,7 +5153,7 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const inquiry = await RestaurantInquiry.findById(args.id);
-      if (!inquiry) throw new Error('Inquiry not found');
+      if (!inquiry) throw new Error("Inquiry not found");
       await assertRestaurantAccess(
         user._id.toString(),
         inquiry.restaurantId.toString(),
@@ -4323,10 +5174,17 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      await requireFeature(args.restaurantId, 'accessRules');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      await requireFeature(args.restaurantId, "accessRules");
       const input = accessRuleInputSchema.parse(args.input);
-      const doc = await AccessRule.create({ ...input, restaurantId: args.restaurantId });
+      const doc = await AccessRule.create({
+        ...input,
+        restaurantId: args.restaurantId,
+      });
       return mapAccessRule(doc);
     },
 
@@ -4337,18 +5195,30 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const doc = await AccessRule.findById(args.id);
-      if (!doc) throw new Error('Access rule not found');
-      await assertRestaurantAccess(user._id.toString(), doc.restaurantId.toString(), user.role);
+      if (!doc) throw new Error("Access rule not found");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        doc.restaurantId.toString(),
+        user.role,
+      );
       Object.assign(doc, args.input);
       await doc.save();
       return mapAccessRule(doc);
     },
 
-    deleteAccessRule: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    deleteAccessRule: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const doc = await AccessRule.findById(args.id);
-      if (!doc) throw new Error('Access rule not found');
-      await assertRestaurantAccess(user._id.toString(), doc.restaurantId.toString(), user.role);
+      if (!doc) throw new Error("Access rule not found");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        doc.restaurantId.toString(),
+        user.role,
+      );
       await doc.deleteOne();
       return true;
     },
@@ -4361,10 +5231,17 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      await requireFeature(args.restaurantId, 'promotions');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      await requireFeature(args.restaurantId, "promotions");
       const input = promotionInputSchema.parse(args.input);
-      const doc = await Promotion.create({ ...input, restaurantId: args.restaurantId });
+      const doc = await Promotion.create({
+        ...input,
+        restaurantId: args.restaurantId,
+      });
       return mapPromotion(doc);
     },
 
@@ -4375,18 +5252,30 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const doc = await Promotion.findById(args.id);
-      if (!doc) throw new Error('Promotion not found');
-      await assertRestaurantAccess(user._id.toString(), doc.restaurantId.toString(), user.role);
+      if (!doc) throw new Error("Promotion not found");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        doc.restaurantId.toString(),
+        user.role,
+      );
       Object.assign(doc, args.input);
       await doc.save();
       return mapPromotion(doc);
     },
 
-    deletePromotion: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    deletePromotion: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const doc = await Promotion.findById(args.id);
-      if (!doc) throw new Error('Promotion not found');
-      await assertRestaurantAccess(user._id.toString(), doc.restaurantId.toString(), user.role);
+      if (!doc) throw new Error("Promotion not found");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        doc.restaurantId.toString(),
+        user.role,
+      );
       await doc.deleteOne();
       return true;
     },
@@ -4406,14 +5295,20 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       const doc = await issueGiftCard({
         restaurantId: args.restaurantId,
         balanceCents: args.input.balanceCents,
         issuedByUserId: user._id.toString(),
         recipientName: args.input.recipientName,
         recipientEmail: args.input.recipientEmail,
-        expiresAt: args.input.expiresAt ? new Date(args.input.expiresAt) : undefined,
+        expiresAt: args.input.expiresAt
+          ? new Date(args.input.expiresAt)
+          : undefined,
         note: args.input.note,
       });
       return mapGiftCard(doc);
@@ -4426,7 +5321,7 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const existing = await GiftCard.findById(args.id);
-      if (!existing) throw new Error('Gift card not found');
+      if (!existing) throw new Error("Gift card not found");
       await assertRestaurantAccess(
         user._id.toString(),
         existing.restaurantId.toString(),
@@ -4444,12 +5339,16 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      await requireFeature(args.restaurantId, 'boostCampaigns');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      await requireFeature(args.restaurantId, "boostCampaigns");
       const doc = await BoostCampaign.create({
         ...args.input,
         restaurantId: args.restaurantId,
-        status: 'active',
+        status: "active",
       });
       return mapBoostCampaign(doc);
     },
@@ -4461,10 +5360,14 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const doc = await BoostCampaign.findById(args.id);
-      if (!doc) throw new Error('Campaign not found');
-      await assertRestaurantAccess(user._id.toString(), doc.restaurantId.toString(), user.role);
-      if (!['active', 'paused', 'completed'].includes(args.status)) {
-        throw new Error('Invalid status');
+      if (!doc) throw new Error("Campaign not found");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        doc.restaurantId.toString(),
+        user.role,
+      );
+      if (!["active", "paused", "completed"].includes(args.status)) {
+        throw new Error("Invalid status");
       }
       doc.status = args.status as any;
       await doc.save();
@@ -4479,10 +5382,20 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      const validProviders = ['google_reserve', 'partner_site', 'affiliate', 'other'];
-      if (!validProviders.includes(args.provider)) throw new Error('Invalid provider');
-      const apiKey = `int_${crypto.randomBytes(24).toString('hex')}`;
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      const validProviders = [
+        "google_reserve",
+        "partner_site",
+        "affiliate",
+        "other",
+      ];
+      if (!validProviders.includes(args.provider))
+        throw new Error("Invalid provider");
+      const apiKey = `int_${crypto.randomBytes(24).toString("hex")}`;
       const doc = await Integration.create({
         restaurantId: args.restaurantId,
         provider: args.provider,
@@ -4501,18 +5414,30 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const doc = await Integration.findById(args.id);
-      if (!doc) throw new Error('Integration not found');
-      await assertRestaurantAccess(user._id.toString(), doc.restaurantId.toString(), user.role);
+      if (!doc) throw new Error("Integration not found");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        doc.restaurantId.toString(),
+        user.role,
+      );
       doc.enabled = args.enabled;
       await doc.save();
       return mapIntegration(doc);
     },
 
-    deleteIntegration: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+    deleteIntegration: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
       const user = requireAuth(ctx);
       const doc = await Integration.findById(args.id);
-      if (!doc) throw new Error('Integration not found');
-      await assertRestaurantAccess(user._id.toString(), doc.restaurantId.toString(), user.role);
+      if (!doc) throw new Error("Integration not found");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        doc.restaurantId.toString(),
+        user.role,
+      );
       await doc.deleteOne();
       return true;
     },
@@ -4525,8 +5450,13 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      if (args.featured) await requireFeature(args.restaurantId, 'featuredPlacement');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      if (args.featured)
+        await requireFeature(args.restaurantId, "featuredPlacement");
       const featuredUntil = args.featured
         ? new Date(Date.now() + (args.days ?? 30) * 86_400_000)
         : null;
@@ -4535,21 +5465,38 @@ export const resolvers = {
         { featured: args.featured, featuredUntil },
         { new: true },
       );
-      if (!doc) throw new Error('Restaurant not found');
+      if (!doc) throw new Error("Restaurant not found");
       return mapRestaurant(doc);
     },
 
     updateTablePositions: async (
       _: unknown,
-      args: { restaurantId: string; positions: Array<{ id: string; posX: number; posY: number; width?: number; height?: number; shape?: string }> },
+      args: {
+        restaurantId: string;
+        positions: Array<{
+          id: string;
+          posX: number;
+          posY: number;
+          width?: number;
+          height?: number;
+          shape?: string;
+        }>;
+      },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
-      await requireFeature(args.restaurantId, 'floorPlans');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      await requireFeature(args.restaurantId, "floorPlans");
       const updated = [];
       for (const pos of args.positions) {
-        const table = await Table.findOne({ _id: pos.id, restaurantId: args.restaurantId });
+        const table = await Table.findOne({
+          _id: pos.id,
+          restaurantId: args.restaurantId,
+        });
         if (!table) continue;
         table.posX = pos.posX;
         table.posY = pos.posY;
@@ -4572,42 +5519,57 @@ export const resolvers = {
         reservationsEnabled?: boolean;
         reservationsVisible?: boolean;
         posEnabled?: boolean;
-        widgetTheme?: { primaryColor?: string; buttonText?: string; showReviews?: boolean };
+        widgetTheme?: {
+          primaryColor?: string;
+          buttonText?: string;
+          showReviews?: boolean;
+        };
       },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
 
       const update: Record<string, unknown> = {};
       if (args.spendAlertThresholdCents != null) {
         if (args.spendAlertThresholdCents > 0) {
-          await requireFeature(args.restaurantId, 'spendAlerts');
+          await requireFeature(args.restaurantId, "spendAlerts");
         }
         update.spendAlertThresholdCents = args.spendAlertThresholdCents;
       }
-      if (args.useSmartAssign != null) update.useSmartAssign = args.useSmartAssign;
+      if (args.useSmartAssign != null)
+        update.useSmartAssign = args.useSmartAssign;
       if (args.allowGuestTableSelection != null) {
         update.allowGuestTableSelection = args.allowGuestTableSelection;
       }
-      if (args.reservationsEnabled != null) update.reservationsEnabled = args.reservationsEnabled;
-      if (args.reservationsVisible != null) update.reservationsVisible = args.reservationsVisible;
+      if (args.reservationsEnabled != null)
+        update.reservationsEnabled = args.reservationsEnabled;
+      if (args.reservationsVisible != null)
+        update.reservationsVisible = args.reservationsVisible;
       if (args.posEnabled != null) update.posEnabled = args.posEnabled;
       if (args.widgetTheme) {
-        await requireFeature(args.restaurantId, 'customWidget');
+        await requireFeature(args.restaurantId, "customWidget");
         if (args.widgetTheme.primaryColor != null) {
-          update['widgetTheme.primaryColor'] = args.widgetTheme.primaryColor;
+          update["widgetTheme.primaryColor"] = args.widgetTheme.primaryColor;
         }
         if (args.widgetTheme.buttonText != null) {
-          update['widgetTheme.buttonText'] = args.widgetTheme.buttonText;
+          update["widgetTheme.buttonText"] = args.widgetTheme.buttonText;
         }
         if (args.widgetTheme.showReviews != null) {
-          update['widgetTheme.showReviews'] = args.widgetTheme.showReviews;
+          update["widgetTheme.showReviews"] = args.widgetTheme.showReviews;
         }
       }
 
-      const doc = await Restaurant.findByIdAndUpdate(args.restaurantId, update, { new: true });
-      if (!doc) throw new Error('Restaurant not found');
+      const doc = await Restaurant.findByIdAndUpdate(
+        args.restaurantId,
+        update,
+        { new: true },
+      );
+      if (!doc) throw new Error("Restaurant not found");
       return mapRestaurant(doc);
     },
 
@@ -4615,13 +5577,25 @@ export const resolvers = {
 
     addInHouseWaitlistEntry: async (
       _: unknown,
-      args: { input: { restaurantId: string; guestName: string; guestPhone?: string; partySize: number; quotedWaitMinutes?: number } },
+      args: {
+        input: {
+          restaurantId: string;
+          guestName: string;
+          guestPhone?: string;
+          partySize: number;
+          quotedWaitMinutes?: number;
+        };
+      },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
       const input = inHouseWaitlistInputSchema.parse(args.input);
-      await assertRestaurantAccess(user._id.toString(), input.restaurantId, user.role);
-      await requireFeature(input.restaurantId, 'waitlist');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        input.restaurantId,
+        user.role,
+      );
+      await requireFeature(input.restaurantId, "waitlist");
       const doc = await WaitlistEntry.create({
         restaurantId: input.restaurantId,
         guestName: input.guestName,
@@ -4629,8 +5603,8 @@ export const resolvers = {
         partySize: input.partySize,
         quotedWaitMinutes: input.quotedWaitMinutes,
         preferredDate: new Date().toISOString().slice(0, 10),
-        source: 'in_house',
-        status: 'waiting',
+        source: "in_house",
+        status: "waiting",
       });
       return mapWaitlistEntry(doc);
     },
@@ -4642,27 +5616,34 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       const entry = await WaitlistEntry.findById(args.id);
-      if (!entry) throw new Error('Waitlist entry not found');
-      await assertRestaurantAccess(user._id.toString(), entry.restaurantId.toString(), user.role);
+      if (!entry) throw new Error("Waitlist entry not found");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        entry.restaurantId.toString(),
+        user.role,
+      );
       entry.status = args.status as any;
-      if (args.status === 'notified') {
+      if (args.status === "notified") {
         entry.notifiedAt = new Date();
         if (entry.dinerId) {
           await notifyUser(
             entry.dinerId.toString(),
             {
-              type: 'waitlist_ready',
-              title: 'Your table is ready!',
-              body: 'Please check in with the host.',
+              type: "waitlist_ready",
+              title: "Your table is ready!",
+              body: "Please check in with the host.",
               data: { waitlistId: args.id },
             },
             { smsRestaurantId: entry.restaurantId.toString() },
           );
         } else if (entry.guestPhone) {
-          const { sendSms } = await import('../services/notifications.js');
-          const { hasPremiumSms } = await import('../services/plans.js');
+          const { sendSms } = await import("../services/notifications.js");
+          const { hasPremiumSms } = await import("../services/plans.js");
           if (await hasPremiumSms(entry.restaurantId.toString())) {
-            await sendSms(entry.guestPhone, 'Your table is ready! Please check in with the host.');
+            await sendSms(
+              entry.guestPhone,
+              "Your table is ready! Please check in with the host.",
+            );
           }
         }
       }
@@ -4678,20 +5659,26 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(user._id.toString(), args.restaurantId, user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
       assertCanManageBilling(user.role);
-      const sub = await Subscription.findOne({ restaurantId: args.restaurantId });
-      if (!sub) throw new Error('No subscription found');
-      if (sub.plan === 'basic') {
-        throw new Error('Premium SMS add-on requires the Core plan or higher');
+      const sub = await Subscription.findOne({
+        restaurantId: args.restaurantId,
+      });
+      if (!sub) throw new Error("No subscription found");
+      if (sub.plan === "basic") {
+        throw new Error("Premium SMS add-on requires the Core plan or higher");
       }
       (sub.features as any).premiumSmsAddon = args.enabled;
-      sub.markModified('features');
+      sub.markModified("features");
       await sub.save();
       await logAudit({
         actorId: user._id.toString(),
-        action: 'setPremiumSmsAddon',
-        resource: 'Subscription',
+        action: "setPremiumSmsAddon",
+        resource: "Subscription",
         resourceId: sub._id.toString(),
         details: { enabled: args.enabled },
       });

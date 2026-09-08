@@ -95,7 +95,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Owner phone / walk-in bookings, **diner and partner reservation edit**, reservation-scoped messaging, and **individual reservation detail pages** (upcoming / past / deposit filters) plus diner **billing history** (`/billing`); bookings can attach **experiences** and private dining spaces
 - Partner **My restaurants** multi-location overview alongside the home dashboard
 - Enhanced restaurant detail pages with photo gallery, reviews, FAQ, terms, about, and menu sections
-- Platform admin: users, restaurants (list + **detail manage** for menu/reservations/invoices/package, **bulk status/delete**), **discovery taxonomy**, **services** catalog, invoices (manual create, branded PDF, email, public Stripe pay links), exports (CSV/JSON/PDF), revenue, support, moderation, **TipTap email templates** with preview, config, annual billing discounts, **docs access** requests, and richer audit log filters
+- Platform admin: users (list + **detail** for profile/edit/password reset/reservations), restaurants (list + **detail manage** for menu/reservations/invoices/package/team/tables/shifts, **bulk status/delete**), **discovery taxonomy**, **services** catalog, invoices (manual create, branded PDF, email, public Stripe pay links), exports (CSV/JSON/PDF), revenue, support, moderation, **TipTap email templates** with preview, config, annual billing discounts, **docs access** requests, and richer audit log filters
 - Embeddable booking widget with per-restaurant theme
 - Public contact form, cookie consent, and legal pages (privacy, terms, SMS messaging/opt-in, cookies)
 - Super-admin developer page for deployment env-var health (secret values masked)

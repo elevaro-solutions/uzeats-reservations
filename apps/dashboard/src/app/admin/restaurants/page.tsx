@@ -1065,6 +1065,10 @@ function AdminRestaurantsContent() {
                       rules={[
                         { required: true, message: 'Required' },
                         { min: 8, message: 'At least 8 characters' },
+                        { max: 128, message: 'At most 128 characters' },
+                        { pattern: /[a-z]/, message: 'Must include a lowercase letter' },
+                        { pattern: /[A-Z]/, message: 'Must include an uppercase letter' },
+                        { pattern: /\d/, message: 'Must include a number' },
                       ]}
                     >
                       <Input.Password autoComplete="new-password" />

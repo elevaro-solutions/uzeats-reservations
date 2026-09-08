@@ -3,23 +3,36 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useQuery } from '@/lib/apollo-hooks';
+import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
   Button,
   Card,
   Col,
   Descriptions,
   Empty,
+  Form,
+  Input,
+  InputNumber,
+  message,
+  Modal,
+  Popconfirm,
   Row,
+  Select,
   Space,
   Spin,
+  Switch,
+  Table,
   Tabs,
+  Tag,
   Typography,
 } from 'antd';
 import {
   ArrowLeftOutlined,
+  DeleteOutlined,
+  EditOutlined,
   ExportOutlined,
   FileTextOutlined,
+  PlusOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
 import { buildRestaurantBookingUrl } from '@reservations/shared';
@@ -31,11 +44,21 @@ import {
 import { AdminRestaurantInvoicesPanel } from '@/components/AdminRestaurantInvoicesPanel';
 import { AdminRestaurantMenuPanel } from '@/components/AdminRestaurantMenuPanel';
 import { AdminRestaurantReservationsPanel } from '@/components/AdminRestaurantReservationsPanel';
-import { ADMIN_RESTAURANT } from '@/lib/graphql';
+import {
+  ADMIN_RESTAURANT,
+  CREATE_SHIFT,
+  CREATE_TABLE,
+  DELETE_SHIFT,
+  DELETE_TABLE,
+  RESTAURANT_TEAM,
+  UPDATE_SHIFT,
+  UPDATE_TABLE,
+} from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { getPublicWebUrl } from '@/lib/webUrl';
 
 const { Text, Title } = Typography;
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 type RestaurantDetail = AdminRestaurantRecord & {
   menu?: {
@@ -66,10 +89,32 @@ export default function AdminRestaurantDetailPage() {
   const [previewKey, setPreviewKey] = useState(0);
   const [restaurantOverride, setRestaurantOverride] = useState<RestaurantDetail | null>(null);
 
+  // Tables tab state
+  const [tableModalOpen, setTableModalOpen] = useState(false);
+  const [editingTable, setEditingTable] = useState<any>(null);
+  const [tableForm] = Form.useForm();
+
+  // Shifts tab state
+  const [shiftModalOpen, setShiftModalOpen] = useState(false);
+  const [editingShift, setEditingShift] = useState<any>(null);
+  const [shiftForm] = Form.useForm();
+
   const { data, loading, refetch } = useQuery(ADMIN_RESTAURANT, {
     skip: !ready || !id,
     variables: { id },
   });
+
+  const { data: teamData } = useQuery(RESTAURANT_TEAM, {
+    skip: !ready || !id || !data?.restaurant,
+    variables: { restaurantId: data?.restaurant?.id },
+  });
+
+  const [createTable] = useMutation(CREATE_TABLE);
+  const [updateTable] = useMutation(UPDATE_TABLE);
+  const [deleteTable] = useMutation(DELETE_TABLE);
+  const [createShift] = useMutation(CREATE_SHIFT);
+  const [updateShift] = useMutation(UPDATE_SHIFT);
+  const [deleteShift] = useMutation(DELETE_SHIFT);
 
   const restaurant = (restaurantOverride ?? data?.restaurant ?? null) as RestaurantDetail | null;
 
@@ -104,6 +149,61 @@ export default function AdminRestaurantDetailPage() {
       setRestaurantOverride(result.data.restaurant);
     }
     setPreviewKey((k) => k + 1);
+  };
+
+  const teamMembers = teamData?.restaurantTeam ?? [];
+  const owner = restaurant?.ownerId
+    ? teamMembers.find((m: any) => m.id === restaurant.ownerId)
+    : null;
+
+  const handleTableSubmit = async () => {
+    try {
+      const values = await tableForm.validateFields();
+      if (editingTable) {
+        await updateTable({ variables: { id: editingTable.id, input: values } });
+        message.success('Table updated');
+      } else {
+        await createTable({ variables: { restaurantId: restaurant!.id, input: values } });
+        message.success('Table created');
+      }
+      setTableModalOpen(false);
+      setEditingTable(null);
+      tableForm.resetFields();
+      await refresh();
+    } catch {
+      /* validation error */
+    }
+  };
+
+  const handleDeleteTable = async (tableId: string) => {
+    await deleteTable({ variables: { id: tableId } });
+    message.success('Table deleted');
+    await refresh();
+  };
+
+  const handleShiftSubmit = async () => {
+    try {
+      const values = await shiftForm.validateFields();
+      if (editingShift) {
+        await updateShift({ variables: { id: editingShift.id, input: values } });
+        message.success('Shift updated');
+      } else {
+        await createShift({ variables: { restaurantId: restaurant!.id, input: values } });
+        message.success('Shift created');
+      }
+      setShiftModalOpen(false);
+      setEditingShift(null);
+      shiftForm.resetFields();
+      await refresh();
+    } catch {
+      /* validation error */
+    }
+  };
+
+  const handleDeleteShift = async (shiftId: string) => {
+    await deleteShift({ variables: { id: shiftId } });
+    message.success('Shift deleted');
+    await refresh();
   };
 
   if (!ready) return null;
@@ -317,6 +417,281 @@ export default function AdminRestaurantDetailPage() {
                 key: 'invoices',
                 label: 'Invoices',
                 children: <AdminRestaurantInvoicesPanel restaurantId={restaurant.id} />,
+              },
+              {
+                key: 'team',
+                label: 'Owner & Team',
+                children: (
+                  <Space direction="vertical" size={spacing.md} style={{ width: '100%' }}>
+                    {owner && (
+                      <Card title="Owner">
+                        <Descriptions bordered size="small" column={{ xs: 1, sm: 3 }}>
+                          <Descriptions.Item label="Name">
+                            {owner.firstName} {owner.lastName}
+                          </Descriptions.Item>
+                          <Descriptions.Item label="Email">{owner.email}</Descriptions.Item>
+                          <Descriptions.Item label="Phone">{owner.phone || '—'}</Descriptions.Item>
+                        </Descriptions>
+                      </Card>
+                    )}
+                    <Card title="Team Members">
+                      <Table
+                        dataSource={teamMembers}
+                        rowKey="id"
+                        pagination={false}
+                        columns={[
+                          {
+                            title: 'Name',
+                            key: 'name',
+                            render: (_: any, r: any) => (
+                              <Link href={`/admin/users/${r.id}`}>
+                                {r.firstName} {r.lastName}
+                              </Link>
+                            ),
+                          },
+                          { title: 'Email', dataIndex: 'email' },
+                          { title: 'Phone', dataIndex: 'phone' },
+                          {
+                            title: 'Role',
+                            dataIndex: 'role',
+                            render: (role: string) => {
+                              const colorMap: Record<string, string> = {
+                                diner: 'default',
+                                restaurant_owner: 'blue',
+                                staff: 'cyan',
+                                admin: 'orange',
+                                super_admin: 'red',
+                              };
+                              return <Tag color={colorMap[role] || 'default'}>{role}</Tag>;
+                            },
+                          },
+                        ]}
+                      />
+                    </Card>
+                  </Space>
+                ),
+              },
+              {
+                key: 'tables',
+                label: 'Tables',
+                children: (
+                  <Card
+                    title="Tables"
+                    extra={
+                      <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={() => {
+                          setEditingTable(null);
+                          tableForm.resetFields();
+                          tableForm.setFieldsValue({ active: true, combinable: false });
+                          setTableModalOpen(true);
+                        }}
+                      >
+                        Add Table
+                      </Button>
+                    }
+                  >
+                    <Table
+                      dataSource={restaurant.tables ?? []}
+                      rowKey="id"
+                      pagination={false}
+                      columns={[
+                        { title: 'Name', dataIndex: 'name' },
+                        { title: 'Min Capacity', dataIndex: 'minCapacity' },
+                        { title: 'Max Capacity', dataIndex: 'maxCapacity' },
+                        { title: 'Floor Area', dataIndex: 'floorArea' },
+                        {
+                          title: 'Active',
+                          dataIndex: 'active',
+                          render: (v: boolean) => (
+                            <Tag color={v ? 'green' : 'red'}>{v ? 'Yes' : 'No'}</Tag>
+                          ),
+                        },
+                        {
+                          title: 'Combinable',
+                          dataIndex: 'combinable',
+                          render: (v: boolean) => (v ? 'Yes' : 'No'),
+                        },
+                        {
+                          title: 'Actions',
+                          key: 'actions',
+                          render: (_: any, record: any) => (
+                            <Space>
+                              <Button
+                                size="small"
+                                icon={<EditOutlined />}
+                                onClick={() => {
+                                  setEditingTable(record);
+                                  tableForm.setFieldsValue(record);
+                                  setTableModalOpen(true);
+                                }}
+                              />
+                              <Popconfirm
+                                title="Delete this table?"
+                                onConfirm={() => void handleDeleteTable(record.id)}
+                              >
+                                <Button size="small" danger icon={<DeleteOutlined />} />
+                              </Popconfirm>
+                            </Space>
+                          ),
+                        },
+                      ]}
+                    />
+                    <Modal
+                      title={editingTable ? 'Edit Table' : 'Add Table'}
+                      open={tableModalOpen}
+                      onOk={() => void handleTableSubmit()}
+                      onCancel={() => {
+                        setTableModalOpen(false);
+                        setEditingTable(null);
+                      }}
+                    >
+                      <Form form={tableForm} layout="vertical">
+                        <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+                          <Input />
+                        </Form.Item>
+                        <Form.Item name="minCapacity" label="Min Capacity" rules={[{ required: true }]}>
+                          <InputNumber min={1} style={{ width: '100%' }} />
+                        </Form.Item>
+                        <Form.Item name="maxCapacity" label="Max Capacity" rules={[{ required: true }]}>
+                          <InputNumber min={1} style={{ width: '100%' }} />
+                        </Form.Item>
+                        <Form.Item name="floorArea" label="Floor Area">
+                          <Select
+                            options={[
+                              { label: 'Main', value: 'main' },
+                              { label: 'Patio', value: 'patio' },
+                              { label: 'Private', value: 'private' },
+                              { label: 'Bar', value: 'bar' },
+                              { label: 'Rooftop', value: 'rooftop' },
+                            ]}
+                          />
+                        </Form.Item>
+                        <Form.Item name="combinable" label="Combinable" valuePropName="checked">
+                          <Switch />
+                        </Form.Item>
+                        <Form.Item name="active" label="Active" valuePropName="checked">
+                          <Switch />
+                        </Form.Item>
+                      </Form>
+                    </Modal>
+                  </Card>
+                ),
+              },
+              {
+                key: 'shifts',
+                label: 'Shifts',
+                children: (
+                  <Card
+                    title="Shifts"
+                    extra={
+                      <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={() => {
+                          setEditingShift(null);
+                          shiftForm.resetFields();
+                          shiftForm.setFieldsValue({
+                            active: true,
+                            slotIntervalMinutes: 30,
+                            turnTimeMinutes: 90,
+                          });
+                          setShiftModalOpen(true);
+                        }}
+                      >
+                        Add Shift
+                      </Button>
+                    }
+                  >
+                    <Table
+                      dataSource={restaurant.shifts ?? []}
+                      rowKey="id"
+                      pagination={false}
+                      columns={[
+                        { title: 'Name', dataIndex: 'name' },
+                        {
+                          title: 'Days',
+                          dataIndex: 'daysOfWeek',
+                          render: (days: number[]) =>
+                            (days ?? []).map((d) => (
+                              <Tag key={d}>{DAY_NAMES[d]}</Tag>
+                            )),
+                        },
+                        { title: 'Start Time', dataIndex: 'startTime' },
+                        { title: 'End Time', dataIndex: 'endTime' },
+                        { title: 'Slot Interval (min)', dataIndex: 'slotIntervalMinutes' },
+                        { title: 'Turn Time (min)', dataIndex: 'turnTimeMinutes' },
+                        {
+                          title: 'Active',
+                          dataIndex: 'active',
+                          render: (v: boolean) => (
+                            <Tag color={v ? 'green' : 'red'}>{v ? 'Yes' : 'No'}</Tag>
+                          ),
+                        },
+                        {
+                          title: 'Actions',
+                          key: 'actions',
+                          render: (_: any, record: any) => (
+                            <Space>
+                              <Button
+                                size="small"
+                                icon={<EditOutlined />}
+                                onClick={() => {
+                                  setEditingShift(record);
+                                  shiftForm.setFieldsValue(record);
+                                  setShiftModalOpen(true);
+                                }}
+                              />
+                              <Popconfirm
+                                title="Delete this shift?"
+                                onConfirm={() => void handleDeleteShift(record.id)}
+                              >
+                                <Button size="small" danger icon={<DeleteOutlined />} />
+                              </Popconfirm>
+                            </Space>
+                          ),
+                        },
+                      ]}
+                    />
+                    <Modal
+                      title={editingShift ? 'Edit Shift' : 'Add Shift'}
+                      open={shiftModalOpen}
+                      onOk={() => void handleShiftSubmit()}
+                      onCancel={() => {
+                        setShiftModalOpen(false);
+                        setEditingShift(null);
+                      }}
+                    >
+                      <Form form={shiftForm} layout="vertical">
+                        <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+                          <Input />
+                        </Form.Item>
+                        <Form.Item name="daysOfWeek" label="Days of Week" rules={[{ required: true }]}>
+                          <Select
+                            mode="multiple"
+                            options={DAY_NAMES.map((name, i) => ({ label: name, value: i }))}
+                          />
+                        </Form.Item>
+                        <Form.Item name="startTime" label="Start Time">
+                          <Input placeholder="09:00" />
+                        </Form.Item>
+                        <Form.Item name="endTime" label="End Time">
+                          <Input placeholder="22:00" />
+                        </Form.Item>
+                        <Form.Item name="slotIntervalMinutes" label="Slot Interval (min)">
+                          <InputNumber min={1} style={{ width: '100%' }} />
+                        </Form.Item>
+                        <Form.Item name="turnTimeMinutes" label="Turn Time (min)">
+                          <InputNumber min={1} style={{ width: '100%' }} />
+                        </Form.Item>
+                        <Form.Item name="active" label="Active" valuePropName="checked">
+                          <Switch />
+                        </Form.Item>
+                      </Form>
+                    </Modal>
+                  </Card>
+                ),
               },
               {
                 key: 'preview',

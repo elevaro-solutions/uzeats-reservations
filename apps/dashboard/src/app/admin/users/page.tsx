@@ -29,6 +29,7 @@ import {
   SearchOutlined,
   UserAddOutlined,
 } from '@ant-design/icons';
+import Link from 'next/link';
 import { PageHeader, PhoneInput, spacing, usPhoneRules } from '@reservations/ui';
 import {
   ADMIN_DELETE_USER,
@@ -425,9 +426,14 @@ function AdminUsersPageContent() {
               columns={[
                 {
                   title: 'Name',
-                  render: (_: unknown, u: any) => `${u.firstName} ${u.lastName}`,
+                  render: (_: unknown, u: any) => (
+                    <Link href={`/admin/users/${u.id}`}>
+                      {u.firstName} {u.lastName}
+                    </Link>
+                  ),
                 },
-                { title: 'Email', dataIndex: 'email' },
+                { title: 'Email', dataIndex: 'email', ellipsis: true },
+                { title: 'Phone', dataIndex: 'phone', ellipsis: true, render: (v: string) => v || '—' },
                 {
                   title: 'Role',
                   dataIndex: 'role',
@@ -451,12 +457,14 @@ function AdminUsersPageContent() {
                   title: 'Restaurants',
                   dataIndex: 'restaurantIds',
                   width: 100,
+                  onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' } }),
                   render: (ids: string[]) => ids?.length ?? 0,
                 },
                 {
                   title: 'Actions',
                   width: 90,
                   fixed: 'right',
+                  onHeaderCell: () => ({ style: { whiteSpace: 'nowrap' } }),
                   render: (_: unknown, record: any) => (
                     <Dropdown
                       menu={{ items: actionItems(record) }}

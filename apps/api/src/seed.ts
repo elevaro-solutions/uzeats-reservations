@@ -410,9 +410,10 @@ async function seed() {
     const existingAdmin = await User.findOne({ email: ADMIN_EMAIL });
     if (existingAdmin) {
       existingAdmin.role = 'super_admin';
+      existingAdmin.passwordHash = passwordHash;
       await existingAdmin.save();
       superAdmin = existingAdmin;
-      console.log(`Upgraded ${ADMIN_EMAIL} to super admin`);
+      console.log(`Upgraded ${ADMIN_EMAIL} to super admin (password reset to seed default)`);
     } else {
       superAdmin = await User.create({
         email: ADMIN_EMAIL,
@@ -426,7 +427,9 @@ async function seed() {
       console.log(`Created super admin account: ${ADMIN_EMAIL}`);
     }
   } else {
-    console.log(`Preserved existing super admin: ${superAdmin.email}`);
+    superAdmin.passwordHash = passwordHash;
+    await superAdmin.save();
+    console.log(`Preserved existing super admin: ${superAdmin.email} (password reset to seed default)`);
   }
 
   const [owner, staff, diner, diner2] = await User.create([

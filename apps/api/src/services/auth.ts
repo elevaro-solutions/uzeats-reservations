@@ -129,9 +129,12 @@ export async function registerWithEmail(input: {
 }
 
 export async function loginWithEmail(email: string, password: string) {
-  const normalizedEmail =
-    LEGACY_DEMO_EMAIL_ALIASES[email.toLowerCase()] ?? email.toLowerCase();
-  const user = await User.findOne({ email: normalizedEmail });
+  const lower = email.toLowerCase();
+  const aliased = LEGACY_DEMO_EMAIL_ALIASES[lower];
+  // Try aliased email first, then fall back to the original (handles both old and new DB seeds).
+  const user = aliased
+    ? (await User.findOne({ email: aliased })) ?? (await User.findOne({ email: lower }))
+    : await User.findOne({ email: lower });
   if (!user?.passwordHash) throw new AuthenticationError('Invalid credentials');
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) throw new AuthenticationError('Invalid credentials');
