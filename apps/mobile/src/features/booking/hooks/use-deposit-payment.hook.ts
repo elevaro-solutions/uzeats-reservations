@@ -13,9 +13,17 @@ export function extractPaymentIntentId(clientSecret: string): string {
   return idx > 0 ? clientSecret.slice(0, idx) : clientSecret;
 }
 
+/** True when the API returned a local/dev stub PaymentIntent secret. */
 export function isStubClientSecret(clientSecret: string): boolean {
-  return clientSecret.startsWith("pi_stub_") || !isStripeConfigured();
+  return (
+    clientSecret.startsWith("pi_stub_") || clientSecret.startsWith("pi_dev_")
+  );
 }
+
+export type PayDepositResult = {
+  paid: boolean;
+  error?: string;
+};
 
 export type UseDepositPaymentResult = {
   paying: boolean;
@@ -23,7 +31,7 @@ export type UseDepositPaymentResult = {
   payDeposit: (params: {
     clientSecret: string;
     merchantName: string;
-  }) => Promise<boolean>;
+  }) => Promise<PayDepositResult>;
   clearError: () => void;
 };
 
@@ -39,11 +47,18 @@ export function useDepositPayment(): UseDepositPaymentResult {
     }: {
       clientSecret: string;
       merchantName: string;
-    }) => {
+    }): Promise<PayDepositResult> => {
       setError(null);
 
       if (isStubClientSecret(clientSecret)) {
-        return true;
+        return { paid: true };
+      }
+
+      if (!isStripeConfigured()) {
+        const message =
+          "Payments are not configured on this build. Set EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY and try again.";
+        setError(message);
+        return { paid: false, error: message };
       }
 
       setPaying(true);
@@ -55,24 +70,26 @@ export function useDepositPayment(): UseDepositPaymentResult {
         });
 
         if (initError) {
-          setError(initError.message ?? "Could not start payment");
-          return false;
+          const message = initError.message ?? "Could not start payment";
+          setError(message);
+          return { paid: false, error: message };
         }
 
         const { error: presentError } = await presentPaymentSheet();
         if (presentError) {
-          if (presentError.code === "Canceled") {
-            setError("Payment cancelled");
-          } else {
-            setError(presentError.message ?? "Payment failed");
-          }
-          return false;
+          const message =
+            presentError.code === "Canceled"
+              ? "Payment cancelled"
+              : (presentError.message ?? "Payment failed");
+          setError(message);
+          return { paid: false, error: message };
         }
 
-        return true;
+        return { paid: true };
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Payment failed");
-        return false;
+        const message = err instanceof Error ? err.message : "Payment failed";
+        setError(message);
+        return { paid: false, error: message };
       } finally {
         setPaying(false);
       }

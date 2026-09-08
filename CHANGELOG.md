@@ -4,6 +4,23 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.42.0] — 2026-09-08
+
+### Added
+
+- Mobile booking deposit breakdown (base, add-ons, points, promo, gift) with due amount on the details step footer
+- Loyalty redeem cards and how-it-works sheets for platform and restaurant points in booking
+
+### Changed
+
+- Confirm sheet frames deposit as a Stripe hold/authorization with clearer copy and scrollable sheet layout
+- Deposit payment hook surfaces missing Stripe config and cancellation errors instead of treating stubs as live payments
+- EAS profiles no longer bake empty `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY`; rely on EAS secrets or local `.env`
+
+### Fixed
+
+- Booking submit routes to reservation detail with a clear error when deposit payment cannot start after create
+
 ## [0.41.0] — 2026-09-07
 
 ### Added

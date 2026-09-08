@@ -3,6 +3,7 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { Flex, InlineAlert } from "@/components";
 
+import type { DepositBreakdown } from "../helpers/booking-pricing.helpers";
 import type {
   BookableExperience,
   BookablePackage,
@@ -10,6 +11,7 @@ import type {
   PrivateDiningSpace,
 } from "../types";
 import { BookingAddonsSection } from "./booking-addons-section.component";
+import { BookingDepositSummary } from "./booking-deposit-summary.component";
 import { BookingPreferencesSection } from "./booking-preferences-section.component";
 import { BookingPromoRewardsSection } from "./booking-promo-rewards-section.component";
 import { BookingSection } from "./booking-section.component";
@@ -42,7 +44,7 @@ export type BookingDetailsStepProps = {
   restaurantLoyaltyBalance: number;
   restaurantLoyaltyEnabled: boolean;
   restaurantMinRedeem: number;
-  finalDepositCents: number;
+  depositBreakdown: DepositBreakdown;
   promoMessage?: string | null;
   promoValid?: boolean;
   giftMessage?: string | null;
@@ -80,7 +82,7 @@ export function BookingDetailsStep({
   restaurantLoyaltyBalance,
   restaurantLoyaltyEnabled,
   restaurantMinRedeem,
-  finalDepositCents,
+  depositBreakdown,
   promoMessage,
   promoValid,
   giftMessage,
@@ -145,7 +147,7 @@ export function BookingDetailsStep({
         restaurantLoyaltyBalance={restaurantLoyaltyBalance}
         restaurantLoyaltyEnabled={restaurantLoyaltyEnabled}
         restaurantMinRedeem={restaurantMinRedeem}
-        finalDepositCents={finalDepositCents}
+        grossDepositCents={depositBreakdown.grossCents}
         promoMessage={promoMessage}
         promoValid={promoValid ?? undefined}
         giftMessage={giftMessage}
@@ -155,6 +157,8 @@ export function BookingDetailsStep({
         onRedeemPointsChange={onRedeemPointsChange}
         onRedeemRestaurantPointsChange={onRedeemRestaurantPointsChange}
       />
+
+      <BookingDepositSummary breakdown={depositBreakdown} />
     </Flex>
   );
 }

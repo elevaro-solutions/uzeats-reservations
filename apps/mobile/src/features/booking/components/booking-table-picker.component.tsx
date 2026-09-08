@@ -1,6 +1,7 @@
 import { Pressable, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import { CheckIcon } from "@/assets";
 import { Flex, RemoteImage, Typography } from "@/components";
 
 import type { BookableTable } from "../types";
@@ -48,7 +49,7 @@ export function BookingTablePicker({
               style={[
                 styles.card,
                 selected && {
-                  borderColor: theme.colors.primary,
+                  borderColor: theme.colors.primary7,
                   backgroundColor: theme.colors.primary1,
                 },
               ]}
@@ -70,6 +71,9 @@ export function BookingTablePicker({
                     {table.floorArea ? ` · ${table.floorArea}` : ""}
                   </Typography>
                 </Flex>
+                {selected ? (
+                  <CheckIcon size={20} color={theme.colors.primary7} />
+                ) : null}
               </Flex>
             </Pressable>
           );

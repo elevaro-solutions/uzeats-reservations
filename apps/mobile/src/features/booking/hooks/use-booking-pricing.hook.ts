@@ -9,7 +9,8 @@ import {
 } from "../api/booking.operations";
 import {
   computeDepositBeforePromo,
-  computeFinalDepositCents,
+  computeDepositBreakdown,
+  type DepositBreakdown,
 } from "../helpers/booking-pricing.helpers";
 import type {
   BookableExperience,
@@ -41,6 +42,7 @@ export type UseBookingPricingParams = {
 export type UseBookingPricingResult = {
   restaurantMinRedeem: number;
   finalDepositCents: number;
+  depositBreakdown: DepositBreakdown;
   activePromo: PromotionValidation | null | undefined;
   giftValidation: PromotionValidation | null | undefined;
 };
@@ -157,17 +159,30 @@ export function useBookingPricing(
 
   const giftValidation = giftValidationData?.validateGiftCard;
 
-  const finalDepositCents = pricingInput
-    ? computeFinalDepositCents({
+  const emptyBreakdown: DepositBreakdown = {
+    baseDepositCents: 0,
+    addOnsCents: 0,
+    grossCents: 0,
+    platformPointsDiscountCents: 0,
+    restaurantPointsDiscountCents: 0,
+    pointsDiscountCents: 0,
+    promoDiscountCents: 0,
+    giftDiscountCents: 0,
+    dueCents: 0,
+  };
+
+  const depositBreakdown = pricingInput
+    ? computeDepositBreakdown({
         ...pricingInput,
         activePromo: activePromo ?? null,
         giftValidation: giftValidation ?? null,
       })
-    : 0;
+    : emptyBreakdown;
 
   return {
     restaurantMinRedeem,
-    finalDepositCents,
+    finalDepositCents: depositBreakdown.dueCents,
+    depositBreakdown,
     activePromo,
     giftValidation,
   };

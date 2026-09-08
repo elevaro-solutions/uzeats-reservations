@@ -120,7 +120,7 @@ export function Input({
         {suffix}
       </Pressable>
       {helperText ? (
-        <Typography size="text-xs" color={error ? "error" : "secondary"}>
+        <Typography size="text-xs" style={styles.helperText}>
           {helperText}
         </Typography>
       ) : null}
@@ -130,11 +130,26 @@ export function Input({
 
 const styles = StyleSheet.create(({ space, radius, colors }) => ({
   container: {
-    gap: space(0.5),
     width: "100%",
   },
   label: {
     color: colors.textPrimary,
+    marginBottom: space(0.5),
+  },
+  helperText: {
+    marginTop: space(1),
+    color: colors.textMuted,
+    variants: {
+      size: {
+        sm: { paddingHorizontal: space(1.5) },
+        md: { paddingHorizontal: space(2) },
+        lg: { paddingHorizontal: space(2) },
+      },
+      error: {
+        true: { color: colors.errorPress },
+        false: {},
+      },
+    },
   },
   placeholder: {
     color: colors.textMuted,

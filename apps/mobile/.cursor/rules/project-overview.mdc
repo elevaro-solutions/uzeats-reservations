@@ -20,6 +20,9 @@ It lives in the `uzeats-reservations` pnpm + Turborepo monorepo as
 - Auth tokens: `expo-secure-store` (`accessToken`, `refreshToken`)
 - Prefer existing ops in `src/graphql/operations.ts`; align with
   `apps/api/src/graphql/typeDefs.ts`
+- Deposit PaymentSheet: set `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` (local `.env` or
+  EAS secret). API must have `STRIPE_SECRET_KEY` or it auto-authorizes stubs and
+  never returns a presentable `clientSecret`.
 
 ## Theme
 

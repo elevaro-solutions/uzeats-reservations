@@ -1,10 +1,15 @@
-import { View } from "react-native";
+import { useState } from "react";
+import {
+  LOYALTY,
+  pointsToDiscountCents,
+  restaurantPointsToDiscountCents,
+} from "@reservations/shared";
 import { StyleSheet } from "react-native-unistyles";
 
-import { Chip, Flex, Input, Typography } from "@/components";
-import { LOYALTY } from "@reservations/shared";
+import { Input, Typography } from "@/components";
 
-import { formatCents } from "../helpers/booking-pricing.helpers";
+import { BookingLoyaltyCard } from "./booking-loyalty-card.component";
+import { BookingLoyaltyInfoSheet } from "./booking-loyalty-info-sheet.component";
 import { BookingSection } from "./booking-section.component";
 
 export type BookingPromoRewardsSectionProps = {
@@ -16,7 +21,7 @@ export type BookingPromoRewardsSectionProps = {
   restaurantLoyaltyBalance: number;
   restaurantLoyaltyEnabled: boolean;
   restaurantMinRedeem: number;
-  finalDepositCents: number;
+  grossDepositCents: number;
   promoMessage?: string | null;
   promoValid?: boolean;
   giftMessage?: string | null;
@@ -27,6 +32,8 @@ export type BookingPromoRewardsSectionProps = {
   onRedeemRestaurantPointsChange: (value: number) => void;
 };
 
+type InfoSheetTarget = "platform" | "restaurant" | null;
+
 export function BookingPromoRewardsSection({
   promoCode,
   giftCardCode,
@@ -36,7 +43,7 @@ export function BookingPromoRewardsSection({
   restaurantLoyaltyBalance,
   restaurantLoyaltyEnabled,
   restaurantMinRedeem,
-  finalDepositCents,
+  grossDepositCents,
   promoMessage,
   promoValid,
   giftMessage,
@@ -46,12 +53,31 @@ export function BookingPromoRewardsSection({
   onRedeemPointsChange,
   onRedeemRestaurantPointsChange,
 }: BookingPromoRewardsSectionProps) {
-  if (finalDepositCents <= 0) return null;
+  const [infoSheet, setInfoSheet] = useState<InfoSheetTarget>(null);
 
-  const canRedeemPlatform = platformPoints >= LOYALTY.MIN_REDEEM_POINTS;
-  const canRedeemRestaurant =
-    restaurantLoyaltyEnabled &&
-    restaurantLoyaltyBalance >= restaurantMinRedeem;
+  if (grossDepositCents <= 0) return null;
+
+  // bestPromotion returns valid:false + "No automatic promotion available" when
+  // nothing auto-applies — that is informational, not an input error.
+  const hasPromoCode = promoCode.trim().length > 0;
+  const promoInputError = hasPromoCode && promoValid === false;
+  const promoSuccessMessage =
+    promoMessage && promoValid === true ? promoMessage : null;
+  const promoHelper = promoInputError
+    ? (promoMessage ?? undefined)
+    : promoSuccessMessage
+      ? undefined
+      : "Optional. Best available offer applies automatically.";
+
+  const hasGiftCode = giftCardCode.trim().length > 0;
+  const giftInputError = hasGiftCode && giftValid === false;
+  const giftSuccessMessage =
+    giftMessage && giftValid === true ? giftMessage : null;
+  const giftHelper = giftInputError
+    ? (giftMessage ?? undefined)
+    : giftSuccessMessage
+      ? undefined
+      : "Optional. Balance applies to this deposit.";
 
   return (
     <BookingSection title="Promo & rewards">
@@ -60,10 +86,13 @@ export function BookingPromoRewardsSection({
         value={promoCode}
         onChangeText={onPromoCodeChange}
         autoCapitalize="characters"
+        placeholder="Enter code"
+        helperText={promoHelper}
+        error={promoInputError}
       />
-      {promoMessage ? (
-        <Typography size="text-xs" color={promoValid ? "primary" : "error"}>
-          {promoMessage}
+      {promoSuccessMessage ? (
+        <Typography size="text-xs" color="primary">
+          {promoSuccessMessage}
         </Typography>
       ) : null}
 
@@ -72,85 +101,62 @@ export function BookingPromoRewardsSection({
         value={giftCardCode}
         onChangeText={onGiftCardCodeChange}
         autoCapitalize="characters"
+        placeholder="Enter gift card code"
+        helperText={giftHelper}
+        error={giftInputError}
       />
-      {giftMessage ? (
-        <Typography size="text-xs" color={giftValid ? "primary" : "error"}>
-          {giftMessage}
+      {giftSuccessMessage ? (
+        <Typography size="text-xs" color="primary">
+          {giftSuccessMessage}
         </Typography>
       ) : null}
 
-      {canRedeemPlatform ? (
-        <LoyaltyRow
-          label={`Redeem platform points (${platformPoints} available)`}
-          value={redeemPoints}
-          max={platformPoints}
-          step={LOYALTY.MIN_REDEEM_POINTS}
-          onChange={onRedeemPointsChange}
-        />
-      ) : null}
+      <BookingLoyaltyCard
+        title="Tablevera points"
+        variant="platform"
+        balance={platformPoints}
+        minRedeem={LOYALTY.MIN_REDEEM_POINTS}
+        value={redeemPoints}
+        depositHeadroomCents={grossDepositCents}
+        discountCentsFor={pointsToDiscountCents}
+        onChange={onRedeemPointsChange}
+        onHowItWorks={() => setInfoSheet("platform")}
+        style={styles.pointsCard}
+      />
 
-      {canRedeemRestaurant ? (
-        <LoyaltyRow
-          label={`Redeem restaurant points (${restaurantLoyaltyBalance} available)`}
+      {restaurantLoyaltyEnabled ? (
+        <BookingLoyaltyCard
+          title="Restaurant points"
+          variant="restaurant"
+          balance={restaurantLoyaltyBalance}
+          minRedeem={restaurantMinRedeem}
           value={redeemRestaurantPoints}
-          max={restaurantLoyaltyBalance}
-          step={restaurantMinRedeem}
+          depositHeadroomCents={Math.max(
+            0,
+            grossDepositCents - pointsToDiscountCents(redeemPoints),
+          )}
+          discountCentsFor={restaurantPointsToDiscountCents}
           onChange={onRedeemRestaurantPointsChange}
+          onHowItWorks={() => setInfoSheet("restaurant")}
         />
       ) : null}
 
-      <View style={styles.depositRow}>
-        <Typography weight="semibold">Deposit due</Typography>
-        <Typography weight="bold" size="text-lg">
-          {formatCents(finalDepositCents)}
-        </Typography>
-      </View>
+      <BookingLoyaltyInfoSheet
+        visible={infoSheet != null}
+        onClose={() => setInfoSheet(null)}
+        variant={infoSheet ?? "platform"}
+        minRedeem={
+          infoSheet === "restaurant"
+            ? restaurantMinRedeem
+            : LOYALTY.MIN_REDEEM_POINTS
+        }
+      />
     </BookingSection>
   );
 }
 
-function LoyaltyRow({
-  label,
-  value,
-  max,
-  step,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  max: number;
-  step: number;
-  onChange: (value: number) => void;
-}) {
-  const presets = [0, step, step * 2].filter((v) => v <= max);
-
-  return (
-    <Flex gap={0.75}>
-      <Typography size="text-xs" color="secondary">
-        {label}
-      </Typography>
-      <Flex direction="row" gap={1} flexWrap="wrap">
-        {presets.map((preset) => (
-          <Chip
-            key={preset}
-            selected={value === preset}
-            onPress={() => onChange(preset)}
-          >
-            {preset === 0 ? "None" : String(preset)}
-          </Chip>
-        ))}
-      </Flex>
-    </Flex>
-  );
-}
-
-const styles = StyleSheet.create(({ space, colors, radius }) => ({
-  depositRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: space(1.5),
-    borderRadius: radius.md,
-    backgroundColor: colors.slate2,
+const styles = StyleSheet.create(({ space }) => ({
+  pointsCard: {
+    marginTop: space(1),
   },
 }));

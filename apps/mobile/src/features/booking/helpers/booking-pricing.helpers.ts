@@ -73,15 +73,89 @@ export function computeDepositBeforePromo(input: PricingInput): number {
 }
 
 export function computeFinalDepositCents(input: PricingInput): number {
-  const beforePromo = computeDepositBeforePromo(input);
-  const promoDiscount = input.activePromo?.valid
-    ? input.activePromo.discountCents
+  return computeDepositBreakdown(input).dueCents;
+}
+
+export type DepositBreakdown = {
+  baseDepositCents: number;
+  addOnsCents: number;
+  grossCents: number;
+  platformPointsDiscountCents: number;
+  restaurantPointsDiscountCents: number;
+  pointsDiscountCents: number;
+  promoDiscountCents: number;
+  giftDiscountCents: number;
+  dueCents: number;
+};
+
+export function computeDepositBreakdown(input: PricingInput): DepositBreakdown {
+  const { restaurant, partySize } = input;
+  const baseDepositCents = restaurant.depositRequired
+    ? restaurant.depositAmountCents * partySize
     : 0;
-  const afterPromo = Math.max(0, beforePromo - promoDiscount);
-  const giftDiscount = input.giftValidation?.valid
-    ? input.giftValidation.discountCents
+
+  const packagePrice = input.selectedPackage
+    ? input.selectedPackage.pricePerGuest
+      ? input.selectedPackage.priceCents * partySize
+      : input.selectedPackage.priceCents
     : 0;
-  return Math.max(0, afterPromo - giftDiscount);
+  const privateSpacePrice = input.selectedPrivateSpace?.rentalFeeCents ?? 0;
+  const experiencePrice = input.selectedExperience?.ticketPriceCents ?? 0;
+  const addOnsCents = packagePrice + privateSpacePrice + experiencePrice;
+  const grossCents = baseDepositCents + addOnsCents;
+
+  let remaining = grossCents;
+  let platformPointsDiscountCents = 0;
+  if (input.redeemPoints >= LOYALTY.MIN_REDEEM_POINTS) {
+    platformPointsDiscountCents = Math.min(
+      remaining,
+      pointsToDiscountCents(input.redeemPoints),
+    );
+    remaining -= platformPointsDiscountCents;
+  }
+
+  const restaurantMinRedeem =
+    input.restaurant.loyaltyMinRedeemPoints ??
+    RESTAURANT_LOYALTY.DEFAULT_MIN_REDEEM_POINTS;
+  const canRedeemRestaurant =
+    input.restaurant.loyaltyEnabled &&
+    input.restaurantLoyaltyBalance >= restaurantMinRedeem &&
+    grossCents > 0;
+
+  let restaurantPointsDiscountCents = 0;
+  if (
+    canRedeemRestaurant &&
+    input.redeemRestaurantPoints >= restaurantMinRedeem
+  ) {
+    restaurantPointsDiscountCents = Math.min(
+      remaining,
+      restaurantPointsToDiscountCents(input.redeemRestaurantPoints),
+    );
+    remaining -= restaurantPointsDiscountCents;
+  }
+
+  const promoDiscountCents = input.activePromo?.valid
+    ? Math.min(remaining, input.activePromo.discountCents)
+    : 0;
+  remaining -= promoDiscountCents;
+
+  const giftDiscountCents = input.giftValidation?.valid
+    ? Math.min(remaining, input.giftValidation.discountCents)
+    : 0;
+  remaining -= giftDiscountCents;
+
+  return {
+    baseDepositCents,
+    addOnsCents,
+    grossCents,
+    platformPointsDiscountCents,
+    restaurantPointsDiscountCents,
+    pointsDiscountCents:
+      platformPointsDiscountCents + restaurantPointsDiscountCents,
+    promoDiscountCents,
+    giftDiscountCents,
+    dueCents: Math.max(0, remaining),
+  };
 }
 
 export function formatCents(cents: number): string {

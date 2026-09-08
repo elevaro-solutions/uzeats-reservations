@@ -101,7 +101,8 @@ export function useBookingSubmit(
   } = params;
 
   const router = useRouter();
-  const { paying, payDeposit, clearError } = useDepositPayment();
+  const { paying, error: paymentError, payDeposit, clearError } =
+    useDepositPayment();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const isSubmittingRef = useRef(false);
@@ -130,6 +131,7 @@ export function useBookingSubmit(
     }
 
     setSubmitError(null);
+    clearError();
     setConfirmOpen(true);
   }, [
     user,
@@ -139,6 +141,7 @@ export function useBookingSubmit(
     selectedSlot,
     slots,
     onSlotBecameUnavailable,
+    clearError,
   ]);
 
   const submitBooking = useCallback(async () => {
@@ -148,6 +151,7 @@ export function useBookingSubmit(
 
     isSubmittingRef.current = true;
     setSubmitError(null);
+    clearError();
 
     try {
       const { data: freshAvail } = await refetchAvailability();
@@ -202,18 +206,22 @@ export function useBookingSubmit(
       }
 
       clearBookingDraft(restaurantId);
-      setConfirmOpen(false);
 
-      if (payload?.clientSecret) {
-        clearError();
-        const paid = await payDeposit({
-          clientSecret: payload.clientSecret,
+      const depositAmountCents = reservation.depositAmountCents ?? 0;
+      const depositStatus = reservation.depositStatus ?? "none";
+      const clientSecret = payload?.clientSecret ?? null;
+
+      if (clientSecret) {
+        const payment = await payDeposit({
+          clientSecret,
           merchantName: restaurant.name,
         });
-        if (!paid) {
+        if (!payment.paid) {
           setSubmitError(
-            "Payment was not completed. You can pay from your reservations.",
+            payment.error ??
+              "Payment was not completed. You can pay from your reservations.",
           );
+          setConfirmOpen(false);
           router.push({
             pathname: "/reservations/[id]",
             params: { id: reservation.id },
@@ -221,14 +229,28 @@ export function useBookingSubmit(
           return;
         }
 
-        const paymentIntentId = extractPaymentIntentId(payload.clientSecret);
+        const paymentIntentId = extractPaymentIntentId(clientSecret);
         try {
           await confirmDeposit({ variables: { paymentIntentId } });
         } catch {
           // webhook may reconcile
         }
+      } else if (
+        depositAmountCents > 0 &&
+        depositStatus === "requires_payment"
+      ) {
+        setSubmitError(
+          "Payment could not be started. You can pay from your reservations.",
+        );
+        setConfirmOpen(false);
+        router.push({
+          pathname: "/reservations/[id]",
+          params: { id: reservation.id },
+        });
+        return;
       }
 
+      setConfirmOpen(false);
       router.replace({
         pathname: "/booking/confirmation",
         params: { reservationId: reservation.id },
@@ -283,7 +305,7 @@ export function useBookingSubmit(
   return {
     confirmOpen,
     setConfirmOpen,
-    submitError,
+    submitError: submitError ?? paymentError,
     creating,
     paying,
     openConfirm,

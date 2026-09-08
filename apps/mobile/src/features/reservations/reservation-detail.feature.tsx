@@ -104,11 +104,16 @@ export function ReservationDetailFeature() {
 
   async function onPayDeposit() {
     if (!reservation?.clientSecret) return;
-    const paid = await payDeposit({
+    const payment = await payDeposit({
       clientSecret: reservation.clientSecret,
       merchantName: reservation.restaurant?.name ?? "Tablevera",
     });
-    if (!paid) return;
+    if (!payment.paid) {
+      if (payment.error) {
+        Alert.alert("Payment failed", payment.error);
+      }
+      return;
+    }
     try {
       await confirmDeposit({
         variables: {

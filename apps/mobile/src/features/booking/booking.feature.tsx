@@ -22,6 +22,7 @@ import { BookingDatetimeStep } from "./components/booking-datetime-step.componen
 import { BookingDetailsStep } from "./components/booking-details-step.component";
 import { BookingWaitlistSuccessModal } from "./components/booking-waitlist-success-modal.component";
 import { saveBookingDraft } from "./helpers/booking-draft.helpers";
+import { formatCents } from "./helpers/booking-pricing.helpers";
 import { canProceedToDetails } from "./helpers/booking-validation.helpers";
 import {
   clampBookingDate,
@@ -111,23 +112,28 @@ export function BookingFeature() {
     (s) => s.id === form.selectedPrivateSpaceId,
   );
 
-  const { restaurantMinRedeem, finalDepositCents, activePromo, giftValidation } =
-    useBookingPricing({
-      restaurantId: id,
-      restaurant,
-      step: form.step,
-      partySize: form.partySize,
-      selectedSlot: form.selectedSlot,
-      promoCode: form.promoCode,
-      giftCardCode: form.giftCardCode,
-      redeemPoints: form.redeemPoints,
-      redeemRestaurantPoints: form.redeemRestaurantPoints,
-      restaurantLoyaltyBalance,
-      selectedTable,
-      selectedPackage,
-      selectedPrivateSpace,
-      selectedExperience,
-    });
+  const {
+    restaurantMinRedeem,
+    finalDepositCents,
+    depositBreakdown,
+    activePromo,
+    giftValidation,
+  } = useBookingPricing({
+    restaurantId: id,
+    restaurant,
+    step: form.step,
+    partySize: form.partySize,
+    selectedSlot: form.selectedSlot,
+    promoCode: form.promoCode,
+    giftCardCode: form.giftCardCode,
+    redeemPoints: form.redeemPoints,
+    redeemRestaurantPoints: form.redeemRestaurantPoints,
+    restaurantLoyaltyBalance,
+    selectedTable,
+    selectedPackage,
+    selectedPrivateSpace,
+    selectedExperience,
+  });
 
   const nearbySlots = useMemo(() => {
     if (!form.nearbyReferenceTime) return [];
@@ -295,7 +301,7 @@ export function BookingFeature() {
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingBottom: insets.bottom + theme.space(10) },
+          { paddingBottom: insets.bottom + theme.space(form.step === "details" && finalDepositCents > 0 ? 14 : 10) },
         ]}
         keyboardShouldPersistTaps="handled"
       >
@@ -358,7 +364,7 @@ export function BookingFeature() {
             restaurantLoyaltyBalance={restaurantLoyaltyBalance}
             restaurantLoyaltyEnabled={!!restaurant.loyaltyEnabled}
             restaurantMinRedeem={restaurantMinRedeem}
-            finalDepositCents={finalDepositCents}
+            depositBreakdown={depositBreakdown}
             promoMessage={activePromo?.message}
             promoValid={activePromo?.valid ?? undefined}
             giftMessage={giftValidation?.message}
@@ -387,9 +393,25 @@ export function BookingFeature() {
             {continueLabel}
           </Button>
         ) : (
-          <Button fullWidth size="xl" onPress={openConfirm}>
-            Review booking
-          </Button>
+          <Flex gap={1.5}>
+            {finalDepositCents > 0 ? (
+              <Flex
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+              >
+                <Typography size="text-sm" color="secondary">
+                  Deposit due
+                </Typography>
+                <Typography size="text-md" weight="bold">
+                  {formatCents(finalDepositCents)}
+                </Typography>
+              </Flex>
+            ) : null}
+            <Button fullWidth size="xl" onPress={openConfirm}>
+              Review booking
+            </Button>
+          </Flex>
         )}
       </View>
 

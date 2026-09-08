@@ -94,7 +94,6 @@ export function BookingConfirmSheet({
           entering={SlideInDown.duration(280)}
           exiting={SlideOutDown.duration(220)}
           style={styles.sheet(theme.colors.background)}
-          onStartShouldSetResponder={() => true}
         >
           <Flex
             direction="row"
@@ -120,8 +119,10 @@ export function BookingConfirmSheet({
           </Flex>
 
           <ScrollView
-            bounces={false}
-            showsVerticalScrollIndicator={false}
+            bounces
+            nestedScrollEnabled
+            showsVerticalScrollIndicator
+            keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.body}
             style={styles.bodyScroll}
           >
@@ -186,7 +187,7 @@ export function BookingConfirmSheet({
                     : null,
                   depositCents > 0
                     ? {
-                        label: "Deposit",
+                        label: "Deposit hold",
                         content: (
                           <Typography weight="medium" style={styles.valueText}>
                             {formatCents(depositCents)}
@@ -225,6 +226,13 @@ export function BookingConfirmSheet({
                 ))}
               </View>
             </Flex>
+
+            {depositCents > 0 ? (
+              <InlineAlert
+                tone="info"
+                message={`Next: authorize ${formatCents(depositCents)} on your card via Stripe. This is a hold, not a charge unless you no-show or cancel late.`}
+              />
+            ) : null}
 
             <Pressable
               onPress={() => onTermsAcceptedChange(!termsAccepted)}
@@ -270,7 +278,7 @@ export function BookingConfirmSheet({
               onPress={onConfirm}
             >
               {depositCents > 0
-                ? "Confirm & pay deposit"
+                ? "Confirm & authorize deposit"
                 : "Confirm reservation"}
             </Button>
           </View>
@@ -325,6 +333,7 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     maxHeight: "85%",
+    overflow: "hidden",
   }),
   header: {
     paddingHorizontal: space(2.5),
@@ -332,6 +341,7 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     paddingBottom: space(2),
     borderBottomWidth: 1,
     borderBottomColor: colors.slate3,
+    flexShrink: 0,
   },
   headerTitleBlock: {
     flex: 1,
@@ -340,7 +350,8 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     paddingRight: space(1),
   },
   bodyScroll: {
-    flexGrow: 0,
+    flexGrow: 1,
+    flexShrink: 1,
   },
   body: {
     paddingHorizontal: space(2.5),
@@ -402,5 +413,6 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     paddingTop: space(2),
     borderTopWidth: 1,
     borderTopColor: colors.slate3,
+    flexShrink: 0,
   },
 }));
