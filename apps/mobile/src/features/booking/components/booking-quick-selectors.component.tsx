@@ -18,11 +18,16 @@ import { parseIsoDate, toIsoDate } from "@/lib/helpers/date-time.helpers";
 
 import { formatQuickDateLabel } from "../helpers/booking-date-label.helpers";
 import { formatGuestCount } from "../helpers/format-guest-count.helpers";
+import {
+  BOOKING_MAX_DAYS_AHEAD,
+  maxBookableIsoDate,
+} from "../helpers/time-slots.helpers";
 import { PartySizeChipPicker } from "../../search/components/party-size-chip-picker.component";
 
 export type BookingQuickSelectorsProps = {
   date: string;
   partySize: number;
+  maxAdvanceDays?: number;
   onDateChange: (iso: string) => void;
   onPartySizeChange: (size: number) => void;
 };
@@ -32,6 +37,7 @@ const SHEET_MIN_HEIGHT_RATIO = 0.42;
 export function BookingQuickSelectors({
   date,
   partySize,
+  maxAdvanceDays = BOOKING_MAX_DAYS_AHEAD,
   onDateChange,
   onPartySizeChange,
 }: BookingQuickSelectorsProps) {
@@ -50,6 +56,14 @@ export function BookingQuickSelectors({
     d.setHours(0, 0, 0, 0);
     return d;
   }, []);
+
+  const maximumDate = useMemo(() => {
+    const iso = maxBookableIsoDate(maxAdvanceDays);
+    const parsed = parseIsoDate(iso);
+    if (!parsed) return undefined;
+    parsed.setHours(23, 59, 59, 999);
+    return parsed;
+  }, [maxAdvanceDays]);
 
   const sheetMinHeight = useMemo(
     () => Dimensions.get("window").height * SHEET_MIN_HEIGHT_RATIO,
@@ -200,6 +214,7 @@ export function BookingQuickSelectors({
                 mode="date"
                 display="spinner"
                 minimumDate={today}
+                maximumDate={maximumDate}
                 onChange={handleDraftChange}
                 themeVariant="light"
                 style={[styles.picker, { width: pickerWidth }]}
@@ -226,6 +241,7 @@ export function BookingQuickSelectors({
           mode="date"
           display="default"
           minimumDate={today}
+          maximumDate={maximumDate}
           onChange={handleAndroidDateChange}
         />
       ) : null}

@@ -11,10 +11,10 @@ import {
   InlineAlert,
   Input,
   Loader,
-  Skeleton,
   Typography,
   UserAvatar,
 } from "@/components";
+import { Skeleton } from "@/components/skeleton";
 import type { TypographySize, TypographyWeight } from "@/components/typography";
 
 const TYPE_SIZES: TypographySize[] = [

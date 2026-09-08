@@ -81,6 +81,72 @@ const CUISINE_ROTATION = [
   'Thai',
 ] as const;
 
+const CENTRAL_ASIAN_PREFIXES = new Set([
+  'Samarkand',
+  'Bukhara',
+  'Tashkent',
+  'Khiva',
+  'Fergana',
+  'Andijan',
+  'Namangan',
+  'Termez',
+  'Nukus',
+  'Karshi',
+  'Registan',
+  'Silk Road',
+  'Plov',
+  'Lagman',
+  'Manti',
+  'Shashlik',
+  'Somsa',
+  'Navruz',
+  'Chorsu',
+  'Bibi',
+  'Amir',
+  'Timur',
+  'Alisher',
+  'Navoi',
+  'Ulugbek',
+  'Bobur',
+  'Khan',
+  'Sultan',
+  'Emir',
+  'Diyor',
+  'Anor',
+  'Anjir',
+  'Shaftoli',
+  'Uzum',
+  'Qovun',
+  'Non',
+  'Osh',
+  'Choy',
+  'Qazi',
+  'Halim',
+  'Golden Plov',
+  'Blue Domes',
+  'Caravan',
+  'Bazaar',
+  'Teahouse',
+  'East',
+  'Orient',
+  'Steppe',
+  'Oasis',
+  'Market',
+]);
+
+const CENTRAL_ASIAN_SUFFIXES = new Set(['Choyxona', 'Oshxona']);
+
+function cuisineForSeedVenue(
+  index: number,
+  prefix: string,
+  suffix: string,
+): string {
+  if (CENTRAL_ASIAN_PREFIXES.has(prefix) || CENTRAL_ASIAN_SUFFIXES.has(suffix)) {
+    return 'Uzbek';
+  }
+  return CUISINE_ROTATION[index % CUISINE_ROTATION.length]!;
+}
+
 function pick<T>(items: readonly T[], index: number, count = 2): T[] {
   const out: T[] = [];
   for (let i = 0; i < count; i++) {
@@ -294,17 +360,18 @@ function buildExtraRestaurants(count: number): RestaurantSeed[] {
     const depositRequired = i % 5 === 0;
     const plan = status === 'pending' ? undefined : PLANS_CYCLE[i % PLANS_CYCLE.length];
     const jitter = ((i % 7) - 3) * 0.008;
+    const cuisine = cuisineForSeedVenue(i, prefix, suffix);
 
     out.push({
       name,
-      cuisine: CUISINE_ROTATION[i % CUISINE_ROTATION.length]!,
+      cuisine,
       priceRange,
       city: loc.city,
       state: loc.state,
       zip: loc.zip,
       lng: loc.lng + jitter,
       lat: loc.lat + jitter * 0.6,
-      description: `Authentic Uzbek cuisine in ${loc.city}, ${loc.state} — seed venue #${i + 1}.`,
+      description: `Authentic ${cuisine} cuisine in ${loc.city}, ${loc.state} — seed venue #${i + 1}.`,
       depositRequired,
       depositAmountCents: depositRequired ? 1000 + (i % 5) * 500 : 0,
       status,

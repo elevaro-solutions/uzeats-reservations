@@ -1,7 +1,8 @@
 import { Pressable, ScrollView } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { Flex, MealTileSkeleton, Typography } from "@/components";
+import { Flex, Typography } from "@/components";
+import { MealTileSkeleton } from "@/components/skeleton";
 import { SectionHeader } from "@/features/discovery";
 
 import { MEAL_ICONS, SunMealIcon } from "../icons/meal-icons";

@@ -26,6 +26,7 @@ export type BookingDetailsStepProps = {
   packages: BookablePackage[];
   experiences: BookableExperience[];
   privateSpaces: PrivateDiningSpace[];
+  hasOccasionGatedPackages?: boolean;
   selectedPackageId: string | null;
   selectedExperienceId: string | null;
   selectedPrivateSpaceId: string | null;
@@ -64,6 +65,7 @@ export function BookingDetailsStep({
   packages,
   experiences,
   privateSpaces,
+  hasOccasionGatedPackages = false,
   selectedPackageId,
   selectedExperienceId,
   selectedPrivateSpaceId,
@@ -115,6 +117,20 @@ export function BookingDetailsStep({
         </BookingSection>
       )}
 
+      <BookingPreferencesSection
+        occasion={occasion}
+        notes={notes}
+        onOccasionChange={onOccasionChange}
+        onNotesChange={onNotesChange}
+      />
+
+      {hasOccasionGatedPackages ? (
+        <InlineAlert
+          tone="info"
+          message="Select an occasion above to see celebration packages."
+        />
+      ) : null}
+
       {showAddons ? (
         <BookingSection title="Add-ons">
           <BookingAddonsSection
@@ -130,13 +146,6 @@ export function BookingDetailsStep({
           />
         </BookingSection>
       ) : null}
-
-      <BookingPreferencesSection
-        occasion={occasion}
-        notes={notes}
-        onOccasionChange={onOccasionChange}
-        onNotesChange={onNotesChange}
-      />
 
       <BookingPromoRewardsSection
         promoCode={promoCode}

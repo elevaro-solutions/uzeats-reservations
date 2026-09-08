@@ -6,7 +6,7 @@ import { ChevronLeftIcon, ChevronRightIcon } from "@/assets";
 import { Flex, IconButton, Typography } from "@/components";
 import { parseIsoDate } from "@/lib/helpers/date-time.helpers";
 
-import { getBookableDaysInMonth } from "../helpers/time-slots.helpers";
+import { getBookableDaysInMonth, BOOKING_MAX_DAYS_AHEAD } from "../helpers/time-slots.helpers";
 
 const MONTH_NAMES = [
   "January",
@@ -39,6 +39,7 @@ const PILL_HEIGHT = 76;
 export type BookingDateScrollerProps = {
   selectedDate: string;
   onSelectDate: (iso: string) => void;
+  maxAdvanceDays?: number;
 };
 
 type ViewMonth = {
@@ -60,13 +61,10 @@ function shiftMonth(viewMonth: ViewMonth, delta: number): ViewMonth {
   return { year: date.getFullYear(), month: date.getMonth() };
 }
 
-function monthHasBookableDays(viewMonth: ViewMonth): boolean {
-  return getBookableDaysInMonth(viewMonth.year, viewMonth.month).length > 0;
-}
-
 export function BookingDateScroller({
   selectedDate,
   onSelectDate,
+  maxAdvanceDays = BOOKING_MAX_DAYS_AHEAD,
 }: BookingDateScrollerProps) {
   const { theme } = useUnistyles();
   const scrollRef = useRef<ScrollView>(null);
@@ -74,7 +72,17 @@ export function BookingDateScroller({
     monthFromIso(selectedDate),
   );
 
-  const bookableDays = getBookableDaysInMonth(viewMonth.year, viewMonth.month);
+  function monthHasBookableDays(month: ViewMonth): boolean {
+    return (
+      getBookableDaysInMonth(month.year, month.month, maxAdvanceDays).length > 0
+    );
+  }
+
+  const bookableDays = getBookableDaysInMonth(
+    viewMonth.year,
+    viewMonth.month,
+    maxAdvanceDays,
+  );
   const monthLabel = `${MONTH_NAMES[viewMonth.month]} ${viewMonth.year}`;
   const canGoPrev = monthHasBookableDays(shiftMonth(viewMonth, -1));
   const canGoNext = monthHasBookableDays(shiftMonth(viewMonth, 1));
@@ -95,7 +103,7 @@ export function BookingDateScroller({
         setViewMonth(prev);
       }
     }
-  }, [viewMonth, bookableDays.length]);
+  }, [viewMonth, bookableDays.length, maxAdvanceDays]);
 
   useEffect(() => {
     const index = bookableDays.indexOf(selectedDate);
@@ -110,7 +118,7 @@ export function BookingDateScroller({
     if (!canGoPrev) return;
     const prev = shiftMonth(viewMonth, -1);
     setViewMonth(prev);
-    const days = getBookableDaysInMonth(prev.year, prev.month);
+    const days = getBookableDaysInMonth(prev.year, prev.month, maxAdvanceDays);
     if (days.length > 0 && !days.includes(selectedDate)) {
       onSelectDate(days[0]!);
     }
@@ -120,7 +128,7 @@ export function BookingDateScroller({
     if (!canGoNext) return;
     const next = shiftMonth(viewMonth, 1);
     setViewMonth(next);
-    const days = getBookableDaysInMonth(next.year, next.month);
+    const days = getBookableDaysInMonth(next.year, next.month, maxAdvanceDays);
     if (days.length > 0 && !days.includes(selectedDate)) {
       onSelectDate(days[0]!);
     }

@@ -6,8 +6,8 @@ import {
   Button,
   Flex,
   InlineAlert,
-  Skeleton,
 } from "@/components";
+import { Skeleton } from "@/components/skeleton";
 import { RESTAURANT, RESTAURANT_REVIEWS, MY_RESERVATIONS } from "@/graphql";
 
 import { AddReviewSheet } from "./add-review-sheet.component";

@@ -273,6 +273,10 @@ export const BOOKING_RESTAURANT = gql`
       allowGuestTableSelection
       reservationsEnabled
       reservationsVisible
+      bookingWindow {
+        maxAdvanceDays
+        minAdvanceHours
+      }
       shifts {
         id
         name

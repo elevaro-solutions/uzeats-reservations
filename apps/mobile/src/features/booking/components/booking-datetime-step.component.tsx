@@ -23,6 +23,7 @@ export type BookingDatetimeStepProps = {
   partyTooLarge?: boolean;
   maxBookablePartySize?: number | null;
   restaurantPhone?: string | null;
+  maxAdvanceDays?: number;
   onDateChange: (iso: string) => void;
   onPartySizeChange: (size: number) => void;
   onSelectSlot: (time: string) => void;
@@ -45,6 +46,7 @@ export function BookingDatetimeStep({
   partyTooLarge = false,
   maxBookablePartySize = null,
   restaurantPhone,
+  maxAdvanceDays,
   onDateChange,
   onPartySizeChange,
   onSelectSlot,
@@ -67,6 +69,7 @@ export function BookingDatetimeStep({
       <BookingQuickSelectors
         date={date}
         partySize={partySize}
+        maxAdvanceDays={maxAdvanceDays}
         onDateChange={onDateChange}
         onPartySizeChange={onPartySizeChange}
       />

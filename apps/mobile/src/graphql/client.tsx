@@ -120,6 +120,16 @@ export const apolloClient = new ApolloClient({
       Address: {
         merge: true,
       },
+      Query: {
+        fields: {
+          bookableTables: {
+            keyArgs: ["restaurantId", "slotStart", "partySize"],
+            merge(_existing, incoming) {
+              return incoming;
+            },
+          },
+        },
+      },
     },
   }),
 });
@@ -129,7 +139,10 @@ const STRIPE_PUBLISHABLE_KEY =
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
+    <StripeProvider
+      publishableKey={STRIPE_PUBLISHABLE_KEY}
+      urlScheme="tablevera"
+    >
       <ApolloProvider client={apolloClient}>
         <AuthProvider>{children}</AuthProvider>
       </ApolloProvider>

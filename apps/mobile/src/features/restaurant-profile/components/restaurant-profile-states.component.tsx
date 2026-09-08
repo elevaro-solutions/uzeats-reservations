@@ -5,7 +5,14 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ChevronLeftIcon } from "@/assets";
-import { Button, Empty, Flex, IconButton, InlineAlert, Skeleton } from "@/components";
+import {
+  Button,
+  Empty,
+  Flex,
+  IconButton,
+  InlineAlert,
+} from "@/components";
+import { Skeleton } from "@/components/skeleton";
 
 export function RestaurantProfileLoading() {
   const { theme } = useUnistyles();

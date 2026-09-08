@@ -67,6 +67,7 @@ export function useDepositPayment(): UseDepositPaymentResult {
           paymentIntentClientSecret: clientSecret,
           merchantDisplayName: merchantName,
           allowsDelayedPaymentMethods: false,
+          returnURL: "tablevera://stripe-redirect",
         });
 
         if (initError) {

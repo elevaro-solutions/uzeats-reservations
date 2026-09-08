@@ -1,7 +1,8 @@
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import { Flex, InlineAlert, RestaurantCardSkeleton, Typography } from "@/components";
+import { Flex, InlineAlert, Typography } from "@/components";
+import { RestaurantCardSkeleton } from "@/components/skeleton";
 import {
   RestaurantCard,
   SectionHeader,

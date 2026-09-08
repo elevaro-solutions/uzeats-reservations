@@ -2,13 +2,11 @@ import { createElement, useState, type ComponentType } from "react";
 import { LayoutChangeEvent, Pressable, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import { Chip, Flex, Typography } from "@/components";
 import {
-  Chip,
   ChipRowSkeleton,
   FILTER_CHIP_WIDTHS,
-  Flex,
-  Typography,
-} from "@/components";
+} from "@/components/skeleton";
 import type { IconPropsType } from "@/types";
 
 import { FilterSectionHeader } from "./filter-section-header.component";

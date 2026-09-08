@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, type ReactNode, useState } from "react";
 import {
   Modal,
   Pressable,
@@ -68,6 +68,16 @@ export function BookingConfirmSheet({
   const { theme } = useUnistyles();
   const occasionLabel = OCCASION_LABELS[occasion];
   const trimmedNotes = notes.trim();
+  const [termsHint, setTermsHint] = useState(false);
+
+  function handleConfirm() {
+    if (!termsAccepted) {
+      setTermsHint(true);
+      return;
+    }
+    setTermsHint(false);
+    onConfirm();
+  }
 
   return (
     <Modal
@@ -235,7 +245,10 @@ export function BookingConfirmSheet({
             ) : null}
 
             <Pressable
-              onPress={() => onTermsAcceptedChange(!termsAccepted)}
+              onPress={() => {
+                onTermsAcceptedChange(!termsAccepted);
+                setTermsHint(false);
+              }}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: termsAccepted }}
               style={styles.termsRow}
@@ -244,6 +257,7 @@ export function BookingConfirmSheet({
                 style={[
                   styles.checkbox,
                   termsAccepted && styles.checkboxChecked,
+                  termsHint && !termsAccepted && styles.checkboxWarn,
                 ]}
               >
                 {termsAccepted ? (
@@ -258,6 +272,13 @@ export function BookingConfirmSheet({
                 I agree to the restaurant&apos;s terms and cancellation policy.
               </Typography>
             </Pressable>
+
+            {termsHint && !termsAccepted ? (
+              <InlineAlert
+                tone="warning"
+                message="Accept the terms and cancellation policy to continue."
+              />
+            ) : null}
 
             {errorMessage ? (
               <InlineAlert tone="error" message={errorMessage} />
@@ -274,8 +295,8 @@ export function BookingConfirmSheet({
               fullWidth
               size="xl"
               loading={loading}
-              disabled={!termsAccepted || loading}
-              onPress={onConfirm}
+              disabled={loading}
+              onPress={handleConfirm}
             >
               {depositCents > 0
                 ? "Confirm & authorize deposit"
@@ -404,6 +425,9 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
   checkboxChecked: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
+  },
+  checkboxWarn: {
+    borderColor: colors.warning,
   },
   termsText: {
     flex: 1,

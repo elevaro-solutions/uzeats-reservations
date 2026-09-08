@@ -1,7 +1,8 @@
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import { Chip, DateTimeField, Flex, Typography } from "@/components";
+import { Chip, Flex, Typography } from "@/components";
+import { DateTimeField } from "@/components/date-time-field";
 import { TIME_PRESETS } from "@/lib/helpers/date-time.helpers";
 
 import { isPresetTime } from "../../helpers/filter-draft.helpers";

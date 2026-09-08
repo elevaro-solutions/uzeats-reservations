@@ -191,7 +191,13 @@ export const typeDefs = `#graphql
     menu: Menu
     isSaved: Boolean!
     isFavorite: Boolean!
+    bookingWindow: BookingWindow!
     createdAt: DateTime!
+  }
+
+  type BookingWindow {
+    maxAdvanceDays: Int!
+    minAdvanceHours: Int!
   }
 
   enum RestaurantBookmarkKind {

@@ -1,6 +1,6 @@
 import { useQuery } from "@apollo/client";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { type ReactElement, type ReactNode } from "react";
+import { type ReactElement, type ReactNode, useMemo } from "react";
 import { ScrollView, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -33,6 +33,13 @@ import {
 
 const DEFAULT_PHOTO =
   "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=600&fit=crop&auto=format&q=80";
+
+function firstSearchParam(
+  value: string | string[] | undefined,
+): string | undefined {
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
 
 type MyReservationResult = {
   myReservation: {
@@ -96,16 +103,23 @@ function MetaRow({
 }
 
 export function BookingConfirmationFeature() {
-  const { reservationId } = useLocalSearchParams<{ reservationId: string }>();
+  const params = useLocalSearchParams<{ reservationId?: string | string[] }>();
+  const reservationId = useMemo(
+    () => firstSearchParam(params.reservationId)?.trim() || undefined,
+    [params.reservationId],
+  );
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
 
-  const { data, loading, error } = useQuery<MyReservationResult>(MY_RESERVATION, {
-    variables: { id: reservationId },
-    skip: !reservationId,
-    fetchPolicy: "network-only",
-  });
+  const { data, loading, error, refetch } = useQuery<MyReservationResult>(
+    MY_RESERVATION,
+    {
+      variables: { id: reservationId! },
+      skip: !reservationId,
+      fetchPolicy: "network-only",
+    },
+  );
 
   const reservation = data?.myReservation;
 
@@ -117,14 +131,28 @@ export function BookingConfirmationFeature() {
     );
   }
 
-  if (error || !reservation) {
+  if (!reservationId || error || !reservation) {
     return (
       <Flex flex={1} justifyContent="center" style={styles.centered}>
         <InlineAlert
           tone="error"
           title="Could not load confirmation"
-          message="Something went wrong loading your reservation details. Try again from Home."
+          message={
+            error?.message ??
+            "Something went wrong loading your reservation details. Try again from Home."
+          }
         />
+        {reservationId ? (
+          <Button
+            fullWidth
+            size="xl"
+            onPress={() => {
+              void refetch();
+            }}
+          >
+            Try again
+          </Button>
+        ) : null}
         <Button
           fullWidth
           size="xl"
@@ -134,6 +162,22 @@ export function BookingConfirmationFeature() {
         >
           Home
         </Button>
+        {reservationId ? (
+          <Button
+            fullWidth
+            size="xl"
+            variant="outlined"
+            color="secondary"
+            onPress={() =>
+              router.replace({
+                pathname: "/reservations/[id]",
+                params: { id: reservationId },
+              })
+            }
+          >
+            View reservation
+          </Button>
+        ) : null}
       </Flex>
     );
   }

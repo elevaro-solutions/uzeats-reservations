@@ -2,7 +2,8 @@ import { ScrollView } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { ClockIcon, TrendingUpIcon } from "@/assets";
-import { DiningStylesGridSkeleton, Flex } from "@/components";
+import { Flex } from "@/components";
+import { DiningStylesGridSkeleton } from "@/components/skeleton";
 import {
   CuisineChipSection,
   DiningStylesGrid,

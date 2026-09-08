@@ -1,13 +1,9 @@
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
+import { Flex, RemoteImage, Typography } from "@/components";
+import { SuggestionRowSkeleton } from "@/components/skeleton";
 import { FONT_FAMILY } from "@/lib/fonts";
-import {
-  Flex,
-  RemoteImage,
-  SuggestionRowSkeleton,
-  Typography,
-} from "@/components";
 
 import { splitHighlightParts } from "../helpers/split-highlight-parts.helpers";
 import type { SearchSuggestion } from "../types";

@@ -52,7 +52,7 @@ export function BookingDepositSummary({
   }
 
   rows.push({
-    label: "Due now",
+    label: "Hold amount",
     value: formatCents(breakdown.dueCents),
     emphasize: true,
   });

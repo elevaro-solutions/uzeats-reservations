@@ -4,6 +4,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { CheckIcon } from "@/assets";
 import { Button, Flex, Typography } from "@/components";
 
+import { slotTimesEqual } from "../helpers/booking-validation.helpers";
 import { formatSlotTime } from "../helpers/time-slots.helpers";
 import type { AvailabilitySlot } from "../types";
 
@@ -55,7 +56,8 @@ export function BookingWaitlistChips({
         </Flex>
         <Flex direction="row" gap={1} flexWrap="wrap">
           {nearbySlots.map((slot) => {
-            const selected = selectedSlot === slot.time;
+            const selected =
+              selectedSlot != null && slotTimesEqual(selectedSlot, slot.time);
             return (
               <Pressable
                 key={slot.time}

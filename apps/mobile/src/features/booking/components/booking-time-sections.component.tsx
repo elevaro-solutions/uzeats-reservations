@@ -3,6 +3,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { Flex, Loader, Typography } from "@/components";
 
+import { slotTimesEqual } from "../helpers/booking-validation.helpers";
 import {
   formatSlotTime,
   groupSlotsByShift,
@@ -81,7 +82,10 @@ export function BookingTimeSections({
                     <TimeSlotChip
                       key={slot.time}
                       slot={slot}
-                      selected={selectedSlot === slot.time}
+                      selected={
+                        selectedSlot != null &&
+                        slotTimesEqual(selectedSlot, slot.time)
+                      }
                       width={chipWidth}
                       onSelect={onSelectSlot}
                       onUnavailablePress={onUnavailablePress}

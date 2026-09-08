@@ -147,7 +147,10 @@ export function useBookingSubmit(
   const submitBooking = useCallback(async () => {
     if (!user || !selectedSlot || !restaurant || !restaurantId) return;
     if (isSubmittingRef.current) return;
-    if (!termsAccepted) return;
+    if (!termsAccepted) {
+      setSubmitError("Accept the terms and cancellation policy to continue.");
+      return;
+    }
 
     isSubmittingRef.current = true;
     setSubmitError(null);
@@ -205,8 +208,6 @@ export function useBookingSubmit(
         throw new Error("Booking failed");
       }
 
-      clearBookingDraft(restaurantId);
-
       const depositAmountCents = reservation.depositAmountCents ?? 0;
       const depositStatus = reservation.depositStatus ?? "none";
       const clientSecret = payload?.clientSecret ?? null;
@@ -217,6 +218,7 @@ export function useBookingSubmit(
           merchantName: restaurant.name,
         });
         if (!payment.paid) {
+          // Keep draft so the diner can resume details if they leave pay-later.
           setSubmitError(
             payment.error ??
               "Payment was not completed. You can pay from your reservations.",
@@ -250,6 +252,7 @@ export function useBookingSubmit(
         return;
       }
 
+      clearBookingDraft(restaurantId);
       setConfirmOpen(false);
       router.replace({
         pathname: "/booking/confirmation",

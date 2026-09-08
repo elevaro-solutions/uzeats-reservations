@@ -17,19 +17,22 @@ export type ShiftSlotGroup = {
   slots: AvailabilitySlot[];
 };
 
-function getSlotMinutes(time: string): number {
-  const d = new Date(time);
-  return d.getHours() * 60 + d.getMinutes();
-}
-
-function hmToMinutes(hm: string): number {
+/** Build a local Date for YYYY-MM-DD + HH:mm (same convention as API availability). */
+function dateAtLocal(dateIso: string, hm: string): Date {
   const [h, m] = hm.split(":").map(Number);
-  return (h ?? 0) * 60 + (m ?? 0);
+  const d = new Date(`${dateIso}T00:00:00`);
+  d.setHours(h ?? 0, m ?? 0, 0, 0);
+  return d;
 }
 
 /**
  * Group availability slots under the restaurant's real shifts for `dateIso`
  * (YYYY-MM-DD). Slot start must fall in [startTime, endTime).
+ *
+ * Matching uses absolute instants vs local wall-clock windows on `dateIso`,
+ * aligned with how the API builds slots (`dateAt` + server-local setHours).
+ * Accurate when the client timezone matches the API host (or restaurant TZ
+ * once that exists on the model).
  */
 export function groupSlotsByShift(
   slots: AvailabilitySlot[],
@@ -63,11 +66,15 @@ export function groupSlotsByShift(
   const unmatched: AvailabilitySlot[] = [];
 
   for (const slot of slots) {
-    const mins = getSlotMinutes(slot.time);
+    const slotMs = new Date(slot.time).getTime();
+    if (!Number.isFinite(slotMs)) {
+      unmatched.push(slot);
+      continue;
+    }
     const matchIndex = dayShifts.findIndex((s) => {
-      const start = hmToMinutes(s.startTime);
-      const end = hmToMinutes(s.endTime);
-      return mins >= start && mins < end;
+      const start = dateAtLocal(dateIso, s.startTime).getTime();
+      const end = dateAtLocal(dateIso, s.endTime).getTime();
+      return slotMs >= start && slotMs < end;
     });
     if (matchIndex >= 0) {
       groups[matchIndex]!.slots.push(slot);
@@ -123,6 +130,9 @@ export function findNearbyAvailableSlots(
     .map(({ slot }) => slot);
 }
 
+/** Shared empty list so memos don't allocate a new `[]` when availability is missing. */
+export const EMPTY_AVAILABILITY_SLOTS: AvailabilitySlot[] = [];
+
 /** Keep only slots whose start is strictly after `now`. */
 export function filterFutureSlots(
   slots: AvailabilitySlot[],
@@ -134,14 +144,36 @@ export function filterFutureSlots(
   });
 }
 
-export function maxBookableIsoDate(): string {
-  const dates = buildDateRange(todayIsoDate(), BOOKING_MAX_DAYS_AHEAD);
+/**
+ * Past + min-advance filter for the booking UI.
+ * `minAdvanceHours` comes from Restaurant.bookingWindow (0 when unset).
+ */
+export function filterBookableSlots(
+  slots: AvailabilitySlot[],
+  minAdvanceHours = 0,
+  now: number = Date.now(),
+): AvailabilitySlot[] {
+  const minMs = now + Math.max(0, minAdvanceHours) * 3_600_000;
+  return slots.filter((s) => {
+    const t = new Date(s.time).getTime();
+    return Number.isFinite(t) && t > minMs;
+  });
+}
+
+export function maxBookableIsoDate(
+  maxAdvanceDays: number = BOOKING_MAX_DAYS_AHEAD,
+): string {
+  const days = Math.max(1, maxAdvanceDays);
+  const dates = buildDateRange(todayIsoDate(), days);
   return dates[dates.length - 1]!;
 }
 
-export function clampBookingDate(iso: string): string {
+export function clampBookingDate(
+  iso: string,
+  maxAdvanceDays: number = BOOKING_MAX_DAYS_AHEAD,
+): string {
   const today = todayIsoDate();
-  const max = maxBookableIsoDate();
+  const max = maxBookableIsoDate(maxAdvanceDays);
   if (iso < today) return today;
   if (iso > max) return max;
   return iso;
@@ -150,9 +182,10 @@ export function clampBookingDate(iso: string): string {
 export function getBookableDaysInMonth(
   year: number,
   month: number,
+  maxAdvanceDays: number = BOOKING_MAX_DAYS_AHEAD,
 ): string[] {
   const today = todayIsoDate();
-  const max = maxBookableIsoDate();
+  const max = maxBookableIsoDate(maxAdvanceDays);
   const lastDay = new Date(year, month + 1, 0).getDate();
   const days: string[] = [];
 

@@ -1,7 +1,11 @@
 import { ScrollView } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import { Chip, ChipRowSkeleton, Flex, TRENDING_CHIP_WIDTHS } from "@/components";
+import { Chip, Flex } from "@/components";
+import {
+  ChipRowSkeleton,
+  TRENDING_CHIP_WIDTHS,
+} from "@/components/skeleton";
 import type { DiscoveryIndexEntry } from "@/features/discovery";
 
 import { FilterSectionHeader } from "../filter-section-header.component";

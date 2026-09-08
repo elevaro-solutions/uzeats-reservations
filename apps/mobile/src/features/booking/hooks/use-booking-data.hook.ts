@@ -20,7 +20,10 @@ import {
   getMaxBookablePartySize,
   isPartyTooLarge,
 } from "../helpers/max-bookable-party-size.helpers";
-import { filterFutureSlots } from "../helpers/time-slots.helpers";
+import {
+  EMPTY_AVAILABILITY_SLOTS,
+  filterBookableSlots,
+} from "../helpers/time-slots.helpers";
 import type {
   AvailabilitySlot,
   BookableExperience,
@@ -46,6 +49,7 @@ export type UseBookingDataParams = {
   restaurantId: string | undefined;
   date: string;
   partySize: number;
+  occasion?: string;
   selectedSlot: string | null;
   step: BookingStep;
   userId: string | undefined;
@@ -55,6 +59,7 @@ export function useBookingData({
   restaurantId,
   date,
   partySize,
+  occasion = "none",
   selectedSlot,
   step,
   userId,
@@ -72,6 +77,7 @@ export function useBookingData({
   );
 
   const restaurant = restaurantData?.restaurant;
+  const minAdvanceHours = restaurant?.bookingWindow?.minAdvanceHours ?? 0;
 
   const {
     data: availabilityData,
@@ -79,13 +85,14 @@ export function useBookingData({
     refetch: refetchAvailability,
   } = useQuery<{ availability: AvailabilitySlot[] }>(BOOKING_AVAILABILITY, {
     variables: { restaurantId, date, partySize },
-    skip: !restaurantId || !restaurant?.reservationsVisible,
+    skip: !restaurantId || !restaurant?.reservationsVisible || restaurant?.reservationsEnabled === false,
     fetchPolicy: "network-only",
   });
 
+  const availability = availabilityData?.availability ?? EMPTY_AVAILABILITY_SLOTS;
   const slots = useMemo(
-    () => filterFutureSlots(availabilityData?.availability ?? []),
-    [availabilityData],
+    () => filterBookableSlots(availability, minAdvanceHours),
+    [availability, minAdvanceHours],
   );
   const availableCount = slots.filter((s) => s.available).length;
 
@@ -102,7 +109,7 @@ export function useBookingData({
       !selectedSlot ||
       !restaurant?.allowGuestTableSelection ||
       step !== "details",
-    fetchPolicy: "network-only",
+    fetchPolicy: "no-cache",
   });
 
   const { data: packagesData } = useQuery<{
@@ -142,9 +149,25 @@ export function useBookingData({
 
   const packages = useMemo(
     () =>
-      filterPackagesForParty(packagesData?.restaurantPackages ?? [], partySize),
-    [packagesData, partySize],
+      filterPackagesForParty(
+        packagesData?.restaurantPackages ?? [],
+        partySize,
+        occasion,
+      ),
+    [packagesData, partySize, occasion],
   );
+
+  const hasOccasionGatedPackages = useMemo(() => {
+    if (occasion !== "none") return false;
+    return (packagesData?.restaurantPackages ?? []).some(
+      (pkg) =>
+        pkg.active &&
+        Array.isArray(pkg.occasions) &&
+        pkg.occasions.length > 0 &&
+        (pkg.minPartySize == null || partySize >= pkg.minPartySize) &&
+        (pkg.maxPartySize == null || partySize <= pkg.maxPartySize),
+    );
+  }, [packagesData, partySize, occasion]);
 
   const experiences = useMemo(
     () =>
@@ -195,6 +218,7 @@ export function useBookingData({
     tables,
     tablesLoading,
     packages,
+    hasOccasionGatedPackages,
     experiences,
     privateSpaces,
     restaurantLoyaltyBalance,

@@ -1,7 +1,7 @@
 import { useWindowDimensions, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { Flex } from "@/components";
+import { Flex } from "../flex";
 
 import { Skeleton } from "./skeleton.component";
 

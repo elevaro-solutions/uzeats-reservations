@@ -13,7 +13,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { CalendarIcon, ChevronDownIcon, ClockIcon, XIcon } from "@/assets";
-import { Button, Flex, IconButton, Typography } from "@/components";
+import { Button } from "../button";
+import { Flex } from "../flex";
+import { IconButton } from "../icon-button";
+import { Typography } from "../typography";
 import {
   formatDisplayDate,
   formatDisplayTime,

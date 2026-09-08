@@ -100,6 +100,9 @@ export function useBookingFormState({
   );
 
   const draftRestoredRef = useRef(false);
+  const prevSlotPartyRef = useRef<{ slot: string | null; party: number } | null>(
+    null,
+  );
 
   useEffect(() => {
     if (!restaurantId || draftRestoredRef.current || resume !== "1") return;
@@ -116,11 +119,32 @@ export function useBookingFormState({
     setRedeemPoints(draft.redeemPoints);
     setRedeemRestaurantPoints(draft.redeemRestaurantPoints);
     if (draft.selectedTableId) setSelectedTableId(draft.selectedTableId);
+    if (draft.selectedPackageId) setSelectedPackageId(draft.selectedPackageId);
+    if (draft.selectedExperienceId) {
+      setSelectedExperienceId(draft.selectedExperienceId);
+    }
+    if (draft.selectedPrivateSpaceId) {
+      setSelectedPrivateSpaceId(draft.selectedPrivateSpaceId);
+    }
+    prevSlotPartyRef.current = {
+      slot: draft.selectedSlot,
+      party: draft.partySize,
+    };
     if (draft.selectedSlot) setStep("details");
   }, [restaurantId, resume]);
 
   useEffect(() => {
-    setSelectedTableId(null);
+    if (prevSlotPartyRef.current === null) {
+      prevSlotPartyRef.current = { slot: selectedSlot, party: partySize };
+      return;
+    }
+    if (
+      prevSlotPartyRef.current.slot !== selectedSlot ||
+      prevSlotPartyRef.current.party !== partySize
+    ) {
+      setSelectedTableId(null);
+      prevSlotPartyRef.current = { slot: selectedSlot, party: partySize };
+    }
   }, [selectedSlot, partySize]);
 
   const onSelectDate = useCallback((iso: string) => {
@@ -255,7 +279,9 @@ export function useBookingSelectionSync({
   setSlotStaleMessage,
 }: UseBookingSelectionSyncParams): void {
   useEffect(() => {
-    if (availabilityLoading || !selectedSlot) return;
+    // Don't wipe selection while availability is loading or the list is empty
+    // (Apollo skip / brief undefined data) — only clear against a real payload.
+    if (availabilityLoading || !selectedSlot || slots.length === 0) return;
     if (!isSlotStillAvailable(slots, selectedSlot)) {
       setSelectedSlot(null);
       setSelectedTableId(null);

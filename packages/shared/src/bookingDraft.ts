@@ -6,6 +6,10 @@ export type BookingDraft = {
   partySize: number;
   selectedSlot: string | null;
   selectedTableId: string | null;
+  /** Optional — older drafts omit these */
+  selectedPackageId?: string | null;
+  selectedExperienceId?: string | null;
+  selectedPrivateSpaceId?: string | null;
   occasion: string;
   notes: string;
   promoCode: string;

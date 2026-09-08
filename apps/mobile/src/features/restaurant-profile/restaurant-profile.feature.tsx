@@ -65,7 +65,10 @@ export function RestaurantProfileFeature() {
       return;
     }
 
-    if (restaurant?.reservationsVisible === false) {
+    if (
+      restaurant?.reservationsVisible === false ||
+      restaurant?.reservationsEnabled === false
+    ) {
       Alert.alert(
         "Contact to reserve",
         "This restaurant does not accept online reservations.",

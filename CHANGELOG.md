@@ -4,6 +4,22 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.42.1] — 2026-09-08
+
+### Changed
+
+- Mobile booking hardens slot matching, drafts, confirmation params, deposit payment return URL, and Apollo `bookableTables` cache policy
+- Seed venues with Central Asian names get matching cuisine/description instead of rotated mismatched labels
+
+### Fixed
+
+- Booking confirmation reads `reservationId` search params more reliably and offers retry / view reservation when load fails
+- Skeleton and date-time-field imports avoid require cycles through the components barrel
+
+### Docs
+
+- Mobile booking QA report for 2026-09-08 with live smoke notes and screenshots
+
 ## [0.42.0] — 2026-09-08
 
 ### Added

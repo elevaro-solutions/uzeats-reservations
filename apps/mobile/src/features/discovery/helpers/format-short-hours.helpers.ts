@@ -1,6 +1,6 @@
 import type { RestaurantShift } from "../types";
 
-/** Prefer today's active shift; otherwise the first active shift. */
+/** Prefer today's active shifts; show earliest open → latest close. */
 export function formatShortHours(
   shifts: RestaurantShift[] | null | undefined,
 ): string | null {
@@ -8,8 +8,14 @@ export function formatShortHours(
   if (active.length === 0) return null;
 
   const today = new Date().getDay();
-  const todayShift =
-    active.find((s) => s.daysOfWeek.includes(today)) ?? active[0];
+  const todayShifts = active.filter((s) => s.daysOfWeek.includes(today));
+  const pool = todayShifts.length > 0 ? todayShifts : active;
 
-  return `${todayShift.startTime} – ${todayShift.endTime}`;
+  const starts = pool.map((s) => s.startTime).sort();
+  const ends = pool.map((s) => s.endTime).sort();
+  const start = starts[0];
+  const end = ends[ends.length - 1];
+  if (!start || !end) return null;
+
+  return `${start} – ${end}`;
 }

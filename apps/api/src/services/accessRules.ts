@@ -2,6 +2,8 @@ import { AccessRule, type AccessRuleDocument } from '../models/AccessRule.js';
 import { Reservation } from '../models/Reservation.js';
 import { getFeatures } from './plans.js';
 
+const DEFAULT_MAX_ADVANCE_DAYS = 90;
+
 function toHm(date: Date) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
@@ -16,6 +18,38 @@ function ruleAppliesToSlot(rule: AccessRuleDocument, slotStart: Date) {
     if (hm < rule.startTime || hm >= rule.endTime) return false;
   }
   return true;
+}
+
+export async function getBookingWindow(restaurantId: string): Promise<{
+  maxAdvanceDays: number;
+  minAdvanceHours: number;
+}> {
+  const features = await getFeatures(restaurantId);
+  if (!features.accessRules) {
+    return {
+      maxAdvanceDays: DEFAULT_MAX_ADVANCE_DAYS,
+      minAdvanceHours: 0,
+    };
+  }
+
+  const rules = await AccessRule.find({
+    restaurantId,
+    active: true,
+  }).lean();
+
+  const maxDays = rules
+    .map((r) => r.maxAdvanceDays)
+    .filter((n): n is number => typeof n === 'number' && n >= 0);
+  const minHours = rules
+    .map((r) => r.minAdvanceHours)
+    .filter((n): n is number => typeof n === 'number' && n >= 0);
+
+  return {
+    maxAdvanceDays: maxDays.length
+      ? Math.min(...maxDays)
+      : DEFAULT_MAX_ADVANCE_DAYS,
+    minAdvanceHours: minHours.length ? Math.max(...minHours) : 0,
+  };
 }
 
 /**

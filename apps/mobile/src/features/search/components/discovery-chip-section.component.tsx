@@ -2,12 +2,11 @@ import type { ReactElement } from "react";
 import { ScrollView, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
+import { Chip, Flex } from "@/components";
 import {
-  Chip,
   ChipRowSkeleton,
-  Flex,
   TRENDING_CHIP_WIDTHS,
-} from "@/components";
+} from "@/components/skeleton";
 import { SectionHeader } from "@/features/discovery";
 import type { IconPropsType } from "@/types";
 

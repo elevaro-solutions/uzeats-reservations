@@ -10,8 +10,8 @@ import {
   Flex,
   IconButton,
   InlineAlert,
-  RestaurantCardSkeleton,
 } from "@/components";
+import { RestaurantCardSkeleton } from "@/components/skeleton";
 import { RestaurantCard, type RestaurantListItem } from "@/features/discovery";
 import type { DiscoveryFilters } from "@/store";
 

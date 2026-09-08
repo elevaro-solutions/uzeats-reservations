@@ -2,6 +2,8 @@ import { useQuery } from "@apollo/client";
 import { useMemo } from "react";
 import { RESTAURANT_LOYALTY } from "@reservations/shared";
 
+import { useDebouncedValue } from "@/lib/use-debounced-value";
+
 import {
   BEST_PROMOTION,
   VALIDATE_GIFT_CARD,
@@ -21,6 +23,8 @@ import type {
   PromotionValidation,
   RestaurantBookingInfo,
 } from "../types";
+
+const PROMO_DEBOUNCE_MS = 400;
 
 export type UseBookingPricingParams = {
   restaurantId: string | undefined;
@@ -67,6 +71,12 @@ export function useBookingPricing(
     selectedExperience,
   } = params;
 
+  const debouncedPromoCode = useDebouncedValue(promoCode, PROMO_DEBOUNCE_MS);
+  const debouncedGiftCardCode = useDebouncedValue(
+    giftCardCode,
+    PROMO_DEBOUNCE_MS,
+  );
+
   const restaurantMinRedeem =
     restaurant?.loyaltyMinRedeemPoints ??
     RESTAURANT_LOYALTY.DEFAULT_MIN_REDEEM_POINTS;
@@ -105,13 +115,13 @@ export function useBookingPricing(
   }>(VALIDATE_PROMOTION, {
     variables: {
       restaurantId,
-      code: promoCode.trim().toUpperCase(),
+      code: debouncedPromoCode.trim().toUpperCase(),
       slotStart: selectedSlot,
       depositCents: depositBeforePromo,
     },
     skip:
       !restaurantId ||
-      !promoCode.trim() ||
+      !debouncedPromoCode.trim() ||
       !selectedSlot ||
       depositBeforePromo <= 0 ||
       step !== "details",
@@ -127,7 +137,7 @@ export function useBookingPricing(
     },
     skip:
       !restaurantId ||
-      !!promoCode.trim() ||
+      !!debouncedPromoCode.trim() ||
       !selectedSlot ||
       depositBeforePromo <= 0 ||
       step !== "details",
@@ -135,7 +145,9 @@ export function useBookingPricing(
 
   const promoValidation = promoValidationData?.validatePromotion;
   const bestPromotion = bestPromoData?.bestPromotion;
-  const activePromo = promoCode.trim() ? promoValidation : bestPromotion;
+  const activePromo = debouncedPromoCode.trim()
+    ? promoValidation
+    : bestPromotion;
 
   const depositAfterPromo = Math.max(
     0,
@@ -147,12 +159,12 @@ export function useBookingPricing(
   }>(VALIDATE_GIFT_CARD, {
     variables: {
       restaurantId,
-      code: giftCardCode.trim().toUpperCase(),
+      code: debouncedGiftCardCode.trim().toUpperCase(),
       depositCents: depositAfterPromo,
     },
     skip:
       !restaurantId ||
-      !giftCardCode.trim() ||
+      !debouncedGiftCardCode.trim() ||
       depositAfterPromo <= 0 ||
       step !== "details",
   });

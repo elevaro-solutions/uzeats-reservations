@@ -25,6 +25,7 @@ import { saveBookingDraft } from "./helpers/booking-draft.helpers";
 import { formatCents } from "./helpers/booking-pricing.helpers";
 import { canProceedToDetails } from "./helpers/booking-validation.helpers";
 import {
+  BOOKING_MAX_DAYS_AHEAD,
   clampBookingDate,
   findNearbyAvailableSlots,
 } from "./helpers/time-slots.helpers";
@@ -42,7 +43,7 @@ export function BookingFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const discovery = useAppStore((s) => s.discovery);
   const setDiscovery = useAppStore((s) => s.setDiscovery);
 
@@ -52,6 +53,17 @@ export function BookingFeature() {
     initialDate: discovery.date || tomorrowIsoDate(),
     initialPartySize: discovery.partySize || 2,
   });
+
+  // Align with profile Book: require sign-in before browsing the flow.
+  useEffect(() => {
+    if (authLoading || user || !id) return;
+    router.replace({
+      pathname: "/sign-in",
+      params: {
+        next: `/restaurant/${id}/book?resume=1`,
+      },
+    });
+  }, [authLoading, user, id, router]);
 
   const userName =
     [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Guest";
@@ -67,6 +79,7 @@ export function BookingFeature() {
     tables,
     tablesLoading,
     packages,
+    hasOccasionGatedPackages,
     experiences,
     privateSpaces,
     restaurantLoyaltyBalance,
@@ -78,6 +91,7 @@ export function BookingFeature() {
     restaurantId: id,
     date: form.date,
     partySize: form.partySize,
+    occasion: form.occasion,
     selectedSlot: form.selectedSlot,
     step: form.step,
     userId: user?.id,
@@ -148,6 +162,9 @@ export function BookingFeature() {
       partySize: form.partySize,
       selectedSlot: form.selectedSlot,
       selectedTableId: form.selectedTableId,
+      selectedPackageId: form.selectedPackageId,
+      selectedExperienceId: form.selectedExperienceId,
+      selectedPrivateSpaceId: form.selectedPrivateSpaceId,
       occasion: form.occasion,
       notes: form.notes,
       promoCode: form.promoCode,
@@ -161,6 +178,9 @@ export function BookingFeature() {
     form.partySize,
     form.selectedSlot,
     form.selectedTableId,
+    form.selectedPackageId,
+    form.selectedExperienceId,
+    form.selectedPrivateSpaceId,
     form.occasion,
     form.notes,
     form.promoCode,
@@ -223,6 +243,17 @@ export function BookingFeature() {
     }
   }, [discovery.date, setDiscovery]);
 
+  const maxAdvanceDays =
+    restaurant?.bookingWindow?.maxAdvanceDays ?? BOOKING_MAX_DAYS_AHEAD;
+
+  useEffect(() => {
+    if (!restaurant) return;
+    const clamped = clampBookingDate(form.date, maxAdvanceDays);
+    if (clamped !== form.date) {
+      form.onSelectDate(clamped);
+    }
+  }, [restaurant, maxAdvanceDays, form.date, form.onSelectDate]);
+
   function goBack() {
     if (form.goBackFromDetails()) return;
     router.back();
@@ -234,6 +265,14 @@ export function BookingFeature() {
       return;
     }
     form.onContinueFromDateTime();
+  }
+
+  if (authLoading || !user) {
+    return (
+      <Flex flex={1} justifyContent="center" alignItems="center">
+        <Loader />
+      </Flex>
+    );
   }
 
   if (restaurantLoading && !restaurant) {
@@ -256,7 +295,7 @@ export function BookingFeature() {
     );
   }
 
-  if (restaurant.reservationsVisible === false) {
+  if (restaurant.reservationsVisible === false || restaurant.reservationsEnabled === false) {
     return (
       <Flex flex={1} justifyContent="center" style={styles.centered}>
         <Typography weight="semibold" align="center">
@@ -270,9 +309,7 @@ export function BookingFeature() {
     );
   }
 
-  const continueLabel = restaurant.allowGuestTableSelection
-    ? "Choose table"
-    : "Continue";
+  const continueLabel = "Continue";
 
   const hasJoinedWaitlist = isOnWaitlist || waitlistSuccess != null;
 
@@ -299,9 +336,14 @@ export function BookingFeature() {
       </Flex>
 
       <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={[
           styles.scroll,
-          { paddingBottom: insets.bottom + theme.space(form.step === "details" && finalDepositCents > 0 ? 14 : 10) },
+          {
+            paddingBottom:
+              insets.bottom +
+              theme.space(form.step === "details" ? 18 : 14),
+          },
         ]}
         keyboardShouldPersistTaps="handled"
       >
@@ -329,6 +371,7 @@ export function BookingFeature() {
             partyTooLarge={partyTooLarge}
             maxBookablePartySize={maxBookablePartySize}
             restaurantPhone={restaurant.phone}
+            maxAdvanceDays={maxAdvanceDays}
             onDateChange={form.onSelectDate}
             onPartySizeChange={form.onPartySizeChange}
             onSelectSlot={form.onSelectSlot}
@@ -346,6 +389,7 @@ export function BookingFeature() {
             packages={packages}
             experiences={experiences}
             privateSpaces={privateSpaces}
+            hasOccasionGatedPackages={hasOccasionGatedPackages}
             selectedPackageId={form.selectedPackageId}
             selectedExperienceId={form.selectedExperienceId}
             selectedPrivateSpaceId={form.selectedPrivateSpaceId}
@@ -401,7 +445,7 @@ export function BookingFeature() {
                 justifyContent="space-between"
               >
                 <Typography size="text-sm" color="secondary">
-                  Deposit due
+                  Hold amount
                 </Typography>
                 <Typography size="text-md" weight="bold">
                   {formatCents(finalDepositCents)}
@@ -467,6 +511,9 @@ const styles = StyleSheet.create(({ space, colors, shadows, radius }) => ({
     flex: 1,
     alignItems: "center",
     minWidth: 0,
+  },
+  scrollView: {
+    flex: 1,
   },
   scroll: {
     flexGrow: 1,

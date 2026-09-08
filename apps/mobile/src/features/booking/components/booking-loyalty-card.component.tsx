@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, StyleProp, View, ViewStyle } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
@@ -37,9 +37,9 @@ export function BookingLoyaltyCard({
   const { theme } = useUnistyles();
   const [showRedeemOptions, setShowRedeemOptions] = useState(value > 0);
 
-  const canRedeem = balance >= minRedeem && depositHeadroomCents > 0;
   const maxByDeposit = maxRedeemPointsForDeposit(depositHeadroomCents);
   const maxRedeemable = Math.min(balance, maxByDeposit);
+  const canRedeem = balance >= minRedeem && maxRedeemable >= minRedeem;
   const selectedDiscount = value > 0 ? discountCentsFor(value) : 0;
   const balanceWorthCents = discountCentsFor(balance);
   const progressPercent = Math.min(
@@ -47,6 +47,13 @@ export function BookingLoyaltyCard({
     Math.round((balance / Math.max(minRedeem, 1)) * 100),
   );
   const remainingToUnlock = Math.max(0, minRedeem - balance);
+
+  useEffect(() => {
+    if (value <= 0) return;
+    if (!canRedeem || value > maxRedeemable) {
+      onChange(0);
+    }
+  }, [canRedeem, maxRedeemable, onChange, value]);
 
   const presets = canRedeem
     ? [0, minRedeem, minRedeem * 2].filter(
@@ -141,6 +148,8 @@ export function BookingLoyaltyCard({
                   unlock
                 </Typography>
               </>
+            ) : balance >= minRedeem ? (
+              "Deposit too small to redeem"
             ) : (
               "Keep earning on bookings"
             )}

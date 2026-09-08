@@ -87,6 +87,10 @@ export type RestaurantBookingInfo = {
   allowGuestTableSelection: boolean;
   reservationsEnabled?: boolean | null;
   reservationsVisible?: boolean | null;
+  bookingWindow?: {
+    maxAdvanceDays: number;
+    minAdvanceHours: number;
+  } | null;
   shifts?: BookingShift[] | null;
   address?: {
     line1?: string | null;

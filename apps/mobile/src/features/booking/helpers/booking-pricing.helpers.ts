@@ -41,7 +41,10 @@ export function computeGrossDepositCents(input: PricingInput): number {
     : 0;
 
   const privateSpacePrice = input.selectedPrivateSpace?.rentalFeeCents ?? 0;
-  const experiencePrice = input.selectedExperience?.ticketPriceCents ?? 0;
+  // Server charges ticketPriceCents × partySize (see reservations.ts)
+  const experiencePrice = input.selectedExperience
+    ? input.selectedExperience.ticketPriceCents * partySize
+    : 0;
 
   return baseDeposit + packagePrice + privateSpacePrice + experiencePrice;
 }
@@ -94,15 +97,8 @@ export function computeDepositBreakdown(input: PricingInput): DepositBreakdown {
     ? restaurant.depositAmountCents * partySize
     : 0;
 
-  const packagePrice = input.selectedPackage
-    ? input.selectedPackage.pricePerGuest
-      ? input.selectedPackage.priceCents * partySize
-      : input.selectedPackage.priceCents
-    : 0;
-  const privateSpacePrice = input.selectedPrivateSpace?.rentalFeeCents ?? 0;
-  const experiencePrice = input.selectedExperience?.ticketPriceCents ?? 0;
-  const addOnsCents = packagePrice + privateSpacePrice + experiencePrice;
-  const grossCents = baseDepositCents + addOnsCents;
+  const grossCents = computeGrossDepositCents(input);
+  const addOnsCents = Math.max(0, grossCents - baseDepositCents);
 
   let remaining = grossCents;
   let platformPointsDiscountCents = 0;

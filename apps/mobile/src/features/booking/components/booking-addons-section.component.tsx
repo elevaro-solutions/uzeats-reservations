@@ -48,7 +48,11 @@ export function BookingAddonsSection({
               id={pkg.id}
               title={pkg.title}
               subtitle={pkg.description ?? undefined}
-              priceLabel={formatCents(pkg.priceCents)}
+              priceLabel={
+                pkg.pricePerGuest
+                  ? `${formatCents(pkg.priceCents)} / guest`
+                  : formatCents(pkg.priceCents)
+              }
               photoUrl={pkg.photoUrl}
               selected={selectedPackageId === pkg.id}
               onPress={() =>
@@ -67,7 +71,7 @@ export function BookingAddonsSection({
               id={exp.id}
               title={exp.title}
               subtitle={exp.description ?? undefined}
-              priceLabel={formatCents(exp.ticketPriceCents)}
+              priceLabel={`${formatCents(exp.ticketPriceCents)} / guest`}
               photoUrl={exp.photoUrl}
               selected={selectedExperienceId === exp.id}
               onPress={() =>

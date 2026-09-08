@@ -1,7 +1,11 @@
 import { ScrollView } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import { Chip, CUISINE_CHIP_WIDTHS, ChipRowSkeleton, Flex } from "@/components";
+import { Chip, Flex } from "@/components";
+import {
+  ChipRowSkeleton,
+  CUISINE_CHIP_WIDTHS,
+} from "@/components/skeleton";
 
 import { splitCuisineRows } from "../helpers/split-cuisine-rows.helpers";
 import type { DiscoveryIndexEntry } from "../types";

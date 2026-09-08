@@ -93,6 +93,7 @@ import {
   searchRestaurantSuggestions,
 } from '../services/searchDiscovery.js';
 import { getAvailability, getTurnTimeMinutes } from '../services/availability.js';
+import { getBookingWindow } from '../services/accessRules.js';
 import { getFloorPlanOps, getBookableTables } from '../services/floorPlanOps.js';
 import { enrichWaitlistEntries, enrichWaitlistEntry } from '../services/waitlistEta.js';
 import {
@@ -374,6 +375,7 @@ export const resolvers = {
       if (!ctx.user) return false;
       return isRestaurantBookmarked(ctx.user._id.toString(), r.id, 'favorite');
     },
+    bookingWindow: async (r: { id: string }) => getBookingWindow(r.id),
   },
 
   Reservation: {
