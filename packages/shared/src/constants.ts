@@ -257,11 +257,10 @@ export const CANCELLATION_REFUND_HOURS = 24;
 /** Predefined reasons diners can pick when cancelling a reservation. */
 export const RESERVATION_CANCELLATION_REASONS = [
   "Change of plans",
-  "Running late",
+  "Unexpected",
+  "Party size",
   "Booked elsewhere",
-  "Party size changed",
-  "Duplicate booking",
-  "Unexpected circumstances",
+  "Duplicate",
   "Other",
 ] as const;
 

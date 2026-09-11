@@ -11,6 +11,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StyleSheet } from "react-native-unistyles";
+import { Toaster } from "sonner-native";
 
 import { Providers } from "@/graphql";
 
@@ -68,7 +69,15 @@ export default function RootLayout() {
             options={{ headerShown: false, gestureEnabled: false }}
           />
           <Stack.Screen
-            name="reservations/[id]"
+            name="reservations/[id]/index"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="reservations/[id]/messages"
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="reservations/[id]/edit"
             options={{ headerShown: false }}
           />
           <Stack.Screen
@@ -80,6 +89,7 @@ export default function RootLayout() {
             }}
           />
         </Stack>
+        <Toaster position="top-center" theme="light" />
       </Providers>
     </GestureHandlerRootView>
   );

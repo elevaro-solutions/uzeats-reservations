@@ -2,21 +2,10 @@ import DateTimePicker, {
   type DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
 import { useEffect, useMemo, useState } from "react";
-import { Dimensions, Modal, Platform, Pressable, View } from "react-native";
-import Animated, {
-  FadeIn,
-  FadeOut,
-  SlideInDown,
-  SlideOutDown,
-} from "react-native-reanimated";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Dimensions, Platform, Pressable, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { CalendarIcon, ChevronDownIcon, ClockIcon, XIcon } from "@/assets";
-import { Button } from "../button";
-import { Flex } from "../flex";
-import { IconButton } from "../icon-button";
-import { Typography } from "../typography";
+import { CalendarIcon, ChevronDownIcon, ClockIcon } from "@/assets";
 import {
   formatDisplayDate,
   formatDisplayTime,
@@ -25,6 +14,11 @@ import {
   toIsoDate,
   toTime24,
 } from "@/lib/helpers/date-time.helpers";
+
+import { BottomSheet } from "../bottom-sheet";
+import { Button } from "../button";
+import { Flex } from "../flex";
+import { Typography } from "../typography";
 
 export type DateTimeFieldProps = {
   label: string;
@@ -59,7 +53,6 @@ export function DateTimeField({
   minimumDate,
 }: DateTimeFieldProps) {
   const { theme } = useUnistyles();
-  const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const [draftDate, setDraftDate] = useState(() => valueToDate(mode, value));
 
@@ -150,75 +143,32 @@ export function DateTimeField({
         </Pressable>
       </Flex>
 
-      <Modal
+      <BottomSheet
         visible={open && Platform.OS === "ios"}
-        transparent
-        animationType="fade"
-        onRequestClose={dismiss}
+        onClose={dismiss}
+        title={label}
+        headerBorder
+        maxHeight="55%"
+        minHeight={sheetMinHeight}
+        accessibilityLabel="Close picker"
+        footer={
+          <Button size="xl" fullWidth onPress={commitDraft}>
+            Done
+          </Button>
+        }
       >
-        <View style={styles.modalRoot}>
-          <Animated.View
-            entering={FadeIn.duration(200)}
-            exiting={FadeOut.duration(200)}
-            style={styles.backdropLayer}
-          >
-            <Pressable
-              style={styles.backdrop(theme.colors.overlay)}
-              onPress={dismiss}
-              accessibilityRole="button"
-              accessibilityLabel="Close picker"
-            />
-          </Animated.View>
-
-          <Animated.View
-            entering={SlideInDown.duration(280)}
-            exiting={SlideOutDown.duration(220)}
-            style={[styles.sheet(theme.colors.background, sheetMinHeight)]}
-            onStartShouldSetResponder={() => true}
-          >
-            <Flex
-              direction="row"
-              alignItems="center"
-              justifyContent="space-between"
-              style={styles.sheetHeader}
-            >
-              <Typography size="text-xl" weight="bold">
-                {label}
-              </Typography>
-              <IconButton
-                icon={<XIcon />}
-                variant="ghost"
-                size="sm"
-                accessibilityLabel="Close"
-                onPress={dismiss}
-              />
-            </Flex>
-
-            <View style={styles.pickerArea}>
-              <DateTimePicker
-                value={draftDate}
-                mode={mode}
-                display="spinner"
-                minimumDate={minimumDate}
-                onChange={handleDraftChange}
-                themeVariant="light"
-                style={[styles.picker, { width: pickerWidth }]}
-              />
-            </View>
-
-            <View
-              style={[
-                styles.footer,
-                { paddingBottom: Math.max(insets.bottom, 16) },
-              ]}
-            >
-              <Button size="xl" fullWidth onPress={commitDraft}>
-                Done
-              </Button>
-            </View>
-          </Animated.View>
+        <View style={styles.pickerArea}>
+          <DateTimePicker
+            value={draftDate}
+            mode={mode}
+            display="spinner"
+            minimumDate={minimumDate}
+            onChange={handleDraftChange}
+            themeVariant="light"
+            style={[styles.picker, { width: pickerWidth }]}
+          />
         </View>
-      </Modal>
+      </BottomSheet>
 
       {open && Platform.OS === "android" ? (
         <DateTimePicker
@@ -253,31 +203,6 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     flex: 1,
     minWidth: 0,
   },
-  modalRoot: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  backdropLayer: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  backdrop: (backgroundColor: string) => ({
-    flex: 1,
-    backgroundColor,
-  }),
-  sheet: (backgroundColor: string, minHeight: number) => ({
-    backgroundColor,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    minHeight,
-    maxHeight: "55%",
-  }),
-  sheetHeader: {
-    paddingHorizontal: space(2),
-    paddingTop: space(2),
-    paddingBottom: space(1.5),
-    borderBottomWidth: 1,
-    borderBottomColor: colors.slate3,
-  },
   pickerArea: {
     flex: 1,
     width: "100%",
@@ -288,11 +213,5 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
   picker: {
     alignSelf: "center",
     height: 216,
-  },
-  footer: {
-    paddingHorizontal: space(2),
-    paddingTop: space(2),
-    borderTopWidth: 1,
-    borderTopColor: colors.slate3,
   },
 }));

@@ -55,6 +55,16 @@ const config = {
       },
     ],
     [
+      "expo-calendar",
+      {
+        calendarPermission:
+          "Tablevera adds your reservation to your calendar.",
+        writeOnlyCalendarPermission:
+          "Tablevera adds your reservation to your calendar.",
+        writeOnlyAccess: true,
+      },
+    ],
+    [
       "@react-native-google-signin/google-signin",
       {
         iosUrlScheme: iosUrlSchemeFromClientId(IOS_CLIENT_ID),

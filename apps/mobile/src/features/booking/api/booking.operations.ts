@@ -324,12 +324,15 @@ export const MY_RESERVATION = gql`
         slug
         photos
         phone
+        averageRating
+        isSaved
         address {
           line1
           line2
           city
           state
           zip
+          neighborhood
         }
       }
       tables {

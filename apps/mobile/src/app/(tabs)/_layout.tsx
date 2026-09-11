@@ -1,7 +1,7 @@
 import { Tabs } from "expo-router";
 import { useUnistyles } from "react-native-unistyles";
 
-import { CalendarIcon, HomeIcon, UserIcon } from "@/assets";
+import { CalendarCheckIcon, HomeIcon, UserIcon } from "@/assets";
 
 export default function TabsLayout() {
   const { theme } = useUnistyles();
@@ -28,8 +28,8 @@ export default function TabsLayout() {
           title: "Home",
           headerShown: false,
           tabBarLabel: "Home",
-          tabBarIcon: ({ color, size }) => (
-            <HomeIcon color={String(color)} size={size} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <HomeIcon color={String(color)} size={size} filled={focused} />
           ),
         }}
       />
@@ -37,8 +37,13 @@ export default function TabsLayout() {
         name="reservations"
         options={{
           title: "Reservations",
-          tabBarIcon: ({ color, size }) => (
-            <CalendarIcon color={String(color)} size={size} />
+          headerShown: false,
+          tabBarIcon: ({ color, size, focused }) => (
+            <CalendarCheckIcon
+              color={String(color)}
+              size={size}
+              filled={focused}
+            />
           ),
         }}
       />
@@ -46,8 +51,9 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <UserIcon color={String(color)} size={size} />
+          headerShown: false,
+          tabBarIcon: ({ color, size, focused }) => (
+            <UserIcon color={String(color)} size={size} filled={focused} />
           ),
         }}
       />

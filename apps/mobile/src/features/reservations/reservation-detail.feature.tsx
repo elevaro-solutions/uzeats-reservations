@@ -1,81 +1,143 @@
 import { useMutation, useQuery } from "@apollo/client";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, View } from "react-native";
+import { Alert, RefreshControl, ScrollView, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { toast } from "sonner-native";
 
+import { ChevronLeftIcon, MoreVerticalIcon } from "@/assets";
+import { Button, Empty, Flex, IconButton, Typography } from "@/components";
 import {
-  Button,
-  Chip,
-  Flex,
-  InlineAlert,
-  Input,
-  Loader,
-  RemoteImage,
-  Typography,
-} from "@/components";
-import { MY_RESERVATIONS, UPDATE_RESERVATION_STATUS } from "@/graphql";
+  MY_RESERVATIONS,
+  SAVE_RESTAURANT,
+  UPDATE_RESERVATION_STATUS,
+} from "@/graphql";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
-import {
-  BOOKABLE_OCCASIONS,
-  OCCASION_LABELS,
-  RESERVATION_CANCELLATION_REASONS,
-  type Occasion,
-} from "@reservations/shared";
+import { useAppStore } from "@/store";
+import { AddReviewSheet } from "@/features/restaurant-profile/components/add-review-sheet.component";
 
 import {
-  BOOKING_AVAILABILITY,
   CONFIRM_DEPOSIT,
   MY_RESERVATION,
-  UPDATE_RESERVATION,
 } from "../booking/api/booking.operations";
-import { BookingDateScroller } from "../booking/components/booking-date-scroller.component";
-import { BookingTimeSections } from "../booking/components/booking-time-sections.component";
 import {
   extractPaymentIntentId,
   useDepositPayment,
 } from "../booking/hooks/use-deposit-payment.hook";
-import { formatSlotTime } from "../booking/helpers/time-slots.helpers";
-import { PartySizePicker } from "../search/components/party-size-picker.component";
+import { CancelReservationModal } from "./components/cancel-reservation-modal.component";
+import { ReservationBillingSheet } from "./components/reservation-billing-sheet.component";
+import { ReservationDetailRows } from "./components/reservation-detail-rows.component";
+import { ReservationDetailSkeleton } from "./components/reservation-detail-skeleton.component";
+import { ReservationOverflowMenu } from "./components/reservation-overflow-menu.component";
+import { ReservationRestaurantCard } from "./components/reservation-restaurant-card.component";
 import {
+  primaryCtaLabel,
+  resolveOverflowActions,
+  resolvePrimaryCta,
+  visitIneligibleCaption,
+  type OverflowActionId,
+  type PrimaryCtaKind,
+} from "./helpers/reservation-actions.helpers";
+import { addReservationToCalendar } from "./helpers/reservation-calendar.helpers";
+import {
+  canEditReservation,
   formatReservationWhen,
-  isReservationUpcoming,
   needsDepositPayment,
-  statusLabel,
 } from "./helpers/reservation-display.helpers";
 
-function toIsoDateFromSlot(slotStart: string): string {
-  const d = new Date(slotStart);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
+type MyReservationQuery = {
+  myReservation: {
+    id: string;
+    status: string;
+    slotStart: string;
+    slotEnd?: string | null;
+    partySize: number;
+    occasion?: string | null;
+    guestNotes?: string | null;
+    depositAmountCents?: number | null;
+    depositStatus?: string | null;
+    clientSecret?: string | null;
+    loyaltyPointsEarned?: number | null;
+    hasReview?: boolean | null;
+    packageTitle?: string | null;
+    packagePriceCents?: number | null;
+    restaurant?: {
+      id: string;
+      name?: string | null;
+      slug?: string | null;
+      photos?: (string | null)[] | null;
+      phone?: string | null;
+      averageRating?: number | null;
+      isSaved?: boolean | null;
+      address?: {
+        line1?: string | null;
+        line2?: string | null;
+        city?: string | null;
+        state?: string | null;
+        zip?: string | null;
+        neighborhood?: string | null;
+      } | null;
+    } | null;
+    tables?: {
+      id: string;
+      name: string;
+      photoUrl?: string | null;
+      floorArea?: string | null;
+    }[] | null;
+  } | null;
+};
 
 export function ReservationDetailFeature() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
+  const setDiscovery = useAppStore((s) => s.setDiscovery);
 
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const [billingOpen, setBillingOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState<string | undefined>();
   const [cancelDetails, setCancelDetails] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const { paying, payDeposit } = useDepositPayment();
 
-  const { data, loading, refetch } = useQuery(MY_RESERVATION, {
-    variables: { id },
-    skip: !id,
-    fetchPolicy: "network-only",
-  });
+  const { data, loading, error, refetch } = useQuery<MyReservationQuery>(
+    MY_RESERVATION,
+    {
+      variables: { id },
+      skip: !id,
+      fetchPolicy: "network-only",
+    },
+  );
 
   const reservation = data?.myReservation;
   const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
   const [confirmDeposit] = useMutation(CONFIRM_DEPOSIT);
+  const [saveRestaurant, { loading: saving }] = useMutation(SAVE_RESTAURANT);
+
+  const primary = useMemo(
+    () => (reservation ? resolvePrimaryCta(reservation) : null),
+    [reservation],
+  );
+  const overflowActions = useMemo(
+    () =>
+      reservation ? resolveOverflowActions(reservation, primary) : [],
+    [reservation, primary],
+  );
+
+  async function onRefresh() {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   async function onCancel() {
     if (!id) return;
@@ -90,20 +152,33 @@ export function ReservationDetailFeature() {
           status: "cancelled",
           reason: reason || undefined,
         },
-        refetchQueries: [{ query: MY_RESERVATIONS }],
+        refetchQueries: [
+          { query: MY_RESERVATIONS },
+          { query: MY_RESERVATION, variables: { id } },
+        ],
       });
       setCancelOpen(false);
-      Alert.alert("Cancelled", "Your reservation has been cancelled.");
-      router.back();
+      setCancelReason(undefined);
+      setCancelDetails("");
+      toast.success("Reservation cancelled");
+      await refetch();
     } catch (err) {
       Alert.alert("Error", getGraphQLErrorMessage(err, "Could not cancel"));
+      setCancelOpen(false);
+      await refetch();
     } finally {
       setCancelling(false);
     }
   }
 
   async function onPayDeposit() {
-    if (!reservation?.clientSecret) return;
+    if (!reservation?.clientSecret) {
+      Alert.alert(
+        "Payment unavailable",
+        "Deposit payment is not ready yet. Try again in a moment.",
+      );
+      return;
+    }
     const payment = await payDeposit({
       clientSecret: reservation.clientSecret,
       merchantName: reservation.restaurant?.name ?? "Tablevera",
@@ -119,314 +194,322 @@ export function ReservationDetailFeature() {
         variables: {
           paymentIntentId: extractPaymentIntentId(reservation.clientSecret),
         },
+        refetchQueries: [
+          { query: MY_RESERVATIONS },
+          { query: MY_RESERVATION, variables: { id } },
+        ],
       });
+      setBillingOpen(false);
       await refetch();
-      Alert.alert("Deposit paid", "Your reservation is confirmed.");
     } catch {
-      Alert.alert("Deposit submitted", "Payment received — confirmation may take a moment.");
+      Alert.alert(
+        "Deposit submitted",
+        "Payment received — confirmation may take a moment.",
+      );
+      setBillingOpen(false);
       await refetch();
     }
   }
 
+  function goToRestaurant() {
+    const restaurantId = reservation?.restaurant?.id;
+    if (!restaurantId) return;
+    router.push({
+      pathname: "/restaurant/[id]",
+      params: { id: restaurantId },
+    });
+  }
+
+  function bookAgain() {
+    const restaurantId = reservation?.restaurant?.id;
+    if (!restaurantId) return;
+    setDiscovery({ partySize: reservation.partySize || 2 });
+    router.push({
+      pathname: "/restaurant/[id]/book",
+      params: { id: restaurantId },
+    });
+  }
+
+  async function onSaveRestaurant() {
+    const restaurantId = reservation?.restaurant?.id;
+    if (!restaurantId) return;
+    try {
+      await saveRestaurant({
+        variables: { restaurantId },
+        refetchQueries: [
+          { query: MY_RESERVATIONS },
+          { query: MY_RESERVATION, variables: { id } },
+        ],
+      });
+      await refetch();
+    } catch (err) {
+      Alert.alert(
+        "Couldn't save",
+        getGraphQLErrorMessage(err, "Could not save restaurant"),
+      );
+    }
+  }
+
+  async function onAddToCalendar() {
+    if (!reservation) return;
+    try {
+      const saved = await addReservationToCalendar({
+        restaurant: reservation.restaurant,
+        partySize: reservation.partySize,
+        slotStart: reservation.slotStart,
+        slotEnd: reservation.slotEnd,
+        guestNotes: reservation.guestNotes,
+      });
+      if (saved) {
+        toast.success("Added to calendar");
+      }
+    } catch (err) {
+      Alert.alert(
+        "Calendar",
+        err instanceof Error ? err.message : "Could not add to calendar",
+      );
+    }
+  }
+
+  function handlePrimary(kind: PrimaryCtaKind) {
+    if (kind === "pay_deposit") void onPayDeposit();
+    else if (kind === "leave_review") setReviewOpen(true);
+    else if (kind === "book_again") bookAgain();
+  }
+
+  function handleOverflow(actionId: OverflowActionId) {
+    switch (actionId) {
+      case "edit":
+        if (id) {
+          router.push(`/reservations/${id}/edit`);
+        }
+        break;
+      case "cancel":
+        setCancelOpen(true);
+        break;
+      case "message":
+        if (id) {
+          router.push(`/reservations/${id}/messages`);
+        }
+        break;
+      case "add_to_calendar":
+        void onAddToCalendar();
+        break;
+      case "book_again":
+        bookAgain();
+        break;
+      case "save_restaurant":
+        void onSaveRestaurant();
+        break;
+      case "leave_review":
+        setReviewOpen(true);
+        break;
+      case "billing":
+        setBillingOpen(true);
+        break;
+      default:
+        break;
+    }
+  }
+
+  const topBar = (showOverflow: boolean) => (
+    <Flex direction="row" alignItems="center" style={styles.topBar}>
+      <IconButton
+        icon={<ChevronLeftIcon />}
+        variant="surface"
+        size="sm"
+        onPress={() => router.back()}
+        accessibilityLabel="Go back"
+        style={styles.chromeBtn}
+      />
+      <Typography weight="semibold" size="text-lg" style={styles.topTitle}>
+        Reservation
+      </Typography>
+      {showOverflow ? (
+        <IconButton
+          icon={<MoreVerticalIcon />}
+          variant="surface"
+          size="sm"
+          onPress={() => setOverflowOpen(true)}
+          accessibilityLabel="More actions"
+          disabled={overflowActions.length === 0 && !saving}
+          style={styles.chromeBtn}
+        />
+      ) : (
+        <View style={styles.sideSlot} />
+      )}
+    </Flex>
+  );
+
   if (loading && !reservation) {
     return (
-      <Flex flex={1} justifyContent="center" alignItems="center">
-        <Loader />
+      <View style={[styles.screen, { paddingTop: insets.top }]}>
+        {topBar(false)}
+        <ReservationDetailSkeleton />
+      </View>
+    );
+  }
+
+  if (error && !reservation) {
+    return (
+      <Flex
+        flex={1}
+        justifyContent="center"
+        style={[styles.centered, { paddingTop: insets.top }]}
+      >
+        <Empty
+          title="Couldn't load reservation"
+          description="Check your connection and try again."
+        >
+          <Button variant="outlined" onPress={() => void refetch()}>
+            Retry
+          </Button>
+          <Button variant="outlined" onPress={() => router.back()}>
+            Go back
+          </Button>
+        </Empty>
       </Flex>
     );
   }
 
   if (!reservation) {
     return (
-      <Flex flex={1} justifyContent="center" style={styles.centered}>
-        <Typography>Reservation not found</Typography>
-        <Button onPress={() => router.back()}>Go back</Button>
+      <Flex
+        flex={1}
+        justifyContent="center"
+        style={[styles.centered, { paddingTop: insets.top }]}
+      >
+        <Empty
+          title="Reservation not found"
+          description="It may have been removed or you no longer have access."
+        >
+          <Button onPress={() => router.back()}>Go back</Button>
+        </Empty>
       </Flex>
     );
   }
 
-  const photo = reservation.restaurant?.photos?.find(Boolean);
-  const upcoming = isReservationUpcoming(reservation);
+  const canEdit = canEditReservation(reservation);
   const depositDue = needsDepositPayment(reservation);
+  const ineligibleCaption = visitIneligibleCaption(reservation);
+  const restaurantPhoto = reservation.restaurant?.photos?.find(Boolean);
+  const overflowSubtitle = [
+    formatReservationWhen(reservation.slotStart),
+    `party of ${reservation.partySize}`,
+  ].join(" · ");
+  const footerPad = primary
+    ? theme.space(10) + Math.max(insets.bottom, theme.space(2))
+    : Math.max(insets.bottom, theme.space(3));
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <Flex direction="row" alignItems="center" style={styles.topBar}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Typography weight="semibold">← Back</Typography>
-        </Pressable>
-      </Flex>
+      {topBar(true)}
 
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {photo ? (
-          <RemoteImage uri={photo} style={styles.hero} recyclingKey={reservation.id} />
-        ) : null}
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: footerPad }]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void onRefresh()}
+          />
+        }
+      >
+        <Flex gap={2.5} style={styles.body}>
+          <ReservationRestaurantCard
+            restaurant={reservation.restaurant}
+            reservationId={reservation.id}
+            onPress={
+              reservation.restaurant?.id ? goToRestaurant : undefined
+            }
+          />
 
-        <Flex gap={1} style={styles.body}>
-          <Typography weight="bold" size="text-xl">
-            {reservation.restaurant?.name}
-          </Typography>
-          <Typography color="secondary">
-            {formatReservationWhen(reservation.slotStart)}
-          </Typography>
-          <Typography size="text-sm" color="muted">
-            {reservation.partySize} guests · {statusLabel(reservation.status)}
-          </Typography>
-
-          {reservation.tables?.[0] ? (
-            <Typography size="text-sm">
-              Table: {reservation.tables[0].name}
-            </Typography>
-          ) : null}
-
-          {reservation.guestNotes ? (
-            <InlineAlert tone="info" message={reservation.guestNotes} />
-          ) : null}
-
-          {depositDue ? (
-            <InlineAlert
-              tone="warning"
-              message={`Deposit of $${((reservation.depositAmountCents ?? 0) / 100).toFixed(2)} required to confirm.`}
-            />
-          ) : null}
+          <ReservationDetailRows
+            reservation={reservation}
+            canEdit={canEdit}
+            ineligibleCaption={ineligibleCaption}
+            onEdit={
+              id ? () => router.push(`/reservations/${id}/edit`) : undefined
+            }
+          />
         </Flex>
       </ScrollView>
 
-      <View
-        style={[
-          styles.footer,
-          { paddingBottom: Math.max(insets.bottom, theme.space(2)) },
-        ]}
-      >
-        {depositDue ? (
-          <Button fullWidth size="xl" loading={paying} onPress={onPayDeposit}>
-            Pay deposit
-          </Button>
-        ) : null}
-        {upcoming ? (
-          <>
-            <Button fullWidth variant="outlined" onPress={() => setEditOpen(true)}>
-              Edit reservation
-            </Button>
-            <Button
-              fullWidth
-              variant="outlined"
-              onPress={() => setCancelOpen(true)}
-            >
-              Cancel reservation
-            </Button>
-          </>
-        ) : null}
-        <Button
-          fullWidth
-          variant="outlined"
-          onPress={() =>
-            router.push({
-              pathname: "/restaurant/[id]",
-              params: { id: reservation.restaurant?.id ?? "" },
-            })
-          }
+      {primary ? (
+        <View
+          style={[
+            styles.footer,
+            { paddingBottom: Math.max(insets.bottom, theme.space(2)) },
+          ]}
         >
-          View restaurant
-        </Button>
-      </View>
+          <Button
+            fullWidth
+            size="xl"
+            loading={primary === "pay_deposit" ? paying : false}
+            onPress={() => handlePrimary(primary)}
+          >
+            {primary === "pay_deposit" && depositDue
+              ? `${primaryCtaLabel(primary)} · $${((reservation.depositAmountCents ?? 0) / 100).toFixed(2)}`
+              : primaryCtaLabel(primary)}
+          </Button>
+        </View>
+      ) : null}
 
-      <CancelModal
+      <ReservationOverflowMenu
+        visible={overflowOpen}
+        actions={overflowActions}
+        onClose={() => setOverflowOpen(false)}
+        onSelect={handleOverflow}
+        restaurantName={reservation.restaurant?.name}
+        restaurantPhoto={restaurantPhoto}
+        subtitle={overflowSubtitle}
+        status={reservation.status}
+        slotStart={reservation.slotStart}
+        slotEnd={reservation.slotEnd}
+        depositStatus={reservation.depositStatus}
+        depositAmountCents={reservation.depositAmountCents}
+      />
+
+      <ReservationBillingSheet
+        visible={billingOpen}
+        onClose={() => setBillingOpen(false)}
+        restaurantName={reservation.restaurant?.name}
+        slotStart={reservation.slotStart}
+        slotEnd={reservation.slotEnd}
+        status={reservation.status}
+        depositAmountCents={reservation.depositAmountCents ?? 0}
+        depositStatus={reservation.depositStatus ?? "none"}
+        paying={paying}
+        onPayDeposit={() => void onPayDeposit()}
+      />
+
+      <CancelReservationModal
         visible={cancelOpen}
         onClose={() => setCancelOpen(false)}
         cancelReason={cancelReason}
         cancelDetails={cancelDetails}
         onReasonChange={setCancelReason}
         onDetailsChange={setCancelDetails}
-        onConfirm={onCancel}
+        onConfirm={() => void onCancel()}
         loading={cancelling}
       />
 
-      <EditReservationModal
-        visible={editOpen}
-        reservation={reservation}
-        onClose={() => setEditOpen(false)}
-        onUpdated={() => {
-          setEditOpen(false);
-          refetch();
+      <AddReviewSheet
+        visible={reviewOpen}
+        restaurantName={reservation.restaurant?.name ?? "Restaurant"}
+        restaurantPhoto={restaurantPhoto}
+        reservationId={reservation.id}
+        onClose={() => setReviewOpen(false)}
+        onSubmitted={() => {
+          setReviewOpen(false);
+          void refetch();
         }}
       />
     </View>
   );
 }
 
-function CancelModal({
-  visible,
-  onClose,
-  cancelReason,
-  cancelDetails,
-  onReasonChange,
-  onDetailsChange,
-  onConfirm,
-  loading,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  cancelReason?: string;
-  cancelDetails: string;
-  onReasonChange: (value: string | undefined) => void;
-  onDetailsChange: (value: string) => void;
-  onConfirm: () => void;
-  loading: boolean;
-}) {
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <Flex flex={1} style={styles.modalBody}>
-        <Typography weight="bold" size="text-lg">
-          Cancel reservation
-        </Typography>
-        <Flex direction="row" gap={1} flexWrap="wrap">
-          {RESERVATION_CANCELLATION_REASONS.map((reason) => (
-            <Chip
-              key={reason}
-              selected={cancelReason === reason}
-              onPress={() => onReasonChange(reason)}
-            >
-              {reason}
-            </Chip>
-          ))}
-        </Flex>
-        <Input
-          label="Additional details (optional)"
-          value={cancelDetails}
-          onChangeText={onDetailsChange}
-          multiline
-        />
-        <Button fullWidth loading={loading} onPress={onConfirm}>
-          Confirm cancellation
-        </Button>
-        <Button fullWidth variant="outlined" onPress={onClose}>
-          Keep reservation
-        </Button>
-      </Flex>
-    </Modal>
-  );
-}
-
-function EditReservationModal({
-  visible,
-  reservation,
-  onClose,
-  onUpdated,
-}: {
-  visible: boolean;
-  reservation: {
-    id: string;
-    slotStart: string;
-    partySize: number;
-    occasion?: string | null;
-    guestNotes?: string | null;
-    restaurant?: { id?: string; name?: string } | null;
-  };
-  onClose: () => void;
-  onUpdated: () => void;
-}) {
-  const restaurantId = reservation.restaurant?.id;
-  const [date, setDate] = useState(toIsoDateFromSlot(reservation.slotStart));
-  const [partySize, setPartySize] = useState(reservation.partySize);
-  const [slotStart, setSlotStart] = useState(reservation.slotStart);
-  const [occasion, setOccasion] = useState(reservation.occasion ?? "none");
-  const [guestNotes, setGuestNotes] = useState(reservation.guestNotes ?? "");
-  const [saving, setSaving] = useState(false);
-
-  const { data: slotsData, loading: slotsLoading } = useQuery(
-    BOOKING_AVAILABILITY,
-    {
-      skip: !visible || !restaurantId,
-      variables: { restaurantId, date, partySize },
-      fetchPolicy: "network-only",
-    },
-  );
-
-  const slots = useMemo(() => {
-    const all = slotsData?.availability ?? [];
-    return all.filter(
-      (s: { time: string; available: boolean }) =>
-        s.available || s.time === slotStart || s.time === reservation.slotStart,
-    );
-  }, [slotsData, slotStart, reservation.slotStart]);
-
-  const [updateReservation] = useMutation(UPDATE_RESERVATION);
-
-  async function onSave() {
-    if (!slotStart) {
-      Alert.alert("Select a time", "Please pick an available time slot.");
-      return;
-    }
-    setSaving(true);
-    try {
-      await updateReservation({
-        variables: {
-          id: reservation.id,
-          input: {
-            partySize,
-            slotStart,
-            occasion,
-            guestNotes: guestNotes.trim() || undefined,
-          },
-        },
-        refetchQueries: [{ query: MY_RESERVATIONS }],
-      });
-      onUpdated();
-    } catch (err) {
-      Alert.alert("Error", getGraphQLErrorMessage(err, "Could not update"));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <ScrollView contentContainerStyle={styles.modalBody}>
-        <Typography weight="bold" size="text-lg">
-          Edit reservation
-        </Typography>
-        <BookingDateScroller selectedDate={date} onSelectDate={setDate} />
-        <PartySizePicker value={partySize} onChange={setPartySize} />
-        {slotsLoading ? (
-          <Loader />
-        ) : (
-          <BookingTimeSections
-            slots={slots}
-            selectedSlot={slotStart}
-            onSelectSlot={setSlotStart}
-            date={date}
-          />
-        )}
-        <Flex direction="row" gap={1} flexWrap="wrap">
-          {BOOKABLE_OCCASIONS.map((value) => (
-            <Chip
-              key={value}
-              selected={occasion === value}
-              onPress={() => setOccasion(value)}
-            >
-              {OCCASION_LABELS[value as Occasion]}
-            </Chip>
-          ))}
-        </Flex>
-        <Input
-          label="Special requests"
-          value={guestNotes}
-          onChangeText={setGuestNotes}
-          multiline
-        />
-        <Button fullWidth loading={saving} onPress={onSave}>
-          Save changes
-        </Button>
-        <Button fullWidth variant="outlined" onPress={onClose}>
-          Cancel
-        </Button>
-      </ScrollView>
-    </Modal>
-  );
-}
-
-const styles = StyleSheet.create(({ space, radius, colors }) => ({
+const styles = StyleSheet.create(({ space, colors, radius, shadows }) => ({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
@@ -437,27 +520,38 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
   },
   topBar: {
     paddingHorizontal: space(2),
-    paddingBottom: space(1),
+    paddingBottom: space(1.5),
+  },
+  topTitle: {
+    flex: 1,
+    textAlign: "center",
+  },
+  chromeBtn: {
+    width: space(5),
+    height: space(5),
+    borderRadius: radius.full,
+  },
+  sideSlot: {
+    width: space(5),
+    height: space(5),
   },
   scroll: {
-    paddingBottom: space(4),
-  },
-  hero: {
-    width: "100%",
-    height: 200,
+    flexGrow: 1,
   },
   body: {
-    padding: space(2),
+    paddingHorizontal: space(2),
+    paddingTop: space(2),
   },
   footer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     paddingHorizontal: space(2),
-    paddingTop: space(1.5),
-    gap: space(1),
+    paddingTop: space(2),
     borderTopWidth: 1,
     borderTopColor: colors.border,
-  },
-  modalBody: {
-    padding: space(2),
-    gap: space(1.5),
+    backgroundColor: colors.background,
+    ...shadows.stickyFooter,
   },
 }));

@@ -340,6 +340,39 @@ export const UNFAVORITE_RESTAURANT = gql`
   }
 `;
 
+export const SAVE_RESTAURANT = gql`
+  mutation SaveRestaurant($restaurantId: ID!) {
+    saveRestaurant(restaurantId: $restaurantId)
+  }
+`;
+
+export const MESSAGES = gql`
+  query Messages($reservationId: ID!) {
+    messages(reservationId: $reservationId) {
+      id
+      restaurantId
+      dinerId
+      reservationId
+      senderType
+      senderId
+      body
+      readAt
+      createdAt
+    }
+  }
+`;
+
+export const SEND_MESSAGE = gql`
+  mutation SendMessage($reservationId: ID!, $body: String!) {
+    sendMessage(reservationId: $reservationId, body: $body) {
+      id
+      senderType
+      body
+      createdAt
+    }
+  }
+`;
+
 export const CREATE_REVIEW = gql`
   mutation CreateReview($input: ReviewInput!) {
     createReview(input: $input) {

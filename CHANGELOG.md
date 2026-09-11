@@ -4,6 +4,20 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.43.0] — 2026-09-11
+
+### Added
+
+- Shared mobile `BottomSheet` and `Dialog` primitives with migrations for cancel, confirm, booking, loyalty, pickers, permission, and waitlist overlays
+- Reservation detail flows for edit, messages, billing, cancel, and overflow actions
+- Profile loyalty card UI and segmented control component
+- New Lucide-based icons for reservations, profile, and messaging
+
+### Changed
+
+- Reservations list and detail screens use the new shared overlay shells and richer detail chrome
+- Booking confirm, loyalty info, quick selectors, and date-time field reuse `BottomSheet`
+
 ## [0.42.1] — 2026-09-08
 
 ### Changed

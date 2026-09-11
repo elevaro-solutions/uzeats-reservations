@@ -1,6 +1,11 @@
 export { HomeFeature } from "./home/home.feature";
-export { ReservationsFeature } from "./reservations/reservations.feature";
-export { ProfileFeature } from "./profile/profile.feature";
+export {
+  ReservationsFeature,
+  ReservationDetailFeature,
+  EditReservationFeature,
+} from "./reservations";
+export { ReservationMessagesFeature } from "./messages";
+export { ProfileFeature } from "./profile";
 export { DemoFeature } from "./demo/demo.feature";
 export { SearchFeature } from "./search";
 export { RestaurantProfileFeature } from "./restaurant-profile";

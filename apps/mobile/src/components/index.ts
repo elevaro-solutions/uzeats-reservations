@@ -4,6 +4,15 @@ export { Button } from "./button";
 export { IconButton } from "./icon-button";
 export { Input } from "./input";
 export { Chip } from "./chip";
+export { SegmentedControl } from "./segmented-control";
+export type {
+  SegmentedControlOption,
+  SegmentedControlProps,
+} from "./segmented-control";
+export { BottomSheet } from "./bottom-sheet";
+export type { BottomSheetProps } from "./bottom-sheet";
+export { Dialog } from "./dialog";
+export type { DialogProps } from "./dialog";
 export { Divider } from "./divider";
 export { Loader } from "./loader";
 export { Empty } from "./empty";

@@ -115,6 +115,13 @@ const lightTheme = {
     full: 999,
   },
   shadows: {
+    soft: {
+      shadowColor: lightPalette.black,
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.08,
+      shadowRadius: 3,
+      elevation: 2,
+    },
     card: {
       shadowColor: lightPalette.black,
       shadowOffset: { width: 0, height: 4 },
