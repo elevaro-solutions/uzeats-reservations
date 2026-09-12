@@ -402,7 +402,7 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   },
   caption: {
     paddingHorizontal: space(2),
-    paddingBottom: space(1.5),
+    paddingVertical: space(1.75),
   },
   tableThumb: {
     width: space(5.5),

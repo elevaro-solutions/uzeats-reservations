@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { type ReactElement, type ReactNode } from "react";
+import { type ReactElement, type ReactNode, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,6 +22,7 @@ import { IconPropsType } from "@/types";
 import { ProfileLoyaltyCard } from "./components/profile-loyalty-card.component";
 import { ProfileMenuRow } from "./components/profile-menu-row.component";
 import { ProfileSkeleton } from "./components/profile-skeleton.component";
+import { SignOutConfirmationSheet } from "./components/sign-out-confirmation-sheet.component";
 
 type MenuItem = {
   title: string;
@@ -80,6 +81,18 @@ export function ProfileFeature() {
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
   const iconColor = theme.colors.textPrimary;
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await logout();
+    } finally {
+      setSigningOut(false);
+      setSignOutOpen(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -104,13 +117,17 @@ export function ProfileFeature() {
     return (
       <Flex
         flex={1}
-        style={[styles.screen, { paddingTop: insets.top + theme.space(2) }]}
+        style={[
+          styles.screen,
+          styles.content,
+          { paddingTop: insets.top + theme.space(2) },
+        ]}
         justifyContent="center"
       >
         <Empty
           title="Sign in to your account"
           description="Manage reservations and see your loyalty progress."
-          icon={<UserIcon size={28} color={theme.colors.textMuted} />}
+          icon={<UserIcon size={48} color={theme.colors.textMuted} />}
         >
           <Flex gap={1} style={styles.guestActions}>
             <Button
@@ -146,110 +163,119 @@ export function ProfileFeature() {
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={[
-        styles.content,
-        {
-          paddingTop: insets.top + theme.space(2),
-          paddingBottom: Math.max(insets.bottom, theme.space(3)),
-        },
-      ]}
-    >
-      <Typography size="display-xs" weight="bold">
-        Profile
-      </Typography>
-
-      <View style={styles.identityCard}>
-        <Flex direction="row" alignItems="center" gap={1.5}>
-          <UserAvatar
-            size="lg"
-            firstName={user.firstName}
-            lastName={user.lastName}
-          />
-          <Flex gap={0.25} style={styles.flexGrow}>
-            <Typography weight="semibold" size="text-lg" numberOfLines={1}>
-              {fullName}
-            </Typography>
-            {user.email ? (
-              <Typography size="text-sm" color="secondary" numberOfLines={1}>
-                {user.email}
-              </Typography>
-            ) : null}
-          </Flex>
-        </Flex>
-      </View>
-
-      <ProfileLoyaltyCard
-        tierName={user.loyaltyTierName}
-        points={user.loyaltyPoints}
-        completedVisits={user.loyaltyCompletedVisits}
-        referralCode={user.referralCode}
-      />
-
-      <ProfileSection label="Shortcuts">
-        <ProfileMenuGroup
-          items={[
-            {
-              title: "Reservations",
-              icon: <CalendarIcon size={20} color={iconColor} />,
-              onPress: () => router.push("/reservations"),
-            },
-            {
-              title: "Favorites",
-              icon: <HeartIcon size={20} color={iconColor} />,
-            },
-            {
-              title: "Notifications",
-              icon: <BellIcon size={20} color={iconColor} />,
-            },
-          ]}
-        />
-      </ProfileSection>
-
-      <ProfileSection label="Account">
-        <ProfileMenuGroup
-          items={[
-            {
-              title: "Password & security",
-              icon: <LockIcon size={20} color={iconColor} />,
-            },
-          ]}
-        />
-      </ProfileSection>
-
-      <ProfileSection label="Preferences">
-        <ProfileMenuGroup
-          items={[
-            {
-              title: "Language",
-              value: "English",
-              icon: <GlobeIcon size={20} color={iconColor} />,
-            },
-            {
-              title: "Help center",
-              icon: <CircleHelpIcon size={20} color={iconColor} />,
-            },
-            {
-              title: "About Tablevera",
-              icon: <InfoIcon size={20} color={iconColor} />,
-            },
-          ]}
-        />
-      </ProfileSection>
-
-      <ProfileMenuGroup
-        items={[
+    <>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={[
+          styles.content,
           {
-            title: "Sign out",
-            icon: <LogOutIcon size={20} color={theme.colors.error} />,
-            showChevron: false,
-            tone: "danger",
-            onPress: () => void logout(),
+            paddingTop: insets.top + theme.space(2),
+            paddingBottom: Math.max(insets.bottom, theme.space(3)),
           },
         ]}
+      >
+        <Typography size="display-xs" weight="bold">
+          Profile
+        </Typography>
+
+        <View style={styles.identityCard}>
+          <Flex direction="row" alignItems="center" gap={1.5}>
+            <UserAvatar
+              size="lg"
+              firstName={user.firstName}
+              lastName={user.lastName}
+            />
+            <Flex gap={0.25} style={styles.flexGrow}>
+              <Typography weight="semibold" size="text-lg" numberOfLines={1}>
+                {fullName}
+              </Typography>
+              {user.email ? (
+                <Typography size="text-sm" color="secondary" numberOfLines={1}>
+                  {user.email}
+                </Typography>
+              ) : null}
+            </Flex>
+          </Flex>
+        </View>
+
+        <ProfileLoyaltyCard
+          tierName={user.loyaltyTierName}
+          points={user.loyaltyPoints}
+          completedVisits={user.loyaltyCompletedVisits}
+          referralCode={user.referralCode}
+        />
+
+        <ProfileSection label="Shortcuts">
+          <ProfileMenuGroup
+            items={[
+              {
+                title: "Reservations",
+                icon: <CalendarIcon size={20} color={iconColor} />,
+                onPress: () => router.push("/reservations"),
+              },
+              {
+                title: "Favorites",
+                icon: <HeartIcon size={20} color={iconColor} />,
+              },
+              {
+                title: "Notifications",
+                icon: <BellIcon size={20} color={iconColor} />,
+              },
+            ]}
+          />
+        </ProfileSection>
+
+        <ProfileSection label="Account">
+          <ProfileMenuGroup
+            items={[
+              {
+                title: "Password & security",
+                icon: <LockIcon size={20} color={iconColor} />,
+              },
+            ]}
+          />
+        </ProfileSection>
+
+        <ProfileSection label="Preferences">
+          <ProfileMenuGroup
+            items={[
+              {
+                title: "Language",
+                value: "English",
+                icon: <GlobeIcon size={20} color={iconColor} />,
+              },
+              {
+                title: "Help center",
+                icon: <CircleHelpIcon size={20} color={iconColor} />,
+              },
+              {
+                title: "About Tablevera",
+                icon: <InfoIcon size={20} color={iconColor} />,
+              },
+            ]}
+          />
+        </ProfileSection>
+
+        <ProfileMenuGroup
+          items={[
+            {
+              title: "Sign out",
+              icon: <LogOutIcon size={20} color={theme.colors.error} />,
+              showChevron: false,
+              tone: "danger",
+              onPress: () => setSignOutOpen(true),
+            },
+          ]}
+        />
+      </ScrollView>
+
+      <SignOutConfirmationSheet
+        visible={signOutOpen}
+        onClose={() => setSignOutOpen(false)}
+        onConfirm={() => void handleSignOut()}
+        loading={signingOut}
       />
-    </ScrollView>
+    </>
   );
 }
 

@@ -16,13 +16,13 @@ export type ReservationStatusPillProps = {
   depositAmountCents?: number | null;
 };
 
-type Tone = "primary" | "success" | "warning" | "error" | "muted";
+type Tone = "primary" | "info" | "success" | "warning" | "error" | "muted";
 
 function toneForStatus(status: string): Tone {
   switch (status) {
     case "confirmed":
     case "seated":
-      return "success";
+      return "info";
     case "pending":
     case "deposit_due":
       return "warning";
@@ -30,6 +30,7 @@ function toneForStatus(status: string): Tone {
     case "no_show":
       return "error";
     case "completed":
+      return "success";
     case "past":
       return "muted";
     default:
@@ -39,7 +40,7 @@ function toneForStatus(status: string): Tone {
 
 function labelColor(
   tone: Tone,
-): "primary" | "success" | "warning" | "error" | "secondary" {
+): "primary" | "info" | "success" | "warning" | "error" | "secondary" {
   if (tone === "muted") return "secondary";
   return tone;
 }
@@ -84,6 +85,7 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     variants: {
       tone: {
         primary: { backgroundColor: colors.primarySubtle },
+        info: { backgroundColor: colors.infoSubtle },
         success: { backgroundColor: colors.successSubtle },
         warning: { backgroundColor: colors.warningSubtle },
         error: { backgroundColor: colors.errorSubtle },
@@ -98,6 +100,7 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     variants: {
       tone: {
         primary: { backgroundColor: colors.primary },
+        info: { backgroundColor: colors.info },
         success: { backgroundColor: colors.success },
         warning: { backgroundColor: colors.warning },
         error: { backgroundColor: colors.error },

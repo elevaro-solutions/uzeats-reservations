@@ -4,6 +4,23 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.45.0] — 2026-09-12
+
+### Added
+
+- Mobile sign-out confirmation bottom sheet on Profile
+
+### Changed
+
+- Profile and Reservations signed-out empty states use horizontal padding; larger profile guest icon
+- Auth screen back button uses neutral slate instead of primary tint
+- Reservation status pills, billing sheet, and list/detail skeletons polish
+- BottomSheet body layout and scroll sizing
+
+### Fixed
+
+- Deposit payment failure on reservation detail uses toast instead of a blocking alert
+
 ## [0.44.0] — 2026-09-12
 
 ### Added

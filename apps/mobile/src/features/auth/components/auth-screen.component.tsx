@@ -93,10 +93,10 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     justifyContent: "center",
     marginBottom: space(2),
     borderRadius: radius.full,
-    backgroundColor: colors.primary1,
+    backgroundColor: colors.slate2,
   },
   backPressed: {
-    backgroundColor: colors.primary2,
+    backgroundColor: colors.slate3,
   },
   header: {
     marginBottom: space(3),

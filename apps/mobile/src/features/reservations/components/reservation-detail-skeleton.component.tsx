@@ -1,81 +1,123 @@
 import { View } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Flex } from "@/components";
 import { Skeleton } from "@/components/skeleton";
 
-export function ReservationDetailSkeleton() {
+function DetailRowSkeleton({
+  last = false,
+  trailing,
+}: {
+  last?: boolean;
+  trailing?: boolean;
+}) {
   return (
-    <Flex gap={2.5} style={styles.body}>
-      <View style={[styles.cardShadow, styles.restaurantShadow]}>
-        <View style={[styles.card, styles.restaurantCard]}>
-          <Flex direction="row" gap={1.5} alignItems="center">
-            <Skeleton width={64} height={64} radius="md" />
-            <Flex gap={0.5} style={styles.flexGrow}>
-              <Skeleton width="70%" height={18} />
-              <Skeleton width="50%" height={14} />
-            </Flex>
-          </Flex>
-        </View>
+    <Flex
+      direction="row"
+      alignItems="center"
+      gap={1.5}
+      style={[styles.row, !last && styles.rowBorder]}
+    >
+      <View style={styles.iconWell}>
+        <Skeleton width={18} height={18} radius="sm" />
       </View>
-
-      <Flex gap={1.5}>
-        <Flex
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-          style={styles.sectionHeader}
-        >
-          <Skeleton width="30%" height={16} />
-          <Skeleton width={64} height={28} radius="full" />
-        </Flex>
-        <View style={styles.cardShadow}>
-          <View style={styles.card}>
-            {[0, 1, 2, 3].map((i) => (
-              <Flex
-                key={i}
-                direction="row"
-                gap={1.5}
-                alignItems="center"
-                style={styles.row}
-              >
-                <Skeleton width={32} height={32} radius="md" />
-                <Flex gap={0.5} style={styles.flexGrow}>
-                  <Skeleton width="28%" height={12} />
-                  <Skeleton width="55%" height={16} />
-                </Flex>
-              </Flex>
-            ))}
+      <Flex gap={0.25} style={styles.flexGrow}>
+        <Skeleton width="28%" height={12} />
+        {trailing ? (
+          <View style={styles.statusTrailing}>
+            <Skeleton width={72} height={22} radius="full" />
           </View>
-        </View>
-      </Flex>
-
-      <Flex gap={1.5}>
-        <View style={styles.sectionHeader}>
-          <Skeleton width="25%" height={16} />
-        </View>
-        <View style={styles.cardShadow}>
-          <View style={styles.card}>
-            <Flex
-              direction="row"
-              gap={1.5}
-              alignItems="center"
-              style={styles.row}
-            >
-              <Skeleton width={44} height={44} radius="md" />
-              <Flex gap={0.5} style={styles.flexGrow}>
-                <Skeleton width="22%" height={12} />
-                <Skeleton width="48%" height={16} />
-              </Flex>
-            </Flex>
-          </View>
-        </View>
+        ) : (
+          <Skeleton width="55%" height={16} />
+        )}
       </Flex>
     </Flex>
   );
 }
 
-const styles = StyleSheet.create(({ space, colors, radius }) => ({
+export function ReservationDetailSkeleton() {
+  const insets = useSafeAreaInsets();
+  const { theme } = useUnistyles();
+  const footerPad = Math.max(insets.bottom, theme.space(2));
+
+  return (
+    <View style={styles.root}>
+      <Flex
+        gap={2.5}
+        style={[
+          styles.body,
+          { paddingBottom: theme.space(10) + footerPad },
+        ]}
+      >
+        <View style={styles.cardShadow}>
+          <View style={[styles.card, styles.restaurantCard]}>
+            <Flex direction="row" gap={1.5} alignItems="center">
+              <Skeleton width={64} height={64} radius="md" />
+              <Flex gap={0.25} style={styles.flexGrow}>
+                <Skeleton width="70%" height={18} />
+                <Skeleton width="50%" height={14} />
+              </Flex>
+              <Skeleton width={20} height={20} radius="sm" />
+            </Flex>
+          </View>
+        </View>
+
+        <Flex gap={1.5}>
+          <Flex
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            style={styles.sectionHeader}
+          >
+            <Skeleton width="30%" height={16} />
+            <Skeleton width={88} height={36} radius="full" />
+          </Flex>
+          <View style={styles.cardShadow}>
+            <View style={styles.card}>
+              <DetailRowSkeleton trailing />
+              <DetailRowSkeleton />
+              <DetailRowSkeleton />
+              <DetailRowSkeleton />
+              <DetailRowSkeleton last />
+            </View>
+          </View>
+        </Flex>
+
+        <Flex gap={1.5}>
+          <View style={styles.sectionHeader}>
+            <Skeleton width="25%" height={16} />
+          </View>
+          <View style={styles.cardShadow}>
+            <View style={styles.card}>
+              <Flex
+                direction="row"
+                gap={1.5}
+                alignItems="center"
+                style={styles.row}
+              >
+                <Skeleton width={44} height={44} radius="md" />
+                <Flex gap={0.25} style={styles.flexGrow}>
+                  <Skeleton width="22%" height={12} />
+                  <Skeleton width="48%" height={16} />
+                </Flex>
+              </Flex>
+            </View>
+          </View>
+        </Flex>
+      </Flex>
+
+      <View style={[styles.footer, { paddingBottom: footerPad }]}>
+        <Skeleton width="100%" height={52} radius="md" />
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create(({ space, colors, radius, shadows }) => ({
+  root: {
+    flex: 1,
+  },
   body: {
     paddingHorizontal: space(2),
     paddingTop: space(2),
@@ -104,14 +146,40 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     backgroundColor: colors.background,
     borderColor: colors.slate3,
   },
-  restaurantShadow: {
-    backgroundColor: colors.background,
-  },
   row: {
     paddingHorizontal: space(2),
     paddingVertical: space(1.75),
   },
+  rowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.slate3,
+  },
+  iconWell: {
+    width: space(5),
+    height: space(5),
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statusTrailing: {
+    alignSelf: "flex-start",
+    marginTop: space(0.25),
+  },
   flexGrow: {
     flex: 1,
+    minWidth: 0,
+  },
+  footer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: space(2),
+    paddingTop: space(2),
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
+    ...shadows.stickyFooter,
   },
 }));

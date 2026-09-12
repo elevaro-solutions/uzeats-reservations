@@ -143,6 +143,29 @@ export function formatDepositStatusLabel(status: string): string {
   }
 }
 
+export type DepositStatusTone =
+  | "primary"
+  | "success"
+  | "warning"
+  | "error"
+  | "muted";
+
+export function depositStatusTone(status: string): DepositStatusTone {
+  switch (status) {
+    case "requires_payment":
+      return "warning";
+    case "authorized":
+    case "captured":
+      return "success";
+    case "failed":
+      return "error";
+    case "refunded":
+    case "none":
+    default:
+      return "muted";
+  }
+}
+
 export function formatCentsAsDollars(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }

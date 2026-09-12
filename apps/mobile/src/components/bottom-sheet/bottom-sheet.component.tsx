@@ -108,7 +108,6 @@ export function BottomSheet({
             { maxHeight, minHeight },
             !footer ? { paddingBottom: bottomPad } : null,
           ]}
-          onStartShouldSetResponder={() => true}
         >
           {showHandle ? (
             <View style={styles.handleRow}>
@@ -159,9 +158,9 @@ export function BottomSheet({
             >
               {children}
             </ScrollView>
-          ) : (
-            children
-          )}
+          ) : children ? (
+            <View style={[styles.body, contentContainerStyle]}>{children}</View>
+          ) : null}
 
           {footer ? (
             <View style={[styles.footer, { paddingBottom: bottomPad }]}>
@@ -187,6 +186,7 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     backgroundColor: overlay,
   }),
   sheet: (backgroundColor: string) => ({
+    width: "100%",
     backgroundColor,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
@@ -219,8 +219,9 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     gap: space(0.5),
     paddingRight: space(1),
   },
+  // Shrink when the sheet hits maxHeight so content can scroll.
   bodyScroll: {
-    flexGrow: 1,
+    flexGrow: 0,
     flexShrink: 1,
   },
   body: {

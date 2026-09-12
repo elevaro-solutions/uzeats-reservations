@@ -1,15 +1,22 @@
-import { Modal } from "react-native";
-import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-import { XIcon } from "@/assets";
-import { Button, Flex, IconButton, Typography } from "@/components";
+import { Fragment, type ReactNode } from "react";
+import { View } from "react-native";
+import { StyleSheet } from "react-native-unistyles";
 
 import {
+  BottomSheet,
+  Button,
+  Flex,
+  InlineAlert,
+  Typography,
+} from "@/components";
+
+import {
+  depositStatusTone,
   formatCentsAsDollars,
   formatDepositStatusLabel,
   formatReservationDate,
   needsDepositPayment,
+  type DepositStatusTone,
 } from "../helpers/reservation-display.helpers";
 
 export type ReservationBillingSheetProps = {
@@ -37,8 +44,6 @@ export function ReservationBillingSheet({
   paying = false,
   onPayDeposit,
 }: ReservationBillingSheetProps) {
-  const insets = useSafeAreaInsets();
-  const { theme } = useUnistyles();
   const canPay = needsDepositPayment({
     status,
     slotStart,
@@ -47,75 +52,20 @@ export function ReservationBillingSheet({
     depositAmountCents,
   });
 
+  const showHoldAlert =
+    depositStatus === "requires_payment" || depositStatus === "authorized";
+
   return (
-    <Modal
+    <BottomSheet
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <Flex
-        flex={1}
-        style={[
-          styles.sheet,
-          { paddingBottom: Math.max(insets.bottom, theme.space(2)) },
-        ]}
-      >
-        <Flex
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-        >
-          <Typography weight="bold" size="text-xl">
-            Billing
-          </Typography>
-          <IconButton
-            icon={<XIcon />}
-            onPress={onClose}
-            accessibilityLabel="Close"
-          />
-        </Flex>
-
-        <Typography size="text-sm" color="secondary">
-          Deposit summary for this reservation.
-        </Typography>
-
-        <Flex gap={1.5} style={styles.card}>
-          <Flex gap={0.25}>
-            <Typography size="text-sm" color="muted">
-              Restaurant
-            </Typography>
-            <Typography weight="semibold">
-              {restaurantName ?? "Restaurant"}
-            </Typography>
-          </Flex>
-          <Flex gap={0.25}>
-            <Typography size="text-sm" color="muted">
-              Visit
-            </Typography>
-            <Typography weight="semibold">
-              {formatReservationDate(slotStart)}
-            </Typography>
-          </Flex>
-          <Flex gap={0.25}>
-            <Typography size="text-sm" color="muted">
-              Deposit
-            </Typography>
-            <Typography weight="semibold">
-              {formatCentsAsDollars(depositAmountCents)}
-            </Typography>
-          </Flex>
-          <Flex gap={0.25}>
-            <Typography size="text-sm" color="muted">
-              Status
-            </Typography>
-            <Typography weight="semibold">
-              {formatDepositStatusLabel(depositStatus)}
-            </Typography>
-          </Flex>
-        </Flex>
-
-        {canPay && onPayDeposit ? (
+      onClose={onClose}
+      title="Billing"
+      description="Deposit summary for this reservation."
+      headerBorder
+      loading={paying}
+      accessibilityLabel="Close billing"
+      footer={
+        canPay && onPayDeposit ? (
           <Button
             fullWidth
             size="xl"
@@ -124,28 +74,158 @@ export function ReservationBillingSheet({
           >
             Pay deposit
           </Button>
-        ) : null}
+        ) : undefined
+      }
+    >
+      <Flex gap={2}>
+        <Flex alignItems="center" gap={1} style={styles.hero}>
+          <Typography size="display-xs" weight="bold">
+            {formatCentsAsDollars(depositAmountCents)}
+          </Typography>
+          <Typography size="text-sm" color="secondary">
+            Deposit hold
+          </Typography>
+          <DepositStatusPill status={depositStatus} />
+        </Flex>
 
-        <Button fullWidth variant="outlined" onPress={onClose}>
-          Close
-        </Button>
+        <View style={styles.summaryCard}>
+          <SummaryRow label="Restaurant">
+            <Typography size="text-sm" weight="medium" style={styles.valueText}>
+              {restaurantName ?? "Restaurant"}
+            </Typography>
+          </SummaryRow>
+          <SummaryRow label="Visit" last>
+            <Typography size="text-sm" weight="medium" style={styles.valueText}>
+              {formatReservationDate(slotStart)}
+            </Typography>
+          </SummaryRow>
+        </View>
+
+        {showHoldAlert ? (
+          <InlineAlert
+            tone="info"
+            message="Card hold — only captured if you no-show or cancel late."
+          />
+        ) : null}
       </Flex>
-    </Modal>
+    </BottomSheet>
   );
 }
 
-const styles = StyleSheet.create(({ space, colors, radius }) => ({
-  sheet: {
-    paddingHorizontal: space(2),
-    paddingTop: space(2),
-    backgroundColor: colors.background,
-    gap: space(2),
+function DepositStatusPill({ status }: { status: string }) {
+  const tone = depositStatusTone(status);
+  pillStyles.useVariants({ tone });
+
+  return (
+    <Flex direction="row" alignItems="center" gap={0.5} style={pillStyles.pill}>
+      <View style={pillStyles.dot} />
+      <Typography
+        size="text-xs"
+        weight="medium"
+        color={pillLabelColor(tone)}
+      >
+        {formatDepositStatusLabel(status)}
+      </Typography>
+    </Flex>
+  );
+}
+
+function pillLabelColor(
+  tone: DepositStatusTone,
+): "primary" | "success" | "warning" | "error" | "secondary" {
+  if (tone === "muted") return "secondary";
+  return tone;
+}
+
+function SummaryRow({
+  label,
+  children,
+  last = false,
+}: {
+  label: string;
+  children: ReactNode;
+  last?: boolean;
+}) {
+  return (
+    <Fragment>
+      <Flex
+        direction="row"
+        alignItems="flex-start"
+        justifyContent="space-between"
+        gap={1.5}
+        style={styles.summaryRow}
+      >
+        <Typography size="text-sm" color="secondary" style={styles.label}>
+          {label}
+        </Typography>
+        <View style={styles.value}>{children}</View>
+      </Flex>
+      {last ? null : <View style={styles.divider} />}
+    </Fragment>
+  );
+}
+
+const styles = StyleSheet.create(({ space, radius, colors }) => ({
+  hero: {
+    paddingTop: space(0.5),
+    paddingBottom: space(0.5),
   },
-  card: {
-    padding: space(2),
+  summaryCard: {
+    backgroundColor: colors.slate1,
     borderRadius: radius.lg,
-    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: colors.slate3,
+    borderColor: colors.slate4,
+    overflow: "hidden",
+  },
+  summaryRow: {
+    paddingVertical: space(2),
+    paddingHorizontal: space(2),
+  },
+  label: {
+    paddingTop: space(0.25),
+    flexShrink: 0,
+  },
+  value: {
+    flex: 1,
+    alignItems: "flex-end",
+    minWidth: 0,
+  },
+  valueText: {
+    textAlign: "right",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.slate4,
+  },
+}));
+
+const pillStyles = StyleSheet.create(({ space, colors, radius }) => ({
+  pill: {
+    paddingHorizontal: space(1),
+    paddingVertical: space(0.5),
+    borderRadius: radius.full,
+    variants: {
+      tone: {
+        primary: { backgroundColor: colors.primarySubtle },
+        success: { backgroundColor: colors.successSubtle },
+        warning: { backgroundColor: colors.warningSubtle },
+        error: { backgroundColor: colors.errorSubtle },
+        muted: { backgroundColor: colors.slate3 },
+      },
+    },
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: radius.full,
+    variants: {
+      tone: {
+        primary: { backgroundColor: colors.primary },
+        success: { backgroundColor: colors.success },
+        warning: { backgroundColor: colors.warning },
+        error: { backgroundColor: colors.error },
+        muted: { backgroundColor: colors.textMuted },
+      },
+    },
   },
 }));

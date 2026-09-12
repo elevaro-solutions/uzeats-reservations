@@ -14,6 +14,7 @@ import {
   SegmentedControl,
   Typography,
 } from "@/components";
+import { Skeleton } from "@/components/skeleton";
 import { MY_RESERVATIONS, useAuth } from "@/graphql";
 
 import { ReservationListCard } from "./components/reservation-list-card.component";
@@ -101,6 +102,9 @@ export function ReservationsFeature() {
         <Typography weight="bold" size="display-xs" style={styles.heading}>
           Reservations
         </Typography>
+        <View style={styles.segments}>
+          <Skeleton width="100%" height={48} radius="lg" />
+        </View>
         <ReservationListSkeleton />
       </Flex>
     );
@@ -110,7 +114,11 @@ export function ReservationsFeature() {
     return (
       <Flex
         flex={1}
-        style={[styles.screen, { paddingTop: insets.top + theme.space(2) }]}
+        style={[
+          styles.screen,
+          styles.statePad,
+          { paddingTop: insets.top + theme.space(2) },
+        ]}
         justifyContent="center"
       >
         <Empty

@@ -185,7 +185,7 @@ export function ReservationDetailFeature() {
     });
     if (!payment.paid) {
       if (payment.error) {
-        Alert.alert("Payment failed", payment.error);
+        toast.error("Payment failed", { description: payment.error });
       }
       return;
     }
