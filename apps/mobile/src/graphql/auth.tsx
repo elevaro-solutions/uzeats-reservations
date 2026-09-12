@@ -32,6 +32,7 @@ import {
 export type MobileUser = {
   id: string;
   email?: string | null;
+  phone?: string | null;
   firstName: string;
   lastName: string;
   role: "diner" | "restaurant_owner" | "staff" | "admin";
@@ -59,6 +60,8 @@ type RegisterInput = {
 type AuthContextValue = {
   user: MobileUser | null;
   loading: boolean;
+  /** Tokens exist but Me could not load (usually offline). Not signed out. */
+  sessionOffline: boolean;
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
@@ -107,7 +110,7 @@ async function signOutGoogleBestEffort() {
 
 const ME_QUERY = `query Me {
   me {
-    id email firstName lastName role loyaltyPoints
+    id email phone firstName lastName role loyaltyPoints
     loyaltyCompletedVisits loyaltyTier loyaltyTierName referralCode
   }
 }`;
@@ -132,6 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const apolloClient = useApolloClient();
   const [user, setUser] = useState<MobileUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sessionOffline, setSessionOffline] = useState(false);
   const [loginMutation] = useMutation(LOGIN);
   const [registerMutation] = useMutation(REGISTER);
   const [googleLoginMutation] = useMutation(LOGIN_WITH_GOOGLE);
@@ -141,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     return subscribeSessionInvalidated(() => {
       setUser(null);
+      setSessionOffline(false);
       void apolloClient.clearStore().catch(() => undefined);
     });
   }, [apolloClient]);
@@ -151,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (!accessToken && !refreshToken) {
       setUser(null);
+      setSessionOffline(false);
       setLoading(false);
       return;
     }
@@ -165,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!refreshToken) {
           await clearStoredTokens();
           setUser(null);
+          setSessionOffline(false);
           return;
         }
 
@@ -173,12 +180,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           me = await fetchMe(tokens.accessToken);
         } catch (error) {
           if (error instanceof TokenRefreshError && error.reason === "network") {
-            // Keep tokens; session can restore when connectivity returns.
-            setUser(null);
+            // Keep tokens + any cached user; restore when connectivity returns.
+            setSessionOffline(true);
             return;
           }
           await clearStoredTokens();
           setUser(null);
+          setSessionOffline(false);
           return;
         }
       }
@@ -186,13 +194,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!me) {
         await clearStoredTokens();
         setUser(null);
+        setSessionOffline(false);
         return;
       }
 
       setUser(me);
+      setSessionOffline(false);
     } catch {
-      // Transient network / parse errors — do not wipe a still-valid refresh token.
-      setUser(null);
+      // Transient network / parse errors — keep tokens and any cached user.
+      setSessionOffline(true);
     } finally {
       setLoading(false);
     }
@@ -208,6 +218,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         variables: { input: { email, password } },
       });
       const payload = data.login;
+      setSessionOffline(false);
       setUser(
         await persistSession(
           {
@@ -225,6 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async (input: RegisterInput) => {
       const { data } = await registerMutation({ variables: { input } });
       const payload = data.register;
+      setSessionOffline(false);
       setUser(
         await persistSession(
           {
@@ -244,6 +256,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         variables: { idToken },
       });
       const payload = data.loginWithGoogle;
+      setSessionOffline(false);
       setUser(
         await persistSession(
           {
@@ -287,6 +300,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Cache clear is best-effort.
     }
 
+    setSessionOffline(false);
     setUser(null);
   }, [apolloClient, logoutMutation]);
 
@@ -294,6 +308,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       loading,
+      sessionOffline,
       login,
       loginWithGoogle,
       register,
@@ -304,6 +319,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [
       user,
       loading,
+      sessionOffline,
       login,
       loginWithGoogle,
       register,

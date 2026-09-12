@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@apollo/client";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, RefreshControl, ScrollView, View } from "react-native";
+import { RefreshControl, ScrollView, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
@@ -12,8 +12,12 @@ import {
   MY_RESERVATIONS,
   SAVE_RESTAURANT,
   UPDATE_RESERVATION_STATUS,
+  useAuth,
 } from "@/graphql";
-import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
+import {
+  getGraphQLErrorMessage,
+  isUnauthenticatedError,
+} from "@/lib/graphql-errors";
 import { useAppStore } from "@/store";
 import { AddReviewSheet } from "@/features/restaurant-profile/components/add-review-sheet.component";
 
@@ -93,6 +97,7 @@ export function ReservationDetailFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
+  const { user } = useAuth();
   const setDiscovery = useAppStore((s) => s.setDiscovery);
 
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -163,8 +168,9 @@ export function ReservationDetailFeature() {
       toast.success("Reservation cancelled");
       await refetch();
     } catch (err) {
-      Alert.alert("Error", getGraphQLErrorMessage(err, "Could not cancel"));
-      setCancelOpen(false);
+      toast.error("Could not cancel", {
+        description: getGraphQLErrorMessage(err, "Could not cancel"),
+      });
       await refetch();
     } finally {
       setCancelling(false);
@@ -173,10 +179,10 @@ export function ReservationDetailFeature() {
 
   async function onPayDeposit() {
     if (!reservation?.clientSecret) {
-      Alert.alert(
-        "Payment unavailable",
-        "Deposit payment is not ready yet. Try again in a moment.",
-      );
+      toast.error("Payment unavailable", {
+        description:
+          "Deposit payment is not ready yet. Try again in a moment.",
+      });
       return;
     }
     const payment = await payDeposit({
@@ -202,10 +208,9 @@ export function ReservationDetailFeature() {
       setBillingOpen(false);
       await refetch();
     } catch {
-      Alert.alert(
-        "Deposit submitted",
-        "Payment received — confirmation may take a moment.",
-      );
+      toast.success("Deposit submitted", {
+        description: "Payment received — confirmation may take a moment.",
+      });
       setBillingOpen(false);
       await refetch();
     }
@@ -241,12 +246,12 @@ export function ReservationDetailFeature() {
           { query: MY_RESERVATION, variables: { id } },
         ],
       });
+      toast.success("Restaurant saved");
       await refetch();
     } catch (err) {
-      Alert.alert(
-        "Couldn't save",
-        getGraphQLErrorMessage(err, "Could not save restaurant"),
-      );
+      toast.error("Couldn't save", {
+        description: getGraphQLErrorMessage(err, "Could not save restaurant"),
+      });
     }
   }
 
@@ -264,10 +269,10 @@ export function ReservationDetailFeature() {
         toast.success("Added to calendar");
       }
     } catch (err) {
-      Alert.alert(
-        "Calendar",
-        err instanceof Error ? err.message : "Could not add to calendar",
-      );
+      toast.error("Calendar", {
+        description:
+          err instanceof Error ? err.message : "Could not add to calendar",
+      });
     }
   }
 
@@ -351,23 +356,45 @@ export function ReservationDetailFeature() {
   }
 
   if (error && !reservation) {
+    const needsAuth = !user || isUnauthenticatedError(error);
     return (
       <Flex
         flex={1}
         justifyContent="center"
         style={[styles.centered, { paddingTop: insets.top }]}
       >
-        <Empty
-          title="Couldn't load reservation"
-          description="Check your connection and try again."
-        >
-          <Button variant="outlined" onPress={() => void refetch()}>
-            Retry
-          </Button>
-          <Button variant="outlined" onPress={() => router.back()}>
-            Go back
-          </Button>
-        </Empty>
+        {needsAuth ? (
+          <Empty
+            title="Sign in to view this reservation"
+            description="Sign in to your account to open booking details."
+          >
+            <Button
+              onPress={() =>
+                router.push({
+                  pathname: "/sign-in",
+                  params: { next: id ? `/reservations/${id}` : "/reservations" },
+                })
+              }
+            >
+              Sign in
+            </Button>
+            <Button variant="outlined" onPress={() => router.back()}>
+              Go back
+            </Button>
+          </Empty>
+        ) : (
+          <Empty
+            title="Couldn't load reservation"
+            description="Check your connection and try again."
+          >
+            <Button variant="outlined" onPress={() => void refetch()}>
+              Retry
+            </Button>
+            <Button variant="outlined" onPress={() => router.back()}>
+              Go back
+            </Button>
+          </Empty>
+        )}
       </Flex>
     );
   }

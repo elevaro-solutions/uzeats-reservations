@@ -39,7 +39,6 @@ function DetailRowSkeleton({
 export function ReservationDetailSkeleton() {
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
-  const footerPad = Math.max(insets.bottom, theme.space(2));
 
   return (
     <View style={styles.root}>
@@ -47,7 +46,9 @@ export function ReservationDetailSkeleton() {
         gap={2.5}
         style={[
           styles.body,
-          { paddingBottom: theme.space(10) + footerPad },
+          {
+            paddingBottom: Math.max(insets.bottom, theme.space(3)),
+          },
         ]}
       >
         <View style={styles.cardShadow}>
@@ -106,15 +107,11 @@ export function ReservationDetailSkeleton() {
           </View>
         </Flex>
       </Flex>
-
-      <View style={[styles.footer, { paddingBottom: footerPad }]}>
-        <Skeleton width="100%" height={52} radius="md" />
-      </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create(({ space, colors, radius, shadows }) => ({
+const styles = StyleSheet.create(({ space, colors, radius }) => ({
   root: {
     flex: 1,
   },
@@ -143,8 +140,6 @@ const styles = StyleSheet.create(({ space, colors, radius, shadows }) => ({
   },
   restaurantCard: {
     padding: space(2),
-    backgroundColor: colors.background,
-    borderColor: colors.slate3,
   },
   row: {
     paddingHorizontal: space(2),
@@ -169,17 +164,5 @@ const styles = StyleSheet.create(({ space, colors, radius, shadows }) => ({
   flexGrow: {
     flex: 1,
     minWidth: 0,
-  },
-  footer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: space(2),
-    paddingTop: space(2),
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.background,
-    ...shadows.stickyFooter,
   },
 }));

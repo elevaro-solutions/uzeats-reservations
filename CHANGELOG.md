@@ -4,6 +4,26 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.45.1] — 2026-09-12
+
+### Added
+
+- Shared mobile `StatusTonePill` for reservation and deposit status badges
+- Profile phone display with US formatting; Me/auth payloads include `phone`
+- Auth `sessionOffline` state when tokens exist but Me cannot load
+
+### Changed
+
+- Bottom sheet `padded` prop for full-bleed date/party pickers
+- Reservation detail/edit/messages use toasts for feedback; cancel keeps the modal open on failure
+- Seated reservations are no longer guest-editable
+
+### Fixed
+
+- Unauthenticated reservation detail, edit, and messages prompt Sign in instead of a connection error
+- Offline session no longer looks signed out on Profile and Reservations
+- Save restaurant success toast on reservation detail
+
 ## [0.45.0] — 2026-09-12
 
 ### Added

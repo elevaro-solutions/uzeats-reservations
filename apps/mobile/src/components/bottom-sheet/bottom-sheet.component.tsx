@@ -40,6 +40,8 @@ export type BottomSheetProps = {
   loading?: boolean;
   keyboardAvoiding?: boolean;
   scrollable?: boolean;
+  /** Apply default body padding/gap. Default true. Set false for full-bleed pickers. */
+  padded?: boolean;
   contentContainerStyle?: StyleProp<ViewStyle>;
   accessibilityLabel?: string;
 };
@@ -60,6 +62,7 @@ export function BottomSheet({
   loading = false,
   keyboardAvoiding = false,
   scrollable = false,
+  padded = true,
   contentContainerStyle,
   accessibilityLabel = "Close",
 }: BottomSheetProps) {
@@ -154,12 +157,19 @@ export function BottomSheet({
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator
               style={styles.bodyScroll}
-              contentContainerStyle={[styles.body, contentContainerStyle]}
+              contentContainerStyle={[
+                padded ? styles.body : null,
+                contentContainerStyle,
+              ]}
             >
               {children}
             </ScrollView>
           ) : children ? (
-            <View style={[styles.body, contentContainerStyle]}>{children}</View>
+            <View
+              style={[padded ? styles.body : null, contentContainerStyle]}
+            >
+              {children}
+            </View>
           ) : null}
 
           {footer ? (

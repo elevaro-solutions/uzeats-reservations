@@ -1,6 +1,7 @@
 const TERMINAL_STATUSES = new Set(["cancelled", "completed", "no_show"]);
 const ACTIVE_STATUSES = new Set(["pending", "confirmed", "seated"]);
-const EDITABLE_STATUSES = new Set(["pending", "confirmed", "seated"]);
+/** Guests may edit pending/confirmed only — seated visits need the restaurant. */
+const EDITABLE_STATUSES = new Set(["pending", "confirmed"]);
 const CANCELLABLE_STATUSES = new Set(["pending", "confirmed"]);
 
 export type ReservationListSegment = "all" | "upcoming" | "past" | "cancelled";
@@ -143,12 +144,7 @@ export function formatDepositStatusLabel(status: string): string {
   }
 }
 
-export type DepositStatusTone =
-  | "primary"
-  | "success"
-  | "warning"
-  | "error"
-  | "muted";
+export type DepositStatusTone = "success" | "warning" | "error" | "muted";
 
 export function depositStatusTone(status: string): DepositStatusTone {
   switch (status) {

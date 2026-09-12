@@ -55,7 +55,7 @@ const SEGMENTS: { value: ReservationListSegment; label: string }[] = [
 ];
 
 export function ReservationsFeature() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, sessionOffline, refreshMe } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
@@ -70,6 +70,7 @@ export function ReservationsFeature() {
   const [segment, setSegment] = useState<ReservationListSegment>("upcoming");
   const [segmentInitialized, setSegmentInitialized] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [retryingSession, setRetryingSession] = useState(false);
 
   useEffect(() => {
     if (segmentInitialized || reservations.length === 0) return;
@@ -106,6 +107,35 @@ export function ReservationsFeature() {
           <Skeleton width="100%" height={48} radius="lg" />
         </View>
         <ReservationListSkeleton />
+      </Flex>
+    );
+  }
+
+  if (sessionOffline && !user) {
+    return (
+      <Flex
+        flex={1}
+        style={[
+          styles.screen,
+          styles.statePad,
+          { paddingTop: insets.top + theme.space(2) },
+        ]}
+        justifyContent="center"
+      >
+        <Empty
+          title="You're offline"
+          description="We couldn't restore your session. Check your connection and try again."
+        >
+          <Button
+            loading={retryingSession}
+            onPress={() => {
+              setRetryingSession(true);
+              void refreshMe().finally(() => setRetryingSession(false));
+            }}
+          >
+            Try again
+          </Button>
+        </Empty>
       </Flex>
     );
   }

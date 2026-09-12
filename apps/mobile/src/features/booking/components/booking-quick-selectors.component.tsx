@@ -161,6 +161,7 @@ export function BookingQuickSelectors({
         onClose={closeDatePicker}
         title="Select date"
         headerBorder
+        padded={false}
         maxHeight="55%"
         minHeight={sheetMinHeight}
         accessibilityLabel="Close date picker"
@@ -201,6 +202,7 @@ export function BookingQuickSelectors({
         title="Party size"
         description="How many guests are joining?"
         headerBorder
+        padded={false}
         maxHeight="70%"
         accessibilityLabel="Close party size picker"
         footer={

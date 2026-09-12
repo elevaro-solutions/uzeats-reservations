@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from "@apollo/client";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
@@ -16,8 +16,11 @@ import {
   Loader,
   Typography,
 } from "@/components";
-import { MY_RESERVATIONS } from "@/graphql";
-import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
+import { MY_RESERVATIONS, useAuth } from "@/graphql";
+import {
+  getGraphQLErrorMessage,
+  isUnauthenticatedError,
+} from "@/lib/graphql-errors";
 import { toIsoDate } from "@/lib/helpers/date-time.helpers";
 
 import {
@@ -117,6 +120,7 @@ export function EditReservationFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
+  const { user } = useAuth();
 
   const { data, loading, error } = useQuery<MyReservationQuery>(MY_RESERVATION, {
     variables: { id },
@@ -233,7 +237,9 @@ export function EditReservationFeature() {
 
   function openConfirm() {
     if (!reservation || !slotStart) {
-      Alert.alert("Select a time", "Please pick an available time slot.");
+      toast.error("Select a time", {
+        description: "Please pick an available time slot.",
+      });
       return;
     }
     if (
@@ -293,13 +299,15 @@ export function EditReservationFeature() {
       toast.success("Reservation updated");
       router.back();
     } catch (err) {
-      Alert.alert("Error", getGraphQLErrorMessage(err, "Could not update"));
+      toast.error("Couldn't update", {
+        description: getGraphQLErrorMessage(err, "Could not update"),
+      });
     } finally {
       setSaving(false);
     }
   }
 
-  if (loading || !initialized) {
+  if (loading && !reservation) {
     return (
       <Flex flex={1} justifyContent="center" alignItems="center">
         <Loader />
@@ -308,18 +316,50 @@ export function EditReservationFeature() {
   }
 
   if (error || !reservation) {
+    const needsAuth = !user || (Boolean(error) && isUnauthenticatedError(error));
     return (
       <Flex
         flex={1}
         justifyContent="center"
         style={[styles.centered, { paddingTop: insets.top }]}
       >
-        <Empty
-          title="Reservation not found"
-          description="It may have been removed or you no longer have access."
-        >
-          <Button onPress={() => router.back()}>Go back</Button>
-        </Empty>
+        {needsAuth ? (
+          <Empty
+            title="Sign in to edit this reservation"
+            description="Sign in to your account to change booking details."
+          >
+            <Button
+              onPress={() =>
+                router.push({
+                  pathname: "/sign-in",
+                  params: {
+                    next: id ? `/reservations/${id}/edit` : "/reservations",
+                  },
+                })
+              }
+            >
+              Sign in
+            </Button>
+            <Button variant="outlined" onPress={() => router.back()}>
+              Go back
+            </Button>
+          </Empty>
+        ) : (
+          <Empty
+            title="Reservation not found"
+            description="It may have been removed or you no longer have access."
+          >
+            <Button onPress={() => router.back()}>Go back</Button>
+          </Empty>
+        )}
+      </Flex>
+    );
+  }
+
+  if (!initialized) {
+    return (
+      <Flex flex={1} justifyContent="center" alignItems="center">
+        <Loader />
       </Flex>
     );
   }

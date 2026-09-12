@@ -241,6 +241,7 @@ export const LOGIN = gql`
       user {
         id
         email
+        phone
         firstName
         lastName
         role
@@ -262,6 +263,7 @@ export const REGISTER = gql`
       user {
         id
         email
+        phone
         firstName
         lastName
         role
@@ -283,6 +285,7 @@ export const LOGIN_WITH_GOOGLE = gql`
       user {
         id
         email
+        phone
         firstName
         lastName
         role
@@ -316,6 +319,7 @@ export const ME = gql`
     me {
       id
       email
+      phone
       firstName
       lastName
       role

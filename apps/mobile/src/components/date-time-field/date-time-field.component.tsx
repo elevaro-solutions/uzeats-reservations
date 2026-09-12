@@ -148,6 +148,7 @@ export function DateTimeField({
         onClose={dismiss}
         title={label}
         headerBorder
+        padded={false}
         maxHeight="55%"
         minHeight={sheetMinHeight}
         accessibilityLabel="Close picker"

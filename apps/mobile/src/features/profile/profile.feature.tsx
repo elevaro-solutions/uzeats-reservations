@@ -17,6 +17,7 @@ import {
 } from "@/assets";
 import { Button, Empty, Flex, Typography, UserAvatar } from "@/components";
 import { useAuth } from "@/graphql";
+import { formatPhoneDisplay } from "@/lib/helpers/phone.helpers";
 import { IconPropsType } from "@/types";
 
 import { ProfileLoyaltyCard } from "./components/profile-loyalty-card.component";
@@ -76,13 +77,14 @@ function ProfileSection({
 }
 
 export function ProfileFeature() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, sessionOffline, refreshMe } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
   const iconColor = theme.colors.textPrimary;
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -91,6 +93,15 @@ export function ProfileFeature() {
     } finally {
       setSigningOut(false);
       setSignOutOpen(false);
+    }
+  }
+
+  async function handleRetrySession() {
+    setRetrying(true);
+    try {
+      await refreshMe();
+    } finally {
+      setRetrying(false);
     }
   }
 
@@ -109,6 +120,30 @@ export function ProfileFeature() {
         ]}
       >
         <ProfileSkeleton />
+      </Flex>
+    );
+  }
+
+  if (sessionOffline && !user) {
+    return (
+      <Flex
+        flex={1}
+        style={[
+          styles.screen,
+          styles.content,
+          { paddingTop: insets.top + theme.space(2) },
+        ]}
+        justifyContent="center"
+      >
+        <Empty
+          title="You're offline"
+          description="We couldn't restore your session. Check your connection and try again."
+          icon={<UserIcon size={48} color={theme.colors.textMuted} />}
+        >
+          <Button fullWidth loading={retrying} onPress={() => void handleRetrySession()}>
+            Try again
+          </Button>
+        </Empty>
       </Flex>
     );
   }
@@ -192,6 +227,11 @@ export function ProfileFeature() {
               {user.email ? (
                 <Typography size="text-sm" color="secondary" numberOfLines={1}>
                   {user.email}
+                </Typography>
+              ) : null}
+              {user.phone ? (
+                <Typography size="text-sm" color="secondary" numberOfLines={1}>
+                  {formatPhoneDisplay(user.phone)}
                 </Typography>
               ) : null}
             </Flex>

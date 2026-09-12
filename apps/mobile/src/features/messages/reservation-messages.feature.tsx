@@ -2,7 +2,6 @@ import { useMutation, useQuery } from "@apollo/client";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Platform,
@@ -10,6 +9,7 @@ import {
 } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { toast } from "sonner-native";
 
 import { ChevronLeftIcon, MailIcon } from "@/assets";
 import {
@@ -20,8 +20,11 @@ import {
   Loader,
   Typography,
 } from "@/components";
-import { MESSAGES, SEND_MESSAGE } from "@/graphql";
-import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
+import { MESSAGES, SEND_MESSAGE, useAuth } from "@/graphql";
+import {
+  getGraphQLErrorMessage,
+  isUnauthenticatedError,
+} from "@/lib/graphql-errors";
 
 import { MY_RESERVATION } from "../booking/api/booking.operations";
 import { formatReservationWhen } from "../reservations/helpers/reservation-display.helpers";
@@ -57,6 +60,7 @@ export function ReservationMessagesFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
+  const { user } = useAuth();
   const [draft, setDraft] = useState("");
   const listRef = useRef<FlatList<MessageItem>>(null);
 
@@ -98,10 +102,9 @@ export function ReservationMessagesFeature() {
       setDraft("");
       await refetch();
     } catch (err) {
-      Alert.alert(
-        "Couldn't send",
-        getGraphQLErrorMessage(err, "Could not send message"),
-      );
+      toast.error("Couldn't send", {
+        description: getGraphQLErrorMessage(err, "Could not send message"),
+      });
     }
   }
 
@@ -161,15 +164,38 @@ export function ReservationMessagesFeature() {
         </Flex>
       ) : error && messages.length === 0 ? (
         <Flex flex={1} justifyContent="center" style={styles.centered}>
-          <Empty
-            icon={<MailIcon />}
-            title="Couldn't load messages"
-            description="Check your connection and try again."
-          >
-            <Button variant="outlined" onPress={() => void refetch()}>
-              Retry
-            </Button>
-          </Empty>
+          {!user || isUnauthenticatedError(error) ? (
+            <Empty
+              icon={<MailIcon />}
+              title="Sign in to view messages"
+              description="Sign in to your account to message the restaurant."
+            >
+              <Button
+                onPress={() =>
+                  router.push({
+                    pathname: "/sign-in",
+                    params: {
+                      next: id
+                        ? `/reservations/${id}/messages`
+                        : "/reservations",
+                    },
+                  })
+                }
+              >
+                Sign in
+              </Button>
+            </Empty>
+          ) : (
+            <Empty
+              icon={<MailIcon />}
+              title="Couldn't load messages"
+              description="Check your connection and try again."
+            >
+              <Button variant="outlined" onPress={() => void refetch()}>
+                Retry
+              </Button>
+            </Empty>
+          )}
         </Flex>
       ) : (
         <FlatList

@@ -42,6 +42,20 @@ export function getGraphQLErrorCode(error: unknown): string | undefined {
   return undefined;
 }
 
+export function isUnauthenticatedError(error: unknown): boolean {
+  if (getGraphQLErrorCode(error) === "UNAUTHENTICATED") return true;
+  if (error instanceof ApolloError) {
+    return (
+      error.graphQLErrors.some(
+        (e) =>
+          e.extensions?.code === "UNAUTHENTICATED" ||
+          e.message === "Authentication required",
+      ) || error.message === "Authentication required"
+    );
+  }
+  return false;
+}
+
 export function toFieldErrors(
   issues: ValidationIssue[],
 ): Record<string, string> {
