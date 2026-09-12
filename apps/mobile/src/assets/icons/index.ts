@@ -38,6 +38,7 @@ export { FootprintsIcon } from "./icons/footprints.icon";
 export { AwardIcon } from "./icons/award.icon";
 export { CheckIcon } from "./icons/check.icon";
 export { ArmchairIcon } from "./icons/armchair.icon";
+export { ArrowUpIcon } from "./icons/arrow-up.icon";
 export { MailIcon } from "./icons/mail.icon";
 export { SendIcon } from "./icons/send.icon";
 export { LogOutIcon } from "./icons/log-out.icon";

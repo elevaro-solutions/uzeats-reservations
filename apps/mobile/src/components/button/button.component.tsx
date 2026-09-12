@@ -74,7 +74,9 @@ export function Button({
         return (
           <View style={[styles.button(colors, fullWidth, isIconOnly), style]}>
             {showLeadingSpinner ? (
-              <ActivityIndicator size="small" color={colors.color} />
+              <View style={[styles.icon, styles.spinnerSlot]}>
+                <ActivityIndicator size="small" color={colors.color} />
+              </View>
             ) : startIcon ? (
               renderIcon({ icon: startIcon, color: colors.color, style: styles.icon })
             ) : null}
@@ -115,6 +117,11 @@ const styles = StyleSheet.create((theme) => ({
       },
     },
   },
+  spinnerSlot: {
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
   button: (colors: ButtonColors, fullWidth: boolean, isIconButton: boolean) => ({
     gap: 8,
     flexDirection: "row",
@@ -125,6 +132,7 @@ const styles = StyleSheet.create((theme) => ({
     borderStyle: "solid",
     borderColor: colors.borderColor,
     backgroundColor: colors.backgroundColor,
+    overflow: "hidden",
     variants: {
       corners: {
         rounded: { borderRadius: theme.radius.md },
@@ -132,28 +140,36 @@ const styles = StyleSheet.create((theme) => ({
       },
       size: {
         sm: {
+          height: isIconButton ? 32 : undefined,
           minHeight: 32,
-          paddingVertical: 6,
+          paddingVertical: isIconButton ? 0 : 6,
           minWidth: isIconButton ? 32 : 96,
-          paddingHorizontal: isIconButton ? 6 : 10,
+          width: isIconButton ? 32 : undefined,
+          paddingHorizontal: isIconButton ? 0 : 10,
         },
         md: {
+          height: isIconButton ? 40 : undefined,
           minHeight: 40,
-          paddingVertical: 10,
+          paddingVertical: isIconButton ? 0 : 10,
           minWidth: isIconButton ? 40 : 110,
-          paddingHorizontal: isIconButton ? 8 : 16,
+          width: isIconButton ? 40 : undefined,
+          paddingHorizontal: isIconButton ? 0 : 8,
         },
         lg: {
+          height: isIconButton ? 44 : undefined,
           minHeight: 44,
-          paddingVertical: 10,
+          paddingVertical: isIconButton ? 0 : 10,
           minWidth: isIconButton ? 44 : 120,
-          paddingHorizontal: isIconButton ? 10 : 18,
+          width: isIconButton ? 44 : undefined,
+          paddingHorizontal: isIconButton ? 0 : 18,
         },
         xl: {
+          height: isIconButton ? 48 : undefined,
           minHeight: 48,
-          paddingVertical: 12,
+          paddingVertical: isIconButton ? 0 : 12,
           minWidth: isIconButton ? 48 : 128,
-          paddingHorizontal: isIconButton ? 12 : 20,
+          width: isIconButton ? 48 : undefined,
+          paddingHorizontal: isIconButton ? 0 : 20,
         },
       },
       variant: {

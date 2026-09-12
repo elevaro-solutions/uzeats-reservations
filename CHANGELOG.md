@@ -4,6 +4,18 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.44.0] — 2026-09-12
+
+### Added
+
+- Mobile reservation messaging composer with auto-growing input and in-field send control
+- Telegram-style message bubbles with sender grouping, day dividers, and curved tips
+
+### Changed
+
+- Reservation messages screen chrome, empty states, and bubble colors align with Tablevera tokens
+- Icon-only buttons keep a fixed size while loading to avoid layout jump
+
 ## [0.43.0] — 2026-09-11
 
 ### Added

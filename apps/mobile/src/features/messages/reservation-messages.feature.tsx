@@ -11,13 +11,12 @@ import {
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ChevronLeftIcon, MailIcon, SendIcon } from "@/assets";
+import { ChevronLeftIcon, MailIcon } from "@/assets";
 import {
   Button,
   Empty,
   Flex,
   IconButton,
-  Input,
   Loader,
   Typography,
 } from "@/components";
@@ -26,9 +25,10 @@ import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
 
 import { MY_RESERVATION } from "../booking/api/booking.operations";
 import { formatReservationWhen } from "../reservations/helpers/reservation-display.helpers";
+import { MessageBubble } from "./components/message-bubble.component";
+import { MessageInput } from "./components/message-input.component";
 import {
   formatMessageDayLabel,
-  formatMessageTime,
   getMessageDayKey,
 } from "./helpers/message-display.helpers";
 
@@ -52,48 +52,6 @@ type ReservationMetaQuery = {
   } | null;
 };
 
-function MessageBubble({
-  body,
-  createdAt,
-  mine,
-}: {
-  body: string;
-  createdAt: string;
-  mine: boolean;
-}) {
-  const [isMultiline, setIsMultiline] = useState(false);
-
-  return (
-    <View
-      style={[
-        styles.bubble,
-        mine ? styles.bubbleMine : styles.bubbleTheirs,
-        isMultiline ? styles.bubbleStacked : styles.bubbleInline,
-      ]}
-    >
-      <Typography
-        size="text-sm"
-        color={mine ? "inverse" : "textPrimary"}
-        style={isMultiline ? undefined : styles.bubbleBodyInline}
-        onTextLayout={(event) => {
-          if (event.nativeEvent.lines.length > 1) {
-            setIsMultiline(true);
-          }
-        }}
-      >
-        {body}
-      </Typography>
-      <Typography
-        size="text-xs"
-        color={mine ? "inverse" : "muted"}
-        style={styles.bubbleTime}
-      >
-        {formatMessageTime(createdAt)}
-      </Typography>
-    </View>
-  );
-}
-
 export function ReservationMessagesFeature() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -102,14 +60,12 @@ export function ReservationMessagesFeature() {
   const [draft, setDraft] = useState("");
   const listRef = useRef<FlatList<MessageItem>>(null);
 
-  const {
-    data: reservationData,
-    loading: reservationLoading,
-  } = useQuery<ReservationMetaQuery>(MY_RESERVATION, {
-    variables: { id },
-    skip: !id,
-    fetchPolicy: "cache-first",
-  });
+  const { data: reservationData, loading: reservationLoading } =
+    useQuery<ReservationMetaQuery>(MY_RESERVATION, {
+      variables: { id },
+      skip: !id,
+      fetchPolicy: "cache-first",
+    });
 
   const { data, loading, error, refetch } = useQuery<MessagesQuery>(MESSAGES, {
     variables: { reservationId: id },
@@ -137,9 +93,7 @@ export function ReservationMessagesFeature() {
     try {
       await sendMessage({
         variables: { reservationId: id, body },
-        refetchQueries: [
-          { query: MESSAGES, variables: { reservationId: id } },
-        ],
+        refetchQueries: [{ query: MESSAGES, variables: { reservationId: id } }],
       });
       setDraft("");
       await refetch();
@@ -160,11 +114,16 @@ export function ReservationMessagesFeature() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.screen, { paddingTop: insets.top }]}
+      style={styles.screen}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={0}
     >
-      <Flex direction="row" alignItems="center" gap={1} style={styles.topBar}>
+      <Flex
+        direction="row"
+        alignItems="center"
+        gap={1}
+        style={[styles.topBar, { paddingTop: insets.top }]}
+      >
         <IconButton
           icon={<ChevronLeftIcon />}
           variant="surface"
@@ -173,12 +132,22 @@ export function ReservationMessagesFeature() {
           accessibilityLabel="Go back"
           style={styles.chromeBtn}
         />
-        <Flex style={styles.topCopy} gap={0.25}>
-          <Typography weight="semibold" size="text-lg" numberOfLines={1}>
+        <Flex style={styles.topCopy} gap={0.25} alignItems="center">
+          <Typography
+            weight="semibold"
+            size="text-lg"
+            align="center"
+            numberOfLines={1}
+          >
             {restaurantName}
           </Typography>
           {subtitle ? (
-            <Typography size="text-xs" color="muted" numberOfLines={1}>
+            <Typography
+              size="text-xs"
+              color="muted"
+              align="center"
+              numberOfLines={1}
+            >
               {subtitle}
             </Typography>
           ) : null}
@@ -223,14 +192,30 @@ export function ReservationMessagesFeature() {
           renderItem={({ item, index }) => {
             const mine = item.senderType === "diner";
             const dayKey = getMessageDayKey(item.createdAt);
-            const prevDayKey =
-              index > 0
-                ? getMessageDayKey(messages[index - 1].createdAt)
-                : null;
+            const prev = index > 0 ? messages[index - 1] : null;
+            const next =
+              index < messages.length - 1 ? messages[index + 1] : null;
+            const prevDayKey = prev ? getMessageDayKey(prev.createdAt) : null;
+            const nextDayKey = next ? getMessageDayKey(next.createdAt) : null;
             const showDayDivider = dayKey !== prevDayKey;
+            const isFirstInGroup =
+              !prev ||
+              prev.senderType !== item.senderType ||
+              prevDayKey !== dayKey;
+            const isLastInGroup =
+              !next ||
+              next.senderType !== item.senderType ||
+              nextDayKey !== dayKey;
 
             return (
-              <View style={styles.messageBlock}>
+              <View
+                style={[
+                  styles.messageBlock,
+                  isLastInGroup
+                    ? styles.messageGroupEnd
+                    : styles.messageGrouped,
+                ]}
+              >
                 {showDayDivider ? (
                   <View style={styles.dayDivider}>
                     <Typography size="text-xs" color="muted" weight="medium">
@@ -242,6 +227,8 @@ export function ReservationMessagesFeature() {
                   body={item.body}
                   createdAt={item.createdAt}
                   mine={mine}
+                  isFirstInGroup={isFirstInGroup}
+                  isLastInGroup={isLastInGroup}
                 />
               </View>
             );
@@ -249,33 +236,20 @@ export function ReservationMessagesFeature() {
         />
       )}
 
-      <Flex
-        direction="row"
-        alignItems="flex-end"
-        gap={1}
+      <View
         style={[
           styles.composer,
           { paddingBottom: Math.max(insets.bottom, theme.space(1.5)) },
         ]}
       >
-        <View style={styles.inputWrap}>
-          <Input
-            value={draft}
-            onChangeText={setDraft}
-            placeholder={`Message ${restaurantName}…`}
-            multiline
-            numberOfLines={2}
-          />
-        </View>
-        <Button
-          size="lg"
-          radius="rounded"
-          loading={sending}
-          disabled={!draft.trim()}
-          onPress={() => void onSend()}
-          startIcon={<SendIcon />}
+        <MessageInput
+          value={draft}
+          onChangeText={setDraft}
+          placeholder={`Message ${restaurantName}…`}
+          sending={sending}
+          onSend={() => void onSend()}
         />
-      </Flex>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -288,8 +262,9 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   topBar: {
     paddingHorizontal: space(2),
     paddingBottom: space(1),
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.slate3,
   },
   chromeBtn: {
     width: space(5),
@@ -309,7 +284,6 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   list: {
     paddingHorizontal: space(2),
     paddingVertical: space(1.5),
-    gap: space(0.75),
   },
   listEmpty: {
     flexGrow: 1,
@@ -318,53 +292,19 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   messageBlock: {
     gap: space(0.75),
   },
+  messageGrouped: {
+    marginBottom: space(0.25),
+  },
+  messageGroupEnd: {
+    marginBottom: space(1.25),
+  },
   dayDivider: {
     alignItems: "center",
     paddingVertical: space(0.5),
   },
-  bubble: {
-    maxWidth: "78%",
-    paddingHorizontal: space(1.5),
-    paddingVertical: space(1),
-    borderRadius: radius.lg,
-  },
-  bubbleInline: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: space(1),
-  },
-  bubbleStacked: {
-    flexDirection: "column",
-    gap: space(0.25),
-  },
-  bubbleBodyInline: {
-    flexShrink: 1,
-  },
-  bubbleMine: {
-    alignSelf: "flex-end",
-    backgroundColor: colors.primary5,
-    borderBottomRightRadius: radius.sm,
-  },
-  bubbleTheirs: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.slate3,
-    borderBottomLeftRadius: radius.sm,
-  },
-  bubbleTime: {
-    alignSelf: "flex-end",
-    textAlign: "right",
-    flexShrink: 0,
-    opacity: 0.72,
-  },
   composer: {
     paddingHorizontal: space(2),
     paddingTop: space(1),
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
     backgroundColor: colors.background,
-  },
-  inputWrap: {
-    flex: 1,
-    minWidth: 0,
   },
 }));
