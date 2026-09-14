@@ -4,6 +4,15 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+## [0.46.2] — 2026-09-14
+
+### Docs
+
+- Cursor documentation rule for module learnings and changelog
+- Split mobile auth and booking notes into dedicated files; add `[Unreleased]` section
+
 ## [0.46.1] — 2026-09-14
 
 ### Docs
