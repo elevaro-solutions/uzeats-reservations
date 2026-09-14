@@ -4,6 +4,12 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.46.1] — 2026-09-14
+
+### Docs
+
+- Mobile module learnings under `docs/notes/` (per-src notes, features index, LEARNINGS index)
+
 ## [0.46.0] — 2026-09-14
 
 ### Added
