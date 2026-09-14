@@ -4,6 +4,20 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.46.0] — 2026-09-14
+
+### Added
+
+- Mobile Help Center with FAQ accordion and tap-to-contact (email, phone, website, Instagram, address)
+- Mobile Favorites screen from Profile with undo-friendly unfavorite
+- Mobile Notifications screen and Expo push bootstrap (`expo-notifications`)
+- Instagram icon for mobile contact links
+
+### Changed
+
+- Profile Favorites, Notifications, and Help center rows navigate to dedicated screens
+- Removed unused Profile “Password & security” placeholder row
+
 ## [0.45.1] — 2026-09-12
 
 ### Added

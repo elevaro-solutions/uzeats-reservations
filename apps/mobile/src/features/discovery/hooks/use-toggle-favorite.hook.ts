@@ -11,6 +11,7 @@ import {
 export function useToggleFavorite(
   restaurantId: string,
   initialFavorite = false,
+  onChange?: (isFavorite: boolean) => void,
 ) {
   const { user } = useAuth();
   const router = useRouter();
@@ -40,12 +41,14 @@ export function useToggleFavorite(
       } else {
         await unfavoriteRestaurant({ variables: { restaurantId } });
       }
+      onChange?.(next);
     } catch {
       setIsFavorite(!next);
     }
   }, [
     favoriteRestaurant,
     isFavorite,
+    onChange,
     restaurantId,
     router,
     unfavoriteRestaurant,
@@ -53,4 +56,4 @@ export function useToggleFavorite(
   ]);
 
   return { isFavorite, toggleFavorite };
-}
+};

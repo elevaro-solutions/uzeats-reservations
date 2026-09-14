@@ -11,7 +11,6 @@ import {
   GlobeIcon,
   HeartIcon,
   InfoIcon,
-  LockIcon,
   LogOutIcon,
   UserIcon,
 } from "@/assets";
@@ -256,21 +255,12 @@ export function ProfileFeature() {
               {
                 title: "Favorites",
                 icon: <HeartIcon size={20} color={iconColor} />,
+                onPress: () => router.push("/favorites"),
               },
               {
                 title: "Notifications",
                 icon: <BellIcon size={20} color={iconColor} />,
-              },
-            ]}
-          />
-        </ProfileSection>
-
-        <ProfileSection label="Account">
-          <ProfileMenuGroup
-            items={[
-              {
-                title: "Password & security",
-                icon: <LockIcon size={20} color={iconColor} />,
+                onPress: () => router.push("/notifications"),
               },
             ]}
           />
@@ -287,6 +277,7 @@ export function ProfileFeature() {
               {
                 title: "Help center",
                 icon: <CircleHelpIcon size={20} color={iconColor} />,
+                onPress: () => router.push("/help"),
               },
               {
                 title: "About Tablevera",

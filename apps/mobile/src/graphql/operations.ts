@@ -332,6 +332,34 @@ export const ME = gql`
   }
 `;
 
+export const MY_SAVED_RESTAURANTS = gql`
+  query MySavedRestaurants($kind: RestaurantBookmarkKind!) {
+    mySavedRestaurants(kind: $kind) {
+      id
+      name
+      slug
+      cuisine
+      priceRange
+      photos
+      averageRating
+      reviewCount
+      isFavorite
+      address {
+        line1
+        city
+        state
+        neighborhood
+      }
+      shifts {
+        daysOfWeek
+        startTime
+        endTime
+        active
+      }
+    }
+  }
+`;
+
 export const FAVORITE_RESTAURANT = gql`
   mutation FavoriteRestaurant($restaurantId: ID!) {
     favoriteRestaurant(restaurantId: $restaurantId)
@@ -385,5 +413,11 @@ export const CREATE_REVIEW = gql`
       comment
       createdAt
     }
+  }
+`;
+
+export const REGISTER_PUSH_TOKEN = gql`
+  mutation RegisterPushToken($token: String!, $platform: String!) {
+    registerPushToken(token: $token, platform: $platform)
   }
 `;

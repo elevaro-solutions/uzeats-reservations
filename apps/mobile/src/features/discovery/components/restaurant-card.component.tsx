@@ -13,11 +13,13 @@ import type { RestaurantListItem } from "../types";
 export type RestaurantCardProps = {
   restaurant: RestaurantListItem;
   variant?: "list" | "carousel";
+  onFavoriteChange?: (isFavorite: boolean) => void;
 };
 
 export function RestaurantCard({
   restaurant,
   variant = "list",
+  onFavoriteChange,
 }: RestaurantCardProps) {
   styles.useVariants({ variant });
   const router = useRouter();
@@ -28,6 +30,7 @@ export function RestaurantCard({
   const { isFavorite, toggleFavorite } = useToggleFavorite(
     restaurant.id,
     restaurant.isFavorite ?? false,
+    onFavoriteChange,
   );
 
   const ratingLabel =

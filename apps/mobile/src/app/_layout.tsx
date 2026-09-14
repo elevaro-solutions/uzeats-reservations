@@ -14,6 +14,7 @@ import { StyleSheet } from "react-native-unistyles";
 import { Toaster } from "sonner-native";
 
 import { Providers } from "@/graphql";
+import { PushBootstrap } from "@/features";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -38,6 +39,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <Providers>
+        <PushBootstrap />
         <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
@@ -50,6 +52,24 @@ export default function RootLayout() {
           />
           <Stack.Screen
             name="search"
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="favorites"
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="notifications"
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="help"
             options={{
               headerShown: false,
             }}

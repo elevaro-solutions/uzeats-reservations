@@ -40,6 +40,7 @@ export { CheckIcon } from "./icons/check.icon";
 export { ArmchairIcon } from "./icons/armchair.icon";
 export { ArrowUpIcon } from "./icons/arrow-up.icon";
 export { MailIcon } from "./icons/mail.icon";
+export { InstagramIcon } from "./icons/instagram.icon";
 export { SendIcon } from "./icons/send.icon";
 export { LogOutIcon } from "./icons/log-out.icon";
 export { BellIcon } from "./icons/bell.icon";

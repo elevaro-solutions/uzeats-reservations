@@ -80,6 +80,13 @@ const config = {
         "enableGooglePay": true,
       },
     ],
+    [
+      "expo-notifications",
+      {
+        color: "#0b3d2e",
+        defaultChannel: "default",
+      },
+    ],
   ],
   experiments: {
     typedRoutes: true,
