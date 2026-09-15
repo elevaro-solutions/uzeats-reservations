@@ -44,6 +44,12 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 - `help-center.content.ts` mirrors `apps/web/src/lib/legal.ts` — “keep in sync manually.”
 - Why it matters: FAQ/contact drift is a process bug, not a codegen problem.
 
+## legal
+
+### [2026-09-15] In-app privacy/terms mirrored from web
+- `/privacy` and `/terms` render `LegalFeature` with copy adapted from `apps/web` privacy/terms pages. Constants in `legal.constants.ts` mirror `apps/web/src/lib/legal.ts` (keep in sync manually). Cookies/SMS deep-links open `tablevera.online` in the browser — no dedicated mobile screens.
+- Why it matters: Legal substance changes on web must be ported by hand; don’t assume a shared CMS.
+
 ## home
 
 ### [2026-09-14] Opens Search by mutating global discovery
@@ -67,6 +73,10 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 ### [2026-09-14] Offline empty state before guest CTA
 - Checks `sessionOffline && !user` before the signed-out CTA (same pattern as Reservations).
 - Why it matters: Missing `user` alone is not enough to show “Sign in” when tokens exist offline.
+
+### [2026-09-15] About replaced by Privacy / Terms
+- Preferences no longer has “About Tablevera.” Rows push `/privacy` and `/terms`. Sign-up `TermsToggle` links the same routes without toggling the switch.
+- Why it matters: Profile and auth agreement share the legal feature routes.
 
 ## reservations
 

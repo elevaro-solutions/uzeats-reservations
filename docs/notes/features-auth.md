@@ -7,3 +7,7 @@
 ## [2026-09-14] Google Sign-In is env-gated
 - Needs `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` (+ iOS client id on iOS). Logout best-effort `GoogleSignin.signOut` after SecureStore clear.
 - Why it matters: Missing env fails the Google button at runtime; local logout still clears tokens.
+
+## [2026-09-15] Terms toggle links without flipping the switch
+- Sign-up `TermsToggle` keeps the switch on its own `Pressable`; nested “Terms” / “Privacy Policy” text navigates to `/terms` and `/privacy`.
+- Why it matters: Tapping a legal link must not accidentally toggle agreement.

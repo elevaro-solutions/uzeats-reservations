@@ -75,6 +75,18 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="privacy"
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
+            name="terms"
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
             name="restaurant/[id]"
             options={{
               headerShown: false,

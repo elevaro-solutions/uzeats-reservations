@@ -10,8 +10,9 @@ import {
   CircleHelpIcon,
   GlobeIcon,
   HeartIcon,
-  InfoIcon,
+  LockIcon,
   LogOutIcon,
+  ReceiptTextIcon,
   UserIcon,
 } from "@/assets";
 import { Button, Empty, Flex, Typography, UserAvatar } from "@/components";
@@ -280,8 +281,14 @@ export function ProfileFeature() {
                 onPress: () => router.push("/help"),
               },
               {
-                title: "About Tablevera",
-                icon: <InfoIcon size={20} color={iconColor} />,
+                title: "Privacy Policy",
+                icon: <LockIcon size={20} color={iconColor} />,
+                onPress: () => router.push("/privacy"),
+              },
+              {
+                title: "Terms & Conditions",
+                icon: <ReceiptTextIcon size={20} color={iconColor} />,
+                onPress: () => router.push("/terms"),
               },
             ]}
           />

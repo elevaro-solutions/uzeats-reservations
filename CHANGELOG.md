@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.47.0] — 2026-09-15
+
+### Added
+
+- Mobile Privacy Policy and Terms & Conditions screens (adapted from web legal pages)
+- Profile Preferences rows for Privacy Policy and Terms & Conditions
+- Sign-up Terms toggle links into the in-app Privacy and Terms screens
+
+### Fixed
+
+- Remove duplicate contact details on Privacy Policy and Terms screens (keep tappable contact cards only)
+
+### Changed
+
+- Legal related-document card: compact section label outside the card, no icon or shadow
+
 ## [0.46.2] — 2026-09-14
 
 ### Docs

@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import { Pressable, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
@@ -10,23 +11,46 @@ export type TermsToggleProps = {
 };
 
 export function TermsToggle({ value, onChange, error }: TermsToggleProps) {
+  const router = useRouter();
   const { theme } = useUnistyles();
 
   return (
     <Flex gap={0.75}>
-      <Pressable
-        onPress={() => onChange(!value)}
-        accessibilityRole="switch"
-        accessibilityState={{ checked: value }}
-        style={styles.row}
-      >
-        <View style={[styles.track, value && styles.trackOn]}>
-          <View style={[styles.thumb, value && styles.thumbOn]} />
-        </View>
+      <View style={styles.row}>
+        <Pressable
+          onPress={() => onChange(!value)}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: value }}
+          accessibilityLabel="Agree to Terms and Privacy Policy"
+          hitSlop={8}
+        >
+          <View style={[styles.track, value && styles.trackOn]}>
+            <View style={[styles.thumb, value && styles.thumbOn]} />
+          </View>
+        </Pressable>
         <Typography size="text-sm" color="secondary" style={styles.label}>
-          I agree to the Terms & Privacy Policy
+          I agree to the{" "}
+          <Typography
+            size="text-sm"
+            weight="medium"
+            color="primary"
+            accessibilityRole="link"
+            onPress={() => router.push("/terms")}
+          >
+            Terms
+          </Typography>
+          {" & "}
+          <Typography
+            size="text-sm"
+            weight="medium"
+            color="primary"
+            accessibilityRole="link"
+            onPress={() => router.push("/privacy")}
+          >
+            Privacy Policy
+          </Typography>
         </Typography>
-      </Pressable>
+      </View>
       {error ? (
         <Typography size="text-sm" style={{ color: theme.colors.error }}>
           {error}
