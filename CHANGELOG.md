@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.49.0] — 2026-09-15
+
+### Changed
+
+- Mobile app icons: Icon Composer package for iOS (`ios-app-icon.icon`), Android adaptive foreground/monochrome assets, and Android splash using the new foreground mark
+- Mobile splash screen background color set to white (`#ffffff`)
+
 ## [0.48.0] — 2026-09-15
 
 ### Added

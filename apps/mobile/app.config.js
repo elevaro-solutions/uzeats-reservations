@@ -14,12 +14,13 @@ const config = {
   slug: "tablevera",
   version: "1.0.0",
   orientation: "portrait",
-  icon: "./assets/icon.png",
+  icon: "./assets/android-app-icon/android-icon-foreground.png",
   scheme: "tablevera",
   userInterfaceStyle: "light",
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.tablevera.app",
+    icon: "./assets/ios-app-icon.icon",
     infoPlist: {
       NSLocationWhenInUseUsageDescription:
         "Tablevera uses your location to show restaurants near you.",
@@ -27,8 +28,9 @@ const config = {
   },
   android: {
     adaptiveIcon: {
-      foregroundImage: "./assets/adaptive-icon.png",
-      backgroundColor: "#0b3d2e",
+      foregroundImage: "./assets/android-app-icon/android-icon-foreground.png",
+      monochromeImage: "./assets/android-app-icon/android-icon-monochrome.png",
+      backgroundColor: "#000000",
     },
     package: "com.tablevera.app",
     permissions: ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
@@ -43,7 +45,13 @@ const config = {
         image: "./assets/splash-icon.png",
         imageWidth: 200,
         resizeMode: "contain",
-        backgroundColor: "#0b3d2e",
+        backgroundColor: "#ffffff",
+        android: {
+          image: "./assets/android-app-icon/android-icon-foreground.png",
+          imageWidth: 200,
+          resizeMode: "contain",
+          backgroundColor: "#ffffff",
+        },
       },
     ],
     "expo-font",
