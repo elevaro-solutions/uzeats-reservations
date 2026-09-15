@@ -217,7 +217,11 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   }
 
   const notifications: AppNotification[] =
-    (notifData as { myNotifications?: AppNotification[] } | undefined)?.myNotifications ?? [];
+    (
+      notifData as
+        | { myNotifications?: { items?: AppNotification[] } }
+        | undefined
+    )?.myNotifications?.items ?? [];
   const unreadCount: number =
     (notifData as { unreadNotificationCount?: number } | undefined)?.unreadNotificationCount ?? 0;
 

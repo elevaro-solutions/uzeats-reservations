@@ -276,6 +276,11 @@ export function ProfileFeature() {
                 icon: <GlobeIcon size={20} color={iconColor} />,
               },
               {
+                title: "Push alerts",
+                icon: <BellIcon size={20} color={iconColor} />,
+                onPress: () => router.push("/notification-settings"),
+              },
+              {
                 title: "Help center",
                 icon: <CircleHelpIcon size={20} color={iconColor} />,
                 onPress: () => router.push("/help"),

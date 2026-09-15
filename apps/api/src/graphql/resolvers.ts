@@ -904,26 +904,32 @@ export const resolvers = {
 
     myNotifications: async (
       _: unknown,
-      args: { limit?: number | null },
+      args: { limit?: number | null; offset?: number | null },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
       const limit = Math.min(Math.max(args.limit ?? 20, 1), 50);
-      const items = await Notification.find({
+      const offset = Math.max(args.offset ?? 0, 0);
+      const filter = {
         userId: user._id,
         channel: 'in_app',
-      })
-        .sort({ createdAt: -1 })
-        .limit(limit);
-      return items.map((n: any) => ({
-        id: n._id.toString(),
-        type: n.type,
-        title: n.title,
-        body: n.body,
-        data: n.data ? JSON.stringify(n.data) : null,
-        readAt: n.readAt ?? null,
-        createdAt: n.createdAt,
-      }));
+      };
+      const [docs, total] = await Promise.all([
+        Notification.find(filter).sort({ createdAt: -1 }).skip(offset).limit(limit),
+        Notification.countDocuments(filter),
+      ]);
+      return {
+        items: docs.map((n: any) => ({
+          id: n._id.toString(),
+          type: n.type,
+          title: n.title,
+          body: n.body,
+          data: n.data ? JSON.stringify(n.data) : null,
+          readAt: n.readAt ?? null,
+          createdAt: n.createdAt,
+        })),
+        total,
+      };
     },
 
     unreadNotificationCount: async (_: unknown, __: unknown, ctx: GraphQLContext) => {

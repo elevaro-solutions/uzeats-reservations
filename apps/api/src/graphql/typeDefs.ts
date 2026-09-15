@@ -447,6 +447,11 @@ export const typeDefs = `#graphql
     createdAt: DateTime!
   }
 
+  type AppNotificationConnection {
+    items: [AppNotification!]!
+    total: Int!
+  }
+
   type SubscriptionFeatures {
     floorPlans: Boolean!
     smartAssign: Boolean!
@@ -2346,7 +2351,7 @@ export const typeDefs = `#graphql
     myRestaurantLoyalty: [RestaurantLoyaltyBalance!]!
     myRestaurantLoyaltyBalance(restaurantId: ID!): Int!
     myRestaurantLoyaltyHistory(restaurantId: ID, limit: Int): [RestaurantLoyaltyTransaction!]!
-    myNotifications(limit: Int): [AppNotification!]!
+    myNotifications(limit: Int, offset: Int): AppNotificationConnection!
     unreadNotificationCount: Int!
     myRestaurants(
       search: String

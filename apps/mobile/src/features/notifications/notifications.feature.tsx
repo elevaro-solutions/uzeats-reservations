@@ -1,71 +1,113 @@
+import { useMutation } from "@apollo/client";
+import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { Linking, ScrollView, View } from "react-native";
+import { useCallback, useState } from "react";
+import { ActivityIndicator, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { toast } from "sonner-native";
 
-import { ChevronLeftIcon } from "@/assets";
-import { Button, Flex, IconButton, Typography } from "@/components";
-import { useAuth } from "@/graphql/auth";
+import { BellIcon, CheckIcon, ChevronLeftIcon } from "@/assets";
+import {
+  Button,
+  Empty,
+  Flex,
+  IconButton,
+  InlineAlert,
+  Typography,
+} from "@/components";
+import { useAuth } from "@/graphql";
+import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
 
-import { getPushPermissionStatus } from "./helpers/push-token.helpers";
-import { useRegisterPush } from "./hooks/use-register-push.hook";
+import {
+  MARK_ALL_NOTIFICATIONS_READ,
+  MARK_NOTIFICATIONS_READ,
+} from "./api/notifications.operations";
+import { NotificationDetailSheet } from "./components/notification-detail-sheet.component";
+import { NotificationListCard } from "./components/notification-list-card.component";
+import type { NotificationLink } from "./helpers/notification-link.helpers";
+import type { AppNotification } from "./helpers/notification.types";
+import { useInfiniteNotifications } from "./hooks/use-infinite-notifications.hook";
 
 export function NotificationsFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
-  const { user } = useAuth();
-  const { registered, registering, register } = useRegisterPush({
-    auto: false,
-  });
-  const [permission, setPermission] = useState<
-    "undetermined" | "granted" | "denied" | "loading"
-  >("loading");
+  const { user, loading: authLoading } = useAuth();
+  const [selected, setSelected] = useState<AppNotification | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const refreshPermission = useCallback(async () => {
-    const status = await getPushPermissionStatus();
-    setPermission(status);
-  }, []);
+  const {
+    items,
+    unreadCount,
+    loading,
+    loadingMore,
+    hasMore,
+    error,
+    loadMore,
+    refresh,
+    markItemsRead,
+    markAllItemsRead,
+  } = useInfiniteNotifications({ skip: !user });
 
-  useEffect(() => {
-    void refreshPermission();
-  }, [refreshPermission]);
+  const [markRead] = useMutation(MARK_NOTIFICATIONS_READ);
+  const [markAllRead, { loading: markingAll }] = useMutation(
+    MARK_ALL_NOTIFICATIONS_READ,
+  );
 
-  useEffect(() => {
-    if (!user || permission !== "granted" || registered) return;
-    void register();
-  }, [permission, register, registered, user]);
-
-  const statusLabel = (() => {
-    if (!user) return "Sign in to enable push alerts";
-    if (permission === "loading") return "Checking permission…";
-    if (permission === "denied") return "Notifications are blocked";
-    if (registered) return "Push alerts are on";
-    if (permission === "granted") return "Permission granted — finish setup";
-    return "Push alerts are off";
-  })();
-
-  const onEnable = async () => {
-    if (!user) {
-      router.push("/(auth)/sign-in");
-      return;
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      setRefreshing(false);
     }
+  }, [refresh]);
 
-    if (permission === "denied") {
-      await Linking.openSettings();
-      return;
-    }
+  const handlePress = useCallback(
+    async (notification: AppNotification) => {
+      const next = notification.readAt
+        ? notification
+        : { ...notification, readAt: new Date().toISOString() };
+      setSelected(next);
+      if (notification.readAt) return;
 
-    const ok = await register();
-    await refreshPermission();
-    if (ok) {
-      toast.success("Push notifications enabled");
-    } else {
-      toast.error("Could not enable push notifications");
+      markItemsRead([notification.id]);
+      try {
+        await markRead({ variables: { ids: [notification.id] } });
+      } catch (err) {
+        toast.error("Couldn't mark as read", {
+          description: getGraphQLErrorMessage(err, "Please try again"),
+        });
+        void refresh();
+      }
+    },
+    [markItemsRead, markRead, refresh],
+  );
+
+  const handleMarkAll = useCallback(async () => {
+    if (unreadCount === 0 || markingAll) return;
+    markAllItemsRead();
+    try {
+      await markAllRead();
+      toast.success("All notifications marked as read");
+    } catch (err) {
+      toast.error("Couldn't mark all as read", {
+        description: getGraphQLErrorMessage(err, "Please try again"),
+      });
+      void refresh();
     }
-  };
+  }, [markAllItemsRead, markAllRead, markingAll, refresh, unreadCount]);
+
+  const handleViewResource = useCallback(
+    (link: NotificationLink) => {
+      setSelected(null);
+      router.push(link.href as never);
+    },
+    [router],
+  );
+
+  const isEmpty = !loading && !error && items.length === 0;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -81,55 +123,117 @@ export function NotificationsFeature() {
         <Typography weight="semibold" size="text-lg" style={styles.topTitle}>
           Notifications
         </Typography>
-        <View style={styles.sideSlot} />
+        <IconButton
+          icon={<CheckIcon />}
+          variant="surface"
+          size="sm"
+          disabled={!user || unreadCount === 0 || markingAll}
+          onPress={() => {
+            void handleMarkAll();
+          }}
+          accessibilityLabel="Mark all as read"
+          style={styles.chromeBtn}
+          color={
+            !user || unreadCount === 0
+              ? theme.colors.textMuted
+              : theme.colors.textPrimary
+          }
+        />
       </Flex>
 
-      <ScrollView
-        contentContainerStyle={[
-          styles.content,
-          {
-            paddingBottom:
-              Math.max(insets.bottom, theme.space(2)) + theme.space(2),
-          },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        <Flex gap={1}>
-          <Typography weight="semibold" size="text-xl">
-            Reservation alerts
-          </Typography>
-          <Typography size="text-md" color="muted">
-            Get notified about confirmations, reminders, waitlist openings, and
-            other updates for your bookings.
-          </Typography>
-        </Flex>
-
-        <View style={styles.card}>
-          <Typography size="text-sm" color="muted" weight="medium">
-            Status
-          </Typography>
-          <Typography weight="semibold" size="text-md" style={styles.status}>
-            {statusLabel}
-          </Typography>
-
+      {!user && !authLoading ? (
+        <View style={styles.padX}>
+          <Empty
+            icon={<BellIcon size={28} color={theme.colors.textMuted} />}
+            title="Sign in to see notifications"
+            description="Reservation updates and alerts will show up here."
+          />
           <Button
             fullWidth
-            loading={registering}
-            disabled={registering || (registered && permission === "granted")}
-            onPress={() => {
-              void onEnable();
-            }}
+            onPress={() => router.push("/(auth)/sign-in")}
+            style={styles.signInBtn}
           >
-            {!user
-              ? "Sign in"
-              : permission === "denied"
-                ? "Open settings"
-                : registered
-                  ? "Enabled"
-                  : "Enable push notifications"}
+            Sign in
           </Button>
         </View>
-      </ScrollView>
+      ) : (
+        <Flex flex={1}>
+          {error ? (
+            <View style={styles.padX}>
+              <InlineAlert
+                tone="error"
+                title="Couldn't load notifications"
+                message={error.message}
+              />
+              <Button
+                fullWidth
+                onPress={() => {
+                  void onRefresh();
+                }}
+                style={styles.retryBtn}
+              >
+                Try again
+              </Button>
+            </View>
+          ) : null}
+
+          <FlashList
+            data={items}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{
+              paddingTop: theme.space(1),
+              paddingBottom:
+                Math.max(insets.bottom, theme.space(2)) + theme.space(2),
+            }}
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
+            onEndReached={() => {
+              if (hasMore) loadMore();
+            }}
+            onEndReachedThreshold={0.4}
+            refreshing={refreshing}
+            onRefresh={() => {
+              void onRefresh();
+            }}
+            ListFooterComponent={
+              loadingMore ? (
+                <ActivityIndicator
+                  color={theme.colors.primary}
+                  style={styles.footerSpinner}
+                />
+              ) : null
+            }
+            ListEmptyComponent={
+              loading || authLoading ? (
+                <ActivityIndicator
+                  color={theme.colors.primary}
+                  style={styles.emptySpinner}
+                />
+              ) : isEmpty ? (
+                <Empty
+                  icon={<BellIcon size={28} color={theme.colors.textMuted} />}
+                  title="No notifications yet"
+                  description="Updates about your reservations will appear here."
+                />
+              ) : null
+            }
+            renderItem={({ item }) => (
+              <NotificationListCard
+                notification={item}
+                onPress={(n) => {
+                  void handlePress(n);
+                }}
+              />
+            )}
+          />
+        </Flex>
+      )}
+
+      <NotificationDetailSheet
+        notification={selected}
+        visible={Boolean(selected)}
+        onClose={() => setSelected(null)}
+        onViewResource={handleViewResource}
+      />
     </View>
   );
 }
@@ -142,6 +246,8 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   topBar: {
     paddingHorizontal: space(2),
     paddingBottom: space(1.5),
+    borderBottomWidth: 1,
+    borderBottomColor: colors.slate3,
   },
   topTitle: {
     flex: 1,
@@ -152,22 +258,25 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     height: space(5),
     borderRadius: radius.full,
   },
-  sideSlot: {
-    width: space(5),
-    height: space(5),
-  },
-  content: {
+  padX: {
     paddingHorizontal: space(2),
-    paddingTop: space(1),
-    gap: space(3),
+    paddingTop: space(2),
   },
-  card: {
-    gap: space(1.5),
-    padding: space(2),
-    borderRadius: radius.lg,
-    backgroundColor: colors.surface,
+  signInBtn: {
+    marginTop: space(2),
   },
-  status: {
-    marginBottom: space(0.5),
+  retryBtn: {
+    marginTop: space(1.5),
+  },
+  separator: {
+    height: 1,
+    backgroundColor: colors.slate3,
+    marginLeft: space(2) + space(5) + space(1.5),
+  },
+  footerSpinner: {
+    marginVertical: space(2),
+  },
+  emptySpinner: {
+    marginTop: space(6),
   },
 }));

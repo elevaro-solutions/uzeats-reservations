@@ -4,6 +4,7 @@ export { HomeIcon } from "./icons/home.icon";
 export { CalendarIcon } from "./icons/calendar.icon";
 export { CalendarCheckIcon } from "./icons/calendar-check.icon";
 export { CalendarPlusIcon } from "./icons/calendar-plus.icon";
+export { CalendarXIcon } from "./icons/calendar-x.icon";
 export { UserIcon } from "./icons/user.icon";
 export { StarIcon } from "./icons/star.icon";
 export { FolderOpenIcon } from "./icons/folder-open.icon";

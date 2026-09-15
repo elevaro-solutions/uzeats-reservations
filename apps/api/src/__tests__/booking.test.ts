@@ -354,16 +354,46 @@ describe('Booking Flow (E2E)', () => {
 
     const notifs = await graphqlRequest(
       agent,
-      `query { myNotifications { type title } }`,
+      `query {
+        myNotifications {
+          items { id type title }
+          total
+        }
+      }`,
       {},
       dinerToken,
     );
     expect(notifs.body.errors).toBeUndefined();
-    expect(
-      (notifs.body.data.myNotifications as Array<{ type: string }>).some(
-        (n) => n.type === 'reservation_cancelled',
-      ),
-    ).toBe(true);
+    const connection = notifs.body.data.myNotifications as {
+      items: Array<{ id: string; type: string }>;
+      total: number;
+    };
+    expect(connection.total).toBeGreaterThanOrEqual(1);
+    expect(connection.items.some((n) => n.type === 'reservation_cancelled')).toBe(true);
+
+    const page2 = await graphqlRequest(
+      agent,
+      `query($limit: Int, $offset: Int) {
+        myNotifications(limit: $limit, offset: $offset) {
+          items { id type }
+          total
+        }
+      }`,
+      { limit: 1, offset: 1 },
+      dinerToken,
+    );
+    expect(page2.body.errors).toBeUndefined();
+    const page2Conn = page2.body.data.myNotifications as {
+      items: Array<{ id: string }>;
+      total: number;
+    };
+    expect(page2Conn.total).toBe(connection.total);
+    if (connection.total > 1) {
+      expect(page2Conn.items).toHaveLength(1);
+      expect(page2Conn.items[0].id).not.toBe(connection.items[0].id);
+    } else {
+      expect(page2Conn.items).toHaveLength(0);
+    }
   });
 
   it('should create a review after a completed visit', async () => {

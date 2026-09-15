@@ -118,7 +118,7 @@ export default function OverviewPage() {
   }, [authLoading, user, router]);
 
   const overview = overviewData?.myOwnerOverview;
-  const notifications = notifData?.myNotifications ?? [];
+  const notifications = notifData?.myNotifications?.items ?? [];
   const subscription = subData?.mySubscription;
   const activeRestaurant = restaurants.find((r: { id: string }) => r.id === activeRestaurantId);
   const canAdd = Boolean(user && canCreateRestaurant(user.role));

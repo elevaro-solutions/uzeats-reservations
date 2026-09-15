@@ -1,7 +1,6 @@
 import { type ReactElement } from "react";
-import { Modal, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   CalendarIcon,
@@ -14,7 +13,7 @@ import {
   StarIcon,
   XIcon,
 } from "@/assets";
-import { Flex, RemoteImage, Typography } from "@/components";
+import { BottomSheet, Flex, RemoteImage, Typography } from "@/components";
 import { IconPropsType } from "@/types";
 
 import type {
@@ -79,135 +78,109 @@ export function ReservationOverflowMenu({
   depositStatus,
   depositAmountCents,
 }: ReservationOverflowMenuProps) {
-  const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
 
   return (
-    <Modal
+    <BottomSheet
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
+      onClose={onClose}
+      showHandle
+      showCloseButton={false}
+      padded={false}
+      accessibilityLabel="Close more actions"
+      contentContainerStyle={styles.content}
     >
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable
-          style={[
-            styles.sheet,
-            { paddingBottom: Math.max(insets.bottom, theme.space(2)) },
-          ]}
-          onPress={(e) => e.stopPropagation()}
-        >
-          <View style={styles.handle} />
-
-          <Flex
-            direction="row"
-            gap={1.5}
-            alignItems="center"
-            style={styles.header}
-          >
-            {restaurantPhoto ? (
-              <RemoteImage
-                uri={restaurantPhoto}
-                style={styles.thumb}
-                recyclingKey="overflow-restaurant"
-              />
-            ) : (
-              <View style={styles.thumbPlaceholder} />
-            )}
-            <Flex gap={0.5} style={styles.headerCopy}>
-              <Flex direction="row" alignItems="center" gap={1}>
-                <Typography
-                  weight="semibold"
-                  numberOfLines={1}
-                  style={styles.headerTitle}
-                >
-                  {restaurantName ?? "Restaurant"}
-                </Typography>
-                <ReservationStatusPill
-                  status={status}
-                  slotStart={slotStart}
-                  slotEnd={slotEnd}
-                  depositStatus={depositStatus}
-                  depositAmountCents={depositAmountCents}
-                />
-              </Flex>
-              {subtitle ? (
-                <Typography size="text-sm" color="muted" numberOfLines={1}>
-                  {subtitle}
-                </Typography>
-              ) : null}
-            </Flex>
+      <Flex
+        direction="row"
+        gap={1.5}
+        alignItems="center"
+        style={styles.header}
+      >
+        {restaurantPhoto ? (
+          <RemoteImage
+            uri={restaurantPhoto}
+            style={styles.thumb}
+            recyclingKey="overflow-restaurant"
+          />
+        ) : (
+          <View style={styles.thumbPlaceholder} />
+        )}
+        <Flex gap={0.5} style={styles.headerCopy}>
+          <Flex direction="row" alignItems="center" gap={1}>
+            <Typography
+              weight="semibold"
+              numberOfLines={1}
+              style={styles.headerTitle}
+            >
+              {restaurantName ?? "Restaurant"}
+            </Typography>
+            <ReservationStatusPill
+              status={status}
+              slotStart={slotStart}
+              slotEnd={slotEnd}
+              depositStatus={depositStatus}
+              depositAmountCents={depositAmountCents}
+            />
           </Flex>
+          {subtitle ? (
+            <Typography size="text-sm" color="muted" numberOfLines={1}>
+              {subtitle}
+            </Typography>
+          ) : null}
+        </Flex>
+      </Flex>
 
-          <View style={styles.list}>
-            {actions.length === 0 ? (
-              <Typography color="muted" style={styles.empty}>
-                No additional actions for this booking.
-              </Typography>
-            ) : (
-              actions.map((action) => {
-                const danger = action.tone === "danger";
-                const color = danger
-                  ? theme.colors.error
-                  : theme.colors.textPrimary;
-                return (
-                  <Pressable
-                    key={action.id}
-                    style={({ pressed }) => [
-                      styles.row,
-                      pressed && styles.rowPressed,
-                    ]}
-                    onPress={() => {
-                      // Close first, then defer selection so a nested Modal /
-                      // native calendar UI is not presented while this sheet
-                      // is still dismissing (iOS will auto-dismiss it).
-                      onClose();
-                      setTimeout(() => {
-                        onSelect(action.id);
-                      }, 400);
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel={action.label}
-                  >
-                    {actionIcon(action.id, color)}
-                    <Typography
-                      weight="medium"
-                      color={danger ? "error" : "textPrimary"}
-                    >
-                      {action.label}
-                    </Typography>
-                  </Pressable>
-                );
-              })
-            )}
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+      <View style={styles.list}>
+        {actions.length === 0 ? (
+          <Typography color="muted" style={styles.empty}>
+            No additional actions for this booking.
+          </Typography>
+        ) : (
+          actions.map((action) => {
+            const danger = action.tone === "danger";
+            const color = danger
+              ? theme.colors.error
+              : theme.colors.textPrimary;
+            return (
+              <Pressable
+                key={action.id}
+                style={({ pressed }) => [
+                  styles.row,
+                  pressed && styles.rowPressed,
+                ]}
+                onPress={() => {
+                  // Close first, then defer selection so a nested Modal /
+                  // native calendar UI is not presented while this sheet
+                  // is still dismissing (iOS will auto-dismiss it).
+                  onClose();
+                  setTimeout(() => {
+                    onSelect(action.id);
+                  }, 400);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={action.label}
+              >
+                {actionIcon(action.id, color)}
+                <Typography
+                  weight="medium"
+                  color={danger ? "error" : "textPrimary"}
+                >
+                  {action.label}
+                </Typography>
+              </Pressable>
+            );
+          })
+        )}
+      </View>
+    </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create(({ space, colors, radius }) => ({
-  backdrop: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
+  content: {
     paddingHorizontal: space(2),
-    paddingTop: space(1),
+    paddingTop: space(0.5),
     gap: space(1.5),
-  },
-  handle: {
-    alignSelf: "center",
-    width: space(5),
-    height: 4,
-    borderRadius: radius.full,
-    backgroundColor: colors.slate5,
-    marginBottom: space(0.5),
   },
   header: {
     padding: space(1.5),

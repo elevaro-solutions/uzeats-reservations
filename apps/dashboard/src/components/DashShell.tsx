@@ -304,7 +304,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   }
 
   const restaurantSelectOptions = buildRestaurantSelectOptions(restaurants);
-  const notifications: AppNotification[] = notifData?.myNotifications ?? [];
+  const notifications: AppNotification[] = notifData?.myNotifications?.items ?? [];
   const unreadCount: number = notifData?.unreadNotificationCount ?? 0;
   const onboardingSteps = activeRestaurant ? getOnboardingSteps(activeRestaurant) : [];
   const onboardingProgress = getOnboardingProgress(onboardingSteps);

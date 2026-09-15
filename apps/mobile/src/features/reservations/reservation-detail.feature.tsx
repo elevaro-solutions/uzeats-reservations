@@ -123,7 +123,7 @@ export function ReservationDetailFeature() {
   const reservation = data?.myReservation;
   const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
   const [confirmDeposit] = useMutation(CONFIRM_DEPOSIT);
-  const [saveRestaurant, { loading: saving }] = useMutation(SAVE_RESTAURANT);
+  const [saveRestaurant] = useMutation(SAVE_RESTAURANT);
 
   const primary = useMemo(
     () => (reservation ? resolvePrimaryCta(reservation) : null),
@@ -337,7 +337,6 @@ export function ReservationDetailFeature() {
           size="sm"
           onPress={() => setOverflowOpen(true)}
           accessibilityLabel="More actions"
-          disabled={overflowActions.length === 0 && !saving}
           style={styles.chromeBtn}
         />
       ) : (

@@ -68,6 +68,11 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 - `PushBootstrap` in root layout registers on auth and handles taps: `data.url` → `reservationId` → `restaurantId`. Needs EAS `projectId` for Expo push token. Cold-start uses `getLastNotificationResponse()` once. Settings screen disables auto-register (`auto: false`) to avoid double flows.
 - Why it matters: A notification tap can navigate on launch. Don’t mount a second auto-registering bootstrap on the settings screen.
 
+### [2026-09-15] Inbox vs push settings routes
+- `/notifications` is the in-app inbox (`NotificationsFeature`); push enablement lives at `/notification-settings` (`NotificationSettingsFeature`), linked from Profile → Preferences → Push alerts. Shortcuts → Notifications opens the inbox.
+- Inbox uses `myNotifications(limit, offset)` → `{ items, total }`, mark-read mutations, and the same deep-link order for the detail-sheet CTA (`url` → `reservationId` → `restaurantId`).
+- Why it matters: Don’t wire Profile “Notifications” to push settings; don’t assume array-shaped `myNotifications` after the connection change.
+
 ## profile
 
 ### [2026-09-14] Offline empty state before guest CTA
@@ -79,6 +84,10 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 - Why it matters: Profile and auth agreement share the legal feature routes.
 
 ## reservations
+
+### [2026-09-15] Overflow menu must not nest sheet inside backdrop Pressable
+- `ReservationOverflowMenu` used `<Pressable backdrop><Pressable sheet/></Pressable>`. Opening from the header “More actions” button made the sheet appear to do nothing: the same tap dismissed the Modal via the backdrop. Use `BottomSheet` (sibling backdrop + sheet), same as cancel/billing sheets.
+- Why it matters: Any custom Modal that wraps content in the dismiss Pressable will instant-close on iOS/Android when opened from a press.
 
 ### [2026-09-14] Status math is client-side and time-based
 - `reservation-display.helpers.ts` derives past/upcoming from status sets + `slotEnd`/`slotStart` vs `Date.now()`. Display can show `past` / `deposit_due` even if API status is still `confirmed`.

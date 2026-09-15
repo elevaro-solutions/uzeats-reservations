@@ -671,15 +671,18 @@ export const PLANS = gql`
 `;
 
 export const MY_NOTIFICATIONS = gql`
-  query MyNotifications($limit: Int) {
-    myNotifications(limit: $limit) {
-      id
-      type
-      title
-      body
-      data
-      readAt
-      createdAt
+  query MyNotifications($limit: Int, $offset: Int) {
+    myNotifications(limit: $limit, offset: $offset) {
+      items {
+        id
+        type
+        title
+        body
+        data
+        readAt
+        createdAt
+      }
+      total
     }
     unreadNotificationCount
   }

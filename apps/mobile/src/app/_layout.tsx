@@ -69,6 +69,12 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="notification-settings"
+            options={{
+              headerShown: false,
+            }}
+          />
+          <Stack.Screen
             name="help"
             options={{
               headerShown: false,

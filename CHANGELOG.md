@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.48.0] — 2026-09-15
+
+### Added
+
+- Mobile in-app notifications inbox (`/notifications`) with FlashList infinite scroll, unread styling, mark-all, and detail bottom sheet
+- GraphQL `AppNotificationConnection` with `offset` pagination on `myNotifications`
+- Profile Preferences “Push alerts” route (`/notification-settings`)
+- Mobile `CalendarXIcon` for cancelled-reservation notifications
+
+### Fixed
+
+- Mobile reservation detail “More actions” header button: overflow sheet no longer auto-dismisses on open (nested backdrop Pressable)
+
+### Changed
+
+- Mobile `/notifications` is the inbox; push permission settings moved to `/notification-settings`
+- Dashboard and web notification queries use `myNotifications.items` / `total`
+- Mobile notifications inbox uses flat rows with hairline dividers and quieter unread styling (typography + accent dot instead of primary-filled cards)
+- Mobile notification icons use soft category tones (reservations forest, messages blue, points/reviews gold, cancellations danger + calendar-x) so glyphs stay readable without loud row fills
+- Mobile notification detail sheet drops the type icon and shows a clearer relative + absolute timestamp with message-first body
+
 ## [0.47.0] — 2026-09-15
 
 ### Added
