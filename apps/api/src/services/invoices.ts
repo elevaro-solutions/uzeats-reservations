@@ -30,13 +30,88 @@ import {
 } from './stripe.js';
 import { User } from '../models/User.js';
 
+const COVER_SOURCE_ORDER = ['network', 'website', 'widget', 'phone', 'walkin'] as const;
+const COVER_SOURCE_LABELS: Record<(typeof COVER_SOURCE_ORDER)[number], string> = {
+  network: 'Network cover',
+  website: 'Website cover',
+  widget: 'Widget cover',
+  phone: 'Phone cover',
+  walkin: 'Walk-in cover',
+};
+
+type PeriodInvoiceLine = {
+  description: string;
+  quantity: number;
+  unitAmountCents: number;
+  amountCents: number;
+};
+
+export function utcBillingPeriod(date = new Date()) {
+  return date.toISOString().slice(0, 7);
+}
+
+export function previousUtcBillingPeriod(date = new Date()) {
+  return utcBillingPeriod(new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - 1, 1)));
+}
+
 function periodBounds(period: string) {
   const [year, month] = period.split('-').map(Number);
   if (!year || !month) throw new Error('billingPeriod must be YYYY-MM');
   const start = new Date(Date.UTC(year, month - 1, 1));
   const end = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
-  const dueDate = new Date(Date.UTC(year, month - 1, 1));
+  // Usage (cover fees) is complete when the month closes — due on the 1st of the next month.
+  const dueDate = new Date(Date.UTC(year, month, 1));
   return { start, end, dueDate };
+}
+
+function isDuplicateKeyError(err: unknown) {
+  return Boolean(err && typeof err === 'object' && 'code' in err && (err as { code: number }).code === 11000);
+}
+
+function isRefreshableAutoInvoice(doc: {
+  stripeInvoiceId?: string | null;
+  status?: string | null;
+  serviceIds?: unknown[] | null;
+  number?: string | null;
+}) {
+  if (doc.stripeInvoiceId) return false;
+  if (doc.status === 'paid' || doc.status === 'canceled') return false;
+  if (Array.isArray(doc.serviceIds) && doc.serviceIds.length > 0) return false;
+  const number = String(doc.number ?? '');
+  if (/-M\d+$/.test(number) || number.includes('-STRIPE-')) return false;
+  return true;
+}
+
+export function buildCoverFeeLines(
+  fees: Array<{ source?: string | null; partySize: number; feeCents: number }>,
+): PeriodInvoiceLine[] {
+  const groups = new Map<string, { covers: number; reservations: number; feeCents: number }>();
+  for (const fee of fees) {
+    if (!fee.feeCents) continue;
+    const source = COVER_SOURCE_ORDER.includes(fee.source as (typeof COVER_SOURCE_ORDER)[number])
+      ? (fee.source as (typeof COVER_SOURCE_ORDER)[number])
+      : 'network';
+    const cur = groups.get(source) ?? { covers: 0, reservations: 0, feeCents: 0 };
+    cur.covers += fee.partySize;
+    cur.reservations += 1;
+    cur.feeCents += fee.feeCents;
+    groups.set(source, cur);
+  }
+
+  const lines: PeriodInvoiceLine[] = [];
+  for (const source of COVER_SOURCE_ORDER) {
+    const group = groups.get(source);
+    if (!group || group.feeCents <= 0) continue;
+    const unit = group.covers > 0 ? Math.round(group.feeCents / group.covers) : group.feeCents;
+    const coverLabel = group.covers === 1 ? '1 cover' : `${group.covers} covers`;
+    lines.push({
+      description: `${COVER_SOURCE_LABELS[source]} (${coverLabel})`,
+      quantity: group.covers,
+      unitAmountCents: unit,
+      amountCents: group.feeCents,
+    });
+  }
+  return lines;
 }
 
 function invoiceStatusForDueDate(
@@ -307,96 +382,150 @@ export async function createManualInvoice(input: {
   return mapInvoice(doc, restaurant.name);
 }
 
+async function buildPeriodInvoiceLines(
+  sub: {
+    plan: string;
+    status: string;
+    trialEndsAt?: Date | null;
+    monthlyPriceCents: number;
+    restaurantId: unknown;
+  },
+  period: string,
+  dueDate: Date,
+): Promise<{ lines: PeriodInvoiceLine[]; subtotalCents: number }> {
+  const lines: PeriodInvoiceLine[] = [];
+  const planName = String(sub.plan).charAt(0).toUpperCase() + String(sub.plan).slice(1);
+  const trialStillRunning =
+    sub.status === 'trialing' && sub.trialEndsAt && sub.trialEndsAt > dueDate;
+
+  if (trialStillRunning) {
+    lines.push({
+      description: `${planName} plan trial - ${period}`,
+      quantity: 1,
+      unitAmountCents: 0,
+      amountCents: 0,
+    });
+  } else {
+    lines.push({
+      description: `${planName} plan - ${period}`,
+      quantity: 1,
+      unitAmountCents: sub.monthlyPriceCents,
+      amountCents: sub.monthlyPriceCents,
+    });
+  }
+
+  const coverFees = await CoverFee.find({
+    restaurantId: sub.restaurantId,
+    billingPeriod: period,
+    status: { $in: ['pending', 'charged'] },
+  });
+  lines.push(...buildCoverFeeLines(coverFees));
+
+  const subtotalCents = lines.reduce((sum, line) => sum + line.amountCents, 0);
+  return { lines, subtotalCents };
+}
+
+async function markCoverFeesCharged(restaurantId: unknown, period: string) {
+  await CoverFee.updateMany(
+    {
+      restaurantId,
+      billingPeriod: period,
+      status: 'pending',
+      feeCents: { $gt: 0 },
+    },
+    { $set: { status: 'charged' } },
+  );
+}
+
 export async function generateInvoicesForPeriod(period: string) {
   const { dueDate } = periodBounds(period);
   const config = await getPlatformConfig();
   const prefix = config.invoicePrefix || 'INV';
   const currency = config.currency || 'usd';
-  const status = invoiceStatusForDueDate(dueDate);
 
   const subs = await Subscription.find({
     status: { $in: ['trialing', 'active', 'past_due'] },
   });
 
   let created = 0;
+  let updated = 0;
   let skipped = 0;
 
   for (const sub of subs) {
+    const { lines, subtotalCents } = await buildPeriodInvoiceLines(sub, period, dueDate);
+    const nextStatus = subtotalCents === 0 ? 'paid' : invoiceStatusForDueDate(dueDate);
+    const paidAt = nextStatus === 'paid' ? new Date() : undefined;
+
     const existing = await Invoice.findOne({
       restaurantId: sub.restaurantId,
       billingPeriod: period,
     });
+
     if (existing) {
-      skipped += 1;
+      if (!isRefreshableAutoInvoice(existing)) {
+        skipped += 1;
+        continue;
+      }
+      existing.set('lines', lines);
+      existing.subtotalCents = subtotalCents;
+      existing.totalCents = subtotalCents;
+      existing.dueDate = dueDate;
+      existing.status = nextStatus;
+      if (paidAt && !existing.paidAt) existing.paidAt = paidAt;
+      if (!existing.payToken) existing.payToken = newPayToken();
+      await existing.save();
+      await markCoverFeesCharged(sub.restaurantId, period);
+      updated += 1;
       continue;
     }
 
-    const lines: Array<{
-      description: string;
-      quantity: number;
-      unitAmountCents: number;
-      amountCents: number;
-    }> = [];
-
-    if (sub.status !== 'trialing' || !sub.trialEndsAt || sub.trialEndsAt <= dueDate) {
-      lines.push({
-        description: `${String(sub.plan).toUpperCase()} plan - ${period}`,
-        quantity: 1,
-        unitAmountCents: sub.monthlyPriceCents,
-        amountCents: sub.monthlyPriceCents,
-      });
-    } else {
-      lines.push({
-        description: `${String(sub.plan).toUpperCase()} plan trial - ${period}`,
-        quantity: 1,
-        unitAmountCents: 0,
-        amountCents: 0,
-      });
-    }
-
-    const coverFees = await CoverFee.find({
-      restaurantId: sub.restaurantId,
-      billingPeriod: period,
-      status: { $in: ['pending', 'charged'] },
-    });
-    const coverTotal = coverFees.reduce((sum, f) => sum + f.feeCents, 0);
-    if (coverTotal > 0) {
-      lines.push({
-        description: `Cover fees (${coverFees.length} reservations)`,
-        quantity: coverFees.length || 1,
-        unitAmountCents: coverFees.length ? Math.round(coverTotal / coverFees.length) : coverTotal,
-        amountCents: coverTotal,
-      });
-    }
-
-    const subtotalCents = lines.reduce((sum, l) => sum + l.amountCents, 0);
-    const seq = String(created + skipped + 1).padStart(4, '0');
+    const seq = String(created + updated + skipped + 1).padStart(4, '0');
     const number = `${prefix}-${period.replace('-', '')}-${seq}`;
 
-    await Invoice.create({
-      number,
-      restaurantId: sub.restaurantId,
-      subscriptionId: sub._id,
-      status: subtotalCents === 0 && sub.status === 'trialing' ? 'paid' : status,
-      billingPeriod: period,
-      currency,
-      subtotalCents,
-      totalCents: subtotalCents,
-      lines,
-      dueDate,
-      paidAt: subtotalCents === 0 ? new Date() : undefined,
-      payToken: newPayToken(),
-    });
-    created += 1;
+    try {
+      await Invoice.create({
+        number,
+        restaurantId: sub.restaurantId,
+        subscriptionId: sub._id,
+        status: nextStatus,
+        billingPeriod: period,
+        currency,
+        subtotalCents,
+        totalCents: subtotalCents,
+        lines,
+        dueDate,
+        paidAt,
+        payToken: newPayToken(),
+      });
+      await markCoverFeesCharged(sub.restaurantId, period);
+      created += 1;
+    } catch (err) {
+      if (isDuplicateKeyError(err)) {
+        skipped += 1;
+        continue;
+      }
+      throw err;
+    }
   }
 
-  return { created, skipped, period };
+  return { created, updated, skipped, period };
+}
+
+/** Current + previous calendar months (UTC). Idempotent; refreshes unpaid auto invoices. */
+export async function generateDuePeriodInvoices(now = new Date()) {
+  const current = utcBillingPeriod(now);
+  const previous = previousUtcBillingPeriod(now);
+  const previousResult = await generateInvoicesForPeriod(previous);
+  const currentResult =
+    current === previous ? previousResult : await generateInvoicesForPeriod(current);
+  return { previous: previousResult, current: currentResult };
 }
 
 export async function listInvoices(input: {
   status?: string;
   search?: string;
   restaurantId?: string;
+  billingPeriod?: string;
   limit?: number;
   offset?: number;
 }) {
@@ -405,6 +534,7 @@ export async function listInvoices(input: {
   const filter: Record<string, unknown> = {};
   if (input.status) filter.status = input.status;
   if (input.restaurantId?.trim()) filter.restaurantId = input.restaurantId.trim();
+  if (input.billingPeriod?.trim()) filter.billingPeriod = input.billingPeriod.trim();
 
   if (input.search?.trim()) {
     const q = input.search.trim();

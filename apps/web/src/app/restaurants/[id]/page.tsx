@@ -73,14 +73,19 @@ export default async function RestaurantPage({ params, searchParams }: PageProps
   const restaurant = await fetchRestaurantSeo(id);
 
   if (restaurant && isMongoObjectId(id) && restaurant.slug) {
-    permanentRedirect(`/r/${restaurant.slug}${searchParamsToQuery(query)}`);
+    permanentRedirect(
+      `${buildRestaurantBookingPath(restaurant.slug, restaurant.id)}${searchParamsToQuery(query)}`,
+    );
   }
 
   if (!restaurant) {
     return <RestaurantPageClient />;
   }
 
-  const openingHoursLines = formatOpeningHoursLines(restaurant.shifts ?? []);
+  const openingHoursLines = formatOpeningHoursLines(
+    restaurant.shifts ?? [],
+    restaurant.timezone ?? undefined,
+  );
   const faq = buildRestaurantFaq({ ...restaurant, openingHoursLines });
 
   return (

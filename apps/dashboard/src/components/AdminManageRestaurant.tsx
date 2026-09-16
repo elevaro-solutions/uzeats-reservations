@@ -24,6 +24,7 @@ import {
   message,
 } from 'antd';
 import { UserAddOutlined } from '@ant-design/icons';
+import Link from 'next/link';
 import {
   AddressAutocomplete,
   PhoneInput,
@@ -50,6 +51,7 @@ import {
   restaurantFieldTooltips as tips,
 } from '@/lib/restaurantFormTooltips';
 import { isPlatformAdmin } from '@/lib/roles';
+import { accountDetailPath } from '@/lib/adminAccounts';
 
 const { Text } = Typography;
 
@@ -657,7 +659,10 @@ export function AdminManageRestaurant({
                   </Form.Item>
                 </Col>
                 <Col span={24}>
-                  <Form.Item label="Photos">
+                  <Form.Item
+                    label="Photos"
+                    extra="Drag to reorder. The first photo is the large hero; the next two appear beside it on the public page."
+                  >
                     <PhotoUpload value={photos} onChange={setPhotos} maxCount={10} />
                   </Form.Item>
                 </Col>
@@ -881,7 +886,11 @@ export function AdminManageRestaurant({
                 columns={[
                   {
                     title: 'Name',
-                    render: (_: unknown, member) => `${member.firstName} ${member.lastName}`,
+                    render: (_: unknown, member) => (
+                      <Link href={accountDetailPath(member.role, member.id)}>
+                        {member.firstName} {member.lastName}
+                      </Link>
+                    ),
                   },
                   { title: 'Email', dataIndex: 'email' },
                   {

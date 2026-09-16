@@ -9,6 +9,7 @@ import {
   RightOutlined,
   StarFilled,
 } from '@ant-design/icons';
+import { formatTimeInTimeZone, timezoneFromAddress } from '@reservations/shared';
 import { colors, priceRangeLabel, radii, shadows, typography } from '@reservations/ui';
 import { AVAILABILITY } from '@/lib/graphql';
 import type { MapRestaurant } from './RestaurantDiscoveryMap';
@@ -22,8 +23,9 @@ type MapMarkerInfoCardProps = {
   onSelectSlot: (time: string) => void;
 };
 
-function formatSlotTime(slot: string): string {
-  return new Date(slot).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+function formatSlotTime(slot: string, state?: string): string {
+  const timeZone = timezoneFromAddress({ state });
+  return formatTimeInTimeZone(slot, timeZone);
 }
 
 export function MapMarkerInfoCard({
@@ -289,7 +291,7 @@ export function MapMarkerInfoCard({
                   e.currentTarget.style.background = colors.brand[600];
                 }}
               >
-                {formatSlotTime(slot)}
+                {formatSlotTime(slot, restaurant.address?.state)}
               </button>
             ))}
           </div>

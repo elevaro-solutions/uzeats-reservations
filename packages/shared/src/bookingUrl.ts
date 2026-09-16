@@ -4,9 +4,9 @@ export function isMongoObjectId(value: string): boolean {
   return OBJECT_ID_RE.test(value);
 }
 
-/** Public booking path — prefers short `/r/:slug` URLs for sharing. */
+/** Public booking path — `/restaurants/:slug` (falls back to Mongo id). */
 export function buildRestaurantBookingPath(slug?: string | null, id?: string | null): string {
-  if (slug) return `/r/${slug}`;
+  if (slug) return `/restaurants/${slug}`;
   if (id) return `/restaurants/${id}`;
   return '/';
 }

@@ -1,9 +1,10 @@
 'use client';
 
-import { useDeferredValue, useEffect, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Typography } from 'antd';
 import { SearchOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { colors } from '@reservations/ui';
+import { countPopularMenuItems, selectPublicMenuSections } from '@reservations/shared';
 
 const { Title, Text } = Typography;
 
@@ -14,6 +15,7 @@ type MenuItem = {
   priceCents: number;
   dietary?: string[];
   photoUrl?: string | null;
+  popular?: boolean | null;
 };
 
 type MenuSection = {
@@ -28,7 +30,6 @@ type Props = {
   website?: string | null;
 };
 
-const PREVIEW_ITEMS = 4;
 /** Show in-menu search once the list is large enough to browse. */
 const SEARCH_MIN_ITEMS = 6;
 
@@ -55,13 +56,14 @@ function itemMatchesQuery(item: MenuItem, query: string): boolean {
 }
 
 export function RestaurantMenuSection({ sections, menuUrl, website }: Props) {
-  const [expanded, setExpanded] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const deferredQuery = useDeferredValue(searchQuery.trim().toLowerCase());
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const hasMenu = sections.length > 0;
+  const publicSections = useMemo(() => selectPublicMenuSections(sections), [sections]);
+  const hasCuratedPopular = countPopularMenuItems(sections) > 0;
+  const hasMenu = publicSections.length > 0;
   const externalMenuUrl = menuUrl || null;
   const fallbackWebsiteUrl = !externalMenuUrl && website ? website : null;
 
@@ -90,22 +92,20 @@ export function RestaurantMenuSection({ sections, menuUrl, website }: Props) {
     );
   }
 
-  const totalItems = sections.reduce((n, s) => n + (s.items?.length ?? 0), 0);
+  const totalItems = publicSections.reduce((n, s) => n + (s.items?.length ?? 0), 0);
   const canSearch = totalItems >= SEARCH_MIN_ITEMS;
   const isSearching = deferredQuery.length > 0;
-  const showPreview = !expanded && !externalMenuUrl && !isSearching && totalItems > PREVIEW_ITEMS;
 
   const filteredSections = isSearching
-    ? sections
+    ? publicSections
         .map((section) => ({
           ...section,
           items: (section.items ?? []).filter((item) => itemMatchesQuery(item, deferredQuery)),
         }))
         .filter((section) => section.items.length > 0)
-    : sections;
+    : publicSections;
 
   const matchCount = filteredSections.reduce((n, s) => n + s.items.length, 0);
-  let shown = 0;
 
   const closeSearch = () => {
     setSearchOpen(false);
@@ -117,7 +117,7 @@ export function RestaurantMenuSection({ sections, menuUrl, website }: Props) {
       <div className="rt-restaurant-section__header">
         <Title level={3} className="rt-restaurant-section__title">
           <UnorderedListOutlined style={{ marginRight: 8, color: colors.brand[600] }} />
-          Menu
+          {hasCuratedPopular ? 'Popular dishes' : 'Menu'}
         </Title>
         <div className="rt-restaurant-section__header-actions">
           {canSearch && (
@@ -133,7 +133,6 @@ export function RestaurantMenuSection({ sections, menuUrl, website }: Props) {
                   return;
                 }
                 setSearchOpen(true);
-                if (!externalMenuUrl) setExpanded(true);
               }}
             >
               <SearchOutlined />
@@ -143,15 +142,7 @@ export function RestaurantMenuSection({ sections, menuUrl, website }: Props) {
             <ExternalMenuLink href={externalMenuUrl} className="rt-restaurant-link">
               View full menu
             </ExternalMenuLink>
-          ) : (
-            !expanded &&
-            !isSearching &&
-            totalItems > PREVIEW_ITEMS && (
-              <button type="button" className="rt-restaurant-link" onClick={() => setExpanded(true)}>
-                View full menu
-              </button>
-            )
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -166,7 +157,6 @@ export function RestaurantMenuSection({ sections, menuUrl, website }: Props) {
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
-              if (!externalMenuUrl) setExpanded(true);
             }}
             onKeyDown={(e) => {
               if (e.key === 'Escape') closeSearch();
@@ -194,15 +184,6 @@ export function RestaurantMenuSection({ sections, menuUrl, website }: Props) {
         ) : (
           filteredSections.map((section) => {
             const items = section.items ?? [];
-            const visibleItems = showPreview
-              ? items.filter(() => {
-                  if (shown >= PREVIEW_ITEMS) return false;
-                  shown += 1;
-                  return true;
-                })
-              : items;
-
-            if (showPreview && visibleItems.length === 0) return null;
 
             return (
               <div key={section.id} className="rt-restaurant-menu__section">
@@ -215,7 +196,7 @@ export function RestaurantMenuSection({ sections, menuUrl, website }: Props) {
                     </Text>
                   )}
                 </Title>
-                {visibleItems.map((item, idx) => (
+                {items.map((item, idx) => (
                   <div key={item.id ?? idx} className="rt-restaurant-menu__item">
                     {item.photoUrl && (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -259,24 +240,7 @@ export function RestaurantMenuSection({ sections, menuUrl, website }: Props) {
         <ExternalMenuLink href={externalMenuUrl} className="rt-restaurant-btn-outline">
           View full menu
         </ExternalMenuLink>
-      ) : (
-        showPreview && (
-          <button type="button" className="rt-restaurant-btn-outline" onClick={() => setExpanded(true)}>
-            View full menu ({totalItems} items)
-          </button>
-        )
-      )}
-
-      {!externalMenuUrl && expanded && !isSearching && totalItems > PREVIEW_ITEMS && (
-        <button
-          type="button"
-          className="rt-restaurant-link"
-          style={{ marginTop: 16, display: 'inline-block' }}
-          onClick={() => setExpanded(false)}
-        >
-          Show less
-        </button>
-      )}
+      ) : null}
 
       {fallbackWebsiteUrl && (
         <div style={{ marginTop: 16 }}>

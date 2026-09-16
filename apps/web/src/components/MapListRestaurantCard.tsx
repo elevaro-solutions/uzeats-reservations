@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@apollo/client/react';
 import { Rate, Typography } from 'antd';
 import { EnvironmentOutlined } from '@ant-design/icons';
+import { formatTimeInTimeZone, timezoneFromAddress } from '@reservations/shared';
 import { colors, priceRangeLabel, radii, shadows, typography, pickRestaurantPhoto, restaurantPhotoCandidates } from '@reservations/ui';
 import { AVAILABILITY } from '@/lib/graphql';
 import type { MapRestaurant } from './RestaurantDiscoveryMap';
@@ -116,7 +117,7 @@ export function MapListRestaurantCard({
                   onSelectSlot(slot);
                 }}
               >
-                {new Date(slot).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                {formatTimeInTimeZone(slot, timezoneFromAddress({ state: restaurant.address?.state }))}
               </button>
             ))}
           </div>

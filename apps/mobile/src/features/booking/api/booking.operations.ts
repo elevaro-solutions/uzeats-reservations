@@ -285,6 +285,7 @@ export const BOOKING_RESTAURANT = gql`
         endTime
         active
       }
+      timezone
       address {
         line1
         line2

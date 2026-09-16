@@ -192,6 +192,7 @@ export const typeDefs = `#graphql
     isSaved: Boolean!
     isFavorite: Boolean!
     bookingWindow: BookingWindow!
+    timezone: String!
     createdAt: DateTime!
   }
 
@@ -398,6 +399,7 @@ export const typeDefs = `#graphql
     photoUrl: String
     dietary: [String!]!
     available: Boolean!
+    popular: Boolean!
   }
 
   type MenuSection {
@@ -780,6 +782,7 @@ export const typeDefs = `#graphql
 
   type GenerateInvoicesResult {
     created: Int!
+    updated: Int!
     skipped: Int!
     period: String!
   }
@@ -1699,6 +1702,17 @@ export const typeDefs = `#graphql
     phone: String
   }
 
+  input AdminCreateUserInput {
+    email: String!
+    password: String!
+    firstName: String!
+    lastName: String!
+    phone: String
+    role: UserRole!
+    restaurantIds: [ID!]
+    emailVerified: Boolean
+  }
+
   type PartnerRegisterPayload {
     accessToken: String!
     refreshToken: String!
@@ -1937,6 +1951,7 @@ export const typeDefs = `#graphql
     photoUrl: String
     dietary: [String!]
     available: Boolean
+    popular: Boolean
   }
 
   input MenuSectionInput {
@@ -2380,7 +2395,10 @@ export const typeDefs = `#graphql
     adminStats: PlatformStats!
     adminLoyaltyStats: LoyaltyPlatformStats!
     adminReferralLeaders(limit: Int): [ReferralLeader!]!
-    adminUsers(search: String, role: UserRole, limit: Int, offset: Int): UserConnection!
+    adminUsers(search: String, role: UserRole, roles: [UserRole!], limit: Int, offset: Int): UserConnection!
+    adminUser(id: ID!): User
+    adminUserReservations(userId: ID!, limit: Int, offset: Int): ReservationConnection!
+    adminUserRestaurants(userId: ID!): [Restaurant!]!
     adminInvoices(status: InvoiceStatus, search: String, restaurantId: ID, limit: Int, offset: Int): InvoiceConnection!
     adminInvoice(id: ID!): Invoice!
     invoiceByPayToken(token: String!): Invoice!
@@ -2436,6 +2454,7 @@ export const typeDefs = `#graphql
     partnerRestaurantNameAvailable(name: String!, excludeRestaurantId: ID): Boolean!
     annualBillingSettings: AnnualBillingSettings!
     coverFeeSummary(restaurantId: ID!, period: String): CoverFeeSummary!
+    restaurantInvoices(restaurantId: ID!, period: String, limit: Int, offset: Int): InvoiceConnection!
 
     myRestaurantGroups: [RestaurantGroup!]!
     groupAnalytics(groupId: ID!): GroupAnalytics!
@@ -2548,6 +2567,7 @@ export const typeDefs = `#graphql
     createUploadUrl(filename: String!, contentType: String!): UploadUrl!
     setUserRole(userId: ID!, role: UserRole!): User!
     adminUpdateUser(userId: ID!, input: AdminUserInput!): User!
+    adminCreateUser(input: AdminCreateUserInput!): User!
     requestAdminDeleteUserCode(userId: ID!): AdminDeleteUserCodePayload!
     adminDeleteUser(userId: ID!, code: String): AdminDeleteUserPayload!
     adminDeleteRestaurant(id: ID!): AdminDeleteRestaurantPayload!

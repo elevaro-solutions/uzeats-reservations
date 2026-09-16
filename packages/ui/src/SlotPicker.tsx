@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Typography } from 'antd';
+import { formatTimeInTimeZone, minutesInTimeZone } from '@reservations/shared';
 import { colors, radii, shadows, typography } from './tokens';
 
 const { Text } = Typography;
@@ -13,18 +14,21 @@ export interface SlotPickerProps {
   loading?: boolean;
   /** How many popular times to show before expanding. Default 5. */
   popularCount?: number;
+  /** IANA timezone for slot labels (restaurant local). */
+  timeZone?: string;
 }
 
 type Slot = { time: string; available: boolean; remainingTables: number };
 
-function getSlotMinutes(time: string): number {
+function getSlotMinutes(time: string, timeZone?: string): number {
+  if (timeZone) return minutesInTimeZone(time, timeZone);
   const d = new Date(time);
   return d.getHours() * 60 + d.getMinutes();
 }
 
 /** Lower score = more "popular" (dinner peak near 7 PM, then lunch). */
-function popularityScore(time: string): number {
-  const mins = getSlotMinutes(time);
+function popularityScore(time: string, timeZone?: string): number {
+  const mins = getSlotMinutes(time, timeZone);
   const dinnerPeak = 19 * 60;
   const distanceFromDinner = Math.abs(mins - dinnerPeak);
 
@@ -37,11 +41,16 @@ function popularityScore(time: string): number {
   return 5000 + distanceFromDinner;
 }
 
-function pickPopularSlots(openSlots: Slot[], max: number, selected?: string | null): Slot[] {
+function pickPopularSlots(
+  openSlots: Slot[],
+  max: number,
+  selected?: string | null,
+  timeZone?: string,
+): Slot[] {
   if (openSlots.length <= max) return openSlots;
 
   const byPopularity = [...openSlots].sort(
-    (a, b) => popularityScore(a.time) - popularityScore(b.time),
+    (a, b) => popularityScore(a.time, timeZone) - popularityScore(b.time, timeZone),
   );
   let picked = byPopularity.slice(0, max).sort((a, b) => a.time.localeCompare(b.time));
 
@@ -57,7 +66,8 @@ function pickPopularSlots(openSlots: Slot[], max: number, selected?: string | nu
   return picked;
 }
 
-function formatSlotLabel(time: string): string {
+function formatSlotLabel(time: string, timeZone?: string): string {
+  if (timeZone) return formatTimeInTimeZone(time, timeZone);
   return new Date(time).toLocaleTimeString([], {
     hour: 'numeric',
     minute: '2-digit',
@@ -68,12 +78,14 @@ function SlotButton({
   slot,
   selected,
   onSelect,
+  timeZone,
 }: {
   slot: Slot;
   selected: boolean;
   onSelect: (time: string) => void;
+  timeZone?: string;
 }) {
-  const label = formatSlotLabel(slot.time);
+  const label = formatSlotLabel(slot.time, timeZone);
   const fewLeft = slot.remainingTables > 0 && slot.remainingTables <= 2;
 
   return (
@@ -145,13 +157,14 @@ export function SlotPicker({
   onSelect,
   loading,
   popularCount = 5,
+  timeZone,
 }: SlotPickerProps) {
   const [expanded, setExpanded] = useState(false);
   const openSlots = useMemo(() => slots.filter((s) => s.available), [slots]);
 
   const popularSlots = useMemo(
-    () => pickPopularSlots(openSlots, popularCount, selected),
-    [openSlots, popularCount, selected],
+    () => pickPopularSlots(openSlots, popularCount, selected, timeZone),
+    [openSlots, popularCount, selected, timeZone],
   );
 
   const showExpand = openSlots.length > popularSlots.length;
@@ -207,6 +220,7 @@ export function SlotPicker({
             slot={slot}
             selected={selected === slot.time}
             onSelect={onSelect}
+            timeZone={timeZone}
           />
         ))}
       </div>

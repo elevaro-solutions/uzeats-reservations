@@ -33,7 +33,7 @@ Password reset is available at `/forgot-password`.
 |---|---|
 | `/` | Home — search and discovery |
 | `/restaurants/[slug]` | Restaurant detail and booking |
-| `/r/[slug]` | Short share link (rewrites to restaurant page) |
+| `/r/[slug]` | Legacy share link (308 redirect to `/restaurants/[slug]`) |
 | `/saved` | Bookmarked restaurants (signed in) |
 | `/waitlist` | Your waitlist entries |
 | `/billing` | Deposit and payment history |

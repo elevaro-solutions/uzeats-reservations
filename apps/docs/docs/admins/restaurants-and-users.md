@@ -10,6 +10,7 @@ The **Admin → Restaurants** page lists all venues with filters by status.
 |---|---|---|
 | Create | Admin | Manual onboarding |
 | Edit | Admin | Profile, plan, status override |
+| Edit menu | Admin | Restaurant detail → Menu; check **Popular** on up to 10 dishes for the public page |
 | Approve / reject | Admin | Moves `pending` → `approved` or `rejected` |
 | Suspend | Admin | Hides from search; blocks new bookings |
 | Delete (permanent) | Super admin only | Irreversible |
@@ -26,7 +27,16 @@ The **Admin → Restaurants** page lists all venues with filters by status.
 
 ## User management
 
-**Admin → Users** provides search and edit:
+Account admin is split by role:
+
+| Page | Accounts | Create |
+|---|---|---|
+| **Admin → Diners** | Customer accounts on the diner app | Create diner with email/password |
+| **Admin → Restaurant owners** | Partner owners | Create owner, or invite with venue access |
+| **Admin → Staff** | Venue team members | Create staff (restaurant required), or invite |
+| **Admin → Platform users** | `admin` / `super_admin` | Promote via role change (super admin) |
+
+Each list has a **detail** page for profile, password reset, impersonation, reservations (diners), and assigned restaurants (owners/staff).
 
 | Field | Notes |
 |---|---|

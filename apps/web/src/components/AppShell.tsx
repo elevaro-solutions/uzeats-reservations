@@ -45,6 +45,7 @@ import {
   MY_NOTIFICATIONS,
 } from '@/lib/graphql';
 import { getDashboardUrl } from '@/lib/urls';
+import { buildRestaurantBookingPath } from '@reservations/shared';
 import { CookieConsent, openCookieSettings } from '@/components/CookieConsent';
 
 const { Header, Content, Footer } = Layout;
@@ -87,7 +88,7 @@ function availabilityAlertHref(data: Record<string, unknown>): string {
   const slug = typeof data.slug === 'string' ? data.slug : null;
   if (!restaurantId && !slug) return '/saved';
 
-  const path = slug ? `/r/${slug}` : `/restaurants/${restaurantId}`;
+  const path = buildRestaurantBookingPath(slug, restaurantId);
   const params = new URLSearchParams();
   if (typeof data.slot === 'string') {
     const slotDate = new Date(data.slot);
@@ -174,7 +175,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     loading: notifLoading,
     refetch: refetchNotifs,
   } = useQuery(MY_NOTIFICATIONS, {
-    skip: !user,
+    skip: !user || user.role !== 'diner',
     variables: { limit: 20 },
     pollInterval: 60_000,
   });
@@ -206,11 +207,23 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     pathname.startsWith('/pricing') ||
     (pathname.startsWith('/contact') && searchParams.get('topic') === 'restaurant');
   const dashboardUrl = getDashboardUrl();
+
+  useEffect(() => {
+    if (authLoading || !user) return;
+    if (user.role !== 'diner') {
+      window.location.replace(dashboardUrl);
+    }
+  }, [user, authLoading, dashboardUrl]);
+
   const signInHref = isRestaurantMarketing ? `${dashboardUrl}/login` : '/login';
   const getStartedHref = isRestaurantMarketing ? '/pricing' : '/login';
   const getStartedLabel = isRestaurantMarketing ? 'Register restaurant' : 'Get started';
   const homeHref =
     isRestaurantMarketing && !pathname.startsWith('/for-restaurants') ? '/for-restaurants' : '/';
+
+  if (!authLoading && user && user.role !== 'diner') {
+    return null;
+  }
 
   if (isAuthRoute) {
     return <>{children}</>;

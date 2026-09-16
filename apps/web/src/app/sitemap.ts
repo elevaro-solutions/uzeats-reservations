@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { buildRestaurantBookingPath } from '@reservations/shared';
 import {
   listCategoryCityLandingParams,
   listCategoryLandingParams,
@@ -216,7 +217,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   const restaurantPages = restaurantEntries.map((r) => ({
-    url: `${base}/r/${r.slug}`,
+    url: `${base}${buildRestaurantBookingPath(r.slug)}`,
     lastModified: r.createdAt ? new Date(r.createdAt) : now,
     changeFrequency: 'weekly' as const,
     priority: 0.9,

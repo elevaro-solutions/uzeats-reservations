@@ -1,6 +1,7 @@
 import {
   restaurantInputSchema,
   adminCreateOwnerSchema,
+  adminCreateUserSchema,
   assertCanEditUser,
   blogPostInputSchema,
   discoveryTaxonomyInputSchema,
@@ -27,6 +28,7 @@ import { adjustPoints } from './loyalty.js';
 import {
   assignUserToRestaurants,
   adminCreateOwnerUser,
+  adminCreateUser,
   inviteStaff,
   removeUserFromRestaurant,
   startImpersonation,
@@ -334,6 +336,25 @@ export const adminOpsMutation = {
       resource: 'User',
       resourceId: args.userId,
       details: { restaurantId: args.restaurantId },
+    });
+    return mapUser(user);
+  },
+
+  adminCreateUser: async (
+    _: unknown,
+    args: { input: unknown },
+    ctx: GraphQLContext,
+  ) => {
+    const admin = requireAdmin(ctx);
+    const input = adminCreateUserSchema.parse(args.input);
+    await assertCanAssignRole(admin.role, input.role);
+    const user = await adminCreateUser(input);
+    await logAudit({
+      actorId: admin._id.toString(),
+      action: 'adminCreateUser',
+      resource: 'User',
+      resourceId: user._id.toString(),
+      details: { email: input.email, role: input.role },
     });
     return mapUser(user);
   },

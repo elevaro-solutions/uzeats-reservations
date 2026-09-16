@@ -742,7 +742,10 @@ export default function MyRestaurantsPage() {
                 </Form.Item>
               </Col>
               <Col span={24}>
-                <Form.Item label="Photos">
+                <Form.Item
+                  label="Photos"
+                  extra="Drag to reorder. The first photo is the large hero; the next two appear beside it on the public page."
+                >
                   <PhotoUpload value={photos} onChange={setPhotos} maxCount={10} />
                 </Form.Item>
               </Col>

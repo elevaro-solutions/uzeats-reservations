@@ -4,6 +4,10 @@ import {
   toIsoDate,
   todayIsoDate,
 } from "@/lib/helpers/date-time.helpers";
+import {
+  weekdayInTimeZone,
+  zonedWallClockToUtc,
+} from "@reservations/shared";
 
 import type { AvailabilitySlot, BookingShift } from "../types";
 
@@ -17,8 +21,9 @@ export type ShiftSlotGroup = {
   slots: AvailabilitySlot[];
 };
 
-/** Build a local Date for YYYY-MM-DD + HH:mm (same convention as API availability). */
-function dateAtLocal(dateIso: string, hm: string): Date {
+/** Build a Date for YYYY-MM-DD + HH:mm in the restaurant timezone. */
+function dateAtZone(dateIso: string, hm: string, timeZone?: string): Date {
+  if (timeZone) return zonedWallClockToUtc(dateIso, hm, timeZone);
   const [h, m] = hm.split(":").map(Number);
   const d = new Date(`${dateIso}T00:00:00`);
   d.setHours(h ?? 0, m ?? 0, 0, 0);
@@ -28,19 +33,17 @@ function dateAtLocal(dateIso: string, hm: string): Date {
 /**
  * Group availability slots under the restaurant's real shifts for `dateIso`
  * (YYYY-MM-DD). Slot start must fall in [startTime, endTime).
- *
- * Matching uses absolute instants vs local wall-clock windows on `dateIso`,
- * aligned with how the API builds slots (`dateAt` + server-local setHours).
- * Accurate when the client timezone matches the API host (or restaurant TZ
- * once that exists on the model).
  */
 export function groupSlotsByShift(
   slots: AvailabilitySlot[],
   shifts: BookingShift[],
   dateIso: string,
+  timeZone?: string,
 ): ShiftSlotGroup[] {
-  const day = parseIsoDate(dateIso) ?? new Date(`${dateIso}T12:00:00`);
-  const dayOfWeek = day.getDay();
+  const day = timeZone
+    ? zonedWallClockToUtc(dateIso, "12:00", timeZone)
+    : parseIsoDate(dateIso) ?? new Date(`${dateIso}T12:00:00`);
+  const dayOfWeek = timeZone ? weekdayInTimeZone(day, timeZone) : day.getDay();
 
   const dayShifts = shifts
     .filter(
@@ -72,8 +75,8 @@ export function groupSlotsByShift(
       continue;
     }
     const matchIndex = dayShifts.findIndex((s) => {
-      const start = dateAtLocal(dateIso, s.startTime).getTime();
-      const end = dateAtLocal(dateIso, s.endTime).getTime();
+      const start = dateAtZone(dateIso, s.startTime, timeZone).getTime();
+      const end = dateAtZone(dateIso, s.endTime, timeZone).getTime();
       return slotMs >= start && slotMs < end;
     });
     if (matchIndex >= 0) {
@@ -101,8 +104,8 @@ export function groupSlotsByShift(
   return result;
 }
 
-export function formatSlotTime(time: string): string {
-  return formatSlotDateTime(time);
+export function formatSlotTime(time: string, timeZone?: string): string {
+  return formatSlotDateTime(time, timeZone);
 }
 
 export function formatSlotDateLong(time: string): string {

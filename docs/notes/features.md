@@ -99,6 +99,10 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## restaurant-profile
 
+### [2026-09-16] Public menu is popular dishes only
+- Web restaurant details and the mobile menu tab render `selectPublicMenuSections`: items with `popular: true`, capped at 10. If none are marked, the first 8 items are shown. Owners, staff, and admins set the flags via checkboxes in the dashboard menu editor (`upsertMenu` rejects more than 10).
+- Why it matters: Don’t assume the diner page lists the full in-app menu. Full menus belong on `menuUrl` / the restaurant website.
+
 ### [2026-09-14] Book gated by flags + auth; review scans all reservations
 - Logged-out Book → sign-in with `next=/restaurant/:id/book` (no resume). Online book blocked if `reservationsVisible` or `reservationsEnabled` is false. `useReviewableReservation` filters `MY_RESERVATIONS` client-side for that restaurant + `canLeaveReview`.
 - Why it matters: Profile can show restaurants that aren’t bookable online. Review eligibility loads the full reservation list (cache helps if Reservations already fetched).

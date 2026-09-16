@@ -37,6 +37,7 @@ export type RestaurantSeoData = {
     neighborhood?: string | null;
   };
   location: { lat: number; lng: number };
+  timezone?: string | null;
 };
 
 const RESTAURANT_SEO_QUERY = `
@@ -68,6 +69,7 @@ const RESTAURANT_SEO_QUERY = `
         endTime
         active
       }
+      timezone
       address {
         line1
         line2

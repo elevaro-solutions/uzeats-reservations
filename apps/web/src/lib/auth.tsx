@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
+import { getDashboardUrl } from '@/lib/urls';
 
 const USER_FIELDS = `
   id
@@ -75,11 +76,18 @@ export type AuthUser = {
   };
 };
 
+/** Restaurant partners belong on the dashboard, not the diner web app. */
+export function sendNonDinerToDashboard(role: string): boolean {
+  if (role === 'diner') return false;
+  window.location.replace(getDashboardUrl());
+  return true;
+}
+
 type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  loginWithGoogle: (idToken: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
+  loginWithGoogle: (idToken: string) => Promise<AuthUser>;
   register: (input: {
     email: string;
     password: string;
@@ -129,7 +137,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }),
       });
       const json = await res.json();
-      setUser(json.data?.me ?? null);
+      const nextUser = (json.data?.me ?? null) as AuthUser | null;
+      setUser(nextUser);
+      if (nextUser) sendNonDinerToDashboard(nextUser.role);
     } catch {
       setUser(null);
     } finally {
@@ -146,14 +156,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const result = await loginMutation({ variables: { input: { email, password } } });
-    const data = result.data as any;
-    setUser(data.login.user);
+    const nextUser = (result.data as { login: { user: AuthUser } }).login.user;
+    setUser(nextUser);
+    sendNonDinerToDashboard(nextUser.role);
+    return nextUser;
   };
 
   const loginGoogle = async (idToken: string) => {
     const result = await googleLoginMutation({ variables: { idToken } });
-    const data = result.data as any;
-    setUser(data.loginWithGoogle.user);
+    const nextUser = (result.data as { loginWithGoogle: { user: AuthUser } }).loginWithGoogle.user;
+    setUser(nextUser);
+    sendNonDinerToDashboard(nextUser.role);
+    return nextUser;
   };
 
   const register = async (input: {

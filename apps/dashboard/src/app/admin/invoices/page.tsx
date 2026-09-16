@@ -263,7 +263,7 @@ function AdminInvoicesContent() {
       const res = await generate({ variables: { period } });
       const r = res.data?.generateInvoices;
       message.success(
-        `Generated ${r?.created ?? 0} invoices for ${r?.period} (${r?.skipped ?? 0} skipped)`,
+        `Generated ${r?.created ?? 0} invoices for ${r?.period} (${r?.updated ?? 0} updated, ${r?.skipped ?? 0} skipped)`,
       );
       refetch();
     } catch (err: any) {

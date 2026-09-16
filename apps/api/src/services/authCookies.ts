@@ -98,12 +98,22 @@ export function getRefreshTokenFromRequest(req: Request, explicit?: string | nul
   return cookies[cookieNames(app).refresh] || null;
 }
 
+/**
+ * Partners who sign in on the diner site are redirected to the dashboard.
+ * Issue dashboard cookies in that case so they are not asked to log in again.
+ */
+function cookieAppForSession(app: BrowserAuthApp, role?: string): BrowserAuthApp {
+  if (app === 'web' && role && role !== 'diner') return 'dashboard';
+  return app;
+}
+
 export function setAuthCookies(
   res: Response,
   tokens: { accessToken: string; refreshToken: string },
   app: BrowserAuthApp,
+  role?: string,
 ) {
-  const names = cookieNames(app);
+  const names = cookieNames(cookieAppForSession(app, role));
   appendCookie(res, names.access, tokens.accessToken, ACCESS_MAX_AGE_SEC);
   if (tokens.refreshToken) {
     appendCookie(res, names.refresh, tokens.refreshToken, REFRESH_MAX_AGE_SEC);

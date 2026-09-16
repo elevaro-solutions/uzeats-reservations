@@ -80,7 +80,7 @@ export function RestaurantMeta({ restaurant }: RestaurantMetaProps) {
         </Flex>
       </Pressable>
 
-      <RestaurantHours shifts={restaurant.shifts} />
+      <RestaurantHours shifts={restaurant.shifts} timeZone={restaurant.timezone} />
     </Flex>
   );
 }

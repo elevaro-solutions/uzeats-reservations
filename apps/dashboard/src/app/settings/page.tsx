@@ -735,7 +735,7 @@ export default function SettingsPage() {
           >
             <FormSection
               title="Photos"
-              description="Showcase your space. Photos save when you update the profile above."
+              description="Showcase your space. Drag to set the public hero order. Photos save when you update the profile above."
             >
               <PhotoUpload value={photos} onChange={setPhotos} maxCount={10} />
             </FormSection>

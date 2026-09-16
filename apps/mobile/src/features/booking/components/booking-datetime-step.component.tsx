@@ -24,6 +24,7 @@ export type BookingDatetimeStepProps = {
   maxBookablePartySize?: number | null;
   restaurantPhone?: string | null;
   maxAdvanceDays?: number;
+  timeZone?: string;
   onDateChange: (iso: string) => void;
   onPartySizeChange: (size: number) => void;
   onSelectSlot: (time: string) => void;
@@ -47,6 +48,7 @@ export function BookingDatetimeStep({
   maxBookablePartySize = null,
   restaurantPhone,
   maxAdvanceDays,
+  timeZone,
   onDateChange,
   onPartySizeChange,
   onSelectSlot,
@@ -94,6 +96,7 @@ export function BookingDatetimeStep({
             showEmpty={!availabilityLoading}
             shifts={shifts}
             date={date}
+            timeZone={timeZone}
             onSelectSlot={onSelectSlot}
             onUnavailablePress={onUnavailablePress}
           />

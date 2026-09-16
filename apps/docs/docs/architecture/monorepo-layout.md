@@ -39,7 +39,7 @@ apps/web/src/
 ├── app/                  # Next.js App Router pages
 ├── components/           # UI components
 ├── lib/                  # Apollo client, hooks, helpers
-└── middleware.ts         # Auth redirects, SEO
+└── middleware.ts         # Legacy `/r/:slug` → `/restaurants/:slug` SEO redirect
 ```
 
 Notable routes: `/`, `/restaurants/[id]`, `/saved`, `/waitlist`, `/billing`, SEO hub pages.

@@ -41,6 +41,7 @@ import {
   MY_SUBSCRIPTION,
   PLANS,
   COVER_FEE_SUMMARY,
+  RESTAURANT_INVOICES,
   CREATE_SUBSCRIPTION,
   CANCEL_SUBSCRIPTION,
   CHANGE_PLAN,
@@ -60,6 +61,14 @@ const STATUS_COLORS: Record<string, string> = {
   past_due: 'orange',
   cancelled: 'red',
   paused: 'default',
+};
+
+const INVOICE_STATUS_COLORS: Record<string, string> = {
+  upcoming: 'blue',
+  pending: 'gold',
+  overdue: 'red',
+  paid: 'green',
+  canceled: 'default',
 };
 
 function formatCents(cents: number) {
@@ -88,6 +97,10 @@ export default function BillingPage() {
     variables: { restaurantId: activeRestaurantId, period },
     skip: !activeRestaurantId,
   });
+  const { data: invoiceData, loading: invoiceLoading } = useQuery(RESTAURANT_INVOICES, {
+    variables: { restaurantId: activeRestaurantId, period, limit: 1, offset: 0 },
+    skip: !activeRestaurantId,
+  });
 
   const [createSubscription, { loading: creating }] = useMutation(CREATE_SUBSCRIPTION);
   const [cancelSubscription, { loading: cancelling }] = useMutation(CANCEL_SUBSCRIPTION);
@@ -108,6 +121,7 @@ export default function BillingPage() {
   const subscription = subData?.mySubscription;
   const plans = plansData?.plans ?? [];
   const summary = feesData?.coverFeeSummary;
+  const periodInvoice = invoiceData?.restaurantInvoices?.items?.[0];
 
   const handleSubscribe = async (plan: string) => {
     if (!activeRestaurantId) return;
@@ -503,6 +517,94 @@ export default function BillingPage() {
               </>
             ) : (
               <Text type="secondary">No data for this period</Text>
+            )}
+          </Card>
+
+          <Card
+            title={`Invoice · ${dayjs(period).format('MMMM YYYY')}`}
+            extra={
+              <Space>
+                <Select
+                  value={period}
+                  onChange={setPeriod}
+                  options={periodOptions}
+                  style={{ width: 180 }}
+                />
+                {periodInvoice ? (
+                  <Tag color={INVOICE_STATUS_COLORS[periodInvoice.status] ?? 'default'}>
+                    {String(periodInvoice.status).toUpperCase()}
+                  </Tag>
+                ) : null}
+              </Space>
+            }
+          >
+            {invoiceLoading ? (
+              <Spin />
+            ) : periodInvoice ? (
+              <>
+                <Descriptions column={{ xs: 1, sm: 2, md: 3 }} size="small" bordered style={{ marginBottom: 16 }}>
+                  <Descriptions.Item label="Number">{periodInvoice.number}</Descriptions.Item>
+                  <Descriptions.Item label="Due">
+                    {dayjs(periodInvoice.dueDate).format('MMM D, YYYY')}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Total">
+                    <Text strong>{formatCents(periodInvoice.totalCents)}</Text>
+                  </Descriptions.Item>
+                </Descriptions>
+                <Table
+                  dataSource={periodInvoice.lines ?? []}
+                  rowKey={(row: { description: string }, index?: number) =>
+                    `${row.description}-${index ?? 0}`
+                  }
+                  pagination={false}
+                  size="small"
+                  columns={[
+                    { title: 'Item', dataIndex: 'description' },
+                    {
+                      title: 'Qty',
+                      dataIndex: 'quantity',
+                      align: 'right' as const,
+                    },
+                    {
+                      title: 'Unit',
+                      dataIndex: 'unitAmountCents',
+                      align: 'right' as const,
+                      render: (cents: number) => formatCents(cents),
+                    },
+                    {
+                      title: 'Amount',
+                      dataIndex: 'amountCents',
+                      align: 'right' as const,
+                      render: (cents: number) => formatCents(cents),
+                    },
+                  ]}
+                  summary={() => (
+                    <Table.Summary.Row>
+                      <Table.Summary.Cell index={0} colSpan={3}>
+                        <Text strong>Total</Text>
+                      </Table.Summary.Cell>
+                      <Table.Summary.Cell index={3} align="right">
+                        <Text strong>{formatCents(periodInvoice.totalCents)}</Text>
+                      </Table.Summary.Cell>
+                    </Table.Summary.Row>
+                  )}
+                />
+                {periodInvoice.payUrl &&
+                periodInvoice.status !== 'paid' &&
+                periodInvoice.status !== 'canceled' &&
+                periodInvoice.totalCents > 0 ? (
+                  <div style={{ marginTop: 16 }}>
+                    <Button type="primary" href={periodInvoice.payUrl} target="_blank">
+                      Pay {formatCents(periodInvoice.totalCents)}
+                    </Button>
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <Text type="secondary">
+                No invoice for this period yet. Period invoices are generated automatically and
+                include the plan plus cover fees by source.
+              </Text>
             )}
           </Card>
 

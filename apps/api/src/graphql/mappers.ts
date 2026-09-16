@@ -491,6 +491,31 @@ export function mapAuditLog(l: any) {
   };
 }
 
+export function mapMenuItem(i: any) {
+  return {
+    id: i._id.toString(),
+    name: i.name,
+    description: i.description,
+    priceCents: i.priceCents,
+    photoUrl: i.photoUrl,
+    dietary: i.dietary ?? [],
+    available: i.available ?? true,
+    popular: i.popular ?? false,
+  };
+}
+
+export function mapMenu(menu: any, restaurantId: string) {
+  return {
+    id: menu._id.toString(),
+    restaurantId,
+    sections: menu.sections.map((s: any) => ({
+      id: s._id.toString(),
+      name: s.name,
+      items: s.items.map(mapMenuItem),
+    })),
+  };
+}
+
 export function slugify(name: string) {
   return `${name
     .toLowerCase()

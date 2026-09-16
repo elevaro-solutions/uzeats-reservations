@@ -372,6 +372,7 @@ export function BookingFeature() {
             maxBookablePartySize={maxBookablePartySize}
             restaurantPhone={restaurant.phone}
             maxAdvanceDays={maxAdvanceDays}
+            timeZone={restaurant.timezone ?? undefined}
             onDateChange={form.onSelectDate}
             onPartySizeChange={form.onPartySizeChange}
             onSelectSlot={form.onSelectSlot}

@@ -42,7 +42,7 @@ For Google address autocomplete on the diner home page, also set
 The map discovery view (`/?view=map`) uses the same key for Google Maps markers.
 Without the key, the location field falls back to curated US cities with nearby search.
 
-Public restaurant pages support short share links: `https://yourdomain.com/r/{slug}` (rewrites to `/restaurants/{slug}`).
+Public restaurant pages live at `https://yourdomain.com/restaurants/{slug}`. Legacy `/r/{slug}` links permanently redirect there.
 
 For Google / Gmail login on the diner app, set matching OAuth Web client IDs:
 - API: `GOOGLE_CLIENT_ID` (and optional `GOOGLE_CLIENT_SECRET`)

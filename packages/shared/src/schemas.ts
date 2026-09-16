@@ -62,6 +62,17 @@ export const adminCreateOwnerSchema = z.object({
   phone: phoneSchema.optional(),
 });
 
+export const adminCreateUserSchema = z.object({
+  email: emailSchema,
+  password: passwordSchema,
+  firstName: z.string().min(1).max(80),
+  lastName: z.string().min(1).max(80),
+  phone: phoneSchema.optional(),
+  role: z.enum(["diner", "restaurant_owner", "staff"]),
+  restaurantIds: z.array(z.string().min(1)).optional(),
+  emailVerified: z.boolean().optional(),
+});
+
 export const restaurantFaqItemSchema = z.object({
   question: z.string().min(1).max(300),
   answer: z.string().min(1).max(2000),

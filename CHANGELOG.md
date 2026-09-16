@@ -4,7 +4,35 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.50.0] — 2026-09-16
+
+### Added
+
+- Admin dashboard splits diners, restaurant owners, and staff into their own list and detail pages, with create/edit/invite and venue assignment
+- GraphQL `adminCreateUser`, `adminUser`, `adminUserReservations`, and `adminUserRestaurants` for platform account management
+- Automatic monthly restaurant invoices (plan + cover fees by source) with a period breakdown on partner Billing
+- Popular dish checkboxes in the menu editor (owners, staff, and admins) so the public restaurant page shows up to 10 curated items
+- Restaurant working hours and bookable times shown in the venue's local timezone (from address), including experience cards and live slot pickers
+- GraphQL `Restaurant.timezone` derived from US address / ZIP
+- Dedicated diner experience booking flow (list cards → find a table → add-ons → summary)
+- Partner photo uploader: drag-to-reorder gallery with a live public hero preview (first image large, next two beside it)
+
+### Docs
+
+- Admin docs: account management is split into diners, restaurant owners, staff, and platform users
+
+### Changed
+
+- Diner web app sends logged-in restaurant partners (non-diner roles) to the dashboard
+- Partner login on the diner site also issues dashboard session cookies so the redirect to `dashboard.tablevera.online` does not require a second sign-in
+- Public restaurant pages show popular dishes only (up to 10; first 8 if none are marked), instead of the full in-app menu
+- Canonical restaurant URLs are `/restaurants/{slug}`; legacy `/r/{slug}` links permanently redirect there
+- Availability slots are generated in the restaurant's local timezone instead of the API server timezone
+
+### Fixed
+
+- Restaurant photo lightbox close control is a dark circular button so it stays visible on light photos
+- SendGrid confirmation emails no longer send an empty `attachments` array (SendGrid 400)
 
 ## [0.49.0] — 2026-09-15
 

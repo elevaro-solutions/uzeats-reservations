@@ -445,6 +445,7 @@ export function EditReservationFeature() {
               showEmpty={!availabilityLoading}
               shifts={restaurant?.shifts}
               date={date}
+              timeZone={restaurant?.timezone ?? undefined}
               onSelectSlot={onSelectSlot}
             />
 

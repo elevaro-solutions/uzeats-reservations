@@ -91,6 +91,11 @@ export const RESTAURANT_DETAIL = gql`
         endTime
         active
       }
+      timezone
+      bookingWindow {
+        maxAdvanceDays
+        minAdvanceHours
+      }
       menu {
         sections {
           id
@@ -102,6 +107,7 @@ export const RESTAURANT_DETAIL = gql`
             priceCents
             dietary
             photoUrl
+            popular
           }
         }
       }
@@ -597,8 +603,10 @@ export const EXPERIENCES = gql`
         endDate
         startTime
         endTime
+        maxGuests
         ticketPriceCents
         availableTickets
+        includes
         status
         tags
       }

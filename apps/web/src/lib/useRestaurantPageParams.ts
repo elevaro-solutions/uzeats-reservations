@@ -6,6 +6,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 
 export const RESTAURANT_SECTIONS = [
   'overview',
+  'experiences',
   'menu',
   'reviews',
   'photos',

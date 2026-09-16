@@ -128,7 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           window.location.href = '/login';
           return;
         }
-        window.location.href = '/admin/users';
+        window.location.href = '/admin';
       } catch {
         window.location.href = '/login';
       }

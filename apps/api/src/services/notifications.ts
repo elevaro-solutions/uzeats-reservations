@@ -59,24 +59,29 @@ async function sendViaSendGrid(
     content.push({ type: 'text/html', value: htmlBody });
   }
 
+  // SendGrid 400s if `attachments` is present but empty.
+  const payload: Record<string, unknown> = {
+    personalizations: [{ to: [{ email: to }] }],
+    from: parseEmailFrom(env.EMAIL_FROM),
+    subject: title,
+    content,
+  };
+  if (attachments?.length) {
+    payload.attachments = attachments.map((a) => ({
+      content: a.contentBase64,
+      filename: a.filename,
+      type: a.contentType,
+      disposition: 'attachment',
+    }));
+  }
+
   const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${env.SENDGRID_API_KEY}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      personalizations: [{ to: [{ email: to }] }],
-      from: parseEmailFrom(env.EMAIL_FROM),
-      subject: title,
-      content,
-      attachments: (attachments ?? []).map((a) => ({
-        content: a.contentBase64,
-        filename: a.filename,
-        type: a.contentType,
-        disposition: 'attachment',
-      })),
-    }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
     const errText = await res.text();
@@ -116,11 +121,15 @@ export async function sendEmail(
     subject: title,
     text: body,
     html: htmlBody,
-    attachments: attachments.map((a) => ({
-      filename: a.filename,
-      content: Buffer.from(a.contentBase64, 'base64'),
-      contentType: a.contentType,
-    })),
+    ...(attachments.length
+      ? {
+          attachments: attachments.map((a) => ({
+            filename: a.filename,
+            content: Buffer.from(a.contentBase64, 'base64'),
+            contentType: a.contentType,
+          })),
+        }
+      : {}),
   });
   if (result.error) {
     throw new Error(`Resend failed: ${result.error.message}`);

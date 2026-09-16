@@ -1,3 +1,5 @@
+import { buildRestaurantBookingPath } from "@reservations/shared";
+
 export type LinkAddress = {
   line1: string;
   line2?: string | null;
@@ -49,5 +51,5 @@ export function buildWebsiteUrl(website: string): string {
 }
 
 export function buildRestaurantShareUrl(slugOrId: string): string {
-  return `https://tablevera.online/r/${slugOrId}`;
+  return `https://tablevera.online${buildRestaurantBookingPath(slugOrId, slugOrId)}`;
 }

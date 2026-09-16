@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { buildRestaurantBookingPath } from '@reservations/shared';
 
 export const DEFAULT_SITE_URL = 'https://tablevera.online';
 
@@ -98,7 +99,7 @@ export function restaurantJsonLd(restaurant: {
     closes: string;
   }>;
 }) {
-  const path = restaurant.slug ? `/r/${restaurant.slug}` : `/restaurants/${restaurant.id}`;
+  const path = buildRestaurantBookingPath(restaurant.slug, restaurant.id);
   const servesCuisine = [restaurant.cuisine, ...(restaurant.dietaryTags ?? [])].filter(Boolean);
 
   return {

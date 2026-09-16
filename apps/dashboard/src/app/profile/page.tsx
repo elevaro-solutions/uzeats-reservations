@@ -200,7 +200,8 @@ export default function ProfilePage() {
                 Photos
               </Text>
               <Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 12 }}>
-                Up to 10 photos shown in your gallery. The first photo is the hero image.
+                Up to 10 photos. Drag to reorder the public hero — first is large, the next two
+                sit beside it, and the rest appear in the gallery.
               </Text>
               <PhotoUpload value={photos} onChange={setPhotos} maxCount={10} />
             </div>

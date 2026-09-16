@@ -12,4 +12,6 @@ export * from './annualBilling.js';
 export * from './loyalty.js';
 export * from './restaurantLoyalty.js';
 export * from './promotions.js';
+export * from './menu.js';
 export * from './envVars.js';
+export * from './timezone.js';

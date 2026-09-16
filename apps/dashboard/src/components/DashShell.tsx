@@ -40,6 +40,7 @@ import {
   ShopOutlined,
   BellOutlined,
   UserOutlined,
+  IdcardOutlined,
   CheckOutlined,
   FileDoneOutlined,
   FundOutlined,
@@ -253,6 +254,8 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   const selectedKey = useMemo(() => {
     if (pathname.startsWith('/admin')) {
       if (pathname === '/admin' || pathname === '/admin/') return '/admin';
+      const segments = pathname.split('/').filter(Boolean);
+      if (segments.length >= 2) return `/${segments[0]}/${segments[1]}`;
       return pathname;
     }
     if (SETTINGS_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
@@ -376,10 +379,19 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   const adminItems = [
     {
       type: 'group' as const,
+      label: 'Accounts',
+      children: [
+        item('/admin/diners', <UserOutlined />, 'Diners'),
+        item('/admin/owners', <IdcardOutlined />, 'Restaurant owners'),
+        item('/admin/staff', <TeamOutlined />, 'Staff'),
+        item('/admin/users', <SafetyOutlined />, 'Platform users'),
+      ],
+    },
+    {
+      type: 'group' as const,
       label: 'Support',
       children: [
         item('/admin', <SafetyOutlined />, 'Overview'),
-        item('/admin/users', <TeamOutlined />, 'Users & access'),
         item('/admin/restaurants', <ShopOutlined />, 'Restaurants'),
         item('/admin/support', <CustomerServiceOutlined />, 'Tickets'),
         item('/admin/moderation', <FlagOutlined />, 'Moderation'),

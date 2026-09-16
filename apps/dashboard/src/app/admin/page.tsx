@@ -28,9 +28,21 @@ function dollars(cents: number) {
 
 const shortcuts = [
   {
-    href: '/admin/users',
-    title: 'Users & access',
-    desc: 'Roles, invites, impersonation, password resets',
+    href: '/admin/diners',
+    title: 'Diners',
+    desc: 'Create and manage customer accounts',
+    icon: <TeamOutlined />,
+  },
+  {
+    href: '/admin/owners',
+    title: 'Restaurant owners',
+    desc: 'Partner accounts and venue assignment',
+    icon: <ShopOutlined />,
+  },
+  {
+    href: '/admin/staff',
+    title: 'Staff',
+    desc: 'Team accounts with restaurant access',
     icon: <TeamOutlined />,
   },
   {

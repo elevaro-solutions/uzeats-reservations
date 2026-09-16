@@ -5,6 +5,7 @@ import { RESTAURANT_SECTIONS, useRestaurantPageParams, type RestaurantSection } 
 
 const SECTIONS: Array<{ id: RestaurantSection; label: string }> = [
   { id: 'overview', label: 'Overview' },
+  { id: 'experiences', label: 'Experiences' },
   { id: 'menu', label: 'Menu' },
   { id: 'reviews', label: 'Reviews' },
   { id: 'photos', label: 'Photos' },
@@ -13,7 +14,7 @@ const SECTIONS: Array<{ id: RestaurantSection; label: string }> = [
   { id: 'faq', label: 'FAQ' },
 ];
 
-export function RestaurantSectionNav() {
+export function RestaurantSectionNav({ hasExperiences = false }: { hasExperiences?: boolean }) {
   const { section, setSection } = useRestaurantPageParams();
   const [scrollActive, setScrollActive] = useState<RestaurantSection>(section);
 
@@ -52,7 +53,7 @@ export function RestaurantSectionNav() {
     });
 
     return () => observers.forEach((o) => o.disconnect());
-  }, []);
+  }, [hasExperiences]);
 
   const goTo = (id: RestaurantSection) => {
     setSection(id);
@@ -60,10 +61,11 @@ export function RestaurantSectionNav() {
   };
 
   const active = scrollActive;
+  const items = SECTIONS.filter(({ id }) => id !== 'experiences' || hasExperiences);
 
   return (
     <nav className="rt-restaurant-nav" aria-label="Restaurant sections">
-      {SECTIONS.map(({ id, label }) => (
+      {items.map(({ id, label }) => (
         <button
           key={id}
           type="button"

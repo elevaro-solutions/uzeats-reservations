@@ -38,6 +38,10 @@ import {
   isMongoObjectId,
   buildRestaurantBookingPath,
   buildBookingResumePath,
+  formatTimeInTimeZone,
+  formatShortHours,
+  timezoneFromAddress,
+  timeZoneLabel,
 } from '@reservations/shared';
 import {
   saveBookingDraftToSession,
@@ -84,32 +88,25 @@ import { RestaurantActions } from '@/components/restaurant/RestaurantActions';
 import { RestaurantBookmarkButtons } from '@/components/restaurant/RestaurantBookmarkButtons';
 import { RestaurantTermsSection } from '@/components/restaurant/RestaurantTermsSection';
 import { RestaurantMessageModal } from '@/components/restaurant/RestaurantMessageModal';
+import { RestaurantHoursMeta } from '@/components/restaurant/RestaurantHoursMeta';
+import { RestaurantExperiencesSection } from '@/components/restaurant/RestaurantExperiencesSection';
+import { ExperienceBookingModal } from '@/components/restaurant/ExperienceBookingModal';
 import {
   ReservationConfirmModal,
   formatOccasion,
 } from '@/components/restaurant/ReservationConfirmModal';
 import { buildCancellationPolicySummary } from '@/lib/restaurantTerms';
+import {
+  experienceDateBounds,
+  formatExperienceDateLabel,
+  formatExperienceBookingHours,
+  isDateInExperienceRange,
+  isExperienceSoldOut,
+  maxBookableExperienceParty,
+  type ExperienceItem,
+} from '@/lib/experiences';
 
 const { Title, Paragraph, Text } = Typography;
-
-function experienceDateBounds(exp: { date: string; endDate?: string | null }) {
-  const start = dayjs(exp.date).format('YYYY-MM-DD');
-  const end = dayjs(exp.endDate ?? exp.date).format('YYYY-MM-DD');
-  return { start, end };
-}
-
-function formatExperienceDateLabel(exp: { date: string; endDate?: string | null }) {
-  const start = dayjs(exp.date);
-  const end = dayjs(exp.endDate ?? exp.date);
-  if (start.isSame(end, 'day')) return start.format('MMM D, YYYY');
-  if (start.isSame(end, 'year')) return `${start.format('MMM D')} – ${end.format('MMM D, YYYY')}`;
-  return `${start.format('MMM D, YYYY')} – ${end.format('MMM D, YYYY')}`;
-}
-
-function isDateInExperienceRange(dateStr: string, exp: { date: string; endDate?: string | null }) {
-  const { start, end } = experienceDateBounds(exp);
-  return dateStr >= start && dateStr <= end;
-}
 
 export default function RestaurantPageClient() {
   const params = useParams<{ id: string }>();
@@ -137,6 +134,7 @@ export default function RestaurantPageClient() {
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [selectedPrivateSpaceId, setSelectedPrivateSpaceId] = useState<string | null>(null);
   const [selectedExperienceId, setSelectedExperienceId] = useState<string | null>(null);
+  const [experienceModalId, setExperienceModalId] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [redeemPoints, setRedeemPoints] = useState<number>(0);
   const [redeemRestaurantPoints, setRedeemRestaurantPoints] = useState<number>(0);
@@ -205,6 +203,25 @@ export default function RestaurantPageClient() {
   const restaurant = (data as any)?.restaurant;
   const restaurantId = restaurant?.id ?? (isObjectId ? slugOrId : undefined);
   const bookingPath = buildRestaurantBookingPath(restaurant?.slug, restaurantId);
+  const timeZone = useMemo(
+    () =>
+      restaurant?.timezone ||
+      timezoneFromAddress({
+        state: restaurant?.address?.state,
+        zip: restaurant?.address?.zip,
+        lng: restaurant?.location?.lng,
+      }),
+    [
+      restaurant?.timezone,
+      restaurant?.address?.state,
+      restaurant?.address?.zip,
+      restaurant?.location?.lng,
+    ],
+  );
+  const formatSlotLabel = useCallback(
+    (iso: string) => formatTimeInTimeZone(iso, timeZone),
+    [timeZone],
+  );
 
   const { data: availData, loading: availLoading } = useQuery(AVAILABILITY, {
     variables: {
@@ -309,65 +326,57 @@ export default function RestaurantPageClient() {
     matchingPrivateSpaces.find((s) => s.id === selectedPrivateSpaceId) ?? null;
   const privateSpacePriceCents = selectedPrivateSpace?.rentalFeeCents ?? 0;
 
-  const experiences = (experiencesData as any)?.experiences?.items ?? [];
+  const experiences: ExperienceItem[] = (experiencesData as any)?.experiences?.items ?? [];
   const selectedDateStr = date.format('YYYY-MM-DD');
   const matchingExperiences = useMemo(() => {
-    return experiences.filter((e: {
-      id: string;
-      date: string;
-      endDate?: string | null;
-      status: string;
-      availableTickets?: number;
-    }) => {
+    return experiences.filter((e) => {
       if (e.status !== 'published') return false;
       if (!isDateInExperienceRange(selectedDateStr, e)) return false;
       return (e.availableTickets ?? 0) >= partySize;
     });
   }, [experiences, selectedDateStr, partySize]);
 
-  const selectExperienceFromCard = useCallback(
-    (exp: {
-      id: string;
-      date: string;
-      endDate?: string | null;
-      status: string;
-      availableTickets?: number;
-      title: string;
-    }) => {
-      if (exp.status === 'sold_out' || (exp.availableTickets ?? 0) < 1) {
-        message.warning('This experience is sold out');
-        return;
-      }
-      if ((exp.availableTickets ?? 0) < partySize) {
-        message.warning(
-          `Only ${exp.availableTickets} ticket${exp.availableTickets === 1 ? '' : 's'} left — reduce party size to book “${exp.title}”`,
-        );
-        return;
-      }
+  const applyExperienceBookingWindow = useCallback(
+    (exp: ExperienceItem, nextPartySize?: number) => {
       const { start, end } = experienceDateBounds(exp);
       const keepCurrentDate = selectedDateStr >= start && selectedDateStr <= end;
       const nextDate = keepCurrentDate ? date : dayjs(start);
+      const maxParty = maxBookableExperienceParty(exp);
+      const party = Math.min(nextPartySize ?? partySize, maxParty);
       updateBooking({
         date: nextDate,
-        selectedSlot: keepCurrentDate ? undefined : null,
+        partySize: party,
+        selectedSlot: keepCurrentDate && party === partySize ? undefined : null,
       });
-      setSelectedExperienceId(exp.id);
-      document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     },
     [date, partySize, selectedDateStr, updateBooking],
   );
 
+  const openExperienceModal = useCallback(
+    (exp: ExperienceItem) => {
+      if (isExperienceSoldOut(exp)) {
+        message.warning('This experience is sold out');
+        return;
+      }
+      applyExperienceBookingWindow(exp);
+      setExperienceModalId(exp.id);
+    },
+    [applyExperienceBookingWindow],
+  );
+
+  const experienceModalItem = experiences.find((e) => e.id === experienceModalId) ?? null;
   const selectedExperience =
-    matchingExperiences.find((e: { id: string }) => e.id === selectedExperienceId) ?? null;
+    matchingExperiences.find((e) => e.id === selectedExperienceId) ?? null;
   const experiencePriceCents = selectedExperience
     ? selectedExperience.ticketPriceCents * partySize
     : 0;
 
   useEffect(() => {
+    if (experienceModalId) return;
     if (selectedPackageId && !matchingPackages.some((p) => p.id === selectedPackageId)) {
       setSelectedPackageId(null);
     }
-  }, [matchingPackages, selectedPackageId]);
+  }, [experienceModalId, matchingPackages, selectedPackageId]);
 
   useEffect(() => {
     if (selectedPrivateSpaceId && !matchingPrivateSpaces.some((s) => s.id === selectedPrivateSpaceId)) {
@@ -376,13 +385,14 @@ export default function RestaurantPageClient() {
   }, [matchingPrivateSpaces, selectedPrivateSpaceId]);
 
   useEffect(() => {
+    if (experienceModalId) return;
     if (
       selectedExperienceId &&
-      !matchingExperiences.some((e: { id: string }) => e.id === selectedExperienceId)
+      !matchingExperiences.some((e) => e.id === selectedExperienceId)
     ) {
       setSelectedExperienceId(null);
     }
-  }, [matchingExperiences, selectedExperienceId]);
+  }, [experienceModalId, matchingExperiences, selectedExperienceId]);
 
   useEffect(() => {
     const occasionParam = search.get('occasion');
@@ -605,10 +615,7 @@ export default function RestaurantPageClient() {
         ]),
         floorArea: bookedTable?.floorArea,
         dateLabel: date.format('dddd, MMMM D, YYYY'),
-        timeLabel: new Date(selectedSlot).toLocaleTimeString([], {
-          hour: 'numeric',
-          minute: '2-digit',
-        }),
+        timeLabel: formatSlotLabel(selectedSlot),
         partySize,
         occasionLabel: formatOccasion(occasion),
       };
@@ -693,7 +700,8 @@ export default function RestaurantPageClient() {
 
   if (!restaurant) return <div component="RestaurantPage" style={{ display: 'contents' }}><Card loading /></div>;
 
-  const openingHoursLines = formatOpeningHoursLines(restaurant.shifts ?? []);
+  const openingHoursLines = formatOpeningHoursLines(restaurant.shifts ?? [], timeZone);
+  const workingHoursLabel = formatShortHours(restaurant.shifts ?? [], timeZone);
   const restaurantFaq = buildRestaurantFaq({ ...restaurant, openingHoursLines });
 
   const reviews = (reviewsData as any)?.restaurantReviews?.items ?? [];
@@ -701,7 +709,7 @@ export default function RestaurantPageClient() {
   const bookingSuccessTimeLabel =
     bookingSuccess?.timeLabel ??
     (selectedSlot
-      ? new Date(selectedSlot).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+      ? formatSlotLabel(selectedSlot)
       : '—');
   const bookingSuccessPartySize = bookingSuccess?.partySize ?? partySize;
   const bookingSuccessOccasionLabel = bookingSuccess?.occasionLabel ?? formatOccasion(occasion);
@@ -738,6 +746,7 @@ export default function RestaurantPageClient() {
             {restaurant.address.line1}, {restaurant.address.city}, {restaurant.address.state}{' '}
             {restaurant.address.zip}
           </Text>
+          <RestaurantHoursMeta shifts={restaurant.shifts ?? []} timeZone={timeZone} />
           {restaurant.depositRequired && (
             <Tag color="gold" style={{ marginTop: 8 }}>
               Deposit ${(restaurant.depositAmountCents / 100).toFixed(2)} per guest
@@ -757,7 +766,7 @@ export default function RestaurantPageClient() {
           />
         </div>
 
-        <RestaurantSectionNav />
+        <RestaurantSectionNav hasExperiences={experiences.length > 0} />
 
         <Row gutter={[32, 32]} className="rt-restaurant-profile__body">
           <Col xs={24} lg={14}>
@@ -809,61 +818,13 @@ export default function RestaurantPageClient() {
                 </div>
               )}
 
-              {experiences.length > 0 && (
-                <div className="rt-restaurant-section">
-                  <Title level={3} className="rt-restaurant-section__title">Experiences & events</Title>
-                  <Row gutter={[16, 16]}>
-                    {experiences.map((e: any) => {
-                      const soldOut = e.status === 'sold_out' || (e.availableTickets ?? 0) < 1;
-                      const selected = selectedExperienceId === e.id;
-                      return (
-                        <Col xs={24} md={12} lg={8} key={e.id}>
-                          <Card
-                            size="small"
-                            hoverable={!soldOut}
-                            className="rt-restaurant-experience-card"
-                            onClick={() => selectExperienceFromCard(e)}
-                            style={{
-                              cursor: soldOut ? 'not-allowed' : 'pointer',
-                              opacity: soldOut ? 0.7 : 1,
-                              borderColor: selected ? colors.brand[500] : undefined,
-                              background: selected ? colors.brand[50] : undefined,
-                            }}
-                            cover={
-                              e.photoUrl ? (
-                                // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                  src={e.photoUrl}
-                                  alt={e.title}
-                                  style={{ height: 140, objectFit: 'cover' }}
-                                />
-                              ) : undefined
-                            }
-                          >
-                            <Space orientation="vertical" size={4} style={{ width: '100%' }}>
-                              <Text strong>{e.title}</Text>
-                              <Text type="secondary" style={{ fontSize: 13 }}>
-                                {formatExperienceDateLabel(e)} · {e.startTime}–{e.endTime}
-                              </Text>
-                              <Space>
-                                <Tag>{String(e.type).replace(/_/g, ' ')}</Tag>
-                                <Text strong>${(e.ticketPriceCents / 100).toFixed(2)}</Text>
-                              </Space>
-                              {soldOut ? (
-                                <Tag color="red">Sold out</Tag>
-                              ) : (
-                                <Text type="secondary" style={{ fontSize: 12 }}>
-                                  {e.availableTickets} tickets left · Click to book
-                                </Text>
-                              )}
-                            </Space>
-                          </Card>
-                        </Col>
-                      );
-                    })}
-                  </Row>
-                </div>
-              )}
+              <RestaurantExperiencesSection
+                experiences={experiences}
+                selectedExperienceId={selectedExperienceId}
+                workingHours={workingHoursLabel}
+                timeZone={timeZone}
+                onReserve={openExperienceModal}
+              />
 
               <RestaurantMenuSection
                 sections={restaurant.menu?.sections ?? []}
@@ -892,6 +853,7 @@ export default function RestaurantPageClient() {
                 wheelchairAccessible={restaurant.wheelchairAccessible}
                 location={restaurant.location}
                 openingHoursLines={openingHoursLines}
+                bookingHoursLine={workingHoursLabel}
               />
 
               <RestaurantFeaturedIn
@@ -931,7 +893,8 @@ export default function RestaurantPageClient() {
               />
             )}
             <Text type="secondary" className="rt-restaurant-booking-card__intro">
-              Pick a date, party size, and time — confirmed in seconds.
+              Pick a date, party size, and time — confirmed in seconds. Times shown in{' '}
+              {timeZoneLabel(timeZone)}.
             </Text>
             {user && (
               <Text type="secondary" className="rt-restaurant-booking-card__loyalty">
@@ -972,6 +935,7 @@ export default function RestaurantPageClient() {
               onSelect={(slot) => updateBooking({ selectedSlot: slot })}
               loading={availLoading}
               popularCount={4}
+              timeZone={timeZone}
             />
             {selectedSlot && restaurant?.allowGuestTableSelection && (
               <div className="rt-restaurant-booking-card__table-pick">
@@ -1190,17 +1154,7 @@ export default function RestaurantPageClient() {
                     >
                       No experience
                     </Tag.CheckableTag>
-                    {matchingExperiences.map((exp: {
-                      id: string;
-                      title: string;
-                      description?: string;
-                      ticketPriceCents: number;
-                      date: string;
-                      endDate?: string | null;
-                      startTime: string;
-                      endTime: string;
-                      type: string;
-                    }) => {
+                    {matchingExperiences.map((exp) => {
                       const price = exp.ticketPriceCents * partySize;
                       const selected = selectedExperienceId === exp.id;
                       return (
@@ -1229,7 +1183,7 @@ export default function RestaurantPageClient() {
                               </Text>
                             </div>
                             <Text type="secondary" style={{ fontSize: 13 }}>
-                              {formatExperienceDateLabel(exp)} · {exp.startTime}–{exp.endTime} ·{' '}
+                              {formatExperienceDateLabel(exp)} · {formatExperienceBookingHours(exp, timeZone)} ·{' '}
                               {String(exp.type).replace(/_/g, ' ')}
                             </Text>
                             {exp.description && (
@@ -1509,6 +1463,46 @@ export default function RestaurantPageClient() {
       </div>
       </div>
 
+      <ExperienceBookingModal
+        open={!!experienceModalItem}
+        experience={experienceModalItem}
+        experiences={experiences}
+        restaurant={restaurant}
+        timeZone={timeZone}
+        workingHours={workingHoursLabel}
+        date={date}
+        partySize={partySize}
+        selectedSlot={selectedSlot}
+        slots={slots}
+        slotsLoading={availLoading}
+        packages={allPackages.filter((pkg) => {
+          if (pkg.minPartySize != null && partySize < pkg.minPartySize) return false;
+          if (pkg.maxPartySize != null && partySize > pkg.maxPartySize) return false;
+          return true;
+        })}
+        selectedPackageId={selectedPackageId}
+        depositCents={tableDepositCents}
+        onDateChange={(next) => updateBooking({ date: next, selectedSlot: null })}
+        onPartySizeChange={(next) => updateBooking({ partySize: next, selectedSlot: null })}
+        onSlotChange={(slot) => updateBooking({ selectedSlot: slot })}
+        onPackageChange={setSelectedPackageId}
+        onSelectRelated={(exp) => {
+          applyExperienceBookingWindow(exp);
+          setExperienceModalId(exp.id);
+        }}
+        onClose={() => setExperienceModalId(null)}
+        onContinueToBooking={() => {
+          if (!experienceModalItem) return;
+          setSelectedExperienceId(experienceModalItem.id);
+          const chosenPackage = allPackages.find((pkg) => pkg.id === selectedPackageId);
+          if (chosenPackage?.occasions?.length && !chosenPackage.occasions.includes(occasion)) {
+            setOccasion(chosenPackage.occasions[0]);
+          }
+          setExperienceModalId(null);
+          document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }}
+      />
+
       <RestaurantMessageModal
         open={messageOpen}
         restaurantId={restaurantId!}
@@ -1525,10 +1519,7 @@ export default function RestaurantPageClient() {
         depositAmountCents={restaurant.depositAmountCents}
         details={{
           dateLabel: date.format('dddd, MMMM D, YYYY'),
-          timeLabel: new Date(selectedSlot!).toLocaleTimeString([], {
-            hour: 'numeric',
-            minute: '2-digit',
-          }),
+          timeLabel: formatSlotLabel(selectedSlot!),
           partySize,
           occasionLabel: formatOccasion(occasion),
           guestName: user

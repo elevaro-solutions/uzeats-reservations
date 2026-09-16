@@ -24,9 +24,12 @@ Admin sections appear in the dashboard sidebar under **Admin**:
 
 | Page | Purpose |
 |---|---|
-| **Dashboard** | Platform KPIs and health |
+| **Overview** | Platform KPIs and health |
+| **Diners** | Create and manage customer accounts |
+| **Restaurant owners** | Partner owner accounts and venue assignment |
+| **Staff** | Team accounts with restaurant access |
+| **Platform users** | Admin and super admin access |
 | **Restaurants** | Approve, edit, suspend, delete venues |
-| **Users** | Search, edit roles, deactivate accounts |
 | **Invoices** | Stripe invoice history |
 | **Revenue** | MRR and revenue analytics |
 | **Churn** | Subscription cancellation trends |

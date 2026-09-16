@@ -118,6 +118,7 @@ export const RESTAURANT = gql`
         endTime
         active
       }
+      timezone
       menu {
         sections {
           id
@@ -129,6 +130,7 @@ export const RESTAURANT = gql`
             priceCents
             dietary
             photoUrl
+            popular
           }
         }
       }

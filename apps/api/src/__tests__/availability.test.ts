@@ -1,17 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import mongoose from 'mongoose';
+import { hmInTimeZone, isoDateInTimeZone, zonedWallClockToUtc } from '@reservations/shared';
 import { Restaurant } from '../models/Restaurant.js';
 import { Shift } from '../models/Shift.js';
 import { Table } from '../models/Table.js';
 import { User } from '../models/User.js';
 import { getAvailability } from '../services/availability.js';
 
-function toIsoDate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
+const TZ = 'America/Los_Angeles';
 
 describe('getAvailability past-slot omission', () => {
   let restaurantId: string;
@@ -37,7 +33,7 @@ describe('getAvailability past-slot omission', () => {
       ownerId: owner._id,
       address: {
         line1: '1 Test St',
-        city: 'Testville',
+        city: 'Los Angeles',
         state: 'CA',
         zip: '90001',
       },
@@ -66,9 +62,8 @@ describe('getAvailability past-slot omission', () => {
   });
 
   it('omits slots at or before the injected now for today', async () => {
-    const today = toIsoDate(new Date());
-    const now = new Date();
-    now.setHours(14, 53, 0, 0);
+    const today = isoDateInTimeZone(new Date(), TZ);
+    const now = zonedWallClockToUtc(today, '14:53', TZ);
 
     const slots = await getAvailability({
       restaurantId,
@@ -83,15 +78,14 @@ describe('getAvailability past-slot omission', () => {
     }
 
     const earliestLocalHour = Math.min(
-      ...slots.map((s) => new Date(s.time).getHours()),
+      ...slots.map((s) => Number(hmInTimeZone(new Date(s.time), TZ).slice(0, 2))),
     );
     expect(earliestLocalHour).toBeGreaterThanOrEqual(15);
   });
 
   it('returns morning slots when now is before the shift starts', async () => {
-    const today = toIsoDate(new Date());
-    const now = new Date();
-    now.setHours(9, 0, 0, 0);
+    const today = isoDateInTimeZone(new Date(), TZ);
+    const now = zonedWallClockToUtc(today, '09:00', TZ);
 
     const slots = await getAvailability({
       restaurantId,
@@ -100,7 +94,7 @@ describe('getAvailability past-slot omission', () => {
       now,
     });
 
-    expect(slots.some((s) => new Date(s.time).getHours() === 11)).toBe(true);
+    expect(slots.some((s) => hmInTimeZone(new Date(s.time), TZ) === '11:00')).toBe(true);
   });
 
   it('offers starts until shift endTime even when turn extends past close', async () => {
@@ -128,9 +122,8 @@ describe('getAvailability past-slot omission', () => {
 
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const date = toIsoDate(tomorrow);
-    const now = new Date();
-    now.setHours(9, 0, 0, 0);
+    const date = isoDateInTimeZone(tomorrow, TZ);
+    const now = zonedWallClockToUtc(isoDateInTimeZone(new Date(), TZ), '09:00', TZ);
 
     const slots = await getAvailability({
       restaurantId,
@@ -139,11 +132,7 @@ describe('getAvailability past-slot omission', () => {
       now,
     });
 
-    const localHm = (iso: string) => {
-      const d = new Date(iso);
-      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-    };
-    const times = slots.map((s) => localHm(s.time));
+    const times = slots.map((s) => hmInTimeZone(new Date(s.time), TZ));
 
     expect(times).toContain('11:30');
     expect(times).toContain('14:15');

@@ -65,4 +65,13 @@ Partners can create restaurant-scoped promotion codes in their dashboard.
 
 ## Invoicing
 
-Stripe generates invoices for subscriptions. The admin **Invoices** page surfaces them for support and accounting.
+Monthly restaurant invoices are generated automatically (API startup + daily 04:00 UTC) for the current and previous calendar months. Each invoice breaks down:
+
+- The plan charge for the period (or $0 while a trial is still running)
+- Cover fees grouped by source (network / website / widget), with cover count × unit rate
+
+Unpaid auto invoices are refreshed as more covers accrue. Manual invoices (`-M` numbers) and Stripe-synced invoices are left alone.
+
+Admins can still run **Generate** for a period on **Invoices**. Partners see the selected month’s invoice and line items on **Billing**.
+
+Cover fees are recorded when a reservation is **completed**, then rolled into that month’s invoice. Stripe subscription renewals bill the plan separately and do **not** include cover fees.

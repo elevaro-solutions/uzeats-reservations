@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Modal } from 'antd';
-import { LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { CloseOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { DEFAULT_RESTAURANT_PHOTO } from '@reservations/ui';
 
 type Props = {
@@ -76,11 +76,15 @@ export function RestaurantPhotoGallery({ photos, name }: Props) {
         footer={null}
         width="90vw"
         centered
+        closable={false}
         className="rt-restaurant-lightbox"
-        styles={{ body: { padding: 0, background: '#000' } }}
+        styles={{ body: { padding: 0, background: '#000' }, content: { padding: 0, background: '#000' } }}
       >
         {lightboxIndex !== null && (
           <div className="rt-restaurant-lightbox__inner">
+            <button type="button" className="rt-restaurant-lightbox__close" onClick={closeLightbox} aria-label="Close">
+              <CloseOutlined />
+            </button>
             <button type="button" className="rt-restaurant-lightbox__nav rt-restaurant-lightbox__nav--prev" onClick={prev} aria-label="Previous photo">
               <LeftOutlined />
             </button>

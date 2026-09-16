@@ -711,6 +711,7 @@ async function seed() {
           items: s.items.map((item) => ({
             ...item,
             available: true,
+            popular: ['Somsa', 'Plov', 'Lagman', 'Shashlik', 'Manti'].includes(item.name),
             photoUrl: menuItemPhotoUrl(item.name, r.cuisine),
           })),
         })),

@@ -29,6 +29,9 @@ import {
   assertCanEditUser,
   canManageBilling,
   canCreateRestaurant,
+  MAX_POPULAR_MENU_ITEMS,
+  countPopularMenuItems,
+  timezoneFromAddress,
 } from "@reservations/shared";
 import { assertCanAssignRole } from "../services/roleAccess.js";
 import { submitContactForm } from "../services/contactForm.js";
@@ -245,6 +248,7 @@ import {
   mapBoostCampaign,
   mapIntegration,
   mapAuditLog,
+  mapMenu,
   slugify,
 } from "./mappers.js";
 import {
@@ -400,23 +404,7 @@ export const resolvers = {
     menu: async (r: { id: string }) => {
       const menu = await Menu.findOne({ restaurantId: r.id });
       if (!menu) return null;
-      return {
-        id: menu._id.toString(),
-        restaurantId: r.id,
-        sections: menu.sections.map((s: any) => ({
-          id: s._id.toString(),
-          name: s.name,
-          items: s.items.map((i: any) => ({
-            id: i._id.toString(),
-            name: i.name,
-            description: i.description,
-            priceCents: i.priceCents,
-            photoUrl: i.photoUrl,
-            dietary: i.dietary ?? [],
-            available: i.available,
-          })),
-        })),
-      };
+      return mapMenu(menu, r.id);
     },
     isSaved: async (r: { id: string }, _: unknown, ctx: GraphQLContext) => {
       if (!ctx.user) return false;
@@ -427,6 +415,16 @@ export const resolvers = {
       return isRestaurantBookmarked(ctx.user._id.toString(), r.id, "favorite");
     },
     bookingWindow: async (r: { id: string }) => getBookingWindow(r.id),
+    timezone: (r: {
+      address?: { state?: string; zip?: string; country?: string };
+      location?: { lat?: number; lng?: number };
+    }) =>
+      timezoneFromAddress({
+        state: r.address?.state,
+        zip: r.address?.zip,
+        country: r.address?.country,
+        lng: r.location?.lng,
+      }),
   },
 
   Reservation: {
@@ -1277,12 +1275,19 @@ export const resolvers = {
 
     adminUsers: async (
       _: unknown,
-      args: { search?: string; role?: string; limit?: number; offset?: number },
+      args: {
+        search?: string;
+        role?: string;
+        roles?: string[];
+        limit?: number;
+        offset?: number;
+      },
       ctx: GraphQLContext,
     ) => {
       requireAdmin(ctx);
       const filter: Record<string, unknown> = {};
-      if (args.role) filter.role = args.role;
+      if (args.roles?.length) filter.role = { $in: args.roles };
+      else if (args.role) filter.role = args.role;
       if (args.search?.trim()) {
         const regex = new RegExp(
           args.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
@@ -1292,6 +1297,7 @@ export const resolvers = {
           { email: regex },
           { firstName: regex },
           { lastName: regex },
+          { phone: regex },
         ];
       }
       const [page, hasSuperAdmin] = await Promise.all([
@@ -1306,6 +1312,44 @@ export const resolvers = {
         User.countDocuments({ role: "super_admin" }).then((n) => n > 0),
       ]);
       return { ...page, hasSuperAdmin };
+    },
+
+    adminUser: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+      requireAdmin(ctx);
+      const user = await User.findById(args.id);
+      return user ? mapUser(user) : null;
+    },
+
+    adminUserReservations: async (
+      _: unknown,
+      args: { userId: string; limit?: number; offset?: number },
+      ctx: GraphQLContext,
+    ) => {
+      requireAdmin(ctx);
+      const user = await User.findById(args.userId).select("_id");
+      if (!user) throw new Error("User not found");
+      return paginateQuery(Reservation, { dinerId: user._id }, {
+        sort: { slotStart: -1 },
+        limit: args.limit,
+        offset: args.offset,
+        defaultLimit: 10,
+        maxLimit: 100,
+        map: mapReservation,
+      });
+    },
+
+    adminUserRestaurants: async (
+      _: unknown,
+      args: { userId: string },
+      ctx: GraphQLContext,
+    ) => {
+      requireAdmin(ctx);
+      const user = await User.findById(args.userId);
+      if (!user) throw new Error("User not found");
+      const restaurants = await Restaurant.find({
+        $or: [{ ownerId: user._id }, { _id: { $in: user.restaurantIds ?? [] } }],
+      }).sort({ name: 1 });
+      return restaurants.map(mapRestaurant);
     },
 
     restaurantTeam: async (
@@ -1639,6 +1683,25 @@ export const resolvers = {
         phoneCovers,
         walkinCovers,
       };
+    },
+
+    restaurantInvoices: async (
+      _: unknown,
+      args: { restaurantId: string; period?: string; limit?: number; offset?: number },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      return listInvoices({
+        restaurantId: args.restaurantId,
+        billingPeriod: args.period,
+        limit: args.limit,
+        offset: args.offset,
+      });
     },
 
     myRestaurantGroups: async (
@@ -2569,7 +2632,7 @@ export const resolvers = {
       const input = registerSchema.parse(args.input);
       const result = await registerWithEmail(input);
       const app = resolveBrowserAuthApp(ctx.req);
-      if (app) setAuthCookies(ctx.res, result, app);
+      if (app) setAuthCookies(ctx.res, result, app, result.user.role);
       return {
         ...authPayloadTokens(ctx.req, result),
         user: mapUser(result.user),
@@ -2584,7 +2647,7 @@ export const resolvers = {
       const input = registerRestaurantPartnerSchema.parse(args.input);
       const result = await registerRestaurantPartner(input);
       const app = resolveBrowserAuthApp(ctx.req);
-      if (app) setAuthCookies(ctx.res, result, app);
+      if (app) setAuthCookies(ctx.res, result, app, result.user.role);
       return {
         ...authPayloadTokens(ctx.req, result),
         user: mapUser(result.user),
@@ -2605,7 +2668,7 @@ export const resolvers = {
       const input = loginSchema.parse(args.input);
       const result = await loginWithEmail(input.email, input.password);
       const app = resolveBrowserAuthApp(ctx.req);
-      if (app) setAuthCookies(ctx.res, result, app);
+      if (app) setAuthCookies(ctx.res, result, app, result.user.role);
       return {
         ...authPayloadTokens(ctx.req, result),
         user: mapUser(result.user),
@@ -2619,7 +2682,7 @@ export const resolvers = {
     ) => {
       const result = await loginWithGoogle(args.idToken);
       const app = resolveBrowserAuthApp(ctx.req);
-      if (app) setAuthCookies(ctx.res, result, app);
+      if (app) setAuthCookies(ctx.res, result, app, result.user.role);
       return {
         ...authPayloadTokens(ctx.req, result),
         user: mapUser(result.user),
@@ -2637,7 +2700,7 @@ export const resolvers = {
       const input = phoneOtpVerifySchema.parse(args.input);
       const result = await verifyPhoneOtp(input);
       const app = resolveBrowserAuthApp(ctx.req);
-      if (app) setAuthCookies(ctx.res, result, app);
+      if (app) setAuthCookies(ctx.res, result, app, result.user.role);
       return {
         ...authPayloadTokens(ctx.req, result),
         user: mapUser(result.user),
@@ -2652,11 +2715,11 @@ export const resolvers = {
       const refresh = getRefreshTokenFromRequest(ctx.req, args.refreshToken);
       if (!refresh) throw new Error("Invalid refresh token");
       const tokens = await refreshTokens(refresh);
-      const app = resolveBrowserAuthApp(ctx.req);
-      if (app) setAuthCookies(ctx.res, tokens, app);
       const payload = JSON.parse(
         Buffer.from(tokens.accessToken.split(".")[1]!, "base64").toString(),
-      );
+      ) as { sub?: string; role?: string };
+      const app = resolveBrowserAuthApp(ctx.req);
+      if (app) setAuthCookies(ctx.res, tokens, app, payload.role);
       const user = await User.findById(payload.sub);
       if (!user) throw new Error("User not found");
       return { ...authPayloadTokens(ctx.req, tokens), user: mapUser(user) };
@@ -3419,28 +3482,18 @@ export const resolvers = {
         args.restaurantId,
         user.role,
       );
+      const popularCount = countPopularMenuItems(args.input.sections);
+      if (popularCount > MAX_POPULAR_MENU_ITEMS) {
+        throw new ValidationError(
+          `Select up to ${MAX_POPULAR_MENU_ITEMS} popular dishes for the restaurant page`,
+        );
+      }
       const menu = await Menu.findOneAndUpdate(
         { restaurantId: args.restaurantId },
         { sections: args.input.sections },
         { upsert: true, new: true },
       );
-      return {
-        id: menu!._id.toString(),
-        restaurantId: args.restaurantId,
-        sections: menu!.sections.map((s: any) => ({
-          id: s._id.toString(),
-          name: s.name,
-          items: s.items.map((i: any) => ({
-            id: i._id.toString(),
-            name: i.name,
-            description: i.description,
-            priceCents: i.priceCents,
-            photoUrl: i.photoUrl,
-            dietary: i.dietary ?? [],
-            available: i.available,
-          })),
-        })),
-      };
+      return mapMenu(menu!, args.restaurantId);
     },
 
     createUploadUrl: async (

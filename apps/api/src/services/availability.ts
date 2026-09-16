@@ -1,4 +1,9 @@
-import type { AvailabilitySlot } from '@reservations/shared';
+import {
+  timezoneFromAddress,
+  weekdayInTimeZone,
+  zonedWallClockToUtc,
+  type AvailabilitySlot,
+} from '@reservations/shared';
 import { Blackout, Shift } from '../models/Shift.js';
 import { Table } from '../models/Table.js';
 import { Reservation } from '../models/Reservation.js';
@@ -6,16 +11,17 @@ import { Restaurant } from '../models/Restaurant.js';
 import { SLOT_QUANTUM_MS, TableSlotClaim } from '../models/TableSlotClaim.js';
 import { findClaimedTableIds, slotKeysForRange } from './tableSlotClaims.js';
 
-function parseHm(hm: string) {
-  const [h, m] = hm.split(':').map(Number);
-  return { hour: h ?? 0, minute: m ?? 0 };
-}
-
-function dateAt(dateStr: string, hm: string) {
-  const { hour, minute } = parseHm(hm);
-  const d = new Date(`${dateStr}T00:00:00`);
-  d.setHours(hour, minute, 0, 0);
-  return d;
+function restaurantTimeZone(restaurant: {
+  address?: { state?: string; zip?: string; country?: string };
+  location?: { coordinates?: number[] };
+}): string {
+  const [lng] = restaurant.location?.coordinates ?? [];
+  return timezoneFromAddress({
+    state: restaurant.address?.state,
+    zip: restaurant.address?.zip,
+    country: restaurant.address?.country,
+    lng,
+  });
 }
 
 function overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
@@ -32,9 +38,9 @@ export async function getAvailability(params: {
   const restaurant = await Restaurant.findById(params.restaurantId);
   if (!restaurant || restaurant.status !== 'approved') return [];
   const now = params.now ?? new Date();
-
-  const day = new Date(`${params.date}T12:00:00`);
-  const dayOfWeek = day.getDay();
+  const timeZone = restaurantTimeZone(restaurant);
+  const dateAt = (hm: string) => zonedWallClockToUtc(params.date, hm, timeZone);
+  const dayOfWeek = weekdayInTimeZone(zonedWallClockToUtc(params.date, '12:00', timeZone), timeZone);
 
   const blackouts = await Blackout.find({
     restaurantId: params.restaurantId,
@@ -57,8 +63,8 @@ export async function getAvailability(params: {
   });
   if (tables.length === 0) return [];
 
-  const dayStart = new Date(`${params.date}T00:00:00`);
-  const dayEnd = new Date(`${params.date}T23:59:59`);
+  const dayStart = dateAt('00:00');
+  const dayEnd = dateAt('23:59');
 
   const existing = await Reservation.find({
     restaurantId: params.restaurantId,
@@ -91,8 +97,8 @@ export async function getAvailability(params: {
   for (const shift of shifts) {
     const interval = shift.slotIntervalMinutes ?? 15;
     const turn = shift.turnTimeMinutes ?? 90;
-    let cursor = dateAt(params.date, shift.startTime);
-    const end = dateAt(params.date, shift.endTime);
+    let cursor = dateAt(shift.startTime);
+    const end = dateAt(shift.endTime);
 
     while (cursor < end) {
       if (cursor.getTime() <= now.getTime()) {
@@ -107,8 +113,8 @@ export async function getAvailability(params: {
       const inBlackout = blackouts.some((b) => {
         if (b.allDay) return true;
         if (!b.startTime || !b.endTime) return false;
-        const bs = dateAt(params.date, b.startTime);
-        const be = dateAt(params.date, b.endTime);
+        const bs = dateAt(b.startTime);
+        const be = dateAt(b.endTime);
         return overlaps(cursor, slotEnd, bs, be);
       });
 

@@ -114,7 +114,7 @@ export const MY_RESTAURANTS = gql`
         id
         sections {
           id name
-          items { id name description priceCents dietary available photoUrl }
+          items { id name description priceCents dietary available popular photoUrl }
         }
       }
     }
@@ -386,6 +386,7 @@ export const ADMIN_RESTAURANT = gql`
             priceCents
             dietary
             available
+            popular
             photoUrl
           }
         }
@@ -526,11 +527,80 @@ export const ADMIN_DELETE_RESTAURANTS = gql`
 `;
 
 export const ADMIN_USERS = gql`
-  query AdminUsers($search: String, $role: UserRole, $limit: Int, $offset: Int) {
-    adminUsers(search: $search, role: $role, limit: $limit, offset: $offset) {
+  query AdminUsers($search: String, $role: UserRole, $roles: [UserRole!], $limit: Int, $offset: Int) {
+    adminUsers(search: $search, role: $role, roles: $roles, limit: $limit, offset: $offset) {
       total
       hasSuperAdmin
       items { id email phone firstName lastName role loyaltyPoints emailVerified phoneVerified restaurantIds createdAt }
+    }
+  }
+`;
+
+export const ADMIN_USER = gql`
+  query AdminUser($id: ID!) {
+    adminUser(id: $id) {
+      id
+      email
+      phone
+      firstName
+      lastName
+      role
+      loyaltyPoints
+      loyaltyCompletedVisits
+      loyaltyTier
+      loyaltyTierName
+      referralCode
+      emailVerified
+      phoneVerified
+      restaurantIds
+      createdAt
+    }
+  }
+`;
+
+export const ADMIN_USER_RESERVATIONS = gql`
+  query AdminUserReservations($userId: ID!, $limit: Int, $offset: Int) {
+    adminUserReservations(userId: $userId, limit: $limit, offset: $offset) {
+      total
+      items {
+        id
+        partySize
+        slotStart
+        status
+        source
+        depositAmountCents
+        restaurant { id name }
+      }
+    }
+  }
+`;
+
+export const ADMIN_USER_RESTAURANTS = gql`
+  query AdminUserRestaurants($userId: ID!) {
+    adminUserRestaurants(userId: $userId) {
+      id
+      name
+      cuisine
+      status
+      ownerId
+    }
+  }
+`;
+
+export const ADMIN_CREATE_USER = gql`
+  mutation AdminCreateUser($input: AdminCreateUserInput!) {
+    adminCreateUser(input: $input) {
+      id
+      email
+      phone
+      firstName
+      lastName
+      role
+      loyaltyPoints
+      emailVerified
+      phoneVerified
+      restaurantIds
+      createdAt
     }
   }
 `;
@@ -1391,6 +1461,7 @@ export const GENERATE_INVOICES = gql`
   mutation GenerateInvoices($period: String!) {
     generateInvoices(period: $period) {
       created
+      updated
       skipped
       period
     }
@@ -2019,6 +2090,32 @@ export const COVER_FEE_SUMMARY = gql`
   query CoverFeeSummary($restaurantId: ID!, $period: String) {
     coverFeeSummary(restaurantId: $restaurantId, period: $period) {
       totalCovers totalFeeCents networkCovers websiteCovers widgetCovers phoneCovers walkinCovers
+    }
+  }
+`;
+
+export const RESTAURANT_INVOICES = gql`
+  query RestaurantInvoices($restaurantId: ID!, $period: String, $limit: Int, $offset: Int) {
+    restaurantInvoices(restaurantId: $restaurantId, period: $period, limit: $limit, offset: $offset) {
+      total
+      items {
+        id
+        number
+        status
+        billingPeriod
+        currency
+        subtotalCents
+        totalCents
+        dueDate
+        paidAt
+        payUrl
+        lines {
+          description
+          quantity
+          unitAmountCents
+          amountCents
+        }
+      }
     }
   }
 `;

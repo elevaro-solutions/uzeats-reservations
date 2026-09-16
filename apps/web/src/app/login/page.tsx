@@ -45,7 +45,8 @@ function LoginContent() {
   const handleGoogleSuccess = async (idToken: string) => {
     setGoogleLoading(true);
     try {
-      await loginWithGoogle(idToken);
+      const signedIn = await loginWithGoogle(idToken);
+      if (signedIn.role !== 'diner') return;
       message.success('Signed in with Google');
       goNext();
     } catch (err) {
@@ -79,7 +80,8 @@ function LoginContent() {
                 onFinish={async (values) => {
                   setLoading(true);
                   try {
-                    await login(values.email, values.password);
+                    const signedIn = await login(values.email, values.password);
+                    if (signedIn.role !== 'diner') return;
                     message.success('Signed in');
                     goNext();
                   } catch (err) {

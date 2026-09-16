@@ -92,6 +92,7 @@ export type RestaurantBookingInfo = {
     minAdvanceHours: number;
   } | null;
   shifts?: BookingShift[] | null;
+  timezone?: string | null;
   address?: {
     line1?: string | null;
     line2?: string | null;

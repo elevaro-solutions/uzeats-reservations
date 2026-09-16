@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import {
   Button,
   Card,
+  Checkbox,
   Collapse,
   Form,
   Input,
@@ -27,6 +28,7 @@ import {
 } from '@ant-design/icons';
 import type { RcFile } from 'antd/es/upload';
 import type { FormListFieldData } from 'antd/es/form/FormList';
+import { MAX_POPULAR_MENU_ITEMS, countPopularMenuItems } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { MY_RESTAURANTS, UPSERT_MENU, UPDATE_RESTAURANT } from '@/lib/graphql';
@@ -51,6 +53,7 @@ type MenuItemForm = {
   price: number;
   dietary: string[];
   available: boolean;
+  popular: boolean;
   photoUrl?: string;
 };
 
@@ -65,6 +68,7 @@ const EMPTY_ITEM: MenuItemForm = {
   price: 0,
   dietary: [],
   available: true,
+  popular: false,
   photoUrl: undefined,
 };
 
@@ -94,6 +98,7 @@ export default function MenuPage() {
   /** Form.List field name of the category shown in the side panel. */
   const [activeSectionName, setActiveSectionName] = useState<number>(0);
   const watchedSections = Form.useWatch('sections', form) as MenuSectionForm[] | undefined;
+  const popularCount = countPopularMenuItems(watchedSections);
   /** Item counts from nested Form.List (authoritative; useWatch can lag on nested lists). */
   const [itemCounts, setItemCounts] = useState<Record<number, number>>({});
 
@@ -119,6 +124,7 @@ export default function MenuPage() {
               priceCents?: number;
               dietary?: string[];
               available?: boolean;
+              popular?: boolean;
               photoUrl?: string;
             }>;
           }) => ({
@@ -129,6 +135,7 @@ export default function MenuPage() {
               price: (i.priceCents ?? 0) / 100,
               dietary: i.dietary ?? [],
               available: i.available ?? true,
+              popular: i.popular ?? false,
               photoUrl: i.photoUrl ?? undefined,
             })),
           }),
@@ -215,9 +222,16 @@ export default function MenuPage() {
                 priceCents: Math.round((i.price ?? 0) * 100),
                 dietary: i.dietary ?? [],
                 available: i.available ?? true,
+                popular: i.popular ?? false,
                 photoUrl: i.photoUrl || undefined,
               })),
             }));
+            if (countPopularMenuItems(sections) > MAX_POPULAR_MENU_ITEMS) {
+              message.error(
+                `Select up to ${MAX_POPULAR_MENU_ITEMS} popular dishes for the restaurant page`,
+              );
+              return;
+            }
             await Promise.all([
               updateRestaurant({
                 variables: {
@@ -241,7 +255,7 @@ export default function MenuPage() {
           <Form.Item
             label="Full menu URL"
             extra='Optional link for "View full menu" on your public page — PDF, website menu, or third-party menu host.'
-            style={{ marginBottom: 0 }}
+            style={{ marginBottom: 12 }}
           >
             <Input
               placeholder="https://yourrestaurant.com/menu"
@@ -249,6 +263,10 @@ export default function MenuPage() {
               onChange={(e) => setMenuUrl(e.target.value)}
             />
           </Form.Item>
+          <Text type="secondary">
+            Check Popular on {MAX_POPULAR_MENU_ITEMS} dishes or fewer — those are the only items
+            diners see on your restaurant page. {popularCount} of {MAX_POPULAR_MENU_ITEMS} selected.
+          </Text>
         </Card>
 
         <Form.List name="sections">
@@ -453,6 +471,7 @@ export default function MenuPage() {
                                 uploadingPath={uploadingPath}
                                 uploadPhoto={uploadPhoto}
                                 setItemCounts={setItemCounts}
+                                popularCount={popularCount}
                               />
                             )}
                           </Form.List>
@@ -486,6 +505,7 @@ function SectionItemsPanel({
   uploadingPath,
   uploadPhoto,
   setItemCounts,
+  popularCount,
 }: {
   section: FormListFieldData;
   items: FormListFieldData[];
@@ -498,6 +518,7 @@ function SectionItemsPanel({
   uploadingPath: string | null;
   uploadPhoto: (file: RcFile, sectionIndex: number, itemIndex: number) => Promise<void>;
   setItemCounts: Dispatch<SetStateAction<Record<number, number>>>;
+  popularCount: number;
 }) {
   const panelKeys = items.map((item) => String(item.key));
   itemKeysRef.current[String(section.name)] = panelKeys;
@@ -528,6 +549,7 @@ function SectionItemsPanel({
             itemsLength: items.length,
             uploadingPath,
             uploadPhoto,
+            popularCount,
           }),
         )}
       />
@@ -575,6 +597,7 @@ function buildItemPanel({
   itemsLength,
   uploadingPath,
   uploadPhoto,
+  popularCount,
 }: {
   item: FormListFieldData;
   itemIndex: number;
@@ -584,7 +607,11 @@ function buildItemPanel({
   itemsLength: number;
   uploadingPath: string | null;
   uploadPhoto: (file: RcFile, sectionIndex: number, itemIndex: number) => Promise<void>;
+  popularCount: number;
 }) {
+  const isPopular = Boolean(
+    form.getFieldValue(['sections', section.name, 'items', item.name, 'popular']),
+  );
   return {
     key: String(item.key),
     label: (
@@ -600,27 +627,38 @@ function buildItemPanel({
             item.name,
             'price',
           ]);
+          const popular = Boolean(
+            form.getFieldValue(['sections', section.name, 'items', item.name, 'popular']),
+          );
           return (
             <Text>
               {name}
               {typeof price === 'number' ? ` — $${price.toFixed(2)}` : ''}
+              {popular ? ' · Popular' : ''}
             </Text>
           );
         }}
       </Form.Item>
     ),
     extra: (
-      <Button
-        type="text"
-        danger
-        size="small"
-        icon={<DeleteOutlined />}
-        onClick={(e) => {
-          e.stopPropagation();
-          removeItem(item.name);
-        }}
-        disabled={itemsLength <= 1}
-      />
+      <Space size={4} onClick={(e) => e.stopPropagation()}>
+        <Form.Item name={[item.name, 'popular']} valuePropName="checked" noStyle>
+          <Checkbox disabled={!isPopular && popularCount >= MAX_POPULAR_MENU_ITEMS}>
+            Popular
+          </Checkbox>
+        </Form.Item>
+        <Button
+          type="text"
+          danger
+          size="small"
+          icon={<DeleteOutlined />}
+          onClick={(e) => {
+            e.stopPropagation();
+            removeItem(item.name);
+          }}
+          disabled={itemsLength <= 1}
+        />
+      </Space>
     ),
     children: (
       <Space orientation="vertical" size={0} style={{ width: '100%' }}>

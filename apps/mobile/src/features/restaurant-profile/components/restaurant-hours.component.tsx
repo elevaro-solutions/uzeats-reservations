@@ -4,20 +4,21 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { ChevronDownIcon } from "@/assets";
 import { Flex, Typography } from "@/components";
-import { formatShortHours } from "@/features/discovery";
+import { formatBookingHours, formatOpeningHoursLines, formatShortHours } from "@reservations/shared";
 import type { RestaurantShift } from "@/features/discovery";
-
-import { formatOpeningHoursLines } from "../helpers/opening-hours.helpers";
 
 export type RestaurantHoursProps = {
   shifts?: RestaurantShift[] | null;
+  timeZone?: string | null;
 };
 
-export function RestaurantHours({ shifts }: RestaurantHoursProps) {
+export function RestaurantHours({ shifts, timeZone }: RestaurantHoursProps) {
   const { theme } = useUnistyles();
   const [scheduleOpen, setScheduleOpen] = useState(false);
-  const shortHours = formatShortHours(shifts);
-  const scheduleLines = formatOpeningHoursLines(shifts ?? []);
+  const zone = timeZone ?? undefined;
+  const shortHours = formatShortHours(shifts ?? [], zone);
+  const bookingHours = formatBookingHours(shifts ?? [], zone);
+  const scheduleLines = formatOpeningHoursLines(shifts ?? [], zone);
 
   if (!shortHours && scheduleLines.length === 0) {
     return null;
@@ -59,6 +60,11 @@ export function RestaurantHours({ shifts }: RestaurantHoursProps) {
           ) : null}
         </Flex>
       </Pressable>
+      {bookingHours ? (
+        <Typography size="text-sm" color="secondary">
+          Reservations: {bookingHours}
+        </Typography>
+      ) : null}
       {scheduleOpen
         ? scheduleLines.map((line) => (
             <Typography key={line} size="text-sm" color="secondary">

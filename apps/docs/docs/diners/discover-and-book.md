@@ -18,14 +18,14 @@ Each restaurant has a detail page with:
 
 - Photo gallery and hero image
 - About, hours, address (Google Places autocomplete when configured)
-- Menu sections
+- Popular dishes (up to 10 items partners mark in the dashboard; full menu via optional URL)
 - Reviews and ratings
 - FAQ and terms
 - **Book now** — opens the reservation flow
 - **Contact** — send an inquiry to the restaurant
 - **Save** — bookmark for later (requires sign-in)
 
-Short links: `https://tablevera.online/r/{slug}`
+Public URL: `https://tablevera.online/restaurants/{slug}` (legacy `/r/{slug}` links redirect here).
 
 ## Booking flow
 

@@ -1,11 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { Upload, Image, Button, message, Progress, Typography, Tag, Space } from 'antd';
+import { Upload, Image, Button, message, Progress, Typography, Tag, Space, Tooltip } from 'antd';
 import {
   DeleteOutlined,
   InboxOutlined,
   EyeOutlined,
+  HolderOutlined,
+  LeftOutlined,
+  RightOutlined,
+  StarOutlined,
 } from '@ant-design/icons';
 import type { RcFile } from 'antd/es/upload';
 import { colors } from '@reservations/ui';
@@ -16,6 +20,7 @@ const { Text } = Typography;
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const BRAND = colors.brand[600];
+const HERO_SLOT_COUNT = 3;
 
 interface PhotoUploadProps {
   value?: string[];
@@ -24,6 +29,25 @@ interface PhotoUploadProps {
   /** Shown when there is no uploaded image (e.g. taxonomy stock default). Not saved. */
   placeholderSrc?: string | null;
   alt?: string;
+  /**
+   * Restaurant gallery mode: first photo is the large hero, the next two sit beside it.
+   * Defaults on when more than one photo is allowed.
+   */
+  showHeroOrder?: boolean;
+}
+
+function galleryRole(index: number): { label: string; color?: string } {
+  if (index === 0) return { label: 'Hero', color: 'gold' };
+  if (index < HERO_SLOT_COUNT) return { label: `Hero ${index + 1}`, color: 'blue' };
+  return { label: 'Gallery' };
+}
+
+function moveItem(urls: string[], from: number, to: number): string[] {
+  if (to < 0 || to >= urls.length || from === to) return urls;
+  const next = [...urls];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
 }
 
 export default function PhotoUpload({
@@ -32,9 +56,14 @@ export default function PhotoUpload({
   maxCount = 10,
   placeholderSrc,
   alt = 'Photo',
+  showHeroOrder,
 }: PhotoUploadProps) {
   const [uploading, setUploading] = useState<Record<string, number>>({});
   const [previewUrl, setPreviewUrl] = useState<string>();
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+
+  const heroOrder = showHeroOrder ?? maxCount !== 1;
 
   const handleUpload = async (file: RcFile) => {
     if (file.size > MAX_FILE_SIZE) {
@@ -66,6 +95,16 @@ export default function PhotoUpload({
 
   const handleRemove = (url: string) => {
     onChange?.(value.filter((u) => u !== url));
+  };
+
+  const handleReorder = (from: number, to: number) => {
+    onChange?.(moveItem(value, from, to));
+  };
+
+  const handleSetHero = (index: number) => {
+    if (index === 0) return;
+    onChange?.(moveItem(value, index, 0));
+    message.success('Hero photo updated');
   };
 
   const activeUploads = Object.entries(uploading);
@@ -180,6 +219,10 @@ export default function PhotoUpload({
     );
   }
 
+  const hero = value[0];
+  const side = value.slice(1, HERO_SLOT_COUNT);
+  const extraCount = Math.max(0, value.length - HERO_SLOT_COUNT);
+
   return (
     <div component="PhotoUpload">
       {value.length < maxCount && (
@@ -210,48 +253,173 @@ export default function PhotoUpload({
         />
       ))}
 
-      {value.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-          {value.map((url) => (
-            <div
-              key={url}
-              style={{
-                position: 'relative',
-                width: 104,
-                height: 104,
-                borderRadius: 8,
-                overflow: 'hidden',
-                border: '1px solid #d9d9d9',
-                background: '#f5f5f5',
-              }}
+      {heroOrder && value.length > 0 && (
+        <div className="rt-photo-hero-order">
+          <Text strong style={{ display: 'block', marginBottom: 4 }}>
+            Public hero preview
+          </Text>
+          <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+            Drag photos below to change what diners see first. The first image is the large hero;
+            the next two appear beside it. Remaining photos show in the gallery.
+          </Text>
+          <div
+            className={
+              value.length === 1
+                ? 'rt-photo-hero-preview rt-photo-hero-preview--single'
+                : 'rt-photo-hero-preview'
+            }
+          >
+            <button
+              type="button"
+              className="rt-photo-hero-preview__hero"
+              onClick={() => setPreviewUrl(hero)}
+              aria-label="Preview hero photo"
             >
-              <img
-                src={url}
-                alt={alt}
-                width={104}
-                height={104}
-                style={{ objectFit: 'cover', display: 'block', width: '100%', height: '100%' }}
-                onClick={() => setPreviewUrl(url)}
-              />
-              <Button
-                type="text"
-                danger
-                size="small"
-                icon={<DeleteOutlined />}
-                onClick={() => handleRemove(url)}
-                style={{
-                  position: 'absolute',
-                  top: 4,
-                  right: 4,
-                  background: 'rgba(255,255,255,0.9)',
-                  borderRadius: '50%',
-                  width: 24,
-                  height: 24,
-                  padding: 0,
+              <img src={hero} alt={`${alt} hero`} />
+            </button>
+            {value.length > 1 && (
+              <div className="rt-photo-hero-preview__side">
+                {side.map((url, i) => (
+                  <button
+                    key={`${url}-side-${i}`}
+                    type="button"
+                    className="rt-photo-hero-preview__thumb"
+                    onClick={() => setPreviewUrl(url)}
+                    aria-label={`Preview hero gallery photo ${i + 2}`}
+                  >
+                    <img src={url} alt={`${alt} ${i + 2}`} />
+                    {i === 1 && extraCount > 0 && (
+                      <span className="rt-photo-hero-preview__more">+{extraCount} photos</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {value.length > 0 && (
+        <div className="rt-photo-sort-grid" style={{ marginTop: 12 }}>
+          {value.map((url, index) => {
+            const role = galleryRole(index);
+            const isDragging = dragIndex === index;
+            const isDropTarget = dropIndex === index && dragIndex !== index;
+            return (
+              <div
+                key={`${url}-${index}`}
+                className={[
+                  'rt-photo-sort-tile',
+                  isDragging ? 'rt-photo-sort-tile--dragging' : '',
+                  isDropTarget ? 'rt-photo-sort-tile--drop' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                draggable={heroOrder}
+                onDragStart={(e) => {
+                  setDragIndex(index);
+                  e.dataTransfer.effectAllowed = 'move';
+                  e.dataTransfer.setData('text/plain', String(index));
                 }}
-              />
-            </div>
-          ))}
+                onDragOver={(e) => {
+                  if (dragIndex === null) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  setDropIndex(index);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const from = dragIndex ?? Number(e.dataTransfer.getData('text/plain'));
+                  handleReorder(from, index);
+                  setDragIndex(null);
+                  setDropIndex(null);
+                }}
+                onDragEnd={() => {
+                  setDragIndex(null);
+                  setDropIndex(null);
+                }}
+              >
+                <img
+                  src={url}
+                  alt={`${alt} ${index + 1}`}
+                  onClick={() => setPreviewUrl(url)}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.opacity = '0.4';
+                  }}
+                />
+                <Tag
+                  color={role.color}
+                  className="rt-photo-sort-tile__badge"
+                >
+                  {role.label}
+                </Tag>
+                {heroOrder && (
+                  <span className="rt-photo-sort-tile__handle" aria-hidden>
+                    <HolderOutlined />
+                  </span>
+                )}
+                <div
+                  className="rt-photo-sort-tile__actions"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  {heroOrder && (
+                    <>
+                      <Tooltip title="Move earlier">
+                        <Button
+                          type="text"
+                          size="small"
+                          disabled={index === 0}
+                          icon={<LeftOutlined />}
+                          onClick={() => handleReorder(index, index - 1)}
+                          aria-label={`Move photo ${index + 1} earlier`}
+                        />
+                      </Tooltip>
+                      <Tooltip title="Move later">
+                        <Button
+                          type="text"
+                          size="small"
+                          disabled={index === value.length - 1}
+                          icon={<RightOutlined />}
+                          onClick={() => handleReorder(index, index + 1)}
+                          aria-label={`Move photo ${index + 1} later`}
+                        />
+                      </Tooltip>
+                      <Tooltip title={index === 0 ? 'Current hero' : 'Set as hero'}>
+                        <Button
+                          type="text"
+                          size="small"
+                          disabled={index === 0}
+                          icon={<StarOutlined />}
+                          onClick={() => handleSetHero(index)}
+                          aria-label={`Set photo ${index + 1} as hero`}
+                        />
+                      </Tooltip>
+                    </>
+                  )}
+                  <Tooltip title="Preview">
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<EyeOutlined />}
+                      onClick={() => setPreviewUrl(url)}
+                      aria-label={`Preview photo ${index + 1}`}
+                    />
+                  </Tooltip>
+                  <Tooltip title="Remove">
+                    <Button
+                      type="text"
+                      size="small"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={() => handleRemove(url)}
+                      aria-label={`Remove photo ${index + 1}`}
+                    />
+                  </Tooltip>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

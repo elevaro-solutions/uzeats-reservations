@@ -8,7 +8,7 @@ The **Reservations** page is the primary operational view:
 - Create **phone** or **walk-in** bookings (`ReservationSource`: `phone`, `walkin`)
 - Edit party size, time, table assignment, and internal notes
 - Mark guests as **seated**, **completed**, or **no-show**
-- Share booking links (`/r/{slug}`) with guests
+- Share booking links (`/restaurants/{slug}`) with guests
 
 ### Reservation statuses
 
@@ -68,6 +68,8 @@ Under **Settings**:
 
 Upload menu sections and items. Images use presigned uploads to DigitalOcean Spaces (stubbed locally).
 
+Check **Popular** on up to 10 dishes. Those are the only items diners see on the public restaurant page (and in the mobile menu tab). Link a full menu URL if you want guests to open the complete menu.
+
 Partners can also **import** menu data from DoorDash/Uber Eats MHTML exports (admin import flow).
 
 ## Operational notifications
@@ -95,7 +97,11 @@ After marking reservations **completed**:
 Copy a direct booking link from **Booking widget** or build URLs:
 
 ```
-https://tablevera.online/r/{restaurant-slug}
+https://tablevera.online/restaurants/{restaurant-slug}
 ```
 
 Toggle **accept online reservations** and **hide widget** in restaurant settings when needed.
+
+## Photos
+
+On **Public profile** and **Settings**, upload up to 10 venue photos. Drag to reorder (or use the arrows / star). The first photo is the large hero on the diner restaurant page; the next two appear beside it; remaining photos show in the gallery below.

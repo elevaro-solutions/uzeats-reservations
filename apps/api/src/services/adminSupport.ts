@@ -155,6 +155,55 @@ export async function adminCreateOwnerUser(input: {
   return user;
 }
 
+const MANAGED_ACCOUNT_ROLES = ['diner', 'restaurant_owner', 'staff'] as const;
+type ManagedAccountRole = (typeof MANAGED_ACCOUNT_ROLES)[number];
+
+export async function adminCreateUser(input: {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  role: ManagedAccountRole;
+  restaurantIds?: string[];
+  emailVerified?: boolean;
+}) {
+  if (!MANAGED_ACCOUNT_ROLES.includes(input.role)) {
+    throw new Error('Role must be diner, staff, or restaurant owner');
+  }
+
+  const email = input.email.toLowerCase();
+  const existing = await User.findOne({ email });
+  if (existing) throw new Error('Email already registered');
+  if (input.phone) {
+    const phoneTaken = await User.findOne({ phone: input.phone });
+    if (phoneTaken) throw new Error('Phone already in use');
+  }
+
+  const restaurantIds = input.role === 'diner' ? [] : (input.restaurantIds ?? []);
+  if (input.role === 'staff' && restaurantIds.length === 0) {
+    throw new Error('Staff accounts require at least one restaurant');
+  }
+  if (restaurantIds.length) {
+    const restaurants = await Restaurant.find({ _id: { $in: restaurantIds } });
+    if (restaurants.length !== restaurantIds.length) {
+      throw new Error('One or more restaurants not found');
+    }
+  }
+
+  return User.create({
+    email,
+    passwordHash: await hashPassword(input.password),
+    firstName: input.firstName,
+    lastName: input.lastName,
+    phone: input.phone,
+    role: input.role as UserRole,
+    restaurantIds,
+    emailVerified: input.emailVerified ?? false,
+    referralCode: await generateUniqueReferralCode(input.firstName),
+  });
+}
+
 export async function assignUserToRestaurants(input: {
   userId: string;
   restaurantIds: string[];

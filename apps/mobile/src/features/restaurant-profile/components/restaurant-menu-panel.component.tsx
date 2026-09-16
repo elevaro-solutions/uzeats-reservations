@@ -1,5 +1,6 @@
 import { Linking } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import { selectPublicMenuSections } from "@reservations/shared";
 
 import { Button, Empty, Flex, RemoteImage, Typography } from "@/components";
 
@@ -47,8 +48,8 @@ function MenuItemRow({ item }: { item: RestaurantMenuItem }) {
 }
 
 export function RestaurantMenuPanel({ restaurant }: RestaurantMenuPanelProps) {
-  const sections = (restaurant.menu?.sections ?? []).filter(
-    (s) => (s.items?.length ?? 0) > 0,
+  const sections = selectPublicMenuSections(
+    (restaurant.menu?.sections ?? []).filter((s) => (s.items?.length ?? 0) > 0),
   );
   const externalUrl = restaurant.menuUrl?.trim() || restaurant.website?.trim();
 

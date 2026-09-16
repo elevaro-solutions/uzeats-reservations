@@ -20,7 +20,7 @@ Central identity for all roles.
 
 | Field | Notes |
 |---|---|
-| `slug` | URL identifier (`/restaurants/{slug}`, `/r/{slug}`) |
+| `slug` | URL identifier (`/restaurants/{slug}`; legacy `/r/{slug}` 308s here) |
 | `status` | `pending`, `approved`, `rejected`, `suspended` |
 | `geo` | `{ lng, lat }` for nearby search |
 | `subscription` | Stripe subscription reference and plan |
@@ -53,6 +53,7 @@ Tracks waiting parties with `WaitlistStatus`: waiting, notified, booked, seated,
 | `Experience` | Private dining / large party inquiries |
 | `RestaurantPackage` | Add-ons diners select at booking |
 | `Review` | Post-visit ratings and text |
+| `Menu` | Nested sections/items; `popular` flags (max 10) drive the public restaurant page |
 | `GiftCard` / promo codes | Stored value and discounts |
 | `SupportTicket` | Platform support queue |
 | `AuditLog` | Admin action history |

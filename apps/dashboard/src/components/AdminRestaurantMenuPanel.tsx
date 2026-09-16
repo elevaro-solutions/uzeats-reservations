@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useMutation } from '@/lib/apollo-hooks';
 import {
   Button,
   Card,
+  Checkbox,
   Collapse,
   Form,
   Input,
@@ -19,6 +20,7 @@ import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { UPSERT_MENU, UPDATE_RESTAURANT } from '@/lib/graphql';
 import { buildRestaurantInput } from '@/lib/restaurantInput';
 import type { AdminRestaurantRecord } from '@/components/AdminManageRestaurant';
+import { MAX_POPULAR_MENU_ITEMS, countPopularMenuItems } from '@reservations/shared';
 
 const { Text } = Typography;
 
@@ -37,6 +39,7 @@ type MenuItemForm = {
   price: number;
   dietary: string[];
   available: boolean;
+  popular: boolean;
   photoUrl?: string;
 };
 
@@ -55,6 +58,7 @@ type RestaurantWithMenu = AdminRestaurantRecord & {
         priceCents?: number;
         dietary?: string[];
         available?: boolean;
+        popular?: boolean;
         photoUrl?: string | null;
       }>;
     }>;
@@ -69,6 +73,8 @@ export function AdminRestaurantMenuPanel({
   onSaved?: () => void;
 }) {
   const [form] = Form.useForm<{ sections: MenuSectionForm[]; menuUrl: string }>();
+  const watchedSections = Form.useWatch('sections', form) as MenuSectionForm[] | undefined;
+  const popularCount = countPopularMenuItems(watchedSections);
   const [upsertMenu, { loading: savingMenu }] = useMutation(UPSERT_MENU);
   const [updateRestaurant, { loading: savingUrl }] = useMutation(UPDATE_RESTAURANT);
 
@@ -82,10 +88,11 @@ export function AdminRestaurantMenuPanel({
             price: (i.priceCents ?? 0) / 100,
             dietary: i.dietary ?? [],
             available: i.available ?? true,
+            popular: i.popular ?? false,
             photoUrl: i.photoUrl ?? undefined,
           })),
         }))
-      : [{ name: 'Starters', items: [{ name: '', description: '', price: 0, dietary: [], available: true }] }];
+      : [{ name: 'Starters', items: [{ name: '', description: '', price: 0, dietary: [], available: true, popular: false }] }];
     form.setFieldsValue({
       sections,
       menuUrl: restaurant.menuUrl ?? '',
@@ -105,9 +112,16 @@ export function AdminRestaurantMenuPanel({
             priceCents: Math.round((i.price ?? 0) * 100),
             dietary: i.dietary ?? [],
             available: i.available ?? true,
+            popular: i.popular ?? false,
             photoUrl: i.photoUrl || undefined,
           })),
       }));
+      if (countPopularMenuItems(sections) > MAX_POPULAR_MENU_ITEMS) {
+        message.error(
+          `Select up to ${MAX_POPULAR_MENU_ITEMS} popular dishes for the restaurant page`,
+        );
+        return;
+      }
       await Promise.all([
         upsertMenu({ variables: { restaurantId: restaurant.id, input: { sections } } }),
         updateRestaurant({
@@ -175,6 +189,10 @@ export function AdminRestaurantMenuPanel({
         >
           <Input placeholder="https://yourrestaurant.com/menu" />
         </Form.Item>
+        <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+          Check Popular on {MAX_POPULAR_MENU_ITEMS} dishes or fewer — those are the only items
+          diners see on the restaurant page. {popularCount} of {MAX_POPULAR_MENU_ITEMS} selected.
+        </Text>
 
         <Form.List name="sections">
           {(sectionFields, { add: addSection, remove: removeSection }) => (
@@ -224,16 +242,33 @@ export function AdminRestaurantMenuPanel({
                               </Form.Item>
                             ),
                             extra: (
-                              <Button
-                                type="text"
-                                size="small"
-                                danger
-                                icon={<DeleteOutlined />}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeItem(itemField.name);
-                                }}
-                              />
+                              <Space size={4} onClick={(e) => e.stopPropagation()}>
+                                <Form.Item
+                                  {...itemField}
+                                  name={[itemField.name, 'popular']}
+                                  valuePropName="checked"
+                                  noStyle
+                                >
+                                  <Checkbox
+                                    disabled={
+                                      !watchedSections?.[sectionField.name]?.items?.[itemField.name]
+                                        ?.popular && popularCount >= MAX_POPULAR_MENU_ITEMS
+                                    }
+                                  >
+                                    Popular
+                                  </Checkbox>
+                                </Form.Item>
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  danger
+                                  icon={<DeleteOutlined />}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    removeItem(itemField.name);
+                                  }}
+                                />
+                              </Space>
                             ),
                             children: (
                               <Space orientation="vertical" style={{ width: '100%' }} size="small">
@@ -286,6 +321,7 @@ export function AdminRestaurantMenuPanel({
                               price: 0,
                               dietary: [],
                               available: true,
+                              popular: false,
                             })
                           }
                           style={{ marginTop: 12 }}
@@ -304,7 +340,7 @@ export function AdminRestaurantMenuPanel({
                 onClick={() =>
                   addSection({
                     name: 'New section',
-                    items: [{ name: '', description: '', price: 0, dietary: [], available: true }],
+                    items: [{ name: '', description: '', price: 0, dietary: [], available: true, popular: false }],
                   })
                 }
                 block

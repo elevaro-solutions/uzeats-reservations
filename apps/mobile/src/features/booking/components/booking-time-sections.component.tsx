@@ -23,6 +23,7 @@ export type BookingTimeSectionsProps = {
   shifts?: BookingShift[] | null;
   /** YYYY-MM-DD — required with shifts for day-of-week matching. */
   date?: string;
+  timeZone?: string;
 };
 
 export function BookingTimeSections({
@@ -34,6 +35,7 @@ export function BookingTimeSections({
   showEmpty = false,
   shifts,
   date,
+  timeZone,
 }: BookingTimeSectionsProps) {
   const { theme } = useUnistyles();
   const { width: screenWidth } = useWindowDimensions();
@@ -42,6 +44,7 @@ export function BookingTimeSections({
     slots,
     shifts ?? [],
     date ?? new Date().toISOString().slice(0, 10),
+    timeZone,
   );
 
   const horizontalPadding = theme.space(2) * 2;
@@ -87,6 +90,7 @@ export function BookingTimeSections({
                         slotTimesEqual(selectedSlot, slot.time)
                       }
                       width={chipWidth}
+                      timeZone={timeZone}
                       onSelect={onSelectSlot}
                       onUnavailablePress={onUnavailablePress}
                     />
@@ -105,17 +109,19 @@ function TimeSlotChip({
   slot,
   selected,
   width,
+  timeZone,
   onSelect,
   onUnavailablePress,
 }: {
   slot: AvailabilitySlot;
   selected: boolean;
   width: number;
+  timeZone?: string;
   onSelect: (time: string) => void;
   onUnavailablePress?: (time: string) => void;
 }) {
   const { theme } = useUnistyles();
-  const label = formatSlotTime(slot.time);
+  const label = formatSlotTime(slot.time, timeZone);
   const fewLeft =
     slot.available && slot.remainingTables > 0 && slot.remainingTables <= 2;
 

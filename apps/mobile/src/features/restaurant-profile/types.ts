@@ -17,6 +17,7 @@ export type RestaurantMenuItem = {
   priceCents?: number | null;
   dietary?: string[] | null;
   photoUrl?: string | null;
+  popular?: boolean | null;
 };
 
 export type RestaurantMenuSection = {
@@ -57,6 +58,7 @@ export type RestaurantDetail = {
     line1: string;
   };
   shifts?: RestaurantShift[] | null;
+  timezone?: string | null;
   menu?: {
     sections?: RestaurantMenuSection[] | null;
   } | null;

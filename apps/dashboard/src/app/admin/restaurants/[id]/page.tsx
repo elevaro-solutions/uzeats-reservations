@@ -56,6 +56,7 @@ import {
 } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { getPublicWebUrl } from '@/lib/webUrl';
+import { accountDetailPath } from '@/lib/adminAccounts';
 
 const { Text, Title } = Typography;
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -427,7 +428,9 @@ export default function AdminRestaurantDetailPage() {
                       <Card title="Owner">
                         <Descriptions bordered size="small" column={{ xs: 1, sm: 3 }}>
                           <Descriptions.Item label="Name">
-                            {owner.firstName} {owner.lastName}
+                            <Link href={accountDetailPath(owner.role, owner.id)}>
+                              {owner.firstName} {owner.lastName}
+                            </Link>
                           </Descriptions.Item>
                           <Descriptions.Item label="Email">{owner.email}</Descriptions.Item>
                           <Descriptions.Item label="Phone">{owner.phone || '—'}</Descriptions.Item>
@@ -444,7 +447,7 @@ export default function AdminRestaurantDetailPage() {
                             title: 'Name',
                             key: 'name',
                             render: (_: any, r: any) => (
-                              <Link href={`/admin/users/${r.id}`}>
+                              <Link href={accountDetailPath(r.role, r.id)}>
                                 {r.firstName} {r.lastName}
                               </Link>
                             ),

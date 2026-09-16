@@ -10,6 +10,7 @@ import {
   TagOutlined,
   CarOutlined,
   TeamOutlined,
+  CalendarOutlined,
   ClockCircleOutlined,
 } from '@ant-design/icons';
 import { priceRangeLabel } from '@reservations/ui';
@@ -39,6 +40,7 @@ type Props = {
   wheelchairAccessible?: boolean;
   location?: { lat: number; lng: number } | null;
   openingHoursLines?: string[];
+  bookingHoursLine?: string | null;
 };
 
 type DetailRow = {
@@ -60,6 +62,7 @@ export function RestaurantDetailsSection({
   wheelchairAccessible,
   location,
   openingHoursLines = [],
+  bookingHoursLine,
 }: Props) {
   const fullAddress = formatRestaurantAddress(address);
 
@@ -118,6 +121,13 @@ export function RestaurantDetailsSection({
               ))}
             </div>
           ),
+        }
+      : null,
+    bookingHoursLine
+      ? {
+          icon: <CalendarOutlined />,
+          label: 'Reservations',
+          value: bookingHoursLine,
         }
       : null,
     address.neighborhood

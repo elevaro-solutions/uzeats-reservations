@@ -8,6 +8,7 @@ const menuItemSchema = new Schema(
     photoUrl: { type: String },
     dietary: [{ type: String }],
     available: { type: Boolean, default: true },
+    popular: { type: Boolean, default: false },
   },
   { _id: true },
 );

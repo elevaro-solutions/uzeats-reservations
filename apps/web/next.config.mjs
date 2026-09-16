@@ -2,11 +2,13 @@
 const nextConfig = {
   output: 'standalone',
   transpilePackages: ['@reservations/ui', '@reservations/shared'],
-  async rewrites() {
-    return [{ source: '/r/:slug', destination: '/restaurants/:slug' }];
-  },
   async redirects() {
     return [
+      {
+        source: '/r/:slug',
+        destination: '/restaurants/:slug',
+        permanent: true,
+      },
       {
         source: '/near-me/cities/:slug',
         destination: '/near-me/restaurants/:slug',
