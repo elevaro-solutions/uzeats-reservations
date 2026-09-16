@@ -377,6 +377,12 @@ export const ADMIN_RESTAURANT = gql`
   query AdminRestaurant($id: ID!) {
     restaurant(id: $id) {
       ${ADMIN_RESTAURANT_FIELDS}
+      tables {
+        id name minCapacity maxCapacity floorArea active combinable photoUrl
+      }
+      shifts {
+        id name daysOfWeek startTime endTime slotIntervalMinutes turnTimeMinutes active
+      }
       menu {
         sections {
           name

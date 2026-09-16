@@ -4,6 +4,13 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.50.2] — 2026-09-16
+
+### Fixed
+
+- Diner web production build: drop invalid Ant Design Modal `styles.content` on the restaurant photo lightbox
+- Admin restaurant detail Tables and Shifts tabs load table/shift data from GraphQL
+
 ## [0.50.1] — 2026-09-16
 
 ### Fixed

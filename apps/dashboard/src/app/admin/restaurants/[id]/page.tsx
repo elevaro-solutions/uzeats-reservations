@@ -62,6 +62,26 @@ const { Text, Title } = Typography;
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 type RestaurantDetail = AdminRestaurantRecord & {
+  tables?: Array<{
+    id: string;
+    name: string;
+    minCapacity: number;
+    maxCapacity: number;
+    floorArea?: string;
+    active?: boolean;
+    combinable?: boolean;
+    photoUrl?: string | null;
+  }>;
+  shifts?: Array<{
+    id: string;
+    name: string;
+    daysOfWeek: number[];
+    startTime: string;
+    endTime: string;
+    slotIntervalMinutes: number;
+    turnTimeMinutes: number;
+    active?: boolean;
+  }>;
   menu?: {
     sections?: Array<{
       name: string;

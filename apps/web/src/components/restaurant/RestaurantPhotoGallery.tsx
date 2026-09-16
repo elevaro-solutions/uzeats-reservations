@@ -78,7 +78,7 @@ export function RestaurantPhotoGallery({ photos, name }: Props) {
         centered
         closable={false}
         className="rt-restaurant-lightbox"
-        styles={{ body: { padding: 0, background: '#000' }, content: { padding: 0, background: '#000' } }}
+        styles={{ body: { padding: 0, background: '#000' } }}
       >
         {lightboxIndex !== null && (
           <div className="rt-restaurant-lightbox__inner">
