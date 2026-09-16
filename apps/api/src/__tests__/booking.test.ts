@@ -390,7 +390,7 @@ describe('Booking Flow (E2E)', () => {
     expect(page2Conn.total).toBe(connection.total);
     if (connection.total > 1) {
       expect(page2Conn.items).toHaveLength(1);
-      expect(page2Conn.items[0].id).not.toBe(connection.items[0].id);
+      expect(page2Conn.items[0]?.id).not.toBe(connection.items[0]?.id);
     } else {
       expect(page2Conn.items).toHaveLength(0);
     }

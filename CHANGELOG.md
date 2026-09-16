@@ -4,6 +4,12 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.50.1] — 2026-09-16
+
+### Fixed
+
+- API production build: allow restaurant `location` to be null when resolving timezone for availability slots
+
 ## [0.50.0] — 2026-09-16
 
 ### Added

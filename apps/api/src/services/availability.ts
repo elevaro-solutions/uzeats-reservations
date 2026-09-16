@@ -13,7 +13,7 @@ import { findClaimedTableIds, slotKeysForRange } from './tableSlotClaims.js';
 
 function restaurantTimeZone(restaurant: {
   address?: { state?: string; zip?: string; country?: string };
-  location?: { coordinates?: number[] };
+  location?: { coordinates?: number[] } | null;
 }): string {
   const [lng] = restaurant.location?.coordinates ?? [];
   return timezoneFromAddress({
