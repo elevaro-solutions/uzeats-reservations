@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatHm12,
   formatOpeningHoursLines,
+  formatTimeInTimeZone,
   hmInTimeZone,
   isoDateInTimeZone,
   timezoneFromAddress,
@@ -45,5 +46,14 @@ describe('zoned wall clock', () => {
     const wednesdayUtc = new Date('2026-09-16T04:00:00.000Z');
     expect(isoDateInTimeZone(wednesdayUtc, 'America/Los_Angeles')).toBe('2026-09-15');
     expect(weekdayInTimeZone(wednesdayUtc, 'America/Los_Angeles')).toBe(2);
+  });
+});
+
+describe('formatTimeInTimeZone', () => {
+  it('returns empty string for null, undefined, or invalid input', () => {
+    expect(formatTimeInTimeZone(null, 'America/New_York')).toBe('');
+    expect(formatTimeInTimeZone(undefined, 'America/New_York')).toBe('');
+    expect(formatTimeInTimeZone('', 'America/New_York')).toBe('');
+    expect(formatTimeInTimeZone('not-a-date', 'America/New_York')).toBe('');
   });
 });

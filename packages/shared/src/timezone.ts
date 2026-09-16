@@ -236,18 +236,26 @@ export function formatHmRange12(startTime: string, endTime: string, timeZone?: s
   return `${range} ${timeZoneLabel(timeZone, at)}`;
 }
 
+function toValidDate(iso: string | Date | null | undefined): Date | null {
+  if (iso == null || iso === '') return null;
+  const date = typeof iso === 'string' ? new Date(iso) : iso;
+  if (!(date instanceof Date) || !Number.isFinite(date.getTime())) return null;
+  return date;
+}
+
 export function formatTimeInTimeZone(
-  iso: string | Date,
+  iso: string | Date | null | undefined,
   timeZone: string,
   options: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' },
 ): string {
-  const date = typeof iso === 'string' ? new Date(iso) : iso;
-  if (!Number.isFinite(date.getTime())) return '';
+  const date = toValidDate(iso);
+  if (!date) return '';
   return date.toLocaleTimeString('en-US', { timeZone, ...options });
 }
 
-export function minutesInTimeZone(iso: string | Date, timeZone: string): number {
-  const date = typeof iso === 'string' ? new Date(iso) : iso;
+export function minutesInTimeZone(iso: string | Date | null | undefined, timeZone: string): number {
+  const date = toValidDate(iso);
+  if (!date) return 0;
   const p = tzParts(date, timeZone);
   return p.hour * 60 + p.minute;
 }

@@ -4,6 +4,12 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.50.3] — 2026-09-16
+
+### Fixed
+
+- Diner restaurant page no longer crashes on `/restaurants/{slug}` when no time slot is selected (confirm modal called `formatTimeInTimeZone` with null)
+
 ## [0.50.2] — 2026-09-16
 
 ### Fixed

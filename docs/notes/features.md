@@ -99,6 +99,10 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## restaurant-profile
 
+### [2026-09-16] Confirm modal renders while closed and formats a null slot
+- `ReservationConfirmModal` stays mounted with `open={false}`. Its `details.timeLabel` was `formatSlotLabel(selectedSlot!)`, so a direct visit with no `?slot=` threw in `formatTimeInTimeZone` (`null.getTime()`). Search links that already had a slot looked fine.
+- Why it matters: Don’t assume booking details are only computed when the modal opens. Slot formatters must tolerate null.
+
 ### [2026-09-16] Public menu is popular dishes only
 - Web restaurant details and the mobile menu tab render `selectPublicMenuSections`: items with `popular: true`, capped at 10. If none are marked, the first 8 items are shown. Owners, staff, and admins set the flags via checkboxes in the dashboard menu editor (`upsertMenu` rejects more than 10).
 - Why it matters: Don’t assume the diner page lists the full in-app menu. Full menus belong on `menuUrl` / the restaurant website.

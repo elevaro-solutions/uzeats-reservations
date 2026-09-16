@@ -1519,7 +1519,7 @@ export default function RestaurantPageClient() {
         depositAmountCents={restaurant.depositAmountCents}
         details={{
           dateLabel: date.format('dddd, MMMM D, YYYY'),
-          timeLabel: formatSlotLabel(selectedSlot!),
+          timeLabel: selectedSlot ? formatSlotLabel(selectedSlot) : '—',
           partySize,
           occasionLabel: formatOccasion(occasion),
           guestName: user
