@@ -35,6 +35,7 @@ import {
 import { CUISINES } from '@reservations/shared';
 import { AddressAutocomplete, PageHeader, PhoneInput, colors, radii, spacing, usPhoneRules } from '@reservations/ui';
 import { BookingSharePanel } from '@/components/BookingSharePanel';
+import { RestaurantSlugPanel } from '@/components/RestaurantSlugPanel';
 import { useAuth } from '@/lib/auth';
 import { addressSelectionToFields } from '@/lib/address';
 import {
@@ -757,6 +758,24 @@ export default function SettingsPage() {
               />
             </FormSection>
           </Card>
+
+          {restaurant && (
+          <Card
+            className="rt-surface-card"
+            styles={{ body: { padding: spacing.lg } }}
+            style={{ borderRadius: radii.lg }}
+          >
+            <FormSection
+              title="Public URL"
+              description="Your booking page lives at /restaurants/{slug}. Request a change if you need a cleaner link."
+            >
+              <RestaurantSlugPanel
+                restaurant={restaurant}
+                canRequest={user?.role === 'restaurant_owner'}
+              />
+            </FormSection>
+          </Card>
+          )}
 
           <Card
             className="rt-surface-card"

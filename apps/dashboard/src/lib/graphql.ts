@@ -447,6 +447,7 @@ export const ADMIN_UPDATE_RESTAURANT = gql`
     $useSmartAssign: Boolean
     $posEnabled: Boolean
     $widgetTheme: WidgetThemeInput
+    $slug: String
   ) {
     adminUpdateRestaurant(
       id: $id
@@ -458,6 +459,7 @@ export const ADMIN_UPDATE_RESTAURANT = gql`
       useSmartAssign: $useSmartAssign
       posEnabled: $posEnabled
       widgetTheme: $widgetTheme
+      slug: $slug
     ) {
       id
       name
@@ -2405,7 +2407,7 @@ export const RESTAURANT_REVIEWS = gql`
     restaurantReviews(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
       total
       items {
-        id rating comment ownerReply ownerRepliedAt hidden createdAt dinerId
+        id rating foodRating serviceRating atmosphereRating comment ownerReply ownerRepliedAt hidden createdAt dinerId
         diner { id firstName lastName }
       }
     }
@@ -3078,4 +3080,108 @@ export const ADMIN_SEND_DOCS_ACCESS_OTP = gql`
       message
     }
   }
+`;
+
+const RESTAURANT_SLUG_REQUEST_FIELDS = gql`
+  fragment RestaurantSlugRequestFields on RestaurantSlugRequest {
+    id
+    restaurantId
+    currentSlug
+    requestedSlug
+    reason
+    status
+    notes
+    createdAt
+    reviewedAt
+    restaurant {
+      id
+      name
+      slug
+    }
+    requestedBy {
+      id
+      firstName
+      lastName
+      email
+    }
+    reviewer {
+      id
+      firstName
+      lastName
+      email
+    }
+  }
+`;
+
+export const RESTAURANT_SLUG_AVAILABLE = gql`
+  query RestaurantSlugAvailable($slug: String!, $excludeRestaurantId: ID) {
+    restaurantSlugAvailable(slug: $slug, excludeRestaurantId: $excludeRestaurantId)
+  }
+`;
+
+export const MY_RESTAURANT_SLUG_REQUEST = gql`
+  query MyRestaurantSlugRequest($restaurantId: ID!) {
+    myRestaurantSlugRequest(restaurantId: $restaurantId) {
+      ...RestaurantSlugRequestFields
+    }
+  }
+  ${RESTAURANT_SLUG_REQUEST_FIELDS}
+`;
+
+export const REQUEST_RESTAURANT_SLUG_CHANGE = gql`
+  mutation RequestRestaurantSlugChange($input: RequestRestaurantSlugInput!) {
+    requestRestaurantSlugChange(input: $input) {
+      ...RestaurantSlugRequestFields
+    }
+  }
+  ${RESTAURANT_SLUG_REQUEST_FIELDS}
+`;
+
+export const CANCEL_RESTAURANT_SLUG_REQUEST = gql`
+  mutation CancelRestaurantSlugRequest($id: ID!) {
+    cancelRestaurantSlugRequest(id: $id) {
+      ...RestaurantSlugRequestFields
+    }
+  }
+  ${RESTAURANT_SLUG_REQUEST_FIELDS}
+`;
+
+export const ADMIN_RESTAURANT_SLUG_REQUESTS = gql`
+  query AdminRestaurantSlugRequests(
+    $status: RestaurantSlugRequestStatus
+    $search: String
+    $restaurantId: ID
+    $limit: Int
+    $offset: Int
+  ) {
+    adminRestaurantSlugRequests(
+      status: $status
+      search: $search
+      restaurantId: $restaurantId
+      limit: $limit
+      offset: $offset
+    ) {
+      total
+      limit
+      offset
+      items {
+        ...RestaurantSlugRequestFields
+      }
+    }
+  }
+  ${RESTAURANT_SLUG_REQUEST_FIELDS}
+`;
+
+export const REVIEW_RESTAURANT_SLUG_REQUEST = gql`
+  mutation ReviewRestaurantSlugRequest(
+    $id: ID!
+    $status: RestaurantSlugRequestStatus!
+    $notes: String
+    $slug: String
+  ) {
+    reviewRestaurantSlugRequest(id: $id, status: $status, notes: $notes, slug: $slug) {
+      ...RestaurantSlugRequestFields
+    }
+  }
+  ${RESTAURANT_SLUG_REQUEST_FIELDS}
 `;

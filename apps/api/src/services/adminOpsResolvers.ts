@@ -95,6 +95,11 @@ import {
   grantDocsAccess,
   reviewDocsAccessRequest,
 } from './docsAccess.js';
+import {
+  adminListRestaurantSlugRequests,
+  applyRestaurantSlug,
+  reviewRestaurantSlugRequest,
+} from './restaurantSlugs.js';
 import { clearSeedData as wipeSeedData } from './seedData.js';
 import { assertCanAssignRole } from './roleAccess.js';
 import {
@@ -233,6 +238,21 @@ export const adminOpsQuery = {
   ) => {
     requireAdmin(ctx);
     return adminListDocsAccessRequests(args);
+  },
+
+  adminRestaurantSlugRequests: async (
+    _: unknown,
+    args: {
+      status?: string;
+      search?: string;
+      restaurantId?: string;
+      limit?: number;
+      offset?: number;
+    },
+    ctx: GraphQLContext,
+  ) => {
+    requireAdmin(ctx);
+    return adminListRestaurantSlugRequests(args);
   },
 };
 
@@ -651,6 +671,7 @@ export const adminOpsMutation = {
       useSmartAssign?: boolean;
       posEnabled?: boolean;
       widgetTheme?: { primaryColor?: string; buttonText?: string; showReviews?: boolean };
+      slug?: string | null;
     },
     ctx: GraphQLContext,
   ) => {
@@ -700,6 +721,15 @@ export const adminOpsMutation = {
       }
     }
 
+    let result = doc;
+    if (args.slug != null && args.slug.trim()) {
+      result = await applyRestaurantSlug({
+        restaurantId: args.id,
+        slug: args.slug,
+        actorId: admin._id.toString(),
+      });
+    }
+
     await logAudit({
       actorId: admin._id.toString(),
       action: 'adminUpdateRestaurant',
@@ -709,10 +739,11 @@ export const adminOpsMutation = {
         name: input.name,
         featured: args.featured,
         ownerId: args.ownerId,
+        slug: result.slug,
       },
     });
 
-    return mapRestaurant(doc);
+    return mapRestaurant(result);
   },
 
   createSupportTicket: async (
@@ -770,6 +801,24 @@ export const adminOpsMutation = {
       admin._id.toString(),
       args.notes,
     );
+  },
+
+  reviewRestaurantSlugRequest: async (
+    _: unknown,
+    args: { id: string; status: string; notes?: string | null; slug?: string | null },
+    ctx: GraphQLContext,
+  ) => {
+    const admin = requireAdmin(ctx);
+    if (args.status !== 'approved' && args.status !== 'denied') {
+      throw new Error('Status must be approved or denied');
+    }
+    return reviewRestaurantSlugRequest({
+      id: args.id,
+      status: args.status,
+      reviewerId: admin._id.toString(),
+      notes: args.notes,
+      slug: args.slug,
+    });
   },
 
   grantDocsAccess: async (

@@ -58,6 +58,12 @@ const shortcuts = [
     icon: <ShopOutlined />,
   },
   {
+    href: '/admin/slug-requests',
+    title: 'URL slugs',
+    desc: 'Owner requests to change public booking URLs',
+    icon: <ShopOutlined />,
+  },
+  {
     href: '/admin/invoices',
     title: 'Invoices',
     desc: 'Pending, upcoming, Stripe sync',

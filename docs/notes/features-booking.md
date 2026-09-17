@@ -2,7 +2,8 @@
 
 ## [2026-09-16] Public restaurant URLs are `/restaurants/:slug`
 - `buildRestaurantBookingPath` emits `/restaurants/{slug|id}`. Legacy `/r/:slug` 308s there (middleware + next.config). Sitemap, JSON-LD, and share links use the helper.
-- Why it matters: Don’t reintroduce `/r/` as the canonical diner URL.
+- Slug is immutable for owners: they request a change (`requestRestaurantSlugChange`); admins apply it (`adminUpdateRestaurant.slug` or approve the request). Previous slugs are stored on the restaurant and stay reserved so old links 308 to the current slug.
+- Why it matters: Don’t reintroduce `/r/` as the canonical diner URL. Don’t let `updateRestaurant` rewrite slug. Don’t reuse a former slug for a different venue.
 
 ## [2026-09-14] Draft resume is opt-in via `resume=1`
 - Unauthenticated users are `replace`d to sign-in with `next=.../book?resume=1`. Drafts restore only when `resume === "1"`. Profile Book’s `next` often omits `resume=1` (OK when no draft yet).

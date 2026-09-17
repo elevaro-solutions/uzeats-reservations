@@ -361,6 +361,9 @@ export const CREATE_REVIEW = gql`
     createReview(input: $input) {
       id
       rating
+      foodRating
+      serviceRating
+      atmosphereRating
       comment
     }
   }
@@ -385,6 +388,9 @@ export const RESTAURANT_REVIEWS = gql`
       items {
         id
         rating
+        foodRating
+        serviceRating
+        atmosphereRating
         comment
         createdAt
         ownerReply

@@ -3260,6 +3260,7 @@ body:has(.fr-page) .ant-layout {
 }
 
 .rt-restaurant-gallery {
+  position: relative;
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 8px;
@@ -3283,6 +3284,7 @@ body:has(.fr-page) .ant-layout {
 
 .rt-restaurant-gallery__hero,
 .rt-restaurant-gallery__thumb {
+  display: block;
   border: none;
   padding: 0;
   margin: 0;
@@ -3290,10 +3292,15 @@ body:has(.fr-page) .ant-layout {
   overflow: hidden;
   background: var(--color-border-subtle);
   position: relative;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .rt-restaurant-gallery__hero img,
 .rt-restaurant-gallery__thumb img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -3309,6 +3316,7 @@ body:has(.fr-page) .ant-layout {
   display: grid;
   grid-template-rows: 1fr 1fr;
   gap: 8px;
+  min-height: 0;
 }
 
 .rt-restaurant-gallery__more {
@@ -3321,6 +3329,26 @@ body:has(.fr-page) .ant-layout {
   color: #fff;
   font-weight: 600;
   font-size: 15px;
+}
+
+.rt-restaurant-gallery__count {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  pointer-events: none;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
 }
 
 .rt-restaurant-lightbox .ant-modal-content {
@@ -3984,6 +4012,13 @@ body:has(.fr-page) .ant-layout {
   color: var(--color-text-secondary) !important;
   font-size: 14px;
   line-height: 1.6;
+}
+
+.rt-restaurant-review__qualities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 8px 0 0 52px;
 }
 
 .rt-restaurant-review__reply {
@@ -4832,6 +4867,7 @@ body:has(.fr-page) .ant-layout {
   }
 
   .rt-restaurant-review__comment,
+  .rt-restaurant-review__qualities,
   .rt-restaurant-review__reply {
     margin-left: 0 !important;
   }

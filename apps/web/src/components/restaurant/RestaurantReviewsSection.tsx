@@ -13,6 +13,9 @@ const { Title, Text, Paragraph } = Typography;
 type Review = {
   id?: string;
   rating: number;
+  foodRating?: number | null;
+  serviceRating?: number | null;
+  atmosphereRating?: number | null;
   comment?: string | null;
   createdAt?: string;
   ownerReply?: string | null;
@@ -66,6 +69,25 @@ export function RestaurantReviewsSection({ reviews, averageRating, reviewCount }
                 </div>
               </div>
               {r.comment && <Paragraph className="rt-restaurant-review__comment">{r.comment}</Paragraph>}
+              {(r.foodRating != null || r.serviceRating != null || r.atmosphereRating != null) && (
+                <div className="rt-restaurant-review__qualities">
+                  {r.foodRating != null && (
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Food {r.foodRating}/5
+                    </Text>
+                  )}
+                  {r.serviceRating != null && (
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Service {r.serviceRating}/5
+                    </Text>
+                  )}
+                  {r.atmosphereRating != null && (
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Atmosphere {r.atmosphereRating}/5
+                    </Text>
+                  )}
+                </div>
+              )}
               {r.ownerReply && (
                 <div className="rt-restaurant-review__reply">
                   <Text strong style={{ fontSize: 13 }}>Response from the restaurant</Text>

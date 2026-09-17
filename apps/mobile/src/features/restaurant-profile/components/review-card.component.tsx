@@ -52,6 +52,28 @@ export function ReviewCard({ review, isLast = false }: ReviewCardProps) {
         </Typography>
       ) : null}
 
+      {review.foodRating != null ||
+      review.serviceRating != null ||
+      review.atmosphereRating != null ? (
+        <Flex direction="row" gap={1.5} style={styles.qualities}>
+          {review.foodRating != null ? (
+            <Typography size="text-xs" color="muted">
+              Food {review.foodRating}/5
+            </Typography>
+          ) : null}
+          {review.serviceRating != null ? (
+            <Typography size="text-xs" color="muted">
+              Service {review.serviceRating}/5
+            </Typography>
+          ) : null}
+          {review.atmosphereRating != null ? (
+            <Typography size="text-xs" color="muted">
+              Atmosphere {review.atmosphereRating}/5
+            </Typography>
+          ) : null}
+        </Flex>
+      ) : null}
+
       {review.ownerReply?.trim() ? (
         <Flex style={styles.reply} gap={0.75}>
           <Typography size="text-xs" weight="semibold">
@@ -85,6 +107,9 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
   },
   comment: {
     marginTop: space(0.25),
+  },
+  qualities: {
+    flexWrap: "wrap",
   },
   reply: {
     marginTop: space(0.5),

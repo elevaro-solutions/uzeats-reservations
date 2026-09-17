@@ -57,6 +57,7 @@ import {
   ToolOutlined,
   EyeOutlined,
   BookOutlined,
+  LinkOutlined,
 } from '@ant-design/icons';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
@@ -393,6 +394,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       children: [
         item('/admin', <SafetyOutlined />, 'Overview'),
         item('/admin/restaurants', <ShopOutlined />, 'Restaurants'),
+        item('/admin/slug-requests', <LinkOutlined />, 'URL slugs'),
         item('/admin/support', <CustomerServiceOutlined />, 'Tickets'),
         item('/admin/moderation', <FlagOutlined />, 'Moderation'),
       ],

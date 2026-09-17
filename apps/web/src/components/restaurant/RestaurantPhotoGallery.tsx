@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Modal } from 'antd';
-import { CloseOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
+import { CloseOutlined, LeftOutlined, PictureOutlined, RightOutlined } from '@ant-design/icons';
 import { DEFAULT_RESTAURANT_PHOTO } from '@reservations/ui';
 
 type Props = {
@@ -10,9 +10,15 @@ type Props = {
   name: string;
 };
 
+function photoCountLabel(count: number) {
+  return count === 1 ? '1 photo' : `${count} photos`;
+}
+
 export function RestaurantPhotoGallery({ photos, name }: Props) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const gallery = photos.length > 0 ? photos : [DEFAULT_RESTAURANT_PHOTO];
+  const photoCount = photos.length;
+  const single = gallery.length === 1;
 
   const openLightbox = (index: number) => setLightboxIndex(index);
   const closeLightbox = () => setLightboxIndex(null);
@@ -21,53 +27,47 @@ export function RestaurantPhotoGallery({ photos, name }: Props) {
   const next = () =>
     setLightboxIndex((i) => (i === null ? null : (i + 1) % gallery.length));
 
-  if (gallery.length === 1) {
-    return (
-      <div className="rt-restaurant-gallery rt-restaurant-gallery--single">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={gallery[0]}
-          alt={name}
-          onClick={() => openLightbox(0)}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && openLightbox(0)}
-        />
-      </div>
-    );
-  }
-
   const [hero, ...rest] = gallery;
 
   return (
     <>
-      <div className="rt-restaurant-gallery">
+      <div className={`rt-restaurant-gallery${single ? ' rt-restaurant-gallery--single' : ''}`}>
         <button
           type="button"
           className="rt-restaurant-gallery__hero"
           onClick={() => openLightbox(0)}
-          aria-label={`View photo 1 of ${gallery.length}`}
+          aria-label={
+            photoCount > 0 ? `View ${photoCountLabel(photoCount)}` : `View photo of ${name}`
+          }
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={hero} alt={name} />
         </button>
-        <div className="rt-restaurant-gallery__side">
-          {rest.slice(0, 2).map((url, i) => (
-            <button
-              key={url + i}
-              type="button"
-              className="rt-restaurant-gallery__thumb"
-              onClick={() => openLightbox(i + 1)}
-              aria-label={`View photo ${i + 2} of ${gallery.length}`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt={`${name} photo ${i + 2}`} />
-              {i === 1 && gallery.length > 3 && (
-                <span className="rt-restaurant-gallery__more">+{gallery.length - 3} photos</span>
-              )}
-            </button>
-          ))}
-        </div>
+        {!single && (
+          <div className="rt-restaurant-gallery__side">
+            {rest.slice(0, 2).map((url, i) => (
+              <button
+                key={url + i}
+                type="button"
+                className="rt-restaurant-gallery__thumb"
+                onClick={() => openLightbox(i + 1)}
+                aria-label={`View photo ${i + 2} of ${gallery.length}`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={`${name} photo ${i + 2}`} />
+                {i === 1 && gallery.length > 3 && (
+                  <span className="rt-restaurant-gallery__more">+{gallery.length - 3} photos</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+        {photoCount > 0 && (
+          <span className="rt-restaurant-gallery__count" aria-hidden>
+            <PictureOutlined />
+            {photoCountLabel(photoCount)}
+          </span>
+        )}
       </div>
 
       <Modal

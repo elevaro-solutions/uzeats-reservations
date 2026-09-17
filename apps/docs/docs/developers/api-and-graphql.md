@@ -19,16 +19,17 @@ The schema is defined in `apps/api/src/graphql/typeDefs.ts`. Key enums:
 | `ReservationStatus` | `pending`, `confirmed`, `seated`, `completed`, `cancelled`, `no_show` |
 | `ReservationSource` | `network`, `website`, `widget`, `phone`, `walkin` |
 | `RestaurantStatus` | `pending`, `approved`, `rejected`, `suspended` |
+| `RestaurantSlugRequestStatus` | `pending`, `approved`, `denied` |
 
 Major domains in the schema:
 
 - **Auth** — register, login, Google OAuth, phone OTP, password reset
-- **Restaurants** — CRUD, search/discovery, menus, photos, packages
+- **Restaurants** — CRUD, search/discovery, menus, photos, packages, public URL slug requests
 - **Reservations** — create, modify, cancel, messaging, deposits
 - **Waitlist** — join, notify, convert to booking
 - **Loyalty & promotions** — points, tiers, gift cards, promo codes
 - **Billing** — Stripe subscriptions, invoices, plan changes
-- **Admin** — users, moderation, platform config, support tickets
+- **Admin** — users, moderation, platform config, support tickets, slug requests
 - **Notifications** — inbox, preferences, push subscriptions
 
 Resolvers live under `apps/api/src/graphql/resolvers/` and delegate to `apps/api/src/services/`.

@@ -76,6 +76,9 @@ export type RestaurantReviewDiner = {
 export type RestaurantReview = {
   id: string;
   rating: number;
+  foodRating?: number | null;
+  serviceRating?: number | null;
+  atmosphereRating?: number | null;
   comment?: string | null;
   createdAt: string;
   ownerReply?: string | null;

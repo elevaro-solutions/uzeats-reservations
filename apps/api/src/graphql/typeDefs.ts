@@ -21,6 +21,7 @@ export const typeDefs = `#graphql
   }
 
   enum DocsAccessRequestStatus { pending approved denied }
+  enum RestaurantSlugRequestStatus { pending approved denied }
 
   type DocsAccessEmailStatus {
     approved: Boolean!
@@ -59,6 +60,35 @@ export const typeDefs = `#graphql
     total: Int!
     limit: Int!
     offset: Int!
+  }
+
+  type RestaurantSlugRequest {
+    id: ID!
+    restaurantId: ID!
+    restaurant: Restaurant
+    requestedBy: User
+    currentSlug: String!
+    requestedSlug: String!
+    reason: String
+    status: RestaurantSlugRequestStatus!
+    notes: String
+    createdAt: DateTime!
+    updatedAt: DateTime!
+    reviewedAt: DateTime
+    reviewer: User
+  }
+
+  type RestaurantSlugRequestConnection {
+    items: [RestaurantSlugRequest!]!
+    total: Int!
+    limit: Int!
+    offset: Int!
+  }
+
+  input RequestRestaurantSlugInput {
+    restaurantId: ID!
+    slug: String!
+    reason: String
   }
 
   input RequestDocsAccessInput {
@@ -384,6 +414,9 @@ export const typeDefs = `#graphql
     diner: User
     reservationId: ID!
     rating: Int!
+    foodRating: Int
+    serviceRating: Int
+    atmosphereRating: Int
     comment: String
     ownerReply: String
     ownerRepliedAt: DateTime
@@ -1812,6 +1845,9 @@ export const typeDefs = `#graphql
   input ReviewInput {
     reservationId: ID!
     rating: Int!
+    foodRating: Int
+    serviceRating: Int
+    atmosphereRating: Int
     comment: String
   }
 
@@ -2509,6 +2545,15 @@ export const typeDefs = `#graphql
       limit: Int
       offset: Int
     ): DocsAccessRequestConnection!
+    restaurantSlugAvailable(slug: String!, excludeRestaurantId: ID): Boolean!
+    myRestaurantSlugRequest(restaurantId: ID!): RestaurantSlugRequest
+    adminRestaurantSlugRequests(
+      status: RestaurantSlugRequestStatus
+      search: String
+      restaurantId: ID
+      limit: Int
+      offset: Int
+    ): RestaurantSlugRequestConnection!
   }
 
   type Mutation {
@@ -2526,6 +2571,8 @@ export const typeDefs = `#graphql
     sendRestaurantInquiry(input: RestaurantInquiryInput!): MessagePayload!
     requestDocsAccess(input: RequestDocsAccessInput!): MessagePayload!
     requestDocsAccessOtp(email: String!): MessagePayload!
+    requestRestaurantSlugChange(input: RequestRestaurantSlugInput!): RestaurantSlugRequest!
+    cancelRestaurantSlugRequest(id: ID!): RestaurantSlugRequest!
     verifyDocsAccessOtp(email: String!, code: String!): DocsAccessAuthPayload!
     saveRestaurant(restaurantId: ID!): Boolean!
     unsaveRestaurant(restaurantId: ID!): Boolean!
@@ -2589,6 +2636,7 @@ export const typeDefs = `#graphql
       useSmartAssign: Boolean
       posEnabled: Boolean
       widgetTheme: WidgetThemeInput
+      slug: String
     ): Restaurant!
     """Assign or update a restaurant package as admin. Extends billing period by one cycle."""
     adminAssignRestaurantPackage(restaurantId: ID!, plan: String!): SubscriptionType!
@@ -2647,6 +2695,12 @@ export const typeDefs = `#graphql
       status: DocsAccessRequestStatus!
       notes: String
     ): DocsAccessRequest!
+    reviewRestaurantSlugRequest(
+      id: ID!
+      status: RestaurantSlugRequestStatus!
+      notes: String
+      slug: String
+    ): RestaurantSlugRequest!
     grantDocsAccess(email: String!, notes: String): DocsAccessRequest!
     adminSendDocsAccessOtp(email: String!): MessagePayload!
     addSupportNote(ticketId: ID!, body: String!): SupportTicket!

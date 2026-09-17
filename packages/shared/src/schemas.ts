@@ -9,6 +9,12 @@ import {
   WAITLIST_STATUSES,
 } from "./constants.js";
 import {
+  isReservedRestaurantSlug,
+  normalizeRestaurantSlug,
+  RESTAURANT_SLUG_MAX_LENGTH,
+  RESTAURANT_SLUG_MIN_LENGTH,
+} from "./restaurantSlug.js";
+import {
   AMENITIES,
   DIETARY_TAGS,
   DINING_STYLES,
@@ -270,6 +276,9 @@ export const waitlistInputSchema = z.object({
 export const reviewInputSchema = z.object({
   reservationId: z.string().min(1),
   rating: z.number().int().min(1).max(5),
+  foodRating: z.number().int().min(1).max(5).optional(),
+  serviceRating: z.number().int().min(1).max(5).optional(),
+  atmosphereRating: z.number().int().min(1).max(5).optional(),
   comment: z.string().max(2000).optional(),
 });
 
@@ -541,6 +550,34 @@ export const requestDocsAccessInputSchema = z.object({
 
 export type RequestDocsAccessInput = z.infer<
   typeof requestDocsAccessInputSchema
+>;
+
+export const restaurantSlugSchema = z
+  .string()
+  .trim()
+  .transform((value) => normalizeRestaurantSlug(value))
+  .refine(
+    (slug) => slug.length >= RESTAURANT_SLUG_MIN_LENGTH,
+    `Slug must be at least ${RESTAURANT_SLUG_MIN_LENGTH} characters`,
+  )
+  .refine(
+    (slug) => slug.length <= RESTAURANT_SLUG_MAX_LENGTH,
+    `Slug must be at most ${RESTAURANT_SLUG_MAX_LENGTH} characters`,
+  )
+  .refine(
+    (slug) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug),
+    "Use lowercase letters, numbers, and hyphens",
+  )
+  .refine((slug) => !isReservedRestaurantSlug(slug), "This slug is reserved");
+
+export const requestRestaurantSlugInputSchema = z.object({
+  restaurantId: z.string().min(1),
+  slug: restaurantSlugSchema,
+  reason: z.string().trim().max(500).optional(),
+});
+
+export type RequestRestaurantSlugInput = z.infer<
+  typeof requestRestaurantSlugInputSchema
 >;
 
 const dateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);

@@ -52,6 +52,8 @@ import {
 } from '@/lib/restaurantFormTooltips';
 import { isPlatformAdmin } from '@/lib/roles';
 import { accountDetailPath } from '@/lib/adminAccounts';
+import { getPublicWebUrl } from '@/lib/webUrl';
+import { buildRestaurantBookingUrl, normalizeRestaurantSlug } from '@reservations/shared';
 
 const { Text } = Typography;
 
@@ -374,6 +376,8 @@ export function AdminManageRestaurant({
   const [assignUserId, setAssignUserId] = useState<string>();
   const [assignRole, setAssignRole] = useState('staff');
   const [form] = Form.useForm();
+  const slugWatch = Form.useWatch('slug', form);
+  const nameWatch = Form.useWatch('name', form);
 
   const active = presentation === 'panel' ? Boolean(restaurant?.id) : open;
 
@@ -426,6 +430,7 @@ export function AdminManageRestaurant({
     setAssignRole('staff');
     form.setFieldsValue({
       name: restaurant.name,
+      slug: restaurant.slug ?? '',
       description: restaurant.description ?? '',
       cuisine: restaurant.cuisine,
       priceRange: restaurant.priceRange,
@@ -491,6 +496,7 @@ export function AdminManageRestaurant({
             buttonText: values.buttonText,
             showReviews: Boolean(values.showReviews),
           },
+          slug: values.slug?.trim() ? normalizeRestaurantSlug(values.slug) : undefined,
           input: buildRestaurantInput(values, photos),
         },
       });
@@ -617,6 +623,42 @@ export function AdminManageRestaurant({
                 <Col span={12}>
                   <Form.Item name="cuisine" label="Cuisine" rules={[{ required: true }]} tooltip={tips.cuisine}>
                     <CuisineSelect />
+                  </Form.Item>
+                </Col>
+                <Col span={24}>
+                  <Form.Item
+                    name="slug"
+                    label="Public URL slug"
+                    tooltip={tips.slug}
+                    extra={
+                      slugWatch || restaurant?.slug
+                        ? buildRestaurantBookingUrl(getPublicWebUrl(), {
+                            slug:
+                              normalizeRestaurantSlug(slugWatch || restaurant?.slug || '') ||
+                              undefined,
+                            id: restaurant?.id,
+                          })
+                        : 'Lowercase letters, numbers, and hyphens. Changing this updates the public booking URL.'
+                    }
+                    rules={[
+                      { required: true, message: 'Slug is required' },
+                      {
+                        validator: async (_, value) => {
+                          const slug = normalizeRestaurantSlug(String(value || ''));
+                          if (slug.length < 2) {
+                            throw new Error('Use at least 2 letters or numbers');
+                          }
+                        },
+                      },
+                    ]}
+                  >
+                    <Input
+                      placeholder={normalizeRestaurantSlug(nameWatch || 'my-restaurant') || 'my-restaurant'}
+                      onBlur={() => {
+                        const current = form.getFieldValue('slug');
+                        if (current) form.setFieldValue('slug', normalizeRestaurantSlug(current));
+                      }}
+                    />
                   </Form.Item>
                 </Col>
                 <Col span={24}>

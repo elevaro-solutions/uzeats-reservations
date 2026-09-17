@@ -99,6 +99,15 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## restaurant-profile
 
+### [2026-09-16] Diner reviews rate four qualities
+`createReview` keeps `rating` as overall and adds optional `foodRating` /
+`serviceRating` / `atmosphereRating`. Web PostVisitModal and mobile
+AddReviewSheet require all four; restaurant avg still rolls up overall only.
+
+### [2026-09-16] Hero photo count lives on the gallery frame
+- Web gallery hides the two side thumbs (and the `+N` overlay) at ≤576px, and seeded venues only have 3 photos so `+N` never appears. Count badge is on `.rt-restaurant-gallery` (not the hero `<button>`): the button can exceed the grid height, and `overflow: hidden` would clip a count positioned on it. Mobile native hero uses `{i} / {n}`.
+- Why it matters: Don’t put gallery affordances only on the side thumbs, and don’t absolutely-position overlays on a child that can overflow the clipped gallery.
+
 ### [2026-09-16] Confirm modal renders while closed and formats a null slot
 - `ReservationConfirmModal` stays mounted with `open={false}`. Its `details.timeLabel` was `formatSlotLabel(selectedSlot!)`, so a direct visit with no `?slot=` threw in `formatTimeInTimeZone` (`null.getTime()`). Search links that already had a slot looked fine.
 - Why it matters: Don’t assume booking details are only computed when the modal opens. Slot formatters must tolerate null.

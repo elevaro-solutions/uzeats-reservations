@@ -30,6 +30,7 @@ Admin sections appear in the dashboard sidebar under **Admin**:
 | **Staff** | Team accounts with restaurant access |
 | **Platform users** | Admin and super admin access |
 | **Restaurants** | Approve, edit, suspend, delete venues |
+| **URL slugs** | Owner requests to change public booking URLs |
 | **Invoices** | Stripe invoice history |
 | **Revenue** | MRR and revenue analytics |
 | **Churn** | Subscription cancellation trends |

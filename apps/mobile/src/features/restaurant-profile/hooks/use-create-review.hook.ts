@@ -13,32 +13,53 @@ export type UseCreateReviewOptions = {
   onSubmitted: () => void;
 };
 
+const EMPTY_RATINGS = {
+  overall: 0,
+  food: 0,
+  service: 0,
+  atmosphere: 0,
+};
+
 export function useCreateReview({
   visible,
   reservationId,
   onClose,
   onSubmitted,
 }: UseCreateReviewOptions) {
-  const [rating, setRating] = useState(0);
+  const [ratings, setRatings] = useState(EMPTY_RATINGS);
   const [comment, setComment] = useState("");
   const [createReview, { loading }] = useMutation(CREATE_REVIEW);
-  const hasRating = rating > 0;
+  const hasAllRatings =
+    ratings.overall > 0 &&
+    ratings.food > 0 &&
+    ratings.service > 0 &&
+    ratings.atmosphere > 0;
 
   useEffect(() => {
     if (!visible) return;
-    setRating(0);
+    setRatings(EMPTY_RATINGS);
     setComment("");
   }, [visible, reservationId]);
 
+  function setQuality(
+    key: keyof typeof EMPTY_RATINGS,
+    value: number,
+  ) {
+    setRatings((prev) => ({ ...prev, [key]: value }));
+  }
+
   async function handleSubmit() {
-    if (!reservationId || rating < 1) return;
+    if (!reservationId || !hasAllRatings) return;
 
     try {
       await createReview({
         variables: {
           input: {
             reservationId,
-            rating,
+            rating: ratings.overall,
+            foodRating: ratings.food,
+            serviceRating: ratings.service,
+            atmosphereRating: ratings.atmosphere,
             comment: comment.trim() || undefined,
           },
         },
@@ -73,11 +94,11 @@ export function useCreateReview({
   }
 
   return {
-    rating,
-    setRating,
+    ratings,
+    setQuality,
     comment,
     setComment,
-    hasRating,
+    hasAllRatings,
     loading,
     handleSubmit,
   };

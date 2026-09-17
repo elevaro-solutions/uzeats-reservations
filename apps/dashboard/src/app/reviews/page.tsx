@@ -124,6 +124,27 @@ function ReviewsPageContent() {
                 }
                 description={
                   <>
+                    {(r.foodRating != null ||
+                      r.serviceRating != null ||
+                      r.atmosphereRating != null) && (
+                      <Space size={12} style={{ marginBottom: 4 }}>
+                        {r.foodRating != null && (
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Food {r.foodRating}/5
+                          </Text>
+                        )}
+                        {r.serviceRating != null && (
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Service {r.serviceRating}/5
+                          </Text>
+                        )}
+                        {r.atmosphereRating != null && (
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Atmosphere {r.atmosphereRating}/5
+                          </Text>
+                        )}
+                      </Space>
+                    )}
                     <Paragraph style={{ marginBottom: 4 }}>{r.comment || <em>No comment</em>}</Paragraph>
                     {r.ownerReply && (
                       <div

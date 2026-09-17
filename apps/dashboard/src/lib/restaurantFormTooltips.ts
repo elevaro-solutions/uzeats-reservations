@@ -16,6 +16,7 @@ export const priceRangeOptions = PRICE_RANGES.map((value) => ({
 /** Field-level info tooltips for restaurant create/edit forms. */
 export const restaurantFieldTooltips = {
   name: 'Public name shown on search results and the booking widget (max 120 characters).',
+  slug: 'Public booking URL path (/restaurants/{slug}). Old URLs keep working after a change.',
   cuisine: 'Primary cuisine type used for search filters and browsing.',
   description: 'Short summary for guests. Optional; max 2000 characters.',
   line1: 'Street address line (building number and street name).',

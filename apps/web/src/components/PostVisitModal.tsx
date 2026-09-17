@@ -26,6 +26,15 @@ type Props = {
   onCompleted?: () => void;
 };
 
+type QualityKey = 'overall' | 'food' | 'service' | 'atmosphere';
+
+const QUALITY_ROWS: { key: QualityKey; label: string }[] = [
+  { key: 'overall', label: 'Overall' },
+  { key: 'food', label: 'Food' },
+  { key: 'service', label: 'Service' },
+  { key: 'atmosphere', label: 'Atmosphere' },
+];
+
 export function PostVisitModal({
   open,
   reservationId,
@@ -36,7 +45,12 @@ export function PostVisitModal({
 }: Props) {
   const router = useRouter();
   const [step, setStep] = useState<'review' | 'done'>('review');
-  const [rating, setRating] = useState(5);
+  const [ratings, setRatings] = useState({
+    overall: 5,
+    food: 5,
+    service: 5,
+    atmosphere: 5,
+  });
   const [comment, setComment] = useState('');
   const [saveRestaurantChecked, setSaveRestaurantChecked] = useState(true);
   const [wasAlreadySaved, setWasAlreadySaved] = useState(false);
@@ -50,7 +64,7 @@ export function PostVisitModal({
     if (!open) return;
     const alreadySaved = !!restaurant?.isSaved;
     setStep('review');
-    setRating(5);
+    setRatings({ overall: 5, food: 5, service: 5, atmosphere: 5 });
     setComment('');
     setWasAlreadySaved(alreadySaved);
     setSaveRestaurantChecked(!alreadySaved);
@@ -66,12 +80,34 @@ export function PostVisitModal({
     return `${path}?party=${partySize}`;
   })();
 
+  const setQuality = (key: QualityKey, value: number) => {
+    setRatings((prev) => ({ ...prev, [key]: value }));
+  };
+
   const handleSubmit = async () => {
     if (!reservationId) return;
+    if (
+      ratings.overall < 1 ||
+      ratings.food < 1 ||
+      ratings.service < 1 ||
+      ratings.atmosphere < 1
+    ) {
+      message.warning('Please rate overall, food, service, and atmosphere');
+      return;
+    }
     setSubmitting(true);
     try {
       await createReview({
-        variables: { input: { reservationId, rating, comment } },
+        variables: {
+          input: {
+            reservationId,
+            rating: ratings.overall,
+            foodRating: ratings.food,
+            serviceRating: ratings.service,
+            atmosphereRating: ratings.atmosphere,
+            comment,
+          },
+        },
       });
 
       let saved = false;
@@ -136,9 +172,22 @@ export function PostVisitModal({
       {step === 'review' ? (
         <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <Text>
-            Share a quick rating for <Text strong>{restaurant?.name ?? 'this restaurant'}</Text>.
+            Share ratings for <Text strong>{restaurant?.name ?? 'this restaurant'}</Text>.
           </Text>
-          <Rate value={rating} onChange={setRating} />
+          <Space orientation="vertical" size={12} style={{ width: '100%' }}>
+            {QUALITY_ROWS.map(({ key, label }) => (
+              <div key={key}>
+                <Text strong style={{ display: 'block', marginBottom: 4 }}>
+                  {label}
+                </Text>
+                <Rate
+                  value={ratings[key]}
+                  onChange={(value) => setQuality(key, value)}
+                  style={key === 'overall' ? { fontSize: 28 } : undefined}
+                />
+              </div>
+            ))}
+          </Space>
           <Input.TextArea
             rows={4}
             value={comment}

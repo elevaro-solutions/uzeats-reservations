@@ -4,6 +4,20 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.51.0] — 2026-09-17
+
+### Added
+
+- Admins can edit a restaurant's public URL slug from the restaurant manage form
+- Restaurant owners can request a slug change from Settings; admins review requests at Admin → URL slugs
+- Old restaurant slugs keep working via redirect after a change
+- Diner reviews collect Overall, Food, Service, and Atmosphere ratings (web + mobile); restaurant and dashboard review lists show the quality breakdown when present
+- Restaurant hero gallery shows the total photo count on the large image (web badge and mobile `1 / N` pill)
+
+### Docs
+
+- Admin and API docs cover restaurant slug editing, owner slug-change requests, and legacy slug redirects
+
 ## [0.50.3] — 2026-09-16
 
 ### Fixed

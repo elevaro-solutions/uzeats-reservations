@@ -23,6 +23,13 @@ export type AddReviewSheetProps = {
   onSubmitted: () => void;
 };
 
+const QUALITY_ROWS = [
+  { key: "overall" as const, label: "Overall", size: 40 },
+  { key: "food" as const, label: "Food", size: 28 },
+  { key: "service" as const, label: "Service", size: 28 },
+  { key: "atmosphere" as const, label: "Atmosphere", size: 28 },
+];
+
 export function AddReviewSheet({
   visible,
   restaurantName,
@@ -33,11 +40,11 @@ export function AddReviewSheet({
 }: AddReviewSheetProps) {
   const insets = useSafeAreaInsets();
   const {
-    rating,
-    setRating,
+    ratings,
+    setQuality,
     comment,
     setComment,
-    hasRating,
+    hasAllRatings,
     loading,
     handleSubmit,
   } = useCreateReview({ visible, reservationId, onClose, onSubmitted });
@@ -82,20 +89,28 @@ export function AddReviewSheet({
                 {restaurantName}
               </Typography>
               <Typography size="text-sm" color="secondary" align="center">
-                Tap to rate your visit
+                Rate overall, food, service, and atmosphere
               </Typography>
             </Flex>
           </Flex>
 
-          <StarRatingInput
-            value={rating}
-            onChange={setRating}
-            size={44}
-            centered
-            disabled={loading}
-          />
+          <Flex gap={2} style={styles.qualities}>
+            {QUALITY_ROWS.map(({ key, label, size }) => (
+              <Flex key={key} gap={0.75}>
+                <Typography size="text-sm" weight="semibold">
+                  {label}
+                </Typography>
+                <StarRatingInput
+                  value={ratings[key]}
+                  onChange={(value) => setQuality(key, value)}
+                  size={size}
+                  disabled={loading}
+                />
+              </Flex>
+            ))}
+          </Flex>
 
-          {hasRating ? (
+          {hasAllRatings ? (
             <Input
               label="Tell us more (optional)"
               placeholder="Why this rating?"
@@ -118,7 +133,7 @@ export function AddReviewSheet({
           <Button
             fullWidth
             size="lg"
-            disabled={!hasRating || loading || !reservationId}
+            disabled={!hasAllRatings || loading || !reservationId}
             loading={loading}
             onPress={handleSubmit}
           >
@@ -158,6 +173,9 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     height: space(9),
     borderRadius: radius.lg,
     backgroundColor: colors.slate3,
+  },
+  qualities: {
+    width: "100%",
   },
   commentInput: {
     minHeight: space(10),

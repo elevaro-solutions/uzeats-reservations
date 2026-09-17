@@ -12,6 +12,12 @@ export const DOCS_ACCESS_REQUEST_STATUSES = [
   "denied",
 ] as const;
 
+export const RESTAURANT_SLUG_REQUEST_STATUSES = [
+  "pending",
+  "approved",
+  "denied",
+] as const;
+
 export const RESTAURANT_STATUSES = [
   "pending",
   "approved",
@@ -309,6 +315,8 @@ export const NOTIFICATION_TYPE_TO_EVENT: Record<string, NotificationEvent> = {
   points_redeemed: "loyaltyUpdates",
   points_refunded: "loyaltyUpdates",
   restaurant_created: "accountUpdates",
+  restaurant_slug_changed: "accountUpdates",
+  restaurant_slug_denied: "accountUpdates",
   invoice_ready: "accountUpdates",
 };
 

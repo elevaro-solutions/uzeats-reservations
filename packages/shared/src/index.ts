@@ -1,4 +1,5 @@
 export * from './bookingUrl.js';
+export * from './restaurantSlug.js';
 export * from './bookingDraft.js';
 export * from './constants.js';
 export * from './discovery.js';

@@ -17,6 +17,7 @@ const restaurantSchema = new Schema(
   {
     name: { type: String, required: true, trim: true, index: true },
     slug: { type: String, unique: true, index: true },
+    previousSlugs: [{ type: String, index: true }],
     description: { type: String, default: '' },
     cuisine: { type: String, required: true, index: true },
     priceRange: { type: Number, required: true, min: 1, max: 4 },

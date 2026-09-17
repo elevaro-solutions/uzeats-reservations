@@ -87,6 +87,16 @@ export function RestaurantHero({
           ))}
         </Flex>
       ) : null}
+      {items.length > 0 ? (
+        <View
+          style={styles.count}
+          accessibilityLabel={`${items.length} ${items.length === 1 ? "photo" : "photos"}`}
+        >
+          <Typography color="inverse" size="text-xs" weight="semibold">
+            {index + 1} / {items.length}
+          </Typography>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -107,6 +117,15 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     left: 0,
     right: 0,
     justifyContent: "center",
+  },
+  count: {
+    position: "absolute",
+    right: space(2),
+    bottom: space(2),
+    paddingHorizontal: space(1.5),
+    paddingVertical: space(0.75),
+    borderRadius: radius.full,
+    backgroundColor: colors.overlay,
   },
   dot: {
     width: space(0.75),

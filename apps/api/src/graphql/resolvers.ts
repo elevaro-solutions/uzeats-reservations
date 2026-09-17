@@ -42,6 +42,12 @@ import {
   requestDocsAccessOtp,
   verifyDocsAccessOtp,
 } from "../services/docsAccess.js";
+import {
+  cancelRestaurantSlugRequest,
+  myRestaurantSlugRequest,
+  requestRestaurantSlugChange,
+  restaurantSlugAvailable,
+} from "../services/restaurantSlugs.js";
 import { sendRestaurantInquiry } from "../services/restaurantInquiry.js";
 import {
   isRestaurantBookmarked,
@@ -597,7 +603,9 @@ export const resolvers = {
       const doc = args.id
         ? await Restaurant.findById(args.id)
         : args.slug
-          ? await Restaurant.findOne({ slug: args.slug })
+          ? await Restaurant.findOne({
+              $or: [{ slug: args.slug }, { previousSlugs: args.slug }],
+            })
           : null;
       return doc ? mapRestaurant(doc) : null;
     },
@@ -2614,6 +2622,24 @@ export const resolvers = {
 
     checkDocsAccessEmail: async (_: unknown, args: { email: string }) =>
       checkDocsAccessEmail(args.email),
+
+    restaurantSlugAvailable: async (
+      _: unknown,
+      args: { slug: string; excludeRestaurantId?: string | null },
+      ctx: GraphQLContext,
+    ) => {
+      requireAuth(ctx);
+      return restaurantSlugAvailable(args.slug, args.excludeRestaurantId);
+    },
+
+    myRestaurantSlugRequest: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      return myRestaurantSlugRequest(args.restaurantId, user);
+    },
   },
 
   RestaurantGroup: {
@@ -2785,6 +2811,24 @@ export const resolvers = {
 
     requestDocsAccessOtp: async (_: unknown, args: { email: string }) =>
       requestDocsAccessOtp(args.email),
+
+    requestRestaurantSlugChange: async (
+      _: unknown,
+      args: { input: unknown },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      return requestRestaurantSlugChange(args.input, user);
+    },
+
+    cancelRestaurantSlugRequest: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      return cancelRestaurantSlugRequest(args.id, user);
+    },
 
     verifyDocsAccessOtp: async (
       _: unknown,
@@ -3446,6 +3490,11 @@ export const resolvers = {
         dinerId: user._id,
         reservationId: reservation._id,
         rating: input.rating,
+        ...(input.foodRating != null ? { foodRating: input.foodRating } : {}),
+        ...(input.serviceRating != null ? { serviceRating: input.serviceRating } : {}),
+        ...(input.atmosphereRating != null
+          ? { atmosphereRating: input.atmosphereRating }
+          : {}),
         comment: input.comment ?? "",
       });
 

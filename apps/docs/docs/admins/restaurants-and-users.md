@@ -9,7 +9,9 @@ The **Admin → Restaurants** page lists all venues with filters by status.
 | Action | Who | Notes |
 |---|---|---|
 | Create | Admin | Manual onboarding |
-| Edit | Admin | Profile, plan, status override |
+| Edit | Admin | Profile, plan, status override, public URL slug |
+| Change public URL | Admin | Edit slug on the restaurant, or approve **Admin → URL slugs** |
+| Request public URL | Owner | Settings → Public URL; staff cannot request |
 | Edit menu | Admin | Restaurant detail → Menu; check **Popular** on up to 10 dishes for the public page |
 | Approve / reject | Admin | Moves `pending` → `approved` or `rejected` |
 | Suspend | Admin | Hides from search; blocks new bookings |
@@ -24,6 +26,12 @@ The **Admin → Restaurants** page lists all venues with filters by status.
 | `approved` | Live in search and booking |
 | `rejected` | Registration denied |
 | `suspended` | Temporarily disabled |
+
+### Public URL slugs
+
+Restaurant booking pages use `/restaurants/{slug}`. Admins can edit the slug on the restaurant manage form. Owners request a change from **Settings → Public URL**; staff cannot. Review the queue at **Admin → URL slugs**.
+
+Former slugs stay reserved and 308 to the current URL so shared links keep working.
 
 ## User management
 

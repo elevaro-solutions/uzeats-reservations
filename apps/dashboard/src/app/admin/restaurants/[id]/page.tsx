@@ -335,7 +335,21 @@ export default function AdminRestaurantDetailPage() {
                     <Card title="Restaurant details">
                       <Descriptions bordered size="small" column={{ xs: 1, sm: 2, md: 3 }}>
                         <Descriptions.Item label="Name">{restaurant.name}</Descriptions.Item>
-                        <Descriptions.Item label="Slug">{restaurant.slug || '—'}</Descriptions.Item>
+                        <Descriptions.Item label="Slug">
+                          {restaurant.slug ? (
+                            <Typography.Link
+                              href={buildRestaurantBookingUrl(getPublicWebUrl(), {
+                                slug: restaurant.slug,
+                                id: restaurant.id,
+                              })}
+                              target="_blank"
+                            >
+                              {restaurant.slug}
+                            </Typography.Link>
+                          ) : (
+                            '—'
+                          )}
+                        </Descriptions.Item>
                         <Descriptions.Item label="Status">
                           <StatusTag status={restaurant.status} />
                         </Descriptions.Item>

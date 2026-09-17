@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { permanentRedirect } from 'next/navigation';
-import { isMongoObjectId, buildRestaurantBookingPath } from '@reservations/shared';
+import { buildRestaurantBookingPath } from '@reservations/shared';
 import { JsonLd } from '@/components/JsonLd';
 import { buildRestaurantFaq } from '@/lib/restaurantFaq';
 import { fetchRestaurantSeo } from '@/lib/restaurantSeoFetch';
@@ -72,7 +72,7 @@ export default async function RestaurantPage({ params, searchParams }: PageProps
   const query = await searchParams;
   const restaurant = await fetchRestaurantSeo(id);
 
-  if (restaurant && isMongoObjectId(id) && restaurant.slug) {
+  if (restaurant && restaurant.slug && id !== restaurant.slug) {
     permanentRedirect(
       `${buildRestaurantBookingPath(restaurant.slug, restaurant.id)}${searchParamsToQuery(query)}`,
     );
