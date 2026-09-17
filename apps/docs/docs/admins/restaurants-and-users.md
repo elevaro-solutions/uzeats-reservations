@@ -9,7 +9,7 @@ The **Admin → Restaurants** page lists all venues with filters by status.
 | Action | Who | Notes |
 |---|---|---|
 | Create | Admin | Manual onboarding |
-| Edit | Admin | Profile, plan, status override, public URL slug |
+| Edit | Admin | Profile, plan, status override, public URL slug, logo |
 | Change public URL | Admin | Edit slug on the restaurant, or approve **Admin → URL slugs** |
 | Request public URL | Owner | Settings → Public URL; staff cannot request |
 | Edit menu | Admin | Restaurant detail → Menu; check **Popular** on up to 10 dishes for the public page |

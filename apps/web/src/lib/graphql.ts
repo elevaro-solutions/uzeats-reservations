@@ -73,6 +73,7 @@ export const RESTAURANT_DETAIL = gql`
       }
       termsAndConditions
       photos
+      logoUrl
       averageRating
       reviewCount
       isSaved
@@ -365,6 +366,7 @@ export const CREATE_REVIEW = gql`
       serviceRating
       atmosphereRating
       comment
+      photos
     }
   }
 `;
@@ -392,6 +394,7 @@ export const RESTAURANT_REVIEWS = gql`
         serviceRating
         atmosphereRating
         comment
+        photos
         createdAt
         ownerReply
         diner {

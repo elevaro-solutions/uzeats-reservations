@@ -1,6 +1,6 @@
 'use client';
 
-import { Rate, Typography } from 'antd';
+import { Image, Rate, Typography } from 'antd';
 import { StarFilled } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -17,6 +17,7 @@ type Review = {
   serviceRating?: number | null;
   atmosphereRating?: number | null;
   comment?: string | null;
+  photos?: string[] | null;
   createdAt?: string;
   ownerReply?: string | null;
   diner?: { firstName?: string; lastName?: string };
@@ -86,6 +87,22 @@ export function RestaurantReviewsSection({ reviews, averageRating, reviewCount }
                       Atmosphere {r.atmosphereRating}/5
                     </Text>
                   )}
+                </div>
+              )}
+              {r.photos && r.photos.length > 0 && (
+                <div className="rt-restaurant-review__photos">
+                  <Image.PreviewGroup>
+                    {r.photos.map((url) => (
+                      <Image
+                        key={url}
+                        src={url}
+                        alt="Review photo"
+                        width={72}
+                        height={72}
+                        style={{ objectFit: 'cover', borderRadius: 8 }}
+                      />
+                    ))}
+                  </Image.PreviewGroup>
                 </div>
               )}
               {r.ownerReply && (

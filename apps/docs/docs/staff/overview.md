@@ -24,6 +24,7 @@ Owners with **multiple restaurants** use the restaurant selector in the top navi
 | Section | Purpose |
 |---|---|
 | **Reservations** | Calendar and list of bookings; create phone/walk-in reservations |
+| **Reviews** | Diner ratings and photos; reply (optional Gemini draft) and add photos to the gallery |
 | **Floor plan** | Visual table layout; assign and seat guests |
 | **Waitlist** | Manage waiting parties and notify on openings |
 | **Messages** | Guest conversations tied to reservations |
@@ -51,7 +52,7 @@ New partners see an onboarding checklist in the shell tracking setup steps:
 
 - Complete restaurant profile
 - Configure shifts and tables
-- Upload photos and menu
+- Upload logo, photos, and menu
 - Connect Stripe for deposits/billing
 - Copy widget embed code
 

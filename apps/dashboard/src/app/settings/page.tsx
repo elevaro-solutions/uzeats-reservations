@@ -139,6 +139,7 @@ export default function SettingsPage() {
   const [form] = Form.useForm();
   const [settingsForm] = Form.useForm();
   const [photos, setPhotos] = useState<string[]>([]);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
   const { data, loading: dataLoading, refetch } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurantIds = useMemo(
@@ -188,6 +189,7 @@ export default function SettingsPage() {
       website: restaurant.website ?? '',
     });
     setPhotos(restaurant.photos ?? []);
+    setLogoUrl(restaurant.logoUrl ?? null);
   }, [restaurant?.id, restaurant, form]);
 
   const settings = settingsData?.restaurant;
@@ -280,6 +282,7 @@ export default function SettingsPage() {
             phone: values.phone || undefined,
             website: values.website || undefined,
             photos,
+            logoUrl: logoUrl ?? null,
           },
         },
       });
@@ -734,6 +737,17 @@ export default function SettingsPage() {
             styles={{ body: { padding: spacing.lg } }}
             style={{ borderRadius: radii.lg }}
           >
+            <FormSection
+              title="Logo"
+              description="Square mark shown next to your restaurant name. Saves with the profile above."
+            >
+              <PhotoUpload
+                value={logoUrl ? [logoUrl] : []}
+                onChange={(urls) => setLogoUrl(urls[0] ?? null)}
+                maxCount={1}
+                alt="Restaurant logo"
+              />
+            </FormSection>
             <FormSection
               title="Photos"
               description="Showcase your space. Drag to set the public hero order. Photos save when you update the profile above."

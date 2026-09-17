@@ -290,6 +290,7 @@ function AdminRestaurantsContent() {
   const [createStep, setCreateStep] = useState(0);
   const [ownerMode, setOwnerMode] = useState<OwnerMode>('new');
   const [photos, setPhotos] = useState<string[]>([]);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [pendingImportedMenuSections, setPendingImportedMenuSections] = useState<
     Awaited<ReturnType<typeof buildMenuSectionsFromImport>>
   >([]);
@@ -332,6 +333,7 @@ function AdminRestaurantsContent() {
     lastGeocodedCreateAddressRef.current = '';
     createForm.resetFields();
     setPhotos([]);
+    setLogoUrl(null);
     setPendingImportedMenuSections([]);
     pendingImportDataRef.current = null;
   };
@@ -464,6 +466,7 @@ function AdminRestaurantsContent() {
     phone: values.phone || undefined,
     website: values.website || undefined,
     menuUrl: values.menuUrl || undefined,
+    logoUrl: logoUrl ?? null,
     depositRequired: Boolean(values.depositRequired),
     depositAmountCents: Math.round((Number(values.depositAmountCents) || 0) * 100),
     loyaltyEnabled: Boolean(values.loyaltyEnabled),
@@ -1187,6 +1190,19 @@ function AdminRestaurantsContent() {
                 <Col xs={24} sm={12}>
                   <Form.Item name="menuUrl" label="Full menu URL">
                     <Input placeholder="https://" />
+                  </Form.Item>
+                </Col>
+                <Col span={24}>
+                  <Form.Item
+                    label="Logo"
+                    extra="Square mark shown next to the restaurant name on the public page."
+                  >
+                    <PhotoUpload
+                      value={logoUrl ? [logoUrl] : []}
+                      onChange={(urls) => setLogoUrl(urls[0] ?? null)}
+                      maxCount={1}
+                      alt="Restaurant logo"
+                    />
                   </Form.Item>
                 </Col>
                 <Col span={24}>

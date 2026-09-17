@@ -36,3 +36,23 @@ export function restaurantPhotoCandidates(
     .filter((p) => !isSkippedPhoto(p));
   return valid.length > 0 ? valid : [...RESTAURANT_PHOTO_FALLBACKS];
 }
+
+export function restaurantInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return `${parts[0]![0]}${parts[parts.length - 1]![0]}`.toUpperCase();
+}
+
+/** Dedicated logo, then first gallery photo. Stock fallbacks are not used. */
+export function pickRestaurantLogo(
+  logoUrl?: string | null,
+  photos?: (string | null | undefined)[] | null,
+): string | null {
+  const logo = logoUrl?.trim();
+  if (logo) return logo;
+  const photo = (photos ?? []).find(
+    (p): p is string => typeof p === 'string' && p.trim().length > 0 && !isSkippedPhoto(p),
+  );
+  return photo ?? null;
+}

@@ -42,12 +42,13 @@ Restaurant-specific loyalty settings are configured by each partner in their das
 
 ## Reviews
 
-After a **completed** visit, you may receive a post-visit prompt to:
+After a **past visit** (staff marked `completed`, or a `confirmed`/`seated` booking whose slot has ended), you may receive a post-visit prompt to:
 
-1. Rate and review the restaurant
-2. Save the restaurant to your favorites
+1. Rate Overall, Food, Service, and Atmosphere (stars start empty)
+2. Optionally attach up to 3 photos and a comment
+3. Save the restaurant to your favorites
 
-Reviews appear on the public restaurant page after moderation (if enabled).
+Reviews appear on the public restaurant page. Partners can post a public reply from the dashboard. Cancelled, no-show, and still-pending bookings cannot be reviewed.
 
 ## Billing history
 

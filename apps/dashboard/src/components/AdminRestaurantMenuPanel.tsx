@@ -149,6 +149,7 @@ export function AdminRestaurantMenuPanel({
                 phone: restaurant.phone,
                 website: restaurant.website,
                 menuUrl: restaurant.menuUrl,
+                logoUrl: restaurant.logoUrl,
                 depositRequired: Boolean(restaurant.depositRequired),
                 depositAmountCents: restaurant.depositAmountCents ?? 0,
                 loyaltyEnabled: Boolean(restaurant.loyaltyEnabled),

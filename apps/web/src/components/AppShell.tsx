@@ -396,26 +396,8 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   };
 
   const notificationDropdown = (
-    <div
-      style={{
-        width: 360,
-        maxWidth: '92vw',
-        background: colors.surface,
-        borderRadius: radii.lg,
-        border: `1px solid ${colors.border}`,
-        boxShadow: '0 12px 40px rgba(15, 23, 42, 0.12)',
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '12px 14px',
-          borderBottom: `1px solid ${colors.bordersubtle}`,
-        }}
-      >
+    <div className="rt-notif-dropdown">
+      <div className="rt-notif-dropdown__header">
         <Text strong>Notifications</Text>
         <Button
           type="link"
@@ -429,7 +411,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           Mark all read
         </Button>
       </div>
-      <div style={{ maxHeight: 380, overflowY: 'auto' }}>
+      <div className="rt-notif-dropdown__body">
         {notifLoading ? (
           <div style={{ padding: 32, textAlign: 'center' }}>
             <Spin size="small" />
@@ -438,7 +420,6 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description="No notifications yet"
-            style={{ padding: '28px 16px' }}
           />
         ) : (
           <List
@@ -507,13 +488,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           />
         )}
       </div>
-      <div
-        style={{
-          padding: '10px 14px',
-          borderTop: `1px solid ${colors.bordersubtle}`,
-          textAlign: 'center',
-        }}
-      >
+      <div className="rt-notif-dropdown__footer">
         <Button
           type="link"
           size="small"
@@ -578,6 +553,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                 }}
                 popupRender={() => notificationDropdown}
                 placement="bottomRight"
+                getPopupContainer={() => document.body}
               >
                 <Button
                   type="text"
@@ -622,6 +598,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                 }}
                 placement="bottomRight"
                 trigger={['click']}
+                getPopupContainer={() => document.body}
               >
                 <button
                   type="button"
@@ -735,11 +712,12 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
       </Drawer>
 
       <Content
+        className={isFullWidthPage ? 'rt-site-content rt-site-content--bleed' : 'rt-site-content'}
         style={{
           maxWidth: isFullWidthPage ? '100%' : layout.contentMaxWidth,
           width: '100%',
           margin: '0 auto',
-          padding: isFullWidthPage ? '0' : '32px 24px',
+          padding: isFullWidthPage ? '0' : undefined,
         }}
       >
         {children}

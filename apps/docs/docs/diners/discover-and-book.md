@@ -16,10 +16,10 @@ Results show live availability slots when the restaurant has configured shifts a
 
 Each restaurant has a detail page with:
 
-- Photo gallery and hero image
-- About, hours, address (Google Places autocomplete when configured)
+- Logo (falls back to the first gallery photo, then initials) and photo gallery
+- About, weekly hours under open/closed status, and an address that opens Google Maps
 - Popular dishes (up to 10 items partners mark in the dashboard; full menu via optional URL)
-- Reviews and ratings
+- Reviews and ratings (overall plus food/service/atmosphere when provided, with diner photos)
 - FAQ and terms
 - **Book now** — opens the reservation flow
 - **Contact** — send an inquiry to the restaurant

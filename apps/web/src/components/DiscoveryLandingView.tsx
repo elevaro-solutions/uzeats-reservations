@@ -26,8 +26,6 @@ import {
   EmptyState,
   colors,
   layout,
-  radii,
-  shadows,
   typography,
   pickRestaurantPhoto,
 } from '@reservations/ui';
@@ -43,6 +41,8 @@ import { DiscoveryCardsLayout } from '@/components/DiscoveryCardsLayout';
 import { DiscoverySearchPanel } from '@/components/DiscoverySearchPanel';
 import { MapFiltersSidebar, countActiveDiscoveryFilters } from '@/components/MapFiltersSidebar';
 import { DiscoveryBreadcrumbs } from '@/components/DiscoveryBreadcrumbs';
+import { RestaurantCardSkeletonGrid, RESTAURANT_CARD_COL } from '@/components/RestaurantCardSkeleton';
+import { StickyFiltersSidebar } from '@/components/StickyFiltersSidebar';
 import { JsonLd } from '@/components/JsonLd';
 import { itemListJsonLd } from '@/lib/seo';
 import type { BreadcrumbItem } from '@/lib/seo';
@@ -519,10 +519,7 @@ function DiscoveryLandingContent({
       {items.map((r: any, i: number) => (
         <Col
           key={r.id}
-          xs={24}
-          sm={12}
-          md={8}
-          lg={6}
+          {...RESTAURANT_CARD_COL}
           className="rt-fade-up"
           style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}
         >
@@ -742,10 +739,17 @@ function DiscoveryLandingContent({
             <div className="rt-cards-page__body">
               {loading ? (
                 <div className="rt-cards-page__split">
-                  <div className="rt-filters-desktop">{mapFiltersSidebar}</div>
+                  <StickyFiltersSidebar>{mapFiltersSidebar}</StickyFiltersSidebar>
                   <section className="rt-cards-page__main">
-                    <Skeleton.Input active style={{ width: 260, height: 30, marginBottom: 20 }} />
-                    <SkeletonGrid count={8} />
+                    <div className="rt-cards-page__header">
+                      <div className="rt-cards-page__header-top">
+                        <span className="rt-skeleton rt-skeleton--heading" />
+                      </div>
+                      <span className="rt-skeleton rt-skeleton--line" />
+                    </div>
+                    <div className="rt-cards-page__content">
+                      <RestaurantCardSkeletonGrid count={8} />
+                    </div>
                   </section>
                 </div>
               ) : restaurants.length === 0 ? (
@@ -784,31 +788,6 @@ function DiscoveryLandingContent({
         </div>
       )}
     </div>
-  );
-}
-
-function SkeletonGrid({ count }: { count: number }) {
-  return (
-    <Row gutter={[20, 20]}>
-      {Array.from({ length: count }, (_, i) => (
-        <Col key={i} xs={24} sm={12} md={8} lg={6}>
-          <div
-            style={{
-              background: colors.surface,
-              borderRadius: radii.lg,
-              overflow: 'hidden',
-              boxShadow: shadows.sm,
-              border: `1px solid ${colors.bordersubtle}`,
-            }}
-          >
-            <Skeleton.Node active style={{ width: '100%', height: 190, borderRadius: 0 }} />
-            <div style={{ padding: 16 }}>
-              <Skeleton active title={{ width: '60%' }} paragraph={{ rows: 2, width: ['45%', '80%'] }} />
-            </div>
-          </div>
-        </Col>
-      ))}
-    </Row>
   );
 }
 

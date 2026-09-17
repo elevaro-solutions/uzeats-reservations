@@ -198,6 +198,7 @@ export default function MyRestaurantsPage() {
   const [selectedPlan, setSelectedPlan] = useState('core');
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
   const [photos, setPhotos] = useState<string[]>([]);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [createForm] = Form.useForm();
   const [pendingImportedMenuSections, setPendingImportedMenuSections] = useState<
     Awaited<ReturnType<typeof buildMenuSectionsFromImport>>
@@ -247,6 +248,7 @@ export default function MyRestaurantsPage() {
     setSelectedPlan('core');
     setBillingPeriod('monthly');
     setPhotos([]);
+    setLogoUrl(null);
     createForm.resetFields();
     setPendingImportedMenuSections([]);
     pendingImportDataRef.current = null;
@@ -379,6 +381,7 @@ export default function MyRestaurantsPage() {
             website: values.website || undefined,
             menuUrl: values.menuUrl || undefined,
             photos,
+            logoUrl: logoUrl ?? null,
             address: {
               line1: values.line1,
               city: values.city,
@@ -739,6 +742,19 @@ export default function MyRestaurantsPage() {
               <Col xs={24} sm={12}>
                 <Form.Item name="menuUrl" label="Full menu URL">
                   <Input placeholder="https://" />
+                </Form.Item>
+              </Col>
+              <Col span={24}>
+                <Form.Item
+                  label="Logo"
+                  extra="Square mark shown next to the restaurant name on the public page."
+                >
+                  <PhotoUpload
+                    value={logoUrl ? [logoUrl] : []}
+                    onChange={(urls) => setLogoUrl(urls[0] ?? null)}
+                    maxCount={1}
+                    alt="Restaurant logo"
+                  />
                 </Form.Item>
               </Col>
               <Col span={24}>

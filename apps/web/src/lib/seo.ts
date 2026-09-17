@@ -78,6 +78,7 @@ export function restaurantJsonLd(restaurant: {
   averageRating?: number;
   reviewCount?: number;
   photos?: string[];
+  logoUrl?: string | null;
   phone?: string | null;
   website?: string | null;
   address: {
@@ -112,6 +113,7 @@ export function restaurantJsonLd(restaurant: {
       `${restaurant.name} — ${restaurant.cuisine} in ${restaurant.address.city}, ${restaurant.address.state}`,
     url: absoluteUrl(path),
     image: restaurant.photos?.[0] ? [restaurant.photos[0]] : undefined,
+    logo: restaurant.logoUrl || restaurant.photos?.[0] || undefined,
     telephone: restaurant.phone ?? undefined,
     sameAs: restaurant.website ? [restaurant.website] : undefined,
     servesCuisine,

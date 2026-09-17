@@ -15,6 +15,7 @@ import {
   Spin,
   Alert,
   message,
+  Drawer,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -57,6 +58,7 @@ import {
   ToolOutlined,
   EyeOutlined,
   BookOutlined,
+  MenuOutlined,
   LinkOutlined,
 } from '@ant-design/icons';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -192,6 +194,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     Boolean(user) && (PARTNER_ROLES.has(user!.role) || isImpersonating);
   const [restaurantId, setRestaurantId] = useState<string>();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { data: restaurantsData, refetch: refetchRestaurants } = useQuery(MY_RESTAURANTS, {
     skip: !user || isAdmin || !isPartner,
     fetchPolicy: 'cache-and-network',
@@ -251,6 +254,11 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [user, isPartner, refetchRestaurants]);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+    setNotifOpen(false);
+  }, [pathname]);
 
   const selectedKey = useMemo(() => {
     if (pathname.startsWith('/admin')) {
@@ -519,26 +527,8 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   };
 
   const notificationDropdown = (
-    <div
-      style={{
-        width: 360,
-        maxWidth: '92vw',
-        background: colors.surface,
-        borderRadius: radii.lg,
-        border: `1px solid ${colors.border}`,
-        boxShadow: '0 12px 40px rgba(15, 23, 42, 0.12)',
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '12px 14px',
-          borderBottom: `1px solid ${colors.bordersubtle}`,
-        }}
-      >
+    <div className="rt-notif-dropdown">
+      <div className="rt-notif-dropdown__header">
         <Text strong>Notifications</Text>
         <Button
           type="link"
@@ -552,7 +542,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           Mark all read
         </Button>
       </div>
-      <div style={{ maxHeight: 380, overflowY: 'auto' }}>
+      <div className="rt-notif-dropdown__body">
         {notifLoading ? (
           <div style={{ padding: 32, textAlign: 'center' }}>
             <Spin size="small" />
@@ -561,7 +551,6 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description="No notifications yet"
-            style={{ padding: '28px 16px' }}
           />
         ) : (
           <List
@@ -630,13 +619,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           />
         )}
       </div>
-      <div
-        style={{
-          padding: '10px 14px',
-          borderTop: `1px solid ${colors.bordersubtle}`,
-          textAlign: 'center',
-        }}
-      >
+      <div className="rt-notif-dropdown__footer">
         <Button
           type="link"
           size="small"
@@ -685,29 +668,8 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           background: colors.surface,
         }}
       >
-        <div
-          style={{
-            padding: '20px 16px 16px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 4,
-            borderBottom: `1px solid ${colors.bordersubtle}`,
-            marginBottom: 4,
-          }}
-        >
+        <div className="rt-dash-sider__brand">
           <TableveraWordmark iconSize={28} />
-          {/* <Text
-            type="secondary"
-            style={{
-              display: 'block',
-              fontSize: 11,
-              textTransform: 'uppercase',
-              letterSpacing: typography.letterSpacing.wide,
-              fontWeight: 600,
-            }}
-          >
-            {isAdmin ? 'Platform Admin' : 'Partner Hub'}
-          </Text> */}
         </div>
         <Menu
           mode="inline"
@@ -716,34 +678,45 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           style={{ border: 'none', paddingBlock: 8, background: 'transparent' }}
         />
       </Sider>
-      <Layout style={{ background: colors.background }}>
-        <Header
-          style={{
-            background: colors.surface,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: spacing.md,
-            borderBottom: `1px solid ${colors.bordersubtle}`,
-            paddingInline: spacing.lg,
-            position: 'sticky',
-            top: 0,
-            zIndex: 100,
-            height: 64,
-            lineHeight: '64px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+      <Drawer
+        placement="left"
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        size={280}
+        zIndex={1200}
+        className="rt-dash-nav-drawer"
+        styles={{ body: { padding: 0 } }}
+        title={<TableveraWordmark iconSize={26} />}
+      >
+        <Menu
+          mode="inline"
+          selectedKeys={[selectedKey]}
+          items={items}
+          onClick={() => setMobileNavOpen(false)}
+          style={{ border: 'none', paddingBlock: 8, background: 'transparent' }}
+        />
+      </Drawer>
+      <Layout style={{ background: colors.background, minWidth: 0 }}>
+        <Header className="rt-dash-header">
+          <div className="rt-dash-header__start">
+            <Button
+              type="text"
+              className="rt-dash-menu-btn"
+              aria-label={mobileNavOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileNavOpen}
+              onClick={() => setMobileNavOpen((open) => !open)}
+              icon={<MenuOutlined />}
+            />
             {isAdmin ? (
-              <Text type="secondary" style={{ fontSize: 13 }}>
+              <Text type="secondary" className="rt-dash-header__tagline">
                 Help diners & restaurants · manage billing & platform settings
               </Text>
             ) : (
               <>
-                <ShopOutlined style={{ color: colors.textTertiary, fontSize: 16 }} />
+                <ShopOutlined className="rt-dash-header__shop-icon" />
                 <Select
                   placeholder="Select restaurant"
-                  style={{ width: 260, maxWidth: '100%' }}
+                  className="rt-dash-restaurant-select"
                   value={activeRestaurantId}
                   onChange={(id) => {
                     setRestaurantId(id);
@@ -766,19 +739,19 @@ export function DashShell({ children }: { children: React.ReactNode }) {
                   <Button
                     type="default"
                     size="small"
+                    className="rt-dash-view-diner"
                     icon={<EyeOutlined />}
                     href={dinerPageUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ flexShrink: 0 }}
                   >
-                    View as diner
+                    <span className="rt-dash-view-diner-label">View as diner</span>
                   </Button>
                 )}
               </>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="rt-dash-header__end">
             <Dropdown
               trigger={['click']}
               open={notifOpen}
@@ -788,6 +761,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
               }}
               popupRender={() => notificationDropdown}
               placement="bottomRight"
+              getPopupContainer={() => document.body}
             >
               <Button
                 type="text"
@@ -825,22 +799,12 @@ export function DashShell({ children }: { children: React.ReactNode }) {
               }}
               placement="bottomRight"
               trigger={['click']}
+              getPopupContainer={() => document.body}
             >
               <button
                 type="button"
                 aria-label="Account menu"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '4px 10px 4px 4px',
-                  borderRadius: radii.pill,
-                  border: `1px solid ${colors.border}`,
-                  background: colors.surface,
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  height: 42,
-                }}
+                className="rt-dash-account"
               >
                 <Avatar
                   size={32}
@@ -869,14 +833,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
             </Dropdown>
           </div>
         </Header>
-        <Content
-          style={{
-            padding: `${spacing.lg}px ${spacing.lg}px ${spacing.xxl}px`,
-            maxWidth: 1200,
-            width: '100%',
-            margin: '0 auto',
-          }}
-        >
+        <Content className="rt-dash-content">
           {showOnboardingBanner && (
             <Alert
               type="info"

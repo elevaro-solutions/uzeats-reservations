@@ -24,6 +24,8 @@ const config = {
     infoPlist: {
       NSLocationWhenInUseUsageDescription:
         "Tablevera uses your location to show restaurants near you.",
+      NSPhotoLibraryUsageDescription:
+        "Tablevera lets you attach photos to your restaurant reviews.",
     },
   },
   android: {
@@ -33,13 +35,23 @@ const config = {
       backgroundColor: "#000000",
     },
     package: "com.tablevera.app",
-    permissions: ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+    permissions: [
+      "ACCESS_COARSE_LOCATION",
+      "ACCESS_FINE_LOCATION",
+      "READ_MEDIA_IMAGES",
+    ],
   },
   plugins: [
     "expo-router",
     "expo-secure-store",
     "expo-dev-client",
     [
+      "expo-image-picker",
+      {
+        photosPermission:
+          "Tablevera lets you attach photos to your restaurant reviews.",
+      },
+    ],
       "expo-splash-screen",
       {
         image: "./assets/splash-icon.png",

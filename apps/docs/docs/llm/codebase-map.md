@@ -19,6 +19,7 @@ Quick file lookup for AI agents. Paths relative to repo root.
 | Auth | `models/User.ts` | `services/auth.ts` | — |
 | Restaurants | `models/Restaurant.ts` | `services/restaurants.ts`, `discoverySearch.ts` | — |
 | Reservations | `models/Reservation.ts` | `services/reservations.ts`, `availability.ts`, `smartAssign.ts` | — |
+| Reviews | `models/Review.ts` | `services/reviewReplyDraft.ts` | `__tests__/booking.test.ts` |
 | Waitlist | — | waitlist services | — |
 | Loyalty | — | `services/restaurantLoyalty.ts`, `lib/loyaltyBuckets.ts` | `__tests__/loyalty.test.ts` |
 | Billing | — | `services/planChangePolicy.ts`, `config/plans.ts` | `__tests__/planChangePolicy.test.ts` |

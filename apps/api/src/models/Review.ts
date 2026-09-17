@@ -15,6 +15,7 @@ const reviewSchema = new Schema(
     serviceRating: { type: Number, min: 1, max: 5 },
     atmosphereRating: { type: Number, min: 1, max: 5 },
     comment: { type: String, default: '' },
+    photos: { type: [String], default: [] },
     ownerReply: { type: String },
     ownerRepliedAt: { type: Date },
     hidden: { type: Boolean, default: false },

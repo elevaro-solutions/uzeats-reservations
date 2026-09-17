@@ -85,6 +85,7 @@ export const MY_RESTAURANTS = gql`
       description
       priceRange
       photos
+      logoUrl
       phone
       website
       menuUrl
@@ -318,6 +319,7 @@ const ADMIN_RESTAURANT_FIELDS = `
   website
   menuUrl
   photos
+  logoUrl
   ownerId
   featured
   featuredUntil
@@ -472,6 +474,7 @@ export const ADMIN_UPDATE_RESTAURANT = gql`
         website
         menuUrl
         photos
+        logoUrl
       ownerId
       featured
       featuredUntil
@@ -1886,6 +1889,7 @@ export const RESTAURANT_PROFILE = gql`
       cuisine
       priceRange
       photos
+      logoUrl
       phone
       website
       menuUrl
@@ -1940,6 +1944,7 @@ export const UPDATE_RESTAURANT = gql`
       description
       priceRange
       photos
+      logoUrl
       phone
       website
       menuUrl
@@ -2407,7 +2412,7 @@ export const RESTAURANT_REVIEWS = gql`
     restaurantReviews(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
       total
       items {
-        id rating foodRating serviceRating atmosphereRating comment ownerReply ownerRepliedAt hidden createdAt dinerId
+        id rating foodRating serviceRating atmosphereRating comment photos ownerReply ownerRepliedAt hidden createdAt dinerId
         diner { id firstName lastName }
       }
     }
@@ -2418,6 +2423,21 @@ export const REPLY_TO_REVIEW = gql`
   mutation ReplyToReview($reviewId: ID!, $reply: String!) {
     replyToReview(reviewId: $reviewId, reply: $reply) {
       id ownerReply ownerRepliedAt
+    }
+  }
+`;
+
+export const GENERATE_REVIEW_REPLY_DRAFT = gql`
+  mutation GenerateReviewReplyDraft($reviewId: ID!) {
+    generateReviewReplyDraft(reviewId: $reviewId)
+  }
+`;
+
+export const ADD_RESTAURANT_PHOTOS = gql`
+  mutation AddRestaurantPhotos($restaurantId: ID!, $urls: [String!]!) {
+    addRestaurantPhotos(restaurantId: $restaurantId, urls: $urls) {
+      id
+      photos
     }
   }
 `;

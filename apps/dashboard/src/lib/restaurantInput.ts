@@ -18,6 +18,7 @@ type RestaurantBase = {
   phone?: string | null;
   website?: string | null;
   menuUrl?: string | null;
+  logoUrl?: string | null;
   depositRequired: boolean;
   depositAmountCents: number;
   loyaltyEnabled: boolean;
@@ -67,6 +68,7 @@ export function buildRestaurantInput(
   base: RestaurantBase,
   profile?: RestaurantProfileFormValues,
   photos?: string[],
+  logoUrl?: string | null,
 ): RestaurantInput {
   return {
     name: base.name,
@@ -85,6 +87,7 @@ export function buildRestaurantInput(
     phone: base.phone ?? undefined,
     website: base.website ?? undefined,
     menuUrl: base.menuUrl ?? undefined,
+    logoUrl: logoUrl !== undefined ? logoUrl ?? null : base.logoUrl ?? null,
     depositRequired: base.depositRequired,
     depositAmountCents: base.depositAmountCents,
     loyaltyEnabled: base.loyaltyEnabled,

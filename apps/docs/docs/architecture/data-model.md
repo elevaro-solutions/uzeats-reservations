@@ -23,6 +23,7 @@ Central identity for all roles.
 | `slug` | URL identifier (`/restaurants/{slug}`; legacy `/r/{slug}` 308s here) |
 | `previousSlugs` | Former slugs kept for redirects; still reserved so another venue cannot claim them |
 | `status` | `pending`, `approved`, `rejected`, `suspended` |
+| `logoUrl` | Dedicated mark on diner profile pages (falls back to first gallery photo, then initials) |
 | `geo` | `{ lng, lat }` for nearby search |
 | `subscription` | Stripe subscription reference and plan |
 | `settings` | Booking rules, deposit config, widget toggles |
@@ -53,7 +54,7 @@ Tracks waiting parties with `WaitlistStatus`: waiting, notified, booked, seated,
 |---|---|
 | `Experience` | Private dining / large party inquiries |
 | `RestaurantPackage` | Add-ons diners select at booking |
-| `Review` | Post-visit ratings and text |
+| `Review` | Post-visit ratings (`rating` overall plus optional food/service/atmosphere), up to 3 `photos`, and `ownerReply` |
 | `Menu` | Nested sections/items; `popular` flags (max 10) drive the public restaurant page |
 | `GiftCard` / promo codes | Stored value and discounts |
 | `SupportTicket` | Platform support queue |
@@ -81,7 +82,7 @@ Service: `apps/api/src/services/discoverySearch.ts`
 
 ## File storage
 
-Menu and restaurant photos store a Spaces key on the document; clients upload via presigned URL from the API uploads route.
+Menu, restaurant, logo, and review photos store a Spaces URL on the document; clients upload via authenticated `POST /api/uploads` then pass URLs in GraphQL (for example `createReview.photos`).
 
 ## Seed data
 

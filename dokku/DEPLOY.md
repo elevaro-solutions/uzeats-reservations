@@ -82,6 +82,9 @@ dokku config:set tablevera-api \
   VAPID_PUBLIC_KEY="..." \
   VAPID_PRIVATE_KEY="..." \
   VAPID_SUBJECT="mailto:admin@tablevera.online"
+
+# Optional — personalized review reply drafts (templated without a key)
+# dokku config:set tablevera-api GEMINI_API_KEY="..."
 ```
 
 ### Web

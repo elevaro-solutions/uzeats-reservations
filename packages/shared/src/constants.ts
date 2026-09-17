@@ -34,6 +34,12 @@ export const RESERVATION_STATUSES = [
   "no_show",
 ] as const;
 
+/** Max diner-uploaded photos per public review. */
+export const REVIEW_MAX_PHOTOS = 3;
+
+/** Max photos on a restaurant gallery (hero + extras). */
+export const RESTAURANT_MAX_PHOTOS = 10;
+
 export const OCCASIONS = [
   "none",
   "birthday",

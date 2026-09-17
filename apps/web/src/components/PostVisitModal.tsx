@@ -1,14 +1,32 @@
 'use client';
 
 import { useMutation } from '@apollo/client/react';
-import { Button, Checkbox, Input, Modal, Rate, Space, Typography, message } from 'antd';
-import { BookOutlined, CalendarOutlined } from '@ant-design/icons';
-import { useEffect, useState } from 'react';
+import {
+  Button,
+  Checkbox,
+  Image,
+  Input,
+  Modal,
+  Rate,
+  Space,
+  Typography,
+  message,
+} from 'antd';
+import {
+  BookOutlined,
+  CalendarOutlined,
+  DeleteOutlined,
+  PictureOutlined,
+} from '@ant-design/icons';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { buildRestaurantBookingPath } from '@reservations/shared';
+import { REVIEW_MAX_PHOTOS, buildRestaurantBookingPath } from '@reservations/shared';
 import { CREATE_REVIEW, SAVE_RESTAURANT } from '@/lib/graphql';
+import { uploadFile } from '@/lib/upload';
 
 const { Text } = Typography;
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 type RestaurantInfo = {
   id?: string;
@@ -28,6 +46,13 @@ type Props = {
 
 type QualityKey = 'overall' | 'food' | 'service' | 'atmosphere';
 
+const EMPTY_RATINGS = {
+  overall: 0,
+  food: 0,
+  service: 0,
+  atmosphere: 0,
+};
+
 const QUALITY_ROWS: { key: QualityKey; label: string }[] = [
   { key: 'overall', label: 'Overall' },
   { key: 'food', label: 'Food' },
@@ -44,14 +69,12 @@ export function PostVisitModal({
   onCompleted,
 }: Props) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<'review' | 'done'>('review');
-  const [ratings, setRatings] = useState({
-    overall: 5,
-    food: 5,
-    service: 5,
-    atmosphere: 5,
-  });
+  const [ratings, setRatings] = useState(EMPTY_RATINGS);
   const [comment, setComment] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [saveRestaurantChecked, setSaveRestaurantChecked] = useState(true);
   const [wasAlreadySaved, setWasAlreadySaved] = useState(false);
   const [didSaveRestaurant, setDidSaveRestaurant] = useState(false);
@@ -60,12 +83,20 @@ export function PostVisitModal({
   const [createReview] = useMutation(CREATE_REVIEW);
   const [saveRestaurant] = useMutation(SAVE_RESTAURANT);
 
+  const hasAllRatings =
+    ratings.overall > 0 &&
+    ratings.food > 0 &&
+    ratings.service > 0 &&
+    ratings.atmosphere > 0;
+
   useEffect(() => {
     if (!open) return;
     const alreadySaved = !!restaurant?.isSaved;
     setStep('review');
-    setRatings({ overall: 5, food: 5, service: 5, atmosphere: 5 });
+    setRatings(EMPTY_RATINGS);
     setComment('');
+    setPhotos([]);
+    setUploadingPhotos(false);
     setWasAlreadySaved(alreadySaved);
     setSaveRestaurantChecked(!alreadySaved);
     setDidSaveRestaurant(false);
@@ -84,14 +115,44 @@ export function PostVisitModal({
     setRatings((prev) => ({ ...prev, [key]: value }));
   };
 
+  const handlePickPhotos = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const remaining = REVIEW_MAX_PHOTOS - photos.length;
+    if (remaining <= 0) {
+      message.warning(`You can attach up to ${REVIEW_MAX_PHOTOS} photos`);
+      return;
+    }
+
+    const selected = Array.from(files).slice(0, remaining);
+    setUploadingPhotos(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of selected) {
+        if (!file.type.startsWith('image/')) {
+          message.error(`${file.name} is not an image`);
+          continue;
+        }
+        if (file.size > MAX_FILE_SIZE) {
+          message.error(`${file.name} exceeds 5MB limit`);
+          continue;
+        }
+        const { publicUrl } = await uploadFile(file, file.name);
+        uploaded.push(publicUrl);
+      }
+      if (uploaded.length) {
+        setPhotos((prev) => [...prev, ...uploaded].slice(0, REVIEW_MAX_PHOTOS));
+      }
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Could not upload photo');
+    } finally {
+      setUploadingPhotos(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async () => {
     if (!reservationId) return;
-    if (
-      ratings.overall < 1 ||
-      ratings.food < 1 ||
-      ratings.service < 1 ||
-      ratings.atmosphere < 1
-    ) {
+    if (!hasAllRatings) {
       message.warning('Please rate overall, food, service, and atmosphere');
       return;
     }
@@ -106,6 +167,7 @@ export function PostVisitModal({
             serviceRating: ratings.service,
             atmosphereRating: ratings.atmosphere,
             comment,
+            ...(photos.length ? { photos } : {}),
           },
         },
       });
@@ -147,7 +209,13 @@ export function PostVisitModal({
               <Button key="cancel" onClick={handleClose}>
                 Not now
               </Button>,
-              <Button key="submit" type="primary" loading={submitting} onClick={handleSubmit}>
+              <Button
+                key="submit"
+                type="primary"
+                loading={submitting || uploadingPhotos}
+                disabled={!hasAllRatings || uploadingPhotos}
+                onClick={handleSubmit}
+              >
                 Submit review
               </Button>,
             ]
@@ -196,6 +264,69 @@ export function PostVisitModal({
             maxLength={1000}
             showCount
           />
+          <div>
+            <Text strong style={{ display: 'block', marginBottom: 8 }}>
+              Photos (optional)
+            </Text>
+            <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 12 }}>
+              Up to {REVIEW_MAX_PHOTOS} images, 5MB each
+            </Text>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              multiple
+              hidden
+              onChange={(e) => handlePickPhotos(e.target.files)}
+            />
+            {photos.length > 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 8,
+                  marginBottom: 8,
+                }}
+              >
+                <Image.PreviewGroup>
+                  {photos.map((url) => (
+                    <div key={url} style={{ position: 'relative' }}>
+                      <Image
+                        src={url}
+                        alt="Review photo"
+                        width={72}
+                        height={72}
+                        style={{ objectFit: 'cover', borderRadius: 8 }}
+                      />
+                      <Button
+                        type="text"
+                        size="small"
+                        danger
+                        icon={<DeleteOutlined />}
+                        aria-label="Remove photo"
+                        onClick={() => setPhotos((prev) => prev.filter((p) => p !== url))}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          right: 0,
+                          background: 'rgba(255,255,255,0.85)',
+                        }}
+                      />
+                    </div>
+                  ))}
+                </Image.PreviewGroup>
+              </div>
+            )}
+            {photos.length < REVIEW_MAX_PHOTOS && (
+              <Button
+                icon={<PictureOutlined />}
+                loading={uploadingPhotos}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Add photos
+              </Button>
+            )}
+          </div>
           {restaurant?.id && !wasAlreadySaved && (
             <Checkbox
               checked={saveRestaurantChecked}

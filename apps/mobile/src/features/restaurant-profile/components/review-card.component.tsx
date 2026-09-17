@@ -1,6 +1,6 @@
 import { StyleSheet } from "react-native-unistyles";
 
-import { Flex, StarRatingDisplay, Typography, UserAvatar } from "@/components";
+import { Flex, RemoteImage, StarRatingDisplay, Typography, UserAvatar } from "@/components";
 
 import { dinerDisplayName } from "../helpers/restaurant-profile.helpers";
 import { formatRelativeReviewDate } from "../helpers/review.helpers";
@@ -74,6 +74,19 @@ export function ReviewCard({ review, isLast = false }: ReviewCardProps) {
         </Flex>
       ) : null}
 
+      {review.photos && review.photos.length > 0 ? (
+        <Flex direction="row" gap={1} style={styles.photos}>
+          {review.photos.map((url) => (
+            <RemoteImage
+              key={url}
+              uri={url}
+              style={styles.reviewPhoto}
+              accessibilityLabel="Review photo"
+            />
+          ))}
+        </Flex>
+      ) : null}
+
       {review.ownerReply?.trim() ? (
         <Flex style={styles.reply} gap={0.75}>
           <Typography size="text-xs" weight="semibold">
@@ -110,6 +123,15 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
   },
   qualities: {
     flexWrap: "wrap",
+  },
+  photos: {
+    flexWrap: "wrap",
+  },
+  reviewPhoto: {
+    width: space(9),
+    height: space(9),
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
   },
   reply: {
     marginTop: space(0.5),

@@ -34,6 +34,7 @@ export type RestaurantDetail = {
   cuisine: string;
   priceRange: number;
   photos: string[];
+  logoUrl?: string | null;
   phone?: string | null;
   website?: string | null;
   menuUrl?: string | null;
@@ -80,6 +81,7 @@ export type RestaurantReview = {
   serviceRating?: number | null;
   atmosphereRating?: number | null;
   comment?: string | null;
+  photos?: string[] | null;
   createdAt: string;
   ownerReply?: string | null;
   diner?: RestaurantReviewDiner | null;
@@ -103,6 +105,8 @@ export type WriteReviewCtaState =
 export type MyReservationItem = {
   id: string;
   status: string;
+  slotStart: string;
+  slotEnd?: string | null;
   hasReview: boolean;
   restaurant: {
     id: string;

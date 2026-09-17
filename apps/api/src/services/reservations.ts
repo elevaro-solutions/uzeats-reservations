@@ -520,6 +520,10 @@ export async function updateReservationStatus(
 
   if (!isOwner && !isDiner && !isAdmin) throw new ForbiddenError();
 
+  // Retries, double-clicks, and UIs that offer Confirm on already-confirmed
+  // bookings should not fail — most reservations skip pending entirely.
+  if (reservation.status === status) return reservation;
+
   const allowed: Record<string, string[]> = {
     pending: ['confirmed', 'cancelled'],
     confirmed: ['seated', 'cancelled', 'no_show'],
@@ -1197,4 +1201,18 @@ export async function deleteReservation(reservationId: string, actorId: string) 
 
   await Reservation.deleteOne({ _id: reservation._id });
   return true;
+}
+
+/** Diners may review completed visits, or past confirmed/seated visits staff never closed out. */
+export function isReservationReviewable(reservation: {
+  status: string;
+  slotStart: Date;
+  slotEnd?: Date | null;
+}): boolean {
+  if (reservation.status === 'completed') return true;
+  if (reservation.status !== 'confirmed' && reservation.status !== 'seated') {
+    return false;
+  }
+  const end = reservation.slotEnd ?? reservation.slotStart;
+  return end.getTime() < Date.now();
 }

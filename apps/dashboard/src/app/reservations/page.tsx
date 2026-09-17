@@ -393,6 +393,14 @@ function ReservationsPageContent() {
       });
     }
 
+    if (r.status === 'pending') {
+      items.push({
+        key: 'confirm',
+        label: 'Confirm',
+        onClick: () => runStatusUpdate(r.id, 'confirmed'),
+      });
+    }
+
     if (r.status === 'confirmed') {
       items.push({
         key: 'seat',

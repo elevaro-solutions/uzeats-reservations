@@ -54,10 +54,10 @@ body {
 }
 
 /* Full-bleed hero uses 100vw breakout; prevent scrollbar-width overflow.
-   Kept off <body> so it stays a non-scroll-container and `position: sticky`
-   descendants resolve against the viewport. */
+   `clip` does not create a scroll container the way `hidden` does, so
+   sticky descendants and portaled dropdowns are not clipped. */
 html {
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Entrance animation for hero and result cards */
@@ -360,6 +360,31 @@ html {
   }
 }
 
+.rt-hero-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 14px 28px;
+}
+
+.rt-hero-stat {
+  display: flex;
+  align-items: center;
+  gap: 14px 32px;
+}
+
+@media (max-width: 640px) {
+  .rt-hero-stats {
+    gap: 16px 24px;
+  }
+
+  .rt-hero-stat {
+    min-width: 96px;
+    justify-content: center;
+  }
+}
+
 /* Homepage hero — restaurant photo with brand overlay */
 .rt-hero {
   position: relative;
@@ -384,12 +409,16 @@ html {
     var(--color-hero-mid) 100%
   );
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .rt-site-header__brand {
   flex-shrink: 0;
   min-width: 0;
+}
+
+.rt-site-header__nav.ant-menu {
+  overflow: hidden;
 }
 
 .rt-site-header__actions {
@@ -432,7 +461,7 @@ html {
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 992px) {
   .rt-site-header.ant-layout-header {
     gap: 10px;
     padding-inline: 12px;
@@ -452,6 +481,15 @@ html {
   .rt-site-header__sign-in,
   .rt-site-header__cta {
     display: none !important;
+  }
+
+  .rt-header-user {
+    display: none;
+  }
+
+  .rt-site-header__account {
+    padding: 4px;
+    gap: 0;
   }
 }
 
@@ -654,6 +692,102 @@ html {
 
 .rt-site-header__account-role {
   color: rgba(255, 255, 255, 0.55) !important;
+}
+
+.rt-site-content {
+  width: 100%;
+  min-width: 0;
+}
+
+.rt-site-content:not(.rt-site-content--bleed) {
+  padding: 32px 24px;
+}
+
+@media (max-width: 992px) {
+  .rt-site-content:not(.rt-site-content--bleed) {
+    padding: 24px 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .rt-site-content:not(.rt-site-content--bleed) {
+    padding: 16px 12px;
+  }
+}
+
+/* Notification panel: flex column so the footer is never clipped by Ant
+   Dropdown's viewport max-height. */
+.rt-notif-dropdown {
+  display: flex;
+  flex-direction: column;
+  width: min(360px, calc(100vw - 24px));
+  max-height: min(420px, calc(100dvh - 80px));
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+  overflow: hidden;
+}
+
+.rt-notif-dropdown__header,
+.rt-notif-dropdown__footer {
+  flex-shrink: 0;
+}
+
+.rt-notif-dropdown__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.rt-notif-dropdown__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.rt-notif-dropdown__footer {
+  padding: 10px 14px;
+  border-top: 1px solid var(--color-border-subtle);
+  text-align: center;
+}
+
+.rt-notif-dropdown .ant-empty {
+  margin-block: 16px;
+  padding: 8px 16px;
+}
+
+.rt-notif-dropdown .ant-empty-image {
+  height: 52px;
+}
+
+.rt-notif-dropdown .ant-list-item {
+  align-items: flex-start;
+}
+
+.ant-dropdown:has(.rt-notif-dropdown) {
+  max-height: min(420px, calc(100dvh - 80px));
+  overflow: hidden;
+  padding: 0;
+}
+
+@media (max-width: 640px) {
+  .rt-notif-dropdown {
+    width: 100%;
+    max-width: none;
+    max-height: min(70dvh, calc(100dvh - 72px));
+  }
+
+  .ant-dropdown:has(.rt-notif-dropdown) {
+    left: 8px !important;
+    right: 8px !important;
+    width: auto !important;
+    max-height: min(70dvh, calc(100dvh - 72px));
+  }
 }
 
 /* Site footer */
@@ -1384,6 +1518,126 @@ html.rt-map-view .rt-site-footer {
   padding: 20px;
 }
 
+@keyframes rt-skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.rt-skeleton {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    var(--color-border-subtle) 0%,
+    #e8e4dc 40%,
+    var(--color-border-subtle) 80%
+  );
+  background-size: 200% 100%;
+  animation: rt-skeleton-shimmer 1.35s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+.rt-skeleton--heading {
+  width: min(260px, 70%);
+  height: 22px;
+  margin-bottom: 8px;
+}
+
+.rt-skeleton--line {
+  width: min(180px, 50%);
+  height: 12px;
+}
+
+.rt-restaurant-card-skeleton {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-subtle);
+  height: 100%;
+}
+
+.rt-restaurant-card-skeleton__media {
+  position: relative;
+  height: 190px;
+  background: var(--color-border-subtle);
+}
+
+.rt-restaurant-card-skeleton__photo {
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+}
+
+.rt-restaurant-card-skeleton__pill {
+  position: absolute;
+  top: 12px;
+  z-index: 1;
+  height: 22px;
+  width: 72px;
+  border-radius: 999px;
+  opacity: 0.9;
+}
+
+.rt-restaurant-card-skeleton__pill--left {
+  left: 12px;
+}
+
+.rt-restaurant-card-skeleton__pill--right {
+  right: 12px;
+  width: 48px;
+}
+
+.rt-restaurant-card-skeleton__body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rt-restaurant-card-skeleton__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.rt-restaurant-card-skeleton__title {
+  height: 16px;
+  width: 62%;
+}
+
+.rt-restaurant-card-skeleton__price {
+  height: 12px;
+  width: 36px;
+  flex-shrink: 0;
+}
+
+.rt-restaurant-card-skeleton__meta {
+  height: 12px;
+  width: 48%;
+}
+
+.rt-restaurant-card-skeleton__rating {
+  height: 14px;
+  width: 40%;
+}
+
+.rt-restaurant-card-skeleton__slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.rt-restaurant-card-skeleton__slot {
+  height: 32px;
+  border-radius: var(--radius-sm);
+}
+
 .rt-load-more {
   display: flex;
   justify-content: center;
@@ -1628,7 +1882,41 @@ html.rt-map-view .rt-site-footer {
   }
 }
 
+@media (max-width: 992px) {
+  .rt-cards-page {
+    padding: 0 16px;
+  }
+
+  .rt-cards-page__toolbar {
+    margin-inline: -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .rt-discovery-landing__footer {
+    padding-inline: 16px;
+  }
+
+  .rt-site-footer.ant-layout-footer {
+    padding: 40px 16px 24px !important;
+  }
+
+  .rt-site-footer__inner {
+    gap: 28px 32px;
+  }
+}
+
 @media (max-width: 640px) {
+  .rt-cards-page {
+    padding: 0 12px;
+  }
+
+  .rt-cards-page__toolbar {
+    margin-inline: -12px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
   .rt-cards-page__content {
     padding: 14px;
   }
@@ -1651,6 +1939,23 @@ html.rt-map-view .rt-site-footer {
     width: 100%;
     display: flex;
     justify-content: flex-end;
+  }
+
+  .rt-hero-orb {
+    display: none;
+  }
+
+  .rt-restaurant-card-skeleton__media {
+    height: 168px;
+  }
+
+  .rt-map-list-card {
+    grid-template-columns: 96px 1fr;
+  }
+
+  .rt-map-list-card__media {
+    width: 96px;
+    height: 96px;
   }
 }
 
@@ -3432,6 +3737,52 @@ body:has(.fr-page) .ant-layout {
   margin-bottom: 8px;
 }
 
+.rt-restaurant-profile__heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.rt-restaurant-profile__heading-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.rt-restaurant-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--color-brand-50);
+  border: 1px solid var(--color-border, #e3dfd8);
+}
+
+.rt-restaurant-logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rt-restaurant-logo--mark img {
+  object-fit: contain;
+  background: #fff;
+}
+
+.rt-restaurant-logo__initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.02em;
+  color: var(--color-brand);
+}
+
 .rt-restaurant-profile__meta {
   display: flex;
   flex-wrap: wrap;
@@ -3447,14 +3798,34 @@ body:has(.fr-page) .ant-layout {
 }
 
 .rt-restaurant-profile__address {
-  display: block;
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 2px;
   font-size: 14px;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+}
+
+.rt-restaurant-profile__address .anticon {
+  margin-top: 3px;
+  color: var(--color-brand);
+}
+
+.rt-restaurant-profile__address:hover {
+  color: var(--color-brand);
+  text-decoration: underline;
 }
 
 .rt-restaurant-hours-meta {
   display: grid;
   gap: 4px;
   margin-top: 8px;
+}
+
+.rt-restaurant-hours-meta__block {
+  display: grid;
+  gap: 2px;
 }
 
 .rt-restaurant-hours-meta__row {
@@ -3478,6 +3849,17 @@ body:has(.fr-page) .ant-layout {
   font-weight: 600;
   color: var(--color-text);
   margin-right: 6px;
+}
+
+.rt-restaurant-hours-meta__schedule {
+  display: grid;
+  gap: 2px;
+  margin: 0 0 0 24px;
+}
+
+.rt-restaurant-hours-meta__schedule-line {
+  font-size: 13px;
+  color: var(--color-text-secondary);
 }
 
 .rt-restaurant-nav {
@@ -4019,6 +4401,13 @@ body:has(.fr-page) .ant-layout {
   flex-wrap: wrap;
   gap: 12px;
   margin: 8px 0 0 52px;
+}
+
+.rt-restaurant-review__photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 0 52px;
 }
 
 .rt-restaurant-review__reply {
@@ -4842,6 +5231,10 @@ body:has(.fr-page) .ant-layout {
     height: 260px;
   }
 
+  .rt-restaurant-profile {
+    padding: 0 16px 48px;
+  }
+
   .rt-restaurant-profile__booking-sticky {
     position: static;
   }
@@ -4853,6 +5246,26 @@ body:has(.fr-page) .ant-layout {
 
   .rt-restaurant-photos-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .rt-restaurant-profile h1.ant-typography {
+    font-size: clamp(22px, 6vw, 28px) !important;
+  }
+
+  .rt-restaurant-logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 12px;
+  }
+
+  .rt-restaurant-logo__initials {
+    font-size: 16px;
+  }
+
+  .rt-restaurant-nav {
+    margin-inline: -16px;
   }
 }
 
@@ -4868,6 +5281,7 @@ body:has(.fr-page) .ant-layout {
 
   .rt-restaurant-review__comment,
   .rt-restaurant-review__qualities,
+  .rt-restaurant-review__photos,
   .rt-restaurant-review__reply {
     margin-left: 0 !important;
   }

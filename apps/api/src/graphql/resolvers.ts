@@ -32,6 +32,7 @@ import {
   MAX_POPULAR_MENU_ITEMS,
   countPopularMenuItems,
   timezoneFromAddress,
+  RESTAURANT_MAX_PHOTOS,
 } from "@reservations/shared";
 import { assertCanAssignRole } from "../services/roleAccess.js";
 import { submitContactForm } from "../services/contactForm.js";
@@ -128,9 +129,11 @@ import {
   updateReservationStatus,
   confirmDepositPayment,
   seatReservationAtTable,
+  isReservationReviewable,
 } from "../services/reservations.js";
 import { paginateQuery, normalizePagination } from "../lib/pagination.js";
 import { getLoyaltyHistory, awardReviewPoints } from "../services/loyalty.js";
+import { generateReviewReplyDraft } from "../services/reviewReplyDraft.js";
 import {
   getMyRestaurantLoyaltyBalances,
   getRestaurantLoyaltyBalance,
@@ -3479,8 +3482,8 @@ export const resolvers = {
       if (!reservation || !reservation.dinerId.equals(user._id)) {
         throw new Error("Reservation not found");
       }
-      if (reservation.status !== "completed") {
-        throw new Error("Can only review completed visits");
+      if (!isReservationReviewable(reservation)) {
+        throw new Error("Can only review after your visit");
       }
       const existing = await Review.findOne({ reservationId: reservation._id });
       if (existing) throw new Error("Already reviewed");
@@ -3496,6 +3499,7 @@ export const resolvers = {
           ? { atmosphereRating: input.atmosphereRating }
           : {}),
         comment: input.comment ?? "",
+        photos: input.photos ?? [],
       });
 
       const stats = await Review.aggregate([
@@ -5133,6 +5137,84 @@ export const resolvers = {
         data: { reviewId: args.reviewId },
       });
       return mapReview(review);
+    },
+
+    generateReviewReplyDraft: async (
+      _: unknown,
+      args: { reviewId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const review = await Review.findById(args.reviewId);
+      if (!review) throw new Error("Review not found");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        review.restaurantId.toString(),
+        user.role,
+      );
+
+      const [restaurant, diner] = await Promise.all([
+        Restaurant.findById(review.restaurantId).select("name cuisine"),
+        User.findById(review.dinerId).select("firstName"),
+      ]);
+      if (!restaurant) throw new Error("Restaurant not found");
+
+      return generateReviewReplyDraft({
+        restaurantName: restaurant.name,
+        cuisine: restaurant.cuisine,
+        dinerFirstName: diner?.firstName ?? null,
+        rating: review.rating,
+        foodRating: review.foodRating ?? null,
+        serviceRating: review.serviceRating ?? null,
+        atmosphereRating: review.atmosphereRating ?? null,
+        comment: review.comment ?? null,
+      });
+    },
+
+    addRestaurantPhotos: async (
+      _: unknown,
+      args: { restaurantId: string; urls: string[] },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+
+      const urls = [
+        ...new Set(
+          (args.urls ?? [])
+            .map((u) => (typeof u === "string" ? u.trim() : ""))
+            .filter((u) => /^https?:\/\//i.test(u)),
+        ),
+      ];
+      if (urls.length === 0) {
+        throw new Error("No valid photo URLs provided");
+      }
+
+      const restaurant = await Restaurant.findById(args.restaurantId);
+      if (!restaurant) throw new Error("Restaurant not found");
+
+      const existing = Array.isArray(restaurant.photos) ? restaurant.photos : [];
+      const remaining = RESTAURANT_MAX_PHOTOS - existing.length;
+      if (remaining <= 0) {
+        throw new Error(
+          `Gallery is full (max ${RESTAURANT_MAX_PHOTOS} photos). Remove some in Settings first.`,
+        );
+      }
+
+      const toAdd = urls
+        .filter((url) => !existing.includes(url))
+        .slice(0, remaining);
+      if (toAdd.length === 0) {
+        return mapRestaurant(restaurant);
+      }
+
+      restaurant.photos = [...existing, ...toAdd];
+      await restaurant.save();
+      return mapRestaurant(restaurant);
     },
 
     setReviewHidden: async (

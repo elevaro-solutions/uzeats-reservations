@@ -32,6 +32,13 @@ External services Tablevera connects to and how they degrade without credentials
 
 Falls back to plain text inputs and city list without Maps key.
 
+## Gemini
+
+Optional **review reply drafts** for partners (`generateReviewReplyDraft`).
+
+- Set `GEMINI_API_KEY` (Google AI Studio). Default model `gemini-3.5-flash-lite` (`GEMINI_MODEL` override).
+- **Stub behavior:** Without a key, the mutation returns a templated draft. Nothing is posted until `replyToReview`.
+
 ## DigitalOcean Spaces
 
 S3-compatible object storage for restaurant and menu images.

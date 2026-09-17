@@ -54,6 +54,8 @@ const envSchema = z.object({
   ELEVARO_LEADS_API_KEY: z.string().optional().default(''),
   ELEVARO_LEADS_REFERRER_DOMAIN: z.string().default('https://tablevera.online/'),
   ELEVARO_LEADS_SOURCE: z.string().default('ORDERING_APP'),
+  GEMINI_API_KEY: z.string().optional().default(''),
+  GEMINI_MODEL: z.string().optional().default('gemini-3.5-flash-lite'),
 });
 
 const parsed = envSchema.parse(process.env);

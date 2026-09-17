@@ -99,6 +99,35 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## restaurant-profile
 
+### [2026-09-17] Header shows logo, weekly hours, and Maps address
+- `Restaurant.logoUrl` is optional; diner pages fall back to the first gallery photo, then initials. Owners upload the mark from Profile / Settings / admin restaurant forms.
+- Web hours meta keeps open/closed status and lists `formatOpeningHoursLines` (e.g. `Mon–Sun 5:00 PM–10:00 PM EDT`). Address is a Google Maps search/dir link (`buildMapsSearchUrl`).
+- Why it matters: Status-only copy like "Opens at 5:00 PM" is not the schedule; don't treat gallery photos as the logo if a dedicated URL exists.
+
+### [2026-09-17] Leave review does not require staff-completed status
+- `canLeaveReview` / `isReservationReviewable` allow `completed` or past
+  `confirmed`/`seated` (slot ended). Cancelled, no-show, and pending stay blocked.
+- Why it matters: Diners often never see “Leave review” if the restaurant never
+  marks the visit completed; UI already showed those rows as past.
+
+### [2026-09-17] Review photos upload via `/api/uploads`
+- `Review.photos` stores up to `REVIEW_MAX_PHOTOS` (3) public URLs. Clients
+  upload through authenticated `POST /api/uploads` then pass URLs in
+  `createReview`. Zod caps count; MIME allowlist lives on the upload route.
+- Why it matters: Don’t invent a separate review upload path — reuse Spaces
+  proxy like dashboard restaurant photos.
+
+### [2026-09-17] Partner review reply drafts + gallery promotion
+- `generateReviewReplyDraft` (owner/staff via `assertRestaurantAccess`) returns
+  a personalized draft; uses Gemini (`GEMINI_API_KEY`, default model
+  `gemini-3.5-flash-lite`) when configured, else a templated draft. Drafts are not
+  posted until `replyToReview`.
+- `addRestaurantPhotos` appends deduped URLs up to `RESTAURANT_MAX_PHOTOS` (10).
+  Dashboard Reviews UI can add each / selected diner photos to the gallery
+  (hero order still controlled in Settings).
+- Why it matters: “Manager” = `staff` with `restaurantIds`; reply already used
+  the same access helper as owners.
+
 ### [2026-09-16] Diner reviews rate four qualities
 `createReview` keeps `rating` as overall and adds optional `foodRating` /
 `serviceRating` / `atmosphereRating`. Web PostVisitModal and mobile

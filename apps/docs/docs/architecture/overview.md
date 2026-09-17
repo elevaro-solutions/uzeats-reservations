@@ -23,6 +23,7 @@ flowchart TB
     Spaces[DO Spaces]
     Twilio[Twilio SMS]
     Email[SendGrid / Resend]
+    Gemini[Gemini drafts]
   end
 
   Web --> API
@@ -37,6 +38,7 @@ flowchart TB
   API --> Spaces
   API --> Twilio
   API --> Email
+  API --> Gemini
 ```
 
 ## Design principles
@@ -45,7 +47,7 @@ flowchart TB
 2. **Shared types** — `@reservations/shared` is the contract between API and clients.
 3. **Service layer** — resolvers are thin; business logic lives in `apps/api/src/services/`.
 4. **Atomic booking** — table slot claims use unique indexes, not distributed locks.
-5. **Graceful degradation** — Stripe, Twilio, Spaces, and email stub when env vars are missing.
+5. **Graceful degradation** — Stripe, Twilio, Spaces, email, and Gemini stub when env vars are missing.
 
 ## Request lifecycle
 

@@ -19,6 +19,7 @@ export type RestaurantSeoData = {
   phone?: string | null;
   website?: string | null;
   photos: string[];
+  logoUrl?: string | null;
   averageRating: number;
   reviewCount: number;
   depositRequired: boolean;
@@ -52,6 +53,7 @@ const RESTAURANT_SEO_QUERY = `
       phone
       website
       photos
+      logoUrl
       averageRating
       reviewCount
       depositRequired

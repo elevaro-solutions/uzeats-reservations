@@ -52,3 +52,4 @@ export { MoreHorizontalIcon } from "./icons/more-horizontal.icon";
 export { MoreVerticalIcon } from "./icons/more-vertical.icon";
 export { PencilIcon } from "./icons/pencil.icon";
 export { UsersIcon } from "./icons/users.icon";
+export { ImageIcon } from "./icons/image.icon";

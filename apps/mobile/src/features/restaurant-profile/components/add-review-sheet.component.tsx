@@ -1,8 +1,9 @@
 import { Modal, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { StyleSheet } from "react-native-unistyles";
+import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import { REVIEW_MAX_PHOTOS } from "@reservations/shared";
 
-import { XIcon } from "@/assets";
+import { ImageIcon, XIcon } from "@/assets";
 import {
   Button,
   Flex,
@@ -39,11 +40,16 @@ export function AddReviewSheet({
   onSubmitted,
 }: AddReviewSheetProps) {
   const insets = useSafeAreaInsets();
+  const { theme } = useUnistyles();
   const {
     ratings,
     setQuality,
     comment,
     setComment,
+    photos,
+    pickPhotos,
+    removePhoto,
+    uploadingPhotos,
     hasAllRatings,
     loading,
     handleSubmit,
@@ -122,6 +128,50 @@ export function AddReviewSheet({
               style={styles.commentInput}
             />
           ) : null}
+
+          <Flex gap={1}>
+            <Typography size="text-sm" weight="semibold">
+              Photos (optional)
+            </Typography>
+            <Typography size="text-xs" color="muted">
+              Up to {REVIEW_MAX_PHOTOS} images
+            </Typography>
+            {photos.length > 0 ? (
+              <Flex direction="row" gap={1} style={styles.photoRow}>
+                {photos.map((url) => (
+                  <View key={url} style={styles.thumbWrap}>
+                    <RemoteImage
+                      uri={url}
+                      style={styles.thumb}
+                      accessibilityLabel="Review photo"
+                    />
+                    <Pressable
+                      onPress={() => removePhoto(url)}
+                      style={styles.removeThumb}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Remove photo"
+                      disabled={loading}
+                    >
+                      <XIcon size={14} color={theme.colors.textPrimary} />
+                    </Pressable>
+                  </View>
+                ))}
+              </Flex>
+            ) : null}
+            {photos.length < REVIEW_MAX_PHOTOS ? (
+              <Button
+                color="secondary"
+                fullWidth
+                loading={uploadingPhotos}
+                disabled={loading}
+                onPress={pickPhotos}
+                startIcon={<ImageIcon size={18} />}
+              >
+                Add photos
+              </Button>
+            ) : null}
+          </Flex>
         </ScrollView>
 
         <Flex
@@ -179,6 +229,29 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   },
   commentInput: {
     minHeight: space(10),
+  },
+  photoRow: {
+    flexWrap: "wrap",
+  },
+  thumbWrap: {
+    position: "relative",
+  },
+  thumb: {
+    width: space(9),
+    height: space(9),
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+  },
+  removeThumb: {
+    position: "absolute",
+    top: space(0.5),
+    right: space(0.5),
+    width: space(3),
+    height: space(3),
+    borderRadius: radius.full,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.background,
   },
   footer: {
     paddingHorizontal: space(2),

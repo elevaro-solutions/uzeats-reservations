@@ -7,14 +7,14 @@ A companion **mobile app** (`apps/mobile`, Expo) offers the same core flows on i
 ## What you can do
 
 - **Search** restaurants by city, cuisine, text, or nearby location (list and map views)
-- **View** rich restaurant pages — photos, menu, reviews, FAQ, hours, and live availability
+- **View** rich restaurant pages — logo, photos, menu, reviews, FAQ, weekly hours, Maps address, and live availability
 - **Book** a table with party size, date/time, occasion, and optional packages
 - **Pay deposits** when required (Stripe; stubbed locally without keys)
 - **Join a waitlist** and get notified when a table opens
 - **Save** favorite restaurants at `/saved`
 - **Manage reservations** — view upcoming/past visits, edit details, message the restaurant
 - **Earn loyalty** — platform and per-restaurant points, tiers, referrals, gift cards
-- **Leave reviews** after completed visits
+- **Leave reviews** after a past visit (staff-completed, or confirmed/seated after the slot ends) with ratings, photos, and a comment
 - **Set alerts** for favorite restaurants when near-term availability appears
 
 ## Getting an account

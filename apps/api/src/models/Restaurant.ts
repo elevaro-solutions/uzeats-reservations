@@ -29,6 +29,7 @@ const restaurantSchema = new Schema(
     phone: { type: String },
     website: { type: String },
     menuUrl: { type: String },
+    logoUrl: { type: String },
     photos: [{ type: String }],
     status: {
       type: String,

@@ -1,5 +1,10 @@
 # Booking — Learnings & Observations
 
+## [2026-09-17] Confirming an already-confirmed reservation used to 400
+- `createReservation` writes `confirmed` unless a deposit requires payment (`pending`). `updateReservationStatus` only allowed `pending → confirmed`, so Confirm on a normal booking threw `Cannot transition from confirmed to confirmed`.
+- Same-status updates are now a no-op. Admin Confirm is pending-only; cancel must send `cancelled` (not `canceled`).
+- Why it matters: Don’t assume staff need to Confirm every booking. Partner/admin UIs must not offer illegal transitions.
+
 ## [2026-09-16] Public restaurant URLs are `/restaurants/:slug`
 - `buildRestaurantBookingPath` emits `/restaurants/{slug|id}`. Legacy `/r/:slug` 308s there (middleware + next.config). Sitemap, JSON-LD, and share links use the helper.
 - Slug is immutable for owners: they request a change (`requestRestaurantSlugChange`); admins apply it (`adminUpdateRestaurant.slug` or approve the request). Previous slugs are stored on the restaurant and stay reserved so old links 308 to the current slug.

@@ -7,6 +7,7 @@ import {
   PRICE_RANGES,
   CUISINES,
   WAITLIST_STATUSES,
+  REVIEW_MAX_PHOTOS,
 } from "./constants.js";
 import {
   isReservedRestaurantSlug,
@@ -130,6 +131,10 @@ export const restaurantInputSchema = z.object({
     .union([z.string().url(), z.literal("")])
     .optional()
     .transform((v) => (v === "" || v == null ? undefined : v)),
+  logoUrl: z
+    .union([z.string().url(), z.literal(""), z.null()])
+    .optional()
+    .transform((v) => (v === "" ? null : v)),
   depositRequired: z.boolean().default(false),
   depositAmountCents: z.number().int().min(0).default(0),
   loyaltyEnabled: z.boolean().default(false),
@@ -280,6 +285,10 @@ export const reviewInputSchema = z.object({
   serviceRating: z.number().int().min(1).max(5).optional(),
   atmosphereRating: z.number().int().min(1).max(5).optional(),
   comment: z.string().max(2000).optional(),
+  photos: z
+    .array(z.string().url().max(2000))
+    .max(REVIEW_MAX_PHOTOS)
+    .optional(),
 });
 
 export const notificationChannelPreferencesSchema = z.object({

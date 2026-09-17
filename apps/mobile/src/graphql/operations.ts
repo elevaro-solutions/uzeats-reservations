@@ -76,6 +76,7 @@ export const RESTAURANT = gql`
       cuisine
       priceRange
       photos
+      logoUrl
       phone
       website
       menuUrl
@@ -153,6 +154,7 @@ export const RESTAURANT_REVIEWS = gql`
         serviceRating
         atmosphereRating
         comment
+        photos
         createdAt
         ownerReply
         diner {
@@ -419,6 +421,7 @@ export const CREATE_REVIEW = gql`
       serviceRating
       atmosphereRating
       comment
+      photos
       createdAt
     }
   }

@@ -29,6 +29,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const [form] = Form.useForm<RestaurantProfileFormValues>();
   const [photos, setPhotos] = useState<string[]>([]);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
 
   const { data: listData, loading: listLoading } = useQuery(MY_RESTAURANTS, { skip: !user });
@@ -56,6 +57,7 @@ export default function ProfilePage() {
     if (!restaurant) return;
     form.setFieldsValue(profileValuesFromRestaurant(restaurant));
     setPhotos(restaurant.photos ?? []);
+    setLogoUrl(restaurant.logoUrl ?? null);
   }, [restaurant, form]);
 
   const handleSave = async (values: RestaurantProfileFormValues) => {
@@ -64,7 +66,7 @@ export default function ProfilePage() {
       await updateRestaurant({
         variables: {
           id: restaurant.id,
-          input: buildRestaurantInput(restaurant, values, photos),
+          input: buildRestaurantInput(restaurant, values, photos, logoUrl),
         },
       });
       message.success('Public profile updated');
@@ -195,6 +197,21 @@ export default function ProfilePage() {
       ) : restaurant ? (
         <Card className="rt-surface-card" styles={{ body: { padding: spacing.lg } }} style={{ borderRadius: radii.lg }}>
           <Form form={form} layout="vertical" onFinish={handleSave}>
+            <div style={{ marginBottom: spacing.md }}>
+              <Text strong style={{ display: 'block', marginBottom: 4 }}>
+                Logo
+              </Text>
+              <Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 12 }}>
+                Square mark shown next to your name on the public restaurant page.
+              </Text>
+              <PhotoUpload
+                value={logoUrl ? [logoUrl] : []}
+                onChange={(urls) => setLogoUrl(urls[0] ?? null)}
+                maxCount={1}
+                alt="Restaurant logo"
+              />
+            </div>
+
             <div style={{ marginBottom: spacing.md }}>
               <Text strong style={{ display: 'block', marginBottom: 4 }}>
                 Photos

@@ -68,6 +68,15 @@ Uploads are stubbed when keys are missing.
 | `VAPID_*` | Web push notifications |
 | `TWILIO_*` | SMS (transactional + opt-in at `/sms`) |
 
+## AI (optional)
+
+| Variable | Purpose |
+|---|---|
+| `GEMINI_API_KEY` | Personalized review reply drafts on the partner Reviews page (Google AI Studio free tier) |
+| `GEMINI_MODEL` | Defaults to `gemini-3.5-flash-lite`. Override if Google renames free-tier models |
+
+Without `GEMINI_API_KEY`, `generateReviewReplyDraft` still returns a templated draft. Drafts are not posted until `replyToReview`.
+
 ## SEO & public URLs
 
 | Variable | Purpose |

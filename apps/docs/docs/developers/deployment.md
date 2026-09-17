@@ -25,7 +25,7 @@ pnpm --filter @reservations/api build
 node apps/api/dist/index.js
 ```
 
-Set `NODE_ENV=production`, real JWT secrets, Mongo/Redis URLs, and `STRIPE_WEBHOOK_SECRET`.
+Set `NODE_ENV=production`, real JWT secrets, Mongo/Redis URLs, and `STRIPE_WEBHOOK_SECRET`. Optional `GEMINI_API_KEY` enables personalized review reply drafts (templated without it).
 
 ### Web
 

@@ -2,11 +2,29 @@ import { formatReviewDate } from "./restaurant-profile.helpers";
 
 const RELATIVE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
 
+/** Past visits can be reviewed even if staff never flipped status to completed. */
 export function canLeaveReview(reservation: {
   status: string;
+  slotStart: string;
+  slotEnd?: string | null;
   hasReview?: boolean | null;
 }): boolean {
-  return reservation.status === "completed" && !reservation.hasReview;
+  if (reservation.hasReview) return false;
+  if (
+    reservation.status === "cancelled" ||
+    reservation.status === "no_show" ||
+    reservation.status === "pending"
+  ) {
+    return false;
+  }
+  if (reservation.status === "completed") return true;
+  if (reservation.status === "confirmed" || reservation.status === "seated") {
+    const end = reservation.slotEnd
+      ? new Date(reservation.slotEnd)
+      : new Date(reservation.slotStart);
+    return Number.isFinite(end.getTime()) && end.getTime() < Date.now();
+  }
+  return false;
 }
 
 function formatRelativeTime(diffMs: number): string {

@@ -36,11 +36,22 @@ export function needsDepositPayment(r: ReservationTimingFields): boolean {
   );
 }
 
+/** Past visits can be reviewed even if staff never flipped status to completed. */
 export function canLeaveReview(r: {
   status: string;
+  slotStart: string;
+  slotEnd?: string | null;
   hasReview?: boolean | null;
 }): boolean {
-  return r.status === 'completed' && !r.hasReview;
+  if (r.hasReview) return false;
+  if (r.status === 'cancelled' || r.status === 'no_show' || r.status === 'pending') {
+    return false;
+  }
+  if (r.status === 'completed') return true;
+  if (r.status === 'confirmed' || r.status === 'seated') {
+    return isReservationPast(r);
+  }
+  return false;
 }
 
 export function filterReservationsBySegment<T extends ReservationTimingFields>(

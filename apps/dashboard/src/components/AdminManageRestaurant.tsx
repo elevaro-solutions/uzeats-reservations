@@ -81,6 +81,7 @@ export type AdminRestaurantRecord = {
   website?: string | null;
   menuUrl?: string | null;
   photos?: string[];
+  logoUrl?: string | null;
   ownerId: string;
   featured?: boolean;
   featuredUntil?: string | null;
@@ -306,7 +307,7 @@ export function PlanSelector({
   );
 }
 
-function buildRestaurantInput(values: Record<string, unknown>, photoList: string[]) {
+function buildRestaurantInput(values: Record<string, unknown>, photoList: string[], logoUrl?: string | null) {
   return {
     name: values.name,
     description: values.description || undefined,
@@ -315,6 +316,7 @@ function buildRestaurantInput(values: Record<string, unknown>, photoList: string
     phone: values.phone || undefined,
     website: values.website || undefined,
     menuUrl: values.menuUrl || undefined,
+    logoUrl: logoUrl ?? null,
     depositRequired: Boolean(values.depositRequired),
     depositAmountCents: Math.round((Number(values.depositAmountCents) || 0) * 100),
     loyaltyEnabled: Boolean(values.loyaltyEnabled),
@@ -371,6 +373,7 @@ export function AdminManageRestaurant({
 }: AdminManageRestaurantProps) {
   const [editTab, setEditTab] = useState('details');
   const [photos, setPhotos] = useState<string[]>([]);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<string>();
   const [selectedRestaurantStatus, setSelectedRestaurantStatus] = useState<string>();
   const [assignUserId, setAssignUserId] = useState<string>();
@@ -424,6 +427,7 @@ export function AdminManageRestaurant({
     if (!active || !restaurant) return;
     setEditTab('details');
     setPhotos(restaurant.photos ?? []);
+    setLogoUrl(restaurant.logoUrl ?? null);
     setSelectedPlan(restaurant.subscription?.plan);
     setSelectedRestaurantStatus(restaurant.status);
     setAssignUserId(undefined);
@@ -497,7 +501,7 @@ export function AdminManageRestaurant({
             showReviews: Boolean(values.showReviews),
           },
           slug: values.slug?.trim() ? normalizeRestaurantSlug(values.slug) : undefined,
-          input: buildRestaurantInput(values, photos),
+          input: buildRestaurantInput(values, photos, logoUrl),
         },
       });
       message.success('Restaurant updated');
@@ -697,6 +701,19 @@ export function AdminManageRestaurant({
                       showSearch
                       optionFilterProp="label"
                       placeholder="Select owner account"
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={24}>
+                  <Form.Item
+                    label="Logo"
+                    extra="Square mark shown next to the restaurant name on the public page."
+                  >
+                    <PhotoUpload
+                      value={logoUrl ? [logoUrl] : []}
+                      onChange={(urls) => setLogoUrl(urls[0] ?? null)}
+                      maxCount={1}
+                      alt="Restaurant logo"
                     />
                   </Form.Item>
                 </Col>

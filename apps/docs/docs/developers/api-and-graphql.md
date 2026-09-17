@@ -24,8 +24,9 @@ The schema is defined in `apps/api/src/graphql/typeDefs.ts`. Key enums:
 Major domains in the schema:
 
 - **Auth** — register, login, Google OAuth, phone OTP, password reset
-- **Restaurants** — CRUD, search/discovery, menus, photos, packages, public URL slug requests
+- **Restaurants** — CRUD, search/discovery, menus, photos, logo, packages, public URL slug requests
 - **Reservations** — create, modify, cancel, messaging, deposits
+- **Reviews** — diner ratings/photos, partner replies, Gemini reply drafts, add diner photos to the gallery
 - **Waitlist** — join, notify, convert to booking
 - **Loyalty & promotions** — points, tiers, gift cards, promo codes
 - **Billing** — Stripe subscriptions, invoices, plan changes

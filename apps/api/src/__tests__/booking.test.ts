@@ -250,6 +250,20 @@ describe('Booking Flow (E2E)', () => {
     reservationId = payload.reservation.id;
   });
 
+  it('should treat confirming an already-confirmed reservation as a no-op', async () => {
+    const res = await graphqlRequest(
+      agent,
+      `mutation UpdateStatus($id: ID!, $status: ReservationStatus!) {
+        updateReservationStatus(id: $id, status: $status) { id status }
+      }`,
+      { id: reservationId, status: 'confirmed' },
+      ownerToken,
+    );
+
+    expect(res.body.errors).toBeUndefined();
+    expect(res.body.data.updateReservationStatus.status).toBe('confirmed');
+  });
+
   it('should let a diner edit their reservation', async () => {
     const res = await graphqlRequest(
       agent,

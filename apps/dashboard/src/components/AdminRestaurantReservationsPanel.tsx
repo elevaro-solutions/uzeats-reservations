@@ -65,12 +65,14 @@ export function AdminRestaurantReservationsPanel({ restaurantId }: { restaurantI
 
   const rowMenu = (r: ReservationRow): MenuProps['items'] => {
     const items: MenuProps['items'] = [];
-    if (r.status === 'pending' || r.status === 'confirmed') {
+    if (r.status === 'pending') {
       items.push({
         key: 'confirm',
         label: 'Confirm',
         onClick: () => void runStatus(r.id, 'confirmed', 'Confirmed'),
       });
+    }
+    if (r.status === 'confirmed') {
       items.push({
         key: 'seat',
         label: 'Seat',
@@ -84,17 +86,19 @@ export function AdminRestaurantReservationsPanel({ restaurantId }: { restaurantI
         onClick: () => void runStatus(r.id, 'completed', 'Completed'),
       });
     }
-    if (r.status !== 'canceled' && r.status !== 'completed' && r.status !== 'no_show') {
+    if (r.status === 'confirmed' || r.status === 'seated') {
       items.push({
         key: 'no_show',
         label: 'No-show',
         onClick: () => void runStatus(r.id, 'no_show', 'Marked no-show'),
       });
+    }
+    if (r.status === 'pending' || r.status === 'confirmed') {
       items.push({
         key: 'cancel',
         danger: true,
         label: 'Cancel',
-        onClick: () => void runStatus(r.id, 'canceled', 'Canceled'),
+        onClick: () => void runStatus(r.id, 'cancelled', 'Cancelled'),
       });
     }
     items.push({ type: 'divider' });

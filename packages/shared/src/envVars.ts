@@ -7,6 +7,7 @@ export type EnvVarGroup =
   | 'payments'
   | 'storage'
   | 'notifications'
+  | 'ai'
   | 'clients';
 
 export type EnvApp = 'api' | 'web' | 'dashboard';
@@ -38,6 +39,7 @@ export const ENV_VAR_GROUPS: Record<EnvVarGroup, string> = {
   payments: 'Payments',
   storage: 'File storage',
   notifications: 'Notifications',
+  ai: 'AI',
   clients: 'Client apps',
 };
 
@@ -298,6 +300,23 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     group: 'notifications',
     apps: ['api'],
     requirement: 'recommended',
+  },
+  {
+    key: 'GEMINI_API_KEY',
+    label: 'Gemini API key',
+    group: 'ai',
+    apps: ['api'],
+    requirement: 'recommended',
+    description:
+      'Google AI Studio key for personalized review reply drafts (free tier). Without it, a templated draft is used.',
+  },
+  {
+    key: 'GEMINI_MODEL',
+    label: 'Gemini model',
+    group: 'ai',
+    apps: ['api'],
+    requirement: 'recommended',
+    description: 'Defaults to gemini-3.5-flash-lite. Override if Google renames free-tier models.',
   },
   {
     key: 'TELEGRAM_BOT_TOKEN',

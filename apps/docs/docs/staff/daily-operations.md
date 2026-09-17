@@ -7,7 +7,7 @@ The **Reservations** page is the primary operational view:
 - Filter by date, status (confirmed, seated, completed, cancelled, no-show)
 - Create **phone** or **walk-in** bookings (`ReservationSource`: `phone`, `walkin`)
 - Edit party size, time, table assignment, and internal notes
-- Mark guests as **seated**, **completed**, or **no-show**
+- Mark guests as **seated**, **completed**, or **no-show** (Confirm is only offered for `pending` bookings; same-status updates are a no-op)
 - Share booking links (`/restaurants/{slug}`) with guests
 
 ### Reservation statuses
@@ -17,7 +17,7 @@ The **Reservations** page is the primary operational view:
 | `pending` | Awaiting confirmation (e.g. deposit hold) |
 | `confirmed` | Active booking |
 | `seated` | Guest arrived and is dining |
-| `completed` | Visit finished — triggers loyalty and review prompts |
+| `completed` | Visit finished — loyalty accrues; review prompts also fire for past `confirmed`/`seated` visits |
 | `cancelled` | Cancelled by guest or staff |
 | `no_show` | Guest did not arrive (may trigger auto-detection via worker) |
 
@@ -89,8 +89,18 @@ Settings → **Notifications**.
 After marking reservations **completed**:
 
 - Loyalty points accrue for signed-in diners
-- Post-visit review prompt is sent
+- Post-visit review prompt is sent (diners can also review a past confirmed/seated visit if staff never marked completed)
 - Reports update for the service period
+
+## Reviews
+
+The **Reviews** page lists diner ratings (overall plus food/service/atmosphere), comments, and photos.
+
+- **Reply** posts a public owner/manager response (`replyToReview`)
+- **Generate draft** fills a personalized reply (`generateReviewReplyDraft`) using Gemini when `GEMINI_API_KEY` is set, otherwise a template
+- **Add to gallery** appends selected diner photos to the restaurant gallery (up to 10 total; hero order is still set in Settings)
+
+Staff with venue access can reply the same as owners. Drafts are not posted until you submit the reply.
 
 ## Shareable links
 
@@ -104,4 +114,4 @@ Toggle **accept online reservations** and **hide widget** in restaurant settings
 
 ## Photos
 
-On **Public profile** and **Settings**, upload up to 10 venue photos. Drag to reorder (or use the arrows / star). The first photo is the large hero on the diner restaurant page; the next two appear beside it; remaining photos show in the gallery below.
+On **Public profile** and **Settings**, upload a **logo** (shown on diner profile pages) and up to 10 venue photos. Drag to reorder (or use the arrows / star). The first photo is the large hero on the diner restaurant page; the next two appear beside it; remaining photos show in the gallery below. Diner review photos can be added to the gallery from **Reviews**.

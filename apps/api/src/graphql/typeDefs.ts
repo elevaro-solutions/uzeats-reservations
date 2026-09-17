@@ -185,6 +185,7 @@ export const typeDefs = `#graphql
     phone: String
     website: String
     menuUrl: String
+    logoUrl: String
     photos: [String!]!
     status: RestaurantStatus!
     ownerId: ID!
@@ -418,6 +419,7 @@ export const typeDefs = `#graphql
     serviceRating: Int
     atmosphereRating: Int
     comment: String
+    photos: [String!]!
     ownerReply: String
     ownerRepliedAt: DateTime
     hidden: Boolean!
@@ -1679,6 +1681,7 @@ export const typeDefs = `#graphql
     phone: String
     website: String
     menuUrl: String
+    logoUrl: String
     depositRequired: Boolean
     depositAmountCents: Int
     loyaltyEnabled: Boolean
@@ -1849,6 +1852,7 @@ export const typeDefs = `#graphql
     serviceRating: Int
     atmosphereRating: Int
     comment: String
+    photos: [String!]
   }
 
   input SearchRestaurantsInput {
@@ -2796,7 +2800,11 @@ export const typeDefs = `#graphql
     submitSurvey(input: SurveySubmitInput!): SurveyResponse!
 
     replyToReview(reviewId: ID!, reply: String!): Review!
+    """Draft a personalized owner/manager reply. Does not post or notify the diner."""
+    generateReviewReplyDraft(reviewId: ID!): String!
     setReviewHidden(reviewId: ID!, hidden: Boolean!): Review!
+    """Append public image URLs to the restaurant gallery (deduped, capped)."""
+    addRestaurantPhotos(restaurantId: ID!, urls: [String!]!): Restaurant!
 
     sendMessage(reservationId: ID!, body: String!): Message!
     markConversationRead(reservationId: ID!): Boolean!

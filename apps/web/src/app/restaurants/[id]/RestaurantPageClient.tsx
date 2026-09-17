@@ -23,7 +23,7 @@ import {
   Tag,
 } from 'antd';
 import dayjs from 'dayjs';
-import { CheckCircleFilled, StarFilled } from '@ant-design/icons';
+import { CheckCircleFilled, EnvironmentOutlined, StarFilled } from '@ant-design/icons';
 import { SlotPicker, priceRangeLabel, colors, radii, pickRestaurantPhoto } from '@reservations/ui';
 import {
   OCCASIONS,
@@ -89,6 +89,8 @@ import { RestaurantBookmarkButtons } from '@/components/restaurant/RestaurantBoo
 import { RestaurantTermsSection } from '@/components/restaurant/RestaurantTermsSection';
 import { RestaurantMessageModal } from '@/components/restaurant/RestaurantMessageModal';
 import { RestaurantHoursMeta } from '@/components/restaurant/RestaurantHoursMeta';
+import { RestaurantLogo } from '@/components/restaurant/RestaurantLogo';
+import { buildMapsSearchUrl } from '@/lib/restaurantLinks';
 import { RestaurantExperiencesSection } from '@/components/restaurant/RestaurantExperiencesSection';
 import { ExperienceBookingModal } from '@/components/restaurant/ExperienceBookingModal';
 import {
@@ -703,6 +705,7 @@ export default function RestaurantPageClient() {
   const openingHoursLines = formatOpeningHoursLines(restaurant.shifts ?? [], timeZone);
   const workingHoursLabel = formatShortHours(restaurant.shifts ?? [], timeZone);
   const restaurantFaq = buildRestaurantFaq({ ...restaurant, openingHoursLines });
+  const mapsUrl = buildMapsSearchUrl(restaurant.address, restaurant.location);
 
   const reviews = (reviewsData as any)?.restaurantReviews?.items ?? [];
   const bookingSuccessDateLabel = bookingSuccess?.dateLabel ?? date.format('dddd, MMMM D, YYYY');
@@ -721,31 +724,48 @@ export default function RestaurantPageClient() {
         <RestaurantPhotoGallery photos={restaurant.photos ?? []} name={restaurant.name} />
 
         <div className="rt-restaurant-profile__header rt-fade-up">
-          <Title level={1} style={{ marginTop: 0, marginBottom: 8, fontSize: 28 }}>
-            {restaurant.name}
-          </Title>
-          <div className="rt-restaurant-profile__meta">
-            {restaurant.averageRating > 0 && (
-              <span className="rt-restaurant-profile__rating">
-                <StarFilled style={{ color: colors.rating }} />
-                <Text strong>{restaurant.averageRating.toFixed(1)}</Text>
-                <Text type="secondary">({restaurant.reviewCount} reviews)</Text>
-              </span>
-            )}
-            <Text>{priceRangeLabel(restaurant.priceRange)}</Text>
-            <Text type="secondary">·</Text>
-            <Tag>{restaurant.cuisine}</Tag>
-            {restaurant.address.neighborhood && (
-              <>
+          <div className="rt-restaurant-profile__heading">
+            <RestaurantLogo
+              name={restaurant.name}
+              logoUrl={restaurant.logoUrl}
+              photos={restaurant.photos}
+            />
+            <div className="rt-restaurant-profile__heading-text">
+              <Title level={1} style={{ marginTop: 0, marginBottom: 8, fontSize: 28 }}>
+                {restaurant.name}
+              </Title>
+              <div className="rt-restaurant-profile__meta">
+                {restaurant.averageRating > 0 && (
+                  <span className="rt-restaurant-profile__rating">
+                    <StarFilled style={{ color: colors.rating }} />
+                    <Text strong>{restaurant.averageRating.toFixed(1)}</Text>
+                    <Text type="secondary">({restaurant.reviewCount} reviews)</Text>
+                  </span>
+                )}
+                <Text>{priceRangeLabel(restaurant.priceRange)}</Text>
                 <Text type="secondary">·</Text>
-                <Text type="secondary">{restaurant.address.neighborhood}</Text>
-              </>
-            )}
+                <Tag>{restaurant.cuisine}</Tag>
+                {restaurant.address.neighborhood && (
+                  <>
+                    <Text type="secondary">·</Text>
+                    <Text type="secondary">{restaurant.address.neighborhood}</Text>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
-          <Text type="secondary" className="rt-restaurant-profile__address">
-            {restaurant.address.line1}, {restaurant.address.city}, {restaurant.address.state}{' '}
-            {restaurant.address.zip}
-          </Text>
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rt-restaurant-profile__address"
+          >
+            <EnvironmentOutlined aria-hidden />
+            <span>
+              {restaurant.address.line1}, {restaurant.address.city}, {restaurant.address.state}{' '}
+              {restaurant.address.zip}
+            </span>
+          </a>
           <RestaurantHoursMeta shifts={restaurant.shifts ?? []} timeZone={timeZone} />
           {restaurant.depositRequired && (
             <Tag color="gold" style={{ marginTop: 8 }}>

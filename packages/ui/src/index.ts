@@ -29,6 +29,8 @@ export {
   RESTAURANT_PHOTO_FALLBACKS,
   pickRestaurantPhoto,
   restaurantPhotoCandidates,
+  pickRestaurantLogo,
+  restaurantInitials,
 } from './restaurantPhoto';
 export { SlotPicker } from './SlotPicker';
 export { StatusTag } from './StatusTag';

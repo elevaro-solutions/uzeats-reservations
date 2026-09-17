@@ -4,6 +4,31 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.52.0] — 2026-09-17
+
+### Added
+
+- Diners can attach up to 3 photos when leaving a review (web + mobile); photos show on restaurant and dashboard review lists
+- Partner Reviews page: owners and managers can reply, auto-generate a personalized draft response (Gemini free tier via `GEMINI_API_KEY`), and add diner review photos to the restaurant gallery
+- Restaurant logo on diner profile pages (web + mobile), with weekly hours under the open/closed status and a Google Maps link on the address
+
+### Changed
+
+- Restaurant discovery loading skeleton matches the real card layout (photo, title, rating, and slot placeholders)
+- Diner and partner notification panels stay within the viewport so the settings footer is not clipped
+- Website and partner dashboard layouts adapt more cleanly on mobile, tablet, and laptop screens
+
+### Fixed
+
+- Leave-review CTA and `createReview` allow past confirmed/seated visits, not only reservations staff marked `completed`
+- Diner review star ratings start empty until the guest chooses a score
+- `updateReservationStatus` no longer errors when the reservation is already in the requested status (e.g. Confirm on an already-confirmed booking)
+- Admin restaurant reservation menu offers Confirm only for pending bookings, and cancel uses `cancelled` (API enum) instead of `canceled`
+
+### Docs
+
+- Diner, staff, API, and env docs cover review photos, partner replies (Gemini drafts), restaurant logos, and review eligibility for past visits
+
 ## [0.51.0] — 2026-09-17
 
 ### Added
