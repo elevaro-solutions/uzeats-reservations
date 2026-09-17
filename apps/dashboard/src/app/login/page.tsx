@@ -134,7 +134,7 @@ export default function LoginPage() {
         >
           <strong style={{ color: colors.textPrimary }}>Local dev credentials</strong>
           <br />
-          owner@tablevera.local or admin@tablevera.local
+          owner@tablevera.local or a@tablevera.local
           <br />
           Password: Password123!
           <br />

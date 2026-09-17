@@ -107,7 +107,7 @@ Dashboard admin flow + API:
 
 ## Debug missing env vars
 
-1. Login as `admin@tablevera.local`
+1. Login as `a@tablevera.local`
 2. Navigate to `/admin/developer`
 3. Compare required vs configured per app
 4. Cross-reference `packages/shared/src/envVars.ts`

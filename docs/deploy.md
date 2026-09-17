@@ -72,7 +72,7 @@ Password reset: `/forgot-password` and `/reset-password` on the dashboard. The A
 
 ## Admin roles
 
-- **`super_admin`** — full platform access including permanent user/restaurant delete and seed wipe (`clearSeedData`). Seed creates `admin@tablevera.local` as super admin.
+- **`super_admin`** — full platform access including permanent user/restaurant delete and seed wipe (`clearSeedData`). Seed creates `a@tablevera.local` as super admin.
 - **`admin`** — platform dashboard access for users, restaurants, billing, and support; cannot delete super admins or perform super-admin-only destructive actions.
 
 Assign elevated roles only to trusted operators. Re-run `pnpm seed` to upgrade an existing demo admin account to `super_admin`.

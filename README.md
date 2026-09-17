@@ -68,7 +68,7 @@ Password for all: `Password123!`
 |---|---|
 | `diner@tablevera.local` | Diner (750 loyalty points) |
 | `owner@tablevera.local` | Restaurant owner |
-| `admin@tablevera.local` | Super admin (platform operator) |
+| `a@tablevera.local` | Super admin (platform operator) |
 
 Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 

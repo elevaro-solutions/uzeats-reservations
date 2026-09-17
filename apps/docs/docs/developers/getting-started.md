@@ -51,7 +51,7 @@ Password: `Password123!`
 |---|---|
 | `diner@tablevera.local` | Diner (750 loyalty points) |
 | `owner@tablevera.local` | Restaurant owner |
-| `admin@tablevera.local` | Super admin |
+| `a@tablevera.local` | Super admin |
 
 Set `NEXT_PUBLIC_SHOW_DEV_CREDENTIALS=true` in `apps/dashboard/.env.local` to show login hints on the dashboard `/login` page.
 

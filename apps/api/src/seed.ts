@@ -28,7 +28,7 @@ import {
 } from './models/index.js';
 
 const SEED_PASSWORD = 'Password123!';
-const ADMIN_EMAIL = 'admin@tablevera.local';
+const ADMIN_EMAIL = 'a@tablevera.local';
 const OWNER_EMAIL = 'owner@tablevera.local';
 const STAFF_EMAIL = 'staff@tablevera.local';
 const DINER_EMAIL = 'diner@tablevera.local';
@@ -427,9 +427,24 @@ async function seed() {
       console.log(`Created super admin account: ${ADMIN_EMAIL}`);
     }
   } else {
+    const previousEmail = superAdmin.email;
+    const isRenamableLegacyAdmin =
+      previousEmail !== ADMIN_EMAIL &&
+      (previousEmail === 'admin@tablevera.local' || previousEmail === 'admin@reservations.local');
+    if (isRenamableLegacyAdmin) {
+      superAdmin.email = ADMIN_EMAIL;
+    }
     superAdmin.passwordHash = passwordHash;
     await superAdmin.save();
-    console.log(`Preserved existing super admin: ${superAdmin.email} (password reset to seed default)`);
+    if (isRenamableLegacyAdmin) {
+      console.log(
+        `Renamed super admin ${previousEmail} → ${ADMIN_EMAIL} (password reset to seed default)`,
+      );
+    } else {
+      console.log(
+        `Preserved existing super admin: ${superAdmin.email} (password reset to seed default)`,
+      );
+    }
   }
 
   const [owner, staff, diner, diner2] = await User.create([

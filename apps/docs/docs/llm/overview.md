@@ -61,7 +61,7 @@ pnpm --filter @reservations/api test
 ```
 diner@tablevera.local / Password123!
 owner@tablevera.local / Password123!
-admin@tablevera.local / Password123!
+a@tablevera.local / Password123!
 OTP dev code: 123456 (AUTH_DEV_OTP=true)
 ```
 

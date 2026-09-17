@@ -4,6 +4,16 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.52.1] — 2026-09-17
+
+### Changed
+
+- Demo super admin account is now `a@tablevera.local`; seed renames an existing `admin@tablevera.local` / `admin@reservations.local` super admin instead of creating a duplicate, and login accepts the old addresses as aliases
+
+### Docs
+
+- Seed credential tables in README, deploy guide, and docs site reference the new super admin email
+
 ## [0.52.0] — 2026-09-17
 
 ### Added

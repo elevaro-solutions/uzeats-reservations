@@ -38,7 +38,7 @@ Password for all seed accounts: `Password123!`
 |---|---|
 | `diner@tablevera.local` | Diner |
 | `owner@tablevera.local` | Restaurant owner |
-| `admin@tablevera.local` | Super admin |
+| `a@tablevera.local` | Super admin |
 
 Phone OTP in development: any phone number + code `123456` when `AUTH_DEV_OTP=true`.
 

@@ -15,7 +15,8 @@ import { AuthenticationError } from '../lib/errors.js';
 
 /** Pre-rebrand demo emails still used in bookmarks and mobile defaults. */
 const LEGACY_DEMO_EMAIL_ALIASES: Record<string, string> = {
-  'admin@reservations.local': 'admin@tablevera.local',
+  'admin@reservations.local': 'a@tablevera.local',
+  'admin@tablevera.local': 'a@tablevera.local',
   'owner@reservations.local': 'owner@tablevera.local',
   'staff@reservations.local': 'staff@tablevera.local',
   'diner@reservations.local': 'diner@tablevera.local',

@@ -75,7 +75,7 @@ When using browser tools:
 
 - Diner flows: http://localhost:3000
 - Partner flows: http://localhost:3001 (login as owner@tablevera.local)
-- Admin flows: http://localhost:3001/admin/* (login as admin@tablevera.local)
+- Admin flows: http://localhost:3001/admin/* (login as a@tablevera.local)
 
 ## Version
 

@@ -16,7 +16,7 @@ Access requires role `admin` or `super_admin` in the partner dashboard.
 | Wipe seed data | ❌ | ✅ |
 | Modify super admin accounts | ❌ | ✅ |
 
-Demo super admin: `admin@tablevera.local` / `Password123!`
+Demo super admin: `a@tablevera.local` / `Password123!`
 
 ## Admin navigation
 
