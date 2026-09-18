@@ -11,6 +11,8 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { Flex, RemoteImage, Typography } from "@/components";
 
+import { HERO_SHEET_OVERLAP } from "../helpers/restaurant-profile.helpers";
+
 export type RestaurantHeroProps = {
   name: string;
   photos?: string[] | null;
@@ -112,7 +114,8 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   },
   dots: {
     position: "absolute",
-    bottom: space(3.5),
+    // Clear the sheet overlap + keep dots above the rounded sheet edge.
+    bottom: space(HERO_SHEET_OVERLAP + 3.5),
     alignSelf: "center",
     left: 0,
     right: 0,
@@ -121,7 +124,8 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   count: {
     position: "absolute",
     right: space(2),
-    bottom: space(2),
+    // Clear the sheet overlap + ~16px breathing room above the white card.
+    bottom: space(HERO_SHEET_OVERLAP + 2),
     paddingHorizontal: space(1.5),
     paddingVertical: space(0.75),
     borderRadius: radius.full,

@@ -14,6 +14,8 @@ import {
 } from "@/components";
 import { Skeleton } from "@/components/skeleton";
 
+import { HERO_SHEET_OVERLAP } from "../helpers/restaurant-profile.helpers";
+
 export function RestaurantProfileLoading() {
   const { theme } = useUnistyles();
   const insets = useSafeAreaInsets();
@@ -182,7 +184,7 @@ const styles = StyleSheet.create(({ space, colors, radius, shadows }) => ({
     backgroundColor: colors.slate3,
   },
   sheet: {
-    marginTop: -space(2.5),
+    marginTop: -space(HERO_SHEET_OVERLAP),
     backgroundColor: colors.background,
     borderTopLeftRadius: space(3),
     borderTopRightRadius: space(3),

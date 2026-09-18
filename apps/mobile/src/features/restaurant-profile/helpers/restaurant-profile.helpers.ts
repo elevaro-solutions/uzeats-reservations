@@ -1,5 +1,8 @@
 import type { RestaurantDetail, ProfileSectionTab } from "../types";
 
+/** Space units the content sheet overlaps the hero (`marginTop: -space(n)`). */
+export const HERO_SHEET_OVERLAP = 2.5;
+
 export function hasMenuContent(restaurant: RestaurantDetail): boolean {
   const sections = restaurant.menu?.sections ?? [];
   const hasItems = sections.some((s) => (s.items?.length ?? 0) > 0);

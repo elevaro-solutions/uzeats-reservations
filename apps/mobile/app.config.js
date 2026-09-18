@@ -55,6 +55,7 @@ const config = {
           "Tablevera lets you attach photos to your restaurant reviews.",
       },
     ],
+    [
       "expo-splash-screen",
       {
         image: "./assets/splash-icon.png",

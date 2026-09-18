@@ -1,5 +1,10 @@
 # App — Learnings & Observations
 
+## [2026-09-18] Photo library usage string is native-only; Metro won’t save you
+- iOS kills the process (TCC) if `NSPhotoLibraryUsageDescription` is missing when `expo-image-picker` opens the library — not a JS exception. `app.config.js` / the `expo-image-picker` plugin only apply after `expo prebuild` / `expo run:ios` regenerates `ios/Tablevera/Info.plist` (gitignored).
+- The review-photos merge also dropped the opening `[` on the `expo-splash-screen` plugin entry, so `require(app.config.js)` threw `Unexpected string` until fixed.
+- Why it matters: Adding review photos in JS without a native rebuild looks fine until “Add photos” is tapped.
+
 ## [2026-09-17] EAS projectId must exist on Expo; dynamic config won't auto-write
 - A hardcoded `extra.eas.projectId` that doesn't exist on Expo makes `eas init` / `eas project:info` fail with “Experience … does not exist” while still claiming the project is “already linked.” Remove the dead ID, run `eas init`, then paste the new UUID into `app.config.js` (EAS cannot rewrite dynamic JS configs).
 - Live project: `@xondamir/tablevera` → `16386e83-34eb-4a95-8c46-2ec3c9b6d423`.

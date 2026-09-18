@@ -4,6 +4,23 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.53.1] — 2026-09-18
+
+### Fixed
+
+- Mobile leave-review “Add photos” no longer crashes on iOS: restore `expo-splash-screen` plugin array syntax in `app.config.js` and ship `NSPhotoLibraryUsageDescription` (native rebuild required)
+- Mobile restaurant hours card is collapsible again (weekly schedule behind Schedule toggle; open/closed status stays in the header)
+- Mobile restaurant hero `1 / N` count and dots clear the overlapping content sheet (`HERO_SHEET_OVERLAP`)
+
+### Changed
+
+- Mobile restaurant hours: Schedule expands both reservation windows and weekly lines; timezone shown once in the status header; tighter vertical padding on the hours card
+
+### Docs
+
+- Mobile privacy permissions matrix notes photo library for review attachments
+- Notes: photo-library native rebuild gotcha; hero sheet-overlap drives count/dot insets
+
 ## [0.53.0] — 2026-09-18
 
 ### Added

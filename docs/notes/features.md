@@ -122,6 +122,8 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 ### [2026-09-17] Header shows logo, weekly hours, and Maps address
 - `Restaurant.logoUrl` is optional; diner pages fall back to the first gallery photo, then initials. Owners upload the mark from Profile / Settings / admin restaurant forms.
 - Web hours meta keeps open/closed status and lists `formatOpeningHoursLines` (e.g. `Mon–Sun 5:00 PM–10:00 PM EDT`). Address is a Google Maps search/dir link (`buildMapsSearchUrl`).
+- Mobile hours card keeps open/closed in the header; Schedule expands reservation windows + weekly lines (default closed). Status keeps the TZ once; reservations line strips a trailing abbrev so EDT isn’t duplicated when collapsed looks open.
+- Hero count/dots `bottom` must clear `HERO_SHEET_OVERLAP` (sheet `marginTop: -space(n)`). Without that offset the `1 / N` pill sits in the sheet’s rounded corner.
 - Why it matters: Status-only copy like "Opens at 5:00 PM" is not the schedule; don't treat gallery photos as the logo if a dedicated URL exists.
 
 ### [2026-09-17] Leave review does not require staff-completed status

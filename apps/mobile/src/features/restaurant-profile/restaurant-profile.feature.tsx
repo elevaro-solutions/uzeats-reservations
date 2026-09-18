@@ -25,7 +25,10 @@ import {
   RestaurantProfileNotFound,
 } from "./components/restaurant-profile-states.component";
 import { RestaurantSectionTabs } from "./components/restaurant-section-tabs.component";
-import { buildVisibleTabs } from "./helpers/restaurant-profile.helpers";
+import {
+  buildVisibleTabs,
+  HERO_SHEET_OVERLAP,
+} from "./helpers/restaurant-profile.helpers";
 import type { ProfileSectionTab, RestaurantQueryData } from "./types";
 
 export function RestaurantProfileFeature() {
@@ -167,7 +170,7 @@ const styles = StyleSheet.create(({ space, colors }) => ({
     backgroundColor: colors.background,
   },
   sheet: {
-    marginTop: -space(2.5),
+    marginTop: -space(HERO_SHEET_OVERLAP),
     backgroundColor: colors.background,
     borderTopLeftRadius: space(3),
     borderTopRightRadius: space(3),
