@@ -123,44 +123,71 @@ const SETTINGS_PREFIXES = [
 function parseNotificationData(data: string | null | undefined): Record<string, unknown> {
   if (!data) return {};
   try {
-    return JSON.parse(data) as Record<string, unknown>;
+    const parsed = JSON.parse(data) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+    return {};
   } catch {
     return {};
   }
 }
 
+function asNotificationId(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function withRestaurantParam(path: string, data: Record<string, unknown>): string {
+  const restaurantId = asNotificationId(data.restaurantId);
+  if (!restaurantId) return path;
+  const url = new URL(path, 'http://dashboard.local');
+  url.searchParams.set('restaurant', restaurantId);
+  return `${url.pathname}${url.search}`;
+}
+
 function reservationManageHref(data: Record<string, unknown>): string {
-  return typeof data.reservationId === 'string'
-    ? `/reservations?reservationId=${encodeURIComponent(data.reservationId)}`
-    : '/reservations';
+  const reservationId = asNotificationId(data.reservationId);
+  const restaurantId = asNotificationId(data.restaurantId);
+  if (reservationId) {
+    return restaurantId
+      ? `/reservations/${reservationId}?restaurant=${encodeURIComponent(restaurantId)}`
+      : `/reservations/${reservationId}`;
+  }
+  if (restaurantId) return `/reservations?restaurant=${encodeURIComponent(restaurantId)}`;
+  return '/reservations';
 }
 
 function notificationHref(n: AppNotification): string {
   const data = parseNotificationData(n.data);
+  const reservationId = asNotificationId(data.reservationId);
 
   switch (n.type) {
     case 'new_message':
-      return typeof data.reservationId === 'string'
-        ? `/messages?reservationId=${data.reservationId}`
-        : '/messages';
+      return withRestaurantParam(
+        reservationId ? `/messages?reservationId=${encodeURIComponent(reservationId)}` : '/messages',
+        data,
+      );
     case 'restaurant_inquiry':
-      return typeof data.inquiryId === 'string'
-        ? `/messages?inquiryId=${data.inquiryId}`
-        : '/messages';
+      return withRestaurantParam(
+        asNotificationId(data.inquiryId)
+          ? `/messages?inquiryId=${encodeURIComponent(asNotificationId(data.inquiryId)!)}`
+          : '/messages',
+        data,
+      );
     case 'new_reservation':
     case 'reservation_confirmed':
     case 'reservation_reminder':
+    case 'reservation_cancelled':
+    case 'reservation_updated':
       return reservationManageHref(data);
     case 'waitlist_available':
     case 'waitlist_ready':
     case 'waitlist_notified':
-      return '/waitlist';
+      return withRestaurantParam('/waitlist', data);
     case 'guest_spend_alert':
-      return typeof data.reservationId === 'string'
-        ? reservationManageHref(data)
-        : '/guests';
+      return reservationId ? reservationManageHref(data) : withRestaurantParam('/guests', data);
     case 'review_reply':
-      return '/reviews';
+      return withRestaurantParam('/reviews', data);
     default:
       return '/notifications';
   }
@@ -269,6 +296,9 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     }
     if (SETTINGS_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
       return '/settings';
+    }
+    if (pathname === '/reservations' || pathname.startsWith('/reservations/')) {
+      return '/reservations';
     }
     const exact = [
       '/',
@@ -505,16 +535,17 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   ];
 
   const handleOpenNotification = async (n: AppNotification) => {
+    const href = notificationHref(n);
+    setNotifOpen(false);
+    router.push(href);
     if (!n.readAt) {
       try {
         await markRead({ variables: { ids: [n.id] } });
         await refetchNotifs();
       } catch {
-        // navigation still proceeds
+        // already navigated
       }
     }
-    setNotifOpen(false);
-    router.push(notificationHref(n));
   };
 
   const handleMarkAllRead = async () => {
@@ -560,7 +591,10 @@ export function DashShell({ children }: { children: React.ReactNode }) {
               return (
                 <List.Item
                   key={n.id}
-                  onClick={() => handleOpenNotification(n)}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    void handleOpenNotification(n);
+                  }}
                   style={{
                     cursor: 'pointer',
                     padding: '12px 14px',

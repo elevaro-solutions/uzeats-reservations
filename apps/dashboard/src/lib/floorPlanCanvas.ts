@@ -17,6 +17,29 @@ export function cellSizeForWidth(containerWidth: number, cols = FLOOR_GRID_COLS)
   return Math.max(MIN_CELL_SIZE, Math.min(MAX_CELL_SIZE, Math.floor(containerWidth / cols)));
 }
 
+/** Tight grid for one floor area so rooms with overlapping coordinates don’t share a canvas. */
+export function areaGridBounds(tables: TableLayout[]) {
+  if (tables.length === 0) {
+    return { minX: 0, minY: 0, cols: 8, rows: 4 };
+  }
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = 0;
+  let maxY = 0;
+  for (const t of tables) {
+    minX = Math.min(minX, t.posX);
+    minY = Math.min(minY, t.posY);
+    maxX = Math.max(maxX, t.posX + t.width);
+    maxY = Math.max(maxY, t.posY + t.height);
+  }
+  return {
+    minX,
+    minY,
+    cols: Math.max(maxX - minX, 4),
+    rows: Math.max(maxY - minY, 4),
+  };
+}
+
 export function snapDelta(pixels: number, cellSize: number): number {
   if (pixels >= 0) return Math.floor(pixels / cellSize);
   return Math.ceil(pixels / cellSize);
@@ -44,6 +67,45 @@ export function clampLayout(
   const posX = Math.min(Math.max(layout.posX, 0), cols - width);
   const posY = Math.min(Math.max(layout.posY, 0), rows - height);
   return { posX, posY, width, height };
+}
+
+/** Wrap degrees into [0, 360). */
+export function normalizeRotation(deg: number): number {
+  const n = deg % 360;
+  return n < 0 ? n + 360 : n;
+}
+
+export function pointerAngleDeg(centerX: number, centerY: number, x: number, y: number): number {
+  return (Math.atan2(y - centerY, x - centerX) * 180) / Math.PI;
+}
+
+export function applyFreeRotation(
+  origRotation: number,
+  startAngle: number,
+  currentAngle: number,
+  snapDeg?: number,
+): number {
+  let next = origRotation + (currentAngle - startAngle);
+  if (snapDeg && snapDeg > 0) next = Math.round(next / snapDeg) * snapDeg;
+  return normalizeRotation(next);
+}
+
+/** Convert a screen-space pixel delta into the table's local (unrotated) space. */
+export function screenDeltaToLocal(dx: number, dy: number, rotationDeg: number): { dx: number; dy: number } {
+  const rad = (-rotationDeg * Math.PI) / 180;
+  const c = Math.cos(rad);
+  const s = Math.sin(rad);
+  return { dx: dx * c - dy * s, dy: dx * s + dy * c };
+}
+
+export function tableCenterPx(
+  layout: TableLayout,
+  cellSize: number,
+): { x: number; y: number } {
+  return {
+    x: layout.posX * cellSize + (layout.width * cellSize) / 2,
+    y: layout.posY * cellSize + (layout.height * cellSize) / 2,
+  };
 }
 
 export function applyResize(

@@ -51,9 +51,9 @@ export function formatExperienceClock(time: string) {
 
 export function formatExperienceBookingHours(
   exp: { startTime: string; endTime: string },
-  timeZone?: string,
+  _timeZone?: string,
 ) {
-  return formatHmRange12(exp.startTime || '', exp.endTime || '', timeZone);
+  return formatHmRange12(exp.startTime || '', exp.endTime || '');
 }
 
 export function formatExperiencePartyLabel(exp: { maxGuests?: number }) {

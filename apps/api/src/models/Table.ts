@@ -15,6 +15,8 @@ const tableSchema = new Schema(
     width: { type: Number, default: 2 },
     height: { type: Number, default: 2 },
     shape: { type: String, enum: ['rect', 'round'], default: 'rect' },
+    /** Visual rotation in degrees (0–360), applied around the table center. */
+    rotation: { type: Number, default: 0 },
     photoUrl: { type: String },
   },
   { timestamps: true },

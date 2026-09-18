@@ -3823,11 +3823,6 @@ body:has(.fr-page) .ant-layout {
   margin-top: 8px;
 }
 
-.rt-restaurant-hours-meta__block {
-  display: grid;
-  gap: 2px;
-}
-
 .rt-restaurant-hours-meta__row {
   display: flex;
   align-items: flex-start;
@@ -3841,25 +3836,10 @@ body:has(.fr-page) .ant-layout {
   color: var(--color-brand);
 }
 
-.rt-restaurant-hours-meta__row--open {
-  color: var(--color-text);
-}
-
 .rt-restaurant-hours-meta__label {
   font-weight: 600;
   color: var(--color-text);
   margin-right: 6px;
-}
-
-.rt-restaurant-hours-meta__schedule {
-  display: grid;
-  gap: 2px;
-  margin: 0 0 0 24px;
-}
-
-.rt-restaurant-hours-meta__schedule-line {
-  font-size: 13px;
-  color: var(--color-text-secondary);
 }
 
 .rt-restaurant-nav {

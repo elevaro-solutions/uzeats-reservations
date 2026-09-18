@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import {
@@ -11,12 +11,13 @@ import {
   Grid,
   InputNumber,
   Select,
+  Slider,
   Space,
   Tag,
   Typography,
   message,
 } from 'antd';
-import { SaveOutlined } from '@ant-design/icons';
+import { RotateRightOutlined, SaveOutlined } from '@ant-design/icons';
 import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
@@ -25,13 +26,19 @@ import PhotoUpload from '@/components/PhotoUpload';
 import {
   FLOOR_GRID_COLS,
   FLOOR_GRID_ROWS,
+  MAX_CELL_SIZE,
   MIN_CELL_SIZE,
   RESIZE_HANDLES,
+  applyFreeRotation,
   applyResize,
   cellSizeForWidth,
   clampLayout,
   clampMove,
+  normalizeRotation,
+  pointerAngleDeg,
+  screenDeltaToLocal,
   snapDelta,
+  tableCenterPx,
   type ResizeHandle,
 } from '@/lib/floorPlanCanvas';
 
@@ -50,6 +57,7 @@ type FloorTable = {
   width: number;
   height: number;
   shape: string;
+  rotation: number;
   photoUrl?: string | null;
 };
 
@@ -70,10 +78,20 @@ type ResizeInteraction = {
   handle: ResizeHandle;
   startX: number;
   startY: number;
+  rotation: number;
   orig: Pick<FloorTable, 'posX' | 'posY' | 'width' | 'height'>;
 };
 
-type Interaction = MoveInteraction | ResizeInteraction;
+type RotateInteraction = {
+  kind: 'rotate';
+  tableId: string;
+  origRotation: number;
+  startAngle: number;
+  centerX: number;
+  centerY: number;
+};
+
+type Interaction = MoveInteraction | ResizeInteraction | RotateInteraction;
 
 function TableDetailsPanel({
   selected,
@@ -113,8 +131,12 @@ function TableDetailsPanel({
         {selected.width} × {selected.height} cells
       </div>
       <Text type="secondary" style={{ fontSize: 12 }}>
-        Drag the table to move. Drag corners or edges on the canvas to resize.
+        Drag the table to move. Drag a corner or edge to resize. Drag the rotate icon on the table to
+        turn it (hold Shift to snap).
       </Text>
+      {(selected.rotation ?? 0) !== 0 && (
+        <Text type="secondary">Rotated {Math.round(selected.rotation)}°</Text>
+      )}
       <div>
         <Text strong>Width (cells)</Text>
         <InputNumber
@@ -178,16 +200,21 @@ export default function FloorPlanPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [areaFilter, setAreaFilter] = useState<string>();
   const [dirty, setDirty] = useState(false);
-  const [cellSize, setCellSize] = useState(40);
+  const [box, setBox] = useState({ width: 0, height: 0 });
+  const [gridCellSize, setGridCellSize] = useState<number | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const canvasWrapRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
   const tablesRef = useRef(tables);
   const interactionRef = useRef<Interaction | null>(null);
-  const cellSizeRef = useRef(cellSize);
+  const cellSizeRef = useRef(40);
 
   tablesRef.current = tables;
-  cellSizeRef.current = cellSize;
+
+  useEffect(() => {
+    if (!authLoading && !user) router.replace('/login');
+  }, [authLoading, user, router]);
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
@@ -199,10 +226,6 @@ export default function FloorPlanPage() {
   });
   const [updatePositions, { loading: saving }] = useMutation(UPDATE_TABLE_POSITIONS);
   const [saveTableMutation] = useMutation(UPDATE_TABLE);
-
-  useEffect(() => {
-    if (!authLoading && !user) router.replace('/login');
-  }, [authLoading, user, router]);
 
   useEffect(() => {
     const loaded: FloorTable[] = (data?.restaurant?.tables ?? []).map((t: FloorTable) => ({
@@ -217,6 +240,7 @@ export default function FloorPlanPage() {
       width: t.width || 2,
       height: t.height || 2,
       shape: t.shape || 'rect',
+      rotation: t.rotation ?? 0,
       photoUrl: t.photoUrl ?? null,
     }));
     setTables(loaded);
@@ -224,16 +248,6 @@ export default function FloorPlanPage() {
     setDirty(false);
     setDetailsOpen(false);
   }, [data]);
-
-  useEffect(() => {
-    const el = canvasWrapRef.current;
-    if (!el) return;
-    const update = () => setCellSize(cellSizeForWidth(el.clientWidth));
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [loading, areaFilter, activeRestaurantId]);
 
   const floorAreas = useMemo(
     () => Array.from(new Set(tables.map((t) => t.floorArea))).sort(),
@@ -245,23 +259,72 @@ export default function FloorPlanPage() {
   );
   const selected = tables.find((t) => t.id === selectedId) ?? null;
 
-  const canvasHeight = FLOOR_GRID_ROWS * cellSize;
+  useLayoutEffect(() => {
+    const el = canvasWrapRef.current;
+    if (!el) return;
+    const update = (width: number, height: number) => {
+      const w = Math.round(width);
+      const h = Math.round(height);
+      if (w < 8 || h < 8) return;
+      setBox((prev) => (prev.width === w && prev.height === h ? prev : { width: w, height: h }));
+    };
+    const measure = () => update(el.clientWidth, el.clientHeight);
+    measure();
+    const raf = requestAnimationFrame(measure);
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      update(entry.contentRect.width, entry.contentRect.height);
+    });
+    ro.observe(el);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [loading, areaFilter, activeRestaurantId, visibleTables.length]);
+  const fittedSize = Math.min(
+    cellSizeForWidth(box.width || 1),
+    cellSizeForWidth(box.height || 1, FLOOR_GRID_ROWS),
+  );
+  const cellSize = gridCellSize ?? (box.width ? fittedSize : 40);
+  cellSizeRef.current = cellSize;
 
   const updateTable = useCallback((id: string, patch: Partial<FloorTable>) => {
     setTables((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
     setDirty(true);
   }, []);
 
+  const clientToGrid = useCallback((clientX: number, clientY: number) => {
+    const el = gridRef.current;
+    if (!el) return { x: 0, y: 0 };
+    const rect = el.getBoundingClientRect();
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  }, []);
+
   const applyInteraction = useCallback(
-    (clientX: number, clientY: number) => {
+    (clientX: number, clientY: number, shiftKey = false) => {
       const interaction = interactionRef.current;
       if (!interaction) return;
 
       const size = cellSizeRef.current;
-      const dx = snapDelta(clientX - interaction.startX, size);
-      const dy = snapDelta(clientY - interaction.startY, size);
+
+      if (interaction.kind === 'rotate') {
+        const point = clientToGrid(clientX, clientY);
+        const angle = pointerAngleDeg(interaction.centerX, interaction.centerY, point.x, point.y);
+        updateTable(interaction.tableId, {
+          rotation: applyFreeRotation(
+            interaction.origRotation,
+            interaction.startAngle,
+            angle,
+            shiftKey ? 15 : undefined,
+          ),
+        });
+        return;
+      }
 
       if (interaction.kind === 'move') {
+        const dx = snapDelta(clientX - interaction.startX, size);
+        const dy = snapDelta(clientY - interaction.startY, size);
         const next = clampMove(
           {
             posX: interaction.origPosX,
@@ -276,19 +339,29 @@ export default function FloorPlanPage() {
         return;
       }
 
-      const next = applyResize(interaction.orig, interaction.handle, dx, dy);
+      const local = screenDeltaToLocal(
+        clientX - interaction.startX,
+        clientY - interaction.startY,
+        interaction.rotation,
+      );
+      const next = applyResize(
+        interaction.orig,
+        interaction.handle,
+        snapDelta(local.dx, size),
+        snapDelta(local.dy, size),
+      );
       updateTable(interaction.tableId, next);
     },
-    [updateTable],
+    [clientToGrid, updateTable],
   );
 
   useEffect(() => {
-    const onMouseMove = (e: MouseEvent) => applyInteraction(e.clientX, e.clientY);
+    const onMouseMove = (e: MouseEvent) => applyInteraction(e.clientX, e.clientY, e.shiftKey);
     const onTouchMove = (e: TouchEvent) => {
       if (!interactionRef.current) return;
       e.preventDefault();
       const touch = e.touches[0];
-      if (touch) applyInteraction(touch.clientX, touch.clientY);
+      if (touch) applyInteraction(touch.clientX, touch.clientY, e.shiftKey);
     };
     const end = () => {
       interactionRef.current = null;
@@ -307,6 +380,23 @@ export default function FloorPlanPage() {
       window.removeEventListener('touchcancel', end);
     };
   }, [applyInteraction]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'r' && e.key !== 'R') return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (!selectedId) return;
+      const table = tablesRef.current.find((t) => t.id === selectedId);
+      if (!table) return;
+      e.preventDefault();
+      updateTable(table.id, {
+        rotation: normalizeRotation((table.rotation ?? 0) + (e.shiftKey ? 90 : 15)),
+      });
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedId, updateTable]);
 
   const selectTable = (tableId: string) => {
     setSelectedId(tableId);
@@ -327,6 +417,21 @@ export default function FloorPlanPage() {
     };
   };
 
+  const startRotate = (clientX: number, clientY: number, table: FloorTable) => {
+    selectTable(table.id);
+    const size = cellSizeRef.current;
+    const center = tableCenterPx(table, size);
+    const point = clientToGrid(clientX, clientY);
+    interactionRef.current = {
+      kind: 'rotate',
+      tableId: table.id,
+      origRotation: table.rotation ?? 0,
+      startAngle: pointerAngleDeg(center.x, center.y, point.x, point.y),
+      centerX: center.x,
+      centerY: center.y,
+    };
+  };
+
   const startResize = (
     clientX: number,
     clientY: number,
@@ -340,6 +445,7 @@ export default function FloorPlanPage() {
       handle,
       startX: clientX,
       startY: clientY,
+      rotation: table.rotation ?? 0,
       orig: {
         posX: table.posX,
         posY: table.posY,
@@ -361,6 +467,7 @@ export default function FloorPlanPage() {
             width: t.width,
             height: t.height,
             shape: t.shape,
+            rotation: t.rotation ?? 0,
           })),
         },
       });
@@ -414,8 +521,8 @@ export default function FloorPlanPage() {
         </Button>
       </div>
       <Text type="secondary">
-        Drag tables to move. Select a table and pull its edges or corners to resize. Pinch-friendly on
-        tablets — save when you are done.
+        Drag tables to move. Select a table, then drag the rotate icon on the table to turn it
+        freely. Hold Shift while rotating to snap to 15°. Save when you are done.
       </Text>
 
       <Space wrap style={{ width: '100%' }}>
@@ -431,6 +538,22 @@ export default function FloorPlanPage() {
           onChange={setAreaFilter}
           options={floorAreas.map((a) => ({ value: a, label: a }))}
         />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 180 }}>
+          <Text type="secondary" style={{ whiteSpace: 'nowrap' }}>
+            Grid size
+          </Text>
+          <Slider
+            min={MIN_CELL_SIZE}
+            max={MAX_CELL_SIZE}
+            value={gridCellSize ?? fittedSize}
+            onChange={(value) => setGridCellSize(value)}
+            style={{ width: 120, margin: 0 }}
+            tooltip={{ formatter: (value) => `${value}px` }}
+          />
+          <Button size="small" disabled={gridCellSize == null} onClick={() => setGridCellSize(null)}>
+            Fit
+          </Button>
+        </div>
         {dirty && <Tag color="orange">Unsaved changes</Tag>}
         {selected && isCompact && (
           <Button size="small" onClick={() => setDetailsOpen(true)}>
@@ -455,18 +578,31 @@ export default function FloorPlanPage() {
           {visibleTables.length === 0 && !loading ? (
             <Empty description="No tables in this area. Add tables under Tables & shifts." />
           ) : (
-            <div ref={canvasWrapRef} style={{ width: '100%', overflowX: 'auto' }}>
+            <div
+              ref={canvasWrapRef}
+              style={{
+                width: box.width > 0 ? box.width : '100%',
+                height: box.height > 0 ? box.height : FLOOR_GRID_ROWS * 32,
+                minWidth: 280,
+                minHeight: 200,
+                maxWidth: '100%',
+                overflow: 'auto',
+                resize: 'both',
+                borderRadius: 8,
+                border: `1px dashed ${colors.neutral[200]}`,
+              }}
+            >
               <div
+                ref={gridRef}
                 style={{
                   position: 'relative',
-                  width: '100%',
-                  minWidth: FLOOR_GRID_COLS * MIN_CELL_SIZE,
-                  height: canvasHeight,
+                  width: FLOOR_GRID_COLS * cellSize,
+                  height: FLOOR_GRID_ROWS * cellSize,
+                  minWidth: '100%',
+                  minHeight: '100%',
                   backgroundImage:
                     'linear-gradient(to right, #f0f0f0 1px, transparent 1px), linear-gradient(to bottom, #f0f0f0 1px, transparent 1px)',
                   backgroundSize: `${cellSize}px ${cellSize}px`,
-                  border: '1px solid #d9d9d9',
-                  borderRadius: 8,
                   touchAction: 'none',
                 }}
                 onMouseDown={() => {
@@ -486,6 +622,8 @@ export default function FloorPlanPage() {
                         width: t.width * cellSize,
                         height: t.height * cellSize,
                         boxSizing: 'border-box',
+                        transform: `rotate(${t.rotation ?? 0}deg)`,
+                        transformOrigin: 'center center',
                       }}
                     >
                       <div
@@ -528,6 +666,43 @@ export default function FloorPlanPage() {
                           {t.minCapacity}–{t.maxCapacity}
                         </span>
                       </div>
+                      {isSelected && (
+                        <button
+                          type="button"
+                          aria-label={`Rotate table ${t.name}`}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            startRotate(e.clientX, e.clientY, t);
+                          }}
+                          onTouchStart={(e) => {
+                            e.stopPropagation();
+                            const touch = e.touches[0];
+                            if (touch) startRotate(touch.clientX, touch.clientY, t);
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: 6,
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            width: 22,
+                            height: 22,
+                            borderRadius: 11,
+                            border: '2px solid #fff',
+                            background: colors.brand[600],
+                            color: '#fff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'grab',
+                            zIndex: 3,
+                            padding: 0,
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                          }}
+                        >
+                          <RotateRightOutlined style={{ fontSize: 12 }} />
+                        </button>
+                      )}
                       {isSelected &&
                         RESIZE_HANDLES.map((h) => (
                           <div
@@ -561,6 +736,11 @@ export default function FloorPlanPage() {
                 })}
               </div>
             </div>
+          )}
+          {visibleTables.length > 0 && (
+            <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 11 }}>
+              Drag the corner to resize this grid
+            </Text>
           )}
         </Card>
 

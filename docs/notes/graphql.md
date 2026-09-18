@@ -1,9 +1,16 @@
 # GraphQL — Learnings & Observations
 
+## [2026-09-18] `restaurantReservation(id)` is the partner deep-link
+- Partner details live at `/reservations/:id` and load `restaurantReservation(id)` (access-checked to the booking’s venue). List `?reservationId=` without `edit=1` redirects there. `edit=1` still opens the list editor.
+- Why it matters: Don’t open a partner booking by scanning the current location’s page of rows.
+
+## [2026-09-18] Partner reservation list filters are server-side
+- `restaurantReservations` accepts `period` (`today` … `all`) and `status`. Calendar days use restaurant timezone (`zonedWallClockToUtc` midnight, exclusive end). `date` remains a single YYYY-MM-DD for analytics/admin. `period` wins over `date` except `all`. Weeks start Sunday. `past`/`all` sort newest first.
+- Why it matters: Filtering on the client would break pagination. Don’t send both `period` and `date` from the partner list — custom date uses `date` only.
+
 ## [2026-09-18] Apollo 4 `loading` is true during polls
 - `notifyOnNetworkStatusChange` defaults to `true`. `loading` is true for any in-flight request, including `pollInterval` (`NetworkStatus.poll`).
-- Binding that to Ant Design `Card loading` (Floor ops) swaps the canvas for a skeleton every poll.
-- Use `networkStatus === NetworkStatus.loading` for first-paint skeletons; keep poll data on screen. Skip polls when `document.hidden`.
+- Floor ops sets `notifyOnNetworkStatusChange: false`, polls every 30s, skips hidden tabs, and applies results only when the tables/unassigned snapshot changes — no Card skeleton, no full reload.
 - Why it matters: Live ops pages should poll silently. Do not pass `loading` straight into Card/Table if the query polls.
 
 ## [2026-09-16] Offline launch vs mid-request 401 aligned

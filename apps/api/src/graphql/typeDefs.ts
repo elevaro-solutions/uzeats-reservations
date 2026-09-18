@@ -4,6 +4,17 @@ export const typeDefs = `#graphql
   enum UserRole { diner restaurant_owner staff admin super_admin }
   enum RestaurantStatus { pending approved rejected suspended }
   enum ReservationStatus { pending confirmed seated completed cancelled no_show }
+  enum ReservationDatePeriod {
+    today
+    yesterday
+    tomorrow
+    this_week
+    last_week
+    this_month
+    upcoming
+    past
+    all
+  }
   enum Occasion { none birthday anniversary business date celebration other }
   enum WaitlistStatus { waiting notified booked seated expired cancelled }
   enum ReservationSource { network website widget phone walkin }
@@ -287,6 +298,7 @@ export const typeDefs = `#graphql
     width: Float!
     height: Float!
     shape: String!
+    rotation: Float!
     photoUrl: String
   }
 
@@ -1771,6 +1783,7 @@ export const typeDefs = `#graphql
     width: Float
     height: Float
     shape: String
+    rotation: Float
     photoUrl: String
   }
 
@@ -1781,6 +1794,7 @@ export const typeDefs = `#graphql
     width: Float
     height: Float
     shape: String
+    rotation: Float
   }
 
   input ShiftInput {
@@ -2398,7 +2412,15 @@ export const typeDefs = `#graphql
     myReservations: [Reservation!]!
     myReservation(id: ID!): Reservation
     mySavedRestaurants(kind: RestaurantBookmarkKind!): [Restaurant!]!
-    restaurantReservations(restaurantId: ID!, date: String, limit: Int, offset: Int): ReservationConnection!
+    restaurantReservations(
+      restaurantId: ID!
+      date: String
+      period: ReservationDatePeriod
+      status: ReservationStatus
+      limit: Int
+      offset: Int
+    ): ReservationConnection!
+    restaurantReservation(id: ID!): Reservation
     myWaitlist: [WaitlistEntry!]!
     restaurantWaitlist(restaurantId: ID!, limit: Int, offset: Int): WaitlistConnection!
     restaurantReviews(restaurantId: ID!, limit: Int, offset: Int): ReviewConnection!

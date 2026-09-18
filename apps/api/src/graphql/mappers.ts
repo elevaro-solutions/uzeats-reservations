@@ -110,6 +110,7 @@ export function mapTable(t: any) {
     width: t.width ?? 2,
     height: t.height ?? 2,
     shape: t.shape ?? 'rect',
+    rotation: t.rotation ?? 0,
     photoUrl: t.photoUrl ?? null,
   };
 }

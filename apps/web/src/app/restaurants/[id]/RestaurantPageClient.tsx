@@ -41,7 +41,6 @@ import {
   formatTimeInTimeZone,
   formatShortHours,
   timezoneFromAddress,
-  timeZoneLabel,
 } from '@reservations/shared';
 import {
   saveBookingDraftToSession,
@@ -841,7 +840,6 @@ export default function RestaurantPageClient() {
               <RestaurantExperiencesSection
                 experiences={experiences}
                 selectedExperienceId={selectedExperienceId}
-                workingHours={workingHoursLabel}
                 timeZone={timeZone}
                 onReserve={openExperienceModal}
               />
@@ -872,7 +870,6 @@ export default function RestaurantPageClient() {
                 dietaryTags={restaurant.dietaryTags}
                 wheelchairAccessible={restaurant.wheelchairAccessible}
                 location={restaurant.location}
-                openingHoursLines={openingHoursLines}
                 bookingHoursLine={workingHoursLabel}
               />
 
@@ -913,8 +910,7 @@ export default function RestaurantPageClient() {
               />
             )}
             <Text type="secondary" className="rt-restaurant-booking-card__intro">
-              Pick a date, party size, and time — confirmed in seconds. Times shown in{' '}
-              {timeZoneLabel(timeZone)}.
+              Pick a date, party size, and time — confirmed in seconds.
             </Text>
             {user && (
               <Text type="secondary" className="rt-restaurant-booking-card__loyalty">
@@ -1498,7 +1494,6 @@ export default function RestaurantPageClient() {
         experiences={experiences}
         restaurant={restaurant}
         timeZone={timeZone}
-        workingHours={workingHoursLabel}
         date={date}
         partySize={partySize}
         selectedSlot={selectedSlot}

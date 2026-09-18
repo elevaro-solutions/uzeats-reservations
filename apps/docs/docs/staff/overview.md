@@ -23,9 +23,11 @@ Owners with **multiple restaurants** use the restaurant selector in the top navi
 
 | Section | Purpose |
 |---|---|
-| **Reservations** | Calendar and list of bookings; create phone/walk-in reservations |
+| **Reservations** | List with status and date presets; dedicated booking detail; create phone/walk-in reservations |
 | **Reviews** | Diner ratings and photos; reply (optional Gemini draft) and add photos to the gallery |
-| **Floor plan** | Visual table layout; assign and seat guests |
+| **Floor ops** | Live seating: per-area grids, assign and seat guests |
+| **Floor plan** | Visual table layout with rotation and a resizable canvas |
+| **Tables & shifts** | Table inventory and hours; add/edit in modals; searchable floor areas |
 | **Waitlist** | Manage waiting parties and notify on openings |
 | **Messages** | Guest conversations tied to reservations |
 | **Campaigns** | Marketing campaigns to past guests (owner) |

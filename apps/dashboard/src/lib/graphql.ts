@@ -132,11 +132,26 @@ export const MY_RESTAURANT_LOCATIONS_META = gql`
 `;
 
 export const RESTAURANT_RESERVATIONS = gql`
-  query RestaurantReservations($restaurantId: ID!, $date: String, $limit: Int, $offset: Int) {
-    restaurantReservations(restaurantId: $restaurantId, date: $date, limit: $limit, offset: $offset) {
+  query RestaurantReservations(
+    $restaurantId: ID!
+    $date: String
+    $period: ReservationDatePeriod
+    $status: ReservationStatus
+    $limit: Int
+    $offset: Int
+  ) {
+    restaurantReservations(
+      restaurantId: $restaurantId
+      date: $date
+      period: $period
+      status: $status
+      limit: $limit
+      offset: $offset
+    ) {
       total
       items {
         id
+        restaurantId
         partySize
         slotStart
         slotEnd
@@ -145,8 +160,54 @@ export const RESTAURANT_RESERVATIONS = gql`
         guestNotes
         source
         tableIds
+        depositAmountCents
+        depositStatus
+        experienceTitle
+        experiencePriceCents
+        experienceTicketQty
+        packageTitle
+        packagePriceCents
+        privateDiningSpaceName
+        privateDiningPriceCents
+        createdAt
         diner { id firstName lastName phone email }
         tables { id name floorArea }
+      }
+    }
+  }
+`;
+
+export const RESTAURANT_RESERVATION = gql`
+  query RestaurantReservation($id: ID!) {
+    restaurantReservation(id: $id) {
+      id
+      restaurantId
+      partySize
+      slotStart
+      slotEnd
+      status
+      occasion
+      guestNotes
+      source
+      tableIds
+      depositAmountCents
+      depositStatus
+      experienceTitle
+      experiencePriceCents
+      experienceTicketQty
+      packageTitle
+      packagePriceCents
+      privateDiningSpaceName
+      privateDiningPriceCents
+      seatedAt
+      createdAt
+      diner { id firstName lastName phone email }
+      tables { id name floorArea photoUrl }
+      restaurant {
+        id
+        name
+        address { line1 city state zip country }
+        location { lat lng }
       }
     }
   }
@@ -2898,7 +2959,7 @@ export const UPDATE_RESTAURANT_SETTINGS = gql`
 export const UPDATE_TABLE_POSITIONS = gql`
   mutation UpdateTablePositions($restaurantId: ID!, $positions: [TablePositionInput!]!) {
     updateTablePositions(restaurantId: $restaurantId, positions: $positions) {
-      id posX posY width height shape
+      id posX posY width height shape rotation
     }
   }
 `;
@@ -2907,7 +2968,7 @@ export const FLOOR_PLAN_TABLES = gql`
   query FloorPlanTables($id: ID) {
     restaurant(id: $id) {
       id name
-      tables { id name minCapacity maxCapacity floorArea active posX posY width height shape photoUrl }
+      tables { id name minCapacity maxCapacity floorArea active posX posY width height shape rotation photoUrl }
     }
   }
 `;
@@ -2920,7 +2981,7 @@ export const FLOOR_PLAN_OPS = gql`
         status
         seatedMinutes
         turnMinutesRemaining
-        table { id name minCapacity maxCapacity floorArea posX posY width height shape photoUrl }
+        table { id name minCapacity maxCapacity floorArea posX posY width height shape rotation photoUrl }
         reservation {
           id partySize slotStart slotEnd status seatedAt guestNotes
           diner { firstName lastName }

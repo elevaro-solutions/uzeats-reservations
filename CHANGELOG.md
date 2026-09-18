@@ -4,11 +4,27 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.55.0] — 2026-09-18
+
+### Added
+
+- Floor plan tables rotate freely around their center by dragging the rotate icon on the table
+- Partner reservations list: status filter, date presets (today, yesterday, this/last week, upcoming, past, custom), and a dedicated reservation details page (`restaurantReservation`)
+
+### Changed
+
+- Partner Tables & shifts splits tables and shifts into tabs (URL `tab`), with add/edit in modals instead of inline forms
+- Table floor area is a searchable select; partners can add a new area name if it isn't listed
+- Floor ops shows each floor area as its own grid; drag a grid corner or use Grid size to scale it
+- Floor plan grid is resizable the same way: drag the canvas corner or use Grid size / Fit
+- Floor ops silently polls `FloorPlanOps` every 30s and updates the map only when table/arrival data changes
+- Diner restaurant page hides Hours and shows reservation windows without a timezone suffix
 
 ### Fixed
 
+- Partner Hub "New reservation" notifications open the booking detail, including at other locations: staff payloads include `restaurantId`, and the page loads `restaurantReservation(id)` instead of scanning the current venue's list
 - Owner booking emails show the reservation time in the restaurant's local timezone (from address/coordinates), not the API server's timezone
+- Restaurant reservation day filters use the venue timezone instead of the API host clock
 
 ## [0.54.0] — 2026-09-18
 

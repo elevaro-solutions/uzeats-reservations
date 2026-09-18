@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatDateTimeInTimeZone,
   formatHm12,
+  formatBookingHours,
   formatOpeningHoursLines,
   formatTimeInTimeZone,
   hmInTimeZone,
@@ -62,13 +63,22 @@ describe('zoned wall clock', () => {
     expect(formatHm12('17:00')).toBe('5:00 PM');
   });
 
-  it('formats opening hours in 12-hour local time with TZ', () => {
+  it('formats opening hours in 12-hour local time without a timezone suffix', () => {
     const lines = formatOpeningHoursLines(
       [{ daysOfWeek: [1, 2, 3, 4, 5], startTime: '11:00', endTime: '22:00', active: true }],
       'America/New_York',
       new Date('2026-09-16T16:00:00.000Z'),
     );
-    expect(lines[0]).toMatch(/Mon–Fri 11:00 AM–10:00 PM ED?T/);
+    expect(lines[0]).toBe('Mon–Fri 11:00 AM–10:00 PM');
+  });
+
+  it('formats reservation windows in 12-hour local time without a timezone suffix', () => {
+    const label = formatBookingHours(
+      [{ daysOfWeek: [1, 2, 3, 4, 5, 6, 0], startTime: '17:00', endTime: '22:00', active: true }],
+      'America/New_York',
+      new Date('2026-09-16T16:00:00.000Z'),
+    );
+    expect(label).toBe('5:00 PM–10:00 PM');
   });
 
   it('resolves weekday in the restaurant zone, not the host zone', () => {

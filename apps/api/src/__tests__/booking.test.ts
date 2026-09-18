@@ -282,6 +282,36 @@ describe('Booking Flow (E2E)', () => {
     expect(res.body.data.updateReservation.guestNotes).toBe('High chair please');
   });
 
+  it('should let the owner load a reservation by id', async () => {
+    const res = await graphqlRequest(
+      agent,
+      `query RestaurantReservation($id: ID!) {
+        restaurantReservation(id: $id) { id restaurantId partySize }
+      }`,
+      { id: reservationId },
+      ownerToken,
+    );
+
+    expect(res.body.errors).toBeUndefined();
+    expect(res.body.data.restaurantReservation.id).toBe(reservationId);
+    expect(res.body.data.restaurantReservation.restaurantId).toBe(restaurantId);
+    expect(res.body.data.restaurantReservation.partySize).toBe(2);
+  });
+
+  it('should hide restaurantReservation from the diner who does not staff that venue', async () => {
+    const res = await graphqlRequest(
+      agent,
+      `query RestaurantReservation($id: ID!) {
+        restaurantReservation(id: $id) { id }
+      }`,
+      { id: reservationId },
+      dinerToken,
+    );
+
+    expect(res.body.errors).toBeUndefined();
+    expect(res.body.data.restaurantReservation).toBeNull();
+  });
+
   it('should reject staff creating a restaurant', async () => {
     const staff = await User.create({
       email: 'staff-rbac@test.com',

@@ -256,10 +256,8 @@ export function formatHm12(hm: string): string {
   return `${hour12}:${String(minute).padStart(2, '0')} ${period}`;
 }
 
-export function formatHmRange12(startTime: string, endTime: string, timeZone?: string, at?: Date): string {
-  const range = `${formatHm12(startTime)}–${formatHm12(endTime)}`;
-  if (!timeZone) return range;
-  return `${range} ${timeZoneLabel(timeZone, at)}`;
+export function formatHmRange12(startTime: string, endTime: string): string {
+  return `${formatHm12(startTime)}–${formatHm12(endTime)}`;
 }
 
 function toValidDate(iso: string | Date | null | undefined): Date | null {
@@ -328,7 +326,7 @@ function formatDayRange(days: number[]): string {
   return days.map((d) => DAY_SHORT[d]!).join(', ');
 }
 
-/** Human-readable lines like "Mon–Fri 11:00 AM–10:00 PM EDT". */
+/** Human-readable lines like "Mon–Fri 11:00 AM–10:00 PM". */
 export function formatOpeningHoursLines(
   shifts: ShiftHoursInput[],
   timeZone?: string,
@@ -337,14 +335,13 @@ export function formatOpeningHoursLines(
   const active = shifts.filter((s) => s.active !== false);
   if (!active.length) return [];
 
-  const tz = timeZone ? ` ${timeZoneLabel(timeZone, at)}` : '';
   const lines: string[] = [];
   for (const shift of active) {
     const days = [...new Set(shift.daysOfWeek)]
       .filter((d) => d >= 0 && d <= 6)
       .sort((a, b) => a - b);
     if (!days.length) continue;
-    lines.push(`${formatDayRange(days)} ${formatHm12(shift.startTime)}–${formatHm12(shift.endTime)}${tz}`);
+    lines.push(`${formatDayRange(days)} ${formatHm12(shift.startTime)}–${formatHm12(shift.endTime)}`);
   }
   return lines;
 }
@@ -365,7 +362,7 @@ export function formatShortHours(
   const start = starts[0];
   const end = ends[ends.length - 1];
   if (!start || !end) return null;
-  return formatHmRange12(start, end, timeZone, at);
+  return formatHmRange12(start, end);
 }
 
 export type HoursStatus = {
@@ -421,6 +418,5 @@ export function formatBookingHours(
   const pool = todayShifts.length > 0 ? todayShifts : active;
   const windows = pool.map((s) => `${formatHm12(s.startTime)}–${formatHm12(s.endTime)}`);
   const unique = [...new Set(windows)];
-  const tz = timeZone ? ` ${timeZoneLabel(timeZone, at)}` : '';
-  return unique.join(', ') + tz;
+  return unique.join(', ');
 }

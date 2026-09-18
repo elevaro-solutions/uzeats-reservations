@@ -1,8 +1,8 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Button,
   Card,
@@ -24,8 +24,13 @@ import {
   message,
 } from 'antd';
 import type { MenuProps } from 'antd';
-import { MoreOutlined, PlusOutlined, MessageOutlined } from '@ant-design/icons';
+import { EyeOutlined, MoreOutlined, PlusOutlined, MessageOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
+import {
+  formatTimeInTimeZone,
+  formatUsDateTime,
+  restaurantTimeZone,
+} from '@reservations/shared';
 import {
   PageHeader,
   PhoneInput,
@@ -41,12 +46,14 @@ import {
   CREATE_OWNER_RESERVATION,
   DELETE_RESERVATION,
   MY_RESTAURANTS,
+  RESTAURANT_RESERVATION,
   RESTAURANT_RESERVATIONS,
   UPDATE_RESERVATION,
   UPDATE_RESERVATION_STATUS,
 } from '@/lib/graphql';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { formatOccasion, formatSource, guestName as formatGuestName } from '@/lib/reservationFormat';
 
 const { Text } = Typography;
 
@@ -60,8 +67,48 @@ const OCCASION_OPTIONS = [
   { value: 'other', label: 'Other' },
 ];
 
+const DATE_PERIODS = [
+  'today',
+  'yesterday',
+  'tomorrow',
+  'this_week',
+  'last_week',
+  'this_month',
+  'upcoming',
+  'past',
+  'all',
+  'custom',
+] as const;
+
+type DatePeriod = (typeof DATE_PERIODS)[number];
+
+const DATE_PERIOD_OPTIONS: { value: DatePeriod; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'tomorrow', label: 'Tomorrow' },
+  { value: 'this_week', label: 'This week' },
+  { value: 'last_week', label: 'Last week' },
+  { value: 'this_month', label: 'This month' },
+  { value: 'upcoming', label: 'Upcoming' },
+  { value: 'past', label: 'Past' },
+  { value: 'all', label: 'All dates' },
+  { value: 'custom', label: 'Custom date' },
+];
+
+const STATUS_FILTER_OPTIONS = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'seated', label: 'Seated' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'no_show', label: 'No-show' },
+];
+
+const SINGLE_DAY_PERIODS = new Set<DatePeriod>(['today', 'yesterday', 'tomorrow', 'custom']);
+
 type ReservationRow = {
   id: string;
+  restaurantId?: string;
   status: string;
   partySize: number;
   slotStart: string;
@@ -70,6 +117,16 @@ type ReservationRow = {
   guestNotes?: string;
   source?: string;
   tableIds?: string[];
+  depositAmountCents?: number;
+  depositStatus?: string;
+  experienceTitle?: string;
+  experiencePriceCents?: number;
+  experienceTicketQty?: number;
+  packageTitle?: string;
+  packagePriceCents?: number;
+  privateDiningSpaceName?: string;
+  privateDiningPriceCents?: number;
+  createdAt?: string;
   diner?: { id?: string; firstName?: string; lastName?: string; phone?: string; email?: string };
   tables?: { id: string; name: string }[];
 };
@@ -82,9 +139,12 @@ type TableOption = {
   active: boolean;
 };
 
-function formatOccasion(occasion?: string) {
-  if (!occasion || occasion === 'none') return null;
-  return occasion.charAt(0).toUpperCase() + occasion.slice(1);
+function isDatePeriod(value: string | null): value is DatePeriod {
+  return !!value && (DATE_PERIODS as readonly string[]).includes(value);
+}
+
+function guestName(r: ReservationRow) {
+  return formatGuestName(r.diner);
 }
 
 function combineDateTime(date: Dayjs, time: Dayjs) {
@@ -115,15 +175,24 @@ function SectionLabel({ children }: { children: string }) {
 function ReservationsPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const reservationIdParam = searchParams.get('reservationId');
+  const editParam = searchParams.get('edit') === '1';
   const openedReservationIdRef = useRef<string | null>(null);
-  const [date, setDate] = useState(dayjs());
+  const period: DatePeriod = isDatePeriod(searchParams.get('period'))
+    ? (searchParams.get('period') as DatePeriod)
+    : 'today';
+  const rawStatus = searchParams.get('status');
+  const statusFilter = STATUS_FILTER_OPTIONS.some((o) => o.value === rawStatus)
+    ? rawStatus!
+    : undefined;
+  const customDate = searchParams.get('date') || dayjs().format('YYYY-MM-DD');
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<ReservationRow | null>(null);
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
-  const { limit, offset, setPagination, tablePagination } = useUrlPagination({
+  const { limit, offset, tablePagination } = useUrlPagination({
     defaultPageSize: 20,
   });
 
@@ -134,7 +203,8 @@ function ReservationsPageContent() {
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
-  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
+  const { activeRestaurantId, setRestaurantId, restaurantSelectProps } =
+    usePartnerRestaurant(restaurants);
 
   const activeRestaurant = useMemo(
     () => restaurants.find((r: { id: string }) => r.id === activeRestaurantId),
@@ -146,10 +216,43 @@ function ReservationsPageContent() {
       ((activeRestaurant?.tables ?? []) as TableOption[]).filter((t) => t.active !== false),
     [activeRestaurant],
   );
+  const timeZone = useMemo(
+    () => restaurantTimeZone(activeRestaurant ?? {}),
+    [activeRestaurant],
+  );
+
+  const replaceListParams = useCallback(
+    (updates: Record<string, string | undefined>, resetPage = true) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(updates)) {
+        if (value) params.set(key, value);
+        else params.delete(key);
+      }
+      if ((params.get('period') ?? 'today') === 'today') params.delete('period');
+      if (params.get('period') !== 'custom') params.delete('date');
+      if (resetPage) params.delete('page');
+      const qs = params.toString();
+      const nextUrl = qs ? `${pathname}?${qs}` : pathname;
+      const currentUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
+      if (nextUrl === currentUrl) return;
+      router.replace(nextUrl, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
+  const queryDate = period === 'custom' ? customDate : undefined;
+  const queryPeriod = period === 'custom' ? undefined : period;
 
   const { data, refetch, loading } = useQuery(RESTAURANT_RESERVATIONS, {
     skip: !activeRestaurantId,
-    variables: { restaurantId: activeRestaurantId, date: date.format('YYYY-MM-DD'), limit, offset },
+    variables: {
+      restaurantId: activeRestaurantId,
+      date: queryDate,
+      period: queryPeriod,
+      status: statusFilter,
+      limit,
+      offset,
+    },
   });
 
   const listItems = (data?.restaurantReservations?.items ?? []) as ReservationRow[];
@@ -158,16 +261,18 @@ function ReservationsPageContent() {
     [listItems, reservationIdParam],
   );
 
-  const { data: lookupData, loading: lookupLoading } = useQuery(RESTAURANT_RESERVATIONS, {
-    skip: !activeRestaurantId || !reservationIdParam || !!reservationInList,
-    variables: { restaurantId: activeRestaurantId, limit: 200, offset: 0 },
+  const {
+    data: lookupData,
+    loading: lookupLoading,
+    error: lookupError,
+  } = useQuery(RESTAURANT_RESERVATION, {
+    skip: !reservationIdParam || !editParam,
+    variables: { id: reservationIdParam },
   });
 
-  const lookedUpReservation = useMemo(() => {
-    if (!reservationIdParam || reservationInList) return undefined;
-    const items = (lookupData?.restaurantReservations?.items ?? []) as ReservationRow[];
-    return items.find((r) => r.id === reservationIdParam);
-  }, [lookupData, reservationIdParam, reservationInList]);
+  const lookedUpReservation = (lookupData?.restaurantReservation ?? undefined) as
+    | ReservationRow
+    | undefined;
   const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
   const [createReservation, { loading: creating }] = useMutation(CREATE_OWNER_RESERVATION);
   const [updateReservation, { loading: updating }] = useMutation(UPDATE_RESERVATION);
@@ -222,9 +327,11 @@ function ReservationsPageContent() {
       }));
 
   const openCreate = () => {
+    const defaultDate =
+      period === 'custom' ? dayjs(customDate) : period === 'tomorrow' ? dayjs().add(1, 'day') : dayjs();
     createForm.setFieldsValue({
-      date,
-      time: date.hour(19).minute(0),
+      date: defaultDate.isBefore(dayjs(), 'day') ? dayjs() : defaultDate,
+      time: dayjs().hour(19).minute(0),
       partySize: 2,
       source: 'phone',
       occasion: 'none',
@@ -237,6 +344,10 @@ function ReservationsPageContent() {
       tableId: undefined,
     });
     setCreateOpen(true);
+  };
+
+  const openView = (r: ReservationRow) => {
+    router.push(`/reservations/${r.id}`);
   };
 
   const openEdit = (r: ReservationRow) => {
@@ -254,35 +365,57 @@ function ReservationsPageContent() {
   };
 
   useEffect(() => {
-    if (!reservationIdParam || openedReservationIdRef.current === reservationIdParam) return;
+    if (!reservationIdParam) {
+      openedReservationIdRef.current = null;
+      return;
+    }
+    if (!editParam) {
+      router.replace(`/reservations/${reservationIdParam}`);
+    }
+  }, [reservationIdParam, editParam, router]);
+
+  useEffect(() => {
+    if (!reservationIdParam || !editParam || openedReservationIdRef.current === reservationIdParam) return;
 
     const reservation = reservationInList ?? lookedUpReservation;
     if (!reservation) {
-      if (!lookupLoading && lookupData && !reservationInList) {
+      if (lookupLoading) return;
+      if (lookupError || lookupData) {
         message.warning('Reservation not found');
         openedReservationIdRef.current = reservationIdParam;
-        router.replace('/reservations', { scroll: false });
+        replaceListParams({ reservationId: undefined, edit: undefined }, false);
       }
       return;
     }
 
-    const slot = dayjs(reservation.slotStart);
-    if (!slot.isSame(date, 'day')) {
-      setDate(slot);
+    if (reservation.restaurantId && reservation.restaurantId !== activeRestaurantId) {
+      const known = restaurants.some((r: { id: string }) => r.id === reservation.restaurantId);
+      if (!known) {
+        if (restaurants.length === 0) return;
+        message.warning('Reservation not found');
+        openedReservationIdRef.current = reservationIdParam;
+        replaceListParams({ reservationId: undefined, edit: undefined }, false);
+        return;
+      }
+      setRestaurantId(reservation.restaurantId);
       return;
     }
 
     openEdit(reservation);
     openedReservationIdRef.current = reservationIdParam;
-    router.replace('/reservations', { scroll: false });
+    replaceListParams({ reservationId: undefined, edit: undefined }, false);
   }, [
     reservationIdParam,
     reservationInList,
     lookedUpReservation,
     lookupLoading,
+    lookupError,
     lookupData,
-    date,
-    router,
+    activeRestaurantId,
+    restaurants,
+    setRestaurantId,
+    editParam,
+    replaceListParams,
   ]);
 
   const runStatusUpdate = async (
@@ -327,7 +460,8 @@ function ReservationsPageContent() {
       message.success('Reservation created');
       setCreateOpen(false);
       createForm.resetFields();
-      setDate(values.date);
+      const createdDate = (values.date as Dayjs).format('YYYY-MM-DD');
+      replaceListParams({ period: 'custom', date: createdDate, status: undefined });
       refetch();
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'errorFields' in err) return;
@@ -383,7 +517,15 @@ function ReservationsPageContent() {
   };
 
   const actionItems = (r: ReservationRow): MenuProps['items'] => {
-    const items: NonNullable<MenuProps['items']> = [];
+    const items: NonNullable<MenuProps['items']> = [
+      {
+        key: 'view',
+        icon: <EyeOutlined />,
+        label: 'View details',
+        onClick: () => openView(r),
+      },
+      { type: 'divider' },
+    ];
 
     if (['pending', 'confirmed', 'seated'].includes(r.status)) {
       items.push({
@@ -466,52 +608,92 @@ function ReservationsPageContent() {
               {...restaurantSelectProps}
               placeholder="Restaurant"
             />
-            <DatePicker
-              value={date}
-              onChange={(d) => {
-                if (d) {
-                  setDate(d);
-                  setPagination(1);
-                }
-              }}
-            />
             <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} disabled={!activeRestaurantId}>
               New reservation
             </Button>
           </Space>
         }
       />
-      <Card styles={{ body: { padding: '0 8px 0 12px' } }} style={{ borderRadius: radii.lg, overflow: 'hidden' }}>
+      <Card styles={{ body: { padding: 0 } }} style={{ borderRadius: radii.lg, overflow: 'hidden' }}>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: spacing.sm,
+            alignItems: 'center',
+            padding: `${spacing.md}px ${spacing.md}px ${spacing.sm}px`,
+          }}
+        >
+          <Select
+            aria-label="Date period"
+            value={period}
+            style={{ width: 160 }}
+            options={DATE_PERIOD_OPTIONS}
+            onChange={(value: DatePeriod) => {
+              replaceListParams({
+                period: value,
+                date: value === 'custom' ? customDate : undefined,
+              });
+            }}
+          />
+          {period === 'custom' ? (
+            <DatePicker
+              aria-label="Custom date"
+              value={dayjs(customDate)}
+              allowClear={false}
+              onChange={(d) => {
+                if (d) replaceListParams({ period: 'custom', date: d.format('YYYY-MM-DD') });
+              }}
+            />
+          ) : null}
+          <Select
+            aria-label="Reservation status"
+            placeholder="All statuses"
+            allowClear
+            value={statusFilter}
+            style={{ width: 160 }}
+            options={STATUS_FILTER_OPTIONS}
+            onChange={(value: string | undefined) => replaceListParams({ status: value })}
+          />
+        </div>
         <Table<ReservationRow>
           loading={loading}
           rowKey="id"
           dataSource={(data?.restaurantReservations?.items ?? []) as ReservationRow[]}
           pagination={tablePagination(data?.restaurantReservations?.total ?? 0)}
           scroll={{ x: 1120 }}
+          onRow={(r) => ({
+            onClick: () => openView(r),
+            style: { cursor: 'pointer' },
+          })}
           columns={[
             {
-              title: 'Time',
+              title: SINGLE_DAY_PERIODS.has(period) ? 'Time' : 'When',
               dataIndex: 'slotStart',
-              width: 90,
+              width: SINGLE_DAY_PERIODS.has(period) ? 90 : 150,
               render: (v: string) =>
-                new Date(v).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+                SINGLE_DAY_PERIODS.has(period)
+                  ? formatTimeInTimeZone(v, timeZone)
+                  : formatUsDateTime(v, {
+                      timeZone,
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    }),
             },
             {
               title: 'Guest',
-              render: (_: unknown, r) => {
-                const name =
-                  `${r.diner?.firstName ?? ''} ${r.diner?.lastName ?? ''}`.trim() || '—';
-                return (
+              render: (_: unknown, r) => (
                   <Space orientation="vertical" size={0}>
-                    <Text>{name}</Text>
+                    <Text>{guestName(r)}</Text>
                     {r.diner?.phone ? (
                       <Text type="secondary" style={{ fontSize: 12 }}>
                         {r.diner.phone}
                       </Text>
                     ) : null}
                   </Space>
-                );
-              },
+              ),
             },
             { title: 'Party', dataIndex: 'partySize', width: 70 },
             {
@@ -525,8 +707,10 @@ function ReservationsPageContent() {
               title: 'Source',
               dataIndex: 'source',
               width: 90,
-              render: (source?: string) =>
-                source ? <Tag>{source}</Tag> : <Text type="secondary">—</Text>,
+              render: (source?: string) => {
+                const label = formatSource(source);
+                return label ? <Tag>{label}</Tag> : <Text type="secondary">—</Text>;
+              },
             },
             {
               title: 'Occasion',
@@ -556,12 +740,20 @@ function ReservationsPageContent() {
             },
             {
               title: 'Actions',
-              width: 72,
+              width: 108,
               fixed: 'right',
               render: (_: unknown, r) => (
-                <Dropdown menu={{ items: actionItems(r) }} trigger={['click']} placement="bottomRight">
-                  <Button size="small" icon={<MoreOutlined />} aria-label="More actions" />
-                </Dropdown>
+                <Space size={4} onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    size="small"
+                    icon={<EyeOutlined />}
+                    aria-label="View reservation"
+                    onClick={() => openView(r)}
+                  />
+                  <Dropdown menu={{ items: actionItems(r) }} trigger={['click']} placement="bottomRight">
+                    <Button size="small" icon={<MoreOutlined />} aria-label="More actions" />
+                  </Dropdown>
+                </Space>
               ),
             },
           ]}

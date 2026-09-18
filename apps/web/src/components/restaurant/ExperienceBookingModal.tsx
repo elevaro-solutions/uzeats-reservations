@@ -17,7 +17,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { SlotPicker, pickRestaurantPhoto } from '@reservations/ui';
-import { formatTimeInTimeZone, timeZoneLabel } from '@reservations/shared';
+import { formatTimeInTimeZone } from '@reservations/shared';
 import dayjs, { type Dayjs } from 'dayjs';
 import { buildMapsSearchUrl, formatRestaurantAddress } from '@/lib/restaurantLinks';
 import { buildCancellationPolicy } from '@/lib/restaurantTerms';
@@ -79,7 +79,6 @@ type Props = {
   experiences: ExperienceItem[];
   restaurant: RestaurantInfo;
   timeZone?: string;
-  workingHours?: string | null;
   date: Dayjs;
   partySize: number;
   selectedSlot: string | null;
@@ -108,7 +107,6 @@ export function ExperienceBookingModal({
   experiences,
   restaurant,
   timeZone,
-  workingHours,
   date,
   partySize,
   selectedSlot,
@@ -261,12 +259,6 @@ export function ExperienceBookingModal({
                   <EnvironmentOutlined aria-hidden />
                   {fullAddress}
                 </li>
-                {workingHours && (
-                  <li>
-                    <ClockCircleOutlined aria-hidden />
-                    Hours {workingHours}
-                  </li>
-                )}
                 <li>
                   <FieldTimeOutlined aria-hidden />
                   Available {formatExperienceBookingHours(experience, timeZone)}
@@ -508,7 +500,6 @@ export function ExperienceBookingModal({
                 </span>
                 <span>
                   <ClockCircleOutlined /> {selectedSlot ? formatSlotLabel(selectedSlot, timeZone) : formatExperienceClock(experience.startTime)}
-                  {timeZone ? ` ${timeZoneLabel(timeZone)}` : ''}
                 </span>
               </div>
               <div className="rt-experience-summary__party">

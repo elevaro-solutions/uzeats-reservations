@@ -34,6 +34,13 @@ import {
   restaurantTimeZone,
   RESTAURANT_MAX_PHOTOS,
 } from "@reservations/shared";
+import {
+  calendarDayRange,
+  isReservationDatePeriod,
+  parseIsoDate,
+  reservationPeriodSlotRange,
+  type ReservationDatePeriod,
+} from "../services/reservationListFilter.js";
 import { assertCanAssignRole } from "../services/roleAccess.js";
 import { submitContactForm } from "../services/contactForm.js";
 import {
@@ -905,6 +912,8 @@ export const resolvers = {
       args: {
         restaurantId: string;
         date?: string;
+        period?: ReservationDatePeriod;
+        status?: string;
         limit?: number;
         offset?: number;
       },
@@ -916,21 +925,50 @@ export const resolvers = {
         args.restaurantId,
         user.role,
       );
+      const restaurant = await Restaurant.findById(args.restaurantId);
+      const timeZone = restaurantTimeZone(restaurant ?? {});
       const filter: Record<string, unknown> = {
         restaurantId: args.restaurantId,
       };
-      if (args.date) {
-        const start = new Date(`${args.date}T00:00:00`);
-        const end = new Date(`${args.date}T23:59:59`);
-        filter.slotStart = { $gte: start, $lte: end };
+      if (args.status) filter.status = args.status;
+
+      const period = isReservationDatePeriod(args.period) ? args.period : undefined;
+      if (period && period !== "all") {
+        const range = reservationPeriodSlotRange(period, timeZone);
+        if (range) filter.slotStart = range;
+      } else {
+        const date = parseIsoDate(args.date);
+        if (date) filter.slotStart = calendarDayRange(date, timeZone);
       }
+
+      const newestFirst = period === "past" || period === "all";
       return paginateQuery(Reservation, filter, {
-        sort: { slotStart: 1 },
+        sort: { slotStart: newestFirst ? -1 : 1 },
         limit: args.limit,
         offset: args.offset,
         defaultLimit: 50,
         map: mapReservation,
       });
+    },
+
+    restaurantReservation: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const reservation = await Reservation.findById(args.id);
+      if (!reservation) return null;
+      try {
+        await assertRestaurantAccess(
+          user._id.toString(),
+          reservation.restaurantId.toString(),
+          user.role,
+        );
+      } catch {
+        return null;
+      }
+      return mapReservation(reservation);
     },
 
     myWaitlist: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
@@ -5658,6 +5696,7 @@ export const resolvers = {
           width?: number;
           height?: number;
           shape?: string;
+          rotation?: number;
         }>;
       },
       ctx: GraphQLContext,
@@ -5681,6 +5720,7 @@ export const resolvers = {
         if (pos.width != null) table.width = pos.width;
         if (pos.height != null) table.height = pos.height;
         if (pos.shape) table.shape = pos.shape as any;
+        if (pos.rotation != null) table.rotation = pos.rotation;
         await table.save();
         updated.push(mapTable(table));
       }

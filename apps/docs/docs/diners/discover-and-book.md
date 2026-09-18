@@ -17,7 +17,7 @@ Results show live availability slots when the restaurant has configured shifts a
 Each restaurant has a detail page with:
 
 - Logo (falls back to the first gallery photo, then initials) and photo gallery
-- About, weekly hours under open/closed status, and an address that opens Google Maps
+- About, reservation windows (wall-clock ranges, no timezone suffix), and an address that opens Google Maps
 - Popular dishes (up to 10 items partners mark in the dashboard; full menu via optional URL)
 - Reviews and ratings (overall plus food/service/atmosphere when provided, with diner photos)
 - FAQ and terms

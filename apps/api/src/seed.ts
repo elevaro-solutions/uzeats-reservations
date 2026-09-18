@@ -886,7 +886,7 @@ async function seed() {
   });
 
   const todayDinner = slot(0, 19);
-  await Reservation.create({
+  const danDinnerToday = await Reservation.create({
     restaurantId: samarkand.restaurant._id,
     dinerId: diner2!._id,
     tableIds: [samarkand.tables[0]!._id],
@@ -1168,7 +1168,10 @@ async function seed() {
       body: 'Dan Diner booked a party of 2 at Samarkand Palace.',
       status: 'sent',
       sentAt: atOffset(0, 8),
-      data: { restaurantId: samarkand.restaurant._id.toString() },
+      data: {
+        restaurantId: samarkand.restaurant._id.toString(),
+        reservationId: danDinnerToday._id.toString(),
+      },
     },
     {
       userId: owner!._id,
@@ -1178,7 +1181,10 @@ async function seed() {
       body: 'Can we get a high chair for our booking tonight?',
       status: 'sent',
       sentAt: atOffset(0, 10),
-      data: { restaurantId: samarkand.restaurant._id.toString() },
+      data: {
+        restaurantId: samarkand.restaurant._id.toString(),
+        reservationId: danDinnerToday._id.toString(),
+      },
     },
     {
       userId: staff!._id,

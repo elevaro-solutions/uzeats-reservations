@@ -72,6 +72,10 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## notifications
 
+### [2026-09-18] Partner Hub new-reservation tap fetches by id
+- Header bell `new_reservation` goes to `/reservations/:id?restaurant=`. `notifyRestaurantStaff` always attaches `restaurantId`. The detail page loads `restaurantReservation(id)` and switches the active venue.
+- Why it matters: Multi-location owners were looking up against the currently selected restaurant’s date-filtered list, so the click looked like a no-op.
+
 ### [2026-09-16] Android google-services.json is committed; FCM V1 key is not
 - `android.googleServicesFile` points at `apps/mobile/google-services.json` (client config; tracked). FCM V1 service-account JSON (`*firebase-adminsdk*.json` / `*service-account*.json`) stays gitignored and is uploaded only via EAS credentials — not via the build archive.
 - Why it matters: Don’t easignore/gitignore the client file or Android builds won’t register with FCM; don’t commit the private key.
@@ -122,6 +126,11 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 - Why it matters: Booking time-helper changes often affect edit. Primary CTA order is intentional product priority.
 
 ## restaurant-profile
+
+### [2026-09-18] Web restaurant details show reservation windows, not hours
+- Web diner restaurant page dropped Hours (open/closed + weekly schedule) from the header and Details. Reservations stays, formatted as wall-clock ranges without a timezone suffix (`5:00 PM–10:00 PM`). Booking intro no longer says “Times shown in EDT”.
+- Shared `formatBookingHours` / `formatShortHours` / `formatOpeningHoursLines` / `formatHmRange12` no longer append an abbreviation. Slot labels still convert ISO instants with the restaurant IANA zone so 7:00 PM Eastern is not 4:00 PM Pacific.
+- Why it matters: Diners book a local table time; EDT/PDT on the profile duplicated the same clock twice.
 
 ### [2026-09-17] Header shows logo, weekly hours, and Maps address
 - `Restaurant.logoUrl` is optional; diner pages fall back to the first gallery photo, then initials. Owners upload the mark from Profile / Settings / admin restaurant forms.

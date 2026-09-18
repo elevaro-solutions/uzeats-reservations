@@ -282,9 +282,13 @@ export async function notifyRestaurantStaff(
   const staff = await User.find({
     $or: [{ _id: restaurant.ownerId }, { restaurantIds: restaurant._id }],
   }).select('_id');
+  const staffPayload = {
+    ...payload,
+    data: { ...payload.data, restaurantId },
+  };
   await Promise.all(
     staff.map((u) =>
-      notifyUser(u._id.toString(), payload, { smsRestaurantId: restaurantId }),
+      notifyUser(u._id.toString(), staffPayload, { smsRestaurantId: restaurantId }),
     ),
   );
 }

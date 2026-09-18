@@ -7,7 +7,7 @@ A companion **mobile app** (`apps/mobile`, Expo) offers the same core flows on i
 ## What you can do
 
 - **Search** restaurants by city, cuisine, text, or nearby location (list and map views)
-- **View** rich restaurant pages — logo, photos, menu, reviews, FAQ, weekly hours, Maps address, and live availability
+- **View** rich restaurant pages — logo, photos, menu, reviews, FAQ, reservation windows, Maps address, and live availability
 - **Book** a table with party size, date/time, occasion, and optional packages
 - **Pay deposits** when required (Stripe; stubbed locally without keys)
 - **Join a waitlist** and get notified when a table opens

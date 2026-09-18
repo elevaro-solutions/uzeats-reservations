@@ -3,7 +3,6 @@
 import { Button, Typography } from 'antd';
 import {
   CalendarOutlined,
-  ClockCircleOutlined,
   DollarOutlined,
   FieldTimeOutlined,
   UserOutlined,
@@ -23,7 +22,6 @@ const { Title, Text } = Typography;
 type Props = {
   experiences: ExperienceItem[];
   selectedExperienceId?: string | null;
-  workingHours?: string | null;
   timeZone?: string;
   onReserve: (experience: ExperienceItem) => void;
 };
@@ -31,7 +29,6 @@ type Props = {
 export function RestaurantExperiencesSection({
   experiences,
   selectedExperienceId,
-  workingHours,
   timeZone,
   onReserve,
 }: Props) {
@@ -69,12 +66,6 @@ export function RestaurantExperiencesSection({
                     <CalendarOutlined aria-hidden />
                     <span>{formatExperienceAvailabilityLabel(exp)}</span>
                   </li>
-                  {workingHours && (
-                    <li>
-                      <ClockCircleOutlined aria-hidden />
-                      <span>Hours {workingHours}</span>
-                    </li>
-                  )}
                   <li>
                     <FieldTimeOutlined aria-hidden />
                     <span>Available {formatExperienceBookingHours(exp, timeZone)}</span>
