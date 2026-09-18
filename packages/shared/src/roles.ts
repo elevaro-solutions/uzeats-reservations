@@ -6,8 +6,20 @@ export const PLATFORM_ADMIN_ROLES = ['admin', 'super_admin'] as const satisfies 
 /** Roles that only a super admin may assign or delete. */
 export const ELEVATED_ADMIN_ROLES = ['admin', 'super_admin'] as const satisfies readonly UserRole[];
 
+/**
+ * Roles allowed to use Tablevera Merchant Mobile (restaurant partners).
+ * Diners and platform admins are rejected by the merchant app client.
+ */
+export const PARTNER_MOBILE_ROLES = ['restaurant_owner', 'staff'] as const satisfies readonly UserRole[];
+
 export function isPlatformAdmin(role: string): role is UserRole {
   return role === 'admin' || role === 'super_admin';
+}
+
+export function isPartnerMobileRole(
+  role: string,
+): role is (typeof PARTNER_MOBILE_ROLES)[number] {
+  return (PARTNER_MOBILE_ROLES as readonly string[]).includes(role);
 }
 
 export function isSuperAdmin(role: string): role is UserRole {

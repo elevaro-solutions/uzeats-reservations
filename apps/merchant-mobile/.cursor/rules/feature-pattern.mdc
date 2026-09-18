@@ -1,0 +1,28 @@
+---
+description: Merchant mobile feature folders and thin routes
+globs: apps/merchant-mobile/src/features/**/*,apps/merchant-mobile/src/app/**/*
+---
+
+# Feature pattern
+
+Screen logic lives in `src/features/<kebab-name>/`:
+
+```
+src/features/<name>/
+  <name>.feature.tsx
+  api/                     # optional GraphQL for this feature
+  components/              # feature-private UI
+  index.ts
+```
+
+Routes in `src/app/` stay thin.
+
+## Naming
+
+- Files: kebab-case with suffix (`*.feature.tsx`, `*.component.tsx`, `*.helpers.ts`)
+- Components: PascalCase
+- GraphQL docs: SCREAMING_SNAKE
+
+Tabs (P0): Overview | Reservations | Floor | Messages | More.
+Waitlist is a stack screen from Overview (and secondary from Reservations).
+Notifications bell lives in the header, not the tab bar.

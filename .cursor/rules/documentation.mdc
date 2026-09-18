@@ -8,15 +8,19 @@ alwaysApply: true
 ## Module learnings
 - When you discover something non-obvious about how a module works (a gotcha,
   an undocumented assumption, a design tradeoff, a bug pattern), append a
-  dated entry to `docs/notes/<module-name>.md`.
-- Do NOT create a new notes file per source file — one file per top-level
-  src/ module.
+  dated entry to the correct notes file (one file per top-level `src/` module).
 - Keep entries factual and terse. No entry for things a comment already
   explains clearly.
+- **Diner mobile** (`apps/mobile`): `docs/notes/<module>.md`, indexed by
+  `docs/notes/LEARNINGS.md`.
+- **Merchant mobile** (`apps/merchant-mobile`): `docs/notes/merchant-mobile/<module>.md`,
+  indexed by `docs/notes/merchant-mobile/LEARNINGS.md`.
+- Do NOT create a new notes file per source file.
 
 ## Feature domain notes
 - All feature domain notes live in `docs/notes/features.md`, one
-  `## <domain>` section per folder under `src/features/`.
+  `## <domain>` section per folder under `src/features/` (diner domains) or
+  `## merchant-*` for merchant-mobile domains.
 - Split a domain out into its own `docs/notes/features-<domain>.md` when
   ANY of the following is true:
   - Its section reaches ~8-10 dated entries
@@ -24,7 +28,7 @@ alwaysApply: true
     (split proactively even with few entries)
   - You're told explicitly to split it
 - When splitting: move existing entries, replace the section in features.md
-  with a one-line pointer, and update the link in LEARNINGS.md.
+  with a one-line pointer, and update the link in the relevant LEARNINGS index.
 
 ## Changelog
 - After making a code change (new feature, bug fix, refactor, breaking

@@ -4,6 +4,22 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.54.0] — 2026-09-18
+
+### Added
+
+- Merchant mobile app (`apps/merchant-mobile`, `@reservations/merchant-mobile`): Expo SDK 57 partner client for `restaurant_owner` / `staff` with SecureStore auth, MMKV venue switcher, Overview / Reservations / Floor / Messages / More tabs, waitlist + notifications stack screens, and push registration
+- Shared `PARTNER_MOBILE_ROLES` + `isPartnerMobileRole` for merchant login gating
+- Docs: `docs/notes/merchant-mobile/` learnings index
+
+### Changed
+
+- Merchant mobile Floor: furniture-style table cards sized by capacity (chairs around a table body), soft status washes instead of colored borders/dots, optional floor-area filter, and a clearer table-details sheet
+
+### Fixed
+
+- Mobile booking confirmation: location pin vertically aligns with the restaurant address text
+
 ## [0.53.1] — 2026-09-18
 
 ### Fixed

@@ -180,3 +180,17 @@ AddReviewSheet require all four; restaurant avg still rolls up overall only.
 ### [2026-09-14] Dual discovery indexes; draft query vs committed query
 - Global `DISCOVERY_INDEX` plus feature-scoped ops in `features/search/api/search.operations.ts`. Input draft debounces for suggestions; results use `committedQuery`. Clearing the field clears committed query so chips don’t stick.
 - Why it matters: Don’t assume all search ops live in `graphql/operations.ts`. Typing without submitting doesn’t redefine the result set.
+
+## merchant-mobile (partner app)
+
+### [2026-09-18] Floor uses furniture cards + status washes, not an absolute canvas
+- Merchant Floor is a capacity-bucket furniture grid (2/4/6/banquet) with soft washes for `free` / `reserved` / `seated` / `turning`. Area filter is client-side on `floorArea`; layout coords (`posX`/`posY`) stay dashboard-only.
+- Why it matters: Don’t port dashboard canvas UX to the phone; keep partner mobile scannable without pan-zoom.
+
+### [2026-09-18] Reservations date filter is optional; upcoming/past are client-side
+- `restaurantReservations(date:)` accepts an optional date. Merchant list passes `date=today` for Today; omits date for Upcoming/Past and filters by `slotStart` (plus status chips) on the client.
+- Why it matters: Don’t assume a range API — broad fetch + client filter matches the dashboard lookup pattern (`limit: 100–200`).
+
+### [2026-09-18] Waitlist status includes `seated` in GraphQL
+- API `WaitlistStatus` includes `seated`; shared `WAITLIST_STATUSES` may lag. Merchant Notify/Seat/Remove map to `notified` / `seated` / `cancelled`.
+- Why it matters: Prefer the GraphQL enum over the shared constant when wiring floor waitlist actions.

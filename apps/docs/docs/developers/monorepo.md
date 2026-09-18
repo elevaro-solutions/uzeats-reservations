@@ -10,7 +10,8 @@ reservations/
 │   ├── api/          # GraphQL API, workers, webhooks
 │   ├── web/          # Diner Next.js app
 │   ├── dashboard/    # Partner + admin Next.js app
-│   ├── mobile/       # Expo React Native app
+│   ├── mobile/       # Expo diner app
+│   ├── merchant-mobile/ # Expo partner ops app
 │   └── docs/         # Docusaurus documentation (this site)
 ├── packages/
 │   ├── shared/       # Types, Zod schemas, env var registry, constants
@@ -51,6 +52,12 @@ reservations/
 
 - **Stack:** Expo, React Native, Apollo Client
 - **Audience:** Diners on iOS/Android
+
+### `apps/merchant-mobile`
+
+- **Stack:** Expo SDK 57, Expo Router, Apollo Client, Unistyles (same patterns as diner mobile)
+- **Audience:** Restaurant owners and staff — day-of ops (reservations, waitlist, floor, messages)
+- **Package:** `@reservations/merchant-mobile`
 
 ## Packages
 

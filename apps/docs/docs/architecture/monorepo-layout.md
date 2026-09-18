@@ -8,7 +8,7 @@ Detailed file-level map for contributors. See also [Developers → Monorepo](/de
 packages/shared  ←── packages/ui
        ↑                    ↑
        │                    │
-  apps/api            apps/web, apps/dashboard, apps/mobile
+  apps/api            apps/web, apps/dashboard, apps/mobile, apps/merchant-mobile
        ↑
 packages/widget ──→ apps/web (built into /widget.js)
 ```

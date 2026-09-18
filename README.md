@@ -16,6 +16,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for release history.
 | `apps/web` | 3000 | Diner-facing Next.js app |
 | `apps/dashboard` | 3001 | Restaurant partner + platform admin |
 | `apps/mobile` | Expo | React Native diner app |
+| `apps/merchant-mobile` | Expo | React Native partner ops app |
 | `apps/docs` | 3002 | Docusaurus documentation site |
 | `packages/shared` | — | Zod schemas, constants, types |
 | `packages/ui` | — | Design tokens, Ant Design theme, shared components |

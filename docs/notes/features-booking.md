@@ -41,3 +41,8 @@
 ## [2026-09-14] Availability deliberately uncached
 - Availability uses `network-only`; bookable tables `no-cache` and only on the details step. Packages/experiences/spaces skipped until details. Drafts/occasions/loyalty thresholds come from `@reservations/shared`.
 - Why it matters: Don’t “optimize” into cache-first without knowing conflict risk. Mobile booking rules track the shared package, not only API docs.
+
+## [2026-09-18] Confirmation address pin needs a line-height well
+- `text-sm` is 14/20. A bare 14px `MapPinIcon` with `alignItems: flex-start` sits at the top of the line box and reads optically high.
+- Wrap the icon in a 14×20 well (`justifyContent: center`) so it centers on the first line while multi-line addresses still top-align.
+- Why it matters: Don’t swap to `alignItems: center` alone if address can wrap — center against the whole block drifts the pin.

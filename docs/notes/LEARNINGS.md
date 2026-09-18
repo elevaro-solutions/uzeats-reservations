@@ -2,6 +2,8 @@
 
 Module notes for `apps/mobile/src`. Append dated entries when you hit a gotcha; skip empty noise.
 
+Merchant mobile notes live under [`merchant-mobile/LEARNINGS.md`](./merchant-mobile/LEARNINGS.md).
+
 | Module | Notes | Summary |
 | --- | --- | --- |
 | [app](./app.md) | Expo Router | Thin route files; presentation/auth gestures live in root layout; sign-in path + barrel inconsistencies |

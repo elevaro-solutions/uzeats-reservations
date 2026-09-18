@@ -1,0 +1,41 @@
+---
+description: Tablevera Merchant Mobile project overview
+alwaysApply: true
+---
+
+# Tablevera Merchant Mobile (`apps/merchant-mobile`)
+
+Expo SDK 57 + React Native + Expo Router + Apollo Client + Zustand (MMKV) +
+react-native-unistyles 3. Custom components only — no third-party UI libraries.
+Icons are Lucide paths rendered with `react-native-svg`.
+
+This is the **partner** client for Tablevera (restaurant_owner + staff day-of
+ops). Package: `@reservations/merchant-mobile`. GraphQL is served by `apps/api`
+at `/graphql`. Do not build platform `/admin/*` features here.
+
+## Auth
+
+- Allow only `restaurant_owner` and `staff` via `isPartnerMobileRole` from
+  `@reservations/shared`. Reject diner and platform admin logins client-side.
+- Auth tokens: `expo-secure-store` (`accessToken`, `refreshToken`)
+- Password reset emails use `app: "dashboard"` (finish on Partner Hub)
+
+## API
+
+- Default: `EXPO_PUBLIC_API_URL` or `http://localhost:4000/graphql`
+- Prefer partner ops already used by `apps/dashboard` (`myRestaurants`,
+  `myOwnerOverview`, `restaurantReservations`, `floorPlanOps`, waitlist,
+  messages, notifications)
+
+## Theme
+
+- Root `unistyles.ts` — Forest & Gold light theme only
+- Typography: **DM Sans only**
+- Always use `theme.colors.*`, `theme.space(n)`, `theme.radius.*`
+
+## Run (dev client required — not Expo Go)
+
+```bash
+pnpm install
+pnpm --filter @reservations/merchant-mobile start
+```
