@@ -4,6 +4,12 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.56.1] — 2026-09-18
+
+### Fixed
+
+- Diner reservation detail page no longer duplicates the `MenuProps` import (blocked production typecheck)
+
 ## [0.56.0] — 2026-09-18
 
 ### Added

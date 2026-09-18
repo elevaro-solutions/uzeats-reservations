@@ -13,7 +13,6 @@ import {
   MoreOutlined,
   StarOutlined,
 } from '@ant-design/icons';
-import type { MenuProps } from 'antd';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
