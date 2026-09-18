@@ -46,7 +46,7 @@ export function DiscoveryCardsLayout({
         <div className="rt-cards-page__header">
           <div className="rt-cards-page__header-top">
             <Text strong style={{ fontSize: typography.fontSize.lg, display: 'block' }}>
-              {total.toLocaleString()} restaurant{total === 1 ? '' : 's'} available
+              {total.toLocaleString('en-US')} restaurant{total === 1 ? '' : 's'} available
             </Text>
             <DiscoveryFiltersDrawer
               filtersContent={drawerContent}

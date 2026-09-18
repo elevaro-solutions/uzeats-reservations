@@ -33,7 +33,7 @@ Owners with **multiple restaurants** use the restaurant selector in the top navi
 | **Private dining** | Large-party and event inquiries |
 | **Packages** | Occasion add-ons diners select at booking |
 | **Settings** | Restaurant profile, menu, hours, blackouts, access rules |
-| **Booking widget** | Copy embed code for your website |
+| **Booking widget** | Copy embed code for your website and customize the button theme |
 | **Notifications** | Channel preferences for operational alerts |
 
 ## Owner-only areas

@@ -134,7 +134,7 @@ function AdminAuditPageContent() {
               title: 'Timestamp',
               dataIndex: 'createdAt',
               width: 180,
-              render: (v: string) => new Date(v).toLocaleString(),
+              render: (v: string) => new Date(v).toLocaleString('en-US'),
             },
             {
               title: 'Actor',

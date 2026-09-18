@@ -241,7 +241,7 @@ export function MapMarkerInfoCard({
                 {rating.toFixed(1)}
               </span>
               <span style={{ fontSize: typography.fontSize.sm, color: colors.textSecondary }}>
-                ({reviewCount.toLocaleString()})
+                ({reviewCount.toLocaleString('en-US')})
               </span>
               <span style={{ color: colors.textTertiary }}>·</span>
             </>

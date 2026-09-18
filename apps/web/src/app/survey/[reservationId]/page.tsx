@@ -141,7 +141,7 @@ export default function SurveyPage() {
         How was your visit?
       </Title>
       <Text type="secondary">
-        {reservation.restaurant?.name} · {new Date(reservation.slotStart).toLocaleString()} ·{' '}
+        {reservation.restaurant?.name} · {new Date(reservation.slotStart).toLocaleString('en-US')} ·{' '}
         {reservation.partySize} guests
       </Text>
 

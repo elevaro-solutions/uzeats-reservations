@@ -84,7 +84,7 @@ export function formatDisplayTime(time?: string): string {
 
 /** Locale time from an ISO datetime string (e.g. reservation slotStart). */
 export function formatSlotDateTime(iso: string, timeZone?: string): string {
-  return new Date(iso).toLocaleTimeString([], {
+  return new Date(iso).toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
     ...(timeZone ? { timeZone } : {}),

@@ -169,7 +169,7 @@ function SurveysPageContent() {
                       {s.diner ? `${s.diner.firstName} ${s.diner.lastName}` : 'Guest'}
                     </Text>
                     <Text type="secondary">
-                      {new Date(s.submittedAt).toLocaleDateString()}
+                      {new Date(s.submittedAt).toLocaleDateString('en-US')}
                     </Text>
                     {s.wouldRecommend != null && (
                       <Tag color={s.wouldRecommend ? 'green' : 'red'}>

@@ -4,6 +4,25 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.54.0] — 2026-09-18
+
+### Added
+
+- Admin restaurant detail: Reviews, Package, and Booking widget tabs; active tabs persist in the URL (`tab`, `section`)
+- Shared `formatUsDate` / `formatUsTime` / `formatUsDateTime` helpers (`DISPLAY_LOCALE`)
+
+### Fixed
+
+- Floor ops no longer flashes the floor map skeleton on each `FloorPlanOps` poll (Apollo Client 4 treats polls as `loading`)
+
+### Changed
+
+- Partner booking widget theme (color, button text, reviews) sits with the embed script on Booking widget and Settings, not buried under operations
+- `pnpm dev` no longer starts Expo; use `pnpm dev:mobile` for the diner app
+- Reservation calendars no longer allow selecting past dates (diner booking, discovery search, partner create/edit)
+- Dates and times display in US format (`en-US`, 12-hour clock) across web, dashboard, mobile, widget, and notifications
+- Admin restaurant detail: Back sits above the title, status sits next to the name, and actions stay on the right
+
 ## [0.53.1] — 2026-09-18
 
 ### Fixed

@@ -176,6 +176,7 @@ export function BookingQuickSelectors({
             value={draftDate}
             mode="date"
             display="spinner"
+            locale="en-US"
             minimumDate={today}
             maximumDate={maximumDate}
             onChange={handleDraftChange}
@@ -190,6 +191,7 @@ export function BookingQuickSelectors({
           value={parseIsoDate(date) ?? new Date()}
           mode="date"
           display="default"
+          locale="en-US"
           minimumDate={today}
           maximumDate={maximumDate}
           onChange={handleAndroidDateChange}

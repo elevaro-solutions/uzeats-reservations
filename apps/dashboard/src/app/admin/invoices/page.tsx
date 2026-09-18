@@ -82,7 +82,7 @@ function statusLabel(status: string) {
 }
 
 function money(cents: number, currency = 'usd') {
-  return (cents / 100).toLocaleString(undefined, {
+  return (cents / 100).toLocaleString('en-US', {
     style: 'currency',
     currency: currency.toUpperCase(),
   });
@@ -651,7 +651,7 @@ function AdminInvoicesContent() {
                 title: 'Due',
                 dataIndex: 'dueDate',
                 width: 120,
-                render: (v: string) => new Date(v).toLocaleDateString(),
+                render: (v: string) => new Date(v).toLocaleDateString('en-US'),
               },
               {
                 title: 'Total',

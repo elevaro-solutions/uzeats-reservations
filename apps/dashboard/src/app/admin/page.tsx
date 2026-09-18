@@ -20,7 +20,7 @@ import { useRequireAdmin } from '@/lib/useRequireAdmin';
 const { Text, Paragraph } = Typography;
 
 function dollars(cents: number) {
-  return (cents / 100).toLocaleString(undefined, {
+  return (cents / 100).toLocaleString('en-US', {
     style: 'currency',
     currency: 'USD',
   });

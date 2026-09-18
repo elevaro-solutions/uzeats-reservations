@@ -240,7 +240,7 @@ export default function ReservationDetailPage() {
             'Reservation'
           )
         }
-        subtitle={new Date(r.slotStart).toLocaleString(undefined, {
+        subtitle={new Date(r.slotStart).toLocaleString('en-US', {
           weekday: 'long',
           month: 'long',
           day: 'numeric',

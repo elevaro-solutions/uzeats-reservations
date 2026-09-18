@@ -240,7 +240,7 @@ function ReviewsPageContent() {
                           {r.diner ? `${r.diner.firstName} ${r.diner.lastName}` : 'Guest'}
                         </Text>
                         <Text type="secondary">
-                          {new Date(r.createdAt).toLocaleDateString()}
+                          {new Date(r.createdAt).toLocaleDateString('en-US')}
                         </Text>
                         {r.hidden && <Tag color="orange">Hidden</Tag>}
                       </Space>
@@ -347,7 +347,7 @@ function ReviewsPageContent() {
                           >
                             <Text type="secondary" style={{ fontSize: 12 }}>
                               Restaurant reply ·{' '}
-                              {new Date(r.ownerRepliedAt).toLocaleDateString()}
+                              {new Date(r.ownerRepliedAt).toLocaleDateString('en-US')}
                             </Text>
                             <div>{r.ownerReply}</div>
                           </div>

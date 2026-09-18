@@ -63,7 +63,7 @@ export function BookingLoyaltyInfoSheet({
       detail: "= $1 off your deposit hold",
     },
     {
-      value: `${minRedeem.toLocaleString()} pts`,
+      value: `${minRedeem.toLocaleString("en-US")} pts`,
       detail: "minimum to redeem",
     },
     {

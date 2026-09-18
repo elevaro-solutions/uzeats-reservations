@@ -8,7 +8,7 @@ import { ADMIN_REVENUE_REPORT } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 
 function money(cents: number) {
-  return (cents / 100).toLocaleString(undefined, {
+  return (cents / 100).toLocaleString('en-US', {
     style: 'currency',
     currency: 'USD',
   });

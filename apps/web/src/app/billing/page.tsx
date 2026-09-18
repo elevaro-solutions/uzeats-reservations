@@ -227,7 +227,7 @@ export default function BillingPage() {
                       </Text>
                       <Text type="secondary" style={{ display: 'block', marginTop: 6 }}>
                         <CalendarOutlined style={{ marginRight: 6 }} />
-                        {new Date(reservation.slotStart).toLocaleString()} · {reservation.partySize}{' '}
+                        {new Date(reservation.slotStart).toLocaleString('en-US')} · {reservation.partySize}{' '}
                         {reservation.partySize === 1 ? 'guest' : 'guests'}
                       </Text>
                       {(reservation.restaurant?.address?.city || reservation.restaurant?.address?.state) && (
@@ -238,7 +238,7 @@ export default function BillingPage() {
                         </Text>
                       )}
                       <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
-                        Added {new Date(reservation.createdAt).toLocaleString()}
+                        Added {new Date(reservation.createdAt).toLocaleString('en-US')}
                       </Text>
                     </div>
 

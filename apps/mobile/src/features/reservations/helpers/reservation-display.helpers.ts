@@ -97,7 +97,7 @@ export function defaultReservationSegment(
 
 export function formatReservationWhen(slotStart: string): string {
   const date = new Date(slotStart);
-  return date.toLocaleString([], {
+  return date.toLocaleString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -107,7 +107,7 @@ export function formatReservationWhen(slotStart: string): string {
 }
 
 export function formatReservationDate(slotStart: string): string {
-  return new Date(slotStart).toLocaleDateString([], {
+  return new Date(slotStart).toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -118,12 +118,12 @@ export function formatReservationTime(
   slotStart: string,
   slotEnd?: string | null,
 ): string {
-  const start = new Date(slotStart).toLocaleTimeString([], {
+  const start = new Date(slotStart).toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
   });
   if (!slotEnd) return start;
-  const end = new Date(slotEnd).toLocaleTimeString([], {
+  const end = new Date(slotEnd).toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
   });

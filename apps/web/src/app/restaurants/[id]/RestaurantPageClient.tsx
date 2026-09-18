@@ -936,6 +936,15 @@ export default function RestaurantPageClient() {
               <DatePicker
                 size="small"
                 value={date}
+                allowClear={false}
+                disabledDate={(d) => {
+                  if (d.isBefore(dayjs().startOf('day'))) return true;
+                  const maxDays = restaurant?.bookingWindow?.maxAdvanceDays;
+                  if (typeof maxDays === 'number' && maxDays > 0) {
+                    return d.isAfter(dayjs().add(maxDays, 'day').endOf('day'));
+                  }
+                  return false;
+                }}
                 onChange={(d) => d && updateBooking({ date: d })}
               />
               <Select

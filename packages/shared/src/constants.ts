@@ -335,3 +335,6 @@ export const DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES: Record<
   webPush: true,
   platform: true,
 };
+
+/** Guest- and staff-facing date/time locale: US English, 12-hour clock. */
+export const DISPLAY_LOCALE = "en-US" as const;

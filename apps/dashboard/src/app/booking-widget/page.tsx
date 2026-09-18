@@ -1,19 +1,16 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@/lib/apollo-hooks';
-import { Button, Card, Space, Spin, Typography } from 'antd';
-import { SettingOutlined } from '@ant-design/icons';
+import { Button, Card, Divider, Space, Spin } from 'antd';
 import { BookingSharePanel } from '@/components/BookingSharePanel';
-import { EmptyState, PageHeader, colors, radii, spacing } from '@reservations/ui';
+import { WidgetThemeEditor } from '@/components/WidgetThemeEditor';
+import { EmptyState, PageHeader, radii, spacing } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { isPlatformAdmin } from '@/lib/roles';
 import { MY_RESTAURANTS, RESTAURANT_SETTINGS } from '@/lib/graphql';
 import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
-
-const { Paragraph } = Typography;
 
 export default function BookingWidgetPage() {
   const { user, loading: authLoading } = useAuth();
@@ -77,11 +74,6 @@ export default function BookingWidgetPage() {
         <PageHeader
           title="Booking widget"
           subtitle={`Share and embed online booking for ${restaurant.name}`}
-          extra={
-            <Link href="/settings">
-              <Button icon={<SettingOutlined />}>Customize widget theme</Button>
-            </Link>
-          }
         />
 
         <Card
@@ -89,14 +81,14 @@ export default function BookingWidgetPage() {
           styles={{ body: { padding: spacing.lg } }}
           style={{ borderRadius: radii.lg }}
         >
-          <BookingSharePanel restaurant={restaurant} widgetTheme={widgetTheme} />
-          <Paragraph type="secondary" style={{ marginTop: spacing.lg, marginBottom: 0 }}>
-            Button color, label, and review display can be changed under{' '}
-            <Link href="/settings" style={{ color: colors.brand[600], fontWeight: 600 }}>
-              Settings → Booking widget
-            </Link>
-            . Save there, then copy the updated script above.
-          </Paragraph>
+          <WidgetThemeEditor restaurantId={restaurant.id} initialTheme={widgetTheme}>
+            {(theme) => (
+              <>
+                <Divider style={{ margin: `${spacing.md}px 0 ${spacing.lg}px` }} />
+                <BookingSharePanel restaurant={restaurant} widgetTheme={theme} />
+              </>
+            )}
+          </WidgetThemeEditor>
         </Card>
       </Space>
     </div>

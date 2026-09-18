@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { NetworkStatus } from '@apollo/client';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import {
@@ -94,28 +95,22 @@ export default function FloorOpsPage() {
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
-  const { data, loading, refetch } = useQuery(FLOOR_PLAN_OPS, {
+  const { data, networkStatus, refetch } = useQuery(FLOOR_PLAN_OPS, {
     skip: !activeRestaurantId,
     variables: { restaurantId: activeRestaurantId },
     pollInterval: 10_000,
+    notifyOnNetworkStatusChange: true,
+    skipPollAttempt: () => typeof document !== 'undefined' && document.hidden,
     onError: (err: Error) => message.error(err.message),
   });
+  const initialLoading = networkStatus === NetworkStatus.loading;
+  const refreshing = networkStatus === NetworkStatus.refetch;
   const [seatAtTable, { loading: seating }] = useMutation(SEAT_RESERVATION_AT_TABLE);
   const [updateStatus, { loading: updatingStatus }] = useMutation(UPDATE_RESERVATION_STATUS);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
-
-  useEffect(() => {
-    const el = canvasWrapRef.current;
-    if (!el) return;
-    const update = () => setCellSize(cellSizeForWidth(el.clientWidth));
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [loading, areaFilter, activeRestaurantId]);
 
   const tableStates: TableState[] = data?.floorPlanOps?.tables ?? [];
   const unassigned = data?.floorPlanOps?.unassigned ?? [];
@@ -138,6 +133,17 @@ export default function FloorOpsPage() {
     );
     return maxRow * cellSize + cellSize;
   }, [visibleStates, cellSize]);
+
+  const hasCanvas = visibleStates.length > 0;
+  useEffect(() => {
+    const el = canvasWrapRef.current;
+    if (!el) return;
+    const update = () => setCellSize(cellSizeForWidth(el.clientWidth));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hasCanvas, areaFilter, activeRestaurantId]);
 
   const handleSeatAtTable = useCallback(
     async (reservationId: string, tableId: string) => {
@@ -188,7 +194,7 @@ export default function FloorOpsPage() {
               options={floorAreas.map((a) => ({ value: a, label: a }))}
             />
           )}
-          <Button icon={<ReloadOutlined />} onClick={() => refetch()} loading={loading}>
+          <Button icon={<ReloadOutlined />} onClick={() => refetch()} loading={initialLoading || refreshing}>
             Refresh
           </Button>
         </Space>
@@ -207,7 +213,7 @@ export default function FloorOpsPage() {
 
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <Card
-          loading={loading}
+          loading={initialLoading}
           style={{ flex: '1 1 520px', minWidth: 320 }}
           styles={{ body: { padding: 16, overflow: 'auto' } }}
         >
@@ -317,7 +323,7 @@ export default function FloorOpsPage() {
                   </Text>
                   <div>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      Party {r.partySize} · {new Date(r.slotStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      Party {r.partySize} · {new Date(r.slotStart).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                     </Text>
                   </div>
                   <Tag style={{ marginTop: 4 }}>{r.status}</Tag>
@@ -356,7 +362,7 @@ export default function FloorOpsPage() {
                   <br />
                   <Text type="secondary">
                     Party of {selectedState.reservation.partySize} ·{' '}
-                    {new Date(selectedState.reservation.slotStart).toLocaleString()}
+                    {new Date(selectedState.reservation.slotStart).toLocaleString('en-US')}
                   </Text>
                 </div>
                 {selectedState.seatedMinutes != null && (

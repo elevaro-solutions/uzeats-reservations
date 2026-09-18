@@ -277,7 +277,7 @@ function AdminBlogPageContent() {
               title: 'Updated',
               dataIndex: 'updatedAt',
               width: 140,
-              render: (v?: string) => (v ? new Date(v).toLocaleDateString() : '—'),
+              render: (v?: string) => (v ? new Date(v).toLocaleDateString('en-US') : '—'),
             },
             {
               title: '',

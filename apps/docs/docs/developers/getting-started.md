@@ -29,7 +29,7 @@ pnpm --filter @reservations/shared build
 # 5. Seed demo data
 pnpm seed
 
-# 6. Run all apps (turbo)
+# 6. Run web apps (API, diner web, dashboard, docs)
 pnpm dev
 ```
 
@@ -41,7 +41,7 @@ pnpm dev
 | Partner dashboard | http://localhost:3001 |
 | GraphQL API | http://localhost:4000/graphql |
 | Docs (this site) | http://localhost:3002 |
-| Mobile (Expo) | `pnpm --filter @reservations/mobile dev` |
+| Mobile (Expo) | `pnpm dev:mobile` |
 
 ## Demo logins
 
@@ -58,7 +58,8 @@ Set `NEXT_PUBLIC_SHOW_DEV_CREDENTIALS=true` in `apps/dashboard/.env.local` to sh
 ## Common scripts
 
 ```bash
-pnpm dev          # all apps in parallel (turbo)
+pnpm dev          # web apps in parallel (excludes Expo)
+pnpm dev:mobile   # Expo diner app
 pnpm build        # production build all packages
 pnpm typecheck    # TypeScript across the monorepo
 pnpm test         # run test suites

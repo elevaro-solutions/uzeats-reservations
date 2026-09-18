@@ -33,7 +33,7 @@ export default function MessagesPage() {
   );
   const restaurantName = reservation?.restaurant?.name ?? 'Restaurant';
   const slotLabel = reservation?.slotStart
-    ? new Date(reservation.slotStart).toLocaleString([], {
+    ? new Date(reservation.slotStart).toLocaleString('en-US', {
         weekday: 'short',
         month: 'short',
         day: 'numeric',
@@ -119,7 +119,7 @@ export default function MessagesPage() {
                 }}
                 type={mine ? undefined : 'secondary'}
               >
-                {new Date(m.createdAt).toLocaleString()}
+                {new Date(m.createdAt).toLocaleString('en-US')}
               </Text>
             </div>
           );

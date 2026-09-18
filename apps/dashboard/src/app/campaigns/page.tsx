@@ -161,9 +161,9 @@ function CampaignsPageContent() {
               key: 'when',
               render: (_: any, r: any) =>
                 r.sentAt
-                  ? `${new Date(r.sentAt).toLocaleString()} · ${r.recipientCount} recipients`
+                  ? `${new Date(r.sentAt).toLocaleString('en-US')} · ${r.recipientCount} recipients`
                   : r.scheduledAt
-                    ? dayjs(r.scheduledAt).format('MMM D, HH:mm')
+                    ? dayjs(r.scheduledAt).format('MMM D, h:mm A')
                     : '—',
             },
             {

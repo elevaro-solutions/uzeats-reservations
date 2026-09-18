@@ -1,3 +1,5 @@
+import { DISPLAY_LOCALE } from './constants.js';
+
 /** Resolve a US restaurant's IANA timezone from address (state + ZIP), with lng fallback. */
 
 const STATE_TIMEZONES: Record<string, string> = {
@@ -143,7 +145,7 @@ function timezoneFromLongitude(lng?: number | null): string | null {
 }
 
 function tzParts(date: Date, timeZone: string) {
-  const parts = new Intl.DateTimeFormat('en-US', {
+  const parts = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
     timeZone,
     year: 'numeric',
     month: '2-digit',
@@ -207,7 +209,7 @@ export function hmInTimeZone(date: Date, timeZone: string): string {
 }
 
 export function timeZoneAbbr(timeZone: string, at: Date = new Date()): string {
-  const parts = new Intl.DateTimeFormat('en-US', {
+  const parts = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
     timeZone,
     timeZoneName: 'short',
   }).formatToParts(at);
@@ -250,7 +252,7 @@ export function formatTimeInTimeZone(
 ): string {
   const date = toValidDate(iso);
   if (!date) return '';
-  return date.toLocaleTimeString('en-US', { timeZone, ...options });
+  return date.toLocaleTimeString(DISPLAY_LOCALE, { timeZone, ...options });
 }
 
 export function minutesInTimeZone(iso: string | Date | null | undefined, timeZone: string): number {

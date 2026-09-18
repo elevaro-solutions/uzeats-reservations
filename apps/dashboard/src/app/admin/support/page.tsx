@@ -238,7 +238,7 @@ function SupportPageContent() {
               title: 'Updated',
               dataIndex: 'updatedAt',
               width: 170,
-              render: (v: string) => new Date(v).toLocaleString(),
+              render: (v: string) => new Date(v).toLocaleString('en-US'),
             },
           ]}
         />

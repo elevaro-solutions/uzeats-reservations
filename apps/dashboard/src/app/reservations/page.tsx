@@ -494,7 +494,7 @@ function ReservationsPageContent() {
               dataIndex: 'slotStart',
               width: 90,
               render: (v: string) =>
-                new Date(v).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+                new Date(v).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
             },
             {
               title: 'Guest',
@@ -585,7 +585,10 @@ function ReservationsPageContent() {
           <Row gutter={12}>
             <Col xs={24} sm={10}>
               <Form.Item name="date" label="Date" rules={[{ required: true }]} required>
-                <DatePicker style={{ width: '100%' }} />
+                <DatePicker
+                  style={{ width: '100%' }}
+                  disabledDate={(d) => d.isBefore(dayjs().startOf('day'))}
+                />
               </Form.Item>
             </Col>
             <Col xs={24} sm={8}>
@@ -739,6 +742,7 @@ function ReservationsPageContent() {
               <Form.Item name="date" label="Date" rules={[{ required: true }]} required>
                 <DatePicker
                   style={{ width: '100%' }}
+                  disabledDate={(d) => d.isBefore(dayjs().startOf('day'))}
                   onChange={() => editForm.setFieldsValue({ slotTime: undefined })}
                 />
               </Form.Item>

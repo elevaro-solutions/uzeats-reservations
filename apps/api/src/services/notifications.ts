@@ -336,7 +336,7 @@ export function startNotificationWorkers() {
           {
             type: 'reservation_reminder',
             title: `Reservation in ${hours}h`,
-            body: `Reminder: ${restaurant?.name ?? 'Restaurant'} at ${reservation.slotStart.toLocaleString()}`,
+            body: `Reminder: ${restaurant?.name ?? 'Restaurant'} at ${reservation.slotStart.toLocaleString('en-US')}`,
             data: { reservationId },
           },
           { smsRestaurantId: reservation.restaurantId.toString() },

@@ -19,7 +19,7 @@ const { Text, Title } = Typography;
 const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 
 function money(cents: number, currency = 'usd') {
-  return (cents / 100).toLocaleString(undefined, {
+  return (cents / 100).toLocaleString('en-US', {
     style: 'currency',
     currency: currency.toUpperCase(),
   });
@@ -255,7 +255,7 @@ export default function InvoicePayClient({ token }: { token: string }) {
           <Text type="secondary">
             Period {invoice.billingPeriod}
             {invoice.dueDate
-              ? ` · Due ${new Date(invoice.dueDate).toLocaleDateString()}`
+              ? ` · Due ${new Date(invoice.dueDate).toLocaleDateString('en-US')}`
               : ''}
           </Text>
           {(invoice.lines ?? []).map((line: any, idx: number) => (

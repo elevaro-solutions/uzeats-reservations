@@ -13,7 +13,7 @@ const COLORS: Record<string, string> = {
 };
 
 function money(cents: number) {
-  return (cents / 100).toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 }
 
 export default function AdminChurnPage() {
@@ -82,12 +82,12 @@ export default function AdminChurnPage() {
             {
               title: 'Trial ends',
               dataIndex: 'trialEndsAt',
-              render: (v: string | null) => (v ? new Date(v).toLocaleDateString() : '—'),
+              render: (v: string | null) => (v ? new Date(v).toLocaleDateString('en-US') : '—'),
             },
             {
               title: 'Cancelled',
               dataIndex: 'cancelledAt',
-              render: (v: string | null) => (v ? new Date(v).toLocaleDateString() : '—'),
+              render: (v: string | null) => (v ? new Date(v).toLocaleDateString('en-US') : '—'),
             },
           ]}
         />

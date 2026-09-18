@@ -1,9 +1,10 @@
 {
   "name": "reservations",
-  "version": "0.53.1",
+  "version": "0.54.0",
   "private": true,
   "scripts": {
-    "dev": "turbo run dev --parallel",
+    "dev": "turbo run dev --parallel --filter='!@reservations/mobile'",
+    "dev:mobile": "pnpm --filter @reservations/mobile dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",

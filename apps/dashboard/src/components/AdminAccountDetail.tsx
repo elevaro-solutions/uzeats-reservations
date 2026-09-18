@@ -88,7 +88,7 @@ const PLATFORM_ROLE_OPTIONS = [
 
 function formatDate(d?: string | null) {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString(undefined, {
+  return new Date(d).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -99,7 +99,7 @@ function formatDate(d?: string | null) {
 
 function money(cents?: number | null) {
   if (cents == null) return '—';
-  return (cents / 100).toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 }
 
 type UserRestaurantRow = {

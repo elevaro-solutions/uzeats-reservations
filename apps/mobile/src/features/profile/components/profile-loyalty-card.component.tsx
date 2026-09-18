@@ -75,7 +75,7 @@ export function ProfileLoyaltyCard({
               style={styles.copy}
             >
               <Typography weight="bold" size="text-lg">
-                {points.toLocaleString()}
+                {points.toLocaleString("en-US")}
               </Typography>
               <Typography size="text-sm" color="muted" weight="regular">
                 pts
@@ -99,7 +99,7 @@ export function ProfileLoyaltyCard({
               style={styles.copy}
             >
               <Typography weight="bold" size="text-lg">
-                {visits.toLocaleString()}
+                {visits.toLocaleString("en-US")}
               </Typography>
               <Typography size="text-sm" color="muted" weight="regular">
                 visits

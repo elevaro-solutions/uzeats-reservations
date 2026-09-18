@@ -182,7 +182,7 @@ export default function IntegrationsPage() {
               {
                 title: 'Last used',
                 dataIndex: 'lastUsedAt',
-                render: (v: string) => (v ? new Date(v).toLocaleString() : '—'),
+                render: (v: string) => (v ? new Date(v).toLocaleString('en-US') : '—'),
               },
               {
                 title: 'Enabled',

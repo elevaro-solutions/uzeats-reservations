@@ -45,7 +45,7 @@ function statusLabel(status: string) {
 }
 
 function money(cents: number, currency = 'usd') {
-  return (cents / 100).toLocaleString(undefined, {
+  return (cents / 100).toLocaleString('en-US', {
     style: 'currency',
     currency: currency.toUpperCase(),
   });
@@ -66,7 +66,7 @@ function downloadBase64File(filename: string, content: string, mimeType: string)
 
 function fmtDate(value?: string | null) {
   if (!value) return '—';
-  return new Date(value).toLocaleDateString();
+  return new Date(value).toLocaleDateString('en-US');
 }
 
 export default function AdminInvoiceDetailPage() {

@@ -1,7 +1,7 @@
 import type { RestaurantInfo, AvailabilitySlot, WidgetConfig, WidgetTheme } from './api';
 import { fetchRestaurant, fetchAvailability } from './api';
 import { getActivePalette } from '@reservations/ui/palettes';
-import { LOYALTY, RESTAURANT_LOYALTY, depositPointsFromCents, buildRestaurantBookingPath } from '@reservations/shared';
+import { LOYALTY, RESTAURANT_LOYALTY, depositPointsFromCents, buildRestaurantBookingPath, formatUsTime } from '@reservations/shared';
 
 // ── Theme ────────────────────────────────────────────────────────────
 
@@ -56,8 +56,7 @@ function h<K extends keyof HTMLElementTagNameMap>(
 }
 
 function formatTime(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return formatUsTime(iso);
 }
 
 function todayISO(): string {
@@ -232,6 +231,7 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
     const dateInput = h('input', {
       className: 'rt-date-input',
       type: 'date',
+      lang: 'en-US',
     }) as HTMLInputElement;
     dateInput.value = state.date;
     dateInput.min = todayISO();

@@ -362,6 +362,10 @@ type AdminManageRestaurantProps = {
   onSaved?: (restaurant: AdminRestaurantRecord) => void;
   /** modal (list Edit), drawer (preview), or panel (inline on detail page) */
   presentation?: 'modal' | 'drawer' | 'panel';
+  /** Controlled nested tab (details / profile / package / team). */
+  editTab?: string;
+  onEditTabChange?: (tab: string) => void;
+  hiddenTabs?: string[];
 };
 
 export function AdminManageRestaurant({
@@ -370,8 +374,16 @@ export function AdminManageRestaurant({
   onClose,
   onSaved,
   presentation = 'modal',
+  editTab: editTabProp,
+  onEditTabChange,
+  hiddenTabs = [],
 }: AdminManageRestaurantProps) {
-  const [editTab, setEditTab] = useState('details');
+  const [internalTab, setInternalTab] = useState('details');
+  const editTab = editTabProp ?? internalTab;
+  const setEditTab = (next: string) => {
+    onEditTabChange?.(next);
+    if (editTabProp == null) setInternalTab(next);
+  };
   const [photos, setPhotos] = useState<string[]>([]);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<string>();
@@ -424,8 +436,12 @@ export function AdminManageRestaurant({
     }));
 
   useEffect(() => {
+    if (!active || !restaurant || editTabProp != null) return;
+    setInternalTab('details');
+  }, [active, restaurant?.id, editTabProp]);
+
+  useEffect(() => {
     if (!active || !restaurant) return;
-    setEditTab('details');
     setPhotos(restaurant.photos ?? []);
     setLogoUrl(restaurant.logoUrl ?? null);
     setSelectedPlan(restaurant.subscription?.plan);
@@ -610,7 +626,7 @@ export function AdminManageRestaurant({
 
   const body = (
     <Tabs
-      activeKey={editTab}
+      activeKey={hiddenTabs.includes(editTab) ? 'details' : editTab}
       onChange={setEditTab}
       items={[
         {
@@ -1004,7 +1020,7 @@ export function AdminManageRestaurant({
             </Space>
           ),
         },
-      ]}
+      ].filter((item) => !hiddenTabs.includes(item.key))}
     />
   );
 

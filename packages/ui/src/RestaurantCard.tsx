@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Card, Rate, Typography } from 'antd';
 import { EnvironmentOutlined, FireFilled, StarFilled } from '@ant-design/icons';
+import { formatUsTime } from '@reservations/shared';
 import { priceRangeLabel } from './theme';
 import { colors, radii, shadows, typography } from './tokens';
 import { DEFAULT_RESTAURANT_PHOTO, restaurantPhotoCandidates } from './restaurantPhoto';
@@ -233,7 +234,7 @@ export function RestaurantCard({
               onMouseEnter={(e) => (e.currentTarget.style.background = colors.brand[700])}
               onMouseLeave={(e) => (e.currentTarget.style.background = colors.brand[600])}
             >
-              {new Date(slot).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+              {formatUsTime(slot)}
             </button>
           ))}
         </div>

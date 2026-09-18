@@ -16,7 +16,7 @@ export function formatNotificationTime(iso: string): string {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d`;
 
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
@@ -27,7 +27,7 @@ export function formatNotificationDetailTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
 
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",

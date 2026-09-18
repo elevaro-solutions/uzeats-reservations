@@ -349,7 +349,7 @@ export default function ReservationsPage() {
                       </Space>
                       <Space orientation="vertical" size={0} style={{ display: 'flex', marginTop: 6 }}>
                         <Text style={{ color: colors.textSecondary }}>
-                          {new Date(r.slotStart).toLocaleString()} · {r.partySize} guests
+                          {new Date(r.slotStart).toLocaleString('en-US')} · {r.partySize} guests
                         </Text>
                         {r.occasion !== 'none' && (
                           <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>

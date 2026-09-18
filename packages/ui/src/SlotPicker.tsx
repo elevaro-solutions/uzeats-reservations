@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Typography } from 'antd';
-import { formatTimeInTimeZone, minutesInTimeZone } from '@reservations/shared';
+import { formatTimeInTimeZone, formatUsTime, minutesInTimeZone } from '@reservations/shared';
 import { colors, radii, shadows, typography } from './tokens';
 
 const { Text } = Typography;
@@ -68,10 +68,7 @@ function pickPopularSlots(
 
 function formatSlotLabel(time: string, timeZone?: string): string {
   if (timeZone) return formatTimeInTimeZone(time, timeZone);
-  return new Date(time).toLocaleTimeString([], {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  return formatUsTime(time);
 }
 
 function SlotButton({

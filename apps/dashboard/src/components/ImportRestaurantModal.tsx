@@ -362,7 +362,7 @@ export default function ImportRestaurantModal({
             </Descriptions.Item>
             <Descriptions.Item label="Rating">
               {preview.rating != null
-                ? `${preview.rating} ★ (${preview.reviewCount?.toLocaleString() ?? '?'} ratings)`
+                ? `${preview.rating} ★ (${preview.reviewCount?.toLocaleString('en-US') ?? '?'} ratings)`
                 : <Text type="secondary">Not found</Text>}
             </Descriptions.Item>
             <Descriptions.Item label="Address">

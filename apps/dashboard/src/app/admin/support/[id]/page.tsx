@@ -203,7 +203,7 @@ export default function SupportTicketDetailPage() {
         <div>
           <div>{formatEventLabel(event)}</div>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            {personLabel(event.actor)} · {new Date(event.createdAt).toLocaleString()}
+            {personLabel(event.actor)} · {new Date(event.createdAt).toLocaleString('en-US')}
           </Typography.Text>
         </div>
       ),
@@ -221,7 +221,7 @@ export default function SupportTicketDetailPage() {
           title={ticket?.subject ?? 'Support ticket'}
           subtitle={
             ticket
-              ? `${ticket.category} · Created ${new Date(ticket.createdAt).toLocaleString()}`
+              ? `${ticket.category} · Created ${new Date(ticket.createdAt).toLocaleString('en-US')}`
               : 'Loading…'
           }
           extra={
@@ -364,9 +364,9 @@ export default function SupportTicketDetailPage() {
                     >
                       <div style={{ whiteSpace: 'pre-wrap' }}>{n.body}</div>
                       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                        {personLabel(n.author)} · {new Date(n.createdAt).toLocaleString()}
+                        {personLabel(n.author)} · {new Date(n.createdAt).toLocaleString('en-US')}
                         {n.updatedAt
-                          ? ` · edited ${new Date(n.updatedAt).toLocaleString()}`
+                          ? ` · edited ${new Date(n.updatedAt).toLocaleString('en-US')}`
                           : ''}
                       </Typography.Text>
                     </Card>
@@ -466,7 +466,7 @@ export default function SupportTicketDetailPage() {
                         <List.Item.Meta
                           avatar={<FileOutlined />}
                           title={item.filename}
-                          description={`${item.contentType}${formatBytes(item.size) ? ` · ${formatBytes(item.size)}` : ''} · ${personLabel(item.uploadedBy)} · ${new Date(item.createdAt).toLocaleString()}`}
+                          description={`${item.contentType}${formatBytes(item.size) ? ` · ${formatBytes(item.size)}` : ''} · ${personLabel(item.uploadedBy)} · ${new Date(item.createdAt).toLocaleString('en-US')}`}
                         />
                       </List.Item>
                     );
@@ -524,11 +524,11 @@ export default function SupportTicketDetailPage() {
                   <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                     First response:{' '}
                     {ticket.firstResponseAt
-                      ? new Date(ticket.firstResponseAt).toLocaleString()
+                      ? new Date(ticket.firstResponseAt).toLocaleString('en-US')
                       : '—'}
                     <br />
                     Resolved:{' '}
-                    {ticket.resolvedAt ? new Date(ticket.resolvedAt).toLocaleString() : '—'}
+                    {ticket.resolvedAt ? new Date(ticket.resolvedAt).toLocaleString('en-US') : '—'}
                   </Typography.Text>
                 </Form>
               )}

@@ -1,5 +1,11 @@
 # GraphQL — Learnings & Observations
 
+## [2026-09-18] Apollo 4 `loading` is true during polls
+- `notifyOnNetworkStatusChange` defaults to `true`. `loading` is true for any in-flight request, including `pollInterval` (`NetworkStatus.poll`).
+- Binding that to Ant Design `Card loading` (Floor ops) swaps the canvas for a skeleton every poll.
+- Use `networkStatus === NetworkStatus.loading` for first-paint skeletons; keep poll data on screen. Skip polls when `document.hidden`.
+- Why it matters: Live ops pages should poll silently. Do not pass `loading` straight into Card/Table if the query polls.
+
 ## [2026-09-16] Offline launch vs mid-request 401 aligned
 - `refreshMe` keeps tokens and sets `sessionOffline` on network refresh failure. Apollo `errorLink` on `UNAUTHENTICATED` clears tokens only when refresh fails with `reason !== "network"` (invalid/rejected refresh), matching cold-start behavior.
 - Why it matters: Flaky networks during GraphQL calls no longer wipe a still-valid session.

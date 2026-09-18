@@ -1,5 +1,14 @@
 # Booking — Learnings & Observations
 
+## [2026-09-18] Widget theme lives with the embed block
+- Partner theme (color, button text, reviews) is edited on **Booking widget** and in the Settings booking-widget card, next to the share/embed script — not under Settings → Operations.
+- Why it matters: Don’t send owners to Save preferences for button color; the widget card has its own Save widget theme.
+
+## [2026-09-18] Past dates are blocked; display locale is US
+- Diner DatePickers (web restaurant card, discovery, edit/experience booking) and partner create/edit reservation pickers `disabledDate` past days. Staff list/report date filters still allow history. URL `?date=` in the past is clamped to today.
+- Guest-facing times use `en-US` 12-hour (`h:mm A` / `formatUsTime`). Ant Design `ConfigProvider` locale is `en_US` so calendars render `M/D/YYYY`, not the browser locale.
+- Why it matters: A diner in a non-US locale used to see 24-hour times and DD.MM.YYYY, and could pick yesterday on the restaurant calendar.
+
 ## [2026-09-18] `BOOKING_RESTAURANT` tables must select `id`
 - Apollo `Table` typePolicy uses `keyFields: ["id"]`. Selecting `tables { maxCapacity active }` without `id` throws “Missing field 'id'” as soon as Book navigates to the booking screen (unrelated to deposit).
 - Why it matters: Any `Table` selection under a keyed typePolicy must include `id`.

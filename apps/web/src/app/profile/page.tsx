@@ -350,7 +350,7 @@ export default function ProfilePage() {
           )}
           {user?.loyaltyPointsExpireAt && (
             <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
-              Points expire: {new Date(user.loyaltyPointsExpireAt).toLocaleDateString()}
+              Points expire: {new Date(user.loyaltyPointsExpireAt).toLocaleDateString('en-US')}
             </Text>
           )}
         </div>
@@ -418,7 +418,7 @@ export default function ProfilePage() {
                     {item.description}
                   </Text>
                   <Text type="secondary" style={{ display: 'block', marginTop: 2, fontSize: 13 }}>
-                    {new Date(item.createdAt).toLocaleString()}
+                    {new Date(item.createdAt).toLocaleString('en-US')}
                   </Text>
                 </div>
               ))}
@@ -539,7 +539,7 @@ export default function ProfilePage() {
               {item.points} · {item.description}
             </Text>
             <Text type="secondary" style={{ display: 'block', marginTop: 2, fontSize: 13 }}>
-              {new Date(item.createdAt).toLocaleString()}
+              {new Date(item.createdAt).toLocaleString('en-US')}
             </Text>
           </div>
         ))}

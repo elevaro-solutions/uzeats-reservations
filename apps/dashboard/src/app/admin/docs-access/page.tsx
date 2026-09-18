@@ -91,7 +91,7 @@ function DocsAccessPageContent() {
     {
       title: 'Requested',
       dataIndex: 'createdAt',
-      render: (v: string) => new Date(v).toLocaleString(),
+      render: (v: string) => new Date(v).toLocaleString('en-US'),
     },
     {
       title: 'Actions',

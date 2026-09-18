@@ -4,7 +4,7 @@ Drop-in booking widget that lets diners reserve a table directly from your resta
 
 ## Quick Start
 
-Add this snippet anywhere in your HTML (or copy the generated code from **Partner Hub → Settings → Booking widget**):
+Add this snippet anywhere in your HTML (or copy the generated code from **Partner Hub → Booking widget**):
 
 ```html
 <script

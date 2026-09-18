@@ -163,6 +163,8 @@ export function DateTimeField({
             value={draftDate}
             mode={mode}
             display="spinner"
+            locale="en-US"
+            is24Hour={false}
             minimumDate={minimumDate}
             onChange={handleDraftChange}
             themeVariant="light"
@@ -176,6 +178,8 @@ export function DateTimeField({
           value={androidPickerValue}
           mode={mode}
           display="default"
+          locale="en-US"
+          is24Hour={false}
           minimumDate={minimumDate}
           onChange={handleAndroidChange}
         />

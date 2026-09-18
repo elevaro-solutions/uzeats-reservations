@@ -49,7 +49,8 @@ pnpm install
 pnpm db:up
 pnpm --filter @reservations/shared build
 pnpm seed
-pnpm dev                              # all apps
+pnpm dev                              # web apps (excludes Expo)
+pnpm dev:mobile                       # Expo diner app
 pnpm --filter @reservations/api dev   # API only
 pnpm --filter @reservations/docs dev  # docs on :3002
 pnpm typecheck

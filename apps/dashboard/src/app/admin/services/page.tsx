@@ -46,7 +46,7 @@ type ServiceForm = {
 };
 
 function money(cents: number) {
-  return (cents / 100).toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 }
 
 function AdminServicesContent() {

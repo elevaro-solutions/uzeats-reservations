@@ -27,6 +27,15 @@ export type DiscoveryFilterState = {
 
 const DEFAULT_DATE = dayjs().add(1, 'day').format('YYYY-MM-DD');
 
+function todayIso(): string {
+  return dayjs().format('YYYY-MM-DD');
+}
+
+function clampBookingDate(iso: string): string {
+  const today = todayIso();
+  return iso < today ? today : iso;
+}
+
 function parseList(value: string | null): string[] {
   if (!value) return [];
   return value.split(',').map((v) => v.trim()).filter(Boolean);
@@ -80,7 +89,7 @@ export function discoveryFiltersFromSearchParams(
     lng: parseNumber(params.get('lng')),
     locationLabel: params.get('loc') ?? undefined,
     nearMe: params.get('near') === '1',
-    date: params.get('date') ?? DEFAULT_DATE,
+    date: clampBookingDate(params.get('date') ?? DEFAULT_DATE),
     partySize: parseNumber(params.get('party')) ?? 2,
     view,
   };

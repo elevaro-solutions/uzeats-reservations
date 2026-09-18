@@ -105,6 +105,10 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## reservations
 
+### [2026-09-18] Display locale is US English
+- Reservation when/date/time helpers and API notification bodies format with `en-US` (12-hour). Shared helpers: `formatUsDate` / `formatUsTime` / `formatUsDateTime` (`DISPLAY_LOCALE`).
+- Why it matters: Don’t use device locale for slot labels; a Uzbekistan/EU browser would show 24-hour and day-first dates.
+
 ### [2026-09-15] Overflow menu must not nest sheet inside backdrop Pressable
 - `ReservationOverflowMenu` used `<Pressable backdrop><Pressable sheet/></Pressable>`. Opening from the header “More actions” button made the sheet appear to do nothing: the same tap dismissed the Modal via the backdrop. Use `BottomSheet` (sibling backdrop + sheet), same as cancel/billing sheets.
 - Why it matters: Any custom Modal that wraps content in the dismiss Pressable will instant-close on iOS/Android when opened from a press.

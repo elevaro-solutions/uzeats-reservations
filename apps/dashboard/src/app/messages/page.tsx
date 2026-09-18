@@ -23,7 +23,7 @@ const { Title, Text, Link } = Typography;
 
 function formatSlot(iso?: string) {
   if (!iso) return null;
-  return new Date(iso).toLocaleString([], {
+  return new Date(iso).toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
@@ -402,7 +402,7 @@ function MessagesContent() {
                     >
                       <div>{m.body}</div>
                       <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>
-                        {new Date(m.createdAt).toLocaleTimeString([], {
+                        {new Date(m.createdAt).toLocaleTimeString('en-US', {
                           hour: '2-digit',
                           minute: '2-digit',
                         })}

@@ -471,7 +471,7 @@ export async function createReservation(input: {
     await notifyRestaurantStaff(input.restaurantId, {
       type: 'new_reservation',
       title: 'New reservation',
-      body: `Party of ${input.partySize} at ${input.slotStart.toLocaleString()} — ${restaurant.name}`,
+      body: `Party of ${input.partySize} at ${input.slotStart.toLocaleString('en-US')} — ${restaurant.name}`,
       data: { reservationId: reservation._id.toString() },
     });
   }
@@ -853,7 +853,7 @@ export async function confirmDeposit(paymentIntentId: string) {
     await notifyRestaurantStaff(reservation.restaurantId.toString(), {
       type: 'new_reservation',
       title: 'New reservation',
-      body: `Party of ${reservation.partySize} at ${reservation.slotStart.toLocaleString()}${
+      body: `Party of ${reservation.partySize} at ${reservation.slotStart.toLocaleString('en-US')}${
         restaurant ? ` — ${restaurant.name}` : ''
       }`,
       data: { reservationId: reservation._id.toString() },
@@ -953,7 +953,7 @@ export async function createOwnerReservation(input: {
     await notifyRestaurantStaff(input.restaurantId, {
       type: 'new_reservation',
       title: 'New reservation',
-      body: `Party of ${input.partySize} at ${input.slotStart.toLocaleString()} — ${restaurant.name}`,
+      body: `Party of ${input.partySize} at ${input.slotStart.toLocaleString('en-US')} — ${restaurant.name}`,
       data: { reservationId: reservation._id.toString() },
     });
   }
@@ -1074,7 +1074,7 @@ export async function updateReservationDetails(
   await reservation.save();
 
   const restaurantName = restaurant?.name ?? 'the restaurant';
-  const when = reservation.slotStart.toLocaleString();
+  const when = reservation.slotStart.toLocaleString('en-US');
   if (isDiner) {
     await notifyRestaurantStaff(reservation.restaurantId.toString(), {
       type: 'reservation_updated',

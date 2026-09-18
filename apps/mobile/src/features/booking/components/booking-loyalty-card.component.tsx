@@ -119,7 +119,7 @@ export function BookingLoyaltyCard({
         >
           <Flex direction="row" alignItems="baseline" gap={0.5}>
             <Typography size="display-xs" weight="bold">
-              {balance.toLocaleString()}
+              {balance.toLocaleString("en-US")}
             </Typography>
             <Typography size="text-sm" weight="regular" color="secondary">
               pts
@@ -143,7 +143,7 @@ export function BookingLoyaltyCard({
               </>
             ) : remainingToUnlock > 0 ? (
               <>
-                {remainingToUnlock.toLocaleString()} points to{" "}
+                {remainingToUnlock.toLocaleString("en-US")} points to{" "}
                 <Typography size="text-xs" weight="bold">
                   unlock
                 </Typography>
@@ -224,7 +224,7 @@ export function BookingLoyaltyCard({
                 const label =
                   preset === 0
                     ? "None"
-                    : `${preset.toLocaleString()} (−${formatCents(discount)})`;
+                    : `${preset.toLocaleString("en-US")} (−${formatCents(discount)})`;
                 return (
                   <Chip
                     key={preset}

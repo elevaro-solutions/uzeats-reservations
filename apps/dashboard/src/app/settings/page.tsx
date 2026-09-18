@@ -35,6 +35,7 @@ import {
 import { CUISINES } from '@reservations/shared';
 import { AddressAutocomplete, PageHeader, PhoneInput, colors, radii, spacing, usPhoneRules } from '@reservations/ui';
 import { BookingSharePanel } from '@/components/BookingSharePanel';
+import { WidgetThemeEditor } from '@/components/WidgetThemeEditor';
 import { RestaurantSlugPanel } from '@/components/RestaurantSlugPanel';
 import { useAuth } from '@/lib/auth';
 import { addressSelectionToFields } from '@/lib/address';
@@ -98,7 +99,7 @@ const TOOL_LINKS = [
   {
     href: '/booking-widget',
     title: 'Booking widget',
-    description: 'Copy your booking link and website embed script',
+    description: 'Booking link, website embed script, and button theme',
     icon: <CodeOutlined />,
   },
   {
@@ -155,10 +156,6 @@ export default function SettingsPage() {
   });
   const [updateSettings, { loading: savingSettings }] = useMutation(UPDATE_RESTAURANT_SETTINGS);
 
-  const previewColor = Form.useWatch('primaryColor', settingsForm);
-  const previewText = Form.useWatch('buttonText', settingsForm);
-  const previewShowReviews = Form.useWatch('showReviews', settingsForm);
-
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
@@ -194,15 +191,6 @@ export default function SettingsPage() {
 
   const settings = settingsData?.restaurant;
 
-  const widgetTheme = useMemo(
-    () => ({
-      primaryColor: previewColor || settings?.widgetTheme?.primaryColor,
-      buttonText: previewText || settings?.widgetTheme?.buttonText,
-      showReviews: previewShowReviews ?? settings?.widgetTheme?.showReviews,
-    }),
-    [previewColor, previewText, previewShowReviews, settings?.widgetTheme],
-  );
-
   useEffect(() => {
     if (settings) {
       settingsForm.setFieldsValue({
@@ -212,9 +200,6 @@ export default function SettingsPage() {
         reservationsVisible: settings.reservationsVisible ?? true,
         posEnabled: settings.posEnabled ?? false,
         spendAlertDollars: (settings.spendAlertThresholdCents ?? 0) / 100,
-        primaryColor: settings.widgetTheme?.primaryColor ?? colors.brand[600],
-        buttonText: settings.widgetTheme?.buttonText ?? 'Reserve a table',
-        showReviews: settings.widgetTheme?.showReviews ?? true,
       });
     }
   }, [settings, settingsForm]);
@@ -226,9 +211,6 @@ export default function SettingsPage() {
     reservationsEnabled?: boolean;
     reservationsVisible?: boolean;
     posEnabled?: boolean;
-    primaryColor?: string;
-    buttonText?: string;
-    showReviews?: boolean;
   }) => {
     if (!restaurantId) return;
     try {
@@ -241,11 +223,6 @@ export default function SettingsPage() {
           reservationsEnabled: values.reservationsEnabled ?? true,
           reservationsVisible: values.reservationsVisible ?? true,
           posEnabled: values.posEnabled ?? false,
-          widgetTheme: {
-            primaryColor: values.primaryColor,
-            buttonText: values.buttonText,
-            showReviews: values.showReviews ?? false,
-          },
         },
       });
       message.success('Settings updated');
@@ -762,14 +739,24 @@ export default function SettingsPage() {
             style={{ borderRadius: radii.lg }}
           >
             <FormSection
-              title="Booking link & website embed"
-              description="Share your booking page or copy the embed script for your website."
+              title="Booking widget"
+              description="Theme for the embeddable reserve button on your website. Share your booking page or copy the embed script below."
             >
-              <BookingSharePanel
-                restaurant={restaurant}
-                widgetTheme={widgetTheme}
-                defaultEmbedMode="inline"
-              />
+              <WidgetThemeEditor
+                restaurantId={restaurant.id}
+                initialTheme={settings?.widgetTheme}
+              >
+                {(theme) => (
+                  <>
+                    <Divider style={{ margin: `${spacing.md}px 0 ${spacing.lg}px` }} />
+                    <BookingSharePanel
+                      restaurant={restaurant}
+                      widgetTheme={theme}
+                      defaultEmbedMode="inline"
+                    />
+                  </>
+                )}
+              </WidgetThemeEditor>
             </FormSection>
           </Card>
 
@@ -875,80 +862,6 @@ export default function SettingsPage() {
                       extra="0 disables alerts"
                     >
                       <InputNumber min={0} step={10} precision={2} style={{ width: '100%' }} />
-                    </Form.Item>
-                  </Col>
-                </Row>
-              </FormSection>
-
-              <Divider style={{ margin: `${spacing.md}px 0 ${spacing.lg}px` }} />
-
-              <FormSection
-                title="Booking widget"
-                description="Theme for the embeddable reserve button on your website."
-              >
-                <Row gutter={[24, 8]} align="bottom">
-                  <Col xs={12} md={6}>
-                    <Form.Item
-                      name="primaryColor"
-                      label="Primary color"
-                      tooltip={tips.primaryColor}
-                      rules={[
-                        {
-                          pattern: /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/,
-                          message: 'Enter a hex color like #0b3d2e',
-                        },
-                      ]}
-                    >
-                      <Input
-                        placeholder={colors.brand[600]}
-                        addonBefore={
-                          <span
-                            style={{
-                              display: 'inline-block',
-                              width: 14,
-                              height: 14,
-                              borderRadius: 4,
-                              background: previewColor || colors.brand[600],
-                              border: `1px solid ${colors.border}`,
-                            }}
-                          />
-                        }
-                      />
-                    </Form.Item>
-                  </Col>
-                  <Col xs={12} md={8}>
-                    <Form.Item name="buttonText" label="Button text" tooltip={tips.buttonText}>
-                      <Input placeholder="Reserve a table" />
-                    </Form.Item>
-                  </Col>
-                  <Col xs={12} md={4}>
-                    <Form.Item
-                      name="showReviews"
-                      label="Show reviews"
-                      tooltip={tips.showReviews}
-                      valuePropName="checked"
-                    >
-                      <Switch />
-                    </Form.Item>
-                  </Col>
-                  <Col xs={12} md={6}>
-                    <Form.Item label="Preview">
-                      <Space>
-                        <Button
-                          style={{
-                            background: previewColor || colors.brand[600],
-                            borderColor: previewColor || colors.brand[600],
-                            color: '#fff',
-                          }}
-                        >
-                          {previewText || 'Reserve a table'}
-                        </Button>
-                        {previewShowReviews && (
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            ★ 4.8
-                          </Text>
-                        )}
-                      </Space>
                     </Form.Item>
                   </Col>
                 </Row>

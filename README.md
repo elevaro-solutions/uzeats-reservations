@@ -50,14 +50,14 @@ pnpm --filter @reservations/shared build
 pnpm seed
 # Clear demo data only (keeps admin accounts): pnpm seed -- --clear
 
-# 6. Run all apps
+# 6. Run web apps (API, diner web, dashboard, docs)
 pnpm dev
 ```
 
 - Diner web: http://localhost:3000  
 - Partner dashboard: http://localhost:3001  
 - GraphQL: http://localhost:4000/graphql  
-- Mobile: `pnpm --filter @reservations/mobile dev`
+- Mobile: `pnpm dev:mobile`
 - Docs: http://localhost:3002 (`pnpm --filter @reservations/docs dev`)
 
 ## Demo accounts
@@ -91,11 +91,11 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Auth: email/password (forgot/reset on web and partner dashboard), Google OAuth, Twilio phone OTP; browser sessions use HttpOnly cookies; mobile diner app uses SecureStore JWTs with Google Sign-In
 - Partner Settings hub, notifications prefs, **Reviews** (reply, Gemini draft, add diner photos to gallery), multi-restaurant selector, self-registration with Stripe card collection, plan change preview (prorated upgrades / scheduled downgrades), onboarding checklist, **profile page**, **public URL slug change requests**, toggles to accept online reservations or hide the booking widget, and **DoorDash/Uber Eats import** (saved `.mhtml`/`.html` page, including menu photos) from Settings, profile, register, and admin restaurant create
 - **Email branding** — customizable email templates per restaurant
-- Shareable booking links (`/restaurants/:slug`) and **Booking widget** page for embed script copy
+- Shareable booking links (`/restaurants/:slug`) and **Booking widget** page for embed script copy and theme (color, button text, reviews)
 - Owner phone / walk-in bookings, **diner and partner reservation edit**, reservation-scoped messaging, and **individual reservation detail pages** (upcoming / past / deposit filters) plus diner **billing history** (`/billing`); bookings can attach **experiences** and private dining spaces
 - Partner **My restaurants** multi-location overview alongside the home dashboard
 - Enhanced restaurant detail pages with **logo**, photo gallery, reviews, FAQ, terms, about, **popular dishes** (up to 10), weekly hours under open/closed status, a Google Maps address link, and a dedicated **experience booking** flow; hours and bookable slots use the restaurant’s local timezone
-- Platform admin: **diners / restaurant owners / staff** (separate list + detail pages; create, edit, invite, venue assignment, impersonation, password reset) plus platform users, restaurants (list + **detail manage** for menu/reservations/invoices/package/team/tables/shifts, **bulk status/delete**, **public URL slugs**), **URL slug requests**, **discovery taxonomy**, **services** catalog, invoices (**automatic monthly** plan + cover fees, manual create, branded PDF, email, public Stripe pay links), exports (CSV/JSON/PDF), revenue, support, moderation, **TipTap email templates** with preview, config, annual billing discounts, **docs access** requests, and richer audit log filters
+- Platform admin: **diners / restaurant owners / staff** (separate list + detail pages; create, edit, invite, venue assignment, impersonation, password reset) plus platform users, restaurants (list + **detail manage** for menu/reservations/reviews/invoices/package/booking widget/team/tables/shifts, **bulk status/delete**, **public URL slugs**), **URL slug requests**, **discovery taxonomy**, **services** catalog, invoices (**automatic monthly** plan + cover fees, manual create, branded PDF, email, public Stripe pay links), exports (CSV/JSON/PDF), revenue, support, moderation, **TipTap email templates** with preview, config, annual billing discounts, **docs access** requests, and richer audit log filters
 - Embeddable booking widget with per-restaurant theme
 - Public contact form, cookie consent, and legal pages (privacy, terms, SMS messaging/opt-in, cookies)
 - Super-admin developer page for deployment env-var health (secret values masked)
@@ -135,7 +135,8 @@ Full steps: [`docs/deploy.md`](./docs/deploy.md).
 ## Project scripts
 
 ```bash
-pnpm dev          # turbo: all apps
+pnpm dev          # turbo: web apps (excludes Expo)
+pnpm dev:mobile   # Expo diner app
 pnpm build        # turbo build
 pnpm db:up        # docker compose up (Mongo single-node replica set for transactions)
 pnpm db:down      # docker compose down

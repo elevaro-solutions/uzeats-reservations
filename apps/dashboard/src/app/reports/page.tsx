@@ -104,7 +104,7 @@ function PreShiftTab({ restaurantId }: { restaurantId?: string }) {
                   <Card key={e.reservationId} size="small">
                     <Space orientation="vertical" size={4} style={{ width: '100%' }}>
                       <Space wrap>
-                        <Text strong>{dayjs(e.slotStart).format('HH:mm')}</Text>
+                        <Text strong>{dayjs(e.slotStart).format('h:mm A')}</Text>
                         <Text strong>{e.guestName}</Text>
                         <Tag>Party of {e.partySize}</Tag>
                         {e.vipStatus === 'vip' && <Tag color="gold">VIP</Tag>}

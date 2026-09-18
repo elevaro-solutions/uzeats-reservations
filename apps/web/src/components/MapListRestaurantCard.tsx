@@ -88,7 +88,7 @@ export function MapListRestaurantCard({
           <div className="rt-map-list-card__rating">
             <Rate disabled allowHalf value={rating} style={{ fontSize: 12 }} />
             <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-              {rating.toFixed(1)} ({reviewCount.toLocaleString()})
+              {rating.toFixed(1)} ({reviewCount.toLocaleString('en-US')})
             </Text>
           </div>
         )}

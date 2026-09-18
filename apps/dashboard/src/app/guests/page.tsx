@@ -210,7 +210,7 @@ function GuestsPageContent() {
             {
               title: 'Last visit',
               dataIndex: 'lastVisitDate',
-              render: (v: string) => (v ? new Date(v).toLocaleDateString() : '—'),
+              render: (v: string) => (v ? new Date(v).toLocaleDateString('en-US') : '—'),
             },
           ]}
         />

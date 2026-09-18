@@ -252,7 +252,7 @@ function GiftCardsTab({ restaurantId }: { restaurantId?: string }) {
           {
             title: 'Expires',
             dataIndex: 'expiresAt',
-            render: (v: string) => (v ? new Date(v).toLocaleDateString() : '—'),
+            render: (v: string) => (v ? new Date(v).toLocaleDateString('en-US') : '—'),
           },
           {
             title: 'Active',
@@ -275,7 +275,7 @@ function GiftCardsTab({ restaurantId }: { restaurantId?: string }) {
           {
             title: 'Issued',
             dataIndex: 'createdAt',
-            render: (v: string) => new Date(v).toLocaleDateString(),
+            render: (v: string) => new Date(v).toLocaleDateString('en-US'),
           },
         ]}
       />
@@ -762,7 +762,7 @@ function FeaturedTab({ restaurantId }: { restaurantId?: string }) {
             />
             {restaurant?.featured && restaurant?.featuredUntil && (
               <Tag color="gold" icon={<StarOutlined />}>
-                Featured until {new Date(restaurant.featuredUntil).toLocaleDateString()}
+                Featured until {new Date(restaurant.featuredUntil).toLocaleDateString('en-US')}
               </Tag>
             )}
           </Space>

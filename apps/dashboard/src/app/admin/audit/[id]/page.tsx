@@ -77,7 +77,7 @@ export default function AdminAuditDetailPage() {
             title={log?.action ?? 'Audit log'}
             subtitle={
               log
-                ? `${log.resource}${log.resourceId ? ` · ${log.resourceId}` : ''} · ${new Date(log.createdAt).toLocaleString()}`
+                ? `${log.resource}${log.resourceId ? ` · ${log.resourceId}` : ''} · ${new Date(log.createdAt).toLocaleString('en-US')}`
                 : 'Loading…'
             }
             extra={
@@ -99,7 +99,7 @@ export default function AdminAuditDetailPage() {
                 </Text>
               </Descriptions.Item>
               <Descriptions.Item label="Timestamp">
-                {new Date(log.createdAt).toLocaleString()}
+                {new Date(log.createdAt).toLocaleString('en-US')}
               </Descriptions.Item>
               <Descriptions.Item label="IP">{log.ip || '—'}</Descriptions.Item>
               <Descriptions.Item label="Action">

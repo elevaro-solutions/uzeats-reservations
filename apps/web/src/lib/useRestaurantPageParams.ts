@@ -30,6 +30,11 @@ function defaultBookingDate(): Dayjs {
   return dayjs().add(1, 'day');
 }
 
+function clampBookingDate(date: Dayjs): Dayjs {
+  const today = dayjs().startOf('day');
+  return date.isBefore(today) ? today : date;
+}
+
 export function useRestaurantPageParams() {
   const router = useRouter();
   const pathname = usePathname();
@@ -48,7 +53,7 @@ export function useRestaurantPageParams() {
     const slotParam = searchParams.get('slot');
     const promoParam = searchParams.get('promo');
     return {
-      date: dateParam ? dayjs(dateParam) : defaultBookingDate(),
+      date: dateParam ? clampBookingDate(dayjs(dateParam)) : defaultBookingDate(),
       partySize: Number(partyParam ?? DEFAULT_PARTY) || DEFAULT_PARTY,
       selectedSlot: slotParam,
       promoCode: promoParam?.toUpperCase() ?? '',

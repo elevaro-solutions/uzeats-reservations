@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html component="RootLayout" lang="en" className={sans.variable} suppressHydrationWarning>
+    <html component="RootLayout" lang="en-US" className={sans.variable} suppressHydrationWarning>
       <head>
         <PaletteStyles />
       </head>

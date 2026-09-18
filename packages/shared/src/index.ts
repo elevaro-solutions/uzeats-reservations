@@ -16,3 +16,4 @@ export * from './promotions.js';
 export * from './menu.js';
 export * from './envVars.js';
 export * from './timezone.js';
+export * from './displayLocale.js';

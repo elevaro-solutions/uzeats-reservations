@@ -5,8 +5,13 @@ import { ApolloProvider } from '@apollo/client/react';
 import { setContext } from '@apollo/client/link/context';
 import { onError } from '@apollo/client/link/error';
 import { ConfigProvider, type ThemeConfig } from 'antd';
+import enUS from 'antd/locale/en_US';
+import dayjs from 'dayjs';
+import 'dayjs/locale/en';
 import { theme } from '@reservations/ui';
 import { AuthProvider } from '@/lib/auth';
+
+dayjs.locale('en');
 
 const API_URI = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/graphql';
 
@@ -85,7 +90,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <div component="Providers" style={{ display: 'contents' }}><ApolloProvider client={client}>
       {/* shared theme is typed against antd v5; structurally compatible with v6 */}
-      <ConfigProvider theme={theme as ThemeConfig}>
+      <ConfigProvider locale={enUS} theme={theme as ThemeConfig}>
         <AuthProvider>{children}</AuthProvider>
       </ConfigProvider>
     </ApolloProvider></div>

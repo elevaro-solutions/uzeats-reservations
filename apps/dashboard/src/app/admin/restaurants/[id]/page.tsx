@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
@@ -43,7 +43,10 @@ import {
 } from '@/components/AdminManageRestaurant';
 import { AdminRestaurantInvoicesPanel } from '@/components/AdminRestaurantInvoicesPanel';
 import { AdminRestaurantMenuPanel } from '@/components/AdminRestaurantMenuPanel';
+import { AdminRestaurantPackagePanel } from '@/components/AdminRestaurantPackagePanel';
 import { AdminRestaurantReservationsPanel } from '@/components/AdminRestaurantReservationsPanel';
+import { AdminRestaurantReviewsPanel } from '@/components/AdminRestaurantReviewsPanel';
+import { AdminRestaurantWidgetPanel } from '@/components/AdminRestaurantWidgetPanel';
 import {
   ADMIN_RESTAURANT,
   CREATE_SHIFT,
@@ -55,8 +58,27 @@ import {
   UPDATE_TABLE,
 } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
+import { useUrlTab } from '@/lib/useUrlTab';
 import { getPublicWebUrl } from '@/lib/webUrl';
 import { accountDetailPath } from '@/lib/adminAccounts';
+
+const DETAIL_TABS = [
+  'overview',
+  'manage',
+  'package',
+  'menu',
+  'reservations',
+  'reviews',
+  'widget',
+  'invoices',
+  'team',
+  'tables',
+  'shifts',
+  'preview',
+] as const;
+
+const MANAGE_SECTIONS = ['details', 'profile', 'team'] as const;
+const TAB_RESET_PARAMS = ['page', 'pageSize'];
 
 const { Text, Title } = Typography;
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -99,14 +121,26 @@ type RestaurantDetail = AdminRestaurantRecord & {
 
 function money(cents?: number | null) {
   if (cents == null) return '—';
-  return (cents / 100).toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 }
 
-export default function AdminRestaurantDetailPage() {
+function AdminRestaurantDetailContent() {
   const params = useParams();
   const id = String(params?.id ?? '');
   const { ready } = useRequireAdmin();
-  const [tab, setTab] = useState('overview');
+  const [tab, setTab] = useUrlTab({
+    defaultValue: 'overview',
+    allowed: DETAIL_TABS,
+    resetParams: TAB_RESET_PARAMS,
+  });
+  const [section, setSection] = useUrlTab({
+    param: 'section',
+    defaultValue: 'details',
+    allowed: MANAGE_SECTIONS,
+  });
+  const goToTab = (key: string) => {
+    setTab(key, key === 'manage' ? undefined : { section: undefined });
+  };
   const [previewKey, setPreviewKey] = useState(0);
   const [restaurantOverride, setRestaurantOverride] = useState<RestaurantDetail | null>(null);
 
@@ -234,9 +268,11 @@ export default function AdminRestaurantDetailPage() {
       <Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
         <PageHeader
           title="Restaurant"
-          extra={
+          back={
             <Link href="/admin/restaurants">
-              <Button icon={<ArrowLeftOutlined />}>Back to restaurants</Button>
+              <Button type="text" icon={<ArrowLeftOutlined />} style={{ paddingInline: 0, height: 'auto' }}>
+                Restaurants
+              </Button>
             </Link>
           }
         />
@@ -246,17 +282,25 @@ export default function AdminRestaurantDetailPage() {
   }
 
   return (
-    <div component="AdminRestaurantDetailPage" style={{ display: 'contents' }}>
+    <div component="AdminRestaurantDetailContent" style={{ display: 'contents' }}>
       <Space orientation="vertical" size={spacing.md} style={{ width: '100%' }}>
         <PageHeader
-          title={restaurant?.name ?? 'Restaurant'}
+          back={
+            <Link href="/admin/restaurants">
+              <Button type="text" icon={<ArrowLeftOutlined />} style={{ paddingInline: 0, height: 'auto' }}>
+                Restaurants
+              </Button>
+            </Link>
+          }
+          title={
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              {restaurant?.name ?? 'Restaurant'}
+              {restaurant ? <StatusTag status={restaurant.status} /> : null}
+            </span>
+          }
           subtitle="Super-admin hub — profile, package, team, menu, reservations, and invoices."
           extra={
             <Space wrap>
-              <Link href="/admin/restaurants">
-                <Button icon={<ArrowLeftOutlined />}>Back</Button>
-              </Link>
-              {restaurant ? <StatusTag status={restaurant.status} /> : null}
               {dinerUrl ? (
                 <Button
                   icon={<ExportOutlined />}
@@ -283,7 +327,7 @@ export default function AdminRestaurantDetailPage() {
         ) : restaurant ? (
           <Tabs
             activeKey={tab}
-            onChange={setTab}
+            onChange={goToTab}
             items={[
               {
                 key: 'overview',
@@ -402,15 +446,18 @@ export default function AdminRestaurantDetailPage() {
                     </Card>
 
                     <Space wrap>
-                      <Button type="primary" onClick={() => setTab('manage')}>
-                        Edit details & package
+                      <Button type="primary" onClick={() => goToTab('manage')}>
+                        Edit details
                       </Button>
-                      <Button onClick={() => setTab('menu')}>Manage menu</Button>
-                      <Button onClick={() => setTab('reservations')}>Reservations</Button>
-                      <Button icon={<FileTextOutlined />} onClick={() => setTab('invoices')}>
+                      <Button onClick={() => goToTab('package')}>Package</Button>
+                      <Button onClick={() => goToTab('menu')}>Manage menu</Button>
+                      <Button onClick={() => goToTab('reservations')}>Reservations</Button>
+                      <Button onClick={() => goToTab('reviews')}>Reviews</Button>
+                      <Button onClick={() => goToTab('widget')}>Booking widget</Button>
+                      <Button icon={<FileTextOutlined />} onClick={() => goToTab('invoices')}>
                         Invoices
                       </Button>
-                      <Button onClick={() => setTab('preview')}>Diner preview</Button>
+                      <Button onClick={() => goToTab('preview')}>Diner preview</Button>
                     </Space>
                   </Space>
                 ),
@@ -424,6 +471,9 @@ export default function AdminRestaurantDetailPage() {
                       presentation="panel"
                       restaurant={restaurant}
                       open
+                      editTab={section}
+                      onEditTabChange={setSection}
+                      hiddenTabs={['package']}
                       onClose={() => undefined}
                       onSaved={(updated) => {
                         setRestaurantOverride({ ...restaurant, ...updated });
@@ -431,6 +481,19 @@ export default function AdminRestaurantDetailPage() {
                       }}
                     />
                   </Card>
+                ),
+              },
+              {
+                key: 'package',
+                label: 'Package',
+                children: (
+                  <AdminRestaurantPackagePanel
+                    restaurant={restaurant}
+                    onSaved={(updated) => {
+                      setRestaurantOverride({ ...restaurant, ...updated });
+                      void refresh();
+                    }}
+                  />
                 ),
               },
               {
@@ -447,6 +510,29 @@ export default function AdminRestaurantDetailPage() {
                 key: 'reservations',
                 label: 'Reservations',
                 children: <AdminRestaurantReservationsPanel restaurantId={restaurant.id} />,
+              },
+              {
+                key: 'reviews',
+                label: 'Reviews',
+                children: (
+                  <AdminRestaurantReviewsPanel
+                    restaurantId={restaurant.id}
+                    photos={restaurant.photos}
+                    onPhotosSaved={() => void refresh()}
+                  />
+                ),
+              },
+              {
+                key: 'widget',
+                label: 'Booking widget',
+                children: (
+                  <AdminRestaurantWidgetPanel
+                    restaurant={restaurant}
+                    onSaved={(updated) => {
+                      setRestaurantOverride({ ...restaurant, ...updated });
+                    }}
+                  />
+                ),
               },
               {
                 key: 'invoices',
@@ -775,4 +861,14 @@ export default function AdminRestaurantDetailPage() {
 
 function statusCap(status: string) {
   return status ? status.charAt(0).toUpperCase() + status.slice(1) : status;
+}
+
+export default function AdminRestaurantDetailPage() {
+  return (
+    <div component="AdminRestaurantDetailPage" style={{ display: 'contents' }}>
+      <Suspense fallback={null}>
+        <AdminRestaurantDetailContent />
+      </Suspense>
+    </div>
+  );
 }

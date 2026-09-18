@@ -35,7 +35,7 @@ export function formatMenuPrice(priceCents?: number | null): string | null {
 export function formatReviewDate(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",

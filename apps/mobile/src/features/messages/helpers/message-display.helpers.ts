@@ -19,14 +19,14 @@ export function formatMessageDayLabel(iso: string): string {
   if (date.getTime() === today.getTime()) return "Today";
   if (date.getTime() === yesterday.getTime()) return "Yesterday";
 
-  return date.toLocaleDateString([], {
+  return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
 }
 
 export function formatMessageTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], {
+  return new Date(iso).toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
   });

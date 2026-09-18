@@ -66,7 +66,7 @@ Events: `payment_intent.amount_capturable_updated`, `payment_intent.succeeded`
 
 Set `NEXT_PUBLIC_DASHBOARD_URL` and `NEXT_PUBLIC_WEB_URL` on the dashboard build so Settings and onboarding can generate correct booking links and widget embed snippets.
 
-Partners use `/onboarding` for the setup checklist (profile, tables/shifts, approval). Embed code and booking links are on **Booking widget** (`/booking-widget`); widget theme colors remain under Settings.
+Partners use `/onboarding` for the setup checklist (profile, tables/shifts, approval). Embed code, booking links, and widget theme (color, button text, reviews) are on **Booking widget** (`/booking-widget`) and in Settings.
 
 Password reset: `/forgot-password` and `/reset-password` on the dashboard. The API sends templated emails; partners receive links to `DASHBOARD_APP_URL`, diners to `WEB_APP_URL`.
 

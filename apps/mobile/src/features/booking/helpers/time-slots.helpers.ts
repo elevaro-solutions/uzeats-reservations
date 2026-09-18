@@ -109,7 +109,7 @@ export function formatSlotTime(time: string, timeZone?: string): string {
 }
 
 export function formatSlotDateLong(time: string): string {
-  return new Date(time).toLocaleDateString([], {
+  return new Date(time).toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
     day: "numeric",
