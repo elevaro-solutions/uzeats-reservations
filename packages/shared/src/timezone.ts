@@ -134,6 +134,30 @@ export function timezoneFromAddress(address: AddressTimeZoneInput): string {
   return timezoneFromLongitude(address.lng) ?? DEFAULT_TIMEZONE;
 }
 
+export type RestaurantTimeZoneInput = {
+  address?: {
+    state?: string | null;
+    zip?: string | null;
+    country?: string | null;
+  } | null;
+  location?: {
+    coordinates?: number[] | null;
+    lng?: number | null;
+    lat?: number | null;
+  } | null;
+};
+
+/** IANA zone from restaurant address, falling back to GeoJSON / GraphQL coordinates. */
+export function restaurantTimeZone(restaurant: RestaurantTimeZoneInput): string {
+  const lng = restaurant.location?.lng ?? restaurant.location?.coordinates?.[0] ?? null;
+  return timezoneFromAddress({
+    state: restaurant.address?.state,
+    zip: restaurant.address?.zip,
+    country: restaurant.address?.country,
+    lng,
+  });
+}
+
 function timezoneFromLongitude(lng?: number | null): string | null {
   if (lng == null || !Number.isFinite(lng)) return null;
   if (lng > -75) return 'America/New_York';
@@ -253,6 +277,24 @@ export function formatTimeInTimeZone(
   const date = toValidDate(iso);
   if (!date) return '';
   return date.toLocaleTimeString(DISPLAY_LOCALE, { timeZone, ...options });
+}
+
+/** US date + 12-hour time in a restaurant IANA zone, e.g. `Sep 16, 2026, 5:00 PM EDT`. */
+export function formatDateTimeInTimeZone(
+  iso: string | Date | null | undefined,
+  timeZone: string,
+): string {
+  const date = toValidDate(iso);
+  if (!date) return '';
+  return date.toLocaleString(DISPLAY_LOCALE, {
+    timeZone,
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  });
 }
 
 export function minutesInTimeZone(iso: string | Date | null | undefined, timeZone: string): number {

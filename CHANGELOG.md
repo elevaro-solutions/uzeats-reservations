@@ -4,6 +4,12 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- Owner booking emails show the reservation time in the restaurant's local timezone (from address/coordinates), not the API server's timezone
+
 ## [0.54.0] — 2026-09-18
 
 ### Added

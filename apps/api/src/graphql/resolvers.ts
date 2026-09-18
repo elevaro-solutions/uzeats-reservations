@@ -31,7 +31,7 @@ import {
   canCreateRestaurant,
   MAX_POPULAR_MENU_ITEMS,
   countPopularMenuItems,
-  timezoneFromAddress,
+  restaurantTimeZone,
   RESTAURANT_MAX_PHOTOS,
 } from "@reservations/shared";
 import { assertCanAssignRole } from "../services/roleAccess.js";
@@ -426,14 +426,8 @@ export const resolvers = {
     bookingWindow: async (r: { id: string }) => getBookingWindow(r.id),
     timezone: (r: {
       address?: { state?: string; zip?: string; country?: string };
-      location?: { lat?: number; lng?: number };
-    }) =>
-      timezoneFromAddress({
-        state: r.address?.state,
-        zip: r.address?.zip,
-        country: r.address?.country,
-        lng: r.location?.lng,
-      }),
+      location?: { lat?: number; lng?: number; coordinates?: number[] };
+    }) => restaurantTimeZone(r),
   },
 
   Reservation: {

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatDateTimeInTimeZone,
   formatHm12,
   formatOpeningHoursLines,
   formatTimeInTimeZone,
   hmInTimeZone,
   isoDateInTimeZone,
+  restaurantTimeZone,
   timezoneFromAddress,
   weekdayInTimeZone,
   zonedWallClockToUtc,
@@ -22,6 +24,33 @@ describe('timezoneFromAddress', () => {
     expect(timezoneFromAddress({ state: 'FL', zip: '32501' })).toBe('America/Chicago');
     expect(timezoneFromAddress({ state: 'FL', zip: '33101' })).toBe('America/New_York');
     expect(timezoneFromAddress({ state: 'TX', zip: '79901' })).toBe('America/Denver');
+  });
+
+  it('falls back to longitude when address is missing', () => {
+    expect(timezoneFromAddress({ lng: -74.0 })).toBe('America/New_York');
+    expect(timezoneFromAddress({ lng: -87.6 })).toBe('America/Chicago');
+    expect(timezoneFromAddress({ lng: -118.24 })).toBe('America/Los_Angeles');
+  });
+});
+
+describe('restaurantTimeZone', () => {
+  it('reads GeoJSON coordinates when address is absent', () => {
+    expect(restaurantTimeZone({ location: { coordinates: [-118.24, 34.05] } })).toBe(
+      'America/Los_Angeles',
+    );
+  });
+
+  it('reads GraphQL lng/lat when address is absent', () => {
+    expect(restaurantTimeZone({ location: { lng: -74.0, lat: 40.73 } })).toBe('America/New_York');
+  });
+
+  it('prefers US address over coordinates', () => {
+    expect(
+      restaurantTimeZone({
+        address: { state: 'CA', zip: '90001' },
+        location: { coordinates: [-74.0, 40.73] },
+      }),
+    ).toBe('America/Los_Angeles');
   });
 });
 
@@ -55,5 +84,14 @@ describe('formatTimeInTimeZone', () => {
     expect(formatTimeInTimeZone(undefined, 'America/New_York')).toBe('');
     expect(formatTimeInTimeZone('', 'America/New_York')).toBe('');
     expect(formatTimeInTimeZone('not-a-date', 'America/New_York')).toBe('');
+  });
+});
+
+describe('formatDateTimeInTimeZone', () => {
+  it('formats the same UTC instant in restaurant-local time, not the host zone', () => {
+    const utc = new Date('2026-09-16T21:00:00.000Z');
+    expect(formatDateTimeInTimeZone(utc, 'America/New_York')).toMatch(/Sep 16, 2026, 5:00 PM/);
+    expect(formatDateTimeInTimeZone(utc, 'America/Los_Angeles')).toMatch(/Sep 16, 2026, 2:00 PM/);
+    expect(formatDateTimeInTimeZone(null, 'America/New_York')).toBe('');
   });
 });

@@ -1,5 +1,5 @@
 import {
-  timezoneFromAddress,
+  restaurantTimeZone,
   weekdayInTimeZone,
   zonedWallClockToUtc,
   type AvailabilitySlot,
@@ -10,19 +10,6 @@ import { Reservation } from '../models/Reservation.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { SLOT_QUANTUM_MS, TableSlotClaim } from '../models/TableSlotClaim.js';
 import { findClaimedTableIds, slotKeysForRange } from './tableSlotClaims.js';
-
-function restaurantTimeZone(restaurant: {
-  address?: { state?: string; zip?: string; country?: string };
-  location?: { coordinates?: number[] } | null;
-}): string {
-  const [lng] = restaurant.location?.coordinates ?? [];
-  return timezoneFromAddress({
-    state: restaurant.address?.state,
-    zip: restaurant.address?.zip,
-    country: restaurant.address?.country,
-    lng,
-  });
-}
 
 function overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
   return aStart < bEnd && bStart < aEnd;

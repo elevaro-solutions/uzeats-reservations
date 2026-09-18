@@ -2,6 +2,8 @@ import { Queue, Worker } from 'bullmq';
 import { Resend } from 'resend';
 import webpush from 'web-push';
 import {
+  formatDateTimeInTimeZone,
+  restaurantTimeZone,
   DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES,
   NOTIFICATION_EVENTS,
   NOTIFICATION_TYPE_TO_EVENT,
@@ -331,12 +333,16 @@ export function startNotificationWorkers() {
         const reservation = await Reservation.findById(reservationId);
         if (!reservation || !['confirmed', 'pending'].includes(reservation.status)) return;
         const restaurant = await Restaurant.findById(reservation.restaurantId);
+        const when = formatDateTimeInTimeZone(
+          reservation.slotStart,
+          restaurantTimeZone(restaurant ?? {}),
+        );
         await notifyUser(
           reservation.dinerId.toString(),
           {
             type: 'reservation_reminder',
             title: `Reservation in ${hours}h`,
-            body: `Reminder: ${restaurant?.name ?? 'Restaurant'} at ${reservation.slotStart.toLocaleString('en-US')}`,
+            body: `Reminder: ${restaurant?.name ?? 'Restaurant'} at ${when}`,
             data: { reservationId },
           },
           { smsRestaurantId: reservation.restaurantId.toString() },

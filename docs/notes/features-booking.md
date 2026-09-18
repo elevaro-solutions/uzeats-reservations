@@ -1,5 +1,10 @@
 # Booking — Learnings & Observations
 
+## [2026-09-18] Owner booking emails use restaurant-local time
+- `createReservation` / deposit confirm / owner booking used `Date#toLocaleString('en-US')` with no `timeZone`, so the email showed the API host zone (often UTC or the deploy region).
+- Format with `formatDateTimeInTimeZone` + `restaurantTimeZone` (address/ZIP, then GeoJSON `coordinates[0]` / GraphQL `lng`).
+- Why it matters: A LA owner whose API runs in UTC+5 must see 7:00 PM PDT, not 5:00 AM the next morning.
+
 ## [2026-09-18] Widget theme lives with the embed block
 - Partner theme (color, button text, reviews) is edited on **Booking widget** and in the Settings booking-widget card, next to the share/embed script — not under Settings → Operations.
 - Why it matters: Don’t send owners to Save preferences for button color; the widget card has its own Save widget theme.

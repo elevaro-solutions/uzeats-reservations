@@ -1,5 +1,14 @@
 import mongoose from 'mongoose';
-import { LOYALTY, CANCELLATION_REFUND_HOURS, resolveRedeemPoints, RESTAURANT_LOYALTY, resolveRestaurantRedeemPoints, isPlatformAdmin } from '@reservations/shared';
+import {
+  LOYALTY,
+  CANCELLATION_REFUND_HOURS,
+  resolveRedeemPoints,
+  RESTAURANT_LOYALTY,
+  resolveRestaurantRedeemPoints,
+  isPlatformAdmin,
+  formatDateTimeInTimeZone,
+  restaurantTimeZone,
+} from '@reservations/shared';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../lib/errors.js';
 import { Reservation } from '../models/Reservation.js';
 import { Restaurant } from '../models/Restaurant.js';
@@ -47,6 +56,13 @@ import { Experience } from '../models/Experience.js';
 /** Only alert favorites when the freed slot is soon (same urgency as walk-in demand). */
 const AVAILABILITY_ALERT_MAX_HOURS = 48;
 const AVAILABILITY_ALERT_USER_CAP = 5;
+
+function formatReservationWhen(
+  slotStart: Date,
+  restaurant?: Parameters<typeof restaurantTimeZone>[0] | null,
+) {
+  return formatDateTimeInTimeZone(slotStart, restaurantTimeZone(restaurant ?? {}));
+}
 
 async function reserveExperienceTickets(experienceId: string, quantity: number) {
   const exp = await Experience.findById(experienceId);
@@ -471,7 +487,7 @@ export async function createReservation(input: {
     await notifyRestaurantStaff(input.restaurantId, {
       type: 'new_reservation',
       title: 'New reservation',
-      body: `Party of ${input.partySize} at ${input.slotStart.toLocaleString('en-US')} — ${restaurant.name}`,
+      body: `Party of ${input.partySize} at ${formatReservationWhen(input.slotStart, restaurant)} — ${restaurant.name}`,
       data: { reservationId: reservation._id.toString() },
     });
   }
@@ -743,20 +759,16 @@ async function notifyFavoriteDinersOnCancellation(reservation: {
   });
   if (userIds.length === 0) return;
 
-  const restaurant = await Restaurant.findById(reservation.restaurantId).select('name slug');
+  const restaurant = await Restaurant.findById(reservation.restaurantId).select('name slug address location');
   const restaurantName = restaurant?.name ?? 'a restaurant you favorited';
-  const date = reservation.slotStart.toISOString().slice(0, 10);
-  const timeLabel = reservation.slotStart.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  const when = formatReservationWhen(reservation.slotStart, restaurant);
 
   await Promise.all(
     userIds.map((userId) =>
       notifyUser(userId, {
         type: 'saved_restaurant_available',
         title: 'A table opened up!',
-        body: `${restaurantName} has an opening on ${date} at ${timeLabel} (${reservation.partySize} guests). Book before it's gone.`,
+        body: `${restaurantName} has an opening ${when} (${reservation.partySize} guests). Book before it's gone.`,
         data: {
           restaurantId: reservation.restaurantId.toString(),
           slug: restaurant?.slug ?? null,
@@ -853,7 +865,7 @@ export async function confirmDeposit(paymentIntentId: string) {
     await notifyRestaurantStaff(reservation.restaurantId.toString(), {
       type: 'new_reservation',
       title: 'New reservation',
-      body: `Party of ${reservation.partySize} at ${reservation.slotStart.toLocaleString('en-US')}${
+      body: `Party of ${reservation.partySize} at ${formatReservationWhen(reservation.slotStart, restaurant)}${
         restaurant ? ` — ${restaurant.name}` : ''
       }`,
       data: { reservationId: reservation._id.toString() },
@@ -953,7 +965,7 @@ export async function createOwnerReservation(input: {
     await notifyRestaurantStaff(input.restaurantId, {
       type: 'new_reservation',
       title: 'New reservation',
-      body: `Party of ${input.partySize} at ${input.slotStart.toLocaleString('en-US')} — ${restaurant.name}`,
+      body: `Party of ${input.partySize} at ${formatReservationWhen(input.slotStart, restaurant)} — ${restaurant.name}`,
       data: { reservationId: reservation._id.toString() },
     });
   }
@@ -1074,7 +1086,7 @@ export async function updateReservationDetails(
   await reservation.save();
 
   const restaurantName = restaurant?.name ?? 'the restaurant';
-  const when = reservation.slotStart.toLocaleString('en-US');
+  const when = formatReservationWhen(reservation.slotStart, restaurant);
   if (isDiner) {
     await notifyRestaurantStaff(reservation.restaurantId.toString(), {
       type: 'reservation_updated',
