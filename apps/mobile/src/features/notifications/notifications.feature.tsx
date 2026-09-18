@@ -33,9 +33,15 @@ export function NotificationsFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
-  const { user, loading: authLoading } = useAuth();
+  const {
+    user,
+    loading: authLoading,
+    sessionOffline,
+    refreshMe,
+  } = useAuth();
   const [selected, setSelected] = useState<AppNotification | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [retryingSession, setRetryingSession] = useState(false);
 
   const {
     items,
@@ -141,7 +147,26 @@ export function NotificationsFeature() {
         />
       </Flex>
 
-      {!user && !authLoading ? (
+      {sessionOffline && !user && !authLoading ? (
+        <View style={styles.padX}>
+          <Empty
+            icon={<BellIcon size={28} color={theme.colors.textMuted} />}
+            title="You're offline"
+            description="We couldn't restore your session. Check your connection and try again."
+          />
+          <Button
+            fullWidth
+            loading={retryingSession}
+            onPress={() => {
+              setRetryingSession(true);
+              void refreshMe().finally(() => setRetryingSession(false));
+            }}
+            style={styles.signInBtn}
+          >
+            Try again
+          </Button>
+        </View>
+      ) : !user && !authLoading ? (
         <View style={styles.padX}>
           <Empty
             icon={<BellIcon size={28} color={theme.colors.textMuted} />}
@@ -150,7 +175,12 @@ export function NotificationsFeature() {
           />
           <Button
             fullWidth
-            onPress={() => router.push("/(auth)/sign-in")}
+            onPress={() =>
+              router.push({
+                pathname: "/sign-in",
+                params: { next: "/notifications" },
+              })
+            }
             style={styles.signInBtn}
           >
             Sign in

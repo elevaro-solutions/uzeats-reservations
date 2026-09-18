@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "942302628205",
+    "project_id": "uzeats-app",
+    "storage_bucket": "uzeats-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:942302628205:android:7e4c958cfadb8cbc057264",
+        "android_client_info": {
+          "package_name": "uz.alitech.tablevera"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCnxa4pBV9pGuJ8tLo4QemYzlrmpXLQriI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:942302628205:android:d15b633a6ff9d559057264",
+        "android_client_info": {
+          "package_name": "uz.alitech.uzeats"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCnxa4pBV9pGuJ8tLo4QemYzlrmpXLQriI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:942302628205:android:f030551aaaac5e86057264",
+        "android_client_info": {
+          "package_name": "uz.alitech.uzeats.pos"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCnxa4pBV9pGuJ8tLo4QemYzlrmpXLQriI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,6 +1,7 @@
 import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+import { UnistylesRuntime } from "react-native-unistyles";
 
 export type PushPlatform = "ios" | "android";
 
@@ -33,7 +34,7 @@ async function ensureAndroidChannel() {
     name: "Default",
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
-    lightColor: "#0b3d2e",
+    lightColor: UnistylesRuntime.getTheme().colors.primary,
   });
 }
 

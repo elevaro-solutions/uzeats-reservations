@@ -67,6 +67,10 @@ export const PRIVACY_POLICY_DOCUMENT: LegalDocument = {
           "IP address, browser or app version, device identifiers, screens or pages viewed, referral sources, approximate location (when you grant permission or as derived from IP), push notification tokens, and interaction events used to secure and improve the Service.",
         ),
         labeled(
+          "Calendar (mobile, optional):",
+          "If you choose Add to calendar after booking, the app requests write-only calendar access to create an event for that reservation. We do not read your existing calendar events.",
+        ),
+        labeled(
           "Information from third parties:",
           "If you sign in with Google, we receive profile information permitted by your Google account settings. Restaurants may provide feedback about completed visits (for example, no-show status).",
         ),

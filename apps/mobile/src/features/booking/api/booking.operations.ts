@@ -295,6 +295,7 @@ export const BOOKING_RESTAURANT = gql`
         neighborhood
       }
       tables {
+        id
         maxCapacity
         active
       }

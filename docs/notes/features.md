@@ -36,7 +36,11 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ### [2026-09-14] Undo is local list + re-favorite mutation
 - Unfavorite removes from local list + toast Undo; Undo calls `favoriteRestaurant` and reinserts at index without refetching Apollo as source of truth.
-- Why it matters: Concurrent refetch can race the optimistic list. Favorites does not handle `sessionOffline` like Profile/Reservations (shows sign-in instead).
+- Why it matters: Concurrent refetch can race the optimistic list.
+
+### [2026-09-16] Favorites matches Profile offline gate
+- `sessionOffline && !user` shows Try again via `refreshMe` before the guest sign-in CTA (same pattern as Reservations / notifications).
+- Why it matters: Missing `user` alone is not enough to show “Sign in” when tokens exist offline.
 
 ## help-center
 
@@ -49,6 +53,10 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 ### [2026-09-15] In-app privacy/terms mirrored from web
 - `/privacy` and `/terms` render `LegalFeature` with copy adapted from `apps/web` privacy/terms pages. Constants in `legal.constants.ts` mirror `apps/web/src/lib/legal.ts` (keep in sync manually). Cookies/SMS deep-links open `tablevera.online` in the browser — no dedicated mobile screens.
 - Why it matters: Legal substance changes on web must be ported by hand; don’t assume a shared CMS.
+
+### [2026-09-16] Calendar write-only disclosed for store answers
+- Privacy Policy now calls out optional Add-to-calendar write-only access. Store questionnaire matrix: `docs/mobile-privacy-permissions.md`. iOS export compliance: `ITSAppUsesNonExemptEncryption: false`.
+- Why it matters: App Privacy / Data safety answers must match calendar + location + push + Stripe behavior.
 
 ## home
 
@@ -64,6 +72,14 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## notifications
 
+### [2026-09-16] Android google-services.json is committed; FCM V1 key is not
+- `android.googleServicesFile` points at `apps/mobile/google-services.json` (client config; tracked). FCM V1 service-account JSON (`*firebase-adminsdk*.json` / `*service-account*.json`) stays gitignored and is uploaded only via EAS credentials — not via the build archive.
+- Why it matters: Don’t easignore/gitignore the client file or Android builds won’t register with FCM; don’t commit the private key.
+
+### [2026-09-16] Shared deep-link helper; settings never auto-registers
+- Push observer and inbox CTA both use `resolveNotificationLinkFromData` (`url` → `reservationId` → `restaurantId`). Settings keeps `auto: false` and only registers on Enable (root `PushBootstrap` owns auto-register). Inbox/settings match Profile sign-in (`/sign-in` + `next`) and `sessionOffline` retry before guest CTA.
+- Why it matters: Don’t re-duplicate deep-link order in the observer; don’t add a settings effect that races bootstrap.
+
 ### [2026-09-14] Push bootstrap is global; deep-link order matters
 - `PushBootstrap` in root layout registers on auth and handles taps: `data.url` → `reservationId` → `restaurantId`. Needs EAS `projectId` for Expo push token. Cold-start uses `getLastNotificationResponse()` once. Settings screen disables auto-register (`auto: false`) to avoid double flows.
 - Why it matters: A notification tap can navigate on launch. Don’t mount a second auto-registering bootstrap on the settings screen.
@@ -74,6 +90,10 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 - Why it matters: Don’t wire Profile “Notifications” to push settings; don’t assume array-shaped `myNotifications` after the connection change.
 
 ## profile
+
+### [2026-09-16] Language is display-only; Push alerts uses sliders icon
+- Language row sets `showChevron: false` (not actionable yet). Preferences “Push alerts” uses `SlidersHorizontalIcon` so it isn’t confused with Shortcuts “Notifications” (`BellIcon`). Loyalty card no longer ships `MOCK_LOYALTY_*` QA flags; track UI lives in `loyalty-tier-progress-track.component.tsx`.
+- Why it matters: Two Bell rows looked like the same destination; mock flags are easy to leave on by accident.
 
 ### [2026-09-14] Offline empty state before guest CTA
 - Checks `sessionOffline && !user` before the signed-out CTA (same pattern as Reservations).

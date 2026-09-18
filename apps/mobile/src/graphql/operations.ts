@@ -426,9 +426,3 @@ export const CREATE_REVIEW = gql`
     }
   }
 `;
-
-export const REGISTER_PUSH_TOKEN = gql`
-  mutation RegisterPushToken($token: String!, $platform: String!) {
-    registerPushToken(token: $token, platform: $platform)
-  }
-`;

@@ -6,8 +6,8 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { toast } from "sonner-native";
 
 import { ChevronLeftIcon } from "@/assets";
-import { Button, Flex, IconButton, Typography } from "@/components";
-import { useAuth } from "@/graphql/auth";
+import { Button, Empty, Flex, IconButton, Typography } from "@/components";
+import { useAuth } from "@/graphql";
 
 import { getPushPermissionStatus } from "./helpers/push-token.helpers";
 import { useRegisterPush } from "./hooks/use-register-push.hook";
@@ -16,13 +16,14 @@ export function NotificationSettingsFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
-  const { user } = useAuth();
+  const { user, sessionOffline, refreshMe } = useAuth();
   const { registered, registering, register } = useRegisterPush({
     auto: false,
   });
   const [permission, setPermission] = useState<
     "undetermined" | "granted" | "denied" | "loading"
   >("loading");
+  const [retryingSession, setRetryingSession] = useState(false);
 
   const refreshPermission = useCallback(async () => {
     const status = await getPushPermissionStatus();
@@ -33,12 +34,8 @@ export function NotificationSettingsFeature() {
     void refreshPermission();
   }, [refreshPermission]);
 
-  useEffect(() => {
-    if (!user || permission !== "granted" || registered) return;
-    void register();
-  }, [permission, register, registered, user]);
-
   const statusLabel = (() => {
+    if (sessionOffline && !user) return "Reconnect to manage push alerts";
     if (!user) return "Sign in to enable push alerts";
     if (permission === "loading") return "Checking permission…";
     if (permission === "denied") return "Notifications are blocked";
@@ -48,8 +45,21 @@ export function NotificationSettingsFeature() {
   })();
 
   const onEnable = async () => {
+    if (sessionOffline && !user) {
+      setRetryingSession(true);
+      try {
+        await refreshMe();
+      } finally {
+        setRetryingSession(false);
+      }
+      return;
+    }
+
     if (!user) {
-      router.push("/(auth)/sign-in");
+      router.push({
+        pathname: "/sign-in",
+        params: { next: "/notification-settings" },
+      });
       return;
     }
 
@@ -66,6 +76,14 @@ export function NotificationSettingsFeature() {
       toast.error("Could not enable push notifications");
     }
   };
+
+  const buttonLabel = (() => {
+    if (sessionOffline && !user) return "Try again";
+    if (!user) return "Sign in";
+    if (permission === "denied") return "Open settings";
+    if (registered) return "Enabled";
+    return "Enable push notifications";
+  })();
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -94,41 +112,60 @@ export function NotificationSettingsFeature() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Flex gap={1}>
-          <Typography weight="semibold" size="text-xl">
-            Reservation alerts
-          </Typography>
-          <Typography size="text-md" color="muted">
-            Get notified about confirmations, reminders, waitlist openings, and
-            other updates for your bookings.
-          </Typography>
-        </Flex>
-
-        <View style={styles.card}>
-          <Typography size="text-sm" color="muted" weight="medium">
-            Status
-          </Typography>
-          <Typography weight="semibold" size="text-md" style={styles.status}>
-            {statusLabel}
-          </Typography>
-
-          <Button
-            fullWidth
-            loading={registering}
-            disabled={registering || (registered && permission === "granted")}
-            onPress={() => {
-              void onEnable();
-            }}
+        {sessionOffline && !user ? (
+          <Empty
+            title="You're offline"
+            description="We couldn't restore your session. Check your connection and try again."
           >
-            {!user
-              ? "Sign in"
-              : permission === "denied"
-                ? "Open settings"
-                : registered
-                  ? "Enabled"
-                  : "Enable push notifications"}
-          </Button>
-        </View>
+            <Button
+              fullWidth
+              loading={retryingSession}
+              onPress={() => {
+                void onEnable();
+              }}
+            >
+              Try again
+            </Button>
+          </Empty>
+        ) : (
+          <>
+            <Flex gap={1}>
+              <Typography weight="semibold" size="text-xl">
+                Reservation alerts
+              </Typography>
+              <Typography size="text-md" color="muted">
+                Get notified about confirmations, reminders, waitlist openings,
+                and other updates for your bookings.
+              </Typography>
+            </Flex>
+
+            <View style={styles.card}>
+              <Typography size="text-sm" color="muted" weight="medium">
+                Status
+              </Typography>
+              <Typography
+                weight="semibold"
+                size="text-md"
+                style={styles.status}
+              >
+                {statusLabel}
+              </Typography>
+
+              <Button
+                fullWidth
+                loading={registering || retryingSession}
+                disabled={
+                  registering || (registered && permission === "granted")
+                }
+                onPress={() => {
+                  void onEnable();
+                }}
+              >
+                {buttonLabel}
+              </Button>
+            </View>
+          </>
+        )}
       </ScrollView>
     </View>
   );

@@ -15,6 +15,8 @@ import {
 } from "@/assets";
 import type { IconPropsType } from "@/types";
 
+import type { KnownNotificationType } from "./notification.types";
+
 export type NotificationIconTone =
   | "primary"
   | "info"
@@ -24,7 +26,10 @@ export type NotificationIconTone =
   | "error"
   | "muted";
 
-const TYPE_ICONS: Record<string, ComponentType<IconPropsType>> = {
+const TYPE_ICONS: Record<
+  KnownNotificationType,
+  ComponentType<IconPropsType>
+> = {
   new_message: MailIcon,
   new_reservation: CalendarPlusIcon,
   waitlist_available: BellIcon,
@@ -45,7 +50,7 @@ const TYPE_ICONS: Record<string, ComponentType<IconPropsType>> = {
   invoice_ready: ReceiptTextIcon,
 };
 
-const TYPE_TONES: Record<string, NotificationIconTone> = {
+const TYPE_TONES: Record<KnownNotificationType, NotificationIconTone> = {
   new_message: "info",
   new_reservation: "primary",
   waitlist_available: "warning",
@@ -66,14 +71,20 @@ const TYPE_TONES: Record<string, NotificationIconTone> = {
   invoice_ready: "muted",
 };
 
+function isKnownNotificationType(
+  type: string,
+): type is KnownNotificationType {
+  return Object.prototype.hasOwnProperty.call(TYPE_ICONS, type);
+}
+
 export function getNotificationIconTone(type: string): NotificationIconTone {
-  return TYPE_TONES[type] ?? "primary";
+  return isKnownNotificationType(type) ? TYPE_TONES[type] : "primary";
 }
 
 export function getNotificationIcon(
   type: string,
   props: IconPropsType,
 ): ReactElement {
-  const Icon = TYPE_ICONS[type] ?? BellIcon;
+  const Icon = isKnownNotificationType(type) ? TYPE_ICONS[type] : BellIcon;
   return <Icon {...props} />;
 }

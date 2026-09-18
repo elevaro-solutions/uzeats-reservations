@@ -60,7 +60,7 @@ export function RestaurantProfileFeature() {
     if (!user) {
       router.push({
         pathname: "/sign-in",
-        params: { next: `/restaurant/${id}/book` },
+        params: { next: `/restaurant/${id}/book?resume=1` },
       });
       return;
     }

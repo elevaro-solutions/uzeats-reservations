@@ -101,7 +101,7 @@ export type RestaurantBookingInfo = {
     zip?: string | null;
     neighborhood?: string | null;
   } | null;
-  tables?: { maxCapacity: number; active: boolean }[] | null;
+  tables?: { id: string; maxCapacity: number; active: boolean }[] | null;
 };
 
 export type BookingShift = {

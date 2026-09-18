@@ -2,6 +2,8 @@ import { router } from "expo-router";
 import * as Notifications from "expo-notifications";
 import { useEffect } from "react";
 
+import { resolveNotificationLinkFromData } from "../helpers/notification-link.helpers";
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldPlaySound: false,
@@ -11,28 +13,16 @@ Notifications.setNotificationHandler({
   }),
 });
 
-function asString(value: unknown): string | null {
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-
 function redirectFromNotification(notification: Notifications.Notification) {
-  const data = notification.request.content.data ?? {};
+  const raw = notification.request.content.data ?? {};
+  const data =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : {};
 
-  const url = asString(data.url);
-  if (url) {
-    router.push(url as never);
-    return;
-  }
-
-  const reservationId = asString(data.reservationId);
-  if (reservationId) {
-    router.push(`/reservations/${reservationId}`);
-    return;
-  }
-
-  const restaurantId = asString(data.restaurantId);
-  if (restaurantId) {
-    router.push(`/restaurant/${restaurantId}`);
+  const link = resolveNotificationLinkFromData(data);
+  if (link) {
+    router.push(link.href as never);
   }
 }
 

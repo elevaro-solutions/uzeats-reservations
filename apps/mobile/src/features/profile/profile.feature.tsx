@@ -13,6 +13,7 @@ import {
   LockIcon,
   LogOutIcon,
   ReceiptTextIcon,
+  SlidersHorizontalIcon,
   UserIcon,
 } from "@/assets";
 import { Button, Empty, Flex, Typography, UserAvatar } from "@/components";
@@ -274,10 +275,11 @@ export function ProfileFeature() {
                 title: "Language",
                 value: "English",
                 icon: <GlobeIcon size={20} color={iconColor} />,
+                showChevron: false,
               },
               {
                 title: "Push alerts",
-                icon: <BellIcon size={20} color={iconColor} />,
+                icon: <SlidersHorizontalIcon size={20} color={iconColor} />,
                 onPress: () => router.push("/notification-settings"),
               },
               {

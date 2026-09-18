@@ -26,6 +26,7 @@ import { HomeHeader } from "./components/home-header.component";
 import { HomeRestaurantSection } from "./components/home-restaurant-section.component";
 import {
   HOME_CUISINES_LIMIT,
+  HOME_LIST_LIMIT,
   HOME_UPCOMING_BOOKINGS_LIMIT,
 } from "./home.constants";
 import { mapUpcomingBookings } from "./helpers/map-upcoming-bookings.helpers";
@@ -68,12 +69,16 @@ export function HomeFeature() {
   );
 
   const popularInput = useMemo(
-    () => buildHomeFeedInput(locationInput),
+    () => buildHomeFeedInput(locationInput, { limit: HOME_LIST_LIMIT }),
     [locationInput],
   );
 
   const topRatedInput = useMemo(
-    () => buildHomeFeedInput(locationInput, { minRating: 4.5 }),
+    () =>
+      buildHomeFeedInput(locationInput, {
+        minRating: 4.5,
+        limit: HOME_LIST_LIMIT,
+      }),
     [locationInput],
   );
 

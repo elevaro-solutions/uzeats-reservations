@@ -147,6 +147,13 @@ function TimeSlotChip({
         !slot.available && styles.chipDisabled,
       ]}
       accessibilityRole="button"
+      accessibilityLabel={
+        slot.available
+          ? fewLeft
+            ? `${label}, ${slot.remainingTables} tables left`
+            : label
+          : `${label}, unavailable`
+      }
       accessibilityState={{ selected, disabled: !slot.available }}
     >
       <Typography
@@ -187,7 +194,8 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: space(5.5),
+    // ~44pt minimum tap target for primary booking actions
+    minHeight: Math.max(space(5.5), 44),
   },
   chipDisabled: {
     opacity: 0.4,

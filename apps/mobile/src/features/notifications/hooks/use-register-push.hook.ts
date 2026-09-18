@@ -1,9 +1,9 @@
 import { useMutation } from "@apollo/client";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { useAuth } from "@/graphql/auth";
-import { REGISTER_PUSH_TOKEN } from "@/graphql/operations";
+import { useAuth } from "@/graphql";
 
+import { REGISTER_PUSH_TOKEN } from "../api/notifications.operations";
 import { registerForPushNotificationsAsync } from "../helpers/push-token.helpers";
 
 type RegisterPushResult = {

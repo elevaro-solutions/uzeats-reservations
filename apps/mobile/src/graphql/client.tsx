@@ -17,6 +17,7 @@ import { API_URL } from "./config";
 import {
   isUnauthenticatedGraphQLError,
   refreshSessionTokens,
+  TokenRefreshError,
 } from "./token-refresh.helpers";
 
 export { API_URL };
@@ -104,6 +105,15 @@ const errorLink = onError(({ graphQLErrors, operation, forward }) => {
       } catch (error) {
         isRefreshing = false;
         rejectPendingRequests(error);
+        // Network blips during refresh must not wipe a still-valid session.
+        // Only clear tokens when the refresh token itself is rejected.
+        if (
+          error instanceof TokenRefreshError &&
+          error.reason === "network"
+        ) {
+          subscriber.error(error);
+          return;
+        }
         await clearStoredTokens();
         notifySessionInvalidated();
         subscriber.error(authError);
@@ -119,6 +129,11 @@ export const apolloClient = new ApolloClient({
       // Address has no id; merge partial selections (e.g. SEARCH vs MY_RESERVATIONS)
       Address: {
         merge: true,
+      },
+      // Normalize table entities so list replacements under bookableTables
+      // do not warn about losing cache entries of different lengths.
+      Table: {
+        keyFields: ["id"],
       },
       Query: {
         fields: {
@@ -142,6 +157,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <StripeProvider
       publishableKey={STRIPE_PUBLISHABLE_KEY}
       urlScheme="tablevera"
+      setReturnUrlSchemeOnAndroid
     >
       <ApolloProvider client={apolloClient}>
         <AuthProvider>{children}</AuthProvider>

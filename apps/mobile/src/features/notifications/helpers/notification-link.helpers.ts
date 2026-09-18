@@ -20,12 +20,13 @@ export type NotificationLink = {
   label: string;
 };
 
-/** Same resolution order as push deep-links: url → reservationId → restaurantId. */
-export function resolveNotificationLink(
-  notification: Pick<AppNotification, "data">,
+/**
+ * Shared deep-link order for push taps and inbox CTAs:
+ * url → reservationId → restaurantId.
+ */
+export function resolveNotificationLinkFromData(
+  data: Record<string, unknown>,
 ): NotificationLink | null {
-  const data = parseNotificationData(notification.data);
-
   const url = asString(data.url);
   if (url) {
     return { href: url, label: "View details" };
@@ -48,4 +49,12 @@ export function resolveNotificationLink(
   }
 
   return null;
+}
+
+export function resolveNotificationLink(
+  notification: Pick<AppNotification, "data">,
+): NotificationLink | null {
+  return resolveNotificationLinkFromData(
+    parseNotificationData(notification.data),
+  );
 }

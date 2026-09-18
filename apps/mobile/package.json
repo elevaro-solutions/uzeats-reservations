@@ -61,5 +61,12 @@
     "@types/node": "^22.15.30",
     "@types/react": "~19.2.17",
     "typescript": "~6.0.3"
+  },
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": ["expo-linear-gradient"]
+      }
+    }
   }
 }

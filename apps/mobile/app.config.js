@@ -19,13 +19,15 @@ const config = {
   userInterfaceStyle: "light",
   ios: {
     supportsTablet: true,
-    bundleIdentifier: "com.tablevera.app",
+    bundleIdentifier: "uz.alitech.tablevera",
     icon: "./assets/ios-app-icon.icon",
     infoPlist: {
       NSLocationWhenInUseUsageDescription:
         "Tablevera uses your location to show restaurants near you.",
       NSPhotoLibraryUsageDescription:
         "Tablevera lets you attach photos to your restaurant reviews.",
+      // Standard HTTPS / TLS only — no non-exempt encryption algorithms.
+      ITSAppUsesNonExemptEncryption: false,
     },
   },
   android: {
@@ -34,7 +36,8 @@ const config = {
       monochromeImage: "./assets/android-app-icon/android-icon-monochrome.png",
       backgroundColor: "#000000",
     },
-    package: "com.tablevera.app",
+    package: "uz.alitech.tablevera",
+    googleServicesFile: "./google-services.json",
     permissions: [
       "ACCESS_COARSE_LOCATION",
       "ACCESS_FINE_LOCATION",
@@ -105,6 +108,8 @@ const config = {
       {
         color: "#0b3d2e",
         defaultChannel: "default",
+        // Shown in the iOS permission prompt when requesting push access.
+        sounds: [],
       },
     ],
   ],
@@ -114,7 +119,7 @@ const config = {
   extra: {
     router: {},
     eas: {
-      projectId: "070424ea-6261-4776-9d32-95dd85fd0e6b",
+      projectId: "16386e83-34eb-4a95-8c46-2ec3c9b6d423",
     },
   },
   owner: "xondamir",

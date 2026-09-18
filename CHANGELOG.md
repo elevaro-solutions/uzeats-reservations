@@ -4,6 +4,36 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.53.0] — 2026-09-18
+
+### Added
+
+- Mobile Android `googleServicesFile` wired to committed `google-services.json` for FCM client registration
+- Docs: mobile beta QA runbook (`docs/qa-mobile-beta-readiness.md`) and store permissions ↔ privacy matrix (`docs/mobile-privacy-permissions.md`)
+
+### Fixed
+
+- Mobile booking: `BOOKING_RESTAURANT` includes `tables.id` so Apollo cache normalization no longer crashes on Book
+- Mobile EAS: replace stale `extra.eas.projectId` with live `@xondamir/tablevera` project `16386e83-34eb-4a95-8c46-2ec3c9b6d423`
+- Mobile Android: force `expo-linear-gradient` to build from source (prebuilt AAR referenced missing `LazyKType` and crashed on startup)
+- Mobile notifications inbox and push settings: sign-in uses `/sign-in` with `next` return path; offline session shows retry instead of a guest CTA
+- Mobile push settings no longer auto-registers when permission is already granted (avoids racing root `PushBootstrap`)
+- Mobile profile Book → sign-in now includes `resume=1` so booking drafts restore after login
+- Mobile Apollo `errorLink`: network failures during token refresh no longer hard-sign-out (aligns with cold-start `sessionOffline`)
+- Mobile favorites: offline session shows retry instead of a guest sign-in CTA
+- API seed: remove “seed venue #N” copy; vary street addresses and lunch/dinner hours for demo venues
+
+### Changed
+
+- Mobile iOS bundle ID and Android package renamed to `uz.alitech.tablevera`
+- Mobile push and inbox deep-links share one helper (`resolveNotificationLinkFromData`)
+- Mobile `REGISTER_PUSH_TOKEN` lives under notifications feature API; Android channel light color uses theme primary
+- Profile Language row hides chevron; Push alerts uses sliders icon; loyalty card drops QA mock flags and splits track UI into a sibling component
+- Mobile StripeProvider sets `setReturnUrlSchemeOnAndroid`; Apollo cache adds `Table` keyFields for `bookableTables`
+- Mobile Home popular/top-rated search `limit` matches visible card count
+- Mobile booking time chips and favorite control use ≥44pt tap targets; slot chips expose accessibility labels
+- Mobile Privacy Policy discloses optional write-only calendar access
+- Mobile iOS `ITSAppUsesNonExemptEncryption: false` for App Store export compliance
 ## [0.52.1] — 2026-09-17
 
 ### Changed

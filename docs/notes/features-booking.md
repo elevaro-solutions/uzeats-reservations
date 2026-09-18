@@ -1,5 +1,9 @@
 # Booking — Learnings & Observations
 
+## [2026-09-18] `BOOKING_RESTAURANT` tables must select `id`
+- Apollo `Table` typePolicy uses `keyFields: ["id"]`. Selecting `tables { maxCapacity active }` without `id` throws “Missing field 'id'” as soon as Book navigates to the booking screen (unrelated to deposit).
+- Why it matters: Any `Table` selection under a keyed typePolicy must include `id`.
+
 ## [2026-09-17] Confirming an already-confirmed reservation used to 400
 - `createReservation` writes `confirmed` unless a deposit requires payment (`pending`). `updateReservationStatus` only allowed `pending → confirmed`, so Confirm on a normal booking threw `Cannot transition from confirmed to confirmed`.
 - Same-status updates are now a no-op. Admin Confirm is pending-only; cancel must send `cancelled` (not `canceled`).
@@ -10,8 +14,12 @@
 - Slug is immutable for owners: they request a change (`requestRestaurantSlugChange`); admins apply it (`adminUpdateRestaurant.slug` or approve the request). Previous slugs are stored on the restaurant and stay reserved so old links 308 to the current slug.
 - Why it matters: Don’t reintroduce `/r/` as the canonical diner URL. Don’t let `updateRestaurant` rewrite slug. Don’t reuse a former slug for a different venue.
 
+## [2026-09-16] Profile Book uses `resume=1`
+- Unauthenticated users are `replace`d/`push`ed to sign-in with `next=.../book?resume=1` from booking gates **and** restaurant profile Book CTA. Drafts restore only when `resume === "1"`.
+- Why it matters: Profile Book and mid-flow auth now restore drafts consistently.
+
 ## [2026-09-14] Draft resume is opt-in via `resume=1`
-- Unauthenticated users are `replace`d to sign-in with `next=.../book?resume=1`. Drafts restore only when `resume === "1"`. Profile Book’s `next` often omits `resume=1` (OK when no draft yet).
+- Unauthenticated users are `replace`d to sign-in with `next=.../book?resume=1`. Drafts restore only when `resume === "1"`.
 - Why it matters: Resume is not automatic whenever a draft exists on disk.
 
 ## [2026-09-14] Deposit / Stripe stubs and pay-failure still book

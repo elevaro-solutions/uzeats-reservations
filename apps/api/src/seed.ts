@@ -147,6 +147,49 @@ function cuisineForSeedVenue(
   return CUISINE_ROTATION[index % CUISINE_ROTATION.length]!;
 }
 
+const STREET_NAMES = [
+  'Main St',
+  'Oak Ave',
+  'Maple Rd',
+  'Cedar Blvd',
+  'Pine St',
+  'Market St',
+  'Harbor Way',
+  'Park Ave',
+  'River Rd',
+  'Broadway',
+  '2nd Ave',
+  'Union St',
+] as const;
+
+function seedStreetAddress(index: number): string {
+  const number = 100 + ((index * 17) % 890);
+  const street = STREET_NAMES[index % STREET_NAMES.length]!;
+  return `${number} ${street}`;
+}
+
+function seedDescription(cuisine: string, city: string, state: string): string {
+  return `${cuisine} dining in ${city}, ${state} — seasonal menus and walkable neighborhood seating.`;
+}
+
+function lunchHoursForIndex(index: number): { startTime: string; endTime: string } {
+  const starts = ['11:00', '11:30', '12:00'] as const;
+  const ends = ['14:00', '14:30', '15:00'] as const;
+  return {
+    startTime: starts[index % starts.length]!,
+    endTime: ends[index % ends.length]!,
+  };
+}
+
+function dinnerHoursForIndex(index: number): { startTime: string; endTime: string } {
+  const starts = ['16:30', '17:00', '17:30'] as const;
+  const ends = ['21:00', '21:30', '22:00', '22:30'] as const;
+  return {
+    startTime: starts[index % starts.length]!,
+    endTime: ends[index % ends.length]!,
+  };
+}
+
 function pick<T>(items: readonly T[], index: number, count = 2): T[] {
   const out: T[] = [];
   for (let i = 0; i < count; i++) {
@@ -371,7 +414,7 @@ function buildExtraRestaurants(count: number): RestaurantSeed[] {
       zip: loc.zip,
       lng: loc.lng + jitter,
       lat: loc.lat + jitter * 0.6,
-      description: `Authentic ${cuisine} cuisine in ${loc.city}, ${loc.state} — seed venue #${i + 1}.`,
+      description: seedDescription(cuisine, loc.city, loc.state),
       depositRequired,
       depositAmountCents: depositRequired ? 1000 + (i % 5) * 500 : 0,
       status,
@@ -630,7 +673,7 @@ async function seed() {
       cuisine: r.cuisine,
       priceRange: r.priceRange,
       address: {
-        line1: '100 Main St',
+        line1: seedStreetAddress(i),
         city: r.city,
         state: r.state,
         zip: r.zip,
@@ -696,12 +739,14 @@ async function seed() {
     );
 
     if (r.status === 'approved' || r.status === 'suspended') {
+      const dinner = dinnerHoursForIndex(i);
+      const lunch = lunchHoursForIndex(i);
       await Shift.create({
         restaurantId: restaurant._id,
         name: 'Dinner',
         daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
-        startTime: '17:00',
-        endTime: '22:00',
+        startTime: dinner.startTime,
+        endTime: dinner.endTime,
         slotIntervalMinutes: 15,
         turnTimeMinutes: 90,
         active: true,
@@ -711,8 +756,8 @@ async function seed() {
         restaurantId: restaurant._id,
         name: 'Lunch',
         daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
-        startTime: '11:30',
-        endTime: '14:30',
+        startTime: lunch.startTime,
+        endTime: lunch.endTime,
         slotIntervalMinutes: 15,
         turnTimeMinutes: 75,
         active: true,

@@ -20,6 +20,10 @@ android/
 *.mobileprovision
 *.pem
 
+# Firebase / FCM private keys (google-services.json is committed; this is the EAS upload key)
+*firebase-adminsdk*.json
+*service-account*.json
+
 # Metro
 .metro-health-check*
 

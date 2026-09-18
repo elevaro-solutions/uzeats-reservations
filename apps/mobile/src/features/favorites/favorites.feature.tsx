@@ -33,12 +33,13 @@ type SavedRestaurantsQuery = {
 };
 
 export function FavoritesFeature() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, sessionOffline, refreshMe } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
   const [items, setItems] = useState<RestaurantListItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [retryingSession, setRetryingSession] = useState(false);
   const itemsRef = useRef(items);
   itemsRef.current = items;
 
@@ -148,6 +149,30 @@ export function FavoritesFeature() {
           {[1, 2, 3].map((i) => (
             <RestaurantCardSkeleton key={i} />
           ))}
+        </Flex>
+      </View>
+    );
+  }
+
+  if (sessionOffline && !user) {
+    return (
+      <View style={[styles.screen, { paddingTop: insets.top }]}>
+        {topBar}
+        <Flex flex={1} justifyContent="center" style={styles.statePad}>
+          <Empty
+            title="You're offline"
+            description="We couldn't restore your session. Check your connection and try again."
+          >
+            <Button
+              loading={retryingSession}
+              onPress={() => {
+                setRetryingSession(true);
+                void refreshMe().finally(() => setRetryingSession(false));
+              }}
+            >
+              Try again
+            </Button>
+          </Empty>
         </Flex>
       </View>
     );
