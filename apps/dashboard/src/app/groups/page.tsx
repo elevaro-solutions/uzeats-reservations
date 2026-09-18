@@ -127,7 +127,7 @@ export default function GroupsPage() {
             options={groups.map((g: any) => ({ value: g.id, label: g.name }))}
           />
 
-          <Row gutter={16}>
+          <Row gutter={[16, 16]}>
             <Col xs={24} lg={8}>
               <Card title="Locations in this group">
                 <List
@@ -163,7 +163,7 @@ export default function GroupsPage() {
             </Col>
             <Col xs={24} lg={16}>
               <Card title="Group analytics" loading={analyticsLoading}>
-                <Row gutter={16}>
+                <Row gutter={[16, 16]}>
                   <Col span={8}>
                     <Statistic title="Reservations" value={analytics?.totalReservations ?? 0} />
                   </Col>

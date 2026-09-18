@@ -121,8 +121,9 @@ function CampaignsPageContent() {
         </Button>
       </div>
       <Text type="secondary">
-        Target guests by tag or VIP status. Use {'{{firstName}}'} and {'{{restaurantName}}'} in
-        the body for personalization. Requires the Pro plan.
+        Target guests by tag or VIP status. Insert personalization tokens{' '}
+        <Text code>{'{{firstName}}'}</Text> and <Text code>{'{{restaurantName}}'}</Text> in
+        the subject or body. Requires the Pro plan.
       </Text>
 
       <Select style={{ width: 260 }} {...restaurantSelectProps} />

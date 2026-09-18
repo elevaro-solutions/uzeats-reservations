@@ -37,6 +37,10 @@ import {
   notifyUser,
   scheduleReservationReminders,
 } from './notifications.js';
+import { renderEmailTemplate } from './emailTemplates.js';
+import { EMAIL_BRAND, emailButton, emailLinkFallback } from './emailBranding.js';
+import { buildIcsAttachment, googleCalendarUrl } from './calendarInvite.js';
+import { env } from '../config/env.js';
 import { checkAccessRules } from './accessRules.js';
 import { updateGuestProfileAfterVisit, sendSurveyInvitation } from './guests.js';
 import {
@@ -62,6 +66,80 @@ function formatReservationWhen(
   restaurant?: Parameters<typeof restaurantTimeZone>[0] | null,
 ) {
   return formatDateTimeInTimeZone(slotStart, restaurantTimeZone(restaurant ?? {}));
+}
+
+function publicWebBaseUrl() {
+  return (env.WEB_APP_URL || EMAIL_BRAND.siteUrl).replace(/\/+$/, '');
+}
+
+async function notifyDinerBookingConfirmed(input: {
+  dinerId: string;
+  restaurantId: string;
+  reservationId: string;
+  restaurantName: string;
+  slotStart: Date;
+  slotEnd?: Date | null;
+  partySize: number;
+  guestNotes?: string | null;
+  restaurant?: Parameters<typeof restaurantTimeZone>[0] | null;
+  address?: {
+    line1?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zip?: string | null;
+  } | null;
+}) {
+  const diner = await User.findById(input.dinerId);
+  const when = formatReservationWhen(input.slotStart, input.restaurant);
+  const end = input.slotEnd
+    ? new Date(input.slotEnd)
+    : new Date(input.slotStart.getTime() + 90 * 60_000);
+  const location = [
+    input.address?.line1,
+    input.address?.city,
+    input.address?.state,
+    input.address?.zip,
+  ]
+    .filter(Boolean)
+    .join(', ');
+  const event = {
+    title: `Dinner at ${input.restaurantName}`,
+    description: [`Party of ${input.partySize}`, input.guestNotes ? `Notes: ${input.guestNotes}` : null]
+      .filter(Boolean)
+      .join('\n'),
+    location,
+    start: input.slotStart,
+    end,
+    uid: `${input.reservationId}@tablevera.online`,
+  };
+  const reservationUrl = `${publicWebBaseUrl()}/reservations/${input.reservationId}`;
+  const rendered = await renderEmailTemplate('booking_confirmation', {
+    firstName: diner?.firstName || 'there',
+    restaurantName: input.restaurantName,
+    date: when,
+    partySize: String(input.partySize),
+  });
+  const htmlBody = [
+    rendered.bodyHtml,
+    emailButton(googleCalendarUrl(event), 'Add to Google Calendar'),
+    emailButton(reservationUrl, 'View reservation'),
+    emailLinkFallback(reservationUrl),
+  ].join('');
+
+  await notifyUser(
+    input.dinerId,
+    {
+      type: 'reservation_confirmed',
+      title: rendered.subject,
+      body:
+        rendered.bodyText ||
+        `Your reservation at ${input.restaurantName} on ${when} for ${input.partySize} is confirmed.`,
+      htmlBody,
+      attachments: [buildIcsAttachment(event)],
+      data: { reservationId: input.reservationId },
+    },
+    { smsRestaurantId: input.restaurantId },
+  );
 }
 
 async function reserveExperienceTickets(experienceId: string, quantity: number) {
@@ -474,16 +552,18 @@ export async function createReservation(input: {
 
   if (reservation.status === 'confirmed') {
     await scheduleReservationReminders(reservation._id.toString());
-    await notifyUser(
-      input.dinerId,
-      {
-        type: 'reservation_confirmed',
-        title: 'Reservation confirmed',
-        body: `Your reservation at ${restaurant.name} is confirmed.`,
-        data: { reservationId: reservation._id.toString() },
-      },
-      { smsRestaurantId: input.restaurantId },
-    );
+    await notifyDinerBookingConfirmed({
+      dinerId: input.dinerId,
+      restaurantId: input.restaurantId,
+      reservationId: reservation._id.toString(),
+      restaurantName: restaurant.name,
+      slotStart: input.slotStart,
+      slotEnd: reservation.slotEnd,
+      partySize: input.partySize,
+      guestNotes: reservation.guestNotes,
+      restaurant,
+      address: restaurant.address,
+    });
     await notifyRestaurantStaff(input.restaurantId, {
       type: 'new_reservation',
       title: 'New reservation',
@@ -852,16 +932,18 @@ export async function confirmDeposit(paymentIntentId: string) {
 
   if (wasPending) {
     const restaurant = await Restaurant.findById(reservation.restaurantId);
-    await notifyUser(
-      reservation.dinerId.toString(),
-      {
-        type: 'reservation_confirmed',
-        title: 'Reservation confirmed',
-        body: `Your reservation at ${restaurant?.name ?? 'the restaurant'} is confirmed.`,
-        data: { reservationId: reservation._id.toString() },
-      },
-      { smsRestaurantId: reservation.restaurantId.toString() },
-    );
+    await notifyDinerBookingConfirmed({
+      dinerId: reservation.dinerId.toString(),
+      restaurantId: reservation.restaurantId.toString(),
+      reservationId: reservation._id.toString(),
+      restaurantName: restaurant?.name ?? 'the restaurant',
+      slotStart: reservation.slotStart,
+      slotEnd: reservation.slotEnd,
+      partySize: reservation.partySize,
+      guestNotes: reservation.guestNotes,
+      restaurant,
+      address: restaurant?.address,
+    });
     await notifyRestaurantStaff(reservation.restaurantId.toString(), {
       type: 'new_reservation',
       title: 'New reservation',
@@ -952,16 +1034,18 @@ export async function createOwnerReservation(input: {
 
   if (status === 'confirmed') {
     await scheduleReservationReminders(reservation._id.toString());
-    await notifyUser(
+    await notifyDinerBookingConfirmed({
       dinerId,
-      {
-        type: 'reservation_confirmed',
-        title: 'Reservation confirmed',
-        body: `Your reservation at ${restaurant.name} is confirmed.`,
-        data: { reservationId: reservation._id.toString() },
-      },
-      { smsRestaurantId: input.restaurantId },
-    );
+      restaurantId: input.restaurantId,
+      reservationId: reservation._id.toString(),
+      restaurantName: restaurant.name,
+      slotStart: input.slotStart,
+      slotEnd,
+      partySize: input.partySize,
+      guestNotes: input.guestNotes,
+      restaurant,
+      address: restaurant.address,
+    });
     await notifyRestaurantStaff(input.restaurantId, {
       type: 'new_reservation',
       title: 'New reservation',

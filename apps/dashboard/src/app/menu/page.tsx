@@ -201,10 +201,16 @@ export default function MenuPage() {
         <Title level={2} style={{ margin: 0 }}>
           Menu editor
         </Title>
-        <Select style={{ width: 240 }} {...restaurantSelectProps} />
+        <Space wrap>
+          <Select style={{ width: 240 }} {...restaurantSelectProps} />
+          <Button type="primary" htmlType="submit" form="menu-editor-form" loading={loading || savingMenuUrl}>
+            Save menu
+          </Button>
+        </Space>
       </div>
 
       <Form
+        id="menu-editor-form"
         form={form}
         layout="vertical"
         onFinish={async (values) => {

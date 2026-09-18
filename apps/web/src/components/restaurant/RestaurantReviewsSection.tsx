@@ -1,7 +1,7 @@
 'use client';
 
-import { Image, Rate, Typography } from 'antd';
-import { StarFilled } from '@ant-design/icons';
+import { Button, Image, Rate, Typography } from 'antd';
+import { StarFilled, StarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { colors } from '@reservations/ui';
@@ -27,26 +27,45 @@ type Props = {
   reviews: Review[];
   averageRating: number;
   reviewCount: number;
+  canLeaveReview?: boolean;
+  onLeaveReview?: () => void;
 };
 
-export function RestaurantReviewsSection({ reviews, averageRating, reviewCount }: Props) {
+export function RestaurantReviewsSection({
+  reviews,
+  averageRating,
+  reviewCount,
+  canLeaveReview = false,
+  onLeaveReview,
+}: Props) {
   return (
     <section id="reviews" className="rt-restaurant-section">
       <div className="rt-restaurant-section__header">
         <Title level={3} className="rt-restaurant-section__title">
           Reviews
         </Title>
-        {reviewCount > 0 && (
-          <div className="rt-restaurant-reviews__summary">
-            <StarFilled style={{ color: colors.rating }} />
-            <Text strong>{averageRating.toFixed(1)}</Text>
-            <Text type="secondary">({reviewCount} reviews)</Text>
-          </div>
-        )}
+        <div className="rt-restaurant-section__header-actions">
+          {reviewCount > 0 && (
+            <div className="rt-restaurant-reviews__summary">
+              <StarFilled style={{ color: colors.rating }} />
+              <Text strong>{averageRating.toFixed(1)}</Text>
+              <Text type="secondary">({reviewCount} reviews)</Text>
+            </div>
+          )}
+          {canLeaveReview && (
+            <Button type="primary" icon={<StarOutlined />} onClick={onLeaveReview}>
+              Leave a review
+            </Button>
+          )}
+        </div>
       </div>
 
       {reviews.length === 0 ? (
-        <Text type="secondary">No reviews yet. Be the first to share your experience after your visit.</Text>
+        <Text type="secondary">
+          {canLeaveReview
+            ? 'How was your visit? Share a quick review for other diners.'
+            : 'No reviews yet. Be the first to share your experience after your visit.'}
+        </Text>
       ) : (
         <div className="rt-restaurant-reviews">
           {reviews.map((r, idx) => (

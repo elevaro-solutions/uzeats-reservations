@@ -308,15 +308,21 @@ export async function logout(userId: string, refreshToken?: string) {
   return true;
 }
 
+function stripTrailingSlash(url: string) {
+  return url.replace(/\/+$/, '');
+}
+
 function passwordResetBaseUrl(app: 'web' | 'dashboard') {
   if (app === 'dashboard') {
-    return (
+    return stripTrailingSlash(
       env.DASHBOARD_APP_URL ||
-      env.CORS_ORIGINS.split(',')[1]?.trim() ||
-      'http://localhost:3001'
+        env.CORS_ORIGINS.split(',')[1]?.trim() ||
+        'http://localhost:3001',
     );
   }
-  return env.WEB_APP_URL || env.CORS_ORIGINS.split(',')[0]?.trim() || 'http://localhost:3000';
+  return stripTrailingSlash(
+    env.WEB_APP_URL || env.CORS_ORIGINS.split(',')[0]?.trim() || 'http://localhost:3000',
+  );
 }
 
 const PARTNER_ROLES = new Set<UserRole>(['restaurant_owner', 'staff', 'admin', 'super_admin']);

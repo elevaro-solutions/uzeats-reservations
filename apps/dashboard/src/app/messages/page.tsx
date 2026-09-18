@@ -76,21 +76,26 @@ function MessagesContent() {
   const { data: convData, refetch: refetchConvs } = useQuery(CONVERSATIONS, {
     skip: !activeRestaurantId,
     variables: { restaurantId: activeRestaurantId },
-    pollInterval: 15000,
   });
   const { data: inquiryData, refetch: refetchInquiries } = useQuery(RESTAURANT_INQUIRIES, {
     skip: !activeRestaurantId,
     variables: { restaurantId: activeRestaurantId },
-    pollInterval: 15000,
   });
   const { data: seedData } = useQuery(CONVERSATION, {
     skip: !activeReservationId,
     variables: { reservationId: activeReservationId },
   });
+  const [messagesPoll, setMessagesPoll] = useState(30_000);
+  useEffect(() => {
+    const sync = () => setMessagesPoll(document.hidden ? 0 : 30_000);
+    sync();
+    document.addEventListener('visibilitychange', sync);
+    return () => document.removeEventListener('visibilitychange', sync);
+  }, []);
   const { data: msgData, refetch: refetchMsgs } = useQuery(MESSAGES, {
     skip: !activeReservationId,
     variables: { reservationId: activeReservationId },
-    pollInterval: 10000,
+    pollInterval: activeReservationId ? messagesPoll : 0,
   });
   const [sendMessage, { loading: sending }] = useMutation(SEND_MESSAGE);
   const [markRead] = useMutation(MARK_CONVERSATION_READ);
@@ -235,8 +240,8 @@ function MessagesContent() {
         }}
       />
 
-      <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
-        <Card style={{ width: 320, flexShrink: 0 }} styles={{ body: { padding: 0 } }}>
+      <div className="rt-messages-layout">
+        <Card className="rt-messages-inbox" styles={{ body: { padding: 0 } }}>
           <List
             dataSource={inboxItems}
             locale={{ emptyText: <Empty description="No messages yet" /> }}
@@ -390,7 +395,7 @@ function MessagesContent() {
                   >
                     <div
                       style={{
-                        maxWidth: '70%',
+                        maxWidth: 'min(70%, 100%)',
                         padding: '8px 12px',
                         borderRadius: 12,
                         background:
@@ -398,7 +403,10 @@ function MessagesContent() {
                             ? colors.brand[600]
                             : colors.neutral[100],
                         color: m.senderType === 'restaurant' ? '#fff' : undefined,
+                        wordBreak: 'break-word',
+                        overflowWrap: 'anywhere',
                       }}
+                      className="rt-message-bubble"
                     >
                       <div>{m.body}</div>
                       <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>
@@ -429,6 +437,7 @@ function MessagesContent() {
                   type="primary"
                   icon={<SendOutlined />}
                   loading={sending}
+                  disabled={!draft.trim()}
                   onClick={handleSend}
                 />
               </Space.Compact>

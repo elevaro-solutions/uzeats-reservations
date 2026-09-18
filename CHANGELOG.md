@@ -4,6 +4,48 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.56.0] — 2026-09-18
+
+### Added
+
+- Diner restaurant Reviews section shows Leave a review after a completed visit
+- Booking confirmation emails include an `.ics` attachment plus Google Calendar and View reservation buttons
+- Floor plan details panel has a primary Save layout action, disabled until the canvas is dirty
+- Menu editor Save menu control in the page header (submits the same form)
+
+### Changed
+
+- Partner Messages poll the open thread every 30s only while the tab is visible (inbox no longer polls)
+- Public Pricing comparison uses a scrollable table on desktop and stacked cards on phones
+- Diner reservation cards collapse extra details; the Details chevron tracks expanded state
+- Diner reservation actions move secondary items into a More menu on narrow screens
+- Add to calendar shows a success toast with a Google Calendar link after the `.ics` download
+- Partner dashboard Overview/Analytics/Loyalty statistic cards share equal height; page loaders are centered
+- Onboarding “Finish setting up your restaurant” alert hides the long description on small screens
+- Restaurant Dashboard stays a fixed operational layout (not widget-configurable)
+
+### Fixed
+
+- Edit reservation now refetches the diner reservation queries after a successful update
+- Whitespace-only diner and partner messages cannot be sent
+- Password-reset emails use tighter button/fallback-link layout; SendGrid click tracking is off so reset URLs keep a valid certificate
+- Forgot Password and other prefixed inputs keep space between the icon and the text
+- Find a Table controls share a consistent 40px height and vertical centering
+- Restaurant menu search sits with spacing below the Menu header
+- Partner New Reservation / New Package modals stay in the viewport with internal scrolling
+- Floor tables clamp to the canvas; Tables & shifts modal rows use consistent gaps
+- Settings Save stays disabled until the form is dirty; restaurant settings persist with `$set` and success only after a returned id
+- Spend alert accepts numeric amounts only, with an example placeholder
+- Booking widget theme controls stack at narrow widths
+- Waitlist/Private Dining tables keep readable headers, borders, and horizontal overflow
+- Diner booking “Complete reservation” and “Join waitlist” share equal width when both are shown
+- Partner Notifications uses the full content column; the mobile nav drawer is no longer a second desktop sidebar
+- Marketing boost/gift-card modals have placeholders; campaign intro and New Boost wrap with spacing
+- Email campaign helper text presents `{{firstName}}` / `{{restaurantName}}` as code tokens
+- View as diner is disabled for restaurants that are not approved
+- Continue actions in restaurant registration/onboarding place the arrow after the label
+- Package title is required (client and shared schema) before submit
+
 ## [0.55.0] — 2026-09-18
 
 ### Added

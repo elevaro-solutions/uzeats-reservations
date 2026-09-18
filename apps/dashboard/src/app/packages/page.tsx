@@ -274,9 +274,16 @@ function PackagesPageContent() {
         confirmLoading={creating || updating}
         destroyOnClose
         width={640}
+        wrapClassName="rt-mobile-modal"
+        centered
+        styles={{ body: { maxHeight: 'min(70vh, 560px)', overflowY: 'auto', overflowX: 'hidden' } }}
       >
         <Form form={form} layout="vertical">
-          <Form.Item name="title" label="Title" rules={[{ required: true }]}>
+          <Form.Item
+            name="title"
+            label="Title"
+            rules={[{ required: true, whitespace: true, message: 'Enter a package title' }]}
+          >
             <Input placeholder="Birthday celebration package" />
           </Form.Item>
           <Form.Item name="description" label="Description">

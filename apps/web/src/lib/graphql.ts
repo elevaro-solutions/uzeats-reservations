@@ -421,6 +421,7 @@ export const UPDATE_RESERVATION = gql`
       id
       status
       slotStart
+      slotEnd
       partySize
       occasion
       guestNotes

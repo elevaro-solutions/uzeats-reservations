@@ -114,7 +114,7 @@ function WaitlistPageContent() {
         </Button>
       </div>
       <Select style={{ width: 320 }} {...restaurantSelectProps} />
-      <Card styles={{ body: { padding: '0 8px 0 12px' } }}>
+      <Card styles={{ body: { padding: 0 } }}>
         <Table
           loading={loading}
           rowKey="id"

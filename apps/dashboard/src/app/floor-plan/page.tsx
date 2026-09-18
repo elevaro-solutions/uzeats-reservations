@@ -97,10 +97,20 @@ function TableDetailsPanel({
   selected,
   onUpdate,
   onSavePhoto,
+  onSaveLayout,
+  dirty,
+  saving,
+  cols,
+  rows,
 }: {
   selected: FloorTable;
   onUpdate: (patch: Partial<FloorTable>) => void;
   onSavePhoto: (photoUrl: string | null) => Promise<void>;
+  onSaveLayout: () => Promise<void>;
+  dirty: boolean;
+  saving: boolean;
+  cols: number;
+  rows: number;
 }) {
   const applyLayoutPatch = (patch: Partial<Pick<FloorTable, 'posX' | 'posY' | 'width' | 'height'>>) => {
     const next = clampLayout({
@@ -108,7 +118,7 @@ function TableDetailsPanel({
       posY: patch.posY ?? selected.posY,
       width: patch.width ?? selected.width,
       height: patch.height ?? selected.height,
-    });
+    }, cols, rows);
     onUpdate(next);
   };
 
@@ -141,7 +151,7 @@ function TableDetailsPanel({
         <Text strong>Width (cells)</Text>
         <InputNumber
           min={1}
-          max={FLOOR_GRID_COLS - selected.posX}
+          max={cols - selected.posX}
           value={selected.width}
           onChange={(v) => v && applyLayoutPatch({ width: v })}
           style={{ width: '100%', marginTop: 4 }}
@@ -151,7 +161,7 @@ function TableDetailsPanel({
         <Text strong>Height (cells)</Text>
         <InputNumber
           min={1}
-          max={FLOOR_GRID_ROWS - selected.posY}
+          max={rows - selected.posY}
           value={selected.height}
           onChange={(v) => v && applyLayoutPatch({ height: v })}
           style={{ width: '100%', marginTop: 4 }}
@@ -186,6 +196,16 @@ function TableDetailsPanel({
           }}
         />
       </div>
+      <Button
+        type="primary"
+        icon={<SaveOutlined />}
+        loading={saving}
+        disabled={!dirty}
+        onClick={() => void onSaveLayout()}
+        block
+      >
+        Save layout
+      </Button>
     </Space>
   );
 }
@@ -288,6 +308,14 @@ export default function FloorPlanPage() {
   );
   const cellSize = gridCellSize ?? (box.width ? fittedSize : 40);
   cellSizeRef.current = cellSize;
+  const canvasCols =
+    box.width > 0 && cellSize > 0
+      ? Math.max(8, Math.floor(box.width / cellSize))
+      : FLOOR_GRID_COLS;
+  const canvasRows =
+    box.height > 0 && cellSize > 0
+      ? Math.max(6, Math.floor(box.height / cellSize))
+      : FLOOR_GRID_ROWS;
 
   const updateTable = useCallback((id: string, patch: Partial<FloorTable>) => {
     setTables((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
@@ -334,6 +362,8 @@ export default function FloorPlanPage() {
           },
           dx,
           dy,
+          canvasCols,
+          canvasRows,
         );
         updateTable(interaction.tableId, next);
         return;
@@ -349,10 +379,12 @@ export default function FloorPlanPage() {
         interaction.handle,
         snapDelta(local.dx, size),
         snapDelta(local.dy, size),
+        canvasCols,
+        canvasRows,
       );
       updateTable(interaction.tableId, next);
     },
-    [clientToGrid, updateTable],
+    [clientToGrid, updateTable, canvasCols, canvasRows],
   );
 
   useEffect(() => {
@@ -596,8 +628,8 @@ export default function FloorPlanPage() {
                 ref={gridRef}
                 style={{
                   position: 'relative',
-                  width: FLOOR_GRID_COLS * cellSize,
-                  height: FLOOR_GRID_ROWS * cellSize,
+                  width: canvasCols * cellSize,
+                  height: canvasRows * cellSize,
                   minWidth: '100%',
                   minHeight: '100%',
                   backgroundImage:
@@ -754,6 +786,11 @@ export default function FloorPlanPage() {
                 selected={selected}
                 onUpdate={(patch) => updateTable(selected.id, patch)}
                 onSavePhoto={savePhoto}
+                onSaveLayout={handleSave}
+                dirty={dirty}
+                saving={saving}
+                cols={canvasCols}
+                rows={canvasRows}
               />
             ) : (
               <Text type="secondary">Click a table on the canvas to edit it.</Text>
@@ -774,6 +811,11 @@ export default function FloorPlanPage() {
             selected={selected}
             onUpdate={(patch) => updateTable(selected.id, patch)}
             onSavePhoto={savePhoto}
+            onSaveLayout={handleSave}
+            dirty={dirty}
+            saving={saving}
+            cols={canvasCols}
+            rows={canvasRows}
           />
         )}
       </Drawer>

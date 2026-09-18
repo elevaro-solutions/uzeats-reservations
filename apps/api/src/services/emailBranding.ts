@@ -63,7 +63,7 @@ export function emailHeading(text: string) {
 }
 
 export function emailMuted(html: string) {
-  return `<p style="margin:16px 0 0;font-size:14px;line-height:1.5;color:${EMAIL_BRAND.textMuted};">${html}</p>`;
+  return `<p style="margin:12px 0 0;font-size:13px;line-height:1.5;color:${EMAIL_BRAND.textMuted};">${html}</p>`;
 }
 
 export function emailDivider() {
@@ -71,10 +71,10 @@ export function emailDivider() {
 }
 
 export function emailButton(href: string, label: string) {
-  return `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:28px 0;">
+  return `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:16px 0;">
   <tr>
     <td style="border-radius:10px;background:${EMAIL_BRAND.brand};">
-      <a href="${escapeHtml(href)}" style="display:inline-block;padding:14px 32px;color:${EMAIL_BRAND.textInverse};text-decoration:none;font-weight:600;font-size:16px;line-height:1;border-radius:10px;mso-padding-alt:0;">${escapeHtml(label)}</a>
+      <a href="${escapeHtml(href)}" style="display:inline-block;padding:14px 28px;color:${EMAIL_BRAND.textInverse};text-decoration:none;font-weight:600;font-size:16px;line-height:1;border-radius:10px;mso-padding-alt:0;">${escapeHtml(label)}</a>
     </td>
   </tr>
 </table>`;
@@ -113,7 +113,7 @@ export function emailSignature() {
 
 export function emailLinkFallback(href: string) {
   return emailMuted(
-    `Or copy this link:<br /><a href="${escapeHtml(href)}" style="color:${EMAIL_BRAND.brand};word-break:break-all;">${escapeHtml(href)}</a>`,
+    `If the button does not work, copy this link:<br /><a href="${escapeHtml(href)}" style="color:${EMAIL_BRAND.brand};word-break:break-all;overflow-wrap:anywhere;display:inline-block;max-width:100%;">${escapeHtml(href)}</a>`,
   );
 }
 
@@ -151,7 +151,7 @@ export function wrapEmailHtml(innerHtml: string) {
 </head>
 <body style="margin:0;padding:0;background:${background};font-family:${fontFamily};color:${EMAIL_BRAND.textPrimary};">
   <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">&nbsp;</div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${background};padding:40px 16px;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:${background};padding:24px 12px;">
     <tr>
       <td align="center">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:${EMAIL_BRAND.surface};border-radius:16px;overflow:hidden;box-shadow:0 4px 14px rgba(26,24,22,0.07);">
@@ -164,7 +164,7 @@ export function wrapEmailHtml(innerHtml: string) {
             </td>
           </tr>
           <tr>
-            <td style="padding:40px;font-size:16px;line-height:1.6;color:${EMAIL_BRAND.textPrimary};">
+            <td style="padding:28px 28px 24px;font-size:16px;line-height:1.6;color:${EMAIL_BRAND.textPrimary};">
               ${innerHtml}
             </td>
           </tr>

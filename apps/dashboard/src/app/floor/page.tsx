@@ -694,7 +694,7 @@ function FloorPageContent() {
           >
             <Input placeholder="e.g. T1, Window 4, Banquette" maxLength={40} />
           </Form.Item>
-          <Row gutter={12}>
+          <Row gutter={[16, 16]}>
             <Col span={12}>
               <Form.Item
                 name="minCapacity"
@@ -740,7 +740,7 @@ function FloorPageContent() {
               }}
             />
           </Form.Item>
-          <Row gutter={12}>
+          <Row gutter={[16, 16]}>
             <Col span={12}>
               <Form.Item
                 name="combinable"
@@ -795,7 +795,7 @@ function FloorPageContent() {
           >
             <Checkbox.Group options={DAY_OPTIONS} />
           </Form.Item>
-          <Row gutter={12}>
+          <Row gutter={[16, 16]}>
             <Col span={12}>
               <Form.Item
                 name="startTime"
@@ -827,7 +827,7 @@ function FloorPageContent() {
               </Form.Item>
             </Col>
           </Row>
-          <Row gutter={12}>
+          <Row gutter={[16, 16]}>
             <Col span={12}>
               <Form.Item
                 name="slotIntervalMinutes"

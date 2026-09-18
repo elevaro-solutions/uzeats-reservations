@@ -316,6 +316,8 @@ function PrivateDiningPageContent() {
                   rowKey="id"
                   loading={spacesLoading}
                   pagination={false}
+                  bordered
+                  scroll={{ x: 720 }}
                 />
               </Space>
             ),
@@ -330,6 +332,8 @@ function PrivateDiningPageContent() {
                 rowKey="id"
                 loading={inquiriesLoading}
                 pagination={tablePagination(inquiriesData?.privateDiningInquiries?.total ?? 0)}
+                bordered
+                scroll={{ x: 860 }}
                 expandable={{
                   expandedRowRender: (record: any) => (
                     <Descriptions size="small" column={2}>

@@ -16,6 +16,7 @@ import {
   Alert,
   message,
   Drawer,
+  Tooltip,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -335,11 +336,15 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   const activeRestaurant = restaurants.find((r: { id: string }) => r.id === activeRestaurantId);
   const dinerPageUrl = useMemo(() => {
     if (!activeRestaurant) return null;
+    if ((activeRestaurant as { status?: string }).status !== 'approved') return null;
     return buildRestaurantBookingUrl(getPublicWebUrl(), {
       slug: (activeRestaurant as { slug?: string | null }).slug,
       id: activeRestaurant.id,
     });
   }, [activeRestaurant]);
+  const dinerPreviewBlocked =
+    Boolean(activeRestaurant) &&
+    (activeRestaurant as { status?: string }).status !== 'approved';
 
   if (!user || (user.role === 'diner' && !isImpersonating)) {
     return <>{children}</>;
@@ -669,7 +674,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div component="DashShell" style={{ display: 'contents' }}><Layout style={{ minHeight: '100vh', background: colors.background }}>
+    <div component="DashShell" style={{ display: 'contents' }}><Layout hasSider={false} style={{ minHeight: '100vh', background: colors.background }}>
       {isImpersonating && impersonator && (
         <Alert
           type="warning"
@@ -688,7 +693,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           }
         />
       )}
-      <Layout>
+      <Layout hasSider>
       <Sider
         theme="light"
         width={248}
@@ -712,25 +717,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           style={{ border: 'none', paddingBlock: 8, background: 'transparent' }}
         />
       </Sider>
-      <Drawer
-        placement="left"
-        open={mobileNavOpen}
-        onClose={() => setMobileNavOpen(false)}
-        size={280}
-        zIndex={1200}
-        className="rt-dash-nav-drawer"
-        styles={{ body: { padding: 0 } }}
-        title={<TableveraWordmark iconSize={26} />}
-      >
-        <Menu
-          mode="inline"
-          selectedKeys={[selectedKey]}
-          items={items}
-          onClick={() => setMobileNavOpen(false)}
-          style={{ border: 'none', paddingBlock: 8, background: 'transparent' }}
-        />
-      </Drawer>
-      <Layout style={{ background: colors.background, minWidth: 0 }}>
+      <Layout className="rt-dash-main" style={{ background: colors.background, minWidth: 0 }}>
         <Header className="rt-dash-header">
           <div className="rt-dash-header__start">
             <Button
@@ -781,6 +768,19 @@ export function DashShell({ children }: { children: React.ReactNode }) {
                   >
                     <span className="rt-dash-view-diner-label">View as diner</span>
                   </Button>
+                )}
+                {dinerPreviewBlocked && (
+                  <Tooltip title="Publish this restaurant (status: approved) before viewing the public diner page.">
+                    <Button
+                      type="default"
+                      size="small"
+                      className="rt-dash-view-diner"
+                      icon={<EyeOutlined />}
+                      disabled
+                    >
+                      <span className="rt-dash-view-diner-label">View as diner</span>
+                    </Button>
+                  </Tooltip>
                 )}
               </>
             )}
@@ -867,11 +867,16 @@ export function DashShell({ children }: { children: React.ReactNode }) {
             </Dropdown>
           </div>
         </Header>
-        <Content className="rt-dash-content">
+        <Content
+          className={
+            pathname === '/notifications' ? 'rt-dash-content rt-dash-content--fill' : 'rt-dash-content'
+          }
+        >
           {showOnboardingBanner && (
             <Alert
               type="info"
               showIcon
+              className="rt-onboarding-alert"
               style={{ marginBottom: spacing.lg, borderRadius: radii.lg }}
               message="Finish setting up your restaurant"
               description={
@@ -892,6 +897,26 @@ export function DashShell({ children }: { children: React.ReactNode }) {
         </Content>
       </Layout>
       </Layout>
-    </Layout></div>
+    </Layout>
+      <Drawer
+        placement="left"
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        size={280}
+        zIndex={1200}
+        getContainer={() => document.body}
+        className="rt-dash-nav-drawer"
+        styles={{ body: { padding: 0 } }}
+        title={<TableveraWordmark iconSize={26} />}
+      >
+        <Menu
+          mode="inline"
+          selectedKeys={[selectedKey]}
+          items={items}
+          onClick={() => setMobileNavOpen(false)}
+          style={{ border: 'none', paddingBlock: 8, background: 'transparent' }}
+        />
+      </Drawer>
+    </div>
   );
 }

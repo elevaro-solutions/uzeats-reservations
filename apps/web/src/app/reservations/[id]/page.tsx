@@ -1,7 +1,8 @@
 'use client';
 
 import { useMutation, useQuery } from '@apollo/client/react';
-import { Alert, Button, Card, Input, Modal, Select, Space, Spin, Typography, message } from 'antd';
+import { Alert, Button, Card, Dropdown, Input, Modal, Select, Space, Spin, Typography, message } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   ArrowLeftOutlined,
   BookOutlined,
@@ -9,8 +10,10 @@ import {
   CreditCardOutlined,
   EditOutlined,
   MessageOutlined,
+  MoreOutlined,
   StarOutlined,
 } from '@ant-design/icons';
+import type { MenuProps } from 'antd';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -278,7 +281,7 @@ export default function ReservationDetailPage() {
           description="Leave a quick review, optionally save the restaurant, then book again when you're ready."
           action={
             <Button type="primary" icon={<StarOutlined />} onClick={() => setReviewOpen(true)}>
-              Leave review
+              Leave a review
             </Button>
           }
         />
@@ -427,70 +430,105 @@ export default function ReservationDetailPage() {
         </Space>
       </Card>
 
-      <Space wrap>
-        {upcoming && (
-          <Button
-            icon={<CalendarOutlined />}
-            onClick={() =>
-              addReservationToCalendar({
-                restaurant: r.restaurant,
-                partySize: r.partySize,
-                slotStart: r.slotStart,
-                slotEnd: r.slotEnd,
-                guestNotes: r.guestNotes,
-              })
-            }
-          >
-            Add to calendar
-          </Button>
-        )}
-        {r.depositAmountCents > 0 && <Button onClick={() => router.push('/billing')}>Billing & invoices</Button>}
-        {past ? (
-          <Link href={bookAgainHref}>
-            <Button type={reviewable ? 'default' : 'primary'} icon={<CalendarOutlined />}>
-              Book again
-            </Button>
-          </Link>
-        ) : (
-          <Link href={restaurantPath}>
-            <Button>View restaurant</Button>
-          </Link>
-        )}
-        {past && r.restaurant?.id && !r.restaurant.isSaved && (
-          <Button
-            icon={<BookOutlined />}
-            loading={saving}
-            onClick={handleSaveRestaurant}
-          >
-            Save restaurant
-          </Button>
-        )}
-        {canManage && (
-          <Button icon={<EditOutlined />} onClick={() => setEditOpen(true)}>
-            Edit reservation
-          </Button>
-        )}
-        {canManage && (
-          <Link href={`/messages/${r.id}`}>
-            <Button icon={<MessageOutlined />}>Message</Button>
-          </Link>
-        )}
-        {needsPayment && upcoming && (
-          <Button type="primary" icon={<CreditCardOutlined />} onClick={() => setPayOpen(true)}>
-            Pay deposit
-          </Button>
-        )}
-        {canManage && (
-          <Button danger onClick={() => setCancelOpen(true)}>
-            Cancel reservation
-          </Button>
-        )}
-        {reviewable && (
-          <Button type="primary" ghost icon={<StarOutlined />} onClick={() => setReviewOpen(true)}>
-            Leave review
-          </Button>
-        )}
-      </Space>
+      {(() => {
+        const moreItems: NonNullable<MenuProps['items']> = [];
+        if (r.depositAmountCents > 0) {
+          moreItems.push({
+            key: 'billing',
+            label: 'Billing & invoices',
+            onClick: () => router.push('/billing'),
+          });
+        }
+        if (past && r.restaurant?.id && !r.restaurant.isSaved) {
+          moreItems.push({
+            key: 'save',
+            icon: <BookOutlined />,
+            label: 'Save restaurant',
+            onClick: () => void handleSaveRestaurant(),
+          });
+        }
+        if (canManage) {
+          moreItems.push({
+            key: 'edit',
+            icon: <EditOutlined />,
+            label: 'Edit reservation',
+            onClick: () => setEditOpen(true),
+          });
+        }
+        if (canManage) {
+          moreItems.push({
+            key: 'cancel',
+            danger: true,
+            label: 'Cancel reservation',
+            onClick: () => setCancelOpen(true),
+          });
+        }
+
+        return (
+          <Space wrap className="rt-reservation-actions">
+            {upcoming && (
+              <Button
+                icon={<CalendarOutlined />}
+                onClick={() => {
+                  const { googleUrl } = addReservationToCalendar({
+                    restaurant: r.restaurant,
+                    partySize: r.partySize,
+                    slotStart: r.slotStart,
+                    slotEnd: r.slotEnd,
+                    guestNotes: r.guestNotes,
+                  });
+                  message.success({
+                    content: (
+                      <span>
+                        Calendar file downloaded.{' '}
+                        <a href={googleUrl} target="_blank" rel="noopener noreferrer">
+                          Add in Google Calendar
+                        </a>
+                      </span>
+                    ),
+                    duration: 6,
+                  });
+                }}
+              >
+                Add to calendar
+              </Button>
+            )}
+            {past ? (
+              <Link href={bookAgainHref}>
+                <Button type={reviewable ? 'default' : 'primary'} icon={<CalendarOutlined />}>
+                  Book again
+                </Button>
+              </Link>
+            ) : (
+              <Link href={restaurantPath}>
+                <Button>View restaurant</Button>
+              </Link>
+            )}
+            {canManage && (
+              <Link href={`/messages/${r.id}`}>
+                <Button icon={<MessageOutlined />}>Message</Button>
+              </Link>
+            )}
+            {needsPayment && upcoming && (
+              <Button type="primary" icon={<CreditCardOutlined />} onClick={() => setPayOpen(true)}>
+                Pay deposit
+              </Button>
+            )}
+            {reviewable && (
+              <Button type="primary" icon={<StarOutlined />} onClick={() => setReviewOpen(true)}>
+                Leave a review
+              </Button>
+            )}
+            {moreItems.length > 0 && (
+              <Dropdown menu={{ items: moreItems }} trigger={['click']} placement="bottomRight">
+                <Button icon={<MoreOutlined />} iconPlacement="end">
+                  More
+                </Button>
+              </Dropdown>
+            )}
+          </Space>
+        );
+      })()}
 
       <Modal
         title="Authorize deposit"

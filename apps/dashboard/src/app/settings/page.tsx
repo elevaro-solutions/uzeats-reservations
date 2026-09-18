@@ -142,6 +142,8 @@ export default function SettingsPage() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [profileDirty, setProfileDirty] = useState(false);
+  const [settingsDirty, setSettingsDirty] = useState(false);
   const { data, loading: dataLoading, refetch } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurantIds = useMemo(
     () => (data?.myRestaurants ?? []).map((r: { id: string }) => r.id),
@@ -187,6 +189,7 @@ export default function SettingsPage() {
     });
     setPhotos(restaurant.photos ?? []);
     setLogoUrl(restaurant.logoUrl ?? null);
+    setProfileDirty(false);
   }, [restaurant?.id, restaurant, form]);
 
   const settings = settingsData?.restaurant;
@@ -201,6 +204,7 @@ export default function SettingsPage() {
         posEnabled: settings.posEnabled ?? false,
         spendAlertDollars: (settings.spendAlertThresholdCents ?? 0) / 100,
       });
+      setSettingsDirty(false);
     }
   }, [settings, settingsForm]);
 
@@ -214,7 +218,7 @@ export default function SettingsPage() {
   }) => {
     if (!restaurantId) return;
     try {
-      await updateSettings({
+      const result = await updateSettings({
         variables: {
           restaurantId,
           spendAlertThresholdCents: Math.round((values.spendAlertDollars ?? 0) * 100),
@@ -225,8 +229,13 @@ export default function SettingsPage() {
           posEnabled: values.posEnabled ?? false,
         },
       });
+      if (!result.data?.updateRestaurantSettings?.id) {
+        message.error('Settings were not saved. Try again.');
+        return;
+      }
       message.success('Settings updated');
-      refetchSettings();
+      setSettingsDirty(false);
+      await refetchSettings();
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Failed to update settings');
     }
@@ -235,7 +244,7 @@ export default function SettingsPage() {
   const handleFinish = async (values: Record<string, unknown>) => {
     if (!restaurantId) return;
     try {
-      await updateRestaurant({
+      const result = await updateRestaurant({
         variables: {
           id: restaurantId,
           input: {
@@ -263,7 +272,12 @@ export default function SettingsPage() {
           },
         },
       });
+      if (!result.data?.updateRestaurant?.id) {
+        message.error('Restaurant was not saved. Check required fields and try again.');
+        return;
+      }
       message.success('Restaurant updated');
+      setProfileDirty(false);
       await refetch();
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Update failed');
@@ -450,7 +464,7 @@ export default function SettingsPage() {
             styles={{ body: { padding: spacing.lg } }}
             style={{ borderRadius: radii.lg }}
           >
-            <Form form={form} layout="vertical" onFinish={handleFinish} requiredMark="optional">
+            <Form form={form} layout="vertical" onFinish={handleFinish} requiredMark="optional" onValuesChange={() => setProfileDirty(true)}>
               <FormSection
                 title="Restaurant profile"
                 description="How your venue appears to diners on Tablevera."
@@ -507,8 +521,8 @@ export default function SettingsPage() {
                       rules={[{ required: true, message: 'Address is required' }]}
                     >
                       <AddressAutocomplete
-                        placeholder="Start typing an address"
-                        inputProps={{ size: 'middle' }}
+                        placeholder="123 Main St"
+                        inputProps={{ size: 'middle', style: { width: '100%', height: 32 } }}
                         onSelect={(selection) =>
                           form.setFieldsValue(addressSelectionToFields(selection))
                         }
@@ -522,7 +536,7 @@ export default function SettingsPage() {
                       tooltip={tips.city}
                       rules={[{ required: true, message: 'City is required' }]}
                     >
-                      <Input />
+                      <Input placeholder="Austin" />
                     </Form.Item>
                   </Col>
                   <Col xs={12} sm={6} md={4}>
@@ -535,7 +549,7 @@ export default function SettingsPage() {
                         { len: 2, message: 'Use 2-letter state code' },
                       ]}
                     >
-                      <Input maxLength={2} />
+                      <Input maxLength={2} placeholder="TX" style={{ width: '100%', textTransform: 'uppercase' }} />
                     </Form.Item>
                   </Col>
                   <Col xs={12} sm={6} md={4}>
@@ -548,7 +562,7 @@ export default function SettingsPage() {
                         { min: 5, max: 10, message: 'ZIP must be 5–10 characters' },
                       ]}
                     >
-                      <Input maxLength={10} />
+                      <Input maxLength={10} placeholder="78701" />
                     </Form.Item>
                   </Col>
                   <Col xs={12} md={6}>
@@ -566,7 +580,7 @@ export default function SettingsPage() {
                         },
                       ]}
                     >
-                      <InputNumber min={-90} max={90} style={{ width: '100%' }} step={0.0001} />
+                      <InputNumber min={-90} max={90} style={{ width: '100%' }} step={0.0001} placeholder="30.2672" />
                     </Form.Item>
                   </Col>
                   <Col xs={12} md={6}>
@@ -584,7 +598,7 @@ export default function SettingsPage() {
                         },
                       ]}
                     >
-                      <InputNumber min={-180} max={180} style={{ width: '100%' }} step={0.0001} />
+                      <InputNumber min={-180} max={180} style={{ width: '100%' }} step={0.0001} placeholder="-97.7431" />
                     </Form.Item>
                   </Col>
                   <Col xs={24} md={12}>
@@ -703,7 +717,7 @@ export default function SettingsPage() {
                 </Row>
               </FormSection>
 
-              <Button type="primary" htmlType="submit" loading={saving} size="large">
+              <Button type="primary" htmlType="submit" loading={saving} size="large" disabled={!profileDirty}>
                 Save profile
               </Button>
             </Form>
@@ -788,6 +802,7 @@ export default function SettingsPage() {
               layout="vertical"
               onFinish={handleSettingsFinish}
               requiredMark="optional"
+              onValuesChange={() => setSettingsDirty(true)}
             >
               <FormSection
                 title="Online reservations"
@@ -860,14 +875,27 @@ export default function SettingsPage() {
                       label="Spend alert ($)"
                       tooltip={tips.spendAlertDollars}
                       extra="0 disables alerts"
+                      rules={[
+                        { type: 'number', min: 0, message: 'Enter a dollar amount (0 to disable)' },
+                      ]}
                     >
-                      <InputNumber min={0} step={10} precision={2} style={{ width: '100%' }} />
+                      <InputNumber
+                        min={0}
+                        step={10}
+                        precision={2}
+                        style={{ width: '100%' }}
+                        placeholder="e.g. 150"
+                        parser={(value) => {
+                          const next = String(value ?? '').replace(/[^\d.]/g, '');
+                          return next as unknown as 0;
+                        }}
+                      />
                     </Form.Item>
                   </Col>
                 </Row>
               </FormSection>
 
-              <Button type="primary" htmlType="submit" loading={savingSettings} size="large">
+              <Button type="primary" htmlType="submit" loading={savingSettings} size="large" disabled={!settingsDirty}>
                 Save preferences
               </Button>
             </Form>

@@ -5,7 +5,7 @@ import { DatePicker, Input, InputNumber, Modal, Select, Space, Typography, messa
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 import { OCCASIONS } from '@reservations/shared';
-import { AVAILABILITY, UPDATE_RESERVATION } from '@/lib/graphql';
+import { AVAILABILITY, MY_RESERVATION, MY_RESERVATIONS, UPDATE_RESERVATION } from '@/lib/graphql';
 import { formatOccasion } from '@/components/restaurant/ReservationConfirmModal';
 
 const { Text } = Typography;
@@ -78,9 +78,14 @@ export function EditReservationModal({ open, reservation, onClose, onUpdated }: 
           guestNotes: guestNotes.trim() || undefined,
         },
       },
+      refetchQueries: [
+        { query: MY_RESERVATIONS },
+        { query: MY_RESERVATION, variables: { id: reservation.id } },
+      ],
+      awaitRefetchQueries: true,
     });
     message.success('Reservation updated');
-    onUpdated?.();
+    await onUpdated?.();
     onClose();
   };
 

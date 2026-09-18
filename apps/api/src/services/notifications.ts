@@ -67,6 +67,10 @@ async function sendViaSendGrid(
     from: parseEmailFrom(env.EMAIL_FROM),
     subject: title,
     content,
+    tracking_settings: {
+      click_tracking: { enable: false, enable_text: false },
+      open_tracking: { enable: false },
+    },
   };
   if (attachments?.length) {
     payload.attachments = attachments.map((a) => ({
@@ -192,6 +196,11 @@ export async function notifyUser(
     title: string;
     body: string;
     htmlBody?: string;
+    attachments?: Array<{
+      filename: string;
+      contentBase64: string;
+      contentType: string;
+    }>;
     data?: Record<string, unknown>;
   },
   opts?: {
@@ -253,6 +262,7 @@ export async function notifyUser(
       } else if (channel === 'email' && user.email) {
         await sendEmail(user.email, payload.title, payload.body, {
           htmlBody: payload.htmlBody,
+          attachments: payload.attachments,
         });
       } else if (channel === 'telegram' && user.telegramChatId) {
         await sendTelegramNotification(user.telegramChatId, payload.title, payload.body);

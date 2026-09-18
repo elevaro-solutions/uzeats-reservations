@@ -111,10 +111,12 @@ export default function AnalyticsPage() {
       <Select style={{ width: 280 }} {...restaurantSelectProps} />
 
       {fetching ? (
-        <Spin size="large" style={{ display: 'block', margin: '80px auto' }} />
+        <div className="rt-page-loader">
+          <Spin size="large" />
+        </div>
       ) : (
         <>
-          <Row gutter={[16, 16]}>
+          <Row gutter={[16, 16]} className="rt-stat-grid">
             <Col xs={12} md={6}>
               <Card>
                 <Statistic
@@ -157,7 +159,7 @@ export default function AnalyticsPage() {
             </Col>
           </Row>
 
-          <Row gutter={[16, 16]}>
+          <Row gutter={[16, 16]} className="rt-stat-grid">
             <Col xs={12} md={8}>
               <Card>
                 <Statistic title="Avg party size" value={stats.avgPartySize} />

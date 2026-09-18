@@ -133,7 +133,7 @@ export default function OverviewPage() {
 
   if (authLoading || (user && overviewLoading && !overview)) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
+      <div className="rt-page-loader">
         <Spin size="large" />
       </div>
     );
@@ -180,7 +180,7 @@ export default function OverviewPage() {
           }
         />
 
-        <Row gutter={[16, 16]}>
+        <Row gutter={[16, 16]} className="rt-stat-grid">
           <Col xs={12} md={8} lg={4}>
             <Card>
               <Statistic title="Locations" value={overview?.locationsTotal ?? 0} prefix={<ShopOutlined />} />
@@ -350,7 +350,7 @@ export default function OverviewPage() {
           </Card>
         ) : null}
 
-        <Row gutter={[16, 16]}>
+        <Row gutter={[16, 16]} className="rt-stat-grid">
           <Col xs={24} md={isMultiLocation ? 12 : 8}>
             <Card title="Location status" style={{ borderRadius: radii.lg, height: '100%' }}>
               <Space orientation="vertical" size={spacing.md} style={{ width: '100%' }}>
@@ -531,7 +531,7 @@ export default function OverviewPage() {
           </Card>
         ) : null}
 
-        <Row gutter={[16, 16]}>
+        <Row gutter={[16, 16]} className="rt-stat-grid">
           {shortcuts.map((item) => (
             <Col xs={24} sm={12} lg={8} key={item.href}>
               <Card

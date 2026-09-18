@@ -58,6 +58,17 @@ export function buildReservationCalendarEvent(input: {
   };
 }
 
+export function googleCalendarUrl(event: CalendarEventInput): string {
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: event.title,
+    dates: `${formatIcsDate(event.start)}/${formatIcsDate(event.end)}`,
+  });
+  if (event.description) params.set('details', event.description);
+  if (event.location) params.set('location', event.location);
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
 export function downloadIcsFile(event: CalendarEventInput, filename = 'reservation.ics') {
   const uid = `${Date.now()}@tablevera`;
   const lines = [
@@ -115,4 +126,5 @@ export function addReservationToCalendar(reservation: {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
   downloadIcsFile(event, `${safeName || 'reservation'}.ics`);
+  return { googleUrl: googleCalendarUrl(event) };
 }

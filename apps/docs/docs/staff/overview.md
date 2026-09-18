@@ -19,6 +19,10 @@ Platform roles (`admin`, `super_admin`) see additional admin sections — see [P
 
 Owners with **multiple restaurants** use the restaurant selector in the top navigation.
 
+## Dashboard layout
+
+The Restaurant Dashboard is a **fixed operational layout**. Partners cannot add, remove, or rearrange widgets on Overview. Coverage, today’s bookings, and setup alerts are the intended cards; extra tools live on their own pages (Reservations, Floor, Messages, Settings, and so on).
+
 ## Dashboard sections (staff & owners)
 
 | Section | Purpose |

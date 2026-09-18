@@ -224,6 +224,7 @@ function CustomReportTab({ restaurantId }: { restaurantId?: string }) {
       <Form
         form={form}
         layout="inline"
+        className="rt-report-filters"
         initialValues={{
           metrics: ['reservations', 'covers'],
           groupBy: 'day',

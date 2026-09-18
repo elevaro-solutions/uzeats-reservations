@@ -80,8 +80,8 @@ export function WidgetThemeEditor({
   return (
     <div component="WidgetThemeEditor">
       <Form form={form} layout="vertical" requiredMark="optional">
-        <Row gutter={[24, 8]} align="bottom">
-          <Col xs={12} md={6}>
+        <Row gutter={[24, 8]} className="rt-widget-theme-row" align="bottom">
+          <Col xs={24} md={6}>
             <Form.Item
               name="primaryColor"
               label="Primary color"
@@ -110,12 +110,12 @@ export function WidgetThemeEditor({
               />
             </Form.Item>
           </Col>
-          <Col xs={12} md={8}>
+          <Col xs={24} md={8}>
             <Form.Item name="buttonText" label="Button text" tooltip={tips.buttonText}>
               <Input placeholder={DEFAULT_BUTTON_TEXT} />
             </Form.Item>
           </Col>
-          <Col xs={12} md={4}>
+          <Col xs={24} sm={12} md={4}>
             <Form.Item
               name="showReviews"
               label="Show reviews"
@@ -125,7 +125,7 @@ export function WidgetThemeEditor({
               <Switch />
             </Form.Item>
           </Col>
-          <Col xs={12} md={6}>
+          <Col xs={24} md={6}>
             <Form.Item label="Preview">
               <Space>
                 <Button

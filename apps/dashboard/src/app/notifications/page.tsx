@@ -199,7 +199,8 @@ export default function NotificationsSettingsPage() {
   }));
 
   return (
-    <div component="NotificationsSettingsPage" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
+    <div component="NotificationsSettingsPage" className="rt-notifications-page">
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <PageHeader
         title="Notifications"
         subtitle="Select a team member to configure feature alerts by channel."

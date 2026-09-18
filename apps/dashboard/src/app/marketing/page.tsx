@@ -293,19 +293,19 @@ function GiftCardsTab({ restaurantId }: { restaurantId?: string }) {
             label="Balance ($)"
             rules={[{ required: true, message: 'Enter a balance' }]}
           >
-            <InputNumber min={0.01} step={0.01} style={{ width: '100%' }} />
+            <InputNumber min={0.01} step={0.01} style={{ width: '100%' }} placeholder="50.00" />
           </Form.Item>
           <Form.Item name="recipientName" label="Recipient name">
-            <Input />
+            <Input placeholder="Jordan Lee" />
           </Form.Item>
           <Form.Item name="recipientEmail" label="Recipient email">
-            <Input type="email" />
+            <Input type="email" placeholder="jordan@email.com" />
           </Form.Item>
           <Form.Item name="expiresAt" label="Expires">
-            <DatePicker style={{ width: '100%' }} />
+            <DatePicker style={{ width: '100%' }} placeholder="Optional expiry date" />
           </Form.Item>
           <Form.Item name="note" label="Note">
-            <Input.TextArea rows={2} />
+            <Input.TextArea rows={2} placeholder="Happy birthday — enjoy dinner on us" />
           </Form.Item>
         </Form>
       </Modal>
@@ -591,8 +591,8 @@ function BoostCampaignsTab({ restaurantId }: { restaurantId?: string }) {
 
   return (
     <div component="BoostCampaignsTab" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text type="secondary">
+      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 }}>
+        <Text type="secondary" style={{ flex: '1 1 240px', margin: 0 }}>
           Boost campaigns promote your restaurant across the network. You pay per cover
           attributed to the boost, up to your budget.
         </Text>
@@ -612,6 +612,7 @@ function BoostCampaignsTab({ restaurantId }: { restaurantId?: string }) {
         rowKey="id"
         dataSource={data?.boostCampaigns?.items ?? []}
         pagination={tablePagination(data?.boostCampaigns?.total ?? 0)}
+        scroll={{ x: 860 }}
         columns={[
           { title: 'Name', dataIndex: 'name' },
           {
@@ -693,12 +694,12 @@ function BoostCampaignsTab({ restaurantId }: { restaurantId?: string }) {
                 label="Cost per cover ($)"
                 rules={[{ required: true }]}
               >
-                <InputNumber min={0.01} step={0.25} precision={2} style={{ width: '100%' }} />
+                <InputNumber min={0.01} step={0.25} precision={2} style={{ width: '100%' }} placeholder="2.50" />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item name="budget" label="Total budget ($)" rules={[{ required: true }]}>
-                <InputNumber min={1} step={10} precision={2} style={{ width: '100%' }} />
+                <InputNumber min={1} step={10} precision={2} style={{ width: '100%' }} placeholder="250.00" />
               </Form.Item>
             </Col>
           </Row>

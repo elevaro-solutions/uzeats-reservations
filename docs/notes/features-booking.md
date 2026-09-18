@@ -48,6 +48,10 @@
 - Daily/startup job creates Mongo invoices for current + previous UTC months. Lines are plan + network/website/widget cover (qty = covers). Unpaid auto invoices refresh; paid, `-M` manual, and Stripe-synced invoices skip. Due date is the 1st of the next month.
 - Why it matters: Cover totals on Billing are not the bill — the period invoice is. Unique `restaurantId+billingPeriod` means a paid current-month invoice will not pick up later covers.
 
+## [2026-09-18] Confirmation email carries the calendar invite
+- `notifyDinerBookingConfirmed` renders `booking_confirmation`, attaches `reservation.ics`, and adds Google Calendar + View reservation buttons. Diner “Add to calendar” still downloads ICS and toasts a Google link because mobile browsers often swallow silent downloads.
+- Why it matters: Don’t treat ICS-only as the handoff. SendGrid click tracking must stay off or those calendar/reset URLs hit a cert interstitial.
+
 ## [2026-09-16] Experience booking is a dedicated modal, not an add-on scroll
 - Restaurant profile lists experiences as Reserve cards. Reserve opens Find a table → optional package add-ons → summary, then applies date/slot/party back onto `#booking-form`. Slot grid is clipped to the experience start/end window.
 - Why it matters: Don’t treat experience cards as “select and scroll to the widget.” The widget still completes guest details, deposit, and confirm.

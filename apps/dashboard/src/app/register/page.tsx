@@ -20,7 +20,7 @@ import {
   Spin,
   Alert,
 } from 'antd';
-import { ImportOutlined } from '@ant-design/icons';
+import { ArrowRightOutlined, ImportOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { CUISINES } from '@reservations/shared';
 import { AddressAutocomplete, PhoneInput, PlanPrice, colors, formatPhoneDisplay, toE164Us, typography, usPhoneRules, type BillingPeriod } from '@reservations/ui';
@@ -574,7 +574,7 @@ function RegisterForm() {
                 label="First name"
                 rules={[{ required: true, message: 'Required' }]}
               >
-                <Input size="large" autoComplete="given-name" />
+                <Input size="large" autoComplete="given-name" placeholder="Maya" />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>
@@ -583,7 +583,7 @@ function RegisterForm() {
                 label="Last name"
                 rules={[{ required: true, message: 'Required' }]}
               >
-                <Input size="large" autoComplete="family-name" />
+                <Input size="large" autoComplete="family-name" placeholder="Chen" />
               </Form.Item>
             </Col>
             <Col span={24}>
@@ -641,7 +641,7 @@ function RegisterForm() {
                   { pattern: /\d/, message: 'Include a number' },
                 ]}
               >
-                <Input.Password size="large" autoComplete="new-password" />
+                <Input.Password size="large" autoComplete="new-password" placeholder="Create a password" />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>
@@ -661,7 +661,7 @@ function RegisterForm() {
                   }),
                 ]}
               >
-                <Input.Password size="large" autoComplete="new-password" />
+                <Input.Password size="large" autoComplete="new-password" placeholder="Re-enter password" />
               </Form.Item>
             </Col>
           </Row>
@@ -704,7 +704,7 @@ function RegisterForm() {
                   },
                 ]}
               >
-                <Input size="large" maxLength={120} showCount />
+                <Input size="large" maxLength={120} showCount placeholder="The Magnolia Room" />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>
@@ -741,7 +741,7 @@ function RegisterForm() {
                   { max: 2000, message: 'Max 2000 characters' },
                 ]}
               >
-                <Input.TextArea rows={3} maxLength={2000} showCount />
+                <Input.TextArea rows={3} maxLength={2000} showCount placeholder="Neighborhood bistro with seasonal tasting menus" />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>
@@ -802,7 +802,7 @@ function RegisterForm() {
                 tooltip={tips.line1}
                 rules={[{ required: true, message: 'Required' }]}
               >
-                <Input size="large" autoComplete="street-address" />
+                <Input size="large" autoComplete="street-address" placeholder="123 Main St" />
               </Form.Item>
             </Col>
             <Col xs={24} sm={10} style={{ display: addressDetailsOpen ? undefined : 'none' }}>
@@ -812,7 +812,7 @@ function RegisterForm() {
                 tooltip={tips.city}
                 rules={[{ required: true, message: 'Required' }]}
               >
-                <Input size="large" autoComplete="address-level2" />
+                <Input size="large" autoComplete="address-level2" placeholder="Austin" />
               </Form.Item>
             </Col>
             <Col xs={12} sm={7} style={{ display: addressDetailsOpen ? undefined : 'none' }}>
@@ -829,6 +829,7 @@ function RegisterForm() {
                   size="large"
                   maxLength={2}
                   autoComplete="address-level1"
+                  placeholder="TX"
                   style={{ textTransform: 'uppercase' }}
                 />
               </Form.Item>
@@ -843,7 +844,7 @@ function RegisterForm() {
                   { min: 5, max: 10, message: '5–10 characters' },
                 ]}
               >
-                <Input size="large" maxLength={10} autoComplete="postal-code" />
+                <Input size="large" maxLength={10} autoComplete="postal-code" placeholder="78701" />
               </Form.Item>
             </Col>
             <Form.Item name="lat" hidden rules={[{ required: true }]}>
@@ -938,6 +939,8 @@ function RegisterForm() {
               size="large"
               onClick={goNext}
               loading={checkingEmail || checkingName}
+              icon={<ArrowRightOutlined />}
+              iconPlacement="end"
               style={{ flex: 1, background: colors.brand[600] }}
             >
               Continue

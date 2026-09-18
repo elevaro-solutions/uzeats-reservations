@@ -21,7 +21,8 @@ import {
   MessageOutlined,
   SearchOutlined,
   CreditCardOutlined,
-  RightOutlined,
+  DownOutlined,
+  UpOutlined,
   EditOutlined,
   MoreOutlined,
   CloseCircleOutlined,
@@ -96,6 +97,7 @@ export default function ReservationsPage() {
   const [cancelling, setCancelling] = useState(false);
   const [segment, setSegment] = useState<ReservationListSegment>('upcoming');
   const [segmentInitialized, setSegmentInitialized] = useState(false);
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
 
   const reservations = (data as any)?.myReservations ?? [];
   const upcomingCount = reservations.filter(isReservationUpcoming).length;
@@ -258,11 +260,20 @@ export default function ReservationsPage() {
                 const upcoming = isReservationUpcoming(r);
                 const past = isReservationPast(r);
                 const reviewable = canLeaveReview(r);
+                const expanded = Boolean(expandedIds[r.id]);
+                const hasExtraDetails = Boolean(
+                  (r.occasion && r.occasion !== 'none') ||
+                    r.guestNotes ||
+                    r.tables?.[0] ||
+                    r.loyaltyPointsEarned > 0 ||
+                    r.packageTitle,
+                );
                 return (
                   <div
                     key={r.id}
                     role="button"
                     tabIndex={0}
+                    className="rt-reservation-card"
                     onClick={() => router.push(`/reservations/${r.id}`)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -289,6 +300,7 @@ export default function ReservationsPage() {
                     }}
                   >
                     <div
+                      className="rt-reservation-card__thumb"
                       style={{
                         width: 72,
                         height: 72,
@@ -323,7 +335,7 @@ export default function ReservationsPage() {
                         </div>
                       )}
                     </div>
-                    <div style={{ flex: 1, minWidth: 180 }}>
+                    <div className="rt-reservation-card__body" style={{ flex: 1, minWidth: 0 }}>
                       <Space size={8} wrap>
                         <Link
                           href={`/reservations/${r.id}`}
@@ -351,56 +363,60 @@ export default function ReservationsPage() {
                         <Text style={{ color: colors.textSecondary }}>
                           {new Date(r.slotStart).toLocaleString('en-US')} · {r.partySize} guests
                         </Text>
-                        {r.occasion !== 'none' && (
-                          <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                            Occasion: {r.occasion}
-                          </Text>
-                        )}
-                        {r.guestNotes && (
-                          <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                            {r.guestNotes}
-                          </Text>
-                        )}
-                        {r.tables?.[0] && (
-                          <div style={{ marginTop: 8 }}>
-                            <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                              Table: {r.tables[0].name}
-                              {r.tables[0].floorArea ? ` · ${r.tables[0].floorArea}` : ''}
-                            </Text>
-                            {r.tables[0].photoUrl &&
-                              !r.tables[0].photoUrl.includes('1551782450-a2132b4ba21d') && (
-                              <img
-                                src={r.tables[0].photoUrl}
-                                alt={r.tables[0].name}
-                                style={{
-                                  display: 'block',
-                                  marginTop: 8,
-                                  width: '100%',
-                                  maxWidth: 220,
-                                  borderRadius: radii.md,
-                                  objectFit: 'cover',
-                                  maxHeight: 120,
-                                }}
-                              />
+                        {expanded && hasExtraDetails && (
+                          <div className="rt-reservation-card__details">
+                            {r.occasion !== 'none' && (
+                              <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+                                Occasion: {r.occasion}
+                              </Text>
+                            )}
+                            {r.guestNotes && (
+                              <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+                                {r.guestNotes}
+                              </Text>
+                            )}
+                            {r.tables?.[0] && (
+                              <div style={{ marginTop: 8 }}>
+                                <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+                                  Table: {r.tables[0].name}
+                                  {r.tables[0].floorArea ? ` · ${r.tables[0].floorArea}` : ''}
+                                </Text>
+                                {r.tables[0].photoUrl &&
+                                  !r.tables[0].photoUrl.includes('1551782450-a2132b4ba21d') && (
+                                  <img
+                                    src={r.tables[0].photoUrl}
+                                    alt={r.tables[0].name}
+                                    style={{
+                                      display: 'block',
+                                      marginTop: 8,
+                                      width: '100%',
+                                      maxWidth: 220,
+                                      borderRadius: radii.md,
+                                      objectFit: 'cover',
+                                      maxHeight: 120,
+                                    }}
+                                  />
+                                )}
+                              </div>
+                            )}
+                            {r.loyaltyPointsEarned > 0 && (
+                              <Text style={{ color: colors.success, fontSize: typography.fontSize.sm }}>
+                                +{r.loyaltyPointsEarned} points earned
+                              </Text>
+                            )}
+                            {r.packageTitle && (
+                              <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+                                Package: {r.packageTitle}
+                                {r.packagePriceCents > 0
+                                  ? ` (+$${(r.packagePriceCents / 100).toFixed(2)})`
+                                  : ''}
+                              </Text>
                             )}
                           </div>
                         )}
-                        {r.loyaltyPointsEarned > 0 && (
-                          <Text style={{ color: colors.success, fontSize: typography.fontSize.sm }}>
-                            +{r.loyaltyPointsEarned} points earned
-                          </Text>
-                        )}
-                        {r.packageTitle && (
-                          <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                            Package: {r.packageTitle}
-                            {r.packagePriceCents > 0
-                              ? ` (+$${(r.packagePriceCents / 100).toFixed(2)})`
-                              : ''}
-                          </Text>
-                        )}
                       </Space>
                     </div>
-                    <Space wrap onClick={(e) => e.stopPropagation()}>
+                    <Space wrap className="rt-reservation-card__actions" onClick={(e) => e.stopPropagation()}>
                       {needsPayment && (
                         <Button
                           type="primary"
@@ -413,7 +429,6 @@ export default function ReservationsPage() {
                       {reviewable && (
                         <Button
                           type="primary"
-                          ghost
                           icon={<StarOutlined />}
                           onClick={() =>
                             setReviewFor({
@@ -423,7 +438,7 @@ export default function ReservationsPage() {
                             })
                           }
                         >
-                          Leave review
+                          Leave a review
                         </Button>
                       )}
                       {past && r.restaurant?.id && (
@@ -471,8 +486,16 @@ export default function ReservationsPage() {
                       )}
                       <Button
                         type="text"
-                        icon={<RightOutlined />}
-                        onClick={() => router.push(`/reservations/${r.id}`)}
+                        aria-expanded={expanded}
+                        iconPlacement="end"
+                        icon={expanded ? <UpOutlined /> : <DownOutlined />}
+                        onClick={() => {
+                          if (hasExtraDetails) {
+                            setExpandedIds((prev) => ({ ...prev, [r.id]: !prev[r.id] }));
+                            return;
+                          }
+                          router.push(`/reservations/${r.id}`);
+                        }}
                       >
                         Details
                       </Button>

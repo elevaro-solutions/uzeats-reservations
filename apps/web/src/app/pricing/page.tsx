@@ -440,7 +440,7 @@ export default function PricingPage() {
     ? featureCategories
     : featureCategories.slice(0, VISIBLE_CATEGORY_COUNT);
 
-  const gridColumns = `1fr repeat(${comparisonPlans.length}, minmax(100px, 120px))`;
+  const gridColumns = `minmax(180px, 1.6fr) repeat(${comparisonPlans.length}, minmax(90px, 1fr))`;
   const coreColumnIndex = comparisonPlans.indexOf('core');
 
   const startTrial = (plan: string = selectedPlan) => {
@@ -693,11 +693,13 @@ export default function PricingPage() {
               : `Showing top highlights — ${featureCategories.length - VISIBLE_CATEGORY_COUNT} more categories below`}
           </Paragraph>
 
-          <Card style={{ borderRadius: 12 }} styles={{ body: { padding: 0 } }}>
+          <Card className="pricing-compare-desktop" style={{ borderRadius: 12 }} styles={{ body: { padding: 0 } }}>
+            <div className="pricing-compare-scroll">
             <div
+              className="pricing-compare-grid"
               style={{
                 display: 'grid',
-                gridTemplateColumns: gridColumns,
+                gridTemplateColumns: `minmax(180px, 1.6fr) repeat(${comparisonPlans.length}, minmax(90px, 1fr))`,
                 padding: '20px 24px',
                 background: '#fafafa',
                 borderBottom: '1px solid #f0f0f0',
@@ -818,7 +820,56 @@ export default function PricingPage() {
                 </div>
               ))}
             </div>
+            </div>
           </Card>
+
+          <div className="pricing-compare-mobile">
+            <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+              {comparisonPlans.map((key) => (
+                <Card key={key} style={{ borderRadius: 12 }} title={`${key.charAt(0).toUpperCase()}${key.slice(1)} plan`}>
+                  {visibleCategories.map((category) => (
+                    <div key={category.title} style={{ marginBottom: 16 }}>
+                      <Text strong style={{ display: 'block', marginBottom: 8 }}>
+                        {category.title}
+                      </Text>
+                      {category.features.map((feature) => (
+                        <div
+                          key={feature.name}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            gap: 12,
+                            padding: '8px 0',
+                            borderBottom: '1px solid #f5f5f5',
+                          }}
+                        >
+                          <Text style={{ flex: 1 }}>{feature.name}</Text>
+                          <FeatureValue value={feature[key]} />
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                  <Button
+                    type={key === 'core' ? 'primary' : 'default'}
+                    block
+                    style={
+                      key === 'core'
+                        ? { background: '#0b3d2e', borderColor: '#0b3d2e' }
+                        : { borderColor: '#0b3d2e', color: '#0b3d2e' }
+                    }
+                    onClick={() => startTrial(key)}
+                  >
+                    Get {key.charAt(0).toUpperCase() + key.slice(1)}
+                  </Button>
+                </Card>
+              ))}
+              {!showAllFeatures ? (
+                <Button type="link" onClick={() => setShowAllFeatures(true)} style={{ color: '#0b3d2e' }}>
+                  Show all {featureCategories.length} feature categories →
+                </Button>
+              ) : null}
+            </Space>
+          </div>
         </div>
 
         {/* Additional solutions */}

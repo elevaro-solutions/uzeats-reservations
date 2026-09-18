@@ -768,9 +768,10 @@ function ReservationsPageContent() {
         confirmLoading={creating}
         okText="Create reservation"
         width={640}
+        wrapClassName="rt-mobile-modal"
         centered
         destroyOnClose
-        styles={{ body: { paddingTop: 4 } }}
+        styles={{ body: { paddingTop: 4, maxHeight: 'min(70vh, 560px)', overflowY: 'auto', overflowX: 'hidden' } }}
       >
         <Form form={createForm} layout="vertical">
           <SectionLabel>When &amp; party</SectionLabel>

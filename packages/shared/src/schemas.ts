@@ -213,7 +213,7 @@ export const reservationInputSchema = z.object({
 });
 
 export const restaurantPackageInputSchema = z.object({
-  title: z.string().min(1).max(120),
+  title: z.string().trim().min(1, 'Title is required').max(120),
   description: z.string().max(2000).optional().default(""),
   priceCents: z.number().int().min(0).max(1_000_000),
   pricePerGuest: z.boolean().optional().default(false),

@@ -626,7 +626,7 @@ export default function MyRestaurantsPage() {
                 </Button>
               )}
               {createStep < CREATE_STEPS.length - 1 ? (
-                <Button type="primary" icon={<ArrowRightOutlined />} onClick={goCreateNext}>
+                <Button type="primary" icon={<ArrowRightOutlined />} iconPlacement="end" onClick={goCreateNext}>
                   Continue
                 </Button>
               ) : (

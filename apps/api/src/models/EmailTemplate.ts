@@ -69,16 +69,16 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     description: 'Sent after a diner books successfully.',
     bodyHtml: [
       emailGreeting('{{firstName}}'),
-      emailParagraph('Great news — your reservation is confirmed. We look forward to seeing you.'),
+      emailParagraph('Great news — your reservation is confirmed. We look forward to seeing you. Add it to your calendar so you do not miss it.'),
       emailDetailBox([
         { label: 'Restaurant', value: '{{restaurantName}}' },
         { label: 'Date & time', value: '{{date}}' },
         { label: 'Party size', value: '{{partySize}}' },
       ]),
-      emailMuted('Need to make changes? Visit your reservations in the Tablevera app.'),
+      emailMuted('Need to make changes? Visit your reservations in the Tablevera app. A calendar file is attached to this email.'),
     ].join(''),
     bodyText:
-      'Hi {{firstName}},\n\nYour reservation at {{restaurantName}} on {{date}} for {{partySize}} is confirmed.',
+      'Hi {{firstName}},\n\nYour reservation at {{restaurantName}} on {{date}} for {{partySize}} is confirmed.\n\nAdd this visit to your calendar from the attached .ics file, or open your reservations in Tablevera.',
   },
   {
     key: 'booking_reminder',

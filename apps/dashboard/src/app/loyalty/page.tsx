@@ -64,7 +64,7 @@ export default function RestaurantLoyaltyPage() {
         />
       )}
 
-      <Row gutter={[16, 16]}>
+      <Row gutter={[16, 16]} className="rt-stat-grid">
         <Col xs={24} sm={12} lg={8}>
           <Card loading={loading} style={{ borderRadius: radii.lg }}>
             <Statistic

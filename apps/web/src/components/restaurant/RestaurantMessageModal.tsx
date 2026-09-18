@@ -96,7 +96,7 @@ export function RestaurantMessageModal({ open, restaurantId, restaurantName, onC
           name="message"
           label="Message"
           rules={[
-            { required: true, message: 'Write a message' },
+            { required: true, whitespace: true, message: 'Write a message' },
             { max: 2000, message: 'Max 2000 characters' },
           ]}
         >

@@ -3014,7 +3014,7 @@ export const resolvers = {
       const input = restaurantInputSchema.parse(args.input);
       const doc = await Restaurant.findByIdAndUpdate(
         args.id,
-        restaurantInputToDb(input),
+        { $set: restaurantInputToDb(input) },
         { new: true },
       );
       if (!doc) throw new Error("Restaurant not found");
@@ -5754,10 +5754,16 @@ export const resolvers = {
 
       const update: Record<string, unknown> = {};
       if (args.spendAlertThresholdCents != null) {
+        if (
+          !Number.isFinite(args.spendAlertThresholdCents) ||
+          args.spendAlertThresholdCents < 0
+        ) {
+          throw new ValidationError("Spend alert must be a non-negative dollar amount");
+        }
         if (args.spendAlertThresholdCents > 0) {
           await requireFeature(args.restaurantId, "spendAlerts");
         }
-        update.spendAlertThresholdCents = args.spendAlertThresholdCents;
+        update.spendAlertThresholdCents = Math.round(args.spendAlertThresholdCents);
       }
       if (args.useSmartAssign != null)
         update.useSmartAssign = args.useSmartAssign;
@@ -5782,9 +5788,15 @@ export const resolvers = {
         }
       }
 
+      if (Object.keys(update).length === 0) {
+        const current = await Restaurant.findById(args.restaurantId);
+        if (!current) throw new Error("Restaurant not found");
+        return mapRestaurant(current);
+      }
+
       const doc = await Restaurant.findByIdAndUpdate(
         args.restaurantId,
-        update,
+        { $set: update },
         { new: true },
       );
       if (!doc) throw new Error("Restaurant not found");

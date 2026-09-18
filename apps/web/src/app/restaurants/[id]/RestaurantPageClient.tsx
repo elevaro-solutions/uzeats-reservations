@@ -24,6 +24,8 @@ import {
 } from 'antd';
 import dayjs from 'dayjs';
 import { CheckCircleFilled, EnvironmentOutlined, StarFilled } from '@ant-design/icons';
+import { PostVisitModal } from '@/components/PostVisitModal';
+import { canLeaveReview } from '@/lib/reservationDisplay';
 import { SlotPicker, priceRangeLabel, colors, radii, pickRestaurantPhoto } from '@reservations/ui';
 import {
   OCCASIONS,
@@ -142,6 +144,7 @@ export default function RestaurantPageClient() {
   const [promoCode, setPromoCode] = useState(bookingFromUrl.promoCode);
   const [giftCardCode, setGiftCardCode] = useState('');
   const [messageOpen, setMessageOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const draftRestoredRef = useRef(false);
   const prevSlotPartyRef = useRef<{ slot: string | null; party: number } | null>(null);
@@ -241,10 +244,36 @@ export default function RestaurantPageClient() {
     skip: !restaurantId || !selectedSlot,
   });
   const bookableTables = (bookableData as any)?.bookableTables ?? [];
-  const { data: reviewsData } = useQuery(RESTAURANT_REVIEWS, {
+  const { data: reviewsData, refetch: refetchReviews } = useQuery(RESTAURANT_REVIEWS, {
     variables: { restaurantId: restaurantId!, limit: 50, offset: 0 },
     skip: !restaurantId,
   });
+  const { data: myReservationsData, refetch: refetchMyReservations } = useQuery(MY_RESERVATIONS, {
+    skip: !user || !restaurantId,
+  });
+  const reviewableReservation = useMemo(() => {
+    if (!restaurantId) return null;
+    const list =
+      (
+        myReservationsData as {
+          myReservations?: Array<{
+            id: string;
+            status: string;
+            slotStart: string;
+            slotEnd?: string | null;
+            hasReview?: boolean | null;
+            partySize?: number;
+            restaurant?: { id?: string; name?: string; slug?: string; isSaved?: boolean } | null;
+          }>;
+        } | undefined
+      )?.myReservations ?? [];
+    return (
+      list.find(
+        (reservation) =>
+          reservation.restaurant?.id === restaurantId && canLeaveReview(reservation),
+      ) ?? null
+    );
+  }, [myReservationsData, restaurantId]);
   const { data: promotionsData } = useQuery(PROMOTIONS, {
     variables: { restaurantId: restaurantId!, activeOnly: true, limit: 50, offset: 0 },
     skip: !restaurantId,
@@ -854,6 +883,8 @@ export default function RestaurantPageClient() {
                 reviews={reviews}
                 averageRating={restaurant.averageRating}
                 reviewCount={restaurant.reviewCount}
+                canLeaveReview={Boolean(reviewableReservation)}
+                onLeaveReview={() => setReviewOpen(true)}
               />
 
               <RestaurantPhotosSection photos={restaurant.photos ?? []} name={restaurant.name} />
@@ -1438,7 +1469,7 @@ export default function RestaurantPageClient() {
                 />
               )}
 
-              <Space size={8}>
+              <div className="rt-restaurant-booking-card__actions">
                 <Button type="primary" loading={booking} onClick={book}>
                   Complete reservation
                 </Button>
@@ -1447,7 +1478,7 @@ export default function RestaurantPageClient() {
                     Join waitlist
                   </Button>
                 )}
-              </Space>
+              </div>
               <Text type="secondary" className="rt-restaurant-booking-card__cancellation">
                 {buildCancellationPolicySummary({
                   depositRequired: restaurant.depositRequired,
@@ -1656,6 +1687,23 @@ export default function RestaurantPageClient() {
           </Space>
         )}
       </Modal>
+
+      <PostVisitModal
+        open={reviewOpen}
+        reservationId={reviewableReservation?.id ?? null}
+        partySize={reviewableReservation?.partySize}
+        restaurant={{
+          id: restaurant.id,
+          name: restaurant.name,
+          slug: restaurant.slug,
+          isSaved: restaurant.isSaved,
+        }}
+        onClose={() => setReviewOpen(false)}
+        onCompleted={() => {
+          void refetchReviews();
+          void refetchMyReservations();
+        }}
+      />
 
       <Modal
         open={!!depositInfo}
