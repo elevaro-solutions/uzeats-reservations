@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@apollo/client";
-import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { toast } from "sonner-native";
@@ -24,8 +24,8 @@ import {
 } from "./api/floor.operations";
 import {
   FLOOR_AREA_ALL,
-  FloorAreaFilter,
-} from "./components/floor-area-filter.component";
+  FloorAreaPicker,
+} from "./components/floor-area-picker.component";
 import { FloorStatusLegend } from "./components/floor-status-legend.component";
 import { FloorTableCard } from "./components/floor-table-card.component";
 import { FloorTableSheet } from "./components/floor-table-sheet.component";
@@ -66,31 +66,47 @@ type FloorOpsQuery = {
   };
 };
 
-function guestName(diner?: {
-  firstName?: string | null;
-  lastName?: string | null;
-} | null): string {
-  return [diner?.firstName, diner?.lastName].filter(Boolean).join(" ") || "Guest";
+function guestName(
+  diner?: {
+    firstName?: string | null;
+    lastName?: string | null;
+  } | null,
+): string {
+  return (
+    [diner?.firstName, diner?.lastName].filter(Boolean).join(" ") || "Guest"
+  );
 }
 
 export function FloorFeature() {
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
-  const { activeRestaurantId, loading: restaurantsLoading } =
-    useActiveRestaurant();
+  const {
+    activeRestaurant,
+    loading: restaurantsLoading,
+    restaurantsReady,
+    error: restaurantsError,
+    refetch: refetchRestaurants,
+  } = useActiveRestaurant();
+  const restaurantId = activeRestaurant?.id ?? null;
+
   const [selected, setSelected] = useState<FloorTableState | null>(null);
-  const [selectedUnassignedId, setSelectedUnassignedId] = useState<string | null>(
-    null,
-  );
+  const [selectedUnassignedId, setSelectedUnassignedId] = useState<
+    string | null
+  >(null);
   const [areaFilter, setAreaFilter] = useState(FLOOR_AREA_ALL);
   const [busy, setBusy] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const { data, loading, error, refetch } = useQuery<FloorOpsQuery>(FLOOR_PLAN_OPS, {
-    skip: !activeRestaurantId,
-    variables: { restaurantId: activeRestaurantId },
-    pollInterval: 10_000,
-    fetchPolicy: "cache-and-network",
-  });
+  const { data, loading, error, refetch } = useQuery<FloorOpsQuery>(
+    FLOOR_PLAN_OPS,
+    {
+      // Only query once myRestaurants confirms the venue — avoids CastError from stale MMKV ids.
+      skip: !restaurantId,
+      variables: { restaurantId },
+      pollInterval: 10_000,
+      fetchPolicy: "cache-and-network",
+    },
+  );
 
   const [seatAtTable] = useMutation(SEAT_RESERVATION_AT_TABLE);
   const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
@@ -111,10 +127,7 @@ export function FloorFeature() {
   );
 
   useEffect(() => {
-    if (
-      areaFilter !== FLOOR_AREA_ALL &&
-      !floorAreas.includes(areaFilter)
-    ) {
+    if (areaFilter !== FLOOR_AREA_ALL && !floorAreas.includes(areaFilter)) {
       setAreaFilter(FLOOR_AREA_ALL);
     }
   }, [areaFilter, floorAreas]);
@@ -123,8 +136,7 @@ export function FloorFeature() {
     () =>
       tables.filter(
         (s) =>
-          areaFilter === FLOOR_AREA_ALL ||
-          s.table.floorArea === areaFilter,
+          areaFilter === FLOOR_AREA_ALL || s.table.floorArea === areaFilter,
       ),
     [tables, areaFilter],
   );
@@ -178,46 +190,91 @@ export function FloorFeature() {
     }
   }
 
-  const isLoading = restaurantsLoading || (loading && !data);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
+
+  const bootstrapping = restaurantsLoading || !restaurantsReady;
+  const isLoading =
+    bootstrapping || (Boolean(restaurantId) && loading && !data);
+  // Prefer live data over a sticky Apollo error once a poll succeeds
+  const loadError = restaurantsError ?? (error && !data ? error : undefined);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <Typography weight="bold" size="text-xl" style={styles.title}>
-        Floor
-      </Typography>
+      <Flex
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        style={styles.header}
+      >
+        <Typography weight="bold" size="display-xs" style={styles.titleText}>
+          Floor
+        </Typography>
+        {!isLoading && !loadError && restaurantId ? (
+          <FloorAreaPicker
+            areas={floorAreas}
+            value={areaFilter}
+            onChange={setAreaFilter}
+          />
+        ) : null}
+      </Flex>
 
-      {error ? (
-        <View style={styles.pad}>
-          <InlineAlert tone="error" message={error.message} />
+      {isLoading ? (
+        <Loader fullScreen />
+      ) : loadError ? (
+        <View style={[styles.pad, styles.stateBlock]}>
+          <InlineAlert
+            tone="error"
+            message={getGraphQLErrorMessage(
+              loadError,
+              loadError.message || "Something went wrong",
+            )}
+          />
           <Button
             fullWidth
             style={styles.retry}
             onPress={() => {
-              void refetch();
+              if (restaurantsError) {
+                void refetchRestaurants();
+              } else {
+                void refetch();
+              }
             }}
           >
             Try again
           </Button>
         </View>
-      ) : null}
-
-      {isLoading ? (
-        <Loader fullScreen />
+      ) : !restaurantId ? (
+        <View style={styles.stateBlock}>
+          <Empty
+            title="No restaurant"
+            description="Add a venue in Partner Hub, then switch to it here."
+          />
+        </View>
       ) : (
         <ScrollView
           contentContainerStyle={[
             styles.content,
             { paddingBottom: insets.bottom + theme.space(4) },
           ]}
-        >
-          <Flex gap={1.5}>
-            <FloorAreaFilter
-              areas={floorAreas}
-              value={areaFilter}
-              onChange={setAreaFilter}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                void onRefresh();
+              }}
+              tintColor={theme.colors.primary}
+              colors={[theme.colors.primary]}
             />
-            <FloorStatusLegend />
-          </Flex>
+          }
+        >
+          <FloorStatusLegend />
 
           {unassigned.length > 0 ? (
             <Flex gap={1.5}>
@@ -308,13 +365,23 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     flex: 1,
     backgroundColor: colors.background,
   },
-  title: {
+  header: {
     paddingHorizontal: space(2.5),
     paddingTop: space(1),
     paddingBottom: space(2),
+    gap: space(1),
+    minHeight: space(5),
+  },
+  titleText: {
+    flexShrink: 0,
+    lineHeight: 30,
   },
   pad: {
     paddingHorizontal: space(2.5),
+  },
+  stateBlock: {
+    flex: 1,
+    justifyContent: "center",
   },
   retry: {
     marginTop: space(1.5),

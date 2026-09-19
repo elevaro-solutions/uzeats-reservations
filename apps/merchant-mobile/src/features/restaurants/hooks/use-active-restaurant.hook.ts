@@ -54,15 +54,29 @@ export function useActiveRestaurant() {
   );
 
   const restaurants = data?.myRestaurants ?? [];
+  /** True once the partner restaurants query has settled (success or empty). */
+  const restaurantsReady = Boolean(user) && !loading;
 
   useEffect(() => {
-    if (restaurants.length === 0) return;
+    if (!restaurantsReady || error) return;
+
+    if (restaurants.length === 0) {
+      if (activeRestaurantId) setActiveRestaurantId(null);
+      return;
+    }
 
     const ids = restaurants.map((r) => r.id);
     if (activeRestaurantId && ids.includes(activeRestaurantId)) return;
 
+    // Drop stale/invalid persisted IDs (CastError on findById) and pick the first venue.
     setActiveRestaurantId(restaurants[0]?.id ?? null);
-  }, [restaurants, activeRestaurantId, setActiveRestaurantId]);
+  }, [
+    restaurantsReady,
+    error,
+    restaurants,
+    activeRestaurantId,
+    setActiveRestaurantId,
+  ]);
 
   const activeRestaurant = useMemo(
     () => restaurants.find((r) => r.id === activeRestaurantId) ?? null,
@@ -71,11 +85,14 @@ export function useActiveRestaurant() {
 
   return {
     restaurants,
+    /** Persisted id — may be stale until `restaurantsReady` + effect reconcile. */
     activeRestaurantId,
+    /** Confirmed restaurant from `myRestaurants` — safe for ops queries. */
     activeRestaurant,
     setActiveRestaurantId,
     loading,
     error,
     refetch,
+    restaurantsReady,
   };
 }

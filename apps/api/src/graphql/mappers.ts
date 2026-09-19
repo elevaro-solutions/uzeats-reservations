@@ -5,6 +5,22 @@ function id(doc: { _id: { toString(): string } }) {
   return doc._id.toString();
 }
 
+/** ObjectId or populated doc → hex string (populate breaks bare `.toString()`). */
+export function refId(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') {
+    const obj = value as {
+      _id?: { toString(): string };
+      toHexString?: () => string;
+    };
+    if (obj._id != null) return obj._id.toString();
+    if (typeof obj.toHexString === 'function') return obj.toHexString();
+  }
+  const asString = String(value);
+  return asString === '[object Object]' ? '' : asString;
+}
+
 export function mapUser(u: any) {
   const visits = u.loyaltyCompletedVisits ?? 0;
   const tier = resolveLoyaltyTier(visits);
@@ -131,9 +147,9 @@ export function mapShift(s: any) {
 export function mapReservation(r: any, clientSecret?: string | null) {
   return {
     id: id(r),
-    restaurantId: r.restaurantId.toString(),
-    dinerId: r.dinerId.toString(),
-    tableIds: r.tableIds.map((x: { toString(): string }) => x.toString()),
+    restaurantId: refId(r.restaurantId),
+    dinerId: refId(r.dinerId),
+    tableIds: (r.tableIds ?? []).map((x: unknown) => refId(x)),
     partySize: r.partySize,
     slotStart: r.slotStart,
     slotEnd: r.slotEnd,
@@ -147,20 +163,22 @@ export function mapReservation(r: any, clientSecret?: string | null) {
     loyaltyPointsRedeemed: r.loyaltyPointsRedeemed,
     restaurantLoyaltyPointsEarned: r.restaurantLoyaltyPointsEarned ?? 0,
     restaurantLoyaltyPointsRedeemed: r.restaurantLoyaltyPointsRedeemed ?? 0,
-    promotionId: r.promotionId?.toString() ?? null,
+    promotionId: r.promotionId ? refId(r.promotionId) : null,
     promoDiscountCents: r.promoDiscountCents ?? 0,
-    giftCardId: r.giftCardId?.toString() ?? null,
+    giftCardId: r.giftCardId ? refId(r.giftCardId) : null,
     giftCardDiscountCents: r.giftCardDiscountCents ?? 0,
     source: r.source ?? 'network',
     totalSpendCents: r.totalSpendCents ?? 0,
     seatedAt: r.seatedAt ?? null,
-    packageId: r.packageId?.toString() ?? null,
+    packageId: r.packageId ? refId(r.packageId) : null,
     packageTitle: r.packageTitle ?? null,
     packagePriceCents: r.packagePriceCents ?? 0,
-    privateDiningSpaceId: r.privateDiningSpaceId?.toString() ?? null,
+    privateDiningSpaceId: r.privateDiningSpaceId
+      ? refId(r.privateDiningSpaceId)
+      : null,
     privateDiningSpaceName: r.privateDiningSpaceName ?? null,
     privateDiningPriceCents: r.privateDiningPriceCents ?? 0,
-    experienceId: r.experienceId?.toString() ?? null,
+    experienceId: r.experienceId ? refId(r.experienceId) : null,
     experienceTitle: r.experienceTitle ?? null,
     experiencePriceCents: r.experiencePriceCents ?? 0,
     experienceTicketQty: r.experienceTicketQty ?? 0,

@@ -18,8 +18,16 @@ export function FloorStatusLegend() {
         const visual = floorStatusVisual(status, theme.colors);
         return (
           <View key={status} style={styles.item}>
-            <View style={[styles.swatch, { backgroundColor: visual.swatch }]} />
-            <Typography size="text-xs" color="secondary">
+            <View
+              style={[
+                styles.swatch,
+                {
+                  backgroundColor: visual.swatch,
+                  borderColor: visual.bodyBorder,
+                },
+              ]}
+            />
+            <Typography size="text-sm" color="secondary" weight="medium">
               {floorStatusLabel(status)}
             </Typography>
           </View>
@@ -29,25 +37,24 @@ export function FloorStatusLegend() {
   );
 }
 
-const styles = StyleSheet.create(({ space, radius, colors }) => ({
+const styles = StyleSheet.create(({ space, radius }) => ({
   row: {
     flexDirection: "row",
     flexWrap: "wrap",
-    columnGap: space(2),
-    rowGap: space(1),
+    columnGap: space(2.5),
+    rowGap: space(1.25),
     alignItems: "center",
-    paddingVertical: space(0.25),
+    paddingVertical: space(0.5),
   },
   item: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space(0.75),
+    gap: space(1),
   },
   swatch: {
-    width: 12,
-    height: 12,
-    borderRadius: radius.xs,
-    borderWidth: 1,
-    borderColor: colors.slate4,
+    width: 16,
+    height: 16,
+    borderRadius: radius.sm,
+    borderWidth: 1.5,
   },
 }));

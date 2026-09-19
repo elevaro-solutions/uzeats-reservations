@@ -257,6 +257,7 @@ import {
   mapBoostCampaign,
   mapIntegration,
   mapAuditLog,
+  refId,
   mapMenu,
   slugify,
 } from "./mappers.js";
@@ -442,11 +443,17 @@ export const resolvers = {
       return doc ? mapRestaurant(doc) : null;
     },
     diner: async (r: { dinerId: string }) => {
-      const doc = await User.findById(r.dinerId);
+      const dinerId = refId(r.dinerId);
+      if (!dinerId || dinerId === '[object Object]') return null;
+      const doc = await User.findById(dinerId);
       return doc ? mapUser(doc) : null;
     },
     tables: async (r: { tableIds: string[] }) => {
-      const tables = await Table.find({ _id: { $in: r.tableIds } });
+      const ids = (r.tableIds ?? [])
+        .map((id) => refId(id))
+        .filter((id) => id && id !== '[object Object]');
+      if (ids.length === 0) return [];
+      const tables = await Table.find({ _id: { $in: ids } });
       return tables.map(mapTable);
     },
     hasReview: async (r: { id: string; hasReview?: boolean }) => {

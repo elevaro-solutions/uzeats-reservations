@@ -4,6 +4,21 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.54.1] — 2026-09-19
+
+### Changed
+
+- Merchant mobile Floor: status-tinted furniture cards (green / amber / red / blue), title-row area picker with bottom sheet, stronger legend swatches, and pull-to-refresh
+- Merchant mobile Floor: ops queries wait for a confirmed `activeRestaurant`; error state replaces legend/empty instead of stacking
+
+### Fixed
+
+- FloorPlanOps no longer returns “Invalid ID or field value” when reservations populate `dinerId` (`mapReservation` / `refId` for ObjectId-or-populated refs)
+
+### Docs
+
+- Merchant mobile Floor notes: confirmed restaurant gating and populated-diner CastError
+
 ## [0.54.0] — 2026-09-18
 
 ### Added

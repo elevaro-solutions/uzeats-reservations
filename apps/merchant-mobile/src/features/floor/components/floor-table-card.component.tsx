@@ -29,9 +29,11 @@ export type FloorTableCardProps = {
 function ChairPills({
   count,
   axis,
+  color,
 }: {
   count: number;
   axis: "horizontal" | "vertical";
+  color: string;
 }) {
   if (count <= 0) return null;
   return (
@@ -42,7 +44,10 @@ function ChairPills({
       {Array.from({ length: count }, (_, i) => (
         <View
           key={`${axis}-${i}`}
-          style={axis === "horizontal" ? styles.chairH : styles.chairV}
+          style={[
+            axis === "horizontal" ? styles.chairH : styles.chairV,
+            { backgroundColor: color },
+          ]}
         />
       ))}
     </View>
@@ -88,27 +93,62 @@ export function FloorTableCard({
     >
       {/*
         Inspiration furniture: top chairs → left | white table | right → bottom chairs.
-        Explicit gap keeps chairs detached from the tabletop (never absolute-pinned).
+        Status tints wash, chairs, tabletop, border, and label for scanability.
       */}
       <View style={styles.furniture}>
-        <ChairPills count={chairs.top} axis="horizontal" />
+        <ChairPills
+          count={chairs.top}
+          axis="horizontal"
+          color={visual.chairs}
+        />
 
         <View style={styles.midRow}>
-          <ChairPills count={chairs.left} axis="vertical" />
-          <View style={styles.body}>
-            <Typography weight="semibold" size="text-sm" numberOfLines={1}>
+          <ChairPills
+            count={chairs.left}
+            axis="vertical"
+            color={visual.chairs}
+          />
+          <View
+            style={[
+              styles.body,
+              {
+                backgroundColor: visual.body,
+                borderColor: selected
+                  ? theme.colors.primary
+                  : visual.bodyBorder,
+              },
+            ]}
+          >
+            <Typography
+              weight="semibold"
+              size="text-sm"
+              numberOfLines={1}
+              style={{ color: visual.accent }}
+            >
               {table.name}
             </Typography>
             {secondary ? (
-              <Typography size="text-xs" color="secondary" numberOfLines={1}>
+              <Typography
+                size="text-xs"
+                numberOfLines={1}
+                style={{ color: visual.accent, opacity: 0.75 }}
+              >
                 {secondary}
               </Typography>
             ) : null}
           </View>
-          <ChairPills count={chairs.right} axis="vertical" />
+          <ChairPills
+            count={chairs.right}
+            axis="vertical"
+            color={visual.chairs}
+          />
         </View>
 
-        <ChairPills count={chairs.bottom} axis="horizontal" />
+        <ChairPills
+          count={chairs.bottom}
+          axis="horizontal"
+          color={visual.chairs}
+        />
       </View>
     </Pressable>
   );
@@ -117,12 +157,11 @@ export function FloorTableCard({
 /** Clear air between chairs and the white tabletop (matches Book-a-Table mock). */
 const CHAIR_GAP = 10;
 
-const styles = StyleSheet.create(({ space, colors, radius }) => ({
+const styles = StyleSheet.create(({ space, radius }) => ({
   tile: {
     maxWidth: "100%",
     borderRadius: radius.lg,
-    borderWidth: 2,
-    borderColor: "transparent",
+    borderWidth: 0,
     paddingHorizontal: space(1.25),
     paddingVertical: space(1.25),
     alignItems: "center",
@@ -135,7 +174,7 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
         banquet: { minHeight: space(15) },
       },
       selected: {
-        true: { borderColor: colors.primary },
+        true: {},
         false: {},
       },
     },
@@ -186,13 +225,11 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     width: 26,
     height: 9,
     borderRadius: radius.full,
-    backgroundColor: colors.slate5,
   },
   chairV: {
     width: 9,
     height: 26,
     borderRadius: radius.full,
-    backgroundColor: colors.slate5,
   },
   body: {
     alignItems: "center",
@@ -201,9 +238,7 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     paddingHorizontal: space(0.75),
     paddingVertical: space(0.75),
     borderRadius: radius.md,
-    backgroundColor: colors.white,
     borderWidth: 1.5,
-    borderColor: colors.slate4,
     // Compact tabletop — do not stretch to fill the wash card
     flexGrow: 0,
     flexShrink: 0,
@@ -231,7 +266,6 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
       },
       selected: {
         true: {
-          borderColor: colors.primary,
           borderWidth: 2,
         },
         false: {},
