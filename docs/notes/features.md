@@ -183,6 +183,20 @@ AddReviewSheet require all four; restaurant avg still rolls up overall only.
 
 ## merchant-mobile (partner app)
 
+### [2026-09-19] More-actions sheet matches diner overflow list; No-show is neutral
+- Sheet body: muted uppercase “Actions” label over a bordered `slate1` group (diner overflow-menu pattern). Cancel stays `error`; No-show uses `secondary` → `textPrimary`. Status chips can still paint no_show red via `reservationStatusVisual`.
+- Why it matters: Section label clarifies the nested group; keep destructive Cancel red-only.
+
+### [2026-09-19] Reservation cards: time block + secondary CTA
+- List cards: muted calendar-style time block (`formatSlotTimeParts` → large clock + AM/PM) left; diner column (semibold name, guests/table with Users/Armchair icons); status pill absolute top-right; primary next action is full-width filled `secondary` with soft-radius More beside it (not circular).
+- Status pills still use `reservationStatusVisual` (pending amber, confirmed blue, seated green, completed/cancelled slate, no_show red) — not Floor’s table-ops palette. Cancel / No-show stay in More → BottomSheet.
+- Why it matters: Don’t use brand primary for every list CTA; don’t round the overflow control past `radius.md`.
+
+### [2026-09-19] Reservations list uses lifecycle status colors + primary/overflow actions
+- List cards lead with time · party · table, then guest; status pills use `reservationStatusVisual` (pending amber, confirmed blue, seated green, completed/cancelled slate, no_show red) — not Floor’s table-ops palette.
+- Only the primary next action (Confirm / Seat / Complete) sits on the card; Cancel / No-show live in a More → BottomSheet.
+- Why it matters: Don’t reintroduce a rainbow action row or reuse Floor seated=red on booking status chips.
+
 ### [2026-09-18] Floor uses furniture cards + status washes, not an absolute canvas
 - Merchant Floor is a capacity-bucket furniture grid (2/4/6/banquet) with soft washes for `free` / `reserved` / `seated` / `turning`. Area filter is client-side on `floorArea`; layout coords (`posX`/`posY`) stay dashboard-only.
 - Why it matters: Don’t port dashboard canvas UX to the phone; keep partner mobile scannable without pan-zoom.

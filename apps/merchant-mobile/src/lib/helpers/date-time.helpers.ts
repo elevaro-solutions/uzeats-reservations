@@ -91,6 +91,27 @@ export function formatSlotDateTime(iso: string, timeZone?: string): string {
   });
 }
 
+/** Split slot time for calendar-style blocks: large clock + small AM/PM. */
+export function formatSlotTimeParts(
+  iso: string,
+  timeZone?: string,
+): { time: string; period: "AM" | "PM" } {
+  const date = new Date(iso);
+  const parts = new Intl.DateTimeFormat([], {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    ...(timeZone ? { timeZone } : {}),
+  }).formatToParts(date);
+
+  const hour = parts.find((p) => p.type === "hour")?.value ?? "";
+  const minute = parts.find((p) => p.type === "minute")?.value ?? "00";
+  const dayPeriod = parts.find((p) => p.type === "dayPeriod")?.value ?? "";
+  const period: "AM" | "PM" = /pm/i.test(dayPeriod) ? "PM" : "AM";
+
+  return { time: `${hour}:${minute}`, period };
+}
+
 export function timeToDate(time: string): Date {
   const parsed = parseTime24(time);
   const date = new Date();

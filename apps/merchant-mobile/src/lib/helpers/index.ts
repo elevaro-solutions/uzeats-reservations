@@ -3,6 +3,7 @@ export {
   formatDisplayTime,
   formatRelativeDayLabel,
   formatSlotDateTime,
+  formatSlotTimeParts,
   parseIsoDate,
   parseTime24,
   timeToDate,

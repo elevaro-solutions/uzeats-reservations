@@ -4,6 +4,26 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+## [0.55.0] — 2026-09-19
+
+### Added
+
+- Merchant mobile: `PlusIcon` for the Reservations create FAB
+- Merchant mobile Reservations: more-actions bottom sheet (grouped list under an “Actions” label)
+
+### Changed
+
+- Merchant mobile Reservations: redesigned list — date in header, Clock waitlist control, Today/Upcoming/Past segments, ops-first cards (calendar time block, guest/table icons, status pills), secondary primary CTA + more overflow, day sections, pull-to-refresh, and a compact primary Plus FAB
+- Merchant mobile Reservations: No-show action uses neutral tone; Cancel stays error
+- Merchant mobile Overview: shortcut rows show a muted trailing chevron; pull-to-refresh refetches today’s snapshot counts
+- Merchant mobile: restaurant switcher uses a bordered pill trigger (venue name + chevron)
+
+### Docs
+
+- Merchant mobile Reservations notes: card layout, more-actions sheet, No-show tone
+
 ## [0.54.1] — 2026-09-19
 
 ### Changed

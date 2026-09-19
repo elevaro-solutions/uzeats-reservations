@@ -8,11 +8,13 @@ import { BottomSheet, Flex, Typography } from "@/components";
 import { useActiveRestaurant } from "../hooks/use-active-restaurant.hook";
 
 export type RestaurantSwitcherProps = {
-  /** Compact for headers; default shows full name. */
+  /** Slightly denser pill for tight headers. */
   compact?: boolean;
 };
 
-export function RestaurantSwitcher({ compact = false }: RestaurantSwitcherProps) {
+export function RestaurantSwitcher({
+  compact = false,
+}: RestaurantSwitcherProps) {
   const { theme } = useUnistyles();
   const [open, setOpen] = useState(false);
   const {
@@ -23,7 +25,9 @@ export function RestaurantSwitcher({ compact = false }: RestaurantSwitcherProps)
     loading,
   } = useActiveRestaurant();
 
-  const label = activeRestaurant?.name ?? (loading ? "Loading…" : "Select restaurant");
+  const label =
+    activeRestaurant?.name ?? (loading ? "Loading…" : "Select restaurant");
+  const canSwitch = restaurants.length > 1;
 
   return (
     <>
@@ -31,23 +35,27 @@ export function RestaurantSwitcher({ compact = false }: RestaurantSwitcherProps)
         onPress={() => setOpen(true)}
         disabled={restaurants.length === 0}
         accessibilityRole="button"
-        accessibilityLabel={`Current restaurant: ${label}. Tap to switch.`}
+        accessibilityLabel={
+          canSwitch
+            ? `Current restaurant: ${label}. Tap to switch.`
+            : `Current restaurant: ${label}`
+        }
         style={({ pressed }) => [
           styles.trigger,
           compact && styles.triggerCompact,
-          pressed && styles.triggerPressed,
+          pressed && canSwitch && styles.triggerPressed,
         ]}
       >
         <Typography
-          weight="semibold"
-          size={compact ? "text-md" : "text-lg"}
+          weight="medium"
+          size={compact ? "text-sm" : "text-md"}
           numberOfLines={1}
           style={styles.label}
         >
           {label}
         </Typography>
-        {restaurants.length > 1 ? (
-          <ChevronDownIcon size={18} color={theme.colors.textSecondary} />
+        {canSwitch ? (
+          <ChevronDownIcon size={16} color={theme.colors.textSecondary} />
         ) : null}
       </Pressable>
 
@@ -78,7 +86,10 @@ export function RestaurantSwitcher({ compact = false }: RestaurantSwitcherProps)
                 ]}
               >
                 <View style={styles.optionBody}>
-                  <Typography weight={selected ? "semibold" : "medium"} size="text-md">
+                  <Typography
+                    weight={selected ? "semibold" : "medium"}
+                    size="text-md"
+                  >
                     {restaurant.name}
                   </Typography>
                   {restaurant.address?.city ? (
@@ -100,19 +111,26 @@ export function RestaurantSwitcher({ compact = false }: RestaurantSwitcherProps)
 
 const styles = StyleSheet.create(({ space, colors, radius }) => ({
   trigger: {
+    alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
-    gap: space(0.75),
-    minHeight: space(5.5),
-    paddingVertical: space(1),
-    paddingHorizontal: space(0.5),
+    gap: space(0.5),
+    minHeight: space(5),
     maxWidth: "100%",
+    paddingVertical: space(1.25),
+    paddingHorizontal: space(1.5),
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
   },
   triggerCompact: {
-    minHeight: space(5),
+    minHeight: space(4.5),
+    paddingVertical: space(1),
+    paddingHorizontal: space(1.25),
   },
   triggerPressed: {
-    opacity: 0.7,
+    opacity: 0.72,
   },
   label: {
     flexShrink: 1,

@@ -1,16 +1,15 @@
 import { useMutation, useQuery } from "@apollo/client";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { Pressable, RefreshControl, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { toast } from "sonner-native";
 
-import { CalendarPlusIcon, UsersIcon } from "@/assets";
+import { ClockIcon, PlusIcon } from "@/assets";
 import {
   Button,
-  Chip,
   Empty,
   Flex,
   IconButton,
@@ -20,8 +19,13 @@ import {
   Typography,
 } from "@/components";
 import { useActiveRestaurant } from "@/features/restaurants";
-import { todayIsoDate } from "@/lib/dates.helpers";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
+import {
+  formatDisplayDate,
+  formatRelativeDayLabel,
+  toIsoDate,
+  todayIsoDate,
+} from "@/lib/helpers/date-time.helpers";
 
 import {
   RESTAURANT_RESERVATIONS,
@@ -32,7 +36,6 @@ import type { ReservationListItem } from "./components/reservation-card.componen
 import type { ReservationAction } from "./helpers/reservation-status.helpers";
 
 type RangeKey = "today" | "upcoming" | "past";
-type StatusFilter = "all" | "pending" | "confirmed" | "seated" | "completed" | "cancelled" | "no_show";
 
 type ReservationsQuery = {
   restaurantReservations: {
@@ -40,6 +43,10 @@ type ReservationsQuery = {
     items: ReservationListItem[];
   };
 };
+
+type ListRow =
+  | { type: "header"; id: string; label: string }
+  | { type: "reservation"; id: string; reservation: ReservationListItem };
 
 function startOfToday(): number {
   const d = new Date();
@@ -53,6 +60,41 @@ function endOfToday(): number {
   return d.getTime();
 }
 
+function buildListRows(
+  items: ReservationListItem[],
+  range: RangeKey,
+): ListRow[] {
+  if (range === "today") {
+    return items.map((reservation) => ({
+      type: "reservation" as const,
+      id: reservation.id,
+      reservation,
+    }));
+  }
+
+  const rows: ListRow[] = [];
+  let lastDay: string | null = null;
+
+  for (const reservation of items) {
+    const dayIso = toIsoDate(new Date(reservation.slotStart));
+    if (dayIso !== lastDay) {
+      lastDay = dayIso;
+      rows.push({
+        type: "header",
+        id: `day-${dayIso}`,
+        label: formatRelativeDayLabel(dayIso),
+      });
+    }
+    rows.push({
+      type: "reservation",
+      id: reservation.id,
+      reservation,
+    });
+  }
+
+  return rows;
+}
+
 export function ReservationsFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -60,10 +102,11 @@ export function ReservationsFeature() {
   const { activeRestaurantId, loading: restaurantsLoading } =
     useActiveRestaurant();
   const [range, setRange] = useState<RangeKey>("today");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const queryDate = range === "today" ? todayIsoDate() : undefined;
+  const todayLabel = formatDisplayDate(todayIsoDate());
 
   const { data, loading, error, refetch } = useQuery<ReservationsQuery>(
     RESTAURANT_RESERVATIONS,
@@ -86,15 +129,38 @@ export function ReservationsFeature() {
     const start = startOfToday();
     const end = endOfToday();
 
-    return raw.filter((item) => {
+    const filtered = raw.filter((item) => {
       const slot = new Date(item.slotStart).getTime();
       if (range === "today" && (slot < start || slot > end)) return false;
       if (range === "upcoming" && slot < start) return false;
       if (range === "past" && slot >= start) return false;
-      if (statusFilter !== "all" && item.status !== statusFilter) return false;
       return true;
     });
-  }, [data, range, statusFilter]);
+
+    return filtered.sort((a, b) => {
+      const diff =
+        new Date(a.slotStart).getTime() - new Date(b.slotStart).getTime();
+      return range === "past" ? -diff : diff;
+    });
+  }, [data, range]);
+
+  const listRows = useMemo(() => buildListRows(items, range), [items, range]);
+
+  const stickyHeaderIndices = useMemo(() => {
+    if (range === "today") return undefined;
+    return listRows
+      .map((row, index) => (row.type === "header" ? index : -1))
+      .filter((index) => index >= 0);
+  }, [listRows, range]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
 
   async function handleAction(
     reservation: ReservationListItem,
@@ -117,6 +183,7 @@ export function ReservationsFeature() {
   }
 
   const isLoading = restaurantsLoading || (loading && !data);
+  const showEmptyAdd = range === "today" && items.length === 0;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -126,27 +193,22 @@ export function ReservationsFeature() {
         justifyContent="space-between"
         style={styles.header}
       >
-        <Typography weight="bold" size="text-xl">
-          Reservations
-        </Typography>
-        <Flex direction="row" gap={1} alignItems="center">
-          <IconButton
-            icon={<UsersIcon />}
-            variant="surface"
-            size="md"
-            onPress={() => router.push("/waitlist")}
-            accessibilityLabel="Open waitlist"
-            style={styles.chromeBtn}
-          />
-          <IconButton
-            icon={<CalendarPlusIcon />}
-            variant="surface"
-            size="md"
-            onPress={() => router.push("/reservations/create")}
-            accessibilityLabel="Create reservation"
-            style={styles.chromeBtn}
-          />
+        <Flex flex={1} gap={0.25} style={styles.headerText}>
+          <Typography weight="bold" size="text-xl">
+            Reservations
+          </Typography>
+          <Typography size="text-sm" color="muted">
+            {todayLabel}
+          </Typography>
         </Flex>
+        <IconButton
+          icon={<ClockIcon />}
+          variant="surface"
+          size="md"
+          onPress={() => router.push("/waitlist")}
+          accessibilityLabel="Open waitlist"
+          style={styles.chromeBtn}
+        />
       </Flex>
 
       <View style={styles.filters}>
@@ -159,36 +221,6 @@ export function ReservationsFeature() {
           value={range}
           onChange={setRange}
         />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.statusRow}
-        >
-          {(
-            [
-              "all",
-              "pending",
-              "confirmed",
-              "seated",
-              "completed",
-              "cancelled",
-              "no_show",
-            ] as StatusFilter[]
-          ).map((status) => (
-            <Chip
-              key={status}
-              size="md"
-              selected={statusFilter === status}
-              onPress={() => setStatusFilter(status)}
-            >
-              {status === "all"
-                ? "All"
-                : status === "no_show"
-                  ? "No-show"
-                  : status.charAt(0).toUpperCase() + status.slice(1)}
-            </Chip>
-          ))}
-        </ScrollView>
       </View>
 
       {error ? (
@@ -214,34 +246,90 @@ export function ReservationsFeature() {
         <Loader fullScreen />
       ) : (
         <FlashList
-          data={items}
+          data={listRows}
           keyExtractor={(item) => item.id}
+          stickyHeaderIndices={stickyHeaderIndices}
+          getItemType={(item) =>
+            item.type === "header" ? "sectionHeader" : "row"
+          }
           contentContainerStyle={{
-            paddingHorizontal: theme.space(2),
-            paddingBottom: insets.bottom + theme.space(3),
-            paddingTop: theme.space(1),
+            paddingTop: theme.space(1.5),
+            paddingBottom: insets.bottom + theme.space(12),
           }}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
-          ListEmptyComponent={
-            <Empty
-              title="No reservations"
-              description={
-                range === "today"
-                  ? "Nothing on the books for today."
-                  : "No reservations match these filters."
-              }
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                void onRefresh();
+              }}
+              tintColor={theme.colors.primary}
+              colors={[theme.colors.primary]}
             />
           }
-          renderItem={({ item }) => (
-            <ReservationCard
-              reservation={item}
-              actionLoading={updatingId === item.id}
-              onPress={() => router.push(`/reservations/${item.id}`)}
-              onAction={(action) => {
-                void handleAction(item, action);
-              }}
-            />
-          )}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Empty
+                title="No reservations"
+                description={
+                  range === "today"
+                    ? "Nothing on the books for today."
+                    : "No reservations in this range."
+                }
+              />
+              {showEmptyAdd ? (
+                <Button
+                  fullWidth
+                  size="lg"
+                  style={styles.emptyAdd}
+                  onPress={() => router.push("/reservations/create")}
+                >
+                  Add reservation
+                </Button>
+              ) : null}
+            </View>
+          }
+          renderItem={({ item, target }) => {
+            if (item.type === "header") {
+              // FlashList clones sticky headers; hide the in-list cell so only
+              // the floating StickyHeader is visible (v2 has no hideRelatedCell).
+              return (
+                <View
+                  style={[
+                    styles.dayHeader,
+                    target === "Cell" && styles.dayHeaderInList,
+                  ]}
+                  accessibilityElementsHidden={target === "Cell"}
+                  importantForAccessibility={
+                    target === "Cell" ? "no-hide-descendants" : "yes"
+                  }
+                >
+                  <Typography
+                    weight="semibold"
+                    size="text-sm"
+                    color="muted"
+                    align="center"
+                  >
+                    {item.label}
+                  </Typography>
+                </View>
+              );
+            }
+
+            return (
+              <View style={styles.cardWrap}>
+                <ReservationCard
+                  reservation={item.reservation}
+                  actionLoading={updatingId === item.reservation.id}
+                  onPress={() =>
+                    router.push(`/reservations/${item.reservation.id}`)
+                  }
+                  onAction={(action) => {
+                    void handleAction(item.reservation, action);
+                  }}
+                />
+              </View>
+            );
+          }}
         />
       )}
 
@@ -249,13 +337,13 @@ export function ReservationsFeature() {
         onPress={() => router.push("/reservations/create")}
         style={({ pressed }) => [
           styles.fab,
-          { bottom: insets.bottom + theme.space(2) },
+          { bottom: theme.space(3.5) },
           pressed && styles.fabPressed,
         ]}
         accessibilityRole="button"
-        accessibilityLabel="Create reservation"
+        accessibilityLabel="Add reservation"
       >
-        <CalendarPlusIcon size={24} color={theme.colors.white} />
+        <PlusIcon size={24} color={theme.colors.white} strokeWidth={2.5} />
       </Pressable>
     </View>
   );
@@ -269,6 +357,12 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   header: {
     paddingHorizontal: space(2),
     paddingBottom: space(1.5),
+    borderBottomWidth: 1,
+    borderBottomColor: colors.slate3,
+  },
+  headerText: {
+    minWidth: 0,
+    paddingRight: space(1),
   },
   chromeBtn: {
     width: space(6),
@@ -277,12 +371,8 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   },
   filters: {
     paddingHorizontal: space(2),
-    gap: space(1.5),
+    paddingTop: space(1.5),
     paddingBottom: space(1),
-  },
-  statusRow: {
-    gap: space(1),
-    paddingVertical: space(0.5),
   },
   pad: {
     paddingHorizontal: space(2),
@@ -290,20 +380,47 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   retry: {
     marginTop: space(1.5),
   },
-  separator: {
-    height: space(1.5),
+  dayHeader: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: space(1.25),
+    paddingHorizontal: space(2),
+    backgroundColor: colors.background,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.slate3,
+  },
+  dayHeaderInList: {
+    opacity: 0,
+  },
+  cardWrap: {
+    marginBottom: space(1.5),
+    paddingHorizontal: space(2),
+  },
+  emptyWrap: {
+    paddingTop: space(4),
+    paddingHorizontal: space(2),
+    gap: space(2),
+  },
+  emptyAdd: {
+    marginTop: space(0.5),
   },
   fab: {
     position: "absolute",
-    right: space(2),
+    right: space(2.5),
     width: space(7),
     height: space(7),
     borderRadius: radius.full,
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
   },
   fabPressed: {
-    opacity: 0.85,
+    backgroundColor: colors.primaryPress,
+    opacity: 0.92,
   },
 }));

@@ -1,7 +1,7 @@
 import { useQuery } from "@apollo/client";
 import { useRouter } from "expo-router";
-import type { ReactNode } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { useCallback, useState, type ReactNode } from "react";
+import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
@@ -9,6 +9,7 @@ import {
   ArmchairIcon,
   BellIcon,
   CalendarCheckIcon,
+  ChevronRightIcon,
   MailIcon,
   UsersIcon,
 } from "@/assets";
@@ -47,8 +48,11 @@ export function OverviewFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
-  const { activeRestaurantId, restaurants, loading: restaurantsLoading } =
-    useActiveRestaurant();
+  const {
+    activeRestaurantId,
+    restaurants,
+    loading: restaurantsLoading,
+  } = useActiveRestaurant();
 
   const { data, loading, error, refetch } = useQuery<OwnerOverviewQuery>(
     MY_OWNER_OVERVIEW,
@@ -72,6 +76,16 @@ export function OverviewFeature() {
 
   const isLoading = restaurantsLoading || (loading && !overview);
   const isEmpty = !isLoading && restaurants.length === 0;
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetch({ date: todayIsoDate() });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -82,17 +96,15 @@ export function OverviewFeature() {
         style={styles.header}
       >
         <Flex flex={1} style={styles.switcherWrap}>
-          <RestaurantSwitcher />
+          <RestaurantSwitcher compact />
         </Flex>
         <IconButton
           icon={<BellIcon />}
           variant="surface"
-          size="md"
+          size="sm"
           onPress={() => router.push("/notifications")}
           accessibilityLabel={
-            unread > 0
-              ? `Notifications, ${unread} unread`
-              : "Notifications"
+            unread > 0 ? `Notifications, ${unread} unread` : "Notifications"
           }
           style={styles.bell}
         />
@@ -135,8 +147,22 @@ export function OverviewFeature() {
             { paddingBottom: insets.bottom + theme.space(3) },
           ]}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                void onRefresh();
+              }}
+              tintColor={theme.colors.primary}
+              colors={[theme.colors.primary]}
+            />
+          }
         >
-          <Typography weight="bold" size="display-xs" style={styles.sectionTitle}>
+          <Typography
+            weight="bold"
+            size="display-xs"
+            style={styles.sectionTitle}
+          >
             Today
           </Typography>
 
@@ -149,7 +175,9 @@ export function OverviewFeature() {
             <SnapshotCard
               label="Reservations"
               value={reservations}
-              icon={<CalendarCheckIcon size={22} color={theme.colors.primary} />}
+              icon={
+                <CalendarCheckIcon size={22} color={theme.colors.primary} />
+              }
               onPress={() => router.push("/(tabs)/reservations")}
             />
             <SnapshotCard
@@ -166,7 +194,11 @@ export function OverviewFeature() {
             />
           </View>
 
-          <Typography weight="semibold" size="text-lg" style={styles.shortcutsTitle}>
+          <Typography
+            weight="semibold"
+            size="text-lg"
+            style={styles.shortcutsTitle}
+          >
             Shortcuts
           </Typography>
 
@@ -174,7 +206,9 @@ export function OverviewFeature() {
             <ShortcutButton
               label="Reservations"
               onPress={() => router.push("/(tabs)/reservations")}
-              icon={<CalendarCheckIcon size={22} color={theme.colors.textPrimary} />}
+              icon={
+                <CalendarCheckIcon size={22} color={theme.colors.textPrimary} />
+              }
             />
             <ShortcutButton
               label="Waitlist"
@@ -244,6 +278,8 @@ function ShortcutButton({
   onPress: () => void;
   icon: ReactNode;
 }) {
+  const { theme } = useUnistyles();
+
   return (
     <Pressable
       onPress={onPress}
@@ -251,11 +287,14 @@ function ShortcutButton({
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      <Flex direction="row" alignItems="center" gap={1.5}>
-        {icon}
-        <Typography weight="semibold" size="text-md">
-          {label}
-        </Typography>
+      <Flex direction="row" alignItems="center" justifyContent="space-between">
+        <Flex direction="row" alignItems="center" gap={1.5}>
+          {icon}
+          <Typography weight="semibold" size="text-md">
+            {label}
+          </Typography>
+        </Flex>
+        <ChevronRightIcon size={18} color={theme.colors.textMuted} />
       </Flex>
     </Pressable>
   );
@@ -269,6 +308,7 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   header: {
     paddingHorizontal: space(2),
     paddingBottom: space(1.5),
+    paddingTop: space(1),
     borderBottomWidth: 1,
     borderBottomColor: colors.slate3,
     gap: space(1),
@@ -277,8 +317,6 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     minWidth: 0,
   },
   bell: {
-    width: space(6),
-    height: space(6),
     borderRadius: radius.full,
   },
   pad: {
@@ -289,7 +327,7 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   },
   content: {
     paddingHorizontal: space(2),
-    paddingTop: space(2),
+    paddingTop: space(2.5),
     gap: space(1),
   },
   sectionTitle: {

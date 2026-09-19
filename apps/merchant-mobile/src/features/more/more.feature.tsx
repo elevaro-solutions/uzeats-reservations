@@ -82,9 +82,7 @@ export function MoreFeature() {
         <Typography weight="medium" size="text-sm" color="secondary" style={styles.label}>
           Active restaurant
         </Typography>
-        <View style={styles.switcherCard}>
-          <RestaurantSwitcher />
-        </View>
+        <RestaurantSwitcher />
 
         {user?.role === "staff" ? (
           <Typography size="text-sm" color="muted" style={styles.note}>
@@ -117,7 +115,7 @@ export function MoreFeature() {
   );
 }
 
-const styles = StyleSheet.create(({ space, colors, radius }) => ({
+const styles = StyleSheet.create(({ space, colors }) => ({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
@@ -136,14 +134,9 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   label: {
     marginBottom: space(0.75),
   },
-  switcherCard: {
-    padding: space(1),
-    borderRadius: radius.md,
-    backgroundColor: colors.slate2,
-    marginBottom: space(2),
-  },
   note: {
     marginBottom: space(2),
+    marginTop: space(2),
   },
   logout: {
     marginTop: space(2),
