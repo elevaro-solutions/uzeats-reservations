@@ -11,7 +11,6 @@ import {
   Empty,
   Flex,
   InlineAlert,
-  Loader,
   SegmentedControl,
   Typography,
 } from "@/components";
@@ -29,6 +28,7 @@ import {
   type InquiryDetail,
 } from "./components/inquiry-detail-sheet.component";
 import { InquiryRow } from "./components/inquiry-row.component";
+import { MessageListSkeleton } from "./components/message-list-skeleton.component";
 import {
   dinerDisplayName,
   formatConversationWhen,
@@ -70,8 +70,12 @@ export function MessagesFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
-  const { activeRestaurantId, loading: restaurantsLoading } =
-    useActiveRestaurant();
+  const {
+    activeRestaurant,
+    loading: restaurantsLoading,
+    restaurantsReady,
+  } = useActiveRestaurant();
+  const restaurantId = activeRestaurant?.id ?? null;
   const [filter, setFilter] = useState<InboxFilter>("all");
   const [refreshing, setRefreshing] = useState(false);
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
@@ -83,8 +87,9 @@ export function MessagesFeature() {
     error: conversationsError,
     refetch: refetchConversations,
   } = useQuery<ConversationsQuery>(CONVERSATIONS, {
-    skip: !activeRestaurantId,
-    variables: { restaurantId: activeRestaurantId },
+    // Confirmed venue only — avoids stale MMKV ids (same pattern as Floor).
+    skip: !restaurantId,
+    variables: { restaurantId },
     fetchPolicy: "cache-and-network",
   });
 
@@ -94,8 +99,8 @@ export function MessagesFeature() {
     error: inquiriesError,
     refetch: refetchInquiries,
   } = useQuery<InquiriesQuery>(RESTAURANT_INQUIRIES, {
-    skip: !activeRestaurantId,
-    variables: { restaurantId: activeRestaurantId },
+    skip: !restaurantId,
+    variables: { restaurantId },
     fetchPolicy: "cache-and-network",
   });
 
@@ -139,6 +144,7 @@ export function MessagesFeature() {
 
   const isLoading =
     restaurantsLoading ||
+    !restaurantsReady ||
     ((conversationsLoading || inquiriesLoading) &&
       !conversationsData &&
       !inquiriesData);
@@ -220,7 +226,7 @@ export function MessagesFeature() {
       ) : null}
 
       {isLoading ? (
-        <Loader fullScreen />
+        <MessageListSkeleton count={5} />
       ) : (
         <ScrollView
           contentContainerStyle={[

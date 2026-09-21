@@ -16,6 +16,8 @@ import {
   InlineAlert,
   Typography,
 } from "@/components";
+import { useActiveRestaurant } from "@/features/restaurants";
+import { syncActiveRestaurantId } from "@/features/restaurants/helpers/sync-active-restaurant.helpers";
 import { useAuth } from "@/graphql";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
 
@@ -25,7 +27,11 @@ import {
 } from "./api/notifications.operations";
 import { NotificationDetailSheet } from "./components/notification-detail-sheet.component";
 import { NotificationListCard } from "./components/notification-list-card.component";
-import type { NotificationLink } from "./helpers/notification-link.helpers";
+import { NotificationListSkeleton } from "./components/notification-list-skeleton.component";
+import {
+  parseNotificationData,
+  type NotificationLink,
+} from "./helpers/notification-link.helpers";
 import type { AppNotification } from "./helpers/notification.types";
 import { useInfiniteNotifications } from "./hooks/use-infinite-notifications.hook";
 
@@ -33,6 +39,7 @@ export function NotificationsFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
+  const { restaurants } = useActiveRestaurant();
   const { user, loading: authLoading, sessionOffline, refreshMe } = useAuth();
   const [selected, setSelected] = useState<AppNotification | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -102,10 +109,18 @@ export function NotificationsFeature() {
 
   const handleViewResource = useCallback(
     (link: NotificationLink) => {
+      if (selected) {
+        const data = parseNotificationData(selected.data);
+        const restaurantId =
+          typeof data.restaurantId === "string" && data.restaurantId.length > 0
+            ? data.restaurantId
+            : null;
+        syncActiveRestaurantId(restaurantId, { restaurants });
+      }
       setSelected(null);
       router.push(link.href as never);
     },
-    [router],
+    [router, selected, restaurants],
   );
 
   const isEmpty = !loading && !error && items.length === 0;
@@ -224,10 +239,7 @@ export function NotificationsFeature() {
             }
             ListEmptyComponent={
               loading || authLoading ? (
-                <ActivityIndicator
-                  color={theme.colors.primary}
-                  style={styles.emptySpinner}
-                />
+                <NotificationListSkeleton count={7} />
               ) : isEmpty ? (
                 <Empty
                   icon={<BellIcon size={28} color={theme.colors.textMuted} />}
@@ -295,8 +307,5 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   },
   footerSpinner: {
     marginVertical: space(2),
-  },
-  emptySpinner: {
-    marginTop: space(6),
   },
 }));

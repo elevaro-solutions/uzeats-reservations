@@ -946,6 +946,22 @@ export const resolvers = {
       });
     },
 
+    partnerReservation: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const reservation = await Reservation.findById(args.id);
+      if (!reservation) return null;
+      await assertRestaurantAccess(
+        user._id.toString(),
+        reservation.restaurantId.toString(),
+        user.role,
+      );
+      return mapReservation(reservation);
+    },
+
     myWaitlist: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
       const items = await WaitlistEntry.find({ dinerId: user._id }).sort({

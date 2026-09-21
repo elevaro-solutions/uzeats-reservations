@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@apollo/client";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Linking, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
@@ -15,16 +15,16 @@ import {
   Flex,
   IconButton,
   InlineAlert,
-  Loader,
   Typography,
 } from "@/components";
 import { useActiveRestaurant } from "@/features/restaurants";
+import { syncActiveRestaurantId } from "@/features/restaurants/helpers/sync-active-restaurant.helpers";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
 import { formatPhoneDisplay, renderIcon } from "@/lib/helpers";
 
 import {
   BOOKABLE_TABLES,
-  RESTAURANT_RESERVATIONS,
+  PARTNER_RESERVATION,
   UPDATE_RESERVATION,
   UPDATE_RESERVATION_STATUS,
 } from "./api/reservations.operations";
@@ -35,6 +35,7 @@ import {
   ReservationDetailSection,
   type ReservationDetailRow,
 } from "./components/reservation-detail-section.component";
+import { ReservationDetailSkeleton } from "./components/reservation-detail-skeleton.component";
 import {
   guestDisplayName,
   primaryReservationAction,
@@ -47,6 +48,7 @@ import {
 
 type ReservationRow = {
   id: string;
+  restaurantId: string;
   partySize: number;
   slotStart: string;
   slotEnd?: string | null;
@@ -65,8 +67,8 @@ type ReservationRow = {
   tableIds?: string[] | null;
 };
 
-type ReservationsQuery = {
-  restaurantReservations: { items: ReservationRow[] };
+type PartnerReservationQuery = {
+  partnerReservation: ReservationRow | null;
 };
 
 type BookableTable = {
@@ -98,7 +100,7 @@ export function ReservationDetailFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
-  const { activeRestaurantId, activeRestaurant } = useActiveRestaurant();
+  const { restaurants, activeRestaurant } = useActiveRestaurant();
   const [tableSheetOpen, setTableSheetOpen] = useState(false);
   const [actionsSheetOpen, setActionsSheetOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<ReservationAction | null>(
@@ -106,28 +108,30 @@ export function ReservationDetailFeature() {
   );
   const [busy, setBusy] = useState(false);
 
-  const { data, loading, error, refetch } = useQuery<ReservationsQuery>(
-    RESTAURANT_RESERVATIONS,
+  const { data, loading, error, refetch } = useQuery<PartnerReservationQuery>(
+    PARTNER_RESERVATION,
     {
-      skip: !activeRestaurantId || !id,
-      variables: {
-        restaurantId: activeRestaurantId,
-        limit: 200,
-        offset: 0,
-      },
+      skip: !id,
+      variables: { id },
       fetchPolicy: "cache-and-network",
     },
   );
 
-  const reservation = useMemo(
-    () => data?.restaurantReservations?.items.find((r) => r.id === id) ?? null,
-    [data, id],
-  );
+  const reservation = data?.partnerReservation ?? null;
+  const venueRestaurantId = reservation?.restaurantId ?? null;
+  const venueRestaurant =
+    restaurants.find((r) => r.id === venueRestaurantId) ??
+    (activeRestaurant?.id === venueRestaurantId ? activeRestaurant : null);
+
+  // Deep links are cross-venue; align MMKV so list/ops screens match this booking.
+  useEffect(() => {
+    syncActiveRestaurantId(venueRestaurantId, { restaurants });
+  }, [venueRestaurantId, restaurants]);
 
   const { data: bookableData } = useQuery<BookableTablesQuery>(BOOKABLE_TABLES, {
-    skip: !activeRestaurantId || !reservation,
+    skip: !venueRestaurantId || !reservation,
     variables: {
-      restaurantId: activeRestaurantId,
+      restaurantId: venueRestaurantId,
       slotStart: reservation?.slotStart,
       partySize: reservation?.partySize ?? 2,
     },
@@ -138,7 +142,7 @@ export function ReservationDetailFeature() {
 
   const tableOptions = useMemo(() => {
     const bookable = bookableData?.bookableTables ?? [];
-    const restaurantTables = (activeRestaurant?.tables ?? []).filter(
+    const restaurantTables = (venueRestaurant?.tables ?? []).filter(
       (t) => t.active !== false,
     );
     const byId = new Map<string, TableOption>();
@@ -160,7 +164,7 @@ export function ReservationDetailFeature() {
     return Array.from(byId.values()).sort((a, b) =>
       a.name.localeCompare(b.name),
     );
-  }, [bookableData, activeRestaurant, reservation]);
+  }, [bookableData, venueRestaurant, reservation]);
 
   const assignedTableIds = useMemo(
     () => new Set((reservation?.tables ?? []).map((t) => t.id)),
@@ -345,7 +349,7 @@ export function ReservationDetailFeature() {
         <View style={styles.chromeBtn} />
       </Flex>
 
-      {loading && !reservation ? <Loader fullScreen /> : null}
+      {loading && !reservation ? <ReservationDetailSkeleton /> : null}
 
       {errorMessage && !reservation ? (
         <View style={styles.pad}>
@@ -368,7 +372,7 @@ export function ReservationDetailFeature() {
         <View style={styles.pad}>
           <Empty
             title="Reservation not found"
-            description="It may have been deleted or belongs to another location."
+            description="It may have been deleted, or you may not have access to this booking."
           >
             <Button
               size="md"
@@ -423,6 +427,7 @@ export function ReservationDetailFeature() {
                   <Button
                     fullWidth
                     size="lg"
+                    color="secondary"
                     variant="outlined"
                     onPress={() => setTableSheetOpen(true)}
                   >

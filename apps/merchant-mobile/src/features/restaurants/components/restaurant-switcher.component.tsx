@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { ChevronDownIcon } from "@/assets";
+import { CheckIcon, ChevronDownIcon } from "@/assets";
 import { BottomSheet, Flex, Typography } from "@/components";
 
 import { useActiveRestaurant } from "../hooks/use-active-restaurant.hook";
@@ -100,6 +100,9 @@ export function RestaurantSwitcher({
                     </Typography>
                   ) : null}
                 </View>
+                {selected ? (
+                  <CheckIcon size={20} color={theme.colors.primary} />
+                ) : null}
               </Pressable>
             );
           })}
@@ -136,19 +139,25 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     flexShrink: 1,
   },
   option: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     minHeight: space(7),
     paddingVertical: space(1.5),
     paddingHorizontal: space(2),
     borderRadius: radius.md,
-    backgroundColor: colors.slate2,
+    backgroundColor: colors.slate1,
   },
   optionSelected: {
-    backgroundColor: colors.primary2,
+    backgroundColor: colors.primary1,
   },
   optionPressed: {
     opacity: 0.85,
   },
   optionBody: {
+    flex: 1,
+    flexShrink: 1,
     gap: space(0.25),
+    paddingRight: space(1),
   },
 }));

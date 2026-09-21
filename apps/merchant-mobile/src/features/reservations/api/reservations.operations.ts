@@ -41,6 +41,35 @@ export const RESTAURANT_RESERVATIONS = gql`
   }
 `;
 
+export const PARTNER_RESERVATION = gql`
+  query PartnerReservation($id: ID!) {
+    partnerReservation(id: $id) {
+      id
+      restaurantId
+      partySize
+      slotStart
+      slotEnd
+      status
+      occasion
+      guestNotes
+      source
+      tableIds
+      diner {
+        id
+        firstName
+        lastName
+        phone
+        email
+      }
+      tables {
+        id
+        name
+        floorArea
+      }
+    }
+  }
+`;
+
 export const CREATE_OWNER_RESERVATION = gql`
   mutation CreateOwnerReservation($input: OwnerReservationInput!) {
     createOwnerReservation(input: $input) {

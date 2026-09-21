@@ -6,7 +6,7 @@ import {
   CalendarCheckIcon,
   HomeIcon,
   MailIcon,
-  MoreHorizontalIcon,
+  UserIcon,
 } from "@/assets";
 import { Loader } from "@/components";
 import { useAuth } from "@/graphql";
@@ -79,9 +79,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="more"
         options={{
-          title: "More",
-          tabBarIcon: ({ color, size }) => (
-            <MoreHorizontalIcon color={String(color)} size={size} />
+          title: "Account",
+          tabBarLabel: "Account",
+          tabBarIcon: ({ color, size, focused }) => (
+            <UserIcon color={String(color)} size={size} filled={focused} />
           ),
         }}
       />

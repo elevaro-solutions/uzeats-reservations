@@ -181,7 +181,22 @@ AddReviewSheet require all four; restaurant avg still rolls up overall only.
 - Global `DISCOVERY_INDEX` plus feature-scoped ops in `features/search/api/search.operations.ts`. Input draft debounces for suggestions; results use `committedQuery`. Clearing the field clears committed query so chips don’t stick.
 - Why it matters: Don’t assume all search ops live in `graphql/operations.ts`. Typing without submitting doesn’t redefine the result set.
 
+## merchant-more
+
+### [2026-09-21] Account hub (tab still routed as `more`)
+- Screen: centered profile, active restaurant switcher, one grouped Notifications + Waitlist list, muted Partner Hub note, logout confirm `Dialog`. Tab shows Account + filled `UserIcon`.
+- Why it matters: IA is account/venue + day-of shortcuts — not app settings or billing; avoid stacking cards/alerts that crowd the first viewport.
+
 ## merchant-mobile (partner app)
+
+### [2026-09-21] Waitlist/Floor toast copy is outcome-oriented
+- Waitlist Notify/Seat/Remove toast success+error via `waitlistActionToastCopy` (not status nouns like `Marked cancelled`). Floor Complete/No-show/Cancel maps API statuses to human labels so `no_show` never appears raw. Message send errors use the shared `Please try again` fallback.
+- Why it matters: Staff see the action they took; don’t reuse `Marked ${status}` with underscores.
+
+### [2026-09-21] Messages inbox vs notifications venue scope
+- Inbox queries are active-venue only; notifications are cross-venue and threads are reservation-scoped. Deep-linking into a conversation for another venue left Messages empty until `activeRestaurantId` was synced via `syncActiveRestaurantId` (toast on multi-venue change; see `docs/notes/merchant-mobile/features.md`).
+- Reservation detail had the same trap (list-scoped to active venue). Fixed with `partnerReservation(id)` + notification `restaurantId`.
+- Why it matters: Opening a conversation or reservation from a notification must not depend on which venue is selected.
 
 ### [2026-09-21] Reservation detail matches list-card action hierarchy
 - Detail screen: status pill via `reservationStatusVisual`, calendar time block, Guest/Booking/Table cards; phone/email open `tel:`/`mailto:`. Sticky footer = primary lifecycle CTA + More → `ReservationActionsSheet`; Cancel/No-show require `Dialog` confirm. Assign table only for pending/confirmed/seated.

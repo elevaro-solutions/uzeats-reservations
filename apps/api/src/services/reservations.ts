@@ -474,7 +474,10 @@ export async function createReservation(input: {
       type: 'new_reservation',
       title: 'New reservation',
       body: `Party of ${input.partySize} at ${input.slotStart.toLocaleString()} — ${restaurant.name}`,
-      data: { reservationId: reservation._id.toString() },
+      data: {
+        restaurantId: input.restaurantId,
+        reservationId: reservation._id.toString(),
+      },
     });
   }
 
@@ -638,7 +641,10 @@ export async function updateReservationStatus(
         type: 'reservation_cancelled',
         title: 'Reservation cancelled',
         body: `A guest cancelled their reservation at ${restaurantName}.`,
-        data: { reservationId: reservation._id.toString() },
+        data: {
+          restaurantId: reservation.restaurantId.toString(),
+          reservationId: reservation._id.toString(),
+        },
       });
     }
   }
@@ -858,7 +864,10 @@ export async function confirmDeposit(paymentIntentId: string) {
       body: `Party of ${reservation.partySize} at ${reservation.slotStart.toLocaleString()}${
         restaurant ? ` — ${restaurant.name}` : ''
       }`,
-      data: { reservationId: reservation._id.toString() },
+      data: {
+        restaurantId: reservation.restaurantId.toString(),
+        reservationId: reservation._id.toString(),
+      },
     });
   }
 
@@ -956,7 +965,10 @@ export async function createOwnerReservation(input: {
       type: 'new_reservation',
       title: 'New reservation',
       body: `Party of ${input.partySize} at ${input.slotStart.toLocaleString()} — ${restaurant.name}`,
-      data: { reservationId: reservation._id.toString() },
+      data: {
+        restaurantId: input.restaurantId,
+        reservationId: reservation._id.toString(),
+      },
     });
   }
 
@@ -1082,7 +1094,10 @@ export async function updateReservationDetails(
       type: 'reservation_updated',
       title: 'Reservation updated',
       body: `A guest updated their reservation at ${restaurantName} (${when}, party of ${reservation.partySize}).`,
-      data: { reservationId: reservation._id.toString() },
+      data: {
+        restaurantId: reservation.restaurantId.toString(),
+        reservationId: reservation._id.toString(),
+      },
     });
   } else {
     await notifyUser(

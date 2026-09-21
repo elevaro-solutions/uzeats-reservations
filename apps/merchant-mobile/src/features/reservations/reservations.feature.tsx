@@ -14,7 +14,6 @@ import {
   Flex,
   IconButton,
   InlineAlert,
-  Loader,
   SegmentedControl,
   Typography,
 } from "@/components";
@@ -33,6 +32,7 @@ import {
 } from "./api/reservations.operations";
 import { ReservationCard } from "./components/reservation-card.component";
 import type { ReservationListItem } from "./components/reservation-card.component";
+import { ReservationListSkeleton } from "./components/reservation-list-skeleton.component";
 import type { ReservationAction } from "./helpers/reservation-status.helpers";
 
 type RangeKey = "today" | "upcoming" | "past";
@@ -236,7 +236,7 @@ export function ReservationsFeature() {
       ) : null}
 
       {isLoading ? (
-        <Loader fullScreen />
+        <ReservationListSkeleton count={4} />
       ) : (
         <FlashList
           data={listRows}
@@ -267,17 +267,17 @@ export function ReservationsFeature() {
                     ? "Nothing on the books for today."
                     : "No reservations in this range."
                 }
-              />
-              {showEmptyAdd ? (
-                <Button
-                  fullWidth
-                  size="lg"
-                  style={styles.emptyAdd}
-                  onPress={() => router.push("/reservations/create")}
-                >
-                  Add reservation
-                </Button>
-              ) : null}
+              >
+                {showEmptyAdd ? (
+                  <Button
+                    size="lg"
+                    startIcon={<PlusIcon />}
+                    onPress={() => router.push("/reservations/create")}
+                  >
+                    Add reservation
+                  </Button>
+                ) : null}
+              </Empty>
             </View>
           }
           renderItem={({ item }) => {
@@ -377,10 +377,6 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   emptyWrap: {
     paddingTop: space(4),
     paddingHorizontal: space(2),
-    gap: space(2),
-  },
-  emptyAdd: {
-    marginTop: space(0.5),
   },
   fab: {
     position: "absolute",

@@ -1,14 +1,24 @@
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { toast } from "sonner-native";
 
-import { LogOutIcon } from "@/assets";
-import { Button, Flex, Typography, UserAvatar } from "@/components";
+import { BellIcon, LogOutIcon, UsersIcon } from "@/assets";
+import {
+  Button,
+  Dialog,
+  Flex,
+  InlineAlert,
+  Typography,
+  UserAvatar,
+} from "@/components";
 import { RestaurantSwitcher } from "@/features/restaurants";
 import { useAuth } from "@/graphql";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
+
+import { AccountMenuRow } from "./components";
 
 function roleLabel(role?: string | null): string {
   switch (role) {
@@ -24,10 +34,12 @@ function roleLabel(role?: string | null): string {
 }
 
 export function MoreFeature() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
   const { user, logout } = useAuth();
   const [loggingOut, setLoggingOut] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -37,8 +49,8 @@ export function MoreFeature() {
       toast.error("Couldn't sign out", {
         description: getGraphQLErrorMessage(err, "Please try again"),
       });
-    } finally {
       setLoggingOut(false);
+      setConfirmLogout(false);
     }
   }
 
@@ -46,19 +58,43 @@ export function MoreFeature() {
     .filter(Boolean)
     .join(" ");
 
+  const partnerHubMessage =
+    user?.role === "staff"
+      ? "Billing and adding restaurants are available to owners in Partner Hub."
+      : user?.role === "restaurant_owner"
+        ? "Billing, venue setup, and marketing live in Partner Hub on the web. This app is for day-of service."
+        : null;
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <Typography weight="bold" size="text-xl" style={styles.title}>
-        More
-      </Typography>
+      <Flex
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        gap={1.5}
+        style={styles.header}
+      >
+        <Typography weight="bold" size="text-lg" style={styles.title}>
+          Account
+        </Typography>
+        <Flex style={styles.switcherWrap}>
+          <RestaurantSwitcher compact />
+        </Flex>
+      </Flex>
 
       <ScrollView
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: insets.bottom + theme.space(3) },
+          { paddingBottom: insets.bottom + theme.space(4) },
         ]}
+        showsVerticalScrollIndicator={false}
       >
-        <Flex direction="row" alignItems="center" gap={1.5} style={styles.profile}>
+        <Flex
+          direction="row"
+          alignItems="flex-start"
+          gap={1.5}
+          style={styles.profile}
+        >
           <UserAvatar
             firstName={user?.firstName}
             lastName={user?.lastName}
@@ -79,66 +115,128 @@ export function MoreFeature() {
           </Flex>
         </Flex>
 
-        <Typography weight="medium" size="text-sm" color="secondary" style={styles.label}>
-          Active restaurant
+        <Typography
+          weight="medium"
+          size="text-sm"
+          color="secondary"
+          style={styles.linksTitle}
+        >
+          Quick links
         </Typography>
-        <RestaurantSwitcher />
+        <View style={styles.menuGroup}>
+          <AccountMenuRow
+            label="Notifications"
+            icon={<BellIcon size={20} color={theme.colors.textSecondary} />}
+            onPress={() => router.push("/notifications")}
+            showDivider
+          />
+          <AccountMenuRow
+            label="Waitlist"
+            icon={<UsersIcon size={20} color={theme.colors.textSecondary} />}
+            onPress={() => router.push("/waitlist")}
+          />
+        </View>
 
-        {user?.role === "staff" ? (
-          <Typography size="text-sm" color="muted" style={styles.note}>
-            Billing and adding restaurants are available to owners in Partner
-            Hub.
-          </Typography>
-        ) : user?.role === "restaurant_owner" ? (
-          <Typography size="text-sm" color="muted" style={styles.note}>
-            Billing, venue setup, and marketing live in Partner Hub on the web.
-            This app is for day-of service.
-          </Typography>
+        {partnerHubMessage ? (
+          <InlineAlert
+            tone="info"
+            title="Partner Hub"
+            message={partnerHubMessage}
+            style={styles.hubAlert}
+          />
         ) : null}
 
         <Button
           fullWidth
-          size="xl"
+          size="lg"
           color="error"
-          variant="outlined"
-          loading={loggingOut}
+          variant="text"
           startIcon={<LogOutIcon />}
-          onPress={() => {
-            void handleLogout();
-          }}
+          onPress={() => setConfirmLogout(true)}
           style={styles.logout}
         >
           Log out
         </Button>
       </ScrollView>
+
+      <Dialog
+        visible={confirmLogout}
+        onClose={() => {
+          if (!loggingOut) setConfirmLogout(false);
+        }}
+        loading={loggingOut}
+        title="Log out?"
+        description="You'll need to sign in again to manage reservations and the floor."
+        actions={
+          <Flex gap={1}>
+            <Button
+              fullWidth
+              size="lg"
+              color="error"
+              loading={loggingOut}
+              onPress={() => {
+                void handleLogout();
+              }}
+            >
+              Log out
+            </Button>
+            <Button
+              fullWidth
+              size="md"
+              variant="text"
+              color="secondary"
+              disabled={loggingOut}
+              onPress={() => setConfirmLogout(false)}
+            >
+              Stay signed in
+            </Button>
+          </Flex>
+        }
+      />
     </View>
   );
 }
 
-const styles = StyleSheet.create(({ space, colors }) => ({
+const styles = StyleSheet.create(({ space, colors, radius }) => ({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  title: {
+  header: {
     paddingHorizontal: space(2),
     paddingBottom: space(1.5),
+    paddingTop: space(1),
+  },
+  title: {
+    flexShrink: 0,
+  },
+  switcherWrap: {
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: "62%",
   },
   content: {
     paddingHorizontal: space(2),
   },
   profile: {
-    paddingVertical: space(2),
+    padding: space(2),
+    marginTop: space(0.5),
+    marginBottom: space(3),
+    borderRadius: radius.lg,
+    backgroundColor: colors.slate2,
+  },
+  linksTitle: {
     marginBottom: space(1),
   },
-  label: {
-    marginBottom: space(0.75),
+  menuGroup: {
+    borderRadius: radius.lg,
+    backgroundColor: colors.slate2,
+    overflow: "hidden",
   },
-  note: {
-    marginBottom: space(2),
-    marginTop: space(2),
+  hubAlert: {
+    marginTop: space(3),
   },
   logout: {
-    marginTop: space(2),
+    marginTop: space(3),
   },
 }));

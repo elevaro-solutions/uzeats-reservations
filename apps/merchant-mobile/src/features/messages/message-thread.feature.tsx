@@ -20,6 +20,8 @@ import {
   Loader,
   Typography,
 } from "@/components";
+import { useActiveRestaurant } from "@/features/restaurants";
+import { syncActiveRestaurantId } from "@/features/restaurants/helpers/sync-active-restaurant.helpers";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
 
 import {
@@ -51,6 +53,7 @@ type MessagesQuery = {
 
 type ConversationQuery = {
   conversation: {
+    restaurantId?: string | null;
     diner?: {
       firstName?: string | null;
       lastName?: string | null;
@@ -67,6 +70,7 @@ export function MessageThreadFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
+  const { restaurants } = useActiveRestaurant();
   const [draft, setDraft] = useState("");
   const listRef = useRef<FlatList<MessageItem>>(null);
 
@@ -100,6 +104,11 @@ export function MessageThreadFeature() {
         .join(" · ")
     : null;
 
+  // Inbox is venue-scoped; sync so Messages tab matches this thread (Partner Hub does the same).
+  useEffect(() => {
+    syncActiveRestaurantId(conversation?.restaurantId, { restaurants });
+  }, [conversation?.restaurantId, restaurants]);
+
   useEffect(() => {
     if (!reservationId) return;
     void markRead({ variables: { reservationId } }).catch(() => undefined);
@@ -124,7 +133,7 @@ export function MessageThreadFeature() {
       await refetch();
     } catch (err) {
       toast.error("Couldn't send", {
-        description: getGraphQLErrorMessage(err, "Could not send message"),
+        description: getGraphQLErrorMessage(err, "Please try again"),
       });
     }
   }

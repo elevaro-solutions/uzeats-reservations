@@ -2399,6 +2399,8 @@ export const typeDefs = `#graphql
     myReservation(id: ID!): Reservation
     mySavedRestaurants(kind: RestaurantBookmarkKind!): [Restaurant!]!
     restaurantReservations(restaurantId: ID!, date: String, limit: Int, offset: Int): ReservationConnection!
+    """Partner ops: load a reservation by id when the user has restaurant access (deep links)."""
+    partnerReservation(id: ID!): Reservation
     myWaitlist: [WaitlistEntry!]!
     restaurantWaitlist(restaurantId: ID!, limit: Int, offset: Int): WaitlistConnection!
     restaurantReviews(restaurantId: ID!, limit: Int, offset: Int): ReviewConnection!

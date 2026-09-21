@@ -4,6 +4,34 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+## [0.57.0] — 2026-09-21
+
+### Added
+
+- Merchant mobile loading skeletons for Reservations list/detail, Messages inbox, Floor, Waitlist, and Notifications (chrome stays visible; replaces full-screen spinners)
+
+### Fixed
+
+- Merchant mobile Messages: inbox no longer looks empty when a conversation is opened from a notification for a different active venue (sync active restaurant from thread/notification; confirmed-venue queries; toast when multi-venue switch happens)
+- Merchant mobile reservation detail: deep links from notifications work across venues via `partnerReservation(id)` (no longer scans the active-venue list); staff reservation notifications now include `restaurantId` for venue sync + toast
+
+### Changed
+
+- Merchant mobile reservation detail: Change/Assign table uses secondary outlined button (de-emphasized vs primary CTA)
+- Merchant mobile Waitlist: outcome-oriented action toasts (`Guest notified` / `Guest seated` / `Removed from waitlist`) with action-specific error titles; guard toast when no restaurant is selected for add walk-in
+- Merchant mobile Floor: status toasts use human labels (`Marked complete` / `Marked no-show` / `Marked cancel`) instead of raw API statuses; error title is `Couldn't update status`
+- Merchant mobile Messages: send failure toast description fallback is `Please try again`
+- Merchant mobile Add walk-in sheet: react-hook-form with inline field errors, US phone formatting, party-size stepper, and clearer quoted-wait helper (staff promise floors ETA)
+- Merchant mobile Account tab (was More): User icon with filled focus state; header title + restaurant switcher, horizontal profile (no fill), Quick links group, Partner Hub alert, and logout confirm dialog
+- Merchant mobile Waitlist: sticky footer Add walk-in CTA; empty state uses Users icon and centered copy
+- Merchant mobile Reservations empty state: Add reservation button is content-width with a plus icon
+
+### Docs
+
+- Merchant mobile notes: loading skeletons keep chrome; venue-scoped messages vs cross-venue notifications; waitlist/floor toast copy; Account hub; Add walk-in sticky footer
+
 ## [0.56.0] — 2026-09-21
 
 ### Changed
@@ -119,6 +147,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Mobile booking time chips and favorite control use ≥44pt tap targets; slot chips expose accessibility labels
 - Mobile Privacy Policy discloses optional write-only calendar access
 - Mobile iOS `ITSAppUsesNonExemptEncryption: false` for App Store export compliance
+
 ## [0.52.1] — 2026-09-17
 
 ### Changed

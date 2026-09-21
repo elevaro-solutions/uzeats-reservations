@@ -10,7 +10,6 @@ import {
   Empty,
   Flex,
   InlineAlert,
-  Loader,
   Typography,
 } from "@/components";
 import { useActiveRestaurant } from "@/features/restaurants";
@@ -26,6 +25,10 @@ import {
   FLOOR_AREA_ALL,
   FloorAreaPicker,
 } from "./components/floor-area-picker.component";
+import {
+  FloorAreaPickerSkeleton,
+  FloorSkeleton,
+} from "./components/floor-skeleton.component";
 import { FloorStatusLegend } from "./components/floor-status-legend.component";
 import { FloorTableCard } from "./components/floor-table-card.component";
 import { FloorTableSheet } from "./components/floor-table-sheet.component";
@@ -175,14 +178,20 @@ export function FloorFeature() {
   async function changeStatus(status: string) {
     const reservationId = selected?.reservation?.id;
     if (!reservationId) return;
+    const STATUS_TOAST_LABELS: Record<string, string> = {
+      completed: "complete",
+      no_show: "no-show",
+      cancelled: "cancel",
+    };
+    const statusLabel = STATUS_TOAST_LABELS[status] ?? status;
     setBusy(true);
     try {
       await updateStatus({ variables: { id: reservationId, status } });
-      toast.success(`Marked ${status}`);
+      toast.success(`Marked ${statusLabel}`);
       setSelected(null);
       await refetch();
     } catch (err) {
-      toast.error("Couldn't update", {
+      toast.error("Couldn't update status", {
         description: getGraphQLErrorMessage(err, "Please try again"),
       });
     } finally {
@@ -216,7 +225,9 @@ export function FloorFeature() {
         <Typography weight="bold" size="display-xs" style={styles.titleText}>
           Floor
         </Typography>
-        {!isLoading && !loadError && restaurantId ? (
+        {isLoading ? (
+          <FloorAreaPickerSkeleton />
+        ) : !loadError && restaurantId ? (
           <FloorAreaPicker
             areas={floorAreas}
             value={areaFilter}
@@ -226,7 +237,7 @@ export function FloorFeature() {
       </Flex>
 
       {isLoading ? (
-        <Loader fullScreen />
+        <FloorSkeleton />
       ) : loadError ? (
         <View style={[styles.pad, styles.stateBlock]}>
           <InlineAlert

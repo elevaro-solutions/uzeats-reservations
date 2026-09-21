@@ -2,6 +2,8 @@ import { router } from "expo-router";
 import * as Notifications from "expo-notifications";
 import { useEffect } from "react";
 
+import { syncActiveRestaurantId } from "@/features/restaurants/helpers/sync-active-restaurant.helpers";
+
 import { resolveNotificationLinkFromData } from "../helpers/notification-link.helpers";
 
 Notifications.setNotificationHandler({
@@ -29,6 +31,13 @@ function redirectFromNotification(notification: Notifications.Notification) {
             "",
         )
       : undefined;
+
+  // Messages inbox is venue-scoped; notifications are cross-venue — align before navigate.
+  const restaurantId =
+    typeof data.restaurantId === "string" && data.restaurantId.length > 0
+      ? data.restaurantId
+      : null;
+  syncActiveRestaurantId(restaurantId);
 
   const link = resolveNotificationLinkFromData(data, type);
   if (link) {

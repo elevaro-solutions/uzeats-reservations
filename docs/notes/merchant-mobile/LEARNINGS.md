@@ -6,7 +6,7 @@ Feature domain notes shared with diner mobile live under `docs/notes/features.md
 
 | Module | Notes | Summary |
 | --- | --- | --- |
-| [app](./app.md) | Expo Router | Thin routes; tabs Overview/Reservations/Floor/Messages/More; waitlist + notifications are stack screens |
+| [app](./app.md) | Expo Router | Thin routes; tabs Overview/Reservations/Floor/Messages/Account; waitlist + notifications are stack screens |
 | [components](./components.md) | Shared UI | Copied Forest & Gold kit from diner mobile; no `@reservations/ui` |
 | [features](./features.md) | Domains | Partner ops features; see also `docs/notes/features.md` → merchant-mobile |
 | [graphql](./graphql.md) | Apollo / auth | Partner-only SecureStore session; `isPartnerMobileRole` gate |

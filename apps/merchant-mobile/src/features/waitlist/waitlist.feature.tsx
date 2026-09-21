@@ -6,16 +6,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { toast } from "sonner-native";
 
-import { ChevronLeftIcon } from "@/assets";
+import { ChevronLeftIcon, PlusIcon, UsersIcon } from "@/assets";
 import {
-  BottomSheet,
   Button,
   Empty,
   Flex,
   IconButton,
   InlineAlert,
-  Input,
-  Loader,
   Typography,
 } from "@/components";
 import { useActiveRestaurant } from "@/features/restaurants";
@@ -26,22 +23,20 @@ import {
   RESTAURANT_WAITLIST_FULL,
   UPDATE_WAITLIST_STATUS,
 } from "./api/waitlist.operations";
+import {
+  AddWalkInSheet,
+  WaitlistCard,
+  type WaitlistListItem,
+} from "./components";
+import { WaitlistListSkeleton } from "./components/waitlist-list-skeleton.component";
+import type { AddWalkInPayload } from "./helpers/add-walk-in-schema.helpers";
+import {
+  isTerminalWaitlistStatus,
+  waitlistActionToastCopy,
+  type WaitlistAction,
+} from "./helpers/waitlist-status.helpers";
 
-type WaitlistEntry = {
-  id: string;
-  partySize: number;
-  status: string;
-  guestName?: string | null;
-  guestPhone?: string | null;
-  quotedWaitMinutes?: number | null;
-  position?: number | null;
-  estimatedWaitMinutes?: number | null;
-  diner?: {
-    firstName?: string | null;
-    lastName?: string | null;
-    phone?: string | null;
-  } | null;
-};
+type WaitlistEntry = WaitlistListItem;
 
 type WaitlistQuery = {
   restaurantWaitlist: {
@@ -50,14 +45,6 @@ type WaitlistQuery = {
   };
 };
 
-function entryName(entry: WaitlistEntry): string {
-  if (entry.guestName) return entry.guestName;
-  const name = [entry.diner?.firstName, entry.diner?.lastName]
-    .filter(Boolean)
-    .join(" ");
-  return name || "Guest";
-}
-
 export function WaitlistFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -65,10 +52,6 @@ export function WaitlistFeature() {
   const { activeRestaurantId, loading: restaurantsLoading } =
     useActiveRestaurant();
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [guestName, setGuestName] = useState("");
-  const [guestPhone, setGuestPhone] = useState("");
-  const [partySize, setPartySize] = useState("2");
-  const [quotedWait, setQuotedWait] = useState("15");
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const { data, loading, error, refetch } = useQuery<WaitlistQuery>(
@@ -86,14 +69,20 @@ export function WaitlistFeature() {
 
   const items = useMemo(() => data?.restaurantWaitlist?.items ?? [], [data]);
 
-  async function handleStatus(id: string, status: string) {
+  const waitingCount = useMemo(
+    () => items.filter((item) => !isTerminalWaitlistStatus(item.status)).length,
+    [items],
+  );
+
+  async function handleAction(id: string, action: WaitlistAction) {
+    const copy = waitlistActionToastCopy(action);
     setBusyId(id);
     try {
-      await updateStatus({ variables: { id, status } });
-      toast.success(`Marked ${status}`);
+      await updateStatus({ variables: { id, status: action.status } });
+      toast.success(copy.success);
       await refetch();
     } catch (err) {
-      toast.error("Couldn't update waitlist", {
+      toast.error(copy.error, {
         description: getGraphQLErrorMessage(err, "Please try again"),
       });
     } finally {
@@ -101,12 +90,9 @@ export function WaitlistFeature() {
     }
   }
 
-  async function handleAdd() {
-    if (!activeRestaurantId) return;
-    const size = Number.parseInt(partySize, 10);
-    const wait = Number.parseInt(quotedWait, 10);
-    if (!guestName.trim() || !Number.isFinite(size) || size < 1) {
-      toast.error("Enter a name and party size");
+  async function handleAdd(values: AddWalkInPayload) {
+    if (!activeRestaurantId) {
+      toast.error("Select a restaurant first");
       return;
     }
     try {
@@ -114,19 +100,15 @@ export function WaitlistFeature() {
         variables: {
           input: {
             restaurantId: activeRestaurantId,
-            guestName: guestName.trim(),
-            guestPhone: guestPhone.trim() || undefined,
-            partySize: size,
-            quotedWaitMinutes: Number.isFinite(wait) ? wait : undefined,
+            guestName: values.guestName,
+            guestPhone: values.guestPhone,
+            partySize: values.partySize,
+            quotedWaitMinutes: values.quotedWaitMinutes,
           },
         },
       });
       toast.success("Walk-in added");
       setSheetOpen(false);
-      setGuestName("");
-      setGuestPhone("");
-      setPartySize("2");
-      setQuotedWait("15");
       await refetch();
     } catch (err) {
       toast.error("Couldn't add walk-in", {
@@ -136,29 +118,37 @@ export function WaitlistFeature() {
   }
 
   const isLoading = restaurantsLoading || (loading && !data);
+  const isEmpty = !isLoading && items.length === 0;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <Flex direction="row" alignItems="center" style={styles.topBar}>
-        <IconButton
-          icon={<ChevronLeftIcon />}
-          variant="surface"
-          size="sm"
-          onPress={() => router.back()}
-          accessibilityLabel="Go back"
-          style={styles.chromeBtn}
-        />
-        <Typography weight="semibold" size="text-lg" style={styles.topTitle}>
-          Waitlist
-        </Typography>
-        <View style={styles.chromeBtn} />
+      <Flex direction="column" style={styles.topBar}>
+        <Flex direction="row" alignItems="center">
+          <IconButton
+            icon={<ChevronLeftIcon />}
+            variant="surface"
+            size="sm"
+            onPress={() => router.back()}
+            accessibilityLabel="Go back"
+            style={styles.chromeBtn}
+          />
+          <Typography weight="semibold" size="text-lg" style={styles.topTitle}>
+            Waitlist
+          </Typography>
+          <View style={styles.chromeBtn} />
+        </Flex>
+        {!isLoading && !isEmpty ? (
+          <Typography
+            size="text-sm"
+            color="muted"
+            style={styles.queueSummary}
+          >
+            {waitingCount === 1
+              ? "1 waiting"
+              : `${waitingCount} waiting`}
+          </Typography>
+        ) : null}
       </Flex>
-
-      <View style={styles.addWrap}>
-        <Button fullWidth size="xl" onPress={() => setSheetOpen(true)}>
-          Add walk-in
-        </Button>
-      </View>
 
       {error ? (
         <View style={styles.pad}>
@@ -167,147 +157,72 @@ export function WaitlistFeature() {
       ) : null}
 
       {isLoading ? (
-        <Loader fullScreen />
+        <WaitlistListSkeleton count={4} />
       ) : (
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{
-            paddingHorizontal: theme.space(2),
-            paddingBottom: insets.bottom + theme.space(3),
-            gap: theme.space(1.5),
-          }}
+          style={styles.list}
+          contentContainerStyle={[
+            styles.listContent,
+            {
+              paddingHorizontal: theme.space(2),
+              paddingTop: theme.space(2),
+              paddingBottom: theme.space(3),
+              gap: theme.space(1.5),
+            },
+            isEmpty ? styles.listEmpty : null,
+          ]}
           ListEmptyComponent={
-            <Empty
-              title="Waitlist is empty"
-              description="Add a walk-in when guests arrive without a reservation."
-            />
+            <View style={styles.emptyWrap}>
+              <Empty
+                icon={<UsersIcon />}
+                title="No one waiting"
+                description="When walk-ins arrive without a reservation, add them below."
+              />
+            </View>
           }
-          renderItem={({ item }) => {
-            const terminal = ["seated", "cancelled", "expired", "booked"].includes(
-              item.status,
-            );
-            return (
-              <View style={styles.card}>
-                <Typography weight="semibold" size="text-lg">
-                  {entryName(item)}
-                </Typography>
-                <Typography size="text-md" color="secondary">
-                  Party of {item.partySize}
-                  {item.position != null && item.status === "waiting"
-                    ? ` · #${item.position}`
-                    : ""}
-                  {item.estimatedWaitMinutes != null
-                    ? ` · ~${item.estimatedWaitMinutes} min`
-                    : item.quotedWaitMinutes != null
-                      ? ` · quoted ${item.quotedWaitMinutes} min`
-                      : ""}
-                </Typography>
-                <Typography size="text-sm" color="muted">
-                  {item.status}
-                </Typography>
-                {!terminal ? (
-                  <Flex direction="row" gap={1} style={styles.actions}>
-                    {item.status === "waiting" ? (
-                      <Button
-                        size="lg"
-                        variant="outlined"
-                        loading={busyId === item.id}
-                        onPress={() => {
-                          void handleStatus(item.id, "notified");
-                        }}
-                        style={styles.actionBtn}
-                      >
-                        Notify
-                      </Button>
-                    ) : null}
-                    <Button
-                      size="lg"
-                      loading={busyId === item.id}
-                      onPress={() => {
-                        void handleStatus(item.id, "seated");
-                      }}
-                      style={styles.actionBtn}
-                    >
-                      Seat
-                    </Button>
-                    <Button
-                      size="lg"
-                      color="error"
-                      variant="outlined"
-                      loading={busyId === item.id}
-                      onPress={() => {
-                        void handleStatus(item.id, "cancelled");
-                      }}
-                      style={styles.actionBtn}
-                    >
-                      Remove
-                    </Button>
-                  </Flex>
-                ) : null}
-              </View>
-            );
-          }}
+          renderItem={({ item }) => (
+            <WaitlistCard
+              entry={item}
+              actionLoading={busyId === item.id}
+              onAction={(action) => {
+                void handleAction(item.id, action);
+              }}
+            />
+          )}
         />
       )}
 
-      <BottomSheet
-        visible={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        title="Add walk-in"
-        showHandle
-        headerBorder
-        keyboardAvoiding
-        scrollable
-        footer={
+      {!isLoading ? (
+        <View
+          style={[
+            styles.footer,
+            { paddingBottom: Math.max(insets.bottom, theme.space(2)) },
+          ]}
+        >
           <Button
             fullWidth
             size="xl"
-            loading={adding}
-            onPress={() => {
-              void handleAdd();
-            }}
+            startIcon={<PlusIcon />}
+            onPress={() => setSheetOpen(true)}
           >
-            Add to waitlist
+            Add walk-in
           </Button>
-        }
-      >
-        <Flex gap={2}>
-          <Input
-            label="Guest name"
-            required
-            value={guestName}
-            onChangeText={setGuestName}
-            placeholder="Name"
-            autoCapitalize="words"
-          />
-          <Input
-            label="Phone"
-            value={guestPhone}
-            onChangeText={setGuestPhone}
-            placeholder="Optional"
-            keyboardType="phone-pad"
-          />
-          <Input
-            label="Party size"
-            required
-            value={partySize}
-            onChangeText={setPartySize}
-            keyboardType="number-pad"
-          />
-          <Input
-            label="Quoted wait (min)"
-            value={quotedWait}
-            onChangeText={setQuotedWait}
-            keyboardType="number-pad"
-          />
-        </Flex>
-      </BottomSheet>
+        </View>
+      ) : null}
+
+      <AddWalkInSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        loading={adding}
+        onSubmit={handleAdd}
+      />
     </View>
   );
 }
 
-const styles = StyleSheet.create(({ space, colors, radius }) => ({
+const styles = StyleSheet.create(({ space, colors, radius, shadows }) => ({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
@@ -317,9 +232,13 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     paddingBottom: space(1.5),
     borderBottomWidth: 1,
     borderBottomColor: colors.slate3,
+    gap: space(0.25),
   },
   topTitle: {
     flex: 1,
+    textAlign: "center",
+  },
+  queueSummary: {
     textAlign: "center",
   },
   chromeBtn: {
@@ -327,24 +246,28 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     height: space(5),
     borderRadius: radius.full,
   },
-  addWrap: {
-    padding: space(2),
+  list: {
+    flex: 1,
+  },
+  listContent: {
+    flexGrow: 1,
+  },
+  listEmpty: {
+    justifyContent: "center",
+  },
+  emptyWrap: {
+    paddingHorizontal: space(2),
+    paddingVertical: space(2),
   },
   pad: {
     paddingHorizontal: space(2),
   },
-  card: {
-    padding: space(2),
-    borderRadius: radius.lg,
-    backgroundColor: colors.slate2,
-    gap: space(0.75),
-  },
-  actions: {
-    marginTop: space(1),
-    flexWrap: "wrap",
-  },
-  actionBtn: {
-    flexGrow: 1,
-    minWidth: "30%",
+  footer: {
+    paddingHorizontal: space(2),
+    paddingTop: space(1.5),
+    borderTopWidth: 1,
+    borderTopColor: colors.slate3,
+    backgroundColor: colors.background,
+    ...shadows.stickyFooter,
   },
 }));
