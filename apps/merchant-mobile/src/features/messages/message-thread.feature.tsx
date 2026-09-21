@@ -11,23 +11,32 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { toast } from "sonner-native";
 
-import { ChevronLeftIcon } from "@/assets";
+import { ChevronLeftIcon, MailIcon } from "@/assets";
 import {
   Button,
   Empty,
   Flex,
   IconButton,
-  Input,
   Loader,
   Typography,
 } from "@/components";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
 
 import {
+  CONVERSATION,
   MARK_CONVERSATION_READ,
   MESSAGES,
   SEND_MESSAGE,
 } from "./api/messages.operations";
+import { MessageBubble } from "./components/message-bubble.component";
+import { MessageInput } from "./components/message-input.component";
+import {
+  dinerDisplayName,
+  formatConversationWhen,
+  formatMessageDayLabel,
+  getMessageDayKey,
+  isRestaurantSender,
+} from "./helpers/message-display.helpers";
 
 type MessageItem = {
   id: string;
@@ -40,6 +49,19 @@ type MessagesQuery = {
   messages: MessageItem[];
 };
 
+type ConversationQuery = {
+  conversation: {
+    diner?: {
+      firstName?: string | null;
+      lastName?: string | null;
+    } | null;
+    reservation?: {
+      slotStart?: string | null;
+      partySize?: number | null;
+    } | null;
+  } | null;
+};
+
 export function MessageThreadFeature() {
   const { reservationId } = useLocalSearchParams<{ reservationId: string }>();
   const router = useRouter();
@@ -47,6 +69,12 @@ export function MessageThreadFeature() {
   const { theme } = useUnistyles();
   const [draft, setDraft] = useState("");
   const listRef = useRef<FlatList<MessageItem>>(null);
+
+  const { data: conversationData } = useQuery<ConversationQuery>(CONVERSATION, {
+    variables: { reservationId },
+    skip: !reservationId,
+    fetchPolicy: "cache-and-network",
+  });
 
   const { data, loading, error, refetch } = useQuery<MessagesQuery>(MESSAGES, {
     variables: { reservationId },
@@ -59,6 +87,18 @@ export function MessageThreadFeature() {
   const [markRead] = useMutation(MARK_CONVERSATION_READ);
 
   const messages = data?.messages ?? [];
+  const conversation = conversationData?.conversation;
+  const guestName = dinerDisplayName(conversation?.diner);
+  const slotStart = conversation?.reservation?.slotStart;
+  const partySize = conversation?.reservation?.partySize;
+  const subtitle = slotStart
+    ? [
+        formatConversationWhen(slotStart),
+        partySize ? `party of ${partySize}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : null;
 
   useEffect(() => {
     if (!reservationId) return;
@@ -93,10 +133,12 @@ export function MessageThreadFeature() {
     <KeyboardAvoidingView
       style={styles.screen}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={0}
     >
       <Flex
         direction="row"
         alignItems="center"
+        gap={1}
         style={[styles.topBar, { paddingTop: insets.top }]}
       >
         <IconButton
@@ -107,88 +149,126 @@ export function MessageThreadFeature() {
           accessibilityLabel="Go back"
           style={styles.chromeBtn}
         />
-        <Typography weight="semibold" size="text-lg" style={styles.topTitle}>
-          Conversation
-        </Typography>
-        <View style={styles.chromeBtn} />
+        <Flex style={styles.topCopy} gap={0.25} alignItems="center">
+          <Typography
+            weight="semibold"
+            size="text-lg"
+            align="center"
+            numberOfLines={1}
+          >
+            {guestName}
+          </Typography>
+          {subtitle ? (
+            <Typography
+              size="text-xs"
+              color="muted"
+              align="center"
+              numberOfLines={1}
+            >
+              {subtitle}
+            </Typography>
+          ) : null}
+        </Flex>
+        <View style={styles.topSpacer} />
       </Flex>
 
-      {loading && messages.length === 0 ? <Loader fullScreen /> : null}
+      {loading && messages.length === 0 ? (
+        <Flex flex={1} justifyContent="center" alignItems="center">
+          <Loader />
+        </Flex>
+      ) : error && messages.length === 0 ? (
+        <Flex flex={1} justifyContent="center" style={styles.centered}>
+          <Empty
+            icon={<MailIcon />}
+            title="Couldn't load messages"
+            description="Check your connection and try again."
+          >
+            <Button variant="outlined" onPress={() => void refetch()}>
+              Retry
+            </Button>
+          </Empty>
+        </Flex>
+      ) : (
+        <FlatList
+          ref={listRef}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[
+            styles.list,
+            messages.length === 0 && styles.listEmpty,
+          ]}
+          ListEmptyComponent={
+            !loading ? (
+              <Empty
+                icon={<MailIcon />}
+                title="No messages yet"
+                description="Say hello to the guest."
+              />
+            ) : null
+          }
+          renderItem={({ item, index }) => {
+            const mine = isRestaurantSender(item.senderType);
+            const dayKey = getMessageDayKey(item.createdAt);
+            const prev = index > 0 ? messages[index - 1] : null;
+            const next =
+              index < messages.length - 1 ? messages[index + 1] : null;
+            const prevDayKey = prev ? getMessageDayKey(prev.createdAt) : null;
+            const nextDayKey = next ? getMessageDayKey(next.createdAt) : null;
+            const showDayDivider = dayKey !== prevDayKey;
+            const isFirstInGroup =
+              !prev ||
+              prev.senderType !== item.senderType ||
+              prevDayKey !== dayKey;
+            const isLastInGroup =
+              !next ||
+              next.senderType !== item.senderType ||
+              nextDayKey !== dayKey;
 
-      {!loading && error ? (
-        <View style={styles.pad}>
-          <Empty title="Couldn't load messages" description={error.message} />
-        </View>
-      ) : null}
-
-      <FlatList
-        ref={listRef}
-        data={messages}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{
-          padding: theme.space(2),
-          paddingBottom: theme.space(1),
-          flexGrow: 1,
-        }}
-        ListEmptyComponent={
-          !loading ? (
-            <Empty
-              title="No messages yet"
-              description="Say hello to the guest."
-            />
-          ) : null
-        }
-        renderItem={({ item }) => {
-          const fromRestaurant =
-            item.senderType === "restaurant" ||
-            item.senderType === "staff" ||
-            item.senderType === "owner";
-          return (
-            <View
-              style={[
-                styles.bubble,
-                fromRestaurant ? styles.bubbleOut : styles.bubbleIn,
-              ]}
-            >
-              <Typography
-                size="text-md"
-                color={fromRestaurant ? "inverse" : "textPrimary"}
+            return (
+              <View
+                style={[
+                  styles.messageBlock,
+                  isLastInGroup
+                    ? styles.messageGroupEnd
+                    : styles.messageGrouped,
+                ]}
               >
-                {item.body}
-              </Typography>
-            </View>
-          );
-        }}
-      />
+                {showDayDivider ? (
+                  <View style={styles.dayDivider}>
+                    <Typography size="text-xs" color="muted" weight="medium">
+                      {formatMessageDayLabel(item.createdAt)}
+                    </Typography>
+                  </View>
+                ) : null}
+                <MessageBubble
+                  body={item.body}
+                  createdAt={item.createdAt}
+                  mine={mine}
+                  isFirstInGroup={isFirstInGroup}
+                  isLastInGroup={isLastInGroup}
+                />
+              </View>
+            );
+          }}
+        />
+      )}
 
-      <Flex
-        direction="row"
-        alignItems="flex-end"
-        gap={1}
+      <View
         style={[
           styles.composer,
           { paddingBottom: Math.max(insets.bottom, theme.space(1.5)) },
         ]}
       >
-        <View style={styles.inputWrap}>
-          <Input
-            value={draft}
-            onChangeText={setDraft}
-            placeholder="Write a message…"
-            multiline
-          />
-        </View>
-        <Button
-          size="lg"
-          disabled={!draft.trim()}
-          loading={sending}
-          onPress={() => {
+        <MessageInput
+          value={draft}
+          onChangeText={setDraft}
+          placeholder={`Message ${guestName}…`}
+          sending={sending}
+          onSend={() => {
             void onSend();
           }}
-        >
-          Send
-        </Button>
-      </Flex>
+        />
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -200,44 +280,50 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   },
   topBar: {
     paddingHorizontal: space(2),
-    paddingBottom: space(1.5),
+    paddingBottom: space(1),
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.slate3,
-  },
-  topTitle: {
-    flex: 1,
-    textAlign: "center",
   },
   chromeBtn: {
     width: space(5),
     height: space(5),
     borderRadius: radius.full,
   },
-  pad: {
+  topCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  topSpacer: {
+    width: space(5),
+  },
+  centered: {
     padding: space(2),
   },
-  bubble: {
-    maxWidth: "82%",
-    paddingHorizontal: space(1.5),
-    paddingVertical: space(1.25),
-    borderRadius: radius.lg,
-    marginBottom: space(1),
+  list: {
+    paddingHorizontal: space(2),
+    paddingVertical: space(1.5),
   },
-  bubbleIn: {
-    alignSelf: "flex-start",
-    backgroundColor: colors.slate2,
+  listEmpty: {
+    flexGrow: 1,
+    justifyContent: "center",
   },
-  bubbleOut: {
-    alignSelf: "flex-end",
-    backgroundColor: colors.primary,
+  messageBlock: {
+    gap: space(0.75),
+  },
+  messageGrouped: {
+    marginBottom: space(0.25),
+  },
+  messageGroupEnd: {
+    marginBottom: space(1.25),
+  },
+  dayDivider: {
+    alignItems: "center",
+    paddingVertical: space(0.5),
   },
   composer: {
     paddingHorizontal: space(2),
     paddingTop: space(1),
-    borderTopWidth: 1,
-    borderTopColor: colors.slate3,
-  },
-  inputWrap: {
-    flex: 1,
+    backgroundColor: colors.background,
   },
 }));

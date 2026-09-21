@@ -4,7 +4,24 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.56.0] — 2026-09-21
+
+### Changed
+
+- Merchant mobile reservation detail: status pill + time-block hero, guest/booking/table cards with tappable phone/email, sticky primary CTA with More overflow, Cancel/No-show confirm dialog, and assign-table gated to actionable statuses
+- Merchant mobile Messages: diner-style conversation thread (grouped bubbles, day labels, circular send) and a redesigned inbox with All / Conversations / Inquiries, pull-to-refresh, and an inquiry detail sheet that marks read and opens email
+- Merchant mobile create reservation: react-hook-form with inline field errors, live US phone formatting, party-size stepper, icon source chips, Seat immediately Switch, and sticky Create CTA
+- Merchant mobile sign-in: Tablevera logo and Partner Hub eyebrow, tighter password/forgot-password spacing, and clearer copy hierarchy
+
+### Fixed
+
+- Owner create-reservation: guests without a last name no longer fail User validation (`Path lastName is required`)
+- Mobile + merchant mobile `Input`: full field height is tappable (vertical padding moved onto a stretched `TextInput`; field press focuses the input)
+- Merchant mobile Reservations: Past/Upcoming day labels are inline section headers (no FlashList sticky headers), fixing duplicate day titles and uneven card gaps
+
+### Docs
+
+- Merchant mobile notes: reservation detail action hierarchy, create walk-in auto-seat, messages thread/inquiry sheet
 
 ## [0.55.0] — 2026-09-19
 

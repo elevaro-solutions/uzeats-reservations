@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useRef, useState } from "react";
 import {
   Pressable,
   StyleProp,
@@ -51,9 +51,11 @@ export function Input({
   textAlignVertical,
   ...props
 }: InputProps) {
+  const inputRef = useRef<TextInput>(null);
   const [focused, setFocused] = useState(false);
   styles.useVariants({ size, error, disabled, multiline });
 
+  const canEdit = editable && !disabled;
   const multilineLines = Math.max(numberOfLines ?? 3, 3);
   const fieldPaddingY = size === "sm" ? 12 : size === "lg" ? 20 : 16;
   const multilineMinHeight = multiline
@@ -74,20 +76,21 @@ export function Input({
         </Typography>
       ) : null}
       <Pressable
-        disabled={disabled}
+        disabled={!canEdit}
         style={[
           styles.field(focused),
           multilineMinHeight ? { minHeight: multilineMinHeight } : null,
           style as StyleProp<ViewStyle>,
         ]}
-        onPress={() => undefined}
+        onPress={() => inputRef.current?.focus()}
       >
         {prefix}
         <TextInput
           {...props}
+          ref={inputRef}
           multiline={multiline}
           numberOfLines={multiline ? multilineLines : numberOfLines}
-          editable={editable && !disabled}
+          editable={canEdit}
           accessibilityState={{ disabled }}
           onChangeText={onChangeText}
           onFocus={(e) => {
@@ -159,20 +162,17 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
   },
   input: {
     flex: 1,
+    alignSelf: "stretch",
     color: colors.textPrimary,
     fontFamily: FONT_FAMILY.regular,
-    padding: 0,
     margin: 0,
+    paddingHorizontal: 0,
     includeFontPadding: false,
     variants: {
-      multiline: {
-        true: { alignSelf: "stretch" },
-        false: {},
-      },
       size: {
-        sm: { fontSize: 14 },
-        md: { fontSize: 16 },
-        lg: { fontSize: 18 },
+        sm: { fontSize: 14, paddingVertical: space(0.75) },
+        md: { fontSize: 16, paddingVertical: space(1) },
+        lg: { fontSize: 18, paddingVertical: space(1.25) },
       },
       disabled: {
         true: { color: colors.slate7 },
@@ -182,6 +182,7 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
   },
   field: (focused: boolean) => ({
     flexDirection: "row",
+    alignItems: "center",
     gap: space(1),
     borderWidth: 1,
     borderRadius: radius.md,
@@ -190,23 +191,20 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     variants: {
       multiline: {
         true: { alignItems: "flex-start" },
-        false: { alignItems: "center" },
+        false: {},
       },
       size: {
         sm: {
           minHeight: 36,
           paddingHorizontal: space(1.5),
-          paddingVertical: space(0.75),
         },
         md: {
           minHeight: 44,
           paddingHorizontal: space(2),
-          paddingVertical: space(1),
         },
         lg: {
           minHeight: 52,
           paddingHorizontal: space(2),
-          paddingVertical: space(1.25),
         },
       },
       error: {

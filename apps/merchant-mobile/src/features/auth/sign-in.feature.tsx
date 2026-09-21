@@ -46,8 +46,10 @@ export function SignInFeature() {
 
   return (
     <AuthScreen
-      title="Partner sign in"
-      subtitle="Sign in with your Tablevera Partner Hub email and password to manage the floor."
+      showLogo
+      eyebrow="Partner Hub"
+      title="Sign in"
+      subtitle="Use your Partner Hub email and password to manage reservations and the floor."
       showBack={false}
       footer={
         <Typography align="center" size="text-sm" color="secondary">
@@ -64,54 +66,64 @@ export function SignInFeature() {
         />
       ) : null}
 
-      <Flex gap={2}>
-        <Controller
-          control={control}
-          name="email"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <Input
-              label="Email Address"
-              required
-              value={value}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              placeholder="you@restaurant.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              textContentType="emailAddress"
-              error={Boolean(errors.email)}
-              helperText={errors.email?.message}
+      <Flex gap={2.5}>
+        <Flex gap={2}>
+          <Controller
+            control={control}
+            name="email"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Input
+                label="Email"
+                required
+                value={value}
+                onBlur={onBlur}
+                onChangeText={onChange}
+                placeholder="you@restaurant.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                textContentType="emailAddress"
+                error={Boolean(errors.email)}
+                helperText={errors.email?.message}
+              />
+            )}
+          />
+
+          <Flex gap={0.5}>
+            <PasswordField
+              control={control}
+              name="password"
+              error={errors.password?.message}
             />
-          )}
-        />
 
-        <PasswordField
-          control={control}
-          name="password"
-          error={errors.password?.message}
-        />
+            <Pressable
+              onPress={() => router.push("/(auth)/forgot-password")}
+              hitSlop={12}
+              style={styles.forgot}
+            >
+              <Typography size="text-sm" weight="medium" color="primary">
+                Forgot password?
+              </Typography>
+            </Pressable>
+          </Flex>
+        </Flex>
 
-        <Pressable
-          onPress={() => router.push("/(auth)/forgot-password")}
-          hitSlop={12}
-          style={styles.forgot}
+        <Button
+          fullWidth
+          size="xl"
+          loading={submitting}
+          onPress={() => void onSubmit()}
         >
-          <Typography size="text-sm" weight="medium" color="primary">
-            Forgot Password?
-          </Typography>
-        </Pressable>
+          Sign in
+        </Button>
       </Flex>
-
-      <Button fullWidth size="xl" loading={submitting} onPress={() => void onSubmit()}>
-        Sign In
-      </Button>
     </AuthScreen>
   );
 }
 
-const styles = StyleSheet.create(() => ({
+const styles = StyleSheet.create(({ space }) => ({
   forgot: {
     alignSelf: "flex-end",
+    marginTop: space(0.5),
   },
 }));

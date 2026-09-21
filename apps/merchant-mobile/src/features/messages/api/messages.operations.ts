@@ -28,6 +28,35 @@ export const CONVERSATIONS = gql`
   }
 `;
 
+export const CONVERSATION = gql`
+  query Conversation($reservationId: ID!) {
+    conversation(reservationId: $reservationId) {
+      reservationId
+      dinerId
+      restaurantId
+      unreadCount
+      diner {
+        id
+        firstName
+        lastName
+        email
+      }
+      reservation {
+        id
+        slotStart
+        partySize
+        status
+      }
+      lastMessage {
+        id
+        body
+        senderType
+        createdAt
+      }
+    }
+  }
+`;
+
 export const MESSAGES = gql`
   query Messages($reservationId: ID!) {
     messages(reservationId: $reservationId) {

@@ -183,6 +183,14 @@ AddReviewSheet require all four; restaurant avg still rolls up overall only.
 
 ## merchant-mobile (partner app)
 
+### [2026-09-21] Reservation detail matches list-card action hierarchy
+- Detail screen: status pill via `reservationStatusVisual`, calendar time block, Guest/Booking/Table cards; phone/email open `tel:`/`mailto:`. Sticky footer = primary lifecycle CTA + More → `ReservationActionsSheet`; Cancel/No-show require `Dialog` confirm. Assign table only for pending/confirmed/seated.
+- Why it matters: Keep detail aligned with list cards — don’t stack a rainbow of status buttons or show assign on terminal bookings.
+
+### [2026-09-21] Create reservation walk-in auto-seats
+- API seats when `seatImmediately || source === 'walkin'`. Merchant create form forces Seat immediately on (Switch disabled) for walk-ins.
+- Why it matters: UI must not imply walk-ins can stay “confirmed only.”
+
 ### [2026-09-19] More-actions sheet matches diner overflow list; No-show is neutral
 - Sheet body: muted uppercase “Actions” label over a bordered `slate1` group (diner overflow-menu pattern). Cancel stays `error`; No-show uses `secondary` → `textPrimary`. Status chips can still paint no_show red via `reservationStatusVisual`.
 - Why it matters: Section label clarifies the nested group; keep destructive Cancel red-only.

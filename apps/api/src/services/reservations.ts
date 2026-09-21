@@ -90,7 +90,9 @@ async function findOrCreateDiner(guest: {
     email: guest.email?.toLowerCase(),
     phone: guest.phone,
     firstName: guest.firstName,
-    lastName: guest.lastName ?? '',
+    // User.lastName is required; Mongoose also rejects '' for required strings.
+    // Owner guest input allows omitting last name — use a non-empty placeholder.
+    lastName: guest.lastName?.trim() || '-',
     role: 'diner',
   });
 }

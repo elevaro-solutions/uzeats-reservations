@@ -4,6 +4,8 @@ export { Button } from "./button";
 export { IconButton } from "./icon-button";
 export { Input } from "./input";
 export { Chip } from "./chip";
+export { Switch } from "./switch";
+export type { SwitchProps } from "./switch";
 export { SegmentedControl } from "./segmented-control";
 export type {
   SegmentedControlOption,

@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useRouter } from "expo-router";
 
-import { ChevronLeftIcon } from "@/assets";
+import { ChevronLeftIcon, TableveraLogo } from "@/assets";
 import { Flex, Typography } from "@/components";
 
 export type AuthScreenProps = {
@@ -13,6 +13,10 @@ export type AuthScreenProps = {
   children: ReactNode;
   footer?: ReactNode;
   showBack?: boolean;
+  /** Full-color wordmark above the title (sign-in entry screens). */
+  showLogo?: boolean;
+  /** Short label under the logo, e.g. "Partner Hub". */
+  eyebrow?: string;
 };
 
 export function AuthScreen({
@@ -21,6 +25,8 @@ export function AuthScreen({
   children,
   footer,
   showBack = true,
+  showLogo = false,
+  eyebrow,
 }: AuthScreenProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -39,7 +45,10 @@ export function AuthScreen({
     >
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[
+          styles.content,
+          !showBack && showLogo ? styles.entryContent : null,
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {showBack ? (
@@ -59,7 +68,18 @@ export function AuthScreen({
           </Pressable>
         ) : null}
 
-        <Flex gap={1} style={styles.header}>
+        {showLogo ? (
+          <Flex gap={1.5} style={styles.brand}>
+            <TableveraLogo height={32} />
+            {eyebrow ? (
+              <Typography size="text-sm" weight="semibold" color="primary">
+                {eyebrow}
+              </Typography>
+            ) : null}
+          </Flex>
+        ) : null}
+
+        <Flex gap={1} style={[styles.header, showLogo && styles.headerWithLogo]}>
           <Typography size="display-xs" weight="bold">
             {title}
           </Typography>
@@ -68,7 +88,7 @@ export function AuthScreen({
           </Typography>
         </Flex>
 
-        <Flex gap={2.5}>{children}</Flex>
+        <Flex gap={3}>{children}</Flex>
       </ScrollView>
 
       {footer ? <Flex style={styles.footer}>{footer}</Flex> : null}
@@ -85,6 +105,12 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     flexGrow: 1,
     paddingBottom: space(3),
   },
+  entryContent: {
+    paddingTop: space(2),
+  },
+  brand: {
+    marginBottom: space(3),
+  },
   back: {
     width: 40,
     height: 40,
@@ -99,9 +125,17 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     backgroundColor: colors.slate3,
   },
   header: {
-    marginBottom: space(3),
+    marginBottom: space(4),
+  },
+  headerWithLogo: {
+    marginBottom: space(3.5),
   },
   footer: {
-    paddingTop: space(1.5),
+    paddingTop: space(2),
+    marginTop: space(1),
+    marginHorizontal: -space(2.5),
+    paddingHorizontal: space(2.5),
+    borderTopWidth: 1,
+    borderTopColor: colors.slate3,
   },
 }));

@@ -1,26 +1,42 @@
 import { useMutation, useQuery } from "@apollo/client";
 import { useRouter } from "expo-router";
-import { Pressable, ScrollView, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { toast } from "sonner-native";
 
+import { MailIcon } from "@/assets";
 import {
   Empty,
   Flex,
   InlineAlert,
   Loader,
+  SegmentedControl,
   Typography,
 } from "@/components";
 import { useActiveRestaurant } from "@/features/restaurants";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
-import { formatSlotDateTime } from "@/lib/helpers/date-time.helpers";
 
 import {
   CONVERSATIONS,
   MARK_RESTAURANT_INQUIRY_READ,
   RESTAURANT_INQUIRIES,
 } from "./api/messages.operations";
+import { ConversationRow } from "./components/conversation-row.component";
+import {
+  InquiryDetailSheet,
+  type InquiryDetail,
+} from "./components/inquiry-detail-sheet.component";
+import { InquiryRow } from "./components/inquiry-row.component";
+import {
+  dinerDisplayName,
+  formatConversationWhen,
+  formatInboxRelativeTime,
+  formatUnreadSummary,
+} from "./helpers/message-display.helpers";
+
+type InboxFilter = "all" | "conversations" | "inquiries";
 
 type Conversation = {
   reservationId: string;
@@ -39,24 +55,16 @@ type Conversation = {
   } | null;
 };
 
-type Inquiry = {
-  id: string;
-  senderName: string;
-  senderEmail?: string | null;
-  message: string;
+type Inquiry = InquiryDetail & {
   readAt?: string | null;
-  createdAt: string;
 };
+
+type InboxItem =
+  | { kind: "conversation"; sortAt: string; conversation: Conversation }
+  | { kind: "inquiry"; sortAt: string; inquiry: Inquiry };
 
 type ConversationsQuery = { conversations: Conversation[] };
 type InquiriesQuery = { restaurantInquiries: Inquiry[] };
-
-function dinerName(diner?: {
-  firstName?: string | null;
-  lastName?: string | null;
-} | null): string {
-  return [diner?.firstName, diner?.lastName].filter(Boolean).join(" ") || "Guest";
-}
 
 export function MessagesFeature() {
   const router = useRouter();
@@ -64,6 +72,10 @@ export function MessagesFeature() {
   const { theme } = useUnistyles();
   const { activeRestaurantId, loading: restaurantsLoading } =
     useActiveRestaurant();
+  const [filter, setFilter] = useState<InboxFilter>("all");
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
+  const markedInquiryIds = useRef(new Set<string>());
 
   const {
     data: conversationsData,
@@ -91,17 +103,108 @@ export function MessagesFeature() {
 
   const conversations = conversationsData?.conversations ?? [];
   const inquiries = inquiriesData?.restaurantInquiries ?? [];
+
+  const inbox = useMemo(() => {
+    const items: InboxItem[] = [
+      ...conversations.map((conversation) => ({
+        kind: "conversation" as const,
+        sortAt:
+          conversation.lastMessage?.createdAt ??
+          conversation.reservation?.slotStart ??
+          "",
+        conversation,
+      })),
+      ...inquiries.map((inquiry) => ({
+        kind: "inquiry" as const,
+        sortAt: inquiry.createdAt,
+        inquiry,
+      })),
+    ];
+
+    return items.sort(
+      (a, b) => new Date(b.sortAt).getTime() - new Date(a.sortAt).getTime(),
+    );
+  }, [conversations, inquiries]);
+
+  const visible = inbox.filter((item) => {
+    if (filter === "conversations") return item.kind === "conversation";
+    if (filter === "inquiries") return item.kind === "inquiry";
+    return true;
+  });
+
+  const unreadConversations = conversations.filter(
+    (item) => item.unreadCount > 0,
+  ).length;
+  const unreadInquiries = inquiries.filter((item) => !item.readAt).length;
+
   const isLoading =
     restaurantsLoading ||
     ((conversationsLoading || inquiriesLoading) &&
       !conversationsData &&
       !inquiriesData);
 
+  useEffect(() => {
+    const inquiry = selectedInquiry;
+    if (!inquiry || inquiry.readAt || markedInquiryIds.current.has(inquiry.id)) {
+      return;
+    }
+    markedInquiryIds.current.add(inquiry.id);
+    void markInquiryRead({ variables: { id: inquiry.id } })
+      .then(() => refetchInquiries())
+      .catch((err) => {
+        markedInquiryIds.current.delete(inquiry.id);
+        toast.error("Couldn't mark inquiry read", {
+          description: getGraphQLErrorMessage(err, "Please try again"),
+        });
+      });
+  }, [selectedInquiry, markInquiryRead, refetchInquiries]);
+
+  async function onRefresh() {
+    setRefreshing(true);
+    try {
+      await Promise.all([refetchConversations(), refetchInquiries()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  const emptyCopy =
+    filter === "conversations"
+      ? {
+          title: "No conversations",
+          description: "Guest reservation messages will show up here.",
+        }
+      : filter === "inquiries"
+        ? {
+            title: "No inquiries",
+            description: "Website inquiries will show up here.",
+          }
+        : {
+            title: "No messages",
+            description: "Guest conversations and website inquiries will show up here.",
+          };
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <Typography weight="bold" size="text-xl" style={styles.title}>
-        Messages
-      </Typography>
+      <View style={styles.header}>
+        <Typography weight="bold" size="text-xl">
+          Messages
+        </Typography>
+        {!isLoading ? (
+          <Typography size="text-sm" color="muted">
+            {formatUnreadSummary(unreadConversations, unreadInquiries)}
+          </Typography>
+        ) : null}
+        <SegmentedControl
+          options={[
+            { value: "all", label: "All" },
+            { value: "conversations", label: "Conversations" },
+            { value: "inquiries", label: "Inquiries" },
+          ]}
+          value={filter}
+          onChange={setFilter}
+        />
+      </View>
 
       {conversationsError || inquiriesError ? (
         <View style={styles.pad}>
@@ -122,154 +225,113 @@ export function MessagesFeature() {
         <ScrollView
           contentContainerStyle={[
             styles.content,
+            visible.length === 0 && styles.contentEmpty,
             { paddingBottom: insets.bottom + theme.space(3) },
           ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                void onRefresh();
+              }}
+              tintColor={theme.colors.primary}
+              colors={[theme.colors.primary]}
+            />
+          }
         >
-          <Typography weight="semibold" size="text-lg" style={styles.section}>
-            Conversations
-          </Typography>
-          {conversations.length === 0 ? (
+          {visible.length === 0 ? (
             <Empty
-              title="No conversations"
-              description="Guest reservation messages will show up here."
+              icon={<MailIcon />}
+              title={emptyCopy.title}
+              description={emptyCopy.description}
             />
           ) : (
             <Flex gap={1}>
-              {conversations.map((item) => (
-                <Pressable
-                  key={item.reservationId}
-                  onPress={() =>
-                    router.push(`/messages/${item.reservationId}`)
-                  }
-                  style={({ pressed }) => [
-                    styles.row,
-                    pressed && styles.rowPressed,
-                  ]}
-                >
-                  <Flex
-                    direction="row"
-                    justifyContent="space-between"
-                    alignItems="center"
-                  >
-                    <Typography weight="semibold" size="text-md" numberOfLines={1}>
-                      {dinerName(item.diner)}
-                    </Typography>
-                    {item.unreadCount > 0 ? (
-                      <View style={styles.badge}>
-                        <Typography size="text-xs" weight="semibold" color="inverse">
-                          {item.unreadCount}
-                        </Typography>
-                      </View>
-                    ) : null}
-                  </Flex>
-                  <Typography size="text-sm" color="secondary" numberOfLines={1}>
-                    {item.lastMessage?.body ?? "No messages yet"}
-                  </Typography>
-                  {item.reservation?.slotStart ? (
-                    <Typography size="text-xs" color="muted">
-                      {formatSlotDateTime(item.reservation.slotStart)}
-                      {item.reservation.partySize
-                        ? ` · party of ${item.reservation.partySize}`
-                        : ""}
-                    </Typography>
-                  ) : null}
-                </Pressable>
-              ))}
-            </Flex>
-          )}
+              {visible.map((item) => {
+                if (item.kind === "conversation") {
+                  const conversation = item.conversation;
+                  const slotStart = conversation.reservation?.slotStart;
+                  const partySize = conversation.reservation?.partySize;
+                  const meta = slotStart
+                    ? [
+                        formatConversationWhen(slotStart),
+                        partySize ? `party of ${partySize}` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
+                    : null;
 
-          <Typography weight="semibold" size="text-lg" style={styles.section}>
-            Inquiries
-          </Typography>
-          {inquiries.length === 0 ? (
-            <Typography color="secondary" size="text-sm">
-              No website inquiries yet.
-            </Typography>
-          ) : (
-            <Flex gap={1}>
-              {inquiries.map((item) => (
-                <Pressable
-                  key={item.id}
-                  onPress={() => {
-                    if (!item.readAt) {
-                      void markInquiryRead({ variables: { id: item.id } })
-                        .then(() => refetchInquiries())
-                        .catch((err) => {
-                          toast.error("Couldn't mark inquiry read", {
-                            description: getGraphQLErrorMessage(
-                              err,
-                              "Please try again",
-                            ),
-                          });
-                        });
-                    }
-                  }}
-                  style={({ pressed }) => [
-                    styles.row,
-                    !item.readAt && styles.unread,
-                    pressed && styles.rowPressed,
-                  ]}
-                >
-                  <Typography weight="semibold" size="text-md">
-                    {item.senderName}
-                  </Typography>
-                  <Typography size="text-sm" color="secondary" numberOfLines={3}>
-                    {item.message}
-                  </Typography>
-                  {item.senderEmail ? (
-                    <Typography size="text-xs" color="muted">
-                      {item.senderEmail}
-                    </Typography>
-                  ) : null}
-                </Pressable>
-              ))}
+                  return (
+                    <ConversationRow
+                      key={`conversation-${conversation.reservationId}`}
+                      firstName={conversation.diner?.firstName}
+                      lastName={conversation.diner?.lastName}
+                      name={dinerDisplayName(conversation.diner)}
+                      preview={
+                        conversation.lastMessage?.body ?? "No messages yet"
+                      }
+                      meta={meta}
+                      time={
+                        conversation.lastMessage?.createdAt
+                          ? formatInboxRelativeTime(
+                              conversation.lastMessage.createdAt,
+                            )
+                          : null
+                      }
+                      unreadCount={conversation.unreadCount}
+                      onPress={() =>
+                        router.push(`/messages/${conversation.reservationId}`)
+                      }
+                    />
+                  );
+                }
+
+                const inquiry = item.inquiry;
+                return (
+                  <InquiryRow
+                    key={`inquiry-${inquiry.id}`}
+                    senderName={inquiry.senderName}
+                    senderEmail={inquiry.senderEmail}
+                    message={inquiry.message}
+                    unread={!inquiry.readAt}
+                    time={formatInboxRelativeTime(inquiry.createdAt)}
+                    onPress={() => setSelectedInquiry(inquiry)}
+                  />
+                );
+              })}
             </Flex>
           )}
         </ScrollView>
       )}
+
+      <InquiryDetailSheet
+        inquiry={selectedInquiry}
+        visible={Boolean(selectedInquiry)}
+        onClose={() => setSelectedInquiry(null)}
+      />
     </View>
   );
 }
 
-const styles = StyleSheet.create(({ space, colors, radius }) => ({
+const styles = StyleSheet.create(({ space, colors }) => ({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  title: {
+  header: {
     paddingHorizontal: space(2),
     paddingBottom: space(1.5),
+    gap: space(1.25),
   },
   pad: {
     paddingHorizontal: space(2),
+    paddingBottom: space(1),
   },
   content: {
     paddingHorizontal: space(2),
-    gap: space(1),
   },
-  section: {
-    marginTop: space(1.5),
-    marginBottom: space(0.5),
-  },
-  row: {
-    padding: space(1.75),
-    borderRadius: radius.md,
-    backgroundColor: colors.slate2,
-    gap: space(0.5),
-    minHeight: space(8),
-  },
-  unread: {
-    backgroundColor: colors.primary2,
-  },
-  rowPressed: {
-    opacity: 0.85,
-  },
-  badge: {
-    minWidth: space(2.5),
-    paddingHorizontal: space(0.75),
-    paddingVertical: space(0.25),
-    borderRadius: radius.full,
-    backgroundColor: colors.primary,
-    alignItems: "center",
+  contentEmpty: {
+    flexGrow: 1,
+    justifyContent: "center",
   },
 }));

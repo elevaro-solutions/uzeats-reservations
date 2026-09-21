@@ -146,13 +146,6 @@ export function ReservationsFeature() {
 
   const listRows = useMemo(() => buildListRows(items, range), [items, range]);
 
-  const stickyHeaderIndices = useMemo(() => {
-    if (range === "today") return undefined;
-    return listRows
-      .map((row, index) => (row.type === "header" ? index : -1))
-      .filter((index) => index >= 0);
-  }, [listRows, range]);
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -248,7 +241,6 @@ export function ReservationsFeature() {
         <FlashList
           data={listRows}
           keyExtractor={(item) => item.id}
-          stickyHeaderIndices={stickyHeaderIndices}
           getItemType={(item) =>
             item.type === "header" ? "sectionHeader" : "row"
           }
@@ -288,21 +280,10 @@ export function ReservationsFeature() {
               ) : null}
             </View>
           }
-          renderItem={({ item, target }) => {
+          renderItem={({ item }) => {
             if (item.type === "header") {
-              // FlashList clones sticky headers; hide the in-list cell so only
-              // the floating StickyHeader is visible (v2 has no hideRelatedCell).
               return (
-                <View
-                  style={[
-                    styles.dayHeader,
-                    target === "Cell" && styles.dayHeaderInList,
-                  ]}
-                  accessibilityElementsHidden={target === "Cell"}
-                  importantForAccessibility={
-                    target === "Cell" ? "no-hide-descendants" : "yes"
-                  }
-                >
+                <View style={styles.dayHeader}>
                   <Typography
                     weight="semibold"
                     size="text-sm"
@@ -388,9 +369,6 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     backgroundColor: colors.background,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.slate3,
-  },
-  dayHeaderInList: {
-    opacity: 0,
   },
   cardWrap: {
     marginBottom: space(1.5),
