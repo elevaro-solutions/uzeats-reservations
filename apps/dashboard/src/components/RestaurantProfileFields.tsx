@@ -15,7 +15,20 @@ import { DISCOVERY_TAXONOMIES } from '@/lib/graphql';
 
 const { Text } = Typography;
 
-export function RestaurantProfileFields() {
+export type RestaurantProfileSection = 'all' | 'discovery' | 'faq' | 'press';
+
+export function RestaurantProfileFields({
+  sections = 'all',
+}: {
+  /** Partner profile shows everything. Admin Manage splits these into groups. */
+  sections?: RestaurantProfileSection;
+}) {
+  const showAbout = sections === 'all';
+  const showHeadings = sections === 'all';
+  const showDiscovery = sections === 'all' || sections === 'discovery';
+  const showFaq = sections === 'all' || sections === 'faq';
+  const showPress = sections === 'all' || sections === 'press';
+
   const { data: occasionData } = useQuery(DISCOVERY_TAXONOMIES, {
     variables: { kind: 'occasion' },
   });
@@ -47,15 +60,19 @@ export function RestaurantProfileFields() {
 
   return (
     <>
-      <Form.Item
-        name="description"
-        label="About"
-        rules={[{ max: 2000, message: 'Max 2000 characters' }]}
-        extra="Shown on your public restaurant page."
-      >
-        <Input.TextArea rows={4} maxLength={2000} showCount placeholder="Tell diners what makes your restaurant special…" />
-      </Form.Item>
+      {showAbout ? (
+        <Form.Item
+          name="description"
+          label="About"
+          rules={[{ max: 2000, message: 'Max 2000 characters' }]}
+          extra="Shown on your public restaurant page."
+        >
+          <Input.TextArea rows={4} maxLength={2000} showCount placeholder="Tell diners what makes your restaurant special…" />
+        </Form.Item>
+      ) : null}
 
+      {showDiscovery ? (
+        <>
       <Row gutter={[16, 0]}>
         <Col xs={24} md={12}>
           <Form.Item name="neighborhood" label="Neighborhood" rules={[{ max: 80 }]}>
@@ -128,7 +145,12 @@ export function RestaurantProfileFields() {
           </Form.Item>
         </Col>
       </Row>
+        </>
+      ) : null}
 
+      {showFaq ? (
+        <>
+      {showHeadings ? (
       <div style={{ marginBottom: 8 }}>
         <Text strong>FAQ</Text>
         <div>
@@ -137,6 +159,7 @@ export function RestaurantProfileFields() {
           </Text>
         </div>
       </div>
+      ) : null}
       <Form.List name="faq">
         {(fields, { add, remove }) => (
           <>
@@ -197,7 +220,12 @@ export function RestaurantProfileFields() {
           placeholder="Cancellation policy, deposit rules, dress code, age restrictions…"
         />
       </Form.Item>
+        </>
+      ) : null}
 
+      {showPress ? (
+        <>
+      {showHeadings ? (
       <div style={{ marginBottom: 8 }}>
         <Text strong>Featured in</Text>
         <div>
@@ -206,6 +234,7 @@ export function RestaurantProfileFields() {
           </Text>
         </div>
       </div>
+      ) : null}
       <Form.List name="featuredIn">
         {(fields, { add, remove }) => (
           <>
@@ -257,6 +286,8 @@ export function RestaurantProfileFields() {
           </>
         )}
       </Form.List>
+        </>
+      ) : null}
     </>
   );
 }

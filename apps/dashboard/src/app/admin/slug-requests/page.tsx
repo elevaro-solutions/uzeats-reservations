@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
+  Badge,
   Button,
   Card,
   Form,
@@ -19,7 +20,9 @@ import { SearchOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { PageHeader, spacing } from '@reservations/ui';
 import {
+  ADMIN_PENDING_REQUEST_COUNTS,
   ADMIN_RESTAURANT_SLUG_REQUESTS,
+  ADMIN_STATS,
   REVIEW_RESTAURANT_SLUG_REQUEST,
 } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
@@ -75,7 +78,12 @@ function SlugRequestsPageContent() {
     },
   });
 
-  const [reviewRequest] = useMutation(REVIEW_RESTAURANT_SLUG_REQUEST);
+  const { data: countData } = useQuery(ADMIN_PENDING_REQUEST_COUNTS, { skip: !ready });
+  const pendingCount = countData?.adminPendingRequestCounts?.slugRequests ?? 0;
+
+  const [reviewRequest] = useMutation(REVIEW_RESTAURANT_SLUG_REQUEST, {
+    refetchQueries: [ADMIN_PENDING_REQUEST_COUNTS, ADMIN_RESTAURANT_SLUG_REQUESTS, ADMIN_STATS],
+  });
 
   if (!ready) return null;
 
@@ -157,6 +165,15 @@ function SlugRequestsPageContent() {
       <PageHeader
         title="URL slug requests"
         subtitle="Review owner requests to change a restaurant's public booking URL."
+        extra={
+          pendingCount > 0 ? (
+            <Badge count={pendingCount} overflowCount={99}>
+              <Tag color="gold">Pending review</Tag>
+            </Badge>
+          ) : (
+            <Tag>No pending requests</Tag>
+          )
+        }
       />
 
       <Card style={{ marginBottom: spacing.md }}>

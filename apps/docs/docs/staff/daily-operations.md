@@ -21,16 +21,17 @@ The **Reservations** page is the primary operational view:
 | `cancelled` | Cancelled by guest or staff |
 | `no_show` | Guest did not arrive (may trigger auto-detection via worker) |
 
-## Floor plan
+## Table layout
 
-The **Floor plan** editor lets you:
+The **Table layout** editor lets you:
 
 - Arrange tables on a canvas
-- See real-time status (available, reserved, seated)
-- Drag-assign reservations to tables
+- Rotate and resize tables
 - Support multiple dining areas / rooms
 
-Floor plan state is stored per restaurant and synced via GraphQL.
+Layout state is stored per restaurant and synced via GraphQL.
+
+**Live floor** is the service view of that layout: per-area grids, real-time status (available, reserved, seated), and drag-assigning arrivals onto tables.
 
 ## Waitlist
 
@@ -114,4 +115,4 @@ Toggle **accept online reservations** and **hide widget** in restaurant settings
 
 ## Photos
 
-On **Public profile** and **Settings**, upload a **logo** (shown on diner profile pages) and up to 10 venue photos. Drag to reorder (or use the arrows / star). The first photo is the large hero on the diner restaurant page; the next two appear beside it; remaining photos show in the gallery below. Diner review photos can be added to the gallery from **Reviews**.
+On **Public profile**, upload a **logo** and up to 10 venue photos, then request review. Drag to reorder (or use the arrows / star). The first photo is the large hero on the diner restaurant page; the next two appear beside it; remaining photos show in the gallery below. Changes go live after a Tablevera admin approves them. **Settings** can still save listing photos immediately. Diner review photos can be added to the gallery from **Reviews**.

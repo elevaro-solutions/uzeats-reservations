@@ -12,6 +12,7 @@ The **Admin → Restaurants** page lists all venues with filters by status.
 | Edit | Admin | Profile, plan, status override, public URL slug, logo |
 | Change public URL | Admin | Edit slug on the restaurant, or approve **Admin → URL slugs** |
 | Request public URL | Owner | Settings → Public URL; staff cannot request |
+| Request public profile | Owner/staff | Grow → Public profile; reviewed at **Admin → Profile requests** |
 | Edit menu | Admin | Restaurant detail → Menu; check **Popular** on up to 10 dishes for the public page |
 | Approve / reject | Admin | Moves `pending` → `approved` or `rejected` |
 | Suspend | Admin | Hides from search; blocks new bookings |
@@ -33,6 +34,10 @@ Restaurant booking pages use `/restaurants/{slug}`. Admins can edit the slug on 
 
 Former slugs stay reserved and 308 to the current URL so shared links keep working.
 
+### Public profile changes
+
+Diner-facing about copy, photos, logo, discovery tags, FAQ, press mentions, and terms are requested from **Grow → Public profile**. They stay pending until an admin approves or denies them at **Admin → Profile requests**. Admins can still edit the live profile immediately from the restaurant Manage tab.
+
 ## User management
 
 Account admin is split by role:
@@ -45,6 +50,8 @@ Account admin is split by role:
 | **Admin → Platform users** | `admin` / `super_admin` | Promote via role change (super admin) |
 
 Each list has a **detail** page for profile, password reset, impersonation, reservations (diners), and assigned restaurants (owners/staff).
+
+**Admin → Reservations** lists every booking on the platform (guest, restaurant, status, source, date). Filter by venue or guest; row actions update status the same way as the restaurant Reservations tab. Per-diner history stays on the diner detail page.
 
 | Field | Notes |
 |---|---|

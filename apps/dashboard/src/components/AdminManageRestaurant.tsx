@@ -1,16 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import dayjs from 'dayjs';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
   Button,
   Col,
+  Collapse,
   Divider,
   Drawer,
   Form,
   Input,
   InputNumber,
+  Menu,
   Modal,
   Row,
   Segmented,
@@ -23,7 +25,18 @@ import {
   Typography,
   message,
 } from 'antd';
-import { UserAddOutlined } from '@ant-design/icons';
+import {
+  CompassOutlined,
+  EnvironmentOutlined,
+  PhoneOutlined,
+  PictureOutlined,
+  QuestionCircleOutlined,
+  SafetyCertificateOutlined,
+  SettingOutlined,
+  ShopOutlined,
+  TrophyOutlined,
+  UserAddOutlined,
+} from '@ant-design/icons';
 import Link from 'next/link';
 import {
   AddressAutocomplete,
@@ -56,6 +69,107 @@ import { getPublicWebUrl } from '@/lib/webUrl';
 import { buildRestaurantBookingUrl, normalizeRestaurantSlug } from '@reservations/shared';
 
 const { Text } = Typography;
+
+export const MANAGE_PANEL_GROUPS = [
+  'listing',
+  'photos',
+  'contact',
+  'address',
+  'discovery',
+  'faq',
+  'press',
+  'policies',
+  'operations',
+] as const;
+
+export type ManagePanelGroup = (typeof MANAGE_PANEL_GROUPS)[number];
+
+export function resolveManagePanelGroup(tab: string): ManagePanelGroup {
+  if (tab === 'profile') return 'discovery';
+  if ((MANAGE_PANEL_GROUPS as readonly string[]).includes(tab)) {
+    return tab as ManagePanelGroup;
+  }
+  return 'listing';
+}
+
+type DetailGroup = {
+  key: string;
+  label: string;
+  hint: string;
+  icon?: ReactNode;
+  children: ReactNode;
+};
+
+function collapseGroupLabel(title: string, hint: string) {
+  return (
+    <span>
+      <Text strong>{title}</Text>
+      <Text type="secondary" style={{ marginLeft: 10, fontWeight: 400, fontSize: 13 }}>
+        {hint}
+      </Text>
+    </span>
+  );
+}
+
+function ManageDetailGroups({
+  groups,
+  layout,
+  activeKey,
+  onChange,
+}: {
+  groups: DetailGroup[];
+  layout: 'nav' | 'collapse';
+  activeKey?: string;
+  onChange?: (key: string) => void;
+}) {
+  if (layout === 'collapse') {
+    return (
+      <Collapse
+        accordion
+        className="rt-manage-collapse"
+        bordered={false}
+        defaultActiveKey={activeKey || groups[0]?.key}
+        expandIconPosition="end"
+        items={groups.map((group) => ({
+          key: group.key,
+          label: collapseGroupLabel(group.label, group.hint),
+          children: group.children,
+        }))}
+      />
+    );
+  }
+
+  const current = groups.find((group) => group.key === activeKey) ?? groups[0];
+  return (
+    <div className="rt-manage-groups">
+      <nav className="rt-manage-groups__nav" aria-label="Restaurant detail groups">
+        <Menu
+          mode="inline"
+          selectedKeys={current ? [current.key] : []}
+          onClick={({ key }) => onChange?.(String(key))}
+          items={groups.map((group) => ({
+            key: group.key,
+            icon: group.icon,
+            label: group.label,
+          }))}
+        />
+      </nav>
+      <div className="rt-manage-groups__pane">
+        {current ? (
+          <>
+            <h3 className="rt-form-section-title">{current.label}</h3>
+            <p className="rt-form-section-desc">{current.hint}</p>
+            {groups.map((group) => (
+              <div key={group.key} hidden={group.key !== current.key}>
+                {group.children}
+              </div>
+            ))}
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 export const RESTAURANT_STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
@@ -118,6 +232,7 @@ export type AdminRestaurantRecord = {
     url?: string | null;
     logoUrl?: string | null;
   }>;
+  termsAndConditions?: string | null;
   widgetTheme?: {
     primaryColor?: string;
     buttonText?: string;
@@ -247,58 +362,59 @@ export function PlanSelector({
       {activePlan ? (
         <div
           style={{
-            border: '1px solid #ece7df',
+            border: `1px solid ${colors.border}`,
             borderRadius: 10,
-            background: '#f8f6f3',
-            padding: '14px 16px',
+            background: colors.neutral[50],
+            padding: '12px 14px',
           }}
         >
-          <Space orientation="vertical" size={2}>
-            <Text strong style={{ fontSize: 20, lineHeight: '28px' }}>
+          <Space orientation="vertical" size={4}>
+            <Text strong style={{ fontSize: 16 }}>
               {activePlan.name}
             </Text>
-            {billing === 'annual' && regularAnnualPriceCents > selectedAnnualPriceCents ? (
-              <Text delete type="secondary" style={{ fontSize: 24, lineHeight: '28px' }}>
-                {fmt(regularAnnualPriceCents)}/yr
+            <div>
+              {billing === 'annual' && regularAnnualPriceCents > selectedAnnualPriceCents ? (
+                <Text delete type="secondary" style={{ marginRight: 8 }}>
+                  {fmt(regularAnnualPriceCents)}/yr
+                </Text>
+              ) : null}
+              <Text strong style={{ fontSize: 22 }}>
+                {billing === 'annual'
+                  ? selectedAnnualPriceCents > 0
+                    ? fmt(selectedAnnualPriceCents)
+                    : 'Free'
+                  : selectedMonthlyPriceCents > 0
+                    ? fmt(selectedMonthlyPriceCents)
+                    : 'Free'}
               </Text>
-            ) : null}
-            <Text strong style={{ fontSize: 36, lineHeight: '40px' }}>
-              {billing === 'annual'
-                ? selectedAnnualPriceCents > 0
-                  ? fmt(selectedAnnualPriceCents)
-                  : 'Free'
-                : selectedMonthlyPriceCents > 0
-                  ? fmt(selectedMonthlyPriceCents)
-                  : 'Free'}
-              <Text type="secondary" style={{ fontSize: 24, fontWeight: 500 }}>
-                {billing === 'annual' ? '/ year' : '/ month'}
-              </Text>
-            </Text>
+              <Text type="secondary"> {billing === 'annual' ? '/ year' : '/ month'}</Text>
+            </div>
             {billing === 'annual' && selectedMonthlyPriceCents > 0 ? (
-              <Text type="secondary" style={{ fontSize: 24, lineHeight: '30px' }}>
+              <Text type="secondary">
                 {fmt(selectedMonthlyPriceCents)}/mo equivalent, billed annually
               </Text>
             ) : (
               <Text type="secondary">{packageLabel}</Text>
             )}
             {billing === 'annual' && annualSavingsCents > 0 ? (
-              <Text style={{ color: '#389e0d', fontWeight: 600, fontSize: 24, lineHeight: '30px' }}>
-                Save {fmt(annualSavingsCents)}/year ({annualDiscountPercent(selectedFreeMonths)}% off vs paying monthly)
+              <Text style={{ color: colors.success, fontWeight: 600 }}>
+                Save {fmt(annualSavingsCents)}/year ({annualDiscountPercent(selectedFreeMonths)}% off vs monthly)
               </Text>
             ) : null}
-            <Text type="secondary">{activePlan.name} package</Text>
-            {billing === 'annual' && selectedFreeMonths > 0 ? (
-              <Tag color="gold" bordered={false} style={{ width: 'fit-content' }}>
-                {selectedFreeMonths} months free on annual
-              </Tag>
-            ) : null}
-            {trialDays > 0 ? (
-              <Tag color="green" bordered={false} style={{ width: 'fit-content' }}>
-                Free {trialDays}-day trial
-              </Tag>
-            ) : null}
+            <Space size={6} wrap>
+              {billing === 'annual' && selectedFreeMonths > 0 ? (
+                <Tag color="gold" bordered={false}>
+                  {selectedFreeMonths} months free on annual
+                </Tag>
+              ) : null}
+              {trialDays > 0 ? (
+                <Tag color="green" bordered={false}>
+                  Free {trialDays}-day trial
+                </Tag>
+              ) : null}
+            </Space>
             {trialEndLabel ? (
-              <Text type="secondary">You will not be charged until {trialEndLabel}.</Text>
+              <Text type="secondary">Not billed until {trialEndLabel}.</Text>
             ) : null}
           </Space>
         </div>
@@ -352,6 +468,9 @@ function buildRestaurantInput(values: Record<string, unknown>, photoList: string
         url?: string;
         logoUrl?: string;
       }> | undefined) ?? [],
+    termsAndConditions: typeof values.termsAndConditions === 'string'
+      ? values.termsAndConditions.trim() || undefined
+      : undefined,
   };
 }
 
@@ -496,6 +615,7 @@ export function AdminManageRestaurant({
         url: item.url ?? '',
         logoUrl: item.logoUrl ?? '',
       })),
+      termsAndConditions: restaurant.termsAndConditions ?? '',
     });
   }, [active, restaurant, form]);
 
@@ -512,9 +632,13 @@ export function AdminManageRestaurant({
           useSmartAssign: Boolean(values.useSmartAssign),
           posEnabled: Boolean(values.posEnabled),
           widgetTheme: {
-            primaryColor: values.primaryColor,
-            buttonText: values.buttonText,
-            showReviews: Boolean(values.showReviews),
+            primaryColor:
+              values.primaryColor || restaurant.widgetTheme?.primaryColor || colors.brand[600],
+            buttonText: values.buttonText || restaurant.widgetTheme?.buttonText || 'Reserve a table',
+            showReviews:
+              typeof values.showReviews === 'boolean'
+                ? values.showReviews
+                : Boolean(restaurant.widgetTheme?.showReviews ?? true),
           },
           slug: values.slug?.trim() ? normalizeRestaurantSlug(values.slug) : undefined,
           input: buildRestaurantInput(values, photos, logoUrl),
@@ -624,250 +748,406 @@ export function AdminManageRestaurant({
 
   const updateDisabled = !selectedPlan || !selectedRestaurantStatus;
 
-  const body = (
-    <Tabs
-      activeKey={hiddenTabs.includes(editTab) ? 'details' : editTab}
-      onChange={setEditTab}
-      items={[
-        {
-          key: 'details',
-          label: 'Details',
-          children: (
-            <Form form={form} layout="vertical">
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item name="name" label="Name" rules={[{ required: true }]} tooltip={tips.name}>
-                    <Input maxLength={120} />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="cuisine" label="Cuisine" rules={[{ required: true }]} tooltip={tips.cuisine}>
-                    <CuisineSelect />
-                  </Form.Item>
-                </Col>
-                <Col span={24}>
-                  <Form.Item
-                    name="slug"
-                    label="Public URL slug"
-                    tooltip={tips.slug}
-                    extra={
-                      slugWatch || restaurant?.slug
-                        ? buildRestaurantBookingUrl(getPublicWebUrl(), {
-                            slug:
-                              normalizeRestaurantSlug(slugWatch || restaurant?.slug || '') ||
-                              undefined,
-                            id: restaurant?.id,
-                          })
-                        : 'Lowercase letters, numbers, and hyphens. Changing this updates the public booking URL.'
+  const saveButton = (
+    <Button type="primary" loading={saving} onClick={() => void onSave()}>
+      Save changes
+    </Button>
+  );
+
+  const includePublicProfile = hiddenTabs.includes('profile');
+  const includeWidget = presentation !== 'panel';
+  const panelGroup = resolveManagePanelGroup(editTab);
+
+  const detailGroups: DetailGroup[] = [
+    {
+      key: 'listing',
+      label: 'Listing',
+      hint: 'Name, cuisine, public URL, and how the restaurant appears to diners.',
+      icon: <ShopOutlined />,
+      children: (
+        <Row gutter={16}>
+          <Col xs={24} sm={12}>
+            <Form.Item name="name" label="Name" rules={[{ required: true }]} tooltip={tips.name}>
+              <Input maxLength={120} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item name="cuisine" label="Cuisine" rules={[{ required: true }]} tooltip={tips.cuisine}>
+              <CuisineSelect />
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Form.Item
+              name="slug"
+              label="Public URL slug"
+              tooltip={tips.slug}
+              extra={
+                slugWatch || restaurant?.slug
+                  ? buildRestaurantBookingUrl(getPublicWebUrl(), {
+                      slug:
+                        normalizeRestaurantSlug(slugWatch || restaurant?.slug || '') ||
+                        undefined,
+                      id: restaurant?.id,
+                    })
+                  : 'Lowercase letters, numbers, and hyphens. Changing this updates the public booking URL.'
+              }
+              rules={[
+                { required: true, message: 'Slug is required' },
+                {
+                  validator: async (_, value) => {
+                    const slug = normalizeRestaurantSlug(String(value || ''));
+                    if (slug.length < 2) {
+                      throw new Error('Use at least 2 letters or numbers');
                     }
-                    rules={[
-                      { required: true, message: 'Slug is required' },
-                      {
-                        validator: async (_, value) => {
-                          const slug = normalizeRestaurantSlug(String(value || ''));
-                          if (slug.length < 2) {
-                            throw new Error('Use at least 2 letters or numbers');
-                          }
-                        },
-                      },
-                    ]}
-                  >
-                    <Input
-                      placeholder={normalizeRestaurantSlug(nameWatch || 'my-restaurant') || 'my-restaurant'}
-                      onBlur={() => {
-                        const current = form.getFieldValue('slug');
-                        if (current) form.setFieldValue('slug', normalizeRestaurantSlug(current));
-                      }}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={24}>
-                  <Form.Item name="description" label="Description" tooltip={tips.description}>
-                    <Input.TextArea rows={3} maxLength={2000} />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="priceRange" label="Price range" rules={[{ required: true }]} tooltip={tips.priceRange}>
-                    <Select options={priceRangeOptions} />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="phone" label="Phone" rules={usPhoneRules({ required: false })} tooltip={tips.phone}>
-                    <PhoneInput />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="website" label="Website" tooltip={tips.website}>
-                    <Input placeholder="https://" />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    name="menuUrl"
-                    label="Full menu URL"
-                    tooltip="External link for View full menu on the public restaurant page"
-                  >
-                    <Input placeholder="https://" />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="ownerId" label="Owner" rules={[{ required: true }]}>
-                    <Select
-                      options={ownerOptions}
-                      showSearch
-                      optionFilterProp="label"
-                      placeholder="Select owner account"
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={24}>
-                  <Form.Item
-                    label="Logo"
-                    extra="Square mark shown next to the restaurant name on the public page."
-                  >
-                    <PhotoUpload
-                      value={logoUrl ? [logoUrl] : []}
-                      onChange={(urls) => setLogoUrl(urls[0] ?? null)}
-                      maxCount={1}
-                      alt="Restaurant logo"
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={24}>
-                  <Form.Item
-                    label="Photos"
-                    extra="Drag to reorder. The first photo is the large hero; the next two appear beside it on the public page."
-                  >
-                    <PhotoUpload value={photos} onChange={setPhotos} maxCount={10} />
-                  </Form.Item>
-                </Col>
-                <Col span={24}>
-                  <Form.Item label="Address search">
-                    <AddressAutocomplete
-                      onSelect={(selection) => {
-                        form.setFieldsValue(addressSelectionToFields(selection));
-                      }}
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={16}>
-                  <Form.Item name="line1" label="Street" rules={[{ required: true }]} tooltip={tips.line1}>
-                    <Input />
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item name="line2" label="Apt / suite">
-                    <Input />
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item name="city" label="City" rules={[{ required: true }]} tooltip={tips.city}>
-                    <Input />
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item name="state" label="State" rules={[{ required: true }]} tooltip={tips.state}>
-                    <Input maxLength={2} />
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
-                  <Form.Item name="zip" label="ZIP" rules={[{ required: true }]} tooltip={tips.zip}>
-                    <Input />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="lat" label="Latitude" rules={[{ required: true }]} tooltip={tips.lat}>
-                    <InputNumber style={{ width: '100%' }} step={0.000001} />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="lng" label="Longitude" rules={[{ required: true }]} tooltip={tips.lng}>
-                    <InputNumber style={{ width: '100%' }} step={0.000001} />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    name="depositRequired"
-                    label="Deposit required"
-                    valuePropName="checked"
-                    tooltip={tips.depositRequired}
-                  >
-                    <Switch />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="depositAmountCents" label="Deposit amount (USD)" tooltip={tips.depositAmountCents}>
-                    <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    name="loyaltyEnabled"
-                    label="Loyalty program"
-                    valuePropName="checked"
-                    tooltip={tips.loyaltyEnabled}
-                  >
-                    <Switch />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="loyaltyPointsPerVisit" label="Points per visit" tooltip={tips.loyaltyPointsPerVisit}>
-                    <InputNumber min={0} style={{ width: '100%' }} />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="loyaltyMinRedeemPoints" label="Min redeem points" tooltip={tips.loyaltyMinRedeemPoints}>
-                    <InputNumber min={0} style={{ width: '100%' }} />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="featured" label="Featured listing" valuePropName="checked">
-                    <Switch />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="useSmartAssign" label="Smart assign" valuePropName="checked" tooltip={tips.useSmartAssign}>
-                    <Switch />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="posEnabled" label="POS enabled" valuePropName="checked" tooltip={tips.posEnabled}>
-                    <Switch />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="spendAlertDollars" label="Spend alert (USD)" tooltip={tips.spendAlertDollars}>
-                    <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
+                  },
+                },
+              ]}
+            >
+              <Input
+                placeholder={normalizeRestaurantSlug(nameWatch || 'my-restaurant') || 'my-restaurant'}
+                onBlur={() => {
+                  const current = form.getFieldValue('slug');
+                  if (current) form.setFieldValue('slug', normalizeRestaurantSlug(current));
+                }}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Form.Item name="description" label="Description" tooltip={tips.description}>
+              <Input.TextArea rows={3} maxLength={2000} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item name="priceRange" label="Price range" rules={[{ required: true }]} tooltip={tips.priceRange}>
+              <Select options={priceRangeOptions} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item name="ownerId" label="Owner" rules={[{ required: true }]}>
+              <Select
+                options={ownerOptions}
+                showSearch
+                optionFilterProp="label"
+                placeholder="Select owner account"
+              />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item name="featured" label="Featured listing" valuePropName="checked">
+              <Switch />
+            </Form.Item>
+          </Col>
+        </Row>
+      ),
+    },
+    {
+      key: 'photos',
+      label: 'Photos',
+      hint: 'Logo sits next to the name. The first photo is the hero.',
+      icon: <PictureOutlined />,
+      children: (
+        <Row gutter={16}>
+          <Col span={24}>
+            <Form.Item
+              label="Logo"
+              extra="Square mark shown next to the restaurant name on the public page."
+            >
+              <PhotoUpload
+                value={logoUrl ? [logoUrl] : []}
+                onChange={(urls) => setLogoUrl(urls[0] ?? null)}
+                maxCount={1}
+                alt="Restaurant logo"
+              />
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Form.Item
+              label="Photos"
+              extra="Drag to reorder. The first photo is the large hero; the next two appear beside it on the public page."
+            >
+              <PhotoUpload value={photos} onChange={setPhotos} maxCount={10} />
+            </Form.Item>
+          </Col>
+        </Row>
+      ),
+    },
+    {
+      key: 'contact',
+      label: 'Contact',
+      hint: 'Phone, website, and the full-menu link diners see.',
+      icon: <PhoneOutlined />,
+      children: (
+        <Row gutter={16}>
+          <Col xs={24} sm={12}>
+            <Form.Item name="phone" label="Phone" rules={usPhoneRules({ required: false })} tooltip={tips.phone}>
+              <PhoneInput />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item name="website" label="Website" tooltip={tips.website}>
+              <Input placeholder="https://" />
+            </Form.Item>
+          </Col>
+          <Col span={24}>
+            <Form.Item
+              name="menuUrl"
+              label="Full menu URL"
+              tooltip="External link for View full menu on the public restaurant page"
+            >
+              <Input placeholder="https://" />
+            </Form.Item>
+          </Col>
+        </Row>
+      ),
+    },
+    {
+      key: 'address',
+      label: 'Address',
+      hint: 'Search to fill the street fields, then adjust pin coordinates if needed.',
+      icon: <EnvironmentOutlined />,
+      children: (
+        <Row gutter={16}>
+          <Col span={24}>
+            <Form.Item label="Address search">
+              <AddressAutocomplete
+                onSelect={(selection) => {
+                  form.setFieldsValue(addressSelectionToFields(selection));
+                }}
+              />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={16}>
+            <Form.Item name="line1" label="Street" rules={[{ required: true }]} tooltip={tips.line1}>
+              <Input />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Form.Item name="line2" label="Apt / suite">
+              <Input />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Form.Item name="city" label="City" rules={[{ required: true }]} tooltip={tips.city}>
+              <Input />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Form.Item name="state" label="State" rules={[{ required: true }]} tooltip={tips.state}>
+              <Input maxLength={2} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Form.Item name="zip" label="ZIP" rules={[{ required: true }]} tooltip={tips.zip}>
+              <Input />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item name="lat" label="Latitude" rules={[{ required: true }]} tooltip={tips.lat}>
+              <InputNumber style={{ width: '100%' }} step={0.000001} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item name="lng" label="Longitude" rules={[{ required: true }]} tooltip={tips.lng}>
+              <InputNumber style={{ width: '100%' }} step={0.000001} />
+            </Form.Item>
+          </Col>
+          <Form.Item name="country" hidden>
+            <Input />
+          </Form.Item>
+        </Row>
+      ),
+    },
+    ...(includePublicProfile
+      ? ([
+          {
+            key: 'discovery',
+            label: 'Discovery',
+            hint: 'Categories, occasions, and amenities used on search and landing pages.',
+            icon: <CompassOutlined />,
+            children: <RestaurantProfileFields sections="discovery" />,
+          },
+          {
+            key: 'faq',
+            label: 'FAQ & terms',
+            hint: 'Questions diners ask, plus terms shown on the public page. Leave FAQ empty to use defaults.',
+            icon: <QuestionCircleOutlined />,
+            children: <RestaurantProfileFields sections="faq" />,
+          },
+          {
+            key: 'press',
+            label: 'Press & awards',
+            hint: 'Publications and awards featured on the public page.',
+            icon: <TrophyOutlined />,
+            children: <RestaurantProfileFields sections="press" />,
+          },
+        ] satisfies DetailGroup[])
+      : []),
+    {
+      key: 'policies',
+      label: 'Booking policies',
+      hint: 'Deposit and loyalty rules applied when diners book.',
+      icon: <SafetyCertificateOutlined />,
+      children: (
+        <Row gutter={16}>
+          <Col xs={24} sm={12}>
+            <Form.Item
+              name="depositRequired"
+              label="Deposit required"
+              valuePropName="checked"
+              tooltip={tips.depositRequired}
+            >
+              <Switch />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item name="depositAmountCents" label="Deposit amount (USD)" tooltip={tips.depositAmountCents}>
+              <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item
+              name="loyaltyEnabled"
+              label="Loyalty program"
+              valuePropName="checked"
+              tooltip={tips.loyaltyEnabled}
+            >
+              <Switch />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item name="loyaltyPointsPerVisit" label="Points per visit" tooltip={tips.loyaltyPointsPerVisit}>
+              <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item name="loyaltyMinRedeemPoints" label="Min redeem points" tooltip={tips.loyaltyMinRedeemPoints}>
+              <InputNumber min={0} style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+        </Row>
+      ),
+    },
+    {
+      key: 'operations',
+      label: 'Operations',
+      hint: 'Smart assign, POS, and spend alerts for this restaurant.',
+      icon: <SettingOutlined />,
+      children: (
+        <Row gutter={16}>
+          <Col xs={24} sm={8}>
+            <Form.Item name="useSmartAssign" label="Smart assign" valuePropName="checked" tooltip={tips.useSmartAssign}>
+              <Switch />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Form.Item name="posEnabled" label="POS enabled" valuePropName="checked" tooltip={tips.posEnabled}>
+              <Switch />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Form.Item name="spendAlertDollars" label="Spend alert (USD)" tooltip={tips.spendAlertDollars}>
+              <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
+            </Form.Item>
+          </Col>
+        </Row>
+      ),
+    },
+    ...(includeWidget
+      ? ([
+          {
+            key: 'widget',
+            label: 'Booking widget',
+            hint: 'Theme for the embeddable widget. Full controls are on the Booking widget tab.',
+            children: (
+              <Row gutter={16}>
+                <Col xs={24} sm={8}>
                   <Form.Item name="primaryColor" label="Widget color" tooltip={tips.primaryColor}>
                     <Input placeholder="#0b3d2e" />
                   </Form.Item>
                 </Col>
-                <Col span={12}>
+                <Col xs={24} sm={8}>
                   <Form.Item name="buttonText" label="Widget button text" tooltip={tips.buttonText}>
                     <Input />
                   </Form.Item>
                 </Col>
-                <Col span={12}>
+                <Col xs={24} sm={8}>
                   <Form.Item name="showReviews" label="Show reviews on widget" valuePropName="checked" tooltip={tips.showReviews}>
                     <Switch />
                   </Form.Item>
                 </Col>
-                <Form.Item name="country" hidden>
-                  <Input />
-                </Form.Item>
               </Row>
-            </Form>
-          ),
+            ),
+          },
+        ] satisfies DetailGroup[])
+      : []),
+  ];
+
+  const detailsForm = (
+    <Form form={form} layout="vertical">
+      {!includeWidget ? (
+        <div hidden>
+          <Form.Item name="primaryColor">
+            <Input />
+          </Form.Item>
+          <Form.Item name="buttonText">
+            <Input />
+          </Form.Item>
+          <Form.Item name="showReviews" valuePropName="checked">
+            <Switch />
+          </Form.Item>
+        </div>
+      ) : null}
+      {presentation === 'panel' ? (
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>{saveButton}</div>
+          <ManageDetailGroups
+            groups={detailGroups}
+            layout="nav"
+            activeKey={panelGroup}
+            onChange={setEditTab}
+          />
+        </Space>
+      ) : (
+        <ManageDetailGroups groups={detailGroups} layout="collapse" activeKey="listing" />
+      )}
+    </Form>
+  );
+
+  const tabItems = [
+        {
+          key: 'details',
+          label: 'Details',
+          children: detailsForm,
         },
         {
           key: 'profile',
           label: 'Public profile',
           children: (
             <Form form={form} layout="vertical">
-              <RestaurantProfileFields />
+              <ManageDetailGroups
+                layout="collapse"
+                activeKey="discovery"
+                groups={[
+                  {
+                    key: 'discovery',
+                    label: 'Discovery',
+                    hint: 'Categories, occasions, and amenities used on search and landing pages.',
+                    children: <RestaurantProfileFields sections="discovery" />,
+                  },
+                  {
+                    key: 'faq',
+                    label: 'FAQ & terms',
+                    hint: 'Questions diners ask, plus terms shown on the public page. Leave FAQ empty to use defaults.',
+                    children: <RestaurantProfileFields sections="faq" />,
+                  },
+                  {
+                    key: 'press',
+                    label: 'Press & awards',
+                    hint: 'Publications and awards featured on the public page.',
+                    children: <RestaurantProfileFields sections="press" />,
+                  },
+                ]}
+              />
             </Form>
           ),
         },
@@ -1020,7 +1300,21 @@ export function AdminManageRestaurant({
             </Space>
           ),
         },
-      ].filter((item) => !hiddenTabs.includes(item.key))}
+  ].filter((item) => !hiddenTabs.includes(item.key));
+
+  const detailsOnly =
+    presentation === 'panel' && tabItems.length === 1 && tabItems[0]?.key === 'details';
+
+  const body = detailsOnly ? (
+    detailsForm
+  ) : (
+    <Tabs
+      activeKey={hiddenTabs.includes(editTab) ? 'details' : editTab}
+      onChange={setEditTab}
+      tabBarExtraContent={
+        editTab === 'details' || editTab === 'profile' ? saveButton : null
+      }
+      items={tabItems}
     />
   );
 

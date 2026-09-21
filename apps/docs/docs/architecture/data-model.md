@@ -38,6 +38,8 @@ Central identity for all roles.
 | `depositPaymentIntentId` | Stripe hold reference |
 | `occasion` | birthday, anniversary, business, etc. |
 
+Admins list every booking with `adminReservations` (`requireAdmin`). Partners stay on `restaurantReservations` for one venue.
+
 ### Table & Shift
 
 - **Table** — capacity, section, floor plan coordinates
@@ -59,6 +61,7 @@ Tracks waiting parties with `WaitlistStatus`: waiting, notified, booked, seated,
 | `GiftCard` / promo codes | Stored value and discounts |
 | `SupportTicket` | Platform support queue |
 | `RestaurantSlugRequest` | Owner-requested public URL slug change (`pending` / `approved` / `denied`) |
+| `RestaurantProfileChangeRequest` | Partner-requested diner-facing profile change (`pending` / `approved` / `denied`) |
 | `AuditLog` | Admin action history |
 | `Campaign` | Partner marketing to past guests |
 

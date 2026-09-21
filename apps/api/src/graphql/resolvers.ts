@@ -53,9 +53,16 @@ import {
 import {
   cancelRestaurantSlugRequest,
   myRestaurantSlugRequest,
+  pendingRestaurantSlugRequestCount,
   requestRestaurantSlugChange,
   restaurantSlugAvailable,
 } from "../services/restaurantSlugs.js";
+import {
+  cancelRestaurantProfileChangeRequest,
+  myRestaurantProfileChangeRequest,
+  pendingRestaurantProfileChangeRequestCount,
+  requestRestaurantProfileChange,
+} from "../services/restaurantProfileChanges.js";
 import { sendRestaurantInquiry } from "../services/restaurantInquiry.js";
 import {
   isRestaurantBookmarked,
@@ -1272,6 +1279,8 @@ export const resolvers = {
         restaurants,
         reservations,
         pendingRestaurants,
+        pendingSlugRequests,
+        pendingProfileChangeRequests,
         activeSubscriptions,
         mrrAgg,
         openInvoices,
@@ -1280,6 +1289,8 @@ export const resolvers = {
         Restaurant.countDocuments(),
         Reservation.countDocuments(),
         Restaurant.countDocuments({ status: "pending" }),
+        pendingRestaurantSlugRequestCount(),
+        pendingRestaurantProfileChangeRequestCount(),
         Subscription.countDocuments({
           status: { $in: ["active", "trialing"] },
         }),
@@ -1296,10 +1307,21 @@ export const resolvers = {
         restaurants,
         reservations,
         pendingRestaurants,
+        pendingSlugRequests,
+        pendingProfileChangeRequests,
         mrrCents: mrrAgg[0]?.mrrCents ?? 0,
         activeSubscriptions,
         openInvoices,
       };
+    },
+
+    adminPendingRequestCounts: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      requireAdmin(ctx);
+      const [slugRequests, profileChangeRequests] = await Promise.all([
+        pendingRestaurantSlugRequestCount(),
+        pendingRestaurantProfileChangeRequestCount(),
+      ]);
+      return { slugRequests, profileChangeRequests };
     },
 
     adminLoyaltyStats: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
@@ -2675,6 +2697,15 @@ export const resolvers = {
       const user = requireAuth(ctx);
       return myRestaurantSlugRequest(args.restaurantId, user);
     },
+
+    myRestaurantProfileChangeRequest: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      return myRestaurantProfileChangeRequest(args.restaurantId, user);
+    },
   },
 
   RestaurantGroup: {
@@ -2863,6 +2894,24 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       return cancelRestaurantSlugRequest(args.id, user);
+    },
+
+    requestRestaurantProfileChange: async (
+      _: unknown,
+      args: { input: unknown },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      return requestRestaurantProfileChange(args.input, user);
+    },
+
+    cancelRestaurantProfileChangeRequest: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      return cancelRestaurantProfileChangeRequest(args.id, user);
     },
 
     verifyDocsAccessOtp: async (

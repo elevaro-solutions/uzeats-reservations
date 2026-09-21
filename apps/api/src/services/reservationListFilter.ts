@@ -16,6 +16,9 @@ export const RESERVATION_DATE_PERIODS = [
   'all',
 ] as const;
 
+/** Calendar periods for cross-restaurant admin lists (no single venue zone). */
+export const PLATFORM_RESERVATION_LIST_TIMEZONE = 'America/New_York';
+
 export type ReservationDatePeriod = (typeof RESERVATION_DATE_PERIODS)[number];
 
 export type SlotStartRange = { $gte?: Date; $lt?: Date };

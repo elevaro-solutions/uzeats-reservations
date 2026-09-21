@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Button,
   Card,
@@ -24,6 +24,7 @@ import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { MY_RESTAURANTS, FLOOR_PLAN_TABLES, UPDATE_TABLE_POSITIONS, UPDATE_TABLE } from '@/lib/graphql';
 import PhotoUpload from '@/components/PhotoUpload';
 import {
+  DEFAULT_CELL_SIZE,
   FLOOR_GRID_COLS,
   FLOOR_GRID_ROWS,
   MAX_CELL_SIZE,
@@ -213,22 +214,24 @@ function TableDetailsPanel({
 export default function FloorPlanPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const screens = useBreakpoint();
   const isCompact = !screens.md;
 
   const [tables, setTables] = useState<FloorTable[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [areaFilter, setAreaFilter] = useState<string>();
+  const areaFilter = searchParams.get('area') || undefined;
   const [dirty, setDirty] = useState(false);
   const [box, setBox] = useState({ width: 0, height: 0 });
-  const [gridCellSize, setGridCellSize] = useState<number | null>(null);
+  const [gridCellSize, setGridCellSize] = useState<number | null>(DEFAULT_CELL_SIZE);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const tablesRef = useRef(tables);
   const interactionRef = useRef<Interaction | null>(null);
-  const cellSizeRef = useRef(40);
+  const cellSizeRef = useRef(DEFAULT_CELL_SIZE);
 
   tablesRef.current = tables;
 
@@ -273,11 +276,31 @@ export default function FloorPlanPage() {
     () => Array.from(new Set(tables.map((t) => t.floorArea))).sort(),
     [tables],
   );
+  const setAreaFilter = useCallback(
+    (area: string | undefined) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (area) params.set('area', area);
+      else params.delete('area');
+      const qs = params.toString();
+      const nextUrl = qs ? `${pathname}?${qs}` : pathname;
+      const currentUrl = searchParams.toString()
+        ? `${pathname}?${searchParams.toString()}`
+        : pathname;
+      if (nextUrl === currentUrl) return;
+      router.replace(nextUrl, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
   const visibleTables = useMemo(
     () => tables.filter((t) => t.active && (!areaFilter || t.floorArea === areaFilter)),
     [tables, areaFilter],
   );
   const selected = tables.find((t) => t.id === selectedId) ?? null;
+
+  useEffect(() => {
+    if (!areaFilter || tables.length === 0) return;
+    if (!floorAreas.includes(areaFilter)) setAreaFilter(undefined);
+  }, [areaFilter, floorAreas, setAreaFilter, tables.length]);
 
   useLayoutEffect(() => {
     const el = canvasWrapRef.current;
@@ -306,7 +329,7 @@ export default function FloorPlanPage() {
     cellSizeForWidth(box.width || 1),
     cellSizeForWidth(box.height || 1, FLOOR_GRID_ROWS),
   );
-  const cellSize = gridCellSize ?? (box.width ? fittedSize : 40);
+  const cellSize = gridCellSize ?? (box.width ? fittedSize : DEFAULT_CELL_SIZE);
   cellSizeRef.current = cellSize;
   const canvasCols =
     box.width > 0 && cellSize > 0
@@ -529,7 +552,7 @@ export default function FloorPlanPage() {
   };
 
   return (
-    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+    <div className="rt-floor-plan-page">
       <div
         style={{
           display: 'flex',
@@ -540,7 +563,7 @@ export default function FloorPlanPage() {
         }}
       >
         <Title level={2} style={{ margin: 0 }}>
-          Floor plan
+          Table layout
         </Title>
         <Button
           type="primary"
@@ -595,32 +618,24 @@ export default function FloorPlanPage() {
       </Space>
 
       <div
-        style={{
-          display: 'flex',
-          flexDirection: isCompact ? 'column' : 'row',
-          gap: 16,
-          alignItems: 'stretch',
-        }}
+        className="rt-floor-plan-canvas-row"
+        style={{ flexDirection: isCompact ? 'column' : 'row' }}
       >
         <Card
+          className="rt-floor-plan-card"
           loading={loading}
-          style={{ flex: '1 1 320px', minWidth: 0 }}
           styles={{ body: { padding: isCompact ? 8 : 12 } }}
         >
           {visibleTables.length === 0 && !loading ? (
-            <Empty description="No tables in this area. Add tables under Tables & shifts." />
+            <Empty
+              description="No tables in this area. Add tables under Tables & shifts."
+              style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
+            />
           ) : (
             <div
               ref={canvasWrapRef}
+              className="rt-floor-plan-canvas"
               style={{
-                width: box.width > 0 ? box.width : '100%',
-                height: box.height > 0 ? box.height : FLOOR_GRID_ROWS * 32,
-                minWidth: 280,
-                minHeight: 200,
-                maxWidth: '100%',
-                overflow: 'auto',
-                resize: 'both',
-                borderRadius: 8,
                 border: `1px dashed ${colors.neutral[200]}`,
               }}
             >
@@ -770,7 +785,7 @@ export default function FloorPlanPage() {
             </div>
           )}
           {visibleTables.length > 0 && (
-            <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 11 }}>
+            <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 11, flexShrink: 0 }}>
               Drag the corner to resize this grid
             </Text>
           )}
@@ -779,7 +794,7 @@ export default function FloorPlanPage() {
         {!isCompact && (
           <Card
             title={selected ? `Table ${selected.name}` : 'Table details'}
-            style={{ flex: '0 0 300px', maxWidth: 360 }}
+            className="rt-floor-plan-details"
           >
             {selected ? (
               <TableDetailsPanel
@@ -819,6 +834,6 @@ export default function FloorPlanPage() {
           />
         )}
       </Drawer>
-    </Space>
+    </div>
   );
 }

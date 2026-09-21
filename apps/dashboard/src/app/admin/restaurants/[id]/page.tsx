@@ -5,10 +5,9 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
+  Avatar,
   Button,
   Card,
-  Col,
-  Descriptions,
   Empty,
   Form,
   Input,
@@ -16,7 +15,6 @@ import {
   message,
   Modal,
   Popconfirm,
-  Row,
   Select,
   Space,
   Spin,
@@ -28,24 +26,37 @@ import {
 } from 'antd';
 import {
   ArrowLeftOutlined,
+  ClockCircleOutlined,
   DeleteOutlined,
   EditOutlined,
   ExportOutlined,
-  FileTextOutlined,
   PlusOutlined,
   ReloadOutlined,
+  TableOutlined,
 } from '@ant-design/icons';
 import { buildRestaurantBookingUrl } from '@reservations/shared';
-import { PageHeader, StatusTag, spacing } from '@reservations/ui';
+import {
+  PageHeader,
+  StatusTag,
+  EmptyState,
+  colors,
+  pickRestaurantLogo,
+  priceRangeLabel,
+  restaurantInitials,
+  spacing,
+} from '@reservations/ui';
 import {
   AdminManageRestaurant,
+  MANAGE_PANEL_GROUPS,
   type AdminRestaurantRecord,
 } from '@/components/AdminManageRestaurant';
 import { AdminRestaurantInvoicesPanel } from '@/components/AdminRestaurantInvoicesPanel';
 import { AdminRestaurantMenuPanel } from '@/components/AdminRestaurantMenuPanel';
+import { AdminRestaurantOverviewPanel } from '@/components/AdminRestaurantOverviewPanel';
 import { AdminRestaurantPackagePanel } from '@/components/AdminRestaurantPackagePanel';
 import { AdminRestaurantReservationsPanel } from '@/components/AdminRestaurantReservationsPanel';
 import { AdminRestaurantReviewsPanel } from '@/components/AdminRestaurantReviewsPanel';
+import { AdminRestaurantTeamPanel } from '@/components/AdminRestaurantTeamPanel';
 import { AdminRestaurantWidgetPanel } from '@/components/AdminRestaurantWidgetPanel';
 import {
   ADMIN_RESTAURANT,
@@ -60,7 +71,6 @@ import {
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useUrlTab } from '@/lib/useUrlTab';
 import { getPublicWebUrl } from '@/lib/webUrl';
-import { accountDetailPath } from '@/lib/adminAccounts';
 
 const DETAIL_TABS = [
   'overview',
@@ -77,11 +87,16 @@ const DETAIL_TABS = [
   'preview',
 ] as const;
 
-const MANAGE_SECTIONS = ['details', 'profile', 'team'] as const;
+const MANAGE_SECTIONS = [...MANAGE_PANEL_GROUPS, 'details', 'profile', 'team'] as const;
 const TAB_RESET_PARAMS = ['page', 'pageSize'];
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function titleCase(value?: string | null) {
+  if (!value) return '—';
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
 
 type RestaurantDetail = AdminRestaurantRecord & {
   tables?: Array<{
@@ -119,11 +134,6 @@ type RestaurantDetail = AdminRestaurantRecord & {
   } | null;
 };
 
-function money(cents?: number | null) {
-  if (cents == null) return '—';
-  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-}
-
 function AdminRestaurantDetailContent() {
   const params = useParams();
   const id = String(params?.id ?? '');
@@ -135,7 +145,7 @@ function AdminRestaurantDetailContent() {
   });
   const [section, setSection] = useUrlTab({
     param: 'section',
-    defaultValue: 'details',
+    defaultValue: 'listing',
     allowed: MANAGE_SECTIONS,
   });
   const goToTab = (key: string) => {
@@ -181,22 +191,18 @@ function AdminRestaurantDetailContent() {
     });
   }, [restaurant]);
 
-  const addressLine = restaurant?.address
+  const identityLine = restaurant
     ? [
-        restaurant.address.line1,
-        restaurant.address.line2,
-        [restaurant.address.city, restaurant.address.state, restaurant.address.zip]
-          .filter(Boolean)
-          .join(', '),
+        restaurant.cuisine,
+        priceRangeLabel(restaurant.priceRange || 1),
+        [restaurant.address?.city, restaurant.address?.state].filter(Boolean).join(', ') || null,
       ]
         .filter(Boolean)
-        .join(', ')
+        .join(' · ')
+    : '';
+  const logoSrc = restaurant
+    ? pickRestaurantLogo(restaurant.logoUrl, restaurant.photos)
     : null;
-
-  const menuItemCount = (restaurant?.menu?.sections ?? []).reduce(
-    (n, s) => n + (s.items?.length ?? 0),
-    0,
-  );
 
   const refresh = async () => {
     const result = await refetch();
@@ -294,11 +300,20 @@ function AdminRestaurantDetailContent() {
           }
           title={
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              {restaurant ? (
+                <Avatar
+                  src={logoSrc ?? undefined}
+                  size={40}
+                  style={{ background: colors.brand[600], flexShrink: 0 }}
+                >
+                  {restaurantInitials(restaurant.name)}
+                </Avatar>
+              ) : null}
               {restaurant?.name ?? 'Restaurant'}
               {restaurant ? <StatusTag status={restaurant.status} /> : null}
             </span>
           }
-          subtitle="Super-admin hub — profile, package, team, menu, reservations, and invoices."
+          subtitle={identityLine || 'Restaurant profile and operations'}
           extra={
             <Space wrap>
               {dinerUrl ? (
@@ -326,140 +341,19 @@ function AdminRestaurantDetailContent() {
           </Card>
         ) : restaurant ? (
           <Tabs
-            activeKey={tab}
+            activeKey={tab === 'shifts' ? 'tables' : tab}
             onChange={goToTab}
             items={[
               {
                 key: 'overview',
                 label: 'Overview',
                 children: (
-                  <Space orientation="vertical" size={spacing.md} style={{ width: '100%' }}>
-                    <Row gutter={[16, 16]}>
-                      <Col xs={24} md={8}>
-                        <Card size="small">
-                          <Text type="secondary">Package</Text>
-                          <Title level={4} style={{ margin: '4px 0 0' }}>
-                            {restaurant.subscription?.plan
-                              ? String(restaurant.subscription.plan).toUpperCase()
-                              : 'None'}
-                          </Title>
-                          <Text type="secondary">
-                            {restaurant.subscription?.status
-                              ? statusCap(restaurant.subscription.status)
-                              : 'No active subscription'}
-                            {restaurant.subscription?.monthlyPriceCents != null
-                              ? ` · ${money(restaurant.subscription.monthlyPriceCents)}/mo`
-                              : ''}
-                          </Text>
-                        </Card>
-                      </Col>
-                      <Col xs={24} md={8}>
-                        <Card size="small">
-                          <Text type="secondary">Menu</Text>
-                          <Title level={4} style={{ margin: '4px 0 0' }}>
-                            {menuItemCount} items
-                          </Title>
-                          <Text type="secondary">
-                            {(restaurant.menu?.sections ?? []).length} section
-                            {(restaurant.menu?.sections ?? []).length === 1 ? '' : 's'}
-                          </Text>
-                        </Card>
-                      </Col>
-                      <Col xs={24} md={8}>
-                        <Card size="small">
-                          <Text type="secondary">Contact</Text>
-                          <Title level={5} style={{ margin: '4px 0 0' }}>
-                            {restaurant.phone || 'No phone'}
-                          </Title>
-                          <Text type="secondary">{restaurant.cuisine}</Text>
-                        </Card>
-                      </Col>
-                    </Row>
-
-                    <Card title="Restaurant details">
-                      <Descriptions bordered size="small" column={{ xs: 1, sm: 2, md: 3 }}>
-                        <Descriptions.Item label="Name">{restaurant.name}</Descriptions.Item>
-                        <Descriptions.Item label="Slug">
-                          {restaurant.slug ? (
-                            <Typography.Link
-                              href={buildRestaurantBookingUrl(getPublicWebUrl(), {
-                                slug: restaurant.slug,
-                                id: restaurant.id,
-                              })}
-                              target="_blank"
-                            >
-                              {restaurant.slug}
-                            </Typography.Link>
-                          ) : (
-                            '—'
-                          )}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Status">
-                          <StatusTag status={restaurant.status} />
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Cuisine">{restaurant.cuisine}</Descriptions.Item>
-                        <Descriptions.Item label="Price range">
-                          {'$'.repeat(restaurant.priceRange || 1)}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Featured">
-                          {restaurant.featured ? 'Yes' : 'No'}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Phone">{restaurant.phone || '—'}</Descriptions.Item>
-                        <Descriptions.Item label="Website">
-                          {restaurant.website ? (
-                            <Typography.Link href={restaurant.website} target="_blank">
-                              {restaurant.website}
-                            </Typography.Link>
-                          ) : (
-                            '—'
-                          )}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Menu URL">
-                          {restaurant.menuUrl ? (
-                            <Typography.Link href={restaurant.menuUrl} target="_blank">
-                              {restaurant.menuUrl}
-                            </Typography.Link>
-                          ) : (
-                            '—'
-                          )}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Address" span={3}>
-                          {addressLine || '—'}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Description" span={3}>
-                          {restaurant.description || '—'}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Deposit">
-                          {restaurant.depositRequired
-                            ? money(restaurant.depositAmountCents)
-                            : 'Not required'}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="Loyalty">
-                          {restaurant.loyaltyEnabled
-                            ? `${restaurant.loyaltyPointsPerVisit ?? 0} pts / visit`
-                            : 'Off'}
-                        </Descriptions.Item>
-                        <Descriptions.Item label="POS">
-                          {restaurant.posEnabled ? 'Enabled' : 'Disabled'}
-                        </Descriptions.Item>
-                      </Descriptions>
-                    </Card>
-
-                    <Space wrap>
-                      <Button type="primary" onClick={() => goToTab('manage')}>
-                        Edit details
-                      </Button>
-                      <Button onClick={() => goToTab('package')}>Package</Button>
-                      <Button onClick={() => goToTab('menu')}>Manage menu</Button>
-                      <Button onClick={() => goToTab('reservations')}>Reservations</Button>
-                      <Button onClick={() => goToTab('reviews')}>Reviews</Button>
-                      <Button onClick={() => goToTab('widget')}>Booking widget</Button>
-                      <Button icon={<FileTextOutlined />} onClick={() => goToTab('invoices')}>
-                        Invoices
-                      </Button>
-                      <Button onClick={() => goToTab('preview')}>Diner preview</Button>
-                    </Space>
-                  </Space>
+                  <AdminRestaurantOverviewPanel
+                    restaurant={restaurant}
+                    owner={owner}
+                    teamCount={teamMembers.length}
+                    onGoToTab={goToTab}
+                  />
                 ),
               },
               {
@@ -473,7 +367,7 @@ function AdminRestaurantDetailContent() {
                       open
                       editTab={section}
                       onEditTabChange={setSection}
-                      hiddenTabs={['package']}
+                      hiddenTabs={['package', 'team', 'profile']}
                       onClose={() => undefined}
                       onSaved={(updated) => {
                         setRestaurantOverride({ ...restaurant, ...updated });
@@ -500,10 +394,12 @@ function AdminRestaurantDetailContent() {
                 key: 'menu',
                 label: 'Menu',
                 children: (
-                  <AdminRestaurantMenuPanel
-                    restaurant={restaurant}
-                    onSaved={() => void refresh()}
-                  />
+                  <Card>
+                    <AdminRestaurantMenuPanel
+                      restaurant={restaurant}
+                      onSaved={() => void refresh()}
+                    />
+                  </Card>
                 ),
               },
               {
@@ -543,277 +439,334 @@ function AdminRestaurantDetailContent() {
                 key: 'team',
                 label: 'Owner & Team',
                 children: (
-                  <Space direction="vertical" size={spacing.md} style={{ width: '100%' }}>
-                    {owner && (
-                      <Card title="Owner">
-                        <Descriptions bordered size="small" column={{ xs: 1, sm: 3 }}>
-                          <Descriptions.Item label="Name">
-                            <Link href={accountDetailPath(owner.role, owner.id)}>
-                              {owner.firstName} {owner.lastName}
-                            </Link>
-                          </Descriptions.Item>
-                          <Descriptions.Item label="Email">{owner.email}</Descriptions.Item>
-                          <Descriptions.Item label="Phone">{owner.phone || '—'}</Descriptions.Item>
-                        </Descriptions>
-                      </Card>
-                    )}
-                    <Card title="Team Members">
-                      <Table
-                        dataSource={teamMembers}
-                        rowKey="id"
-                        pagination={false}
-                        columns={[
-                          {
-                            title: 'Name',
-                            key: 'name',
-                            render: (_: any, r: any) => (
-                              <Link href={accountDetailPath(r.role, r.id)}>
-                                {r.firstName} {r.lastName}
-                              </Link>
-                            ),
-                          },
-                          { title: 'Email', dataIndex: 'email' },
-                          { title: 'Phone', dataIndex: 'phone' },
-                          {
-                            title: 'Role',
-                            dataIndex: 'role',
-                            render: (role: string) => {
-                              const colorMap: Record<string, string> = {
-                                diner: 'default',
-                                restaurant_owner: 'blue',
-                                staff: 'cyan',
-                                admin: 'orange',
-                                super_admin: 'red',
-                              };
-                              return <Tag color={colorMap[role] || 'default'}>{role}</Tag>;
-                            },
-                          },
-                        ]}
-                      />
-                    </Card>
-                  </Space>
+                  <AdminRestaurantTeamPanel
+                    restaurantId={restaurant.id}
+                    ownerId={restaurant.ownerId}
+                  />
                 ),
               },
               {
                 key: 'tables',
-                label: 'Tables',
+                label: 'Tables & shifts',
                 children: (
-                  <Card
-                    title="Tables"
-                    extra={
-                      <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => {
-                          setEditingTable(null);
-                          tableForm.resetFields();
-                          tableForm.setFieldsValue({ active: true, combinable: false });
-                          setTableModalOpen(true);
-                        }}
-                      >
-                        Add Table
-                      </Button>
-                    }
-                  >
-                    <Table
-                      dataSource={restaurant.tables ?? []}
-                      rowKey="id"
-                      pagination={false}
-                      columns={[
-                        { title: 'Name', dataIndex: 'name' },
-                        { title: 'Min Capacity', dataIndex: 'minCapacity' },
-                        { title: 'Max Capacity', dataIndex: 'maxCapacity' },
-                        { title: 'Floor Area', dataIndex: 'floorArea' },
-                        {
-                          title: 'Active',
-                          dataIndex: 'active',
-                          render: (v: boolean) => (
-                            <Tag color={v ? 'green' : 'red'}>{v ? 'Yes' : 'No'}</Tag>
-                          ),
-                        },
-                        {
-                          title: 'Combinable',
-                          dataIndex: 'combinable',
-                          render: (v: boolean) => (v ? 'Yes' : 'No'),
-                        },
-                        {
-                          title: 'Actions',
-                          key: 'actions',
-                          render: (_: any, record: any) => (
-                            <Space>
+                  <Tabs
+                    activeKey={tab === 'shifts' ? 'shifts' : 'tables'}
+                    onChange={goToTab}
+                    items={[
+                      {
+                        key: 'tables',
+                        label: `Tables (${(restaurant.tables ?? []).length})`,
+                        children: (
+                          <Card
+                            title="Tables"
+                            extra={
                               <Button
-                                size="small"
-                                icon={<EditOutlined />}
+                                type="primary"
+                                icon={<PlusOutlined />}
                                 onClick={() => {
-                                  setEditingTable(record);
-                                  tableForm.setFieldsValue(record);
+                                  setEditingTable(null);
+                                  tableForm.resetFields();
+                                  tableForm.setFieldsValue({ active: true, combinable: false });
                                   setTableModalOpen(true);
                                 }}
-                              />
-                              <Popconfirm
-                                title="Delete this table?"
-                                onConfirm={() => void handleDeleteTable(record.id)}
                               >
-                                <Button size="small" danger icon={<DeleteOutlined />} />
-                              </Popconfirm>
-                            </Space>
-                          ),
-                        },
-                      ]}
-                    />
-                    <Modal
-                      title={editingTable ? 'Edit Table' : 'Add Table'}
-                      open={tableModalOpen}
-                      onOk={() => void handleTableSubmit()}
-                      onCancel={() => {
-                        setTableModalOpen(false);
-                        setEditingTable(null);
-                      }}
-                    >
-                      <Form form={tableForm} layout="vertical">
-                        <Form.Item name="name" label="Name" rules={[{ required: true }]}>
-                          <Input />
-                        </Form.Item>
-                        <Form.Item name="minCapacity" label="Min Capacity" rules={[{ required: true }]}>
-                          <InputNumber min={1} style={{ width: '100%' }} />
-                        </Form.Item>
-                        <Form.Item name="maxCapacity" label="Max Capacity" rules={[{ required: true }]}>
-                          <InputNumber min={1} style={{ width: '100%' }} />
-                        </Form.Item>
-                        <Form.Item name="floorArea" label="Floor Area">
-                          <Select
-                            options={[
-                              { label: 'Main', value: 'main' },
-                              { label: 'Patio', value: 'patio' },
-                              { label: 'Private', value: 'private' },
-                              { label: 'Bar', value: 'bar' },
-                              { label: 'Rooftop', value: 'rooftop' },
-                            ]}
-                          />
-                        </Form.Item>
-                        <Form.Item name="combinable" label="Combinable" valuePropName="checked">
-                          <Switch />
-                        </Form.Item>
-                        <Form.Item name="active" label="Active" valuePropName="checked">
-                          <Switch />
-                        </Form.Item>
-                      </Form>
-                    </Modal>
-                  </Card>
-                ),
-              },
-              {
-                key: 'shifts',
-                label: 'Shifts',
-                children: (
-                  <Card
-                    title="Shifts"
-                    extra={
-                      <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => {
-                          setEditingShift(null);
-                          shiftForm.resetFields();
-                          shiftForm.setFieldsValue({
-                            active: true,
-                            slotIntervalMinutes: 30,
-                            turnTimeMinutes: 90,
-                          });
-                          setShiftModalOpen(true);
-                        }}
-                      >
-                        Add Shift
-                      </Button>
-                    }
-                  >
-                    <Table
-                      dataSource={restaurant.shifts ?? []}
-                      rowKey="id"
-                      pagination={false}
-                      columns={[
-                        { title: 'Name', dataIndex: 'name' },
-                        {
-                          title: 'Days',
-                          dataIndex: 'daysOfWeek',
-                          render: (days: number[]) =>
-                            (days ?? []).map((d) => (
-                              <Tag key={d}>{DAY_NAMES[d]}</Tag>
-                            )),
-                        },
-                        { title: 'Start Time', dataIndex: 'startTime' },
-                        { title: 'End Time', dataIndex: 'endTime' },
-                        { title: 'Slot Interval (min)', dataIndex: 'slotIntervalMinutes' },
-                        { title: 'Turn Time (min)', dataIndex: 'turnTimeMinutes' },
-                        {
-                          title: 'Active',
-                          dataIndex: 'active',
-                          render: (v: boolean) => (
-                            <Tag color={v ? 'green' : 'red'}>{v ? 'Yes' : 'No'}</Tag>
-                          ),
-                        },
-                        {
-                          title: 'Actions',
-                          key: 'actions',
-                          render: (_: any, record: any) => (
-                            <Space>
+                                Add table
+                              </Button>
+                            }
+                          >
+                            {(restaurant.tables ?? []).length === 0 ? (
+                              <EmptyState
+                                icon={<TableOutlined />}
+                                title="No tables yet"
+                                description="Add tables so the floor plan and booking assignment have seats to work with."
+                                action={
+                                  <Button
+                                    type="primary"
+                                    icon={<PlusOutlined />}
+                                    onClick={() => {
+                                      setEditingTable(null);
+                                      tableForm.resetFields();
+                                      tableForm.setFieldsValue({ active: true, combinable: false });
+                                      setTableModalOpen(true);
+                                    }}
+                                  >
+                                    Add table
+                                  </Button>
+                                }
+                              />
+                            ) : (
+                              <Table
+                                dataSource={restaurant.tables ?? []}
+                                rowKey="id"
+                                pagination={false}
+                                columns={[
+                                  { title: 'Name', dataIndex: 'name' },
+                                  {
+                                    title: 'Seats',
+                                    key: 'seats',
+                                    render: (_: unknown, record: any) =>
+                                      record.minCapacity === record.maxCapacity
+                                        ? record.maxCapacity
+                                        : `${record.minCapacity}–${record.maxCapacity}`,
+                                  },
+                                  {
+                                    title: 'Area',
+                                    dataIndex: 'floorArea',
+                                    render: (area: string) => titleCase(area),
+                                  },
+                                  {
+                                    title: 'Status',
+                                    dataIndex: 'active',
+                                    render: (active: boolean) => (
+                                      <Tag color={active !== false ? 'green' : 'default'}>
+                                        {active !== false ? 'Active' : 'Inactive'}
+                                      </Tag>
+                                    ),
+                                  },
+                                  {
+                                    title: 'Combinable',
+                                    dataIndex: 'combinable',
+                                    render: (combinable: boolean) => (combinable ? 'Yes' : 'No'),
+                                  },
+                                  {
+                                    title: '',
+                                    key: 'actions',
+                                    width: 160,
+                                    render: (_: unknown, record: any) => (
+                                      <Space>
+                                        <Button
+                                          size="small"
+                                          icon={<EditOutlined />}
+                                          onClick={() => {
+                                            setEditingTable(record);
+                                            tableForm.setFieldsValue(record);
+                                            setTableModalOpen(true);
+                                          }}
+                                        >
+                                          Edit
+                                        </Button>
+                                        <Popconfirm
+                                          title="Delete this table?"
+                                          onConfirm={() => void handleDeleteTable(record.id)}
+                                        >
+                                          <Button size="small" danger icon={<DeleteOutlined />}>
+                                            Delete
+                                          </Button>
+                                        </Popconfirm>
+                                      </Space>
+                                    ),
+                                  },
+                                ]}
+                              />
+                            )}
+                            <Modal
+                              title={editingTable ? 'Edit table' : 'Add table'}
+                              open={tableModalOpen}
+                              onOk={() => void handleTableSubmit()}
+                              onCancel={() => {
+                                setTableModalOpen(false);
+                                setEditingTable(null);
+                              }}
+                            >
+                              <Form form={tableForm} layout="vertical">
+                                <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+                                  <Input placeholder="e.g. T1" />
+                                </Form.Item>
+                                <Form.Item name="minCapacity" label="Min seats" rules={[{ required: true }]}>
+                                  <InputNumber min={1} style={{ width: '100%' }} />
+                                </Form.Item>
+                                <Form.Item name="maxCapacity" label="Max seats" rules={[{ required: true }]}>
+                                  <InputNumber min={1} style={{ width: '100%' }} />
+                                </Form.Item>
+                                <Form.Item name="floorArea" label="Area">
+                                  <Select
+                                    options={[
+                                      { label: 'Main', value: 'main' },
+                                      { label: 'Patio', value: 'patio' },
+                                      { label: 'Private', value: 'private' },
+                                      { label: 'Bar', value: 'bar' },
+                                      { label: 'Rooftop', value: 'rooftop' },
+                                    ]}
+                                  />
+                                </Form.Item>
+                                <Form.Item name="combinable" label="Combinable" valuePropName="checked">
+                                  <Switch />
+                                </Form.Item>
+                                <Form.Item name="active" label="Active" valuePropName="checked">
+                                  <Switch />
+                                </Form.Item>
+                              </Form>
+                            </Modal>
+                          </Card>
+                        ),
+                      },
+                      {
+                        key: 'shifts',
+                        label: `Shifts (${(restaurant.shifts ?? []).length})`,
+                        children: (
+                          <Card
+                            title="Shifts"
+                            extra={
                               <Button
-                                size="small"
-                                icon={<EditOutlined />}
+                                type="primary"
+                                icon={<PlusOutlined />}
                                 onClick={() => {
-                                  setEditingShift(record);
-                                  shiftForm.setFieldsValue(record);
+                                  setEditingShift(null);
+                                  shiftForm.resetFields();
+                                  shiftForm.setFieldsValue({
+                                    active: true,
+                                    slotIntervalMinutes: 30,
+                                    turnTimeMinutes: 90,
+                                  });
                                   setShiftModalOpen(true);
                                 }}
-                              />
-                              <Popconfirm
-                                title="Delete this shift?"
-                                onConfirm={() => void handleDeleteShift(record.id)}
                               >
-                                <Button size="small" danger icon={<DeleteOutlined />} />
-                              </Popconfirm>
-                            </Space>
-                          ),
-                        },
-                      ]}
-                    />
-                    <Modal
-                      title={editingShift ? 'Edit Shift' : 'Add Shift'}
-                      open={shiftModalOpen}
-                      onOk={() => void handleShiftSubmit()}
-                      onCancel={() => {
-                        setShiftModalOpen(false);
-                        setEditingShift(null);
-                      }}
-                    >
-                      <Form form={shiftForm} layout="vertical">
-                        <Form.Item name="name" label="Name" rules={[{ required: true }]}>
-                          <Input />
-                        </Form.Item>
-                        <Form.Item name="daysOfWeek" label="Days of Week" rules={[{ required: true }]}>
-                          <Select
-                            mode="multiple"
-                            options={DAY_NAMES.map((name, i) => ({ label: name, value: i }))}
-                          />
-                        </Form.Item>
-                        <Form.Item name="startTime" label="Start Time">
-                          <Input placeholder="09:00" />
-                        </Form.Item>
-                        <Form.Item name="endTime" label="End Time">
-                          <Input placeholder="22:00" />
-                        </Form.Item>
-                        <Form.Item name="slotIntervalMinutes" label="Slot Interval (min)">
-                          <InputNumber min={1} style={{ width: '100%' }} />
-                        </Form.Item>
-                        <Form.Item name="turnTimeMinutes" label="Turn Time (min)">
-                          <InputNumber min={1} style={{ width: '100%' }} />
-                        </Form.Item>
-                        <Form.Item name="active" label="Active" valuePropName="checked">
-                          <Switch />
-                        </Form.Item>
-                      </Form>
-                    </Modal>
-                  </Card>
+                                Add shift
+                              </Button>
+                            }
+                          >
+                            {(restaurant.shifts ?? []).length === 0 ? (
+                              <EmptyState
+                                icon={<ClockCircleOutlined />}
+                                title="No shifts yet"
+                                description="Add lunch, dinner, or other service windows so diners can book times."
+                                action={
+                                  <Button
+                                    type="primary"
+                                    icon={<PlusOutlined />}
+                                    onClick={() => {
+                                      setEditingShift(null);
+                                      shiftForm.resetFields();
+                                      shiftForm.setFieldsValue({
+                                        active: true,
+                                        slotIntervalMinutes: 30,
+                                        turnTimeMinutes: 90,
+                                      });
+                                      setShiftModalOpen(true);
+                                    }}
+                                  >
+                                    Add shift
+                                  </Button>
+                                }
+                              />
+                            ) : (
+                              <Table
+                                dataSource={restaurant.shifts ?? []}
+                                rowKey="id"
+                                pagination={false}
+                                columns={[
+                                  { title: 'Name', dataIndex: 'name' },
+                                  {
+                                    title: 'Days',
+                                    dataIndex: 'daysOfWeek',
+                                    render: (days: number[]) =>
+                                      (days ?? []).map((day) => <Tag key={day}>{DAY_NAMES[day]}</Tag>),
+                                  },
+                                  {
+                                    title: 'Hours',
+                                    key: 'hours',
+                                    render: (_: unknown, record: any) =>
+                                      `${record.startTime} – ${record.endTime}`,
+                                  },
+                                  {
+                                    title: 'Slots',
+                                    key: 'slots',
+                                    render: (_: unknown, record: any) =>
+                                      `${record.slotIntervalMinutes} min · ${record.turnTimeMinutes} min turn`,
+                                  },
+                                  {
+                                    title: 'Status',
+                                    dataIndex: 'active',
+                                    render: (active: boolean) => (
+                                      <Tag color={active !== false ? 'green' : 'default'}>
+                                        {active !== false ? 'Active' : 'Inactive'}
+                                      </Tag>
+                                    ),
+                                  },
+                                  {
+                                    title: '',
+                                    key: 'actions',
+                                    width: 160,
+                                    render: (_: unknown, record: any) => (
+                                      <Space>
+                                        <Button
+                                          size="small"
+                                          icon={<EditOutlined />}
+                                          onClick={() => {
+                                            setEditingShift(record);
+                                            shiftForm.setFieldsValue(record);
+                                            setShiftModalOpen(true);
+                                          }}
+                                        >
+                                          Edit
+                                        </Button>
+                                        <Popconfirm
+                                          title="Delete this shift?"
+                                          onConfirm={() => void handleDeleteShift(record.id)}
+                                        >
+                                          <Button size="small" danger icon={<DeleteOutlined />}>
+                                            Delete
+                                          </Button>
+                                        </Popconfirm>
+                                      </Space>
+                                    ),
+                                  },
+                                ]}
+                              />
+                            )}
+                            <Modal
+                              title={editingShift ? 'Edit shift' : 'Add shift'}
+                              open={shiftModalOpen}
+                              onOk={() => void handleShiftSubmit()}
+                              onCancel={() => {
+                                setShiftModalOpen(false);
+                                setEditingShift(null);
+                              }}
+                            >
+                              <Form form={shiftForm} layout="vertical">
+                                <Form.Item name="name" label="Name" rules={[{ required: true }]}>
+                                  <Input placeholder="e.g. Dinner" />
+                                </Form.Item>
+                                <Form.Item
+                                  name="daysOfWeek"
+                                  label="Days"
+                                  rules={[{ required: true, message: 'Select at least one day' }]}
+                                >
+                                  <Select
+                                    mode="multiple"
+                                    options={DAY_NAMES.map((name, index) => ({ label: name, value: index }))}
+                                  />
+                                </Form.Item>
+                                <Form.Item name="startTime" label="Start" extra="24-hour time, e.g. 17:30">
+                                  <Input placeholder="17:30" />
+                                </Form.Item>
+                                <Form.Item name="endTime" label="End" extra="24-hour time, e.g. 22:00">
+                                  <Input placeholder="22:00" />
+                                </Form.Item>
+                                <Form.Item
+                                  name="slotIntervalMinutes"
+                                  label="Slot interval"
+                                  extra="How often new reservation times open"
+                                >
+                                  <InputNumber min={1} addonAfter="min" style={{ width: '100%' }} />
+                                </Form.Item>
+                                <Form.Item
+                                  name="turnTimeMinutes"
+                                  label="Turn time"
+                                  extra="Minutes a party typically occupies a table"
+                                >
+                                  <InputNumber min={1} addonAfter="min" style={{ width: '100%' }} />
+                                </Form.Item>
+                                <Form.Item name="active" label="Active" valuePropName="checked">
+                                  <Switch />
+                                </Form.Item>
+                              </Form>
+                            </Modal>
+                          </Card>
+                        ),
+                      },
+                    ]}
+                  />
                 ),
               },
               {
@@ -857,10 +810,6 @@ function AdminRestaurantDetailContent() {
       </Space>
     </div>
   );
-}
-
-function statusCap(status: string) {
-  return status ? status.charAt(0).toUpperCase() + status.slice(1) : status;
 }
 
 export default function AdminRestaurantDetailPage() {

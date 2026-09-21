@@ -14,6 +14,8 @@ process.env.STRIPE_WEBHOOK_SECRET = '';
 process.env.TELEGRAM_BOT_TOKEN = 'test-telegram-token';
 process.env.AUTH_DEV_OTP = 'true';
 process.env.MONGODB_URI = 'mongodb://placeholder';
+process.env.GOOGLE_CLIENT_ID = '';
+process.env.GOOGLE_CLIENT_SECRET = '';
 
 vi.mock('bullmq', () => ({
   Queue: class MockQueue {

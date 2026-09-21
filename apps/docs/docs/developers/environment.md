@@ -8,6 +8,8 @@ Copy `.env.example` to `.env` at the repo root. Some apps also read local overri
 | Web | `apps/web/.env.local` |
 | Dashboard | `apps/dashboard/.env.local` |
 
+The API loads root `.env` first, then `apps/api/.env`. Non-empty local values win; empty placeholders (from a copied `.env.example`) do not wipe root values. Set `GOOGLE_CLIENT_ID` on the API and the same value as `NEXT_PUBLIC_GOOGLE_CLIENT_ID` on web, or Google sign-in shows the button and then fails with "Google OAuth is not configured".
+
 The super-admin **Developer** page in the dashboard (`/admin/developer`) reads the canonical env registry from `@reservations/shared` and shows configured vs missing vars (secrets masked).
 
 ## Required for local development

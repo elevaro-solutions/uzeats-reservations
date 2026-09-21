@@ -165,12 +165,13 @@ function FloorAreaSelect({ value, onChange, areas, onAddArea }: FloorAreaSelectP
           <Space
             style={{ padding: '0 8px 8px', width: '100%' }}
             orientation="vertical"
-            onMouseDown={(e) => e.preventDefault()}
+            onMouseDown={(e) => e.stopPropagation()}
           >
             <Input
               placeholder="New area name"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
+              onMouseDown={(e) => e.stopPropagation()}
               onKeyDown={(e) => {
                 e.stopPropagation();
                 if (e.key === 'Enter') {
@@ -678,6 +679,7 @@ function FloorPageContent() {
         okText={editingTable ? 'Save table' : 'Add table'}
         centered
         width={520}
+        focusable={{ trap: false }}
         styles={{ body: { maxHeight: 'min(70vh, 560px)', overflowY: 'auto' } }}
       >
         <Form

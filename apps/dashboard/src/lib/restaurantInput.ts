@@ -119,28 +119,94 @@ export function buildRestaurantInput(
   };
 }
 
-export function profileValuesFromRestaurant(restaurant: RestaurantBase): RestaurantProfileFormValues {
+export type RestaurantProfileChangeValues = {
+  description?: string | null;
+  neighborhood?: string | null;
+  categoryIds?: string[];
+  landmarkIds?: string[];
+  diningStyles?: string[];
+  discoveryOccasions?: string[];
+  meals?: string[];
+  dietaryTags?: string[];
+  amenities?: string[];
+  wheelchairAccessible?: boolean;
+  faq?: Array<{ question: string; answer: string }>;
+  featuredIn?: Array<{
+    title: string;
+    description?: string | null;
+    url?: string | null;
+    logoUrl?: string | null;
+  }>;
+  termsAndConditions?: string | null;
+  photos?: string[] | null;
+  logoUrl?: string | null;
+};
+
+export function profileChangeFromForm(
+  values: RestaurantProfileFormValues,
+  photos: string[],
+  logoUrl?: string | null,
+) {
   return {
-    description: restaurant.description ?? '',
-    neighborhood: restaurant.address.neighborhood ?? '',
-    categoryIds: restaurant.categoryIds ?? [],
-    landmarkIds: restaurant.landmarkIds ?? [],
-    diningStyles: restaurant.diningStyles ?? [],
-    discoveryOccasions: restaurant.discoveryOccasions ?? [],
-    meals: restaurant.meals ?? [],
-    dietaryTags: restaurant.dietaryTags ?? [],
-    amenities: restaurant.amenities ?? [],
-    wheelchairAccessible: restaurant.wheelchairAccessible ?? false,
-    faq: (restaurant.faq ?? []).map((item) => ({
+    description: values.description?.trim() || undefined,
+    neighborhood: values.neighborhood?.trim() || undefined,
+    categoryIds: values.categoryIds ?? [],
+    landmarkIds: values.landmarkIds ?? [],
+    diningStyles: values.diningStyles ?? [],
+    discoveryOccasions: values.discoveryOccasions ?? [],
+    meals: values.meals ?? [],
+    dietaryTags: values.dietaryTags ?? [],
+    amenities: values.amenities ?? [],
+    wheelchairAccessible: values.wheelchairAccessible ?? false,
+    faq: (values.faq ?? [])
+      .filter((item) => item.question?.trim() && item.answer?.trim())
+      .map((item) => ({
+        question: item.question.trim(),
+        answer: item.answer.trim(),
+      })),
+    featuredIn: (values.featuredIn ?? [])
+      .filter((item) => item.title?.trim())
+      .map((item) => ({
+        title: item.title.trim(),
+        description: item.description?.trim() || undefined,
+        url: item.url?.trim() || undefined,
+        logoUrl: item.logoUrl?.trim() || undefined,
+      })),
+    termsAndConditions: values.termsAndConditions?.trim() || undefined,
+    photos,
+    logoUrl: logoUrl ?? null,
+  };
+}
+
+export function profileValuesFromChange(profile: RestaurantProfileChangeValues): RestaurantProfileFormValues {
+  return {
+    description: profile.description ?? '',
+    neighborhood: profile.neighborhood ?? '',
+    categoryIds: profile.categoryIds ?? [],
+    landmarkIds: profile.landmarkIds ?? [],
+    diningStyles: profile.diningStyles ?? [],
+    discoveryOccasions: profile.discoveryOccasions ?? [],
+    meals: profile.meals ?? [],
+    dietaryTags: profile.dietaryTags ?? [],
+    amenities: profile.amenities ?? [],
+    wheelchairAccessible: profile.wheelchairAccessible ?? false,
+    faq: (profile.faq ?? []).map((item) => ({
       question: item.question,
       answer: item.answer,
     })),
-    featuredIn: (restaurant.featuredIn ?? []).map((item) => ({
+    featuredIn: (profile.featuredIn ?? []).map((item) => ({
       title: item.title,
       description: item.description ?? '',
       url: item.url ?? '',
       logoUrl: item.logoUrl ?? '',
     })),
-    termsAndConditions: restaurant.termsAndConditions ?? '',
+    termsAndConditions: profile.termsAndConditions ?? '',
   };
+}
+
+export function profileValuesFromRestaurant(restaurant: RestaurantBase): RestaurantProfileFormValues {
+  return profileValuesFromChange({
+    ...restaurant,
+    neighborhood: restaurant.address.neighborhood,
+  });
 }

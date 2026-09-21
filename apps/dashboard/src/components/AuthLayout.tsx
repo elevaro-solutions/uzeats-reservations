@@ -116,7 +116,7 @@ export function AuthLayout({
         placement="right"
         open={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
-        width={300}
+        size={300}
         className="rt-auth-header__drawer"
         styles={{
           body: { padding: '12px 16px 24px', background: colors.brand[600] },

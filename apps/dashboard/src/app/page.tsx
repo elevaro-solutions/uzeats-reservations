@@ -12,6 +12,7 @@ import {
   ClockCircleOutlined,
   DollarOutlined,
   MessageOutlined,
+  PlusOutlined,
   ShopOutlined,
   StarOutlined,
   TeamOutlined,
@@ -26,6 +27,7 @@ import {
   MY_RESTAURANTS,
   MY_SUBSCRIPTION,
 } from '@/lib/graphql';
+import { ADD_RESTAURANT_HREF } from '@/lib/restaurants';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 
 const { Text, Paragraph, Title } = Typography;
@@ -67,7 +69,7 @@ const shortcuts = [
   },
   {
     href: '/floor-ops',
-    title: 'Floor ops',
+    title: 'Live floor',
     desc: 'Seating and table turns',
     icon: <AppstoreOutlined />,
   },
@@ -152,8 +154,10 @@ export default function OverviewPage() {
             description="Add your first venue to start taking reservations — or import from DoorDash / Uber Eats."
             action={
               canAdd ? (
-                <Link href="/restaurants">
-                  <Button type="primary">Go to My restaurants</Button>
+                <Link href={ADD_RESTAURANT_HREF}>
+                  <Button type="primary" icon={<PlusOutlined />}>
+                    Add restaurant
+                  </Button>
                 </Link>
               ) : undefined
             }
@@ -174,9 +178,18 @@ export default function OverviewPage() {
               : "Today's service snapshot"
           }
           extra={
-            <Link href="/restaurants">
-              <Button icon={<ShopOutlined />}>My restaurants</Button>
-            </Link>
+            <Space wrap>
+              {canAdd && (
+                <Link href={ADD_RESTAURANT_HREF}>
+                  <Button type="primary" icon={<PlusOutlined />}>
+                    Add restaurant
+                  </Button>
+                </Link>
+              )}
+              <Link href="/restaurants">
+                <Button icon={<ShopOutlined />}>My restaurants</Button>
+              </Link>
+            </Space>
           }
         />
 

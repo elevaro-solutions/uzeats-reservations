@@ -28,6 +28,7 @@ import { EmptyState, PageHeader, StatusTag, colors, radii, spacing, typography }
 import { useAuth } from '@/lib/auth';
 import { isPlatformAdmin } from '@/lib/roles';
 import { MY_RESTAURANTS } from '@/lib/graphql';
+import { ADD_RESTAURANT_HREF } from '@/lib/restaurants';
 import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
 import {
   getOnboardingProgress,
@@ -84,7 +85,7 @@ export default function OnboardingPage() {
             title="No restaurants yet"
             description="Add your first venue to begin the setup guide."
             action={
-              <Button type="primary" onClick={() => router.push('/')}>
+              <Button type="primary" onClick={() => router.push(ADD_RESTAURANT_HREF)}>
                 Add restaurant
               </Button>
             }

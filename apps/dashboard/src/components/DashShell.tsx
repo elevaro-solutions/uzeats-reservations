@@ -17,79 +17,59 @@ import {
   message,
   Drawer,
   Tooltip,
+  Divider,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
-  AppstoreOutlined,
-  BarChartOutlined,
-  CalendarOutlined,
   DollarOutlined,
   SettingOutlined,
-  TableOutlined,
-  ClockCircleOutlined,
   SafetyOutlined,
-  TeamOutlined,
-  AuditOutlined,
   LogoutOutlined,
-  ContactsOutlined,
-  MessageOutlined,
-  MailOutlined,
-  StarOutlined,
-  FileTextOutlined,
-  LayoutOutlined,
-  RocketOutlined,
-  GiftOutlined,
   ShopOutlined,
   BellOutlined,
   UserOutlined,
-  IdcardOutlined,
   CheckOutlined,
   FileDoneOutlined,
-  FundOutlined,
   ControlOutlined,
-  TagOutlined,
-  TrophyOutlined,
-  CustomerServiceOutlined,
-  WarningOutlined,
-  FlagOutlined,
-  DownloadOutlined,
-  DashboardOutlined,
-  CompassOutlined,
-  CodeOutlined,
-  ToolOutlined,
   EyeOutlined,
-  BookOutlined,
   MenuOutlined,
-  LinkOutlined,
+  PlusOutlined,
 } from '@ant-design/icons';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { buildRestaurantBookingUrl } from '@reservations/shared';
 import { TableveraWordmark, colors, radii, spacing, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import {
+  ADMIN_PENDING_REQUEST_COUNTS,
   MARK_ALL_NOTIFICATIONS_READ,
   MARK_NOTIFICATIONS_READ,
   MY_NOTIFICATIONS,
   MY_RESTAURANTS,
+  MY_RESTAURANT_PROFILE_CHANGE_REQUEST,
 } from '@/lib/graphql';
 import {
+  ADD_RESTAURANT_HREF,
   MANY_LOCATIONS_THRESHOLD,
   buildRestaurantSelectOptions,
   restaurantSelectFilterOption,
   validatedRestaurantId,
 } from '@/lib/restaurants';
 import { getOnboardingProgress, getOnboardingSteps } from '@/lib/onboarding';
+import {
+  adminSiderPages,
+  groupPagesForMenu,
+  partnerSiderPages,
+} from '@/lib/dashboardNav';
+import {
+  DashboardSearch,
+  DashboardSearchTrigger,
+  useDashboardSearchHotkey,
+} from '@/components/DashboardSearch';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
-
-type NavChild = {
-  key: string;
-  icon: React.ReactNode;
-  label: React.ReactNode;
-};
 
 type AppNotification = {
   id: string;
@@ -101,12 +81,17 @@ type AppNotification = {
   createdAt: string;
 };
 
-function navLink(href: string, label: string) {
-  return <Link href={href}>{label}</Link>;
+function navLink(href: string, label: string, count?: number) {
+  return (
+    <Link href={href} className="rt-dash-nav-link">
+      <span>{label}</span>
+      {count ? <Badge count={count} size="small" overflowCount={99} /> : null}
+    </Link>
+  );
 }
 
-function item(key: string, icon: React.ReactNode, label: string): NavChild {
-  return { key, icon, label: navLink(key, label) };
+function menuItem(href: string, icon: React.ReactNode, label: string, count?: number) {
+  return { key: href, icon, label: navLink(href, label, count) };
 }
 
 const SETTINGS_PREFIXES = [
@@ -206,7 +191,7 @@ function formatRelativeTime(iso: string) {
 }
 
 import { getPublicWebUrl } from '@/lib/webUrl';
-import { isPlatformAdmin, isSuperAdmin } from '@/lib/roles';
+import { canCreateRestaurant, isPlatformAdmin, isSuperAdmin } from '@/lib/roles';
 
 const PARTNER_ROLES = new Set(['restaurant_owner', 'staff', 'admin', 'super_admin']);
 
@@ -223,6 +208,10 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   const [restaurantId, setRestaurantId] = useState<string>();
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [restaurantSelectOpen, setRestaurantSelectOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const toggleSearch = useCallback(() => setSearchOpen((open) => !open), []);
+  useDashboardSearchHotkey(toggleSearch);
   const { data: restaurantsData, refetch: refetchRestaurants } = useQuery(MY_RESTAURANTS, {
     skip: !user || isAdmin || !isPartner,
     fetchPolicy: 'cache-and-network',
@@ -234,6 +223,15 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   } = useQuery(MY_NOTIFICATIONS, {
     skip: !user || (user.role === 'diner' && !isImpersonating),
     variables: { limit: 20 },
+    pollInterval: 60_000,
+  });
+  const { data: pendingRequestCounts } = useQuery(ADMIN_PENDING_REQUEST_COUNTS, {
+    skip: !isAdmin,
+    pollInterval: 60_000,
+  });
+  const { data: profileRequestData } = useQuery(MY_RESTAURANT_PROFILE_CHANGE_REQUEST, {
+    skip: !user || isAdmin || !restaurantId,
+    variables: { restaurantId },
     pollInterval: 60_000,
   });
   const [markRead] = useMutation(MARK_NOTIFICATIONS_READ, {
@@ -286,6 +284,8 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setMobileNavOpen(false);
     setNotifOpen(false);
+    setRestaurantSelectOpen(false);
+    setSearchOpen(false);
   }, [pathname]);
 
   const selectedKey = useMemo(() => {
@@ -346,134 +346,77 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     Boolean(activeRestaurant) &&
     (activeRestaurant as { status?: string }).status !== 'approved';
 
+  const onboardingSteps = activeRestaurant ? getOnboardingSteps(activeRestaurant) : [];
+  const onboardingProgress = getOnboardingProgress(onboardingSteps);
+  const pendingSlugRequests = pendingRequestCounts?.adminPendingRequestCounts?.slugRequests ?? 0;
+  const pendingProfileRequests =
+    pendingRequestCounts?.adminPendingRequestCounts?.profileChangeRequests ?? 0;
+  const ownerPendingProfile =
+    profileRequestData?.myRestaurantProfileChangeRequest?.status === 'pending' ? 1 : 0;
+
+  const items = useMemo(() => {
+    const badgeByHref: Record<string, number> = {
+      '/profile': ownerPendingProfile,
+      '/admin/slug-requests': pendingSlugRequests,
+      '/admin/profile-requests': pendingProfileRequests,
+    };
+    const pages = isAdmin
+      ? adminSiderPages({ isSuperAdmin: isSuperAdminUser })
+      : partnerSiderPages({ showOnboarding: onboardingProgress.showOnboarding });
+    return groupPagesForMenu(pages).map((group) => ({
+      type: 'group' as const,
+      label: group.label,
+      children: group.children.map((p) =>
+        menuItem(p.href, p.icon, p.label, badgeByHref[p.href] || undefined),
+      ),
+    }));
+  }, [
+    isAdmin,
+    isSuperAdminUser,
+    onboardingProgress.showOnboarding,
+    ownerPendingProfile,
+    pendingSlugRequests,
+    pendingProfileRequests,
+  ]);
+
+  const switchRestaurant = useCallback(
+    (id: string) => {
+      setRestaurantId(id);
+      localStorage.setItem('activeRestaurantId', id);
+      window.dispatchEvent(new CustomEvent('rt-restaurant-change', { detail: id }));
+      const params = new URLSearchParams(searchParams.toString());
+      if (restaurants.length > 1) params.set('restaurant', id);
+      else params.delete('restaurant');
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, restaurants.length, router, searchParams],
+  );
+
   if (!user || (user.role === 'diner' && !isImpersonating)) {
     return <>{children}</>;
   }
 
   const restaurantSelectOptions = buildRestaurantSelectOptions(restaurants);
+  const canAddRestaurant = Boolean(user && canCreateRestaurant(user.role));
+  const goAddRestaurant = () => {
+    setRestaurantSelectOpen(false);
+    if (pathname === '/restaurants') {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('create', '1');
+      router.push(`/restaurants?${params.toString()}`);
+      return;
+    }
+    router.push(ADD_RESTAURANT_HREF);
+  };
   const notifications: AppNotification[] = notifData?.myNotifications?.items ?? [];
   const unreadCount: number = notifData?.unreadNotificationCount ?? 0;
-  const onboardingSteps = activeRestaurant ? getOnboardingSteps(activeRestaurant) : [];
-  const onboardingProgress = getOnboardingProgress(onboardingSteps);
   const showOnboardingBanner =
     !isAdmin &&
     isPartner &&
     activeRestaurant &&
     onboardingProgress.showOnboarding &&
     pathname !== '/onboarding';
-
-  const partnerItems = [
-    {
-      type: 'group' as const,
-      label: 'Service',
-      children: [
-        item('/', <DashboardOutlined />, 'Overview'),
-        item('/restaurants', <ShopOutlined />, 'My restaurants'),
-        item('/reservations', <CalendarOutlined />, 'Reservations'),
-        item('/waitlist', <ClockCircleOutlined />, 'Waitlist'),
-        item('/floor-ops', <AppstoreOutlined />, 'Floor ops'),
-        item('/floor-plan', <LayoutOutlined />, 'Floor plan'),
-        item('/floor', <TableOutlined />, 'Tables & shifts'),
-      ],
-    },
-    {
-      type: 'group' as const,
-      label: 'Guests',
-      children: [
-        item('/guests', <ContactsOutlined />, 'Guests'),
-        item('/loyalty', <TrophyOutlined />, 'Loyalty'),
-        item('/messages', <MessageOutlined />, 'Messages'),
-        item('/reviews', <StarOutlined />, 'Reviews'),
-      ],
-    },
-    {
-      type: 'group' as const,
-      label: 'Grow',
-      children: [
-        item('/marketing', <RocketOutlined />, 'Marketing'),
-        item('/profile', <ShopOutlined />, 'Public profile'),
-        item('/booking-widget', <CodeOutlined />, 'Booking widget'),
-        item('/campaigns', <MailOutlined />, 'Campaigns'),
-        item('/experiences', <GiftOutlined />, 'Experiences'),
-        item('/packages', <ShopOutlined />, 'Packages'),
-        item('/private-dining', <TeamOutlined />, 'Private dining'),
-      ],
-    },
-    {
-      type: 'group' as const,
-      label: 'Insights',
-      children: [
-        item('/analytics', <BarChartOutlined />, 'Analytics'),
-        item('/reports', <FileTextOutlined />, 'Reports'),
-      ],
-    },
-    {
-      type: 'group' as const,
-      label: 'Account',
-      children: [
-        ...(onboardingProgress.showOnboarding
-          ? [item('/onboarding', <CompassOutlined />, 'Get started')]
-          : []),
-        item('/settings', <SettingOutlined />, 'Settings'),
-        item('/billing', <DollarOutlined />, 'Billing'),
-      ],
-    },
-  ];
-
-  const adminItems = [
-    {
-      type: 'group' as const,
-      label: 'Accounts',
-      children: [
-        item('/admin/diners', <UserOutlined />, 'Diners'),
-        item('/admin/owners', <IdcardOutlined />, 'Restaurant owners'),
-        item('/admin/staff', <TeamOutlined />, 'Staff'),
-        item('/admin/users', <SafetyOutlined />, 'Platform users'),
-      ],
-    },
-    {
-      type: 'group' as const,
-      label: 'Support',
-      children: [
-        item('/admin', <SafetyOutlined />, 'Overview'),
-        item('/admin/restaurants', <ShopOutlined />, 'Restaurants'),
-        item('/admin/slug-requests', <LinkOutlined />, 'URL slugs'),
-        item('/admin/support', <CustomerServiceOutlined />, 'Tickets'),
-        item('/admin/moderation', <FlagOutlined />, 'Moderation'),
-      ],
-    },
-    {
-      type: 'group' as const,
-      label: 'Billing',
-      children: [
-        item('/admin/invoices', <FileDoneOutlined />, 'Invoices'),
-        item('/admin/revenue', <FundOutlined />, 'Revenue'),
-        item('/admin/loyalty', <TrophyOutlined />, 'Loyalty'),
-        item('/admin/churn', <WarningOutlined />, 'Churn alerts'),
-        item('/admin/pricing', <TagOutlined />, 'Plans & pricing'),
-        item('/admin/services', <AppstoreOutlined />, 'Services'),
-        item('/admin/exports', <DownloadOutlined />, 'CSV exports'),
-      ],
-    },
-    {
-      type: 'group' as const,
-      label: 'Platform',
-      children: [
-        item('/admin/config', <ControlOutlined />, 'Configuration'),
-        item('/admin/discovery', <CompassOutlined />, 'Discovery'),
-        item('/admin/blog', <FileTextOutlined />, 'Blog'),
-        item('/admin/docs-access', <BookOutlined />, 'Docs access'),
-        item('/admin/templates', <MailOutlined />, 'Email templates'),
-        item('/admin/sla', <DashboardOutlined />, 'SLA metrics'),
-        item('/admin/audit', <AuditOutlined />, 'Audit logs'),
-        ...(isSuperAdminUser
-          ? [item('/admin/developer', <ToolOutlined />, 'Developer')]
-          : []),
-      ],
-    },
-  ];
-
-  const items = isAdmin ? adminItems : partnerItems;
 
   const profileMenu: MenuProps['items'] = [
     {
@@ -739,23 +682,53 @@ export function DashShell({ children }: { children: React.ReactNode }) {
                   placeholder="Select restaurant"
                   className="rt-dash-restaurant-select"
                   value={activeRestaurantId}
-                  onChange={(id) => {
-                    setRestaurantId(id);
-                    localStorage.setItem('activeRestaurantId', id);
-                    window.dispatchEvent(new CustomEvent('rt-restaurant-change', { detail: id }));
-                    const params = new URLSearchParams(searchParams.toString());
-                    if (restaurants.length > 1) params.set('restaurant', id);
-                    else params.delete('restaurant');
-                    const qs = params.toString();
-                    const nextUrl = qs ? `${pathname}?${qs}` : pathname;
-                    router.replace(nextUrl, { scroll: false });
-                  }}
+                  onChange={switchRestaurant}
                   options={restaurantSelectOptions}
                   showSearch={restaurants.length >= MANY_LOCATIONS_THRESHOLD}
                   filterOption={restaurantSelectFilterOption}
                   variant="borderless"
                   popupMatchSelectWidth={320}
+                  open={restaurantSelectOpen}
+                  onOpenChange={setRestaurantSelectOpen}
+                  popupRender={
+                    canAddRestaurant
+                      ? (menu) => (
+                          <>
+                            {menu}
+                            <Divider style={{ margin: '8px 0' }} />
+                            <div
+                              className="rt-dash-restaurant-select-footer"
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                            >
+                              <Button
+                                type="text"
+                                icon={<PlusOutlined />}
+                                block
+                                onClick={goAddRestaurant}
+                              >
+                                Add restaurant
+                              </Button>
+                            </div>
+                          </>
+                        )
+                      : undefined
+                  }
                 />
+                {canAddRestaurant && (
+                  <Tooltip title="Add restaurant">
+                    <Button
+                      type="text"
+                      size="small"
+                      className="rt-dash-add-restaurant"
+                      icon={<PlusOutlined />}
+                      aria-label="Add restaurant"
+                      onClick={goAddRestaurant}
+                    />
+                  </Tooltip>
+                )}
                 {dinerPageUrl && (
                   <Button
                     type="default"
@@ -786,6 +759,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
             )}
           </div>
           <div className="rt-dash-header__end">
+            <DashboardSearchTrigger onClick={() => setSearchOpen(true)} />
             <Dropdown
               trigger={['click']}
               open={notifOpen}
@@ -909,6 +883,14 @@ export function DashShell({ children }: { children: React.ReactNode }) {
         styles={{ body: { padding: 0 } }}
         title={<TableveraWordmark iconSize={26} />}
       >
+        <div className="rt-dash-nav-drawer__search">
+          <DashboardSearchTrigger
+            onClick={() => {
+              setMobileNavOpen(false);
+              setSearchOpen(true);
+            }}
+          />
+        </div>
         <Menu
           mode="inline"
           selectedKeys={[selectedKey]}
@@ -917,6 +899,19 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           style={{ border: 'none', paddingBlock: 8, background: 'transparent' }}
         />
       </Drawer>
+      <DashboardSearch
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        isAdmin={isAdmin}
+        showOnboarding={onboardingProgress.showOnboarding}
+        isSuperAdmin={isSuperAdminUser}
+        restaurants={restaurants.map((r: { id: string; name: string; city?: string | null }) => ({
+          id: r.id,
+          name: r.name,
+          city: r.city,
+        }))}
+        onSelectRestaurant={switchRestaurant}
+      />
     </div>
   );
 }

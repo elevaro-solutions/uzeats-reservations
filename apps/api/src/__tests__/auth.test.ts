@@ -2,7 +2,8 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 import mongoose from 'mongoose';
 import request from 'supertest';
 import { createTestApp, graphqlRequest, registerUser, loginUser } from './helpers.js';
-import { hashOpaqueToken } from '../services/auth.js';
+import { hashOpaqueToken, hashPassword } from '../services/auth.js';
+import { User } from '../models/User.js';
 import crypto from 'node:crypto';
 
 describe('Authentication (E2E)', () => {
@@ -362,6 +363,53 @@ describe('Authentication (E2E)', () => {
 
       expect(res.body.errors).toBeDefined();
       expect(res.body.errors[0].message).toMatch(/invalid or expired/i);
+    });
+  });
+
+  describe('Demo email equivalents', () => {
+    it('logs in as a@tablevera.local when the stored super admin is still admin@tablevera.local', async () => {
+      await User.create({
+        email: 'admin@tablevera.local',
+        passwordHash: await hashPassword('Password123!'),
+        firstName: 'Platform',
+        lastName: 'Admin',
+        role: 'super_admin',
+        emailVerified: true,
+      });
+
+      const res = await graphqlRequest(
+        agent,
+        `mutation Login($input: LoginInput!) {
+          login(input: $input) { accessToken user { id email role } }
+        }`,
+        { input: { email: 'a@tablevera.local', password: 'Password123!' } },
+      );
+
+      expect(res.body.errors).toBeUndefined();
+      expect(res.body.data.login.user.email).toBe('admin@tablevera.local');
+      expect(res.body.data.login.user.role).toBe('super_admin');
+    });
+
+    it('tells Google-only accounts to use Google sign-in instead of invalid credentials', async () => {
+      await User.create({
+        email: 'google-only@test.com',
+        googleId: 'google-sub-123',
+        firstName: 'Google',
+        lastName: 'User',
+        role: 'diner',
+        emailVerified: true,
+      });
+
+      const res = await graphqlRequest(
+        agent,
+        `mutation Login($input: LoginInput!) {
+          login(input: $input) { accessToken user { id email role } }
+        }`,
+        { input: { email: 'google-only@test.com', password: 'Password123!' } },
+      );
+
+      expect(res.body.errors).toBeDefined();
+      expect(res.body.errors[0].message).toMatch(/google sign-in/i);
     });
   });
 });

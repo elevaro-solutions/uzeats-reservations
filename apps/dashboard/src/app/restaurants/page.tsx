@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { NetworkStatus } from '@apollo/client';
 import { useQuery, useMutation } from '@/lib/apollo-hooks';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Button,
   Card,
@@ -190,6 +190,7 @@ function toPlanOption(
 export default function MyRestaurantsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [createRestaurant, { loading: creating }] = useMutation(CREATE_RESTAURANT);
   const [upsertMenu] = useMutation(UPSERT_MENU);
   const [showCreate, setShowCreate] = useState(false);
@@ -253,6 +254,12 @@ export default function MyRestaurantsPage() {
     setPendingImportedMenuSections([]);
     pendingImportDataRef.current = null;
     lastGeocodedCreateAddressRef.current = '';
+    if (searchParams.get('create')) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('create');
+      const qs = params.toString();
+      router.replace(qs ? `/restaurants?${qs}` : '/restaurants', { scroll: false });
+    }
   };
 
   const openCreateForm = (step = 0) => {
@@ -534,7 +541,13 @@ export default function MyRestaurantsPage() {
   const matchingTotal = connection?.total ?? 0;
   const totalLocations = metaData?.myRestaurantLocationsMeta?.total ?? matchingTotal;
   const canAddLocation = Boolean(user && canCreateRestaurant(user.role));
+  const createRequested = searchParams.get('create') === '1';
   const showLocationFilters = totalLocations >= MANY_LOCATIONS_THRESHOLD;
+
+  useEffect(() => {
+    if (!canAddLocation || !createRequested) return;
+    setShowCreate(true);
+  }, [canAddLocation, createRequested]);
 
   const cityOptions = useMemo(
     () =>
@@ -1246,7 +1259,7 @@ export default function MyRestaurantsPage() {
                           style={{ color: isInactive ? undefined : colors.brand[600], paddingInline: 4 }}
                           onClick={() => navigateToRestaurant(r.id, '/floor-plan')}
                         >
-                          Floor
+                          Layout
                         </Button>
                         <Button
                           type="link"
@@ -1292,7 +1305,7 @@ export default function MyRestaurantsPage() {
                           style={{ color: isInactive ? undefined : colors.brand[600] }}
                           onClick={() => navigateToRestaurant(r.id, '/floor-plan')}
                         >
-                          Floor
+                          Layout
                         </Button>,
                         <Button
                           key="settings"

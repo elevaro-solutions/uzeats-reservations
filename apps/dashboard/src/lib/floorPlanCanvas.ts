@@ -1,5 +1,6 @@
 export const FLOOR_GRID_COLS = 24;
 export const FLOOR_GRID_ROWS = 16;
+export const DEFAULT_CELL_SIZE = 40;
 export const MIN_CELL_SIZE = 18;
 export const MAX_CELL_SIZE = 52;
 
@@ -13,7 +14,7 @@ export type TableLayout = {
 };
 
 export function cellSizeForWidth(containerWidth: number, cols = FLOOR_GRID_COLS): number {
-  if (containerWidth <= 0) return 40;
+  if (containerWidth <= 0) return DEFAULT_CELL_SIZE;
   return Math.max(MIN_CELL_SIZE, Math.min(MAX_CELL_SIZE, Math.floor(containerWidth / cols)));
 }
 

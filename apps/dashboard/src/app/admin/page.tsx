@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useQuery } from '@/lib/apollo-hooks';
-import { Button, Card, Col, Row, Space, Statistic, Typography } from 'antd';
+import { Badge, Button, Card, Col, Row, Space, Statistic, Typography } from 'antd';
 import {
   AppstoreOutlined,
+  CalendarOutlined,
   FileDoneOutlined,
   FundOutlined,
   ShopOutlined,
@@ -58,10 +59,24 @@ const shortcuts = [
     icon: <ShopOutlined />,
   },
   {
+    href: '/admin/reservations',
+    title: 'Reservations',
+    desc: 'All bookings across restaurants',
+    icon: <CalendarOutlined />,
+  },
+  {
     href: '/admin/slug-requests',
     title: 'URL slugs',
     desc: 'Owner requests to change public booking URLs',
     icon: <ShopOutlined />,
+    countKey: 'pendingSlugRequests' as const,
+  },
+  {
+    href: '/admin/profile-requests',
+    title: 'Public profile',
+    desc: 'Owner requests to change diner-facing restaurant pages',
+    icon: <ShopOutlined />,
+    countKey: 'pendingProfileChangeRequests' as const,
   },
   {
     href: '/admin/invoices',
@@ -169,6 +184,20 @@ export default function AdminOverviewPage() {
           </Card>
         </Col>
         <Col xs={12} md={6}>
+          <Link href="/admin/profile-requests">
+            <Card hoverable>
+              <Statistic title="Profile requests" value={s?.pendingProfileChangeRequests ?? 0} />
+            </Card>
+          </Link>
+        </Col>
+        <Col xs={12} md={6}>
+          <Link href="/admin/slug-requests">
+            <Card hoverable>
+              <Statistic title="URL slug requests" value={s?.pendingSlugRequests ?? 0} />
+            </Card>
+          </Link>
+        </Col>
+        <Col xs={12} md={6}>
           <Card>
             <Statistic title="Open invoices" value={s?.openInvoices ?? 0} />
           </Card>
@@ -184,9 +213,11 @@ export default function AdminOverviewPage() {
           </Card>
         </Col>
         <Col xs={12} md={6}>
-          <Card>
-            <Statistic title="Reservations" value={s?.reservations ?? 0} />
-          </Card>
+          <Link href="/admin/reservations">
+            <Card hoverable>
+              <Statistic title="Reservations" value={s?.reservations ?? 0} />
+            </Card>
+          </Link>
         </Col>
       </Row>
 
@@ -202,6 +233,12 @@ export default function AdminOverviewPage() {
                 <Text style={{ fontSize: 20, color: colors.brand[600] }}>{item.icon}</Text>
                 <Text strong style={{ fontSize: 16 }}>
                   {item.title}
+                  {'countKey' in item && item.countKey && s?.[item.countKey] ? (
+                    <>
+                      {' '}
+                      <Badge count={s[item.countKey]} size="small" overflowCount={99} />
+                    </>
+                  ) : null}
                 </Text>
                 <Paragraph type="secondary" style={{ marginBottom: 12 }}>
                   {item.desc}

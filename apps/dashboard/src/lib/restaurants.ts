@@ -1,6 +1,9 @@
 /** Show search/filter UI once an owner has this many locations. */
 export const MANY_LOCATIONS_THRESHOLD = 6;
 
+/** Opens the partner "Add restaurant" create flow on My restaurants. */
+export const ADD_RESTAURANT_HREF = '/restaurants?create=1';
+
 export type OwnerRestaurant = {
   id: string;
   name: string;

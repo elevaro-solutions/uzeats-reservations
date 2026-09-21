@@ -4,11 +4,18 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
-import { Button, Card, Divider, Form, Select, Space, Spin, Typography, message } from 'antd';
+import { Alert, Button, Card, Divider, Form, Input, Select, Space, Spin, Tag, Typography, message } from 'antd';
 import { ArrowRightOutlined, ImportOutlined, ReadOutlined } from '@ant-design/icons';
 import { PageHeader, colors, radii, spacing } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
-import { MY_RESTAURANTS, RESTAURANT_PROFILE, UPDATE_RESTAURANT, UPSERT_MENU } from '@/lib/graphql';
+import {
+  CANCEL_RESTAURANT_PROFILE_CHANGE_REQUEST,
+  MY_RESTAURANTS,
+  MY_RESTAURANT_PROFILE_CHANGE_REQUEST,
+  REQUEST_RESTAURANT_PROFILE_CHANGE,
+  RESTAURANT_PROFILE,
+  UPSERT_MENU,
+} from '@/lib/graphql';
 import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
 import PhotoUpload from '@/components/PhotoUpload';
 import { RestaurantProfileFields } from '@/components/RestaurantProfileFields';
@@ -17,17 +24,55 @@ import { applyRestaurantImportToForm } from '@/lib/applyRestaurantImport';
 import { buildMenuSectionsFromImport } from '@/lib/importedMenu';
 import { uploadImportedMenuImageToSpaces } from '@/lib/importMenuImages';
 import {
-  buildRestaurantInput,
+  profileChangeFromForm,
+  profileValuesFromChange,
   profileValuesFromRestaurant,
   type RestaurantProfileFormValues,
 } from '@/lib/restaurantInput';
 
 const { Text } = Typography;
 
+const STATUS_COLORS: Record<string, string> = {
+  pending: 'gold',
+  approved: 'green',
+  denied: 'red',
+};
+
+type ProfileChangeSnapshot = {
+  description?: string | null;
+  neighborhood?: string | null;
+  categoryIds?: string[];
+  landmarkIds?: string[];
+  diningStyles?: string[];
+  discoveryOccasions?: string[];
+  meals?: string[];
+  dietaryTags?: string[];
+  amenities?: string[];
+  wheelchairAccessible?: boolean;
+  faq?: Array<{ question: string; answer: string }>;
+  featuredIn?: Array<{
+    title: string;
+    description?: string | null;
+    url?: string | null;
+    logoUrl?: string | null;
+  }>;
+  termsAndConditions?: string | null;
+  photos?: string[];
+  logoUrl?: string | null;
+};
+
+type ProfileChangeRequest = {
+  id: string;
+  reason?: string | null;
+  status: 'pending' | 'approved' | 'denied';
+  notes?: string | null;
+  proposed: ProfileChangeSnapshot;
+};
+
 export default function ProfilePage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [form] = Form.useForm<RestaurantProfileFormValues>();
+  const [form] = Form.useForm<RestaurantProfileFormValues & { reason?: string }>();
   const [photos, setPhotos] = useState<string[]>([]);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
@@ -43,11 +88,20 @@ export default function ProfilePage() {
     skip: !restaurantId,
     variables: { id: restaurantId },
   });
+  const { data: requestData, refetch: refetchRequest } = useQuery(MY_RESTAURANT_PROFILE_CHANGE_REQUEST, {
+    skip: !restaurantId,
+    variables: { restaurantId },
+  });
 
-  const [updateRestaurant, { loading: saving }] = useMutation(UPDATE_RESTAURANT);
+  const [requestChange, { loading: saving }] = useMutation(REQUEST_RESTAURANT_PROFILE_CHANGE);
+  const [cancelRequest, { loading: cancelling }] = useMutation(CANCEL_RESTAURANT_PROFILE_CHANGE_REQUEST);
   const [upsertMenu] = useMutation(UPSERT_MENU);
 
   const restaurant = profileData?.restaurant;
+  const request = requestData?.myRestaurantProfileChangeRequest as ProfileChangeRequest | null | undefined;
+  const pending = request?.status === 'pending' ? request : null;
+  const latestDenied =
+    request?.status === 'denied' && request.notes !== 'Cancelled by restaurant' ? request : null;
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -55,24 +109,35 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!restaurant) return;
-    form.setFieldsValue(profileValuesFromRestaurant(restaurant));
-    setPhotos(restaurant.photos ?? []);
-    setLogoUrl(restaurant.logoUrl ?? null);
-  }, [restaurant, form]);
+    const source = pending?.proposed;
+    form.setFieldsValue({
+      ...(source ? profileValuesFromChange(source) : profileValuesFromRestaurant(restaurant)),
+      reason: pending?.reason ?? '',
+    });
+    setPhotos(source?.photos ?? restaurant.photos ?? []);
+    setLogoUrl(source?.logoUrl ?? restaurant.logoUrl ?? null);
+  }, [restaurant, pending, form]);
 
-  const handleSave = async (values: RestaurantProfileFormValues) => {
+  const handleSave = async (values: RestaurantProfileFormValues & { reason?: string }) => {
     if (!restaurant) return;
     try {
-      await updateRestaurant({
+      await requestChange({
         variables: {
-          id: restaurant.id,
-          input: buildRestaurantInput(restaurant, values, photos, logoUrl),
+          input: {
+            restaurantId: restaurant.id,
+            profile: profileChangeFromForm(values, photos, logoUrl),
+            reason: values.reason?.trim() || undefined,
+          },
         },
       });
-      message.success('Public profile updated');
-      refetch();
+      message.success(
+        pending
+          ? 'Profile change request updated. We will review it shortly.'
+          : 'Profile change requested. We will review it shortly.',
+      );
+      await Promise.all([refetch(), refetchRequest()]);
     } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : 'Failed to update profile');
+      message.error(err instanceof Error ? err.message : 'Failed to request profile change');
     }
   };
 
@@ -137,7 +202,7 @@ export default function ProfilePage() {
     requestAnimationFrame(() => {
       form.scrollToField('description', { behavior: 'smooth', block: 'center' });
     });
-    message.success(`Imported "${data.name ?? 'restaurant'}" — confirm the address, then save.`);
+    message.success(`Imported "${data.name ?? 'restaurant'}" — confirm the details, then request review.`);
   };
 
   if (listLoading || authLoading) {
@@ -148,7 +213,7 @@ export default function ProfilePage() {
     <Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Public profile"
-        subtitle="Manage what diners see on your restaurant page — photos, features, FAQ, and press mentions"
+        subtitle="Request diner-facing updates — photos, features, FAQ, and press mentions go live after a Tablevera review"
         extra={
           <Space wrap>
             <Button icon={<ImportOutlined />} onClick={() => setShowImport(true)}>
@@ -196,6 +261,40 @@ export default function ProfilePage() {
         <Spin size="large" style={{ display: 'block', margin: '40px auto' }} />
       ) : restaurant ? (
         <Card className="rt-surface-card" styles={{ body: { padding: spacing.lg } }} style={{ borderRadius: radii.lg }}>
+          {pending && (
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: spacing.md }}
+              message={
+                <Space wrap>
+                  <Tag color={STATUS_COLORS.pending}>Pending review</Tag>
+                  <Text>Diners still see the current live profile until an admin approves this request.</Text>
+                  <Button
+                    size="small"
+                    loading={cancelling}
+                    onClick={async () => {
+                      await cancelRequest({ variables: { id: pending.id } });
+                      message.success('Request cancelled');
+                      form.setFieldValue('reason', '');
+                      await refetchRequest();
+                    }}
+                  >
+                    Cancel request
+                  </Button>
+                </Space>
+              }
+            />
+          )}
+          {latestDenied && !pending && (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: spacing.md }}
+              message={`Last request was declined${latestDenied.notes ? `: ${latestDenied.notes}` : '.'}`}
+            />
+          )}
+
           <Form form={form} layout="vertical" onFinish={handleSave}>
             <div style={{ marginBottom: spacing.md }}>
               <Text strong style={{ display: 'block', marginBottom: 4 }}>
@@ -227,9 +326,17 @@ export default function ProfilePage() {
 
             <RestaurantProfileFields />
 
+            <Form.Item
+              name="reason"
+              label="Reason (optional)"
+              extra="A short note helps the reviewer understand what changed."
+            >
+              <Input.TextArea rows={2} maxLength={500} placeholder="Why should this public profile change?" />
+            </Form.Item>
+
             <div style={{ marginTop: spacing.lg }}>
               <Button type="primary" htmlType="submit" loading={saving} size="large">
-                Save public profile
+                {pending ? 'Update request' : 'Request profile change'}
               </Button>
             </div>
           </Form>

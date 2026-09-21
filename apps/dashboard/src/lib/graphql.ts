@@ -325,9 +325,20 @@ export const ADMIN_STATS = gql`
       restaurants
       reservations
       pendingRestaurants
+      pendingSlugRequests
+      pendingProfileChangeRequests
       mrrCents
       activeSubscriptions
       openInvoices
+    }
+  }
+`;
+
+export const ADMIN_PENDING_REQUEST_COUNTS = gql`
+  query AdminPendingRequestCounts {
+    adminPendingRequestCounts {
+      slugRequests
+      profileChangeRequests
     }
   }
 `;
@@ -643,6 +654,62 @@ export const ADMIN_USER_RESERVATIONS = gql`
         depositAmountCents
         restaurant { id name }
       }
+    }
+  }
+`;
+
+export const ADMIN_RESERVATIONS = gql`
+  query AdminReservations(
+    $restaurantId: ID
+    $status: ReservationStatus
+    $period: ReservationDatePeriod
+    $date: String
+    $search: String
+    $source: ReservationSource
+    $limit: Int
+    $offset: Int
+  ) {
+    adminReservations(
+      restaurantId: $restaurantId
+      status: $status
+      period: $period
+      date: $date
+      search: $search
+      source: $source
+      limit: $limit
+      offset: $offset
+    ) {
+      total
+      items {
+        id
+        restaurantId
+        dinerId
+        partySize
+        slotStart
+        slotEnd
+        status
+        occasion
+        guestNotes
+        source
+        tableIds
+        depositAmountCents
+        depositStatus
+        experienceTitle
+        packageTitle
+        privateDiningSpaceName
+        createdAt
+        diner { id firstName lastName phone email }
+        restaurant { id name }
+        tables { id name floorArea }
+      }
+    }
+  }
+`;
+
+export const ADMIN_RESTAURANT_NAMES = gql`
+  query AdminRestaurantNames($search: String, $limit: Int) {
+    adminRestaurants(search: $search, limit: $limit, offset: 0) {
+      items { id name }
     }
   }
 `;
@@ -3265,4 +3332,134 @@ export const REVIEW_RESTAURANT_SLUG_REQUEST = gql`
     }
   }
   ${RESTAURANT_SLUG_REQUEST_FIELDS}
+`;
+
+const RESTAURANT_PROFILE_CHANGE_FIELDS = gql`
+  fragment RestaurantProfileChangeFields on RestaurantProfileChange {
+    description
+    neighborhood
+    categoryIds
+    landmarkIds
+    diningStyles
+    discoveryOccasions
+    meals
+    dietaryTags
+    amenities
+    wheelchairAccessible
+    faq {
+      question
+      answer
+    }
+    featuredIn {
+      title
+      description
+      url
+      logoUrl
+    }
+    termsAndConditions
+    photos
+    logoUrl
+  }
+`;
+
+const RESTAURANT_PROFILE_CHANGE_REQUEST_FIELDS = gql`
+  fragment RestaurantProfileChangeRequestFields on RestaurantProfileChangeRequest {
+    id
+    restaurantId
+    reason
+    status
+    notes
+    createdAt
+    reviewedAt
+    current {
+      ...RestaurantProfileChangeFields
+    }
+    proposed {
+      ...RestaurantProfileChangeFields
+    }
+    restaurant {
+      id
+      name
+      slug
+    }
+    requestedBy {
+      id
+      firstName
+      lastName
+      email
+    }
+    reviewer {
+      id
+      firstName
+      lastName
+      email
+    }
+  }
+  ${RESTAURANT_PROFILE_CHANGE_FIELDS}
+`;
+
+export const MY_RESTAURANT_PROFILE_CHANGE_REQUEST = gql`
+  query MyRestaurantProfileChangeRequest($restaurantId: ID!) {
+    myRestaurantProfileChangeRequest(restaurantId: $restaurantId) {
+      ...RestaurantProfileChangeRequestFields
+    }
+  }
+  ${RESTAURANT_PROFILE_CHANGE_REQUEST_FIELDS}
+`;
+
+export const REQUEST_RESTAURANT_PROFILE_CHANGE = gql`
+  mutation RequestRestaurantProfileChange($input: RequestRestaurantProfileChangeInput!) {
+    requestRestaurantProfileChange(input: $input) {
+      ...RestaurantProfileChangeRequestFields
+    }
+  }
+  ${RESTAURANT_PROFILE_CHANGE_REQUEST_FIELDS}
+`;
+
+export const CANCEL_RESTAURANT_PROFILE_CHANGE_REQUEST = gql`
+  mutation CancelRestaurantProfileChangeRequest($id: ID!) {
+    cancelRestaurantProfileChangeRequest(id: $id) {
+      ...RestaurantProfileChangeRequestFields
+    }
+  }
+  ${RESTAURANT_PROFILE_CHANGE_REQUEST_FIELDS}
+`;
+
+export const ADMIN_RESTAURANT_PROFILE_CHANGE_REQUESTS = gql`
+  query AdminRestaurantProfileChangeRequests(
+    $status: RestaurantProfileChangeRequestStatus
+    $search: String
+    $restaurantId: ID
+    $limit: Int
+    $offset: Int
+  ) {
+    adminRestaurantProfileChangeRequests(
+      status: $status
+      search: $search
+      restaurantId: $restaurantId
+      limit: $limit
+      offset: $offset
+    ) {
+      total
+      limit
+      offset
+      items {
+        ...RestaurantProfileChangeRequestFields
+      }
+    }
+  }
+  ${RESTAURANT_PROFILE_CHANGE_REQUEST_FIELDS}
+`;
+
+export const REVIEW_RESTAURANT_PROFILE_CHANGE_REQUEST = gql`
+  mutation ReviewRestaurantProfileChangeRequest(
+    $id: ID!
+    $status: RestaurantProfileChangeRequestStatus!
+    $notes: String
+  ) {
+    reviewRestaurantProfileChangeRequest(id: $id, status: $status, notes: $notes) {
+      ...RestaurantProfileChangeRequestFields
+    }
+  }
+  ${RESTAURANT_PROFILE_CHANGE_REQUEST_FIELDS}
 `;

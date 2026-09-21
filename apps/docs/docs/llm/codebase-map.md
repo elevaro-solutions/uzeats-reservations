@@ -45,6 +45,7 @@ Mirror sidebar in `DashShell.tsx`:
 | Path prefix | Feature |
 |---|---|
 | `/reservations` | Booking management |
+| `/floor-ops` | Live floor (seating) |
 | `/floor-plan` | Table layout |
 | `/settings`, `/edit`, `/menu` | Restaurant config |
 | `/campaigns` | Marketing |

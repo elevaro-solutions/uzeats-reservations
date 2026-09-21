@@ -245,6 +245,10 @@ export async function cancelRestaurantSlugRequest(id: string, user: UserDocument
   return mapSlugRequest(doc);
 }
 
+export async function pendingRestaurantSlugRequestCount() {
+  return RestaurantSlugRequest.countDocuments({ status: 'pending' });
+}
+
 export async function adminListRestaurantSlugRequests(args: {
   status?: string | null;
   search?: string | null;

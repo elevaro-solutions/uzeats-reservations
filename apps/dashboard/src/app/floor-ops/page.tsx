@@ -12,10 +12,11 @@ import {
   Slider,
   Space,
   Tag,
+  Tooltip,
   Typography,
   message,
 } from 'antd';
-import { ReloadOutlined, RotateRightOutlined } from '@ant-design/icons';
+import { EditOutlined, ReloadOutlined, RotateRightOutlined } from '@ant-design/icons';
 import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
@@ -28,6 +29,7 @@ import {
 } from '@/lib/graphql';
 
 import {
+  DEFAULT_CELL_SIZE,
   MAX_CELL_SIZE,
   MIN_CELL_SIZE,
   applyFreeRotation,
@@ -110,6 +112,7 @@ function FloorAreaCanvas({
   onDropOnTable,
   onRotateChange,
   onRotateCommit,
+  onEdit,
 }: {
   title: string;
   states: TableState[];
@@ -120,6 +123,7 @@ function FloorAreaCanvas({
   onDropOnTable: (tableId: string) => void;
   onRotateChange: (tableId: string, rotation: number) => void;
   onRotateCommit: (tableId: string, rotation: number) => void;
+  onEdit: () => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -131,9 +135,8 @@ function FloorAreaCanvas({
     centerY: number;
     lastRotation: number;
   } | null>(null);
-  const cellSizeRef = useRef(32);
-  const [fittedSize, setFittedSize] = useState(32);
-  const [box, setBox] = useState({ width: 0, height: 240 });
+  const cellSizeRef = useRef(DEFAULT_CELL_SIZE);
+  const [fittedSize, setFittedSize] = useState(DEFAULT_CELL_SIZE);
   const bounds = useMemo(
     () => areaGridBounds(states.map((s) => s.table)),
     [states],
@@ -148,7 +151,6 @@ function FloorAreaCanvas({
     const update = (width: number, height: number) => {
       const w = Math.max(1, Math.round(width));
       const h = Math.max(1, Math.round(height));
-      setBox((prev) => (prev.width === w && prev.height === h ? prev : { width: w, height: h }));
       setFittedSize(
         Math.min(cellSizeForWidth(w, bounds.cols), cellSizeForWidth(h, bounds.rows)),
       );
@@ -213,25 +215,31 @@ function FloorAreaCanvas({
 
   return (
     <Card
+      className="rt-floor-ops-card"
       title={title}
       extra={
-        <Text type="secondary" style={{ fontSize: 12 }}>
-          {busy} busy · {states.length} tables
-        </Text>
+        <Space size={8}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {busy} busy · {states.length} tables
+          </Text>
+          <Tooltip title="Edit this area in Table layout">
+            <Button
+              size="small"
+              icon={<EditOutlined />}
+              aria-label={`Edit ${title} table layout`}
+              onClick={onEdit}
+            >
+              Edit
+            </Button>
+          </Tooltip>
+        </Space>
       }
       styles={{ body: { padding: 12 } }}
     >
       <div
         ref={wrapRef}
+        className="rt-floor-ops-canvas"
         style={{
-          width: box.width > 0 ? box.width : '100%',
-          height: box.height,
-          minWidth: 220,
-          minHeight: 160,
-          maxWidth: '100%',
-          overflow: 'auto',
-          resize: 'both',
-          borderRadius: 8,
           border: `1px dashed ${colors.neutral[200]}`,
         }}
       >
@@ -239,9 +247,8 @@ function FloorAreaCanvas({
           ref={gridRef}
           style={{
             position: 'relative',
-            width: bounds.cols * cellSize,
+            width: '100%',
             height: bounds.rows * cellSize,
-            minWidth: '100%',
             minHeight: '100%',
             background: `repeating-linear-gradient(
               0deg, transparent, transparent ${cellSize - 1}px, ${colors.neutral[100]} ${cellSize - 1}px, ${colors.neutral[100]} ${cellSize}px
@@ -374,7 +381,7 @@ function FloorAreaCanvas({
           })}
         </div>
       </div>
-      <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 11 }}>
+      <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 11, flexShrink: 0 }}>
         Drag the corner to resize this grid
       </Text>
     </Card>
@@ -386,7 +393,7 @@ export default function FloorOpsPage() {
   const router = useRouter();
   const [selectedState, setSelectedState] = useState<TableState | null>(null);
   const [dragReservationId, setDragReservationId] = useState<string | null>(null);
-  const [gridCellSize, setGridCellSize] = useState<number | null>(null);
+  const [gridCellSize, setGridCellSize] = useState<number | null>(DEFAULT_CELL_SIZE);
   const [manualRefreshing, setManualRefreshing] = useState(false);
   const [ops, setOps] = useState<FloorOpsData>({ tables: [], unassigned: [] });
   const opsSnapshotRef = useRef('');
@@ -546,7 +553,7 @@ export default function FloorOpsPage() {
     <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <Title level={2} style={{ margin: 0 }}>
-          Floor ops
+          Live floor
         </Title>
         <Space wrap>
           <Select style={{ width: '100%', maxWidth: 220 }} {...restaurantSelectProps} />
@@ -557,7 +564,7 @@ export default function FloorOpsPage() {
             <Slider
               min={MIN_CELL_SIZE}
               max={MAX_CELL_SIZE}
-              value={gridCellSize ?? 32}
+              value={gridCellSize ?? DEFAULT_CELL_SIZE}
               onChange={(value) => setGridCellSize(value)}
               style={{ width: 120, margin: 0 }}
               tooltip={{ formatter: (value) => `${value}px` }}
@@ -615,6 +622,12 @@ export default function FloorOpsPage() {
                 onDropOnTable={onDropOnTable}
                 onRotateChange={applyTableRotation}
                 onRotateCommit={(tableId, rotation) => void handleRotateTable(tableId, rotation)}
+                onEdit={() => {
+                  const params = new URLSearchParams();
+                  if (activeRestaurantId) params.set('restaurant', activeRestaurantId);
+                  params.set('area', area);
+                  router.push(`/floor-plan?${params.toString()}`);
+                }}
               />
             ))
           )}

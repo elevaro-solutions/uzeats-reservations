@@ -100,6 +100,16 @@ import {
   applyRestaurantSlug,
   reviewRestaurantSlugRequest,
 } from './restaurantSlugs.js';
+import {
+  adminListRestaurantProfileChangeRequests,
+  denyPendingProfileChangeRequests,
+  reviewRestaurantProfileChangeRequest,
+} from './restaurantProfileChanges.js';
+import { listAdminReservations } from './adminReservations.js';
+import {
+  profileChangesEqual,
+  restaurantProfileSnapshot,
+} from '../lib/restaurantProfileChange.js';
 import { clearSeedData as wipeSeedData } from './seedData.js';
 import { assertCanAssignRole } from './roleAccess.js';
 import {
@@ -253,6 +263,39 @@ export const adminOpsQuery = {
   ) => {
     requireAdmin(ctx);
     return adminListRestaurantSlugRequests(args);
+  },
+
+  adminRestaurantProfileChangeRequests: async (
+    _: unknown,
+    args: {
+      status?: string;
+      search?: string;
+      restaurantId?: string;
+      limit?: number;
+      offset?: number;
+    },
+    ctx: GraphQLContext,
+  ) => {
+    requireAdmin(ctx);
+    return adminListRestaurantProfileChangeRequests(args);
+  },
+
+  adminReservations: async (
+    _: unknown,
+    args: {
+      restaurantId?: string;
+      status?: string;
+      period?: string;
+      date?: string;
+      search?: string;
+      source?: string;
+      limit?: number;
+      offset?: number;
+    },
+    ctx: GraphQLContext,
+  ) => {
+    requireAdmin(ctx);
+    return listAdminReservations(args);
   },
 };
 
@@ -708,8 +751,16 @@ export const adminOpsMutation = {
       }
     }
 
+    const beforeProfile = restaurantProfileSnapshot(restaurant);
     const doc = await Restaurant.findByIdAndUpdate(args.id, { $set }, { new: true });
     if (!doc) throw new Error('Restaurant not found');
+
+    if (!profileChangesEqual(beforeProfile, restaurantProfileSnapshot(doc))) {
+      await denyPendingProfileChangeRequests({
+        restaurantId: args.id,
+        actorId: admin._id.toString(),
+      });
+    }
 
     if (args.ownerId && args.ownerId !== restaurant.ownerId.toString()) {
       const owner = await User.findById(args.ownerId);
@@ -818,6 +869,23 @@ export const adminOpsMutation = {
       reviewerId: admin._id.toString(),
       notes: args.notes,
       slug: args.slug,
+    });
+  },
+
+  reviewRestaurantProfileChangeRequest: async (
+    _: unknown,
+    args: { id: string; status: string; notes?: string | null },
+    ctx: GraphQLContext,
+  ) => {
+    const admin = requireAdmin(ctx);
+    if (args.status !== 'approved' && args.status !== 'denied') {
+      throw new Error('Status must be approved or denied');
+    }
+    return reviewRestaurantProfileChangeRequest({
+      id: args.id,
+      status: args.status,
+      reviewerId: admin._id.toString(),
+      notes: args.notes,
     });
   },
 

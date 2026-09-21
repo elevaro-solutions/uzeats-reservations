@@ -33,6 +33,7 @@ export const typeDefs = `#graphql
 
   enum DocsAccessRequestStatus { pending approved denied }
   enum RestaurantSlugRequestStatus { pending approved denied }
+  enum RestaurantProfileChangeRequestStatus { pending approved denied }
 
   type DocsAccessEmailStatus {
     approved: Boolean!
@@ -99,6 +100,71 @@ export const typeDefs = `#graphql
   input RequestRestaurantSlugInput {
     restaurantId: ID!
     slug: String!
+    reason: String
+  }
+
+  type RestaurantProfileChange {
+    description: String
+    neighborhood: String
+    categoryIds: [String!]!
+    landmarkIds: [String!]!
+    diningStyles: [String!]!
+    discoveryOccasions: [String!]!
+    meals: [String!]!
+    dietaryTags: [String!]!
+    amenities: [String!]!
+    wheelchairAccessible: Boolean!
+    faq: [RestaurantFaqItem!]!
+    featuredIn: [RestaurantFeaturedInItem!]!
+    termsAndConditions: String
+    photos: [String!]!
+    logoUrl: String
+  }
+
+  input RestaurantProfileChangeInput {
+    description: String
+    neighborhood: String
+    categoryIds: [String!]
+    landmarkIds: [String!]
+    diningStyles: [String!]
+    discoveryOccasions: [String!]
+    meals: [String!]
+    dietaryTags: [String!]
+    amenities: [String!]
+    wheelchairAccessible: Boolean
+    faq: [RestaurantFaqItemInput!]
+    featuredIn: [RestaurantFeaturedInItemInput!]
+    termsAndConditions: String
+    photos: [String!]
+    logoUrl: String
+  }
+
+  type RestaurantProfileChangeRequest {
+    id: ID!
+    restaurantId: ID!
+    restaurant: Restaurant
+    requestedBy: User
+    current: RestaurantProfileChange!
+    proposed: RestaurantProfileChange!
+    reason: String
+    status: RestaurantProfileChangeRequestStatus!
+    notes: String
+    createdAt: DateTime!
+    updatedAt: DateTime!
+    reviewedAt: DateTime
+    reviewer: User
+  }
+
+  type RestaurantProfileChangeRequestConnection {
+    items: [RestaurantProfileChangeRequest!]!
+    total: Int!
+    limit: Int!
+    offset: Int!
+  }
+
+  input RequestRestaurantProfileChangeInput {
+    restaurantId: ID!
+    profile: RestaurantProfileChangeInput!
     reason: String
   }
 
@@ -744,9 +810,16 @@ export const typeDefs = `#graphql
     restaurants: Int!
     reservations: Int!
     pendingRestaurants: Int!
+    pendingSlugRequests: Int!
+    pendingProfileChangeRequests: Int!
     mrrCents: Int!
     activeSubscriptions: Int!
     openInvoices: Int!
+  }
+
+  type PlatformPendingRequestCounts {
+    slugRequests: Int!
+    profileChangeRequests: Int!
   }
 
   type LoyaltyPlatformStats {
@@ -2460,11 +2533,22 @@ export const typeDefs = `#graphql
     ): RestaurantConnection!
     adminRestaurantFilterMeta: AdminRestaurantFilterMeta!
     adminStats: PlatformStats!
+    adminPendingRequestCounts: PlatformPendingRequestCounts!
     adminLoyaltyStats: LoyaltyPlatformStats!
     adminReferralLeaders(limit: Int): [ReferralLeader!]!
     adminUsers(search: String, role: UserRole, roles: [UserRole!], limit: Int, offset: Int): UserConnection!
     adminUser(id: ID!): User
     adminUserReservations(userId: ID!, limit: Int, offset: Int): ReservationConnection!
+    adminReservations(
+      restaurantId: ID
+      status: ReservationStatus
+      period: ReservationDatePeriod
+      date: String
+      search: String
+      source: ReservationSource
+      limit: Int
+      offset: Int
+    ): ReservationConnection!
     adminUserRestaurants(userId: ID!): [Restaurant!]!
     adminInvoices(status: InvoiceStatus, search: String, restaurantId: ID, limit: Int, offset: Int): InvoiceConnection!
     adminInvoice(id: ID!): Invoice!
@@ -2585,6 +2669,14 @@ export const typeDefs = `#graphql
       limit: Int
       offset: Int
     ): RestaurantSlugRequestConnection!
+    myRestaurantProfileChangeRequest(restaurantId: ID!): RestaurantProfileChangeRequest
+    adminRestaurantProfileChangeRequests(
+      status: RestaurantProfileChangeRequestStatus
+      search: String
+      restaurantId: ID
+      limit: Int
+      offset: Int
+    ): RestaurantProfileChangeRequestConnection!
   }
 
   type Mutation {
@@ -2604,6 +2696,8 @@ export const typeDefs = `#graphql
     requestDocsAccessOtp(email: String!): MessagePayload!
     requestRestaurantSlugChange(input: RequestRestaurantSlugInput!): RestaurantSlugRequest!
     cancelRestaurantSlugRequest(id: ID!): RestaurantSlugRequest!
+    requestRestaurantProfileChange(input: RequestRestaurantProfileChangeInput!): RestaurantProfileChangeRequest!
+    cancelRestaurantProfileChangeRequest(id: ID!): RestaurantProfileChangeRequest!
     verifyDocsAccessOtp(email: String!, code: String!): DocsAccessAuthPayload!
     saveRestaurant(restaurantId: ID!): Boolean!
     unsaveRestaurant(restaurantId: ID!): Boolean!
@@ -2732,6 +2826,11 @@ export const typeDefs = `#graphql
       notes: String
       slug: String
     ): RestaurantSlugRequest!
+    reviewRestaurantProfileChangeRequest(
+      id: ID!
+      status: RestaurantProfileChangeRequestStatus!
+      notes: String
+    ): RestaurantProfileChangeRequest!
     grantDocsAccess(email: String!, notes: String): DocsAccessRequest!
     adminSendDocsAccessOtp(email: String!): MessagePayload!
     addSupportNote(ticketId: ID!, body: String!): SupportTicket!

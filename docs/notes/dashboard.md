@@ -1,5 +1,60 @@
 # Dashboard — Learnings & Observations
 
+## [2026-09-21] Dashboard Turbopack OOM kills :3001
+- `next dev` (Turbopack, Next 16.2) grew to ~23GB then `FATAL ERROR: Ineffective mark-compacts near heap limit`. Chrome then shows `ERR_CONNECTION_REFUSED` on `/login`. Turbo does not restart the persistent task.
+- Dev script is `next dev --port 3001 --webpack`. Production `next build` / `next start` unchanged.
+- Why it matters: Connection refused on 3001 after a long session is usually this OOM, not a missing `pnpm dev`.
+
+## [2026-09-21] Live floor vs Table layout
+- Sidebar: `/floor-ops` is **Live floor** (tonight’s seating), `/floor-plan` is **Table layout** (editor). URLs stay the same. Search still matches the old “floor ops” / “floor plan” terms.
+- Live floor area canvases use `width: 100%` + 40px cells; do not write ResizeObserver pixels back onto `resize: both`. Height is `bounds.rows * cellSize` (`height: fit-content`) — a 240px min-height left a blank band under short areas.
+- Why it matters: “Floor ops” vs “Floor plan” is easy to mix up; a small dashed grid on a wide Live floor card is the shrink-wrap loop.
+
+## [2026-09-21] Page search is role-aware and shares the nav catalog
+- `lib/dashboardNav.tsx` is the source of truth for Partner Hub and admin pages (sidebar + ⌘K search). Settings tools (`/menu`, `/blackouts`, …) are searchable but stay out of the sider.
+- `DashboardSearch` mounts from `DashShell` (header + mobile drawer). Partners can also switch restaurants from the palette. Recent picks live in `localStorage` (`rt-dash-recent-pages`).
+- Why it matters: Don’t hardcode a second nav list for search — extend `PARTNER_PAGES` / `ADMIN_PAGES` instead.
+
+## [2026-09-21] Admin reservations is a platform-wide list
+- `/admin/reservations` uses `adminReservations` (`requireAdmin`). Date periods without a restaurant use `America/New_York`; a selected venue uses that restaurant’s zone.
+- Guest search matches diner name/email/phone and restaurant name (and Mongo ids). Per-venue bookings stay on `/admin/restaurants/:id?tab=reservations`.
+- Why it matters: Don’t reuse `restaurantReservations` without an id for the admin queue.
+
+## [2026-09-21] Partner add-restaurant lives on `/restaurants?create=1`
+- Header location Select footer, plus icon, Overview extra/empty state, and onboarding empty state all open My restaurants with `create=1`.
+- The create modal strips `create` from the URL on cancel so refresh does not reopen it. Staff do not see the actions (`canCreateRestaurant`).
+- The location Select `open` is closed on add/navigation so the dropdown does not sit on top of the modal (DashShell stays mounted).
+- The footer uses `preventDefault` + `stopPropagation` on mousedown so the Select does not swallow the click. That combo is wrong for popup inputs (it blocks typing) — button-only footers are fine.
+- Why it matters: Don’t add a second create wizard in the header — deep-link the existing modal.
+
+## [2026-09-21] Pending request counts live on adminStats and a cheap poll
+- Sidebar badges for URL slugs / Profile requests use `adminPendingRequestCounts` (60s poll). Overview cards reuse `adminStats.pendingSlugRequests` / `pendingProfileChangeRequests`. Partner Public profile badges a pending request for the active restaurant.
+- Why it matters: Don’t poll full `adminStats` from DashShell just for nav badges.
+
+## [2026-09-21] Public profile edits from partners are requests
+- Partner `/profile` submits `requestRestaurantProfileChange` (pending until admin approve/deny). Live diner copy stays until review. Admins still edit immediately on restaurant Manage; a live admin profile save denies other pending requests.
+- Why it matters: Don’t treat Public profile Save as a live write. Queue is `/admin/profile-requests`.
+
+## [2026-09-21] Admin restaurant Overview is a snapshot, not a second details form
+- `/admin/restaurants/[id]` Overview shows identity, clickable Package/Menu/Floor/Team stats, About, Contact, and booking flags. Full fields stay on Manage and the other tabs; snapshot cards call `goToTab`.
+- Manage details use a left group list (`?tab=manage&section=listing` … `operations`). Public profile fields live in Discovery / FAQ / Press on that same page; Package/Menu/Team have their own page tabs. Tables and Shifts share one page tab (`?tab=tables` / `?tab=shifts`) with inner subtabs so old shift URLs still work.
+- Menu (`?tab=menu`) uses the same pattern as partner `/menu`: a section sidebar, one category open, dishes collapsed until expanded. Empty dish names are dropped on save; Popular is still capped at 10 for the diner page.
+- `section=details` and `section=profile` still resolve (listing / discovery). The list Edit modal keeps Details | Public profile | Package | Accounts, with accordion groups inside those tabs.
+- Why it matters: Putting every restaurant field back in a 3-column Descriptions table duplicates the header and the tabs. A single long Manage form is the same problem.
+
+## [2026-09-19] Select popup `preventDefault` on mousedown blocks typing
+- `FloorAreaSelect` footer used `onMouseDown={(e) => e.preventDefault()}` to keep the dropdown open. That also cancels input focus, so “New area name” inside Add/Edit table could not be typed. Use `stopPropagation` instead, and `focusable={{ trap: false }}` on that Modal so the portaled dropdown input is not yanked back by the focus lock.
+- Why it matters: Custom Select `popupRender` inputs in a Modal fail in two ways: mousedown preventDefault, then Modal trap.
+
+## [2026-09-19] Floor ops area Edit deep-links Floor plan `?area=`
+- `/floor-ops` area cards Edit to `/floor-plan?area=` (and `restaurant=` when set). Floor plan reads `area` from the URL and writes it back when the area select changes; unknown areas are dropped after tables load.
+- Why it matters: Don’t keep a parallel `areaFilter` useState — it would ignore the Floor ops link.
+
+## [2026-09-19] Floor plan canvas size must not be written back from ResizeObserver
+- `/floor-plan` measures the wrap to compute how many 40px cells fit. Writing that `clientWidth`/`clientHeight` back onto a `resize: both` element locks a shrink-wrapped first layout (often ~8×6 cells) instead of filling the card.
+- Default cell size is `DEFAULT_CELL_SIZE` (40px); Fit still sets `gridCellSize` to `null` and uses `cellSizeForWidth`. Keep initial wrap size in CSS (`width: 100%` + flex fill), not React pixel styles.
+- Why it matters: A small dashed grid on a wide card is almost always this feedback loop, not missing table data.
+
 ## [2026-09-18] Mobile nav Drawer must not sit in a Layout flex row
 - Ant Design 6 `Layout` with `has-sider` is `flex-direction: row` and sets direct child `.ant-layout` to `width: 0`. A left `Drawer` as a sibling of `Sider`/`Content` can leave an empty column even when closed. Keep the desktop `Sider` in a `hasSider` row; portal the mobile `Drawer` to `document.body` outside that Layout.
 - Partner `/notifications` also skipped the default `.rt-dash-content` `max-width: 1200px` (`margin: 0 auto`) so the page fills the column after the primary nav instead of looking like a second sidebar gap.

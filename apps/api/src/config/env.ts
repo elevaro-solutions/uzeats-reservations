@@ -1,13 +1,25 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
-// Load monorepo root `.env` first, then `apps/api/.env` (local wins).
+// Load monorepo root `.env` first, then `apps/api/.env` (local non-empty wins).
+// Empty placeholders in a copied `.env.example` must not wipe root values —
+// that is how Google OAuth ended up "not configured" while the web GIS button
+// still rendered from `NEXT_PUBLIC_GOOGLE_CLIENT_ID`.
 const apiDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(apiDir, '../../../..');
 dotenv.config({ path: path.join(repoRoot, '.env') });
-dotenv.config({ path: path.join(repoRoot, 'apps/api/.env'), override: true });
+
+const apiEnvPath = path.join(repoRoot, 'apps/api/.env');
+if (fs.existsSync(apiEnvPath)) {
+  const local = dotenv.parse(fs.readFileSync(apiEnvPath));
+  for (const [key, value] of Object.entries(local)) {
+    if (value === '') continue;
+    process.env[key] = value;
+  }
+}
 
 const envSchema = z.object({
   PORT: z.coerce.number().default(4000),

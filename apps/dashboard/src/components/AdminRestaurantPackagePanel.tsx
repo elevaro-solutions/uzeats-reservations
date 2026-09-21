@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
-import { Button, Card, Form, Select, Space, Typography, message } from 'antd';
-import { spacing } from '@reservations/ui';
+import { Button, Card, Col, Form, Row, Select, Space, Typography, message } from 'antd';
+import { StatCard, StatusTag, spacing } from '@reservations/ui';
 import {
   PlanSelector,
   RESTAURANT_STATUS_OPTIONS,
@@ -22,6 +22,15 @@ type PlanInfo = {
   annualFreeMonths?: number;
 };
 
+function money(cents?: number | null) {
+  if (cents == null) return '—';
+  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+}
+
+function statusLabel(status: string) {
+  return status ? status.charAt(0).toUpperCase() + status.slice(1) : status;
+}
+
 export function AdminRestaurantPackagePanel({
   restaurant,
   onSaved,
@@ -38,6 +47,7 @@ export function AdminRestaurantPackagePanel({
   const [setStatus] = useMutation(SET_RESTAURANT_STATUS);
 
   const plans = (plansData?.plans ?? []) as PlanInfo[];
+  const sub = restaurant.subscription;
 
   useEffect(() => {
     setSelectedPlan(restaurant.subscription?.plan);
@@ -54,24 +64,24 @@ export function AdminRestaurantPackagePanel({
         const result = await assignPackage({
           variables: { restaurantId: restaurant.id, plan: selectedPlan },
         });
-        const sub = result.data?.adminAssignRestaurantPackage;
-        if (sub) {
+        const assigned = result.data?.adminAssignRestaurantPackage;
+        if (assigned) {
           next = {
             ...next,
             subscription: {
-              id: sub.id,
-              plan: sub.plan,
-              status: sub.status,
-              monthlyPriceCents: sub.monthlyPriceCents,
-              currentPeriodStart: sub.currentPeriodStart,
-              currentPeriodEnd: sub.currentPeriodEnd,
-              trialEndsAt: sub.trialEndsAt,
+              id: assigned.id,
+              plan: assigned.plan,
+              status: assigned.status,
+              monthlyPriceCents: assigned.monthlyPriceCents,
+              currentPeriodStart: assigned.currentPeriodStart,
+              currentPeriodEnd: assigned.currentPeriodEnd,
+              trialEndsAt: assigned.trialEndsAt,
             },
           };
           const extended =
             previousEnd &&
-            sub.currentPeriodEnd &&
-            dayjs(sub.currentPeriodEnd).isAfter(dayjs(previousEnd));
+            assigned.currentPeriodEnd &&
+            dayjs(assigned.currentPeriodEnd).isAfter(dayjs(previousEnd));
           message.success(
             restaurant.subscription
               ? extended
@@ -103,85 +113,79 @@ export function AdminRestaurantPackagePanel({
     }
   };
 
+  const renewalHint = sub?.currentPeriodEnd
+    ? `${sub.status === 'trialing' ? 'Trial / period ends' : 'Renews'} ${dayjs(sub.currentPeriodEnd).format('MMM D, YYYY')}`
+    : 'No billing period on file';
+
   const body = (
-    <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-      {restaurant.subscription ? (
-        <div
-          style={{
-            border: '1px solid #ece7df',
-            borderRadius: 10,
-            background: '#f8f6f3',
-            padding: '12px 14px',
-          }}
-        >
-          <Space orientation="vertical" size={4} style={{ width: '100%' }}>
-            <Text type="secondary" style={{ fontSize: 12, textTransform: 'uppercase' }}>
-              Current package dates
-            </Text>
-            {restaurant.subscription.status === 'trialing' && restaurant.subscription.trialEndsAt ? (
-              <Text>
-                Trial ends{' '}
-                <Text strong>
-                  {dayjs(restaurant.subscription.trialEndsAt).format('MMM D, YYYY')}
-                </Text>
-              </Text>
-            ) : null}
-            {restaurant.subscription.currentPeriodEnd ? (
-              <Text>
-                {restaurant.subscription.status === 'trialing'
-                  ? 'Billing period ends'
-                  : 'Next pay / renews'}{' '}
-                <Text strong>
-                  {dayjs(restaurant.subscription.currentPeriodEnd).format('MMM D, YYYY')}
-                </Text>
-                {restaurant.subscription.currentPeriodStart ? (
-                  <Text type="secondary">
-                    {' '}
-                    (started {dayjs(restaurant.subscription.currentPeriodStart).format('MMM D, YYYY')}
-                    )
-                  </Text>
-                ) : null}
-              </Text>
-            ) : (
-              <Text type="secondary">No billing period on file yet.</Text>
-            )}
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              Updating the package extends the period by one billing cycle from the later of today
-              or the current end date.
-            </Text>
-          </Space>
-        </div>
-      ) : (
-        <Text type="secondary">No package assigned yet. Choose a plan below to assign one.</Text>
-      )}
-      <Form layout="vertical">
-        <Form.Item label="Package" required style={{ marginBottom: spacing.md }}>
-          <PlanSelector plans={plans} value={selectedPlan} onChange={setSelectedPlan} />
-        </Form.Item>
-        <Form.Item label="Restaurant status" required style={{ marginBottom: spacing.md }}>
-          <Select
-            value={selectedRestaurantStatus}
-            onChange={setSelectedRestaurantStatus}
-            options={RESTAURANT_STATUS_OPTIONS}
+    <Space orientation="vertical" size={spacing.md} style={{ width: '100%' }}>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={8} style={{ display: 'flex' }}>
+          <StatCard
+            label="Current plan"
+            value={sub?.plan ? String(sub.plan).toUpperCase() : 'None'}
+            hint={sub ? `${statusLabel(sub.status)} · ${money(sub.monthlyPriceCents)}/mo` : 'No package assigned'}
+            hintTone={sub?.status === 'active' || sub?.status === 'trialing' ? 'positive' : 'neutral'}
           />
-        </Form.Item>
-        <Button
-          type="primary"
-          loading={assigningPlan}
-          disabled={!selectedPlan || !selectedRestaurantStatus}
-          onClick={() => void applyPackageAndStatus()}
-        >
-          Update package & status
-        </Button>
-      </Form>
+        </Col>
+        <Col xs={24} sm={8} style={{ display: 'flex' }}>
+          <Card styles={{ body: { padding: 20, height: '100%' } }} style={{ width: '100%' }}>
+            <Text
+              type="secondary"
+              style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}
+            >
+              Restaurant status
+            </Text>
+            <div style={{ marginTop: 8 }}>
+              <StatusTag status={restaurant.status} />
+            </div>
+          </Card>
+        </Col>
+        <Col xs={24} sm={8} style={{ display: 'flex' }}>
+          <StatCard
+            label="Next billing"
+            value={
+              sub?.currentPeriodEnd ? dayjs(sub.currentPeriodEnd).format('MMM D') : '—'
+            }
+            hint={
+              sub?.status === 'trialing' && sub.trialEndsAt
+                ? `Trial ends ${dayjs(sub.trialEndsAt).format('MMM D, YYYY')}`
+                : renewalHint
+            }
+          />
+        </Col>
+      </Row>
+
+      <Card title="Change package">
+        <Text type="secondary" style={{ display: 'block', marginBottom: spacing.md }}>
+          Changing the package extends the billing period by one cycle from the later of today or
+          the current end date.
+        </Text>
+        <Form layout="vertical">
+          <Form.Item label="Package" required style={{ marginBottom: spacing.md }}>
+            <PlanSelector plans={plans} value={selectedPlan} onChange={setSelectedPlan} />
+          </Form.Item>
+          <Form.Item label="Restaurant status" required style={{ marginBottom: spacing.md }}>
+            <Select
+              value={selectedRestaurantStatus}
+              onChange={setSelectedRestaurantStatus}
+              options={RESTAURANT_STATUS_OPTIONS}
+            />
+          </Form.Item>
+          <Button
+            type="primary"
+            loading={assigningPlan}
+            disabled={!selectedPlan || !selectedRestaurantStatus}
+            onClick={() => void applyPackageAndStatus()}
+          >
+            Update package & status
+          </Button>
+        </Form>
+      </Card>
     </Space>
   );
 
   if (!wrapInCard) return <div component="AdminRestaurantPackagePanel">{body}</div>;
 
-  return (
-    <div component="AdminRestaurantPackagePanel">
-      <Card title="Package & status">{body}</Card>
-    </div>
-  );
+  return <div component="AdminRestaurantPackagePanel">{body}</div>;
 }

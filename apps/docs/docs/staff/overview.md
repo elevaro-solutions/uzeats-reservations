@@ -7,7 +7,7 @@ The **partner dashboard** (local: http://localhost:3001) is where restaurant own
 | Role | Access |
 |---|---|
 | `restaurant_owner` | Full venue control including billing, plan changes, staff invites, and settings |
-| `staff` | Operate reservations, floor plan, and guest comms — **cannot** add restaurants or manage billing |
+| `staff` | Operate reservations, Live floor, and guest comms — **cannot** add restaurants or manage billing |
 
 Platform roles (`admin`, `super_admin`) see additional admin sections — see [Platform admins](/admins/platform-overview).
 
@@ -17,7 +17,7 @@ Platform roles (`admin`, `super_admin`) see additional admin sections — see [P
 - Google OAuth (when configured)
 - Demo owner: `owner@tablevera.local` / `Password123!`
 
-Owners with **multiple restaurants** use the restaurant selector in the top navigation.
+Owners with **multiple restaurants** use the restaurant selector in the top navigation. Press **⌘K** / **Ctrl+K** to search pages, settings tools, and switch restaurants.
 
 ## Dashboard layout
 
@@ -29,8 +29,8 @@ The Restaurant Dashboard is a **fixed operational layout**. Partners cannot add,
 |---|---|
 | **Reservations** | List with status and date presets; dedicated booking detail; create phone/walk-in reservations |
 | **Reviews** | Diner ratings and photos; reply (optional Gemini draft) and add photos to the gallery |
-| **Floor ops** | Live seating: per-area grids, assign and seat guests |
-| **Floor plan** | Visual table layout with rotation and a resizable canvas |
+| **Live floor** | Live seating: per-area grids, assign and seat guests |
+| **Table layout** | Visual table layout with rotation and a resizable canvas |
 | **Tables & shifts** | Table inventory and hours; add/edit in modals; searchable floor areas |
 | **Waitlist** | Manage waiting parties and notify on openings |
 | **Messages** | Guest conversations tied to reservations |

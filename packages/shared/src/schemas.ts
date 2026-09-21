@@ -589,6 +589,38 @@ export type RequestRestaurantSlugInput = z.infer<
   typeof requestRestaurantSlugInputSchema
 >;
 
+export const restaurantProfileChangeSchema = restaurantInputSchema.pick({
+  description: true,
+  neighborhood: true,
+  categoryIds: true,
+  landmarkIds: true,
+  diningStyles: true,
+  discoveryOccasions: true,
+  meals: true,
+  dietaryTags: true,
+  amenities: true,
+  wheelchairAccessible: true,
+  faq: true,
+  featuredIn: true,
+  termsAndConditions: true,
+  photos: true,
+  logoUrl: true,
+});
+
+export type RestaurantProfileChange = z.infer<
+  typeof restaurantProfileChangeSchema
+>;
+
+export const requestRestaurantProfileChangeInputSchema = z.object({
+  restaurantId: z.string().min(1),
+  profile: restaurantProfileChangeSchema,
+  reason: z.string().trim().max(500).optional(),
+});
+
+export type RequestRestaurantProfileChangeInput = z.infer<
+  typeof requestRestaurantProfileChangeInputSchema
+>;
+
 const dateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const timeStringSchema = z.string().regex(/^\d{2}:\d{2}$/);
 

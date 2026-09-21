@@ -4,6 +4,44 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.58.0] — 2026-09-21
+
+### Added
+
+- Dashboard page search (⌘K / Ctrl+K) jumps to partner or admin pages, settings tools, and switches restaurants
+- Admins browse every booking at **Reservations** (`/admin/reservations`)
+- Live floor area cards have an Edit button that opens Table layout filtered to that area (`?area=`)
+- Owners request public profile changes from the dashboard; admins review them at **Profile requests**
+- Admin sidebar, overview, and request queues show pending counts for public profile and URL slug requests
+- Partner header location picker and Overview have an Add restaurant action (`/restaurants?create=1`)
+
+### Changed
+
+- Admin restaurant Overview groups profile, contact, and booking setup instead of dumping every field into one table
+- Admin restaurant Manage uses a settings-style group list (listing, photos, contact, address, discovery, FAQ, press, policies, operations) instead of one long details form
+- Admin restaurant Package shows current plan, status, and next billing before the change form
+- Admin restaurant Menu matches Manage: left nav with icons, title + hint pane, and a single Save
+- Admin restaurant Owner & Team assigns/removes accounts and shows readable roles
+- Admin restaurant Tables and Shifts share one tab with inner Tables / Shifts views
+- Floor ops area grids default to the full card width and a 40px cell size (same shrink-wrap fix as Table layout)
+- Partner sidebar labels: **Live floor** (`/floor-ops`) and **Table layout** (`/floor-plan`)
+
+### Fixed
+
+- Admin restaurant menu dishes no longer show a second border around the whole list
+- Live floor area grids hug table rows instead of leaving empty white space under a 240px min-height
+- Partner Hub local `next dev` uses webpack instead of Turbopack, which was leaking ~23GB and then refusing connections on port 3001
+- Partner Hub login mobile menu uses Ant Design 6 Drawer `size` instead of the deprecated `width` prop
+- Tables & shifts “New area name” field in the floor-area select is typeable again, so partners can add a new area
+- Empty `apps/api/.env` placeholders no longer wipe Google OAuth keys from the repo root `.env`
+- Login accepts `a@tablevera.local` even when the seeded super admin is still stored as `admin@tablevera.local`
+
+### Docs
+
+- Staff: Live floor vs Table layout; public profile photo/copy changes wait for admin approval
+- Admins: platform-wide Reservations queue and Profile requests
+- API env: empty `apps/api/.env` placeholders inherit from the repo root `.env`
+
 ## [0.57.0] — 2026-09-21
 
 ### Added

@@ -13,15 +13,20 @@ import { clampRegistrationRole } from './roleAccess.js';
 import { generateUniqueReferralCode } from '../lib/referralCode.js';
 import { AuthenticationError } from '../lib/errors.js';
 
-/** Pre-rebrand demo emails still used in bookmarks and mobile defaults. */
-const LEGACY_DEMO_EMAIL_ALIASES: Record<string, string> = {
-  'admin@reservations.local': 'a@tablevera.local',
-  'admin@tablevera.local': 'a@tablevera.local',
-  'owner@reservations.local': 'owner@tablevera.local',
-  'staff@reservations.local': 'staff@tablevera.local',
-  'diner@reservations.local': 'diner@tablevera.local',
-  'diner2@reservations.local': 'diner2@tablevera.local',
-};
+/** Demo emails that were renamed; login must accept every address in a group. */
+const DEMO_EMAIL_EQUIVALENTS: string[][] = [
+  ['a@tablevera.local', 'admin@tablevera.local', 'admin@reservations.local'],
+  ['owner@tablevera.local', 'owner@reservations.local'],
+  ['staff@tablevera.local', 'staff@reservations.local'],
+  ['diner@tablevera.local', 'diner@reservations.local'],
+  ['diner2@tablevera.local', 'diner2@reservations.local'],
+];
+
+function demoEmailCandidates(email: string): string[] {
+  const lower = email.toLowerCase();
+  const group = DEMO_EMAIL_EQUIVALENTS.find((emails) => emails.includes(lower));
+  return group ?? [lower];
+}
 
 const googleClient = env.GOOGLE_CLIENT_ID
   ? new OAuth2Client(env.GOOGLE_CLIENT_ID)
@@ -130,13 +135,13 @@ export async function registerWithEmail(input: {
 }
 
 export async function loginWithEmail(email: string, password: string) {
-  const lower = email.toLowerCase();
-  const aliased = LEGACY_DEMO_EMAIL_ALIASES[lower];
-  // Try aliased email first, then fall back to the original (handles both old and new DB seeds).
-  const user = aliased
-    ? (await User.findOne({ email: aliased })) ?? (await User.findOne({ email: lower }))
-    : await User.findOne({ email: lower });
-  if (!user?.passwordHash) throw new AuthenticationError('Invalid credentials');
+  const user = await User.findOne({ email: { $in: demoEmailCandidates(email) } });
+  if (!user) throw new AuthenticationError('Invalid credentials');
+  if (!user.passwordHash) {
+    throw new AuthenticationError(
+      user.googleId ? 'This account uses Google sign-in' : 'Invalid credentials',
+    );
+  }
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) throw new AuthenticationError('Invalid credentials');
   const tokens = await issueTokens(user);

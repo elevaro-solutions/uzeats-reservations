@@ -63,7 +63,7 @@ const TOOL_LINKS = [
   {
     href: '/profile',
     title: 'Public profile',
-    description: 'Photos, features, FAQ, and press mentions',
+    description: 'Request diner-facing photos, features, FAQ, and press mentions',
     icon: <ReadOutlined />,
   },
   {
