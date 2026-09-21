@@ -72,6 +72,10 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## notifications
 
+### [2026-09-21] Elevaro merchant notifier fan-out
+- `notifyRestaurantStaff` POSTs to Elevaro Merchant Notifier when `ELEVARO_NOTIFIER_*` is set; Accept/Reject land on `POST /webhooks/elevaro-notifier` → `updateReservationStatus`. GraphQL `createElevaroTelegramLink` for `@elevaro_merchant_bot`.
+- Why it matters: Messenger Accept/Reject is out-of-process from the diner Telegram bot; Tablevera uses platform key `tablevera` (separate from UzEats).
+
 ### [2026-09-18] Partner Hub new-reservation tap fetches by id
 - Header bell `new_reservation` goes to `/reservations/:id?restaurant=`. `notifyRestaurantStaff` always attaches `restaurantId`. The detail page loads `restaurantReservation(id)` and switches the active venue.
 - Why it matters: Multi-location owners were looking up against the currently selected restaurant’s date-filtered list, so the click looked like a no-op.

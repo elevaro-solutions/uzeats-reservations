@@ -36,6 +36,7 @@ import { uploadsRouter } from "./routes/uploads.js";
 import { importRestaurantRouter } from "./routes/importRestaurant.js";
 import { discoveryMagnificRouter } from "./routes/discoveryMagnific.js";
 import { LOCAL_UPLOAD_DIR } from "./services/spaces.js";
+import { handleElevaroNotifierWebhook } from "./routes/elevaroNotifierWebhook.js";
 
 const LOCAL_UPLOAD_CONTENT_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -227,6 +228,18 @@ async function main() {
   app.post("/webhooks/telegram", express.json(), (req, res) => {
     void handleTelegramWebhook(req, res);
   });
+
+  app.post(
+    "/webhooks/elevaro-notifier",
+    express.json({
+      verify: (req, _res, buf) => {
+        (req as express.Request & { rawBody?: string }).rawBody = buf.toString("utf8");
+      },
+    }),
+    (req, res) => {
+      void handleElevaroNotifierWebhook(req, res);
+    },
+  );
 
   app.use(
     "/api/pos",

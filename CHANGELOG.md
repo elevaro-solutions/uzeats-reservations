@@ -4,6 +4,12 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.57.0] — 2026-09-21
+
+### Added
+
+- Elevaro Merchant Notifier integration: staff reservation alerts fan out to `@elevaro_merchant_bot` (Accept / Reject / Open) when `ELEVARO_NOTIFIER_*` is set; action webhook at `POST /webhooks/elevaro-notifier`
+
 ## [0.56.1] — 2026-09-18
 
 ### Fixed

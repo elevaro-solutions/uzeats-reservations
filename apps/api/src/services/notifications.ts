@@ -21,6 +21,7 @@ import { releaseTableSlotClaims } from './tableSlotClaims.js';
 import { captureDeposit } from './stripe.js';
 import { sendTelegramNotification } from './telegram.js';
 import { textToEmailHtml, wrapEmailHtml } from './emailBranding.js';
+import { sendElevaroMerchantNotification } from './elevaroNotifier.js';
 
 export { wrapEmailHtml } from './emailBranding.js';
 
@@ -292,15 +293,51 @@ export async function notifyRestaurantStaff(
   const staff = await User.find({
     $or: [{ _id: restaurant.ownerId }, { restaurantIds: restaurant._id }],
   }).select('_id');
+  const staffIds = staff.map((u) => u._id.toString());
   const staffPayload = {
     ...payload,
     data: { ...payload.data, restaurantId },
   };
   await Promise.all(
-    staff.map((u) =>
-      notifyUser(u._id.toString(), staffPayload, { smsRestaurantId: restaurantId }),
+    staffIds.map((id) =>
+      notifyUser(id, staffPayload, { smsRestaurantId: restaurantId }),
     ),
   );
+
+  // Actionable messenger fan-out (Telegram / WhatsApp via Elevaro notifier)
+  const reservationId =
+    typeof payload.data?.reservationId === 'string'
+      ? payload.data.reservationId
+      : undefined;
+  const messengerEvents = new Set([
+    'new_reservation',
+    'reservation_cancelled',
+    'reservation_updated',
+  ]);
+  if (reservationId && messengerEvents.has(payload.type)) {
+    const openUrl = env.DASHBOARD_APP_URL
+      ? `${env.DASHBOARD_APP_URL.replace(/\/$/, '')}/reservations?id=${reservationId}`
+      : undefined;
+    const actions =
+      payload.type === 'new_reservation'
+        ? (['accept', 'reject', 'open'] as const)
+        : (['open'] as const);
+    void sendElevaroMerchantNotification({
+      platformUserIds: staffIds,
+      eventType: payload.type,
+      resourceType: 'reservation',
+      resourceId: reservationId,
+      idempotencyKey: `${payload.type}:${reservationId}`,
+      payload: {
+        restaurantName: restaurant.name,
+        title: payload.title,
+        body: payload.body,
+        ...(payload.data ?? {}),
+      },
+      actions: [...actions],
+      openUrl,
+    });
+  }
 }
 
 export async function scheduleReservationReminders(reservationId: string) {

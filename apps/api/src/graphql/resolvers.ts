@@ -4299,6 +4299,28 @@ export const resolvers = {
       return true;
     },
 
+    createElevaroTelegramLink: async (
+      _: unknown,
+      __: unknown,
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const { createElevaroTelegramLink } = await import(
+        "../services/elevaroNotifier.js"
+      );
+      const link = await createElevaroTelegramLink(user._id.toString());
+      if (!link) {
+        throw new Error("Elevaro merchant notifier is not configured");
+      }
+      return {
+        deepLink: link.deepLink,
+        expiresAt:
+          typeof link.expiresAt === 'string'
+            ? link.expiresAt
+            : new Date(link.expiresAt).toISOString(),
+      };
+    },
+
     markNotificationsRead: async (
       _: unknown,
       args: { ids?: string[] | null },

@@ -377,6 +377,11 @@ export const typeDefs = `#graphql
     clientSecret: String
   }
 
+  type ElevaroTelegramLink {
+    deepLink: String!
+    expiresAt: String!
+  }
+
   type WaitlistEntry {
     id: ID!
     restaurantId: ID!
@@ -2778,6 +2783,7 @@ export const typeDefs = `#graphql
 
     registerPushToken(token: String!, platform: String!): Boolean!
     linkTelegram(chatId: String!): Boolean!
+    createElevaroTelegramLink: ElevaroTelegramLink!
     updateNotificationPreferences(
       userId: ID
       restaurantId: ID
