@@ -306,7 +306,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     label: 'Elevaro merchant notifier URL',
     group: 'notifications',
     apps: ['api'],
-    requirement: 'optional',
+    requirement: 'recommended',
     description:
       'Base URL of elevaro-merchant-notifier for Telegram/WhatsApp staff alerts.',
   },
@@ -315,14 +315,14 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     label: 'Elevaro notifier API key',
     group: 'notifications',
     apps: ['api'],
-    requirement: 'optional',
+    requirement: 'recommended',
   },
   {
     key: 'ELEVARO_NOTIFIER_HMAC_SECRET',
     label: 'Elevaro notifier HMAC secret',
     group: 'notifications',
     apps: ['api'],
-    requirement: 'optional',
+    requirement: 'recommended',
     description: 'Verifies Accept/Reject callbacks from the notifier.',
   },
   {
