@@ -3,7 +3,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { CheckIcon, ClockIcon, UsersIcon } from "@/assets";
 import { Flex, Typography, UserAvatar } from "@/components";
-import { formatSlotDateTime } from "@/lib/helpers/date-time.helpers";
+import { formatSlotDateTime, guestDisplayName } from "@/lib/helpers";
 
 export type FloorArrivingCardItem = {
   id: string;
@@ -21,24 +21,13 @@ export type FloorArrivingCardProps = {
   onPress: () => void;
 };
 
-function guestName(
-  diner?: {
-    firstName?: string | null;
-    lastName?: string | null;
-  } | null,
-): string {
-  return (
-    [diner?.firstName, diner?.lastName].filter(Boolean).join(" ") || "Guest"
-  );
-}
-
 export function FloorArrivingCard({
   item,
   selected = false,
   onPress,
 }: FloorArrivingCardProps) {
   const { theme } = useUnistyles();
-  const name = guestName(item.diner);
+  const name = guestDisplayName(item.diner);
   const partyLabel =
     item.partySize === 1 ? "1 guest" : `${item.partySize} guests`;
   const slotLabel = formatSlotDateTime(item.slotStart);
@@ -105,9 +94,9 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     paddingVertical: space(1.5),
     paddingHorizontal: space(2),
     borderRadius: radius.lg,
-    backgroundColor: colors.slate2,
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
-    borderColor: "transparent",
+    borderColor: colors.surface,
   },
   cardSelected: {
     backgroundColor: colors.primary1,

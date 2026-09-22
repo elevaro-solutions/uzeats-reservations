@@ -8,7 +8,6 @@ import { toast } from "sonner-native";
 import { BellIcon, ClipboardClockIcon, LogOutIcon } from "@/assets";
 import {
   Button,
-  Dialog,
   Flex,
   InlineAlert,
   Typography,
@@ -18,20 +17,8 @@ import { RestaurantSwitcher } from "@/features/restaurants";
 import { useAuth } from "@/graphql";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
 
-import { AccountMenuRow } from "./components";
-
-function roleLabel(role?: string | null): string {
-  switch (role) {
-    case "restaurant_owner":
-      return "Owner";
-    case "staff":
-      return "Staff";
-    case "admin":
-      return "Admin";
-    default:
-      return role ?? "Partner";
-  }
-}
+import { AccountMenuRow, MoreLogoutDialog } from "./components";
+import { roleLabel } from "./helpers/role-label.helpers";
 
 export function MoreFeature() {
   const router = useRouter();
@@ -164,39 +151,13 @@ export function MoreFeature() {
         </Button>
       </ScrollView>
 
-      <Dialog
+      <MoreLogoutDialog
         visible={confirmLogout}
-        onClose={() => {
-          if (!loggingOut) setConfirmLogout(false);
-        }}
         loading={loggingOut}
-        title="Log out?"
-        description="You'll need to sign in again to manage reservations and the floor."
-        actions={
-          <Flex gap={1}>
-            <Button
-              fullWidth
-              size="lg"
-              color="error"
-              loading={loggingOut}
-              onPress={() => {
-                void handleLogout();
-              }}
-            >
-              Log out
-            </Button>
-            <Button
-              fullWidth
-              size="md"
-              variant="text"
-              color="secondary"
-              disabled={loggingOut}
-              onPress={() => setConfirmLogout(false)}
-            >
-              Stay signed in
-            </Button>
-          </Flex>
-        }
+        onClose={() => setConfirmLogout(false)}
+        onConfirm={() => {
+          void handleLogout();
+        }}
       />
     </View>
   );
@@ -228,14 +189,14 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     marginTop: space(0.5),
     marginBottom: space(3),
     borderRadius: radius.lg,
-    backgroundColor: colors.slate2,
+    backgroundColor: colors.surface,
   },
   linksTitle: {
     marginBottom: space(1),
   },
   menuGroup: {
     borderRadius: radius.lg,
-    backgroundColor: colors.slate2,
+    backgroundColor: colors.surface,
     overflow: "hidden",
   },
   hubAlert: {

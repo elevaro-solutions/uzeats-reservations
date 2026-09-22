@@ -52,7 +52,7 @@ const STATUS_LABELS: Record<FloorTableStatus, string> = {
   turning: "Turning",
 };
 
-export function floorStatusLabel(status: string): string {
+export function floorStatusLabel(status: FloorTableStatus | string): string {
   return STATUS_LABELS[status as FloorTableStatus] ?? status;
 }
 
@@ -62,10 +62,10 @@ export function floorStatusLabel(status: string): string {
  * Cards tint wash + body + chairs + accent; legend uses strong swatches.
  */
 export function floorStatusVisual(
-  status: string,
+  status: FloorTableStatus | string,
   colors: FloorStatusThemeColors,
 ): FloorStatusVisual {
-  switch (status) {
+  switch (status as FloorTableStatus) {
     case "reserved":
       return {
         label: STATUS_LABELS.reserved,
@@ -124,3 +124,9 @@ export const FLOOR_STATUS_LEGEND: FloorTableStatus[] = [
   "seated",
   "turning",
 ];
+
+const FLOOR_STATUSES = new Set<string>(FLOOR_STATUS_LEGEND);
+
+export function parseFloorTableStatus(status: string): FloorTableStatus {
+  return FLOOR_STATUSES.has(status) ? (status as FloorTableStatus) : "free";
+}

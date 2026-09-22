@@ -227,8 +227,8 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     flex: 1,
   },
   moreBtn: {
-    width: 40,
-    height: 40,
+    width: space(5),
+    height: space(5),
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.slate5,

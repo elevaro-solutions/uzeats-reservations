@@ -4,22 +4,23 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { CheckIcon } from "@/assets";
 import { Typography } from "@/components";
 
+import type { FloorTableStatus } from "../helpers/floor-status.helpers";
 import { floorStatusVisual } from "../helpers/floor-status.helpers";
 import {
   floorTableChairDistribution,
   floorTableSizeBucket,
   floorTableWidth,
 } from "../helpers/floor-table-size.helpers";
+import { FloorTableChairs } from "./floor-table-chairs.component";
 
 export type FloorTableCardTable = {
   id: string;
   name: string;
-  minCapacity: number;
   maxCapacity: number;
 };
 
 export type FloorTableCardProps = {
-  status: string;
+  status: FloorTableStatus;
   table: FloorTableCardTable;
   guestLabel?: string | null;
   turnMinutesRemaining?: number | null;
@@ -30,34 +31,6 @@ export type FloorTableCardProps = {
   dimmed?: boolean;
   onPress: () => void;
 };
-
-function ChairPills({
-  count,
-  axis,
-  color,
-}: {
-  count: number;
-  axis: "horizontal" | "vertical";
-  color: string;
-}) {
-  if (count <= 0) return null;
-  return (
-    <View
-      style={axis === "horizontal" ? styles.chairRow : styles.chairCol}
-      pointerEvents="none"
-    >
-      {Array.from({ length: count }, (_, i) => (
-        <View
-          key={`${axis}-${i}`}
-          style={[
-            axis === "horizontal" ? styles.chairH : styles.chairV,
-            { backgroundColor: color },
-          ]}
-        />
-      ))}
-    </View>
-  );
-}
 
 export function FloorTableCard({
   status,
@@ -124,14 +97,14 @@ export function FloorTableCard({
         Status tints wash, chairs, tabletop, border, and label for scanability.
       */}
       <View style={styles.furniture}>
-        <ChairPills
+        <FloorTableChairs
           count={chairs.top}
           axis="horizontal"
           color={visual.chairs}
         />
 
         <View style={styles.midRow}>
-          <ChairPills
+          <FloorTableChairs
             count={chairs.left}
             axis="vertical"
             color={visual.chairs}
@@ -165,14 +138,14 @@ export function FloorTableCard({
               </Typography>
             ) : null}
           </View>
-          <ChairPills
+          <FloorTableChairs
             count={chairs.right}
             axis="vertical"
             color={visual.chairs}
           />
         </View>
 
-        <ChairPills
+        <FloorTableChairs
           count={chairs.bottom}
           axis="horizontal"
           color={visual.chairs}
@@ -181,9 +154,6 @@ export function FloorTableCard({
     </Pressable>
   );
 }
-
-/** Clear air between chairs and the white tabletop (matches Book-a-Table mock). */
-const CHAIR_GAP = 10;
 
 const styles = StyleSheet.create(({ space, radius, colors }) => ({
   tile: {
@@ -201,10 +171,6 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
         six: { minHeight: space(15) },
         banquet: { minHeight: space(15) },
       },
-      selected: {
-        true: {},
-        false: {},
-      },
     },
   },
   seatHint: {
@@ -217,7 +183,7 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     borderRadius: radius.xs,
     borderWidth: 1.5,
     borderColor: colors.primary,
-    backgroundColor: colors.white,
+    backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: colors.slate12,
@@ -239,7 +205,7 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
   furniture: {
     alignItems: "center",
     justifyContent: "center",
-    gap: CHAIR_GAP,
+    gap: space(1.25),
     variants: {
       size: {
         two: {},
@@ -253,7 +219,7 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: CHAIR_GAP,
+    gap: space(1.25),
     variants: {
       size: {
         two: {},
@@ -263,28 +229,6 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
       },
     },
   },
-  chairRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: space(1.25),
-  },
-  chairCol: {
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: space(1.25),
-  },
-  chairH: {
-    width: 26,
-    height: 9,
-    borderRadius: radius.full,
-  },
-  chairV: {
-    width: 9,
-    height: 26,
-    borderRadius: radius.full,
-  },
   body: {
     alignItems: "center",
     justifyContent: "center",
@@ -293,7 +237,6 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     paddingVertical: space(0.75),
     borderRadius: radius.md,
     borderWidth: 1.5,
-    // Compact tabletop — do not stretch to fill the wash card
     flexGrow: 0,
     flexShrink: 0,
     variants: {

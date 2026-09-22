@@ -1,7 +1,8 @@
 import { Pressable, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
-import { Flex, Typography } from "@/components";
+import { Flex } from "@/components/flex";
+import { Typography } from "@/components/typography";
 import { MAX_BOOKABLE_PARTY_SIZE } from "@/lib/party-size";
 
 const MIN_PARTY = 1;

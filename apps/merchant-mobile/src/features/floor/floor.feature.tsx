@@ -3,11 +3,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { toast } from "sonner-native";
 
 import { Button, Empty, Flex, InlineAlert, Typography } from "@/components";
 import { useActiveRestaurant } from "@/features/restaurants";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
+import { guestDisplayName } from "@/lib/helpers";
 
 import {
   FLOOR_PLAN_OPS,
@@ -18,61 +18,17 @@ import {
   FLOOR_AREA_ALL,
   FloorAreaPicker,
 } from "./components/floor-area-picker.component";
-import { FloorArrivingCard } from "./components/floor-arriving-card.component";
+import { FloorArrivingSection } from "./components/floor-arriving-section.component";
 import {
   FloorAreaPickerSkeleton,
   FloorSkeleton,
 } from "./components/floor-skeleton.component";
 import { FloorStatusLegend } from "./components/floor-status-legend.component";
-import { FloorTableCard } from "./components/floor-table-card.component";
 import { FloorTableSheet } from "./components/floor-table-sheet.component";
-
-type FloorTableState = {
-  status: string;
-  seatedMinutes?: number | null;
-  turnMinutesRemaining?: number | null;
-  table: {
-    id: string;
-    name: string;
-    minCapacity: number;
-    maxCapacity: number;
-    floorArea?: string | null;
-  };
-  reservation?: {
-    id: string;
-    partySize: number;
-    slotStart: string;
-    status: string;
-    diner?: { firstName?: string | null; lastName?: string | null } | null;
-  } | null;
-};
-
-type UnassignedReservation = {
-  id: string;
-  partySize: number;
-  slotStart: string;
-  status: string;
-  diner?: { firstName?: string | null; lastName?: string | null } | null;
-};
-
-type FloorOpsQuery = {
-  floorPlanOps: {
-    date: string;
-    tables: FloorTableState[];
-    unassigned: UnassignedReservation[];
-  };
-};
-
-function guestName(
-  diner?: {
-    firstName?: string | null;
-    lastName?: string | null;
-  } | null,
-): string {
-  return (
-    [diner?.firstName, diner?.lastName].filter(Boolean).join(" ") || "Guest"
-  );
-}
+import { FloorTablesGrid } from "./components/floor-tables-grid.component";
+import { parseFloorTableStatus } from "./helpers/floor-status.helpers";
+import type { FloorOpsQuery, FloorTableState } from "./helpers/floor.types";
+import { useFloorOpsActions } from "./helpers/use-floor-ops-actions.hook";
 
 export function FloorFeature() {
   const insets = useSafeAreaInsets();
@@ -91,13 +47,10 @@ export function FloorFeature() {
     string | null
   >(null);
   const [areaFilter, setAreaFilter] = useState(FLOOR_AREA_ALL);
-  const [busy, setBusy] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
 
   const { data, loading, error, refetch } = useQuery<FloorOpsQuery>(
     FLOOR_PLAN_OPS,
     {
-      // Only query once myRestaurants confirms the venue — avoids CastError from stale MMKV ids.
       skip: !restaurantId,
       variables: { restaurantId },
       pollInterval: 10_000,
@@ -108,7 +61,29 @@ export function FloorFeature() {
   const [seatAtTable] = useMutation(SEAT_RESERVATION_AT_TABLE);
   const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
 
-  const tables = data?.floorPlanOps?.tables ?? [];
+  const clearSelection = useCallback(() => {
+    setSelected(null);
+    setSelectedUnassignedId(null);
+  }, []);
+
+  const { busy, refreshing, seatHere, changeStatus, onRefresh } =
+    useFloorOpsActions({
+      selected,
+      selectedUnassignedId,
+      seatAtTable,
+      updateStatus,
+      refetch,
+      onClearSelection: clearSelection,
+    });
+
+  const tables = useMemo(
+    () =>
+      (data?.floorPlanOps?.tables ?? []).map((row) => ({
+        ...row,
+        status: parseFloorTableStatus(row.status),
+      })),
+    [data?.floorPlanOps?.tables],
+  );
   const unassigned = data?.floorPlanOps?.unassigned ?? [];
 
   const floorAreas = useMemo(
@@ -145,72 +120,12 @@ export function FloorFeature() {
 
   const seatingMode = Boolean(selectedUnassigned);
   const selectedGuestLabel = selectedUnassigned
-    ? guestName(selectedUnassigned.diner)
+    ? guestDisplayName(selectedUnassigned.diner)
     : null;
-
-  async function seatHere() {
-    if (!selected) return;
-    const reservationId =
-      selected.reservation?.id ?? selectedUnassignedId ?? null;
-    if (!reservationId) {
-      toast.error("Select an arriving party first");
-      return;
-    }
-    setBusy(true);
-    try {
-      await seatAtTable({
-        variables: { reservationId, tableId: selected.table.id },
-      });
-      toast.success("Guest seated");
-      setSelected(null);
-      setSelectedUnassignedId(null);
-      await refetch();
-    } catch (err) {
-      toast.error("Couldn't seat guest", {
-        description: getGraphQLErrorMessage(err, "Please try again"),
-      });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function changeStatus(status: string) {
-    const reservationId = selected?.reservation?.id;
-    if (!reservationId) return;
-    const STATUS_TOAST_LABELS: Record<string, string> = {
-      completed: "complete",
-      no_show: "no-show",
-      cancelled: "cancel",
-    };
-    const statusLabel = STATUS_TOAST_LABELS[status] ?? status;
-    setBusy(true);
-    try {
-      await updateStatus({ variables: { id: reservationId, status } });
-      toast.success(`Marked ${statusLabel}`);
-      setSelected(null);
-      await refetch();
-    } catch (err) {
-      toast.error("Couldn't update status", {
-        description: getGraphQLErrorMessage(err, "Please try again"),
-      });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await refetch();
-    } finally {
-      setRefreshing(false);
-    }
-  }, [refetch]);
 
   const bootstrapping = restaurantsLoading || !restaurantsReady;
   const isLoading =
     bootstrapping || (Boolean(restaurantId) && loading && !data);
-  // Prefer live data over a sticky Apollo error once a poll succeeds
   const loadError = restaurantsError ?? (error && !data ? error : undefined);
 
   return (
@@ -285,75 +200,18 @@ export function FloorFeature() {
           }
         >
           <FloorStatusLegend />
-
-          {unassigned.length > 0 ? (
-            <Flex gap={1.5}>
-              <Flex gap={0.5}>
-                <Typography weight="semibold" size="text-lg">
-                  Arriving · {unassigned.length}
-                </Typography>
-                <Typography size="text-sm" color="secondary">
-                  Select a guest, then tap a free table to seat them.
-                </Typography>
-              </Flex>
-              <Flex gap={1}>
-                {unassigned.map((item) => {
-                  const selectedRow = item.id === selectedUnassignedId;
-                  return (
-                    <FloorArrivingCard
-                      key={item.id}
-                      item={item}
-                      selected={selectedRow}
-                      onPress={() =>
-                        setSelectedUnassignedId(selectedRow ? null : item.id)
-                      }
-                    />
-                  );
-                })}
-              </Flex>
-            </Flex>
-          ) : null}
-
-          <Flex gap={1.5}>
-            <Typography weight="semibold" size="text-lg">
-              Tables
-              {visibleTables.length > 0 ? ` · ${visibleTables.length}` : ""}
-            </Typography>
-
-            {visibleTables.length === 0 ? (
-              <Empty
-                title="No tables"
-                description={
-                  tables.length === 0
-                    ? "Add tables in Partner Hub to run floor ops."
-                    : "No tables in this area."
-                }
-              />
-            ) : (
-              <View style={styles.grid}>
-                {visibleTables.map((state) => {
-                  const isFree = state.status === "free";
-                  return (
-                    <FloorTableCard
-                      key={state.table.id}
-                      status={state.status}
-                      table={state.table}
-                      guestLabel={
-                        state.reservation
-                          ? guestName(state.reservation.diner)
-                          : null
-                      }
-                      turnMinutesRemaining={state.turnMinutesRemaining}
-                      selected={selected?.table.id === state.table.id}
-                      seatTarget={seatingMode && isFree}
-                      dimmed={seatingMode && !isFree}
-                      onPress={() => setSelected(state)}
-                    />
-                  );
-                })}
-              </View>
-            )}
-          </Flex>
+          <FloorArrivingSection
+            unassigned={unassigned}
+            selectedUnassignedId={selectedUnassignedId}
+            onSelect={setSelectedUnassignedId}
+          />
+          <FloorTablesGrid
+            tables={tables}
+            visibleTables={visibleTables}
+            selectedTableId={selected?.table.id}
+            seatingMode={seatingMode}
+            onSelect={setSelected}
+          />
         </ScrollView>
       )}
 
@@ -388,7 +246,6 @@ const styles = StyleSheet.create(({ space, colors }) => ({
   },
   titleText: {
     flexShrink: 0,
-    lineHeight: 30,
   },
   pad: {
     paddingHorizontal: space(2.5),
@@ -403,12 +260,5 @@ const styles = StyleSheet.create(({ space, colors }) => ({
   content: {
     paddingHorizontal: space(2.5),
     gap: space(3),
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: space(2),
-    justifyContent: "space-between",
-    paddingVertical: space(0.5),
   },
 }));

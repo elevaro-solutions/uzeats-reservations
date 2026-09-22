@@ -49,10 +49,6 @@ const STATUS_LABELS: Record<ReservationStatus, string> = {
   no_show: "No-show",
 };
 
-export function reservationStatusLabel(status: string): string {
-  return STATUS_LABELS[status as ReservationStatus] ?? status;
-}
-
 /**
  * Reservation lifecycle palette (not Floor table ops):
  * pending → amber, confirmed → blue, seated → green,
@@ -135,10 +131,4 @@ export function secondaryReservationActions(status: string): ReservationAction[]
   return nextReservationActions(status).filter((a) => a.kind === "secondary");
 }
 
-export function guestDisplayName(diner?: {
-  firstName?: string | null;
-  lastName?: string | null;
-} | null): string {
-  const name = [diner?.firstName, diner?.lastName].filter(Boolean).join(" ");
-  return name || "Guest";
-}
+export { guestDisplayName } from "@/lib/helpers";

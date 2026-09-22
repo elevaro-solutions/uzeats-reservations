@@ -11,17 +11,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { toast } from "sonner-native";
 
-import { ChevronLeftIcon, MailIcon } from "@/assets";
+import { MailIcon } from "@/assets";
+import { Button, Empty, Flex, Loader } from "@/components";
 import {
-  Button,
-  Empty,
-  Flex,
-  IconButton,
-  Loader,
-  Typography,
-} from "@/components";
-import { useActiveRestaurant } from "@/features/restaurants";
-import { syncActiveRestaurantId } from "@/features/restaurants/helpers/sync-active-restaurant.helpers";
+  syncActiveRestaurantId,
+  useActiveRestaurant,
+} from "@/features/restaurants";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
 
 import {
@@ -30,26 +25,18 @@ import {
   MESSAGES,
   SEND_MESSAGE,
 } from "./api/messages.operations";
-import { MessageBubble } from "./components/message-bubble.component";
 import { MessageInput } from "./components/message-input.component";
+import { MessageThreadHeader } from "./components/message-thread-header.component";
+import {
+  MessageThreadListItem,
+  type ThreadMessage,
+} from "./components/message-thread-list-item.component";
 import {
   dinerDisplayName,
   formatConversationWhen,
-  formatMessageDayLabel,
-  getMessageDayKey,
-  isRestaurantSender,
 } from "./helpers/message-display.helpers";
 
-type MessageItem = {
-  id: string;
-  body: string;
-  senderType: string;
-  createdAt: string;
-};
-
-type MessagesQuery = {
-  messages: MessageItem[];
-};
+type MessagesQuery = { messages: ThreadMessage[] };
 
 type ConversationQuery = {
   conversation: {
@@ -72,7 +59,7 @@ export function MessageThreadFeature() {
   const { theme } = useUnistyles();
   const { restaurants } = useActiveRestaurant();
   const [draft, setDraft] = useState("");
-  const listRef = useRef<FlatList<MessageItem>>(null);
+  const listRef = useRef<FlatList<ThreadMessage>>(null);
 
   const { data: conversationData } = useQuery<ConversationQuery>(CONVERSATION, {
     variables: { reservationId },
@@ -104,7 +91,6 @@ export function MessageThreadFeature() {
         .join(" · ")
     : null;
 
-  // Inbox is venue-scoped; sync so Messages tab matches this thread (Partner Hub does the same).
   useEffect(() => {
     syncActiveRestaurantId(conversation?.restaurantId, { restaurants });
   }, [conversation?.restaurantId, restaurants]);
@@ -126,9 +112,7 @@ export function MessageThreadFeature() {
     const body = draft.trim();
     if (!body || !reservationId) return;
     try {
-      await sendMessage({
-        variables: { reservationId, body },
-      });
+      await sendMessage({ variables: { reservationId, body } });
       setDraft("");
       await refetch();
     } catch (err) {
@@ -144,42 +128,12 @@ export function MessageThreadFeature() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={0}
     >
-      <Flex
-        direction="row"
-        alignItems="center"
-        gap={1}
-        style={[styles.topBar, { paddingTop: insets.top }]}
-      >
-        <IconButton
-          icon={<ChevronLeftIcon />}
-          variant="surface"
-          size="sm"
-          onPress={() => router.back()}
-          accessibilityLabel="Go back"
-          style={styles.chromeBtn}
-        />
-        <Flex style={styles.topCopy} gap={0.25} alignItems="center">
-          <Typography
-            weight="semibold"
-            size="text-lg"
-            align="center"
-            numberOfLines={1}
-          >
-            {guestName}
-          </Typography>
-          {subtitle ? (
-            <Typography
-              size="text-xs"
-              color="muted"
-              align="center"
-              numberOfLines={1}
-            >
-              {subtitle}
-            </Typography>
-          ) : null}
-        </Flex>
-        <View style={styles.topSpacer} />
-      </Flex>
+      <MessageThreadHeader
+        guestName={guestName}
+        subtitle={subtitle}
+        paddingTop={insets.top}
+        onBack={() => router.back()}
+      />
 
       {loading && messages.length === 0 ? (
         <Flex flex={1} justifyContent="center" alignItems="center">
@@ -215,50 +169,13 @@ export function MessageThreadFeature() {
               />
             ) : null
           }
-          renderItem={({ item, index }) => {
-            const mine = isRestaurantSender(item.senderType);
-            const dayKey = getMessageDayKey(item.createdAt);
-            const prev = index > 0 ? messages[index - 1] : null;
-            const next =
-              index < messages.length - 1 ? messages[index + 1] : null;
-            const prevDayKey = prev ? getMessageDayKey(prev.createdAt) : null;
-            const nextDayKey = next ? getMessageDayKey(next.createdAt) : null;
-            const showDayDivider = dayKey !== prevDayKey;
-            const isFirstInGroup =
-              !prev ||
-              prev.senderType !== item.senderType ||
-              prevDayKey !== dayKey;
-            const isLastInGroup =
-              !next ||
-              next.senderType !== item.senderType ||
-              nextDayKey !== dayKey;
-
-            return (
-              <View
-                style={[
-                  styles.messageBlock,
-                  isLastInGroup
-                    ? styles.messageGroupEnd
-                    : styles.messageGrouped,
-                ]}
-              >
-                {showDayDivider ? (
-                  <View style={styles.dayDivider}>
-                    <Typography size="text-xs" color="muted" weight="medium">
-                      {formatMessageDayLabel(item.createdAt)}
-                    </Typography>
-                  </View>
-                ) : null}
-                <MessageBubble
-                  body={item.body}
-                  createdAt={item.createdAt}
-                  mine={mine}
-                  isFirstInGroup={isFirstInGroup}
-                  isLastInGroup={isLastInGroup}
-                />
-              </View>
-            );
-          }}
+          renderItem={({ item, index }) => (
+            <MessageThreadListItem
+              item={item}
+              index={index}
+              messages={messages}
+            />
+          )}
         />
       )}
 
@@ -282,29 +199,10 @@ export function MessageThreadFeature() {
   );
 }
 
-const styles = StyleSheet.create(({ space, colors, radius }) => ({
+const styles = StyleSheet.create(({ space, colors }) => ({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  topBar: {
-    paddingHorizontal: space(2),
-    paddingBottom: space(1),
-    backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.slate3,
-  },
-  chromeBtn: {
-    width: space(5),
-    height: space(5),
-    borderRadius: radius.full,
-  },
-  topCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  topSpacer: {
-    width: space(5),
   },
   centered: {
     padding: space(2),
@@ -316,19 +214,6 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   listEmpty: {
     flexGrow: 1,
     justifyContent: "center",
-  },
-  messageBlock: {
-    gap: space(0.75),
-  },
-  messageGrouped: {
-    marginBottom: space(0.25),
-  },
-  messageGroupEnd: {
-    marginBottom: space(1.25),
-  },
-  dayDivider: {
-    alignItems: "center",
-    paddingVertical: space(0.5),
   },
   composer: {
     paddingHorizontal: space(2),

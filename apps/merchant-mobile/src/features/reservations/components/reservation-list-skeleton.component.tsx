@@ -2,16 +2,7 @@ import { View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { Flex } from "@/components";
-import { Skeleton } from "@/components/skeleton";
-
-function MetaCluster({ textWidth }: { textWidth: number }) {
-  return (
-    <Flex direction="row" alignItems="center" gap={0.5}>
-      <Skeleton width={14} height={14} radius="sm" />
-      <Skeleton width={textWidth} height={12} radius="md" />
-    </Flex>
-  );
-}
+import { MetaCluster, Skeleton } from "@/components/skeleton";
 
 function ReservationCardSkeleton() {
   const { theme } = useUnistyles();

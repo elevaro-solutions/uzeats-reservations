@@ -26,3 +26,7 @@ export {
   US_PHONE_DIGIT_LENGTH,
   US_PHONE_PLACEHOLDER,
 } from "./phone.helpers";
+export {
+  guestDisplayName,
+  type GuestNameSource,
+} from "./guest-display-name.helpers";

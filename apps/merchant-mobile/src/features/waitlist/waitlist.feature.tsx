@@ -1,22 +1,14 @@
 import { useMutation, useQuery } from "@apollo/client";
+import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import { useMemo, useState } from "react";
-import { FlatList, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { RefreshControl, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
-import { toast } from "sonner-native";
 
-import { ChevronLeftIcon, ClipboardClockIcon, PlusIcon } from "@/assets";
-import {
-  Button,
-  Empty,
-  Flex,
-  IconButton,
-  InlineAlert,
-  Typography,
-} from "@/components";
+import { ClipboardClockIcon, PlusIcon } from "@/assets";
+import { Button, Empty, InlineAlert } from "@/components";
 import { useActiveRestaurant } from "@/features/restaurants";
-import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
 
 import {
   ADD_IN_HOUSE_WAITLIST,
@@ -26,22 +18,24 @@ import {
 import {
   AddWalkInSheet,
   WaitlistCard,
+  WaitlistHeader,
+  WaitlistListSkeleton,
   type WaitlistListItem,
 } from "./components";
-import { WaitlistListSkeleton } from "./components/waitlist-list-skeleton.component";
 import type { AddWalkInPayload } from "./helpers/add-walk-in-schema.helpers";
 import {
+  runAddWalkIn,
+  runWaitlistStatusAction,
+} from "./helpers/waitlist-actions.helpers";
+import {
   isTerminalWaitlistStatus,
-  waitlistActionToastCopy,
   type WaitlistAction,
 } from "./helpers/waitlist-status.helpers";
-
-type WaitlistEntry = WaitlistListItem;
 
 type WaitlistQuery = {
   restaurantWaitlist: {
     total: number;
-    items: WaitlistEntry[];
+    items: WaitlistListItem[];
   };
 };
 
@@ -53,6 +47,7 @@ export function WaitlistFeature() {
     useActiveRestaurant();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const { data, loading, error, refetch } = useQuery<WaitlistQuery>(
     RESTAURANT_WAITLIST_FULL,
@@ -68,53 +63,38 @@ export function WaitlistFeature() {
   const [updateStatus] = useMutation(UPDATE_WAITLIST_STATUS);
 
   const items = useMemo(() => data?.restaurantWaitlist?.items ?? [], [data]);
-
   const waitingCount = useMemo(
     () => items.filter((item) => !isTerminalWaitlistStatus(item.status)).length,
     [items],
   );
 
-  async function handleAction(id: string, action: WaitlistAction) {
-    const copy = waitlistActionToastCopy(action);
-    setBusyId(id);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
     try {
-      await updateStatus({ variables: { id, status: action.status } });
-      toast.success(copy.success);
       await refetch();
-    } catch (err) {
-      toast.error(copy.error, {
-        description: getGraphQLErrorMessage(err, "Please try again"),
-      });
     } finally {
-      setBusyId(null);
+      setRefreshing(false);
     }
+  }, [refetch]);
+
+  async function handleAction(id: string, action: WaitlistAction) {
+    await runWaitlistStatusAction({
+      id,
+      action,
+      updateStatus,
+      refetch,
+      setBusyId,
+    });
   }
 
   async function handleAdd(values: AddWalkInPayload) {
-    if (!activeRestaurantId) {
-      toast.error("Select a restaurant first");
-      return;
-    }
-    try {
-      await addEntry({
-        variables: {
-          input: {
-            restaurantId: activeRestaurantId,
-            guestName: values.guestName,
-            guestPhone: values.guestPhone,
-            partySize: values.partySize,
-            quotedWaitMinutes: values.quotedWaitMinutes,
-          },
-        },
-      });
-      toast.success("Walk-in added");
-      setSheetOpen(false);
-      await refetch();
-    } catch (err) {
-      toast.error("Couldn't add walk-in", {
-        description: getGraphQLErrorMessage(err, "Please try again"),
-      });
-    }
+    await runAddWalkIn({
+      restaurantId: activeRestaurantId,
+      values,
+      addEntry,
+      refetch,
+      onSuccess: () => setSheetOpen(false),
+    });
   }
 
   const isLoading = restaurantsLoading || (loading && !data);
@@ -122,33 +102,10 @@ export function WaitlistFeature() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
-      <Flex direction="column" style={styles.topBar}>
-        <Flex direction="row" alignItems="center">
-          <IconButton
-            icon={<ChevronLeftIcon />}
-            variant="surface"
-            size="sm"
-            onPress={() => router.back()}
-            accessibilityLabel="Go back"
-            style={styles.chromeBtn}
-          />
-          <Typography weight="semibold" size="text-lg" style={styles.topTitle}>
-            Waitlist
-          </Typography>
-          <View style={styles.chromeBtn} />
-        </Flex>
-        {!isLoading && !isEmpty ? (
-          <Typography
-            size="text-sm"
-            color="muted"
-            style={styles.queueSummary}
-          >
-            {waitingCount === 1
-              ? "1 waiting"
-              : `${waitingCount} waiting`}
-          </Typography>
-        ) : null}
-      </Flex>
+      <WaitlistHeader
+        waitingCount={!isLoading && !isEmpty ? waitingCount : null}
+        onBack={() => router.back()}
+      />
 
       {error ? (
         <View style={styles.pad}>
@@ -159,20 +116,26 @@ export function WaitlistFeature() {
       {isLoading ? (
         <WaitlistListSkeleton count={4} />
       ) : (
-        <FlatList
+        <FlashList
           data={items}
           keyExtractor={(item) => item.id}
-          style={styles.list}
-          contentContainerStyle={[
-            styles.listContent,
-            {
-              paddingHorizontal: theme.space(2),
-              paddingTop: theme.space(2),
-              paddingBottom: theme.space(3),
-              gap: theme.space(1.5),
-            },
-            isEmpty ? styles.listEmpty : null,
-          ]}
+          contentContainerStyle={{
+            paddingHorizontal: theme.space(2),
+            paddingTop: theme.space(2),
+            paddingBottom: theme.space(3),
+            ...(isEmpty ? { flexGrow: 1 } : null),
+          }}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => {
+                void onRefresh();
+              }}
+              tintColor={theme.colors.primary}
+              colors={[theme.colors.primary]}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <Empty
@@ -222,42 +185,19 @@ export function WaitlistFeature() {
   );
 }
 
-const styles = StyleSheet.create(({ space, colors, radius, shadows }) => ({
+const styles = StyleSheet.create(({ space, colors, shadows }) => ({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  topBar: {
-    paddingHorizontal: space(2),
-    paddingBottom: space(1.5),
-    borderBottomWidth: 1,
-    borderBottomColor: colors.slate3,
-    gap: space(0.25),
-  },
-  topTitle: {
-    flex: 1,
-    textAlign: "center",
-  },
-  queueSummary: {
-    textAlign: "center",
-  },
-  chromeBtn: {
-    width: space(5),
-    height: space(5),
-    borderRadius: radius.full,
-  },
-  list: {
-    flex: 1,
-  },
-  listContent: {
-    flexGrow: 1,
-  },
-  listEmpty: {
-    justifyContent: "center",
+  separator: {
+    height: space(1.5),
   },
   emptyWrap: {
     paddingHorizontal: space(2),
     paddingVertical: space(2),
+    flexGrow: 1,
+    justifyContent: "center",
   },
   pad: {
     paddingHorizontal: space(2),
@@ -266,7 +206,7 @@ const styles = StyleSheet.create(({ space, colors, radius, shadows }) => ({
     paddingHorizontal: space(2),
     paddingTop: space(1.5),
     borderTopWidth: 1,
-    borderTopColor: colors.slate3,
+    borderTopColor: colors.secondarySubtle,
     backgroundColor: colors.background,
     ...shadows.stickyFooter,
   },

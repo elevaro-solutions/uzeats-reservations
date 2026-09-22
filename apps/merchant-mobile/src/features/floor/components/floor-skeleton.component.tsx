@@ -4,6 +4,7 @@ import { StyleSheet } from "react-native-unistyles";
 import { Flex } from "@/components";
 import { Skeleton } from "@/components/skeleton";
 
+import { floorTableWidth } from "../helpers/floor-table-size.helpers";
 import { FloorStatusLegend } from "./floor-status-legend.component";
 
 function UnassignedRowSkeleton() {
@@ -60,7 +61,7 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     paddingVertical: space(1.5),
     paddingHorizontal: space(2),
     borderRadius: radius.md,
-    backgroundColor: colors.slate2,
+    backgroundColor: colors.surface,
     gap: space(0.5),
     justifyContent: "center",
   },
@@ -72,10 +73,10 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     paddingVertical: space(0.5),
   },
   tile: {
-    width: "47%",
+    width: floorTableWidth("four"),
     minHeight: space(14),
     borderRadius: radius.lg,
-    backgroundColor: colors.slate2,
+    backgroundColor: colors.surface,
     padding: space(1.25),
     alignItems: "center",
     justifyContent: "center",
@@ -84,9 +85,9 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     width: "70%",
     minHeight: space(7),
     borderRadius: radius.md,
-    backgroundColor: colors.white,
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: colors.slate3,
+    borderColor: colors.secondarySubtle,
     alignItems: "center",
     justifyContent: "center",
     gap: space(0.5),

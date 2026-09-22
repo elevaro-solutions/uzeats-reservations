@@ -19,17 +19,10 @@ export const FLOOR_PLAN_OPS = gql`
           id
           partySize
           slotStart
-          slotEnd
           status
-          seatedAt
-          guestNotes
           diner {
             firstName
             lastName
-          }
-          tables {
-            id
-            name
           }
         }
       }
@@ -37,16 +30,10 @@ export const FLOOR_PLAN_OPS = gql`
         id
         partySize
         slotStart
-        slotEnd
         status
-        guestNotes
         diner {
           firstName
           lastName
-        }
-        tables {
-          id
-          name
         }
       }
     }
@@ -58,12 +45,6 @@ export const SEAT_RESERVATION_AT_TABLE = gql`
     seatReservationAtTable(reservationId: $reservationId, tableId: $tableId) {
       id
       status
-      seatedAt
-      tableIds
-      tables {
-        id
-        name
-      }
     }
   }
 `;

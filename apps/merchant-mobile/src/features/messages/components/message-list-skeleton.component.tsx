@@ -48,7 +48,7 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     borderRadius: radius.lg,
     backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: colors.slate3,
+    borderColor: colors.secondarySubtle,
   },
   body: {
     minWidth: 0,

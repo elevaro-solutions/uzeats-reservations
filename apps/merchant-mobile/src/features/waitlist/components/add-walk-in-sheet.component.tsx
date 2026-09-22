@@ -2,8 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 
-import { BottomSheet, Button, Flex, Input, Typography } from "@/components";
-import { PartySizeStepper } from "@/features/reservations/components/party-size-stepper.component";
+import { BottomSheet, Button, Flex, Input, PartySizeStepper, Typography } from "@/components";
 import {
   formatUsPhoneNational,
   toE164Us,

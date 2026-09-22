@@ -1,23 +1,17 @@
 import { useMutation } from "@apollo/client";
-import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { toast } from "sonner-native";
 
-import { BellIcon, CheckIcon, ChevronLeftIcon } from "@/assets";
+import { CheckIcon, ChevronLeftIcon } from "@/assets";
+import { Flex, IconButton, Typography } from "@/components";
 import {
-  Button,
-  Empty,
-  Flex,
-  IconButton,
-  InlineAlert,
-  Typography,
-} from "@/components";
-import { useActiveRestaurant } from "@/features/restaurants";
-import { syncActiveRestaurantId } from "@/features/restaurants/helpers/sync-active-restaurant.helpers";
+  syncActiveRestaurantId,
+  useActiveRestaurant,
+} from "@/features/restaurants";
 import { useAuth } from "@/graphql";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
 
@@ -26,8 +20,8 @@ import {
   MARK_NOTIFICATIONS_READ,
 } from "./api/notifications.operations";
 import { NotificationDetailSheet } from "./components/notification-detail-sheet.component";
-import { NotificationListCard } from "./components/notification-list-card.component";
-import { NotificationListSkeleton } from "./components/notification-list-skeleton.component";
+import { NotificationsAuthGate } from "./components/notifications-auth-gate.component";
+import { NotificationsListBody } from "./components/notifications-list-body.component";
 import {
   parseNotificationData,
   type NotificationLink,
@@ -123,6 +117,7 @@ export function NotificationsFeature() {
     [router, selected, restaurants],
   );
 
+  const showAuthGate = !user && !authLoading;
   const isEmpty = !loading && !error && items.length === 0;
 
   return (
@@ -157,107 +152,40 @@ export function NotificationsFeature() {
         />
       </Flex>
 
-      {sessionOffline && !user && !authLoading ? (
-        <View style={styles.padX}>
-          <Empty
-            icon={<BellIcon size={28} color={theme.colors.textMuted} />}
-            title="You're offline"
-            description="We couldn't restore your session. Check your connection and try again."
-          />
-          <Button
-            fullWidth
-            loading={retryingSession}
-            onPress={() => {
-              setRetryingSession(true);
-              void refreshMe().finally(() => setRetryingSession(false));
-            }}
-            style={styles.signInBtn}
-          >
-            Try again
-          </Button>
-        </View>
-      ) : !user && !authLoading ? (
-        <View style={styles.padX}>
-          <Empty
-            icon={<BellIcon size={28} color={theme.colors.textMuted} />}
-            title="Sign in to see notifications"
-            description="Floor alerts and reservation updates will show up here."
-          />
-          <Button
-            fullWidth
-            onPress={() => router.push("/(auth)/sign-in")}
-            style={styles.signInBtn}
-          >
-            Sign in
-          </Button>
-        </View>
+      {showAuthGate ? (
+        <NotificationsAuthGate
+          mode={sessionOffline ? "offline" : "signed-out"}
+          retryingSession={retryingSession}
+          onRetrySession={() => {
+            setRetryingSession(true);
+            void refreshMe().finally(() => setRetryingSession(false));
+          }}
+          onSignIn={() => router.push("/(auth)/sign-in")}
+        />
       ) : (
-        <Flex flex={1}>
-          {error ? (
-            <View style={styles.padX}>
-              <InlineAlert
-                tone="error"
-                title="Couldn't load notifications"
-                message={error.message}
-              />
-              <Button
-                fullWidth
-                onPress={() => {
-                  void onRefresh();
-                }}
-                style={styles.retryBtn}
-              >
-                Try again
-              </Button>
-            </View>
-          ) : null}
-
-          <FlashList
-            data={items}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={{
-              paddingTop: theme.space(1),
-              paddingBottom:
-                Math.max(insets.bottom, theme.space(2)) + theme.space(2),
-            }}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-            onEndReached={() => {
-              if (hasMore) loadMore();
-            }}
-            onEndReachedThreshold={0.4}
-            refreshing={refreshing}
-            onRefresh={() => {
-              void onRefresh();
-            }}
-            ListFooterComponent={
-              loadingMore ? (
-                <ActivityIndicator
-                  color={theme.colors.primary}
-                  style={styles.footerSpinner}
-                />
-              ) : null
-            }
-            ListEmptyComponent={
-              loading || authLoading ? (
-                <NotificationListSkeleton count={7} />
-              ) : isEmpty ? (
-                <Empty
-                  icon={<BellIcon size={28} color={theme.colors.textMuted} />}
-                  title="No notifications yet"
-                  description="Updates about reservations and the floor will appear here."
-                />
-              ) : null
-            }
-            renderItem={({ item }) => (
-              <NotificationListCard
-                notification={item}
-                onPress={(n) => {
-                  void handlePress(n);
-                }}
-              />
-            )}
-          />
-        </Flex>
+        <NotificationsListBody
+          items={items}
+          loading={loading}
+          authLoading={authLoading}
+          loadingMore={loadingMore}
+          hasMore={hasMore}
+          errorMessage={error?.message}
+          isEmpty={isEmpty}
+          refreshing={refreshing}
+          contentPaddingBottom={
+            Math.max(insets.bottom, theme.space(2)) + theme.space(2)
+          }
+          onRefresh={() => {
+            void onRefresh();
+          }}
+          onLoadMore={loadMore}
+          onPressItem={(n) => {
+            void handlePress(n);
+          }}
+          onRetry={() => {
+            void onRefresh();
+          }}
+        />
       )}
 
       <NotificationDetailSheet
@@ -279,7 +207,7 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     paddingHorizontal: space(2),
     paddingBottom: space(1.5),
     borderBottomWidth: 1,
-    borderBottomColor: colors.slate3,
+    borderBottomColor: colors.secondarySubtle,
   },
   topTitle: {
     flex: 1,
@@ -289,23 +217,5 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     width: space(5),
     height: space(5),
     borderRadius: radius.full,
-  },
-  padX: {
-    paddingHorizontal: space(2),
-    paddingTop: space(2),
-  },
-  signInBtn: {
-    marginTop: space(2),
-  },
-  retryBtn: {
-    marginTop: space(1.5),
-  },
-  separator: {
-    height: 1,
-    backgroundColor: colors.slate3,
-    marginLeft: space(2) + space(5) + space(1.5),
-  },
-  footerSpinner: {
-    marginVertical: space(2),
   },
 }));

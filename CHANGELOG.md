@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.58.1] — 2026-09-22
+
+### Changed
+
+- Merchant mobile: code-quality refactor across ops features — split oversized Floor/Reservations/Overview/Messages/More/Notifications/Waitlist files toward the ~200-line focus rule
+- Merchant mobile: shared `guestDisplayName`, `StatusActionsSheet`/`StatusActionsList`, `PartySizeStepper`, and skeleton `MetaCluster`; Floor uses typed `FloorTableStatus` + trimmed GraphQL
+- Merchant mobile: Overview uses a snapshot/shortcut skeleton instead of a full-screen loader; Waitlist list uses FlashList + RefreshControl; trimmed unused list GraphQL fields; removed unused `AVAILABILITY` / `reservationStatusLabel`
+
+### Docs
+
+- Merchant mobile notes: shared status-actions kit, MetaCluster, and ops feature extract patterns
+
 ## [0.58.0] — 2026-09-22
 
 ### Changed

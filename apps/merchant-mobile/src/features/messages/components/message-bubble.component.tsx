@@ -5,6 +5,10 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { Typography } from "@/components";
 
+import {
+  buildBubblePath,
+  MESSAGE_BUBBLE_TIP_W,
+} from "../helpers/message-bubble-path.helpers";
 import { formatMessageTime } from "../helpers/message-display.helpers";
 
 export type MessageBubbleProps = {
@@ -14,105 +18,6 @@ export type MessageBubbleProps = {
   isFirstInGroup: boolean;
   isLastInGroup: boolean;
 };
-
-const ROUND = 16; // radius.lg
-const CLUSTER = 8; // radius.sm
-/** How far the tip sticks out past the bubble edge. */
-const TIP_W = 7;
-/** How far up the side wall the tip curve begins. */
-const TIP_H = 10;
-
-function corner(first: boolean, last: boolean, side: "left" | "right") {
-  const top = first ? ROUND : CLUSTER;
-  const bottom = last ? 0 : CLUSTER;
-  if (side === "right") {
-    return {
-      topRight: top,
-      bottomRight: bottom,
-      topLeft: ROUND,
-      bottomLeft: ROUND,
-    };
-  }
-  return {
-    topLeft: top,
-    bottomLeft: bottom,
-    topRight: ROUND,
-    bottomRight: ROUND,
-  };
-}
-
-/**
- * Single path for bubble + Telegram-style tip so the side wall flows into the beak.
- * Tip: flat bottom flush with bubble, concave outer curve to a point.
- */
-function buildBubblePath(
-  width: number,
-  height: number,
-  mine: boolean,
-  withTip: boolean,
-  isFirst: boolean,
-  isLast: boolean,
-): { d: string; svgW: number; svgH: number } {
-  const c = corner(isFirst, isLast, mine ? "right" : "left");
-  const tip = withTip ? TIP_W : 0;
-  const svgW = width + tip;
-  const svgH = height;
-
-  // Draw in “outgoing” coordinates (tip on the right), then mirror for incoming.
-  const tl = c.topLeft;
-  const tr = c.topRight;
-  const br = c.bottomRight;
-  const bl = c.bottomLeft;
-
-  let d: string;
-
-  if (withTip && mine) {
-    d = [
-      `M${tl} 0`,
-      `H${width - tr}`,
-      `Q${width} 0 ${width} ${tr}`,
-      `V${height - TIP_H}`,
-      // Side wall → tip: concave swoop, flat bottom through the tip point.
-      `C${width + TIP_W * 0.1} ${height - TIP_H * 0.55} ${width + TIP_W * 0.55} ${height - 1} ${width + TIP_W} ${height}`,
-      `H${bl}`,
-      `Q0 ${height} 0 ${height - bl}`,
-      `V${tl}`,
-      `Q0 0 ${tl} 0`,
-      "Z",
-    ].join(" ");
-  } else if (withTip && !mine) {
-    d = [
-      `M${TIP_W + tl} 0`,
-      `H${svgW - tr}`,
-      `Q${svgW} 0 ${svgW} ${tr}`,
-      `V${height - br}`,
-      `Q${svgW} ${height} ${svgW - br} ${height}`,
-      // Flat bottom out to the tip point on the left.
-      `H0`,
-      // Tip → left wall: mirrored concave swoop.
-      `C${TIP_W * 0.45} ${height - 1} ${TIP_W * 0.9} ${height - TIP_H * 0.55} ${TIP_W} ${height - TIP_H}`,
-      `V${tl}`,
-      `Q${TIP_W} 0 ${TIP_W + tl} 0`,
-      "Z",
-    ].join(" ");
-  } else {
-    // No tip — plain rounded rect.
-    d = [
-      `M${tl} 0`,
-      `H${width - tr}`,
-      `Q${width} 0 ${width} ${tr}`,
-      `V${height - br}`,
-      `Q${width} ${height} ${width - br} ${height}`,
-      `H${bl}`,
-      `Q0 ${height} 0 ${height - bl}`,
-      `V${tl}`,
-      `Q0 0 ${tl} 0`,
-      "Z",
-    ].join(" ");
-  }
-
-  return { d, svgW, svgH };
-}
 
 export function MessageBubble({
   body,
@@ -125,7 +30,9 @@ export function MessageBubble({
   const [isMultiline, setIsMultiline] = useState(false);
   const [size, setSize] = useState({ width: 0, height: 0 });
 
-  const fill = mine ? theme.colors.primary5 : theme.colors.slate3;
+  const round = theme.radius.lg;
+  const cluster = theme.radius.sm;
+  const fill = mine ? theme.colors.primary5 : theme.colors.secondarySubtle;
   const showTip = isLastInGroup;
   const { d, svgW, svgH } =
     size.width > 0
@@ -136,6 +43,8 @@ export function MessageBubble({
           showTip,
           isFirstInGroup,
           isLastInGroup,
+          round,
+          cluster,
         )
       : { d: "", svgW: 0, svgH: 0 };
 
@@ -156,8 +65,7 @@ export function MessageBubble({
           height={svgH}
           style={[
             styles.bubbleSvg,
-            // Keep bubble bodies aligned: tip draws into the left gutter.
-            !mine ? { left: showTip ? 0 : TIP_W } : null,
+            !mine ? { left: showTip ? 0 : MESSAGE_BUBBLE_TIP_W } : null,
           ]}
         >
           <Path d={d} fill={fill} />
@@ -167,10 +75,9 @@ export function MessageBubble({
       <View
         style={[
           styles.content,
-          // Always reserve tip width on incoming so grouped messages share one left edge.
-          !mine ? { marginLeft: TIP_W } : null,
+          !mine ? { marginLeft: MESSAGE_BUBBLE_TIP_W } : null,
           size.width === 0
-            ? { backgroundColor: fill, borderRadius: ROUND }
+            ? { backgroundColor: fill, borderRadius: round }
             : null,
         ]}
         onLayout={onLayout}

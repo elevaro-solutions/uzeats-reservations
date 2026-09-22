@@ -18,23 +18,15 @@ export const RESTAURANT_RESERVATIONS = gql`
         id
         partySize
         slotStart
-        slotEnd
         status
-        occasion
-        guestNotes
-        source
-        tableIds
         diner {
-          id
           firstName
           lastName
           phone
-          email
         }
         tables {
           id
           name
-          floorArea
         }
       }
     }
@@ -107,20 +99,6 @@ export const UPDATE_RESERVATION_STATUS = gql`
     updateReservationStatus(id: $id, status: $status, reason: $reason) {
       id
       status
-    }
-  }
-`;
-
-export const AVAILABILITY = gql`
-  query Availability($restaurantId: ID!, $date: String!, $partySize: Int!) {
-    availability(
-      restaurantId: $restaurantId
-      date: $date
-      partySize: $partySize
-    ) {
-      time
-      available
-      remainingTables
     }
   }
 `;

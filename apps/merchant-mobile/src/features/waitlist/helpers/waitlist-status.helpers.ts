@@ -167,6 +167,8 @@ export function secondaryWaitlistActions(status: string): WaitlistAction[] {
   return nextWaitlistActions(status).filter((a) => a.kind === "secondary");
 }
 
+import { guestDisplayName } from "@/lib/helpers";
+
 export type WaitlistEntryNameSource = {
   guestName?: string | null;
   diner?: {
@@ -177,10 +179,7 @@ export type WaitlistEntryNameSource = {
 
 export function entryDisplayName(entry: WaitlistEntryNameSource): string {
   if (entry.guestName?.trim()) return entry.guestName.trim();
-  const name = [entry.diner?.firstName, entry.diner?.lastName]
-    .filter(Boolean)
-    .join(" ");
-  return name || "Guest";
+  return guestDisplayName(entry.diner);
 }
 
 export type WaitlistEntryPhoneSource = {

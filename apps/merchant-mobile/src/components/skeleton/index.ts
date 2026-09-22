@@ -1,5 +1,7 @@
 export { Skeleton } from "./skeleton.component";
 export type { SkeletonProps } from "./skeleton.component";
+export { MetaCluster } from "./meta-cluster.component";
+export type { MetaClusterProps } from "./meta-cluster.component";
 export { ChipRowSkeleton } from "./chip-row-skeleton.component";
 export type { ChipRowSkeletonProps } from "./chip-row-skeleton.component";
 export { RestaurantCardSkeleton } from "./restaurant-card-skeleton.component";

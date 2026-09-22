@@ -11,19 +11,12 @@ export const RESTAURANT_WAITLIST_FULL = gql`
       items {
         id
         partySize
-        preferredDate
-        preferredTimeStart
         status
-        createdAt
-        dinerId
         guestName
         guestPhone
-        source
         quotedWaitMinutes
         position
-        partiesAhead
         estimatedWaitMinutes
-        estimatedReadyAt
         diner {
           firstName
           lastName

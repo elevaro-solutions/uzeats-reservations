@@ -102,6 +102,6 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     gap: space(1.5),
     padding: space(2),
     borderRadius: radius.lg,
-    backgroundColor: colors.slate2,
+    backgroundColor: colors.surface,
   },
 }));
