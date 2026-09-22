@@ -31,8 +31,8 @@ import {
   OCCASIONS,
   BOOKABLE_OCCASIONS,
   OCCASION_LABELS,
-  LOYALTY,
   RESTAURANT_LOYALTY,
+  defaultLoyaltyProgram,
   pointsToDiscountCents,
   restaurantPointsToDiscountCents,
   depositPointsFromCents,
@@ -64,6 +64,7 @@ import {
   RESTAURANT_PACKAGES,
   PRIVATE_DINING_SPACES,
   MY_RESTAURANT_LOYALTY_BALANCE,
+  LOYALTY_PROGRAM,
   VALIDATE_PROMOTION,
   BEST_PROMOTION,
   VALIDATE_GIFT_CARD,
@@ -294,6 +295,7 @@ export default function RestaurantPageClient() {
     variables: { restaurantId: restaurantId! },
     skip: !user || !restaurantId,
   });
+  const { data: loyaltyProgramData } = useQuery(LOYALTY_PROGRAM);
 
   const [createReservation, { loading: booking }] = useMutation(CREATE_RESERVATION, {
     refetchQueries: [{ query: MY_RESERVATIONS }],
@@ -438,7 +440,9 @@ export default function RestaurantPageClient() {
       : 0;
   const grossDepositCents =
     tableDepositCents + packagePriceCents + privateSpacePriceCents + experiencePriceCents;
-  const redeemProgress = loyaltyRedeemProgress(user?.loyaltyPoints ?? 0);
+  const program = (loyaltyProgramData as any)?.loyaltyProgram ?? defaultLoyaltyProgram();
+  const minRedeem = program.minRedeemPoints;
+  const redeemProgress = loyaltyRedeemProgress(user?.loyaltyPoints ?? 0, minRedeem);
   const restaurantLoyaltyBalance = (restaurantLoyaltyData as any)?.myRestaurantLoyaltyBalance ?? 0;
   const restaurantMinRedeem =
     restaurant?.loyaltyMinRedeemPoints ?? RESTAURANT_LOYALTY.DEFAULT_MIN_REDEEM_POINTS;
@@ -448,8 +452,8 @@ export default function RestaurantPageClient() {
     grossDepositCents > 0;
   const depositBeforePromo = useMemo(() => {
     let d = grossDepositCents;
-    if (redeemPoints >= LOYALTY.MIN_REDEEM_POINTS) {
-      d -= pointsToDiscountCents(redeemPoints);
+    if (redeemPoints >= minRedeem) {
+      d -= pointsToDiscountCents(redeemPoints, program.redeemPointsPerDollar);
     }
     if (canRedeemRestaurant && redeemRestaurantPoints >= restaurantMinRedeem) {
       d -= restaurantPointsToDiscountCents(redeemRestaurantPoints);
@@ -461,6 +465,8 @@ export default function RestaurantPageClient() {
     redeemRestaurantPoints,
     canRedeemRestaurant,
     restaurantMinRedeem,
+    minRedeem,
+    program.redeemPointsPerDollar,
   ]);
   const { data: promoValidationData } = useQuery(VALIDATE_PROMOTION, {
     variables: {
@@ -620,7 +626,7 @@ export default function RestaurantPageClient() {
             slotStart: selectedSlot,
             occasion,
             guestNotes: notes || undefined,
-            ...(redeemPoints >= LOYALTY.MIN_REDEEM_POINTS ? { redeemPoints } : {}),
+            ...(redeemPoints >= minRedeem ? { redeemPoints } : {}),
             ...(canRedeemRestaurant && redeemRestaurantPoints >= restaurantMinRedeem
               ? { redeemRestaurantPoints }
               : {}),
@@ -945,9 +951,9 @@ export default function RestaurantPageClient() {
             </Text>
             {user && (
               <Text type="secondary" className="rt-restaurant-booking-card__loyalty">
-                Earn {LOYALTY.POINTS_PER_COMPLETED_VISIT} pts when you complete your visit
+                Earn {program.pointsPerCompletedVisit} pts when you complete your visit
                 {grossDepositCents > 0
-                  ? ` and ${depositPointsFromCents(grossDepositCents)} pts when your deposit is paid`
+                  ? ` and ${depositPointsFromCents(grossDepositCents, program.pointsPerDollarDeposit)} pts when your deposit is paid`
                   : ''}
                 .
                 {restaurant?.loyaltyEnabled ? (
@@ -1301,7 +1307,7 @@ export default function RestaurantPageClient() {
                     </div>
                     <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 13 }}>
                       {redeemProgress.canRedeem
-                        ? `Ready to redeem (${LOYALTY.MIN_REDEEM_POINTS}+ pts)`
+                        ? `Ready to redeem (${minRedeem}+ pts)`
                         : `${redeemProgress.remaining} pts until you can redeem`}
                     </Text>
                     <InputNumber
@@ -1316,19 +1322,19 @@ export default function RestaurantPageClient() {
                       style={{ width: 160 }}
                       addonAfter="pts"
                     />
-                    {redeemPoints >= LOYALTY.MIN_REDEEM_POINTS ? (
+                    {redeemPoints >= minRedeem ? (
                       <Alert
                         type="success"
                         showIcon
                         style={{ marginTop: 10 }}
-                        message={`${redeemPoints} pts = $${(pointsToDiscountCents(redeemPoints) / 100).toFixed(2)} off deposit`}
+                        message={`${redeemPoints} pts = $${(pointsToDiscountCents(redeemPoints, program.redeemPointsPerDollar) / 100).toFixed(2)} off deposit`}
                       />
                     ) : redeemPoints > 0 ? (
                       <Alert
                         type="warning"
                         showIcon
                         style={{ marginTop: 10 }}
-                        message={`Minimum ${LOYALTY.MIN_REDEEM_POINTS} points required to redeem`}
+                        message={`Minimum ${minRedeem} points required to redeem`}
                       />
                     ) : null}
                   </div>
@@ -1595,7 +1601,7 @@ export default function RestaurantPageClient() {
           promoTitle: activePromo?.valid ? activePromo.promotion?.title : undefined,
           giftCardDiscountCents: giftValidation?.valid ? giftValidation.discountCents : undefined,
           loyaltyPointsRedeemed:
-            redeemPoints >= LOYALTY.MIN_REDEEM_POINTS ? redeemPoints : undefined,
+            redeemPoints >= minRedeem ? redeemPoints : undefined,
           restaurantPointsRedeemed:
             canRedeemRestaurant && redeemRestaurantPoints >= restaurantMinRedeem
               ? redeemRestaurantPoints

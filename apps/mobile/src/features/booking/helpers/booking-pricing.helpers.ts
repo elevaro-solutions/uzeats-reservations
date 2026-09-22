@@ -24,6 +24,8 @@ type PricingInput = {
   redeemPoints: number;
   redeemRestaurantPoints: number;
   restaurantLoyaltyBalance: number;
+  minRedeemPoints?: number;
+  redeemPointsPerDollar?: number;
   activePromo?: PromotionValidation | null;
   giftValidation?: PromotionValidation | null;
 };
@@ -52,9 +54,13 @@ export function computeGrossDepositCents(input: PricingInput): number {
 export function computeDepositBeforePromo(input: PricingInput): number {
   const gross = computeGrossDepositCents(input);
   let deposit = gross;
+  const minRedeem = input.minRedeemPoints ?? LOYALTY.MIN_REDEEM_POINTS;
 
-  if (input.redeemPoints >= LOYALTY.MIN_REDEEM_POINTS) {
-    deposit -= pointsToDiscountCents(input.redeemPoints);
+  if (input.redeemPoints >= minRedeem) {
+    deposit -= pointsToDiscountCents(
+      input.redeemPoints,
+      input.redeemPointsPerDollar,
+    );
   }
 
   const restaurantMinRedeem =
@@ -102,10 +108,11 @@ export function computeDepositBreakdown(input: PricingInput): DepositBreakdown {
 
   let remaining = grossCents;
   let platformPointsDiscountCents = 0;
-  if (input.redeemPoints >= LOYALTY.MIN_REDEEM_POINTS) {
+  const minRedeem = input.minRedeemPoints ?? LOYALTY.MIN_REDEEM_POINTS;
+  if (input.redeemPoints >= minRedeem) {
     platformPointsDiscountCents = Math.min(
       remaining,
-      pointsToDiscountCents(input.redeemPoints),
+      pointsToDiscountCents(input.redeemPoints, input.redeemPointsPerDollar),
     );
     remaining -= platformPointsDiscountCents;
   }

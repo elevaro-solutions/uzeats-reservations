@@ -1,6 +1,6 @@
-/** Admin data export builders and formatters (CSV / JSON / PDF). */
+/** Admin data export builders and formatters (CSV / JSON / PDF / Excel). */
 
-export type ExportFormat = 'csv' | 'json' | 'pdf';
+export type ExportFormat = 'csv' | 'json' | 'pdf' | 'xlsx';
 
 export type ExportTable = {
   title: string;
@@ -245,6 +245,136 @@ export function toPdf(table: ExportTable) {
   return Buffer.from(pdf, 'utf8').toString('base64');
 }
 
+const CRC32_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[i] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(buf: Buffer) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) {
+    crc = CRC32_TABLE[(crc ^ buf[i]!) & 0xff]! ^ (crc >>> 8);
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function zipStore(files: Array<{ name: string; data: Buffer }>) {
+  const locals: Buffer[] = [];
+  const centrals: Buffer[] = [];
+  let offset = 0;
+  for (const file of files) {
+    const nameBuf = Buffer.from(file.name, 'utf8');
+    const crc = crc32(file.data);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(0, 8);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(file.data.length, 18);
+    local.writeUInt32LE(file.data.length, 22);
+    local.writeUInt16LE(nameBuf.length, 26);
+    const localEntry = Buffer.concat([local, nameBuf, file.data]);
+    locals.push(localEntry);
+
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(20, 4);
+    central.writeUInt16LE(20, 6);
+    central.writeUInt32LE(crc, 16);
+    central.writeUInt32LE(file.data.length, 20);
+    central.writeUInt32LE(file.data.length, 24);
+    central.writeUInt16LE(nameBuf.length, 28);
+    central.writeUInt32LE(offset, 42);
+    centrals.push(Buffer.concat([central, nameBuf]));
+    offset += localEntry.length;
+  }
+  const centralDir = Buffer.concat(centrals);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(files.length, 8);
+  eocd.writeUInt16LE(files.length, 10);
+  eocd.writeUInt32LE(centralDir.length, 12);
+  eocd.writeUInt32LE(offset, 16);
+  return Buffer.concat([...locals, centralDir, eocd]);
+}
+
+function xmlEscape(value: string) {
+  return value
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function colName(n: number) {
+  let s = '';
+  let i = n;
+  while (i > 0) {
+    const r = (i - 1) % 26;
+    s = String.fromCharCode(65 + r) + s;
+    i = Math.floor((i - 1) / 26);
+  }
+  return s;
+}
+
+function sheetName(title: string) {
+  const cleaned = title.replace(/[:\\/?*[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+  return (cleaned || 'Sheet1').slice(0, 31);
+}
+
+function xlsxCell(value: unknown, ref: string) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return `<c r="${ref}"><v>${value}</v></c>`;
+  }
+  if (typeof value === 'boolean') {
+    return `<c r="${ref}" t="b"><v>${value ? 1 : 0}</v></c>`;
+  }
+  const text = value == null ? '' : String(value);
+  return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xmlEscape(text)}</t></is></c>`;
+}
+
+/** Office Open XML spreadsheet (no compression / no extra deps). */
+export function toXlsx(table: ExportTable) {
+  const headerRow = `<row r="1">${table.headers
+    .map((h, i) => xlsxCell(h, `${colName(i + 1)}1`))
+    .join('')}</row>`;
+  const body = table.rows
+    .map((row, ri) => {
+      const r = ri + 2;
+      return `<row r="${r}">${row
+        .map((cell, i) => xlsxCell(cell, `${colName(i + 1)}${r}`))
+        .join('')}</row>`;
+    })
+    .join('');
+  const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${headerRow}${body}</sheetData></worksheet>`;
+  const name = xmlEscape(sheetName(table.title));
+  const workbook = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${name}" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`;
+  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+  const workbookRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`;
+
+  return zipStore([
+    { name: '[Content_Types].xml', data: Buffer.from(contentTypes, 'utf8') },
+    { name: '_rels/.rels', data: Buffer.from(rels, 'utf8') },
+    { name: 'xl/workbook.xml', data: Buffer.from(workbook, 'utf8') },
+    { name: 'xl/_rels/workbook.xml.rels', data: Buffer.from(workbookRels, 'utf8') },
+    { name: 'xl/worksheets/sheet1.xml', data: Buffer.from(sheet, 'utf8') },
+  ]).toString('base64');
+}
+
 export function formatExport(
   basename: string,
   table: ExportTable,
@@ -269,6 +399,15 @@ export function formatExport(
       encoding: 'base64',
     };
   }
+  if (format === 'xlsx') {
+    return {
+      filename: `${basename}.xlsx`,
+      content: toXlsx(table),
+      rowCount,
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      encoding: 'base64',
+    };
+  }
   return {
     filename: `${basename}.csv`,
     content: toCsv(table.headers, table.rows),
@@ -280,8 +419,9 @@ export function formatExport(
 
 export function parseExportFormat(raw?: string | null): ExportFormat {
   const format = (raw ?? 'csv').toLowerCase();
+  if (format === 'excel' || format === 'xlsx') return 'xlsx';
   if (format === 'csv' || format === 'json' || format === 'pdf') return format;
-  throw new Error('Unsupported format. Use csv, json, or pdf.');
+  throw new Error('Unsupported format. Use csv, json, pdf, or excel.');
 }
 
 export function iso(value?: Date | null) {

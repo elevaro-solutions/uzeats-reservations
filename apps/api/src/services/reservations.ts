@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 import {
-  LOYALTY,
   CANCELLATION_REFUND_HOURS,
   resolveRedeemPoints,
   RESTAURANT_LOYALTY,
@@ -26,6 +25,7 @@ import {
   assertPaymentIntentAuthorized,
 } from './stripe.js';
 import { earnPoints, redeemPoints, refundRedeemedPoints, awardDepositPoints, awardFirstBookingBonus, awardCompletedVisitPoints, reverseDepositPoints } from './loyalty.js';
+import { getLoyaltyProgram } from './loyaltyProgram.js';
 import {
   awardRestaurantVisitPoints,
   getRestaurantLoyaltyBalance,
@@ -385,13 +385,18 @@ export async function createReservation(input: {
   if (input.redeemPoints && input.redeemPoints > 0) {
     const diner = await User.findById(input.dinerId).select('loyaltyPoints');
     if (!diner) throw new NotFoundError('User');
+    const program = await getLoyaltyProgram();
     const redeem = resolveRedeemPoints(
       input.redeemPoints,
       grossDepositCents,
       diner.loyaltyPoints ?? 0,
+      {
+        minRedeemPoints: program.minRedeemPoints,
+        redeemPointsPerDollar: program.redeemPointsPerDollar,
+      },
     );
     if (!redeem) {
-      throw new ValidationError(`Minimum redeem is ${LOYALTY.MIN_REDEEM_POINTS} points`);
+      throw new ValidationError(`Minimum redeem is ${program.minRedeemPoints} points`);
     }
     pointsToRedeem = redeem.pointsToRedeem;
     depositAmountCents = grossDepositCents - redeem.discountCents;

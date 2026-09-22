@@ -306,6 +306,8 @@ export const CREATE_RESTAURANT = gql`
   mutation CreateRestaurant($input: RestaurantInput!, $plan: String!) {
     createRestaurant(input: $input, plan: $plan) {
       id name status
+      clientSecret
+      paymentMode
     }
   }
 `;
@@ -345,15 +347,34 @@ export const ADMIN_PENDING_REQUEST_COUNTS = gql`
 
 export const ADMIN_LOYALTY_STATS = gql`
   query AdminLoyaltyStats {
+    loyaltyProgram {
+      pointsPerCompletedVisit
+      pointsPerDollarDeposit
+      redeemPointsPerDollar
+      minRedeemPoints
+      firstBookingBonusPoints
+      pointsPerReview
+      referralBonusPoints
+      pointsExpiryMonths
+      tiers {
+        id
+        name
+        minVisits
+        earnMultiplier
+      }
+    }
     adminLoyaltyStats {
       totalOutstandingPoints
       usersWithPoints
-      tierBronze
-      tierSilver
-      tierGold
       referralsCount
       pointsEarned30d
       pointsRedeemed30d
+      tiers {
+        id
+        name
+        minVisits
+        userCount
+      }
     }
     adminReferralLeaders(limit: 15) {
       userId
@@ -362,6 +383,27 @@ export const ADMIN_LOYALTY_STATS = gql`
       email
       referralCode
       refereesCount
+    }
+  }
+`;
+
+export const UPDATE_LOYALTY_PROGRAM = gql`
+  mutation UpdateLoyaltyProgram($input: LoyaltyProgramInput!) {
+    updateLoyaltyProgram(input: $input) {
+      pointsPerCompletedVisit
+      pointsPerDollarDeposit
+      redeemPointsPerDollar
+      minRedeemPoints
+      firstBookingBonusPoints
+      pointsPerReview
+      referralBonusPoints
+      pointsExpiryMonths
+      tiers {
+        id
+        name
+        minVisits
+        earnMultiplier
+      }
     }
   }
 `;
@@ -1460,6 +1502,42 @@ export const EXPORT_ADMIN_CSV = gql`
   }
 `;
 
+export const EXPORT_ADMIN_DINERS = gql`
+  mutation ExportAdminDiners($search: String, $format: String) {
+    exportAdminDiners(search: $search, format: $format) {
+      filename
+      content
+      rowCount
+      mimeType
+      encoding
+    }
+  }
+`;
+
+export const EXPORT_RESTAURANT_GUESTS = gql`
+  mutation ExportRestaurantGuests(
+    $restaurantId: ID!
+    $tag: String
+    $vipStatus: String
+    $search: String
+    $format: String
+  ) {
+    exportRestaurantGuests(
+      restaurantId: $restaurantId
+      tag: $tag
+      vipStatus: $vipStatus
+      search: $search
+      format: $format
+    ) {
+      filename
+      content
+      rowCount
+      mimeType
+      encoding
+    }
+  }
+`;
+
 export const SYNC_STRIPE_INVOICES = gql`
   mutation SyncStripeInvoices($limit: Int) {
     syncStripeInvoices(limit: $limit) {
@@ -2230,7 +2308,18 @@ export const PARTNER_RESTAURANT_NAME_AVAILABLE = gql`
 export const COVER_FEE_SUMMARY = gql`
   query CoverFeeSummary($restaurantId: ID!, $period: String) {
     coverFeeSummary(restaurantId: $restaurantId, period: $period) {
-      totalCovers totalFeeCents networkCovers websiteCovers widgetCovers phoneCovers walkinCovers
+      totalCovers
+      totalFeeCents
+      networkCovers
+      websiteCovers
+      widgetCovers
+      phoneCovers
+      walkinCovers
+      networkFeeCents
+      websiteFeeCents
+      widgetFeeCents
+      phoneFeeCents
+      walkinFeeCents
     }
   }
 `;

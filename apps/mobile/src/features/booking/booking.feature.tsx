@@ -128,6 +128,7 @@ export function BookingFeature() {
 
   const {
     restaurantMinRedeem,
+    platformProgram,
     finalDepositCents,
     depositBreakdown,
     activePromo,
@@ -409,6 +410,7 @@ export function BookingFeature() {
             restaurantLoyaltyBalance={restaurantLoyaltyBalance}
             restaurantLoyaltyEnabled={!!restaurant.loyaltyEnabled}
             restaurantMinRedeem={restaurantMinRedeem}
+            platformProgram={platformProgram}
             depositBreakdown={depositBreakdown}
             promoMessage={activePromo?.message}
             promoValid={activePromo?.valid ?? undefined}

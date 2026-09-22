@@ -24,6 +24,31 @@ const planOverrideSchema = new Schema(
   { _id: false },
 );
 
+const loyaltyTierSchema = new Schema(
+  {
+    id: { type: String, required: true, trim: true, lowercase: true },
+    name: { type: String, required: true, trim: true },
+    minVisits: { type: Number, required: true, min: 0 },
+    earnMultiplier: { type: Number, required: true, min: 0 },
+  },
+  { _id: false },
+);
+
+const loyaltyProgramSchema = new Schema(
+  {
+    pointsPerCompletedVisit: { type: Number, min: 0 },
+    pointsPerDollarDeposit: { type: Number, min: 0 },
+    redeemPointsPerDollar: { type: Number, min: 1 },
+    minRedeemPoints: { type: Number, min: 0 },
+    firstBookingBonusPoints: { type: Number, min: 0 },
+    pointsPerReview: { type: Number, min: 0 },
+    referralBonusPoints: { type: Number, min: 0 },
+    pointsExpiryMonths: { type: Number, min: 0, max: 120 },
+    tiers: { type: [loyaltyTierSchema], default: undefined },
+  },
+  { _id: false },
+);
+
 const platformConfigSchema = new Schema(
   {
     key: { type: String, required: true, unique: true, default: 'default' },
@@ -74,6 +99,7 @@ const platformConfigSchema = new Schema(
       freeMonths: { type: Number, default: 2, min: 1, max: 11 },
       discountPercent: { type: Number, default: 17, min: 1, max: 99 },
     },
+    loyalty: { type: loyaltyProgramSchema, default: undefined },
   },
   { timestamps: true },
 );

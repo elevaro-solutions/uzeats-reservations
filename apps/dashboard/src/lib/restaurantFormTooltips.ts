@@ -41,3 +41,17 @@ export const restaurantFieldTooltips = {
   buttonText: 'Label shown on the booking widget CTA button.',
   showReviews: 'Show average rating and review count on the booking widget.',
 } as const;
+
+/** Reject $0 when "deposit required" is on (form value may be dollars or cents). */
+export const depositAmountWhenRequiredRule = ({
+  getFieldValue,
+}: {
+  getFieldValue: (name: string) => unknown;
+}) => ({
+  validator(_: unknown, value: unknown) {
+    if (getFieldValue('depositRequired') && !(Number(value) > 0)) {
+      return Promise.reject(new Error('Enter a deposit amount greater than $0'));
+    }
+    return Promise.resolve();
+  },
+});

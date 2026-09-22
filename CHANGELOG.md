@@ -4,6 +4,39 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.59.0] — 2026-09-22
+
+### Added
+
+- Super admins manage platform loyalty point packages and diner tiers on **Loyalty** (`/admin/loyalty`)
+- Add restaurant requires a payment method after create, including during a free trial
+- Add restaurant asks before closing if the form has unsaved changes; Keep draft stores the wizard until Discard
+- Admin **Diners** exports the current search as Excel, PDF, or JSON
+- Partner **Guests** exports the current restaurant list as Excel or PDF
+- Admin **Data exports** includes restaurant guest CRM profiles and an Excel format
+
+### Changed
+
+- Admin Loyalty uses overview stats plus settings for point packages, tiers, and referrals
+- Add restaurant modal stops 20% above the bottom of the viewport and scrolls inside that height
+- Deposit amount must be greater than $0 when deposit required is on
+- Partner Billing uses overview stats, a combined usage & invoice section, readable feature labels, and hides Free/custom plans from switch/subscribe options
+- Partner Billing “Your subscription” explains the plan in plain language (price + what happens next + cover fees + timeline) with a Change plan menu instead of a dense details table
+- My restaurants table names link to Settings; Reservations, Layout, and Settings sit in a More menu
+- Diner `/profile` Notification preferences no longer shows the SMS text messages toggle
+- Diner web and mobile loyalty progress and booking earn/redeem use live `loyaltyProgram` rates and tiers
+
+### Fixed
+
+- Selecting multiple restaurant photos now uploads every file instead of keeping only the last one
+- Cover fee summary exposes per-source fee totals so Billing can show fees next to cover counts
+- Diner profile Push notifications toggle stays on after refresh (local opt-in + restore/re-subscribe)
+
+### Docs
+
+- Super admins edit platform loyalty rates and tiers; diner clients read `loyaltyProgram`
+- Partner Guests and admin Data exports include Excel; diner web profile hides SMS prefs
+
 ## [0.58.0] — 2026-09-21
 
 ### Added

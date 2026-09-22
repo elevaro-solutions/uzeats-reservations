@@ -1,8 +1,9 @@
 import { useState } from "react";
 import {
-  LOYALTY,
+  defaultLoyaltyProgram,
   pointsToDiscountCents,
   restaurantPointsToDiscountCents,
+  type LoyaltyProgram,
 } from "@reservations/shared";
 import { StyleSheet } from "react-native-unistyles";
 
@@ -21,6 +22,7 @@ export type BookingPromoRewardsSectionProps = {
   restaurantLoyaltyBalance: number;
   restaurantLoyaltyEnabled: boolean;
   restaurantMinRedeem: number;
+  platformProgram?: LoyaltyProgram | null;
   grossDepositCents: number;
   promoMessage?: string | null;
   promoValid?: boolean;
@@ -43,6 +45,7 @@ export function BookingPromoRewardsSection({
   restaurantLoyaltyBalance,
   restaurantLoyaltyEnabled,
   restaurantMinRedeem,
+  platformProgram,
   grossDepositCents,
   promoMessage,
   promoValid,
@@ -54,6 +57,11 @@ export function BookingPromoRewardsSection({
   onRedeemRestaurantPointsChange,
 }: BookingPromoRewardsSectionProps) {
   const [infoSheet, setInfoSheet] = useState<InfoSheetTarget>(null);
+
+  const program = platformProgram ?? defaultLoyaltyProgram();
+  const minRedeem = program.minRedeemPoints;
+  const discountFor = (pts: number) =>
+    pointsToDiscountCents(pts, program.redeemPointsPerDollar);
 
   if (grossDepositCents <= 0) return null;
 
@@ -115,10 +123,10 @@ export function BookingPromoRewardsSection({
         title="Tablevera points"
         variant="platform"
         balance={platformPoints}
-        minRedeem={LOYALTY.MIN_REDEEM_POINTS}
+        minRedeem={minRedeem}
         value={redeemPoints}
         depositHeadroomCents={grossDepositCents}
-        discountCentsFor={pointsToDiscountCents}
+        discountCentsFor={discountFor}
         onChange={onRedeemPointsChange}
         onHowItWorks={() => setInfoSheet("platform")}
         style={styles.pointsCard}
@@ -133,7 +141,7 @@ export function BookingPromoRewardsSection({
           value={redeemRestaurantPoints}
           depositHeadroomCents={Math.max(
             0,
-            grossDepositCents - pointsToDiscountCents(redeemPoints),
+            grossDepositCents - discountFor(redeemPoints),
           )}
           discountCentsFor={restaurantPointsToDiscountCents}
           onChange={onRedeemRestaurantPointsChange}
@@ -146,10 +154,9 @@ export function BookingPromoRewardsSection({
         onClose={() => setInfoSheet(null)}
         variant={infoSheet ?? "platform"}
         minRedeem={
-          infoSheet === "restaurant"
-            ? restaurantMinRedeem
-            : LOYALTY.MIN_REDEEM_POINTS
+          infoSheet === "restaurant" ? restaurantMinRedeem : minRedeem
         }
+        program={program}
       />
     </BookingSection>
   );

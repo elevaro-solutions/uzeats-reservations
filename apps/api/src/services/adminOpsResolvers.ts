@@ -80,6 +80,7 @@ import {
   parseExportFormat,
   resolveExportDateRange,
 } from './adminExport.js';
+import { exportDinersList, exportGuestsList } from './guestDinerExport.js';
 import { notifyUser } from './notifications.js';
 import { renderEmailTemplate } from './emailTemplates.js';
 import { env } from '../config/env.js';
@@ -1655,6 +1656,14 @@ export const adminOpsMutation = {
       );
     }
 
+    if (args.type === 'guests') {
+      return exportGuestsList({
+        createdAt,
+        rangeLabel: range.label,
+        format,
+      });
+    }
+
     if (args.type === 'audit_logs') {
       const filter: Record<string, unknown> = {};
       if (createdAt) filter.createdAt = createdAt;
@@ -1680,8 +1689,20 @@ export const adminOpsMutation = {
     }
 
     throw new Error(
-      'Unsupported export type. Use users, restaurants, invoices, revenue, subscriptions, reservations, cover_fees, support_tickets, reviews, or audit_logs.',
+      'Unsupported export type. Use users, restaurants, invoices, revenue, subscriptions, reservations, cover_fees, support_tickets, reviews, guests, or audit_logs.',
     );
+  },
+
+  exportAdminDiners: async (
+    _: unknown,
+    args: { search?: string; format?: string },
+    ctx: GraphQLContext,
+  ) => {
+    requireAdmin(ctx);
+    return exportDinersList({
+      search: args.search,
+      format: parseExportFormat(args.format ?? 'xlsx'),
+    });
   },
 
   syncStripeInvoices: async (

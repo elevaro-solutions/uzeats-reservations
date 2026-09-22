@@ -28,7 +28,7 @@ describe('adminExport', () => {
     expect(resolveExportDateRange({ period: 'all' })).toEqual({ label: 'all' });
   });
 
-  it('formats csv json and pdf', () => {
+  it('formats csv json pdf and excel', () => {
     const table = {
       title: 'Test',
       headers: ['a', 'b'],
@@ -48,10 +48,18 @@ describe('adminExport', () => {
     const pdf = formatExport('test', table, 'pdf');
     expect(pdf.encoding).toBe('base64');
     expect(Buffer.from(pdf.content, 'base64').toString('utf8').startsWith('%PDF')).toBe(true);
+
+    const xlsx = formatExport('test', table, 'xlsx');
+    expect(xlsx.filename).toBe('test.xlsx');
+    expect(xlsx.encoding).toBe('base64');
+    const xlsxBuf = Buffer.from(xlsx.content, 'base64');
+    expect(xlsxBuf.subarray(0, 2).toString()).toBe('PK');
+    expect(xlsxBuf.toString('utf8')).toContain('y,z');
   });
 
   it('parses formats and builds csv', () => {
     expect(parseExportFormat('JSON')).toBe('json');
+    expect(parseExportFormat('excel')).toBe('xlsx');
     expect(toCsv(['h'], [['v']])).toBe('h\nv');
   });
 });

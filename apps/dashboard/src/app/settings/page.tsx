@@ -50,6 +50,7 @@ import PhotoUpload from '@/components/PhotoUpload';
 import ImportRestaurantModal, { type ImportedRestaurantData } from '@/components/ImportRestaurantModal';
 import { applyRestaurantImportToForm } from '@/lib/applyRestaurantImport';
 import {
+  depositAmountWhenRequiredRule,
   priceRangeOptions,
   restaurantFieldTooltips as tips,
 } from '@/lib/restaurantFormTooltips';
@@ -669,7 +670,11 @@ export default function SettingsPage() {
                       name="depositAmountCents"
                       label="Deposit (USD / guest)"
                       tooltip={tips.depositAmountCents}
-                      rules={[{ type: 'number', min: 0, message: 'Must be 0 or greater' }]}
+                      dependencies={['depositRequired']}
+                      rules={[
+                        { type: 'number', min: 0, message: 'Must be 0 or greater' },
+                        depositAmountWhenRequiredRule,
+                      ]}
                       getValueProps={(value) => ({ value: ((value as number | undefined) ?? 0) / 100 })}
                       normalize={(value) => Math.round((Number(value) || 0) * 100)}
                     >

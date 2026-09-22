@@ -72,6 +72,15 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## notifications
 
+### [2026-09-22] Diner web push toggle needs local opt-in (+ VAPID for delivery)
+- Profile Push switch previously only reflected `pushManager.getSubscription()`. Without `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (often unset locally), subscribe never ran, so refresh always showed Off.
+- Opt-in is stored in `localStorage` (`rt-web-push-enabled`) and restored on load; when VAPID + permission exist, a missing subscription is re-created and `registerPushToken`’d.
+- Why it matters: Toggle persistence ≠ push delivery. Delivery still needs public+private VAPID on web/API.
+
+### [2026-09-22] Diner web profile hides SMS prefs
+- `apps/web` `/profile` Notification preferences no longer shows the SMS toggle (email / push / favorite-table alerts remain). GraphQL `sms` channel fields and `/sms` opt-in are unchanged; SMS stays off by default.
+- Why it matters: Don’t re-add the profile SMS switch without product sign-off; partner Premium SMS is separate.
+
 ### [2026-09-21] Elevaro merchant notifier fan-out
 - `notifyRestaurantStaff` POSTs to Elevaro Merchant Notifier when `ELEVARO_NOTIFIER_*` is set; Accept/Reject land on `POST /webhooks/elevaro-notifier` → `updateReservationStatus`. GraphQL `createElevaroTelegramLink` for `@elevaro_merchant_bot`.
 - Why it matters: Messenger Accept/Reject is out-of-process from the diner Telegram bot; Tablevera uses platform key `tablevera` (separate from UzEats).

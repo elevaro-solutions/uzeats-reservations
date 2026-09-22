@@ -2,9 +2,10 @@ import { useMutation } from "@apollo/client";
 import { useRouter } from "expo-router";
 import { useCallback, useRef, useState } from "react";
 import { Alert } from "react-native";
-import { LOYALTY, type Occasion } from "@reservations/shared";
+import { type Occasion } from "@reservations/shared";
 
 import { MY_RESERVATIONS } from "@/graphql";
+import { useLoyaltyProgram } from "@/lib/use-loyalty-program";
 import {
   getGraphQLErrorCode,
   getGraphQLErrorMessage,
@@ -100,6 +101,7 @@ export function useBookingSubmit(
     onSlotBecameUnavailable,
   } = params;
 
+  const program = useLoyaltyProgram();
   const router = useRouter();
   const { paying, error: paymentError, payDeposit, clearError } =
     useDepositPayment();
@@ -178,7 +180,7 @@ export function useBookingSubmit(
             slotStart: selectedSlot,
             occasion,
             guestNotes: notes.trim() || undefined,
-            ...(redeemPoints >= LOYALTY.MIN_REDEEM_POINTS ? { redeemPoints } : {}),
+            ...(redeemPoints >= program.minRedeemPoints ? { redeemPoints } : {}),
             ...(canRedeemRestaurant &&
             redeemRestaurantPoints >= restaurantMinRedeem
               ? { redeemRestaurantPoints }

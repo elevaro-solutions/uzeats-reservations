@@ -105,7 +105,7 @@ const shortcuts = [
   {
     href: '/admin/loyalty',
     title: 'Loyalty program',
-    desc: 'Points liability, tiers, and referrals',
+    desc: 'Points, tiers, and referrals',
     icon: <TagOutlined />,
   },
   {
@@ -141,7 +141,7 @@ const shortcuts = [
   {
     href: '/admin/exports',
     title: 'Data exports',
-    desc: 'CSV, JSON, and PDF downloads',
+    desc: 'CSV, Excel, JSON, and PDF downloads',
     icon: <FileDoneOutlined />,
   },
   {

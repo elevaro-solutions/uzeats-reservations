@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { NetworkStatus } from '@apollo/client';
 import { useQuery, useMutation } from '@/lib/apollo-hooks';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Button,
   Card,
   Col,
+  Dropdown,
   Form,
   Input,
   InputNumber,
@@ -25,12 +27,17 @@ import {
   Typography,
   message,
 } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   AppstoreOutlined,
   ArrowLeftOutlined,
   ArrowRightOutlined,
+  CalendarOutlined,
   CheckOutlined,
   ImportOutlined,
+  LayoutOutlined,
+  MoreOutlined,
+  SettingOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
 import {
@@ -70,6 +77,7 @@ import { useUrlListFilters } from '@/lib/useUrlListFilters';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { addressSelectionToFields } from '@/lib/address';
 import {
+  depositAmountWhenRequiredRule,
   priceRangeOptions,
   restaurantFieldTooltips as tips,
 } from '@/lib/restaurantFormTooltips';
@@ -83,6 +91,8 @@ import PhotoUpload from '@/components/PhotoUpload';
 import { applyRestaurantImportToForm } from '@/lib/applyRestaurantImport';
 import { buildMenuSectionsFromImport } from '@/lib/importedMenu';
 import { uploadImportedMenuImageToSpaces } from '@/lib/importMenuImages';
+import { SignupPaymentForm, type SignupPaymentMode } from '@/components/SignupPaymentForm';
+import dayjs from 'dayjs';
 
 const { Text, Title } = Typography;
 
@@ -92,6 +102,40 @@ const CREATE_STEPS = [
   { title: 'Package' },
   { title: 'Review' },
 ];
+
+const CREATE_DRAFT_KEY = 'rt-add-restaurant-draft';
+
+type CreateRestaurantDraft = {
+  step: number;
+  selectedPlan: string;
+  billingPeriod: BillingPeriod;
+  photos: string[];
+  logoUrl: string | null;
+  fields: Record<string, unknown>;
+  menuSections: Awaited<ReturnType<typeof buildMenuSectionsFromImport>>;
+  geocodedAddress: string;
+};
+
+function readCreateDraft(): CreateRestaurantDraft | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(CREATE_DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CreateRestaurantDraft;
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeCreateDraft(draft: CreateRestaurantDraft) {
+  sessionStorage.setItem(CREATE_DRAFT_KEY, JSON.stringify(draft));
+}
+
+function clearCreateDraft() {
+  sessionStorage.removeItem(CREATE_DRAFT_KEY);
+}
 
 const DETAILS_STEP_FIELDS = [
   'name',
@@ -108,7 +152,19 @@ const LOCATION_STEP_FIELDS = [
   'zip',
   'lat',
   'lng',
+  'depositAmountCents',
 ] as const;
+
+type PendingCreatePayment = {
+  restaurantId: string;
+  restaurantName: string;
+  clientSecret: string;
+  paymentMode: SignupPaymentMode;
+  planName: string;
+  monthlyLabel: string;
+  trialDays: number;
+  chargingStartsOn: string | null;
+};
 
 type RestaurantsViewMode = 'cards' | 'table';
 
@@ -126,6 +182,14 @@ function readRestaurantsViewMode(): RestaurantsViewMode {
 function selectRestaurant(id: string) {
   localStorage.setItem('activeRestaurantId', id);
   window.dispatchEvent(new CustomEvent('rt-restaurant-change', { detail: id }));
+}
+
+function restaurantHref(path: string, id: string) {
+  return `${path}?restaurant=${encodeURIComponent(id)}`;
+}
+
+function isInactiveRestaurant(status: string) {
+  return status === 'rejected' || status === 'suspended';
 }
 
 type PlanOption = {
@@ -200,17 +264,20 @@ export default function MyRestaurantsPage() {
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
   const [photos, setPhotos] = useState<string[]>([]);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [pendingPayment, setPendingPayment] = useState<PendingCreatePayment | null>(null);
   const [createForm] = Form.useForm();
   const [pendingImportedMenuSections, setPendingImportedMenuSections] = useState<
     Awaited<ReturnType<typeof buildMenuSectionsFromImport>>
   >([]);
   const pendingImportDataRef = useRef<ImportedRestaurantData | null>(null);
   const lastGeocodedCreateAddressRef = useRef('');
+  const createDraftRestoredRef = useRef(false);
   const [viewMode, setViewMode] = useState<RestaurantsViewMode>(() => readRestaurantsViewMode());
   const createLine1 = Form.useWatch('line1', createForm);
   const createCity = Form.useWatch('city', createForm);
   const createState = Form.useWatch('state', createForm);
   const createZip = Form.useWatch('zip', createForm);
+  const depositRequired = Form.useWatch('depositRequired', createForm);
   const {
     search: searchInput,
     searchQuery,
@@ -243,7 +310,48 @@ export default function MyRestaurantsPage() {
   );
   const { data: plansData } = useQuery(PLANS, { skip: !user });
 
-  const closeCreateForm = () => {
+  const stripCreateQuery = () => {
+    if (!searchParams.get('create')) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('create');
+    const qs = params.toString();
+    router.replace(qs ? `/restaurants?${qs}` : '/restaurants', { scroll: false });
+  };
+
+  const persistCreateDraft = () => {
+    const fields = createForm.getFieldsValue(true);
+    const empty =
+      createStep === 0 &&
+      selectedPlan === 'core' &&
+      billingPeriod === 'monthly' &&
+      photos.length === 0 &&
+      !logoUrl &&
+      pendingImportedMenuSections.length === 0 &&
+      !String(fields.name ?? '').trim();
+    if (empty) {
+      clearCreateDraft();
+      return;
+    }
+    writeCreateDraft({
+      step: createStep,
+      selectedPlan,
+      billingPeriod,
+      photos,
+      logoUrl,
+      fields,
+      menuSections: pendingImportedMenuSections,
+      geocodedAddress: lastGeocodedCreateAddressRef.current,
+    });
+  };
+
+  const hideCreateForm = () => {
+    persistCreateDraft();
+    setShowCreate(false);
+    stripCreateQuery();
+  };
+
+  const discardCreateForm = () => {
+    clearCreateDraft();
     setShowCreate(false);
     setCreateStep(0);
     setSelectedPlan('core');
@@ -254,16 +362,45 @@ export default function MyRestaurantsPage() {
     setPendingImportedMenuSections([]);
     pendingImportDataRef.current = null;
     lastGeocodedCreateAddressRef.current = '';
-    if (searchParams.get('create')) {
-      const params = new URLSearchParams(searchParams.toString());
-      params.delete('create');
-      const qs = params.toString();
-      router.replace(qs ? `/restaurants?${qs}` : '/restaurants', { scroll: false });
-    }
+    stripCreateQuery();
   };
 
-  const openCreateForm = (step = 0) => {
-    setCreateStep(step);
+  const hasUnsavedCreateChanges = () => {
+    if (photos.length > 0 || logoUrl) return true;
+    if (pendingImportedMenuSections.length > 0 || pendingImportDataRef.current) return true;
+    if (createForm.isFieldsTouched()) return true;
+    if (selectedPlan !== 'core' || billingPeriod !== 'monthly' || createStep > 0) return true;
+    const name = String(createForm.getFieldValue('name') ?? '').trim();
+    if (name) return true;
+    const draft = readCreateDraft();
+    if (draft && (draft.photos.length > 0 || draft.logoUrl || draft.step > 0)) return true;
+    if (String(draft?.fields?.name ?? '').trim()) return true;
+    return false;
+  };
+
+  const requestCloseCreateForm = () => {
+    if (!hasUnsavedCreateChanges()) {
+      discardCreateForm();
+      return;
+    }
+    persistCreateDraft();
+    Modal.confirm({
+      title: 'Unsaved changes',
+      content:
+        'Discard this restaurant draft, or keep it and close? You can continue later from Add restaurant.',
+      okText: 'Discard',
+      okButtonProps: { danger: true },
+      cancelText: 'Keep draft',
+      destroyOnHidden: true,
+      onOk: discardCreateForm,
+      onCancel: hideCreateForm,
+    });
+  };
+
+  const openCreateForm = (step?: number) => {
+    if (step != null && (!hasUnsavedCreateChanges() || pendingImportDataRef.current)) {
+      setCreateStep(step);
+    }
     setShowCreate(true);
   };
 
@@ -307,6 +444,36 @@ export default function MyRestaurantsPage() {
 
     return () => clearTimeout(timer);
   }, [showCreate, createLine1, createCity, createState, createZip, createForm]);
+
+  useEffect(() => {
+    if (createDraftRestoredRef.current) return;
+    createDraftRestoredRef.current = true;
+    const draft = readCreateDraft();
+    if (!draft) return;
+    setCreateStep(draft.step ?? 0);
+    setSelectedPlan(draft.selectedPlan || 'core');
+    setBillingPeriod(draft.billingPeriod === 'annual' ? 'annual' : 'monthly');
+    setPhotos(draft.photos ?? []);
+    setLogoUrl(draft.logoUrl ?? null);
+    setPendingImportedMenuSections(draft.menuSections ?? []);
+    lastGeocodedCreateAddressRef.current = draft.geocodedAddress ?? '';
+    if (draft.fields) createForm.setFieldsValue(draft.fields);
+  }, [createForm]);
+
+  useEffect(() => {
+    persistCreateDraft();
+  }, [
+    createStep,
+    selectedPlan,
+    billingPeriod,
+    photos,
+    logoUrl,
+    pendingImportedMenuSections,
+    createLine1,
+    createCity,
+    createState,
+    createZip,
+  ]);
 
   const handleOwnerImport = (data: ImportedRestaurantData) => {
     applyRestaurantImportToForm(createForm, data);
@@ -406,8 +573,9 @@ export default function MyRestaurantsPage() {
         },
       });
       const created = data?.createRestaurant;
+      if (!created?.id) throw new Error('Failed to add restaurant');
 
-      if (created?.id && menuSections.length > 0) {
+      if (menuSections.length > 0) {
         try {
           await upsertMenu({
             variables: {
@@ -428,14 +596,22 @@ export default function MyRestaurantsPage() {
         planOptions.find((p) => p.key === values.plan) ?? planInfo;
       localStorage.setItem('activeRestaurantId', created.id);
       window.dispatchEvent(new CustomEvent('rt-restaurant-change', { detail: created.id }));
-      message.success(
+      const chargingStartsOn =
         confirmedPlan.trialDays > 0
-          ? `${created.name} submitted — ${confirmedPlan.name} trial started`
-          : `${created.name} submitted — ${confirmedPlan.name} plan active`,
-      );
-      closeCreateForm();
+          ? dayjs().add(confirmedPlan.trialDays, 'day').format('MMM D, YYYY')
+          : null;
+      setPendingPayment({
+        restaurantId: created.id,
+        restaurantName: created.name,
+        clientSecret: created.clientSecret ?? '',
+        paymentMode: created.paymentMode === 'payment' ? 'payment' : 'setup',
+        planName: confirmedPlan.name,
+        monthlyLabel: confirmedPlan.priceLabel,
+        trialDays: confirmedPlan.trialDays,
+        chargingStartsOn,
+      });
+      discardCreateForm();
       await Promise.all([refetch(), refetchMeta()]);
-      router.push('/onboarding');
     } catch (err) {
       const errorFields =
         err && typeof err === 'object' && 'errorFields' in err
@@ -582,7 +758,34 @@ export default function MyRestaurantsPage() {
 
   const navigateToRestaurant = (id: string, path: string) => {
     selectRestaurant(id);
-    router.push(path);
+    router.push(restaurantHref(path, id));
+  };
+
+  const restaurantActionItems = (r: OwnerRestaurant): MenuProps['items'] => {
+    const inactive = isInactiveRestaurant(r.status);
+    return [
+      {
+        key: 'reservations',
+        icon: <CalendarOutlined />,
+        label: 'Reservations',
+        disabled: inactive,
+        onClick: () => navigateToRestaurant(r.id, '/reservations'),
+      },
+      {
+        key: 'layout',
+        icon: <LayoutOutlined />,
+        label: 'Layout',
+        disabled: inactive,
+        onClick: () => navigateToRestaurant(r.id, '/floor-plan'),
+      },
+      {
+        key: 'settings',
+        icon: <SettingOutlined />,
+        label: 'Settings',
+        disabled: inactive,
+        onClick: () => navigateToRestaurant(r.id, '/settings'),
+      },
+    ];
   };
 
   const viewToggle = (
@@ -626,12 +829,13 @@ export default function MyRestaurantsPage() {
       <Modal
         title="Add restaurant"
         open={showCreate}
-        onCancel={closeCreateForm}
+        onCancel={requestCloseCreateForm}
         width={800}
-        destroyOnClose
+        forceRender
+        wrapClassName="rt-add-restaurant-modal"
         footer={
           <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-            <Button onClick={closeCreateForm}>Cancel</Button>
+            <Button onClick={requestCloseCreateForm}>Cancel</Button>
             <Space>
               {createStep > 0 && (
                 <Button icon={<ArrowLeftOutlined />} onClick={goCreateBack}>
@@ -649,9 +853,7 @@ export default function MyRestaurantsPage() {
                   loading={creating}
                   onClick={submitCreateRestaurant}
                 >
-                  {planInfo.trialDays > 0
-                    ? `Start ${planInfo.trialDays}-day trial & submit`
-                    : 'Subscribe & submit for approval'}
+                  Continue to payment
                 </Button>
               )}
             </Space>
@@ -669,6 +871,7 @@ export default function MyRestaurantsPage() {
           layout="vertical"
           preserve
           scrollToFirstError={{ block: 'center', behavior: 'smooth' }}
+          onValuesChange={() => persistCreateDraft()}
           initialValues={{
             plan: 'core',
             priceRange: 2,
@@ -874,8 +1077,16 @@ export default function MyRestaurantsPage() {
                   name="depositAmountCents"
                   label="Deposit amount (USD)"
                   tooltip={tips.depositAmountCents}
+                  dependencies={['depositRequired']}
+                  rules={[depositAmountWhenRequiredRule]}
                 >
-                  <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
+                  <InputNumber
+                    min={depositRequired ? 1 : 0}
+                    step={1}
+                    disabled={!depositRequired}
+                    style={{ width: '100%' }}
+                    prefix="$"
+                  />
                 </Form.Item>
               </Col>
               <Col span={12}>
@@ -917,7 +1128,8 @@ export default function MyRestaurantsPage() {
               Subscription package
             </Title>
             <Text type="secondary" style={{ display: 'block', marginBottom: spacing.md }}>
-              Each location has its own subscription. Billing starts after your free trial.
+              Each location has its own subscription. You will add a payment method after
+              creating this restaurant{planInfo.trialDays > 0 ? '; billing starts after your free trial' : ''}.
             </Text>
             <div style={{ marginBottom: 16, maxWidth: 420 }}>
               <Segmented
@@ -1072,10 +1284,10 @@ export default function MyRestaurantsPage() {
                       </Space>
                     </Card>
                     <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                      Your listing will be pending approval.
+                      Your listing will be pending approval. Next you will add a payment method
                       {planInfo.trialDays > 0
-                        ? ` Your ${planInfo.trialDays}-day ${planInfo.name} trial starts immediately.`
-                        : ` Your ${planInfo.name} subscription starts immediately.`}
+                        ? ` to start your ${planInfo.trialDays}-day ${planInfo.name} trial.`
+                        : ` to start your ${planInfo.name} subscription.`}
                     </Text>
                   </Space>
                 );
@@ -1083,6 +1295,39 @@ export default function MyRestaurantsPage() {
             </Form.Item>
           </div>
         </Form>
+      </Modal>
+
+      <Modal
+        title="Add a payment method"
+        open={Boolean(pendingPayment)}
+        footer={null}
+        destroyOnHidden
+        mask={{ closable: false }}
+        keyboard={false}
+        closable={false}
+      >
+        {pendingPayment ? (
+          <SignupPaymentForm
+            clientSecret={pendingPayment.clientSecret}
+            paymentMode={pendingPayment.paymentMode}
+            planName={pendingPayment.planName}
+            monthlyLabel={pendingPayment.monthlyLabel}
+            trialDays={pendingPayment.trialDays}
+            chargingStartsOn={pendingPayment.chargingStartsOn}
+            onSuccess={() => {
+              const name = pendingPayment.restaurantName;
+              const planName = pendingPayment.planName;
+              const trialDays = pendingPayment.trialDays;
+              setPendingPayment(null);
+              message.success(
+                trialDays > 0
+                  ? `${name} submitted — ${planName} trial started`
+                  : `${name} submitted — ${planName} plan active`,
+              );
+              router.push('/onboarding');
+            }}
+          />
+        ) : null}
       </Modal>
 
       {totalLocations === 0 ? (
@@ -1200,12 +1445,19 @@ export default function MyRestaurantsPage() {
                   title: 'Name',
                   dataIndex: 'name',
                   render: (name: string, r) => {
-                    const isInactive = r.status === 'rejected' || r.status === 'suspended';
+                    const isInactive = isInactiveRestaurant(r.status);
                     return (
                       <Space orientation="vertical" size={0}>
-                        <Text strong style={{ opacity: isInactive ? 0.85 : 1 }}>
+                        <Link
+                          href={restaurantHref('/settings', r.id)}
+                          style={{
+                            fontWeight: 600,
+                            color: colors.brand[600],
+                            opacity: isInactive ? 0.85 : 1,
+                          }}
+                        >
                           {name}
-                        </Text>
+                        </Link>
                         {isInactive && (
                           <Text type="danger" style={{ fontSize: typography.fontSize.sm }}>
                             Not active
@@ -1238,41 +1490,18 @@ export default function MyRestaurantsPage() {
                 {
                   title: 'Actions',
                   fixed: 'right',
-                  width: 280,
-                  render: (_: unknown, r) => {
-                    const isInactive = r.status === 'rejected' || r.status === 'suspended';
-                    return (
-                      <Space size={4} wrap>
-                        <Button
-                          type="link"
-                          size="small"
-                          disabled={isInactive}
-                          style={{ color: isInactive ? undefined : colors.brand[600], paddingInline: 4 }}
-                          onClick={() => navigateToRestaurant(r.id, '/reservations')}
-                        >
-                          Reservations
-                        </Button>
-                        <Button
-                          type="link"
-                          size="small"
-                          disabled={isInactive}
-                          style={{ color: isInactive ? undefined : colors.brand[600], paddingInline: 4 }}
-                          onClick={() => navigateToRestaurant(r.id, '/floor-plan')}
-                        >
-                          Layout
-                        </Button>
-                        <Button
-                          type="link"
-                          size="small"
-                          disabled={isInactive}
-                          style={{ color: isInactive ? undefined : colors.brand[600], paddingInline: 4 }}
-                          onClick={() => navigateToRestaurant(r.id, '/settings')}
-                        >
-                          Settings
-                        </Button>
-                      </Space>
-                    );
-                  },
+                  width: 90,
+                  render: (_: unknown, r) => (
+                    <Dropdown
+                      menu={{ items: restaurantActionItems(r) }}
+                      trigger={['click']}
+                      placement="bottomRight"
+                    >
+                      <Button size="small" icon={<MoreOutlined />}>
+                        More
+                      </Button>
+                    </Dropdown>
+                  ),
                 },
               ]}
             />
@@ -1280,7 +1509,7 @@ export default function MyRestaurantsPage() {
             <>
             <Row gutter={[16, 16]}>
               {restaurants.map((r) => {
-                const isInactive = r.status === 'rejected' || r.status === 'suspended';
+                const isInactive = isInactiveRestaurant(r.status);
                 return (
                   <Col key={r.id} xs={24} md={12} lg={8}>
                     <Card

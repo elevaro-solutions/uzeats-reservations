@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import mongoose from 'mongoose';
 import request from 'supertest';
 import { resolveRedeemPoints, depositPointsFromCents, LOYALTY, LOYALTY_EARN_REASONS, visitPointsForTier, RESTAURANT_LOYALTY, resolveRestaurantRedeemPoints } from '@reservations/shared';
@@ -68,6 +68,18 @@ describe('visitPointsForTier', () => {
     expect(visitPointsForTier(0)).toBe(100);
     expect(visitPointsForTier(5)).toBe(125);
     expect(visitPointsForTier(15)).toBe(150);
+  });
+
+  it('uses a custom loyalty program when provided', () => {
+    const program = {
+      pointsPerCompletedVisit: 80,
+      tiers: [
+        { id: 'starter', name: 'Starter', minVisits: 0, earnMultiplier: 1 },
+        { id: 'regular', name: 'Regular', minVisits: 3, earnMultiplier: 2 },
+      ],
+    };
+    expect(visitPointsForTier(0, program)).toBe(80);
+    expect(visitPointsForTier(3, program)).toBe(160);
   });
 });
 
@@ -719,3 +731,109 @@ describe('FIFO loyalty buckets', () => {
     expect(updated?.loyaltyPoints).toBe(200);
   });
 });
+
+describe('loyaltyProgram admin config', () => {
+  let agent: request.Agent;
+  let adminToken: string;
+  let superToken: string;
+
+  beforeAll(async () => {
+    const app = await createTestApp();
+    agent = app.agent;
+    const { signAccessToken } = await import('../services/auth.js');
+    const adminUser = await User.create({
+      email: 'loyalty-program-admin@test.com',
+      passwordHash: 'unused',
+      firstName: 'Admin',
+      lastName: 'User',
+      role: 'admin',
+    });
+    const superUser = await User.create({
+      email: 'loyalty-program-super@test.com',
+      passwordHash: 'unused',
+      firstName: 'Super',
+      lastName: 'Admin',
+      role: 'super_admin',
+    });
+    adminToken = signAccessToken({ sub: adminUser._id.toString(), role: 'admin' });
+    superToken = signAccessToken({ sub: superUser._id.toString(), role: 'super_admin' });
+  });
+
+  beforeEach(async () => {
+    const { PlatformConfig } = await import('../models/PlatformConfig.js');
+    const { invalidateLoyaltyProgramCache } = await import('../services/loyaltyProgram.js');
+    await PlatformConfig.updateMany({}, { $unset: { loyalty: 1 } });
+    invalidateLoyaltyProgramCache();
+  });
+
+  it('returns default rates publicly', async () => {
+    const res = await graphqlRequest(
+      agent,
+      `query { loyaltyProgram { minRedeemPoints pointsPerCompletedVisit tiers { id name minVisits } } }`,
+    );
+    expect(res.body.errors).toBeUndefined();
+    expect(res.body.data.loyaltyProgram.minRedeemPoints).toBe(LOYALTY.MIN_REDEEM_POINTS);
+    expect(res.body.data.loyaltyProgram.tiers.map((t: { id: string }) => t.id)).toEqual([
+      'bronze',
+      'silver',
+      'gold',
+    ]);
+  });
+
+  it('rejects updates from a non-super admin', async () => {
+    const res = await graphqlRequest(
+      agent,
+      `mutation ($input: LoyaltyProgramInput!) {
+        updateLoyaltyProgram(input: $input) { minRedeemPoints }
+      }`,
+      { input: { minRedeemPoints: 250 } },
+      adminToken,
+    );
+    expect(res.body.errors?.[0]?.message).toMatch(/Forbidden/i);
+  });
+
+  it('lets a super admin change point packages and create a tier', async () => {
+    const res = await graphqlRequest(
+      agent,
+      `mutation ($input: LoyaltyProgramInput!) {
+        updateLoyaltyProgram(input: $input) {
+          minRedeemPoints
+          pointsPerCompletedVisit
+          referralBonusPoints
+          tiers { id name minVisits earnMultiplier }
+        }
+      }`,
+      {
+        input: {
+          minRedeemPoints: 250,
+          pointsPerCompletedVisit: 80,
+          referralBonusPoints: 150,
+          tiers: [
+            { name: 'Starter', minVisits: 0, earnMultiplier: 1 },
+            { name: 'Regular', minVisits: 4, earnMultiplier: 1.5 },
+            { name: 'VIP', minVisits: 12, earnMultiplier: 2 },
+          ],
+        },
+      },
+      superToken,
+    );
+    expect(res.body.errors).toBeUndefined();
+    const program = res.body.data.updateLoyaltyProgram;
+    expect(program.minRedeemPoints).toBe(250);
+    expect(program.pointsPerCompletedVisit).toBe(80);
+    expect(program.referralBonusPoints).toBe(150);
+    expect(program.tiers.map((t: { name: string }) => t.name)).toEqual([
+      'Starter',
+      'Regular',
+      'VIP',
+    ]);
+
+    const read = await graphqlRequest(
+      agent,
+      `query { loyaltyProgram { minRedeemPoints tiers { name minVisits } } }`,
+    );
+    expect(read.body.data.loyaltyProgram.minRedeemPoints).toBe(250);
+    expect(read.body.data.loyaltyProgram.tiers[1].minVisits).toBe(4);
+  });
+});
+

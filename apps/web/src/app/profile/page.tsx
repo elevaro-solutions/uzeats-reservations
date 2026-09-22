@@ -9,15 +9,14 @@ import {
   CheckCircleFilled,
   HeartOutlined,
   MailOutlined,
-  MessageOutlined,
   TrophyOutlined,
 } from '@ant-design/icons';
 import { PageHeader, colors, radii, shadows } from '@reservations/ui';
-import { LOYALTY, loyaltyRedeemProgress, resolveLoyaltyTier, buildRestaurantBookingPath } from '@reservations/shared';
+import { defaultLoyaltyProgram, loyaltyRedeemProgress, resolveLoyaltyTier, buildRestaurantBookingPath } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { UPDATE_NOTIFICATION_PREFERENCES } from '@/lib/graphql';
+import { UPDATE_NOTIFICATION_PREFERENCES, LOYALTY_PROGRAM } from '@/lib/graphql';
 
 const { Title, Text } = Typography;
 
@@ -60,6 +59,26 @@ const REGISTER_PUSH = gql`
 `;
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+const WEB_PUSH_OPT_IN_KEY = 'rt-web-push-opt-in';
+
+function readWebPushOptIn(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(WEB_PUSH_OPT_IN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeWebPushOptIn(enabled: boolean) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (enabled) window.localStorage.setItem(WEB_PUSH_OPT_IN_KEY, '1');
+    else window.localStorage.removeItem(WEB_PUSH_OPT_IN_KEY);
+  } catch {
+    /* private mode / blocked storage */
+  }
+}
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -77,6 +96,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { data } = useQuery(MY_LOYALTY, { skip: !user });
   const { data: restaurantLoyaltyData } = useQuery(MY_RESTAURANT_LOYALTY, { skip: !user });
+  const { data: loyaltyProgramData } = useQuery(LOYALTY_PROGRAM);
   const [registerPush] = useMutation(REGISTER_PUSH);
   const [updatePrefs] = useMutation(UPDATE_NOTIFICATION_PREFERENCES);
   const [pushSubscription, setPushSubscription] = useState<PushSubscription | null>(null);
@@ -85,12 +105,7 @@ export default function ProfilePage() {
   const [pushPref, setPushPref] = useState(false);
   const [availabilityAlerts, setAvailabilityAlerts] = useState(true);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
-  const [smsAlerts, setSmsAlerts] = useState(false);
-  const [smsLoading, setSmsLoading] = useState(false);
-
-  useEffect(() => {
-    if (pushSubscription) setPushPref(true);
-  }, [pushSubscription]);
+  const pushEnabled = pushPref || Boolean(pushSubscription);
 
   useEffect(() => {
     const prefs = user?.notificationPreferences?.availabilityAlerts;
@@ -104,55 +119,71 @@ export default function ProfilePage() {
   }, [user?.notificationPreferences?.availabilityAlerts]);
 
   useEffect(() => {
-    const reservationSms = user?.notificationPreferences?.reservationUpdates?.sms;
-    const waitlistSms = user?.notificationPreferences?.waitlistAvailable?.sms;
-    const availabilitySms = user?.notificationPreferences?.availabilityAlerts?.sms;
-    setSmsAlerts(Boolean(reservationSms || waitlistSms || availabilitySms));
-  }, [user?.notificationPreferences]);
+    let cancelled = false;
 
-  const persistSmsAlerts = useCallback(
-    async (enabled: boolean) => {
-      setSmsLoading(true);
-      setSmsAlerts(enabled);
-      try {
-        await updatePrefs({
-          variables: {
-            input: {
-              reservationUpdates: { sms: enabled },
-              waitlistAvailable: { sms: enabled },
-              availabilityAlerts: { sms: enabled },
-            },
-          },
-        });
-        await refreshMe();
-        message.success(enabled ? 'SMS alerts enabled' : 'SMS alerts turned off');
-      } catch (err) {
-        setSmsAlerts(!enabled);
-        message.error(err instanceof Error ? err.message : 'Could not update SMS preferences');
-      } finally {
-        setSmsLoading(false);
+    const restorePush = async () => {
+      const optedIn = readWebPushOptIn();
+      if (!cancelled) setPushPref(optedIn);
+
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        if (!cancelled) setPushPermission(Notification.permission);
       }
-    },
-    [updatePrefs, refreshMe],
-  );
+      if (!('serviceWorker' in navigator)) return;
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setPushPermission(Notification.permission);
-    }
-    if (!('serviceWorker' in navigator)) return;
-    void navigator.serviceWorker.register('/sw.js').then((reg) => {
-      void reg.pushManager.getSubscription().then((sub) => {
-        setPushSubscription(sub);
-      });
-    });
-  }, []);
+      try {
+        const reg = await navigator.serviceWorker.register('/sw.js');
+        const ready = await navigator.serviceWorker.ready;
+        const existing = await (ready ?? reg).pushManager.getSubscription();
+        if (cancelled) return;
+
+        if (existing) {
+          setPushSubscription(existing);
+          setPushPref(true);
+          writeWebPushOptIn(true);
+          return;
+        }
+
+        // Re-subscribe when the diner opted in before but the browser lost the subscription.
+        if (
+          optedIn &&
+          VAPID_PUBLIC_KEY &&
+          'Notification' in window &&
+          Notification.permission === 'granted'
+        ) {
+          const subscription = await (ready ?? reg).pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY).buffer as ArrayBuffer,
+          });
+          if (cancelled) return;
+          setPushSubscription(subscription);
+          setPushPref(true);
+          writeWebPushOptIn(true);
+          await registerPush({
+            variables: { token: JSON.stringify(subscription.toJSON()), platform: 'web' },
+          });
+        }
+      } catch {
+        /* SW / push unavailable — keep localStorage opt-in for the toggle */
+      }
+    };
+
+    void restorePush();
+    return () => {
+      cancelled = true;
+    };
+  }, [registerPush]);
 
   const persistPushPref = useCallback(
     async (enabled: boolean) => {
       setPushPref(enabled);
+      writeWebPushOptIn(enabled);
       await updatePrefs({
-        variables: { input: { reservationUpdates: { webPush: enabled } } },
+        variables: {
+          input: {
+            reservationUpdates: { webPush: enabled },
+            waitlistAvailable: { webPush: enabled },
+          },
+        },
       });
       await refreshMe();
     },
@@ -196,14 +227,14 @@ export default function ProfilePage() {
     try {
       await persistPushPref(true);
       if (!VAPID_PUBLIC_KEY || !('serviceWorker' in navigator) || !('Notification' in window)) {
-        message.success('Push notifications enabled for this account');
+        message.success('Push preference saved on this device');
         return;
       }
       const registration = await navigator.serviceWorker.register('/sw.js');
       const permission = await Notification.requestPermission();
       setPushPermission(permission);
       if (permission !== 'granted') {
-        message.warning('Browser permission denied — you will still get in-app alerts');
+        message.warning('Browser permission denied — preference is still saved for when you allow notifications');
         return;
       }
       const ready = await navigator.serviceWorker.ready;
@@ -212,6 +243,7 @@ export default function ProfilePage() {
         applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY).buffer as ArrayBuffer,
       });
       setPushSubscription(subscription);
+      writeWebPushOptIn(true);
       await registerPush({
         variables: { token: JSON.stringify(subscription.toJSON()), platform: 'web' },
       });
@@ -254,8 +286,9 @@ export default function ProfilePage() {
     return null;
   }
 
-  const redeemProgress = loyaltyRedeemProgress(user?.loyaltyPoints ?? 0);
-  const tier = resolveLoyaltyTier(user?.loyaltyCompletedVisits ?? 0);
+  const program = (loyaltyProgramData as any)?.loyaltyProgram ?? defaultLoyaltyProgram();
+  const redeemProgress = loyaltyRedeemProgress(user?.loyaltyPoints ?? 0, program.minRedeemPoints);
+  const tier = resolveLoyaltyTier(user?.loyaltyCompletedVisits ?? 0, program.tiers);
   const restaurantBalances = (restaurantLoyaltyData as any)?.myRestaurantLoyalty ?? [];
   const restaurantHistory = (restaurantLoyaltyData as any)?.myRestaurantLoyaltyHistory ?? [];
 
@@ -334,7 +367,7 @@ export default function ProfilePage() {
           </div>
           <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
             {redeemProgress.canRedeem
-              ? `Ready to redeem (${LOYALTY.MIN_REDEEM_POINTS}+ pts)`
+              ? `Ready to redeem (${program.minRedeemPoints}+ pts)`
               : `${redeemProgress.remaining} pts until you can redeem`}
           </Text>
           <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
@@ -450,36 +483,13 @@ export default function ProfilePage() {
           <List.Item
             extra={
               <Switch
-                checked={smsAlerts}
-                loading={smsLoading}
-                onChange={(checked) => void persistSmsAlerts(checked)}
-                style={smsAlerts ? { background: colors.brand[600] } : undefined}
-              />
-            }
-          >
-            <List.Item.Meta
-              avatar={<MessageOutlined style={{ fontSize: 20, color: colors.brand[600] }} />}
-              title="SMS text messages"
-              description={
-                <>
-                  Transactional texts for reservations and waitlist alerts. Msg &amp; data rates may
-                  apply. Reply STOP to cancel.{' '}
-                  <Link href="/sms">SMS Terms</Link>
-                </>
-              }
-            />
-          </List.Item>
-
-          <List.Item
-            extra={
-              <Switch
-                checked={pushPref || Boolean(pushSubscription)}
+                checked={pushEnabled}
                 loading={pushLoading}
                 onChange={(checked) => {
                   if (checked) void subscribeToPush();
                   else void unsubscribeFromPush();
                 }}
-                style={pushPref || pushSubscription ? { background: colors.brand[600] } : undefined}
+                style={pushEnabled ? { background: colors.brand[600] } : undefined}
               />
             }
           >
@@ -489,8 +499,10 @@ export default function ProfilePage() {
               description={
                 pushPermission === 'denied'
                   ? 'Permission denied — enable notifications in browser settings'
-                  : pushPref || pushSubscription
-                    ? 'You will receive reservation updates in this browser when allowed'
+                  : pushEnabled
+                    ? pushSubscription
+                      ? 'You will receive reservation updates in this browser when allowed'
+                      : 'Saved on this device — allow browser notifications when prompted to finish setup'
                     : 'Get notified about reservation updates in your browser'
               }
             />

@@ -305,6 +305,27 @@ export const MY_RESTAURANT_LOYALTY_BALANCE = gql`
   }
 `;
 
+export const LOYALTY_PROGRAM = gql`
+  query LoyaltyProgram {
+    loyaltyProgram {
+      pointsPerCompletedVisit
+      pointsPerDollarDeposit
+      redeemPointsPerDollar
+      minRedeemPoints
+      firstBookingBonusPoints
+      pointsPerReview
+      referralBonusPoints
+      pointsExpiryMonths
+      tiers {
+        id
+        name
+        minVisits
+        earnMultiplier
+      }
+    }
+  }
+`;
+
 export const VALIDATE_PROMOTION = gql`
   query ValidatePromotion($restaurantId: ID!, $code: String!, $slotStart: DateTime!, $depositCents: Int!) {
     validatePromotion(

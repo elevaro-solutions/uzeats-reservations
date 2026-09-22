@@ -1,6 +1,5 @@
 import mongoose, { type ClientSession } from 'mongoose';
 import {
-  LOYALTY,
   LOYALTY_EARN_REASONS,
   depositPointsFromCents,
   visitPointsForTier,
@@ -13,6 +12,7 @@ import {
   consumePointsFifo,
   reconcileUserLoyaltyBuckets,
 } from '../lib/loyaltyBuckets.js';
+import { getLoyaltyProgram } from './loyaltyProgram.js';
 
 type LoyaltyNotificationType = 'points_earned' | 'points_redeemed' | 'points_refunded';
 
@@ -104,8 +104,9 @@ export async function redeemPoints(
   reservationId?: string,
   description = 'Redeemed for reservation discount',
 ) {
-  if (points < LOYALTY.MIN_REDEEM_POINTS) {
-    throw new Error(`Minimum redeem is ${LOYALTY.MIN_REDEEM_POINTS} points`);
+  const program = await getLoyaltyProgram();
+  if (points < program.minRedeemPoints) {
+    throw new Error(`Minimum redeem is ${program.minRedeemPoints} points`);
   }
 
   return withLoyaltyTransaction(async (session) => {
@@ -200,7 +201,11 @@ export async function awardDepositPoints(input: {
 }) {
   if (input.depositStatus !== 'authorized' || input.depositAmountCents <= 0) return 0;
 
-  const points = depositPointsFromCents(input.depositAmountCents);
+  const program = await getLoyaltyProgram();
+  const points = depositPointsFromCents(
+    input.depositAmountCents,
+    program.pointsPerDollarDeposit,
+  );
   return earnPointsOnce(
     input.dinerId,
     points,
@@ -210,17 +215,19 @@ export async function awardDepositPoints(input: {
 }
 
 export async function awardFirstBookingBonus(dinerId: string) {
+  const program = await getLoyaltyProgram();
   return earnPointsOnce(
     dinerId,
-    LOYALTY.FIRST_BOOKING_BONUS_POINTS,
+    program.firstBookingBonusPoints,
     LOYALTY_EARN_REASONS.FIRST_BOOKING,
   );
 }
 
 export async function awardReviewPoints(dinerId: string, reservationId: string) {
+  const program = await getLoyaltyProgram();
   return earnPointsOnce(
     dinerId,
-    LOYALTY.POINTS_PER_REVIEW,
+    program.pointsPerReview,
     LOYALTY_EARN_REASONS.REVIEW,
     reservationId,
   );
@@ -230,8 +237,9 @@ export async function awardCompletedVisitPoints(dinerId: string, reservationId: 
   const user = await User.findById(dinerId).select('loyaltyCompletedVisits referredByUserId');
   if (!user) return 0;
 
+  const program = await getLoyaltyProgram();
   const visitsBefore = user.loyaltyCompletedVisits ?? 0;
-  const points = visitPointsForTier(visitsBefore);
+  const points = visitPointsForTier(visitsBefore, program);
 
   const awarded = await earnPointsOnce(
     dinerId,
@@ -243,17 +251,17 @@ export async function awardCompletedVisitPoints(dinerId: string, reservationId: 
   if (awarded > 0) {
     await User.findByIdAndUpdate(dinerId, { $inc: { loyaltyCompletedVisits: 1 } });
     if (visitsBefore === 0 && user.referredByUserId) {
-      await awardReferralBonus(user.referredByUserId.toString(), dinerId);
+      await awardReferralBonus(user.referredByUserId.toString(), dinerId, program.referralBonusPoints);
     }
   }
 
   return awarded;
 }
 
-async function awardReferralBonus(referrerId: string, refereeId: string) {
+async function awardReferralBonus(referrerId: string, refereeId: string, points: number) {
   return earnPointsOnce(
     referrerId,
-    LOYALTY.REFERRAL_BONUS_POINTS,
+    points,
     `${LOYALTY_EARN_REASONS.REFERRAL_BONUS} — ${refereeId}`,
   );
 }

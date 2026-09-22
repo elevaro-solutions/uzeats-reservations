@@ -16,12 +16,13 @@ import { DownloadOutlined } from '@ant-design/icons';
 import { PageHeader, spacing } from '@reservations/ui';
 import { EXPORT_ADMIN_CSV } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
+import { downloadExportPayload } from '@/lib/downloadExport';
 import dayjs, { type Dayjs } from 'dayjs';
 
 const { Paragraph, Text } = Typography;
 const { RangePicker } = DatePicker;
 
-type ExportFormat = 'csv' | 'json' | 'pdf';
+type ExportFormat = 'csv' | 'json' | 'pdf' | 'xlsx';
 
 const EXPORTS = [
   { type: 'users', label: 'Users', desc: 'Accounts with role, verification, and join date' },
@@ -57,6 +58,11 @@ const EXPORTS = [
     desc: 'Helpdesk tickets with status and priority',
   },
   { type: 'reviews', label: 'Reviews', desc: 'Guest ratings, comments, and moderation flags' },
+  {
+    type: 'guests',
+    label: 'Guests',
+    desc: 'Restaurant CRM profiles with visits, spend, VIP status, and tags',
+  },
   { type: 'audit_logs', label: 'Audit logs', desc: 'Admin actions for compliance and debugging' },
 ];
 
@@ -67,24 +73,6 @@ const PRESETS = [
   { label: 'Custom range', value: 'custom' },
   { label: 'All time', value: 'all' },
 ];
-
-function downloadFile(
-  filename: string,
-  content: string,
-  mimeType: string,
-  encoding: string,
-) {
-  const blob =
-    encoding === 'base64'
-      ? new Blob([Uint8Array.from(atob(content), (c) => c.charCodeAt(0))], { type: mimeType })
-      : new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 
 export default function AdminExportsPage() {
   const { ready } = useRequireAdmin();
@@ -153,8 +141,9 @@ export default function AdminExportsPage() {
         },
       });
       const payload = res.data?.exportAdminCsv;
-      downloadFile(payload.filename, payload.content, payload.mimeType, payload.encoding);
-      message.success(`Exported ${payload.rowCount} rows as ${format.toUpperCase()}`);
+      downloadExportPayload(payload);
+      const formatLabel = format === 'xlsx' ? 'Excel' : format.toUpperCase();
+      message.success(`Exported ${payload.rowCount} rows as ${formatLabel}`);
     } catch (err: any) {
       message.error(err.message || 'Export failed');
     } finally {
@@ -167,7 +156,7 @@ export default function AdminExportsPage() {
       <Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
         <PageHeader
           title="Data exports"
-          subtitle="Download finance, venue, and support datasets as CSV, JSON, or PDF."
+          subtitle="Download finance, venue, guest, and support datasets as CSV, Excel, JSON, or PDF."
         />
 
         <Card size="small">
@@ -212,6 +201,7 @@ export default function AdminExportsPage() {
                 buttonStyle="solid"
                 options={[
                   { label: 'CSV', value: 'csv' },
+                  { label: 'Excel', value: 'xlsx' },
                   { label: 'JSON', value: 'json' },
                   { label: 'PDF', value: 'pdf' },
                 ]}
@@ -237,7 +227,7 @@ export default function AdminExportsPage() {
                   disabled={exportingType !== null && exportingType !== item.type}
                   onClick={() => run(item.type)}
                 >
-                  Download {format.toUpperCase()}
+                  Download {format === 'xlsx' ? 'Excel' : format.toUpperCase()}
                 </Button>
               </Space>
             </Card>

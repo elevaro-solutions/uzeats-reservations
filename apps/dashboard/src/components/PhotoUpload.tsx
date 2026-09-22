@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Upload, Image, Button, message, Progress, Typography, Tag, Space, Tooltip } from 'antd';
 import {
   DeleteOutlined,
@@ -62,6 +62,17 @@ export default function PhotoUpload({
   const [previewUrl, setPreviewUrl] = useState<string>();
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const urlsRef = useRef(value);
+  const pendingCountRef = useRef(0);
+  const extraWarnedRef = useRef(false);
+
+  useEffect(() => {
+    // Parent can lag behind concurrent uploads; don't shrink the ref mid-batch.
+    if (pendingCountRef.current > 0 && value.length < urlsRef.current.length) {
+      return;
+    }
+    urlsRef.current = value;
+  }, [value]);
 
   const heroOrder = showHeroOrder ?? maxCount !== 1;
 
@@ -71,6 +82,19 @@ export default function PhotoUpload({
       return false;
     }
 
+    const occupied = maxCount === 1 ? 0 : urlsRef.current.length;
+    if (occupied + pendingCountRef.current >= maxCount) {
+      if (!extraWarnedRef.current) {
+        extraWarnedRef.current = true;
+        message.warning(`You can upload up to ${maxCount} photo${maxCount === 1 ? '' : 's'}`);
+        queueMicrotask(() => {
+          extraWarnedRef.current = false;
+        });
+      }
+      return false;
+    }
+
+    pendingCountRef.current += 1;
     const uid = file.uid;
     setUploading((prev) => ({ ...prev, [uid]: 0 }));
 
@@ -78,11 +102,14 @@ export default function PhotoUpload({
       const { publicUrl } = await uploadFile(file, file.name, {
         onProgress: (pct) => setUploading((prev) => ({ ...prev, [uid]: pct })),
       });
-      onChange?.(maxCount === 1 ? [publicUrl] : [...value, publicUrl]);
+      const next = maxCount === 1 ? [publicUrl] : [...urlsRef.current, publicUrl];
+      urlsRef.current = next;
+      onChange?.(next);
       message.success(`${file.name} uploaded`);
     } catch (err: any) {
       message.error(err.message ?? 'Upload failed');
     } finally {
+      pendingCountRef.current = Math.max(0, pendingCountRef.current - 1);
       setUploading((prev) => {
         const copy = { ...prev };
         delete copy[uid];
@@ -94,16 +121,22 @@ export default function PhotoUpload({
   };
 
   const handleRemove = (url: string) => {
-    onChange?.(value.filter((u) => u !== url));
+    const next = urlsRef.current.filter((u) => u !== url);
+    urlsRef.current = next;
+    onChange?.(next);
   };
 
   const handleReorder = (from: number, to: number) => {
-    onChange?.(moveItem(value, from, to));
+    const next = moveItem(urlsRef.current, from, to);
+    urlsRef.current = next;
+    onChange?.(next);
   };
 
   const handleSetHero = (index: number) => {
     if (index === 0) return;
-    onChange?.(moveItem(value, index, 0));
+    const next = moveItem(urlsRef.current, index, 0);
+    urlsRef.current = next;
+    onChange?.(next);
     message.success('Hero photo updated');
   };
 

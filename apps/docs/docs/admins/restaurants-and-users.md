@@ -49,7 +49,7 @@ Account admin is split by role:
 | **Admin → Staff** | Venue team members | Create staff (restaurant required), or invite |
 | **Admin → Platform users** | `admin` / `super_admin` | Promote via role change (super admin) |
 
-Each list has a **detail** page for profile, password reset, impersonation, reservations (diners), and assigned restaurants (owners/staff).
+Each list has a **detail** page for profile, password reset, impersonation, reservations (diners), and assigned restaurants (owners/staff). **Admin → Diners** can download the current search as Excel, PDF, or JSON.
 
 **Admin → Reservations** lists every booking on the platform (guest, restaurant, status, source, date). Filter by venue or guest; row actions update status the same way as the restaurant Reservations tab. Per-diner history stays on the diner detail page.
 

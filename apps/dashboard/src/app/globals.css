@@ -1280,6 +1280,38 @@ a {
   margin-bottom: 0;
 }
 
+.rt-add-restaurant-modal.ant-modal-wrap {
+  overflow: hidden !important;
+  padding: 40px 16px 20vh;
+  box-sizing: border-box;
+  align-items: flex-start;
+}
+
+.rt-add-restaurant-modal .ant-modal {
+  top: 0;
+  max-height: calc(80vh - 40px);
+  padding-bottom: 0;
+  margin: 0 auto;
+}
+
+.rt-add-restaurant-modal .ant-modal-container {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(80vh - 40px);
+  overflow: hidden;
+}
+
+.rt-add-restaurant-modal .ant-modal-body {
+  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.rt-add-restaurant-modal .ant-modal-header,
+.rt-add-restaurant-modal .ant-modal-footer {
+  flex-shrink: 0;
+}
+
 .rt-mobile-modal .ant-modal {
   max-width: calc(100vw - 16px);
   padding-bottom: 0;

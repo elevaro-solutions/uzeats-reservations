@@ -28,8 +28,11 @@ import {
   UPDATE_GUEST_PROFILE,
   ADD_GUEST_TAG,
   REMOVE_GUEST_TAG,
+  EXPORT_RESTAURANT_GUESTS,
 } from '@/lib/graphql';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { ExportMenu, type ListExportFormat } from '@/components/ExportMenu';
+import { downloadExportPayload } from '@/lib/downloadExport';
 
 const { Title, Text } = Typography;
 
@@ -68,6 +71,7 @@ function GuestsPageContent() {
   const [updateProfile, { loading: saving }] = useMutation(UPDATE_GUEST_PROFILE);
   const [addTag] = useMutation(ADD_GUEST_TAG);
   const [removeTag] = useMutation(REMOVE_GUEST_TAG);
+  const [exportGuests, { loading: exporting }] = useMutation(EXPORT_RESTAURANT_GUESTS);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -124,6 +128,28 @@ function GuestsPageContent() {
     refetch();
   };
 
+  const onExportGuests = async (format: ListExportFormat) => {
+    if (!activeRestaurantId) return;
+    try {
+      const res = await exportGuests({
+        variables: {
+          restaurantId: activeRestaurantId,
+          search: search || undefined,
+          vipStatus: vipFilter,
+          format,
+        },
+      });
+      const payload = res.data?.exportRestaurantGuests;
+      if (!payload?.content) throw new Error('No export returned');
+      downloadExportPayload(payload);
+      message.success(
+        `Exported ${payload.rowCount} guests as ${format === 'xlsx' ? 'Excel' : format.toUpperCase()}`,
+      );
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Export failed');
+    }
+  };
+
   return (
     <div component="GuestsPageContent" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Guests</Title>
@@ -153,6 +179,12 @@ function GuestsPageContent() {
             { value: 'blacklisted', label: 'Blacklisted' },
             { value: 'none', label: 'None' },
           ]}
+        />
+        <ExportMenu
+          formats={['xlsx', 'pdf']}
+          loading={exporting}
+          disabled={!activeRestaurantId}
+          onExport={(format) => void onExportGuests(format)}
         />
       </Space>
 

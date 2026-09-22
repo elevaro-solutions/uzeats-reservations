@@ -1,8 +1,9 @@
 import { useQuery } from "@apollo/client";
 import { useMemo } from "react";
-import { RESTAURANT_LOYALTY } from "@reservations/shared";
+import { RESTAURANT_LOYALTY, type LoyaltyProgram } from "@reservations/shared";
 
 import { useDebouncedValue } from "@/lib/use-debounced-value";
+import { useLoyaltyProgram } from "@/lib/use-loyalty-program";
 
 import {
   BEST_PROMOTION,
@@ -45,6 +46,7 @@ export type UseBookingPricingParams = {
 
 export type UseBookingPricingResult = {
   restaurantMinRedeem: number;
+  platformProgram: LoyaltyProgram;
   finalDepositCents: number;
   depositBreakdown: DepositBreakdown;
   activePromo: PromotionValidation | null | undefined;
@@ -77,6 +79,7 @@ export function useBookingPricing(
     PROMO_DEBOUNCE_MS,
   );
 
+  const program = useLoyaltyProgram();
   const restaurantMinRedeem =
     restaurant?.loyaltyMinRedeemPoints ??
     RESTAURANT_LOYALTY.DEFAULT_MIN_REDEEM_POINTS;
@@ -93,6 +96,8 @@ export function useBookingPricing(
       redeemPoints,
       redeemRestaurantPoints,
       restaurantLoyaltyBalance,
+      minRedeemPoints: program.minRedeemPoints,
+      redeemPointsPerDollar: program.redeemPointsPerDollar,
     };
   }, [
     restaurant,
@@ -104,6 +109,8 @@ export function useBookingPricing(
     redeemPoints,
     redeemRestaurantPoints,
     restaurantLoyaltyBalance,
+    program.minRedeemPoints,
+    program.redeemPointsPerDollar,
   ]);
 
   const depositBeforePromo = pricingInput
@@ -193,6 +200,7 @@ export function useBookingPricing(
 
   return {
     restaurantMinRedeem,
+    platformProgram: program,
     finalDepositCents: depositBreakdown.dueCents,
     depositBreakdown,
     activePromo,

@@ -72,6 +72,7 @@ import {
 } from '@/lib/graphql';
 import { addressSelectionToFields } from '@/lib/address';
 import {
+  depositAmountWhenRequiredRule,
   priceRangeOptions,
   restaurantFieldTooltips as tips,
 } from '@/lib/restaurantFormTooltips';
@@ -1305,13 +1306,15 @@ function AdminRestaurantsContent() {
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item
-                    name="depositAmountCents"
-                    label="Deposit amount (USD)"
-                    tooltip={tips.depositAmountCents}
-                  >
-                    <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
-                  </Form.Item>
+                <Form.Item
+                  name="depositAmountCents"
+                  label="Deposit amount (USD)"
+                  tooltip={tips.depositAmountCents}
+                  dependencies={['depositRequired']}
+                  rules={[depositAmountWhenRequiredRule]}
+                >
+                  <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
+                </Form.Item>
                 </Col>
                 <Col span={12}>
                   <Form.Item

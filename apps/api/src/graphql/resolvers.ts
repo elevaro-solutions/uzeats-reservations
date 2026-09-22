@@ -157,6 +157,11 @@ import {
   getAdminLoyaltyStats,
   getAdminReferralLeaders,
 } from "../services/loyaltyStats.js";
+import {
+  getLoyaltyProgram,
+  updateLoyaltyProgram,
+  type LoyaltyProgramInput,
+} from "../services/loyaltyProgram.js";
 import { getRestaurantLoyaltyStats } from "../services/restaurantLoyaltyStats.js";
 import {
   resolvePromotionDiscount,
@@ -330,6 +335,11 @@ import {
   adminOpsQuery,
   applyPlatformConfigFeatureFlags,
 } from "../services/adminOpsResolvers.js";
+import {
+  exportGuestsList,
+  guestListFilter,
+} from "../services/guestDinerExport.js";
+import { parseExportFormat } from "../services/adminExport.js";
 
 function mapSubscription(sub: any, opts?: { includeStripeIds?: boolean }) {
   return {
@@ -582,7 +592,10 @@ export const resolvers = {
     me: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       const user = ctx.user;
       if (!user) return null;
-      const referralCode = await ensureUserReferralCode(user);
+      const [referralCode] = await Promise.all([
+        ensureUserReferralCode(user),
+        getLoyaltyProgram(),
+      ]);
       return mapUser({ ...user.toObject(), referralCode });
     },
     ...adminOpsQuery,
@@ -1324,6 +1337,8 @@ export const resolvers = {
       return { slugRequests, profileChangeRequests };
     },
 
+    loyaltyProgram: async () => getLoyaltyProgram(),
+
     adminLoyaltyStats: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       requireAdmin(ctx);
       return getAdminLoyaltyStats();
@@ -1716,6 +1731,11 @@ export const resolvers = {
       let widgetCovers = 0;
       let phoneCovers = 0;
       let walkinCovers = 0;
+      let networkFeeCents = 0;
+      let websiteFeeCents = 0;
+      let widgetFeeCents = 0;
+      let phoneFeeCents = 0;
+      let walkinFeeCents = 0;
 
       for (const fee of fees) {
         totalCovers += fee.partySize;
@@ -1723,18 +1743,23 @@ export const resolvers = {
         switch (fee.source) {
           case "network":
             networkCovers += fee.partySize;
+            networkFeeCents += fee.feeCents;
             break;
           case "website":
             websiteCovers += fee.partySize;
+            websiteFeeCents += fee.feeCents;
             break;
           case "widget":
             widgetCovers += fee.partySize;
+            widgetFeeCents += fee.feeCents;
             break;
           case "phone":
             phoneCovers += fee.partySize;
+            phoneFeeCents += fee.feeCents;
             break;
           case "walkin":
             walkinCovers += fee.partySize;
+            walkinFeeCents += fee.feeCents;
             break;
         }
       }
@@ -1747,6 +1772,11 @@ export const resolvers = {
         widgetCovers,
         phoneCovers,
         walkinCovers,
+        networkFeeCents,
+        websiteFeeCents,
+        widgetFeeCents,
+        phoneFeeCents,
+        walkinFeeCents,
       };
     },
 
@@ -2037,22 +2067,12 @@ export const resolvers = {
         args.restaurantId,
         user.role,
       );
-      const filter: Record<string, unknown> = {
+      const filter = await guestListFilter({
         restaurantId: args.restaurantId,
-      };
-      if (args.tag) filter.tags = args.tag;
-      if (args.vipStatus) filter.vipStatus = args.vipStatus;
-
-      if (args.search?.trim()) {
-        const regex = new RegExp(
-          args.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-          "i",
-        );
-        const matchingUsers = await User.find({
-          $or: [{ firstName: regex }, { lastName: regex }, { email: regex }],
-        }).select("_id");
-        filter.dinerId = { $in: matchingUsers.map((u) => u._id) };
-      }
+        tag: args.tag,
+        vipStatus: args.vipStatus,
+        search: args.search,
+      });
 
       return paginateQuery(GuestProfile, filter, {
         sort: { lastVisitDate: -1 },
@@ -3032,15 +3052,20 @@ export const resolvers = {
 
       await provisionDefaultRestaurantSetup(doc._id);
 
+      let clientSecret: string | null = null;
+      let paymentMode: string | null = null;
       if (args.plan) {
         try {
-          await createRestaurantSubscription({
+          const sub = await createRestaurantSubscription({
             restaurantId: doc._id.toString(),
             plan: args.plan,
             customerEmail: user.email ?? undefined,
             customerName: doc.name,
             actorId: user._id.toString(),
+            collectPaymentMethod: true,
           });
+          clientSecret = sub.clientSecret ?? null;
+          paymentMode = sub.paymentMode ?? null;
         } catch (err) {
           await Restaurant.findByIdAndDelete(doc._id);
           await User.findByIdAndUpdate(user._id, {
@@ -3050,7 +3075,7 @@ export const resolvers = {
         }
       }
 
-      return mapRestaurant(doc);
+      return { ...mapRestaurant(doc), clientSecret, paymentMode };
     },
 
     updateRestaurant: async (
@@ -3975,6 +4000,22 @@ export const resolvers = {
         details: args.input,
       });
       return mapPlatformConfig(doc);
+    },
+
+    updateLoyaltyProgram: async (
+      _: unknown,
+      args: { input: LoyaltyProgramInput },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireSuperAdmin(ctx);
+      const program = await updateLoyaltyProgram(args.input);
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: "updateLoyaltyProgram",
+        resource: "PlatformConfig",
+        details: args.input,
+      });
+      return program;
     },
 
     updatePlanPackage: async (
@@ -4922,6 +4963,34 @@ export const resolvers = {
       );
       if (!doc) throw new Error("Guest profile not found");
       return mapGuestProfile(doc);
+    },
+
+    exportRestaurantGuests: async (
+      _: unknown,
+      args: {
+        restaurantId: string;
+        tag?: string;
+        vipStatus?: string;
+        search?: string;
+        format?: string;
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      const restaurant = await Restaurant.findById(args.restaurantId).select("name");
+      return exportGuestsList({
+        restaurantId: args.restaurantId,
+        restaurantName: restaurant?.name ? `Guests (${restaurant.name})` : "Guests",
+        tag: args.tag,
+        vipStatus: args.vipStatus,
+        search: args.search,
+        format: parseExportFormat(args.format ?? "xlsx"),
+      });
     },
 
     // ---- Email campaigns ----

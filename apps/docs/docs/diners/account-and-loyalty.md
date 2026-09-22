@@ -6,7 +6,7 @@ After signing in, manage:
 
 - Name, email, phone
 - Password (or link Google / phone auth)
-- Notification channel preferences (email, SMS, web push, in-app)
+- Notification channel preferences (email, web push, in-app; SMS opt-in stays on `/sms`)
 - Telegram linking for bot notifications (optional)
 
 ## Reservations
@@ -32,7 +32,7 @@ Tablevera runs a **platform loyalty** program plus optional **per-restaurant loy
 | Concept | Description |
 |---|---|
 | Points | Earned on completed visits; redeemable per program rules |
-| Tiers | Based on completed visit count (names shown in profile) |
+| Tiers | Based on completed visit count (names shown in profile). Super admins set thresholds and earn multipliers in dashboard **Loyalty**. |
 | Expiry | Points may expire; expiry date shown on profile |
 | Referrals | Share your referral code to earn bonus points |
 | Gift cards | Redeem gift card codes at checkout |

@@ -13,6 +13,7 @@ Access requires role `admin` or `super_admin` in the partner dashboard.
 | Support & moderation | ✅ | ✅ |
 | Platform config & templates | ✅ | ✅ |
 | **Permanent delete** users/restaurants | ❌ | ✅ |
+| Edit platform loyalty rates and tiers | ❌ (view stats) | ✅ |
 | Wipe seed data | ❌ | ✅ |
 | Modify super admin accounts | ❌ | ✅ |
 
@@ -35,13 +36,15 @@ Admin sections appear in the dashboard sidebar under **Admin**:
 | **Public profile** | Owner requests to change diner-facing restaurant pages |
 | **Invoices** | Stripe invoice history |
 | **Revenue** | MRR and revenue analytics |
-| **Churn** | Subscription cancellation trends |
+| **Churn** | Cancellation and downgrade trends |
+| **Loyalty** | Platform points liability, diner tiers, and referral activity. Super admins edit earn rates and create tiers. |
 | **Support** | Ticket queue from diners and partners |
 | **Moderation** | Review flagged content |
 | **Blog** | Publish SEO articles |
 | **Templates** | Platform email templates |
 | **Config** | Global settings and feature flags |
 | **Pricing** | Plan definitions and annual discounts |
+| **Data exports** | CSV / Excel / JSON / PDF downloads, including restaurant guest CRM |
 | **Developer** | Env-var health checklist (secrets masked) |
 
 ## Restaurant lifecycle

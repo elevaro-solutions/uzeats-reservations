@@ -50,6 +50,12 @@ When fully booked:
 - Proactive messages (e.g. running late, special prep)
 - Staff receive **new message** notifications per channel prefs
 
+## Guest CRM
+
+**Guests** lists past diners for the selected restaurant: VIP status, tags, visits, loyalty points, and spend. Open a row to edit notes, tags, dietary needs, and preferred table.
+
+Export the current restaurant, search, and VIP filter as Excel or PDF from the page header. Platform admins can also download every restaurant's guest profiles from **Admin → Data exports**.
+
 ## Walk-in and phone bookings
 
 Owners and staff can book without a diner account:

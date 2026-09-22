@@ -265,6 +265,9 @@ export const typeDefs = `#graphql
     logoUrl: String
     photos: [String!]!
     status: RestaurantStatus!
+    """Populated only on createRestaurant when a paid plan needs a card on file."""
+    clientSecret: String
+    paymentMode: String
     ownerId: ID!
     depositRequired: Boolean!
     depositAmountCents: Int!
@@ -682,6 +685,11 @@ export const typeDefs = `#graphql
     widgetCovers: Int!
     phoneCovers: Int!
     walkinCovers: Int!
+    networkFeeCents: Int!
+    websiteFeeCents: Int!
+    widgetFeeCents: Int!
+    phoneFeeCents: Int!
+    walkinFeeCents: Int!
   }
 
   type UploadUrl {
@@ -822,15 +830,58 @@ export const typeDefs = `#graphql
     profileChangeRequests: Int!
   }
 
+  type LoyaltyTier {
+    id: ID!
+    name: String!
+    minVisits: Int!
+    earnMultiplier: Float!
+  }
+
+  type LoyaltyProgram {
+    pointsPerCompletedVisit: Int!
+    pointsPerDollarDeposit: Int!
+    redeemPointsPerDollar: Int!
+    minRedeemPoints: Int!
+    firstBookingBonusPoints: Int!
+    pointsPerReview: Int!
+    referralBonusPoints: Int!
+    pointsExpiryMonths: Int!
+    tiers: [LoyaltyTier!]!
+  }
+
+  input LoyaltyTierInput {
+    id: ID
+    name: String!
+    minVisits: Int!
+    earnMultiplier: Float!
+  }
+
+  input LoyaltyProgramInput {
+    pointsPerCompletedVisit: Int
+    pointsPerDollarDeposit: Int
+    redeemPointsPerDollar: Int
+    minRedeemPoints: Int
+    firstBookingBonusPoints: Int
+    pointsPerReview: Int
+    referralBonusPoints: Int
+    pointsExpiryMonths: Int
+    tiers: [LoyaltyTierInput!]
+  }
+
+  type LoyaltyTierCount {
+    id: ID!
+    name: String!
+    minVisits: Int!
+    userCount: Int!
+  }
+
   type LoyaltyPlatformStats {
     totalOutstandingPoints: Int!
     usersWithPoints: Int!
-    tierBronze: Int!
-    tierSilver: Int!
-    tierGold: Int!
     referralsCount: Int!
     pointsEarned30d: Int!
     pointsRedeemed30d: Int!
+    tiers: [LoyaltyTierCount!]!
   }
 
   type ReferralLeader {
@@ -2502,6 +2553,7 @@ export const typeDefs = `#graphql
     myWaitlist: [WaitlistEntry!]!
     restaurantWaitlist(restaurantId: ID!, limit: Int, offset: Int): WaitlistConnection!
     restaurantReviews(restaurantId: ID!, limit: Int, offset: Int): ReviewConnection!
+    loyaltyProgram: LoyaltyProgram!
     myLoyalty: [LoyaltyTransaction!]!
     myRestaurantLoyalty: [RestaurantLoyaltyBalance!]!
     myRestaurantLoyaltyBalance(restaurantId: ID!): Int!
@@ -2778,6 +2830,7 @@ export const typeDefs = `#graphql
     setInvoiceStatus(id: ID!, status: InvoiceStatus!): Invoice!
     setInvoiceStatuses(ids: [ID!]!, status: InvoiceStatus!): BulkInvoiceStatusResult!
     updatePlatformConfig(input: PlatformConfigInput!): PlatformConfig!
+    updateLoyaltyProgram(input: LoyaltyProgramInput!): LoyaltyProgram!
     updatePlanPackage(input: PlanPackageInput!): PlanInfo!
     createPlanPackage(input: CreatePlanPackageInput!): PlanInfo!
     deletePlanPackage(key: String!): Boolean!
@@ -2917,6 +2970,14 @@ export const typeDefs = `#graphql
     updateGuestProfile(restaurantId: ID!, dinerId: ID!, input: GuestProfileInput!): GuestProfile!
     addGuestTag(restaurantId: ID!, dinerId: ID!, tag: String!): GuestProfile!
     removeGuestTag(restaurantId: ID!, dinerId: ID!, tag: String!): GuestProfile!
+    exportRestaurantGuests(
+      restaurantId: ID!
+      tag: String
+      vipStatus: String
+      search: String
+      format: String
+    ): CsvExport!
+    exportAdminDiners(search: String, format: String): CsvExport!
 
     createCampaign(restaurantId: ID!, input: CampaignInput!): Campaign!
     updateCampaign(id: ID!, input: CampaignInput!): Campaign!

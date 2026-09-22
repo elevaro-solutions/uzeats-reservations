@@ -19,6 +19,7 @@ import {
 import { Button, Empty, Flex, Typography, UserAvatar } from "@/components";
 import { useAuth } from "@/graphql";
 import { formatPhoneDisplay } from "@/lib/helpers/phone.helpers";
+import { useLoyaltyProgram } from "@/lib/use-loyalty-program";
 import { IconPropsType } from "@/types";
 
 import { ProfileLoyaltyCard } from "./components/profile-loyalty-card.component";
@@ -79,6 +80,7 @@ function ProfileSection({
 
 export function ProfileFeature() {
   const { user, loading, logout, sessionOffline, refreshMe } = useAuth();
+  const program = useLoyaltyProgram();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
@@ -244,6 +246,7 @@ export function ProfileFeature() {
           points={user.loyaltyPoints}
           completedVisits={user.loyaltyCompletedVisits}
           referralCode={user.referralCode}
+          tiers={program.tiers}
         />
 
         <ProfileSection label="Shortcuts">

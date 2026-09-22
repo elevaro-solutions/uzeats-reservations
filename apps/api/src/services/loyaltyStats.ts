@@ -1,9 +1,11 @@
-import { LOYALTY_TIERS, resolveLoyaltyTier } from '@reservations/shared';
+import { resolveLoyaltyTier } from '@reservations/shared';
 import { User } from '../models/User.js';
 import { LoyaltyTransaction } from '../models/Loyalty.js';
+import { getLoyaltyProgram } from './loyaltyProgram.js';
 
 export async function getAdminLoyaltyStats() {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const program = await getLoyaltyProgram();
 
   const [outstandingAgg, usersWithPoints, referralsCount, earned30Agg, redeemed30Agg, visitCounts] =
     await Promise.all([
@@ -23,26 +25,26 @@ export async function getAdminLoyaltyStats() {
       ]),
     ]);
 
-  const tierCounts = Object.fromEntries(LOYALTY_TIERS.map((t) => [t.id, 0])) as Record<
-    string,
-    number
-  >;
+  const tierCounts = new Map(program.tiers.map((t) => [t.id, 0]));
 
   for (const row of visitCounts) {
     const visits = row._id ?? 0;
-    const tier = resolveLoyaltyTier(visits);
-    tierCounts[tier.id] = (tierCounts[tier.id] ?? 0) + row.count;
+    const tier = resolveLoyaltyTier(visits, program.tiers);
+    tierCounts.set(tier.id, (tierCounts.get(tier.id) ?? 0) + row.count);
   }
 
   return {
     totalOutstandingPoints: outstandingAgg[0]?.total ?? 0,
     usersWithPoints,
-    tierBronze: tierCounts.bronze ?? 0,
-    tierSilver: tierCounts.silver ?? 0,
-    tierGold: tierCounts.gold ?? 0,
     referralsCount,
     pointsEarned30d: earned30Agg[0]?.total ?? 0,
     pointsRedeemed30d: redeemed30Agg[0]?.total ?? 0,
+    tiers: program.tiers.map((tier) => ({
+      id: tier.id,
+      name: tier.name,
+      minVisits: tier.minVisits,
+      userCount: tierCounts.get(tier.id) ?? 0,
+    })),
   };
 }
 

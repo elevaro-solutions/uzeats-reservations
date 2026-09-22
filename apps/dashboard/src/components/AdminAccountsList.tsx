@@ -44,6 +44,7 @@ import {
   REQUEST_ADMIN_DELETE_USER_CODE,
   SET_USER_ROLE,
   START_IMPERSONATION,
+  EXPORT_ADMIN_DINERS,
 } from '@/lib/graphql';
 import { useAuth } from '@/lib/auth';
 import { isPlatformAdmin, isSuperAdmin, canEditUser } from '@/lib/roles';
@@ -57,6 +58,8 @@ import {
   type AccountKind,
   type AccountRecord,
 } from '@/lib/adminAccounts';
+import { ExportMenu, type ListExportFormat } from '@/components/ExportMenu';
+import { downloadExportPayload } from '@/lib/downloadExport';
 
 const { Paragraph, Text } = Typography;
 
@@ -158,6 +161,7 @@ function AdminAccountsListContent({ kind }: Props) {
       assignForm.resetFields();
     },
   });
+  const [exportDiners, { loading: exportingDiners }] = useMutation(EXPORT_ADMIN_DINERS);
 
   if (!ready) return null;
 
@@ -315,6 +319,20 @@ function AdminAccountsListContent({ kind }: Props) {
     }
   };
 
+  const onExportDiners = async (format: ListExportFormat) => {
+    try {
+      const res = await exportDiners({
+        variables: { search: searchQuery || undefined, format },
+      });
+      const payload = res.data?.exportAdminDiners;
+      if (!payload?.content) throw new Error('No export returned');
+      downloadExportPayload(payload);
+      message.success(`Exported ${payload.rowCount} diners as ${format === 'xlsx' ? 'Excel' : format.toUpperCase()}`);
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Export failed');
+    }
+  };
+
   const openDelete = (record: AccountRecord) => {
     setDeleteCode('');
     setDeleteModal({
@@ -439,6 +457,13 @@ function AdminAccountsListContent({ kind }: Props) {
           subtitle={meta.subtitle}
           extra={
             <Space wrap>
+              {kind === 'diner' && (
+                <ExportMenu
+                  formats={['xlsx', 'pdf', 'json']}
+                  loading={exportingDiners}
+                  onExport={(format) => void onExportDiners(format)}
+                />
+              )}
               {meta.showInvite && (
                 <Button onClick={() => setInviteOpen(true)}>Invite {meta.singular.toLowerCase()}</Button>
               )}

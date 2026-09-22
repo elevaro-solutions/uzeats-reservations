@@ -8,7 +8,7 @@ import {
   StarIcon,
 } from "@/assets";
 import { Typography } from "@/components";
-import { LOYALTY_TIERS, type LoyaltyTierId } from "@reservations/shared";
+import { type LoyaltyTierId } from "@reservations/shared";
 
 import {
   getLoyaltyTrackFill01,
@@ -97,7 +97,7 @@ export function LoyaltyTierProgressTrack({
   progress: LoyaltyTierProgress;
   palette: LoyaltyTierColors;
 }) {
-  const currentIndex = LOYALTY_TIERS.findIndex(
+  const currentIndex = progress.tiers.findIndex(
     (tier) => tier.id === progress.currentTier.id,
   );
   const fillPercent = Math.round(getLoyaltyTrackFill01(progress) * 100);
@@ -125,14 +125,14 @@ export function LoyaltyTierProgressTrack({
           />
         </View>
 
-        {LOYALTY_TIERS.map((tier, index) => {
+        {progress.tiers.map((tier, index) => {
           const isCurrent = index === currentIndex;
           const isPast = index < currentIndex;
           const isLocked = index > currentIndex;
           const positionStyle =
             index === 0
               ? styles.tierPillStart
-              : index === LOYALTY_TIERS.length - 1
+              : index === progress.tiers.length - 1
                 ? styles.tierPillEnd
                 : styles.tierPillMid;
 
@@ -155,13 +155,13 @@ export function LoyaltyTierProgressTrack({
       </View>
 
       <View style={styles.labelsRow} importantForAccessibility="no">
-        {LOYALTY_TIERS.map((tier, index) => {
+        {progress.tiers.map((tier, index) => {
           const isCurrent = index === currentIndex;
           const isLocked = index > currentIndex;
           const alignStyle =
             index === 0
               ? styles.labelColStart
-              : index === LOYALTY_TIERS.length - 1
+              : index === progress.tiers.length - 1
                 ? styles.labelColEnd
                 : styles.labelColMid;
 

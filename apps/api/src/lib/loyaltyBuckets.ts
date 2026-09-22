@@ -1,8 +1,8 @@
 import type { ClientSession } from 'mongoose';
-import { LOYALTY } from '@reservations/shared';
 import { User } from '../models/User.js';
 import { LoyaltyTransaction } from '../models/Loyalty.js';
 import { computePointsExpiryDate } from './loyaltyExpiryDate.js';
+import { getLoyaltyProgram } from '../services/loyaltyProgram.js';
 
 function bucketRemaining(tx: { points: number; remainingPoints?: number | null }) {
   return tx.remainingPoints ?? tx.points;
@@ -21,8 +21,11 @@ export async function reconcileUserLoyaltyBuckets(userId: string, session?: Clie
     .session(session ?? null);
 
   if (credits.length === 0) {
+    const program = await getLoyaltyProgram();
     const expiresAt =
-      LOYALTY.POINTS_EXPIRY_MONTHS > 0 ? computePointsExpiryDate() : undefined;
+      program.pointsExpiryMonths > 0
+        ? computePointsExpiryDate(program.pointsExpiryMonths)
+        : undefined;
     await LoyaltyTransaction.create(
       [
         {
@@ -58,7 +61,8 @@ export async function reconcileUserLoyaltyBuckets(userId: string, session?: Clie
 }
 
 export async function syncUserExpiryDate(userId: string, session?: ClientSession) {
-  if (LOYALTY.POINTS_EXPIRY_MONTHS <= 0) {
+  const program = await getLoyaltyProgram();
+  if (program.pointsExpiryMonths <= 0) {
     await User.findByIdAndUpdate(userId, { loyaltyPointsExpireAt: null }, { session });
     return;
   }
@@ -125,8 +129,11 @@ export async function addCreditBucket(
 ) {
   if (points <= 0) return 0;
 
+  const program = await getLoyaltyProgram();
   const expiresAt =
-    LOYALTY.POINTS_EXPIRY_MONTHS > 0 ? computePointsExpiryDate() : undefined;
+    program.pointsExpiryMonths > 0
+      ? computePointsExpiryDate(program.pointsExpiryMonths)
+      : undefined;
 
   await User.findByIdAndUpdate(userId, { $inc: { loyaltyPoints: points } }, { session });
   await LoyaltyTransaction.create(

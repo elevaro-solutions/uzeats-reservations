@@ -1,5 +1,6 @@
 import { mapNotificationPreferences } from '../lib/notificationPreferences.js';
 import { resolveLoyaltyTier } from '@reservations/shared';
+import { peekLoyaltyProgram } from '../services/loyaltyProgram.js';
 
 function id(doc: { _id: { toString(): string } }) {
   return doc._id.toString();
@@ -7,7 +8,7 @@ function id(doc: { _id: { toString(): string } }) {
 
 export function mapUser(u: any) {
   const visits = u.loyaltyCompletedVisits ?? 0;
-  const tier = resolveLoyaltyTier(visits);
+  const tier = resolveLoyaltyTier(visits, peekLoyaltyProgram().tiers);
   return {
     id: id(u),
     email: u.email ?? null,

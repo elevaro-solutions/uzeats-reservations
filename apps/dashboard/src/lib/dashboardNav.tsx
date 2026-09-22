@@ -223,7 +223,12 @@ export const ADMIN_PAGES: DashboardPage[] = [
   ]),
   page('/admin/invoices', 'Invoices', 'Billing', 'admin', <FileDoneOutlined />, ['billing']),
   page('/admin/revenue', 'Revenue', 'Billing', 'admin', <FundOutlined />, ['mrr', 'income']),
-  page('/admin/loyalty', 'Loyalty', 'Billing', 'admin', <TrophyOutlined />, ['points']),
+  page('/admin/loyalty', 'Loyalty', 'Billing', 'admin', <TrophyOutlined />, [
+    'points',
+    'tiers',
+    'rewards',
+    'referral',
+  ]),
   page('/admin/churn', 'Churn alerts', 'Billing', 'admin', <WarningOutlined />, [
     'retention',
     'cancel',
@@ -236,7 +241,7 @@ export const ADMIN_PAGES: DashboardPage[] = [
     'addons',
     'products',
   ]),
-  page('/admin/exports', 'CSV exports', 'Billing', 'admin', <DownloadOutlined />, ['download']),
+  page('/admin/exports', 'Data exports', 'Billing', 'admin', <DownloadOutlined />, ['download', 'csv', 'excel']),
   page('/admin/config', 'Configuration', 'Platform', 'admin', <ControlOutlined />, [
     'settings',
     'env',

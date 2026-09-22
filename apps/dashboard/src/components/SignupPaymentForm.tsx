@@ -105,7 +105,7 @@ export function SignupPaymentForm({
     [],
   );
 
-  if (!publishableKey || !stripePromise) {
+  if (!publishableKey || !stripePromise || !clientSecret) {
     return (
       <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <Alert

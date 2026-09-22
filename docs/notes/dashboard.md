@@ -1,4 +1,30 @@
-# Dashboard — Learnings & Observations
+## [2026-09-22] My restaurants table: name link + More menu
+- Table names are `/settings?restaurant=` links (also write `activeRestaurantId`). Reservations / Layout / Settings live in a More dropdown like admin restaurants.
+- Why it matters: Don’t put those three as fixed-right link buttons — they clip Location. Cards still keep footer actions.
+
+## [2026-09-22] Diner and guest list exports
+- `/admin/diners` Export menu downloads the current search as Excel, PDF, or JSON (`exportAdminDiners`).
+- `/guests` Export menu downloads the active restaurant's filtered guests as Excel or PDF (`exportRestaurantGuests`).
+- `/admin/exports` has a Guests dataset (platform-wide CRM rows) and an Excel format next to CSV/JSON/PDF. Excel is a generated `.xlsx` (no extra package).
+- Why it matters: Don't export only the current table page — these mutations use the same search/VIP filters with a 5,000-row cap.
+
+## [2026-09-22] Admin Loyalty is stats + super-admin program editor
+- `/admin/loyalty` shows StatCards then a settings list (Point packages, Tiers, Referrals). Rates and tiers persist on `PlatformConfig.loyalty`; shared `LOYALTY` / `LOYALTY_TIERS` are defaults only.
+- `updateLoyaltyProgram` is `requireSuperAdmin`. Regular admins can view. Award/redeem paths and diner clients read `loyaltyProgram`.
+- Why it matters: Don’t hardcode Bronze/Silver/Gold or 100 pts/visit in new UI — query `loyaltyProgram`. Keep one tier at 0 visits.
+
+## [2026-09-22] Partner Billing is plan + period invoice, not cover totals
+- `/billing` shows StatCards (plan / next charge / period covers), then plan details, a single period picker for usage + invoice, Premium SMS, and enabled features with readable labels. Free/custom/`visibleOnPricing: false` plans are omitted from switch/subscribe.
+- Cover fee table columns are covers + fee $ (`networkFeeCents` … on `coverFeeSummary`). Cover totals are a breakdown; the period invoice is the bill.
+- Why it matters: Don’t treat Cover Fee Summary as payable; SMS add-on is Core+, included on Pro — Basic stays disabled with copy saying so.
+
+## [2026-09-22] Partner add-restaurant modal: photos, deposit, unsaved, payment
+- `PhotoUpload` gallery mode used to drop extra files: Ant Design calls `beforeUpload` per file with a stale `value` closure, so concurrent uploads each wrote `[...old, url]` and the last write won. Append through a `urlsRef` so multi-select keeps every photo.
+- Deposit required + `$0` is rejected in the form (`depositAmountWhenRequiredRule`) and in `restaurantInputToDb`.
+- Cancel / overlay / Escape confirm before closing a dirty create wizard. **Keep draft** hides the modal and stores fields, photos, step, and plan in `sessionStorage` (`rt-add-restaurant-draft`) until **Discard** or a successful create. Re-opening Add restaurant restores that draft. The modal is not `destroyOnHidden`.
+- The add-restaurant modal max-height leaves 20vh below it (wrap `padding: 40px 16px 20vh` + `overflow: hidden`; body scrolls).
+- `createRestaurant` always collects a payment method (`collectPaymentMethod: true`) and returns `clientSecret` / `paymentMode`. The add-restaurant flow opens a non-dismissible payment modal after create, including during a trial. Demo Stripe (no publishable key or no secret) still shows that modal with Continue.
+- Why it matters: Don’t skip the card step because `trialDays > 0`. Don’t append gallery URLs from the `value` prop inside concurrent `beforeUpload` handlers. Don’t reset the create wizard except on Discard or after submit.
 
 ## [2026-09-21] Dashboard Turbopack OOM kills :3001
 - `next dev` (Turbopack, Next 16.2) grew to ~23GB then `FATAL ERROR: Ineffective mark-compacts near heap limit`. Chrome then shows `ERR_CONNECTION_REFUSED` on `/login`. Turbo does not restart the persistent task.

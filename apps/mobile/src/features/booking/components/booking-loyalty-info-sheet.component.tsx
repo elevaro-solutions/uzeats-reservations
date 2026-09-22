@@ -1,6 +1,6 @@
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { LOYALTY, RESTAURANT_LOYALTY } from "@reservations/shared";
+import { LOYALTY, RESTAURANT_LOYALTY, type LoyaltyProgram } from "@reservations/shared";
 
 import { BottomSheet, Flex, Typography } from "@/components";
 
@@ -9,6 +9,7 @@ export type BookingLoyaltyInfoSheetProps = {
   onClose: () => void;
   variant: "platform" | "restaurant";
   minRedeem: number;
+  program?: LoyaltyProgram | null;
 };
 
 type RuleItem = {
@@ -21,29 +22,30 @@ export function BookingLoyaltyInfoSheet({
   onClose,
   variant,
   minRedeem,
+  program,
 }: BookingLoyaltyInfoSheetProps) {
   const isPlatform = variant === "platform";
   const title = isPlatform ? "Tablevera points" : "Restaurant points";
   const redeemPerDollar = isPlatform
-    ? LOYALTY.REDEEM_POINTS_PER_DOLLAR
+    ? (program?.redeemPointsPerDollar ?? LOYALTY.REDEEM_POINTS_PER_DOLLAR)
     : RESTAURANT_LOYALTY.REDEEM_POINTS_PER_DOLLAR;
 
   const earnItems: RuleItem[] = isPlatform
     ? [
         {
-          value: `${LOYALTY.POINTS_PER_COMPLETED_VISIT} pts`,
+          value: `${program?.pointsPerCompletedVisit ?? LOYALTY.POINTS_PER_COMPLETED_VISIT} pts`,
           detail: "per completed visit",
         },
         {
-          value: `${LOYALTY.POINTS_PER_DOLLAR_DEPOSIT} pt`,
+          value: `${program?.pointsPerDollarDeposit ?? LOYALTY.POINTS_PER_DOLLAR_DEPOSIT} pt`,
           detail: "per $1 deposit authorized",
         },
         {
-          value: `${LOYALTY.POINTS_PER_REVIEW} pts`,
+          value: `${program?.pointsPerReview ?? LOYALTY.POINTS_PER_REVIEW} pts`,
           detail: "for leaving a review",
         },
         {
-          value: `${LOYALTY.FIRST_BOOKING_BONUS_POINTS} pts`,
+          value: `${program?.firstBookingBonusPoints ?? LOYALTY.FIRST_BOOKING_BONUS_POINTS} pts`,
           detail: "first-booking bonus",
         },
       ]
@@ -90,7 +92,7 @@ export function BookingLoyaltyInfoSheet({
           title="Expiry"
           items={[
             {
-              detail: `Points expire after ${LOYALTY.POINTS_EXPIRY_MONTHS} months of inactivity`,
+              detail: `Points expire after ${program?.pointsExpiryMonths ?? LOYALTY.POINTS_EXPIRY_MONTHS} months of inactivity`,
             },
           ]}
         />

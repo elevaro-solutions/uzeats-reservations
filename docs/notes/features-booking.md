@@ -1,5 +1,10 @@
 # Booking — Learnings & Observations
 
+## [2026-09-22] Partner create collects a card even on trial
+- Dashboard `/restaurants` create used to start a trial without Stripe Payment Element. `createRestaurant` now passes `collectPaymentMethod: true` (same as partner register / admin assign) and the client always shows `SignupPaymentForm` after submit.
+- Missing publishable key or `clientSecret` is demo Continue, not a skip of the modal.
+- Why it matters: Trial days delay charging; they do not skip collecting a payment method on add restaurant.
+
 ## [2026-09-18] Owner booking emails use restaurant-local time
 - `createReservation` / deposit confirm / owner booking used `Date#toLocaleString('en-US')` with no `timeZone`, so the email showed the API host zone (often UTC or the deploy region).
 - Format with `formatDateTimeInTimeZone` + `restaurantTimeZone` (address/ZIP, then GeoJSON `coordinates[0]` / GraphQL `lng`).

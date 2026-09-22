@@ -82,9 +82,10 @@ Requires VAPID keys:
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
 VAPID_SUBJECT=mailto:admin@tablevera.online
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=   # same value as VAPID_PUBLIC_KEY — required by apps/web
 ```
 
-Service worker registered on diner web for subscription management.
+Service worker registered on diner web for subscription management. The profile Push toggle also stores a local opt-in (`rt-web-push-enabled`) so the switch stays on after refresh even when VAPID is not configured yet.
 
 ## Telegram
 

@@ -29,6 +29,7 @@ Policy implemented in `apps/api/src/services/planChangePolicy.ts`:
 | **Invoices** | Stripe invoice list across partners |
 | **Revenue** | Aggregated MRR and revenue charts |
 | **Churn** | Cancellation and downgrade trends |
+| **Loyalty** | View outstanding points; super admins edit earn rates and create tiers |
 | **Pricing** | Configure plan prices and annual billing discounts |
 
 Annual billing discounts are defined in `@reservations/shared` (`annualBilling.ts`).
@@ -74,4 +75,4 @@ Unpaid auto invoices are refreshed as more covers accrue. Manual invoices (`-M` 
 
 Admins can still run **Generate** for a period on **Invoices**. Partners see the selected month’s invoice and line items on **Billing**.
 
-Cover fees are recorded when a reservation is **completed**, then rolled into that month’s invoice. Stripe subscription renewals bill the plan separately and do **not** include cover fees.
+Cover fees are recorded when a reservation is **completed**, then rolled into that month’s invoice. Stripe subscription renewals bill the plan separately and do **not** include cover fees. On partner **Billing**, the cover table shows covers and fee totals by source as a usage breakdown — the period invoice is the payable bill.

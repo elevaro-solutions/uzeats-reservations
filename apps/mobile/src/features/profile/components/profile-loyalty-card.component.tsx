@@ -10,21 +10,24 @@ import {
 } from "../helpers/loyalty-progress.helpers";
 import { LoyaltyStatBadge } from "./loyalty-stat-badge.component";
 import { LoyaltyTierProgressTrack } from "./loyalty-tier-progress-track.component";
+import type { LoyaltyTierDef } from "@reservations/shared";
 
 export type ProfileLoyaltyCardProps = {
   tierName?: string | null;
   points: number;
   completedVisits?: number | null;
   referralCode?: string | null;
+  tiers?: LoyaltyTierDef[] | null;
 };
 
 export function ProfileLoyaltyCard({
   points,
   completedVisits,
   referralCode,
+  tiers,
 }: ProfileLoyaltyCardProps) {
   const { theme } = useUnistyles();
-  const progress = getLoyaltyTierProgress(completedVisits ?? 0);
+  const progress = getLoyaltyTierProgress(completedVisits ?? 0, tiers);
   const palette = getLoyaltyTierColors(progress.currentTier.id);
   const visits = progress.completedVisits;
 

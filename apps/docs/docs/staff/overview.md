@@ -35,6 +35,7 @@ The Restaurant Dashboard is a **fixed operational layout**. Partners cannot add,
 | **Waitlist** | Manage waiting parties and notify on openings |
 | **Messages** | Guest conversations tied to reservations |
 | **Campaigns** | Marketing campaigns to past guests (owner) |
+| **Guests** | Per-venue CRM list with VIP status and tags; Excel/PDF export of the current filters |
 | **Reports** | Covers, revenue, and utilization metrics |
 | **Private dining** | Large-party and event inquiries |
 | **Packages** | Occasion add-ons diners select at booking |

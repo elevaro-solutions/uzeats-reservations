@@ -339,6 +339,27 @@ export const ME = gql`
   }
 `;
 
+export const LOYALTY_PROGRAM = gql`
+  query LoyaltyProgram {
+    loyaltyProgram {
+      pointsPerCompletedVisit
+      pointsPerDollarDeposit
+      redeemPointsPerDollar
+      minRedeemPoints
+      firstBookingBonusPoints
+      pointsPerReview
+      referralBonusPoints
+      pointsExpiryMonths
+      tiers {
+        id
+        name
+        minVisits
+        earnMultiplier
+      }
+    }
+  }
+`;
+
 export const MY_SAVED_RESTAURANTS = gql`
   query MySavedRestaurants($kind: RestaurantBookmarkKind!) {
     mySavedRestaurants(kind: $kind) {

@@ -1,4 +1,4 @@
-import type { Occasion } from "@reservations/shared";
+import type { LoyaltyProgram, Occasion } from "@reservations/shared";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Flex, InlineAlert } from "@/components";
@@ -45,6 +45,7 @@ export type BookingDetailsStepProps = {
   restaurantLoyaltyBalance: number;
   restaurantLoyaltyEnabled: boolean;
   restaurantMinRedeem: number;
+  platformProgram?: LoyaltyProgram | null;
   depositBreakdown: DepositBreakdown;
   promoMessage?: string | null;
   promoValid?: boolean;
@@ -84,6 +85,7 @@ export function BookingDetailsStep({
   restaurantLoyaltyBalance,
   restaurantLoyaltyEnabled,
   restaurantMinRedeem,
+  platformProgram,
   depositBreakdown,
   promoMessage,
   promoValid,
@@ -156,6 +158,7 @@ export function BookingDetailsStep({
         restaurantLoyaltyBalance={restaurantLoyaltyBalance}
         restaurantLoyaltyEnabled={restaurantLoyaltyEnabled}
         restaurantMinRedeem={restaurantMinRedeem}
+        platformProgram={platformProgram}
         grossDepositCents={depositBreakdown.grossCents}
         promoMessage={promoMessage}
         promoValid={promoValid ?? undefined}

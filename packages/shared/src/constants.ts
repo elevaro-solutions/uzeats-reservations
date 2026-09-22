@@ -255,7 +255,9 @@ export const LOYALTY_TIERS = [
   { id: "gold", name: "Gold", minVisits: 15, earnMultiplier: 1.5 },
 ] as const;
 
-export type LoyaltyTierId = (typeof LOYALTY_TIERS)[number]["id"];
+/** Builtin default ids; live program tiers may add custom ids. */
+export type BuiltinLoyaltyTierId = (typeof LOYALTY_TIERS)[number]["id"];
+export type LoyaltyTierId = string;
 
 /** Stable earn descriptions used for idempotent awards and reversals. */
 export const LOYALTY_EARN_REASONS = {
