@@ -292,8 +292,9 @@ export async function notifyRestaurantStaff(
   if (!restaurant) return;
   const staff = await User.find({
     $or: [{ _id: restaurant.ownerId }, { restaurantIds: restaurant._id }],
-  }).select('_id');
+  }).select('_id role notificationPreferences');
   const staffIds = staff.map((u) => u._id.toString());
+  const ownerId = restaurant.ownerId.toString();
   const staffPayload = {
     ...payload,
     data: { ...payload.data, restaurantId },
@@ -315,6 +316,19 @@ export async function notifyRestaurantStaff(
     'reservation_updated',
   ]);
   if (reservationId && messengerEvents.has(payload.type)) {
+    const prefEvent =
+      payload.type === 'new_reservation' ? 'newReservation' : 'reservationUpdates';
+    const messengerUserIds = staff
+      .filter((u) => {
+        const id = u._id.toString();
+        if (id === ownerId) return true;
+        const prefs = mapNotificationPreferences(u.notificationPreferences);
+        return prefs[prefEvent]?.messenger === true;
+      })
+      .map((u) => u._id.toString());
+
+    if (messengerUserIds.length === 0) return;
+
     const openUrl = env.DASHBOARD_APP_URL
       ? `${env.DASHBOARD_APP_URL.replace(/\/$/, '')}/reservations?id=${reservationId}`
       : undefined;
@@ -323,7 +337,7 @@ export async function notifyRestaurantStaff(
         ? (['accept', 'reject', 'open'] as const)
         : (['open'] as const);
     void sendElevaroMerchantNotification({
-      platformUserIds: staffIds,
+      platformUserIds: messengerUserIds,
       eventType: payload.type,
       resourceType: 'reservation',
       resourceId: reservationId,

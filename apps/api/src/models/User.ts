@@ -15,6 +15,7 @@ const notificationChannelPreferencesSchema = new Schema(
     email: { type: Boolean, default: true },
     webPush: { type: Boolean, default: true },
     platform: { type: Boolean, default: true },
+    messenger: { type: Boolean, default: false },
   },
   { _id: false },
 );

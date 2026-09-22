@@ -296,6 +296,7 @@ export const notificationChannelPreferencesSchema = z.object({
   email: z.boolean().nullish(),
   webPush: z.boolean().nullish(),
   platform: z.boolean().nullish(),
+  messenger: z.boolean().nullish(),
 });
 
 export const notificationPreferencesSchema = z.object({

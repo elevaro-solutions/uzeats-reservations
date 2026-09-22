@@ -4,6 +4,19 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+## [0.60.0] — 2026-09-22
+
+### Added
+
+- Notification channel **Messenger** (Telegram Accept/Reject): owners always receive Elevaro fan-out; staff only when `newReservation.messenger` / `reservationUpdates.messenger` is enabled. Dashboard Notifications matrix + **Connect Telegram bot**.
+
+### Changed
+
+- `createElevaroTelegramLink` is limited to restaurant staff/owners/admins with venue access (not diners).
+- Elevaro action webhook rejects Accept/Reject for non-owners when Messenger preference is off.
+
 ## [0.59.0] — 2026-09-22
 
 ### Added
@@ -74,6 +87,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Staff: Live floor vs Table layout; public profile photo/copy changes wait for admin approval
 - Admins: platform-wide Reservations queue and Profile requests
 - API env: empty `apps/api/.env` placeholders inherit from the repo root `.env`
+
 
 ## [0.57.0] — 2026-09-21
 

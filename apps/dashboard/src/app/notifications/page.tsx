@@ -15,10 +15,11 @@ import {
   Typography,
   message,
 } from 'antd';
-import { SettingOutlined } from '@ant-design/icons';
+import { SettingOutlined, SendOutlined } from '@ant-design/icons';
 import { PageHeader } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import {
+  CREATE_ELEVARO_TELEGRAM_LINK,
   MY_RESTAURANTS,
   RESTAURANT_TEAM,
   UPDATE_NOTIFICATION_PREFERENCES,
@@ -27,7 +28,7 @@ import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
 
 const { Text } = Typography;
 
-type ChannelKey = 'sms' | 'email' | 'webPush' | 'platform';
+type ChannelKey = 'sms' | 'email' | 'webPush' | 'platform' | 'messenger';
 
 type EventKey =
   | 'newMessage'
@@ -57,14 +58,23 @@ const CHANNELS: Array<{ key: ChannelKey; title: string }> = [
   { key: 'email', title: 'Email' },
   { key: 'webPush', title: 'Web push' },
   { key: 'platform', title: 'Platform' },
+  { key: 'messenger', title: 'Messenger' },
 ];
 
 const EVENTS: Array<{ key: EventKey; title: string; hint: string }> = [
   { key: 'newMessage', title: 'New message', hint: 'Guest chats' },
-  { key: 'newReservation', title: 'New reservation', hint: 'Incoming bookings' },
+  {
+    key: 'newReservation',
+    title: 'New reservation',
+    hint: 'Incoming bookings (Messenger = Telegram Accept/Reject)',
+  },
   { key: 'waitlistAvailable', title: 'Waitlist available', hint: 'Table ready / slot opened' },
   { key: 'guestSpendAlert', title: 'Spend alert', hint: 'High guest checks' },
-  { key: 'reservationUpdates', title: 'Reservation updates', hint: 'Confirmations & reminders' },
+  {
+    key: 'reservationUpdates',
+    title: 'Reservation updates',
+    hint: 'Confirmations & reminders (Messenger = Telegram alerts)',
+  },
   { key: 'reviewReply', title: 'Review reply', hint: 'Replies on guest reviews' },
   { key: 'surveyInvitation', title: 'Survey invite', hint: 'Post-visit feedback' },
   { key: 'loyaltyUpdates', title: 'Loyalty points', hint: 'Earned, redeemed, and refunded points' },
@@ -98,6 +108,7 @@ function toPreferencesInput(prefs: NotificationPreferences): NotificationPrefere
       email: !!channels.email,
       webPush: !!channels.webPush,
       platform: !!channels.platform,
+      messenger: !!channels.messenger,
     };
   }
   return input;
@@ -118,6 +129,9 @@ export default function NotificationsSettingsPage() {
     onError: (err: Error) => message.error(err.message),
   });
   const [updatePrefs] = useMutation(UPDATE_NOTIFICATION_PREFERENCES);
+  const [createTelegramLink, { loading: linkingTelegram }] = useMutation(
+    CREATE_ELEVARO_TELEGRAM_LINK,
+  );
 
   const [roleFilter, setRoleFilter] = useState('all');
   const [selected, setSelected] = useState<TeamUser | null>(null);
@@ -129,6 +143,11 @@ export default function NotificationsSettingsPage() {
   }, [authLoading, user, router]);
 
   const canManageTeam = user?.role === 'admin' || user?.role === 'restaurant_owner';
+  const canLinkTelegram =
+    user?.role === 'restaurant_owner' ||
+    user?.role === 'staff' ||
+    user?.role === 'admin' ||
+    user?.role === 'super_admin';
   const team: TeamUser[] = data?.restaurantTeam ?? [];
 
   const visibleTeam = useMemo(() => {
@@ -193,6 +212,21 @@ export default function NotificationsSettingsPage() {
     }
   };
 
+  const handleConnectTelegram = async () => {
+    try {
+      const result = await createTelegramLink();
+      const deepLink = result.data?.createElevaroTelegramLink?.deepLink as string | undefined;
+      if (!deepLink) {
+        message.error('Telegram link unavailable');
+        return;
+      }
+      window.open(deepLink, '_blank', 'noopener,noreferrer');
+      message.success('Open Telegram and tap Start to link your account');
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Failed to create Telegram link');
+    }
+  };
+
   const matrixRows = EVENTS.map((event) => ({
     key: event.key,
     event,
@@ -203,18 +237,29 @@ export default function NotificationsSettingsPage() {
       <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <PageHeader
         title="Notifications"
-        subtitle="Select a team member to configure feature alerts by channel."
+        subtitle="Select a team member to configure feature alerts by channel. Owners always receive Telegram Accept/Reject; enable Messenger for staff who should act on bookings."
         extra={
-          <Select
-            style={{ width: 260 }}
-            value={restaurantId}
-            onChange={setRestaurantId}
-            options={(restData?.myRestaurants ?? []).map((r: { id: string; name: string }) => ({
-              value: r.id,
-              label: r.name,
-            }))}
-            placeholder="Select restaurant"
-          />
+          <Space wrap>
+            {canLinkTelegram && (
+              <Button
+                icon={<SendOutlined />}
+                loading={linkingTelegram}
+                onClick={handleConnectTelegram}
+              >
+                Connect Telegram bot
+              </Button>
+            )}
+            <Select
+              style={{ width: 260 }}
+              value={restaurantId}
+              onChange={setRestaurantId}
+              options={(restData?.myRestaurants ?? []).map((r: { id: string; name: string }) => ({
+                value: r.id,
+                label: r.name,
+              }))}
+              placeholder="Select restaurant"
+            />
+          </Space>
         }
       />
 
@@ -297,7 +342,7 @@ export default function NotificationsSettingsPage() {
         onOk={handleSave}
         okText="Save"
         confirmLoading={saving}
-        width={820}
+        width={920}
         destroyOnClose
       >
         {selected && (
@@ -305,8 +350,9 @@ export default function NotificationsSettingsPage() {
             <div>
               <Tag>{ROLE_LABELS[selected.role] ?? selected.role}</Tag>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Rows are alert features. Columns are delivery channels. Password reset emails are
-                always sent.
+                Rows are alert features. Columns are delivery channels. Messenger is the Telegram
+                merchant bot (Accept/Reject). Owners always get messenger alerts; staff need
+                Messenger enabled. Password reset emails are always sent.
               </Text>
             </div>
 
@@ -315,6 +361,7 @@ export default function NotificationsSettingsPage() {
               pagination={false}
               rowKey="key"
               dataSource={matrixRows}
+              scroll={{ x: 800 }}
               columns={[
                 {
                   title: 'Feature',

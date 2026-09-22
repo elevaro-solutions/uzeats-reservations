@@ -72,6 +72,10 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## notifications
 
+### [2026-09-22] Messenger ACL for Telegram Accept/Reject
+- Channel `messenger` on notification preferences (default off). `notifyRestaurantStaff` Elevaro fan-out: restaurant owner always; staff only if `newReservation.messenger` (or `reservationUpdates.messenger` for update/cancel events). Action webhook re-checks that flag for non-owners. Dashboard `/notifications` exposes the column + Connect Telegram bot; `createElevaroTelegramLink` rejects diners and users without venue access.
+- Why it matters: Previously every `restaurantIds` member got Accept/Reject; owners now opt staff in explicitly.
+
 ### [2026-09-22] Diner web push toggle needs local opt-in (+ VAPID for delivery)
 - Profile Push switch previously only reflected `pushManager.getSubscription()`. Without `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (often unset locally), subscribe never ran, so refresh always showed Off.
 - Opt-in is stored in `localStorage` (`rt-web-push-enabled`) and restored on load; when VAPID + permission exist, a missing subscription is re-created and `registerPushToken`’d.

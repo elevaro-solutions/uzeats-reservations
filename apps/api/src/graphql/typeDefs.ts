@@ -181,6 +181,7 @@ export const typeDefs = `#graphql
     email: Boolean!
     webPush: Boolean!
     platform: Boolean!
+    messenger: Boolean!
   }
 
   type NotificationPreferences {
@@ -200,6 +201,7 @@ export const typeDefs = `#graphql
     email: Boolean
     webPush: Boolean
     platform: Boolean
+    messenger: Boolean
   }
 
   input NotificationPreferencesInput {

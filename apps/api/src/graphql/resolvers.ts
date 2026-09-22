@@ -4395,6 +4395,16 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
+      if (user.role === 'diner') {
+        throw new Error('Only restaurant staff can link the merchant Telegram bot');
+      }
+      const hasVenueAccess =
+        isPlatformAdmin(user.role) ||
+        user.role === 'restaurant_owner' ||
+        (Array.isArray(user.restaurantIds) && user.restaurantIds.length > 0);
+      if (!hasVenueAccess) {
+        throw new Error('No restaurant access to link the merchant Telegram bot');
+      }
       const { createElevaroTelegramLink } = await import(
         "../services/elevaroNotifier.js"
       );

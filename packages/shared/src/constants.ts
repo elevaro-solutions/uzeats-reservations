@@ -290,6 +290,7 @@ export const NOTIFICATION_CHANNELS = [
   "email",
   "webPush",
   "platform",
+  "messenger",
 ] as const;
 
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
@@ -344,6 +345,8 @@ export const DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES: Record<
   email: true,
   webPush: true,
   platform: true,
+  /** Telegram/WhatsApp merchant bot (Accept/Reject). Opt-in for staff; owners always get fan-out. */
+  messenger: false,
 };
 
 /** Guest- and staff-facing date/time locale: US English, 12-hour clock. */

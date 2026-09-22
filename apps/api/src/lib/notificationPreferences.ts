@@ -16,6 +16,8 @@ function mapChannelPreferences(
     email: legacyGlobal?.email ?? DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES.email,
     webPush: legacyGlobal?.webPush ?? DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES.webPush,
     platform: legacyGlobal?.platform ?? DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES.platform,
+    messenger:
+      legacyGlobal?.messenger ?? DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES.messenger,
   };
 
   // Legacy: event was a single on/off boolean combined with global channels.
@@ -25,6 +27,8 @@ function mapChannelPreferences(
       email: value && global.email,
       webPush: value && global.webPush,
       platform: value && global.platform,
+      // Messenger is opt-in; legacy boolean on/off must not auto-enable Accept/Reject.
+      messenger: false,
     };
   }
 
@@ -34,6 +38,7 @@ function mapChannelPreferences(
       email: value.email ?? global.email,
       webPush: value.webPush ?? global.webPush,
       platform: value.platform ?? global.platform,
+      messenger: value.messenger ?? global.messenger,
     };
   }
 
@@ -47,12 +52,14 @@ export function mapNotificationPreferences(prefs?: any | null) {
     (typeof prefs.sms === 'boolean' ||
       typeof prefs.email === 'boolean' ||
       typeof prefs.webPush === 'boolean' ||
-      typeof prefs.platform === 'boolean')
+      typeof prefs.platform === 'boolean' ||
+      typeof prefs.messenger === 'boolean')
       ? {
           sms: prefs.sms,
           email: prefs.email,
           webPush: prefs.webPush,
           platform: prefs.platform,
+          messenger: prefs.messenger,
         }
       : null;
 

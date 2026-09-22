@@ -3001,14 +3001,14 @@ export const RESTAURANT_TEAM = gql`
       lastName
       role
       notificationPreferences {
-        newMessage { sms email webPush platform }
-        newReservation { sms email webPush platform }
-        waitlistAvailable { sms email webPush platform }
-        guestSpendAlert { sms email webPush platform }
-        reservationUpdates { sms email webPush platform }
-        reviewReply { sms email webPush platform }
-        surveyInvitation { sms email webPush platform }
-        loyaltyUpdates { sms email webPush platform }
+        newMessage { sms email webPush platform messenger }
+        newReservation { sms email webPush platform messenger }
+        waitlistAvailable { sms email webPush platform messenger }
+        guestSpendAlert { sms email webPush platform messenger }
+        reservationUpdates { sms email webPush platform messenger }
+        reviewReply { sms email webPush platform messenger }
+        surveyInvitation { sms email webPush platform messenger }
+        loyaltyUpdates { sms email webPush platform messenger }
       }
     }
   }
@@ -3023,15 +3023,24 @@ export const UPDATE_NOTIFICATION_PREFERENCES = gql`
     updateNotificationPreferences(userId: $userId, restaurantId: $restaurantId, input: $input) {
       id
       notificationPreferences {
-        newMessage { sms email webPush platform }
-        newReservation { sms email webPush platform }
-        waitlistAvailable { sms email webPush platform }
-        guestSpendAlert { sms email webPush platform }
-        reservationUpdates { sms email webPush platform }
-        reviewReply { sms email webPush platform }
-        surveyInvitation { sms email webPush platform }
-        loyaltyUpdates { sms email webPush platform }
+        newMessage { sms email webPush platform messenger }
+        newReservation { sms email webPush platform messenger }
+        waitlistAvailable { sms email webPush platform messenger }
+        guestSpendAlert { sms email webPush platform messenger }
+        reservationUpdates { sms email webPush platform messenger }
+        reviewReply { sms email webPush platform messenger }
+        surveyInvitation { sms email webPush platform messenger }
+        loyaltyUpdates { sms email webPush platform messenger }
       }
+    }
+  }
+`;
+
+export const CREATE_ELEVARO_TELEGRAM_LINK = gql`
+  mutation CreateElevaroTelegramLink {
+    createElevaroTelegramLink {
+      deepLink
+      expiresAt
     }
   }
 `;
