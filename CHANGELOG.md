@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.59.0] — 2026-09-22
+
+### Changed
+
+- Merchant mobile: Tablevera Merchant app icons (Android adaptive + iOS `.icon`), splash mark, and auth wordmark; removed diner/Expo placeholder brand assets
+
+### Docs
+
+- Merchant mobile notes: icon/splash source-of-truth paths and native rebuild/sync requirement
+
 ## [0.58.1] — 2026-09-22
 
 ### Changed

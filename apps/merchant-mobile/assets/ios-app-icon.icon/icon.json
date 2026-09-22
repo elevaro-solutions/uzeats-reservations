@@ -1,35 +1,22 @@
 {
-  "fill-specializations" : [
-    {
-      "value" : "automatic"
-    },
-    {
-      "appearance" : "dark",
-      "value" : "automatic"
-    }
-  ],
+  "fill" : "automatic",
   "groups" : [
     {
       "layers" : [
         {
-          "blend-mode" : "normal",
-          "fill-specializations" : [
-            {
-              "value" : "automatic"
-            },
-            {
-              "appearance" : "dark",
-              "value" : "none"
-            }
-          ],
+          "fill" : "automatic",
           "glass" : false,
-          "hidden" : false,
-          "image-name" : "svgviewer-output 1.svg",
-          "name" : "svgviewer-output 1",
-          "opacity" : 1
+          "image-name" : "tablevera-merchant.svg",
+          "name" : "tablevera-merchant",
+          "position" : {
+            "scale" : 5.000000000000001,
+            "translation-in-points" : [
+              -0.0002500000000509317,
+              -17.87707499999999
+            ]
+          }
         }
       ],
-      "lighting" : "individual",
       "shadow" : {
         "kind" : "neutral",
         "opacity" : 0.5

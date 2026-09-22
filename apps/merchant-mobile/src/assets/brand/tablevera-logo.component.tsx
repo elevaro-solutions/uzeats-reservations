@@ -3,8 +3,8 @@ import { SvgXml } from "react-native-svg";
 
 import { TABLEVERA_LOGO_COLOR_SVG } from "./tablevera-logo-color-svg";
 
-/** Intrinsic aspect ratio of tablevera_logo_color_v2.svg (6384 × 1515). */
-const LOGO_ASPECT = 6384 / 1515;
+/** Intrinsic aspect ratio of tablevera-merchant-logo.svg (3282 × 773). */
+const LOGO_ASPECT = 3282 / 773;
 
 export type TableveraLogoProps = {
   /** Logo height in dp. Matches web auth wordmark (~36–40). */
