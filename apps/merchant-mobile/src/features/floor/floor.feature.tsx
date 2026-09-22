@@ -1,20 +1,13 @@
 import { useMutation, useQuery } from "@apollo/client";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, View } from "react-native";
+import { RefreshControl, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { toast } from "sonner-native";
 
-import {
-  Button,
-  Empty,
-  Flex,
-  InlineAlert,
-  Typography,
-} from "@/components";
+import { Button, Empty, Flex, InlineAlert, Typography } from "@/components";
 import { useActiveRestaurant } from "@/features/restaurants";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
-import { formatSlotDateTime } from "@/lib/helpers/date-time.helpers";
 
 import {
   FLOOR_PLAN_OPS,
@@ -25,6 +18,7 @@ import {
   FLOOR_AREA_ALL,
   FloorAreaPicker,
 } from "./components/floor-area-picker.component";
+import { FloorArrivingCard } from "./components/floor-arriving-card.component";
 import {
   FloorAreaPickerSkeleton,
   FloorSkeleton,
@@ -148,6 +142,11 @@ export function FloorFeature() {
     () => unassigned.find((r) => r.id === selectedUnassignedId) ?? null,
     [unassigned, selectedUnassignedId],
   );
+
+  const seatingMode = Boolean(selectedUnassigned);
+  const selectedGuestLabel = selectedUnassigned
+    ? guestName(selectedUnassigned.diner)
+    : null;
 
   async function seatHere() {
     if (!selected) return;
@@ -289,75 +288,79 @@ export function FloorFeature() {
 
           {unassigned.length > 0 ? (
             <Flex gap={1.5}>
-              <Typography weight="semibold" size="text-lg">
-                Arriving (unassigned)
-              </Typography>
+              <Flex gap={0.5}>
+                <Typography weight="semibold" size="text-lg">
+                  Arriving · {unassigned.length}
+                </Typography>
+                <Typography size="text-sm" color="secondary">
+                  Select a guest, then tap a free table to seat them.
+                </Typography>
+              </Flex>
               <Flex gap={1}>
                 {unassigned.map((item) => {
                   const selectedRow = item.id === selectedUnassignedId;
                   return (
-                    <Pressable
+                    <FloorArrivingCard
                       key={item.id}
+                      item={item}
+                      selected={selectedRow}
                       onPress={() =>
                         setSelectedUnassignedId(selectedRow ? null : item.id)
                       }
-                      style={({ pressed }) => [
-                        styles.unassigned,
-                        selectedRow && styles.unassignedSelected,
-                        pressed && styles.pressed,
-                      ]}
-                    >
-                      <Typography weight="semibold" size="text-md">
-                        {guestName(item.diner)}
-                      </Typography>
-                      <Typography size="text-sm" color="secondary">
-                        {formatSlotDateTime(item.slotStart)} · party of{" "}
-                        {item.partySize}
-                      </Typography>
-                    </Pressable>
+                    />
                   );
                 })}
               </Flex>
             </Flex>
           ) : null}
 
-          {visibleTables.length === 0 ? (
-            <Empty
-              title="No tables"
-              description={
-                tables.length === 0
-                  ? "Add tables in Partner Hub to run floor ops."
-                  : "No tables in this area."
-              }
-            />
-          ) : (
-            <View style={styles.grid}>
-              {visibleTables.map((state) => (
-                <FloorTableCard
-                  key={state.table.id}
-                  status={state.status}
-                  table={state.table}
-                  guestLabel={
-                    state.reservation
-                      ? guestName(state.reservation.diner)
-                      : null
-                  }
-                  turnMinutesRemaining={state.turnMinutesRemaining}
-                  selected={selected?.table.id === state.table.id}
-                  onPress={() => setSelected(state)}
-                />
-              ))}
-            </View>
-          )}
+          <Flex gap={1.5}>
+            <Typography weight="semibold" size="text-lg">
+              Tables
+              {visibleTables.length > 0 ? ` · ${visibleTables.length}` : ""}
+            </Typography>
+
+            {visibleTables.length === 0 ? (
+              <Empty
+                title="No tables"
+                description={
+                  tables.length === 0
+                    ? "Add tables in Partner Hub to run floor ops."
+                    : "No tables in this area."
+                }
+              />
+            ) : (
+              <View style={styles.grid}>
+                {visibleTables.map((state) => {
+                  const isFree = state.status === "free";
+                  return (
+                    <FloorTableCard
+                      key={state.table.id}
+                      status={state.status}
+                      table={state.table}
+                      guestLabel={
+                        state.reservation
+                          ? guestName(state.reservation.diner)
+                          : null
+                      }
+                      turnMinutesRemaining={state.turnMinutesRemaining}
+                      selected={selected?.table.id === state.table.id}
+                      seatTarget={seatingMode && isFree}
+                      dimmed={seatingMode && !isFree}
+                      onPress={() => setSelected(state)}
+                    />
+                  );
+                })}
+              </View>
+            )}
+          </Flex>
         </ScrollView>
       )}
 
       <FloorTableSheet
         visible={Boolean(selected)}
         selected={selected}
-        seatGuestName={
-          selectedUnassigned ? guestName(selectedUnassigned.diner) : null
-        }
+        seatGuestName={selectedGuestLabel}
         busy={busy}
         onClose={() => setSelected(null)}
         onSeatHere={() => {
@@ -371,7 +374,7 @@ export function FloorFeature() {
   );
 }
 
-const styles = StyleSheet.create(({ space, colors, radius }) => ({
+const styles = StyleSheet.create(({ space, colors }) => ({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
@@ -400,20 +403,6 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   content: {
     paddingHorizontal: space(2.5),
     gap: space(3),
-  },
-  unassigned: {
-    minHeight: space(7.5),
-    paddingVertical: space(1.5),
-    paddingHorizontal: space(2),
-    borderRadius: radius.md,
-    backgroundColor: colors.slate2,
-    gap: space(0.5),
-  },
-  unassignedSelected: {
-    backgroundColor: colors.primary2,
-  },
-  pressed: {
-    opacity: 0.85,
   },
   grid: {
     flexDirection: "row",

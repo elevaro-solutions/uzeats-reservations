@@ -21,6 +21,7 @@ export { NavigationIcon } from "./icons/navigation.icon";
 export { SlidersHorizontalIcon } from "./icons/sliders-horizontal.icon";
 export { HeartIcon } from "./icons/heart.icon";
 export { ClockIcon } from "./icons/clock.icon";
+export { ClipboardClockIcon } from "./icons/clipboard-clock.icon";
 export { TrendingUpIcon } from "./icons/trending-up.icon";
 export { ShareIcon } from "./icons/share.icon";
 export { Share2Icon } from "./icons/share-2.icon";

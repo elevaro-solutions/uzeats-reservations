@@ -10,6 +10,7 @@ import {
   BellIcon,
   CalendarCheckIcon,
   ChevronRightIcon,
+  ClipboardClockIcon,
   MailIcon,
   UsersIcon,
 } from "@/assets";
@@ -183,7 +184,12 @@ export function OverviewFeature() {
             <SnapshotCard
               label="Waitlist"
               value={waitlist}
-              icon={<UsersIcon size={22} color={theme.colors.warningPress} />}
+              icon={
+                <ClipboardClockIcon
+                  size={22}
+                  color={theme.colors.warningPress}
+                />
+              }
               onPress={() => router.push("/waitlist")}
             />
             <SnapshotCard
@@ -213,7 +219,12 @@ export function OverviewFeature() {
             <ShortcutButton
               label="Waitlist"
               onPress={() => router.push("/waitlist")}
-              icon={<UsersIcon size={22} color={theme.colors.textPrimary} />}
+              icon={
+                <ClipboardClockIcon
+                  size={22}
+                  color={theme.colors.textPrimary}
+                />
+              }
             />
             <ShortcutButton
               label="Floor"

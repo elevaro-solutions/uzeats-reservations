@@ -1,6 +1,7 @@
 import { Pressable, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
+import { CheckIcon } from "@/assets";
 import { Typography } from "@/components";
 
 import { floorStatusVisual } from "../helpers/floor-status.helpers";
@@ -23,6 +24,10 @@ export type FloorTableCardProps = {
   guestLabel?: string | null;
   turnMinutesRemaining?: number | null;
   selected?: boolean;
+  /** When seating an arriving guest: emphasize free tables as targets. */
+  seatTarget?: boolean;
+  /** When seating an arriving guest: de-emphasize and disable non-free tables. */
+  dimmed?: boolean;
   onPress: () => void;
 };
 
@@ -60,6 +65,8 @@ export function FloorTableCard({
   guestLabel,
   turnMinutesRemaining,
   selected = false,
+  seatTarget = false,
+  dimmed = false,
   onPress,
 }: FloorTableCardProps) {
   const { theme } = useUnistyles();
@@ -80,17 +87,38 @@ export function FloorTableCard({
   return (
     <Pressable
       onPress={onPress}
+      disabled={dimmed}
       accessibilityRole="button"
-      accessibilityLabel={`Table ${table.name}, ${visual.label}`}
+      accessibilityState={{ disabled: dimmed, selected }}
+      accessibilityLabel={`Table ${table.name}, ${visual.label}${
+        seatTarget
+          ? selected
+            ? ", selected to seat"
+            : ", available to seat"
+          : dimmed
+            ? ", unavailable while seating"
+            : ""
+      }`}
       style={({ pressed }) => [
         styles.tile,
         {
           width: floorTableWidth(bucket),
           backgroundColor: visual.wash,
         },
-        pressed && styles.pressed,
+        dimmed && styles.dimmed,
+        pressed && !dimmed && styles.pressed,
       ]}
     >
+      {seatTarget ? (
+        <View
+          style={[styles.seatHint, selected && styles.seatHintChecked]}
+          pointerEvents="none"
+        >
+          {selected ? (
+            <CheckIcon size={12} color={theme.colors.white} strokeWidth={2.5} />
+          ) : null}
+        </View>
+      ) : null}
       {/*
         Inspiration furniture: top chairs → left | white table | right → bottom chairs.
         Status tints wash, chairs, tabletop, border, and label for scanability.
@@ -157,7 +185,7 @@ export function FloorTableCard({
 /** Clear air between chairs and the white tabletop (matches Book-a-Table mock). */
 const CHAIR_GAP = 10;
 
-const styles = StyleSheet.create(({ space, radius }) => ({
+const styles = StyleSheet.create(({ space, radius, colors }) => ({
   tile: {
     maxWidth: "100%",
     borderRadius: radius.lg,
@@ -178,6 +206,32 @@ const styles = StyleSheet.create(({ space, radius }) => ({
         false: {},
       },
     },
+  },
+  seatHint: {
+    position: "absolute",
+    top: space(0.75),
+    right: space(0.75),
+    zIndex: 1,
+    width: space(2.25),
+    height: space(2.25),
+    borderRadius: radius.xs,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    backgroundColor: colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: colors.slate12,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.14,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  seatHintChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  dimmed: {
+    opacity: 0.55,
   },
   pressed: {
     opacity: 0.9,

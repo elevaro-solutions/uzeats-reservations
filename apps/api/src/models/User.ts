@@ -40,7 +40,7 @@ const userSchema = new Schema(
     passwordHash: { type: String },
     phone: { type: String, sparse: true, unique: true },
     firstName: { type: String, required: true, trim: true },
-    lastName: { type: String, required: true, trim: true },
+    lastName: { type: String, trim: true },
     role: {
       type: String,
       enum: ['diner', 'restaurant_owner', 'staff', 'admin', 'super_admin'],

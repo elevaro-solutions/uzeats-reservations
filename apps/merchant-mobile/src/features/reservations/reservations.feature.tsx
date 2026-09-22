@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { toast } from "sonner-native";
 
-import { ClockIcon, PlusIcon } from "@/assets";
+import { ClipboardClockIcon, PlusIcon } from "@/assets";
 import {
   Button,
   Empty,
@@ -195,7 +195,7 @@ export function ReservationsFeature() {
           </Typography>
         </Flex>
         <IconButton
-          icon={<ClockIcon />}
+          icon={<ClipboardClockIcon />}
           variant="surface"
           size="md"
           onPress={() => router.push("/waitlist")}
@@ -387,11 +387,14 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
+    // Reanimated skeleton bones create stacking contexts that paint above
+    // later absolute siblings unless the FAB has an explicit zIndex.
+    zIndex: 10,
+    elevation: 6,
     shadowColor: colors.black,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
-    elevation: 5,
   },
   fabPressed: {
     backgroundColor: colors.primaryPress,

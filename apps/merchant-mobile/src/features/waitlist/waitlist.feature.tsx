@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { toast } from "sonner-native";
 
-import { ChevronLeftIcon, PlusIcon, UsersIcon } from "@/assets";
+import { ChevronLeftIcon, ClipboardClockIcon, PlusIcon } from "@/assets";
 import {
   Button,
   Empty,
@@ -176,7 +176,7 @@ export function WaitlistFeature() {
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <Empty
-                icon={<UsersIcon />}
+                icon={<ClipboardClockIcon />}
                 title="No one waiting"
                 description="When walk-ins arrive without a reservation, add them below."
               />

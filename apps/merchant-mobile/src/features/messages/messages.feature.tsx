@@ -151,7 +151,11 @@ export function MessagesFeature() {
 
   useEffect(() => {
     const inquiry = selectedInquiry;
-    if (!inquiry || inquiry.readAt || markedInquiryIds.current.has(inquiry.id)) {
+    if (
+      !inquiry ||
+      inquiry.readAt ||
+      markedInquiryIds.current.has(inquiry.id)
+    ) {
       return;
     }
     markedInquiryIds.current.add(inquiry.id);
@@ -187,7 +191,8 @@ export function MessagesFeature() {
           }
         : {
             title: "No messages",
-            description: "Guest conversations and website inquiries will show up here.",
+            description:
+              "Guest conversations and website inquiries will show up here.",
           };
 
   return (

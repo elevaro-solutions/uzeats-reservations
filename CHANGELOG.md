@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.58.0] — 2026-09-22
+
+### Changed
+
+- API: `User.lastName` may be empty; owner guest bookings with no last name store `""` instead of `"-"`
+- Merchant mobile: Waitlist uses Lucide `clipboard-clock` everywhere (Overview, Account, Reservations header, Waitlist empty) instead of mixed `Users` / `Clock`
+- Merchant mobile Floor: table details sheet uses a Status label + chip, guest/timing cards, Actions list below Table facts, and a sticky primary Seat/Complete CTA; No-show/Cancel confirm via native Alert (no nested Modals)
+- Merchant mobile Floor: timing metrics use clearer copy (`Time seated` / `Until turn`) with duration formatting and a Timing section
+- Merchant mobile Floor: Arriving guests use richer selectable cards, seat-flow guidance, a Tables section header, and free-table emphasis while seating; sheet empty free-table copy points back to the arriving list
+
+### Fixed
+
+- Merchant mobile Reservations: Add FAB stays above loading skeletons (`zIndex` / elevation) — Reanimated skeleton bones create stacking contexts that painted over the absolute FAB
+
 ## [0.57.0] — 2026-09-21
 
 ### Added

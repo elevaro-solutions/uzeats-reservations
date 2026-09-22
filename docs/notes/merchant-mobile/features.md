@@ -2,6 +2,26 @@
 
 See also dated entries under `docs/notes/features.md` → `## merchant-mobile (partner app)` and `## merchant-more`.
 
+## [2026-09-22] Floor arriving list teaches the seat flow
+
+- Arriving cards use avatar + party/time meta, primary border + check when armed. Helper subtitle under Arriving sits above a Tables section header; free tables show a white unchecked checkbox (primary border; fills when selected) while others dim and are not pressable. Sheet empty free-table copy points back to the arriving list.
+- Why it matters: Selection was only a slate tint with no next-step cue and no separation from the furniture grid — staff need an obvious assign path without dashboard drag-drop.
+
+## [2026-09-22] Floor timing metrics = seated elapsed + turn remaining
+
+- `seatedMinutes` is minutes since `seatedAt`. `turnMinutesRemaining` is expected turn time minus that (dining window left). Status flips to Turning when ≤15 min remain. Sheet labels: “Time seated” / “Until turn”.
+- Why it matters: “Turn left” reads like a leftover count; staff need “how long dining” vs “how soon this table frees”.
+
+## [2026-09-22] Floor table sheet mirrors reservation detail actions
+
+- Table details BottomSheet: Status label + chip (no wash banner), guest avatar card (or seat-arriving prompt), seated/turn metric chips, Table facts, then an always-visible Actions list (Complete when not primary, No-show, Cancel). Sticky footer is primary Seat/Complete only. Destructive confirms use `Alert.alert` so nothing nests another Modal.
+- Why it matters: Don’t hide day-of secondary actions behind More inside a sheet; don’t nest BottomSheet/Dialog Modals from Floor.
+
+## [2026-09-22] Reanimated skeletons vs absolute FAB
+
+- `Skeleton` uses Reanimated `Animated.View`, which creates a stacking context. On Reservations, the list skeleton painted over the absolute Add FAB even though the FAB is a later sibling. Fix: give the FAB explicit `zIndex` (and matching `elevation` on Android).
+- Why it matters: Any screen that shows skeletons under an absolute overlay/FAB needs `zIndex` on the overlay — sibling order alone is not enough.
+
 ## [2026-09-21] Loading skeletons keep screen chrome
 
 - Initial load uses feature-scoped skeletons (`*-list-skeleton` / `reservation-detail-skeleton` / `floor-skeleton`) built from `@/components/skeleton`, not `<Loader fullScreen />`. Headers, filters, and top bars stay mounted; Floor keeps the real status legend and shows an area-picker pill bone.
@@ -51,10 +71,14 @@ See also dated entries under `docs/notes/features.md` → `## merchant-mobile (p
 - API seats when `seatImmediately || source === 'walkin'`. Create form forces Seat immediately on and disables the Switch for walk-ins so the UI matches that rule; phone source keeps the Switch editable.
 - Why it matters: Don’t show a free Switch for walk-ins — the status would still be seated.
 
+## [2026-09-22] Owner guest lastName may be empty
+
+- `ownerGuestInputSchema` allows omitting `lastName`. `User.lastName` is optional; `findOrCreateDiner` stores `''` when blank (no `'-'` placeholder). `mapUser` coerces missing values to `''` for GraphQL `String!`.
+- Why it matters: Merchant/dashboard create flows can omit last name without Mongoose validation errors or a fake surname in the UI.
+
 ## [2026-09-21] Owner guest lastName vs User model
 
-- `ownerGuestInputSchema` allows omitting `lastName`, but `User.lastName` is required and Mongoose rejects `''`. `findOrCreateDiner` now stores `'-'` when last name is blank.
-- Why it matters: Merchant/dashboard create flows that send empty last name must not surface a raw Mongoose path error.
+- Superseded by [2026-09-22]: previously required `User.lastName` forced a `'-'` placeholder for blank guest last names.
 
 ## [2026-09-18] Feature folders
 

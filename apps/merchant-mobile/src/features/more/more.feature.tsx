@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { toast } from "sonner-native";
 
-import { BellIcon, LogOutIcon, UsersIcon } from "@/assets";
+import { BellIcon, ClipboardClockIcon, LogOutIcon } from "@/assets";
 import {
   Button,
   Dialog,
@@ -132,7 +132,12 @@ export function MoreFeature() {
           />
           <AccountMenuRow
             label="Waitlist"
-            icon={<UsersIcon size={20} color={theme.colors.textSecondary} />}
+            icon={
+              <ClipboardClockIcon
+                size={20}
+                color={theme.colors.textSecondary}
+              />
+            }
             onPress={() => router.push("/waitlist")}
           />
         </View>

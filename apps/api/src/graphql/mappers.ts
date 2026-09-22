@@ -29,7 +29,7 @@ export function mapUser(u: any) {
     email: u.email ?? null,
     phone: u.phone ?? null,
     firstName: u.firstName,
-    lastName: u.lastName,
+    lastName: u.lastName ?? '',
     role: u.role,
     loyaltyPoints: u.loyaltyPoints ?? 0,
     loyaltyCompletedVisits: visits,

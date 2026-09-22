@@ -8,7 +8,9 @@ function MessageRowSkeleton() {
   return (
     <View style={styles.card}>
       <Skeleton width={40} height={40} radius="full" />
-      <Flex flex={1} gap={0.25} style={styles.body}>
+      {/* Bones lack Typography line-height, so use a wider gap than the live
+          row's gap={0.25} to match the visual spacing between title + preview. */}
+      <Flex flex={1} gap={0.75} style={styles.body}>
         <Flex direction="row" alignItems="center" gap={1}>
           <Skeleton width="45%" height={16} />
           <View style={styles.time}>
