@@ -44,6 +44,11 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## help-center
 
+### [2026-09-22] Help center is FAQ + contact, not tickets
+- Help center has FAQ and Contact only. Diners email support or use the web contact form; they do not file GraphQL tickets.
+- Partner tickets are dashboard `/support` (`createOwnerSupportTicket`) with rich text and image attachments.
+- Why it matters: Don’t add diner `createMySupportTicket` ops — that mutation was removed.
+
 ### [2026-09-14] Content mirrored from web by hand
 - `help-center.content.ts` mirrors `apps/web/src/lib/legal.ts` — “keep in sync manually.”
 - Why it matters: FAQ/contact drift is a process bug, not a codegen problem.

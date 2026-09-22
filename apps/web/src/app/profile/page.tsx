@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
-import { Card, List, Space, Spin, Switch, Tag, Typography, message } from 'antd';
+import { Button, Card, List, Space, Spin, Switch, Tag, Typography, message } from 'antd';
 import {
   BellOutlined,
   CheckCircleFilled,

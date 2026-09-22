@@ -221,6 +221,27 @@ export const SUPPORT_TICKET_SUBJECTS = [
   { key: "other", label: "Other", category: "other" },
 ] as const;
 
+/** Subjects restaurant owners and staff may pick (full partner catalog). */
+export const OWNER_SUPPORT_TICKET_SUBJECT_KEYS = SUPPORT_TICKET_SUBJECTS.map(
+  (s) => s.key,
+) as [
+  (typeof SUPPORT_TICKET_SUBJECTS)[number]["key"],
+  ...(typeof SUPPORT_TICKET_SUBJECTS)[number]["key"][],
+];
+
+export const OWNER_SUPPORT_TICKET_SUBJECTS = SUPPORT_TICKET_SUBJECTS;
+
+export const SUPPORT_TICKET_DESCRIPTION_MAX_LENGTH = 20_000;
+export const SUPPORT_TICKET_ATTACHMENT_MAX_COUNT = 8;
+export const SUPPORT_TICKET_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
+export const SUPPORT_TICKET_ATTACHMENT_CONTENT_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+] as const;
+
 export const SUPPORT_TICKET_EVENT_TYPES = [
   "created",
   "status_changed",

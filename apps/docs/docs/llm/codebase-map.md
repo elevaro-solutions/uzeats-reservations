@@ -25,7 +25,7 @@ Quick file lookup for AI agents. Paths relative to repo root.
 | Billing | — | `services/planChangePolicy.ts`, `config/plans.ts` | `__tests__/planChangePolicy.test.ts` |
 | Gift cards / promos | — | `services/giftCards.ts`, `promotionStats.ts` | `__tests__/giftCards.test.ts`, `promotionCodes.test.ts` |
 | Notifications | — | campaigns, push, email helpers | — |
-| Admin | `models/SupportTicket.ts` | `services/adminSupport.ts`, `audit.ts` | — |
+| Admin | `models/SupportTicket.ts` | `services/supportOps.ts`, `adminSupport.ts`, `audit.ts` | `__tests__/ownerSupportTickets.test.ts` |
 | Uploads | — | `routes/uploads.ts` | — |
 | Import | — | `services/mhtmlImport.ts`, `routes/importRestaurant.ts` | — |
 | Platform config | — | `services/platformConfig.ts`, `developerInfo.ts` | — |
@@ -48,6 +48,7 @@ Mirror sidebar in `DashShell.tsx`:
 | `/floor-ops` | Live floor (seating) |
 | `/floor-plan` | Table layout |
 | `/settings`, `/edit`, `/menu` | Restaurant config |
+| `/support` | Partner support tickets |
 | `/campaigns` | Marketing |
 | `/admin/*` | Platform admin pages |
 | `/admin/developer` | Env var health |

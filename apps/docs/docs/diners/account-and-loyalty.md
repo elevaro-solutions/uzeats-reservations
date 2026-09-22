@@ -67,4 +67,4 @@ Visit `/billing` to see deposit charges and payment history tied to your account
 
 ## Support
 
-Use the public [contact form](https://tablevera.online/contact) for platform issues. For reservation-specific questions, message the restaurant from your reservation detail page.
+The public [contact form](https://tablevera.online/contact) is the diner support path. For reservation-specific questions, message the restaurant from your reservation detail page.

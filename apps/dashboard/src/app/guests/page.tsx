@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import {
@@ -33,6 +33,8 @@ import {
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { ExportMenu, type ListExportFormat } from '@/components/ExportMenu';
 import { downloadExportPayload } from '@/lib/downloadExport';
+import { HubLinkCards } from '@/components/HubLinkCards';
+import { hubChildPages, PARTNER_PAGES } from '@/lib/dashboardNav';
 
 const { Title, Text } = Typography;
 
@@ -150,9 +152,23 @@ function GuestsPageContent() {
     }
   };
 
+  const relatedLinks = useMemo(
+    () =>
+      hubChildPages(PARTNER_PAGES, '/guests').map((p) => ({
+        href: p.href,
+        title: p.label,
+        description: p.description ?? '',
+        icon: p.icon,
+      })),
+    [],
+  );
+
   return (
     <div component="GuestsPageContent" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Title level={2}>Guests</Title>
+      {relatedLinks.length > 0 && (
+        <HubLinkCards links={relatedLinks} colProps={{ xs: 24, sm: 12, lg: 12 }} />
+      )}
       <Space wrap>
         <Select style={{ width: 260 }} {...restaurantSelectProps} />
         <Input.Search

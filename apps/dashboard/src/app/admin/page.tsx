@@ -4,15 +4,11 @@ import Link from 'next/link';
 import { useQuery } from '@/lib/apollo-hooks';
 import { Badge, Button, Card, Col, Row, Space, Statistic, Typography } from 'antd';
 import {
-  AppstoreOutlined,
   CalendarOutlined,
   FileDoneOutlined,
-  FundOutlined,
   ShopOutlined,
   TeamOutlined,
   ControlOutlined,
-  TagOutlined,
-  FileTextOutlined,
 } from '@ant-design/icons';
 import { PageHeader, colors, radii, spacing } from '@reservations/ui';
 import { ADMIN_STATS } from '@/lib/graphql';
@@ -79,76 +75,22 @@ const shortcuts = [
     countKey: 'pendingProfileChangeRequests' as const,
   },
   {
-    href: '/admin/invoices',
-    title: 'Invoices',
-    desc: 'Pending, upcoming, Stripe sync',
-    icon: <FileDoneOutlined />,
-  },
-  {
-    href: '/admin/churn',
-    title: 'Churn alerts',
-    desc: 'Past due, cancelled, trials ending',
-    icon: <FundOutlined />,
-  },
-  {
     href: '/admin/moderation',
     title: 'Moderation',
     desc: 'Flagged reviews and messages',
     icon: <ControlOutlined />,
   },
   {
-    href: '/admin/revenue',
-    title: 'Revenue',
-    desc: 'MRR, cover fees, and plan mix',
-    icon: <FundOutlined />,
-  },
-  {
-    href: '/admin/loyalty',
-    title: 'Loyalty program',
-    desc: 'Points, tiers, and referrals',
-    icon: <TagOutlined />,
-  },
-  {
-    href: '/admin/pricing',
-    title: 'Plans & pricing',
-    desc: 'Edit packages and cover fees',
-    icon: <TagOutlined />,
-  },
-  {
-    href: '/admin/services',
-    title: 'Services',
-    desc: 'Paid and free invoice add-ons',
-    icon: <AppstoreOutlined />,
-  },
-  {
-    href: '/admin/blog',
-    title: 'Blog articles',
-    desc: 'SEO and AEO content for the public site',
-    icon: <FileTextOutlined />,
-  },
-  {
-    href: '/admin/config',
-    title: 'Configuration',
-    desc: 'Roles, kill switches, support contacts',
-    icon: <ControlOutlined />,
-  },
-  {
-    href: '/admin/templates',
-    title: 'Email templates',
-    desc: 'Password reset, booking, invites',
-    icon: <TagOutlined />,
-  },
-  {
-    href: '/admin/exports',
-    title: 'Data exports',
-    desc: 'CSV, Excel, JSON, and PDF downloads',
+    href: '/admin/billing',
+    title: 'Billing',
+    desc: 'Invoices, revenue, plans, loyalty, and exports',
     icon: <FileDoneOutlined />,
   },
   {
-    href: '/admin/sla',
-    title: 'SLA metrics',
-    desc: 'Approvals and support response times',
-    icon: <FundOutlined />,
+    href: '/admin/platform',
+    title: 'Platform',
+    desc: 'Configuration, content, templates, and audit',
+    icon: <ControlOutlined />,
   },
 ];
 

@@ -17,6 +17,7 @@ import {
 } from 'antd';
 import { PageHeader, spacing } from '@reservations/ui';
 import { SUPPORT_TICKET_SUBJECTS } from '@reservations/shared';
+import { RichTextEditor } from '@/components/RichTextEditor';
 import {
   ADMIN_RESTAURANTS,
   ADMIN_USERS,
@@ -283,7 +284,7 @@ function SupportPageContent() {
             </Form.Item>
           )}
           <Form.Item name="description" label="Description">
-            <Input.TextArea rows={3} maxLength={5000} showCount />
+            <RichTextEditor minHeight={140} placeholder="Ticket details" />
           </Form.Item>
           <Space wrap style={{ width: '100%' }} size="middle">
             <Form.Item name="priority" label="Priority" style={{ minWidth: 160, flex: 1 }}>

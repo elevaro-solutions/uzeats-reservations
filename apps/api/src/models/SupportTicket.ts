@@ -57,7 +57,7 @@ const supportTicketSchema = new Schema(
       enum: subjectKeys,
       index: true,
     },
-    description: { type: String, trim: true, maxlength: 5000, default: '' },
+    description: { type: String, trim: true, maxlength: 20000, default: '' },
     status: {
       type: String,
       enum: SUPPORT_TICKET_STATUSES,

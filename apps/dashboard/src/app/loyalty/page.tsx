@@ -57,7 +57,7 @@ export default function RestaurantLoyaltyPage() {
           description={
             <>
               Enable your program in{' '}
-              <Link onClick={() => router.push('/settings')}>Settings → Restaurant loyalty</Link>{' '}
+              <Link onClick={() => router.push('/restaurant-profile')}>Restaurant profile → Restaurant loyalty</Link>{' '}
               to start awarding points on completed visits.
             </>
           }

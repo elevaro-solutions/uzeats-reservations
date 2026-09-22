@@ -238,6 +238,11 @@ import {
   previewPlanChange,
 } from "../services/planChange.js";
 import { estimateUpgradeProrationCents } from "../services/planChangePolicy.js";
+import {
+  createOwnerSupportTicket,
+  getOwnerSupportTicket,
+  listOwnerSupportTickets,
+} from "../services/supportOps.js";
 import { provisionDefaultRestaurantSetup } from "../services/restaurantSetup.js";
 import { restaurantInputToDb } from "../lib/restaurantInput.js";
 import {
@@ -1162,6 +1167,25 @@ export const resolvers = {
         channel: "in_app",
         $or: [{ readAt: null }, { readAt: { $exists: false } }],
       });
+    },
+
+    myOwnerSupportTickets: async (
+      _: unknown,
+      args: { status?: string; limit?: number; offset?: number },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireRole(ctx, ["restaurant_owner", "staff"]);
+      return listOwnerSupportTickets({
+        userId: user._id.toString(),
+        status: args.status,
+        limit: args.limit,
+        offset: args.offset,
+      });
+    },
+
+    myOwnerSupportTicket: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+      const user = requireRole(ctx, ["restaurant_owner", "staff"]);
+      return getOwnerSupportTicket(user._id.toString(), args.id);
     },
 
     myRestaurants: async (
@@ -2891,6 +2915,38 @@ export const resolvers = {
 
     submitContactForm: async (_: unknown, args: { input: unknown }) =>
       submitContactForm(args.input),
+
+    createOwnerSupportTicket: async (
+      _: unknown,
+      args: {
+        input: {
+          subjectKey: string;
+          subject?: string;
+          description: string;
+          restaurantId?: string | null;
+          attachments?: Array<{
+            url: string;
+            key?: string;
+            filename: string;
+            contentType: string;
+            size?: number;
+          }>;
+        };
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireRole(ctx, ["restaurant_owner", "staff"]);
+      return createOwnerSupportTicket({
+        userId: user._id.toString(),
+        restaurantIds: user.restaurantIds ?? [],
+        role: user.role,
+        subjectKey: args.input.subjectKey,
+        subject: args.input.subject,
+        description: args.input.description,
+        restaurantId: args.input.restaurantId,
+        attachments: args.input.attachments,
+      });
+    },
 
     requestDocsAccess: async (_: unknown, args: { input: unknown }) =>
       requestDocsAccess(args.input),

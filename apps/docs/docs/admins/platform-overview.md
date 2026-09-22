@@ -21,7 +21,7 @@ Demo super admin: `a@tablevera.local` / `Password123!`
 
 ## Admin navigation
 
-Admin sections appear in the dashboard sidebar under **Admin**:
+The sidebar keeps accounts and support queues visible. Billing and platform tools open from hubs (still findable with ⌘K).
 
 | Page | Purpose |
 |---|---|
@@ -33,19 +33,11 @@ Admin sections appear in the dashboard sidebar under **Admin**:
 | **Restaurants** | Approve, edit, suspend, delete venues |
 | **Reservations** | All bookings across restaurants |
 | **URL slugs** | Owner requests to change public booking URLs |
-| **Public profile** | Owner requests to change diner-facing restaurant pages |
-| **Invoices** | Stripe invoice history |
-| **Revenue** | MRR and revenue analytics |
-| **Churn** | Cancellation and downgrade trends |
-| **Loyalty** | Platform points liability, diner tiers, and referral activity. Super admins edit earn rates and create tiers. |
-| **Support** | Ticket queue from diners and partners |
+| **Profile requests** | Owner requests to change diner-facing restaurant pages |
+| **Tickets** | Support ticket queue from partners |
 | **Moderation** | Review flagged content |
-| **Blog** | Publish SEO articles |
-| **Templates** | Platform email templates |
-| **Config** | Global settings and feature flags |
-| **Pricing** | Plan definitions and annual discounts |
-| **Data exports** | CSV / Excel / JSON / PDF downloads, including restaurant guest CRM |
-| **Developer** | Env-var health checklist (secrets masked) |
+| **Billing** | Hub: invoices, revenue, churn, loyalty, plans, services, data exports |
+| **Platform** | Hub: config, discovery, blog, docs access, templates, SLA, audit, developer |
 
 ## Restaurant lifecycle
 

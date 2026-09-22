@@ -4,7 +4,33 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.61.0] — 2026-09-23
+
+### Added
+
+- Partner support tickets use a rich-text editor and image attachments (JPEG, PNG, WebP, GIF)
+- Restaurant owners and staff can open support tickets from Partner Hub `/support`; tickets appear in Admin → Tickets
+
+### Changed
+
+- Settings is now a pure hub of setup-tool cards; restaurant profile, location, contact, deposits, loyalty, media, booking widget, public URL, and preferences moved to their own **Restaurant profile** page (`/restaurant-profile`)
+- Partner **Restaurant profile** uses the same left-section manage layout as Admin restaurant Manage (`?section=listing` … `operations`)
+- Partner Overview location names link to Settings; Reservations, Waitlist, and Floor sit in a More menu
+- Partner Overview header no longer duplicates the sidebar My restaurants link
+- Partner Overview stats wrap three per row instead of squeezing all six into one desktop row
+- Partner sidebar focuses on daily work; Grow and Insights hubs hold marketing and analytics pages
+- Table layout and Tables & shifts live under Settings setup tools; Loyalty and Reviews open from Guests
+- Admin sidebar collapses billing and platform tools into Billing and Platform hubs
+
+### Removed
+
+- Diner support tickets from web `/support` and the mobile Help center — diners use Contact instead
+- Partner header plus button that duplicated Add restaurant
+
+### Docs
+
+- Partner sidebar hubs (Grow, Insights, Settings tools); admin Billing and Platform hubs
+- Partner tickets from `/support`; diners use Contact instead of GraphQL tickets
 
 ## [0.60.0] — 2026-09-22
 
@@ -16,6 +42,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `createElevaroTelegramLink` is limited to restaurant staff/owners/admins with venue access (not diners).
 - Elevaro action webhook rejects Accept/Reject for non-owners when Messenger preference is off.
+
 
 ## [0.59.0] — 2026-09-22
 

@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@/lib/apollo-hooks';
-import { Button, Card, Col, List, Row, Space, Spin, Statistic, Table, Typography } from 'antd';
+import { Button, Card, Col, Dropdown, List, Row, Space, Spin, Statistic, Table, Typography } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   AppstoreOutlined,
   BellOutlined,
@@ -12,6 +13,7 @@ import {
   ClockCircleOutlined,
   DollarOutlined,
   MessageOutlined,
+  MoreOutlined,
   PlusOutlined,
   ShopOutlined,
   StarOutlined,
@@ -27,7 +29,7 @@ import {
   MY_RESTAURANTS,
   MY_SUBSCRIPTION,
 } from '@/lib/graphql';
-import { ADD_RESTAURANT_HREF } from '@/lib/restaurants';
+import { ADD_RESTAURANT_HREF, isInactiveRestaurant, restaurantHref } from '@/lib/restaurants';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 
 const { Text, Paragraph, Title } = Typography;
@@ -130,7 +132,34 @@ export default function OverviewPage() {
 
   const openLocation = (id: string, path: string) => {
     selectRestaurant(id);
-    router.push(path);
+    router.push(restaurantHref(path, id));
+  };
+
+  const locationActionItems = (row: OwnerLocationRow): MenuProps['items'] => {
+    const inactive = isInactiveRestaurant(row.status);
+    return [
+      {
+        key: 'reservations',
+        icon: <CalendarOutlined />,
+        label: 'Reservations',
+        disabled: inactive,
+        onClick: () => openLocation(row.restaurantId, '/reservations'),
+      },
+      {
+        key: 'waitlist',
+        icon: <ClockCircleOutlined />,
+        label: 'Waitlist',
+        disabled: inactive,
+        onClick: () => openLocation(row.restaurantId, '/waitlist'),
+      },
+      {
+        key: 'floor',
+        icon: <AppstoreOutlined />,
+        label: 'Floor',
+        disabled: inactive,
+        onClick: () => openLocation(row.restaurantId, '/floor-ops'),
+      },
+    ];
   };
 
   if (authLoading || (user && overviewLoading && !overview)) {
@@ -178,28 +207,23 @@ export default function OverviewPage() {
               : "Today's service snapshot"
           }
           extra={
-            <Space wrap>
-              {canAdd && (
-                <Link href={ADD_RESTAURANT_HREF}>
-                  <Button type="primary" icon={<PlusOutlined />}>
-                    Add restaurant
-                  </Button>
-                </Link>
-              )}
-              <Link href="/restaurants">
-                <Button icon={<ShopOutlined />}>My restaurants</Button>
+            canAdd ? (
+              <Link href={ADD_RESTAURANT_HREF}>
+                <Button type="primary" icon={<PlusOutlined />}>
+                  Add restaurant
+                </Button>
               </Link>
-            </Space>
+            ) : undefined
           }
         />
 
         <Row gutter={[16, 16]} className="rt-stat-grid">
-          <Col xs={12} md={8} lg={4}>
+          <Col xs={12} md={8} lg={8}>
             <Card>
               <Statistic title="Locations" value={overview?.locationsTotal ?? 0} prefix={<ShopOutlined />} />
             </Card>
           </Col>
-          <Col xs={12} md={8} lg={4}>
+          <Col xs={12} md={8} lg={8}>
             <Card>
               <Statistic
                 title="Today's reservations"
@@ -208,7 +232,7 @@ export default function OverviewPage() {
               />
             </Card>
           </Col>
-          <Col xs={12} md={8} lg={4}>
+          <Col xs={12} md={8} lg={8}>
             <Card>
               <Statistic
                 title="Today's covers"
@@ -217,7 +241,7 @@ export default function OverviewPage() {
               />
             </Card>
           </Col>
-          <Col xs={12} md={8} lg={4}>
+          <Col xs={12} md={8} lg={8}>
             <Card>
               <Statistic
                 title="Open waitlist"
@@ -226,7 +250,7 @@ export default function OverviewPage() {
               />
             </Card>
           </Col>
-          <Col xs={12} md={8} lg={4}>
+          <Col xs={12} md={8} lg={8}>
             <Card>
               <Statistic
                 title="Unread alerts"
@@ -235,7 +259,7 @@ export default function OverviewPage() {
               />
             </Card>
           </Col>
-          <Col xs={12} md={8} lg={4}>
+          <Col xs={12} md={8} lg={8}>
             <Card>
               <Statistic
                 title="Avg rating"
@@ -270,12 +294,19 @@ export default function OverviewPage() {
                   title: 'Location',
                   key: 'location',
                   render: (_: unknown, row) => {
-                    const isInactive = row.status === 'rejected' || row.status === 'suspended';
+                    const isInactive = isInactiveRestaurant(row.status);
                     return (
                       <Space orientation="vertical" size={0}>
-                        <Text strong style={{ opacity: isInactive ? 0.85 : 1 }}>
+                        <Link
+                          href={restaurantHref('/restaurant-profile', row.restaurantId)}
+                          style={{
+                            fontWeight: 600,
+                            color: colors.brand[600],
+                            opacity: isInactive ? 0.85 : 1,
+                          }}
+                        >
                           {row.name}
-                        </Text>
+                        </Link>
                         <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
                           {[row.cuisine, [row.city, row.state].filter(Boolean).join(', ')]
                             .filter(Boolean)
@@ -322,41 +353,18 @@ export default function OverviewPage() {
                   title: 'Actions',
                   key: 'actions',
                   fixed: 'right',
-                  width: 260,
-                  render: (_: unknown, row) => {
-                    const isInactive = row.status === 'rejected' || row.status === 'suspended';
-                    return (
-                      <Space size={4} wrap>
-                        <Button
-                          type="link"
-                          size="small"
-                          disabled={isInactive}
-                          style={{ color: isInactive ? undefined : colors.brand[600], paddingInline: 4 }}
-                          onClick={() => openLocation(row.restaurantId, '/reservations')}
-                        >
-                          Reservations
-                        </Button>
-                        <Button
-                          type="link"
-                          size="small"
-                          disabled={isInactive}
-                          style={{ color: isInactive ? undefined : colors.brand[600], paddingInline: 4 }}
-                          onClick={() => openLocation(row.restaurantId, '/waitlist')}
-                        >
-                          Waitlist
-                        </Button>
-                        <Button
-                          type="link"
-                          size="small"
-                          disabled={isInactive}
-                          style={{ color: isInactive ? undefined : colors.brand[600], paddingInline: 4 }}
-                          onClick={() => openLocation(row.restaurantId, '/floor-ops')}
-                        >
-                          Floor
-                        </Button>
-                      </Space>
-                    );
-                  },
+                  width: 90,
+                  render: (_: unknown, row) => (
+                    <Dropdown
+                      menu={{ items: locationActionItems(row) }}
+                      trigger={['click']}
+                      placement="bottomRight"
+                    >
+                      <Button size="small" icon={<MoreOutlined />}>
+                        More
+                      </Button>
+                    </Dropdown>
+                  ),
                 },
               ]}
             />

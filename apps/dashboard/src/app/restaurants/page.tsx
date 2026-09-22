@@ -83,6 +83,8 @@ import {
 } from '@/lib/restaurantFormTooltips';
 import {
   MANY_LOCATIONS_THRESHOLD,
+  isInactiveRestaurant,
+  restaurantHref,
   type OwnerRestaurant,
 } from '@/lib/restaurants';
 import ImportRestaurantModal, { type ImportedRestaurantData } from '@/components/ImportRestaurantModal';
@@ -182,14 +184,6 @@ function readRestaurantsViewMode(): RestaurantsViewMode {
 function selectRestaurant(id: string) {
   localStorage.setItem('activeRestaurantId', id);
   window.dispatchEvent(new CustomEvent('rt-restaurant-change', { detail: id }));
-}
-
-function restaurantHref(path: string, id: string) {
-  return `${path}?restaurant=${encodeURIComponent(id)}`;
-}
-
-function isInactiveRestaurant(status: string) {
-  return status === 'rejected' || status === 'suspended';
 }
 
 type PlanOption = {
@@ -783,7 +777,7 @@ export default function MyRestaurantsPage() {
         icon: <SettingOutlined />,
         label: 'Settings',
         disabled: inactive,
-        onClick: () => navigateToRestaurant(r.id, '/settings'),
+        onClick: () => navigateToRestaurant(r.id, '/restaurant-profile'),
       },
     ];
   };
@@ -1449,7 +1443,7 @@ export default function MyRestaurantsPage() {
                     return (
                       <Space orientation="vertical" size={0}>
                         <Link
-                          href={restaurantHref('/settings', r.id)}
+                          href={restaurantHref('/restaurant-profile', r.id)}
                           style={{
                             fontWeight: 600,
                             color: colors.brand[600],
@@ -1541,7 +1535,7 @@ export default function MyRestaurantsPage() {
                           type="link"
                           disabled={isInactive}
                           style={{ color: isInactive ? undefined : colors.brand[600] }}
-                          onClick={() => navigateToRestaurant(r.id, '/settings')}
+                          onClick={() => navigateToRestaurant(r.id, '/restaurant-profile')}
                         >
                           Settings
                         </Button>,
@@ -1549,7 +1543,8 @@ export default function MyRestaurantsPage() {
                     >
                       {isInactive && (
                         <Text type="danger" style={{ display: 'block', marginBottom: spacing.sm }}>
-                          This location is not active. Contact support if you believe this is an error.
+                          This location is not active.{' '}
+                          <Link href="/support">Contact support</Link> if you believe this is an error.
                         </Text>
                       )}
                       <Text type="secondary">

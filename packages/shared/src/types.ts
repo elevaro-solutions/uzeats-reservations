@@ -12,6 +12,7 @@ import type {
   SUPPORT_TICKET_CATEGORIES,
   SUPPORT_TICKET_SUBJECTS,
   SUPPORT_TICKET_EVENT_TYPES,
+  OWNER_SUPPORT_TICKET_SUBJECT_KEYS,
 } from './constants.js';
 
 export type UserRole = (typeof USER_ROLES)[number];
@@ -26,6 +27,7 @@ export type SupportTicketStatus = (typeof SUPPORT_TICKET_STATUSES)[number];
 export type SupportTicketPriority = (typeof SUPPORT_TICKET_PRIORITIES)[number];
 export type SupportTicketCategory = (typeof SUPPORT_TICKET_CATEGORIES)[number];
 export type SupportTicketSubjectKey = (typeof SUPPORT_TICKET_SUBJECTS)[number]['key'];
+export type OwnerSupportTicketSubjectKey = (typeof OWNER_SUPPORT_TICKET_SUBJECT_KEYS)[number];
 export type SupportTicketEventType = (typeof SUPPORT_TICKET_EVENT_TYPES)[number];
 
 export interface GeoPoint {

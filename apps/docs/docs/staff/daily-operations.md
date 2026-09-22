@@ -23,7 +23,7 @@ The **Reservations** page is the primary operational view:
 
 ## Table layout
 
-The **Table layout** editor lets you:
+Open **Table layout** from **Settings** (or ⌘K). The editor lets you:
 
 - Arrange tables on a canvas
 - Rotate and resize tables
@@ -122,3 +122,7 @@ Toggle **accept online reservations** and **hide widget** in restaurant settings
 ## Photos
 
 On **Public profile**, upload a **logo** and up to 10 venue photos, then request review. Drag to reorder (or use the arrows / star). The first photo is the large hero on the diner restaurant page; the next two appear beside it; remaining photos show in the gallery below. Changes go live after a Tablevera admin approves them. **Settings** can still save listing photos immediately. Diner review photos can be added to the gallery from **Reviews**.
+
+## Getting help
+
+**Support** in the sidebar opens a ticket with Tablevera (`createOwnerSupportTicket`). Format the details and attach screenshots when they help. Attach the restaurant when the issue is location-specific. Platform admins work the queue at **Admin → Tickets**.

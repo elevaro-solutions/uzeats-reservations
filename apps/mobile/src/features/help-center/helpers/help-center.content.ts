@@ -35,7 +35,7 @@ export const HELP_FAQ_ITEMS: HelpFaqItem[] = [
   {
     question: "Who should I contact about my booking?",
     answer:
-      "Reach out to the restaurant for seating, menu, accessibility, late arrival, deposits, fees, or refunds — use Message or Call on your reservation detail. Contact Tablevera support for account or app issues using the details below.",
+      "Reach out to the restaurant for seating, menu, accessibility, late arrival, deposits, fees, or refunds — use Message or Call on your reservation detail. For account or app issues, email Tablevera using the details below.",
   },
   {
     question: "What if no tables are available?",

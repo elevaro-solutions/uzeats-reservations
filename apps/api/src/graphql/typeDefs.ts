@@ -1780,6 +1780,22 @@ export const typeDefs = `#graphql
     message: String!
   }
 
+  input OwnerSupportAttachmentInput {
+    url: String!
+    key: String
+    filename: String!
+    contentType: String!
+    size: Int
+  }
+
+  input CreateOwnerSupportTicketInput {
+    subjectKey: String!
+    subject: String
+    description: String!
+    restaurantId: ID
+    attachments: [OwnerSupportAttachmentInput!]
+  }
+
   input RestaurantInquiryInput {
     restaurantId: ID!
     message: String!
@@ -2562,6 +2578,8 @@ export const typeDefs = `#graphql
     myRestaurantLoyaltyHistory(restaurantId: ID, limit: Int): [RestaurantLoyaltyTransaction!]!
     myNotifications(limit: Int, offset: Int): AppNotificationConnection!
     unreadNotificationCount: Int!
+    myOwnerSupportTickets(status: String, limit: Int, offset: Int): SupportTicketConnection!
+    myOwnerSupportTicket(id: ID!): SupportTicket
     myRestaurants(
       search: String
       status: RestaurantStatus
@@ -2745,6 +2763,7 @@ export const typeDefs = `#graphql
     requestPasswordReset(email: String!, app: String): MessagePayload!
     resetPassword(token: String!, newPassword: String!): MessagePayload!
     submitContactForm(input: ContactFormInput!): MessagePayload!
+    createOwnerSupportTicket(input: CreateOwnerSupportTicketInput!): SupportTicket!
     sendRestaurantInquiry(input: RestaurantInquiryInput!): MessagePayload!
     requestDocsAccess(input: RequestDocsAccessInput!): MessagePayload!
     requestDocsAccessOtp(email: String!): MessagePayload!

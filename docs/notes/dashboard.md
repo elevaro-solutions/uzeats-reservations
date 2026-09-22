@@ -1,6 +1,26 @@
+## [2026-09-22] Settings is a hub; profile form lives on `/restaurant-profile`
+- `/settings` is now a `HubLinkCards`-only hub like Grow/Insights — no restaurant selector, no forms. The full restaurant profile form (name/description/cuisine, location, contact & deposits, loyalty, logo, photos, booking widget + share panel, public URL/slug, and the online-reservations/operations preferences form) moved to `/restaurant-profile`, added to `PARTNER_PAGES` with `parentSiderHref: '/settings'` so it stays out of the sider but shows as the first Setup tools card and stays searchable.
+- `/restaurant-profile` uses the same sticky left group nav as Admin Manage (`ManageDetailGroups` in `components/ManageDetailGroups.tsx`). Sections: listing, photos, contact, address, policies, operations, widget, slug. URL is `?section=` (plus `?restaurant=`). Discovery / FAQ / Press stay on Grow **Public profile** (change requests). One **Save changes** writes `updateRestaurant` and `updateRestaurantSettings`.
+- Anything that used to deep-link straight into the profile form on `/settings` (onboarding `profile`/`golive` steps, the `/edit` legacy redirect, and the restaurant-row "Settings" actions/name links on `/` and `/restaurants`) now points at `/restaurant-profile` instead. `DashShell`'s `/edit` sider-highlight override still resolves to `/settings` (the hub) since `/restaurant-profile` isn't in the sider.
+- Why it matters: Don't add new profile fields back onto `/settings` — that page must stay a thin card grid; extend `/restaurant-profile` groups. Don't import `AdminManageRestaurant` into the partner page (owner, featured, live slug write).
+
+## [2026-09-22] Partner Support tickets
+- `/support` lets owners and staff file `createOwnerSupportTicket`. Requester is the caller; restaurant must be one they own or are assigned to. Payload strips notes and assignee; attachments stay visible.
+- Description is TipTap HTML (`sanitizeSupportHtml` + `htmlToPlainText` min 10). Image attachments (JPEG/PNG/WebP/GIF, max 8 × 10MB) go on `CreateOwnerSupportTicketInput`.
+- Nav: Account → Support (sidebar + profile menu + ⌘K). Admin queue is still `/admin/support`.
+- Why it matters: Don’t reuse admin `createSupportTicket` from the partner dashboard. Don’t hide owner screenshots in `toRequesterVisibleTicket`.
+
+## [2026-09-22] Sidebar hubs: Grow, Insights, Billing, Platform
+- Partner sider omits pages with `parentSiderHref` (Grow/Insights children, Settings tools, Guests loyalty/reviews). Hubs: `/grow`, `/insights`; Settings cards include floor setup.
+- Admin sider omits billing/platform children; hubs: `/admin/billing`, `/admin/platform`. Overview shortcuts match.
+- `siderKeyForPathname` keeps the parent hub selected; pending profile badge sits on Grow.
+- Why it matters: Don’t re-list every tool in the sider — extend `PARTNER_PAGES` / `ADMIN_PAGES` with `parentSiderHref` + description and use `HubLinkCards` / `hubChildPages`.
+
 ## [2026-09-22] My restaurants table: name link + More menu
-- Table names are `/settings?restaurant=` links (also write `activeRestaurantId`). Reservations / Layout / Settings live in a More dropdown like admin restaurants.
-- Why it matters: Don’t put those three as fixed-right link buttons — they clip Location. Cards still keep footer actions.
+- Table names are `/settings?restaurant=` links. Reservations / Layout / Settings live in a More dropdown like admin restaurants.
+- Overview **All locations today** uses the same pattern: name → Settings, More → Reservations / Waitlist / Floor.
+- `restaurantHref` / `isInactiveRestaurant` live in `lib/restaurants.ts`. Don’t put those three as fixed-right link buttons — they clip columns. Cards still keep footer actions.
+- Why it matters: Name links must not call `selectRestaurant` in `onClick` — that re-renders DashShell and can abort Next.js navigation. Let `?restaurant=` switch the venue.
 
 ## [2026-09-22] Diner and guest list exports
 - `/admin/diners` Export menu downloads the current search as Excel, PDF, or JSON (`exportAdminDiners`).
@@ -37,7 +57,7 @@
 - Why it matters: “Floor ops” vs “Floor plan” is easy to mix up; a small dashed grid on a wide Live floor card is the shrink-wrap loop.
 
 ## [2026-09-21] Page search is role-aware and shares the nav catalog
-- `lib/dashboardNav.tsx` is the source of truth for Partner Hub and admin pages (sidebar + ⌘K search). Settings tools (`/menu`, `/blackouts`, …) are searchable but stay out of the sider.
+- `lib/dashboardNav.tsx` is the source of truth for Partner Hub and admin pages (sidebar + ⌘K search). Pages with `parentSiderHref` stay searchable but out of the sider (hubs: Grow, Insights, Settings tools, admin Billing/Platform).
 - `DashboardSearch` mounts from `DashShell` (header + mobile drawer). Partners can also switch restaurants from the palette. Recent picks live in `localStorage` (`rt-dash-recent-pages`).
 - Why it matters: Don’t hardcode a second nav list for search — extend `PARTNER_PAGES` / `ADMIN_PAGES` instead.
 
@@ -47,7 +67,7 @@
 - Why it matters: Don’t reuse `restaurantReservations` without an id for the admin queue.
 
 ## [2026-09-21] Partner add-restaurant lives on `/restaurants?create=1`
-- Header location Select footer, plus icon, Overview extra/empty state, and onboarding empty state all open My restaurants with `create=1`.
+- Location Select footer, Overview extra/empty state, and onboarding empty state open My restaurants with `create=1`. There is no header plus icon.
 - The create modal strips `create` from the URL on cancel so refresh does not reopen it. Staff do not see the actions (`canCreateRestaurant`).
 - The location Select `open` is closed on add/navigation so the dropdown does not sit on top of the modal (DashShell stays mounted).
 - The footer uses `preventDefault` + `stopPropagation` on mousedown so the Select does not swallow the click. That combo is wrong for popup inputs (it blocks typing) — button-only footers are fine.

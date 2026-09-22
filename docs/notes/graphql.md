@@ -1,5 +1,11 @@
 # GraphQL — Learnings & Observations
 
+## [2026-09-22] Owner tickets are a separate mutation
+- `createOwnerSupportTicket` / `myOwnerSupportTickets` require `restaurant_owner` or `staff`. Requester is the caller. Restaurant id is access-checked. Payload clears notes and assignee; attachments remain.
+- Description is sanitized TipTap HTML. Attachments are image-only (`OwnerSupportAttachmentInput`).
+- Admin `createSupportTicket` / `supportTickets` stay `requireAdmin`.
+- Why it matters: Don’t expose the admin ticket mutations to partner clients. Diners do not have a ticket mutation.
+
 ## [2026-09-18] SendGrid click tracking breaks reset HTTPS
 - Password-reset (and other) emails were rewritten onto SendGrid’s click-tracking host, which showed “connection is not private.” `sendViaSendGrid` now sends `tracking_settings.click_tracking.enable: false` (and open tracking off). Reset links use `WEB_APP_URL` / `DASHBOARD_APP_URL` with trailing slashes stripped.
 - Why it matters: Don’t re-enable SendGrid click tracking unless that domain has a valid cert and the app can still read the original `token` query.

@@ -91,6 +91,7 @@ export const MY_RESTAURANTS = gql`
       menuUrl
       address {
         line1
+        line2
         city
         state
         zip
@@ -839,6 +840,52 @@ export const REMOVE_USER_RESTAURANT = gql`
   mutation RemoveUserRestaurant($userId: ID!, $restaurantId: ID!) {
     removeUserRestaurant(userId: $userId, restaurantId: $restaurantId) {
       id restaurantIds
+    }
+  }
+`;
+
+export const MY_OWNER_SUPPORT_TICKETS = gql`
+  query MyOwnerSupportTickets($status: String, $limit: Int, $offset: Int) {
+    myOwnerSupportTickets(status: $status, limit: $limit, offset: $offset) {
+      total
+      items {
+        id
+        subject
+        subjectKey
+        description
+        status
+        category
+        restaurantId
+        restaurant {
+          id
+          name
+        }
+        createdAt
+        updatedAt
+        attachments {
+          id
+          url
+          filename
+          contentType
+          size
+        }
+      }
+    }
+  }
+`;
+
+export const CREATE_OWNER_SUPPORT_TICKET = gql`
+  mutation CreateOwnerSupportTicket($input: CreateOwnerSupportTicketInput!) {
+    createOwnerSupportTicket(input: $input) {
+      id
+      subject
+      status
+      createdAt
+      attachments {
+        id
+        url
+        filename
+      }
     }
   }
 `;
@@ -2156,6 +2203,7 @@ export const UPDATE_RESTAURANT = gql`
       menuUrl
       address {
         line1
+        line2
         city
         state
         zip

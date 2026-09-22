@@ -8,6 +8,11 @@ import {
   CUISINES,
   WAITLIST_STATUSES,
   REVIEW_MAX_PHOTOS,
+  OWNER_SUPPORT_TICKET_SUBJECT_KEYS,
+  SUPPORT_TICKET_ATTACHMENT_CONTENT_TYPES,
+  SUPPORT_TICKET_ATTACHMENT_MAX_BYTES,
+  SUPPORT_TICKET_ATTACHMENT_MAX_COUNT,
+  SUPPORT_TICKET_DESCRIPTION_MAX_LENGTH,
 } from "./constants.js";
 import {
   isReservedRestaurantSlug,
@@ -549,6 +554,129 @@ export const contactFormInputSchema = z.object({
 });
 
 export type ContactFormInput = z.infer<typeof contactFormInputSchema>;
+
+export function htmlToPlainText(html: string) {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const SUPPORT_HTML_TAGS = new Set([
+  "p",
+  "br",
+  "strong",
+  "b",
+  "em",
+  "i",
+  "u",
+  "s",
+  "h2",
+  "h3",
+  "ul",
+  "ol",
+  "li",
+  "a",
+  "blockquote",
+  "table",
+  "thead",
+  "tbody",
+  "tr",
+  "th",
+  "td",
+  "code",
+]);
+
+/** Allow TipTap markup; drop scripts, event handlers, and unknown tags. */
+export function sanitizeSupportHtml(html: string) {
+  let out = html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/javascript:/gi, "");
+
+  out = out.replace(
+    /<\/?([a-z0-9]+)(\s[^>]*)?>/gi,
+    (full, tag: string, attrs = "") => {
+      const name = tag.toLowerCase();
+      const closing = full.startsWith("</");
+      if (!SUPPORT_HTML_TAGS.has(name)) return "";
+      if (closing) return `</${name}>`;
+      if (name === "br") return "<br>";
+      if (name === "a") {
+        const hrefMatch = String(attrs).match(
+          /href\s*=\s*("([^"]*)"|'([^']*)')/i,
+        );
+        const href = hrefMatch?.[2] ?? hrefMatch?.[3] ?? "";
+        if (!/^https?:\/\//i.test(href)) return "";
+        return `<a href="${href.replace(/"/g, "")}" rel="noopener noreferrer" target="_blank">`;
+      }
+      return `<${name}>`;
+    },
+  );
+
+  return out.trim();
+}
+
+export const ownerSupportAttachmentInputSchema = z.object({
+  url: z.string().trim().min(1).max(2000),
+  key: z.string().trim().max(500).optional(),
+  filename: z.string().trim().min(1).max(255),
+  contentType: z.enum(SUPPORT_TICKET_ATTACHMENT_CONTENT_TYPES),
+  size: z
+    .number()
+    .int()
+    .min(0)
+    .max(SUPPORT_TICKET_ATTACHMENT_MAX_BYTES)
+    .optional(),
+});
+
+export type OwnerSupportAttachmentInput = z.infer<
+  typeof ownerSupportAttachmentInputSchema
+>;
+
+export const ownerSupportTicketInputSchema = z
+  .object({
+    subjectKey: z.enum(OWNER_SUPPORT_TICKET_SUBJECT_KEYS),
+    subject: z.string().trim().max(200).optional(),
+    description: z.string().trim().max(SUPPORT_TICKET_DESCRIPTION_MAX_LENGTH),
+    restaurantId: z
+      .string()
+      .trim()
+      .min(1)
+      .optional()
+      .transform((value) => value || undefined),
+    attachments: z
+      .array(ownerSupportAttachmentInputSchema)
+      .max(SUPPORT_TICKET_ATTACHMENT_MAX_COUNT)
+      .optional()
+      .default([]),
+  })
+  .superRefine((value, ctx) => {
+    if (value.subjectKey === "other" && !value.subject) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter a subject",
+        path: ["subject"],
+      });
+    }
+    if (htmlToPlainText(value.description).length < 10) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please describe the issue in at least 10 characters",
+        path: ["description"],
+      });
+    }
+  });
+
+export type OwnerSupportTicketInput = z.infer<typeof ownerSupportTicketInputSchema>;
 
 export const requestDocsAccessInputSchema = z.object({
   email: emailSchema,

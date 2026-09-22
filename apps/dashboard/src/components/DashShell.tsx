@@ -31,6 +31,7 @@ import {
   CheckOutlined,
   FileDoneOutlined,
   ControlOutlined,
+  CustomerServiceOutlined,
   EyeOutlined,
   MenuOutlined,
   PlusOutlined,
@@ -61,6 +62,7 @@ import {
   adminSiderPages,
   groupPagesForMenu,
   partnerSiderPages,
+  siderKeyForPathname,
 } from '@/lib/dashboardNav';
 import {
   DashboardSearch,
@@ -93,18 +95,6 @@ function navLink(href: string, label: string, count?: number) {
 function menuItem(href: string, icon: React.ReactNode, label: string, count?: number) {
   return { key: href, icon, label: navLink(href, label, count) };
 }
-
-const SETTINGS_PREFIXES = [
-  '/settings',
-  '/edit',
-  '/menu',
-  '/blackouts',
-  '/access-rules',
-  '/surveys',
-  '/groups',
-  '/integrations',
-  '/notifications',
-];
 
 function parseNotificationData(data: string | null | undefined): Record<string, unknown> {
   if (!data) return {};
@@ -289,45 +279,8 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   }, [pathname]);
 
   const selectedKey = useMemo(() => {
-    if (pathname.startsWith('/admin')) {
-      if (pathname === '/admin' || pathname === '/admin/') return '/admin';
-      const segments = pathname.split('/').filter(Boolean);
-      if (segments.length >= 2) return `/${segments[0]}/${segments[1]}`;
-      return pathname;
-    }
-    if (SETTINGS_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
-      return '/settings';
-    }
-    if (pathname === '/reservations' || pathname.startsWith('/reservations/')) {
-      return '/reservations';
-    }
-    const exact = [
-      '/',
-      '/restaurants',
-      '/onboarding',
-      '/reservations',
-      '/waitlist',
-      '/floor-ops',
-      '/floor-plan',
-      '/floor',
-      '/guests',
-      '/loyalty',
-      '/messages',
-      '/reviews',
-      '/marketing',
-      '/profile',
-      '/booking-widget',
-      '/campaigns',
-      '/experiences',
-      '/packages',
-      '/private-dining',
-      '/analytics',
-      '/reports',
-      '/billing',
-      '/settings',
-    ];
-    if (exact.includes(pathname)) return pathname;
-    return pathname;
+    if (pathname === '/edit' || pathname.startsWith('/edit/')) return '/settings';
+    return siderKeyForPathname(pathname, pathname.startsWith('/admin') ? 'admin' : 'partner');
   }, [pathname]);
 
   const restaurants = restaurantsData?.myRestaurants ?? [];
@@ -356,7 +309,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
 
   const items = useMemo(() => {
     const badgeByHref: Record<string, number> = {
-      '/profile': ownerPendingProfile,
+      '/grow': ownerPendingProfile,
       '/admin/slug-requests': pendingSlugRequests,
       '/admin/profile-requests': pendingProfileRequests,
     };
@@ -461,6 +414,12 @@ export function DashShell({ children }: { children: React.ReactNode }) {
             icon: <DollarOutlined />,
             label: 'Billing',
             onClick: () => router.push('/billing'),
+          },
+          {
+            key: 'support',
+            icon: <CustomerServiceOutlined />,
+            label: 'Support',
+            onClick: () => router.push('/support'),
           },
         ]),
     ...(isAdmin
@@ -717,18 +676,6 @@ export function DashShell({ children }: { children: React.ReactNode }) {
                       : undefined
                   }
                 />
-                {canAddRestaurant && (
-                  <Tooltip title="Add restaurant">
-                    <Button
-                      type="text"
-                      size="small"
-                      className="rt-dash-add-restaurant"
-                      icon={<PlusOutlined />}
-                      aria-label="Add restaurant"
-                      onClick={goAddRestaurant}
-                    />
-                  </Tooltip>
-                )}
                 {dinerPageUrl && (
                   <Button
                     type="default"

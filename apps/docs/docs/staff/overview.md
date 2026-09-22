@@ -25,23 +25,27 @@ The Restaurant Dashboard is a **fixed operational layout**. Partners cannot add,
 
 ## Dashboard sections (staff & owners)
 
+Daily work stays in the sidebar. Less frequent tools live under hubs (still findable with ⌘K).
+
 | Section | Purpose |
 |---|---|
 | **Reservations** | List with status and date presets; dedicated booking detail; create phone/walk-in reservations |
-| **Reviews** | Diner ratings and photos; reply (optional Gemini draft) and add photos to the gallery |
+| **Waitlist** | Manage waiting parties and notify on openings |
 | **Live floor** | Live seating: per-area grids, assign and seat guests |
+| **Guests** | Per-venue CRM list with VIP status and tags; Excel/PDF export. **Loyalty** and **Reviews** open from cards on this page |
+| **Messages** | Guest conversations tied to reservations |
+| **Grow** | Hub for marketing, public profile, booking widget, campaigns, experiences, packages, private dining |
+| **Insights** | Hub for analytics and reports |
+| **Settings** | Restaurant profile plus setup tools (menu, blackouts, access rules, table layout, tables & shifts, notifications, …) |
+| **Support** | Open a ticket with Tablevera about billing, settings, or the dashboard |
+
+### Setup tools (Settings hub)
+
+| Tool | Purpose |
+|---|---|
 | **Table layout** | Visual table layout with rotation and a resizable canvas |
 | **Tables & shifts** | Table inventory and hours; add/edit in modals; searchable floor areas |
-| **Waitlist** | Manage waiting parties and notify on openings |
-| **Messages** | Guest conversations tied to reservations |
-| **Campaigns** | Marketing campaigns to past guests (owner) |
-| **Guests** | Per-venue CRM list with VIP status and tags; Excel/PDF export of the current filters |
-| **Reports** | Covers, revenue, and utilization metrics |
-| **Private dining** | Large-party and event inquiries |
-| **Packages** | Occasion add-ons diners select at booking |
-| **Settings** | Restaurant profile, menu, hours, blackouts, access rules |
-| **Booking widget** | Copy embed code for your website and customize the button theme |
-| **Notifications** | Channel preferences for operational alerts |
+| **Menu / Blackouts / Access rules / …** | Less frequent venue configuration |
 
 ## Owner-only areas
 
@@ -67,8 +71,8 @@ Progress is computed in `apps/dashboard/src/lib/onboarding.ts`.
 
 ## Getting help
 
-- In-dashboard support tickets (when enabled)
-- Platform admin support queue for escalations
+- **Support** in the sidebar (or the profile menu) — owners and staff can open a tracked ticket
+- Platform admin **Tickets** queue for escalations
 - Documentation: [Daily operations](/staff/daily-operations)
 
 ## Demo tips

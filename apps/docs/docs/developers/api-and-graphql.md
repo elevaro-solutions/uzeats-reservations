@@ -31,6 +31,7 @@ Major domains in the schema:
 - **Waitlist** — join, notify, convert to booking
 - **Loyalty & promotions** — points, tiers, gift cards, promo codes
 - **Billing** — Stripe subscriptions, invoices, plan changes
+- **Support** — partner (`createOwnerSupportTicket`) tickets with HTML details and image attachments; admin queue
 - **Admin** — users, reservations, moderation, platform config, support tickets, slug requests
 - **Notifications** — inbox, preferences, push subscriptions
 

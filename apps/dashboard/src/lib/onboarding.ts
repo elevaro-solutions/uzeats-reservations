@@ -44,7 +44,7 @@ export function getOnboardingSteps(restaurant: OnboardingRestaurant): Onboarding
       key: 'profile',
       title: 'Complete your profile',
       description: 'Add photos, a phone number, and a short description so guests know what to expect.',
-      href: '/settings',
+      href: '/restaurant-profile',
       required: true,
       complete: profileComplete,
     },
@@ -81,7 +81,10 @@ export function getOnboardingSteps(restaurant: OnboardingRestaurant): Onboarding
           : restaurant.status === 'suspended'
             ? 'Your listing is suspended. Contact support to restore access.'
             : 'We review new restaurants within 1–2 business days. You will be notified by email.',
-      href: '/onboarding',
+      href:
+        restaurant.status === 'rejected' || restaurant.status === 'suspended'
+          ? '/support'
+          : '/onboarding',
       required: true,
       complete: approved,
       waiting: !approved && restaurant.status === 'pending',
@@ -90,7 +93,7 @@ export function getOnboardingSteps(restaurant: OnboardingRestaurant): Onboarding
       key: 'golive',
       title: 'Share your booking link',
       description: 'Copy your public booking page and embed the widget on your website.',
-      href: '/settings',
+      href: '/restaurant-profile',
       required: false,
       complete: approved,
     },

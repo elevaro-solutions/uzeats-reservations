@@ -1,4 +1,10 @@
-import { SUPPORT_TICKET_SUBJECTS, isPlatformAdmin, type UserRole } from '@reservations/shared';
+import {
+  SUPPORT_TICKET_SUBJECTS,
+  ownerSupportTicketInputSchema,
+  isPlatformAdmin,
+  sanitizeSupportHtml,
+  type UserRole,
+} from '@reservations/shared';
 import { SupportTicket } from '../models/SupportTicket.js';
 import { User } from '../models/User.js';
 import { Restaurant } from '../models/Restaurant.js';
@@ -196,6 +202,14 @@ export async function getSupportTicket(id: string) {
   return enriched;
 }
 
+type SupportAttachmentInput = {
+  url: string;
+  key?: string;
+  filename: string;
+  contentType: string;
+  size?: number;
+};
+
 export async function createSupportTicket(input: {
   subject?: string;
   subjectKey?: string;
@@ -207,6 +221,7 @@ export async function createSupportTicket(input: {
   assigneeId?: string;
   note?: string;
   authorId: string;
+  attachments?: SupportAttachmentInput[];
 }) {
   const resolved = resolveSubject({
     subject: input.subject,
@@ -219,14 +234,22 @@ export async function createSupportTicket(input: {
   const doc = await SupportTicket.create({
     subject: resolved.subject,
     subjectKey: resolved.subjectKey,
-    description: input.description?.trim() ?? '',
+    description: sanitizeSupportHtml(input.description?.trim() ?? ''),
     priority: input.priority ?? 'normal',
     category: input.category ?? resolved.category ?? 'other',
     requesterId: input.requesterId,
     restaurantId: input.restaurantId,
     assigneeId: input.assigneeId,
     notes,
-    attachments: [],
+    attachments: (input.attachments ?? []).map((attachment) => ({
+      url: attachment.url,
+      key: attachment.key,
+      filename: attachment.filename,
+      contentType: attachment.contentType,
+      size: attachment.size,
+      uploadedById: input.authorId,
+      createdAt: now,
+    })),
     events: [
       {
         type: 'created',
@@ -260,6 +283,102 @@ export async function createSupportTicket(input: {
   });
   const [enriched] = await enrichTickets([mapSupportTicket(doc)]);
   return enriched;
+}
+
+const REQUESTER_VISIBLE_EVENTS = new Set(['created', 'status_changed']);
+
+function toRequesterVisibleTicket(ticket: {
+  events?: Array<{ type: string }>;
+  [key: string]: unknown;
+}) {
+  return {
+    ...ticket,
+    notes: [],
+    assigneeId: null,
+    assignee: null,
+    events: (ticket.events ?? []).filter((event) => REQUESTER_VISIBLE_EVENTS.has(event.type)),
+  };
+}
+
+async function assertPartnerRestaurantAccess(input: {
+  userId: string;
+  restaurantIds: Array<{ toString(): string } | string>;
+  role: string;
+  restaurantId: string;
+}) {
+  if (isPlatformAdmin(input.role as UserRole)) return;
+  const restaurant = await Restaurant.findById(input.restaurantId).select('ownerId');
+  if (!restaurant) throw new Error('Restaurant not found');
+  if (restaurant.ownerId.toString() === input.userId) return;
+  const allowed = input.restaurantIds.some((id) => id.toString() === input.restaurantId);
+  if (!allowed) throw new Error('Forbidden');
+}
+
+export async function createOwnerSupportTicket(input: {
+  userId: string;
+  restaurantIds: Array<{ toString(): string } | string>;
+  role: string;
+  subjectKey: string;
+  subject?: string;
+  description: string;
+  restaurantId?: string | null;
+  attachments?: SupportAttachmentInput[];
+}) {
+  const parsed = ownerSupportTicketInputSchema.parse({
+    subjectKey: input.subjectKey,
+    subject: input.subject,
+    description: input.description,
+    restaurantId: input.restaurantId ?? undefined,
+    attachments: input.attachments,
+  });
+
+  if (parsed.restaurantId) {
+    await assertPartnerRestaurantAccess({
+      userId: input.userId,
+      restaurantIds: input.restaurantIds,
+      role: input.role,
+      restaurantId: parsed.restaurantId,
+    });
+  }
+
+  const created = await createSupportTicket({
+    subjectKey: parsed.subjectKey,
+    subject: parsed.subject,
+    description: parsed.description,
+    restaurantId: parsed.restaurantId,
+    requesterId: input.userId,
+    authorId: input.userId,
+    priority: 'normal',
+    attachments: parsed.attachments,
+  });
+  if (!created) throw new Error('Could not create support ticket');
+  return toRequesterVisibleTicket(created);
+}
+
+export async function listOwnerSupportTickets(input: {
+  userId: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const limit = Math.min(input.limit ?? 20, 50);
+  const offset = input.offset ?? 0;
+  const filter: Record<string, unknown> = { requesterId: input.userId };
+  if (input.status) filter.status = input.status;
+  const [items, total] = await Promise.all([
+    SupportTicket.find(filter).sort({ updatedAt: -1 }).skip(offset).limit(limit),
+    SupportTicket.countDocuments(filter),
+  ]);
+  const mapped = items.map(mapSupportTicket);
+  const enriched = await enrichTickets(mapped);
+  return { total, items: enriched.map(toRequesterVisibleTicket) };
+}
+
+export async function getOwnerSupportTicket(userId: string, id: string) {
+  const doc = await SupportTicket.findOne({ _id: id, requesterId: userId });
+  if (!doc) return null;
+  const [enriched] = await enrichTickets([mapSupportTicket(doc)]);
+  return enriched ? toRequesterVisibleTicket(enriched) : null;
 }
 
 export async function updateSupportTicket(
@@ -321,7 +440,7 @@ export async function updateSupportTicket(
   }
 
   if (input.description !== undefined) {
-    doc.description = input.description.trim();
+    doc.description = sanitizeSupportHtml(input.description.trim());
   }
 
   if (input.status !== undefined && input.status !== doc.status) {

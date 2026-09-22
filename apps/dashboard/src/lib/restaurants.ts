@@ -4,6 +4,15 @@ export const MANY_LOCATIONS_THRESHOLD = 6;
 /** Opens the partner "Add restaurant" create flow on My restaurants. */
 export const ADD_RESTAURANT_HREF = '/restaurants?create=1';
 
+/** Partner Hub path with `?restaurant=` so DashShell can switch the active venue. */
+export function restaurantHref(path: string, id: string) {
+  return `${path}?restaurant=${encodeURIComponent(id)}`;
+}
+
+export function isInactiveRestaurant(status: string) {
+  return status === 'rejected' || status === 'suspended';
+}
+
 export type OwnerRestaurant = {
   id: string;
   name: string;

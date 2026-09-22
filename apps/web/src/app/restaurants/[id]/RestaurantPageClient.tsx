@@ -1267,7 +1267,7 @@ export default function RestaurantPageClient() {
                 help={fieldErrors.guestNotes}
               >
                 <Input.TextArea
-                  rows={2}
+                  rows={3}
                   value={notes}
                   onChange={(e) => {
                     setNotes(e.target.value);
@@ -1275,6 +1275,7 @@ export default function RestaurantPageClient() {
                   }}
                   maxLength={500}
                   showCount
+                  style={{ marginBottom: 10 }}
                   status={fieldErrors.guestNotes ? 'error' : undefined}
                   placeholder="Allergies, seating preferences, celebration details..."
                 />

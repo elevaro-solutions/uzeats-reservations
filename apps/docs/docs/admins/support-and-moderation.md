@@ -2,7 +2,7 @@
 
 ## Support tickets
 
-Diners and partners can open support requests that land in **Admin → Support**.
+Restaurant owners and staff can open tickets from Partner Hub **Support** (`/support`, `createOwnerSupportTicket`). The message is rich text; screenshots (JPEG, PNG, WebP, GIF) can be attached. An admin can also file a ticket on someone’s behalf. All tickets land in **Admin → Tickets**. Diners use the public contact form, not tickets.
 
 ### Ticket workflow
 

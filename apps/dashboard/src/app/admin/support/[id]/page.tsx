@@ -21,6 +21,7 @@ import {
   Timeline,
   Typography,
   Upload,
+  Image,
   message,
 } from 'antd';
 import {
@@ -31,8 +32,9 @@ import {
   PaperClipOutlined,
 } from '@ant-design/icons';
 import type { RcFile } from 'antd/es/upload';
-import { PageHeader, spacing } from '@reservations/ui';
 import { SUPPORT_TICKET_SUBJECTS } from '@reservations/shared';
+import { PageHeader, spacing } from '@reservations/ui';
+import { RichTextEditor } from '@/components/RichTextEditor';
 import {
   ADD_SUPPORT_ATTACHMENT,
   ADD_SUPPORT_NOTE,
@@ -69,6 +71,7 @@ export default function SupportTicketDetailPage() {
   const { user } = useAuth();
   const { ready } = useRequireAdmin();
   const [note, setNote] = useState('');
+  const [descriptionDraft, setDescriptionDraft] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [editingNote, setEditingNote] = useState<{ id: string; body: string } | null>(null);
   const [editingAttachment, setEditingAttachment] = useState<{
@@ -147,8 +150,10 @@ export default function SupportTicketDetailPage() {
       await updateTicket({ variables: { id, ...variables } });
       message.success(success);
       refetch();
+      return true;
     } catch (err: any) {
       message.error(err.message || 'Update failed');
+      return false;
     }
   };
 
@@ -275,18 +280,28 @@ export default function SupportTicketDetailPage() {
                     </Form.Item>
                   )}
                   <Form.Item label="Description">
-                    <Input.TextArea
-                      rows={4}
-                      defaultValue={ticket.description}
-                      key={ticket.description}
-                      maxLength={5000}
-                      onBlur={(e) => {
-                        const next = e.target.value.trim();
-                        if (next !== (ticket.description ?? '')) {
-                          patch({ description: next }, 'Description updated');
-                        }
-                      }}
+                    <RichTextEditor
+                      minHeight={160}
+                      value={descriptionDraft ?? ticket.description}
+                      onChange={setDescriptionDraft}
+                      placeholder="Ticket details"
                     />
+                    <Button
+                      style={{ marginTop: 8 }}
+                      disabled={
+                        descriptionDraft == null || descriptionDraft === ticket.description
+                      }
+                      loading={updating}
+                      onClick={async () => {
+                        const ok = await patch(
+                          { description: descriptionDraft },
+                          'Description updated',
+                        );
+                        if (ok) setDescriptionDraft(null);
+                      }}
+                    >
+                      Save description
+                    </Button>
                   </Form.Item>
                   <Space wrap style={{ width: '100%' }}>
                     <Form.Item label="Status" style={{ minWidth: 160 }}>
@@ -403,6 +418,7 @@ export default function SupportTicketDetailPage() {
               loading={loading}
               extra={
                 <Upload
+                  accept="image/jpeg,image/png,image/webp,image/gif"
                   showUploadList={false}
                   beforeUpload={onUpload}
                   disabled={uploading || !ticket}
@@ -464,7 +480,19 @@ export default function SupportTicketDetailPage() {
                     return (
                       <List.Item actions={actions}>
                         <List.Item.Meta
-                          avatar={<FileOutlined />}
+                          avatar={
+                            item.contentType?.startsWith('image/') ? (
+                              <Image
+                                src={item.url}
+                                alt={item.filename}
+                                width={48}
+                                height={48}
+                                style={{ objectFit: 'cover', borderRadius: 6 }}
+                              />
+                            ) : (
+                              <FileOutlined />
+                            )
+                          }
                           title={item.filename}
                           description={`${item.contentType}${formatBytes(item.size) ? ` · ${formatBytes(item.size)}` : ''} · ${personLabel(item.uploadedBy)} · ${new Date(item.createdAt).toLocaleString('en-US')}`}
                         />
