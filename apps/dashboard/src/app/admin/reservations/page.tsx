@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback } from 'react';
+import { Suspense, useCallback, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
@@ -18,7 +18,7 @@ import {
   message,
 } from 'antd';
 import type { MenuProps } from 'antd';
-import { CalendarOutlined, EyeOutlined, MoreOutlined, SearchOutlined } from '@ant-design/icons';
+import { CalendarOutlined, CheckCircleOutlined, CloseCircleOutlined, DeleteOutlined, EyeOutlined, LoginOutlined, MoreOutlined, SearchOutlined, ShopOutlined, UserDeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { formatUsDateTime } from '@reservations/shared';
 import { PageHeader, StatusTag, spacing } from '@reservations/ui';
@@ -32,6 +32,7 @@ import { formatOccasion, formatSource, guestName } from '@/lib/reservationFormat
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useUrlListFilters } from '@/lib/useUrlListFilters';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { CancelReservationModal } from '@/components/CancelReservationModal';
 
 const { Text } = Typography;
 
@@ -147,6 +148,7 @@ function AdminReservationsContent() {
   });
 
   const [updateStatus, { loading: updating }] = useMutation(UPDATE_RESERVATION_STATUS);
+  const [cancelFor, setCancelFor] = useState<ReservationRow | null>(null);
   const [deleteReservation] = useMutation(DELETE_RESERVATION);
 
   if (!ready) return null;
@@ -157,13 +159,20 @@ function AdminReservationsContent() {
     (r: { id: string; name: string }) => ({ value: r.id, label: r.name }),
   );
 
-  const runStatus = async (id: string, nextStatus: string, successMessage: string) => {
+  const runStatus = async (
+    id: string,
+    nextStatus: string,
+    successMessage: string,
+    reason?: string,
+  ) => {
     try {
-      await updateStatus({ variables: { id, status: nextStatus } });
+      await updateStatus({ variables: { id, status: nextStatus, reason } });
       message.success(successMessage);
       refetch();
+      return true;
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Update failed');
+      return false;
     }
   };
 
@@ -188,6 +197,7 @@ function AdminReservationsContent() {
     if (r.status === 'pending') {
       actions.push({
         key: 'confirm',
+        icon: <CheckCircleOutlined />,
         label: 'Confirm',
         onClick: () => void runStatus(r.id, 'confirmed', 'Confirmed'),
       });
@@ -195,6 +205,7 @@ function AdminReservationsContent() {
     if (r.status === 'confirmed') {
       actions.push({
         key: 'seat',
+        icon: <LoginOutlined />,
         label: 'Seat',
         onClick: () => void runStatus(r.id, 'seated', 'Seated'),
       });
@@ -202,6 +213,7 @@ function AdminReservationsContent() {
     if (r.status === 'seated') {
       actions.push({
         key: 'complete',
+        icon: <CheckCircleOutlined />,
         label: 'Complete',
         onClick: () => void runStatus(r.id, 'completed', 'Completed'),
       });
@@ -209,6 +221,7 @@ function AdminReservationsContent() {
     if (r.status === 'confirmed' || r.status === 'seated') {
       actions.push({
         key: 'no_show',
+        icon: <UserDeleteOutlined />,
         label: 'No-show',
         onClick: () => void runStatus(r.id, 'no_show', 'Marked no-show'),
       });
@@ -216,19 +229,22 @@ function AdminReservationsContent() {
     if (r.status === 'pending' || r.status === 'confirmed') {
       actions.push({
         key: 'cancel',
+        icon: <CloseCircleOutlined />,
         danger: true,
         label: 'Cancel',
-        onClick: () => void runStatus(r.id, 'cancelled', 'Cancelled'),
+        onClick: () => setCancelFor(r),
       });
     }
     actions.push({ type: 'divider' });
     actions.push({
       key: 'venue',
+      icon: <ShopOutlined />,
       label: 'Open restaurant',
       onClick: () => router.push(`/admin/restaurants/${r.restaurantId}?tab=reservations`),
     });
     actions.push({
       key: 'delete',
+      icon: <DeleteOutlined />,
       danger: true,
       label: 'Delete',
       onClick: async () => {
@@ -429,6 +445,18 @@ function AdminReservationsContent() {
           }}
         />
       </Card>
+
+      <CancelReservationModal
+        open={!!cancelFor}
+        guestName={cancelFor ? guestName(cancelFor.diner) : undefined}
+        loading={updating}
+        onClose={() => setCancelFor(null)}
+        onConfirm={async (reason) => {
+          if (!cancelFor) return;
+          const ok = await runStatus(cancelFor.id, 'cancelled', 'Reservation cancelled', reason);
+          if (ok) setCancelFor(null);
+        }}
+      />
     </>
   );
 }

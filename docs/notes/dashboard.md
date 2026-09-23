@@ -1,5 +1,15 @@
 # Dashboard — Learnings & Observations
 
+## [2026-09-23] TextArea showCount needs reserved margin
+- Ant Design 6 positions `.ant-input-data-count` at `bottom: -1lh` outside `.ant-input-textarea-show-count`. Without margin on that wrapper, the counter overlaps modal footers, `Form.Item` extras/errors, and the next field (Cancel reservation, edit booking, report review, etc.).
+- Global fix in `apps/dashboard` + `apps/web` `globals.css`: `margin-bottom: calc(var(--ant-font-size) * var(--ant-line-height))` on `.ant-input-textarea-show-count`; Form.Items that contain one use `margin-bottom: 8px` so spacing isn’t doubled with the default 24px item gap.
+- Why it matters: Don’t “fix” with per-modal padding alone; any last TextArea + `showCount` before a footer will collide.
+
+## [2026-09-23] Cancel reservation requires reason modal
+- Partner + admin cancel (list, detail, floor-ops, restaurant reservations panel) opens `CancelReservationModal` instead of immediate `updateReservationStatus` with a hardcoded string.
+- Presets: `RESTAURANT_RESERVATION_CANCELLATION_REASONS` in shared; optional message; details required when preset is `Other`. Combined via `buildReservationCancellationReason`.
+- Why it matters: Don’t reintroduce one-click cancel with `"Cancelled by restaurant"` — guests need a real reason on the notification.
+
 ## [2026-09-23] Form Save disabled until dirty
 - Shared helper: `apps/dashboard/src/lib/useFormDirty.ts` (`dirty`, `markDirty`, `clearDirty`, `onValuesChange`).
 - Pattern: clear dirty after `setFieldsValue` / open / successful save; wire `Form onValuesChange={onValuesChange}` (and `markDirty` for non-form controls like photo uploads); disable Save/Submit / Modal `okButtonProps` with `disabled={!dirty}`.

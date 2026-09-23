@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, type ReactNode } from 'react';
+import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useParams, useRouter } from 'next/navigation';
 import { Button, Card, Col, Dropdown, Modal, Row, Space, Spin, Typography, message } from 'antd';
@@ -8,6 +8,7 @@ import type { MenuProps } from 'antd';
 import {
   ArrowLeftOutlined,
   CalendarOutlined,
+  CloseCircleOutlined,
   DeleteOutlined,
   EditOutlined,
   EnvironmentOutlined,
@@ -16,6 +17,7 @@ import {
   MoreOutlined,
   PhoneOutlined,
   TeamOutlined,
+  UserDeleteOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import {
@@ -40,6 +42,7 @@ import {
   guestInitials,
   guestName as formatGuestName,
 } from '@/lib/reservationFormat';
+import { CancelReservationModal } from '@/components/CancelReservationModal';
 
 const { Text, Title } = Typography;
 
@@ -153,6 +156,7 @@ function ReservationDetailPageContent() {
   });
   const [updateStatus, { loading: updatingStatus }] = useMutation(UPDATE_RESERVATION_STATUS);
   const [deleteReservation, { loading: deleting }] = useMutation(DELETE_RESERVATION);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   const reservation = (data?.restaurantReservation ?? null) as ReservationDetail | null;
 
@@ -181,13 +185,15 @@ function ReservationDetailPageContent() {
     : '/reservations';
 
   const runStatusUpdate = async (status: string, reason?: string, successMessage?: string) => {
-    if (!reservation) return;
+    if (!reservation) return false;
     try {
       await updateStatus({ variables: { id: reservation.id, status, reason } });
       message.success(successMessage ?? 'Reservation updated');
       refetch();
+      return true;
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Update failed');
+      return false;
     }
   };
 
@@ -260,6 +266,7 @@ function ReservationDetailPageContent() {
   if (reservation.status === 'confirmed') {
     moreItems.push({
       key: 'no_show',
+      icon: <UserDeleteOutlined />,
       label: 'No-show',
       disabled: updatingStatus,
       onClick: () => runStatusUpdate('no_show'),
@@ -268,10 +275,11 @@ function ReservationDetailPageContent() {
   if (['pending', 'confirmed'].includes(reservation.status)) {
     moreItems.push({
       key: 'cancel',
+      icon: <CloseCircleOutlined />,
       label: 'Cancel',
       danger: true,
       disabled: updatingStatus,
-      onClick: () => runStatusUpdate('cancelled', 'Cancelled by restaurant'),
+      onClick: () => setCancelOpen(true),
     });
   }
   moreItems.push(
@@ -579,6 +587,17 @@ function ReservationDetailPageContent() {
           </Col>
         </Row>
       </Space>
+
+      <CancelReservationModal
+        open={cancelOpen}
+        guestName={name}
+        loading={updatingStatus}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={async (reason) => {
+          const ok = await runStatusUpdate('cancelled', reason, 'Reservation cancelled');
+          if (ok) setCancelOpen(false);
+        }}
+      />
     </div>
   );
 }

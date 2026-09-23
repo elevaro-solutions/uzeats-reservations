@@ -4,6 +4,21 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.63.0] — 2026-09-23
+
+### Added
+
+- Partner/admin **cancel reservation** confirmation modal with required preset reason and optional custom message (`RESTAURANT_RESERVATION_CANCELLATION_REASONS`)
+- Cancellation emails (`booking_cancelled`) include the preset reason and optional custom message; diner in-app/SMS copy and restaurant manager alerts do too
+
+### Changed
+
+- Reservation row/action menus now show icons for Edit, Seat, No-show, Cancel, Delete (and Confirm/Complete where present)
+
+### Fixed
+
+- TextArea character counters (`showCount`) no longer overlap modal footers or the next form field (Ant Design absolute `-1lh` count positioning)
+
 ## [0.62.0] — 2026-09-23
 
 ### Added

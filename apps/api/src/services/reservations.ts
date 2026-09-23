@@ -8,6 +8,7 @@ import {
   formatDateTimeInTimeZone,
   restaurantTimeZone,
   bookingRequiresManualApproval,
+  splitReservationCancellationReason,
 } from '@reservations/shared';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../lib/errors.js';
 import { Reservation } from '../models/Reservation.js';
@@ -39,7 +40,7 @@ import {
   scheduleReservationReminders,
 } from './notifications.js';
 import { renderEmailTemplate } from './emailTemplates.js';
-import { EMAIL_BRAND, emailButton, emailLinkFallback } from './emailBranding.js';
+import { EMAIL_BRAND, emailButton, emailLinkFallback, emailParagraph, escapeHtml } from './emailBranding.js';
 import { buildIcsAttachment, googleCalendarUrl } from './calendarInvite.js';
 import { env } from '../config/env.js';
 import { checkAccessRules } from './accessRules.js';
@@ -138,6 +139,60 @@ async function notifyDinerBookingConfirmed(input: {
       htmlBody,
       attachments: [buildIcsAttachment(event)],
       data: { reservationId: input.reservationId },
+    },
+    { smsRestaurantId: input.restaurantId },
+  );
+}
+
+async function notifyDinerBookingCancelled(input: {
+  dinerId: string;
+  restaurantId: string;
+  reservationId: string;
+  restaurantName: string;
+  slotStart: Date;
+  cancellationReason?: string | null;
+  restaurant?: Parameters<typeof restaurantTimeZone>[0] | null;
+}) {
+  const diner = await User.findById(input.dinerId);
+  const when = formatReservationWhen(input.slotStart, input.restaurant);
+  const { reason, message } = splitReservationCancellationReason(input.cancellationReason);
+  const reasonLabel = reason || 'Not provided';
+  const messageSection = message
+    ? emailParagraph(`<strong>Message:</strong> ${escapeHtml(message)}`)
+    : '';
+  const messageText = message ? `\nMessage: ${message}` : '';
+  const reservationUrl = `${publicWebBaseUrl()}/reservations/${input.reservationId}`;
+  const rendered = await renderEmailTemplate('booking_cancelled', {
+    firstName: diner?.firstName || 'there',
+    restaurantName: input.restaurantName,
+    date: when,
+    reason: reasonLabel,
+    messageSection,
+    messageText,
+  });
+  const htmlBody = [
+    rendered.bodyHtml,
+    emailButton(reservationUrl, 'View reservation'),
+    emailLinkFallback(reservationUrl),
+  ].join('');
+  const body =
+    rendered.bodyText ||
+    `Your reservation at ${input.restaurantName} on ${when} was cancelled.${
+      reason ? ` Reason: ${reason}.` : ''
+    }${message ? ` Message: ${message}` : ''}`;
+
+  await notifyUser(
+    input.dinerId,
+    {
+      type: 'reservation_cancelled',
+      title: rendered.subject,
+      body,
+      htmlBody,
+      data: {
+        reservationId: input.reservationId,
+        reason: reason || undefined,
+        message: message || undefined,
+      },
     },
     { smsRestaurantId: input.restaurantId },
   );
@@ -824,22 +879,29 @@ export async function updateReservationStatus(
 
   if (status === 'cancelled') {
     const restaurantName = restaurant?.name ?? 'the restaurant';
-    await notifyUser(
-      reservation.dinerId.toString(),
-      {
-        type: 'reservation_cancelled',
-        title: 'Reservation cancelled',
-        body: `Your reservation at ${restaurantName} has been cancelled.`,
-        data: { reservationId: reservation._id.toString() },
-      },
-      { smsRestaurantId: reservation.restaurantId.toString() },
-    );
+    await notifyDinerBookingCancelled({
+      dinerId: reservation.dinerId.toString(),
+      restaurantId: reservation.restaurantId.toString(),
+      reservationId: reservation._id.toString(),
+      restaurantName,
+      slotStart: reservation.slotStart,
+      cancellationReason: reservation.cancellationReason,
+      restaurant,
+    });
     if (isDiner) {
+      const { reason, message } = splitReservationCancellationReason(reservation.cancellationReason);
+      const reasonSuffix = reason
+        ? ` Reason: ${reason}${message ? ` — ${message}` : ''}.`
+        : '';
       await notifyRestaurantManagers(reservation.restaurantId.toString(), {
         type: 'reservation_cancelled',
         title: 'Reservation cancelled',
-        body: `A guest cancelled their reservation at ${restaurantName}.`,
-        data: { reservationId: reservation._id.toString() },
+        body: `A guest cancelled their reservation at ${restaurantName}.${reasonSuffix}`,
+        data: {
+          reservationId: reservation._id.toString(),
+          reason: reason || undefined,
+          message: message || undefined,
+        },
       });
     }
   }

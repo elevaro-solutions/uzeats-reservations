@@ -31,6 +31,10 @@ export function CancelReservationModal({
   onConfirm,
   loading,
 }: CancelReservationModalProps) {
+  const detailsRequired = cancelReason === "Other";
+  const canConfirm =
+    Boolean(cancelReason) && (!detailsRequired || Boolean(cancelDetails.trim()));
+
   return (
     <BottomSheet
       visible={visible}
@@ -62,7 +66,7 @@ export function CancelReservationModal({
               size="xl"
               color="error"
               loading={loading}
-              disabled={loading}
+              disabled={loading || !canConfirm}
               onPress={onConfirm}
             >
               Cancel
@@ -84,7 +88,11 @@ export function CancelReservationModal({
         ))}
       </Flex>
       <Input
-        label="Additional details (optional)"
+        label={
+          detailsRequired
+            ? "Additional details (required)"
+            : "Additional details (optional)"
+        }
         value={cancelDetails}
         onChangeText={onDetailsChange}
         multiline

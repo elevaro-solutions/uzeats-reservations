@@ -360,6 +360,41 @@ export const RESERVATION_CANCELLATION_REASONS = [
   "Other",
 ] as const;
 
+/** Predefined reasons restaurants/admins pick when cancelling a reservation. */
+export const RESTAURANT_RESERVATION_CANCELLATION_REASONS = [
+  "Guest requested",
+  "Overbooked",
+  "Private event",
+  "Restaurant closure",
+  "Duplicate booking",
+  "Other",
+] as const;
+
+/** Combine a required preset with an optional free-text note. */
+export function buildReservationCancellationReason(
+  preset: string,
+  details?: string,
+): string {
+  const trimmed = details?.trim() ?? "";
+  if (preset && trimmed) return `${preset}: ${trimmed}`;
+  return preset || trimmed;
+}
+
+/** Split a stored cancellation reason back into preset + optional message. */
+export function splitReservationCancellationReason(combined?: string | null): {
+  reason: string;
+  message: string;
+} {
+  const value = combined?.trim() ?? "";
+  if (!value) return { reason: "", message: "" };
+  const idx = value.indexOf(": ");
+  if (idx === -1) return { reason: value, message: "" };
+  return {
+    reason: value.slice(0, idx).trim(),
+    message: value.slice(idx + 2).trim(),
+  };
+}
+
 /** Delivery channels shown as preference matrix columns. */
 export const NOTIFICATION_CHANNELS = [
   "sms",

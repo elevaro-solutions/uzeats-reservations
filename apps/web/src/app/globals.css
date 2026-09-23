@@ -5679,6 +5679,23 @@ body:has(.fr-page) .ant-layout {
   margin-inline-end: 12px !important;
 }
 
+/*
+ * Ant Design TextArea showCount sits at bottom: -1lh (outside the box).
+ * Reserve flow space so counters don't collide with modal footers, Form.Item
+ * extras/errors, or the next field — especially when not wrapped in Form.Item.
+ */
+.ant-input-textarea-show-count {
+  margin-bottom: calc(
+    var(--ant-font-size, 14px) * var(--ant-line-height, 1.5714285714285714)
+  );
+}
+
+/* Default Form.Item margin (~24px) was meant to host the count; with the
+   reserved margin above, keep only a small gap to the next item. */
+.ant-form-item:has(.ant-input-textarea-show-count) {
+  margin-bottom: 8px;
+}
+
 .rt-search-field .ant-input-affix-wrapper,
 .rt-search-field .ant-select-selector,
 .rt-search-field .ant-select-content,

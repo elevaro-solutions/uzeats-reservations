@@ -108,11 +108,13 @@ export const DEFAULT_EMAIL_TEMPLATES = [
       emailDetailBox([
         { label: 'Restaurant', value: '{{restaurantName}}' },
         { label: 'Date & time', value: '{{date}}' },
+        { label: 'Reason', value: '{{reason}}' },
       ]),
+      '{{messageSection}}',
       emailMuted('If you didn\'t request this cancellation or have questions, please contact the restaurant directly.'),
     ].join(''),
     bodyText:
-      'Hi {{firstName}},\n\nYour reservation at {{restaurantName}} on {{date}} was cancelled.',
+      'Hi {{firstName}},\n\nYour reservation at {{restaurantName}} on {{date}} was cancelled.\n\nReason: {{reason}}{{messageText}}',
   },
   {
     key: 'waitlist_available',

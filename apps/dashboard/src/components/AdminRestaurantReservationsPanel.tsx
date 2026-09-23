@@ -16,7 +16,7 @@ import {
   message,
 } from 'antd';
 import type { MenuProps } from 'antd';
-import { CalendarOutlined, EyeOutlined, MoreOutlined, ReloadOutlined } from '@ant-design/icons';
+import { CalendarOutlined, CheckCircleOutlined, CloseCircleOutlined, DeleteOutlined, EyeOutlined, LoginOutlined, MoreOutlined, ReloadOutlined, UserDeleteOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { StatusTag, spacing } from '@reservations/ui';
 import {
@@ -24,6 +24,8 @@ import {
   RESTAURANT_RESERVATIONS,
   UPDATE_RESERVATION_STATUS,
 } from '@/lib/graphql';
+import { CancelReservationModal } from '@/components/CancelReservationModal';
+import { guestName as formatGuestName } from '@/lib/reservationFormat';
 
 const { Text } = Typography;
 
@@ -53,16 +55,19 @@ export function AdminRestaurantReservationsPanel({ restaurantId }: { restaurantI
   });
   const [updateStatus, { loading: updating }] = useMutation(UPDATE_RESERVATION_STATUS);
   const [deleteReservation] = useMutation(DELETE_RESERVATION);
+  const [cancelFor, setCancelFor] = useState<ReservationRow | null>(null);
 
   const items: ReservationRow[] = data?.restaurantReservations?.items ?? [];
 
-  const runStatus = async (id: string, status: string, successMessage: string) => {
+  const runStatus = async (id: string, status: string, successMessage: string, reason?: string) => {
     try {
-      await updateStatus({ variables: { id, status } });
+      await updateStatus({ variables: { id, status, reason } });
       message.success(successMessage);
       refetch();
+      return true;
     } catch (err: any) {
       message.error(err.message || 'Update failed');
+      return false;
     }
   };
 
@@ -87,6 +92,7 @@ export function AdminRestaurantReservationsPanel({ restaurantId }: { restaurantI
     if (r.status === 'pending') {
       items.push({
         key: 'confirm',
+        icon: <CheckCircleOutlined />,
         label: 'Confirm',
         onClick: () => void runStatus(r.id, 'confirmed', 'Confirmed'),
       });
@@ -94,6 +100,7 @@ export function AdminRestaurantReservationsPanel({ restaurantId }: { restaurantI
     if (r.status === 'confirmed') {
       items.push({
         key: 'seat',
+        icon: <LoginOutlined />,
         label: 'Seat',
         onClick: () => void runStatus(r.id, 'seated', 'Seated'),
       });
@@ -101,6 +108,7 @@ export function AdminRestaurantReservationsPanel({ restaurantId }: { restaurantI
     if (r.status === 'seated') {
       items.push({
         key: 'complete',
+        icon: <CheckCircleOutlined />,
         label: 'Complete',
         onClick: () => void runStatus(r.id, 'completed', 'Completed'),
       });
@@ -108,6 +116,7 @@ export function AdminRestaurantReservationsPanel({ restaurantId }: { restaurantI
     if (r.status === 'confirmed' || r.status === 'seated') {
       items.push({
         key: 'no_show',
+        icon: <UserDeleteOutlined />,
         label: 'No-show',
         onClick: () => void runStatus(r.id, 'no_show', 'Marked no-show'),
       });
@@ -115,14 +124,16 @@ export function AdminRestaurantReservationsPanel({ restaurantId }: { restaurantI
     if (r.status === 'pending' || r.status === 'confirmed') {
       items.push({
         key: 'cancel',
+        icon: <CloseCircleOutlined />,
         danger: true,
         label: 'Cancel',
-        onClick: () => void runStatus(r.id, 'cancelled', 'Cancelled'),
+        onClick: () => setCancelFor(r),
       });
     }
     items.push({ type: 'divider' });
     items.push({
       key: 'delete',
+      icon: <DeleteOutlined />,
       danger: true,
       label: 'Delete',
       onClick: async () => {
@@ -207,6 +218,18 @@ export function AdminRestaurantReservationsPanel({ restaurantId }: { restaurantI
             ),
           },
         ]}
+      />
+
+      <CancelReservationModal
+        open={!!cancelFor}
+        guestName={cancelFor ? formatGuestName(cancelFor.diner) : undefined}
+        loading={updating}
+        onClose={() => setCancelFor(null)}
+        onConfirm={async (reason) => {
+          if (!cancelFor) return;
+          const ok = await runStatus(cancelFor.id, 'cancelled', 'Reservation cancelled', reason);
+          if (ok) setCancelFor(null);
+        }}
       />
     </Card>
   );

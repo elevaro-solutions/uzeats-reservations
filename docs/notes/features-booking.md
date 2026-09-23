@@ -63,6 +63,10 @@
 - `notifyDinerBookingConfirmed` renders `booking_confirmation`, attaches `reservation.ics`, and adds Google Calendar + View reservation buttons. Diner “Add to calendar” still downloads ICS and toasts a Google link because mobile browsers often swallow silent downloads.
 - Why it matters: Don’t treat ICS-only as the handoff. SendGrid click tracking must stay off or those calendar/reset URLs hit a cert interstitial.
 
+## [2026-09-23] Cancellation email includes reason + message
+- `notifyDinerBookingCancelled` renders `booking_cancelled` with `reason` / optional `message` (from `cancellationReason` via `splitReservationCancellationReason`). Manager alerts when a diner cancels also include the reason.
+- Why it matters: Don’t send a bare “cancelled” email after collecting a reason in the modal — the template vars and notifier must stay in sync.
+
 ## [2026-09-16] Experience booking is a dedicated modal, not an add-on scroll
 - Restaurant profile lists experiences as Reserve cards. Reserve opens Find a table → optional package add-ons → summary, then applies date/slot/party back onto `#booking-form`. Slot grid is clipped to the experience start/end window.
 - Why it matters: Don’t treat experience cards as “select and scroll to the widget.” The widget still completes guest details, deposit, and confirm.

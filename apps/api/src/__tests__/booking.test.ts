@@ -400,7 +400,7 @@ describe('Booking Flow (E2E)', () => {
       agent,
       `query {
         myNotifications {
-          items { id type title }
+          items { id type title body }
           total
         }
       }`,
@@ -409,11 +409,13 @@ describe('Booking Flow (E2E)', () => {
     );
     expect(notifs.body.errors).toBeUndefined();
     const connection = notifs.body.data.myNotifications as {
-      items: Array<{ id: string; type: string }>;
+      items: Array<{ id: string; type: string; body?: string }>;
       total: number;
     };
     expect(connection.total).toBeGreaterThanOrEqual(1);
-    expect(connection.items.some((n) => n.type === 'reservation_cancelled')).toBe(true);
+    const cancelled = connection.items.find((n) => n.type === 'reservation_cancelled');
+    expect(cancelled).toBeDefined();
+    expect(cancelled?.body).toMatch(/Change of plans/);
 
     const page2 = await graphqlRequest(
       agent,

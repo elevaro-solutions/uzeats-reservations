@@ -27,6 +27,8 @@ import {
   UPDATE_RESERVATION_STATUS,
   UPDATE_TABLE_POSITIONS,
 } from '@/lib/graphql';
+import { CancelReservationModal } from '@/components/CancelReservationModal';
+import { guestName as formatGuestName } from '@/lib/reservationFormat';
 
 import {
   DEFAULT_CELL_SIZE,
@@ -413,6 +415,10 @@ export default function FloorOpsPage() {
   const [seatAtTable, { loading: seating }] = useMutation(SEAT_RESERVATION_AT_TABLE);
   const [updateStatus, { loading: updatingStatus }] = useMutation(UPDATE_RESERVATION_STATUS);
   const [updatePositions] = useMutation(UPDATE_TABLE_POSITIONS);
+  const [cancelTarget, setCancelTarget] = useState<{
+    id: string;
+    guestName: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -475,8 +481,10 @@ export default function FloorOpsPage() {
       message.success(`Reservation ${status}`);
       refetch();
       setSelectedState(null);
+      return true;
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Failed to update');
+      return false;
     }
   };
 
@@ -747,11 +755,10 @@ export default function FloorOpsPage() {
                       danger
                       loading={updatingStatus}
                       onClick={() =>
-                        handleStatusChange(
-                          selectedState.reservation!.id,
-                          'cancelled',
-                          'Cancelled by restaurant',
-                        )
+                        setCancelTarget({
+                          id: selectedState.reservation!.id,
+                          guestName: formatGuestName(selectedState.reservation!.diner),
+                        })
                       }
                     >
                       Cancel
@@ -765,6 +772,18 @@ export default function FloorOpsPage() {
           </Space>
         )}
       </Drawer>
+
+      <CancelReservationModal
+        open={!!cancelTarget}
+        guestName={cancelTarget?.guestName}
+        loading={updatingStatus}
+        onClose={() => setCancelTarget(null)}
+        onConfirm={async (reason) => {
+          if (!cancelTarget) return;
+          const ok = await handleStatusChange(cancelTarget.id, 'cancelled', reason);
+          if (ok) setCancelTarget(null);
+        }}
+      />
     </Space>
   );
 }

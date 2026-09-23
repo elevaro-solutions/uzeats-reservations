@@ -1308,7 +1308,6 @@ export default function RestaurantPageClient() {
                   }}
                   maxLength={500}
                   showCount
-                  style={{ marginBottom: 10 }}
                   status={fieldErrors.guestNotes ? 'error' : undefined}
                   placeholder="Allergies, seating preferences, celebration details..."
                 />

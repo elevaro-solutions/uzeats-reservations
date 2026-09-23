@@ -20,6 +20,7 @@ import {
 } from "@/lib/graphql-errors";
 import { useAppStore } from "@/store";
 import { AddReviewSheet } from "@/features/restaurant-profile/components/add-review-sheet.component";
+import { buildReservationCancellationReason } from "@reservations/shared";
 
 import {
   CONFIRM_DEPOSIT,
@@ -147,16 +148,29 @@ export function ReservationDetailFeature() {
 
   async function onCancel() {
     if (!id) return;
+    if (!cancelReason) {
+      toast.error("Select a reason", {
+        description: "Please choose why you are cancelling.",
+      });
+      return;
+    }
+    if (cancelReason === "Other" && !cancelDetails.trim()) {
+      toast.error("Add details", {
+        description: "Please tell us a bit more when choosing Other.",
+      });
+      return;
+    }
     setCancelling(true);
     try {
-      const reason = [cancelReason, cancelDetails.trim()]
-        .filter(Boolean)
-        .join(": ");
+      const reason = buildReservationCancellationReason(
+        cancelReason,
+        cancelDetails,
+      );
       await updateStatus({
         variables: {
           id,
           status: "cancelled",
-          reason: reason || undefined,
+          reason,
         },
         refetchQueries: [
           { query: MY_RESERVATIONS },

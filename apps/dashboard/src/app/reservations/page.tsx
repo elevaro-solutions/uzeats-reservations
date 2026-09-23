@@ -24,7 +24,18 @@ import {
   message,
 } from 'antd';
 import type { MenuProps } from 'antd';
-import { EyeOutlined, MoreOutlined, PlusOutlined, MessageOutlined } from '@ant-design/icons';
+import {
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  EyeOutlined,
+  LoginOutlined,
+  MessageOutlined,
+  MoreOutlined,
+  PlusOutlined,
+  UserDeleteOutlined,
+} from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import {
   formatTimeInTimeZone,
@@ -54,6 +65,7 @@ import {
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { formatOccasion, formatSource, guestName as formatGuestName } from '@/lib/reservationFormat';
+import { CancelReservationModal } from '@/components/CancelReservationModal';
 
 const { Text } = Typography;
 
@@ -190,6 +202,7 @@ function ReservationsPageContent() {
   const customDate = searchParams.get('date') || dayjs().format('YYYY-MM-DD');
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<ReservationRow | null>(null);
+  const [cancelFor, setCancelFor] = useState<ReservationRow | null>(null);
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
   const { limit, offset, tablePagination } = useUrlPagination({
@@ -273,7 +286,7 @@ function ReservationsPageContent() {
   const lookedUpReservation = (lookupData?.restaurantReservation ?? undefined) as
     | ReservationRow
     | undefined;
-  const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
+  const [updateStatus, { loading: updatingStatus }] = useMutation(UPDATE_RESERVATION_STATUS);
   const [createReservation, { loading: creating }] = useMutation(CREATE_OWNER_RESERVATION);
   const [updateReservation, { loading: updating }] = useMutation(UPDATE_RESERVATION);
   const [deleteReservation, { loading: deleting }] = useMutation(DELETE_RESERVATION);
@@ -428,8 +441,10 @@ function ReservationsPageContent() {
       await updateStatus({ variables: { id, status, reason } });
       if (successMessage) message.success(successMessage);
       refetch();
+      return true;
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Update failed');
+      return false;
     }
   };
 
@@ -530,6 +545,7 @@ function ReservationsPageContent() {
     if (['pending', 'confirmed', 'seated'].includes(r.status)) {
       items.push({
         key: 'edit',
+        icon: <EditOutlined />,
         label: 'Edit',
         onClick: () => openEdit(r),
       });
@@ -538,6 +554,7 @@ function ReservationsPageContent() {
     if (r.status === 'pending') {
       items.push({
         key: 'confirm',
+        icon: <CheckCircleOutlined />,
         label: 'Confirm',
         onClick: () => runStatusUpdate(r.id, 'confirmed'),
       });
@@ -546,11 +563,13 @@ function ReservationsPageContent() {
     if (r.status === 'confirmed') {
       items.push({
         key: 'seat',
+        icon: <LoginOutlined />,
         label: 'Seat',
         onClick: () => runStatusUpdate(r.id, 'seated'),
       });
       items.push({
         key: 'no_show',
+        icon: <UserDeleteOutlined />,
         label: 'No-show',
         onClick: () => runStatusUpdate(r.id, 'no_show'),
       });
@@ -559,6 +578,7 @@ function ReservationsPageContent() {
     if (r.status === 'seated') {
       items.push({
         key: 'complete',
+        icon: <CheckCircleOutlined />,
         label: 'Complete',
         onClick: () =>
           runStatusUpdate(
@@ -573,9 +593,10 @@ function ReservationsPageContent() {
     if (['pending', 'confirmed'].includes(r.status)) {
       items.push({
         key: 'cancel',
+        icon: <CloseCircleOutlined />,
         label: 'Cancel',
         danger: true,
-        onClick: () => runStatusUpdate(r.id, 'cancelled', 'Cancelled by restaurant'),
+        onClick: () => setCancelFor(r),
       });
     }
 
@@ -588,6 +609,7 @@ function ReservationsPageContent() {
 
     items.push({
       key: 'delete',
+      icon: <DeleteOutlined />,
       label: 'Delete',
       danger: true,
       onClick: () => handleDelete(r),
@@ -1017,6 +1039,23 @@ function ReservationsPageContent() {
           </Row>
         </Form>
       </Modal>
+
+      <CancelReservationModal
+        open={!!cancelFor}
+        guestName={cancelFor ? formatGuestName(cancelFor.diner) : undefined}
+        loading={updatingStatus}
+        onClose={() => setCancelFor(null)}
+        onConfirm={async (reason) => {
+          if (!cancelFor) return;
+          const ok = await runStatusUpdate(
+            cancelFor.id,
+            'cancelled',
+            reason,
+            'Reservation cancelled',
+          );
+          if (ok) setCancelFor(null);
+        }}
+      />
     </Space></div>
   );
 }

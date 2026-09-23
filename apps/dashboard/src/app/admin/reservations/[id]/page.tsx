@@ -26,6 +26,7 @@ import type { MenuProps } from 'antd';
 import {
   ArrowLeftOutlined,
   CalendarOutlined,
+  CloseCircleOutlined,
   DeleteOutlined,
   EditOutlined,
   EnvironmentOutlined,
@@ -33,6 +34,7 @@ import {
   MoreOutlined,
   PhoneOutlined,
   TeamOutlined,
+  UserDeleteOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -70,6 +72,7 @@ import {
 } from '@/lib/reservationFormat';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useFormDirty } from '@/lib/useFormDirty';
+import { CancelReservationModal } from '@/components/CancelReservationModal';
 
 const { Text, Title } = Typography;
 
@@ -195,6 +198,7 @@ function AdminReservationDetailContent() {
   const [deleteReservation, { loading: deleting }] = useMutation(DELETE_RESERVATION);
 
   const [editOpen, setEditOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const [editForm] = Form.useForm();
   const editDirty = useFormDirty();
   const editDate = Form.useWatch('date', editForm) as Dayjs | undefined;
@@ -250,13 +254,15 @@ function AdminReservationDetailContent() {
     .join(', ');
 
   const runStatusUpdate = async (status: string, reason?: string, successMessage?: string) => {
-    if (!reservation) return;
+    if (!reservation) return false;
     try {
       await updateStatus({ variables: { id: reservation.id, status, reason } });
       message.success(successMessage ?? 'Reservation updated');
       refetch();
+      return true;
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Update failed');
+      return false;
     }
   };
 
@@ -350,6 +356,7 @@ function AdminReservationDetailContent() {
   if (reservation.status === 'confirmed' || reservation.status === 'seated') {
     moreItems.push({
       key: 'no_show',
+      icon: <UserDeleteOutlined />,
       label: 'No-show',
       disabled: updatingStatus,
       onClick: () => runStatusUpdate('no_show'),
@@ -358,10 +365,11 @@ function AdminReservationDetailContent() {
   if (['pending', 'confirmed'].includes(reservation.status)) {
     moreItems.push({
       key: 'cancel',
+      icon: <CloseCircleOutlined />,
       label: 'Cancel',
       danger: true,
       disabled: updatingStatus,
-      onClick: () => runStatusUpdate('cancelled', 'Cancelled by admin'),
+      onClick: () => setCancelOpen(true),
     });
   }
   if (moreItems.length > 0) {
@@ -775,6 +783,17 @@ function AdminReservationDetailContent() {
           </Row>
         </Form>
       </Modal>
+
+      <CancelReservationModal
+        open={cancelOpen}
+        guestName={name}
+        loading={updatingStatus}
+        onClose={() => setCancelOpen(false)}
+        onConfirm={async (reason) => {
+          const ok = await runStatusUpdate('cancelled', reason, 'Reservation cancelled');
+          if (ok) setCancelOpen(false);
+        }}
+      />
     </Space>
   );
 }

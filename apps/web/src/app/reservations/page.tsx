@@ -33,7 +33,7 @@ import { StatusTag, PageHeader, EmptyState, colors, radii, shadows, typography, 
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { RESERVATION_CANCELLATION_REASONS, buildRestaurantBookingPath } from '@reservations/shared';
+import { RESERVATION_CANCELLATION_REASONS, buildRestaurantBookingPath, buildReservationCancellationReason } from '@reservations/shared';
 import {
   MY_RESERVATIONS,
   UPDATE_RESERVATION_STATUS,
@@ -50,14 +50,6 @@ import {
   needsDepositPayment,
   type ReservationListSegment,
 } from '@/lib/reservationDisplay';
-
-function buildCancellationReason(preset: string, details: string): string | undefined {
-  const trimmedDetails = details.trim();
-  if (preset && trimmedDetails) return `${preset}: ${trimmedDetails}`;
-  if (preset) return preset;
-  if (trimmedDetails) return trimmedDetails;
-  return undefined;
-}
 
 function bookAgainPath(r: {
   partySize?: number;
@@ -146,7 +138,7 @@ export default function ReservationsPage() {
       message.warning('Please add a few details');
       throw new Error('details required');
     }
-    const reason = buildCancellationReason(cancelReasonPreset, cancelReasonDetails);
+    const reason = buildReservationCancellationReason(cancelReasonPreset, cancelReasonDetails);
     setCancelling(true);
     try {
       await updateStatus({

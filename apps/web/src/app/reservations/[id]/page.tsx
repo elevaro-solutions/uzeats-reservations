@@ -17,7 +17,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { StatusTag, PageHeader, EmptyState, colors, radii, shadows, typography, pickRestaurantPhoto } from '@reservations/ui';
-import { buildRestaurantBookingPath, RESERVATION_CANCELLATION_REASONS } from '@reservations/shared';
+import { buildRestaurantBookingPath, RESERVATION_CANCELLATION_REASONS, buildReservationCancellationReason } from '@reservations/shared';
 import DepositPayment from '@/components/DepositPayment';
 import { useAuth } from '@/lib/auth';
 import { addReservationToCalendar } from '@/lib/calendar';
@@ -167,9 +167,7 @@ export default function ReservationDetailPage() {
       message.warning('Please add a few details');
       throw new Error('details required');
     }
-    const reason = cancelReasonDetails.trim()
-      ? `${cancelReasonPreset}: ${cancelReasonDetails.trim()}`
-      : cancelReasonPreset;
+    const reason = buildReservationCancellationReason(cancelReasonPreset, cancelReasonDetails);
     setCancelling(true);
     try {
       await updateStatus({
