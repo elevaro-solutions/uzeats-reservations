@@ -52,7 +52,9 @@ Restaurants can embed the Tablevera widget on their own site. Bookings from the 
 
 ## Editing or cancelling
 
-Signed-in diners can modify party size, time, or special requests from their reservation detail page, subject to restaurant policy. Cancellation may forfeit deposits per restaurant terms.
+Signed-in diners can modify party size, time, or special requests from their reservation detail page, subject to restaurant policy. Cancellation may forfeit deposits per restaurant terms and asks for a reason (preset + optional details) so the restaurant knows why you cancelled.
+
+When the **restaurant** cancels your booking, you receive email/SMS/push that includes their reason (for example Overbooked or Private event) and any custom message they added.
 
 ## Tips
 

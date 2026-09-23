@@ -8,6 +8,7 @@ The **Reservations** page is the primary operational view:
 - Create **phone** or **walk-in** bookings (`ReservationSource`: `phone`, `walkin`)
 - Edit party size, time, table assignment, and internal notes
 - Mark guests as **seated**, **completed**, or **no-show** (Confirm is only offered for `pending` bookings; same-status updates are a no-op)
+- **Cancel** opens a confirmation modal: pick a required reason (Guest requested, Overbooked, Private event, Restaurant closure, Duplicate booking, or Other) and optionally add a message. The diner’s cancellation email and in-app/SMS copy include that reason; manager alerts do too when a guest cancels
 - Share booking links (`/restaurants/{slug}`) with guests
 
 ### Reservation statuses

@@ -4,6 +4,13 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.63.1] — 2026-09-23
+
+### Docs
+
+- Managers daily ops and diner discover-and-book: cancel requires a reason; restaurant cancel includes reason in guest notifications
+- Booking engine: manual approval Confirm is manager-side; document `cancellationReason` on partner cancel
+
 ## [0.63.0] — 2026-09-23
 
 ### Added

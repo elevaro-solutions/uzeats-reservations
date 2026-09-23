@@ -24,7 +24,7 @@ Service entry points:
 1. Client selects slot + party size
 2. Mutation validates restaurant is `approved` and accepting online bookings
 3. Optional deposit PaymentIntent created (Stripe)
-4. **Manual approval** — if restaurant rules or a selected table/experience/package/private room require it, the booking stays `pending` (`requiresManualApproval`) until staff Confirms
+4. **Manual approval** — if restaurant rules or a selected table/experience/package/private room require it, the booking stays `pending` (`requiresManualApproval`) until a manager Confirms
 5. **Slot claim** — atomic insert with unique index on table + time
 6. Confirmation notifications enqueued (or “awaiting approval” if still pending)
 7. Waitlist entries for overlapping preferences may be notified on later cancellation
@@ -89,3 +89,5 @@ Track where bookings originate for reporting:
 ## Modification policy
 
 Diners and partners can edit reservations via GraphQL mutations. Restrictions (lead time, deposit forfeiture) enforced in service layer based on restaurant settings.
+
+Partner/admin cancel uses `updateReservationStatus` with status `cancelled` and a required `cancellationReason` string (preset from `RESTAURANT_RESERVATION_CANCELLATION_REASONS`, optional details joined via `buildReservationCancellationReason`). `notifyDinerBookingCancelled` / manager alerts split that string for the `booking_cancelled` email template (`reason` + `message`).
