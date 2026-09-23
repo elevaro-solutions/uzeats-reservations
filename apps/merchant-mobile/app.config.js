@@ -23,6 +23,7 @@ const config = {
       backgroundColor: "#000000",
     },
     package: "uz.alitech.tablevera.merchant",
+    googleServicesFile: "./google-services.json",
   },
   plugins: [
     "expo-router",

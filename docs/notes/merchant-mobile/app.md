@@ -1,5 +1,9 @@
 # app — Learnings & Observations
 
+## [2026-09-23] Android google-services.json is committed; wire via googleServicesFile
+- `android.googleServicesFile` → `./google-services.json` (client config; tracked). Includes `uz.alitech.tablevera.merchant` under Firebase project `uzeats-app`. Do **not** easignore/gitignore the client file or Android FCM registration fails; ignore only `*firebase-adminsdk*.json` / `*service-account*.json` (EAS credentials upload).
+- Why it matters: Push bootstrap needs a native rebuild after this config change; Expo Go / OTA alone won’t register FCM.
+
 ## [2026-09-22] App icons + splash + auth wordmark
 - Source of truth: `assets/android-app-icon/`, `assets/ios-app-icon.icon`, `assets/brand/tablevera-merchant-logo.svg` (embedded for `TableveraLogo`). Splash/`expo.icon` reuse Android foreground.
 - Native `ios/TableveraMerchant/ios-app-icon.icon` and `SplashScreenLogo.imageset` are **copied/generated into the prebuild tree** — updating `assets/` alone does not change the home-screen icon or splash until those native files are synced (`expo prebuild` or copy) and the app is rebuilt. Metro alone updates only the in-app auth wordmark.

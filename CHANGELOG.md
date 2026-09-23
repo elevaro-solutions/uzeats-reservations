@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.59.1] — 2026-09-23
+
+### Added
+
+- Merchant mobile: Android `googleServicesFile` wired to committed `google-services.json` for FCM client registration (`uz.alitech.tablevera.merchant`)
+
+### Docs
+
+- Merchant mobile notes: keep client `google-services.json` tracked; gitignore only FCM service-account keys
+
 ## [0.59.0] — 2026-09-22
 
 ### Changed
