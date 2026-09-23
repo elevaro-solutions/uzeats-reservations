@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [0.63.1] — 2026-09-23
 
+### Fixed
+
+- API build: `migrateStaffRoleToManager` uses pino’s `(obj, msg)` logger signature so production TypeScript compile succeeds
+
 ### Docs
 
 - Managers daily ops and diner discover-and-book: cancel requires a reason; restaurant cancel includes reason in guest notifications

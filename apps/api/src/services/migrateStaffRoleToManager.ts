@@ -36,10 +36,13 @@ export async function migrateStaffRoleToManager(): Promise<void> {
     (invites.modifiedCount ?? 0) +
     (configs.modifiedCount ?? 0);
   if (changed > 0) {
-    logger.info('Migrated staff role → manager', {
-      users: users.modifiedCount,
-      invites: invites.modifiedCount,
-      configs: configs.modifiedCount,
-    });
+    logger.info(
+      {
+        users: users.modifiedCount,
+        invites: invites.modifiedCount,
+        configs: configs.modifiedCount,
+      },
+      'Migrated staff role → manager',
+    );
   }
 }
