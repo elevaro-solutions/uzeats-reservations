@@ -61,6 +61,7 @@ type MyReservationQuery = {
     guestNotes?: string | null;
     depositAmountCents?: number | null;
     depositStatus?: string | null;
+    requiresManualApproval?: boolean | null;
     clientSecret?: string | null;
     loyaltyPointsEarned?: number | null;
     hasReview?: boolean | null;
@@ -494,6 +495,7 @@ export function ReservationDetailFeature() {
         slotEnd={reservation.slotEnd}
         depositStatus={reservation.depositStatus}
         depositAmountCents={reservation.depositAmountCents}
+        requiresManualApproval={reservation.requiresManualApproval}
       />
 
       <ReservationBillingSheet

@@ -3,5 +3,6 @@ export {
   isSuperAdmin,
   canEditUser,
   canManageBilling,
+  canManageTeam,
   canCreateRestaurant,
 } from '@reservations/shared';

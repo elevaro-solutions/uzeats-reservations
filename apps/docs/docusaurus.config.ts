@@ -90,7 +90,7 @@ const config: Config = {
           items: [
             {label: 'Developers', to: '/developers/getting-started'},
             {label: 'Diners', to: '/diners/overview'},
-            {label: 'Restaurant owners', to: '/staff/overview'},
+            {label: 'Restaurant owners', to: '/managers/overview'},
             {label: 'Platform admins', to: '/admins/platform-overview'},
           ],
         },

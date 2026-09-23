@@ -1,14 +1,14 @@
 import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
 
-const staffInviteSchema = new Schema(
+const managerInviteSchema = new Schema(
   {
     email: { type: String, required: true, lowercase: true, trim: true, index: true },
     firstName: { type: String, required: true, trim: true },
     lastName: { type: String, required: true, trim: true },
     role: {
       type: String,
-      enum: ['staff', 'restaurant_owner'],
-      default: 'staff',
+      enum: ['manager', 'restaurant_owner'],
+      default: 'manager',
     },
     restaurantIds: [{ type: Schema.Types.ObjectId, ref: 'Restaurant' }],
     token: { type: String, required: true, unique: true },
@@ -20,10 +20,11 @@ const staffInviteSchema = new Schema(
   { timestamps: true },
 );
 
-export type StaffInviteDocument = InferSchemaType<typeof staffInviteSchema> & {
+export type ManagerInviteDocument = InferSchemaType<typeof managerInviteSchema> & {
   _id: mongoose.Types.ObjectId;
 };
 
-export const StaffInvite: Model<StaffInviteDocument> =
-  mongoose.models.StaffInvite ??
-  mongoose.model<StaffInviteDocument>('StaffInvite', staffInviteSchema);
+/** Keep legacy Mongo collection name so existing invites continue to resolve. */
+export const ManagerInvite: Model<ManagerInviteDocument> =
+  mongoose.models.ManagerInvite ??
+  mongoose.model<ManagerInviteDocument>('ManagerInvite', managerInviteSchema, 'staffinvites');

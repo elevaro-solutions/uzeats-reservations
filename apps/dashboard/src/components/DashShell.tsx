@@ -49,6 +49,7 @@ import {
   MY_NOTIFICATIONS,
   MY_RESTAURANTS,
   MY_RESTAURANT_PROFILE_CHANGE_REQUEST,
+  RESTAURANT_UNREPLIED_REVIEW_COUNT,
 } from '@/lib/graphql';
 import {
   ADD_RESTAURANT_HREF,
@@ -162,6 +163,7 @@ function notificationHref(n: AppNotification): string {
       return withRestaurantParam('/waitlist', data);
     case 'guest_spend_alert':
       return reservationId ? reservationManageHref(data) : withRestaurantParam('/guests', data);
+    case 'new_review':
     case 'review_reply':
       return withRestaurantParam('/reviews', data);
     default:
@@ -183,7 +185,7 @@ function formatRelativeTime(iso: string) {
 import { getPublicWebUrl } from '@/lib/webUrl';
 import { canCreateRestaurant, isPlatformAdmin, isSuperAdmin } from '@/lib/roles';
 
-const PARTNER_ROLES = new Set(['restaurant_owner', 'staff', 'admin', 'super_admin']);
+const PARTNER_ROLES = new Set(['restaurant_owner', 'manager', 'admin', 'account_manager', 'super_admin']);
 
 export function DashShell({ children }: { children: React.ReactNode }) {
   const { user, logout, loading: authLoading, isImpersonating, impersonator, endImpersonation } =
@@ -221,6 +223,11 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   });
   const { data: profileRequestData } = useQuery(MY_RESTAURANT_PROFILE_CHANGE_REQUEST, {
     skip: !user || isAdmin || !restaurantId,
+    variables: { restaurantId },
+    pollInterval: 60_000,
+  });
+  const { data: unrepliedReviewData } = useQuery(RESTAURANT_UNREPLIED_REVIEW_COUNT, {
+    skip: !user || isAdmin || !restaurantId || !isPartner,
     variables: { restaurantId },
     pollInterval: 60_000,
   });
@@ -304,14 +311,20 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   const pendingSlugRequests = pendingRequestCounts?.adminPendingRequestCounts?.slugRequests ?? 0;
   const pendingProfileRequests =
     pendingRequestCounts?.adminPendingRequestCounts?.profileChangeRequests ?? 0;
+  const pendingModerationItems =
+    pendingRequestCounts?.adminPendingRequestCounts?.moderationItems ?? 0;
   const ownerPendingProfile =
     profileRequestData?.myRestaurantProfileChangeRequest?.status === 'pending' ? 1 : 0;
+  const unrepliedReviewCount: number =
+    unrepliedReviewData?.restaurantUnrepliedReviewCount ?? 0;
 
   const items = useMemo(() => {
     const badgeByHref: Record<string, number> = {
+      '/reviews': unrepliedReviewCount,
       '/grow': ownerPendingProfile,
       '/admin/slug-requests': pendingSlugRequests,
       '/admin/profile-requests': pendingProfileRequests,
+      '/admin/moderation': pendingModerationItems,
     };
     const pages = isAdmin
       ? adminSiderPages({ isSuperAdmin: isSuperAdminUser })
@@ -327,9 +340,11 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     isAdmin,
     isSuperAdminUser,
     onboardingProgress.showOnboarding,
+    unrepliedReviewCount,
     ownerPendingProfile,
     pendingSlugRequests,
     pendingProfileRequests,
+    pendingModerationItems,
   ]);
 
   const switchRestaurant = useCallback(
@@ -748,6 +763,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
                   if (key === 'settings') router.push('/settings');
                   if (key === 'notification-settings') router.push('/notifications');
                   if (key === 'billing') router.push('/billing');
+                  if (key === 'support') router.push('/support');
                   if (key === 'invoices') router.push('/admin/invoices');
                   if (key === 'admin-config') router.push('/admin/config');
                 },

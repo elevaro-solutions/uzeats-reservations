@@ -78,7 +78,7 @@ export default function SmsMessagingPage() {
             only when you enable SMS for those notification types in your account settings.
           </li>
           <li>
-            <Text strong>Restaurant staff alerts (partners):</Text> Partner dashboard users who
+            <Text strong>Restaurant managers alerts (partners):</Text> Partner dashboard users who
             enable SMS may receive alerts about new reservations, guest messages, and waitlist
             events for their restaurant.
           </li>
@@ -102,7 +102,7 @@ export default function SmsMessagingPage() {
             alerts, loyalty, and similar events is off by default. You can turn SMS on per event type
             in your{' '}
             <Link href="/profile#notifications">profile notification settings</Link> (diners) or the
-            partner notifications page (restaurant staff).
+            partner notifications page (restaurant managers).
           </li>
           <li>
             <Text strong>Waitlist phone:</Text> Providing a mobile number when joining a restaurant

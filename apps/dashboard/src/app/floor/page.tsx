@@ -42,6 +42,7 @@ import { EmptyState, PageHeader, colors, radii, spacing } from '@reservations/ui
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { useUrlTab } from '@/lib/useUrlTab';
+import { useFormDirty } from '@/lib/useFormDirty';
 import {
   MY_RESTAURANTS,
   CREATE_TABLE,
@@ -72,6 +73,7 @@ type FloorTable = {
   combinable?: boolean;
   active?: boolean;
   photoUrl?: string | null;
+  requiresManualApproval?: boolean;
 };
 
 type FloorShift = {
@@ -224,6 +226,8 @@ function FloorPageContent() {
   const [editingShift, setEditingShift] = useState<FloorShift | null>(null);
   const [tableForm] = Form.useForm();
   const [shiftForm] = Form.useForm();
+  const tableDirty = useFormDirty();
+  const shiftDirty = useFormDirty();
   const [customFloorAreas, setCustomFloorAreas] = useState<string[]>([]);
 
   useEffect(() => {
@@ -260,8 +264,10 @@ function FloorPageContent() {
       floorArea: 'Main',
       combinable: false,
       active: true,
+      requiresManualApproval: false,
       photoUrl: [],
     });
+    tableDirty.clearDirty();
     setTableModalOpen(true);
   };
 
@@ -274,14 +280,17 @@ function FloorPageContent() {
       floorArea: table.floorArea ?? 'Main',
       combinable: table.combinable ?? false,
       active: table.active ?? true,
+      requiresManualApproval: table.requiresManualApproval ?? false,
       photoUrl: table.photoUrl ? [table.photoUrl] : [],
     });
+    tableDirty.clearDirty();
     setTableModalOpen(true);
   };
 
   const closeTableModal = () => {
     setTableModalOpen(false);
     setEditingTable(null);
+    tableDirty.clearDirty();
   };
 
   const openAddShift = () => {
@@ -295,6 +304,7 @@ function FloorPageContent() {
       turnTimeMinutes: 90,
       active: true,
     });
+    shiftDirty.clearDirty();
     setShiftModalOpen(true);
   };
 
@@ -309,12 +319,14 @@ function FloorPageContent() {
       turnTimeMinutes: shift.turnTimeMinutes ?? 90,
       active: shift.active ?? true,
     });
+    shiftDirty.clearDirty();
     setShiftModalOpen(true);
   };
 
   const closeShiftModal = () => {
     setShiftModalOpen(false);
     setEditingShift(null);
+    shiftDirty.clearDirty();
   };
 
   const handleTableSubmit = async (values: {
@@ -324,9 +336,10 @@ function FloorPageContent() {
     floorArea?: string;
     combinable?: boolean;
     active?: boolean;
+    requiresManualApproval?: boolean;
     photoUrl?: string[];
   }) => {
-    if (!activeRestaurantId) return;
+    if (!activeRestaurantId || !tableDirty.dirty) return;
     const input = {
       name: values.name.trim(),
       minCapacity: values.minCapacity,
@@ -334,6 +347,7 @@ function FloorPageContent() {
       floorArea: values.floorArea?.trim() || 'Main',
       combinable: values.combinable ?? false,
       active: values.active ?? true,
+      requiresManualApproval: values.requiresManualApproval ?? false,
       photoUrl: values.photoUrl?.[0] ?? null,
     };
 
@@ -362,7 +376,7 @@ function FloorPageContent() {
     turnTimeMinutes?: number;
     active?: boolean;
   }) => {
-    if (!activeRestaurantId) return;
+    if (!activeRestaurantId || !shiftDirty.dirty) return;
     const startTime = formatClock(values.startTime);
     const endTime = formatClock(values.endTime);
     if (!startTime || !endTime) {
@@ -677,6 +691,7 @@ function FloorPageContent() {
         onOk={() => tableForm.submit()}
         confirmLoading={creatingTable || updatingTable}
         okText={editingTable ? 'Save table' : 'Add table'}
+        okButtonProps={{ disabled: !tableDirty.dirty }}
         centered
         width={520}
         focusable={{ trap: false }}
@@ -686,6 +701,7 @@ function FloorPageContent() {
           form={tableForm}
           layout="vertical"
           requiredMark={false}
+          onValuesChange={tableDirty.onValuesChange}
           onFinish={(values) => void handleTableSubmit(values)}
           style={{ marginTop: 8 }}
         >
@@ -759,6 +775,14 @@ function FloorPageContent() {
               </Form.Item>
             </Col>
           </Row>
+          <Form.Item
+            name="requiresManualApproval"
+            label="Require manual approval"
+            valuePropName="checked"
+            extra="Bookings assigned to this table stay pending until staff confirms"
+          >
+            <Switch />
+          </Form.Item>
           <Form.Item name="photoUrl" label="Photo" extra="Optional. Shown on the diner restaurant page.">
             <PhotoUpload maxCount={1} />
           </Form.Item>
@@ -772,6 +796,7 @@ function FloorPageContent() {
         onOk={() => shiftForm.submit()}
         confirmLoading={creatingShift || updatingShift}
         okText={editingShift ? 'Save shift' : 'Add shift'}
+        okButtonProps={{ disabled: !shiftDirty.dirty }}
         centered
         width={520}
         styles={{ body: { maxHeight: 'min(70vh, 560px)', overflowY: 'auto' } }}
@@ -780,6 +805,7 @@ function FloorPageContent() {
           form={shiftForm}
           layout="vertical"
           requiredMark={false}
+          onValuesChange={shiftDirty.onValuesChange}
           onFinish={(values) => void handleShiftSubmit(values)}
           style={{ marginTop: 8 }}
         >

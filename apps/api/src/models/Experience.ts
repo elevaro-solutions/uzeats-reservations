@@ -25,6 +25,8 @@ const experienceSchema = new Schema(
     },
     includes: [{ type: String }],
     tags: [{ type: String }],
+    /** When true, bookings for this experience need staff confirmation. */
+    requiresManualApproval: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

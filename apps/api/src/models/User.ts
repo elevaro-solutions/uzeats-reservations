@@ -28,6 +28,7 @@ const notificationPreferencesSchema = new Schema(
     availabilityAlerts: { type: notificationChannelPreferencesSchema, default: () => ({}) },
     guestSpendAlert: { type: notificationChannelPreferencesSchema, default: () => ({}) },
     reservationUpdates: { type: notificationChannelPreferencesSchema, default: () => ({}) },
+    newReview: { type: notificationChannelPreferencesSchema, default: () => ({}) },
     reviewReply: { type: notificationChannelPreferencesSchema, default: () => ({}) },
     surveyInvitation: { type: notificationChannelPreferencesSchema, default: () => ({}) },
     loyaltyUpdates: { type: notificationChannelPreferencesSchema, default: () => ({}) },
@@ -44,7 +45,14 @@ const userSchema = new Schema(
     lastName: { type: String, required: true, trim: true },
     role: {
       type: String,
-      enum: ['diner', 'restaurant_owner', 'staff', 'admin', 'super_admin'],
+      enum: [
+        'diner',
+        'restaurant_owner',
+        'manager',
+        'admin',
+        'account_manager',
+        'super_admin',
+      ],
       default: 'diner',
     },
     googleId: { type: String, sparse: true, unique: true },

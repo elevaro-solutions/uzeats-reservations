@@ -12,6 +12,8 @@ const privateDiningSpaceSchema = new Schema(
     photoUrl: { type: String },
     amenities: [{ type: String }],
     active: { type: Boolean, default: true },
+    /** When true, bookings for this space need staff confirmation. */
+    requiresManualApproval: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

@@ -18,24 +18,26 @@ import { isPlatformAdmin } from '@/lib/roles';
 const { Text } = Typography;
 
 const ROLE_LABELS: Record<string, string> = {
-  diner: 'Diner',
-  restaurant_owner: 'Restaurant owner',
-  staff: 'Staff',
+  diner: 'Guest',
+  restaurant_owner: 'Owner',
+  manager: 'Manager',
   admin: 'Admin',
+  account_manager: 'Account manager',
   super_admin: 'Super admin',
 };
 
 const ROLE_COLORS: Record<string, string> = {
   diner: 'default',
   restaurant_owner: 'blue',
-  staff: 'cyan',
+  manager: 'cyan',
   admin: 'orange',
+  account_manager: 'purple',
   super_admin: 'red',
 };
 
 const TEAM_ROLE_OPTIONS = [
-  { value: 'staff', label: 'Staff' },
-  { value: 'restaurant_owner', label: 'Restaurant owner' },
+  { value: 'manager', label: 'Manager' },
+  { value: 'restaurant_owner', label: 'Owner' },
 ];
 
 type TeamMember = {
@@ -55,7 +57,7 @@ export function AdminRestaurantTeamPanel({
   ownerId?: string;
 }) {
   const [assignUserId, setAssignUserId] = useState<string>();
-  const [assignRole, setAssignRole] = useState('staff');
+  const [assignRole, setAssignRole] = useState('manager');
 
   const { data: teamData, refetch: refetchTeam } = useQuery(RESTAURANT_TEAM, {
     variables: { restaurantId },
@@ -159,7 +161,7 @@ export function AdminRestaurantTeamPanel({
           {members.length === 0 ? (
             <EmptyState
               title="No team members"
-              description="Assign an owner or staff account to this restaurant."
+              description="Assign an owner or manager to this venue."
             />
           ) : (
             <Table<TeamMember>

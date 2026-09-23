@@ -140,7 +140,6 @@ export const PARTNER_PAGES: DashboardPage[] = [
   page('/reviews', 'Reviews', 'Guests', 'partner', <StarOutlined />, {
     keywords: ['ratings', 'feedback'],
     description: 'Guest ratings and written feedback',
-    parentSiderHref: '/guests',
   }),
   page('/grow', 'Grow', 'Grow', 'partner', <RocketOutlined />, {
     keywords: ['marketing', 'promotion', 'hub'],
@@ -202,6 +201,11 @@ export const PARTNER_PAGES: DashboardPage[] = [
   page('/settings', 'Settings', 'Account', 'partner', <SettingOutlined />, {
     keywords: ['configuration', 'preferences'],
   }),
+  page('/team', 'Team', 'Account', 'partner', <TeamOutlined />, {
+    keywords: ['managers', 'manager', 'invite', 'seats'],
+    description: 'Invite managers within your package seat limit',
+    parentSiderHref: '/settings',
+  }),
   page('/billing', 'Billing', 'Account', 'partner', <DollarOutlined />, {
     keywords: ['subscription', 'plan', 'invoice'],
   }),
@@ -247,20 +251,8 @@ export const PARTNER_PAGES: DashboardPage[] = [
   }),
 ];
 
-/** Platform admin pages (sidebar + search). */
+/** Platform admin pages (sidebar + search). Group order follows first appearance. */
 export const ADMIN_PAGES: DashboardPage[] = [
-  page('/admin/diners', 'Diners', 'Accounts', 'admin', <UserOutlined />, {
-    keywords: ['customers', 'guests'],
-  }),
-  page('/admin/owners', 'Restaurant owners', 'Accounts', 'admin', <IdcardOutlined />, {
-    keywords: ['partners'],
-  }),
-  page('/admin/staff', 'Staff', 'Accounts', 'admin', <TeamOutlined />, {
-    keywords: ['employees'],
-  }),
-  page('/admin/users', 'Platform users', 'Accounts', 'admin', <SafetyOutlined />, {
-    keywords: ['admins', 'accounts'],
-  }),
   page('/admin', 'Overview', 'Support', 'admin', <SafetyOutlined />, {
     keywords: ['home', 'dashboard'],
   }),
@@ -281,6 +273,20 @@ export const ADMIN_PAGES: DashboardPage[] = [
   }),
   page('/admin/moderation', 'Moderation', 'Support', 'admin', <FlagOutlined />, {
     keywords: ['reports', 'abuse'],
+  }),
+  page('/admin/diners', 'Guests', 'Accounts', 'admin', <UserOutlined />, {
+    keywords: ['customers', 'diners', 'guests'],
+  }),
+  page('/admin/owners', 'Restaurant accounts', 'Accounts', 'admin', <IdcardOutlined />, {
+    keywords: ['partners', 'owners', 'managers', 'manager'],
+  }),
+  page('/admin/users', 'Admins', 'Accounts', 'admin', <SafetyOutlined />, {
+    keywords: ['admins', 'account managers', 'platform users', 'accounts'],
+  }),
+  page('/admin/staff', 'Managers', 'Accounts', 'admin', <TeamOutlined />, {
+    keywords: ['employees', 'manager', 'managers'],
+    description: 'Moved into Restaurant accounts',
+    parentSiderHref: '/admin/owners',
   }),
   page('/admin/billing', 'Billing', 'Billing', 'admin', <DollarOutlined />, {
     keywords: ['finance', 'hub', 'mrr'],

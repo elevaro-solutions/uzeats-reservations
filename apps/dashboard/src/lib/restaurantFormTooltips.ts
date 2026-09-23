@@ -35,8 +35,12 @@ export const restaurantFieldTooltips = {
   phone: 'Restaurant contact phone number. US format, e.g. (212) 555-1234. Optional.',
   website: 'Full restaurant website URL including https://. Optional.',
   useSmartAssign: 'Automatically picks the best available table when a reservation is confirmed.',
+  manualApprovalEnabled:
+    'When on, matching online bookings stay pending until you Confirm them in the dashboard. Off by default.',
+  manualApprovalPartySize:
+    'Optional party-size rule. Leave empty to require approval for every online booking while the switch is on.',
   posEnabled: 'Enable POS sync so walk-ins and covers can update from your POS system.',
-  spendAlertDollars: 'Alert staff when a party’s spend reaches this amount. Set 0 to disable.',
+  spendAlertDollars: 'Alert managers when a party’s spend reaches this amount. Set 0 to disable.',
   primaryColor: 'Hex color for the booking widget primary button (e.g. #0b3d2e).',
   buttonText: 'Label shown on the booking widget CTA button.',
   showReviews: 'Show average rating and review count on the booking widget.',

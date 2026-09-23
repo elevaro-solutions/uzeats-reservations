@@ -29,6 +29,7 @@ import {
   CreditCardOutlined,
   LogoutOutlined,
   MenuOutlined,
+  StarOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { TableveraBrand, colors, layout, radii, typography } from '@reservations/ui';
@@ -125,6 +126,7 @@ function notificationHref(n: AppNotification): string {
     case 'saved_restaurant_available':
       return availabilityAlertHref(data);
     case 'review_reply':
+      return '/reviews';
     case 'survey_invitation':
       return reservationDetailHref(data);
     default:
@@ -280,6 +282,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
       ? [
           { href: '/', label: 'Find a table' },
           { href: '/reservations', label: 'My reservations' },
+          { href: '/reviews', label: 'My reviews' },
           { href: '/saved', label: 'Saved' },
           { href: '/waitlist', label: 'Waitlist' },
           { href: '/profile', label: 'Profile' },
@@ -302,6 +305,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     }
     if (pathname.startsWith('/profile')) return '/profile';
     if (pathname.startsWith('/reservations')) return '/reservations';
+    if (pathname.startsWith('/reviews')) return '/reviews';
     if (pathname.startsWith('/waitlist')) return '/waitlist';
     if (pathname.startsWith('/saved')) return '/saved';
     if (pathname.startsWith('/for-restaurants') || pathname.startsWith('/pricing')) {
@@ -344,6 +348,12 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           icon: <CalendarOutlined />,
           label: 'My reservations',
           onClick: () => router.push('/reservations'),
+        },
+        {
+          key: 'reviews',
+          icon: <StarOutlined />,
+          label: 'My reviews',
+          onClick: () => router.push('/reviews'),
         },
         {
           key: 'saved',
@@ -591,6 +601,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                     if (key === 'profile') router.push('/profile');
                     if (key === 'notification-settings') router.push('/profile#notifications');
                     if (key === 'reservations') router.push('/reservations');
+                    if (key === 'reviews') router.push('/reviews');
                     if (key === 'saved') router.push('/saved');
                     if (key === 'waitlist') router.push('/waitlist');
                     if (key === 'billing') router.push('/billing');
@@ -769,6 +780,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                     {user ? (
                       <>
                         <Link href="/reservations">My reservations</Link>
+                        <Link href="/reviews">My reviews</Link>
                         <Link href="/waitlist">Waitlist</Link>
                         <Link href="/profile">Profile</Link>
                       </>

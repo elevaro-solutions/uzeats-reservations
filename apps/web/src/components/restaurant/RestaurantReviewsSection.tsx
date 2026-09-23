@@ -5,6 +5,7 @@ import { StarFilled, StarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { colors } from '@reservations/ui';
+import { browserMediaUrl } from '@reservations/shared';
 
 dayjs.extend(relativeTime);
 
@@ -114,7 +115,7 @@ export function RestaurantReviewsSection({
                     {r.photos.map((url) => (
                       <Image
                         key={url}
-                        src={url}
+                        src={browserMediaUrl(url)}
                         alt="Review photo"
                         width={72}
                         height={72}

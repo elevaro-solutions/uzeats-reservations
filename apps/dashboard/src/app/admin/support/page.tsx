@@ -6,6 +6,7 @@ import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
   Button,
   Card,
+  Dropdown,
   Form,
   Input,
   Modal,
@@ -15,6 +16,8 @@ import {
   Tag,
   message,
 } from 'antd';
+import type { MenuProps } from 'antd';
+import { EyeOutlined, MoreOutlined } from '@ant-design/icons';
 import { PageHeader, spacing } from '@reservations/ui';
 import { SUPPORT_TICKET_SUBJECTS } from '@reservations/shared';
 import { RichTextEditor } from '@/components/RichTextEditor';
@@ -75,7 +78,13 @@ function SupportPageContent() {
   const staffOptions = useMemo(
     () =>
       users
-        .filter((u: any) => u.role === 'admin' || u.role === 'staff' || u.role === 'restaurant_owner')
+        .filter(
+          (u: any) =>
+            u.role === 'admin' ||
+            u.role === 'account_manager' ||
+            u.role === 'manager' ||
+            u.role === 'restaurant_owner',
+        )
         .map((u: any) => ({
           value: u.id,
           label: `${u.firstName} ${u.lastName}${u.email ? ` (${u.email})` : ''}`,
@@ -241,6 +250,30 @@ function SupportPageContent() {
               width: 170,
               render: (v: string) => new Date(v).toLocaleString('en-US'),
             },
+            {
+              title: '',
+              width: 56,
+              render: (_: unknown, row: { id: string }) => {
+                const items: MenuProps['items'] = [
+                  {
+                    key: 'view',
+                    icon: <EyeOutlined />,
+                    label: 'View details',
+                    onClick: () => router.push(`/admin/support/${row.id}`),
+                  },
+                ];
+                return (
+                  <Dropdown menu={{ items }} trigger={['click']}>
+                    <Button
+                      size="small"
+                      icon={<MoreOutlined />}
+                      aria-label="Ticket actions"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </Dropdown>
+                );
+              },
+            },
           ]}
         />
       </Card>
@@ -294,7 +327,7 @@ function SupportPageContent() {
               <Select options={CATEGORY_OPTIONS} />
             </Form.Item>
           </Space>
-          <Form.Item name="assigneeId" label="Assign to staff">
+          <Form.Item name="assigneeId" label="Assign to admin">
             <Select
               allowClear
               showSearch

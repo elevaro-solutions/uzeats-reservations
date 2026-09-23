@@ -18,6 +18,8 @@ const planOverrideSchema = new Schema(
     networkCoverFeeCents: { type: Number },
     websiteCoverFeeCents: { type: Number },
     trialDays: { type: Number },
+    /** Owner-invited manager seats included with this package (≥1). */
+    managerSeats: { type: Number, min: 1, max: 100 },
     visibleOnPricing: { type: Boolean, default: true },
     features: { type: Schema.Types.Mixed },
   },
@@ -56,18 +58,18 @@ const platformConfigSchema = new Schema(
     supportPhone: { type: String, default: '+16507707788' },
     defaultSignupRole: {
       type: String,
-      enum: ['diner', 'restaurant_owner', 'staff'],
+      enum: ['diner', 'restaurant_owner', 'manager'],
       default: 'diner',
     },
     defaultPartnerRole: {
       type: String,
-      enum: ['diner', 'restaurant_owner', 'staff'],
+      enum: ['diner', 'restaurant_owner', 'manager'],
       default: 'restaurant_owner',
     },
-    defaultStaffRole: {
+    defaultManagerRole: {
       type: String,
-      enum: ['diner', 'restaurant_owner', 'staff'],
-      default: 'staff',
+      enum: ['diner', 'restaurant_owner', 'manager'],
+      default: 'manager',
     },
     maintenanceMode: { type: Boolean, default: false },
     allowPublicRegistration: { type: Boolean, default: true },

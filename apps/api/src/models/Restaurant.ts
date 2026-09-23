@@ -46,6 +46,20 @@ const restaurantSchema = new Schema(
     allowGuestTableSelection: { type: Boolean, default: false },
     reservationsEnabled: { type: Boolean, default: true },
     reservationsVisible: { type: Boolean, default: true },
+    /** When true, online bookings may stay pending until staff confirms. */
+    manualApprovalEnabled: { type: Boolean, default: false },
+    /** `gt` = party size > n; `gte` = party size ≥ n. Ignored when disabled. */
+    manualApprovalPartySizeOp: {
+      type: String,
+      enum: ['gt', 'gte'],
+      default: 'gte',
+    },
+    /**
+     * Party-size threshold for restaurant-level approval.
+     * When enabled and unset, every online booking needs approval.
+     */
+    manualApprovalPartySize: { type: Number, min: 1 },
+
     posApiKey: { type: String, sparse: true, unique: true },
     posApiKeyHash: { type: String, sparse: true, unique: true },
     posEnabled: { type: Boolean, default: false },

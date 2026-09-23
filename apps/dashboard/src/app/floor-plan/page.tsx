@@ -6,22 +6,35 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Button,
   Card,
+  Col,
+  Divider,
   Drawer,
   Empty,
+  Form,
   Grid,
+  Input,
   InputNumber,
+  Modal,
+  Row,
   Select,
   Slider,
   Space,
+  Switch,
   Tag,
   Typography,
   message,
 } from 'antd';
-import { RotateRightOutlined, SaveOutlined } from '@ant-design/icons';
+import { PlusOutlined, RotateRightOutlined, SaveOutlined } from '@ant-design/icons';
 import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
-import { MY_RESTAURANTS, FLOOR_PLAN_TABLES, UPDATE_TABLE_POSITIONS, UPDATE_TABLE } from '@/lib/graphql';
+import {
+  MY_RESTAURANTS,
+  FLOOR_PLAN_TABLES,
+  CREATE_TABLE,
+  UPDATE_TABLE_POSITIONS,
+  UPDATE_TABLE,
+} from '@/lib/graphql';
 import PhotoUpload from '@/components/PhotoUpload';
 import {
   DEFAULT_CELL_SIZE,
@@ -45,6 +58,100 @@ import {
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
+
+const FLOOR_AREA_PRESETS = ['Main', 'Patio', 'Private', 'Bar', 'Rooftop', 'Window'];
+
+function normalizeAreaName(value: string) {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+function findAreaName(name: string, areas: string[]) {
+  const lower = name.toLowerCase();
+  return areas.find((area) => area.toLowerCase() === lower);
+}
+
+type FloorAreaSelectProps = {
+  value?: string;
+  onChange?: (value?: string) => void;
+  areas: string[];
+  onAddArea?: (value: string) => void;
+};
+
+function FloorAreaSelect({ value, onChange, areas, onAddArea }: FloorAreaSelectProps) {
+  const [draft, setDraft] = useState('');
+
+  const options = useMemo(() => {
+    const seen = new Set<string>();
+    const items: { value: string; label: string }[] = [];
+    for (const area of areas) {
+      const key = area.toLowerCase();
+      if (!area || seen.has(key)) continue;
+      seen.add(key);
+      items.push({ value: area, label: area });
+    }
+    if (value && !seen.has(value.toLowerCase())) {
+      items.unshift({ value, label: value });
+    }
+    return items.sort((a, b) => a.label.localeCompare(b.label));
+  }, [areas, value]);
+
+  const addArea = () => {
+    const next = normalizeAreaName(draft);
+    if (!next) return;
+    const existing = findAreaName(next, options.map((item) => item.value));
+    const selected = existing ?? next;
+    if (!existing) onAddArea?.(selected);
+    onChange?.(selected);
+    setDraft('');
+  };
+
+  return (
+    <Select
+      showSearch
+      allowClear
+      value={value}
+      onChange={(next) => onChange?.(next)}
+      options={options}
+      placeholder="Select or add an area"
+      optionFilterProp="label"
+      popupRender={(menu) => (
+        <>
+          {menu}
+          <Divider style={{ margin: '8px 0' }} />
+          <Space
+            style={{ padding: '0 8px 8px', width: '100%' }}
+            orientation="vertical"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <Input
+              placeholder="New area name"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onMouseDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                e.stopPropagation();
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addArea();
+                }
+              }}
+              maxLength={40}
+            />
+            <Button
+              type="text"
+              icon={<PlusOutlined />}
+              onClick={addArea}
+              disabled={!normalizeAreaName(draft)}
+              block
+            >
+              Add “{normalizeAreaName(draft) || '…'}”
+            </Button>
+          </Space>
+        </>
+      )}
+    />
+  );
+}
 
 type FloorTable = {
   id: string;
@@ -226,6 +333,9 @@ export default function FloorPlanPage() {
   const [box, setBox] = useState({ width: 0, height: 0 });
   const [gridCellSize, setGridCellSize] = useState<number | null>(DEFAULT_CELL_SIZE);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [tableModalOpen, setTableModalOpen] = useState(false);
+  const [customFloorAreas, setCustomFloorAreas] = useState<string[]>([]);
+  const [tableForm] = Form.useForm();
 
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -247,8 +357,13 @@ export default function FloorPlanPage() {
     variables: { id: activeRestaurantId },
     onError: (err: Error) => message.error(err.message),
   });
+  const [createTable, { loading: creatingTable }] = useMutation(CREATE_TABLE);
   const [updatePositions, { loading: saving }] = useMutation(UPDATE_TABLE_POSITIONS);
   const [saveTableMutation] = useMutation(UPDATE_TABLE);
+
+  useEffect(() => {
+    setCustomFloorAreas([]);
+  }, [activeRestaurantId]);
 
   useEffect(() => {
     const loaded: FloorTable[] = (data?.restaurant?.tables ?? []).map((t: FloorTable) => ({
@@ -273,9 +388,20 @@ export default function FloorPlanPage() {
   }, [data]);
 
   const floorAreas = useMemo(
-    () => Array.from(new Set(tables.map((t) => t.floorArea))).sort(),
+    () => Array.from(new Set(tables.map((t) => t.floorArea).filter(Boolean))).sort(),
     [tables],
   );
+  const floorAreaOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const area of [...FLOOR_AREA_PRESETS, ...floorAreas, ...customFloorAreas]) {
+      const key = area.toLowerCase();
+      if (!area || seen.has(key)) continue;
+      seen.add(key);
+      names.push(area);
+    }
+    return names;
+  }, [customFloorAreas, floorAreas]);
   const setAreaFilter = useCallback(
     (area: string | undefined) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -551,6 +677,86 @@ export default function FloorPlanPage() {
     });
   };
 
+  const openAddTable = () => {
+    tableForm.resetFields();
+    tableForm.setFieldsValue({
+      minCapacity: 2,
+      maxCapacity: 4,
+      floorArea: areaFilter || floorAreas[0] || 'Main',
+      combinable: false,
+      active: true,
+      requiresManualApproval: false,
+      photoUrl: [],
+    });
+    setTableModalOpen(true);
+  };
+
+  const closeTableModal = () => {
+    setTableModalOpen(false);
+  };
+
+  const handleCreateTable = async (values: {
+    name: string;
+    minCapacity: number;
+    maxCapacity: number;
+    floorArea?: string;
+    combinable?: boolean;
+    active?: boolean;
+    requiresManualApproval?: boolean;
+    photoUrl?: string[];
+  }) => {
+    if (!activeRestaurantId) return;
+    const floorArea = values.floorArea?.trim() || 'Main';
+    const input = {
+      name: values.name.trim(),
+      minCapacity: values.minCapacity,
+      maxCapacity: values.maxCapacity,
+      floorArea,
+      combinable: values.combinable ?? false,
+      active: values.active ?? true,
+      requiresManualApproval: values.requiresManualApproval ?? false,
+      photoUrl: values.photoUrl?.[0] ?? null,
+    };
+
+    try {
+      const result = await createTable({
+        variables: { restaurantId: activeRestaurantId, input },
+      });
+      const created = result.data?.createTable as { id: string; name: string } | undefined;
+      if (!created?.id) throw new Error('Failed to add table');
+
+      const nextTable: FloorTable = {
+        id: created.id,
+        name: input.name,
+        minCapacity: input.minCapacity,
+        maxCapacity: input.maxCapacity,
+        floorArea,
+        active: input.active,
+        posX: 0,
+        posY: 0,
+        width: 2,
+        height: 2,
+        shape: 'rect',
+        rotation: 0,
+        photoUrl: input.photoUrl,
+      };
+      // Append locally so unsaved layout edits are not wiped by a refetch.
+      setTables((prev) => [...prev, nextTable]);
+      setSelectedId(created.id);
+      if (isCompact) setDetailsOpen(true);
+      if (areaFilter && areaFilter.toLowerCase() !== floorArea.toLowerCase()) {
+        setAreaFilter(floorArea);
+      }
+      message.success('Table added');
+      closeTableModal();
+      tableForm.resetFields();
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Failed to add table');
+    }
+  };
+
+  const canAddTable = Boolean(activeRestaurantId);
+
   return (
     <div className="rt-floor-plan-page">
       <div
@@ -565,15 +771,24 @@ export default function FloorPlanPage() {
         <Title level={2} style={{ margin: 0 }}>
           Table layout
         </Title>
-        <Button
-          type="primary"
-          icon={<SaveOutlined />}
-          loading={saving}
-          disabled={!dirty}
-          onClick={handleSave}
-        >
-          Save layout
-        </Button>
+        <Space wrap>
+          <Button
+            icon={<PlusOutlined />}
+            onClick={openAddTable}
+            disabled={!canAddTable}
+          >
+            Table
+          </Button>
+          <Button
+            type="primary"
+            icon={<SaveOutlined />}
+            loading={saving}
+            disabled={!dirty}
+            onClick={handleSave}
+          >
+            Save layout
+          </Button>
+        </Space>
       </div>
       <Text type="secondary">
         Drag tables to move. Select a table, then drag the rotate icon on the table to turn it
@@ -628,9 +843,17 @@ export default function FloorPlanPage() {
         >
           {visibleTables.length === 0 && !loading ? (
             <Empty
-              description="No tables in this area. Add tables under Tables & shifts."
+              description={
+                areaFilter
+                  ? `No tables in ${areaFilter}. Add one here or clear the area filter.`
+                  : 'No tables yet. Add a table to start arranging the floor plan.'
+              }
               style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}
-            />
+            >
+              <Button type="primary" icon={<PlusOutlined />} onClick={openAddTable} disabled={!canAddTable}>
+                Table
+              </Button>
+            </Empty>
           ) : (
             <div
               ref={canvasWrapRef}
@@ -834,6 +1057,109 @@ export default function FloorPlanPage() {
           />
         )}
       </Drawer>
+
+      <Modal
+        title="Add table"
+        open={tableModalOpen}
+        onCancel={closeTableModal}
+        onOk={() => tableForm.submit()}
+        confirmLoading={creatingTable}
+        okText="Add table"
+        centered
+        width={520}
+        focusable={{ trap: false }}
+        styles={{ body: { maxHeight: 'min(70vh, 560px)', overflowY: 'auto' } }}
+      >
+        <Form
+          form={tableForm}
+          layout="vertical"
+          requiredMark={false}
+          onFinish={(values) => void handleCreateTable(values)}
+          style={{ marginTop: 8 }}
+        >
+          <Form.Item
+            name="name"
+            label="Table name"
+            rules={[{ required: true, message: 'Enter a table name' }]}
+          >
+            <Input placeholder="e.g. T1, Window 4, Banquette" maxLength={40} />
+          </Form.Item>
+          <Row gutter={[16, 16]}>
+            <Col span={12}>
+              <Form.Item
+                name="minCapacity"
+                label="Min guests"
+                rules={[{ required: true, message: 'Enter min guests' }]}
+              >
+                <InputNumber min={1} max={50} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="maxCapacity"
+                label="Max guests"
+                dependencies={['minCapacity']}
+                rules={[
+                  { required: true, message: 'Enter max guests' },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const min = getFieldValue('minCapacity');
+                      if (value != null && min != null && value < min) {
+                        return Promise.reject(new Error('Max must be at least min'));
+                      }
+                      return Promise.resolve();
+                    },
+                  }),
+                ]}
+              >
+                <InputNumber min={1} max={50} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item
+            name="floorArea"
+            label="Floor area"
+            extra="Used to group tables on the floor plan and in diner booking."
+          >
+            <FloorAreaSelect
+              areas={floorAreaOptions}
+              onAddArea={(area) => {
+                setCustomFloorAreas((prev) =>
+                  findAreaName(area, prev) ? prev : [...prev, area],
+                );
+              }}
+            />
+          </Form.Item>
+          <Row gutter={[16, 16]}>
+            <Col span={12}>
+              <Form.Item
+                name="combinable"
+                label="Combinable"
+                valuePropName="checked"
+                extra="Join with nearby tables for larger parties"
+              >
+                <Switch />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="active" label="Active" valuePropName="checked">
+                <Switch />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item
+            name="requiresManualApproval"
+            label="Require manual approval"
+            valuePropName="checked"
+            extra="Bookings assigned to this table stay pending until staff confirms"
+          >
+            <Switch />
+          </Form.Item>
+          <Form.Item name="photoUrl" label="Photo" extra="Optional. Shown on the diner restaurant page.">
+            <PhotoUpload maxCount={1} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

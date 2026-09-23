@@ -168,7 +168,7 @@ describe('Admin managed accounts', () => {
           password: 'Password123!',
           firstName: 'No',
           lastName: 'Venue',
-          role: 'staff',
+          role: 'manager',
         },
       },
       adminToken,
@@ -186,14 +186,14 @@ describe('Admin managed accounts', () => {
           password: 'Password123!',
           firstName: 'New',
           lastName: 'Staff',
-          role: 'staff',
+          role: 'manager',
           restaurantIds: [restaurantId],
         },
       },
       adminToken,
     );
     expect(res.body.errors).toBeUndefined();
-    expect(res.body.data.adminCreateUser.role).toBe('staff');
+    expect(res.body.data.adminCreateUser.role).toBe('manager');
     expect(res.body.data.adminCreateUser.restaurantIds).toContain(restaurantId);
   });
 
@@ -215,16 +215,35 @@ describe('Admin managed accounts', () => {
     expect(res.body.errors).toBeDefined();
   });
 
+  it('creates an account manager via adminCreateUser', async () => {
+    const res = await graphqlRequest(
+      agent,
+      CREATE_USER,
+      {
+        input: {
+          email: 'acct-mgr@test.com',
+          password: 'Password123!',
+          firstName: 'Account',
+          lastName: 'Manager',
+          role: 'account_manager',
+        },
+      },
+      adminToken,
+    );
+    expect(res.body.errors).toBeUndefined();
+    expect(res.body.data.adminCreateUser.role).toBe('account_manager');
+  });
+
   it('lists diners separately from staff and owners', async () => {
     const [diners, staff, owners] = await Promise.all([
       graphqlRequest(agent, ADMIN_USERS, { role: 'diner' }, adminToken),
-      graphqlRequest(agent, ADMIN_USERS, { role: 'staff' }, adminToken),
+      graphqlRequest(agent, ADMIN_USERS, { role: 'manager' }, adminToken),
       graphqlRequest(agent, ADMIN_USERS, { role: 'restaurant_owner' }, adminToken),
     ]);
     expect(diners.body.data.adminUsers.items.every((u: { role: string }) => u.role === 'diner')).toBe(
       true,
     );
-    expect(staff.body.data.adminUsers.items.every((u: { role: string }) => u.role === 'staff')).toBe(
+    expect(staff.body.data.adminUsers.items.every((u: { role: string }) => u.role === 'manager')).toBe(
       true,
     );
     expect(

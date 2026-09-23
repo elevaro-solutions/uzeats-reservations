@@ -1,15 +1,19 @@
 import crypto from 'node:crypto';
 import { isPlatformAdmin, type UserRole } from '@reservations/shared';
 import { env } from '../config/env.js';
-import { StaffInvite } from '../models/StaffInvite.js';
+import { ManagerInvite } from '../models/ManagerInvite.js';
 import { User } from '../models/User.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { getPlatformConfig } from './platformConfig.js';
-import { hashPassword, signAccessToken } from './auth.js';
+import { hashPassword, issueTokens, signAccessToken } from './auth.js';
 import { generateUniqueReferralCode } from '../lib/referralCode.js';
 import { notifyUser } from './notifications.js';
 import { renderEmailTemplate } from './emailTemplates.js';
 import { emailNotice } from './emailBranding.js';
+import {
+  assertManagerSeatsAvailable,
+  wouldConsumeManagerSeat,
+} from './managerSeats.js';
 
 export async function startImpersonation(adminId: string, targetUserId: string) {
   if (adminId === targetUserId) throw new Error('Cannot impersonate yourself');
@@ -41,18 +45,18 @@ export async function startImpersonation(adminId: string, targetUserId: string) 
   };
 }
 
-export async function inviteStaff(input: {
+export async function inviteManager(input: {
   email: string;
   firstName: string;
   lastName: string;
-  role?: 'staff' | 'restaurant_owner';
+  role?: 'manager' | 'restaurant_owner';
   restaurantIds: string[];
   invitedById: string;
 }) {
   const config = await getPlatformConfig();
-  const role = (input.role || config.defaultStaffRole || 'staff') as 'staff' | 'restaurant_owner';
-  if (!['staff', 'restaurant_owner'].includes(role)) {
-    throw new Error('Invite role must be staff or restaurant_owner');
+  const role = (input.role || config.defaultManagerRole || 'manager') as 'manager' | 'restaurant_owner';
+  if (!['manager', 'restaurant_owner'].includes(role)) {
+    throw new Error('Invite role must be manager or restaurant_owner');
   }
   if (!input.restaurantIds.length) throw new Error('At least one restaurant is required');
 
@@ -62,8 +66,25 @@ export async function inviteStaff(input: {
   }
 
   const email = input.email.toLowerCase();
+  const existingBefore = await User.findOne({ email });
+
+  // Manager seats apply to `manager` invites. Skip restaurants the user already manages.
+  if (role === 'manager') {
+    for (const restaurantId of input.restaurantIds) {
+      if (existingBefore) {
+        const consumes = await wouldConsumeManagerSeat(
+          restaurantId,
+          existingBefore._id.toString(),
+          'manager',
+        );
+        if (!consumes) continue;
+      }
+      await assertManagerSeatsAvailable(restaurantId, { excludeEmails: [email] });
+    }
+  }
+
   const token = crypto.randomUUID();
-  const invite = await StaffInvite.create({
+  const invite = await ManagerInvite.create({
     email,
     firstName: input.firstName,
     lastName: input.lastName,
@@ -74,10 +95,10 @@ export async function inviteStaff(input: {
     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   });
 
-  const inviteUrl = `${env.WEB_APP_URL || 'http://localhost:3000'}/accept-invite?token=${token}`;
+  const inviteUrl = `${(env.DASHBOARD_APP_URL || env.WEB_APP_URL || 'http://localhost:3001').replace(/\/$/, '')}/accept-invite?token=${token}`;
   const restaurantName = restaurants.map((r) => r.name).join(', ');
 
-  let existing = await User.findOne({ email });
+  let existing = existingBefore;
   if (existing) {
     await User.findByIdAndUpdate(existing._id, {
       $addToSet: { restaurantIds: { $each: input.restaurantIds } },
@@ -155,8 +176,14 @@ export async function adminCreateOwnerUser(input: {
   return user;
 }
 
-const MANAGED_ACCOUNT_ROLES = ['diner', 'restaurant_owner', 'staff'] as const;
-type ManagedAccountRole = (typeof MANAGED_ACCOUNT_ROLES)[number];
+const CREATABLE_ACCOUNT_ROLES = [
+  'diner',
+  'restaurant_owner',
+  'manager',
+  'admin',
+  'account_manager',
+] as const;
+type CreatableAccountRole = (typeof CREATABLE_ACCOUNT_ROLES)[number];
 
 export async function adminCreateUser(input: {
   email: string;
@@ -164,12 +191,12 @@ export async function adminCreateUser(input: {
   firstName: string;
   lastName: string;
   phone?: string;
-  role: ManagedAccountRole;
+  role: CreatableAccountRole;
   restaurantIds?: string[];
   emailVerified?: boolean;
 }) {
-  if (!MANAGED_ACCOUNT_ROLES.includes(input.role)) {
-    throw new Error('Role must be diner, staff, or restaurant owner');
+  if (!(CREATABLE_ACCOUNT_ROLES as readonly string[]).includes(input.role)) {
+    throw new Error('Invalid role for account creation');
   }
 
   const email = input.email.toLowerCase();
@@ -180,14 +207,22 @@ export async function adminCreateUser(input: {
     if (phoneTaken) throw new Error('Phone already in use');
   }
 
-  const restaurantIds = input.role === 'diner' ? [] : (input.restaurantIds ?? []);
-  if (input.role === 'staff' && restaurantIds.length === 0) {
-    throw new Error('Staff accounts require at least one restaurant');
+  const restaurantIds =
+    input.role === 'diner' || input.role === 'admin' || input.role === 'account_manager'
+      ? []
+      : (input.restaurantIds ?? []);
+  if (input.role === 'manager' && restaurantIds.length === 0) {
+    throw new Error('Manager accounts require at least one restaurant');
   }
   if (restaurantIds.length) {
     const restaurants = await Restaurant.find({ _id: { $in: restaurantIds } });
     if (restaurants.length !== restaurantIds.length) {
       throw new Error('One or more restaurants not found');
+    }
+  }
+  if (input.role === 'manager') {
+    for (const restaurantId of restaurantIds) {
+      await assertManagerSeatsAvailable(restaurantId);
     }
   }
 
@@ -215,6 +250,22 @@ export async function assignUserToRestaurants(input: {
   if (restaurants.length !== input.restaurantIds.length) {
     throw new Error('One or more restaurants not found');
   }
+
+  const nextRole = (input.role ?? user.role) as string;
+  if (nextRole === 'manager') {
+    for (const restaurantId of input.restaurantIds) {
+      const consumes = await wouldConsumeManagerSeat(
+        restaurantId,
+        input.userId,
+        nextRole,
+      );
+      if (!consumes) continue;
+      await assertManagerSeatsAvailable(restaurantId, {
+        excludeUserIds: [input.userId],
+      });
+    }
+  }
+
   await User.findByIdAndUpdate(user._id, {
     $addToSet: { restaurantIds: { $each: input.restaurantIds } },
     ...(input.role ? { role: input.role } : {}),
@@ -231,4 +282,94 @@ export async function removeUserFromRestaurant(userId: string, restaurantId: str
   );
   if (!updated) throw new Error('User not found');
   return updated;
+}
+
+const INVITE_ROLE_LABELS: Record<string, string> = {
+  manager: 'Manager',
+  restaurant_owner: 'Owner',
+};
+
+export type ManagerInvitePreview = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  roleLabel: string;
+  restaurantName: string;
+  status: 'pending' | 'accepted' | 'expired';
+  needsPassword: boolean;
+};
+
+export async function getManagerInviteByToken(token: string): Promise<ManagerInvitePreview> {
+  const invite = await ManagerInvite.findOne({ token: token.trim() });
+  if (!invite) throw new Error('Invite not found');
+
+  const restaurants = await Restaurant.find({ _id: { $in: invite.restaurantIds } });
+  const restaurantName = restaurants.map((r) => r.name).join(', ') || 'your restaurant';
+  const expired = invite.expiresAt.getTime() < Date.now();
+  const accepted = Boolean(invite.acceptedAt);
+
+  let status: ManagerInvitePreview['status'] = 'pending';
+  if (accepted) status = 'accepted';
+  else if (expired) status = 'expired';
+
+  return {
+    email: invite.email,
+    firstName: invite.firstName,
+    lastName: invite.lastName,
+    role: invite.role,
+    roleLabel: INVITE_ROLE_LABELS[invite.role] ?? invite.role,
+    restaurantName,
+    status,
+    needsPassword: status === 'pending',
+  };
+}
+
+/**
+ * Completes a pending manager invite: sets the invitee's password, marks the invite
+ * accepted, and returns auth tokens so the Partner Hub can sign them in.
+ */
+export async function acceptManagerInvite(token: string, password: string) {
+  const invite = await ManagerInvite.findOne({ token: token.trim() });
+  if (!invite) throw new Error('Invite not found');
+  if (invite.acceptedAt) throw new Error('This invitation has already been accepted. Please sign in.');
+  if (invite.expiresAt.getTime() < Date.now()) {
+    throw new Error('This invitation has expired. Ask your restaurant owner to send a new one.');
+  }
+
+  let user = invite.userId ? await User.findById(invite.userId) : null;
+  if (!user) {
+    user = await User.findOne({ email: invite.email });
+  }
+  if (!user) {
+    user = await User.create({
+      email: invite.email,
+      passwordHash: await hashPassword(password),
+      firstName: invite.firstName,
+      lastName: invite.lastName,
+      role: invite.role as UserRole,
+      restaurantIds: invite.restaurantIds,
+      emailVerified: true,
+    });
+  } else {
+    user.passwordHash = await hashPassword(password);
+    user.emailVerified = true;
+    user.refreshTokens = [];
+    user.refreshTokenGrace = undefined;
+    if (user.role === 'diner') user.role = invite.role as UserRole;
+    const existingIds = new Set((user.restaurantIds ?? []).map((id) => id.toString()));
+    for (const id of invite.restaurantIds) {
+      if (!existingIds.has(id.toString())) {
+        user.restaurantIds = [...(user.restaurantIds ?? []), id];
+      }
+    }
+    await user.save();
+  }
+
+  invite.userId = user._id;
+  invite.acceptedAt = new Date();
+  await invite.save();
+
+  const tokens = await issueTokens(user);
+  return { ...tokens, user };
 }

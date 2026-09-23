@@ -42,6 +42,18 @@ const EXPORT_ADMIN = `
   }
 `;
 
+const EXPORT_USERS = `
+  mutation ExportAdminUsers($roles: [UserRole!], $format: String, $basename: String, $title: String) {
+    exportAdminUsers(roles: $roles, format: $format, basename: $basename, title: $title) {
+      filename
+      content
+      rowCount
+      mimeType
+      encoding
+    }
+  }
+`;
+
 describe('Diner and guest list exports', () => {
   let agent: request.Agent;
   let adminToken: string;
@@ -176,5 +188,37 @@ describe('Diner and guest list exports', () => {
     expect(parsed.rows[0].restaurant).toBe('Export Bistro');
     expect(parsed.rows[0].email).toBe('export-diner@test.com');
     expect(parsed.rows[0].vipStatus).toBe('vip');
+  });
+
+  it('exports restaurant accounts and admins as json', async () => {
+    const owners = await graphqlRequest(
+      agent,
+      EXPORT_USERS,
+      {
+        roles: ['restaurant_owner', 'manager'],
+        format: 'json',
+        basename: 'restaurant-accounts',
+        title: 'Restaurant accounts',
+      },
+      adminToken,
+    );
+    expect(owners.body.errors).toBeUndefined();
+    expect(owners.body.data.exportAdminUsers.filename).toBe('restaurant-accounts.json');
+    expect(owners.body.data.exportAdminUsers.rowCount).toBeGreaterThanOrEqual(1);
+
+    const admins = await graphqlRequest(
+      agent,
+      EXPORT_USERS,
+      {
+        roles: ['admin', 'account_manager', 'super_admin'],
+        format: 'json',
+        basename: 'admins',
+        title: 'Admins',
+      },
+      adminToken,
+    );
+    expect(admins.body.errors).toBeUndefined();
+    expect(admins.body.data.exportAdminUsers.filename).toBe('admins.json');
+    expect(admins.body.data.exportAdminUsers.rowCount).toBeGreaterThanOrEqual(1);
   });
 });

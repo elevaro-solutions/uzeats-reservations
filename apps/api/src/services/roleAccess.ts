@@ -10,7 +10,7 @@ export async function hasSuperAdminAccount(): Promise<boolean> {
 export const SAFE_REGISTRATION_ROLES = [
   'diner',
   'restaurant_owner',
-  'staff',
+  'manager',
 ] as const satisfies readonly UserRole[];
 
 export function clampRegistrationRole(

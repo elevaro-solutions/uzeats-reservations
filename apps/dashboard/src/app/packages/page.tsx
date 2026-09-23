@@ -24,6 +24,7 @@ import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS } from '@/lib/graphql';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import PhotoUpload from '@/components/PhotoUpload';
+import { useFormDirty } from '@/lib/useFormDirty';
 import { gql } from '@apollo/client';
 
 const { Title, Text } = Typography;
@@ -43,6 +44,7 @@ const RESTAURANT_PACKAGES = gql`
       minPartySize
       maxPartySize
       active
+      requiresManualApproval
     }
   }
 `;
@@ -84,6 +86,7 @@ type PackageRecord = {
   minPartySize?: number | null;
   maxPartySize?: number | null;
   active: boolean;
+  requiresManualApproval?: boolean;
 };
 
 function PackagesPageContent() {
@@ -92,6 +95,7 @@ function PackagesPageContent() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form] = Form.useForm();
+  const { dirty, clearDirty, onValuesChange } = useFormDirty();
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
@@ -112,6 +116,7 @@ function PackagesPageContent() {
   const packages: PackageRecord[] = data?.restaurantPackages ?? [];
 
   const handleSubmit = async () => {
+    if (!dirty) return;
     try {
       const values = await form.validateFields();
       const input = {
@@ -125,6 +130,7 @@ function PackagesPageContent() {
         minPartySize: values.minPartySize ?? null,
         maxPartySize: values.maxPartySize ?? null,
         active: values.active !== false,
+        requiresManualApproval: values.requiresManualApproval ?? false,
       };
 
       if (editingId) {
@@ -137,6 +143,7 @@ function PackagesPageContent() {
       setModalOpen(false);
       setEditingId(null);
       form.resetFields();
+      clearDirty();
       refetch();
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Failed to save package');
@@ -157,7 +164,9 @@ function PackagesPageContent() {
       minPartySize: record.minPartySize,
       maxPartySize: record.maxPartySize,
       active: record.active,
+      requiresManualApproval: record.requiresManualApproval ?? false,
     });
+    clearDirty();
     setModalOpen(true);
   };
 
@@ -191,7 +200,13 @@ function PackagesPageContent() {
             onClick={() => {
               setEditingId(null);
               form.resetFields();
-              form.setFieldsValue({ active: true, pricePerGuest: false, occasions: [] });
+              form.setFieldsValue({
+                active: true,
+                pricePerGuest: false,
+                occasions: [],
+                requiresManualApproval: false,
+              });
+              clearDirty();
               setModalOpen(true);
             }}
           >
@@ -268,9 +283,11 @@ function PackagesPageContent() {
           setModalOpen(false);
           setEditingId(null);
           form.resetFields();
+          clearDirty();
         }}
         onOk={handleSubmit}
         okText={editingId ? 'Save' : 'Create'}
+        okButtonProps={{ disabled: !dirty }}
         confirmLoading={creating || updating}
         destroyOnClose
         width={640}
@@ -278,7 +295,7 @@ function PackagesPageContent() {
         centered
         styles={{ body: { maxHeight: 'min(70vh, 560px)', overflowY: 'auto', overflowX: 'hidden' } }}
       >
-        <Form form={form} layout="vertical">
+        <Form form={form} layout="vertical" onValuesChange={onValuesChange}>
           <Form.Item
             name="title"
             label="Title"
@@ -307,6 +324,15 @@ function PackagesPageContent() {
               <Switch />
             </Form.Item>
             <Form.Item name="active" label="Active" valuePropName="checked" style={{ minWidth: 100 }}>
+              <Switch />
+            </Form.Item>
+            <Form.Item
+              name="requiresManualApproval"
+              label="Manual approval"
+              valuePropName="checked"
+              style={{ minWidth: 140 }}
+              extra="Pending until staff confirms"
+            >
               <Switch />
             </Form.Item>
           </Space>

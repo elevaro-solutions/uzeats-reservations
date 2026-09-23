@@ -4,6 +4,57 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.62.0] — 2026-09-23
+
+### Added
+
+- Restaurant **manual approval** for online bookings (default off): Booking policies switch + optional party-size rule (`>` / `≥` n); per-resource opt-in on tables, experiences, private dining spaces, and occasion packages. Matching bookings stay `pending` until staff Confirm; diners see “Awaiting approval”
+- **+ Table** on Partner Hub `/floor-plan` so owners, managers, and admins can add tables while arranging the layout (without leaving for Tables & shifts)
+- Package **manager seats** (`managerSeats`, min 1; Basic 1 / Core 3 / Pro 5) — owners invite Managers from Partner Hub → Settings → Team; upgrade package for more seats
+- Partner sidebar Team page with seat usage, invite/remove managers, and Billing upgrade CTA when at limit
+- `restaurantManagerSeats` query and admin Pricing field to configure seats per package
+- Partner Hub `/accept-invite` to set a password and join after a manager invite (web `/accept-invite` redirects there)
+- Partner sidebar **Reviews** with unreplied-count badge; diners posting a review notify venue owners/managers (`new_review` / `newReview` prefs)
+- Diner account menu **My reviews** (`/reviews`) lists their ratings via `myReviews`
+- Support replies (owner and managers) can include image attachments; they show inline in the chat thread
+- Platform role `account_manager` with admin-dashboard access (assignable without super-admin elevation)
+- Admin **Restaurant accounts** and **Admins** lists export the current filters as Excel, PDF, or JSON (`exportAdminUsers`)
+- Owners and managers can **report a review** for platform moderation (`reportReview`) with Google/Yelp-style policy reasons; queue appears in Admin → Moderation
+- Admin reservation detail (`/admin/reservations/[id]`) to view a booking and change date & time
+- Admin moderation detail (`/admin/moderation/[id]?type=`) with management actions, owner reply, photo attachments, and More menu
+- Admin sidebar/overview badge for pending moderation items (`adminPendingRequestCounts.moderationItems`)
+
+### Changed
+
+- Dashboard (and web edit-reservation) **Save / Submit** actions stay disabled until the form has changes (`useFormDirty`), preventing no-op mutation requests
+- Restaurant venue role renamed from `staff` to `manager` (DB + GraphQL `UserRole`, invites, seats); boot migrates existing rows. GraphQL: `inviteManager` / `acceptManagerInvite` / `managerInviteByToken`. Docs section `/managers`
+- Partner **Reviews** is a top-level Guests sidebar item (no longer only under the Guests hub)
+- Admin sidebar: Accounts sits below Support; **Diners** → **Guests**, **Restaurant owners** → **Restaurant accounts**, **Platform users** → **Admins**
+- Restaurant accounts list: role filter (Owner / Manager), venue filters, and role column; filter controls share one row when space allows
+- Admins and Restaurant accounts pages open Roles & capabilities in a modal
+- Roles & capabilities (Admins) and platform overview docs list view reservations / change date & time for all platform admin roles
+- Admin account detail: URL `?tab=` for Overview/Restaurants, clearer overview cards, edit includes assigned restaurants, and Unassign on the Restaurants tab
+- Partner Support ticket list cards open a detail page at `/support/[id]` with a chat-style conversation; requesters can reply with TipTap
+- Admin ticket conversation is chat-style; triage sits in the right sidebar; internal notes stay admin-only and also use TipTap
+- Managers can reply to the requester in TipTap; replies appear on Partner Hub Support
+- Partner **Reviews** replaces unilateral Hide with **Report** for moderation; only platform admins can hide reviews (`setReviewHidden`)
+- Admin Support-area list tables (moderation, slug/profile requests, tickets) and review lists collapse multi-actions into a More dropdown; row click opens detail where available
+- Partner and admin reservation detail pages keep primary status + edit actions visible and move Message guest / No-show / Cancel / Delete into a More actions menu
+
+### Fixed
+
+- Restaurant booking form resets (date, party, time, occasion, notes, promos, add-ons) after a successful reservation so a second booking starts clean
+- Review (and support) photo thumbs from local API uploads load again — CSP blocked `http://localhost:4000`; same-origin rewrite + `browserMediaUrl` + explicit local API origins in `img-src`
+- Submitting a diner review no longer resets `PostVisitModal` back to the review form when the parent refetch clears the reviewable reservation
+- Platform admins (`super_admin`, `account_manager`) can seat a reservation at a table — `seatReservationAtTable` no longer requires role `admin` only
+- Support ticket screenshots were blocked by CSP on local API upload URLs (`http://localhost:4000`); `img-src` now allows the API origin
+- Blog HTML is sanitized with `sanitize-html` on write and read; diner and dashboard apps send CSP, nosniff, and frame-ancestors headers
+
+### Docs
+
+- Venue role docs moved from Staff to Managers (`/managers`); admin labels Guests / Restaurant accounts / Admins
+- Roles & capabilities cover manager seats, review report, and reservation date/time for platform admins
+
 ## [0.61.0] — 2026-09-23
 
 ### Added

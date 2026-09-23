@@ -1,4 +1,5 @@
 import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
+import { REVIEW_REPORT_REASONS } from '@reservations/shared';
 
 const reviewSchema = new Schema(
   {
@@ -20,7 +21,15 @@ const reviewSchema = new Schema(
     ownerRepliedAt: { type: Date },
     hidden: { type: Boolean, default: false },
     flagged: { type: Boolean, default: false, index: true },
+    /** Human-readable summary for admin queue (label + optional details). */
     flagReason: { type: String },
+    /** Structured policy reason code (owner/admin report). */
+    flagReasonCode: {
+      type: String,
+      enum: [...REVIEW_REPORT_REASONS],
+    },
+    /** Optional evidence / explanation from the reporter. */
+    flagDetails: { type: String },
     flaggedAt: { type: Date },
     flaggedById: { type: Schema.Types.ObjectId, ref: 'User' },
   },

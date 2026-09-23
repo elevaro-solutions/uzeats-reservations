@@ -33,6 +33,10 @@ import {
   countPopularMenuItems,
   restaurantTimeZone,
   RESTAURANT_MAX_PHOTOS,
+  REVIEW_REPORT_DETAILS_MAX,
+  formatReviewFlagReason,
+  isReviewReportReason,
+  type ReviewReportReason,
 } from "@reservations/shared";
 import {
   calendarDayRange,
@@ -90,6 +94,10 @@ import {
   adminCreatePasswordReset,
   hashOpaqueToken,
 } from "../services/auth.js";
+import {
+  acceptManagerInvite,
+  getManagerInviteByToken,
+} from "../services/adminSupport.js";
 import {
   authPayloadTokens,
   beginImpersonationCookies,
@@ -240,8 +248,10 @@ import {
 import { estimateUpgradeProrationCents } from "../services/planChangePolicy.js";
 import {
   createOwnerSupportTicket,
+  addOwnerSupportReply,
   getOwnerSupportTicket,
   listOwnerSupportTickets,
+  pendingFlaggedContentCount,
 } from "../services/supportOps.js";
 import { provisionDefaultRestaurantSetup } from "../services/restaurantSetup.js";
 import { restaurantInputToDb } from "../lib/restaurantInput.js";
@@ -286,9 +296,11 @@ import {
 } from "./mappers.js";
 import {
   notifyUser,
-  notifyRestaurantStaff,
+  notifyRestaurantManagers,
 } from "../services/notifications.js";
 import { requireFeature } from "../services/plans.js";
+import { getManagerSeatsUsage } from "../services/managerSeats.js";
+import { normalizeManagerSeats } from "../config/plans.js";
 import { executeCampaign, scheduleCampaign } from "../services/campaigns.js";
 import {
   buildPreShiftReport,
@@ -508,6 +520,10 @@ export const resolvers = {
     diner: async (r: { dinerId: string }) => {
       const doc = await User.findById(r.dinerId);
       return doc ? mapUser(doc) : null;
+    },
+    restaurant: async (r: { restaurantId: string }) => {
+      const doc = await Restaurant.findById(r.restaurantId);
+      return doc ? mapRestaurant(doc) : null;
     },
   },
 
@@ -1078,6 +1094,47 @@ export const resolvers = {
       });
     },
 
+    myReviews: async (
+      _: unknown,
+      args: { limit?: number; offset?: number },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      return paginateQuery(
+        Review,
+        { dinerId: user._id },
+        {
+          sort: { createdAt: -1 },
+          limit: args.limit,
+          offset: args.offset,
+          defaultLimit: 20,
+          map: mapReview,
+        },
+      );
+    },
+
+    restaurantUnrepliedReviewCount: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      return Review.countDocuments({
+        restaurantId: args.restaurantId,
+        hidden: { $ne: true },
+        $or: [
+          { ownerReply: { $exists: false } },
+          { ownerReply: null },
+          { ownerReply: "" },
+        ],
+      });
+    },
+
     myLoyalty: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
       const items = await getLoyaltyHistory(user._id.toString());
@@ -1174,7 +1231,7 @@ export const resolvers = {
       args: { status?: string; limit?: number; offset?: number },
       ctx: GraphQLContext,
     ) => {
-      const user = requireRole(ctx, ["restaurant_owner", "staff"]);
+      const user = requireRole(ctx, ["restaurant_owner", "manager"]);
       return listOwnerSupportTickets({
         userId: user._id.toString(),
         status: args.status,
@@ -1184,7 +1241,7 @@ export const resolvers = {
     },
 
     myOwnerSupportTicket: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
-      const user = requireRole(ctx, ["restaurant_owner", "staff"]);
+      const user = requireRole(ctx, ["restaurant_owner", "manager"]);
       return getOwnerSupportTicket(user._id.toString(), args.id);
     },
 
@@ -1318,6 +1375,7 @@ export const resolvers = {
         pendingRestaurants,
         pendingSlugRequests,
         pendingProfileChangeRequests,
+        pendingModerationItems,
         activeSubscriptions,
         mrrAgg,
         openInvoices,
@@ -1328,6 +1386,7 @@ export const resolvers = {
         Restaurant.countDocuments({ status: "pending" }),
         pendingRestaurantSlugRequestCount(),
         pendingRestaurantProfileChangeRequestCount(),
+        pendingFlaggedContentCount(),
         Subscription.countDocuments({
           status: { $in: ["active", "trialing"] },
         }),
@@ -1346,6 +1405,7 @@ export const resolvers = {
         pendingRestaurants,
         pendingSlugRequests,
         pendingProfileChangeRequests,
+        pendingModerationItems,
         mrrCents: mrrAgg[0]?.mrrCents ?? 0,
         activeSubscriptions,
         openInvoices,
@@ -1354,11 +1414,12 @@ export const resolvers = {
 
     adminPendingRequestCounts: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       requireAdmin(ctx);
-      const [slugRequests, profileChangeRequests] = await Promise.all([
+      const [slugRequests, profileChangeRequests, moderationItems] = await Promise.all([
         pendingRestaurantSlugRequestCount(),
         pendingRestaurantProfileChangeRequestCount(),
+        pendingFlaggedContentCount(),
       ]);
-      return { slugRequests, profileChangeRequests };
+      return { slugRequests, profileChangeRequests, moderationItems };
     },
 
     loyaltyProgram: async () => getLoyaltyProgram(),
@@ -1383,6 +1444,8 @@ export const resolvers = {
         search?: string;
         role?: string;
         roles?: string[];
+        restaurantId?: string;
+        hasRestaurants?: boolean | null;
         limit?: number;
         offset?: number;
       },
@@ -1392,6 +1455,20 @@ export const resolvers = {
       const filter: Record<string, unknown> = {};
       if (args.roles?.length) filter.role = { $in: args.roles };
       else if (args.role) filter.role = args.role;
+      if (args.restaurantId) filter.restaurantIds = args.restaurantId;
+      if (args.hasRestaurants === true) {
+        filter['restaurantIds.0'] = { $exists: true };
+      } else if (args.hasRestaurants === false) {
+        filter.$and = [
+          {
+            $or: [
+              { restaurantIds: { $exists: false } },
+              { restaurantIds: null },
+              { restaurantIds: { $size: 0 } },
+            ],
+          },
+        ];
+      }
       if (args.search?.trim()) {
         const regex = new RegExp(
           args.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
@@ -1473,6 +1550,20 @@ export const resolvers = {
         $or: [{ _id: restaurant.ownerId }, { restaurantIds: restaurant._id }],
       }).sort({ firstName: 1, lastName: 1 });
       return team.map(mapUser);
+    },
+
+    restaurantManagerSeats: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      return getManagerSeatsUsage(args.restaurantId);
     },
 
     auditLogs: async (
@@ -1622,6 +1713,11 @@ export const resolvers = {
     },
 
     plans: async () => getEffectivePlans(),
+
+    managerInviteByToken: async (_: unknown, args: { token: string }) => {
+      if (!args.token?.trim()) throw new Error("Invite token is required");
+      return getManagerInviteByToken(args.token);
+    },
     partnerEmailAvailable: async (_: unknown, args: { email: string }) => {
       const email = args.email.trim().toLowerCase();
       if (!email) return false;
@@ -2913,6 +3009,22 @@ export const resolvers = {
       return resetPassword(args.token, newPassword);
     },
 
+    acceptManagerInvite: async (
+      _: unknown,
+      args: { token: string; password: string },
+      ctx: GraphQLContext,
+    ) => {
+      if (!args.token?.trim()) throw new Error("Invite token is required");
+      const password = passwordSchema.parse(args.password);
+      const result = await acceptManagerInvite(args.token, password);
+      const app = resolveBrowserAuthApp(ctx.req);
+      if (app) setAuthCookies(ctx.res, result, app, result.user.role);
+      return {
+        ...authPayloadTokens(ctx.req, result),
+        user: mapUser(result.user),
+      };
+    },
+
     submitContactForm: async (_: unknown, args: { input: unknown }) =>
       submitContactForm(args.input),
 
@@ -2935,7 +3047,7 @@ export const resolvers = {
       },
       ctx: GraphQLContext,
     ) => {
-      const user = requireRole(ctx, ["restaurant_owner", "staff"]);
+      const user = requireRole(ctx, ["restaurant_owner", "manager"]);
       return createOwnerSupportTicket({
         userId: user._id.toString(),
         restaurantIds: user.restaurantIds ?? [],
@@ -2945,6 +3057,30 @@ export const resolvers = {
         description: args.input.description,
         restaurantId: args.input.restaurantId,
         attachments: args.input.attachments,
+      });
+    },
+
+    addOwnerSupportReply: async (
+      _: unknown,
+      args: {
+        ticketId: string;
+        body: string;
+        attachments?: Array<{
+          url: string;
+          key?: string;
+          filename: string;
+          contentType: string;
+          size?: number;
+        }>;
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireRole(ctx, ["restaurant_owner", "manager"]);
+      return addOwnerSupportReply({
+        userId: user._id.toString(),
+        ticketId: args.ticketId,
+        body: args.body,
+        attachments: args.attachments,
       });
     },
 
@@ -3092,7 +3228,7 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       if (!canCreateRestaurant(user.role)) {
-        throw new ForbiddenError("Staff accounts cannot add restaurants");
+        throw new ForbiddenError("Manager accounts cannot add restaurants");
       }
       const input = restaurantInputSchema.parse(args.input);
       const doc = await Restaurant.create({
@@ -3683,6 +3819,26 @@ export const resolvers = {
 
       await awardReviewPoints(user._id.toString(), reservation._id.toString());
 
+      const restaurantId = reservation.restaurantId.toString();
+      const dinerName =
+        `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "A guest";
+      const commentPreview = (input.comment ?? "").trim().slice(0, 120);
+      const restaurant = await Restaurant.findById(reservation.restaurantId)
+        .select("name")
+        .lean();
+      const venueSuffix = restaurant?.name ? ` — ${restaurant.name}` : "";
+      await notifyRestaurantManagers(restaurantId, {
+        type: "new_review",
+        title: "New review",
+        body: commentPreview
+          ? `${input.rating}★ from ${dinerName}: ${commentPreview}${venueSuffix}`
+          : `${input.rating}★ from ${dinerName}${venueSuffix}`,
+        data: {
+          reviewId: review._id.toString(),
+          reservationId: reservation._id.toString(),
+        },
+      });
+
       return mapReview(review);
     },
 
@@ -3731,8 +3887,9 @@ export const resolvers = {
       const validRoles = [
         "diner",
         "restaurant_owner",
-        "staff",
+        "manager",
         "admin",
+        "account_manager",
         "super_admin",
       ];
       if (!validRoles.includes(args.role)) throw new Error("Invalid role");
@@ -4002,7 +4159,7 @@ export const resolvers = {
         "supportPhone",
         "defaultSignupRole",
         "defaultPartnerRole",
-        "defaultStaffRole",
+        "defaultManagerRole",
         "maintenanceMode",
         "allowPublicRegistration",
         "allowPartnerRegistration",
@@ -4010,17 +4167,17 @@ export const resolvers = {
         "invoicePrefix",
         "currency",
       ] as const;
-      const safeRoles = ["diner", "restaurant_owner", "staff"] as const;
+      const safeRoles = ["diner", "restaurant_owner", "manager"] as const;
       for (const key of allowed) {
         if (args.input[key] !== undefined) {
           if (
             (key === "defaultSignupRole" ||
               key === "defaultPartnerRole" ||
-              key === "defaultStaffRole") &&
+              key === "defaultManagerRole") &&
             !(safeRoles as readonly string[]).includes(String(args.input[key]))
           ) {
             throw new Error(
-              `Invalid ${key}: must be diner, restaurant_owner, or staff`,
+              `Invalid ${key}: must be diner, restaurant_owner, or manager`,
             );
           }
           (doc as any)[key] = args.input[key];
@@ -4090,6 +4247,7 @@ export const resolvers = {
           networkCoverFeeCents?: number;
           websiteCoverFeeCents?: number;
           trialDays?: number;
+          managerSeats?: number;
           visibleOnPricing?: boolean;
           features?: Record<string, boolean>;
         };
@@ -4137,6 +4295,9 @@ export const resolvers = {
           : {}),
         ...(args.input.trialDays !== undefined
           ? { trialDays: args.input.trialDays }
+          : {}),
+        ...(args.input.managerSeats !== undefined
+          ? { managerSeats: normalizeManagerSeats(args.input.managerSeats) }
           : {}),
         ...(args.input.visibleOnPricing !== undefined
           ? { visibleOnPricing: args.input.visibleOnPricing }
@@ -4187,6 +4348,7 @@ export const resolvers = {
           networkCoverFeeCents?: number;
           websiteCoverFeeCents?: number;
           trialDays?: number;
+          managerSeats?: number;
           visibleOnPricing?: boolean;
           features?: Record<string, boolean>;
         };
@@ -4219,6 +4381,7 @@ export const resolvers = {
         networkCoverFeeCents: args.input.networkCoverFeeCents ?? 0,
         websiteCoverFeeCents: args.input.websiteCoverFeeCents ?? 0,
         trialDays: args.input.trialDays ?? 0,
+        managerSeats: normalizeManagerSeats(args.input.managerSeats),
         visibleOnPricing: args.input.visibleOnPricing !== false,
         features: args.input.features ?? {},
       };
@@ -4452,7 +4615,7 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       if (user.role === 'diner') {
-        throw new Error('Only restaurant staff can link the merchant Telegram bot');
+        throw new Error('Only restaurant managers can link the merchant Telegram bot');
       }
       const hasVenueAccess =
         isPlatformAdmin(user.role) ||
@@ -5455,12 +5618,28 @@ export const resolvers = {
       return mapRestaurant(restaurant);
     },
 
-    setReviewHidden: async (
+    reportReview: async (
       _: unknown,
-      args: { reviewId: string; hidden: boolean },
+      args: { reviewId: string; reason: string; details?: string | null },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
+      if (!isReviewReportReason(args.reason)) {
+        throw new ValidationError("Invalid report reason");
+      }
+      const reason = args.reason as ReviewReportReason;
+      const details = (args.details ?? "").trim();
+      if (details.length > REVIEW_REPORT_DETAILS_MAX) {
+        throw new ValidationError(
+          `Details must be at most ${REVIEW_REPORT_DETAILS_MAX} characters`,
+        );
+      }
+      if (reason === "other" && details.length < 10) {
+        throw new ValidationError(
+          "Please explain the policy issue (at least 10 characters). Disagreeing with a rating is not enough.",
+        );
+      }
+
       const review = await Review.findById(args.reviewId);
       if (!review) throw new Error("Review not found");
       await assertRestaurantAccess(
@@ -5468,6 +5647,26 @@ export const resolvers = {
         review.restaurantId.toString(),
         user.role,
       );
+
+      review.flagged = true;
+      review.flagReasonCode = reason;
+      review.flagDetails = details || undefined;
+      review.flagReason = formatReviewFlagReason(reason, details || null);
+      review.flaggedAt = new Date();
+      review.flaggedById = user._id;
+      await review.save();
+      return mapReview(review);
+    },
+
+    setReviewHidden: async (
+      _: unknown,
+      args: { reviewId: string; hidden: boolean },
+      ctx: GraphQLContext,
+    ) => {
+      // Partners report for moderation; only platform admins may hide.
+      requireAdmin(ctx);
+      const review = await Review.findById(args.reviewId);
+      if (!review) throw new Error("Review not found");
       review.hidden = args.hidden;
       await review.save();
       return mapReview(review);
@@ -5525,7 +5724,7 @@ export const resolvers = {
           { smsRestaurantId: restaurantId },
         );
       } else {
-        await notifyRestaurantStaff(restaurantId, {
+        await notifyRestaurantManagers(restaurantId, {
           type: "new_message",
           title: "New guest message",
           body: args.body.slice(0, 200),
@@ -5943,6 +6142,9 @@ export const resolvers = {
         reservationsEnabled?: boolean;
         reservationsVisible?: boolean;
         posEnabled?: boolean;
+        manualApprovalEnabled?: boolean;
+        manualApprovalPartySizeOp?: string;
+        manualApprovalPartySize?: number | null;
         widgetTheme?: {
           primaryColor?: string;
           buttonText?: string;
@@ -5981,6 +6183,35 @@ export const resolvers = {
       if (args.reservationsVisible != null)
         update.reservationsVisible = args.reservationsVisible;
       if (args.posEnabled != null) update.posEnabled = args.posEnabled;
+      if (args.manualApprovalEnabled != null) {
+        update.manualApprovalEnabled = args.manualApprovalEnabled;
+      }
+      if (args.manualApprovalPartySizeOp != null) {
+        if (
+          args.manualApprovalPartySizeOp !== "gt" &&
+          args.manualApprovalPartySizeOp !== "gte"
+        ) {
+          throw new ValidationError(
+            "manualApprovalPartySizeOp must be gt or gte",
+          );
+        }
+        update.manualApprovalPartySizeOp = args.manualApprovalPartySizeOp;
+      }
+      if (args.manualApprovalPartySize !== undefined) {
+        if (args.manualApprovalPartySize == null) {
+          update.manualApprovalPartySize = null;
+        } else if (
+          !Number.isInteger(args.manualApprovalPartySize) ||
+          args.manualApprovalPartySize < 1 ||
+          args.manualApprovalPartySize > 50
+        ) {
+          throw new ValidationError(
+            "manualApprovalPartySize must be an integer from 1 to 50",
+          );
+        } else {
+          update.manualApprovalPartySize = args.manualApprovalPartySize;
+        }
+      }
       if (args.widgetTheme) {
         await requireFeature(args.restaurantId, "customWidget");
         if (args.widgetTheme.primaryColor != null) {

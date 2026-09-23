@@ -9,6 +9,7 @@ export type ReservationTimingFields = {
   slotEnd?: string | null;
   depositStatus?: string | null;
   depositAmountCents?: number | null;
+  requiresManualApproval?: boolean | null;
 };
 
 export function isReservationPast(r: ReservationTimingFields): boolean {
@@ -21,6 +22,14 @@ export function isReservationPast(r: ReservationTimingFields): boolean {
 export function displayReservationStatus(r: ReservationTimingFields): string {
   if (TERMINAL_STATUSES.has(r.status)) return r.status;
   if (ACTIVE_STATUSES.has(r.status) && isReservationPast(r)) return 'past';
+  if (needsDepositPayment(r)) return 'pending';
+  if (
+    r.status === 'pending' &&
+    r.requiresManualApproval &&
+    !needsDepositPayment(r)
+  ) {
+    return 'awaiting_approval';
+  }
   return r.status;
 }
 
@@ -36,7 +45,7 @@ export function needsDepositPayment(r: ReservationTimingFields): boolean {
   );
 }
 
-/** Past visits can be reviewed even if staff never flipped status to completed. */
+/** Past visits can be reviewed even if managers never flipped status to completed. */
 export function canLeaveReview(r: {
   status: string;
   slotStart: string;

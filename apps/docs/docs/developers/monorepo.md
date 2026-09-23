@@ -44,7 +44,7 @@ reservations/
 ### `apps/dashboard`
 
 - **Stack:** Next.js App Router, Apollo Client, Ant Design
-- **Audience:** Restaurant owners, staff, platform admins
+- **Audience:** Restaurant owners, managers, platform admins
 - **Multi-restaurant:** owners with several venues use a restaurant selector in the shell
 
 ### `apps/mobile`

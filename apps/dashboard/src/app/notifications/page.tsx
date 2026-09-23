@@ -25,6 +25,7 @@ import {
   UPDATE_NOTIFICATION_PREFERENCES,
 } from '@/lib/graphql';
 import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
+import { useFormDirty } from '@/lib/useFormDirty';
 
 const { Text } = Typography;
 
@@ -36,6 +37,7 @@ type EventKey =
   | 'waitlistAvailable'
   | 'guestSpendAlert'
   | 'reservationUpdates'
+  | 'newReview'
   | 'reviewReply'
   | 'surveyInvitation'
   | 'loyaltyUpdates';
@@ -75,6 +77,7 @@ const EVENTS: Array<{ key: EventKey; title: string; hint: string }> = [
     title: 'Reservation updates',
     hint: 'Confirmations & reminders (Messenger = Telegram alerts)',
   },
+  { key: 'newReview', title: 'New review', hint: 'Guest ratings and comments' },
   { key: 'reviewReply', title: 'Review reply', hint: 'Replies on guest reviews' },
   { key: 'surveyInvitation', title: 'Survey invite', hint: 'Post-visit feedback' },
   { key: 'loyaltyUpdates', title: 'Loyalty points', hint: 'Earned, redeemed, and refunded points' },
@@ -82,7 +85,7 @@ const EVENTS: Array<{ key: EventKey; title: string; hint: string }> = [
 
 const ROLE_LABELS: Record<string, string> = {
   restaurant_owner: 'Owner',
-  staff: 'Staff',
+  manager: 'Manager',
   admin: 'Admin',
   diner: 'Diner',
 };
@@ -90,7 +93,7 @@ const ROLE_LABELS: Record<string, string> = {
 const ROLE_FILTER_OPTIONS = [
   { value: 'all', label: 'All roles' },
   { value: 'restaurant_owner', label: 'Owner' },
-  { value: 'staff', label: 'Staff' },
+  { value: 'manager', label: 'Manager' },
   { value: 'admin', label: 'Admin' },
 ];
 
@@ -137,6 +140,7 @@ export default function NotificationsSettingsPage() {
   const [selected, setSelected] = useState<TeamUser | null>(null);
   const [draft, setDraft] = useState<NotificationPreferences | null>(null);
   const [saving, setSaving] = useState(false);
+  const { dirty, markDirty, clearDirty } = useFormDirty();
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -145,7 +149,7 @@ export default function NotificationsSettingsPage() {
   const canManageTeam = user?.role === 'admin' || user?.role === 'restaurant_owner';
   const canLinkTelegram =
     user?.role === 'restaurant_owner' ||
-    user?.role === 'staff' ||
+    user?.role === 'manager' ||
     user?.role === 'admin' ||
     user?.role === 'super_admin';
   const team: TeamUser[] = data?.restaurantTeam ?? [];
@@ -164,14 +168,17 @@ export default function NotificationsSettingsPage() {
   const openEditor = (member: TeamUser) => {
     setSelected(member);
     setDraft(toPreferencesInput(member.notificationPreferences));
+    clearDirty();
   };
 
   const closeEditor = () => {
     setSelected(null);
     setDraft(null);
+    clearDirty();
   };
 
   const handleToggle = (event: EventKey, channel: ChannelKey, enabled: boolean) => {
+    markDirty();
     setDraft((prev) => {
       if (!prev) return prev;
       return {
@@ -185,7 +192,7 @@ export default function NotificationsSettingsPage() {
   };
 
   const handleSave = async () => {
-    if (!restaurantId || !selected || !draft) return;
+    if (!restaurantId || !selected || !draft || !dirty) return;
 
     const isSelf = selected.id === user?.id;
     if (!isSelf && !canManageTeam) {
@@ -237,7 +244,7 @@ export default function NotificationsSettingsPage() {
       <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <PageHeader
         title="Notifications"
-        subtitle="Select a team member to configure feature alerts by channel. Owners always receive Telegram Accept/Reject; enable Messenger for staff who should act on bookings."
+        subtitle="Select a team member to configure feature alerts by channel. Owners always receive Telegram Accept/Reject; enable Messenger for managers who should act on bookings."
         extra={
           <Space wrap>
             {canLinkTelegram && (
@@ -341,6 +348,7 @@ export default function NotificationsSettingsPage() {
         onCancel={closeEditor}
         onOk={handleSave}
         okText="Save"
+        okButtonProps={{ disabled: !dirty }}
         confirmLoading={saving}
         width={920}
         destroyOnClose
@@ -351,7 +359,7 @@ export default function NotificationsSettingsPage() {
               <Tag>{ROLE_LABELS[selected.role] ?? selected.role}</Tag>
               <Text type="secondary" style={{ fontSize: 12 }}>
                 Rows are alert features. Columns are delivery channels. Messenger is the Telegram
-                merchant bot (Accept/Reject). Owners always get messenger alerts; staff need
+                merchant bot (Accept/Reject). Owners always get messenger alerts; managers need
                 Messenger enabled. Password reset emails are always sent.
               </Text>
             </div>

@@ -42,6 +42,7 @@ export const CREATE_RESERVATION = gql`
       reservation {
         id
         status
+        requiresManualApproval
         slotStart
         partySize
         depositAmountCents
@@ -308,6 +309,7 @@ export const MY_RESERVATION = gql`
     myReservation(id: $id) {
       id
       status
+      requiresManualApproval
       slotStart
       slotEnd
       partySize

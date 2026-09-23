@@ -14,6 +14,7 @@ import {
   Space,
   Switch,
   Table,
+  Tag,
   Typography,
   message,
   Alert,
@@ -24,6 +25,7 @@ import {
   DeleteOutlined,
   EditOutlined,
   EyeOutlined,
+  InfoCircleOutlined,
   MailOutlined,
   MoreOutlined,
   SearchOutlined,
@@ -39,12 +41,13 @@ import {
   ADMIN_UPDATE_USER,
   ADMIN_USERS,
   ASSIGN_USER_RESTAURANTS,
-  INVITE_STAFF,
+  INVITE_MANAGER,
   PLATFORM_CONFIG,
   REQUEST_ADMIN_DELETE_USER_CODE,
   SET_USER_ROLE,
   START_IMPERSONATION,
   EXPORT_ADMIN_DINERS,
+  EXPORT_ADMIN_USERS,
 } from '@/lib/graphql';
 import { useAuth } from '@/lib/auth';
 import { isPlatformAdmin, isSuperAdmin, canEditUser } from '@/lib/roles';
@@ -53,6 +56,9 @@ import { useUrlListFilters } from '@/lib/useUrlListFilters';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import {
   ACCOUNT_KIND_META,
+  PLATFORM_ROLE_OPTIONS,
+  RESTAURANT_ACCOUNT_ROLE_OPTIONS,
+  ROLE_LABELS,
   PASSWORD_FORM_RULES,
   accountDetailPath,
   type AccountKind,
@@ -60,21 +66,10 @@ import {
 } from '@/lib/adminAccounts';
 import { ExportMenu, type ListExportFormat } from '@/components/ExportMenu';
 import { downloadExportPayload } from '@/lib/downloadExport';
+import { useFormDirty } from '@/lib/useFormDirty';
+import { RolesCapabilitiesModal } from '@/components/RolesCapabilitiesModal';
 
 const { Paragraph, Text } = Typography;
-
-const ROLE_LABELS: Record<string, string> = {
-  diner: 'Diner',
-  restaurant_owner: 'Restaurant Owner',
-  staff: 'Staff',
-  admin: 'Admin',
-  super_admin: 'Super Admin',
-};
-
-const PLATFORM_ROLE_OPTIONS = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'super_admin', label: 'Super Admin' },
-];
 
 type Props = {
   kind: AccountKind;
@@ -87,7 +82,29 @@ function AdminAccountsListContent({ kind }: Props) {
   const canDeleteUsers = user ? isSuperAdmin(user.role) : false;
   const canEditRecord = (record: { role: string }) =>
     user ? canEditUser(user.role, record.role) : false;
-  const { search, searchQuery, setSearch } = useUrlListFilters({ search: 'q' });
+  const usesMultiRoleFilters = kind === 'platform' || kind === 'restaurant_owner';
+  const {
+    search,
+    searchQuery,
+    setSearch,
+    role: roleFilter,
+    setRole,
+    restaurant: restaurantFilter,
+    setRestaurant,
+    venues: venuesFilter,
+    setVenues,
+  } = useUrlListFilters({
+    search: 'q',
+    ...(usesMultiRoleFilters
+      ? {
+          role: 'role',
+          ...(kind === 'restaurant_owner'
+            ? { restaurant: 'restaurant', venues: 'venues' }
+            : {}),
+        }
+      : {}),
+  });
+  const [rolesGuideOpen, setRolesGuideOpen] = useState(false);
   const [resetModal, setResetModal] = useState<{
     userId: string;
     name: string;
@@ -113,6 +130,11 @@ function AdminAccountsListContent({ kind }: Props) {
   const [inviteForm] = Form.useForm();
   const [assignForm] = Form.useForm();
   const [editForm] = Form.useForm();
+  const editDirty = useFormDirty();
+  const createDirty = useFormDirty();
+  const inviteDirty = useFormDirty();
+  const assignDirty = useFormDirty();
+  const createRole = Form.useWatch('role', createForm);
   const { limit, offset, tablePagination } = useUrlPagination({
     defaultPageSize: 20,
   });
@@ -120,8 +142,24 @@ function AdminAccountsListContent({ kind }: Props) {
     skip: !ready,
     variables: {
       search: searchQuery || undefined,
-      role: meta.role,
-      roles: meta.roles,
+      role: usesMultiRoleFilters
+        ? roleFilter || undefined
+        : meta.role,
+      roles: usesMultiRoleFilters
+        ? roleFilter
+          ? undefined
+          : meta.roles
+        : undefined,
+      restaurantId:
+        kind === 'restaurant_owner' ? restaurantFilter || undefined : undefined,
+      hasRestaurants:
+        kind === 'restaurant_owner'
+          ? venuesFilter === 'assigned'
+            ? true
+            : venuesFilter === 'none'
+              ? false
+              : undefined
+          : undefined,
       limit,
       offset,
     },
@@ -134,7 +172,7 @@ function AdminAccountsListContent({ kind }: Props) {
   const [setUserRole] = useMutation(SET_USER_ROLE, { onCompleted: () => refetch() });
   const [sendReset, { loading: resetting }] = useMutation(ADMIN_SEND_PASSWORD_RESET);
   const [startImpersonation, { loading: impersonating }] = useMutation(START_IMPERSONATION);
-  const [inviteStaff, { loading: inviting }] = useMutation(INVITE_STAFF);
+  const [inviteManager, { loading: inviting }] = useMutation(INVITE_MANAGER);
   const [createAccount, { loading: creating }] = useMutation(ADMIN_CREATE_USER, {
     onCompleted: () => {
       message.success(`${meta.singular} created`);
@@ -162,6 +200,7 @@ function AdminAccountsListContent({ kind }: Props) {
     },
   });
   const [exportDiners, { loading: exportingDiners }] = useMutation(EXPORT_ADMIN_DINERS);
+  const [exportUsers, { loading: exportingUsers }] = useMutation(EXPORT_ADMIN_USERS);
 
   if (!ready) return null;
 
@@ -171,6 +210,18 @@ function AdminAccountsListContent({ kind }: Props) {
     value: r.id,
     label: r.name,
   }));
+  const platformRoleSelectOptions =
+    (user && isSuperAdmin(user.role)) || !hasSuperAdmin
+      ? PLATFORM_ROLE_OPTIONS
+      : PLATFORM_ROLE_OPTIONS.filter((option) => option.value === 'account_manager');
+  const platformCreateRoleOptions = platformRoleSelectOptions.filter(
+    (option) => option.value !== 'super_admin',
+  );
+  const listRoleOptions: Array<{ value: string; label: string }> =
+    kind === 'restaurant_owner' ? RESTAURANT_ACCOUNT_ROLE_OPTIONS : platformRoleSelectOptions;
+  const createRoleOptions: Array<{ value: string; label: string }> =
+    kind === 'restaurant_owner' ? RESTAURANT_ACCOUNT_ROLE_OPTIONS : platformCreateRoleOptions;
+  const exporting = exportingDiners || exportingUsers;
 
   const handleRoleChange = async (userId: string, role: string) => {
     try {
@@ -224,9 +275,11 @@ function AdminAccountsListContent({ kind }: Props) {
       phoneVerified: Boolean(record.phoneVerified),
       restaurantIds: record.restaurantIds ?? [],
     });
+    editDirty.clearDirty();
   };
 
   const onSaveUser = async () => {
+    if (!editDirty.dirty) return;
     try {
       const values = await editForm.validateFields();
       await updateUser({
@@ -245,6 +298,10 @@ function AdminAccountsListContent({ kind }: Props) {
           },
         },
       });
+      editDirty.clearDirty();
+      setEditingUser(null);
+      message.success('Account updated');
+      refetch();
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'errorFields' in err) return;
       message.error(err instanceof Error ? err.message : 'Failed to update account');
@@ -252,8 +309,15 @@ function AdminAccountsListContent({ kind }: Props) {
   };
 
   const onCreate = async () => {
+    if (!createDirty.dirty) return;
     try {
       const values = await createForm.validateFields();
+      const role =
+        values.role ?? meta.role ?? (kind === 'platform' ? 'admin' : 'restaurant_owner');
+      if (role === 'manager' && !(values.restaurantIds ?? []).length) {
+        message.error('Managers require at least one restaurant');
+        return;
+      }
       await createAccount({
         variables: {
           input: {
@@ -262,12 +326,17 @@ function AdminAccountsListContent({ kind }: Props) {
             email: values.email,
             phone: values.phone || undefined,
             password: values.password,
-            role: meta.role,
+            role,
             restaurantIds: values.restaurantIds ?? [],
             emailVerified: values.emailVerified ?? false,
           },
         },
       });
+      createDirty.clearDirty();
+      setCreateOpen(false);
+      createForm.resetFields();
+      message.success('Account created');
+      refetch();
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'errorFields' in err) return;
       message.error(err instanceof Error ? err.message : 'Failed to create account');
@@ -275,26 +344,28 @@ function AdminAccountsListContent({ kind }: Props) {
   };
 
   const onInvite = async () => {
+    if (!inviteDirty.dirty) return;
     try {
       const values = await inviteForm.validateFields();
-      const res = await inviteStaff({
+      const res = await inviteManager({
         variables: {
           ...values,
-          role: meta.role === 'restaurant_owner' ? 'restaurant_owner' : 'staff',
+          role: values.role ?? (kind === 'restaurant_owner' ? 'restaurant_owner' : 'manager'),
         },
       });
-      message.success(`Invited ${res.data?.inviteStaff?.email}`);
+      message.success(`Invited ${res.data?.inviteManager?.email}`);
       Modal.info({
         title: 'Invite sent',
         content: (
           <div>
             <Paragraph>Share this link if the email does not arrive:</Paragraph>
-            <Input.TextArea value={res.data?.inviteStaff?.inviteUrl} autoSize readOnly />
+            <Input.TextArea value={res.data?.inviteManager?.inviteUrl} autoSize readOnly />
           </div>
         ),
       });
       setInviteOpen(false);
       inviteForm.resetFields();
+      inviteDirty.clearDirty();
       refetch();
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'errorFields' in err) return;
@@ -303,6 +374,7 @@ function AdminAccountsListContent({ kind }: Props) {
   };
 
   const onAssign = async () => {
+    if (!assignDirty.dirty) return;
     try {
       const values = await assignForm.validateFields();
       await assignRestaurants({
@@ -313,6 +385,9 @@ function AdminAccountsListContent({ kind }: Props) {
         },
       });
       message.success('Restaurants assigned');
+      assignDirty.clearDirty();
+      setAssignUser(null);
+      refetch();
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'errorFields' in err) return;
       message.error(err instanceof Error ? err.message : 'Assign failed');
@@ -327,7 +402,40 @@ function AdminAccountsListContent({ kind }: Props) {
       const payload = res.data?.exportAdminDiners;
       if (!payload?.content) throw new Error('No export returned');
       downloadExportPayload(payload);
-      message.success(`Exported ${payload.rowCount} diners as ${format === 'xlsx' ? 'Excel' : format.toUpperCase()}`);
+      message.success(`Exported ${payload.rowCount} guests as ${format === 'xlsx' ? 'Excel' : format.toUpperCase()}`);
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Export failed');
+    }
+  };
+
+  const onExportUsers = async (format: ListExportFormat) => {
+    try {
+      const res = await exportUsers({
+        variables: {
+          search: searchQuery || undefined,
+          role: usesMultiRoleFilters ? roleFilter || undefined : meta.role,
+          roles: usesMultiRoleFilters ? (roleFilter ? undefined : meta.roles) : undefined,
+          restaurantId:
+            kind === 'restaurant_owner' ? restaurantFilter || undefined : undefined,
+          hasRestaurants:
+            kind === 'restaurant_owner'
+              ? venuesFilter === 'assigned'
+                ? true
+                : venuesFilter === 'none'
+                  ? false
+                  : undefined
+              : undefined,
+          format,
+          basename: kind === 'platform' ? 'admins' : 'restaurant-accounts',
+          title: meta.title,
+        },
+      });
+      const payload = res.data?.exportAdminUsers;
+      if (!payload?.content) throw new Error('No export returned');
+      downloadExportPayload(payload);
+      message.success(
+        `Exported ${payload.rowCount} ${meta.title.toLowerCase()} as ${format === 'xlsx' ? 'Excel' : format.toUpperCase()}`,
+      );
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Export failed');
     }
@@ -413,9 +521,10 @@ function AdminAccountsListContent({ kind }: Props) {
                     record.role === 'diner'
                       ? kind === 'restaurant_owner'
                         ? 'restaurant_owner'
-                        : 'staff'
+                        : 'manager'
                       : record.role,
                 });
+                assignDirty.clearDirty();
                 setAssignUser(record);
               },
             },
@@ -457,18 +566,39 @@ function AdminAccountsListContent({ kind }: Props) {
           subtitle={meta.subtitle}
           extra={
             <Space wrap>
-              {kind === 'diner' && (
+              {(kind === 'platform' || kind === 'restaurant_owner') && (
+                <Button icon={<InfoCircleOutlined />} onClick={() => setRolesGuideOpen(true)}>
+                  Roles & capabilities
+                </Button>
+              )}
+              {(kind === 'diner' || kind === 'restaurant_owner' || kind === 'platform') && (
                 <ExportMenu
                   formats={['xlsx', 'pdf', 'json']}
-                  loading={exportingDiners}
-                  onExport={(format) => void onExportDiners(format)}
+                  loading={exporting}
+                  onExport={(format) =>
+                    void (kind === 'diner' ? onExportDiners(format) : onExportUsers(format))
+                  }
                 />
               )}
               {meta.showInvite && (
-                <Button onClick={() => setInviteOpen(true)}>Invite {meta.singular.toLowerCase()}</Button>
+                <Button
+                  onClick={() => {
+                    inviteDirty.clearDirty();
+                    setInviteOpen(true);
+                  }}
+                >
+                  Invite
+                </Button>
               )}
               {meta.allowCreate && (
-                <Button type="primary" icon={<UserAddOutlined />} onClick={() => setCreateOpen(true)}>
+                <Button
+                  type="primary"
+                  icon={<UserAddOutlined />}
+                  onClick={() => {
+                    createDirty.clearDirty();
+                    setCreateOpen(true);
+                  }}
+                >
                   {meta.createLabel}
                 </Button>
               )}
@@ -489,18 +619,66 @@ function AdminAccountsListContent({ kind }: Props) {
                   description="Assign the Super Admin role to a platform admin account. After that, only super admins can grant admin or super admin roles."
                 />
               )}
-            <Input
-              placeholder="Search by name, email, or phone..."
-              prefix={<SearchOutlined />}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              allowClear
-              style={{ width: 320 }}
-            />
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: 8,
+                alignItems: 'center',
+                width: '100%',
+              }}
+            >
+              <Input
+                placeholder="Search by name, email, or phone..."
+                prefix={<SearchOutlined />}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                allowClear
+                style={{ flex: '1 1 200px', minWidth: 180, maxWidth: 320 }}
+              />
+              {usesMultiRoleFilters ? (
+                <>
+                  <Select
+                    allowClear
+                    placeholder="All roles"
+                    value={roleFilter}
+                    onChange={(value) => setRole(value)}
+                    options={listRoleOptions}
+                    style={{ width: 140, flex: '0 0 auto' }}
+                  />
+                  {kind === 'restaurant_owner' ? (
+                    <>
+                      <Select
+                        allowClear
+                        placeholder="Venue access"
+                        value={venuesFilter}
+                        onChange={(value) => setVenues(value)}
+                        options={[
+                          { value: 'assigned', label: 'Has restaurants' },
+                          { value: 'none', label: 'No restaurants' },
+                        ]}
+                        style={{ width: 150, flex: '0 0 auto' }}
+                      />
+                      <Select
+                        allowClear
+                        showSearch
+                        optionFilterProp="label"
+                        placeholder="Restaurant"
+                        value={restaurantFilter}
+                        onChange={(value) => setRestaurant(value)}
+                        options={restaurantOptions}
+                        style={{ flex: '1 1 160px', minWidth: 140, maxWidth: 260 }}
+                      />
+                    </>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
             <Table
               loading={loading}
               rowKey="id"
-              scroll={{ x: 700 }}
+              scroll={{ x: 920 }}
+              tableLayout="fixed"
               dataSource={data?.adminUsers?.items ?? []}
               pagination={tablePagination(data?.adminUsers?.total ?? 0, {
                 showSizeChanger: true,
@@ -508,36 +686,40 @@ function AdminAccountsListContent({ kind }: Props) {
               columns={[
                 {
                   title: 'Name',
+                  width: 160,
                   render: (_: unknown, u: AccountRecord) => (
                     <Link href={accountDetailPath(u.role, u.id)}>
                       {u.firstName} {u.lastName}
                     </Link>
                   ),
                 },
-                { title: 'Email', dataIndex: 'email', ellipsis: true },
+                { title: 'Email', dataIndex: 'email', ellipsis: true, width: 200 },
                 {
                   title: 'Phone',
                   dataIndex: 'phone',
                   ellipsis: true,
+                  width: 140,
                   render: (v: string) => v || '—',
                 },
-                ...(kind === 'platform'
+                ...(meta.showRoleColumn
                   ? [
                       {
                         title: 'Role',
                         dataIndex: 'role',
+                        width: 140,
                         render: (role: string, record: AccountRecord) => {
                           const roleLabel = ROLE_LABELS[role] ?? role;
                           return canEditRecord(record) ? (
                             <Select
                               value={role}
-                              options={PLATFORM_ROLE_OPTIONS}
+                              options={listRoleOptions}
                               onChange={(val) => handleRoleChange(record.id, val)}
-                              style={{ width: 170 }}
+                              style={{ width: '100%' }}
+                              popupMatchSelectWidth={false}
                               size="small"
                             />
                           ) : (
-                            <span>{roleLabel}</span>
+                            <Tag>{roleLabel}</Tag>
                           );
                         },
                       },
@@ -559,13 +741,20 @@ function AdminAccountsListContent({ kind }: Props) {
                         title: 'Restaurants',
                         dataIndex: 'restaurantIds',
                         width: 120,
-                        render: (ids: string[]) => ids?.length ?? 0,
+                        render: (ids: string[]) => {
+                          const count = ids?.length ?? 0;
+                          return (
+                            <Tag color={count > 0 ? 'blue' : 'default'}>
+                              {count}
+                            </Tag>
+                          );
+                        },
                       },
                     ]
                   : []),
                 {
                   title: 'Actions',
-                  width: 90,
+                  width: 100,
                   fixed: 'right' as const,
                   render: (_: unknown, record: AccountRecord) => (
                     <Dropdown
@@ -584,6 +773,14 @@ function AdminAccountsListContent({ kind }: Props) {
           </Space>
         </Card>
       </Space>
+
+      {(kind === 'platform' || kind === 'restaurant_owner') && (
+        <RolesCapabilitiesModal
+          kind={kind}
+          open={rolesGuideOpen}
+          onClose={() => setRolesGuideOpen(false)}
+        />
+      )}
 
       <Modal
         title={`Delete ${meta.singular.toLowerCase()} — ${deleteModal?.name ?? ''}`}
@@ -697,14 +894,18 @@ function AdminAccountsListContent({ kind }: Props) {
             : `Edit ${meta.singular.toLowerCase()}`
         }
         open={Boolean(editingUser)}
-        onCancel={() => setEditingUser(null)}
+        onCancel={() => {
+          setEditingUser(null);
+          editDirty.clearDirty();
+        }}
         onOk={onSaveUser}
         confirmLoading={savingUser}
         destroyOnHidden
         okText="Save changes"
+        okButtonProps={{ disabled: !editDirty.dirty }}
         width={560}
       >
-        <Form form={editForm} layout="vertical">
+        <Form form={editForm} layout="vertical" onValuesChange={editDirty.onValuesChange}>
           <Form.Item name="firstName" label="First name" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
@@ -721,9 +922,9 @@ function AdminAccountsListContent({ kind }: Props) {
           <Form.Item name="phone" label="Phone" rules={usPhoneRules({ required: false })}>
             <PhoneInput />
           </Form.Item>
-          {kind === 'platform' && (
+          {meta.showRoleColumn && (
             <Form.Item name="role" label="Role" rules={[{ required: true }]}>
-              <Select options={PLATFORM_ROLE_OPTIONS} />
+              <Select options={listRoleOptions} />
             </Form.Item>
           )}
           {meta.showLoyalty && (
@@ -753,16 +954,21 @@ function AdminAccountsListContent({ kind }: Props) {
       <Modal
         title={meta.createLabel}
         open={createOpen}
-        onCancel={() => setCreateOpen(false)}
+        onCancel={() => {
+          setCreateOpen(false);
+          createDirty.clearDirty();
+        }}
         onOk={onCreate}
         confirmLoading={creating}
         destroyOnHidden
         okText="Create account"
+        okButtonProps={{ disabled: !createDirty.dirty }}
         width={560}
       >
         <Form
           form={createForm}
           layout="vertical"
+          onValuesChange={createDirty.onValuesChange}
           initialValues={{ emailVerified: false }}
         >
           <Form.Item name="firstName" label="First name" rules={[{ required: true }]}>
@@ -784,12 +990,22 @@ function AdminAccountsListContent({ kind }: Props) {
           <Form.Item name="password" label="Password" rules={PASSWORD_FORM_RULES}>
             <Input.Password />
           </Form.Item>
+          {(kind === 'platform' || kind === 'restaurant_owner') && (
+            <Form.Item
+              name="role"
+              label="Role"
+              rules={[{ required: true, message: 'Select a role' }]}
+              initialValue={kind === 'platform' ? 'admin' : 'restaurant_owner'}
+            >
+              <Select options={createRoleOptions} />
+            </Form.Item>
+          )}
           {meta.allowRestaurantsOnCreate && (
             <Form.Item
               name="restaurantIds"
               label="Restaurants"
               rules={
-                meta.requireRestaurantsOnCreate
+                meta.requireRestaurantsOnCreate || createRole === 'manager'
                   ? [{ required: true, message: 'Select at least one restaurant' }]
                   : undefined
               }
@@ -799,7 +1015,7 @@ function AdminAccountsListContent({ kind }: Props) {
                 options={restaurantOptions}
                 optionFilterProp="label"
                 placeholder={
-                  meta.requireRestaurantsOnCreate
+                  meta.requireRestaurantsOnCreate || createRole === 'manager'
                     ? 'Required venue access'
                     : 'Optional venue access'
                 }
@@ -815,12 +1031,16 @@ function AdminAccountsListContent({ kind }: Props) {
       <Modal
         title={`Invite ${meta.singular.toLowerCase()}`}
         open={inviteOpen}
-        onCancel={() => setInviteOpen(false)}
+        onCancel={() => {
+          setInviteOpen(false);
+          inviteDirty.clearDirty();
+        }}
         onOk={onInvite}
         confirmLoading={inviting}
+        okButtonProps={{ disabled: !inviteDirty.dirty }}
         destroyOnHidden
       >
-        <Form form={inviteForm} layout="vertical">
+        <Form form={inviteForm} layout="vertical" onValuesChange={inviteDirty.onValuesChange}>
           <Form.Item name="email" label="Email" rules={[{ required: true, type: 'email' }]}>
             <Input />
           </Form.Item>
@@ -830,6 +1050,16 @@ function AdminAccountsListContent({ kind }: Props) {
           <Form.Item name="lastName" label="Last name" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
+          {kind === 'restaurant_owner' && (
+            <Form.Item
+              name="role"
+              label="Role"
+              rules={[{ required: true }]}
+              initialValue="restaurant_owner"
+            >
+              <Select options={RESTAURANT_ACCOUNT_ROLE_OPTIONS} />
+            </Form.Item>
+          )}
           <Form.Item
             name="restaurantIds"
             label="Restaurants"
@@ -843,32 +1073,37 @@ function AdminAccountsListContent({ kind }: Props) {
       <Modal
         title={assignUser ? `Assign venues — ${assignUser.firstName} ${assignUser.lastName}` : ''}
         open={Boolean(assignUser)}
-        onCancel={() => setAssignUser(null)}
+        onCancel={() => {
+          setAssignUser(null);
+          assignDirty.clearDirty();
+        }}
         onOk={onAssign}
         confirmLoading={assigning}
+        okButtonProps={{ disabled: !assignDirty.dirty }}
         destroyOnHidden
       >
         <Form
           form={assignForm}
           layout="vertical"
+          onValuesChange={assignDirty.onValuesChange}
           initialValues={{
             restaurantIds: assignUser?.restaurantIds ?? [],
             role:
               assignUser?.role === 'diner'
                 ? kind === 'restaurant_owner'
                   ? 'restaurant_owner'
-                  : 'staff'
+                  : 'manager'
                 : assignUser?.role,
           }}
         >
           {kind === 'diner' && (
             <Form.Item name="role" label="Role">
-              <Select
-                options={[
-                  { value: 'staff', label: 'Staff' },
-                  { value: 'restaurant_owner', label: 'Restaurant owner' },
-                ]}
-              />
+              <Select options={RESTAURANT_ACCOUNT_ROLE_OPTIONS} />
+            </Form.Item>
+          )}
+          {kind === 'restaurant_owner' && (
+            <Form.Item name="role" label="Role" rules={[{ required: true }]}>
+              <Select options={RESTAURANT_ACCOUNT_ROLE_OPTIONS} />
             </Form.Item>
           )}
           <Form.Item name="restaurantIds" label="Restaurants" rules={[{ required: true }]}>

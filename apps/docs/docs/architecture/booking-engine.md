@@ -24,9 +24,10 @@ Service entry points:
 1. Client selects slot + party size
 2. Mutation validates restaurant is `approved` and accepting online bookings
 3. Optional deposit PaymentIntent created (Stripe)
-4. **Slot claim** — atomic insert with unique index on table + time
-5. Confirmation notifications enqueued
-6. Waitlist entries for overlapping preferences may be notified on later cancellation
+4. **Manual approval** — if restaurant rules or a selected table/experience/package/private room require it, the booking stays `pending` (`requiresManualApproval`) until staff Confirms
+5. **Slot claim** — atomic insert with unique index on table + time
+6. Confirmation notifications enqueued (or “awaiting approval” if still pending)
+7. Waitlist entries for overlapping preferences may be notified on later cancellation
 
 ## Slot claims (concurrency)
 
@@ -39,8 +40,8 @@ Multiple diners booking the same slot simultaneously:
 ## Table assignment
 
 - **Auto-assign** — `smartAssign` picks smallest fitting table
-- **Manual** — staff assigns on floor plan
-- **Phone/walk-in** — staff bypasses online slot UI
+- **Manual** — manager assigns on floor plan
+- **Phone/walk-in** — manager bypasses online slot UI
 
 ## Deposits
 
@@ -82,7 +83,7 @@ Track where bookings originate for reporting:
 | `network` | Tablevera diner app |
 | `website` | Restaurant's own site (non-widget) |
 | `widget` | Embedded widget |
-| `phone` | Staff-entered phone booking |
+| `phone` | manager-entered phone booking |
 | `walkin` | Walk-in entered in dashboard |
 
 ## Modification policy

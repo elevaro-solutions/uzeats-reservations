@@ -7,6 +7,7 @@ import {
   Button,
   Card,
   Checkbox,
+  Dropdown,
   Image,
   Input,
   List,
@@ -18,14 +19,23 @@ import {
   Typography,
   message,
 } from 'antd';
+import type { MenuProps } from 'antd';
 import {
-  EyeInvisibleOutlined,
-  EyeOutlined,
+  FlagOutlined,
   MessageOutlined,
+  MoreOutlined,
   PictureOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import { RESTAURANT_MAX_PHOTOS } from '@reservations/shared';
+import {
+  RESTAURANT_MAX_PHOTOS,
+  REVIEW_REPORT_DETAILS_MAX,
+  REVIEW_REPORT_REASONS,
+  REVIEW_REPORT_REASON_HELP,
+  REVIEW_REPORT_REASON_LABELS,
+  browserMediaUrl,
+  type ReviewReportReason,
+} from '@reservations/shared';
 import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
@@ -33,19 +43,27 @@ import {
   ADD_RESTAURANT_PHOTOS,
   GENERATE_REVIEW_REPLY_DRAFT,
   MY_RESTAURANTS,
+  REPORT_REVIEW,
   RESTAURANT_REVIEWS,
   REPLY_TO_REVIEW,
-  SET_REVIEW_HIDDEN,
 } from '@/lib/graphql';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 
 const { Title, Text, Paragraph } = Typography;
+
+const REPORT_REASON_OPTIONS = REVIEW_REPORT_REASONS.map((value) => ({
+  value,
+  label: REVIEW_REPORT_REASON_LABELS[value],
+}));
 
 function ReviewsPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [replying, setReplying] = useState<any>(null);
   const [replyText, setReplyText] = useState('');
+  const [reporting, setReporting] = useState<any>(null);
+  const [reportReason, setReportReason] = useState<ReviewReportReason | null>(null);
+  const [reportDetails, setReportDetails] = useState('');
   const [selectedByReview, setSelectedByReview] = useState<Record<string, string[]>>({});
   const { page, pageSize, limit, offset, setPagination } = useUrlPagination({
     defaultPageSize: 20,
@@ -71,7 +89,7 @@ function ReviewsPageContent() {
     GENERATE_REVIEW_REPLY_DRAFT,
   );
   const [addRestaurantPhotos, { loading: addingPhotos }] = useMutation(ADD_RESTAURANT_PHOTOS);
-  const [setReviewHidden] = useMutation(SET_REVIEW_HIDDEN);
+  const [reportReview, { loading: reportingReview }] = useMutation(REPORT_REVIEW);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -83,7 +101,7 @@ function ReviewsPageContent() {
 
   const canReply =
     user?.role === 'restaurant_owner' ||
-    user?.role === 'staff' ||
+    user?.role === 'manager' ||
     user?.role === 'admin' ||
     user?.role === 'super_admin';
 
@@ -116,10 +134,44 @@ function ReviewsPageContent() {
     }
   };
 
-  const toggleHidden = async (review: any) => {
-    await setReviewHidden({ variables: { reviewId: review.id, hidden: !review.hidden } });
-    message.success(review.hidden ? 'Review unhidden' : 'Review hidden from public listing');
-    refetch();
+  const openReport = (review: any) => {
+    setReporting(review);
+    setReportReason(
+      review.flagReasonCode &&
+        (REVIEW_REPORT_REASONS as readonly string[]).includes(review.flagReasonCode)
+        ? (review.flagReasonCode as ReviewReportReason)
+        : null,
+    );
+    setReportDetails(review.flagDetails ?? '');
+  };
+
+  const handleReport = async () => {
+    if (!reporting?.id || !reportReason) return;
+    const details = reportDetails.trim();
+    if (reportReason === 'other' && details.length < 10) {
+      message.error('Please explain the policy issue (at least 10 characters)');
+      return;
+    }
+    try {
+      await reportReview({
+        variables: {
+          reviewId: reporting.id,
+          reason: reportReason,
+          details: details || null,
+        },
+      });
+      message.success(
+        reporting.flagged
+          ? 'Report updated — still in the moderation queue'
+          : 'Reported for moderation. The review stays public until Tablevera reviews it.',
+      );
+      setReporting(null);
+      setReportReason(null);
+      setReportDetails('');
+      refetch();
+    } catch (err: any) {
+      message.error(err?.message ?? 'Failed to report review');
+    }
   };
 
   const togglePhotoSelected = (reviewId: string, url: string, checked: boolean) => {
@@ -187,8 +239,8 @@ function ReviewsPageContent() {
             Reviews
           </Title>
           <Text type="secondary">
-            Owners and managers can reply to guests, generate a draft response, and add diner
-            photos to the restaurant gallery.
+            Reply publicly, generate a draft, report policy violations for moderation, or add diner
+            photos to the gallery. You cannot hide a review only because you disagree with it.
           </Text>
         </div>
         <Select style={{ width: 260 }} {...restaurantSelectProps} />
@@ -208,33 +260,45 @@ function ReviewsPageContent() {
               const reviewPhotos: string[] = r.photos ?? [];
               return (
                 <List.Item
-                  actions={[
-                    canReply && (
-                      <Button
-                        key="reply"
-                        size="small"
-                        icon={<MessageOutlined />}
-                        onClick={() => {
-                          setReplying(r);
-                          setReplyText(r.ownerReply ?? '');
-                        }}
-                      >
-                        {r.ownerReply ? 'Edit reply' : 'Reply'}
-                      </Button>
-                    ),
-                    <Button
-                      key="hide"
-                      size="small"
-                      icon={r.hidden ? <EyeOutlined /> : <EyeInvisibleOutlined />}
-                      onClick={() => toggleHidden(r)}
-                    >
-                      {r.hidden ? 'Unhide' : 'Hide'}
-                    </Button>,
-                  ].filter(Boolean)}
+                  actions={
+                    canReply
+                      ? [
+                          <Dropdown
+                            key="more"
+                            menu={{
+                              items: [
+                                {
+                                  key: 'reply',
+                                  icon: <MessageOutlined />,
+                                  label: r.ownerReply ? 'Edit reply' : 'Reply',
+                                  onClick: () => {
+                                    setReplying(r);
+                                    setReplyText(r.ownerReply ?? '');
+                                  },
+                                },
+                                {
+                                  key: 'report',
+                                  icon: <FlagOutlined />,
+                                  label: r.flagged ? 'Update report' : 'Report',
+                                  onClick: () => openReport(r),
+                                },
+                              ] as MenuProps['items'],
+                            }}
+                            trigger={['click']}
+                          >
+                            <Button
+                              size="small"
+                              icon={<MoreOutlined />}
+                              aria-label="Review actions"
+                            />
+                          </Dropdown>,
+                        ]
+                      : undefined
+                  }
                 >
                   <List.Item.Meta
                     title={
-                      <Space>
+                      <Space wrap>
                         <Rate disabled value={r.rating} style={{ fontSize: 14 }} />
                         <Text strong>
                           {r.diner ? `${r.diner.firstName} ${r.diner.lastName}` : 'Guest'}
@@ -243,6 +307,7 @@ function ReviewsPageContent() {
                           {new Date(r.createdAt).toLocaleDateString('en-US')}
                         </Text>
                         {r.hidden && <Tag color="orange">Hidden</Tag>}
+                        {r.flagged && <Tag color="red">Reported</Tag>}
                       </Space>
                     }
                     description={
@@ -271,6 +336,11 @@ function ReviewsPageContent() {
                         <Paragraph style={{ marginBottom: 4 }}>
                           {r.comment || <em>No comment</em>}
                         </Paragraph>
+                        {r.flagged && r.flagReason && (
+                          <Paragraph type="secondary" style={{ marginBottom: 8, fontSize: 12 }}>
+                            Report: {r.flagReason}
+                          </Paragraph>
+                        )}
                         {reviewPhotos.length > 0 && (
                           <div style={{ marginBottom: 8 }}>
                             <div
@@ -288,7 +358,7 @@ function ReviewsPageContent() {
                                   return (
                                     <div key={url} style={{ textAlign: 'center' }}>
                                       <Image
-                                        src={url}
+                                        src={browserMediaUrl(url)}
                                         alt="Review photo"
                                         width={72}
                                         height={72}
@@ -402,6 +472,77 @@ function ReviewsPageContent() {
                 Generate a personalized draft, edit it, then post. Guests are notified when you
                 post.
               </Text>
+            </Space>
+          )}
+        </Modal>
+
+        <Modal
+          title="Report review for moderation"
+          open={!!reporting}
+          onCancel={() => {
+            setReporting(null);
+            setReportReason(null);
+            setReportDetails('');
+          }}
+          onOk={handleReport}
+          confirmLoading={reportingReview}
+          okText={reporting?.flagged ? 'Update report' : 'Submit report'}
+          okButtonProps={{
+            disabled:
+              !reportReason ||
+              (reportReason === 'other' && reportDetails.trim().length < 10),
+          }}
+        >
+          {reporting && (
+            <Space orientation="vertical" style={{ width: '100%' }} size={12}>
+              <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                Report only policy issues (spam, fake, hate, private info, etc.). The review stays
+                public until Tablevera decides. Disagreeing with a rating is not a valid reason —
+                reply publicly instead.
+              </Paragraph>
+              <div>
+                <Space>
+                  <Rate disabled value={reporting.rating} style={{ fontSize: 14 }} />
+                  <Text type="secondary">
+                    {reporting.diner
+                      ? `${reporting.diner.firstName} ${reporting.diner.lastName}`
+                      : 'Guest'}
+                  </Text>
+                </Space>
+                <Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
+                  {reporting.comment || <em>No comment</em>}
+                </Paragraph>
+              </div>
+              <div>
+                <Text strong style={{ display: 'block', marginBottom: 6 }}>
+                  Reason
+                </Text>
+                <Select
+                  style={{ width: '100%' }}
+                  placeholder="Select a policy reason"
+                  options={REPORT_REASON_OPTIONS}
+                  value={reportReason ?? undefined}
+                  onChange={(v) => setReportReason(v)}
+                />
+                {reportReason && (
+                  <Text type="secondary" style={{ display: 'block', marginTop: 6, fontSize: 12 }}>
+                    {REVIEW_REPORT_REASON_HELP[reportReason]}
+                  </Text>
+                )}
+              </div>
+              <div>
+                <Text strong style={{ display: 'block', marginBottom: 6 }}>
+                  Details {reportReason === 'other' ? '(required)' : '(optional)'}
+                </Text>
+                <Input.TextArea
+                  rows={4}
+                  value={reportDetails}
+                  maxLength={REVIEW_REPORT_DETAILS_MAX}
+                  showCount
+                  onChange={(e) => setReportDetails(e.target.value)}
+                  placeholder="Facts that support the report (what happened, why it violates policy)…"
+                />
+              </div>
             </Space>
           )}
         </Modal>

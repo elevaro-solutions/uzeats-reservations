@@ -1,10 +1,16 @@
 import { Router } from 'express';
+import { canImportRestaurant } from '@reservations/shared';
 import { createContext } from '../graphql/context.js';
 import { parseRestaurantFile } from '../services/mhtmlImport.js';
 import { buildUploadKey, uploadObject } from '../services/spaces.js';
+import {
+  fetchAllowedImage,
+  SafeRemoteImageError,
+} from '../lib/safeRemoteImage.js';
 
 const MAX_BYTES = 50 * 1024 * 1024; // 50 MB — MHTML files can be large
 const MAX_IMPORT_IMAGE_BYTES = 5 * 1024 * 1024;
+/** Suffix match only; each hop (including redirects) is re-checked. */
 const ALLOWED_IMPORT_IMAGE_HOSTS = [
   'doordash.com',
   'cdn4dd.com',
@@ -12,26 +18,12 @@ const ALLOWED_IMPORT_IMAGE_HOSTS = [
   'uber.com',
   'cloudfront.net',
   'cdninstagram.com',
-];
+] as const;
 
 export const importRestaurantRouter: ReturnType<typeof Router> = Router();
 
 function isEmptyImport(data: { source: string; name?: string }) {
   return data.source === 'unknown' && !data.name;
-}
-
-function canImportImageFromHost(hostname: string): boolean {
-  const host = hostname.toLowerCase();
-  return ALLOWED_IMPORT_IMAGE_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
-}
-
-function inferContentTypeFromUrl(url: string): string {
-  const lower = url.toLowerCase();
-  if (lower.includes('.jpg') || lower.includes('.jpeg')) return 'image/jpeg';
-  if (lower.includes('.png')) return 'image/png';
-  if (lower.includes('.webp')) return 'image/webp';
-  if (lower.includes('.gif')) return 'image/gif';
-  return 'image/jpeg';
 }
 
 function readJsonPayload(body: unknown): { imageUrl?: string; filename?: string } | null {
@@ -48,6 +40,22 @@ function readJsonPayload(body: unknown): { imageUrl?: string; filename?: string 
   return null;
 }
 
+async function requireImporter(
+  req: Parameters<typeof createContext>[0]['req'],
+  res: Parameters<typeof createContext>[0]['res'],
+) {
+  const ctx = await createContext({ req, res });
+  if (!ctx.user) {
+    res.status(401).json({ error: 'Authentication required' });
+    return null;
+  }
+  if (!canImportRestaurant(ctx.user.role)) {
+    res.status(403).json({ error: 'Forbidden' });
+    return null;
+  }
+  return ctx.user;
+}
+
 /**
  * POST /api/import-restaurant/upload-image
  *
@@ -55,13 +63,10 @@ function readJsonPayload(body: unknown): { imageUrl?: string; filename?: string 
  * Downloads a source image and uploads it to DigitalOcean Spaces.
  */
 importRestaurantRouter.post('/upload-image', async (req, res) => {
-  const ctx = await createContext({ req, res });
-  if (!ctx.user) {
-    res.status(401).json({ error: 'Authentication required' });
-    return;
-  }
+  const user = await requireImporter(req, res);
+  if (!user) return;
 
-  let payload = readJsonPayload(req.body);
+  const payload = readJsonPayload(req.body);
   if (!payload) {
     res.status(400).json({ error: 'Invalid JSON body' });
     return;
@@ -73,54 +78,28 @@ importRestaurantRouter.post('/upload-image', async (req, res) => {
     return;
   }
 
-  let parsedUrl: URL;
   try {
-    parsedUrl = new URL(imageUrl);
-  } catch {
-    res.status(400).json({ error: 'Invalid imageUrl' });
-    return;
-  }
-
-  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
-    res.status(400).json({ error: 'Only http/https image URLs are allowed' });
-    return;
-  }
-
-  if (!canImportImageFromHost(parsedUrl.hostname)) {
-    res.status(400).json({ error: 'Image host not allowed for import' });
-    return;
-  }
-
-  try {
-    const remote = await fetch(imageUrl, {
-      headers: { 'User-Agent': 'reservations-import-bot/1.0' },
+    const fetched = await fetchAllowedImage({
+      url: imageUrl,
+      allowedHostSuffixes: ALLOWED_IMPORT_IMAGE_HOSTS,
+      maxBytes: MAX_IMPORT_IMAGE_BYTES,
+      userAgent: 'reservations-import-bot/1.0',
     });
-
-    if (!remote.ok) {
-      res.status(422).json({ error: `Could not download image (${remote.status})` });
-      return;
-    }
-
-    const arrayBuffer = await remote.arrayBuffer();
-    const body = Buffer.from(arrayBuffer);
-    if (body.length === 0) {
-      res.status(422).json({ error: 'Downloaded image is empty' });
-      return;
-    }
-    if (body.length > MAX_IMPORT_IMAGE_BYTES) {
-      res.status(413).json({ error: 'Image too large (max 5 MB)' });
-      return;
-    }
-
-    const contentTypeHeader = remote.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
-    const contentType = contentTypeHeader && contentTypeHeader.startsWith('image/')
-      ? contentTypeHeader
-      : inferContentTypeFromUrl(imageUrl);
-    const filename = payload.filename?.trim() || parsedUrl.pathname.split('/').pop() || 'imported-image';
-    const key = buildUploadKey(filename, contentType);
-    const uploaded = await uploadObject({ key, contentType, body });
+    const parsedUrl = new URL(imageUrl);
+    const filename =
+      payload.filename?.trim() || parsedUrl.pathname.split('/').pop() || 'imported-image';
+    const key = buildUploadKey(filename, fetched.contentType);
+    const uploaded = await uploadObject({
+      key,
+      contentType: fetched.contentType,
+      body: fetched.body,
+    });
     res.json({ ok: true, ...uploaded });
   } catch (err) {
+    if (err instanceof SafeRemoteImageError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
     res.status(500).json({ error: err instanceof Error ? err.message : 'Image import upload failed' });
   }
 });
@@ -131,14 +110,11 @@ importRestaurantRouter.post('/upload-image', async (req, res) => {
  * Accepts raw MHTML/HTML file body (Content-Type: application/octet-stream or text/html).
  * URL import is not supported yet — clients should upload a saved .mhtml/.html file.
  *
- * Requires authentication (any logged-in user: admin or restaurant_owner).
+ * Requires a partner or admin session (not diners).
  */
 importRestaurantRouter.post('/', async (req, res) => {
-  const ctx = await createContext({ req, res });
-  if (!ctx.user) {
-    res.status(401).json({ error: 'Authentication required' });
-    return;
-  }
+  const user = await requireImporter(req, res);
+  if (!user) return;
 
   const contentType = String(req.headers['content-type'] ?? '');
 

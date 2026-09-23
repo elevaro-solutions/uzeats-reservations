@@ -18,7 +18,7 @@ import {
   message,
 } from 'antd';
 import type { MenuProps } from 'antd';
-import { MoreOutlined, SearchOutlined } from '@ant-design/icons';
+import { CalendarOutlined, EyeOutlined, MoreOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { formatUsDateTime } from '@reservations/shared';
 import { PageHeader, StatusTag, spacing } from '@reservations/ui';
@@ -168,7 +168,23 @@ function AdminReservationsContent() {
   };
 
   const rowMenu = (r: ReservationRow): MenuProps['items'] => {
-    const actions: MenuProps['items'] = [];
+    const actions: MenuProps['items'] = [
+      {
+        key: 'view',
+        icon: <EyeOutlined />,
+        label: 'View details',
+        onClick: () => router.push(`/admin/reservations/${r.id}`),
+      },
+    ];
+    if (['pending', 'confirmed', 'seated'].includes(r.status)) {
+      actions.push({
+        key: 'edit',
+        icon: <CalendarOutlined />,
+        label: 'Change date & time',
+        onClick: () => router.push(`/admin/reservations/${r.id}?edit=1`),
+      });
+    }
+    actions.push({ type: 'divider' });
     if (r.status === 'pending') {
       actions.push({
         key: 'confirm',
@@ -308,14 +324,17 @@ function AdminReservationsContent() {
               title: 'When',
               dataIndex: 'slotStart',
               width: 170,
-              render: (v: string) =>
-                formatUsDateTime(v, {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                  hour: 'numeric',
-                  minute: '2-digit',
-                }),
+              render: (v: string, r: ReservationRow) => (
+                <Link href={`/admin/reservations/${r.id}`}>
+                  {formatUsDateTime(v, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  })}
+                </Link>
+              ),
             },
             {
               title: 'Restaurant',

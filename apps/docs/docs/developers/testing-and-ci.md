@@ -15,7 +15,7 @@ API tests live in `apps/api/src/__tests/` and use Vitest. Coverage includes:
 - Loyalty accrual and tier upgrades
 - Gift cards and promotion codes
 - Plan change policy (prorated upgrades, scheduled downgrades)
-- Owner/staff support tickets (`createOwnerSupportTicket` / `myOwnerSupportTickets`), including HTML details and image attachments
+- Owner/manager support tickets (`createOwnerSupportTicket` / `myOwnerSupportTickets`), including HTML details and image attachments
 - Telegram webhook handling
 
 ## Type checking

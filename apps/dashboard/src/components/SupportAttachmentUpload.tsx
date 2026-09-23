@@ -8,6 +8,7 @@ import {
   SUPPORT_TICKET_ATTACHMENT_CONTENT_TYPES,
   SUPPORT_TICKET_ATTACHMENT_MAX_BYTES,
   SUPPORT_TICKET_ATTACHMENT_MAX_COUNT,
+  browserMediaUrl,
 } from '@reservations/shared';
 import { colors } from '@reservations/ui';
 import { uploadFile } from '@/lib/upload';
@@ -169,7 +170,7 @@ export default function SupportAttachmentUpload({
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={item.url}
+                  src={browserMediaUrl(item.url)}
                   alt={item.filename}
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />

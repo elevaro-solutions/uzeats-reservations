@@ -1,6 +1,6 @@
 # Tablevera Documentation
 
-Docusaurus site for Tablevera — developers, diners, restaurant staff, platform admins, architecture reference, and LLM agent context.
+Docusaurus site for Tablevera — developers, diners, restaurant managers, platform admins, architecture reference, and LLM agent context.
 
 ## Local development
 
@@ -30,7 +30,7 @@ pnpm --filter @reservations/docs serve
 |---|---|
 | `docs/developers/` | Engineers — setup, API, env, deploy |
 | `docs/diners/` | Guest-facing product help |
-| `docs/staff/` | Restaurant partner dashboard |
+| `docs/managers/` | Restaurant partner dashboard |
 | `docs/admins/` | Platform operators |
 | `docs/architecture/` | System design |
 | `docs/llm/` | AI coding agent context |

@@ -506,8 +506,8 @@ async function seed() {
       email: STAFF_EMAIL,
       passwordHash,
       firstName: 'Sam',
-      lastName: 'Staff',
-      role: 'staff',
+      lastName: 'Manager',
+      role: 'manager',
       emailVerified: true,
       phone: '+15550001002',
       phoneVerified: true,
@@ -1237,7 +1237,7 @@ async function seed() {
   console.log(`Accounts (password: ${SEED_PASSWORD}):`);
   console.log(`  ${superAdmin.email}   — super admin (preserved if already present)`);
   console.log(`  ${OWNER_EMAIL}   — restaurant owner (all venues)`);
-  console.log(`  ${STAFF_EMAIL}   — staff at Samarkand Palace`);
+  console.log(`  ${STAFF_EMAIL}   — manager at Samarkand Palace`);
   console.log(`  ${DINER_EMAIL}   — diner (750 pts)`);
   console.log(`  ${DINER2_EMAIL}  — second diner (200 pts)`);
   console.log('');

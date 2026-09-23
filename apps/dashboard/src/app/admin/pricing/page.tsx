@@ -39,6 +39,7 @@ import {
   UPDATE_PLAN_PACKAGE,
 } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
+import { useFormDirty } from '@/lib/useFormDirty';
 
 const { Text, Paragraph } = Typography;
 
@@ -114,6 +115,8 @@ const FIELD_TIPS = {
     'When on, new subscriptions start in a free trial before the first charge. Turn off for paid-from-day-one plans.',
   trialPeriod: 'How long the free trial lasts for new subscriptions on this package.',
   customTrialDays: 'Exact number of free trial days (1–365) when using a custom period.',
+  managerSeats:
+    'How many manager accounts the restaurant owner can invite. Every package must include at least 1. The owner does not use a seat.',
 } as const;
 
 const TRIAL_PRESETS = [1, 3, 7, 14, 30] as const;
@@ -162,6 +165,9 @@ export default function AdminPricingPage() {
   const [form] = Form.useForm();
   const [annualForm] = Form.useForm();
   const [createForm] = Form.useForm();
+  const packageDirty = useFormDirty();
+  const annualDirty = useFormDirty();
+  const createDirty = useFormDirty();
 
   const plans = data?.plans ?? [];
   const trialEnabled = Form.useWatch('trialEnabled', form);
@@ -188,7 +194,8 @@ export default function AdminPricingPage() {
   useEffect(() => {
     if (!configData?.platformConfig?.annualBilling) return;
     annualForm.setFieldsValue(configData.platformConfig.annualBilling);
-  }, [configData, annualForm]);
+    annualDirty.clearDirty();
+  }, [configData, annualForm, annualDirty.clearDirty]);
 
   useEffect(() => {
     const plan = plans.find((p: any) => p.key === activeKey) ?? plans[0];
@@ -212,9 +219,11 @@ export default function AdminPricingPage() {
       trialPeriod: trialPeriodValue(days),
       customTrialDays: days > 0 && !(TRIAL_PRESETS as readonly number[]).includes(days) ? days : 7,
       visibleOnPricing: plan.visibleOnPricing !== false,
+      managerSeats: plan.managerSeats ?? 1,
       features: featuresInput(plan.features),
     });
-  }, [plans, activeKey, form]);
+    packageDirty.clearDirty();
+  }, [plans, activeKey, form, packageDirty.clearDirty]);
 
   if (!ready) return null;
 
@@ -296,6 +305,7 @@ export default function AdminPricingPage() {
   };
 
   const onSaveAnnualBilling = async () => {
+    if (!annualDirty.dirty) return;
     try {
       const values = await annualForm.validateFields();
       await updateConfig({
@@ -313,6 +323,7 @@ export default function AdminPricingPage() {
         },
       });
       message.success('Global annual billing updated');
+      annualDirty.clearDirty();
       refetchConfig();
     } catch (err: any) {
       if (err?.errorFields) return;
@@ -321,6 +332,7 @@ export default function AdminPricingPage() {
   };
 
   const onSave = async () => {
+    if (!packageDirty.dirty) return;
     try {
       await form.validateFields();
       const values = form.getFieldsValue(true);
@@ -342,11 +354,13 @@ export default function AdminPricingPage() {
             websiteCoverFeeCents: dollarsToCents(values.websiteCoverFee),
             trialDays: resolveTrialDays(values),
             visibleOnPricing: values.visibleOnPricing,
+            managerSeats: Math.max(1, Math.round(Number(values.managerSeats) || 1)),
             features: featuresInput(values.features),
           },
         },
       });
       message.success('Plan updated');
+      packageDirty.clearDirty();
       refetch();
     } catch (err: any) {
       if (err?.errorFields) return;
@@ -355,6 +369,7 @@ export default function AdminPricingPage() {
   };
 
   const onCreate = async () => {
+    if (!createDirty.dirty) return;
     try {
       await createForm.validateFields();
       const values = createForm.getFieldsValue(true);
@@ -375,6 +390,7 @@ export default function AdminPricingPage() {
             websiteCoverFeeCents: dollarsToCents(values.websiteCoverFee),
             trialDays: resolveTrialDays(values),
             visibleOnPricing: values.visibleOnPricing !== false,
+            managerSeats: Math.max(1, Math.round(Number(values.managerSeats) || 1)),
             features: featuresInput(values.features),
           },
         },
@@ -382,6 +398,7 @@ export default function AdminPricingPage() {
       message.success('Package created');
       setCreateOpen(false);
       createForm.resetFields();
+      createDirty.clearDirty();
       await refetch();
       const key = result.data?.createPlanPackage?.key;
       if (key) setActiveKey(key);
@@ -635,7 +652,12 @@ export default function AdminPricingPage() {
         title="Global annual billing"
         loading={loading}
         extra={
-          <Button type="primary" loading={savingAnnual} onClick={onSaveAnnualBilling}>
+          <Button
+            type="primary"
+            loading={savingAnnual}
+            disabled={!annualDirty.dirty}
+            onClick={onSaveAnnualBilling}
+          >
             Save annual settings
           </Button>
         }
@@ -645,7 +667,7 @@ export default function AdminPricingPage() {
           packages or only the ones you select. Per-package &ldquo;Annual — months free&rdquo;
           discounts apply only when global billing is disabled or excludes that package.
         </Paragraph>
-        <Form form={annualForm} layout="vertical">
+        <Form form={annualForm} layout="vertical" onValuesChange={annualDirty.onValuesChange}>
           <Row gutter={16}>
             <Col xs={24} md={8}>
               <Form.Item
@@ -744,7 +766,14 @@ export default function AdminPricingPage() {
             title="Packages"
             loading={loading}
             extra={
-              <Button type="link" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
+              <Button
+                type="link"
+                icon={<PlusOutlined />}
+                onClick={() => {
+                  createDirty.clearDirty();
+                  setCreateOpen(true);
+                }}
+              >
                 Add
               </Button>
             }
@@ -760,6 +789,7 @@ export default function AdminPricingPage() {
                 >
                   <span>
                     {p.name} · ${(p.monthlyPriceCents / 100).toFixed(0)}/mo
+                    {typeof p.managerSeats === 'number' ? ` · ${p.managerSeats} mgr` : ''}
                   </span>
                   <span>
                     {p.visibleOnPricing === false ? (
@@ -786,13 +816,18 @@ export default function AdminPricingPage() {
                     Delete
                   </Button>
                 ) : null}
-                <Button type="primary" loading={saving} onClick={onSave}>
+                <Button
+                  type="primary"
+                  loading={saving}
+                  disabled={!packageDirty.dirty}
+                  onClick={onSave}
+                >
                   Save package
                 </Button>
               </Space>
             }
           >
-            <Form form={form} layout="vertical">
+            <Form form={form} layout="vertical" onValuesChange={packageDirty.onValuesChange}>
               <Form.Item
                 name="name"
                 label="Display name"
@@ -858,6 +893,14 @@ export default function AdminPricingPage() {
                 annualFreeMonths,
               )}
               {trialFields(Boolean(trialEnabled), trialPeriod)}
+              <Form.Item
+                name="managerSeats"
+                label="Manager seats"
+                tooltip={FIELD_TIPS.managerSeats}
+                rules={[{ required: true, message: 'At least 1 manager seat is required' }]}
+              >
+                <InputNumber min={1} max={100} step={1} style={{ width: 160 }} />
+              </Form.Item>
               <Text strong style={{ display: 'block', marginBottom: 12 }}>
                 Features
               </Text>
@@ -884,16 +927,21 @@ export default function AdminPricingPage() {
       <Modal
         title="Add package"
         open={createOpen}
-        onCancel={() => setCreateOpen(false)}
+        onCancel={() => {
+          setCreateOpen(false);
+          createDirty.clearDirty();
+        }}
         onOk={onCreate}
         confirmLoading={creating}
         okText="Create package"
+        okButtonProps={{ disabled: !createDirty.dirty }}
         destroyOnClose
         width={640}
       >
         <Form
           form={createForm}
           layout="vertical"
+          onValuesChange={createDirty.onValuesChange}
           initialValues={{
             trialEnabled: true,
             trialPeriod: 30,
@@ -907,6 +955,7 @@ export default function AdminPricingPage() {
             listPrice: 0,
             networkCoverFee: 0,
             websiteCoverFee: 0,
+            managerSeats: 1,
             features: {},
           }}
         >
@@ -928,6 +977,14 @@ export default function AdminPricingPage() {
             valuePropName="checked"
           >
             <Switch checkedChildren="Visible" unCheckedChildren="Hidden" />
+          </Form.Item>
+          <Form.Item
+            name="managerSeats"
+            label="Manager seats"
+            tooltip={FIELD_TIPS.managerSeats}
+            rules={[{ required: true, message: 'At least 1 manager seat is required' }]}
+          >
+            <InputNumber min={1} max={100} step={1} style={{ width: 160 }} />
           </Form.Item>
           <Row gutter={16}>
             {createDiscountType !== 'first_month_free' &&

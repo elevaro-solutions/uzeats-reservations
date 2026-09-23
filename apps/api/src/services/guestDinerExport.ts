@@ -194,6 +194,109 @@ export async function exportDinersList(args: {
   return formatExport('diners', table, args.format);
 }
 
+export function adminUsersFilter(args: {
+  search?: string | null;
+  role?: string | null;
+  roles?: string[] | null;
+  restaurantId?: string | null;
+  hasRestaurants?: boolean | null;
+}) {
+  const filter: Record<string, unknown> = {};
+  if (args.roles?.length) filter.role = { $in: args.roles };
+  else if (args.role) filter.role = args.role;
+  if (args.restaurantId) filter.restaurantIds = args.restaurantId;
+  if (args.hasRestaurants === true) {
+    filter['restaurantIds.0'] = { $exists: true };
+  } else if (args.hasRestaurants === false) {
+    filter.$and = [
+      {
+        $or: [
+          { restaurantIds: { $exists: false } },
+          { restaurantIds: null },
+          { restaurantIds: { $size: 0 } },
+        ],
+      },
+    ];
+  }
+  if (args.search?.trim()) {
+    const regex = searchRegex(args.search);
+    filter.$or = [{ email: regex }, { firstName: regex }, { lastName: regex }, { phone: regex }];
+  }
+  return filter;
+}
+
+export function adminUsersExportTable(
+  users: Array<{
+    _id: { toString(): string };
+    email?: string | null;
+    phone?: string | null;
+    firstName: string;
+    lastName: string;
+    role: string;
+    restaurantIds?: Array<{ toString(): string }> | null;
+    emailVerified?: boolean | null;
+    phoneVerified?: boolean | null;
+    createdAt?: Date;
+  }>,
+  title: string,
+): ExportTable {
+  return {
+    title,
+    headers: [
+      'id',
+      'firstName',
+      'lastName',
+      'email',
+      'phone',
+      'role',
+      'restaurantCount',
+      'emailVerified',
+      'phoneVerified',
+      'createdAt',
+    ],
+    rows: users.map((u) => [
+      u._id.toString(),
+      u.firstName,
+      u.lastName,
+      u.email ?? '',
+      u.phone ?? '',
+      u.role,
+      u.restaurantIds?.length ?? 0,
+      Boolean(u.emailVerified),
+      Boolean(u.phoneVerified),
+      iso(u.createdAt),
+    ]),
+  };
+}
+
+export async function exportAdminUsersList(args: {
+  search?: string | null;
+  role?: string | null;
+  roles?: string[] | null;
+  restaurantId?: string | null;
+  hasRestaurants?: boolean | null;
+  format: ExportFormat;
+  basename: string;
+  title: string;
+}): Promise<ExportPayload> {
+  const users = await User.find(
+    adminUsersFilter({
+      search: args.search,
+      role: args.role,
+      roles: args.roles,
+      restaurantId: args.restaurantId,
+      hasRestaurants: args.hasRestaurants,
+    }),
+  )
+    .sort({ createdAt: -1 })
+    .limit(LIST_EXPORT_LIMIT);
+  return formatExport(
+    args.basename,
+    adminUsersExportTable(users, args.title),
+    args.format,
+  );
+}
+
 export async function exportGuestsList(args: {
   restaurantId?: string;
   restaurantName?: string;

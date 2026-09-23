@@ -6,8 +6,10 @@ import {
   type PlanDiscountType,
 } from '@reservations/shared';
 import {
+  DEFAULT_MANAGER_SEATS,
   FEATURE_KEYS,
   PLANS,
+  normalizeManagerSeats,
   type FeatureKey,
   type PlanFeatures,
   type PlanKey,
@@ -27,6 +29,8 @@ export type EffectivePlan = {
   networkCoverFeeCents: number;
   websiteCoverFeeCents: number;
   trialDays: number;
+  /** Owner-invited manager seats included (≥1). */
+  managerSeats: number;
   visibleOnPricing: boolean;
   isCustom: boolean;
   features: PlanFeatures;
@@ -44,6 +48,7 @@ export type PlanOverrideFields = {
   networkCoverFeeCents?: number;
   websiteCoverFeeCents?: number;
   trialDays?: number;
+  managerSeats?: number;
   visibleOnPricing?: boolean;
   features?: Record<string, boolean> | Map<string, boolean>;
 };
@@ -56,7 +61,7 @@ const DEFAULTS = {
   supportPhone: '+16507707788',
   defaultSignupRole: 'diner' as UserRole,
   defaultPartnerRole: 'restaurant_owner' as UserRole,
-  defaultStaffRole: 'staff' as UserRole,
+  defaultManagerRole: 'manager' as UserRole,
   maintenanceMode: false,
   allowPublicRegistration: true,
   allowPartnerRegistration: true,
@@ -214,6 +219,11 @@ function mapOverrideToPlan(
     websiteCoverFeeCents: override?.websiteCoverFeeCents ?? base?.websiteCoverFeeCents ?? 0,
     trialDays:
       typeof override?.trialDays === 'number' ? override.trialDays : (base?.trialDays ?? 0),
+    managerSeats: normalizeManagerSeats(
+      override?.managerSeats ??
+        (base as { managerSeats?: number } | undefined)?.managerSeats ??
+        DEFAULT_MANAGER_SEATS,
+    ),
     visibleOnPricing:
       override?.visibleOnPricing !== undefined
         ? Boolean(override.visibleOnPricing)
@@ -270,7 +280,7 @@ export function mapPlatformConfig(doc: PlatformConfigDocument) {
     supportPhone: doc.supportPhone ?? DEFAULTS.supportPhone,
     defaultSignupRole: doc.defaultSignupRole ?? DEFAULTS.defaultSignupRole,
     defaultPartnerRole: doc.defaultPartnerRole ?? DEFAULTS.defaultPartnerRole,
-    defaultStaffRole: doc.defaultStaffRole ?? DEFAULTS.defaultStaffRole,
+    defaultManagerRole: doc.defaultManagerRole ?? DEFAULTS.defaultManagerRole,
     maintenanceMode: Boolean(doc.maintenanceMode),
     allowPublicRegistration: doc.allowPublicRegistration !== false,
     allowPartnerRegistration: doc.allowPartnerRegistration !== false,

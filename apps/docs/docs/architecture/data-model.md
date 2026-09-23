@@ -10,8 +10,8 @@ Central identity for all roles.
 
 | Field | Notes |
 |---|---|
-| `role` | `diner`, `restaurant_owner`, `staff`, `admin`, `super_admin` |
-| `restaurantIds` | Venues an owner/staff member can access |
+| `role` | `diner`, `restaurant_owner`, `manager`, `admin`, `super_admin` |
+| `restaurantIds` | Venues an owner/manager member can access |
 | `loyaltyPoints` | Platform loyalty balance |
 | `notificationPreferences` | Per-event channel toggles |
 | `referralCode` | Unique code for referral program |

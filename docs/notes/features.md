@@ -46,7 +46,7 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ### [2026-09-22] Help center is FAQ + contact, not tickets
 - Help center has FAQ and Contact only. Diners email support or use the web contact form; they do not file GraphQL tickets.
-- Partner tickets are dashboard `/support` (`createOwnerSupportTicket`) with rich text and image attachments.
+- Partner tickets are dashboard `/support` (`createOwnerSupportTicket`) with rich text, image attachments, and manager replies.
 - Why it matters: Don’t add diner `createMySupportTicket` ops — that mutation was removed.
 
 ### [2026-09-14] Content mirrored from web by hand
@@ -78,8 +78,8 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 ## notifications
 
 ### [2026-09-22] Messenger ACL for Telegram Accept/Reject
-- Channel `messenger` on notification preferences (default off). `notifyRestaurantStaff` Elevaro fan-out: restaurant owner always; staff only if `newReservation.messenger` (or `reservationUpdates.messenger` for update/cancel events). Action webhook re-checks that flag for non-owners. Dashboard `/notifications` exposes the column + Connect Telegram bot; `createElevaroTelegramLink` rejects diners and users without venue access.
-- Why it matters: Previously every `restaurantIds` member got Accept/Reject; owners now opt staff in explicitly.
+- Channel `messenger` on notification preferences (default off). `notifyRestaurantManagers` Elevaro fan-out: restaurant owner always; staff only if `newReservation.messenger` (or `reservationUpdates.messenger` for update/cancel events). Action webhook re-checks that flag for non-owners. Dashboard `/notifications` exposes the column + Connect Telegram bot; `createElevaroTelegramLink` rejects diners and users without venue access.
+- Why it matters: Previously every `restaurantIds` member got Accept/Reject; owners now opt managers in explicitly.
 
 ### [2026-09-22] Diner web push toggle needs local opt-in (+ VAPID for delivery)
 - Profile Push switch previously only reflected `pushManager.getSubscription()`. Without `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (often unset locally), subscribe never ran, so refresh always showed Off.
@@ -91,11 +91,11 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 - Why it matters: Don’t re-add the profile SMS switch without product sign-off; partner Premium SMS is separate.
 
 ### [2026-09-21] Elevaro merchant notifier fan-out
-- `notifyRestaurantStaff` POSTs to Elevaro Merchant Notifier when `ELEVARO_NOTIFIER_*` is set; Accept/Reject land on `POST /webhooks/elevaro-notifier` → `updateReservationStatus`. GraphQL `createElevaroTelegramLink` for `@elevaro_merchant_bot`.
+- `notifyRestaurantManagers` POSTs to Elevaro Merchant Notifier when `ELEVARO_NOTIFIER_*` is set; Accept/Reject land on `POST /webhooks/elevaro-notifier` → `updateReservationStatus`. GraphQL `createElevaroTelegramLink` for `@elevaro_merchant_bot`.
 - Why it matters: Messenger Accept/Reject is out-of-process from the diner Telegram bot; Tablevera uses platform key `tablevera` (separate from UzEats).
 
 ### [2026-09-18] Partner Hub new-reservation tap fetches by id
-- Header bell `new_reservation` goes to `/reservations/:id?restaurant=`. `notifyRestaurantStaff` always attaches `restaurantId`. The detail page loads `restaurantReservation(id)` and switches the active venue.
+- Header bell `new_reservation` goes to `/reservations/:id?restaurant=`. `notifyRestaurantManagers` always attaches `restaurantId`. The detail page loads `restaurantReservation(id)` and switches the active venue.
 - Why it matters: Multi-location owners were looking up against the currently selected restaurant’s date-filtered list, so the click looked like a no-op.
 
 ### [2026-09-16] Android google-services.json is committed; FCM V1 key is not
@@ -161,7 +161,7 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 - Hero count/dots `bottom` must clear `HERO_SHEET_OVERLAP` (sheet `marginTop: -space(n)`). Without that offset the `1 / N` pill sits in the sheet’s rounded corner.
 - Why it matters: Status-only copy like "Opens at 5:00 PM" is not the schedule; don't treat gallery photos as the logo if a dedicated URL exists.
 
-### [2026-09-17] Leave review does not require staff-completed status
+### [2026-09-17] Leave review does not require manager-completed status
 - `canLeaveReview` / `isReservationReviewable` allow `completed` or past
   `confirmed`/`seated` (slot ended). Cancelled, no-show, and pending stay blocked.
 - Why it matters: Diners often never see “Leave review” if the restaurant never
@@ -175,14 +175,14 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
   proxy like dashboard restaurant photos.
 
 ### [2026-09-17] Partner review reply drafts + gallery promotion
-- `generateReviewReplyDraft` (owner/staff via `assertRestaurantAccess`) returns
+- `generateReviewReplyDraft` (owner/manager via `assertRestaurantAccess`) returns
   a personalized draft; uses Gemini (`GEMINI_API_KEY`, default model
   `gemini-3.5-flash-lite`) when configured, else a templated draft. Drafts are not
   posted until `replyToReview`.
 - `addRestaurantPhotos` appends deduped URLs up to `RESTAURANT_MAX_PHOTOS` (10).
   Dashboard Reviews UI can add each / selected diner photos to the gallery
   (hero order still controlled in Settings).
-- Why it matters: “Manager” = `staff` with `restaurantIds`; reply already used
+- Why it matters: “Manager” = `manager` with `restaurantIds`; reply already used
   the same access helper as owners.
 
 ### [2026-09-16] Diner reviews rate four qualities
@@ -199,7 +199,7 @@ AddReviewSheet require all four; restaurant avg still rolls up overall only.
 - Why it matters: Don’t assume booking details are only computed when the modal opens. Slot formatters must tolerate null.
 
 ### [2026-09-16] Public menu is popular dishes only
-- Web restaurant details and the mobile menu tab render `selectPublicMenuSections`: items with `popular: true`, capped at 10. If none are marked, the first 8 items are shown. Owners, staff, and admins set the flags via checkboxes in the dashboard menu editor (`upsertMenu` rejects more than 10).
+- Web restaurant details and the mobile menu tab render `selectPublicMenuSections`: items with `popular: true`, capped at 10. If none are marked, the first 8 items are shown. Owners, managers, and admins set the flags via checkboxes in the dashboard menu editor (`upsertMenu` rejects more than 10).
 - Why it matters: Don’t assume the diner page lists the full in-app menu. Full menus belong on `menuUrl` / the restaurant website.
 
 ### [2026-09-14] Book gated by flags + auth; review scans all reservations

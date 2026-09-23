@@ -21,7 +21,7 @@ import {
   RestaurantGroup,
   Review,
   Shift,
-  StaffInvite,
+  ManagerInvite,
   Subscription,
   SupportTicket,
   SurveyConfig,
@@ -79,7 +79,7 @@ export async function clearSeedData(): Promise<ClearSeedDataResult> {
   await bump(counts, 'tickets', await Ticket.deleteMany({}));
   await bump(counts, 'experiences', await Experience.deleteMany({}));
   await bump(counts, 'supportTickets', await SupportTicket.deleteMany({}));
-  await bump(counts, 'staffInvites', await StaffInvite.deleteMany({}));
+  await bump(counts, 'managerInvites', await ManagerInvite.deleteMany({}));
   await bump(counts, 'restaurantGroups', await RestaurantGroup.deleteMany({}));
   await bump(counts, 'loyalty', await LoyaltyTransaction.deleteMany({}));
   await bump(counts, 'notifications', await Notification.deleteMany({}));

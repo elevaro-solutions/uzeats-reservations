@@ -2,48 +2,32 @@ import { Router } from 'express';
 import { downloadMagnificStockPhoto, isMagnificStockImageUrl } from '@reservations/shared';
 import { createContext, requireAdmin } from '../graphql/context.js';
 import { buildUploadKey, uploadObject } from '../services/spaces.js';
+import {
+  fetchAllowedImage,
+  SafeRemoteImageError,
+} from '../lib/safeRemoteImage.js';
 
 const MAX_BYTES = 5 * 1024 * 1024;
+const MAGNIFIC_IMAGE_HOSTS = ['magnific.com', 'freepik.com', 'b2bpic.net'] as const;
 
 export const discoveryMagnificRouter: ReturnType<typeof Router> = Router();
 
-function inferContentTypeFromUrl(url: string): string {
-  const lower = url.toLowerCase();
-  if (lower.includes('.jpg') || lower.includes('.jpeg')) return 'image/jpeg';
-  if (lower.includes('.png')) return 'image/png';
-  if (lower.includes('.webp')) return 'image/webp';
-  if (lower.includes('.gif')) return 'image/gif';
-  return 'image/jpeg';
-}
-
 async function fetchRemoteImage(
   sourceUrl: string,
-): Promise<{ error: string } | { body: Buffer; contentType: string }> {
-  const remote = await fetch(sourceUrl, {
-    headers: { 'User-Agent': 'reservations-discovery-bot/1.0' },
-    redirect: 'follow',
-  });
-
-  if (!remote.ok) {
-    return { error: `Could not download image (${remote.status})` };
+): Promise<{ error: string; status?: number } | { body: Buffer; contentType: string }> {
+  try {
+    return await fetchAllowedImage({
+      url: sourceUrl,
+      allowedHostSuffixes: MAGNIFIC_IMAGE_HOSTS,
+      maxBytes: MAX_BYTES,
+      userAgent: 'reservations-discovery-bot/1.0',
+    });
+  } catch (err) {
+    if (err instanceof SafeRemoteImageError) {
+      return { error: err.message, status: err.status };
+    }
+    return { error: 'Could not download image' };
   }
-
-  const arrayBuffer = await remote.arrayBuffer();
-  const body = Buffer.from(arrayBuffer);
-  if (body.length === 0) {
-    return { error: 'Downloaded image is empty' };
-  }
-  if (body.length > MAX_BYTES) {
-    return { error: 'Image too large (max 5 MB)' };
-  }
-
-  const contentTypeHeader = remote.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
-  const contentType =
-    contentTypeHeader && contentTypeHeader.startsWith('image/')
-      ? contentTypeHeader
-      : inferContentTypeFromUrl(sourceUrl);
-
-  return { body, contentType };
 }
 
 /**
@@ -117,9 +101,8 @@ discoveryMagnificRouter.post('/upload-image', async (req, res) => {
 
     const fetched = await fetchRemoteImage(sourceUrl);
     if ('error' in fetched) {
-      const message = fetched.error;
-      const status = message.includes('too large') ? 413 : 422;
-      res.status(status).json({ error: message });
+      const status = fetched.status ?? (fetched.error.includes('too large') ? 413 : 422);
+      res.status(status).json({ error: fetched.error });
       return;
     }
 

@@ -41,7 +41,7 @@ export default function SurveyPage() {
   });
   const reservation = (data as any)?.reservationForSurvey;
 
-  // The surveyConfig resolver is restricted to restaurant staff, so this query
+  // The surveyConfig resolver is restricted to restaurant managers, so this query
   // may error for diners; in that case we fall back to showing all questions.
   const { data: configData } = useQuery(SURVEY_CONFIG, {
     variables: { restaurantId: reservation?.restaurantId },

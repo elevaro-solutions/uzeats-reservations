@@ -22,11 +22,13 @@ type BookingParams = {
   partySize: number;
   selectedSlot: string | null;
   promoCode: string;
+  /** When set, sync `occasion` query (null / `'none'` removes it). */
+  occasion?: string | null;
 };
 
-const DEFAULT_PARTY = 2;
+export const DEFAULT_PARTY = 2;
 
-function defaultBookingDate(): Dayjs {
+export function defaultBookingDate(): Dayjs {
   return dayjs().add(1, 'day');
 }
 
@@ -99,6 +101,12 @@ export function useRestaurantPageParams() {
         party: booking.partySize !== DEFAULT_PARTY ? String(booking.partySize) : null,
         slot: booking.selectedSlot,
         promo: booking.promoCode.trim() ? booking.promoCode.trim().toUpperCase() : null,
+        ...(booking.occasion !== undefined
+          ? {
+              occasion:
+                booking.occasion && booking.occasion !== 'none' ? booking.occasion : null,
+            }
+          : {}),
       });
     },
     [replaceParams],

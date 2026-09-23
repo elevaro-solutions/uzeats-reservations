@@ -6,6 +6,7 @@ type StatusStyle = { color: string; background: string };
 
 const STYLES: Record<string, StatusStyle> = {
   pending: { color: colors.warning, background: colors.warningBg },
+  awaiting_approval: { color: colors.warning, background: colors.warningBg },
   confirmed: { color: colors.info, background: colors.infoBg },
   seated: { color: '#0e7490', background: '#e6f7fa' },
   completed: { color: colors.success, background: colors.successBg },

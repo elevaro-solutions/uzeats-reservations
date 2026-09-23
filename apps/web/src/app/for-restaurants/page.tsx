@@ -42,7 +42,7 @@ const BENEFITS = [
     title: 'Give hosts a calmer service',
     outcome: 'Less phone time, fewer double-books',
     description:
-      'One dashboard for the book, the floor, and walk-ins. Staff see who is coming, where they sit, and what they asked for — without a paper log or a ringing phone.',
+      'One dashboard for the book, the floor, and walk-ins. Managers see who is coming, where they sit, and what they asked for — without a paper log or a ringing phone.',
   },
   {
     icon: <MessageOutlined />,

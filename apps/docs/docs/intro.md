@@ -12,7 +12,7 @@ sidebar_position: 1
 |---|---|---|
 | Engineers | [Developers → Getting started](/developers/getting-started) | Local monorepo |
 | Diners | [Diners → Overview](/diners/overview) | [tablevera.online](https://tablevera.online) |
-| Restaurant owners & staff | [Staff → Overview](/staff/overview) | Partner dashboard |
+| Restaurant owners & staff | [Managers → Overview](/managers/overview) | Partner dashboard |
 | Platform operators | [Admins → Platform overview](/admins/platform-overview) | Partner dashboard (admin) |
 | Architects & contributors | [Architecture → Overview](/architecture/overview) | — |
 | AI / LLM agents | [LLM → Overview](/llm/overview) | — |

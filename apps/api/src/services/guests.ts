@@ -3,7 +3,7 @@ import { Reservation } from '../models/Reservation.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { SurveyConfig } from '../models/Survey.js';
 import { getFeatures } from './plans.js';
-import { notifyUser, notifyRestaurantStaff } from './notifications.js';
+import { notifyUser, notifyRestaurantManagers } from './notifications.js';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 
@@ -110,7 +110,7 @@ export async function recordGuestSpend(input: {
     const features = await getFeatures(input.restaurantId);
     if (!features.spendAlerts) return;
 
-    await notifyRestaurantStaff(input.restaurantId, {
+    await notifyRestaurantManagers(input.restaurantId, {
       type: 'guest_spend_alert',
       title: 'High spend alert',
       body: `A guest check just hit $${(input.amountCents / 100).toFixed(2)} at ${restaurant.name}.`,

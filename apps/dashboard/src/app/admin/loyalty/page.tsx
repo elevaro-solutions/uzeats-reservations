@@ -28,6 +28,7 @@ import { PageHeader, StatCard, spacing } from '@reservations/ui';
 import { ADMIN_LOYALTY_STATS, UPDATE_LOYALTY_PROGRAM } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { isSuperAdmin } from '@/lib/roles';
+import { useFormDirty } from '@/lib/useFormDirty';
 
 const { Paragraph, Text } = Typography;
 
@@ -168,6 +169,8 @@ export default function AdminLoyaltyPage() {
   const [editingTierId, setEditingTierId] = useState<string | null>(null);
   const [form] = Form.useForm();
   const [tierForm] = Form.useForm();
+  const packagesDirty = useFormDirty();
+  const tierDirty = useFormDirty();
 
   const stats = data?.adminLoyaltyStats;
   const program: LoyaltyProgram | undefined = data?.loyaltyProgram;
@@ -185,7 +188,8 @@ export default function AdminLoyaltyPage() {
   useEffect(() => {
     if (!program) return;
     form.setFieldsValue(program);
-  }, [program, form]);
+    packagesDirty.clearDirty();
+  }, [program, form, packagesDirty.clearDirty]);
 
   if (!ready) return null;
 
@@ -196,7 +200,7 @@ export default function AdminLoyaltyPage() {
   };
 
   const onSavePackages = async () => {
-    if (!program) return;
+    if (!program || !packagesDirty.dirty) return;
     try {
       const values = await form.validateFields();
       await persist(
@@ -206,6 +210,7 @@ export default function AdminLoyaltyPage() {
         },
         'Point packages saved',
       );
+      packagesDirty.clearDirty();
     } catch (err: any) {
       if (err?.errorFields) return;
       message.error(err.message || 'Failed to save point packages');
@@ -221,6 +226,7 @@ export default function AdminLoyaltyPage() {
       minVisits: maxVisits + 5,
       earnMultiplier: 1.25,
     });
+    tierDirty.clearDirty();
     setTierModalOpen(true);
   };
 
@@ -231,11 +237,12 @@ export default function AdminLoyaltyPage() {
       minVisits: tier.minVisits,
       earnMultiplier: tier.earnMultiplier,
     });
+    tierDirty.clearDirty();
     setTierModalOpen(true);
   };
 
   const saveTier = async () => {
-    if (!program) return;
+    if (!program || !tierDirty.dirty) return;
     try {
       const values = await tierForm.validateFields();
       const nextTiers = editingTierId
@@ -260,6 +267,7 @@ export default function AdminLoyaltyPage() {
       await persist({ ...programInput(program), tiers: nextTiers }, editingTierId ? 'Tier updated' : 'Tier created');
       setTierModalOpen(false);
       setEditingTierId(null);
+      tierDirty.clearDirty();
     } catch (err: any) {
       if (err?.errorFields) return;
       message.error(err.message || 'Failed to save tier');
@@ -385,7 +393,12 @@ export default function AdminLoyaltyPage() {
                 loading={loading}
                 extra={
                   canEdit ? (
-                    <Button type="primary" loading={saving} onClick={() => void onSavePackages()}>
+                    <Button
+                      type="primary"
+                      loading={saving}
+                      disabled={!packagesDirty.dirty}
+                      onClick={() => void onSavePackages()}
+                    >
                       Save changes
                     </Button>
                   ) : undefined
@@ -394,7 +407,12 @@ export default function AdminLoyaltyPage() {
                 <Paragraph type="secondary" style={{ marginTop: 0 }}>
                   {activeSection.description}
                 </Paragraph>
-                <Form form={form} layout="vertical" disabled={!canEdit}>
+                <Form
+                  form={form}
+                  layout="vertical"
+                  disabled={!canEdit}
+                  onValuesChange={packagesDirty.onValuesChange}
+                >
                   <Row gutter={16}>
                     {PACKAGE_FIELDS.map((field) => (
                       <Col xs={24} sm={12} key={field.name}>
@@ -536,8 +554,12 @@ export default function AdminLoyaltyPage() {
       <Modal
         title={editingTierId ? 'Edit tier' : 'New tier'}
         open={tierModalOpen}
-        onCancel={() => setTierModalOpen(false)}
+        onCancel={() => {
+          setTierModalOpen(false);
+          tierDirty.clearDirty();
+        }}
         okText={editingTierId ? 'Save tier' : 'Create tier'}
+        okButtonProps={{ disabled: !tierDirty.dirty }}
         confirmLoading={saving}
         onOk={() => void saveTier()}
         destroyOnHidden
@@ -546,7 +568,7 @@ export default function AdminLoyaltyPage() {
           Earn multiplier stacks on the visit package. 1.25× with {visitPts} pts/visit awards{' '}
           {Math.round(visitPts * (Number(tierForm.getFieldValue('earnMultiplier')) || 1.25))} points.
         </Paragraph>
-        <Form form={tierForm} layout="vertical">
+        <Form form={tierForm} layout="vertical" onValuesChange={tierDirty.onValuesChange}>
           <Form.Item
             name="name"
             label="Name"

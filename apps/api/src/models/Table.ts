@@ -18,6 +18,8 @@ const tableSchema = new Schema(
     /** Visual rotation in degrees (0–360), applied around the table center. */
     rotation: { type: Number, default: 0 },
     photoUrl: { type: String },
+    /** When true, bookings assigned to this table need staff confirmation. */
+    requiresManualApproval: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

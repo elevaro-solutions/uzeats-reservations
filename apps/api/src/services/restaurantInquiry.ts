@@ -3,7 +3,7 @@ import { Restaurant } from '../models/Restaurant.js';
 import { RestaurantInquiry } from '../models/RestaurantInquiry.js';
 import type { UserDocument } from '../models/User.js';
 import { User } from '../models/User.js';
-import { sendEmail, notifyRestaurantStaff } from './notifications.js';
+import { sendEmail, notifyRestaurantManagers } from './notifications.js';
 import {
   emailDetailBox,
   emailGreeting,
@@ -102,7 +102,7 @@ export async function sendRestaurantInquiry(rawInput: unknown, ctx: InquiryConte
 
   await sendEmail(sender.email, confirmSubject, confirmBody, { htmlBody: confirmHtml });
 
-  await notifyRestaurantStaff(input.restaurantId, {
+  await notifyRestaurantManagers(input.restaurantId, {
     type: 'restaurant_inquiry',
     title: 'New website message',
     body: `${sender.name}: ${input.message.slice(0, 120)}`,

@@ -40,7 +40,7 @@ export const SAMPLE_EMAIL_VARS: Record<string, string> = {
   restaurantName: 'Cedar & Salt',
   resetUrl: 'https://tablevera.online/reset?token=preview',
   bookUrl: 'https://tablevera.online/restaurants/cedar-salt',
-  inviteUrl: 'https://dashboard.tablevera.online/invite?token=preview',
+  inviteUrl: 'https://dashboard.tablevera.online/accept-invite?token=preview',
   role: 'Manager',
   date: 'Saturday, Sep 12 · 7:30 PM',
   partySize: '4',

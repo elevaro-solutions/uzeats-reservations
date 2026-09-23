@@ -1,7 +1,7 @@
 export const typeDefs = `#graphql
   scalar DateTime
 
-  enum UserRole { diner restaurant_owner staff admin super_admin }
+  enum UserRole { diner restaurant_owner manager admin account_manager super_admin }
   enum RestaurantStatus { pending approved rejected suspended }
   enum ReservationStatus { pending confirmed seated completed cancelled no_show }
   enum ReservationDatePeriod {
@@ -191,6 +191,7 @@ export const typeDefs = `#graphql
     availabilityAlerts: NotificationChannelPreferences!
     guestSpendAlert: NotificationChannelPreferences!
     reservationUpdates: NotificationChannelPreferences!
+    newReview: NotificationChannelPreferences!
     reviewReply: NotificationChannelPreferences!
     surveyInvitation: NotificationChannelPreferences!
     loyaltyUpdates: NotificationChannelPreferences!
@@ -211,6 +212,7 @@ export const typeDefs = `#graphql
     availabilityAlerts: NotificationChannelPreferencesInput
     guestSpendAlert: NotificationChannelPreferencesInput
     reservationUpdates: NotificationChannelPreferencesInput
+    newReview: NotificationChannelPreferencesInput
     reviewReply: NotificationChannelPreferencesInput
     surveyInvitation: NotificationChannelPreferencesInput
     loyaltyUpdates: NotificationChannelPreferencesInput
@@ -282,6 +284,12 @@ export const typeDefs = `#graphql
     allowGuestTableSelection: Boolean!
     reservationsEnabled: Boolean!
     reservationsVisible: Boolean!
+    """When true, online bookings may stay pending until staff confirms (default off)."""
+    manualApprovalEnabled: Boolean!
+    """gt = party size greater than threshold; gte = greater than or equal."""
+    manualApprovalPartySizeOp: String!
+    """Party-size threshold when manual approval is enabled; null means all parties."""
+    manualApprovalPartySize: Int
     posEnabled: Boolean!
     loyaltyEnabled: Boolean!
     loyaltyPointsPerVisit: Int!
@@ -371,6 +379,7 @@ export const typeDefs = `#graphql
     shape: String!
     rotation: Float!
     photoUrl: String
+    requiresManualApproval: Boolean!
   }
 
   type Shift {
@@ -413,6 +422,8 @@ export const typeDefs = `#graphql
     slotStart: DateTime!
     slotEnd: DateTime!
     status: ReservationStatus!
+    """True when this booking needs restaurant confirmation before it becomes confirmed."""
+    requiresManualApproval: Boolean!
     occasion: Occasion!
     guestNotes: String
     depositAmountCents: Int!
@@ -496,9 +507,21 @@ export const typeDefs = `#graphql
     date: String!
   }
 
+  """Policy reasons for reporting a review (owners/managers). Opinion disagreement is not valid."""
+  enum ReviewReportReason {
+    spam
+    conflict_of_interest
+    off_topic
+    hate_or_harassment
+    private_information
+    legal_or_policy
+    other
+  }
+
   type Review {
     id: ID!
     restaurantId: ID!
+    restaurant: Restaurant
     dinerId: ID!
     diner: User
     reservationId: ID!
@@ -511,6 +534,12 @@ export const typeDefs = `#graphql
     ownerReply: String
     ownerRepliedAt: DateTime
     hidden: Boolean!
+    """True when queued for platform moderation (owner report or admin flag)."""
+    flagged: Boolean!
+    flagReason: String
+    flagReasonCode: ReviewReportReason
+    flagDetails: String
+    flaggedAt: DateTime
     createdAt: DateTime!
   }
 
@@ -648,9 +677,20 @@ export const typeDefs = `#graphql
     networkCoverFeeCents: Int!
     websiteCoverFeeCents: Int!
     trialDays: Int!
+    """Owner-invited manager seats included with this package. Always ≥ 1."""
+    managerSeats: Int!
     visibleOnPricing: Boolean!
     isCustom: Boolean!
     features: SubscriptionFeatures!
+  }
+
+  type ManagerSeatsUsage {
+    restaurantId: ID!
+    planKey: String!
+    limit: Int!
+    used: Int!
+    pending: Int!
+    remaining: Int!
   }
 
   type PlanChangePreview {
@@ -822,6 +862,7 @@ export const typeDefs = `#graphql
     pendingRestaurants: Int!
     pendingSlugRequests: Int!
     pendingProfileChangeRequests: Int!
+    pendingModerationItems: Int!
     mrrCents: Int!
     activeSubscriptions: Int!
     openInvoices: Int!
@@ -830,6 +871,7 @@ export const typeDefs = `#graphql
   type PlatformPendingRequestCounts {
     slugRequests: Int!
     profileChangeRequests: Int!
+    moderationItems: Int!
   }
 
   type LoyaltyTier {
@@ -1159,7 +1201,7 @@ export const typeDefs = `#graphql
     supportPhone: String!
     defaultSignupRole: UserRole!
     defaultPartnerRole: UserRole!
-    defaultStaffRole: UserRole!
+    defaultManagerRole: UserRole!
     maintenanceMode: Boolean!
     allowPublicRegistration: Boolean!
     allowPartnerRegistration: Boolean!
@@ -1176,7 +1218,7 @@ export const typeDefs = `#graphql
     supportPhone: String
     defaultSignupRole: UserRole
     defaultPartnerRole: UserRole
-    defaultStaffRole: UserRole
+    defaultManagerRole: UserRole
     maintenanceMode: Boolean
     allowPublicRegistration: Boolean
     allowPartnerRegistration: Boolean
@@ -1225,6 +1267,7 @@ export const typeDefs = `#graphql
     networkCoverFeeCents: Int
     websiteCoverFeeCents: Int
     trialDays: Int
+    managerSeats: Int
     visibleOnPricing: Boolean
     features: SubscriptionFeaturesInput
   }
@@ -1241,6 +1284,7 @@ export const typeDefs = `#graphql
     networkCoverFeeCents: Int
     websiteCoverFeeCents: Int
     trialDays: Int
+    managerSeats: Int
     visibleOnPricing: Boolean
     features: SubscriptionFeaturesInput
   }
@@ -1304,10 +1348,21 @@ export const typeDefs = `#graphql
     expiresInSeconds: Int!
   }
 
-  type StaffInviteResult {
+  type ManagerInviteResult {
     inviteUrl: String!
     user: User!
     email: String!
+  }
+
+  type ManagerInvitePreview {
+    email: String!
+    firstName: String!
+    lastName: String!
+    role: String!
+    roleLabel: String!
+    restaurantName: String!
+    status: String!
+    needsPassword: Boolean!
   }
 
   type SupportPerson {
@@ -1329,6 +1384,8 @@ export const typeDefs = `#graphql
     body: String!
     authorId: ID!
     author: SupportPerson
+    visibleToRequester: Boolean!
+    attachments: [SupportAttachment!]!
     createdAt: DateTime!
     updatedAt: DateTime
   }
@@ -1523,9 +1580,16 @@ export const typeDefs = `#graphql
     authorName: String
     body: String!
     rating: Int
+    photos: [String!]
+    ownerReply: String
+    ownerRepliedAt: DateTime
     hidden: Boolean!
+    flagged: Boolean!
     flagReason: String
+    flagReasonCode: ReviewReportReason
+    flagDetails: String
     flaggedAt: DateTime
+    flaggedByName: String
     createdAt: DateTime!
   }
 
@@ -1584,6 +1648,7 @@ export const typeDefs = `#graphql
     status: ExperienceStatus!
     includes: [String!]!
     tags: [String!]!
+    requiresManualApproval: Boolean!
     createdAt: DateTime!
   }
 
@@ -1614,6 +1679,7 @@ export const typeDefs = `#graphql
     photoUrl: String
     amenities: [String!]!
     active: Boolean!
+    requiresManualApproval: Boolean!
     createdAt: DateTime!
   }
 
@@ -1630,6 +1696,7 @@ export const typeDefs = `#graphql
     minPartySize: Int
     maxPartySize: Int
     active: Boolean!
+    requiresManualApproval: Boolean!
     createdAt: DateTime!
   }
 
@@ -1932,6 +1999,7 @@ export const typeDefs = `#graphql
     shape: String
     rotation: Float
     photoUrl: String
+    requiresManualApproval: Boolean
   }
 
   input TablePositionInput {
@@ -2177,6 +2245,7 @@ export const typeDefs = `#graphql
     ticketPriceCents: Int!
     includes: [String!]
     tags: [String!]
+    requiresManualApproval: Boolean
   }
 
   input RestaurantPackageInput {
@@ -2190,6 +2259,7 @@ export const typeDefs = `#graphql
     minPartySize: Int
     maxPartySize: Int
     active: Boolean
+    requiresManualApproval: Boolean
   }
 
   input PrivateDiningSpaceInput {
@@ -2202,6 +2272,7 @@ export const typeDefs = `#graphql
     photoUrl: String
     amenities: [String!]
     active: Boolean
+    requiresManualApproval: Boolean
   }
 
   input PrivateDiningInquiryInput {
@@ -2571,6 +2642,10 @@ export const typeDefs = `#graphql
     myWaitlist: [WaitlistEntry!]!
     restaurantWaitlist(restaurantId: ID!, limit: Int, offset: Int): WaitlistConnection!
     restaurantReviews(restaurantId: ID!, limit: Int, offset: Int): ReviewConnection!
+    """Reviews written by the signed-in diner (includes own hidden reviews)."""
+    myReviews(limit: Int, offset: Int): ReviewConnection!
+    """Count of visible reviews that still need an owner/manager reply (sidebar badge)."""
+    restaurantUnrepliedReviewCount(restaurantId: ID!): Int!
     loyaltyProgram: LoyaltyProgram!
     myLoyalty: [LoyaltyTransaction!]!
     myRestaurantLoyalty: [RestaurantLoyaltyBalance!]!
@@ -2595,6 +2670,7 @@ export const typeDefs = `#graphql
     myOwnerOverview(date: String): OwnerOverview!
     myRestaurantLocationsMeta: MyRestaurantLocationsMeta!
     restaurantTeam(restaurantId: ID!): [User!]!
+    restaurantManagerSeats(restaurantId: ID!): ManagerSeatsUsage!
     adminRestaurants(
       status: RestaurantStatus
       search: String
@@ -2608,7 +2684,15 @@ export const typeDefs = `#graphql
     adminPendingRequestCounts: PlatformPendingRequestCounts!
     adminLoyaltyStats: LoyaltyPlatformStats!
     adminReferralLeaders(limit: Int): [ReferralLeader!]!
-    adminUsers(search: String, role: UserRole, roles: [UserRole!], limit: Int, offset: Int): UserConnection!
+    adminUsers(
+      search: String
+      role: UserRole
+      roles: [UserRole!]
+      restaurantId: ID
+      hasRestaurants: Boolean
+      limit: Int
+      offset: Int
+    ): UserConnection!
     adminUser(id: ID!): User
     adminUserReservations(userId: ID!, limit: Int, offset: Int): ReservationConnection!
     adminReservations(
@@ -2666,6 +2750,7 @@ export const typeDefs = `#graphql
     churnAlerts: [ChurnAlert!]!
     slaMetrics: SlaMetrics!
     flaggedContent(limit: Int): FlaggedContent!
+    flaggedContentItem(id: ID!, type: String!): FlaggedContentItem
     auditLogs(actorId: ID, action: String, resource: String, limit: Int, offset: Int): AuditLogConnection!
     auditLog(id: ID!): AuditLog
     auditLogFilterOptions: AuditLogFilterOptions!
@@ -2673,6 +2758,7 @@ export const typeDefs = `#graphql
     previewPlanChange(restaurantId: ID!, plan: String!): PlanChangePreview!
     planChangePayment(restaurantId: ID!): PlanChangePayload!
     plans: [PlanInfo!]!
+    managerInviteByToken(token: String!): ManagerInvitePreview!
     partnerEmailAvailable(email: String!): Boolean!
     partnerRestaurantNameAvailable(name: String!, excludeRestaurantId: ID): Boolean!
     annualBillingSettings: AnnualBillingSettings!
@@ -2762,8 +2848,14 @@ export const typeDefs = `#graphql
     logout(refreshToken: String): Boolean!
     requestPasswordReset(email: String!, app: String): MessagePayload!
     resetPassword(token: String!, newPassword: String!): MessagePayload!
+    acceptManagerInvite(token: String!, password: String!): AuthPayload!
     submitContactForm(input: ContactFormInput!): MessagePayload!
     createOwnerSupportTicket(input: CreateOwnerSupportTicketInput!): SupportTicket!
+    addOwnerSupportReply(
+      ticketId: ID!
+      body: String!
+      attachments: [OwnerSupportAttachmentInput!]
+    ): SupportTicket!
     sendRestaurantInquiry(input: RestaurantInquiryInput!): MessagePayload!
     requestDocsAccess(input: RequestDocsAccessInput!): MessagePayload!
     requestDocsAccessOtp(email: String!): MessagePayload!
@@ -2857,13 +2949,13 @@ export const typeDefs = `#graphql
     deletePlanPackage(key: String!): Boolean!
     startImpersonation(userId: ID!): ImpersonationPayload!
     endImpersonation: Boolean!
-    inviteStaff(
+    inviteManager(
       email: String!
       firstName: String!
       lastName: String!
       restaurantIds: [ID!]!
       role: UserRole
-    ): StaffInviteResult!
+    ): ManagerInviteResult!
     assignUserRestaurants(userId: ID!, restaurantIds: [ID!]!, role: UserRole): User!
     removeUserRestaurant(userId: ID!, restaurantId: ID!): User!
     createSupportTicket(
@@ -2907,7 +2999,12 @@ export const typeDefs = `#graphql
     ): RestaurantProfileChangeRequest!
     grantDocsAccess(email: String!, notes: String): DocsAccessRequest!
     adminSendDocsAccessOtp(email: String!): MessagePayload!
-    addSupportNote(ticketId: ID!, body: String!): SupportTicket!
+    addSupportNote(
+      ticketId: ID!
+      body: String!
+      visibleToRequester: Boolean
+      attachments: [OwnerSupportAttachmentInput!]
+    ): SupportTicket!
     updateSupportNote(ticketId: ID!, noteId: ID!, body: String!): SupportTicket!
     deleteSupportNote(ticketId: ID!, noteId: ID!): SupportTicket!
     addSupportAttachment(
@@ -2999,6 +3096,16 @@ export const typeDefs = `#graphql
       format: String
     ): CsvExport!
     exportAdminDiners(search: String, format: String): CsvExport!
+    exportAdminUsers(
+      search: String
+      role: UserRole
+      roles: [UserRole!]
+      restaurantId: ID
+      hasRestaurants: Boolean
+      format: String
+      basename: String
+      title: String
+    ): CsvExport!
 
     createCampaign(restaurantId: ID!, input: CampaignInput!): Campaign!
     updateCampaign(id: ID!, input: CampaignInput!): Campaign!
@@ -3011,6 +3118,12 @@ export const typeDefs = `#graphql
     replyToReview(reviewId: ID!, reply: String!): Review!
     """Draft a personalized owner/manager reply. Does not post or notify the diner."""
     generateReviewReplyDraft(reviewId: ID!): String!
+    """
+    Report a review for platform moderation (Google/Yelp-style). Does not hide the review.
+    Owners and managers with venue access. Details required when reason is other.
+    """
+    reportReview(reviewId: ID!, reason: ReviewReportReason!, details: String): Review!
+    """Hide or unhide a review. Platform admins only — partners must use reportReview."""
     setReviewHidden(reviewId: ID!, hidden: Boolean!): Review!
     """Append public image URLs to the restaurant gallery (deduped, capped)."""
     addRestaurantPhotos(restaurantId: ID!, urls: [String!]!): Restaurant!
@@ -3047,6 +3160,9 @@ export const typeDefs = `#graphql
       reservationsEnabled: Boolean
       reservationsVisible: Boolean
       posEnabled: Boolean
+      manualApprovalEnabled: Boolean
+      manualApprovalPartySizeOp: String
+      manualApprovalPartySize: Int
       widgetTheme: WidgetThemeInput
     ): Restaurant!
 

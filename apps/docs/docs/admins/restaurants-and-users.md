@@ -11,8 +11,8 @@ The **Admin → Restaurants** page lists all venues with filters by status.
 | Create | Admin | Manual onboarding |
 | Edit | Admin | Profile, plan, status override, public URL slug, logo |
 | Change public URL | Admin | Edit slug on the restaurant, or approve **Admin → URL slugs** |
-| Request public URL | Owner | Settings → Public URL; staff cannot request |
-| Request public profile | Owner/staff | Grow → Public profile; reviewed at **Admin → Profile requests** |
+| Request public URL | Owner | Settings → Public URL; managers cannot request |
+| Request public profile | Owner/manager | Grow → Public profile; reviewed at **Admin → Profile requests** |
 | Edit menu | Admin | Restaurant detail → Menu; check **Popular** on up to 10 dishes for the public page |
 | Approve / reject | Admin | Moves `pending` → `approved` or `rejected` |
 | Suspend | Admin | Hides from search; blocks new bookings |
@@ -30,7 +30,7 @@ The **Admin → Restaurants** page lists all venues with filters by status.
 
 ### Public URL slugs
 
-Restaurant booking pages use `/restaurants/{slug}`. Admins can edit the slug on the restaurant manage form. Owners request a change from **Settings → Public URL**; staff cannot. Review the queue at **Admin → URL slugs**.
+Restaurant booking pages use `/restaurants/{slug}`. Admins can edit the slug on the restaurant manage form. Owners request a change from **Settings → Public URL**; managers cannot. Review the queue at **Admin → URL slugs**.
 
 Former slugs stay reserved and 308 to the current URL so shared links keep working.
 
@@ -44,21 +44,20 @@ Account admin is split by role:
 
 | Page | Accounts | Create |
 |---|---|---|
-| **Admin → Diners** | Customer accounts on the diner app | Create diner with email/password |
-| **Admin → Restaurant owners** | Partner owners | Create owner, or invite with venue access |
-| **Admin → Staff** | Venue team members | Create staff (restaurant required), or invite |
-| **Admin → Platform users** | `admin` / `super_admin` | Promote via role change (super admin) |
+| **Admin → Guests** | Customer accounts on the guest app | Create guest with email/password |
+| **Admin → Restaurant accounts** | Owners and managers (`restaurant_owner` / `manager`) | Create or invite with role + venue access; managers need ≥1 venue |
+| **Admin → Admins** | `admin` / `account_manager` / `super_admin` | Create admin or account manager; promote super admin via role change (super admin) |
 
-Each list has a **detail** page for profile, password reset, impersonation, reservations (diners), and assigned restaurants (owners/staff). **Admin → Diners** can download the current search as Excel, PDF, or JSON.
+Each list has a **detail** page for profile, password reset, impersonation, and assigned restaurants (owners/managers). **Guests**, **Restaurant accounts**, and **Admins** can download the current filters as Excel, PDF, or JSON.
 
-**Admin → Reservations** lists every booking on the platform (guest, restaurant, status, source, date). Filter by venue or guest; row actions update status the same way as the restaurant Reservations tab. Per-diner history stays on the diner detail page.
+**Admin → Reservations** lists every booking on the platform (guest, restaurant, status, source, date). Filter by venue or guest; open a booking for the detail page (`/admin/reservations/[id]`) to view guest/visit info, update status, or **Change date & time** (pending/confirmed/seated). Row actions and the restaurant Manage → Reservations panel link to the same detail page. Per-guest history stays on the guest detail page.
 
 | Field | Notes |
 |---|---|
-| Role | `diner`, `restaurant_owner`, `staff`, `admin`, `super_admin` |
-| Restaurant IDs | Which venues an owner/staff member can access |
+| Role | `diner`, `restaurant_owner`, `manager`, `admin`, `account_manager`, `super_admin` |
+| Restaurant IDs | Which venues an owner/manager member can access |
 | Verification | Email/phone verified flags |
-| Loyalty | Platform points and tier (diners) |
+| Loyalty | Platform points and tier (guests) |
 
 ### Edit permissions
 

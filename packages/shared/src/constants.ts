@@ -1,8 +1,9 @@
 export const USER_ROLES = [
   "diner",
   "restaurant_owner",
-  "staff",
+  "manager",
   "admin",
+  "account_manager",
   "super_admin",
 ] as const;
 
@@ -45,6 +46,60 @@ export const REVIEW_MAX_PHOTOS = 3;
 
 /** Max photos on a restaurant gallery (hero + extras). */
 export const RESTAURANT_MAX_PHOTOS = 10;
+
+/**
+ * Owner/manager review report reasons (Google/Yelp-style policy flags).
+ * Disagreeing with a rating or opinion is not a valid reason.
+ */
+export const REVIEW_REPORT_REASONS = [
+  "spam",
+  "conflict_of_interest",
+  "off_topic",
+  "hate_or_harassment",
+  "private_information",
+  "legal_or_policy",
+  "other",
+] as const;
+
+export type ReviewReportReason = (typeof REVIEW_REPORT_REASONS)[number];
+
+export const REVIEW_REPORT_REASON_LABELS: Record<ReviewReportReason, string> = {
+  spam: "Spam or advertising",
+  conflict_of_interest: "Fake, competitor, or conflict of interest",
+  off_topic: "Not about this restaurant or visit",
+  hate_or_harassment: "Hate speech, harassment, or threats",
+  private_information: "Private personal information",
+  legal_or_policy: "Illegal content or clear policy violation",
+  other: "Other policy issue",
+};
+
+export const REVIEW_REPORT_REASON_HELP: Record<ReviewReportReason, string> = {
+  spam: "Promotional content, unrelated links, or repeated spam.",
+  conflict_of_interest:
+    "Reviewer never visited, works for a competitor, or has another conflict of interest.",
+  off_topic: "Content is about another business, unrelated topics, or not a dining experience.",
+  hate_or_harassment: "Hate speech, harassment, bullying, or threats toward staff or guests.",
+  private_information:
+    "Phone numbers, home addresses, or other private personal information of an individual.",
+  legal_or_policy: "Illegal activity, clear terms-of-use violations, or content that must be removed.",
+  other: "Explain the specific policy issue. Disagreement with a rating alone is not enough.",
+};
+
+/** Max length for optional evidence / explanation on a review report. */
+export const REVIEW_REPORT_DETAILS_MAX = 1000;
+
+export function isReviewReportReason(value: string): value is ReviewReportReason {
+  return (REVIEW_REPORT_REASONS as readonly string[]).includes(value);
+}
+
+export function formatReviewFlagReason(
+  code: ReviewReportReason,
+  details?: string | null,
+): string {
+  const label = REVIEW_REPORT_REASON_LABELS[code];
+  const trimmed = details?.trim();
+  return trimmed ? `${label}: ${trimmed}` : label;
+}
 
 export const OCCASIONS = [
   "none",
@@ -202,7 +257,7 @@ export const SUPPORT_TICKET_SUBJECTS = [
   },
   {
     key: "staff_access",
-    label: "Staff access / invites",
+    label: "Manager access / invites",
     category: "restaurant",
   },
   { key: "bug_report", label: "Bug report", category: "technical" },
@@ -221,7 +276,7 @@ export const SUPPORT_TICKET_SUBJECTS = [
   { key: "other", label: "Other", category: "other" },
 ] as const;
 
-/** Subjects restaurant owners and staff may pick (full partner catalog). */
+/** Subjects restaurant owners and managers may pick (full partner catalog). */
 export const OWNER_SUPPORT_TICKET_SUBJECT_KEYS = SUPPORT_TICKET_SUBJECTS.map(
   (s) => s.key,
 ) as [
@@ -324,6 +379,7 @@ export const NOTIFICATION_EVENTS = [
   "availabilityAlerts",
   "guestSpendAlert",
   "reservationUpdates",
+  "newReview",
   "reviewReply",
   "surveyInvitation",
   "loyaltyUpdates",
@@ -345,6 +401,7 @@ export const NOTIFICATION_TYPE_TO_EVENT: Record<string, NotificationEvent> = {
   reservation_cancelled: "reservationUpdates",
   reservation_updated: "reservationUpdates",
   reservation_reminder: "reservationUpdates",
+  new_review: "newReview",
   review_reply: "reviewReply",
   survey_invitation: "surveyInvitation",
   points_earned: "loyaltyUpdates",
@@ -356,6 +413,7 @@ export const NOTIFICATION_TYPE_TO_EVENT: Record<string, NotificationEvent> = {
   restaurant_profile_changed: "accountUpdates",
   restaurant_profile_denied: "accountUpdates",
   invoice_ready: "accountUpdates",
+  support_reply: "accountUpdates",
 };
 
 export const DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES: Record<
@@ -366,9 +424,9 @@ export const DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES: Record<
   email: true,
   webPush: true,
   platform: true,
-  /** Telegram/WhatsApp merchant bot (Accept/Reject). Opt-in for staff; owners always get fan-out. */
+  /** Telegram/WhatsApp merchant bot (Accept/Reject). Opt-in for managers; owners always get fan-out. */
   messenger: false,
 };
 
-/** Guest- and staff-facing date/time locale: US English, 12-hour clock. */
+/** Guest- and manager-facing date/time locale: US English, 12-hour clock. */
 export const DISPLAY_LOCALE = "en-US" as const;

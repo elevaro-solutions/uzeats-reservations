@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
   Button,
@@ -14,7 +16,7 @@ import {
   message,
 } from 'antd';
 import type { MenuProps } from 'antd';
-import { MoreOutlined, ReloadOutlined } from '@ant-design/icons';
+import { CalendarOutlined, EyeOutlined, MoreOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { StatusTag, spacing } from '@reservations/ui';
 import {
@@ -39,6 +41,7 @@ type ReservationRow = {
 };
 
 export function AdminRestaurantReservationsPanel({ restaurantId }: { restaurantId: string }) {
+  const router = useRouter();
   const [date, setDate] = useState<Dayjs>(dayjs());
   const { data, loading, refetch } = useQuery(RESTAURANT_RESERVATIONS, {
     variables: {
@@ -64,7 +67,23 @@ export function AdminRestaurantReservationsPanel({ restaurantId }: { restaurantI
   };
 
   const rowMenu = (r: ReservationRow): MenuProps['items'] => {
-    const items: MenuProps['items'] = [];
+    const items: MenuProps['items'] = [
+      {
+        key: 'view',
+        icon: <EyeOutlined />,
+        label: 'View details',
+        onClick: () => router.push(`/admin/reservations/${r.id}`),
+      },
+    ];
+    if (['pending', 'confirmed', 'seated'].includes(r.status)) {
+      items.push({
+        key: 'edit',
+        icon: <CalendarOutlined />,
+        label: 'Change date & time',
+        onClick: () => router.push(`/admin/reservations/${r.id}?edit=1`),
+      });
+    }
+    items.push({ type: 'divider' });
     if (r.status === 'pending') {
       items.push({
         key: 'confirm',
@@ -141,7 +160,9 @@ export function AdminRestaurantReservationsPanel({ restaurantId }: { restaurantI
             title: 'Time',
             dataIndex: 'slotStart',
             width: 100,
-            render: (v: string) => dayjs(v).format('h:mm A'),
+            render: (v: string, r: ReservationRow) => (
+              <Link href={`/admin/reservations/${r.id}`}>{dayjs(v).format('h:mm A')}</Link>
+            ),
           },
           {
             title: 'Guest',

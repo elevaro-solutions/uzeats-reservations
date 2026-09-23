@@ -313,7 +313,7 @@ function AdminRestaurantsContent() {
   const ownerOptions = (usersData?.adminUsers?.items ?? [])
     .filter(
       (u: { role: string }) =>
-        u.role === 'restaurant_owner' || isPlatformAdmin(u.role) || u.role === 'staff',
+        u.role === 'restaurant_owner' || isPlatformAdmin(u.role) || u.role === 'manager',
     )
     .map((u: { id: string; firstName: string; lastName: string; email?: string }) => ({
       value: u.id,

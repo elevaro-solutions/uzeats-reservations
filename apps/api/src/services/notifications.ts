@@ -284,7 +284,7 @@ export async function notifyUser(
 }
 
 /** Notify a restaurant's owner (and linked staff accounts). */
-export async function notifyRestaurantStaff(
+export async function notifyRestaurantManagers(
   restaurantId: string,
   payload: { type: string; title: string; body: string; data?: Record<string, unknown> },
 ) {

@@ -2,7 +2,7 @@ import { formatReviewDate } from "./restaurant-profile.helpers";
 
 const RELATIVE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Past visits can be reviewed even if staff never flipped status to completed. */
+/** Past visits can be reviewed even if managers never flipped status to completed. */
 export function canLeaveReview(reservation: {
   status: string;
   slotStart: string;

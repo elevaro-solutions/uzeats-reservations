@@ -1,7 +1,12 @@
+import { localUploadRewrites, securityHeaders } from '../../packages/config/securityHeaders.mjs';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
   transpilePackages: ['@reservations/ui', '@reservations/shared'],
+  async headers() {
+    return [{ source: '/:path*', headers: securityHeaders({ maps: true }) }];
+  },
   async redirects() {
     return [
       {
@@ -20,6 +25,9 @@ const nextConfig = {
         permanent: true,
       },
     ];
+  },
+  async rewrites() {
+    return localUploadRewrites();
   },
   images: {
     remotePatterns: [

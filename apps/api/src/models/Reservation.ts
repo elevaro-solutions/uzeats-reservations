@@ -37,6 +37,9 @@ const reservationSchema = new Schema(
       enum: ['none', 'requires_payment', 'authorized', 'captured', 'refunded', 'failed'],
       default: 'none',
     },
+    /** True when this booking stays pending until restaurant staff confirms. */
+    requiresManualApproval: { type: Boolean, default: false },
+
     loyaltyPointsEarned: { type: Number, default: 0 },
     loyaltyPointsRedeemed: { type: Number, default: 0 },
     restaurantLoyaltyPointsEarned: { type: Number, default: 0 },

@@ -25,7 +25,7 @@ const MY_TICKETS = `
       total
       items {
         id subject status requesterId assigneeId
-        notes { id }
+        notes { id body visibleToRequester }
         attachments { id filename }
       }
     }
@@ -35,7 +35,7 @@ const MY_TICKETS = `
 const MY_TICKET = `
   query MyOwnerSupportTicket($id: ID!) {
     myOwnerSupportTicket(id: $id) {
-      id subject notes { id body }
+      id subject notes { id body authorId visibleToRequester }
       assigneeId
     }
   }
@@ -53,7 +53,7 @@ describe('Owner support tickets', () => {
   let agent: request.Agent;
   let ownerToken: string;
   let otherOwnerToken: string;
-  let staffToken: string;
+  let managerToken: string;
   let dinerToken: string;
   let adminToken: string;
   let ownerId: string;
@@ -94,10 +94,10 @@ describe('Owner support tickets', () => {
       passwordHash: 'unused',
       firstName: 'Sam',
       lastName: 'Staff',
-      role: 'staff',
+      role: 'manager',
     });
     staffId = staff._id.toString();
-    staffToken = signAccessToken({ sub: staffId, role: 'staff' });
+    managerToken = signAccessToken({ sub: staffId, role: 'manager' });
 
     const diner = await User.create({
       email: 'owner-ticket-diner@test.com',
@@ -248,7 +248,7 @@ describe('Owner support tickets', () => {
           restaurantId,
         },
       },
-      staffToken,
+      managerToken,
     );
     expect(res.body.errors).toBeUndefined();
     const ticket = res.body.data.createOwnerSupportTicket;
@@ -354,5 +354,119 @@ describe('Owner support tickets', () => {
     );
     expect(match).toBeTruthy();
     expect(match.notes[0]?.body).toBe('Internal follow-up');
+  });
+
+  it('shows staff replies to the owner and keeps internal notes hidden', async () => {
+    const created = await SupportTicket.findOne({ requesterId: ownerId });
+    expect(created).toBeTruthy();
+    const ADD = `
+      mutation AddSupportNote($ticketId: ID!, $body: String!, $visibleToRequester: Boolean) {
+        addSupportNote(ticketId: $ticketId, body: $body, visibleToRequester: $visibleToRequester) {
+          id
+          notes { body visibleToRequester }
+        }
+      }
+    `;
+    const reply = await graphqlRequest(
+      agent,
+      ADD,
+      {
+        ticketId: created!._id.toString(),
+        body: '<p>Please try the booking widget again after 5pm.</p>',
+        visibleToRequester: true,
+      },
+      adminToken,
+    );
+    expect(reply.body.errors).toBeUndefined();
+
+    const internal = await graphqlRequest(
+      agent,
+      ADD,
+      {
+        ticketId: created!._id.toString(),
+        body: '<p>Internal: escalate to billing tomorrow.</p>',
+        visibleToRequester: false,
+      },
+      adminToken,
+    );
+    expect(internal.body.errors).toBeUndefined();
+
+    const res = await graphqlRequest(
+      agent,
+      MY_TICKET,
+      { id: created!._id.toString() },
+      ownerToken,
+    );
+    expect(res.body.errors).toBeUndefined();
+    const notes = res.body.data.myOwnerSupportTicket.notes as Array<{ body: string }>;
+    expect(notes.some((note) => note.body.includes('booking widget'))).toBe(true);
+    expect(notes.some((note) => /Internal: escalate/i.test(note.body))).toBe(false);
+    expect(res.body.data.myOwnerSupportTicket.assigneeId).toBeNull();
+  });
+
+  it('lets the requester reply in the conversation', async () => {
+    const created = await SupportTicket.findOne({ requesterId: ownerId });
+    expect(created).toBeTruthy();
+    const REPLY = `
+      mutation AddOwnerSupportReply(
+        $ticketId: ID!
+        $body: String!
+        $attachments: [OwnerSupportAttachmentInput!]
+      ) {
+        addOwnerSupportReply(ticketId: $ticketId, body: $body, attachments: $attachments) {
+          id status
+          notes {
+            body
+            authorId
+            visibleToRequester
+            attachments { filename url }
+          }
+        }
+      }
+    `;
+    const res = await graphqlRequest(
+      agent,
+      REPLY,
+      {
+        ticketId: created!._id.toString(),
+        body: '<p>Thanks — I will try again tonight.</p>',
+        attachments: [
+          {
+            url: 'https://cdn.example.com/follow-up.png',
+            filename: 'follow-up.png',
+            contentType: 'image/png',
+            size: 2048,
+          },
+        ],
+      },
+      ownerToken,
+    );
+    expect(res.body.errors).toBeUndefined();
+    const notes = res.body.data.addOwnerSupportReply.notes as Array<{
+      body: string;
+      authorId: string;
+      visibleToRequester: boolean;
+      attachments: Array<{ filename: string; url: string }>;
+    }>;
+    const reply = notes.find((note) => note.body.includes('try again tonight'));
+    expect(reply?.visibleToRequester).toBe(true);
+    expect(reply?.attachments).toEqual([
+      expect.objectContaining({
+        filename: 'follow-up.png',
+        url: 'https://cdn.example.com/follow-up.png',
+      }),
+    ]);
+    expect(notes.every((note) => note.authorId === ownerId || note.visibleToRequester)).toBe(true);
+
+    const blocked = await graphqlRequest(
+      agent,
+      REPLY,
+      {
+        ticketId: created!._id.toString(),
+        body: '<p>I should not be able to reply to this ticket.</p>',
+      },
+      otherOwnerToken,
+    );
+    expect(blocked.body.errors?.[0]?.message).toMatch(/not found/i);
   });
 });

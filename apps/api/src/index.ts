@@ -17,6 +17,7 @@ import { connectDb } from "./db.js";
 import { typeDefs } from "./graphql/typeDefs.js";
 import { resolvers } from "./graphql/resolvers.js";
 import { createContext } from "./graphql/context.js";
+import { migrateStaffRoleToManager } from "./services/migrateStaffRoleToManager.js";
 import { constructStripeEvent } from "./services/stripe.js";
 import { confirmDeposit } from "./services/reservations.js";
 import { startNotificationWorkers } from "./services/notifications.js";
@@ -50,6 +51,7 @@ const startedAt = Date.now();
 
 async function main() {
   await connectDb();
+  await migrateStaffRoleToManager();
   await ensureDefaultEmailTemplates();
   startNotificationWorkers();
   startCampaignWorker();
@@ -104,7 +106,7 @@ async function main() {
   });
 
   const SENSITIVE_GRAPHQL =
-    /\b(login|register|registerRestaurantPartner|requestPhoneOtp|verifyPhoneOtp|requestPasswordReset|resetPassword|validateGiftCard|refreshToken)\b/i;
+    /\b(login|register|registerRestaurantPartner|requestPhoneOtp|verifyPhoneOtp|requestPasswordReset|resetPassword|acceptManagerInvite|validateGiftCard|refreshToken)\b/i;
 
   function isSensitiveGraphql(req: express.Request) {
     const body = req.body as

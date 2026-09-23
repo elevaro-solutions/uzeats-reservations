@@ -6,6 +6,7 @@ import {
   Badge,
   Button,
   Card,
+  Dropdown,
   Form,
   Input,
   Modal,
@@ -16,7 +17,8 @@ import {
   Typography,
   message,
 } from 'antd';
-import { SearchOutlined } from '@ant-design/icons';
+import type { MenuProps } from 'antd';
+import { MoreOutlined, SearchOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { PageHeader, spacing } from '@reservations/ui';
 import {
@@ -224,35 +226,40 @@ function ProfileRequestsPageContent() {
       render: (v: string) => new Date(v).toLocaleString('en-US'),
     },
     {
-      title: 'Actions',
+      title: '',
+      width: 56,
       render: (_: unknown, r: ProfileRequestRow) =>
         r.status === 'pending' ? (
-          <Space wrap>
-            <Button
-              size="small"
-              type="primary"
-              onClick={async () => {
-                await reviewRequest({
-                  variables: { id: r.id, status: 'approved' },
-                });
-                message.success('Public profile updated');
-                refetch();
-              }}
-            >
-              Approve
-            </Button>
-            <Button
-              size="small"
-              danger
-              onClick={() => {
-                setDenyTarget(r);
-                denyForm.resetFields();
-                setDenyOpen(true);
-              }}
-            >
-              Deny
-            </Button>
-          </Space>
+          <Dropdown
+            menu={{
+              items: [
+                {
+                  key: 'approve',
+                  label: 'Approve',
+                  onClick: async () => {
+                    await reviewRequest({
+                      variables: { id: r.id, status: 'approved' },
+                    });
+                    message.success('Public profile updated');
+                    refetch();
+                  },
+                },
+                {
+                  key: 'deny',
+                  danger: true,
+                  label: 'Deny',
+                  onClick: () => {
+                    setDenyTarget(r);
+                    denyForm.resetFields();
+                    setDenyOpen(true);
+                  },
+                },
+              ] as MenuProps['items'],
+            }}
+            trigger={['click']}
+          >
+            <Button size="small" icon={<MoreOutlined />} aria-label="Request actions" />
+          </Dropdown>
         ) : null,
     },
   ];

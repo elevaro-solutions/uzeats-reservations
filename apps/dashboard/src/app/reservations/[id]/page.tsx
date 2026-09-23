@@ -3,7 +3,8 @@
 import { Suspense, useEffect, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useParams, useRouter } from 'next/navigation';
-import { Button, Card, Col, Modal, Row, Space, Spin, Typography, message } from 'antd';
+import { Button, Card, Col, Dropdown, Modal, Row, Space, Spin, Typography, message } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   ArrowLeftOutlined,
   CalendarOutlined,
@@ -12,6 +13,7 @@ import {
   EnvironmentOutlined,
   MailOutlined,
   MessageOutlined,
+  MoreOutlined,
   PhoneOutlined,
   TeamOutlined,
   UserOutlined,
@@ -246,6 +248,43 @@ function ReservationDetailPageContent() {
   }
 
   const canEdit = ['pending', 'confirmed', 'seated'].includes(reservation.status);
+
+  const moreItems: NonNullable<MenuProps['items']> = [
+    {
+      key: 'message',
+      icon: <MessageOutlined />,
+      label: 'Message guest',
+      onClick: () => router.push(`/messages?reservationId=${reservation.id}`),
+    },
+  ];
+  if (reservation.status === 'confirmed') {
+    moreItems.push({
+      key: 'no_show',
+      label: 'No-show',
+      disabled: updatingStatus,
+      onClick: () => runStatusUpdate('no_show'),
+    });
+  }
+  if (['pending', 'confirmed'].includes(reservation.status)) {
+    moreItems.push({
+      key: 'cancel',
+      label: 'Cancel',
+      danger: true,
+      disabled: updatingStatus,
+      onClick: () => runStatusUpdate('cancelled', 'Cancelled by restaurant'),
+    });
+  }
+  moreItems.push(
+    { type: 'divider' },
+    {
+      key: 'delete',
+      icon: <DeleteOutlined />,
+      label: 'Delete',
+      danger: true,
+      onClick: handleDelete,
+    },
+  );
+
   const whenLabel = formatUsDateTime(reservation.slotStart, {
     timeZone,
     weekday: 'long',
@@ -386,7 +425,15 @@ function ReservationDetailPageContent() {
             </div>
           </div>
 
-          <div style={{ padding: '8px 28px 22px', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <div
+            style={{
+              padding: '8px 28px 22px',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 8,
+              alignItems: 'center',
+            }}
+          >
             {reservation.status === 'pending' ? (
               <Button type="primary" loading={updatingStatus} onClick={() => runStatusUpdate('confirmed')}>
                 Confirm
@@ -420,29 +467,9 @@ function ReservationDetailPageContent() {
                 Edit
               </Button>
             ) : null}
-            <Button
-              icon={<MessageOutlined />}
-              onClick={() => router.push(`/messages?reservationId=${reservation.id}`)}
-            >
-              Message guest
-            </Button>
-            {reservation.status === 'confirmed' ? (
-              <Button loading={updatingStatus} onClick={() => runStatusUpdate('no_show')}>
-                No-show
-              </Button>
-            ) : null}
-            {['pending', 'confirmed'].includes(reservation.status) ? (
-              <Button
-                danger
-                loading={updatingStatus}
-                onClick={() => runStatusUpdate('cancelled', 'Cancelled by restaurant')}
-              >
-                Cancel
-              </Button>
-            ) : null}
-            <Button danger icon={<DeleteOutlined />} onClick={handleDelete}>
-              Delete
-            </Button>
+            <Dropdown menu={{ items: moreItems }} trigger={['click']}>
+              <Button icon={<MoreOutlined />}>More actions</Button>
+            </Dropdown>
           </div>
         </Card>
 

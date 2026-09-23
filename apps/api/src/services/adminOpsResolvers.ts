@@ -4,7 +4,9 @@ import {
   adminCreateUserSchema,
   assertCanEditUser,
   blogPostInputSchema,
+  canManageTeam,
   discoveryTaxonomyInputSchema,
+  isPlatformAdmin,
   type DiscoveryTaxonomyKind,
   type UserRole,
 } from '@reservations/shared';
@@ -19,8 +21,9 @@ import { Reservation } from '../models/Reservation.js';
 import { CoverFee } from '../models/CoverFee.js';
 import { SupportTicket } from '../models/SupportTicket.js';
 import { AuditLog } from '../models/AuditLog.js';
-import { requireAdmin, requireSuperAdmin, type GraphQLContext } from '../graphql/context.js';
+import { requireAdmin, requireAuth, requireSuperAdmin, type GraphQLContext } from '../graphql/context.js';
 import { mapRestaurant, mapUser, slugify } from '../graphql/mappers.js';
+import { ForbiddenError } from '../lib/errors.js';
 import { provisionDefaultRestaurantSetup } from './restaurantSetup.js';
 import { createRestaurantSubscription } from './restaurantSubscription.js';
 import { logAudit } from './audit.js';
@@ -29,7 +32,7 @@ import {
   assignUserToRestaurants,
   adminCreateOwnerUser,
   adminCreateUser,
-  inviteStaff,
+  inviteManager,
   removeUserFromRestaurant,
   startImpersonation,
 } from './adminSupport.js';
@@ -42,6 +45,8 @@ import {
   getSlaMetrics,
   getSupportTicket,
   listFlaggedContent,
+  getFlaggedContentItem,
+  pendingFlaggedContentCount,
   listSupportTickets,
   removeSupportAttachment,
   updateSupportAttachment,
@@ -80,7 +85,7 @@ import {
   parseExportFormat,
   resolveExportDateRange,
 } from './adminExport.js';
-import { exportDinersList, exportGuestsList } from './guestDinerExport.js';
+import { exportDinersList, exportGuestsList, exportAdminUsersList } from './guestDinerExport.js';
 import { notifyUser } from './notifications.js';
 import { renderEmailTemplate } from './emailTemplates.js';
 import { env } from '../config/env.js';
@@ -127,9 +132,16 @@ function mapFlaggedReview(r: any, restaurantName?: string | null, authorName?: s
     authorName: authorName ?? null,
     body: r.comment || `(${r.rating}★)`,
     rating: r.rating,
+    photos: Array.isArray(r.photos) ? r.photos : [],
+    ownerReply: r.ownerReply ?? null,
+    ownerRepliedAt: r.ownerRepliedAt ?? null,
     hidden: Boolean(r.hidden),
+    flagged: Boolean(r.flagged),
     flagReason: r.flagReason ?? null,
+    flagReasonCode: r.flagReasonCode ?? null,
+    flagDetails: r.flagDetails ?? null,
     flaggedAt: r.flaggedAt ?? null,
+    flaggedByName: null,
     createdAt: r.createdAt,
   };
 }
@@ -143,9 +155,16 @@ function mapFlaggedMessage(m: any, restaurantName?: string | null, authorName?: 
     authorName: authorName ?? null,
     body: m.body,
     rating: null,
+    photos: null,
+    ownerReply: null,
+    ownerRepliedAt: null,
     hidden: Boolean(m.hidden),
+    flagged: Boolean(m.flagged),
     flagReason: m.flagReason ?? null,
+    flagReasonCode: null,
+    flagDetails: null,
     flaggedAt: m.flaggedAt ?? null,
+    flaggedByName: null,
     createdAt: m.createdAt,
   };
 }
@@ -237,6 +256,15 @@ export const adminOpsQuery = {
     return listFlaggedContent(args.limit ?? 50);
   },
 
+  flaggedContentItem: async (
+    _: unknown,
+    args: { id: string; type: string },
+    ctx: GraphQLContext,
+  ) => {
+    requireAdmin(ctx);
+    return getFlaggedContentItem(args.id, args.type);
+  },
+
   adminDocsAccessRequests: async (
     _: unknown,
     args: {
@@ -326,7 +354,7 @@ export const adminOpsMutation = {
     };
   },
 
-  inviteStaff: async (
+  inviteManager: async (
     _: unknown,
     args: {
       email: string;
@@ -337,18 +365,46 @@ export const adminOpsMutation = {
     },
     ctx: GraphQLContext,
   ) => {
-    const admin = requireAdmin(ctx);
-    const result = await inviteStaff({
-      ...args,
-      role: args.role as 'staff' | 'restaurant_owner' | undefined,
-      invitedById: admin._id.toString(),
+    const actor = requireAuth(ctx);
+    if (!canManageTeam(actor.role)) {
+      throw new ForbiddenError('Only restaurant owners can invite managers');
+    }
+
+    const restaurantIds = [...new Set(args.restaurantIds.map((id) => id.trim()).filter(Boolean))];
+    if (!restaurantIds.length) throw new Error('At least one restaurant is required');
+
+    const restaurants = await Restaurant.find({ _id: { $in: restaurantIds } });
+    if (restaurants.length !== restaurantIds.length) {
+      throw new Error('One or more restaurants not found');
+    }
+
+    const isAdmin = isPlatformAdmin(actor.role);
+    if (!isAdmin) {
+      // Owners may only invite Managers for venues they own.
+      if (args.role && args.role !== 'manager') {
+        throw new ForbiddenError('Owners can only invite managers');
+      }
+      for (const restaurant of restaurants) {
+        if (!restaurant.ownerId.equals(actor._id)) {
+          throw new ForbiddenError('You can only invite managers to restaurants you own');
+        }
+      }
+    }
+
+    const result = await inviteManager({
+      email: args.email,
+      firstName: args.firstName,
+      lastName: args.lastName,
+      restaurantIds,
+      role: (isAdmin ? args.role : 'manager') as 'manager' | 'restaurant_owner' | undefined,
+      invitedById: actor._id.toString(),
     });
     await logAudit({
-      actorId: admin._id.toString(),
-      action: 'inviteStaff',
+      actorId: actor._id.toString(),
+      action: 'inviteManager',
       resource: 'User',
       resourceId: result.user._id.toString(),
-      details: { email: args.email, restaurantIds: args.restaurantIds },
+      details: { email: args.email, restaurantIds, role: isAdmin ? args.role : 'manager' },
     });
     return {
       inviteUrl: result.inviteUrl,
@@ -389,13 +445,34 @@ export const adminOpsMutation = {
     args: { userId: string; restaurantId: string },
     ctx: GraphQLContext,
   ) => {
-    const admin = requireAdmin(ctx);
+    const actor = requireAuth(ctx);
+    if (!canManageTeam(actor.role)) {
+      throw new ForbiddenError('Only restaurant owners can manage the team');
+    }
+
     const target = await User.findById(args.userId);
     if (!target) throw new Error('User not found');
-    assertCanEditUser(admin.role, target.role);
+
+    const restaurant = await Restaurant.findById(args.restaurantId);
+    if (!restaurant) throw new Error('Restaurant not found');
+
+    if (isPlatformAdmin(actor.role)) {
+      assertCanEditUser(actor.role, target.role);
+    } else {
+      if (!restaurant.ownerId.equals(actor._id)) {
+        throw new ForbiddenError('You can only manage team members for restaurants you own');
+      }
+      if (target._id.equals(restaurant.ownerId)) {
+        throw new ForbiddenError('Cannot remove the restaurant owner');
+      }
+      if (target.role !== 'manager') {
+        throw new ForbiddenError('Owners can only remove managers from the team');
+      }
+    }
+
     const user = await removeUserFromRestaurant(args.userId, args.restaurantId);
     await logAudit({
-      actorId: admin._id.toString(),
+      actorId: actor._id.toString(),
       action: 'removeUserRestaurant',
       resource: 'User',
       resourceId: args.userId,
@@ -465,7 +542,14 @@ export const adminOpsMutation = {
     if (args.input.emailVerified !== undefined) updates.emailVerified = args.input.emailVerified;
     if (args.input.phoneVerified !== undefined) updates.phoneVerified = args.input.phoneVerified;
     if (args.input.role !== undefined) {
-      const validRoles = ['diner', 'restaurant_owner', 'staff', 'admin', 'super_admin'];
+      const validRoles = [
+        'diner',
+        'restaurant_owner',
+        'manager',
+        'admin',
+        'account_manager',
+        'super_admin',
+      ];
       if (!validRoles.includes(args.input.role)) throw new Error('Invalid role');
       await assertCanAssignRole(admin.role, args.input.role);
       updates.role = args.input.role;
@@ -910,11 +994,25 @@ export const adminOpsMutation = {
 
   addSupportNote: async (
     _: unknown,
-    args: { ticketId: string; body: string },
+    args: {
+      ticketId: string;
+      body: string;
+      visibleToRequester?: boolean;
+      attachments?: Array<{
+        url: string;
+        key?: string;
+        filename: string;
+        contentType: string;
+        size?: number;
+      }>;
+    },
     ctx: GraphQLContext,
   ) => {
     const admin = requireAdmin(ctx);
-    return addSupportNote(args.ticketId, admin._id.toString(), args.body);
+    return addSupportNote(args.ticketId, admin._id.toString(), args.body, {
+      visibleToRequester: args.visibleToRequester,
+      attachments: args.attachments,
+    });
   },
 
   updateSupportNote: async (
@@ -1135,7 +1233,14 @@ export const adminOpsMutation = {
     requireAdmin(ctx);
     const doc = await Review.findByIdAndUpdate(
       args.id,
-      { flagged: false, flagReason: null, flaggedAt: null, flaggedById: null },
+      {
+        flagged: false,
+        flagReason: null,
+        flagReasonCode: null,
+        flagDetails: null,
+        flaggedAt: null,
+        flaggedById: null,
+      },
       { new: true },
     );
     if (!doc) throw new Error('Review not found');
@@ -1702,6 +1807,33 @@ export const adminOpsMutation = {
     return exportDinersList({
       search: args.search,
       format: parseExportFormat(args.format ?? 'xlsx'),
+    });
+  },
+
+  exportAdminUsers: async (
+    _: unknown,
+    args: {
+      search?: string;
+      role?: string;
+      roles?: string[];
+      restaurantId?: string;
+      hasRestaurants?: boolean | null;
+      format?: string;
+      basename?: string;
+      title?: string;
+    },
+    ctx: GraphQLContext,
+  ) => {
+    requireAdmin(ctx);
+    return exportAdminUsersList({
+      search: args.search,
+      role: args.role,
+      roles: args.roles,
+      restaurantId: args.restaurantId,
+      hasRestaurants: args.hasRestaurants,
+      format: parseExportFormat(args.format ?? 'xlsx'),
+      basename: args.basename?.trim() || 'users',
+      title: args.title?.trim() || 'Users',
     });
   },
 

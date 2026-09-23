@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { fetchBlogPostBySlug, fetchPublishedBlogPosts } from '@/lib/blogSeoFetch';
+import { sanitizeBlogHtml } from '@reservations/shared';
 import {
   absoluteUrl,
   articleJsonLd,
@@ -139,7 +140,7 @@ export default async function BlogArticlePage({ params }: Props) {
 
       <div
         className="blog-article__content"
-        dangerouslySetInnerHTML={{ __html: post.bodyHtml }}
+        dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(post.bodyHtml) }}
       />
 
       {post.faq?.length ? (

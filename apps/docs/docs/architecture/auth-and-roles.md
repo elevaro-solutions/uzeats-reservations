@@ -22,8 +22,8 @@ Mobile stores tokens from the `AuthPayload` mutation response.
 | Role | Description |
 |---|---|
 | `diner` | Guest — book, review, loyalty |
-| `restaurant_owner` | Owns venue(s), billing, staff, full settings |
-| `staff` | Operates venue — no billing or new restaurant creation |
+| `restaurant_owner` | Owns venue(s), billing, managers, full settings |
+| `manager` | Operates venue — no billing or new restaurant creation |
 | `admin` | Platform operator — most admin pages |
 | `super_admin` | Full platform control including destructive ops |
 

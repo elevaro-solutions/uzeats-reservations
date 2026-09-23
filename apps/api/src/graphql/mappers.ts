@@ -62,6 +62,9 @@ export function mapRestaurant(r: any) {
     allowGuestTableSelection: r.allowGuestTableSelection ?? false,
     reservationsEnabled: r.reservationsEnabled !== false,
     reservationsVisible: r.reservationsVisible !== false,
+    manualApprovalEnabled: r.manualApprovalEnabled === true,
+    manualApprovalPartySizeOp: r.manualApprovalPartySizeOp === 'gt' ? 'gt' : 'gte',
+    manualApprovalPartySize: r.manualApprovalPartySize ?? null,
     posEnabled: r.posEnabled ?? false,
     loyaltyEnabled: r.loyaltyEnabled ?? false,
     loyaltyPointsPerVisit: r.loyaltyPointsPerVisit ?? 50,
@@ -113,6 +116,7 @@ export function mapTable(t: any) {
     shape: t.shape ?? 'rect',
     rotation: t.rotation ?? 0,
     photoUrl: t.photoUrl ?? null,
+    requiresManualApproval: t.requiresManualApproval === true,
   };
 }
 
@@ -140,6 +144,7 @@ export function mapReservation(r: any, clientSecret?: string | null) {
     slotStart: r.slotStart,
     slotEnd: r.slotEnd,
     status: r.status,
+    requiresManualApproval: r.requiresManualApproval === true,
     occasion: r.occasion,
     guestNotes: r.guestNotes,
     depositAmountCents: r.depositAmountCents,
@@ -185,6 +190,11 @@ export function mapReview(r: any) {
     ownerReply: r.ownerReply ?? null,
     ownerRepliedAt: r.ownerRepliedAt ?? null,
     hidden: r.hidden ?? false,
+    flagged: Boolean(r.flagged),
+    flagReason: r.flagReason ?? null,
+    flagReasonCode: r.flagReasonCode ?? null,
+    flagDetails: r.flagDetails ?? null,
+    flaggedAt: r.flaggedAt ?? null,
     createdAt: r.createdAt,
   };
 }
@@ -352,6 +362,7 @@ export function mapExperience(e: any) {
     status: e.status,
     includes: e.includes ?? [],
     tags: e.tags ?? [],
+    requiresManualApproval: e.requiresManualApproval === true,
     createdAt: e.createdAt,
   };
 }
@@ -370,6 +381,7 @@ export function mapRestaurantPackage(p: any) {
     minPartySize: p.minPartySize ?? null,
     maxPartySize: p.maxPartySize ?? null,
     active: p.active !== false,
+    requiresManualApproval: p.requiresManualApproval === true,
     createdAt: p.createdAt,
   };
 }
@@ -402,6 +414,7 @@ export function mapPrivateDiningSpace(s: any) {
     photoUrl: s.photoUrl ?? null,
     amenities: s.amenities ?? [],
     active: s.active,
+    requiresManualApproval: s.requiresManualApproval === true,
     createdAt: s.createdAt,
   };
 }

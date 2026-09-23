@@ -71,6 +71,8 @@ import {
 } from '@/lib/graphql';
 import { getGraphQLErrorMessage, getValidationIssues, toFieldErrors } from '@/lib/errors';
 import {
+  DEFAULT_PARTY,
+  defaultBookingDate,
   useRestaurantPageParams,
   useRestaurantSectionScroll,
 } from '@/lib/useRestaurantPageParams';
@@ -186,6 +188,33 @@ export default function RestaurantPageClient() {
   );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [validationSummary, setValidationSummary] = useState<string[]>([]);
+
+  const resetBookingForm = useCallback(() => {
+    const defaults = {
+      date: defaultBookingDate(),
+      partySize: DEFAULT_PARTY,
+      selectedSlot: null as string | null,
+      promoCode: '',
+      occasion: null as string | null,
+    };
+    setDate(defaults.date);
+    setPartySize(defaults.partySize);
+    setSelectedSlot(null);
+    setPromoCode('');
+    setOccasion('none');
+    setNotes('');
+    setSelectedTableId(null);
+    setSelectedPackageId(null);
+    setSelectedPrivateSpaceId(null);
+    setSelectedExperienceId(null);
+    setRedeemPoints(0);
+    setRedeemRestaurantPoints(0);
+    setGiftCardCode('');
+    setFieldErrors({});
+    setValidationSummary([]);
+    prevSlotPartyRef.current = { slot: null, party: DEFAULT_PARTY };
+    syncBookingToUrl(defaults);
+  }, [syncBookingToUrl]);
   const [depositInfo, setDepositInfo] = useState<{
     clientSecret: string;
     reservationId: string;
@@ -671,10 +700,12 @@ export default function RestaurantPageClient() {
         clearBookingDraftFromSession(restaurantId!);
         setConfirmOpen(false);
         setBookingSuccess(successInfo);
+        resetBookingForm();
         return;
       }
       clearBookingDraftFromSession(restaurantId!);
       setConfirmOpen(false);
+      resetBookingForm();
       message.success('Reservation confirmed!');
       router.push('/reservations');
     } catch (err) {
@@ -704,9 +735,11 @@ export default function RestaurantPageClient() {
     if (tableInfo) {
       clearBookingDraftFromSession(restaurantId!);
       setBookingSuccess(tableInfo);
+      resetBookingForm();
       return;
     }
     clearBookingDraftFromSession(restaurantId!);
+    resetBookingForm();
     message.success('Deposit authorized — reservation confirmed!');
     router.push('/reservations');
   };

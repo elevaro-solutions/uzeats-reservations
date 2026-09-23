@@ -195,6 +195,7 @@ export const MY_RESERVATIONS = gql`
       id
       createdAt
       status
+      requiresManualApproval
       slotStart
       slotEnd
       partySize

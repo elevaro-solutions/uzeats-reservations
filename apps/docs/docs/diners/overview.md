@@ -14,7 +14,7 @@ A companion **mobile app** (`apps/mobile`, Expo) offers the same core flows on i
 - **Save** favorite restaurants at `/saved`
 - **Manage reservations** — view upcoming/past visits, edit details, message the restaurant
 - **Earn loyalty** — platform and per-restaurant points, tiers, referrals, gift cards
-- **Leave reviews** after a past visit (staff-completed, or confirmed/seated after the slot ends) with ratings, photos, and a comment
+- **Leave reviews** after a past visit (manager-completed, or confirmed/seated after the slot ends) with ratings, photos, and a comment
 - **Set alerts** for favorite restaurants when near-term availability appears
 
 ## Getting an account

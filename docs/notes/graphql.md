@@ -1,8 +1,22 @@
 # GraphQL — Learnings & Observations
 
+## [2026-09-23] Venue role `staff` → `manager`
+- GraphQL `UserRole` and ops: `inviteManager`, `acceptManagerInvite`, `managerInviteByToken`. Clients must use the new names.
+- Why it matters: Old `inviteStaff` / `acceptStaffInvite` queries will fail after deploy.
+
+## [2026-09-23] `reportReview` vs `setReviewHidden`
+- `reportReview(reviewId, reason: ReviewReportReason!, details)` — venue access; queues moderation without hiding.
+- `setReviewHidden` — `requireAdmin` only. Prefer `setReviewHiddenAdmin` from Admin → Moderation for the same effect with FlaggedContentItem return shape.
+- Why it matters: Partner clients must call `reportReview`, not hide.
+
+## [2026-09-23] GraphQL is 100 POSTs/min and unbatched
+- `/graphql` uses express-rate-limit `limit: 100` per 60s per IP. Clients do not use BatchHttpLink. Diner home fires search plus one `availability` per card; DashShell loads full `MY_RESTAURANTS` (tables/shifts/menu) on every partner route.
+- Field resolvers have no DataLoader. Discovery `filterByAvailability` calls `getAvailability` per restaurant (up to 100).
+- Why it matters: Burst UIs hit 429s that look like “the app is slow.” Collapsing N+1 beats raising the limiter.
+
 ## [2026-09-22] Owner tickets are a separate mutation
-- `createOwnerSupportTicket` / `myOwnerSupportTickets` require `restaurant_owner` or `staff`. Requester is the caller. Restaurant id is access-checked. Payload clears notes and assignee; attachments remain.
-- Description is sanitized TipTap HTML. Attachments are image-only (`OwnerSupportAttachmentInput`).
+- `createOwnerSupportTicket` / `myOwnerSupportTickets` require `restaurant_owner` or `manager`. Requester is the caller. Restaurant id is access-checked. Payload clears assignee; notes are only those with `visibleToRequester`.
+- Description is sanitized TipTap HTML. Attachments are image-only (`OwnerSupportAttachmentInput`). Admin replies are `addSupportNote(visibleToRequester: true)`. Requester follow-ups are `addOwnerSupportReply`. Both reply mutations accept optional `attachments` stored on the note (shown in the chat bubble).
 - Admin `createSupportTicket` / `supportTickets` stay `requireAdmin`.
 - Why it matters: Don’t expose the admin ticket mutations to partner clients. Diners do not have a ticket mutation.
 

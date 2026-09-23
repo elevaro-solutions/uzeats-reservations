@@ -11,6 +11,7 @@ export type ReservationStatusPillProps = {
   slotEnd?: string | null;
   depositStatus?: string | null;
   depositAmountCents?: number | null;
+  requiresManualApproval?: boolean | null;
 };
 
 function toneForStatus(status: string): StatusTone {
@@ -20,6 +21,7 @@ function toneForStatus(status: string): StatusTone {
       return "info";
     case "pending":
     case "deposit_due":
+    case "awaiting_approval":
       return "warning";
     case "cancelled":
     case "no_show":
@@ -39,6 +41,7 @@ export function ReservationStatusPill({
   slotEnd,
   depositStatus,
   depositAmountCents,
+  requiresManualApproval,
 }: ReservationStatusPillProps) {
   const display = displayReservationStatus({
     status,
@@ -46,6 +49,7 @@ export function ReservationStatusPill({
     slotEnd,
     depositStatus,
     depositAmountCents,
+    requiresManualApproval,
   });
 
   return (

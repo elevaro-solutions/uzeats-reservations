@@ -130,9 +130,9 @@ export const DEFAULT_EMAIL_TEMPLATES = [
   },
   {
     key: 'staff_invite',
-    name: 'Staff invite',
+    name: 'Manager invite',
     subject: 'You are invited to {{restaurantName}} on Tablevera',
-    description: 'Sent when an admin or owner invites staff.',
+    description: 'Sent when an admin or owner invites a manager.',
     bodyHtml: [
       emailGreeting('{{firstName}}'),
       emailParagraph('You\'ve been invited to join <strong>{{restaurantName}}</strong> on Tablevera as <strong>{{role}}</strong>.'),

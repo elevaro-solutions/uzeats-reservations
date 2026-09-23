@@ -18,6 +18,8 @@ export function useUrlListFilters(
     city?: string;
     cuisine?: string;
     role?: string;
+    restaurant?: string;
+    venues?: string;
     actor?: string;
     action?: string;
     resource?: string;
@@ -36,6 +38,8 @@ export function useUrlListFilters(
       city: keys.city ? (searchParams.get(keys.city) ?? undefined) : undefined,
       cuisine: keys.cuisine ? (searchParams.get(keys.cuisine) ?? undefined) : undefined,
       role: keys.role ? (searchParams.get(keys.role) ?? undefined) : undefined,
+      restaurant: keys.restaurant ? (searchParams.get(keys.restaurant) ?? undefined) : undefined,
+      venues: keys.venues ? (searchParams.get(keys.venues) ?? undefined) : undefined,
       actor: keys.actor ? (searchParams.get(keys.actor) ?? undefined) : undefined,
       action: keys.action ? (searchParams.get(keys.action) ?? undefined) : undefined,
       resource: keys.resource ? (searchParams.get(keys.resource) ?? undefined) : undefined,
@@ -46,6 +50,8 @@ export function useUrlListFilters(
       keys.city,
       keys.cuisine,
       keys.role,
+      keys.restaurant,
+      keys.venues,
       keys.actor,
       keys.action,
       keys.resource,
@@ -131,6 +137,22 @@ export function useUrlListFilters(
     [keys.role, replaceParams],
   );
 
+  const setRestaurant = useCallback(
+    (value: string | undefined) => {
+      if (!keys.restaurant) return;
+      replaceParams({ [keys.restaurant]: value });
+    },
+    [keys.restaurant, replaceParams],
+  );
+
+  const setVenues = useCallback(
+    (value: string | undefined) => {
+      if (!keys.venues) return;
+      replaceParams({ [keys.venues]: value });
+    },
+    [keys.venues, replaceParams],
+  );
+
   const setActor = useCallback(
     (value: string | undefined) => {
       if (!keys.actor) return;
@@ -164,6 +186,8 @@ export function useUrlListFilters(
     city: filters.city,
     cuisine: filters.cuisine,
     role: filters.role,
+    restaurant: filters.restaurant,
+    venues: filters.venues,
     actor: filters.actor,
     action: filters.action,
     resource: filters.resource,
@@ -172,6 +196,8 @@ export function useUrlListFilters(
     setCity,
     setCuisine,
     setRole,
+    setRestaurant,
+    setVenues,
     setActor,
     setAction,
     setResource,

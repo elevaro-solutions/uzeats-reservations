@@ -318,11 +318,11 @@ describe('Booking Flow (E2E)', () => {
       passwordHash: 'unused',
       firstName: 'Sam',
       lastName: 'Staff',
-      role: 'staff',
+      role: 'manager',
       restaurantIds: [restaurantId],
     });
     const { signAccessToken } = await import('../services/auth.js');
-    const staffToken = signAccessToken({ sub: staff._id.toString(), role: 'staff' });
+    const managerToken = signAccessToken({ sub: staff._id.toString(), role: 'manager' });
 
     const res = await graphqlRequest(
       agent,
@@ -343,11 +343,11 @@ describe('Booking Flow (E2E)', () => {
           location: { lng: -73.935242, lat: 40.73061 },
         },
       },
-      staffToken,
+      managerToken,
     );
 
     expect(res.body.errors).toBeDefined();
-    expect(res.body.errors[0].message).toMatch(/staff|forbidden/i);
+    expect(res.body.errors[0].message).toMatch(/manager|forbidden|cannot/i);
   });
 
   it('should fail double-booking when table is full', async () => {
@@ -481,6 +481,227 @@ describe('Booking Flow (E2E)', () => {
     expect(reviewRes.body.errors).toBeUndefined();
     expect(reviewRes.body.data.createReview.rating).toBe(5);
     expect(reviewRes.body.data.createReview.comment).toBe('Amazing food!');
+
+    const ownerNotifs = await graphqlRequest(
+      agent,
+      `query {
+        myNotifications {
+          items { id type title body }
+          total
+        }
+      }`,
+      {},
+      ownerToken,
+    );
+    expect(ownerNotifs.body.errors).toBeUndefined();
+    const ownerItems = ownerNotifs.body.data.myNotifications.items as Array<{
+      type: string;
+      title: string;
+    }>;
+    expect(ownerItems.some((n) => n.type === 'new_review')).toBe(true);
+
+    const unreplied = await graphqlRequest(
+      agent,
+      `query($restaurantId: ID!) {
+        restaurantUnrepliedReviewCount(restaurantId: $restaurantId)
+      }`,
+      { restaurantId },
+      ownerToken,
+    );
+    expect(unreplied.body.errors).toBeUndefined();
+    expect(unreplied.body.data.restaurantUnrepliedReviewCount).toBeGreaterThanOrEqual(1);
+
+    const myReviews = await graphqlRequest(
+      agent,
+      `query {
+        myReviews {
+          total
+          items { id rating comment restaurant { id name } }
+        }
+      }`,
+      {},
+      dinerToken,
+    );
+    expect(myReviews.body.errors).toBeUndefined();
+    expect(myReviews.body.data.myReviews.total).toBeGreaterThanOrEqual(1);
+    expect(myReviews.body.data.myReviews.items[0]?.restaurant?.name).toBeTruthy();
+  });
+
+  it('should let a super admin seat a reservation at a table', async () => {
+    const superAdmin = await User.create({
+      email: 'super-admin-seat@test.com',
+      passwordHash: 'unused',
+      firstName: 'Super',
+      lastName: 'Admin',
+      role: 'super_admin',
+    });
+    const { signAccessToken } = await import('../services/auth.js');
+    const superAdminToken = signAccessToken({
+      sub: superAdmin._id.toString(),
+      role: 'super_admin',
+    });
+
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 2);
+    tomorrow.setHours(19, 0, 0, 0);
+
+    const createRes = await graphqlRequest(
+      agent,
+      `mutation CreateReservation($input: ReservationInput!) {
+        createReservation(input: $input) { reservation { id status } }
+      }`,
+      {
+        input: {
+          restaurantId,
+          partySize: 2,
+          slotStart: tomorrow.toISOString(),
+        },
+      },
+      dinerToken,
+    );
+    expect(createRes.body.errors).toBeUndefined();
+    const seatResId = createRes.body.data.createReservation.reservation.id;
+
+    await graphqlRequest(
+      agent,
+      `mutation UpdateStatus($id: ID!, $status: ReservationStatus!) {
+        updateReservationStatus(id: $id, status: $status) { id status }
+      }`,
+      { id: seatResId, status: 'confirmed' },
+      superAdminToken,
+    );
+
+    const seatRes = await graphqlRequest(
+      agent,
+      `mutation Seat($reservationId: ID!, $tableId: ID!) {
+        seatReservationAtTable(reservationId: $reservationId, tableId: $tableId) {
+          id
+          status
+        }
+      }`,
+      { reservationId: seatResId, tableId },
+      superAdminToken,
+    );
+
+    expect(seatRes.body.errors).toBeUndefined();
+    expect(seatRes.body.data.seatReservationAtTable.status).toBe('seated');
+  });
+
+  it('should keep large parties pending when restaurant manual approval is enabled', async () => {
+    const settingsRes = await graphqlRequest(
+      agent,
+      `mutation UpdateSettings(
+        $restaurantId: ID!
+        $manualApprovalEnabled: Boolean
+        $manualApprovalPartySizeOp: String
+        $manualApprovalPartySize: Int
+      ) {
+        updateRestaurantSettings(
+          restaurantId: $restaurantId
+          manualApprovalEnabled: $manualApprovalEnabled
+          manualApprovalPartySizeOp: $manualApprovalPartySizeOp
+          manualApprovalPartySize: $manualApprovalPartySize
+        ) {
+          id
+          manualApprovalEnabled
+          manualApprovalPartySizeOp
+          manualApprovalPartySize
+        }
+      }`,
+      {
+        restaurantId,
+        manualApprovalEnabled: true,
+        manualApprovalPartySizeOp: 'gte',
+        manualApprovalPartySize: 4,
+      },
+      ownerToken,
+    );
+    expect(settingsRes.body.errors).toBeUndefined();
+    expect(settingsRes.body.data.updateRestaurantSettings.manualApprovalEnabled).toBe(true);
+    expect(settingsRes.body.data.updateRestaurantSettings.manualApprovalPartySize).toBe(4);
+
+    const extraTable = await graphqlRequest(
+      agent,
+      `mutation CreateTable($restaurantId: ID!, $input: TableInput!) {
+        createTable(restaurantId: $restaurantId, input: $input) { id }
+      }`,
+      {
+        restaurantId,
+        input: { name: 'Approval Table', minCapacity: 1, maxCapacity: 8 },
+      },
+      ownerToken,
+    );
+    expect(extraTable.body.errors).toBeUndefined();
+
+    const slotDay = new Date();
+    slotDay.setDate(slotDay.getDate() + 14);
+    slotDay.setHours(17, 30, 0, 0);
+
+    const smallParty = await graphqlRequest(
+      agent,
+      `mutation CreateReservation($input: ReservationInput!) {
+        createReservation(input: $input) {
+          reservation { id status requiresManualApproval partySize }
+        }
+      }`,
+      {
+        input: {
+          restaurantId,
+          partySize: 2,
+          slotStart: slotDay.toISOString(),
+        },
+      },
+      dinerToken,
+    );
+    expect(smallParty.body.errors).toBeUndefined();
+    expect(smallParty.body.data.createReservation.reservation.requiresManualApproval).toBe(false);
+    expect(smallParty.body.data.createReservation.reservation.status).toBe('confirmed');
+
+    const largeSlot = new Date(slotDay);
+    largeSlot.setHours(18, 30, 0, 0);
+    const largeParty = await graphqlRequest(
+      agent,
+      `mutation CreateReservation($input: ReservationInput!) {
+        createReservation(input: $input) {
+          reservation { id status requiresManualApproval partySize }
+        }
+      }`,
+      {
+        input: {
+          restaurantId,
+          partySize: 4,
+          slotStart: largeSlot.toISOString(),
+        },
+      },
+      dinerToken,
+    );
+    expect(largeParty.body.errors).toBeUndefined();
+    const pending = largeParty.body.data.createReservation.reservation;
+    expect(pending.requiresManualApproval).toBe(true);
+    expect(pending.status).toBe('pending');
+
+    const confirmRes = await graphqlRequest(
+      agent,
+      `mutation UpdateStatus($id: ID!, $status: ReservationStatus!) {
+        updateReservationStatus(id: $id, status: $status) { id status }
+      }`,
+      { id: pending.id, status: 'confirmed' },
+      ownerToken,
+    );
+    expect(confirmRes.body.errors).toBeUndefined();
+    expect(confirmRes.body.data.updateReservationStatus.status).toBe('confirmed');
+
+    await graphqlRequest(
+      agent,
+      `mutation UpdateSettings($restaurantId: ID!, $manualApprovalEnabled: Boolean) {
+        updateRestaurantSettings(
+          restaurantId: $restaurantId
+          manualApprovalEnabled: $manualApprovalEnabled
+        ) { id manualApprovalEnabled }
+      }`,
+      { restaurantId, manualApprovalEnabled: false },
+      ownerToken,
+    );
   });
 
   it('should have earned loyalty points', async () => {

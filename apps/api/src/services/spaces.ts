@@ -29,7 +29,38 @@ export function assertAllowedUploadContentType(contentType: string) {
   if (!ALLOWED_UPLOAD_CONTENT_TYPES.has(normalized)) {
     throw new Error('Unsupported file type. Allowed: JPEG, PNG, WebP, GIF');
   }
-  return normalized;
+  return normalized === 'image/jpg' ? 'image/jpeg' : normalized;
+}
+
+/** Detect JPEG/PNG/WebP/GIF from magic bytes; ignore the declared Content-Type. */
+export function sniffAllowedImageContentType(body: Buffer): string | null {
+  if (body.length < 12) return null;
+  if (body[0] === 0xff && body[1] === 0xd8 && body[2] === 0xff) return 'image/jpeg';
+  if (
+    body[0] === 0x89 &&
+    body[1] === 0x50 &&
+    body[2] === 0x4e &&
+    body[3] === 0x47
+  ) {
+    return 'image/png';
+  }
+  if (
+    body[0] === 0x47 &&
+    body[1] === 0x49 &&
+    body[2] === 0x46 &&
+    body[3] === 0x38 &&
+    (body[4] === 0x37 || body[4] === 0x39) &&
+    body[5] === 0x61
+  ) {
+    return 'image/gif';
+  }
+  if (
+    body.toString('ascii', 0, 4) === 'RIFF' &&
+    body.toString('ascii', 8, 12) === 'WEBP'
+  ) {
+    return 'image/webp';
+  }
+  return null;
 }
 
 function getClient() {
@@ -87,7 +118,11 @@ export async function uploadObject(input: {
   contentType: string;
   body: Buffer;
 }) {
-  const contentType = assertAllowedUploadContentType(input.contentType);
+  const sniffed = sniffAllowedImageContentType(input.body);
+  if (!sniffed) {
+    throw new Error('Unsupported file type. Allowed: JPEG, PNG, WebP, GIF');
+  }
+  const contentType = sniffed;
   const client = getClient();
   if (!client) {
     return saveLocalObject({ key: input.key, body: input.body });

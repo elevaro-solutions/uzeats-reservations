@@ -146,6 +146,7 @@ export const CREATE_RESERVATION = gql`
       reservation {
         id
         status
+        requiresManualApproval
         slotStart
         partySize
         depositAmountCents
@@ -181,6 +182,7 @@ export const MY_RESERVATIONS = gql`
       id
       createdAt
       status
+      requiresManualApproval
       slotStart
       slotEnd
       partySize
@@ -218,6 +220,7 @@ export const MY_RESERVATION = gql`
     myReservation(id: $id) {
       id
       status
+      requiresManualApproval
       slotStart
       slotEnd
       partySize
@@ -421,6 +424,39 @@ export const RESTAURANT_REVIEWS = gql`
         diner {
           firstName
           lastName
+        }
+      }
+    }
+  }
+`;
+
+export const MY_REVIEWS = gql`
+  query MyReviews($limit: Int, $offset: Int) {
+    myReviews(limit: $limit, offset: $offset) {
+      total
+      items {
+        id
+        rating
+        foodRating
+        serviceRating
+        atmosphereRating
+        comment
+        photos
+        ownerReply
+        ownerRepliedAt
+        hidden
+        createdAt
+        reservationId
+        restaurant {
+          id
+          name
+          slug
+          logoUrl
+          cuisine
+          address {
+            city
+            state
+          }
         }
       }
     }

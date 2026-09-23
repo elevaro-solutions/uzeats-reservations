@@ -37,7 +37,7 @@ When the user's task mentions a persona, load the matching guide:
 | Persona | Doc section |
 |---|---|
 | Guest / diner UX | [Diners](/diners/overview) |
-| Restaurant partner | [Staff](/staff/overview) |
+| Restaurant partner | [Managers](/managers/overview) |
 | Platform operator | [Admins](/admins/platform-overview) |
 | Infrastructure / API | [Developers](/developers/getting-started) |
 | System design | [Architecture](/architecture/overview) |

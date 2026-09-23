@@ -6,6 +6,7 @@ import {
   Button,
   Card,
   Checkbox,
+  Dropdown,
   Image,
   Input,
   List,
@@ -16,14 +17,16 @@ import {
   Typography,
   message,
 } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   EyeInvisibleOutlined,
   EyeOutlined,
   MessageOutlined,
+  MoreOutlined,
   PictureOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import { RESTAURANT_MAX_PHOTOS } from '@reservations/shared';
+import { RESTAURANT_MAX_PHOTOS, browserMediaUrl } from '@reservations/shared';
 import { colors } from '@reservations/ui';
 import {
   ADD_RESTAURANT_PHOTOS,
@@ -171,25 +174,31 @@ export function AdminRestaurantReviewsPanel({
             return (
               <List.Item
                 actions={[
-                  <Button
-                    key="reply"
-                    size="small"
-                    icon={<MessageOutlined />}
-                    onClick={() => {
-                      setReplying(r);
-                      setReplyText(r.ownerReply ?? '');
+                  <Dropdown
+                    key="more"
+                    menu={{
+                      items: [
+                        {
+                          key: 'reply',
+                          icon: <MessageOutlined />,
+                          label: r.ownerReply ? 'Edit reply' : 'Reply',
+                          onClick: () => {
+                            setReplying(r);
+                            setReplyText(r.ownerReply ?? '');
+                          },
+                        },
+                        {
+                          key: 'hide',
+                          icon: r.hidden ? <EyeOutlined /> : <EyeInvisibleOutlined />,
+                          label: r.hidden ? 'Unhide' : 'Hide',
+                          onClick: () => void toggleHidden(r),
+                        },
+                      ] as MenuProps['items'],
                     }}
+                    trigger={['click']}
                   >
-                    {r.ownerReply ? 'Edit reply' : 'Reply'}
-                  </Button>,
-                  <Button
-                    key="hide"
-                    size="small"
-                    icon={r.hidden ? <EyeOutlined /> : <EyeInvisibleOutlined />}
-                    onClick={() => void toggleHidden(r)}
-                  >
-                    {r.hidden ? 'Unhide' : 'Hide'}
-                  </Button>,
+                    <Button size="small" icon={<MoreOutlined />} aria-label="Review actions" />
+                  </Dropdown>,
                 ]}
               >
                 <List.Item.Meta
@@ -203,6 +212,7 @@ export function AdminRestaurantReviewsPanel({
                         {new Date(r.createdAt).toLocaleDateString('en-US')}
                       </Text>
                       {r.hidden && <Tag color="orange">Hidden</Tag>}
+                      {r.flagged && <Tag color="red">Reported</Tag>}
                     </Space>
                   }
                   description={
@@ -248,7 +258,7 @@ export function AdminRestaurantReviewsPanel({
                                 return (
                                   <div key={url} style={{ textAlign: 'center' }}>
                                     <Image
-                                      src={url}
+                                      src={browserMediaUrl(url)}
                                       alt="Review photo"
                                       width={72}
                                       height={72}

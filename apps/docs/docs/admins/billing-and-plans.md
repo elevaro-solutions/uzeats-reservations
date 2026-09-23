@@ -8,6 +8,7 @@ Plan definitions live in `apps/api/src/config/plans.ts`. Each plan includes:
 
 - Monthly price
 - Feature flags (table limits, campaign access, etc.)
+- **Manager seats** (`managerSeats`) — how many Manager (`manager`) accounts the owner can invite (minimum 1; Basic 1 / Core 3 / Pro 5 by default). The restaurant owner does not consume a seat. Owners manage the team at Partner Hub → Settings → Team; upgrade the package for more seats.
 - Trial period (when applicable)
 
 Partners choose a plan during signup or change plans in **Settings → Billing**.
@@ -44,7 +45,7 @@ Diners may pay refundable deposits at booking:
 
 ## Partner billing permissions
 
-Only `restaurant_owner` and platform admins can manage billing (`canManageBilling()`). Staff cannot view or change subscription details.
+Only `restaurant_owner` and platform admins can manage billing (`canManageBilling()`). Managers cannot view or change subscription details.
 
 ## Stripe configuration
 

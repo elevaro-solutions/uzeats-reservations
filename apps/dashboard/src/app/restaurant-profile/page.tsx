@@ -55,6 +55,7 @@ import {
   restaurantFieldTooltips as tips,
 } from '@/lib/restaurantFormTooltips';
 import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
+import { useFormDirty } from '@/lib/useFormDirty';
 import { useUrlTab } from '@/lib/useUrlTab';
 import { buildMenuSectionsFromImport } from '@/lib/importedMenu';
 import { uploadImportedMenuImageToSpaces } from '@/lib/importMenuImages';
@@ -81,7 +82,7 @@ export default function RestaurantProfilePage() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const { dirty, markDirty, clearDirty, onValuesChange } = useFormDirty();
   const [section, setSection] = useUrlTab({
     param: 'section',
     defaultValue: 'listing',
@@ -141,11 +142,14 @@ export default function RestaurantProfilePage() {
       reservationsEnabled: settings?.reservationsEnabled ?? true,
       reservationsVisible: settings?.reservationsVisible ?? true,
       posEnabled: settings?.posEnabled ?? false,
+      manualApprovalEnabled: settings?.manualApprovalEnabled ?? false,
+      manualApprovalPartySizeOp: settings?.manualApprovalPartySizeOp ?? 'gte',
+      manualApprovalPartySize: settings?.manualApprovalPartySize ?? undefined,
       spendAlertDollars: (settings?.spendAlertThresholdCents ?? 0) / 100,
     });
     setPhotos(restaurant.photos ?? []);
     setLogoUrl(restaurant.logoUrl ?? null);
-    setDirty(false);
+    clearDirty();
   }, [restaurant, settings, settingsLoading, form]);
 
   const handleSave = async () => {
@@ -192,6 +196,11 @@ export default function RestaurantProfilePage() {
             reservationsEnabled: values.reservationsEnabled ?? true,
             reservationsVisible: values.reservationsVisible ?? true,
             posEnabled: values.posEnabled ?? false,
+            manualApprovalEnabled: values.manualApprovalEnabled ?? false,
+            manualApprovalPartySizeOp: values.manualApprovalPartySizeOp ?? 'gte',
+            manualApprovalPartySize: values.manualApprovalEnabled
+              ? values.manualApprovalPartySize ?? null
+              : null,
           },
         }),
       ]);
@@ -204,7 +213,7 @@ export default function RestaurantProfilePage() {
         return;
       }
       message.success('Restaurant updated');
-      setDirty(false);
+      clearDirty();
       await Promise.all([refetch(), refetchSettings()]);
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'errorFields' in err) return;
@@ -214,7 +223,7 @@ export default function RestaurantProfilePage() {
 
   const handleOwnerImport = (data: ImportedRestaurantData) => {
     applyRestaurantImportToForm(form, data);
-    setDirty(true);
+    markDirty();
     setSection('address');
 
     if (data.coverImageUrl) {
@@ -225,7 +234,7 @@ export default function RestaurantProfilePage() {
         .then((photoUrl) => {
           if (!photoUrl) return;
           setPhotos((prev) => [photoUrl, ...prev.filter((url) => url !== photoUrl)]);
-          setDirty(true);
+          markDirty();
         })
         .catch(() => {
           /* non-fatal */
@@ -348,7 +357,7 @@ export default function RestaurantProfilePage() {
                 value={logoUrl ? [logoUrl] : []}
                 onChange={(urls) => {
                   setLogoUrl(urls[0] ?? null);
-                  setDirty(true);
+                  markDirty();
                 }}
                 maxCount={1}
                 alt="Restaurant logo"
@@ -364,7 +373,7 @@ export default function RestaurantProfilePage() {
                 value={photos}
                 onChange={(urls) => {
                   setPhotos(urls);
-                  setDirty(true);
+                  markDirty();
                 }}
                 maxCount={10}
               />
@@ -433,7 +442,7 @@ export default function RestaurantProfilePage() {
                 style={{ width: '100%' }}
                 onSelect={(selection) => {
                   form.setFieldsValue(addressSelectionToFields(selection));
-                  setDirty(true);
+                  markDirty();
                 }}
               />
             </Form.Item>
@@ -590,6 +599,66 @@ export default function RestaurantProfilePage() {
               rules={[{ type: 'number', min: 0, message: 'Must be 0 or greater' }]}
             >
               <InputNumber min={0} precision={0} style={{ width: '100%' }} />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item
+              name="manualApprovalEnabled"
+              label="Require manual approval"
+              valuePropName="checked"
+              tooltip={tips.manualApprovalEnabled}
+            >
+              <Switch />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item
+              noStyle
+              shouldUpdate={(prev, next) =>
+                prev.manualApprovalEnabled !== next.manualApprovalEnabled
+              }
+            >
+              {({ getFieldValue }) =>
+                getFieldValue('manualApprovalEnabled') ? (
+                  <Form.Item
+                    label="Approve when party size"
+                    tooltip={tips.manualApprovalPartySize}
+                    extra="Leave empty to require approval for all online bookings"
+                  >
+                    <Space.Compact block>
+                      <Form.Item name="manualApprovalPartySizeOp" noStyle initialValue="gte">
+                        <Select
+                          style={{ width: 72 }}
+                          options={[
+                            { value: 'gte', label: '≥' },
+                            { value: 'gt', label: '>' },
+                          ]}
+                        />
+                      </Form.Item>
+                      <Form.Item
+                        name="manualApprovalPartySize"
+                        noStyle
+                        rules={[
+                          {
+                            type: 'number',
+                            min: 1,
+                            max: 50,
+                            message: 'Enter 1–50 or leave empty',
+                          },
+                        ]}
+                      >
+                        <InputNumber
+                          min={1}
+                          max={50}
+                          precision={0}
+                          style={{ width: '100%' }}
+                          placeholder="All parties"
+                        />
+                      </Form.Item>
+                    </Space.Compact>
+                  </Form.Item>
+                ) : null
+              }
             </Form.Item>
           </Col>
         </Row>
@@ -749,7 +818,7 @@ export default function RestaurantProfilePage() {
               layout="vertical"
               component="div"
               requiredMark="optional"
-              onValuesChange={() => setDirty(true)}
+              onValuesChange={onValuesChange}
             >
               <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

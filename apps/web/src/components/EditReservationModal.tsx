@@ -30,6 +30,7 @@ export function EditReservationModal({ open, reservation, onClose, onUpdated }: 
   const [slotStart, setSlotStart] = useState<string | undefined>();
   const [occasion, setOccasion] = useState('none');
   const [guestNotes, setGuestNotes] = useState('');
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     if (!reservation || !open) return;
@@ -39,6 +40,7 @@ export function EditReservationModal({ open, reservation, onClose, onUpdated }: 
     setSlotStart(reservation.slotStart);
     setOccasion(reservation.occasion ?? 'none');
     setGuestNotes(reservation.guestNotes ?? '');
+    setDirty(false);
   }, [reservation, open]);
 
   const restaurantId = reservation?.restaurant?.id;
@@ -64,6 +66,7 @@ export function EditReservationModal({ open, reservation, onClose, onUpdated }: 
   }, [slotsData, reservation?.slotStart, slotStart]);
 
   const handleOk = async () => {
+    if (!dirty) return;
     if (!reservation || !slotStart) {
       message.warning('Please pick a time');
       throw new Error('time required');
@@ -96,6 +99,7 @@ export function EditReservationModal({ open, reservation, onClose, onUpdated }: 
       onCancel={onClose}
       onOk={handleOk}
       okText="Save changes"
+      okButtonProps={{ disabled: !dirty }}
       confirmLoading={saving}
       destroyOnClose
     >
@@ -113,13 +117,23 @@ export function EditReservationModal({ open, reservation, onClose, onUpdated }: 
               if (!d) return;
               setDate(d);
               setSlotStart(undefined);
+              setDirty(true);
             }}
             style={{ width: '100%' }}
           />
         </div>
         <div>
           <Text style={{ display: 'block', marginBottom: 6 }}>Party size</Text>
-          <InputNumber min={1} max={50} value={partySize} onChange={(v) => v && setPartySize(v)} />
+          <InputNumber
+            min={1}
+            max={50}
+            value={partySize}
+            onChange={(v) => {
+              if (!v) return;
+              setPartySize(v);
+              setDirty(true);
+            }}
+          />
         </div>
         <div>
           <Text style={{ display: 'block', marginBottom: 6 }}>Time</Text>
@@ -128,7 +142,10 @@ export function EditReservationModal({ open, reservation, onClose, onUpdated }: 
             loading={slotsLoading}
             style={{ width: '100%' }}
             value={slotStart}
-            onChange={setSlotStart}
+            onChange={(v) => {
+              setSlotStart(v);
+              setDirty(true);
+            }}
             options={slotOptions}
             notFoundContent={slotsLoading ? 'Loading…' : 'No times available for this date'}
           />
@@ -138,7 +155,10 @@ export function EditReservationModal({ open, reservation, onClose, onUpdated }: 
           <Select
             style={{ width: '100%' }}
             value={occasion}
-            onChange={setOccasion}
+            onChange={(v) => {
+              setOccasion(v);
+              setDirty(true);
+            }}
             options={OCCASIONS.map((o) => ({ value: o, label: formatOccasion(o) }))}
           />
         </div>
@@ -147,7 +167,10 @@ export function EditReservationModal({ open, reservation, onClose, onUpdated }: 
           <Input.TextArea
             rows={3}
             value={guestNotes}
-            onChange={(e) => setGuestNotes(e.target.value)}
+            onChange={(e) => {
+              setGuestNotes(e.target.value);
+              setDirty(true);
+            }}
             maxLength={500}
             showCount
           />

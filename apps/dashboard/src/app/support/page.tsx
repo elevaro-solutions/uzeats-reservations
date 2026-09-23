@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   App,
@@ -15,7 +16,7 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { CustomerServiceOutlined, PlusOutlined } from '@ant-design/icons';
+import { CustomerServiceOutlined, PlusOutlined, PaperClipOutlined } from '@ant-design/icons';
 import {
   OWNER_SUPPORT_TICKET_SUBJECTS,
   htmlToPlainText,
@@ -25,11 +26,11 @@ import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { CREATE_OWNER_SUPPORT_TICKET, MY_OWNER_SUPPORT_TICKETS, MY_RESTAURANTS } from '@/lib/graphql';
 import { STATUS_COLORS } from '@/lib/supportTickets';
+import { useFormDirty } from '@/lib/useFormDirty';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import SupportAttachmentUpload, {
   type SupportAttachmentDraft,
 } from '@/components/SupportAttachmentUpload';
-import { SupportHtml } from '@/components/SupportHtml';
 
 const { Text } = Typography;
 
@@ -41,13 +42,8 @@ type TicketItem = {
   category: string;
   restaurant?: { id: string; name: string } | null;
   createdAt: string;
-  attachments?: Array<{
-    id: string;
-    url: string;
-    filename: string;
-    contentType: string;
-    size?: number | null;
-  }>;
+  attachments?: Array<{ id: string }>;
+  notes?: Array<{ id: string }>;
 };
 
 const SUBJECT_OPTIONS = OWNER_SUPPORT_TICKET_SUBJECTS.map((subject) => ({
@@ -59,12 +55,19 @@ function formatStatus(status: string) {
   return status.replace(/_/g, ' ');
 }
 
+function previewText(html: string) {
+  const plain = htmlToPlainText(html);
+  if (plain.length <= 140) return plain;
+  return `${plain.slice(0, 140).trimEnd()}…`;
+}
+
 export default function PartnerSupportPage() {
   const { user, loading: authLoading } = useAuth();
   const { message } = App.useApp();
   const router = useRouter();
   const [form] = Form.useForm();
   const [formOpen, setFormOpen] = useState(false);
+  const { dirty, clearDirty, onValuesChange } = useFormDirty();
   const subjectKey = Form.useWatch('subjectKey', form);
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
@@ -87,7 +90,8 @@ export default function PartnerSupportPage() {
     form.setFieldsValue({
       restaurantId: activeRestaurantId || undefined,
     });
-  }, [formOpen, activeRestaurantId, form]);
+    clearDirty();
+  }, [formOpen, activeRestaurantId, form, clearDirty]);
 
   if (authLoading || !user) {
     return (
@@ -106,8 +110,9 @@ export default function PartnerSupportPage() {
     restaurantId?: string;
     attachments?: SupportAttachmentDraft[];
   }) => {
+    if (!dirty) return;
     try {
-      await createTicket({
+      const result = await createTicket({
         variables: {
           input: {
             subjectKey: values.subjectKey,
@@ -120,7 +125,13 @@ export default function PartnerSupportPage() {
       });
       message.success('Support ticket opened');
       form.resetFields();
+      clearDirty();
       setFormOpen(false);
+      const newId = result.data?.createOwnerSupportTicket?.id;
+      if (newId) {
+        router.push(`/support/${newId}`);
+        return;
+      }
       await refetch();
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Could not open ticket');
@@ -153,6 +164,7 @@ export default function PartnerSupportPage() {
             layout="vertical"
             requiredMark={false}
             onFinish={onCreate}
+            onValuesChange={onValuesChange}
             initialValues={{
               subjectKey: 'general_inquiry',
               restaurantId: activeRestaurantId || undefined,
@@ -211,7 +223,7 @@ export default function PartnerSupportPage() {
             >
               <SupportAttachmentUpload />
             </Form.Item>
-            <Button type="primary" htmlType="submit" loading={creating}>
+            <Button type="primary" htmlType="submit" loading={creating} disabled={!dirty}>
               Submit ticket
             </Button>
           </Form>
@@ -235,58 +247,61 @@ export default function PartnerSupportPage() {
         />
       ) : (
         <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-          {tickets.map((ticket) => (
-            <Card
-              key={ticket.id}
-              style={{
-                borderRadius: radii.lg,
-                border: `1px solid ${colors.bordersubtle}`,
-                boxShadow: shadows.sm,
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                <Text strong>{ticket.subject}</Text>
-                <Tag color={STATUS_COLORS[ticket.status] ?? 'default'}>{formatStatus(ticket.status)}</Tag>
-              </div>
-              {ticket.restaurant?.name ? (
-                <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
-                  {ticket.restaurant.name}
-                </Text>
-              ) : null}
-              <div style={{ margin: '8px 0 0' }}>
-                <SupportHtml html={ticket.description} />
-              </div>
-              {(ticket.attachments ?? []).length > 0 ? (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-                  {ticket.attachments!.map((attachment) => (
-                    <a
-                      key={attachment.id}
-                      href={attachment.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      title={attachment.filename}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={attachment.url}
-                        alt={attachment.filename}
-                        style={{
-                          width: 72,
-                          height: 72,
-                          objectFit: 'cover',
-                          borderRadius: 8,
-                          border: `1px solid ${colors.bordersubtle}`,
-                        }}
-                      />
-                    </a>
-                  ))}
-                </div>
-              ) : null}
-              <Text type="secondary" style={{ fontSize: 13, display: 'block', marginTop: 8 }}>
-                Opened {new Date(ticket.createdAt).toLocaleString('en-US')}
-              </Text>
-            </Card>
-          ))}
+          {tickets.map((ticket) => {
+            const replyCount = ticket.notes?.length ?? 0;
+            const attachmentCount = ticket.attachments?.length ?? 0;
+            return (
+              <Link key={ticket.id} href={`/support/${ticket.id}`} style={{ display: 'block' }}>
+                <Card
+                  hoverable
+                  style={{
+                    borderRadius: radii.lg,
+                    border: `1px solid ${colors.bordersubtle}`,
+                    boxShadow: shadows.sm,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                    <Text strong>{ticket.subject}</Text>
+                    <Tag color={STATUS_COLORS[ticket.status] ?? 'default'}>{formatStatus(ticket.status)}</Tag>
+                  </div>
+                  {ticket.restaurant?.name ? (
+                    <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
+                      {ticket.restaurant.name}
+                    </Text>
+                  ) : null}
+                  {ticket.description ? (
+                    <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
+                      {previewText(ticket.description)}
+                    </Text>
+                  ) : null}
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 12,
+                      marginTop: 10,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text type="secondary" style={{ fontSize: 13 }}>
+                      Opened {new Date(ticket.createdAt).toLocaleString('en-US')}
+                    </Text>
+                    {attachmentCount > 0 ? (
+                      <Text type="secondary" style={{ fontSize: 13 }}>
+                        <PaperClipOutlined /> {attachmentCount}
+                      </Text>
+                    ) : null}
+                    {replyCount > 0 ? (
+                      <Text type="secondary" style={{ fontSize: 13 }}>
+                        {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
+                      </Text>
+                    ) : null}
+                  </div>
+                </Card>
+              </Link>
+            );
+          })}
         </Space>
       )}
     </div>

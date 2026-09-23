@@ -35,7 +35,7 @@ export type MobileUser = {
   phone?: string | null;
   firstName: string;
   lastName: string;
-  role: "diner" | "restaurant_owner" | "staff" | "admin";
+  role: "diner" | "restaurant_owner" | "manager" | "admin";
   loyaltyPoints: number;
   loyaltyCompletedVisits?: number;
   loyaltyTier?: string;

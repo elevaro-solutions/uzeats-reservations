@@ -13,6 +13,7 @@ import {
   Modal,
   Select,
   Space,
+  Switch,
   Table,
   Tag,
   Typography,
@@ -25,6 +26,7 @@ import { MY_RESTAURANTS } from '@/lib/graphql';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import PhotoUpload from '@/components/PhotoUpload';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { useFormDirty } from '@/lib/useFormDirty';
 import { gql } from '@apollo/client';
 
 const { Title, Text } = Typography;
@@ -35,7 +37,7 @@ const EXPERIENCES = gql`
     experiences(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
       total
       items {
-        id title type date endDate startTime endTime maxGuests ticketPriceCents ticketsSold status description photoUrl
+        id title type date endDate startTime endTime maxGuests ticketPriceCents ticketsSold status description photoUrl requiresManualApproval
       }
     }
   }
@@ -106,6 +108,7 @@ function ExperiencesPageContent() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form] = Form.useForm();
+  const { dirty, clearDirty, onValuesChange } = useFormDirty();
   const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 10 });
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
@@ -126,6 +129,7 @@ function ExperiencesPageContent() {
   }, [authLoading, user, router]);
 
   const handleSubmit = async () => {
+    if (!dirty) return;
     try {
       const values = await form.validateFields();
       const [rangeStart, rangeEnd] = values.dateRange ?? [];
@@ -146,6 +150,7 @@ function ExperiencesPageContent() {
         ticketPriceCents: Math.round(values.ticketPrice * 100),
         includes: values.includes?.split('\n').filter(Boolean) ?? [],
         tags: values.tags?.split(',').map((t: string) => t.trim()).filter(Boolean) ?? [],
+        requiresManualApproval: values.requiresManualApproval ?? false,
       };
 
       if (editingId) {
@@ -158,6 +163,7 @@ function ExperiencesPageContent() {
       setModalOpen(false);
       setEditingId(null);
       form.resetFields();
+      clearDirty();
       refetch();
     } catch (err: any) {
       message.error(err?.message ?? 'Failed to save experience');
@@ -191,6 +197,7 @@ function ExperiencesPageContent() {
     maxGuests: number;
     ticketPriceCents: number;
     photoUrl?: string;
+    requiresManualApproval?: boolean;
   }) => {
     setEditingId(record.id);
     form.setFieldsValue({
@@ -204,8 +211,10 @@ function ExperiencesPageContent() {
       ticketPrice: record.ticketPriceCents / 100,
       photoUrls: record.photoUrl ? [record.photoUrl] : [],
       photoUrl: record.photoUrl,
+      requiresManualApproval: record.requiresManualApproval ?? false,
     });
     setModalOpen(true);
+    clearDirty();
   };
 
   const columns = [
@@ -278,7 +287,12 @@ function ExperiencesPageContent() {
         <Button
           type="primary"
           icon={<PlusOutlined />}
-          onClick={() => { setEditingId(null); form.resetFields(); setModalOpen(true); }}
+          onClick={() => {
+            setEditingId(null);
+            form.resetFields();
+            clearDirty();
+            setModalOpen(true);
+          }}
         >
           Create Experience
         </Button>
@@ -299,12 +313,17 @@ function ExperiencesPageContent() {
       <Modal
         title={editingId ? 'Edit Experience' : 'Create Experience'}
         open={modalOpen}
-        onCancel={() => { setModalOpen(false); setEditingId(null); }}
+        onCancel={() => {
+          setModalOpen(false);
+          setEditingId(null);
+          clearDirty();
+        }}
         onOk={handleSubmit}
+        okButtonProps={{ disabled: !dirty }}
         confirmLoading={creating || updating}
         width={600}
       >
-        <Form form={form} layout="vertical">
+        <Form form={form} layout="vertical" onValuesChange={onValuesChange}>
           <Form.Item name="title" label="Title" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
@@ -346,6 +365,14 @@ function ExperiencesPageContent() {
           </Form.Item>
           <Form.Item name="tags" label="Tags (comma-separated)">
             <Input placeholder="wine, tasting, special" />
+          </Form.Item>
+          <Form.Item
+            name="requiresManualApproval"
+            label="Require manual approval"
+            valuePropName="checked"
+            extra="Bookings for this experience stay pending until staff confirms"
+          >
+            <Switch />
           </Form.Item>
         </Form>
       </Modal>

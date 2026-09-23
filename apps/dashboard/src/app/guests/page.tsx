@@ -31,6 +31,7 @@ import {
   EXPORT_RESTAURANT_GUESTS,
 } from '@/lib/graphql';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { useFormDirty } from '@/lib/useFormDirty';
 import { ExportMenu, type ListExportFormat } from '@/components/ExportMenu';
 import { downloadExportPayload } from '@/lib/downloadExport';
 import { HubLinkCards } from '@/components/HubLinkCards';
@@ -53,6 +54,7 @@ function GuestsPageContent() {
   const [selected, setSelected] = useState<any>(null);
   const [newTag, setNewTag] = useState('');
   const [form] = Form.useForm();
+  const { dirty, clearDirty, onValuesChange } = useFormDirty();
   const { limit, offset, setPagination, tablePagination } = useUrlPagination({
     defaultPageSize: 20,
   });
@@ -88,9 +90,11 @@ function GuestsPageContent() {
       dietaryRestrictions: record.dietaryRestrictions?.join(', '),
       allergies: record.allergies?.join(', '),
     });
+    clearDirty();
   };
 
   const handleSave = async () => {
+    if (!dirty) return;
     const values = await form.validateFields();
     try {
       await updateProfile({
@@ -109,6 +113,7 @@ function GuestsPageContent() {
         },
       });
       message.success('Guest profile saved');
+      clearDirty();
       setSelected(null);
       refetch();
     } catch (err: any) {
@@ -278,7 +283,7 @@ function GuestsPageContent() {
             <Link href={`/messages?dinerId=${selected?.dinerId}`}>
               <Button icon={<MessageOutlined />}>Message</Button>
             </Link>
-            <Button type="primary" loading={saving} onClick={handleSave}>
+            <Button type="primary" loading={saving} disabled={!dirty} onClick={handleSave}>
               Save
             </Button>
           </Space>
@@ -330,7 +335,7 @@ function GuestsPageContent() {
               </Space.Compact>
             </div>
 
-            <Form form={form} layout="vertical">
+            <Form form={form} layout="vertical" onValuesChange={onValuesChange}>
               <Form.Item name="vipStatus" label="VIP status">
                 <Select
                   options={[

@@ -20,6 +20,8 @@ const restaurantPackageSchema = new Schema(
     minPartySize: { type: Number, min: 1 },
     maxPartySize: { type: Number, min: 1 },
     active: { type: Boolean, default: true, index: true },
+    /** When true, bookings with this package need staff confirmation. */
+    requiresManualApproval: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

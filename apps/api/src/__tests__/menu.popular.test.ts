@@ -43,7 +43,7 @@ const ITEM = (name: string, popular: boolean) => ({
 describe('Popular menu items', () => {
   let agent: request.Agent;
   let ownerToken: string;
-  let staffToken: string;
+  let managerToken: string;
   let adminToken: string;
   let dinerToken: string;
   let restaurantId: string;
@@ -104,10 +104,10 @@ describe('Popular menu items', () => {
       passwordHash: 'unused',
       firstName: 'Menu',
       lastName: 'Staff',
-      role: 'staff',
+      role: 'manager',
       restaurantIds: [restaurantId],
     });
-    staffToken = signAccessToken({ sub: staff._id.toString(), role: 'staff' });
+    managerToken = signAccessToken({ sub: staff._id.toString(), role: 'manager' });
   });
 
   it('lets the owner mark popular dishes', async () => {
@@ -145,7 +145,7 @@ describe('Popular menu items', () => {
           sections: [{ name: 'Mains', items: [ITEM('Pasta', true), ITEM('Risotto', false)] }],
         },
       },
-      staffToken,
+      managerToken,
     );
     expect(staffRes.body.errors).toBeUndefined();
     expect(staffRes.body.data.upsertMenu.sections[0].items[0].popular).toBe(true);

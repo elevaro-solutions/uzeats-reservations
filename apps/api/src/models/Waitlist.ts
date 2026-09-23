@@ -3,7 +3,7 @@ import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
 const waitlistSchema = new Schema(
   {
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true, index: true },
-    // Optional for in-house (walk-in/phone) entries added by staff
+    // Optional for in-house (walk-in/phone) entries added by managers
     dinerId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
     guestName: { type: String },
     guestPhone: { type: String },

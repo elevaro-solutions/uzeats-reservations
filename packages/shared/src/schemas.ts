@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sanitizeBlogHtml } from "./sanitizeHtml.js";
 import {
   USER_ROLES,
   RESTAURANT_STATUSES,
@@ -80,7 +81,13 @@ export const adminCreateUserSchema = z.object({
   firstName: z.string().min(1).max(80),
   lastName: z.string().min(1).max(80),
   phone: phoneSchema.optional(),
-  role: z.enum(["diner", "restaurant_owner", "staff"]),
+  role: z.enum([
+    "diner",
+    "restaurant_owner",
+    "manager",
+    "admin",
+    "account_manager",
+  ]),
   restaurantIds: z.array(z.string().min(1)).optional(),
   emailVerified: z.boolean().optional(),
 });
@@ -189,6 +196,7 @@ export const tableInputSchema = z.object({
   combinable: z.boolean().default(false),
   active: z.boolean().default(true),
   photoUrl: z.string().url().optional().nullable(),
+  requiresManualApproval: z.boolean().optional().default(false),
 });
 
 export const shiftInputSchema = z.object({
@@ -240,6 +248,7 @@ export const restaurantPackageInputSchema = z.object({
   minPartySize: z.number().int().min(1).max(50).optional().nullable(),
   maxPartySize: z.number().int().min(1).max(50).optional().nullable(),
   active: z.boolean().optional().default(true),
+  requiresManualApproval: z.boolean().optional().default(false),
 });
 
 export const ownerGuestInputSchema = z.object({
@@ -311,6 +320,7 @@ export const notificationPreferencesSchema = z.object({
   availabilityAlerts: notificationChannelPreferencesSchema.nullish(),
   guestSpendAlert: notificationChannelPreferencesSchema.nullish(),
   reservationUpdates: notificationChannelPreferencesSchema.nullish(),
+  newReview: notificationChannelPreferencesSchema.nullish(),
   reviewReply: notificationChannelPreferencesSchema.nullish(),
   surveyInvitation: notificationChannelPreferencesSchema.nullish(),
   loyaltyUpdates: notificationChannelPreferencesSchema.nullish(),
@@ -369,7 +379,12 @@ export const blogPostInputSchema = z.object({
     .optional()
     .transform((v) => (!v ? undefined : v)),
   excerpt: z.string().max(500).optional().default(""),
-  bodyHtml: z.string().min(1).max(100_000),
+  bodyHtml: z
+    .string()
+    .min(1)
+    .max(100_000)
+    .transform((html) => sanitizeBlogHtml(html))
+    .refine((html) => html.length > 0, "Body cannot be empty after sanitizing HTML"),
   coverImageUrl: z
     .union([z.string().url(), z.literal("")])
     .optional()
@@ -569,62 +584,6 @@ export function htmlToPlainText(html: string) {
     .trim();
 }
 
-const SUPPORT_HTML_TAGS = new Set([
-  "p",
-  "br",
-  "strong",
-  "b",
-  "em",
-  "i",
-  "u",
-  "s",
-  "h2",
-  "h3",
-  "ul",
-  "ol",
-  "li",
-  "a",
-  "blockquote",
-  "table",
-  "thead",
-  "tbody",
-  "tr",
-  "th",
-  "td",
-  "code",
-]);
-
-/** Allow TipTap markup; drop scripts, event handlers, and unknown tags. */
-export function sanitizeSupportHtml(html: string) {
-  let out = html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/javascript:/gi, "");
-
-  out = out.replace(
-    /<\/?([a-z0-9]+)(\s[^>]*)?>/gi,
-    (full, tag: string, attrs = "") => {
-      const name = tag.toLowerCase();
-      const closing = full.startsWith("</");
-      if (!SUPPORT_HTML_TAGS.has(name)) return "";
-      if (closing) return `</${name}>`;
-      if (name === "br") return "<br>";
-      if (name === "a") {
-        const hrefMatch = String(attrs).match(
-          /href\s*=\s*("([^"]*)"|'([^']*)')/i,
-        );
-        const href = hrefMatch?.[2] ?? hrefMatch?.[3] ?? "";
-        if (!/^https?:\/\//i.test(href)) return "";
-        return `<a href="${href.replace(/"/g, "")}" rel="noopener noreferrer" target="_blank">`;
-      }
-      return `<${name}>`;
-    },
-  );
-
-  return out.trim();
-}
-
 export const ownerSupportAttachmentInputSchema = z.object({
   url: z.string().trim().min(1).max(2000),
   key: z.string().trim().max(500).optional(),
@@ -677,6 +636,27 @@ export const ownerSupportTicketInputSchema = z
   });
 
 export type OwnerSupportTicketInput = z.infer<typeof ownerSupportTicketInputSchema>;
+
+export const ownerSupportReplyInputSchema = z
+  .object({
+    body: z.string().trim().max(SUPPORT_TICKET_DESCRIPTION_MAX_LENGTH),
+    attachments: z
+      .array(ownerSupportAttachmentInputSchema)
+      .max(SUPPORT_TICKET_ATTACHMENT_MAX_COUNT)
+      .optional()
+      .default([]),
+  })
+  .superRefine((value, ctx) => {
+    if (htmlToPlainText(value.body).length < 1 && value.attachments.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Write a message or attach an image",
+        path: ["body"],
+      });
+    }
+  });
+
+export type OwnerSupportReplyInput = z.infer<typeof ownerSupportReplyInputSchema>;
 
 export const requestDocsAccessInputSchema = z.object({
   email: emailSchema,

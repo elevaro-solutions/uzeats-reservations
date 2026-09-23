@@ -35,6 +35,7 @@ export type ReservationOverflowMenuProps = {
   slotEnd?: string | null;
   depositStatus?: string | null;
   depositAmountCents?: number | null;
+  requiresManualApproval?: boolean | null;
 };
 
 function actionIcon(
@@ -77,6 +78,7 @@ export function ReservationOverflowMenu({
   slotEnd,
   depositStatus,
   depositAmountCents,
+  requiresManualApproval,
 }: ReservationOverflowMenuProps) {
   const { theme } = useUnistyles();
 
@@ -120,6 +122,7 @@ export function ReservationOverflowMenu({
               slotEnd={slotEnd}
               depositStatus={depositStatus}
               depositAmountCents={depositAmountCents}
+              requiresManualApproval={requiresManualApproval}
             />
           </Flex>
           {subtitle ? (

@@ -1,27 +1,43 @@
 import type { UserRole } from './types.js';
 
 /** Platform operators with admin dashboard access. */
-export const PLATFORM_ADMIN_ROLES = ['admin', 'super_admin'] as const satisfies readonly UserRole[];
+export const PLATFORM_ADMIN_ROLES = [
+  'admin',
+  'account_manager',
+  'super_admin',
+] as const satisfies readonly UserRole[];
 
 /** Roles that only a super admin may assign or delete. */
 export const ELEVATED_ADMIN_ROLES = ['admin', 'super_admin'] as const satisfies readonly UserRole[];
 
 export function isPlatformAdmin(role: string): role is UserRole {
-  return role === 'admin' || role === 'super_admin';
+  return (
+    role === 'admin' || role === 'account_manager' || role === 'super_admin'
+  );
 }
 
 export function isSuperAdmin(role: string): role is UserRole {
   return role === 'super_admin';
 }
 
-/** Owners and platform admins may change plans, cancel, or subscribe. Staff is view-only. */
+/** Owners and platform admins may change plans, cancel, or subscribe. Managers are view-only. */
 export function canManageBilling(role: string): boolean {
   return role === 'restaurant_owner' || isPlatformAdmin(role);
 }
 
-/** Staff cannot add locations; diners may convert to owners via onboarding. */
+/** Owners and platform admins may invite/remove venue managers. Managers cannot. */
+export function canManageTeam(role: string): boolean {
+  return role === 'restaurant_owner' || isPlatformAdmin(role);
+}
+
+/** Managers cannot add locations; diners may convert to owners via onboarding. */
 export function canCreateRestaurant(role: string): boolean {
-  return role !== 'staff';
+  return role !== 'manager';
+}
+
+/** DoorDash/Uber Eats MHTML import and menu-image fetch (dashboard, not diners). */
+export function canImportRestaurant(role: string): boolean {
+  return role === 'restaurant_owner' || role === 'manager' || isPlatformAdmin(role);
 }
 
 /** Whether `actorRole` may modify a user with `targetRole`. */

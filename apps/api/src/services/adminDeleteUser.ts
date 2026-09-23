@@ -23,7 +23,7 @@ import {
   RestaurantGroup,
   Review,
   Shift,
-  StaffInvite,
+  ManagerInvite,
   Subscription,
   SupportTicket,
   SurveyConfig,
@@ -265,8 +265,8 @@ async function deleteUserRelatedRecords(userId: mongoose.Types.ObjectId) {
   await bump(counts, 'coverFees', await CoverFee.deleteMany({ dinerId: userId }));
   await bump(
     counts,
-    'staffInvites',
-    await StaffInvite.deleteMany({ $or: [{ invitedById: userId }, { userId }] }),
+    'managerInvites',
+    await ManagerInvite.deleteMany({ $or: [{ invitedById: userId }, { userId }] }),
   );
   await bump(counts, 'restaurantGroups', await RestaurantGroup.deleteMany({ ownerId: userId }));
   await RestaurantGroup.updateMany({}, { $pull: { adminUserIds: userId } });

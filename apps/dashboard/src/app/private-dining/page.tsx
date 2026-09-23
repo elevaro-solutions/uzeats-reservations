@@ -19,6 +19,7 @@ import {
   Tag,
   Typography,
   message,
+  Switch,
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -26,6 +27,7 @@ import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS } from '@/lib/graphql';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { useFormDirty } from '@/lib/useFormDirty';
 import { gql } from '@apollo/client';
 
 const { Title, Text } = Typography;
@@ -34,7 +36,7 @@ const { TextArea } = Input;
 const PRIVATE_DINING_SPACES = gql`
   query PrivateDiningSpaces($restaurantId: ID!) {
     privateDiningSpaces(restaurantId: $restaurantId) {
-      id name description minGuests maxGuests rentalFeeCents minimumSpendCents photoUrl amenities active
+      id name description minGuests maxGuests rentalFeeCents minimumSpendCents photoUrl amenities active requiresManualApproval
     }
   }
 `;
@@ -99,6 +101,8 @@ function PrivateDiningPageContent() {
   const [respondingInquiry, setRespondingInquiry] = useState<any>(null);
   const [spaceForm] = Form.useForm();
   const [respondForm] = Form.useForm();
+  const spaceDirty = useFormDirty();
+  const respondDirty = useFormDirty();
   const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 10 });
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
@@ -123,6 +127,7 @@ function PrivateDiningPageContent() {
   }, [authLoading, user, router]);
 
   const handleSpaceSubmit = async () => {
+    if (!spaceDirty.dirty) return;
     try {
       const values = await spaceForm.validateFields();
       const input = {
@@ -135,6 +140,7 @@ function PrivateDiningPageContent() {
         photoUrl: values.photoUrl || undefined,
         amenities: values.amenities?.split(',').map((a: string) => a.trim()).filter(Boolean) ?? [],
         active: true,
+        requiresManualApproval: values.requiresManualApproval ?? false,
       };
 
       if (editingSpaceId) {
@@ -147,6 +153,7 @@ function PrivateDiningPageContent() {
       setSpaceModalOpen(false);
       setEditingSpaceId(null);
       spaceForm.resetFields();
+      spaceDirty.clearDirty();
       refetchSpaces();
     } catch (err: any) {
       message.error(err?.message ?? 'Failed to save space');
@@ -154,6 +161,7 @@ function PrivateDiningPageContent() {
   };
 
   const handleRespond = async () => {
+    if (!respondDirty.dirty) return;
     try {
       const values = await respondForm.validateFields();
       await respondToInquiry({
@@ -163,6 +171,7 @@ function PrivateDiningPageContent() {
       setRespondModalOpen(false);
       setRespondingInquiry(null);
       respondForm.resetFields();
+      respondDirty.clearDirty();
       refetchInquiries();
     } catch (err: any) {
       message.error(err?.message ?? 'Failed to respond');
@@ -190,7 +199,9 @@ function PrivateDiningPageContent() {
       minimumSpend: record.minimumSpendCents / 100,
       photoUrl: record.photoUrl,
       amenities: record.amenities?.join(', '),
+      requiresManualApproval: record.requiresManualApproval ?? false,
     });
+    spaceDirty.clearDirty();
     setSpaceModalOpen(true);
   };
 
@@ -280,7 +291,12 @@ function PrivateDiningPageContent() {
         <Button
           size="small"
           type="primary"
-          onClick={() => { setRespondingInquiry(r); respondForm.resetFields(); setRespondModalOpen(true); }}
+          onClick={() => {
+            setRespondingInquiry(r);
+            respondForm.resetFields();
+            respondDirty.clearDirty();
+            setRespondModalOpen(true);
+          }}
         >
           Respond
         </Button>
@@ -305,7 +321,12 @@ function PrivateDiningPageContent() {
                   <Button
                     type="primary"
                     icon={<PlusOutlined />}
-                    onClick={() => { setEditingSpaceId(null); spaceForm.resetFields(); setSpaceModalOpen(true); }}
+                    onClick={() => {
+                      setEditingSpaceId(null);
+                      spaceForm.resetFields();
+                      spaceDirty.clearDirty();
+                      setSpaceModalOpen(true);
+                    }}
                   >
                     Add Space
                   </Button>
@@ -353,12 +374,17 @@ function PrivateDiningPageContent() {
       <Modal
         title={editingSpaceId ? 'Edit Space' : 'Add Private Dining Space'}
         open={spaceModalOpen}
-        onCancel={() => { setSpaceModalOpen(false); setEditingSpaceId(null); }}
+        onCancel={() => {
+          setSpaceModalOpen(false);
+          setEditingSpaceId(null);
+          spaceDirty.clearDirty();
+        }}
         onOk={handleSpaceSubmit}
+        okButtonProps={{ disabled: !spaceDirty.dirty }}
         confirmLoading={creatingSpace || updatingSpace}
         width={520}
       >
-        <Form form={spaceForm} layout="vertical">
+        <Form form={spaceForm} layout="vertical" onValuesChange={spaceDirty.onValuesChange}>
           <Form.Item name="name" label="Space Name" rules={[{ required: true }]}>
             <Input placeholder="The Cellar Room" />
           </Form.Item>
@@ -387,14 +413,27 @@ function PrivateDiningPageContent() {
           <Form.Item name="amenities" label="Amenities (comma-separated)">
             <Input placeholder="AV equipment, Private bar, Dance floor" />
           </Form.Item>
+          <Form.Item
+            name="requiresManualApproval"
+            label="Require manual approval"
+            valuePropName="checked"
+            extra="Bookings for this space stay pending until staff confirms"
+          >
+            <Switch />
+          </Form.Item>
         </Form>
       </Modal>
 
       <Modal
         title="Respond to Inquiry"
         open={respondModalOpen}
-        onCancel={() => { setRespondModalOpen(false); setRespondingInquiry(null); }}
+        onCancel={() => {
+          setRespondModalOpen(false);
+          setRespondingInquiry(null);
+          respondDirty.clearDirty();
+        }}
         onOk={handleRespond}
+        okButtonProps={{ disabled: !respondDirty.dirty }}
         confirmLoading={responding}
       >
         {respondingInquiry && (
@@ -406,7 +445,7 @@ function PrivateDiningPageContent() {
             </Text>
           </div>
         )}
-        <Form form={respondForm} layout="vertical">
+        <Form form={respondForm} layout="vertical" onValuesChange={respondDirty.onValuesChange}>
           <Form.Item name="status" label="Status" rules={[{ required: true }]}>
             <Select
               options={[

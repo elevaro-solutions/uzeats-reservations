@@ -23,6 +23,7 @@ Each user has `notificationPreferences` with per-event channel toggles:
 - `availabilityAlerts`
 - `guestSpendAlert`
 - `reservationUpdates`
+- `newReview`
 - `reviewReply`
 - `surveyInvitation`
 - `loyaltyUpdates`

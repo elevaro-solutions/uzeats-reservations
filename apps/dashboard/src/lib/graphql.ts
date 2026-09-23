@@ -330,6 +330,7 @@ export const ADMIN_STATS = gql`
       pendingRestaurants
       pendingSlugRequests
       pendingProfileChangeRequests
+      pendingModerationItems
       mrrCents
       activeSubscriptions
       openInvoices
@@ -342,6 +343,7 @@ export const ADMIN_PENDING_REQUEST_COUNTS = gql`
     adminPendingRequestCounts {
       slugRequests
       profileChangeRequests
+      moderationItems
     }
   }
 `;
@@ -653,8 +655,24 @@ export const ADMIN_DELETE_RESTAURANTS = gql`
 `;
 
 export const ADMIN_USERS = gql`
-  query AdminUsers($search: String, $role: UserRole, $roles: [UserRole!], $limit: Int, $offset: Int) {
-    adminUsers(search: $search, role: $role, roles: $roles, limit: $limit, offset: $offset) {
+  query AdminUsers(
+    $search: String
+    $role: UserRole
+    $roles: [UserRole!]
+    $restaurantId: ID
+    $hasRestaurants: Boolean
+    $limit: Int
+    $offset: Int
+  ) {
+    adminUsers(
+      search: $search
+      role: $role
+      roles: $roles
+      restaurantId: $restaurantId
+      hasRestaurants: $hasRestaurants
+      limit: $limit
+      offset: $offset
+    ) {
       total
       hasSuperAdmin
       items { id email phone firstName lastName role loyaltyPoints emailVerified phoneVerified restaurantIds createdAt }
@@ -806,15 +824,15 @@ export const START_IMPERSONATION = gql`
   }
 `;
 
-export const INVITE_STAFF = gql`
-  mutation InviteStaff(
+export const INVITE_MANAGER = gql`
+  mutation InviteManager(
     $email: String!
     $firstName: String!
     $lastName: String!
     $restaurantIds: [ID!]!
     $role: UserRole
   ) {
-    inviteStaff(
+    inviteManager(
       email: $email
       firstName: $firstName
       lastName: $lastName
@@ -862,6 +880,77 @@ export const MY_OWNER_SUPPORT_TICKETS = gql`
         }
         createdAt
         updatedAt
+        attachments {
+          id
+        }
+        notes {
+          id
+        }
+      }
+    }
+  }
+`;
+
+export const MY_OWNER_SUPPORT_TICKET = gql`
+  query MyOwnerSupportTicket($id: ID!) {
+    myOwnerSupportTicket(id: $id) {
+      id
+      subject
+      subjectKey
+      description
+      status
+      category
+      requesterId
+      restaurantId
+      restaurant {
+        id
+        name
+      }
+      requester { id firstName lastName }
+      createdAt
+      updatedAt
+      attachments {
+        id
+        url
+        filename
+        contentType
+        size
+      }
+      notes {
+        id
+        body
+        authorId
+        createdAt
+        visibleToRequester
+        author { id firstName lastName }
+        attachments {
+          id
+          url
+          filename
+          contentType
+          size
+        }
+      }
+    }
+  }
+`;
+
+export const ADD_OWNER_SUPPORT_REPLY = gql`
+  mutation AddOwnerSupportReply(
+    $ticketId: ID!
+    $body: String!
+    $attachments: [OwnerSupportAttachmentInput!]
+  ) {
+    addOwnerSupportReply(ticketId: $ticketId, body: $body, attachments: $attachments) {
+      id
+      status
+      notes {
+        id
+        body
+        authorId
+        createdAt
+        visibleToRequester
+        author { id firstName lastName }
         attachments {
           id
           url
@@ -959,7 +1048,19 @@ export const SUPPORT_TICKET = gql`
         authorId
         createdAt
         updatedAt
+        visibleToRequester
         author { id firstName lastName email role }
+        attachments {
+          id
+          url
+          key
+          filename
+          contentType
+          size
+          uploadedById
+          createdAt
+          uploadedBy { id firstName lastName email role }
+        }
       }
       attachments {
         id
@@ -1072,8 +1173,18 @@ export const UPDATE_SUPPORT_TICKET = gql`
 `;
 
 export const ADD_SUPPORT_NOTE = gql`
-  mutation AddSupportNote($ticketId: ID!, $body: String!) {
-    addSupportNote(ticketId: $ticketId, body: $body) {
+  mutation AddSupportNote(
+    $ticketId: ID!
+    $body: String!
+    $visibleToRequester: Boolean
+    $attachments: [OwnerSupportAttachmentInput!]
+  ) {
+    addSupportNote(
+      ticketId: $ticketId
+      body: $body
+      visibleToRequester: $visibleToRequester
+      attachments: $attachments
+    ) {
       id
       status
       notes {
@@ -1082,7 +1193,19 @@ export const ADD_SUPPORT_NOTE = gql`
         authorId
         createdAt
         updatedAt
+        visibleToRequester
         author { id firstName lastName email role }
+        attachments {
+          id
+          url
+          key
+          filename
+          contentType
+          size
+          uploadedById
+          createdAt
+          uploadedBy { id firstName lastName email role }
+        }
       }
       events {
         id
@@ -1490,13 +1613,38 @@ export const FLAGGED_CONTENT = gql`
   query FlaggedContent($limit: Int) {
     flaggedContent(limit: $limit) {
       reviews {
-        id type restaurantId restaurantName authorName body rating hidden
-        flagReason flaggedAt createdAt
+        id type restaurantId restaurantName authorName body rating hidden flagged
+        flagReason flagReasonCode flagDetails flaggedAt createdAt
       }
       messages {
-        id type restaurantId restaurantName authorName body hidden
+        id type restaurantId restaurantName authorName body hidden flagged
         flagReason flaggedAt createdAt
       }
+    }
+  }
+`;
+
+export const FLAGGED_CONTENT_ITEM = gql`
+  query FlaggedContentItem($id: ID!, $type: String!) {
+    flaggedContentItem(id: $id, type: $type) {
+      id
+      type
+      restaurantId
+      restaurantName
+      authorName
+      body
+      rating
+      photos
+      ownerReply
+      ownerRepliedAt
+      hidden
+      flagged
+      flagReason
+      flagReasonCode
+      flagDetails
+      flaggedAt
+      flaggedByName
+      createdAt
     }
   }
 `;
@@ -1552,6 +1700,36 @@ export const EXPORT_ADMIN_CSV = gql`
 export const EXPORT_ADMIN_DINERS = gql`
   mutation ExportAdminDiners($search: String, $format: String) {
     exportAdminDiners(search: $search, format: $format) {
+      filename
+      content
+      rowCount
+      mimeType
+      encoding
+    }
+  }
+`;
+
+export const EXPORT_ADMIN_USERS = gql`
+  mutation ExportAdminUsers(
+    $search: String
+    $role: UserRole
+    $roles: [UserRole!]
+    $restaurantId: ID
+    $hasRestaurants: Boolean
+    $format: String
+    $basename: String
+    $title: String
+  ) {
+    exportAdminUsers(
+      search: $search
+      role: $role
+      roles: $roles
+      restaurantId: $restaurantId
+      hasRestaurants: $hasRestaurants
+      format: $format
+      basename: $basename
+      title: $title
+    ) {
       filename
       content
       rowCount
@@ -1629,6 +1807,36 @@ export const RESET_PASSWORD = gql`
     resetPassword(token: $token, newPassword: $newPassword) {
       success
       message
+    }
+  }
+`;
+
+export const MANAGER_INVITE_BY_TOKEN = gql`
+  query ManagerInviteByToken($token: String!) {
+    managerInviteByToken(token: $token) {
+      email
+      firstName
+      lastName
+      role
+      roleLabel
+      restaurantName
+      status
+      needsPassword
+    }
+  }
+`;
+
+export const ACCEPT_MANAGER_INVITE = gql`
+  mutation AcceptManagerInvite($token: String!, $password: String!) {
+    acceptManagerInvite(token: $token, password: $password) {
+      user {
+        id
+        email
+        firstName
+        lastName
+        role
+        restaurantIds
+      }
     }
   }
 `;
@@ -1947,7 +2155,7 @@ export const PLATFORM_CONFIG = gql`
       supportPhone
       defaultSignupRole
       defaultPartnerRole
-      defaultStaffRole
+      defaultManagerRole
       maintenanceMode
       allowPublicRegistration
       allowPartnerRegistration
@@ -1979,7 +2187,7 @@ export const UPDATE_PLATFORM_CONFIG = gql`
       supportPhone
       defaultSignupRole
       defaultPartnerRole
-      defaultStaffRole
+      defaultManagerRole
       maintenanceMode
       allowPublicRegistration
       allowPartnerRegistration
@@ -2065,6 +2273,7 @@ export const ADMIN_PLANS = gql`
       trialDays
       visibleOnPricing
       isCustom
+      managerSeats
       features {
         floorPlans
         smartAssign
@@ -2106,6 +2315,7 @@ export const UPDATE_PLAN_PACKAGE = gql`
       trialDays
       visibleOnPricing
       isCustom
+      managerSeats
     }
   }
 `;
@@ -2122,6 +2332,7 @@ export const CREATE_PLAN_PACKAGE = gql`
       trialDays
       visibleOnPricing
       isCustom
+      managerSeats
     }
   }
 `;
@@ -2325,6 +2536,7 @@ export const PLANS = gql`
       trialDays
       visibleOnPricing
       isCustom
+      managerSeats
       features {
         floorPlans smartAssign waitlist premiumSms
         guestProfiles360 emailCampaigns customWidget analytics dedicatedSupport
@@ -2672,12 +2884,19 @@ export const MARK_RESTAURANT_INQUIRY_READ = gql`
 
 // ---- Reviews ----
 
+export const RESTAURANT_UNREPLIED_REVIEW_COUNT = gql`
+  query RestaurantUnrepliedReviewCount($restaurantId: ID!) {
+    restaurantUnrepliedReviewCount(restaurantId: $restaurantId)
+  }
+`;
+
 export const RESTAURANT_REVIEWS = gql`
   query DashboardRestaurantReviews($restaurantId: ID!, $limit: Int, $offset: Int) {
     restaurantReviews(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
       total
       items {
-        id rating foodRating serviceRating atmosphereRating comment photos ownerReply ownerRepliedAt hidden createdAt dinerId
+        id rating foodRating serviceRating atmosphereRating comment photos ownerReply ownerRepliedAt
+        hidden flagged flagReason flagReasonCode flagDetails flaggedAt createdAt dinerId
         diner { id firstName lastName }
       }
     }
@@ -2703,6 +2922,14 @@ export const ADD_RESTAURANT_PHOTOS = gql`
     addRestaurantPhotos(restaurantId: $restaurantId, urls: $urls) {
       id
       photos
+    }
+  }
+`;
+
+export const REPORT_REVIEW = gql`
+  mutation ReportReview($reviewId: ID!, $reason: ReviewReportReason!, $details: String) {
+    reportReview(reviewId: $reviewId, reason: $reason, details: $details) {
+      id flagged flagReason flagReasonCode flagDetails flaggedAt
     }
   }
 `;
@@ -3054,10 +3281,24 @@ export const RESTAURANT_TEAM = gql`
         waitlistAvailable { sms email webPush platform messenger }
         guestSpendAlert { sms email webPush platform messenger }
         reservationUpdates { sms email webPush platform messenger }
+        newReview { sms email webPush platform messenger }
         reviewReply { sms email webPush platform messenger }
         surveyInvitation { sms email webPush platform messenger }
         loyaltyUpdates { sms email webPush platform messenger }
       }
+    }
+  }
+`;
+
+export const RESTAURANT_MANAGER_SEATS = gql`
+  query RestaurantManagerSeats($restaurantId: ID!) {
+    restaurantManagerSeats(restaurantId: $restaurantId) {
+      restaurantId
+      planKey
+      limit
+      used
+      pending
+      remaining
     }
   }
 `;
@@ -3076,6 +3317,7 @@ export const UPDATE_NOTIFICATION_PREFERENCES = gql`
         waitlistAvailable { sms email webPush platform messenger }
         guestSpendAlert { sms email webPush platform messenger }
         reservationUpdates { sms email webPush platform messenger }
+        newReview { sms email webPush platform messenger }
         reviewReply { sms email webPush platform messenger }
         surveyInvitation { sms email webPush platform messenger }
         loyaltyUpdates { sms email webPush platform messenger }
@@ -3135,6 +3377,7 @@ export const RESTAURANT_SETTINGS = gql`
   query RestaurantSettings($id: ID) {
     restaurant(id: $id) {
       id name featured featuredUntil spendAlertThresholdCents useSmartAssign allowGuestTableSelection reservationsEnabled reservationsVisible posEnabled
+      manualApprovalEnabled manualApprovalPartySizeOp manualApprovalPartySize
       widgetTheme { primaryColor buttonText showReviews }
     }
   }
@@ -3149,6 +3392,9 @@ export const UPDATE_RESTAURANT_SETTINGS = gql`
     $reservationsEnabled: Boolean
     $reservationsVisible: Boolean
     $posEnabled: Boolean
+    $manualApprovalEnabled: Boolean
+    $manualApprovalPartySizeOp: String
+    $manualApprovalPartySize: Int
     $widgetTheme: WidgetThemeInput
   ) {
     updateRestaurantSettings(
@@ -3159,9 +3405,13 @@ export const UPDATE_RESTAURANT_SETTINGS = gql`
       reservationsEnabled: $reservationsEnabled
       reservationsVisible: $reservationsVisible
       posEnabled: $posEnabled
+      manualApprovalEnabled: $manualApprovalEnabled
+      manualApprovalPartySizeOp: $manualApprovalPartySizeOp
+      manualApprovalPartySize: $manualApprovalPartySize
       widgetTheme: $widgetTheme
     ) {
       id spendAlertThresholdCents useSmartAssign allowGuestTableSelection reservationsEnabled reservationsVisible posEnabled
+      manualApprovalEnabled manualApprovalPartySizeOp manualApprovalPartySize
       widgetTheme { primaryColor buttonText showReviews }
     }
   }
@@ -3181,7 +3431,7 @@ export const FLOOR_PLAN_TABLES = gql`
   query FloorPlanTables($id: ID) {
     restaurant(id: $id) {
       id name
-      tables { id name minCapacity maxCapacity floorArea active posX posY width height shape rotation photoUrl }
+      tables { id name minCapacity maxCapacity floorArea active posX posY width height shape rotation photoUrl requiresManualApproval }
     }
   }
 `;

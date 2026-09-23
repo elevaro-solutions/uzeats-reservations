@@ -20,6 +20,7 @@ import { PageHeader, spacing } from '@reservations/ui';
 import { CLEAR_SEED_DATA, PLATFORM_CONFIG, UPDATE_PLATFORM_CONFIG } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { isSuperAdmin } from '@/lib/roles';
+import { useFormDirty } from '@/lib/useFormDirty';
 
 const { Paragraph, Text } = Typography;
 
@@ -78,10 +79,11 @@ const NON_DANGER_SECTIONS = CONFIG_SECTIONS.filter((s) => s.key !== 'danger');
 type ConfigSectionKey = (typeof CONFIG_SECTIONS)[number]['key'];
 
 const ROLE_OPTIONS = [
-  { value: 'diner', label: 'Diner' },
-  { value: 'restaurant_owner', label: 'Restaurant owner' },
-  { value: 'staff', label: 'Staff' },
+  { value: 'diner', label: 'Guest' },
+  { value: 'restaurant_owner', label: 'Owner' },
+  { value: 'manager', label: 'Manager' },
   { value: 'admin', label: 'Admin' },
+  { value: 'account_manager', label: 'Account manager' },
 ];
 
 export default function AdminConfigPage() {
@@ -93,6 +95,7 @@ export default function AdminConfigPage() {
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [activeKey, setActiveKey] = useState<ConfigSectionKey>('support');
   const [form] = Form.useForm();
+  const { dirty, clearDirty, onValuesChange } = useFormDirty();
 
   const visibleSections = canClearSeed ? CONFIG_SECTIONS : NON_DANGER_SECTIONS;
   const activeSection = visibleSections.find((s) => s.key === activeKey) ?? visibleSections[0];
@@ -100,7 +103,8 @@ export default function AdminConfigPage() {
   useEffect(() => {
     if (!data?.platformConfig) return;
     form.setFieldsValue(data.platformConfig);
-  }, [data, form]);
+    clearDirty();
+  }, [data, form, clearDirty]);
 
   useEffect(() => {
     if (!canClearSeed && activeKey === 'danger') {
@@ -111,6 +115,7 @@ export default function AdminConfigPage() {
   if (!ready) return null;
 
   const onSave = async () => {
+    if (!dirty) return;
     try {
       const values = await form.validateFields();
       await updateConfig({
@@ -120,7 +125,7 @@ export default function AdminConfigPage() {
             supportPhone: values.supportPhone,
             defaultSignupRole: values.defaultSignupRole,
             defaultPartnerRole: values.defaultPartnerRole,
-            defaultStaffRole: values.defaultStaffRole,
+            defaultManagerRole: values.defaultManagerRole,
             maintenanceMode: values.maintenanceMode,
             allowPublicRegistration: values.allowPublicRegistration,
             allowPartnerRegistration: values.allowPartnerRegistration,
@@ -132,6 +137,7 @@ export default function AdminConfigPage() {
         },
       });
       message.success('Configuration saved');
+      clearDirty();
       refetch();
     } catch (err: any) {
       if (err?.errorFields) return;
@@ -185,8 +191,8 @@ export default function AdminConfigPage() {
               <Select options={ROLE_OPTIONS} />
             </Form.Item>
             <Form.Item
-              name="defaultStaffRole"
-              label="Default staff invite role"
+              name="defaultManagerRole"
+              label="Default manager invite role"
               rules={[{ required: true }]}
             >
               <Select options={ROLE_OPTIONS} />
@@ -325,7 +331,7 @@ export default function AdminConfigPage() {
             style={activeKey === 'danger' ? { borderColor: '#ffa39e' } : undefined}
             extra={
               activeKey !== 'danger' ? (
-                <Button type="primary" loading={saving} onClick={onSave}>
+                <Button type="primary" loading={saving} disabled={!dirty} onClick={onSave}>
                   Save changes
                 </Button>
               ) : undefined
@@ -334,7 +340,7 @@ export default function AdminConfigPage() {
             <Paragraph type="secondary" style={{ marginTop: 0 }}>
               {activeSection.description}
             </Paragraph>
-            <Form form={form} layout="vertical">
+            <Form form={form} layout="vertical" onValuesChange={onValuesChange}>
               {renderSectionContent()}
             </Form>
           </Card>

@@ -18,7 +18,7 @@ The **Reservations** page is the primary operational view:
 | `confirmed` | Active booking |
 | `seated` | Guest arrived and is dining |
 | `completed` | Visit finished — loyalty accrues; review prompts also fire for past `confirmed`/`seated` visits |
-| `cancelled` | Cancelled by guest or staff |
+| `cancelled` | Cancelled by guest or manager |
 | `no_show` | Guest did not arrive (may trigger auto-detection via worker) |
 
 ## Table layout
@@ -48,7 +48,7 @@ When fully booked:
 
 - Reply to diner inquiries from the restaurant page
 - Proactive messages (e.g. running late, special prep)
-- Staff receive **new message** notifications per channel prefs
+- Managers receive **new message** notifications per channel prefs
 
 ## Guest CRM
 
@@ -58,7 +58,7 @@ Export the current restaurant, search, and VIP filter as Excel or PDF from the p
 
 ## Walk-in and phone bookings
 
-Owners and staff can book without a diner account:
+Owners and managers can book without a diner account:
 
 - Capture guest name and phone
 - Select table and time manually
@@ -96,18 +96,19 @@ Settings → **Notifications**.
 After marking reservations **completed**:
 
 - Loyalty points accrue for signed-in diners
-- Post-visit review prompt is sent (diners can also review a past confirmed/seated visit if staff never marked completed)
+- Post-visit review prompt is sent (diners can also review a past confirmed/seated visit if managers never marked completed)
 - Reports update for the service period
 
 ## Reviews
 
-The **Reviews** page lists diner ratings (overall plus food/service/atmosphere), comments, and photos.
+The **Reviews** page (sidebar under Guests) lists diner ratings (overall plus food/service/atmosphere), comments, and photos. Unreplied reviews show as a count badge on the sider. Creating a review notifies owners and managers (`new_review`; toggle under Settings → Notifications → **New review**).
 
 - **Reply** posts a public owner/manager response (`replyToReview`)
 - **Generate draft** fills a personalized reply (`generateReviewReplyDraft`) using Gemini when `GEMINI_API_KEY` is set, otherwise a template
+- **Report** queues a policy-violation report for Tablevera (`reportReview`). The review stays public until an admin hides or dismisses it. Disagreeing with a rating is not a valid reason — reply instead.
 - **Add to gallery** appends selected diner photos to the restaurant gallery (up to 10 total; hero order is still set in Settings)
 
-Staff with venue access can reply the same as owners. Drafts are not posted until you submit the reply.
+Managers with venue access can reply and report the same as owners. Drafts are not posted until you submit the reply. Only platform admins can hide reviews.
 
 ## Shareable links
 
@@ -125,4 +126,4 @@ On **Public profile**, upload a **logo** and up to 10 venue photos, then request
 
 ## Getting help
 
-**Support** in the sidebar opens a ticket with Tablevera (`createOwnerSupportTicket`). Format the details and attach screenshots when they help. Attach the restaurant when the issue is location-specific. Platform admins work the queue at **Admin → Tickets**.
+**Support** in the sidebar opens a ticket with Tablevera (`createOwnerSupportTicket`). Format the details and attach screenshots when they help. Attach the restaurant when the issue is location-specific. Open a ticket to continue the chat with Tablevera. Platform admins work the queue at **Admin → Tickets**.

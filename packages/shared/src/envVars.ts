@@ -308,7 +308,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     apps: ['api'],
     requirement: 'recommended',
     description:
-      'Base URL of elevaro-merchant-notifier for Telegram/WhatsApp staff alerts.',
+      'Base URL of elevaro-merchant-notifier for Telegram/WhatsApp manager alerts.',
   },
   {
     key: 'ELEVARO_NOTIFIER_API_KEY',
@@ -348,7 +348,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     group: 'notifications',
     apps: ['api'],
     requirement: 'recommended',
-    description: 'Optional Telegram notifications for staff.',
+    description: 'Optional Telegram notifications for managers.',
   },
   {
     key: 'TELEGRAM_WEBHOOK_SECRET',

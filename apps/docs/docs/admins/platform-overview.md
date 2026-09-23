@@ -2,40 +2,41 @@
 
 **Platform admins** operate Tablevera itself — approving restaurants, managing users, billing, support, and global configuration.
 
-Access requires role `admin` or `super_admin` in the partner dashboard.
+Access requires role `admin`, `account_manager`, or `super_admin` in the partner dashboard.
 
 ## Role differences
 
-| Capability | `admin` | `super_admin` |
-|---|---|---|
-| View/manage restaurants | ✅ | ✅ |
-| User management | ✅ (not super admins) | ✅ |
-| Support & moderation | ✅ | ✅ |
-| Platform config & templates | ✅ | ✅ |
-| **Permanent delete** users/restaurants | ❌ | ✅ |
-| Edit platform loyalty rates and tiers | ❌ (view stats) | ✅ |
-| Wipe seed data | ❌ | ✅ |
-| Modify super admin accounts | ❌ | ✅ |
+| Capability | `account_manager` | `admin` | `super_admin` |
+|---|---|---|---|
+| View/manage restaurants | ✅ | ✅ | ✅ |
+| View reservations; change date & time | ✅ | ✅ | ✅ |
+| User management | ✅ (not elevated admins) | ✅ (not super admins) | ✅ |
+| Support & moderation | ✅ | ✅ | ✅ |
+| Platform config & templates | ✅ | ✅ | ✅ |
+| **Permanent delete** users/restaurants | ❌ | ❌ | ✅ |
+| Edit platform loyalty rates and tiers | ❌ (view stats) | ❌ (view stats) | ✅ |
+| Wipe seed data | ❌ | ❌ | ✅ |
+| Assign admin / super admin | ❌ | ❌ | ✅ |
+| Modify super admin accounts | ❌ | ❌ | ✅ |
 
 Demo super admin: `a@tablevera.local` / `Password123!`
 
 ## Admin navigation
 
-The sidebar keeps accounts and support queues visible. Billing and platform tools open from hubs (still findable with ⌘K).
+The sidebar keeps support queues first, then accounts. Billing and platform tools open from hubs (still findable with ⌘K).
 
 | Page | Purpose |
 |---|---|
 | **Overview** | Platform KPIs and health |
-| **Diners** | Create and manage customer accounts |
-| **Restaurant owners** | Partner owner accounts and venue assignment |
-| **Staff** | Team accounts with restaurant access |
-| **Platform users** | Admin and super admin access |
 | **Restaurants** | Approve, edit, suspend, delete venues |
 | **Reservations** | All bookings across restaurants |
 | **URL slugs** | Owner requests to change public booking URLs |
-| **Profile requests** | Owner requests to change diner-facing restaurant pages |
+| **Profile requests** | Owner requests to change guest-facing restaurant pages |
 | **Tickets** | Support ticket queue from partners |
 | **Moderation** | Review flagged content |
+| **Guests** | Create and manage customer accounts |
+| **Restaurant accounts** | Owners and managers with venue assignment |
+| **Admins** | Platform admins and account managers |
 | **Billing** | Hub: invoices, revenue, churn, loyalty, plans, services, data exports |
 | **Platform** | Hub: config, discovery, blog, docs access, templates, SLA, audit, developer |
 

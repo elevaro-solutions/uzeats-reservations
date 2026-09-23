@@ -65,6 +65,9 @@ const PRO_FEATURES: FeatureKey[] = [
   'promotions',
 ];
 
+/** Minimum manager seats every package must include (owner-invited `manager` accounts). */
+export const DEFAULT_MANAGER_SEATS = 1;
+
 /** Launch pricing — early-stage SaaS rates (raise as we grow). */
 export const PLANS = {
   basic: {
@@ -73,6 +76,8 @@ export const PLANS = {
     networkCoverFeeCents: 50,
     websiteCoverFeeCents: 10,
     trialDays: 30,
+    /** Owner-invited manager seats included with the package. */
+    managerSeats: 1,
     features: features(['boostCampaigns']),
   },
   core: {
@@ -81,6 +86,7 @@ export const PLANS = {
     networkCoverFeeCents: 50,
     websiteCoverFeeCents: 0,
     trialDays: 30,
+    managerSeats: 3,
     features: features(CORE_FEATURES),
   },
   pro: {
@@ -89,9 +95,17 @@ export const PLANS = {
     networkCoverFeeCents: 25,
     websiteCoverFeeCents: 0,
     trialDays: 30,
+    managerSeats: 5,
     features: features(PRO_FEATURES),
   },
 } as const;
+
+/** Clamp package manager seats to a positive integer (packages always include ≥1). */
+export function normalizeManagerSeats(value: unknown, fallback = DEFAULT_MANAGER_SEATS): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return Math.max(DEFAULT_MANAGER_SEATS, fallback);
+  return Math.max(DEFAULT_MANAGER_SEATS, Math.min(100, Math.floor(n)));
+}
 
 export type PlanKey = keyof typeof PLANS;
 

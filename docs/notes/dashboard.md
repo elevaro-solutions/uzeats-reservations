@@ -1,3 +1,55 @@
+# Dashboard — Learnings & Observations
+
+## [2026-09-23] Form Save disabled until dirty
+- Shared helper: `apps/dashboard/src/lib/useFormDirty.ts` (`dirty`, `markDirty`, `clearDirty`, `onValuesChange`).
+- Pattern: clear dirty after `setFieldsValue` / open / successful save; wire `Form onValuesChange={onValuesChange}` (and `markDirty` for non-form controls like photo uploads); disable Save/Submit / Modal `okButtonProps` with `disabled={!dirty}`.
+- Why it matters: Prevents no-op GraphQL mutations from repeated Save clicks on unchanged edit forms.
+
+## [2026-09-23] Manual approval in Booking policies + resource forms
+- Restaurant profile → Booking policies: `manualApprovalEnabled` + optional party-size op (`gt`/`gte`) and threshold. Floor tables, Experiences, Packages, and Private dining each have a `requiresManualApproval` switch.
+- Why it matters: Global rule and per-resource flags are OR’d at booking time; empty threshold with the switch on = all online bookings need Confirm.
+
+## [2026-09-23] Floor plan + Table appends locally
+- `/floor-plan` **+ Table** creates via `createTable` then appends to local canvas state (default 0,0 / 2×2). Do not refetch `FLOOR_PLAN_TABLES` after create while the layout may be dirty — the load effect resets positions and clears `dirty`.
+- Why it matters: A post-create refetch silently drops unsaved drag/resize/rotate work.
+
+## [2026-09-23] Role `staff` → `manager`
+- Venue role enum value is now `manager` (was `staff`). GraphQL: `inviteManager`, `acceptManagerInvite`, `managerInviteByToken`, `defaultManagerRole`. Model `ManagerInvite` still uses Mongo collection `staffinvites`. Boot runs `migrateStaffRoleToManager` (users, invites, PlatformConfig field rename). Docs live under `/managers`.
+- Why it matters: Don’t write role `staff` in new code; `account_manager` is a separate platform role.
+
+## [2026-09-23] Partner Team + package manager seats
+- `/team` (Settings hub child) lets owners invite/remove Managers (`manager`). Seat limit comes from the venue’s package (`PlanInfo.managerSeats`, default Basic=1 / Core=3 / Pro=5; always ≥1). Owner does not consume a seat.
+- At limit: invite CTA disabled + Billing upgrade alert. `inviteManager` / `removeUserRestaurant` allow owners (manager role only on owned venues); admins keep full access. Seat enforcement also applies to admin create/assign.
+- Admin Pricing edits `managerSeats` per package. Query `restaurantManagerSeats(restaurantId)` for used/pending/remaining.
+- Why it matters: Don’t treat `dedicatedSupport` (“Dedicated account manager”) as venue manager seats — that’s platform support on Pro.
+
+## [2026-09-23] Moderation detail + More menus + badge
+- Admin Moderation list uses a More dropdown (View details / Dismiss / Hide / Hide & clear). Row click opens `/admin/moderation/[id]?type=review|message` with management sidebar, owner reply, photo attachments, and More actions.
+- `adminPendingRequestCounts.moderationItems` (flagged reviews + messages) badges the Moderation sider item and overview shortcut; poll interval matches slug/profile counts.
+- Slug/profile request Approve+Deny and review list Reply+Report/Hide also use More when multiple actions exist. Support ticket list More → View details; note/attachment row actions use More too.
+- Partner `/reservations/[id]` and admin `/admin/reservations/[id]` keep status CTA + Edit visible; Message guest / No-show / Cancel / Delete live under More actions.
+- Why it matters: Don’t put multi-button action clusters back in Support-area tables — use More. Detail page is the place for management + reply preview + attachments.
+
+## [2026-09-23] Reviews in sidebar + unreplied badge + new_review notify
+- `/reviews` is a top-level Guests sider item (no `parentSiderHref`). Badge = `restaurantUnrepliedReviewCount` for the active venue (visible reviews without `ownerReply`).
+- `createReview` fans out `new_review` via `notifyRestaurantManagers`; prefs key `newReview`. Inbox deep-link opens `/reviews`.
+- Guests hub cards still expose Loyalty only (Reviews left the hub).
+- Why it matters: Don’t nest Reviews under Guests again; don’t badge total review count — unreplied is the actionable signal.
+
+## [2026-09-23] Reviews: Report, not Hide
+- Partner `/reviews` uses `reportReview` with shared reason labels/help. Modal requires details for `other`. Review stays public with a Reported tag until Admin → Moderation acts.
+- Unilateral partner Hide was removed; `setReviewHidden` is admin-only. Admin restaurant Reviews panel and Moderation still hide.
+- Why it matters: Don’t restore a partner Hide button for negative ratings — it breaks trust and conflicts with Google/Yelp norms.
+
+## [2026-09-23] Restaurant managers under Restaurant accounts; Admins rename
+- Accounts sider: Guests, Restaurant accounts (owners + `manager` as Manager), Admins (`admin` / `account_manager` / `super_admin`). `/admin/staff` redirects to `/admin/owners` (`parentSiderHref: '/admin/owners'`).
+- `ROLE_LABELS`: `restaurant_owner` → Owner, `manager` → Manager; create/invite/filter/role column on `/admin/owners` use `RESTAURANT_ACCOUNT_ROLE_OPTIONS`. Managers require ≥1 venue.
+- Roles & capabilities opens from a header button into a modal on `/admin/users` (platform matrix) and `/admin/owners` (Owner vs Manager). Platform matrix includes view reservations / change date & time for all three platform roles.
+- Admin `/admin/reservations/[id]` shows booking detail; list and restaurant Manage → Reservations offer View details and Change date & time (`?edit=1` opens the modal).
+- `exportAdminUsers` (xlsx/pdf/json) powers Export on Restaurant accounts and Admins with the same search/role/venue filters (5k row cap).
+- Account detail keeps `?tab=overview|restaurants`, unassigns via `removeUserRestaurant`, and edits restaurant assignments in the modal.
+- Why it matters: Don’t put Managers under Admins; platform operators are Admins only. Don’t re-add Managers as a top-level Accounts item.
+
 ## [2026-09-22] Settings is a hub; profile form lives on `/restaurant-profile`
 - `/settings` is now a `HubLinkCards`-only hub like Grow/Insights — no restaurant selector, no forms. The full restaurant profile form (name/description/cuisine, location, contact & deposits, loyalty, logo, photos, booking widget + share panel, public URL/slug, and the online-reservations/operations preferences form) moved to `/restaurant-profile`, added to `PARTNER_PAGES` with `parentSiderHref: '/settings'` so it stays out of the sider but shows as the first Setup tools card and stays searchable.
 - `/restaurant-profile` uses the same sticky left group nav as Admin Manage (`ManageDetailGroups` in `components/ManageDetailGroups.tsx`). Sections: listing, photos, contact, address, policies, operations, widget, slug. URL is `?section=` (plus `?restaurant=`). Discovery / FAQ / Press stay on Grow **Public profile** (change requests). One **Save changes** writes `updateRestaurant` and `updateRestaurantSettings`.
@@ -5,13 +57,15 @@
 - Why it matters: Don't add new profile fields back onto `/settings` — that page must stay a thin card grid; extend `/restaurant-profile` groups. Don't import `AdminManageRestaurant` into the partner page (owner, featured, live slug write).
 
 ## [2026-09-22] Partner Support tickets
-- `/support` lets owners and staff file `createOwnerSupportTicket`. Requester is the caller; restaurant must be one they own or are assigned to. Payload strips notes and assignee; attachments stay visible.
+- `/support` lets owners and managers file `createOwnerSupportTicket`. Requester is the caller; restaurant must be one they own or are assigned to. Payload strips notes and assignee; attachments stay visible.
 - Description is TipTap HTML (`sanitizeSupportHtml` + `htmlToPlainText` min 10). Image attachments (JPEG/PNG/WebP/GIF, max 8 × 10MB) go on `CreateOwnerSupportTicketInput`.
+- List thumbs use `Image.PreviewGroup`. Dashboard CSP `img-src` must include the API origin so local `/api/uploads/local/*` (http) can render; Spaces is already covered by `https:`.
+- Admin `/admin/support/[id]` conversation is chat-style (`SupportTicketThread`). Triage is the right sidebar. Replies use `addSupportNote(..., visibleToRequester: true)`. Owners reply with `addOwnerSupportReply`. Both reply composers accept image attachments (stored on the note). Internal notes stay hidden. Both composers are TipTap.
 - Nav: Account → Support (sidebar + profile menu + ⌘K). Admin queue is still `/admin/support`.
-- Why it matters: Don’t reuse admin `createSupportTicket` from the partner dashboard. Don’t hide owner screenshots in `toRequesterVisibleTicket`.
+- Why it matters: Don’t reuse admin `createSupportTicket` from the partner dashboard. Don’t hide owner screenshots in `toRequesterVisibleTicket`. Reply screenshots live on `SupportNote.attachments`, not ticket-level `attachments`.
 
 ## [2026-09-22] Sidebar hubs: Grow, Insights, Billing, Platform
-- Partner sider omits pages with `parentSiderHref` (Grow/Insights children, Settings tools, Guests loyalty/reviews). Hubs: `/grow`, `/insights`; Settings cards include floor setup.
+- Partner sider omits pages with `parentSiderHref` (Grow/Insights children, Settings tools, Guests loyalty). Hubs: `/grow`, `/insights`; Settings cards include floor setup. **Reviews** is a top-level Guests sider item with an unreplied-count badge.
 - Admin sider omits billing/platform children; hubs: `/admin/billing`, `/admin/platform`. Overview shortcuts match.
 - `siderKeyForPathname` keeps the parent hub selected; pending profile badge sits on Grow.
 - Why it matters: Don’t re-list every tool in the sider — extend `PARTNER_PAGES` / `ADMIN_PAGES` with `parentSiderHref` + description and use `HubLinkCards` / `hubChildPages`.
@@ -68,7 +122,7 @@
 
 ## [2026-09-21] Partner add-restaurant lives on `/restaurants?create=1`
 - Location Select footer, Overview extra/empty state, and onboarding empty state open My restaurants with `create=1`. There is no header plus icon.
-- The create modal strips `create` from the URL on cancel so refresh does not reopen it. Staff do not see the actions (`canCreateRestaurant`).
+- The create modal strips `create` from the URL on cancel so refresh does not reopen it. Managers do not see the actions (`canCreateRestaurant`).
 - The location Select `open` is closed on add/navigation so the dropdown does not sit on top of the modal (DashShell stays mounted).
 - The footer uses `preventDefault` + `stopPropagation` on mousedown so the Select does not swallow the click. That combo is wrong for popup inputs (it blocks typing) — button-only footers are fine.
 - Why it matters: Don’t add a second create wizard in the header — deep-link the existing modal.

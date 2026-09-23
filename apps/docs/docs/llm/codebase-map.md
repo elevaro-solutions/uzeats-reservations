@@ -19,7 +19,7 @@ Quick file lookup for AI agents. Paths relative to repo root.
 | Auth | `models/User.ts` | `services/auth.ts` | — |
 | Restaurants | `models/Restaurant.ts` | `services/restaurants.ts`, `discoverySearch.ts` | — |
 | Reservations | `models/Reservation.ts` | `services/reservations.ts`, `availability.ts`, `smartAssign.ts` | — |
-| Reviews | `models/Review.ts` | `services/reviewReplyDraft.ts` | `__tests__/booking.test.ts` |
+| Reviews | `models/Review.ts` | `services/reviewReplyDraft.ts` | `__tests__/booking.test.ts`, `__tests__/reviewReport.test.ts` |
 | Waitlist | — | waitlist services | — |
 | Loyalty | — | `services/restaurantLoyalty.ts`, `lib/loyaltyBuckets.ts` | `__tests__/loyalty.test.ts` |
 | Billing | — | `services/planChangePolicy.ts`, `config/plans.ts` | `__tests__/planChangePolicy.test.ts` |
@@ -48,7 +48,7 @@ Mirror sidebar in `DashShell.tsx`:
 | `/floor-ops` | Live floor (seating) |
 | `/floor-plan` | Table layout |
 | `/settings`, `/edit`, `/menu` | Restaurant config |
-| `/support` | Partner support tickets |
+| `/support` | Partner support tickets (list + `/support/[id]` detail) |
 | `/campaigns` | Marketing |
 | `/admin/*` | Platform admin pages |
 | `/admin/developer` | Env var health |

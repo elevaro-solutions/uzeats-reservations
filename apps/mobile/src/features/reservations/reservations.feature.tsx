@@ -34,6 +34,7 @@ type ReservationItem = {
   partySize: number;
   depositAmountCents?: number | null;
   depositStatus?: string | null;
+  requiresManualApproval?: boolean | null;
   hasReview?: boolean | null;
   restaurant?: {
     id?: string;

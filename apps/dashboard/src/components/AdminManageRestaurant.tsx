@@ -47,6 +47,7 @@ import PhotoUpload from '@/components/PhotoUpload';
 import CuisineSelect from '@/components/CuisineSelect';
 import { ManageDetailGroups, type ManageDetailGroup } from '@/components/ManageDetailGroups';
 import { RestaurantProfileFields } from '@/components/RestaurantProfileFields';
+import { useFormDirty } from '@/lib/useFormDirty';
 import {
   ADMIN_ASSIGN_RESTAURANT_PACKAGE,
   ADMIN_UPDATE_RESTAURANT,
@@ -100,8 +101,8 @@ export const RESTAURANT_STATUS_OPTIONS = [
 ];
 
 const TEAM_ROLE_OPTIONS = [
-  { value: 'staff', label: 'Staff' },
-  { value: 'restaurant_owner', label: 'Restaurant owner' },
+  { value: 'manager', label: 'Manager' },
+  { value: 'restaurant_owner', label: 'Owner' },
 ];
 
 export type AdminRestaurantRecord = {
@@ -429,8 +430,9 @@ export function AdminManageRestaurant({
   const [selectedPlan, setSelectedPlan] = useState<string>();
   const [selectedRestaurantStatus, setSelectedRestaurantStatus] = useState<string>();
   const [assignUserId, setAssignUserId] = useState<string>();
-  const [assignRole, setAssignRole] = useState('staff');
+  const [assignRole, setAssignRole] = useState('manager');
   const [form] = Form.useForm();
+  const { dirty, markDirty, clearDirty, onValuesChange } = useFormDirty();
   const slugWatch = Form.useWatch('slug', form);
   const nameWatch = Form.useWatch('name', form);
 
@@ -457,7 +459,7 @@ export function AdminManageRestaurant({
   const ownerOptions = (usersData?.adminUsers?.items ?? [])
     .filter(
       (u: { role: string }) =>
-        u.role === 'restaurant_owner' || isPlatformAdmin(u.role) || u.role === 'staff',
+        u.role === 'restaurant_owner' || isPlatformAdmin(u.role) || u.role === 'manager',
     )
     .map((u: { id: string; firstName: string; lastName: string; email?: string }) => ({
       value: u.id,
@@ -487,7 +489,7 @@ export function AdminManageRestaurant({
     setSelectedPlan(restaurant.subscription?.plan);
     setSelectedRestaurantStatus(restaurant.status);
     setAssignUserId(undefined);
-    setAssignRole('staff');
+    setAssignRole('manager');
     form.setFieldsValue({
       name: restaurant.name,
       slug: restaurant.slug ?? '',
@@ -538,10 +540,11 @@ export function AdminManageRestaurant({
       })),
       termsAndConditions: restaurant.termsAndConditions ?? '',
     });
-  }, [active, restaurant, form]);
+    clearDirty();
+  }, [active, restaurant, form, clearDirty]);
 
   const onSave = async () => {
-    if (!restaurant) return;
+    if (!restaurant || !dirty) return;
     try {
       const values = await form.validateFields();
       const result = await updateRestaurant({
@@ -566,6 +569,7 @@ export function AdminManageRestaurant({
         },
       });
       message.success('Restaurant updated');
+      clearDirty();
       const updated = result.data?.adminUpdateRestaurant as AdminRestaurantRecord | undefined;
       if (updated) onSaved?.(updated);
       else onSaved?.(restaurant);
@@ -670,7 +674,7 @@ export function AdminManageRestaurant({
   const updateDisabled = !selectedPlan || !selectedRestaurantStatus;
 
   const saveButton = (
-    <Button type="primary" loading={saving} onClick={() => void onSave()}>
+    <Button type="primary" loading={saving} disabled={!dirty} onClick={() => void onSave()}>
       Save changes
     </Button>
   );
@@ -775,7 +779,10 @@ export function AdminManageRestaurant({
             >
               <PhotoUpload
                 value={logoUrl ? [logoUrl] : []}
-                onChange={(urls) => setLogoUrl(urls[0] ?? null)}
+                onChange={(urls) => {
+                  setLogoUrl(urls[0] ?? null);
+                  markDirty();
+                }}
                 maxCount={1}
                 alt="Restaurant logo"
               />
@@ -786,7 +793,14 @@ export function AdminManageRestaurant({
               label="Photos"
               extra="Drag to reorder. The first photo is the large hero; the next two appear beside it on the public page."
             >
-              <PhotoUpload value={photos} onChange={setPhotos} maxCount={10} />
+              <PhotoUpload
+                value={photos}
+                onChange={(urls) => {
+                  setPhotos(urls);
+                  markDirty();
+                }}
+                maxCount={10}
+              />
             </Form.Item>
           </Col>
         </Row>
@@ -1010,7 +1024,7 @@ export function AdminManageRestaurant({
   ];
 
   const detailsForm = (
-    <Form form={form} layout="vertical">
+    <Form form={form} layout="vertical" onValuesChange={onValuesChange}>
       {!includeWidget ? (
         <div hidden>
           <Form.Item name="primaryColor">
@@ -1050,7 +1064,7 @@ export function AdminManageRestaurant({
           key: 'profile',
           label: 'Public profile',
           children: (
-            <Form form={form} layout="vertical">
+            <Form form={form} layout="vertical" onValuesChange={onValuesChange}>
               <ManageDetailGroups
                 layout="collapse"
                 activeKey="discovery"
@@ -1249,7 +1263,7 @@ export function AdminManageRestaurant({
     editTab === 'details' || editTab === 'profile' ? (
       <Space>
         {presentation !== 'panel' ? <Button onClick={onClose}>Cancel</Button> : null}
-        <Button type="primary" loading={saving} onClick={onSave}>
+        <Button type="primary" loading={saving} disabled={!dirty} onClick={() => void onSave()}>
           Save changes
         </Button>
       </Space>

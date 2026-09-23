@@ -46,6 +46,7 @@ export type ReservationDetailRowsReservation = {
   packagePriceCents?: number | null;
   depositAmountCents?: number | null;
   depositStatus?: string | null;
+  requiresManualApproval?: boolean | null;
   loyaltyPointsEarned?: number | null;
   tables?:
     | {
@@ -259,6 +260,7 @@ export function ReservationDetailRows({
                     slotEnd={reservation.slotEnd}
                     depositStatus={reservation.depositStatus}
                     depositAmountCents={reservation.depositAmountCents}
+                    requiresManualApproval={reservation.requiresManualApproval}
                   />
                 </View>
               }

@@ -8,12 +8,12 @@ import {
   Button,
   Card,
   Col,
+  Dropdown,
   Empty,
   Form,
   Input,
   List,
   Modal,
-  Popconfirm,
   Row,
   Select,
   Space,
@@ -24,17 +24,25 @@ import {
   Image,
   message,
 } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   ArrowLeftOutlined,
   DeleteOutlined,
   EditOutlined,
+  EyeOutlined,
   FileOutlined,
+  MoreOutlined,
   PaperClipOutlined,
 } from '@ant-design/icons';
 import type { RcFile } from 'antd/es/upload';
-import { SUPPORT_TICKET_SUBJECTS } from '@reservations/shared';
 import { PageHeader, spacing } from '@reservations/ui';
+import { htmlToPlainText } from '@reservations/shared';
+import { SupportHtml } from '@/components/SupportHtml';
+import { SupportTicketThread } from '@/components/SupportTicketThread';
 import { RichTextEditor } from '@/components/RichTextEditor';
+import SupportAttachmentUpload, {
+  type SupportAttachmentDraft,
+} from '@/components/SupportAttachmentUpload';
 import {
   ADD_SUPPORT_ATTACHMENT,
   ADD_SUPPORT_NOTE,
@@ -56,7 +64,6 @@ import {
   PRIORITY_OPTIONS,
   STATUS_COLORS,
   STATUS_OPTIONS,
-  SUBJECT_OPTIONS,
   canManageOwnedItem,
   formatBytes,
   formatEventLabel,
@@ -71,7 +78,10 @@ export default function SupportTicketDetailPage() {
   const { user } = useAuth();
   const { ready } = useRequireAdmin();
   const [note, setNote] = useState('');
-  const [descriptionDraft, setDescriptionDraft] = useState<string | null>(null);
+  const [noteKey, setNoteKey] = useState(0);
+  const [reply, setReply] = useState('');
+  const [replyKey, setReplyKey] = useState(0);
+  const [replyAttachments, setReplyAttachments] = useState<SupportAttachmentDraft[]>([]);
   const [uploading, setUploading] = useState(false);
   const [editingNote, setEditingNote] = useState<{ id: string; body: string } | null>(null);
   const [editingAttachment, setEditingAttachment] = useState<{
@@ -105,7 +115,13 @@ export default function SupportTicketDetailPage() {
   const staffOptions = useMemo(
     () =>
       users
-        .filter((u: any) => u.role === 'admin' || u.role === 'staff' || u.role === 'restaurant_owner')
+        .filter(
+          (u: any) =>
+            u.role === 'admin' ||
+            u.role === 'account_manager' ||
+            u.role === 'manager' ||
+            u.role === 'restaurant_owner',
+        )
         .map((u: any) => ({
           value: u.id,
           label: `${u.firstName} ${u.lastName}${u.email ? ` (${u.email})` : ''}`,
@@ -199,6 +215,36 @@ export default function SupportTicketDetailPage() {
     );
   }
 
+  const internalNotes = (ticket?.notes ?? []).filter((n: { visibleToRequester?: boolean }) => !n.visibleToRequester);
+
+  const submitNote = async (
+    body: string,
+    visibleToRequester: boolean,
+    attachments: SupportAttachmentDraft[] = [],
+  ) => {
+    if (htmlToPlainText(body).length < 1 && attachments.length === 0) {
+      message.error('Write a message or attach an image');
+      return;
+    }
+    try {
+      await addNote({
+        variables: { ticketId: id, body, visibleToRequester, attachments },
+      });
+      message.success(visibleToRequester ? 'Reply sent' : 'Note added');
+      if (visibleToRequester) {
+        setReply('');
+        setReplyAttachments([]);
+        setReplyKey((key) => key + 1);
+      } else {
+        setNote('');
+        setNoteKey((key) => key + 1);
+      }
+      refetch();
+    } catch (err: any) {
+      message.error(err.message || 'Failed');
+    }
+  };
+
   const timelineItems = [...(ticket?.events ?? [])]
     .slice()
     .reverse()
@@ -243,170 +289,122 @@ export default function SupportTicketDetailPage() {
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={16}>
           <Space orientation="vertical" size={spacing.md} style={{ width: '100%' }}>
-            <Card title="Details" loading={loading}>
-              {ticket && (
-                <Form layout="vertical">
-                  <Form.Item label="Subject">
-                    <Select
-                      showSearch
-                      optionFilterProp="label"
-                      value={ticket.subjectKey ?? undefined}
-                      options={SUBJECT_OPTIONS}
-                      onChange={(key) => {
-                        const preset = SUPPORT_TICKET_SUBJECTS.find((s) => s.key === key);
-                        patch(
-                          {
-                            subjectKey: key,
-                            subject: preset?.label,
-                            category: preset?.category,
-                          },
-                          'Subject updated',
-                        );
-                      }}
-                    />
-                  </Form.Item>
-                  {(!ticket.subjectKey || ticket.subjectKey === 'other') && (
-                    <Form.Item label="Subject text">
-                      <Input
-                        defaultValue={ticket.subject}
-                        key={ticket.subject}
-                        onBlur={(e) => {
-                          const next = e.target.value.trim();
-                          if (next && next !== ticket.subject) {
-                            patch({ subject: next }, 'Subject updated');
-                          }
-                        }}
-                      />
-                    </Form.Item>
-                  )}
-                  <Form.Item label="Description">
-                    <RichTextEditor
-                      minHeight={160}
-                      value={descriptionDraft ?? ticket.description}
-                      onChange={setDescriptionDraft}
-                      placeholder="Ticket details"
-                    />
-                    <Button
-                      style={{ marginTop: 8 }}
-                      disabled={
-                        descriptionDraft == null || descriptionDraft === ticket.description
-                      }
-                      loading={updating}
-                      onClick={async () => {
-                        const ok = await patch(
-                          { description: descriptionDraft },
-                          'Description updated',
-                        );
-                        if (ok) setDescriptionDraft(null);
-                      }}
-                    >
-                      Save description
-                    </Button>
-                  </Form.Item>
-                  <Space wrap style={{ width: '100%' }}>
-                    <Form.Item label="Status" style={{ minWidth: 160 }}>
-                      <Select
-                        value={ticket.status}
-                        options={STATUS_OPTIONS}
-                        loading={updating}
-                        onChange={(status) => patch({ status }, 'Status updated')}
-                        style={{ width: 180 }}
-                      />
-                    </Form.Item>
-                    <Form.Item label="Priority" style={{ minWidth: 140 }}>
-                      <Select
-                        value={ticket.priority}
-                        options={PRIORITY_OPTIONS}
-                        onChange={(priority) => patch({ priority }, 'Priority updated')}
-                        style={{ width: 160 }}
-                      />
-                    </Form.Item>
-                    <Form.Item label="Category" style={{ minWidth: 140 }}>
-                      <Select
-                        value={ticket.category}
-                        options={CATEGORY_OPTIONS}
-                        onChange={(category) => patch({ category }, 'Category updated')}
-                        style={{ width: 160 }}
-                      />
-                    </Form.Item>
-                  </Space>
-                </Form>
-              )}
+            <Card title="Conversation" loading={loading}>
+              {ticket ? (
+                <Space orientation="vertical" style={{ width: '100%' }} size="middle">
+                  <Typography.Text type="secondary">
+                    {personLabel(ticket.requester)}
+                    {ticket.restaurant?.name ? ` · ${ticket.restaurant.name}` : ''}
+                  </Typography.Text>
+                  <SupportTicketThread ticket={ticket} mineIsRequester={false} />
+                  <RichTextEditor
+                    key={`reply-${replyKey}`}
+                    minHeight={140}
+                    value={reply}
+                    onChange={setReply}
+                    placeholder="Reply to the restaurant owner…"
+                  />
+                  <SupportAttachmentUpload
+                    value={replyAttachments}
+                    onChange={setReplyAttachments}
+                  />
+                  <Button
+                    type="primary"
+                    loading={noting}
+                    disabled={
+                      htmlToPlainText(reply).length < 1 && replyAttachments.length === 0
+                    }
+                    onClick={() => submitNote(reply, true, replyAttachments)}
+                  >
+                    Send reply
+                  </Button>
+                </Space>
+              ) : null}
             </Card>
 
             <Card title="Internal notes" loading={loading}>
               <Space orientation="vertical" style={{ width: '100%' }} size="middle">
-                {(ticket?.notes ?? []).length === 0 && (
-                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No notes yet" />
-                )}
-                {(ticket?.notes ?? []).map((n: any) => {
-                  const manageable = canManageNote(n.authorId);
-                  return (
-                    <Card
-                      key={n.id}
-                      size="small"
-                      type="inner"
-                      extra={
-                        manageable ? (
-                          <Space size={4}>
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={<EditOutlined />}
-                              onClick={() => setEditingNote({ id: n.id, body: n.body })}
-                            />
-                            <Popconfirm
-                              title="Delete this note?"
-                              okText="Delete"
-                              okButtonProps={{ danger: true, loading: deletingNote }}
-                              onConfirm={async () => {
-                                try {
-                                  await deleteNote({
-                                    variables: { ticketId: id, noteId: n.id },
-                                  });
-                                  message.success('Note deleted');
-                                  refetch();
-                                } catch (err: any) {
-                                  message.error(err.message || 'Failed');
-                                }
+                {internalNotes.length === 0 ? (
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No internal notes yet" />
+                ) : (
+                  internalNotes.map((n: any) => {
+                    const manageable = canManageNote(n.authorId);
+                    return (
+                      <Card
+                        key={n.id}
+                        size="small"
+                        type="inner"
+                        extra={
+                          manageable ? (
+                            <Dropdown
+                              menu={{
+                                items: [
+                                  {
+                                    key: 'edit',
+                                    icon: <EditOutlined />,
+                                    label: 'Edit',
+                                    onClick: () => setEditingNote({ id: n.id, body: n.body }),
+                                  },
+                                  {
+                                    key: 'delete',
+                                    danger: true,
+                                    icon: <DeleteOutlined />,
+                                    label: 'Delete',
+                                    onClick: () => {
+                                      Modal.confirm({
+                                        title: 'Delete this note?',
+                                        okText: 'Delete',
+                                        okButtonProps: { danger: true, loading: deletingNote },
+                                        onOk: async () => {
+                                          try {
+                                            await deleteNote({
+                                              variables: { ticketId: id, noteId: n.id },
+                                            });
+                                            message.success('Note deleted');
+                                            refetch();
+                                          } catch (err: any) {
+                                            message.error(err.message || 'Failed');
+                                          }
+                                        },
+                                      });
+                                    },
+                                  },
+                                ] as MenuProps['items'],
                               }}
+                              trigger={['click']}
                             >
-                              <Button type="text" size="small" danger icon={<DeleteOutlined />} />
-                            </Popconfirm>
-                          </Space>
-                        ) : null
-                      }
-                    >
-                      <div style={{ whiteSpace: 'pre-wrap' }}>{n.body}</div>
-                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                        {personLabel(n.author)} · {new Date(n.createdAt).toLocaleString('en-US')}
-                        {n.updatedAt
-                          ? ` · edited ${new Date(n.updatedAt).toLocaleString('en-US')}`
-                          : ''}
-                      </Typography.Text>
-                    </Card>
-                  );
-                })}
-                <Input.TextArea
-                  rows={3}
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<MoreOutlined />}
+                                aria-label="Note actions"
+                              />
+                            </Dropdown>
+                          ) : null
+                        }
+                      >
+                        <SupportHtml html={n.body} />
+                        <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                          {personLabel(n.author)} · {new Date(n.createdAt).toLocaleString('en-US')}
+                          {n.updatedAt
+                            ? ` · edited ${new Date(n.updatedAt).toLocaleString('en-US')}`
+                            : ''}
+                        </Typography.Text>
+                      </Card>
+                    );
+                  })
+                )}
+                <RichTextEditor
+                  key={`note-${noteKey}`}
+                  minHeight={140}
                   value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Add an internal note (staff only)"
+                  onChange={setNote}
+                  placeholder="Add an internal note (admins only)"
                 />
                 <Button
-                  type="primary"
                   loading={noting}
-                  disabled={!note.trim()}
-                  onClick={async () => {
-                    try {
-                      await addNote({ variables: { ticketId: id, body: note.trim() } });
-                      setNote('');
-                      message.success('Note added');
-                      refetch();
-                    } catch (err: any) {
-                      message.error(err.message || 'Failed');
-                    }
-                  }}
+                  disabled={htmlToPlainText(note).length < 1}
+                  onClick={() => submitNote(note, false)}
                 >
                   Add note
                 </Button>
@@ -436,49 +434,62 @@ export default function SupportTicketDetailPage() {
                   dataSource={ticket.attachments}
                   renderItem={(item: any) => {
                     const manageable = canManageAttachment(item.uploadedById);
-                    const actions = [
-                      <a key="open" href={item.url} target="_blank" rel="noreferrer">
-                        Open
-                      </a>,
+                    const items: MenuProps['items'] = [
+                      {
+                        key: 'open',
+                        icon: <EyeOutlined />,
+                        label: 'Open',
+                        onClick: () => window.open(item.url, '_blank', 'noopener,noreferrer'),
+                      },
                     ];
                     if (manageable) {
-                      actions.push(
-                        <Button
-                          key="edit"
-                          type="link"
-                          size="small"
-                          icon={<EditOutlined />}
-                          onClick={() =>
-                            setEditingAttachment({ id: item.id, filename: item.filename })
-                          }
-                        >
-                          Rename
-                        </Button>,
-                        <Popconfirm
-                          key="delete"
-                          title="Delete this attachment?"
-                          okText="Delete"
-                          okButtonProps={{ danger: true }}
-                          onConfirm={async () => {
-                            try {
-                              await removeAttachment({
-                                variables: { ticketId: id, attachmentId: item.id },
-                              });
-                              message.success('Attachment removed');
-                              refetch();
-                            } catch (err: any) {
-                              message.error(err.message || 'Failed');
-                            }
-                          }}
-                        >
-                          <Button type="link" size="small" danger icon={<DeleteOutlined />}>
-                            Delete
-                          </Button>
-                        </Popconfirm>,
+                      items.push(
+                        {
+                          key: 'rename',
+                          icon: <EditOutlined />,
+                          label: 'Rename',
+                          onClick: () =>
+                            setEditingAttachment({ id: item.id, filename: item.filename }),
+                        },
+                        {
+                          key: 'delete',
+                          danger: true,
+                          icon: <DeleteOutlined />,
+                          label: 'Delete',
+                          onClick: () => {
+                            Modal.confirm({
+                              title: 'Delete this attachment?',
+                              okText: 'Delete',
+                              okButtonProps: { danger: true },
+                              onOk: async () => {
+                                try {
+                                  await removeAttachment({
+                                    variables: { ticketId: id, attachmentId: item.id },
+                                  });
+                                  message.success('Attachment removed');
+                                  refetch();
+                                } catch (err: any) {
+                                  message.error(err.message || 'Failed');
+                                }
+                              },
+                            });
+                          },
+                        },
                       );
                     }
                     return (
-                      <List.Item actions={actions}>
+                      <List.Item
+                        actions={[
+                          <Dropdown key="more" menu={{ items }} trigger={['click']}>
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<MoreOutlined />}
+                              aria-label="Attachment actions"
+                            />
+                          </Dropdown>,
+                        ]}
+                      >
                         <List.Item.Meta
                           avatar={
                             item.contentType?.startsWith('image/') ? (
@@ -507,10 +518,32 @@ export default function SupportTicketDetailPage() {
 
         <Col xs={24} lg={8}>
           <Space orientation="vertical" size={spacing.md} style={{ width: '100%' }}>
-            <Card title="Assignments" loading={loading}>
+            <Card title="Triage" loading={loading}>
               {ticket && (
                 <Form layout="vertical">
-                  <Form.Item label="Assignee (staff)">
+                  <Form.Item label="Status">
+                    <Select
+                      value={ticket.status}
+                      options={STATUS_OPTIONS}
+                      loading={updating}
+                      onChange={(status) => patch({ status }, 'Status updated')}
+                    />
+                  </Form.Item>
+                  <Form.Item label="Priority">
+                    <Select
+                      value={ticket.priority}
+                      options={PRIORITY_OPTIONS}
+                      onChange={(priority) => patch({ priority }, 'Priority updated')}
+                    />
+                  </Form.Item>
+                  <Form.Item label="Category">
+                    <Select
+                      value={ticket.category}
+                      options={CATEGORY_OPTIONS}
+                      onChange={(category) => patch({ category }, 'Category updated')}
+                    />
+                  </Form.Item>
+                  <Form.Item label="Assignee (admin)">
                     <Select
                       allowClear
                       showSearch
@@ -579,9 +612,9 @@ export default function SupportTicketDetailPage() {
         onCancel={() => setEditingNote(null)}
         onOk={async () => {
           if (!editingNote) return;
-          const body = editingNote.body.trim();
-          if (!body) {
-            message.error('Note body is required');
+          const body = editingNote.body;
+          if (htmlToPlainText(body).length < 1) {
+            message.error('Message is required');
             return;
           }
           try {
@@ -598,14 +631,13 @@ export default function SupportTicketDetailPage() {
         confirmLoading={updatingNote}
         destroyOnClose
       >
-        <Input.TextArea
-          rows={5}
+        <RichTextEditor
+          minHeight={160}
           value={editingNote?.body ?? ''}
-          onChange={(e) =>
-            setEditingNote((prev) => (prev ? { ...prev, body: e.target.value } : prev))
+          onChange={(html) =>
+            setEditingNote((prev) => (prev ? { ...prev, body: html } : prev))
           }
-          maxLength={5000}
-          showCount
+          placeholder="Edit message…"
         />
       </Modal>
 

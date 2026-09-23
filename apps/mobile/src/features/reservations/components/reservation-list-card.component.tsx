@@ -19,6 +19,7 @@ export type ReservationListCardItem = {
   partySize: number;
   depositAmountCents?: number | null;
   depositStatus?: string | null;
+  requiresManualApproval?: boolean | null;
   restaurant?: {
     id?: string;
     name?: string;
@@ -89,6 +90,7 @@ export function ReservationListCard({ item, onPress }: ReservationListCardProps)
               slotEnd={item.slotEnd}
               depositStatus={item.depositStatus}
               depositAmountCents={item.depositAmountCents}
+              requiresManualApproval={item.requiresManualApproval}
             />
           </Flex>
 

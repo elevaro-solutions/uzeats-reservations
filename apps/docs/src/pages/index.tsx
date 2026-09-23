@@ -23,9 +23,9 @@ const DOC_SECTIONS: DocCard[] = [
     to: '/diners/overview',
   },
   {
-    title: 'Restaurant staff',
+    title: 'Restaurant managers',
     description: 'Daily operations in the partner dashboard: reservations, floor plan, and guest messaging.',
-    to: '/staff/overview',
+    to: '/managers/overview',
   },
   {
     title: 'Platform admins',

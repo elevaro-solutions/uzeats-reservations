@@ -1,8 +1,11 @@
 import {
   SUPPORT_TICKET_SUBJECTS,
+  SUPPORT_TICKET_DESCRIPTION_MAX_LENGTH,
   ownerSupportTicketInputSchema,
+  ownerSupportReplyInputSchema,
   isPlatformAdmin,
   sanitizeSupportHtml,
+  htmlToPlainText,
   type UserRole,
 } from '@reservations/shared';
 import { SupportTicket } from '../models/SupportTicket.js';
@@ -12,6 +15,8 @@ import { Subscription } from '../models/Subscription.js';
 import { Review } from '../models/Review.js';
 import { Message } from '../models/Message.js';
 import { Invoice } from '../models/Invoice.js';
+import { env } from '../config/env.js';
+import { notifyUser, wrapEmailHtml } from './notifications.js';
 
 type TimelineEventInput = {
   type: string;
@@ -57,6 +62,8 @@ function mapNote(n: any) {
     id: n._id?.toString?.() ?? String(n._id),
     body: n.body,
     authorId: n.authorId.toString(),
+    visibleToRequester: Boolean(n.visibleToRequester),
+    attachments: (n.attachments ?? []).map(mapAttachment),
     createdAt: n.createdAt,
     updatedAt: n.updatedAt ?? null,
   };
@@ -117,7 +124,10 @@ async function enrichTickets(mapped: ReturnType<typeof mapSupportTicket>[]) {
     if (t.requesterId) userIds.add(t.requesterId);
     if (t.assigneeId) userIds.add(t.assigneeId);
     if (t.restaurantId) restaurantIds.add(t.restaurantId);
-    for (const n of t.notes) userIds.add(n.authorId);
+    for (const n of t.notes) {
+      userIds.add(n.authorId);
+      for (const a of n.attachments ?? []) userIds.add(a.uploadedById);
+    }
     for (const a of t.attachments) userIds.add(a.uploadedById);
     for (const e of t.events) userIds.add(e.actorId);
   }
@@ -158,6 +168,10 @@ async function enrichTickets(mapped: ReturnType<typeof mapSupportTicket>[]) {
     notes: t.notes.map((n: ReturnType<typeof mapNote>) => ({
       ...n,
       author: userById.get(n.authorId) ?? null,
+      attachments: (n.attachments ?? []).map((a: ReturnType<typeof mapAttachment>) => ({
+        ...a,
+        uploadedBy: userById.get(a.uploadedById) ?? null,
+      })),
     })),
     attachments: t.attachments.map((a: ReturnType<typeof mapAttachment>) => ({
       ...a,
@@ -210,6 +224,41 @@ type SupportAttachmentInput = {
   size?: number;
 };
 
+function buildNoteAttachments(
+  attachments: SupportAttachmentInput[] | undefined,
+  uploadedById: string,
+  createdAt = new Date(),
+) {
+  return (attachments ?? []).map((attachment) => ({
+    url: attachment.url,
+    key: attachment.key,
+    filename: attachment.filename,
+    contentType: attachment.contentType,
+    size: attachment.size,
+    uploadedById,
+    createdAt,
+  }));
+}
+
+function noteEventMessage(html: string, attachmentCount: number) {
+  const preview = htmlToPlainText(html).slice(0, 120);
+  if (preview) return preview;
+  if (attachmentCount === 1) return 'Attached 1 image';
+  if (attachmentCount > 1) return `Attached ${attachmentCount} images`;
+  return 'Message added';
+}
+
+function sanitizeSupportNoteBody(body: string, opts?: { allowEmpty?: boolean }) {
+  const html = sanitizeSupportHtml(body.trim());
+  if (html.length > SUPPORT_TICKET_DESCRIPTION_MAX_LENGTH) {
+    throw new Error('Message is too long');
+  }
+  if (!opts?.allowEmpty && htmlToPlainText(html).length < 1) {
+    throw new Error('Message is required');
+  }
+  return html;
+}
+
 export async function createSupportTicket(input: {
   subject?: string;
   subjectKey?: string;
@@ -228,7 +277,12 @@ export async function createSupportTicket(input: {
     subjectKey: input.subjectKey,
   });
   const notes = input.note
-    ? [{ body: input.note, authorId: input.authorId, createdAt: new Date() }]
+    ? [{
+        body: sanitizeSupportNoteBody(input.note),
+        authorId: input.authorId,
+        visibleToRequester: false,
+        createdAt: new Date(),
+      }]
     : [];
   const now = new Date();
   const doc = await SupportTicket.create({
@@ -279,7 +333,6 @@ export async function createSupportTicket(input: {
           ]
         : []),
     ],
-    firstResponseAt: input.note ? now : undefined,
   });
   const [enriched] = await enrichTickets([mapSupportTicket(doc)]);
   return enriched;
@@ -289,11 +342,12 @@ const REQUESTER_VISIBLE_EVENTS = new Set(['created', 'status_changed']);
 
 function toRequesterVisibleTicket(ticket: {
   events?: Array<{ type: string }>;
+  notes?: Array<{ visibleToRequester?: boolean }>;
   [key: string]: unknown;
 }) {
   return {
     ...ticket,
-    notes: [],
+    notes: (ticket.notes ?? []).filter((note) => note.visibleToRequester),
     assigneeId: null,
     assignee: null,
     events: (ticket.events ?? []).filter((event) => REQUESTER_VISIBLE_EVENTS.has(event.type)),
@@ -529,16 +583,78 @@ export async function updateSupportTicket(
   return enriched;
 }
 
-export async function addSupportNote(ticketId: string, authorId: string, body: string) {
+function dashboardSupportUrl(ticketId?: string) {
+  const base = (env.DASHBOARD_APP_URL || 'http://localhost:3001').replace(/\/$/, '');
+  return ticketId ? `${base}/support/${ticketId}` : `${base}/support`;
+}
+
+async function notifyRequesterOfReply(
+  ticket: {
+    _id?: { toString(): string };
+    id?: string;
+    requesterId?: { toString(): string } | string | null;
+    subject: string;
+  },
+  html: string,
+) {
+  const requesterId =
+    typeof ticket.requesterId === 'string'
+      ? ticket.requesterId
+      : ticket.requesterId?.toString();
+  if (!requesterId) return;
+  const ticketId = ticket.id ?? ticket._id?.toString();
+  const preview = htmlToPlainText(html).slice(0, 280);
+  const ticketUrl = dashboardSupportUrl(ticketId);
+  try {
+    await notifyUser(requesterId, {
+      type: 'support_reply',
+      title: `Reply to your support ticket: ${ticket.subject}`,
+      body: `${preview}\n\nView the ticket: ${ticketUrl}`,
+      htmlBody: wrapEmailHtml(
+        `${html}<p style="margin-top:16px"><a href="${ticketUrl}">Open in Partner Hub</a></p>`,
+      ),
+      data: { href: ticketId ? `/support/${ticketId}` : '/support' },
+    });
+  } catch {
+    // Reply is stored even if notification delivery fails.
+  }
+}
+
+export async function addSupportNote(
+  ticketId: string,
+  authorId: string,
+  body: string,
+  opts?: {
+    visibleToRequester?: boolean;
+    attachments?: SupportAttachmentInput[];
+  },
+) {
   const doc = await SupportTicket.findById(ticketId);
   if (!doc) throw new Error('Ticket not found');
-  doc.notes.push({ body, authorId: authorId as any, createdAt: new Date() } as any);
+  const parsed = ownerSupportReplyInputSchema.parse({
+    body,
+    attachments: opts?.attachments ?? [],
+  });
+  const html = sanitizeSupportNoteBody(parsed.body, {
+    allowEmpty: parsed.attachments.length > 0,
+  });
+  const visibleToRequester = Boolean(opts?.visibleToRequester);
+  const noteAttachments = buildNoteAttachments(parsed.attachments, authorId);
+  doc.notes.push({
+    body: html,
+    authorId: authorId as any,
+    visibleToRequester,
+    attachments: noteAttachments,
+    createdAt: new Date(),
+  } as any);
   pushEvent(doc, {
     type: 'note_added',
-    message: body.slice(0, 120),
+    message: noteEventMessage(html, noteAttachments.length),
     actorId: authorId,
   });
-  if (!doc.firstResponseAt) doc.firstResponseAt = new Date();
+  if (visibleToRequester && !doc.firstResponseAt) {
+    doc.firstResponseAt = new Date();
+  }
   if (doc.status === 'open') {
     pushEvent(doc, {
       type: 'status_changed',
@@ -550,8 +666,93 @@ export async function addSupportNote(ticketId: string, authorId: string, body: s
     doc.status = 'in_progress';
   }
   await doc.save();
+  if (visibleToRequester) {
+    await notifyRequesterOfReply(doc, html);
+  }
   const [enriched] = await enrichTickets([mapSupportTicket(doc)]);
   return enriched;
+}
+
+/** Requester follow-up on their own ticket (always visible in the conversation). */
+export async function addOwnerSupportReply(input: {
+  userId: string;
+  ticketId: string;
+  body: string;
+  attachments?: SupportAttachmentInput[];
+}) {
+  const doc = await SupportTicket.findOne({
+    _id: input.ticketId,
+    requesterId: input.userId,
+  });
+  if (!doc) throw new Error('Ticket not found');
+  const parsed = ownerSupportReplyInputSchema.parse({
+    body: input.body,
+    attachments: input.attachments ?? [],
+  });
+  const html = sanitizeSupportNoteBody(parsed.body, {
+    allowEmpty: parsed.attachments.length > 0,
+  });
+  const noteAttachments = buildNoteAttachments(parsed.attachments, input.userId);
+  doc.notes.push({
+    body: html,
+    authorId: input.userId as any,
+    visibleToRequester: true,
+    attachments: noteAttachments,
+    createdAt: new Date(),
+  } as any);
+  pushEvent(doc, {
+    type: 'note_added',
+    message: noteEventMessage(html, noteAttachments.length),
+    actorId: input.userId,
+  });
+  if (doc.status === 'waiting' || doc.status === 'resolved' || doc.status === 'closed') {
+    pushEvent(doc, {
+      type: 'status_changed',
+      field: 'status',
+      from: doc.status,
+      to: 'open',
+      actorId: input.userId,
+    });
+    doc.status = 'open';
+  }
+  await doc.save();
+  await notifyAssigneeOfRequesterReply(doc, html);
+  const [enriched] = await enrichTickets([mapSupportTicket(doc)]);
+  if (!enriched) throw new Error('Could not load support ticket');
+  return toRequesterVisibleTicket(enriched);
+}
+
+async function notifyAssigneeOfRequesterReply(
+  ticket: {
+    _id?: { toString(): string };
+    assigneeId?: { toString(): string } | string | null;
+    subject: string;
+  },
+  html: string,
+) {
+  const assigneeId =
+    typeof ticket.assigneeId === 'string'
+      ? ticket.assigneeId
+      : ticket.assigneeId?.toString();
+  if (!assigneeId) return;
+  const ticketId = ticket._id?.toString();
+  const preview = htmlToPlainText(html).slice(0, 280);
+  const ticketUrl = ticketId
+    ? `${(env.DASHBOARD_APP_URL || 'http://localhost:3001').replace(/\/$/, '')}/admin/support/${ticketId}`
+    : dashboardSupportUrl();
+  try {
+    await notifyUser(assigneeId, {
+      type: 'support_reply',
+      title: `New message on support ticket: ${ticket.subject}`,
+      body: `${preview}\n\nOpen the ticket: ${ticketUrl}`,
+      htmlBody: wrapEmailHtml(
+        `${html}<p style="margin-top:16px"><a href="${ticketUrl}">Open ticket</a></p>`,
+      ),
+      data: { href: ticketId ? `/admin/support/${ticketId}` : '/admin/support' },
+    });
+  } catch {
+    // Reply is stored even if notification delivery fails.
+  }
 }
 
 function assertCanManageOwnedResource(opts: {
@@ -581,16 +782,15 @@ export async function updateSupportNote(
     ownerId: note.authorId.toString(),
     resource: 'note',
   });
-  const trimmed = body.trim();
-  if (!trimmed) throw new Error('Note body is required');
+  const trimmed = sanitizeSupportNoteBody(body);
   const from = note.body;
   note.body = trimmed;
   note.updatedAt = new Date();
   pushEvent(doc, {
     type: 'note_updated',
-    message: trimmed.slice(0, 120),
-    from: from.slice(0, 120),
-    to: trimmed.slice(0, 120),
+    message: htmlToPlainText(trimmed).slice(0, 120),
+    from: htmlToPlainText(from).slice(0, 120),
+    to: htmlToPlainText(trimmed).slice(0, 120),
     actorId: actor.id,
   });
   await doc.save();
@@ -852,6 +1052,14 @@ export async function getSlaMetrics() {
   };
 }
 
+export async function pendingFlaggedContentCount() {
+  const [reviews, messages] = await Promise.all([
+    Review.countDocuments({ flagged: true }),
+    Message.countDocuments({ flagged: true }),
+  ]);
+  return reviews + messages;
+}
+
 export async function listFlaggedContent(limit = 50) {
   const [reviews, messages] = await Promise.all([
     Review.find({ flagged: true }).sort({ flaggedAt: -1 }).limit(limit),
@@ -861,6 +1069,8 @@ export async function listFlaggedContent(limit = 50) {
   const userIds = [
     ...reviews.map((r) => r.dinerId.toString()),
     ...messages.map((m) => m.senderId.toString()),
+    ...reviews.map((r) => (r as any).flaggedById?.toString()).filter(Boolean),
+    ...messages.map((m) => (m as any).flaggedById?.toString()).filter(Boolean),
   ];
   const restaurantIds = [
     ...reviews.map((r) => r.restaurantId.toString()),
@@ -884,9 +1094,18 @@ export async function listFlaggedContent(limit = 50) {
       authorName: userById.get(r.dinerId.toString()) ?? null,
       body: r.comment || `(${r.rating}★)`,
       rating: r.rating,
+      photos: Array.isArray(r.photos) ? r.photos : [],
+      ownerReply: r.ownerReply ?? null,
+      ownerRepliedAt: r.ownerRepliedAt ?? null,
       hidden: Boolean(r.hidden),
+      flagged: Boolean(r.flagged),
       flagReason: (r as any).flagReason ?? null,
+      flagReasonCode: (r as any).flagReasonCode ?? null,
+      flagDetails: (r as any).flagDetails ?? null,
       flaggedAt: (r as any).flaggedAt ?? null,
+      flaggedByName: (r as any).flaggedById
+        ? userById.get((r as any).flaggedById.toString()) ?? null
+        : null,
       createdAt: (r as any).createdAt,
     })),
     messages: messages.map((m) => ({
@@ -896,10 +1115,86 @@ export async function listFlaggedContent(limit = 50) {
       restaurantName: restById.get(m.restaurantId.toString()) ?? null,
       authorName: userById.get(m.senderId.toString()) ?? null,
       body: m.body,
+      photos: null,
+      ownerReply: null,
+      ownerRepliedAt: null,
       hidden: Boolean((m as any).hidden),
+      flagged: Boolean((m as any).flagged),
       flagReason: (m as any).flagReason ?? null,
+      flagReasonCode: null,
+      flagDetails: null,
       flaggedAt: (m as any).flaggedAt ?? null,
+      flaggedByName: (m as any).flaggedById
+        ? userById.get((m as any).flaggedById.toString()) ?? null
+        : null,
       createdAt: (m as any).createdAt,
     })),
   };
+}
+
+export async function getFlaggedContentItem(id: string, type: string) {
+  if (type === 'review') {
+    const r = await Review.findById(id);
+    if (!r) return null;
+    const [author, restaurant, flaggedBy] = await Promise.all([
+      User.findById(r.dinerId).select('firstName lastName'),
+      Restaurant.findById(r.restaurantId).select('name'),
+      (r as any).flaggedById
+        ? User.findById((r as any).flaggedById).select('firstName lastName')
+        : null,
+    ]);
+    return {
+      id: r._id.toString(),
+      type: 'review' as const,
+      restaurantId: r.restaurantId.toString(),
+      restaurantName: restaurant?.name ?? null,
+      authorName: author ? `${author.firstName} ${author.lastName}` : null,
+      body: r.comment || `(${r.rating}★)`,
+      rating: r.rating,
+      photos: Array.isArray(r.photos) ? r.photos : [],
+      ownerReply: r.ownerReply ?? null,
+      ownerRepliedAt: r.ownerRepliedAt ?? null,
+      hidden: Boolean(r.hidden),
+      flagged: Boolean(r.flagged),
+      flagReason: (r as any).flagReason ?? null,
+      flagReasonCode: (r as any).flagReasonCode ?? null,
+      flagDetails: (r as any).flagDetails ?? null,
+      flaggedAt: (r as any).flaggedAt ?? null,
+      flaggedByName: flaggedBy ? `${flaggedBy.firstName} ${flaggedBy.lastName}` : null,
+      createdAt: (r as any).createdAt,
+    };
+  }
+
+  if (type === 'message') {
+    const m = await Message.findById(id);
+    if (!m) return null;
+    const [author, restaurant, flaggedBy] = await Promise.all([
+      User.findById(m.senderId).select('firstName lastName'),
+      Restaurant.findById(m.restaurantId).select('name'),
+      (m as any).flaggedById
+        ? User.findById((m as any).flaggedById).select('firstName lastName')
+        : null,
+    ]);
+    return {
+      id: m._id.toString(),
+      type: 'message' as const,
+      restaurantId: m.restaurantId.toString(),
+      restaurantName: restaurant?.name ?? null,
+      authorName: author ? `${author.firstName} ${author.lastName}` : null,
+      body: m.body,
+      photos: null,
+      ownerReply: null,
+      ownerRepliedAt: null,
+      hidden: Boolean((m as any).hidden),
+      flagged: Boolean((m as any).flagged),
+      flagReason: (m as any).flagReason ?? null,
+      flagReasonCode: null,
+      flagDetails: null,
+      flaggedAt: (m as any).flaggedAt ?? null,
+      flaggedByName: flaggedBy ? `${flaggedBy.firstName} ${flaggedBy.lastName}` : null,
+      createdAt: (m as any).createdAt,
+    };
+  }
+
+  throw new Error('type must be review or message');
 }

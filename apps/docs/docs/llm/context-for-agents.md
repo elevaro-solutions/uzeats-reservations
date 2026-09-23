@@ -20,7 +20,7 @@ Copy-paste block for LLM system prompts or `.cursor/rules` when working in this 
 - `@reservations/ui` — design tokens + shared components
 - `@reservations/widget` — embeddable booking script → `/widget.js`
 
-**Roles:** `diner` | `restaurant_owner` | `staff` | `admin` | `super_admin`  
+**Roles:** `diner` | `restaurant_owner` | `manager` | `admin` | `super_admin`  
 **Guards:** import from `@reservations/shared` — `isPlatformAdmin`, `canManageBilling`, `canEditUser`
 
 **Architecture:** Resolvers → Services → Models. GraphQL schema in `apps/api/src/graphql/typeDefs.ts`. Business logic never in resolvers.
@@ -44,7 +44,7 @@ pnpm --filter @reservations/shared build && pnpm seed && pnpm dev
 - Stub external services when env vars missing (see existing services)
 - Docs: `apps/docs/` | Deploy: `docs/deploy.md` | Design: `packages/ui/DESIGN.md`
 
-**Docs site sections:** Developers | Diners | Staff | Admins | Architecture | LLM
+**Docs site sections:** Developers | Diners | Managers | Admins | Architecture | LLM
 
 ---
 

@@ -9,16 +9,6 @@ import {
 
 const subjectKeys = SUPPORT_TICKET_SUBJECTS.map((s) => s.key);
 
-const supportNoteSchema = new Schema(
-  {
-    body: { type: String, required: true, maxlength: 5000 },
-    authorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    createdAt: { type: Date, default: Date.now },
-    updatedAt: { type: Date },
-  },
-  { _id: true },
-);
-
 const supportAttachmentSchema = new Schema(
   {
     url: { type: String, required: true },
@@ -28,6 +18,18 @@ const supportAttachmentSchema = new Schema(
     size: { type: Number, min: 0 },
     uploadedById: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     createdAt: { type: Date, default: Date.now },
+  },
+  { _id: true },
+);
+
+const supportNoteSchema = new Schema(
+  {
+    body: { type: String, required: true, maxlength: 20000 },
+    authorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    visibleToRequester: { type: Boolean, default: false },
+    attachments: { type: [supportAttachmentSchema], default: [] },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date },
   },
   { _id: true },
 );

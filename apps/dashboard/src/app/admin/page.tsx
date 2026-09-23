@@ -26,26 +26,26 @@ function dollars(cents: number) {
 const shortcuts = [
   {
     href: '/admin/diners',
-    title: 'Diners',
+    title: 'Guests',
     desc: 'Create and manage customer accounts',
     icon: <TeamOutlined />,
   },
   {
     href: '/admin/owners',
-    title: 'Restaurant owners',
-    desc: 'Partner accounts and venue assignment',
+    title: 'Restaurant accounts',
+    desc: 'Owners and managers',
     icon: <ShopOutlined />,
   },
   {
-    href: '/admin/staff',
-    title: 'Staff',
-    desc: 'Team accounts with restaurant access',
+    href: '/admin/users',
+    title: 'Admins',
+    desc: 'Platform admins and account managers',
     icon: <TeamOutlined />,
   },
   {
     href: '/admin/support',
     title: 'Support tickets',
-    desc: 'CRM notes for diner and restaurant cases',
+    desc: 'CRM notes for guest and restaurant cases',
     icon: <ShopOutlined />,
   },
   {
@@ -79,6 +79,7 @@ const shortcuts = [
     title: 'Moderation',
     desc: 'Flagged reviews and messages',
     icon: <ControlOutlined />,
+    countKey: 'pendingModerationItems' as const,
   },
   {
     href: '/admin/billing',
@@ -106,7 +107,7 @@ export default function AdminOverviewPage() {
     <div component="AdminOverviewPage" style={{ display: 'contents' }}><Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
       <PageHeader
         title="Platform overview"
-        subtitle="Support diners and restaurant owners, and keep billing and platform settings healthy."
+        subtitle="Support guests and restaurant accounts, and keep billing and platform settings healthy."
       />
 
       <Row gutter={[16, 16]}>

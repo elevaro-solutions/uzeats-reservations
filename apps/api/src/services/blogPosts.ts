@@ -1,4 +1,4 @@
-import type { BlogPostInput } from '@reservations/shared';
+import { sanitizeBlogHtml, type BlogPostInput } from '@reservations/shared';
 import { BlogPost, type BlogPostDocument } from '../models/BlogPost.js';
 import { User } from '../models/User.js';
 import { paginateQuery } from '../lib/pagination.js';
@@ -51,7 +51,7 @@ export function mapBlogPost(doc: any, author?: any) {
     title: doc.title,
     slug: doc.slug,
     excerpt: doc.excerpt ?? '',
-    bodyHtml: doc.bodyHtml,
+    bodyHtml: sanitizeBlogHtml(doc.bodyHtml ?? ''),
     coverImageUrl: doc.coverImageUrl || null,
     status: doc.status,
     publishedAt: doc.publishedAt ?? null,

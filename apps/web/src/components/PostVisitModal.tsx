@@ -20,7 +20,7 @@ import {
 } from '@ant-design/icons';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { REVIEW_MAX_PHOTOS, buildRestaurantBookingPath } from '@reservations/shared';
+import { REVIEW_MAX_PHOTOS, browserMediaUrl, buildRestaurantBookingPath } from '@reservations/shared';
 import { CREATE_REVIEW, SAVE_RESTAURANT } from '@/lib/graphql';
 import { uploadFile } from '@/lib/upload';
 
@@ -82,6 +82,7 @@ export function PostVisitModal({
 
   const [createReview] = useMutation(CREATE_REVIEW);
   const [saveRestaurant] = useMutation(SAVE_RESTAURANT);
+  const wasOpenRef = useRef(false);
 
   const hasAllRatings =
     ratings.overall > 0 &&
@@ -89,8 +90,13 @@ export function PostVisitModal({
     ratings.service > 0 &&
     ratings.atmosphere > 0;
 
+  // Reset only when the modal opens. Do not reset when reservationId clears after
+  // submit (parent refetch) — that would dump the user back on the review form.
   useEffect(() => {
-    if (!open) return;
+    const justOpened = open && !wasOpenRef.current;
+    wasOpenRef.current = open;
+    if (!justOpened) return;
+
     const alreadySaved = !!restaurant?.isSaved;
     setStep('review');
     setRatings(EMPTY_RATINGS);
@@ -101,9 +107,7 @@ export function PostVisitModal({
     setSaveRestaurantChecked(!alreadySaved);
     setDidSaveRestaurant(false);
     setSubmitting(false);
-    // Capture restaurant save state only when opening for a reservation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional
-  }, [open, reservationId]);
+  }, [open, restaurant?.isSaved]);
 
   const bookAgainPath = (() => {
     const path = buildRestaurantBookingPath(restaurant?.slug, restaurant?.id);
@@ -292,7 +296,7 @@ export function PostVisitModal({
                   {photos.map((url) => (
                     <div key={url} style={{ position: 'relative' }}>
                       <Image
-                        src={url}
+                        src={browserMediaUrl(url)}
                         alt="Review photo"
                         width={72}
                         height={72}

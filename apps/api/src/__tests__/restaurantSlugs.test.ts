@@ -64,7 +64,7 @@ describe('Restaurant slug updates', () => {
   let agent: request.Agent;
   let adminToken: string;
   let ownerToken: string;
-  let staffToken: string;
+  let managerToken: string;
   let restaurantId: string;
   let otherRestaurantId: string;
 
@@ -97,9 +97,9 @@ describe('Restaurant slug updates', () => {
       passwordHash: 'unused',
       firstName: 'Staff',
       lastName: 'User',
-      role: 'staff',
+      role: 'manager',
     });
-    staffToken = signAccessToken({ sub: staff._id.toString(), role: 'staff' });
+    managerToken = signAccessToken({ sub: staff._id.toString(), role: 'manager' });
 
     const restaurant = await Restaurant.create({
       name: 'Slug Bistro',
@@ -155,7 +155,7 @@ describe('Restaurant slug updates', () => {
       agent,
       REQUEST_SLUG,
       { input: { restaurantId, slug: 'staff-slug' } },
-      staffToken,
+      managerToken,
     );
     expect(res.body.errors?.[0]?.message).toMatch(/only restaurant owners/i);
   });

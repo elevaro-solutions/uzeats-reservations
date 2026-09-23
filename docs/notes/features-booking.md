@@ -1,5 +1,10 @@
 # Booking — Learnings & Observations
 
+## [2026-09-23] Manual approval vs deposit pending
+- Restaurant `manualApprovalEnabled` (default off) + optional `manualApprovalPartySize` / `manualApprovalPartySizeOp` (`gt`|`gte`), plus `requiresManualApproval` on Table / Experience / PrivateDiningSpace / RestaurantPackage. `bookingRequiresManualApproval` in `@reservations/shared` is OR of resources + restaurant party rule.
+- Matching bookings set `Reservation.requiresManualApproval` and stay `pending`. Deposit authorize no longer auto-confirms when that flag is set; staff `updateReservationStatus(…, confirmed)` notifies the diner. UI label: `awaiting_approval`.
+- Why it matters: Don’t treat all `pending` as “pay deposit” — check `requiresManualApproval` and `depositStatus`.
+
 ## [2026-09-22] Partner create collects a card even on trial
 - Dashboard `/restaurants` create used to start a trial without Stripe Payment Element. `createRestaurant` now passes `collectPaymentMethod: true` (same as partner register / admin assign) and the client always shows `SignupPaymentForm` after submit.
 - Missing publishable key or `clientSecret` is demo Continue, not a skip of the modal.

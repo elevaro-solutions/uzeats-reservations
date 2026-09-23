@@ -330,7 +330,13 @@ function passwordResetBaseUrl(app: 'web' | 'dashboard') {
   );
 }
 
-const PARTNER_ROLES = new Set<UserRole>(['restaurant_owner', 'staff', 'admin', 'super_admin']);
+const PARTNER_ROLES = new Set<UserRole>([
+  'restaurant_owner',
+  'manager',
+  'admin',
+  'account_manager',
+  'super_admin',
+]);
 
 function passwordResetAppForRole(role: UserRole): 'web' | 'dashboard' {
   return PARTNER_ROLES.has(role) ? 'dashboard' : 'web';

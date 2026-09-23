@@ -22,7 +22,7 @@ export { SupportTicket } from './SupportTicket.js';
 export { EmailTemplate } from './EmailTemplate.js';
 export { BlogPost } from './BlogPost.js';
 export { DiscoveryTaxonomy } from './DiscoveryTaxonomy.js';
-export { StaffInvite } from './StaffInvite.js';
+export { ManagerInvite } from './ManagerInvite.js';
 export { RestaurantGroup } from './RestaurantGroup.js';
 export { GuestProfile } from './GuestProfile.js';
 export { Campaign } from './Campaign.js';
