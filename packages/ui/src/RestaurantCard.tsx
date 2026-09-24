@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode, CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Card, Rate, Typography } from 'antd';
 import { EnvironmentOutlined, FireFilled, StarFilled } from '@ant-design/icons';
@@ -9,6 +10,13 @@ import { colors, radii, shadows, typography } from './tokens';
 import { DEFAULT_RESTAURANT_PHOTO, restaurantPhotoCandidates } from './restaurantPhoto';
 
 const { Text } = Typography;
+
+export type RestaurantCardPhotoRenderProps = {
+  src: string;
+  alt: string;
+  style: CSSProperties;
+  onError: () => void;
+};
 
 export interface RestaurantCardProps {
   id: string;
@@ -24,6 +32,8 @@ export interface RestaurantCardProps {
   bookedToday?: number;
   onClick?: (id: string) => void;
   onSelectSlot?: (id: string, time: string) => void;
+  /** Override cover photo (e.g. next/image on web). */
+  renderPhoto?: (props: RestaurantCardPhotoRenderProps) => ReactNode;
 }
 
 export function RestaurantCard({
@@ -40,6 +50,7 @@ export function RestaurantCard({
   bookedToday,
   onClick,
   onSelectSlot,
+  renderPhoto,
 }: RestaurantCardProps) {
   const [hovered, setHovered] = useState(false);
   const photoCandidates = useMemo(
@@ -54,6 +65,17 @@ export function RestaurantCard({
   }, [photoUrl]);
 
   const showBooked = bookedToday != null && bookedToday > 0;
+  const photoStyle: CSSProperties = {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    display: 'block',
+    transform: hovered ? 'scale(1.05)' : 'scale(1)',
+    transition: 'transform 0.45s ease',
+  };
+  const onPhotoError = () => {
+    setPhotoIndex((current) => Math.min(current + 1, photoCandidates.length - 1));
+  };
 
   return (
     <div component="RestaurantCard" style={{ display: 'contents' }}>
@@ -72,24 +94,19 @@ export function RestaurantCard({
       }}
       cover={
         <div style={{ position: 'relative', height: 190, overflow: 'hidden' }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            alt={name}
-            src={imageSrc}
-            loading="lazy"
-            decoding="async"
-            onError={() => {
-              setPhotoIndex((current) => Math.min(current + 1, photoCandidates.length - 1));
-            }}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              display: 'block',
-              transform: hovered ? 'scale(1.05)' : 'scale(1)',
-              transition: 'transform 0.45s ease',
-            }}
-          />
+          {renderPhoto ? (
+            renderPhoto({ src: imageSrc, alt: name, style: photoStyle, onError: onPhotoError })
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              alt={name}
+              src={imageSrc}
+              loading="lazy"
+              decoding="async"
+              onError={onPhotoError}
+              style={photoStyle}
+            />
+          )}
           <div
             aria-hidden
             style={{

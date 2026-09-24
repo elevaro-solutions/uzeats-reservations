@@ -65,22 +65,26 @@ async function gql<T>(
   return json.data as T;
 }
 
+const RESTAURANT_FIELDS = `
+  id
+  name
+  slug
+  cuisine
+  address { line1 city state }
+  photos
+  averageRating
+  reviewCount
+  depositRequired
+  depositAmountCents
+  loyaltyEnabled
+  loyaltyPointsPerVisit
+  widgetTheme { primaryColor buttonText showReviews }
+`;
+
 const RESTAURANT_QUERY = `
   query WidgetRestaurant($id: ID!) {
     restaurant(id: $id) {
-      id
-      name
-      slug
-      cuisine
-      address { line1 city state }
-      photos
-      averageRating
-      reviewCount
-      depositRequired
-      depositAmountCents
-      loyaltyEnabled
-      loyaltyPointsPerVisit
-      widgetTheme { primaryColor buttonText showReviews }
+      ${RESTAURANT_FIELDS}
     }
   }
 `;
@@ -88,6 +92,20 @@ const RESTAURANT_QUERY = `
 const AVAILABILITY_QUERY = `
   query WidgetAvailability($restaurantId: ID!, $date: String!, $partySize: Int!) {
     availability(restaurantId: $restaurantId, date: $date, partySize: $partySize) {
+      time
+      available
+      remainingTables
+    }
+  }
+`;
+
+/** One round-trip for first paint: restaurant shell + today's slots. */
+const BOOTSTRAP_QUERY = `
+  query WidgetBootstrap($id: ID!, $date: String!, $partySize: Int!) {
+    restaurant(id: $id) {
+      ${RESTAURANT_FIELDS}
+    }
+    availability(restaurantId: $id, date: $date, partySize: $partySize) {
       time
       available
       remainingTables
@@ -118,4 +136,25 @@ export async function fetchAvailability(
     partySize,
   });
   return data.availability.filter((s) => s.available);
+}
+
+export async function fetchWidgetBootstrap(
+  apiUrl: string,
+  restaurantId: string,
+  date: string,
+  partySize: number,
+): Promise<{ restaurant: RestaurantInfo; slots: AvailabilitySlot[] }> {
+  const data = await gql<{
+    restaurant: RestaurantInfo | null;
+    availability: AvailabilitySlot[];
+  }>(apiUrl, BOOTSTRAP_QUERY, {
+    id: restaurantId,
+    date,
+    partySize,
+  });
+  if (!data.restaurant) throw new Error('Restaurant not found');
+  return {
+    restaurant: data.restaurant,
+    slots: (data.availability ?? []).filter((s) => s.available),
+  };
 }

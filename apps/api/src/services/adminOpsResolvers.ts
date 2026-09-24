@@ -56,6 +56,7 @@ import {
 import {
   listEmailTemplates,
   mapEmailTemplate,
+  sendTestEmailTemplate as deliverTestEmailTemplate,
   updateEmailTemplate,
 } from './emailTemplates.js';
 import {
@@ -1102,6 +1103,28 @@ export const adminOpsMutation = {
       details: { key: args.key },
     });
     return mapEmailTemplate(doc);
+  },
+
+  sendTestEmailTemplate: async (
+    _: unknown,
+    args: {
+      key: string;
+      to: string;
+      subject?: string | null;
+      bodyHtml?: string | null;
+      bodyText?: string | null;
+    },
+    ctx: GraphQLContext,
+  ) => {
+    const admin = requireAdmin(ctx);
+    const result = await deliverTestEmailTemplate(args);
+    await logAudit({
+      actorId: admin._id.toString(),
+      action: 'sendTestEmailTemplate',
+      resource: 'EmailTemplate',
+      details: { key: args.key, to: result.to, subject: result.subject },
+    });
+    return true;
   },
 
   createBlogPost: async (_: unknown, args: { input: unknown }, ctx: GraphQLContext) => {

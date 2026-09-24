@@ -56,6 +56,7 @@ import {
   AVAILABILITY,
   CREATE_OWNER_RESERVATION,
   DELETE_RESERVATION,
+  EXPORT_RESTAURANT_RESERVATIONS,
   MY_RESTAURANTS,
   RESTAURANT_RESERVATION,
   RESTAURANT_RESERVATIONS,
@@ -66,8 +67,18 @@ import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { formatOccasion, formatSource, guestName as formatGuestName } from '@/lib/reservationFormat';
 import { CancelReservationModal } from '@/components/CancelReservationModal';
+import { ExportMenu, type ListExportFormat } from '@/components/ExportMenu';
+import { downloadExportPayload } from '@/lib/downloadExport';
+import {
+  ALL_LOCATIONS_VALUE,
+  buildRestaurantSelectOptions,
+  restaurantSelectFilterOption,
+} from '@/lib/restaurants';
 
 const { Text } = Typography;
+const { RangePicker } = DatePicker;
+
+const LOCATIONS_PARAM = 'locations';
 
 const OCCASION_OPTIONS = [
   { value: 'none', label: 'None' },
@@ -104,7 +115,7 @@ const DATE_PERIOD_OPTIONS: { value: DatePeriod; label: string }[] = [
   { value: 'upcoming', label: 'Upcoming' },
   { value: 'past', label: 'Past' },
   { value: 'all', label: 'All dates' },
-  { value: 'custom', label: 'Custom date' },
+  { value: 'custom', label: 'Custom range' },
 ];
 
 const STATUS_FILTER_OPTIONS = [
@@ -116,7 +127,13 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'no_show', label: 'No-show' },
 ];
 
-const SINGLE_DAY_PERIODS = new Set<DatePeriod>(['today', 'yesterday', 'tomorrow', 'custom']);
+const SINGLE_DAY_PERIODS = new Set<DatePeriod>(['today', 'yesterday', 'tomorrow']);
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseListDate(value: string | null | undefined, fallback: string) {
+  return value && ISO_DATE.test(value) ? value : fallback;
+}
 
 type ReservationRow = {
   id: string;
@@ -141,6 +158,7 @@ type ReservationRow = {
   createdAt?: string;
   diner?: { id?: string; firstName?: string; lastName?: string; phone?: string; email?: string };
   tables?: { id: string; name: string }[];
+  restaurant?: { id: string; name: string } | null;
 };
 
 type TableOption = {
@@ -194,12 +212,24 @@ function ReservationsPageContent() {
   const openedReservationIdRef = useRef<string | null>(null);
   const period: DatePeriod = isDatePeriod(searchParams.get('period'))
     ? (searchParams.get('period') as DatePeriod)
-    : 'today';
+    : 'upcoming';
   const rawStatus = searchParams.get('status');
   const statusFilter = STATUS_FILTER_OPTIONS.some((o) => o.value === rawStatus)
     ? rawStatus!
     : undefined;
-  const customDate = searchParams.get('date') || dayjs().format('YYYY-MM-DD');
+  const todayIso = dayjs().format('YYYY-MM-DD');
+  const legacyCustomDate = searchParams.get('date');
+  const customStartDate = parseListDate(
+    searchParams.get('startDate') ?? legacyCustomDate,
+    todayIso,
+  );
+  const customEndDate = parseListDate(
+    searchParams.get('endDate') ?? legacyCustomDate,
+    customStartDate,
+  );
+  const customRangeSingleDay = customStartDate === customEndDate;
+  const showTimeOnlyColumn =
+    SINGLE_DAY_PERIODS.has(period) || (period === 'custom' && customRangeSingleDay);
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<ReservationRow | null>(null);
   const [cancelFor, setCancelFor] = useState<ReservationRow | null>(null);
@@ -216,12 +246,24 @@ function ReservationsPageContent() {
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
-  const { activeRestaurantId, setRestaurantId, restaurantSelectProps } =
-    usePartnerRestaurant(restaurants);
+  const { activeRestaurantId, setRestaurantId } = usePartnerRestaurant(restaurants);
+  const canShowAllLocations = restaurants.length > 1;
+  const allLocations =
+    canShowAllLocations && searchParams.get(LOCATIONS_PARAM) === ALL_LOCATIONS_VALUE;
+  const restaurantFilterOptions = useMemo(
+    () =>
+      buildRestaurantSelectOptions(restaurants, {
+        includeAllLocations: canShowAllLocations,
+      }),
+    [restaurants, canShowAllLocations],
+  );
 
   const activeRestaurant = useMemo(
-    () => restaurants.find((r: { id: string }) => r.id === activeRestaurantId),
-    [restaurants, activeRestaurantId],
+    () =>
+      allLocations
+        ? undefined
+        : restaurants.find((r: { id: string }) => r.id === activeRestaurantId),
+    [restaurants, activeRestaurantId, allLocations],
   );
 
   const tables: TableOption[] = useMemo(
@@ -241,8 +283,14 @@ function ReservationsPageContent() {
         if (value) params.set(key, value);
         else params.delete(key);
       }
-      if ((params.get('period') ?? 'today') === 'today') params.delete('period');
-      if (params.get('period') !== 'custom') params.delete('date');
+      if ((params.get('period') ?? 'upcoming') === 'upcoming') params.delete('period');
+      if (params.get('period') !== 'custom') {
+        params.delete('date');
+        params.delete('startDate');
+        params.delete('endDate');
+      } else {
+        params.delete('date');
+      }
       if (resetPage) params.delete('page');
       const qs = params.toString();
       const nextUrl = qs ? `${pathname}?${qs}` : pathname;
@@ -253,14 +301,47 @@ function ReservationsPageContent() {
     [pathname, router, searchParams],
   );
 
-  const queryDate = period === 'custom' ? customDate : undefined;
+  const onRestaurantFilterChange = useCallback(
+    (value: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('page');
+      if ((params.get('period') ?? 'upcoming') === 'upcoming') params.delete('period');
+      if (params.get('period') !== 'custom') {
+        params.delete('date');
+        params.delete('startDate');
+        params.delete('endDate');
+      } else {
+        params.delete('date');
+      }
+
+      if (value === ALL_LOCATIONS_VALUE) {
+        params.set(LOCATIONS_PARAM, ALL_LOCATIONS_VALUE);
+      } else {
+        params.delete(LOCATIONS_PARAM);
+        if (restaurants.length > 1) params.set('restaurant', value);
+        else params.delete('restaurant');
+        localStorage.setItem('activeRestaurantId', value);
+        window.dispatchEvent(new CustomEvent('rt-restaurant-change', { detail: value }));
+      }
+
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, restaurants.length, router, searchParams],
+  );
+
+  const queryStartDate = period === 'custom' ? customStartDate : undefined;
+  const queryEndDate = period === 'custom' ? customEndDate : undefined;
   const queryPeriod = period === 'custom' ? undefined : period;
+  const queryRestaurantId = allLocations ? undefined : activeRestaurantId;
+  const listReady = allLocations ? restaurants.length > 0 : Boolean(activeRestaurantId);
 
   const { data, refetch, loading } = useQuery(RESTAURANT_RESERVATIONS, {
-    skip: !activeRestaurantId,
+    skip: !listReady,
     variables: {
-      restaurantId: activeRestaurantId,
-      date: queryDate,
+      restaurantId: queryRestaurantId,
+      startDate: queryStartDate,
+      endDate: queryEndDate,
       period: queryPeriod,
       status: statusFilter,
       limit,
@@ -290,6 +371,7 @@ function ReservationsPageContent() {
   const [createReservation, { loading: creating }] = useMutation(CREATE_OWNER_RESERVATION);
   const [updateReservation, { loading: updating }] = useMutation(UPDATE_RESERVATION);
   const [deleteReservation, { loading: deleting }] = useMutation(DELETE_RESERVATION);
+  const [exportReservations, { loading: exporting }] = useMutation(EXPORT_RESTAURANT_RESERVATIONS);
 
   const createDateStr = (createDate as Dayjs | undefined)?.format('YYYY-MM-DD');
   const editDateStr = (editDate as Dayjs | undefined)?.format('YYYY-MM-DD');
@@ -341,7 +423,11 @@ function ReservationsPageContent() {
 
   const openCreate = () => {
     const defaultDate =
-      period === 'custom' ? dayjs(customDate) : period === 'tomorrow' ? dayjs().add(1, 'day') : dayjs();
+      period === 'custom'
+        ? dayjs(customStartDate)
+        : period === 'tomorrow'
+          ? dayjs().add(1, 'day')
+          : dayjs();
     createForm.setFieldsValue({
       date: defaultDate.isBefore(dayjs(), 'day') ? dayjs() : defaultDate,
       time: dayjs().hour(19).minute(0),
@@ -476,7 +562,12 @@ function ReservationsPageContent() {
       setCreateOpen(false);
       createForm.resetFields();
       const createdDate = (values.date as Dayjs).format('YYYY-MM-DD');
-      replaceListParams({ period: 'custom', date: createdDate, status: undefined });
+      replaceListParams({
+        period: 'custom',
+        startDate: createdDate,
+        endDate: createdDate,
+        status: undefined,
+      });
       refetch();
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'errorFields' in err) return;
@@ -509,6 +600,30 @@ function ReservationsPageContent() {
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'errorFields' in err) return;
       message.error(err instanceof Error ? err.message : 'Failed to update reservation');
+    }
+  };
+
+  const onExportReservations = async (format: ListExportFormat) => {
+    if (!listReady) return;
+    try {
+      const res = await exportReservations({
+        variables: {
+          restaurantId: queryRestaurantId,
+          startDate: queryStartDate,
+          endDate: queryEndDate,
+          period: queryPeriod,
+          status: statusFilter,
+          format,
+        },
+      });
+      const payload = res.data?.exportRestaurantReservations;
+      if (!payload?.content) throw new Error('No export returned');
+      downloadExportPayload(payload);
+      message.success(
+        `Exported ${payload.rowCount} reservations as ${format === 'xlsx' ? 'Excel' : format.toUpperCase()}`,
+      );
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Export failed');
     }
   };
 
@@ -626,11 +741,22 @@ function ReservationsPageContent() {
         extra={
           <Space wrap>
             <Select
-              style={{ width: 240 }}
-              {...restaurantSelectProps}
+              style={{ width: 260 }}
+              showSearch
+              optionFilterProp="label"
+              filterOption={restaurantSelectFilterOption}
+              options={restaurantFilterOptions}
+              value={allLocations ? ALL_LOCATIONS_VALUE : activeRestaurantId}
+              onChange={onRestaurantFilterChange}
               placeholder="Restaurant"
+              aria-label="Restaurant"
             />
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate} disabled={!activeRestaurantId}>
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={openCreate}
+              disabled={!activeRestaurantId || allLocations}
+            >
               New reservation
             </Button>
           </Space>
@@ -654,17 +780,23 @@ function ReservationsPageContent() {
             onChange={(value: DatePeriod) => {
               replaceListParams({
                 period: value,
-                date: value === 'custom' ? customDate : undefined,
+                startDate: value === 'custom' ? customStartDate : undefined,
+                endDate: value === 'custom' ? customEndDate : undefined,
               });
             }}
           />
           {period === 'custom' ? (
-            <DatePicker
-              aria-label="Custom date"
-              value={dayjs(customDate)}
+            <RangePicker
+              aria-label="Custom date range"
+              value={[dayjs(customStartDate), dayjs(customEndDate)]}
               allowClear={false}
-              onChange={(d) => {
-                if (d) replaceListParams({ period: 'custom', date: d.format('YYYY-MM-DD') });
+              onChange={(range) => {
+                if (!range?.[0] || !range[1]) return;
+                replaceListParams({
+                  period: 'custom',
+                  startDate: range[0].format('YYYY-MM-DD'),
+                  endDate: range[1].format('YYYY-MM-DD'),
+                });
               }}
             />
           ) : null}
@@ -677,24 +809,41 @@ function ReservationsPageContent() {
             options={STATUS_FILTER_OPTIONS}
             onChange={(value: string | undefined) => replaceListParams({ status: value })}
           />
+          <ExportMenu
+            formats={['xlsx', 'pdf', 'json']}
+            loading={exporting}
+            disabled={!listReady}
+            onExport={(format) => void onExportReservations(format)}
+          />
         </div>
         <Table<ReservationRow>
           loading={loading}
           rowKey="id"
           dataSource={(data?.restaurantReservations?.items ?? []) as ReservationRow[]}
           pagination={tablePagination(data?.restaurantReservations?.total ?? 0)}
-          scroll={{ x: 1120 }}
+          scroll={{ x: allLocations ? 1240 : 1120 }}
           onRow={(r) => ({
             onClick: () => openView(r),
             style: { cursor: 'pointer' },
           })}
           columns={[
+            ...(allLocations
+              ? [
+                  {
+                    title: 'Location',
+                    width: 160,
+                    ellipsis: true,
+                    render: (_: unknown, r: ReservationRow) =>
+                      r.restaurant?.name ?? '—',
+                  },
+                ]
+              : []),
             {
-              title: SINGLE_DAY_PERIODS.has(period) ? 'Time' : 'When',
+              title: showTimeOnlyColumn ? 'Time' : 'When',
               dataIndex: 'slotStart',
-              width: SINGLE_DAY_PERIODS.has(period) ? 90 : 150,
+              width: showTimeOnlyColumn ? 90 : 150,
               render: (v: string) =>
-                SINGLE_DAY_PERIODS.has(period)
+                showTimeOnlyColumn
                   ? formatTimeInTimeZone(v, timeZone)
                   : formatUsDateTime(v, {
                       timeZone,

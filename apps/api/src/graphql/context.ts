@@ -5,12 +5,14 @@ import { verifyAccessToken } from '../services/auth.js';
 import { getAccessTokenFromRequest } from '../services/authCookies.js';
 import type { UserDocument } from '../models/User.js';
 import { AuthenticationError, ForbiddenError } from '../lib/errors.js';
+import { createLoaders, type GraphQLLoaders } from './loaders.js';
 
 export interface GraphQLContext {
   user: UserDocument | null;
   impersonator: UserDocument | null;
   req: Request;
   res: Response;
+  loaders: GraphQLLoaders;
 }
 
 export async function createContext({
@@ -22,7 +24,13 @@ export async function createContext({
 }): Promise<GraphQLContext> {
   const token = getAccessTokenFromRequest(req);
   if (!token) {
-    return { user: null, impersonator: null, req, res };
+    return {
+      user: null,
+      impersonator: null,
+      req,
+      res,
+      loaders: createLoaders(null),
+    };
   }
   try {
     const payload = verifyAccessToken(token);
@@ -31,12 +39,30 @@ export async function createContext({
     if (payload.impersonatorId) {
       impersonator = await User.findById(payload.impersonatorId);
       if (!impersonator || !isPlatformAdmin(impersonator.role)) {
-        return { user: null, impersonator: null, req, res };
+        return {
+          user: null,
+          impersonator: null,
+          req,
+          res,
+          loaders: createLoaders(null),
+        };
       }
     }
-    return { user, impersonator, req, res };
+    return {
+      user,
+      impersonator,
+      req,
+      res,
+      loaders: createLoaders(user?._id.toString() ?? null),
+    };
   } catch {
-    return { user: null, impersonator: null, req, res };
+    return {
+      user: null,
+      impersonator: null,
+      req,
+      res,
+      loaders: createLoaders(null),
+    };
   }
 }
 

@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { Button, Card, Col, Dropdown, Modal, Row, Space, Spin, Typography, message } from 'antd';
 import type { MenuProps } from 'antd';
@@ -34,6 +35,7 @@ import {
   UPDATE_RESERVATION_STATUS,
 } from '@/lib/graphql';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
+import { restaurantHref } from '@/lib/restaurants';
 import {
   formatDepositStatus,
   formatOccasion,
@@ -348,7 +350,22 @@ function ReservationDetailPageContent() {
       <Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
         <PageHeader
           title={name}
-          subtitle={reservation.restaurant?.name ? `${reservation.restaurant.name} · ${whenLabel}` : whenLabel}
+          subtitle={
+            reservation.restaurant?.name ? (
+              <>
+                <Link
+                  href={restaurantHref('/restaurant-profile', reservation.restaurantId)}
+                  style={{ color: colors.brand[600], fontWeight: 500 }}
+                >
+                  {reservation.restaurant.name}
+                </Link>
+                {' · '}
+                {whenLabel}
+              </>
+            ) : (
+              whenLabel
+            )
+          }
           back={
             <Button
               type="text"
@@ -523,6 +540,11 @@ function ReservationDetailPageContent() {
               title="Visit"
               style={{ borderRadius: radii.lg, height: '100%', border: `1px solid ${colors.bordersubtle}` }}
             >
+              <InfoRow label="Restaurant">
+                <Link href={restaurantHref('/restaurant-profile', reservation.restaurantId)}>
+                  {reservation.restaurant?.name || reservation.restaurantId}
+                </Link>
+              </InfoRow>
               <InfoRow label="When">
                 <Text>
                   <CalendarOutlined style={{ marginRight: 8, color: colors.textTertiary }} />

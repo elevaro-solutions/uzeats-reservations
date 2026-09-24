@@ -21,7 +21,7 @@
 
 ## [2026-09-18] Past dates are blocked; display locale is US
 - Diner DatePickers (web restaurant card, discovery, edit/experience booking) and partner create/edit reservation pickers `disabledDate` past days. Staff list/report date filters still allow history. URL `?date=` in the past is clamped to today.
-- Guest-facing times use `en-US` 12-hour (`h:mm A` / `formatUsTime`). Ant Design `ConfigProvider` locale is `en_US` so calendars render `M/D/YYYY`, not the browser locale.
+- Guest-facing times use `en-US` 12-hour (`h:mm A` / `formatUsTime`). Web/dashboard use shared `antdUsLocale` (`fieldDateFormat: M/D/YYYY`) — plain `en_US` alone still shows ISO `YYYY-MM-DD` in the input.
 - Why it matters: A diner in a non-US locale used to see 24-hour times and DD.MM.YYYY, and could pick yesterday on the restaurant calendar.
 
 ## [2026-09-18] `BOOKING_RESTAURANT` tables must select `id`
@@ -70,6 +70,11 @@
 ## [2026-09-16] Experience booking is a dedicated modal, not an add-on scroll
 - Restaurant profile lists experiences as Reserve cards. Reserve opens Find a table → optional package add-ons → summary, then applies date/slot/party back onto `#booking-form`. Slot grid is clipped to the experience start/end window.
 - Why it matters: Don’t treat experience cards as “select and scroll to the widget.” The widget still completes guest details, deposit, and confirm.
+
+## [2026-09-23] Discovery search batches availability; Redis TTL on compute
+- `searchRestaurants` with a date uses `getAvailabilityForRestaurants` (batched Mongo + 45s Redis per restaurant/date/party) and returns `availableSlotTimes`.
+- Clients still use `cache-and-network` / live queries for booking slot picks so conflict risk stays low.
+- Why it matters: Card slot chips are search-embedded; booking-page slot picks still refresh.
 
 ## [2026-09-14] Availability deliberately uncached
 - Availability uses `network-only`; bookable tables `no-cache` and only on the details step. Packages/experiences/spaces skipped until details. Drafts/occasions/loyalty thresholds come from `@reservations/shared`.

@@ -40,11 +40,8 @@ import {
   SUPPORT_EMAIL,
 } from '@/lib/legal';
 import { useAuth } from '@/lib/auth';
-import {
-  MARK_ALL_NOTIFICATIONS_READ,
-  MARK_NOTIFICATIONS_READ,
-  MY_NOTIFICATIONS,
-} from '@/lib/graphql';
+import { MY_NOTIFICATIONS, MARK_NOTIFICATIONS_READ, MARK_ALL_NOTIFICATIONS_READ } from '@/lib/graphql';
+import { skipPollWhenHidden } from '@/lib/pollVisibility';
 import { getDashboardUrl } from '@/lib/urls';
 import { buildRestaurantBookingPath } from '@reservations/shared';
 import { CookieConsent, openCookieSettings } from '@/components/CookieConsent';
@@ -180,6 +177,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     skip: !user || user.role !== 'diner',
     variables: { limit: 20 },
     pollInterval: 60_000,
+    skipPollAttempt: skipPollWhenHidden,
   });
   const [markRead] = useMutation(MARK_NOTIFICATIONS_READ, {
     refetchQueries: [{ query: MY_NOTIFICATIONS, variables: { limit: 20 } }],

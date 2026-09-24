@@ -310,6 +310,17 @@ export const typeDefs = `#graphql
     tables: [Table!]!
     shifts: [Shift!]!
     menu: Menu
+    """Count of tables — preferred over tables { id } for shell/list UIs."""
+    tableCount: Int!
+    """Count of shifts — preferred over shifts { id } for shell/list UIs."""
+    shiftCount: Int!
+    """True when the restaurant menu has at least one item."""
+    hasMenuItems: Boolean!
+    """
+    Open slot ISO times for discovery cards (populated by searchRestaurants when
+    a date is requested). Empty on other restaurant queries.
+    """
+    availableSlotTimes: [String!]!
     isSaved: Boolean!
     isFavorite: Boolean!
     bookingWindow: BookingWindow!
@@ -2631,8 +2642,12 @@ export const typeDefs = `#graphql
     myReservation(id: ID!): Reservation
     mySavedRestaurants(kind: RestaurantBookmarkKind!): [Restaurant!]!
     restaurantReservations(
-      restaurantId: ID!
+      restaurantId: ID
       date: String
+      """Inclusive YYYY-MM-DD start for a custom range (requires endDate)."""
+      startDate: String
+      """Inclusive YYYY-MM-DD end for a custom range (requires startDate)."""
+      endDate: String
       period: ReservationDatePeriod
       status: ReservationStatus
       limit: Int
@@ -3024,6 +3039,13 @@ export const typeDefs = `#graphql
       bodyText: String
       name: String
     ): EmailTemplate!
+    sendTestEmailTemplate(
+      key: String!
+      to: String!
+      subject: String
+      bodyHtml: String
+      bodyText: String
+    ): Boolean!
     createBlogPost(input: BlogPostInput!): BlogPost!
     updateBlogPost(id: ID!, input: BlogPostInput!): BlogPost!
     deleteBlogPost(id: ID!): Boolean!
@@ -3093,6 +3115,15 @@ export const typeDefs = `#graphql
       tag: String
       vipStatus: String
       search: String
+      format: String
+    ): CsvExport!
+    exportRestaurantReservations(
+      restaurantId: ID
+      date: String
+      startDate: String
+      endDate: String
+      period: ReservationDatePeriod
+      status: ReservationStatus
       format: String
     ): CsvExport!
     exportAdminDiners(search: String, format: String): CsvExport!

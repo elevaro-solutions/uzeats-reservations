@@ -5,7 +5,6 @@ import mongoose from "mongoose";
 import { createReadStream } from "node:fs";
 import { access } from "node:fs/promises";
 import path from "node:path";
-import { Redis } from "ioredis";
 import { rateLimit } from "express-rate-limit";
 import { ApolloServer } from "@apollo/server";
 import { expressMiddleware } from "@as-integrations/express5";
@@ -16,7 +15,8 @@ import { env } from "./config/env.js";
 import { connectDb } from "./db.js";
 import { typeDefs } from "./graphql/typeDefs.js";
 import { resolvers } from "./graphql/resolvers.js";
-import { createContext } from "./graphql/context.js";
+import { createContext, type GraphQLContext } from "./graphql/context.js";
+import { graphqlBatchMiddleware } from "./graphql/batchHttp.js";
 import { migrateStaffRoleToManager } from "./services/migrateStaffRoleToManager.js";
 import { constructStripeEvent } from "./services/stripe.js";
 import { confirmDeposit } from "./services/reservations.js";
@@ -71,7 +71,7 @@ async function main() {
 
   const graphqlLimiter = rateLimit({
     windowMs: 60 * 1000,
-    limit: 100,
+    limit: 300,
     standardHeaders: "draft-8",
     legacyHeaders: false,
     message: {
@@ -110,12 +110,17 @@ async function main() {
 
   function isSensitiveGraphql(req: express.Request) {
     const body = req.body as
-      { operationName?: string; query?: string } | undefined;
-    const haystack = `${body?.operationName ?? ""}\n${body?.query ?? ""}`;
-    return SENSITIVE_GRAPHQL.test(haystack);
+      | { operationName?: string; query?: string }
+      | Array<{ operationName?: string; query?: string }>
+      | undefined;
+    const ops = Array.isArray(body) ? body : body ? [body] : [];
+    return ops.some((op) => {
+      const haystack = `${op?.operationName ?? ""}\n${op?.query ?? ""}`;
+      return SENSITIVE_GRAPHQL.test(haystack);
+    });
   }
 
-  const server = new ApolloServer({
+  const server = new ApolloServer<GraphQLContext>({
     typeDefs,
     resolvers,
     introspection: env.NODE_ENV !== "production",
@@ -340,10 +345,17 @@ async function main() {
     (req, res, next) => {
       const start = Date.now();
       res.on("finish", () => {
-        const body = req.body as { operationName?: string } | undefined;
+        const body = req.body as
+          | { operationName?: string }
+          | Array<{ operationName?: string }>
+          | undefined;
+        const ops = Array.isArray(body)
+          ? body.map((b) => b?.operationName ?? "anonymous").join(",")
+          : (body?.operationName ?? "anonymous");
         logger.info(
           {
-            op: body?.operationName ?? "anonymous",
+            op: ops,
+            batch: Array.isArray(body) ? body.length : 1,
             ms: Date.now() - start,
             status: res.statusCode,
           },
@@ -352,6 +364,7 @@ async function main() {
       });
       next();
     },
+    graphqlBatchMiddleware(server, createContext),
     expressMiddleware(server, {
       context: async ({ req, res }) => createContext({ req, res }),
     }),
@@ -366,15 +379,8 @@ async function main() {
       3: "disconnecting",
     };
 
-    let redisOk = false;
-    try {
-      const redis = new Redis(env.REDIS_URL);
-      const pong = await redis.ping();
-      redisOk = pong === "PONG";
-      await redis.quit();
-    } catch {
-      redisOk = false;
-    }
+    const { pingSharedRedis } = await import("./lib/redis.js");
+    const redisOk = await pingSharedRedis();
 
     const healthy = mongoState === 1;
 

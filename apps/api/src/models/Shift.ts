@@ -26,6 +26,8 @@ const blackoutSchema = new Schema(
   { timestamps: true },
 );
 
+blackoutSchema.index({ restaurantId: 1, date: 1 });
+
 export type ShiftDocument = InferSchemaType<typeof shiftSchema> & {
   _id: mongoose.Types.ObjectId;
 };

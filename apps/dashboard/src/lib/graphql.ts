@@ -24,12 +24,8 @@ export const MY_RESTAURANTS_OVERVIEW = gql`
           city
           state
         }
-        tables {
-          id
-        }
-        shifts {
-          id
-        }
+        tableCount
+        shiftCount
       }
       total
       page
@@ -123,6 +119,28 @@ export const MY_RESTAURANTS = gql`
   }
 `;
 
+/** Location switcher + onboarding progress for DashShell — no nested tables/shifts/menu. */
+export const MY_RESTAURANTS_SHELL = gql`
+  query MyRestaurantsShell {
+    myRestaurants {
+      id
+      slug
+      name
+      status
+      description
+      photos
+      phone
+      address {
+        city
+        state
+      }
+      tableCount
+      shiftCount
+      hasMenuItems
+    }
+  }
+`;
+
 export const MY_RESTAURANT_LOCATIONS_META = gql`
   query MyRestaurantLocationsMeta {
     myRestaurantLocationsMeta {
@@ -134,8 +152,10 @@ export const MY_RESTAURANT_LOCATIONS_META = gql`
 
 export const RESTAURANT_RESERVATIONS = gql`
   query RestaurantReservations(
-    $restaurantId: ID!
+    $restaurantId: ID
     $date: String
+    $startDate: String
+    $endDate: String
     $period: ReservationDatePeriod
     $status: ReservationStatus
     $limit: Int
@@ -144,6 +164,8 @@ export const RESTAURANT_RESERVATIONS = gql`
     restaurantReservations(
       restaurantId: $restaurantId
       date: $date
+      startDate: $startDate
+      endDate: $endDate
       period: $period
       status: $status
       limit: $limit
@@ -173,6 +195,7 @@ export const RESTAURANT_RESERVATIONS = gql`
         createdAt
         diner { id firstName lastName phone email }
         tables { id name floorArea }
+        restaurant { id name }
       }
     }
   }
@@ -1412,6 +1435,24 @@ export const UPDATE_EMAIL_TEMPLATE = gql`
   }
 `;
 
+export const SEND_TEST_EMAIL_TEMPLATE = gql`
+  mutation SendTestEmailTemplate(
+    $key: String!
+    $to: String!
+    $subject: String
+    $bodyHtml: String
+    $bodyText: String
+  ) {
+    sendTestEmailTemplate(
+      key: $key
+      to: $to
+      subject: $subject
+      bodyHtml: $bodyHtml
+      bodyText: $bodyText
+    )
+  }
+`;
+
 export const ADMIN_BLOG_POSTS = gql`
   query AdminBlogPosts($search: String, $status: BlogPostStatus, $limit: Int, $offset: Int) {
     adminBlogPosts(search: $search, status: $status, limit: $limit, offset: $offset) {
@@ -1763,6 +1804,33 @@ export const EXPORT_RESTAURANT_GUESTS = gql`
   }
 `;
 
+export const EXPORT_RESTAURANT_RESERVATIONS = gql`
+  mutation ExportRestaurantReservations(
+    $restaurantId: ID
+    $date: String
+    $startDate: String
+    $endDate: String
+    $period: ReservationDatePeriod
+    $status: ReservationStatus
+    $format: String
+  ) {
+    exportRestaurantReservations(
+      restaurantId: $restaurantId
+      date: $date
+      startDate: $startDate
+      endDate: $endDate
+      period: $period
+      status: $status
+      format: $format
+    ) {
+      filename
+      content
+      rowCount
+      mimeType
+      encoding
+    }
+  }
+`;
 export const SYNC_STRIPE_INVOICES = gql`
   mutation SyncStripeInvoices($limit: Int) {
     syncStripeInvoices(limit: $limit) {

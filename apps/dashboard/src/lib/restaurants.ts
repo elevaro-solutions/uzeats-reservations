@@ -21,6 +21,8 @@ export type OwnerRestaurant = {
   address: { city: string; state: string };
   tables?: unknown[];
   shifts?: unknown[];
+  tableCount?: number;
+  shiftCount?: number;
 };
 
 export function restaurantSelectFilterOption(
@@ -38,17 +40,24 @@ export function restaurantSelectLabel(r: {
   return location ? `${r.name} — ${location}` : r.name;
 }
 
+export const ALL_LOCATIONS_VALUE = 'all';
+
 export function buildRestaurantSelectOptions(
   restaurants: Array<{
     id: string;
     name: string;
     address?: { city?: string; state?: string };
   }>,
+  opts?: { includeAllLocations?: boolean },
 ) {
-  return restaurants.map((r) => ({
+  const options = restaurants.map((r) => ({
     value: r.id,
     label: restaurantSelectLabel(r),
   }));
+  if (opts?.includeAllLocations && restaurants.length > 1) {
+    return [{ value: ALL_LOCATIONS_VALUE, label: 'All locations' }, ...options];
+  }
+  return options;
 }
 
 export function validatedRestaurantId(

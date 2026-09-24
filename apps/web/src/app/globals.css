@@ -148,21 +148,21 @@ html {
   margin-top: 32px;
   background: #fff;
   border-radius: var(--radius-xl);
-  padding: 8px;
+  padding: 10px;
   box-shadow:
     0 24px 64px rgba(0, 0, 0, 0.32),
     0 0 0 1px rgba(255, 255, 255, 0.06);
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 2px;
+  gap: 8px;
   text-align: left;
 }
 
 .rt-search-panel__fields {
   display: flex;
   align-items: stretch;
-  gap: 2px;
+  gap: 6px;
   flex: 1;
   width: 100%;
   min-width: 0;
@@ -173,26 +173,34 @@ html {
   flex-direction: column;
   justify-content: flex-start;
   min-width: 0;
-  padding: 6px 6px 4px;
+  padding: 8px 10px 6px;
   border-radius: var(--radius-lg);
-  transition: background 0.18s ease;
+  background: #efece7;
+  border: 1px solid var(--color-border);
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .rt-search-field:hover {
-  background: rgba(var(--color-brand-rgb), 0.04);
+  background: #e8e4dd;
+  border-color: #d4cfc6;
 }
 
 .rt-search-field:focus-within {
   background: var(--color-brand-50);
+  border-color: var(--color-brand-200);
+  box-shadow: 0 0 0 2px rgba(var(--color-brand-rgb), 0.14);
 }
 
 .rt-search-label {
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: var(--color-text-tertiary);
-  padding: 2px 11px 0;
+  color: var(--color-text-secondary);
+  padding: 2px 4px 0;
   line-height: 1.4;
   user-select: none;
 }
@@ -204,19 +212,36 @@ html {
   width: 100%;
 }
 
+.rt-search-field .ant-input,
+.rt-search-field .ant-select-selection-item,
+.rt-search-field .ant-picker-input > input {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.rt-search-field .ant-input::placeholder,
+.rt-search-field .ant-select-selection-placeholder,
+.rt-search-field .ant-picker-input > input::placeholder {
+  color: var(--color-text-secondary);
+  opacity: 0.72;
+}
+
+.rt-search-field .ant-input-prefix,
+.rt-search-field .ant-select-arrow,
+.rt-search-field .ant-picker-suffix {
+  color: var(--color-text-secondary);
+}
+
+/* Dividers unused once fields have their own fill + border */
 .rt-search-divider {
-  width: 1px;
-  flex-shrink: 0;
-  align-self: center;
-  height: 34px;
-  background: var(--color-border-subtle);
+  display: none;
 }
 
 .rt-search-submit {
   display: flex;
   align-items: stretch;
   flex-shrink: 0;
-  padding: 2px;
+  padding: 0;
 }
 
 /* Map-mode search: compact card with integrated view toggle */
@@ -263,28 +288,30 @@ html {
   display: flex;
   flex-wrap: wrap;
   align-items: stretch;
-  gap: 2px;
+  gap: 6px;
   padding: 8px;
 }
 
 .rt-search-panel--map .rt-search-field {
-  background: var(--color-bg);
-  border: 1px solid transparent;
+  background: #efece7;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  box-shadow: none;
 }
 
 .rt-search-panel--map .rt-search-field:hover {
-  background: var(--color-bg);
-  border-color: var(--color-border-subtle);
+  background: #e8e4dd;
+  border-color: #d4cfc6;
 }
 
 .rt-search-panel--map .rt-search-field:focus-within {
   background: var(--color-brand-50);
   border-color: var(--color-brand-200);
+  box-shadow: 0 0 0 2px rgba(var(--color-brand-rgb), 0.14);
 }
 
 .rt-search-panel--map .rt-search-submit {
-  padding: 8px 2px 2px;
+  padding: 2px 0 0;
 }
 
 /* Field widths — desktop */
@@ -308,16 +335,13 @@ html {
 @media (max-width: 940px) {
   .rt-search-panel__fields {
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 8px;
   }
 
   .rt-search-panel--map .rt-search-panel__fields {
     padding: 8px;
   }
 
-  .rt-search-divider {
-    display: none;
-  }
   .rt-sf-what,
   .rt-sf-where {
     flex: 1 1 100%;
@@ -327,18 +351,9 @@ html {
   .rt-sf-who {
     flex: 1 1 40%;
   }
-  .rt-search-panel:not(.rt-search-panel--map) .rt-search-field,
-  .rt-search-panel:not(.rt-search-panel--map) .rt-search-field:hover,
-  .rt-search-panel--map .rt-search-field,
-  .rt-search-panel--map .rt-search-field:hover {
-    background: var(--color-bg);
-  }
-  .rt-search-field:focus-within {
-    background: var(--color-brand-50);
-  }
   .rt-search-submit {
     flex: 1 1 100%;
-    padding: 4px 2px 2px;
+    padding: 2px 0 0;
   }
   .rt-search-submit .ant-btn {
     width: 100%;
@@ -1695,6 +1710,7 @@ html.rt-map-view .rt-site-footer {
 }
 
 .rt-map-list-card__media {
+  position: relative;
   width: 120px;
   height: 120px;
   border-radius: var(--radius-md);
@@ -3567,24 +3583,41 @@ body:has(.fr-page) .ant-layout {
 .rt-restaurant-gallery {
   position: relative;
   display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 8px;
-  height: 380px;
+  gap: 2px;
+  height: min(420px, 46vw);
   margin: 0 -16px 24px;
   border-radius: 0;
   overflow: hidden;
+  background: #111;
 }
 
 .rt-restaurant-gallery--single {
   grid-template-columns: 1fr;
-  height: 320px;
+  height: min(360px, 52vw);
 }
 
-.rt-restaurant-gallery--single img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  cursor: pointer;
+.rt-restaurant-gallery--mosaic-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.rt-restaurant-gallery--mosaic-3 {
+  grid-template-columns: 2fr 1fr;
+}
+
+.rt-restaurant-gallery--mosaic-5 {
+  grid-template-columns: 2fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.rt-restaurant-gallery--mosaic-5 .rt-restaurant-gallery__hero {
+  grid-row: 1 / span 2;
+}
+
+.rt-restaurant-gallery--mosaic-5 .rt-restaurant-gallery__side {
+  grid-column: 2 / span 2;
+  grid-row: 1 / span 2;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
 }
 
 .rt-restaurant-gallery__hero,
@@ -3609,93 +3642,190 @@ body:has(.fr-page) .ant-layout {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s ease;
+  transition: transform 0.35s ease, filter 0.25s ease;
 }
 
 .rt-restaurant-gallery__hero:hover img,
 .rt-restaurant-gallery__thumb:hover img {
-  transform: scale(1.03);
+  transform: scale(1.04);
+  filter: brightness(0.92);
 }
 
 .rt-restaurant-gallery__side {
   display: grid;
   grid-template-rows: 1fr 1fr;
-  gap: 8px;
+  gap: 2px;
   min-height: 0;
 }
 
-.rt-restaurant-gallery__more {
+.rt-restaurant-gallery__see-all {
   position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(26, 24, 22, 0.55);
-  color: #fff;
-  font-weight: 600;
-  font-size: 15px;
-}
-
-.rt-restaurant-gallery__count {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  z-index: 2;
+  left: 50%;
+  bottom: 16px;
+  z-index: 3;
+  transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 8px 12px;
+  padding: 10px 18px;
+  border: none;
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(var(--color-brand-rgb), 0.92);
   color: #fff;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
   line-height: 1;
-  pointer-events: none;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+  transition: background 0.2s ease, transform 0.2s ease;
 }
 
-.rt-restaurant-lightbox .ant-modal-content {
-  background: #000;
+.rt-restaurant-gallery__see-all:hover {
+  background: var(--color-brand-700);
+  transform: translateX(-50%) translateY(-1px);
+}
+
+.rt-restaurant-photos-browser .ant-modal-content {
+  background: #fff;
   padding: 0;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
-.rt-restaurant-lightbox__inner {
-  position: relative;
+.rt-restaurant-photos-browser .ant-modal-body {
+  max-height: min(84vh, 820px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rt-restaurant-photos-browser__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 24px 12px;
+  flex-shrink: 0;
+}
+
+.rt-restaurant-photos-browser__title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+
+.rt-restaurant-photos-browser__subtitle {
+  margin: 6px 0 0;
+  font-size: 15px;
+  color: var(--color-text-secondary);
+}
+
+.rt-restaurant-photos-browser__close {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 60vh;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 16px;
+  flex-shrink: 0;
 }
 
-.rt-restaurant-lightbox__inner img {
-  max-width: 100%;
-  max-height: 80vh;
+.rt-restaurant-photos-browser__close:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.rt-restaurant-photos-browser__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  padding: 8px 16px 24px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.rt-restaurant-photos-browser__cell {
+  position: relative;
+  display: block;
+  border: none;
+  padding: 0;
+  margin: 0;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--color-border-subtle);
+}
+
+.rt-restaurant-photos-browser__cell--wide {
+  grid-column: 1 / -1;
+  aspect-ratio: 16 / 9;
+}
+
+.rt-restaurant-photos-browser__cell img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease, filter 0.2s ease;
+}
+
+.rt-restaurant-photos-browser__cell:hover img {
+  transform: scale(1.03);
+  filter: brightness(0.94);
+}
+
+.rt-restaurant-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.96);
+  padding: 56px 64px;
+  box-sizing: border-box;
+}
+
+.rt-restaurant-lightbox__img {
+  display: block;
+  max-width: min(92vw, 1200px);
+  max-height: min(88vh, 900px);
+  width: auto;
+  height: auto;
   object-fit: contain;
+  user-select: none;
+  pointer-events: none;
 }
 
 .rt-restaurant-lightbox__close {
   position: absolute;
   top: 16px;
-  right: 16px;
+  right: 20px;
   z-index: 3;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border: none;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.7);
+  background: transparent;
   color: #fff;
   cursor: pointer;
-  font-size: 16px;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+  font-size: 18px;
 }
 
 .rt-restaurant-lightbox__close:hover {
-  background: rgba(0, 0, 0, 0.88);
+  background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
 
@@ -3703,34 +3833,40 @@ body:has(.fr-page) .ant-layout {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(0, 0, 0, 0.55);
+  background: transparent;
   border: none;
   color: #fff;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 22px;
   z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rt-restaurant-lightbox__nav:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .rt-restaurant-lightbox__nav--prev {
-  left: 16px;
+  left: 12px;
 }
 .rt-restaurant-lightbox__nav--next {
-  right: 16px;
+  right: 12px;
 }
 
 .rt-restaurant-lightbox__counter {
   position: absolute;
-  bottom: 16px;
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  color: #fff;
+  color: rgba(255, 255, 255, 0.85);
   font-size: 14px;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 4px 12px;
-  border-radius: 999px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 
 .rt-restaurant-profile__header {
@@ -4415,17 +4551,71 @@ body:has(.fr-page) .ant-layout {
   border-left: 3px solid var(--color-brand-200);
 }
 
-.rt-restaurant-photos-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+.rt-restaurant-photos-section__heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
-.rt-restaurant-photos-grid img {
-  width: 100%;
+.rt-restaurant-photos-section__heading .rt-restaurant-section__title {
+  margin-bottom: 0 !important;
+}
+
+.rt-restaurant-photos-section__subtitle {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.rt-restaurant-photos-section__see-all {
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+  background: #fff;
+  color: var(--color-brand-700);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 8px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.rt-restaurant-photos-section__see-all:hover {
+  border-color: var(--color-brand-500);
+  background: var(--color-brand-50);
+}
+
+.rt-restaurant-photos-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+
+.rt-restaurant-photos-grid__item {
+  position: relative;
+  display: block;
+  border: none;
+  padding: 0;
+  margin: 0;
   aspect-ratio: 4 / 3;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.rt-restaurant-photos-grid__item img {
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
-  border-radius: var(--radius-md);
+  transition: transform 0.3s ease;
+}
+
+.rt-restaurant-photos-grid__item:hover img {
+  transform: scale(1.04);
 }
 
 .rt-restaurant-actions {
@@ -4476,6 +4666,55 @@ body:has(.fr-page) .ant-layout {
   border-color: var(--color-brand-300);
   color: var(--color-brand-700);
   background: var(--color-brand-50);
+}
+
+/* App-like equal action tiles (Call / Directions / Website / Message) */
+.rt-restaurant-actions__tile {
+  flex: 1 1 0;
+  min-width: 72px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border-radius: var(--radius-md, 12px);
+  background: var(--color-brand-50, #faf7f0);
+  color: var(--color-brand-700, #6b5424);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.rt-restaurant-actions__tile:hover {
+  opacity: 0.85;
+  color: var(--color-brand-700, #6b5424);
+}
+
+.rt-restaurant-actions__tile .anticon {
+  font-size: 18px;
+  color: var(--color-brand-600, #8a6a2f);
+}
+
+.rt-restaurant-actions__tile--btn.ant-btn {
+  height: auto !important;
+  box-shadow: none !important;
+}
+
+.rt-restaurant-actions__tile--btn.ant-btn .ant-btn-icon {
+  margin-inline-end: 0 !important;
+}
+
+.rt-restaurant-profile__bookmarks {
+  margin-top: 12px;
+}
+
+.rt-restaurant-book-footer {
+  display: none;
 }
 
 .rt-restaurant-map {
@@ -5225,7 +5464,21 @@ body:has(.fr-page) .ant-layout {
 
 @media (max-width: 992px) {
   .rt-restaurant-gallery {
-    height: 260px;
+    height: 280px;
+  }
+
+  .rt-restaurant-gallery--mosaic-5 {
+    grid-template-columns: 2fr 1fr;
+  }
+
+  .rt-restaurant-gallery--mosaic-5 .rt-restaurant-gallery__side {
+    grid-column: 2;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+
+  .rt-restaurant-gallery--mosaic-5 .rt-restaurant-gallery__side .rt-restaurant-gallery__thumb:nth-child(n + 3) {
+    display: none;
   }
 
   .rt-restaurant-profile {
@@ -5243,6 +5496,79 @@ body:has(.fr-page) .ant-layout {
 
   .rt-restaurant-photos-grid {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* App-like: booking card first, then overview / menu / reviews */
+  .rt-restaurant-profile__body.ant-row {
+    flex-direction: column;
+  }
+
+  .rt-restaurant-profile__booking-col {
+    order: -1;
+  }
+
+  .rt-restaurant-page--mobile.has-book-footer .rt-restaurant-profile {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .rt-restaurant-page--mobile .rt-restaurant-gallery {
+    height: min(52vw, 320px);
+    margin: 0 -16px 0;
+  }
+
+  .rt-restaurant-page--mobile .rt-restaurant-profile__sheet {
+    position: relative;
+    z-index: 1;
+    margin-top: -20px;
+    padding-top: 8px;
+    border-radius: 20px 20px 0 0;
+    background: #fff;
+    box-shadow: 0 -8px 24px rgba(26, 24, 22, 0.06);
+  }
+
+  .rt-restaurant-page--mobile .rt-restaurant-profile__header {
+    padding-top: 8px;
+  }
+
+  .rt-restaurant-page--mobile .rt-restaurant-nav {
+    top: var(--header-height);
+    margin-top: 8px;
+    margin-bottom: 20px;
+  }
+
+  .rt-restaurant-page--mobile .rt-restaurant-actions {
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .rt-restaurant-book-footer {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 45;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--color-border, #e3dfd8);
+    background: color-mix(in srgb, #fff 92%, transparent);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 -8px 24px rgba(26, 24, 22, 0.08);
+  }
+
+  .rt-restaurant-book-footer .ant-btn {
+    height: 48px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 12px;
+  }
+
+  .rt-restaurant-profile__booking-sticky.is-highlighted .rt-restaurant-booking-card {
+    box-shadow: 0 0 0 3px var(--color-brand-200, #d4c4a0);
+    transition: box-shadow 0.3s ease;
+  }
+
+  #booking-form {
+    scroll-margin-top: calc(var(--header-height, 64px) + 12px);
   }
 }
 
@@ -5268,12 +5594,46 @@ body:has(.fr-page) .ant-layout {
 
 @media (max-width: 576px) {
   .rt-restaurant-gallery {
-    grid-template-columns: 1fr;
-    height: 220px;
+    grid-template-columns: 1fr !important;
+    height: min(58vw, 280px);
   }
 
-  .rt-restaurant-gallery__side {
+  .rt-restaurant-page--mobile .rt-restaurant-gallery {
+    height: min(62vw, 300px);
+  }
+
+  .rt-restaurant-gallery--mosaic-5 .rt-restaurant-gallery__hero {
+    grid-row: auto;
+  }
+
+  .rt-restaurant-gallery__side,
+  .rt-restaurant-gallery__hero--second {
     display: none;
+  }
+
+  .rt-restaurant-gallery__see-all {
+    bottom: 28px;
+    padding: 9px 14px;
+    font-size: 13px;
+  }
+
+  .rt-restaurant-photos-browser__title {
+    font-size: 22px;
+  }
+
+  .rt-restaurant-photos-browser__grid {
+    grid-template-columns: 1fr 1fr;
+    padding: 8px 12px 20px;
+  }
+
+  .rt-restaurant-photos-browser__cell--wide {
+    grid-column: auto;
+    aspect-ratio: 4 / 3;
+  }
+
+  .rt-restaurant-photos-section__heading {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .rt-restaurant-review__comment,
@@ -5281,6 +5641,24 @@ body:has(.fr-page) .ant-layout {
   .rt-restaurant-review__photos,
   .rt-restaurant-review__reply {
     margin-left: 0 !important;
+  }
+
+  .rt-restaurant-page--mobile .rt-restaurant-profile__heading {
+    align-items: center;
+  }
+
+  .rt-restaurant-page--mobile .rt-restaurant-profile h1.ant-typography {
+    font-size: 22px !important;
+    line-height: 1.25 !important;
+  }
+
+  .rt-restaurant-page--mobile .rt-restaurant-booking-card .ant-card-head-title {
+    font-size: 17px;
+  }
+
+  .rt-restaurant-page--mobile .rt-restaurant-booking-card__intro,
+  .rt-restaurant-page--mobile .rt-restaurant-booking-card__loyalty {
+    font-size: 13px;
   }
 }
 
@@ -5621,30 +5999,467 @@ body:has(.fr-page) .ant-layout {
   margin-top: 8px;
 }
 
+/* Diner reservations list + detail — app-like cards on mobile */
+.rt-reservations-page {
+  max-width: 800px;
+}
+
+.rt-reservations-page__segments {
+  margin-bottom: 16px;
+}
+
+.rt-reservation-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rt-reservation-list-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--radius-lg, 16px);
+  border: 1px solid var(--color-border, #e3dfd8);
+  background: var(--color-surface, #fff);
+  box-shadow: 0 2px 10px rgba(26, 24, 22, 0.05);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.rt-reservation-list-card:hover,
+.rt-reservation-list-card:focus-visible {
+  border-color: var(--color-brand-200, #d4c4a0);
+  background: var(--color-brand-50, #faf7f0);
+  outline: none;
+}
+
+.rt-reservation-list-card--skeleton {
+  min-height: 128px;
+  cursor: default;
+  background: linear-gradient(
+    90deg,
+    var(--color-border-subtle, #f0ede8) 25%,
+    var(--color-surface, #fff) 50%,
+    var(--color-border-subtle, #f0ede8) 75%
+  );
+  background-size: 200% 100%;
+  animation: rt-reservation-shimmer 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes rt-reservation-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.rt-reservation-list-card__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.rt-reservation-list-card__thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md, 12px);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--color-border-subtle, #f0ede8);
+}
+
+.rt-reservation-list-card__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.rt-reservation-list-card__thumb-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-brand-400, #b89a5a);
+  font-size: 18px;
+}
+
+.rt-reservation-list-card__heading {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rt-reservation-list-card__name {
+  color: var(--color-text, #1a1816);
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.3;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rt-reservation-list-card__name:hover {
+  text-decoration: underline;
+  color: var(--color-brand-700, #6b5424);
+}
+
+.rt-reservation-list-card__address {
+  font-size: 13px !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rt-reservation-list-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--color-background, #f7f5f2);
+  color: var(--color-text-secondary, #5a554d);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.rt-reservation-list-card__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rt-reservation-list-card__meta .anticon {
+  color: var(--color-text-tertiary, #a39e94);
+  font-size: 13px;
+}
+
+.rt-reservation-list-card__deposit,
+.rt-reservation-list-card__review-cue {
+  align-self: flex-start;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm, 8px);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.rt-reservation-list-card__deposit {
+  color: var(--color-warning, #d4890f);
+  background: var(--color-warning-bg, #fdf4e5);
+}
+
+.rt-reservation-list-card__review-cue {
+  color: var(--color-info, #2f6fed);
+  background: var(--color-info-bg, #ebf1fe);
+}
+
+.rt-reservation-list-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rt-reservation-detail {
+  max-width: 800px;
+}
+
+.rt-reservation-detail__topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.rt-reservation-detail__top-title {
+  flex: 1;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-text, #1a1816);
+}
+
+.rt-reservation-detail__chrome-btn {
+  width: 40px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  border-radius: 999px !important;
+  background: var(--color-background, #f7f5f2) !important;
+  color: var(--color-text, #1a1816) !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.rt-reservation-detail__chrome-spacer {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+
+.rt-reservation-detail__body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.rt-reservation-detail__alert {
+  margin: 0 !important;
+}
+
+.rt-reservation-detail__skeleton {
+  min-height: 280px;
+  border-radius: var(--radius-lg, 16px);
+  background: linear-gradient(
+    90deg,
+    var(--color-border-subtle, #f0ede8) 25%,
+    var(--color-surface, #fff) 50%,
+    var(--color-border-subtle, #f0ede8) 75%
+  );
+  background-size: 200% 100%;
+  animation: rt-reservation-shimmer 1.2s ease-in-out infinite;
+}
+
+.rt-reservation-restaurant-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 16px;
+  border: 1px solid var(--color-border, #e3dfd8);
+  border-radius: var(--radius-lg, 16px);
+  background: var(--color-surface, #fff);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.rt-reservation-restaurant-card:hover {
+  background: var(--color-background, #f7f5f2);
+}
+
+.rt-reservation-restaurant-card__thumb {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-md, 12px);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--color-border-subtle, #f0ede8);
+}
+
+.rt-reservation-restaurant-card__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.rt-reservation-restaurant-card__thumb-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-brand-400, #b89a5a);
+  font-size: 22px;
+}
+
+.rt-reservation-restaurant-card__copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rt-reservation-restaurant-card__name {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--color-text, #1a1816);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rt-reservation-restaurant-card__address {
+  font-size: 13px;
+  color: var(--color-text-secondary, #5a554d);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rt-reservation-restaurant-card__chevron {
+  color: var(--color-text-tertiary, #a39e94);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.rt-reservation-detail-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding-inline: 2px;
+}
+
+.rt-reservation-detail-section__header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text, #1a1816);
+}
+
+.rt-reservation-detail-section__edit {
+  border-radius: 999px !important;
+  background: var(--color-background, #f7f5f2) !important;
+  color: var(--color-text-secondary, #5a554d) !important;
+  font-weight: 600 !important;
+}
+
+.rt-reservation-detail-card {
+  border: 1px solid var(--color-border, #e3dfd8);
+  border-radius: var(--radius-lg, 16px);
+  background: var(--color-surface, #fff);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+.rt-reservation-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--color-border, #e3dfd8);
+}
+
+.rt-reservation-detail-row.is-last {
+  border-bottom: none;
+}
+
+.rt-reservation-detail-row__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md, 12px);
+  background: var(--color-background, #f7f5f2);
+  color: var(--color-text-secondary, #5a554d);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 16px;
+}
+
+.rt-reservation-detail-row__table-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md, 12px);
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--color-border-subtle, #f0ede8);
+}
+
+.rt-reservation-detail-row__copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rt-reservation-detail-row__label {
+  font-size: 12px;
+  color: var(--color-text-tertiary, #a39e94);
+}
+
+.rt-reservation-detail-row__value {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--color-text, #1a1816);
+  word-break: break-word;
+}
+
+.rt-reservation-detail__sticky-cta {
+  display: none;
+}
+
+.rt-reservation-detail__desktop-actions {
+  padding-top: 4px;
+}
+
 @media (max-width: 640px) {
-  .rt-reservation-card {
-    flex-direction: column;
-    gap: 12px !important;
+  .rt-reservations-page__subtitle,
+  .rt-reservations-page__billing {
+    display: none;
   }
 
-  .rt-reservation-card__thumb {
-    width: 100% !important;
-    height: 140px !important;
-    max-width: none;
+  .rt-reservations-page__header [component='PageHeader'] {
+    margin-bottom: 12px !important;
   }
 
-  .rt-reservation-card__body {
-    min-width: 0;
-    width: 100%;
+  .rt-reservations-page__header .ant-typography {
+    font-size: 24px !important;
   }
 
-  .rt-reservation-card__actions {
-    width: 100%;
-    justify-content: space-between;
+  .rt-reservations-page__segments .ant-segmented {
+    font-size: 13px;
   }
 
-  .rt-reservation-actions {
-    width: 100%;
+  .rt-reservations-page__segments .ant-segmented-item-label {
+    padding-inline: 8px;
+  }
+
+  /* Tap the card — keep overflow actions in the detail screen */
+  .rt-reservation-list-card__actions {
+    display: none;
+  }
+
+  .rt-reservation-detail.has-sticky-cta {
+    padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .rt-reservation-detail__desktop-actions {
+    display: none;
+  }
+
+  .rt-reservation-detail__sticky-cta {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--color-border, #e3dfd8);
+    background: color-mix(in srgb, var(--color-surface, #fff) 92%, transparent);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 -8px 24px rgba(26, 24, 22, 0.08);
+  }
+
+  .rt-reservation-detail__sticky-cta .ant-btn {
+    height: 48px;
+    font-weight: 600;
+    border-radius: 12px;
+  }
+
+  .rt-reservation-detail__alert .ant-alert-action {
+    display: none;
   }
 }
 

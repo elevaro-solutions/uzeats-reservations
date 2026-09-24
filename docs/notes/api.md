@@ -1,5 +1,29 @@
 # API — Learnings & Observations
 
+## [2026-09-24] Email is SendGrid-only
+- Removed Resend fallback from `sendEmail` / env schema / shared env catalog. Without `SENDGRID_API_KEY`, sends stub as `[email:dev] stub`.
+- Why it matters: Don’t set `RESEND_API_KEY` expecting delivery; production must configure SendGrid.
+
+## [2026-09-23] Availability Redis TTL + shared Redis
+- `getAvailabilityForRestaurants` caches per `restaurantId+date+partySize` for 45s (`avail:v1:*`). Skipped when tests inject `now`. `/health` pings `getSharedRedis()` instead of opening a new connection.
+- Why it matters: Discovery and booking share the same compute; short TTL cuts repeat load without serving stale inventory for long.
+
+## [2026-09-23] Discovery `$text` with `$near` demotion
+- Multi-word free-text uses the Restaurant text index. Single-token queries stay case-insensitive regex (prefix UX: `sam` → Samarkand). `applyGeoToFilter` calls `demoteTextSearchToRegex` before attaching `$near` (Mongo forbids `$text` + `$near`). Landmark/`$geoWithin` paths keep `$text`.
+- Why it matters: Near-me search with a query string must not 500; textScore sort only applies when `$text` remains.
+
+## [2026-09-23] GraphQL HTTP batching (Apollo Server 4)
+- AS4 has no built-in batching. `graphqlBatchMiddleware` handles array bodies before `expressMiddleware`, sharing one context. Cap 20 ops/batch.
+- Why it matters: Without this, BatchHttpLink POSTs fail or are mis-parsed as a single invalid operation.
+
+## [2026-09-23] Compound indexes for availability day queries
+- Reservation: `{ restaurantId, slotStart, status }` partial on pending/confirmed/seated. Blackout: `{ restaurantId, date }`.
+- Why it matters: `getAvailability` / batch path filter by restaurant + day overlap; single-field indexes alone degrade as bookings grow.
+
+## [2026-09-23] Batched discovery availability
+- `getAvailabilityForRestaurants` loads Blackout/Shift/Table/Reservation/Claims once for the candidate set. Lean reads on the batch path.
+- Why it matters: Dated search used to be ~6 Mongo round-trips × N restaurants before cards could paint.
+
 ## [2026-09-23] Role `staff` → `manager`
 - `UserRole` / mongoose enums / GraphQL use `manager` instead of `staff`. `migrateStaffRoleToManager` on API boot rewrites users, `staffinvites` rows, and `PlatformConfig.defaultStaffRole` → `defaultManagerRole`.
 - GraphQL ops: `inviteManager`, `acceptManagerInvite`, `managerInviteByToken`. Email template key stays `staff_invite` for existing DB templates.

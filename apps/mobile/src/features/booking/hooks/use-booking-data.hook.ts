@@ -86,7 +86,7 @@ export function useBookingData({
   } = useQuery<{ availability: AvailabilitySlot[] }>(BOOKING_AVAILABILITY, {
     variables: { restaurantId, date, partySize },
     skip: !restaurantId || !restaurant?.reservationsVisible || restaurant?.reservationsEnabled === false,
-    fetchPolicy: "network-only",
+    fetchPolicy: "cache-and-network",
   });
 
   const availability = availabilityData?.availability ?? EMPTY_AVAILABILITY_SLOTS;

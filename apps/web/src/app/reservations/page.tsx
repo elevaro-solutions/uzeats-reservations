@@ -3,7 +3,6 @@
 import { useMutation, useQuery } from '@apollo/client/react';
 import {
   Button,
-  Card,
   Dropdown,
   Space,
   Typography,
@@ -12,24 +11,23 @@ import {
   Input,
   Select,
   Spin,
-  Tag,
   Segmented,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   CalendarOutlined,
+  ClockCircleOutlined,
   MessageOutlined,
   SearchOutlined,
   CreditCardOutlined,
-  DownOutlined,
-  UpOutlined,
   EditOutlined,
   MoreOutlined,
   CloseCircleOutlined,
   StarOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
-import { StatusTag, PageHeader, EmptyState, colors, radii, shadows, typography, pickRestaurantPhoto } from '@reservations/ui';
+import { StatusTag, PageHeader, EmptyState, pickRestaurantPhoto } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -45,6 +43,9 @@ import {
   defaultReservationSegment,
   displayReservationStatus,
   filterReservationsBySegment,
+  formatReservationDate,
+  formatReservationTime,
+  formatVisitAddress,
   isReservationPast,
   isReservationUpcoming,
   needsDepositPayment,
@@ -89,7 +90,6 @@ export default function ReservationsPage() {
   const [cancelling, setCancelling] = useState(false);
   const [segment, setSegment] = useState<ReservationListSegment>('upcoming');
   const [segmentInitialized, setSegmentInitialized] = useState(false);
-  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
 
   const reservations = (data as any)?.myReservations ?? [];
   const upcomingCount = reservations.filter(isReservationUpcoming).length;
@@ -111,7 +111,7 @@ export default function ReservationsPage() {
 
   if (authLoading) {
     return (
-      <div style={{ textAlign: 'center', padding: 80 }}>
+      <div className="rt-reservations-page" style={{ textAlign: 'center', padding: 80 }}>
         <Spin size="large" />
       </div>
     );
@@ -173,30 +173,34 @@ export default function ReservationsPage() {
   };
 
   return (
-    <div style={{ maxWidth: 800 }}>
-      <PageHeader
-        title="My reservations"
-        subtitle="Upcoming, past, and deposits in one place"
-        extra={
-          <Space wrap>
-            <Button onClick={() => router.push('/billing')}>Billing & invoices</Button>
-            <Button type="primary" icon={<SearchOutlined />} onClick={() => router.push('/')}>
-              Book a table
-            </Button>
-          </Space>
-        }
-      />
+    <div className="rt-reservations-page">
+      <div className="rt-reservations-page__header">
+        <PageHeader
+          title="Reservations"
+          subtitle={
+            <span className="rt-reservations-page__subtitle">
+              Upcoming, past, and deposits in one place
+            </span>
+          }
+          extra={
+            <Space wrap className="rt-reservations-page__header-actions">
+              <Button className="rt-reservations-page__billing" onClick={() => router.push('/billing')}>
+                Billing
+              </Button>
+              <Button type="primary" icon={<SearchOutlined />} onClick={() => router.push('/')}>
+                Book a table
+              </Button>
+            </Space>
+          }
+        />
+      </div>
 
       {loading ? (
-        <Card
-          loading
-          style={{
-            borderRadius: radii.lg,
-            border: `1px solid ${colors.bordersubtle}`,
-            boxShadow: shadows.sm,
-            minHeight: 180,
-          }}
-        />
+        <div className="rt-reservation-list rt-reservation-list--loading">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="rt-reservation-list-card rt-reservation-list-card--skeleton" />
+          ))}
+        </div>
       ) : reservations.length === 0 ? (
         <EmptyState
           icon={<CalendarOutlined />}
@@ -210,19 +214,18 @@ export default function ReservationsPage() {
         />
       ) : (
         <>
-          <div style={{ marginBottom: 16 }}>
+          <div className="rt-reservations-page__segments">
             <Segmented
               value={segment}
               onChange={(value) => setSegment(value as ReservationListSegment)}
               options={[
                 { label: `Upcoming (${upcomingCount})`, value: 'upcoming' },
                 ...(depositCount > 0
-                  ? [{ label: `Needs deposit (${depositCount})`, value: 'deposit' as const }]
+                  ? [{ label: `Deposit (${depositCount})`, value: 'deposit' as const }]
                   : []),
                 { label: `Past (${pastCount})`, value: 'past' },
               ]}
               block
-              style={{ fontWeight: typography.fontWeight.semibold }}
             />
           </div>
 
@@ -240,32 +243,23 @@ export default function ReservationsPage() {
               }
             />
           ) : (
-            <Card
-              style={{
-                borderRadius: radii.lg,
-                border: `1px solid ${colors.bordersubtle}`,
-                boxShadow: shadows.sm,
-              }}
-            >
-              {filtered.map((r: any, idx: number, arr: any[]) => {
+            <div className="rt-reservation-list">
+              {filtered.map((r: any) => {
                 const needsPayment = needsDepositPayment(r);
                 const upcoming = isReservationUpcoming(r);
                 const past = isReservationPast(r);
                 const reviewable = canLeaveReview(r);
-                const expanded = Boolean(expandedIds[r.id]);
-                const hasExtraDetails = Boolean(
-                  (r.occasion && r.occasion !== 'none') ||
-                    r.guestNotes ||
-                    r.tables?.[0] ||
-                    r.loyaltyPointsEarned > 0 ||
-                    r.packageTitle,
-                );
+                const addressLabel = formatVisitAddress(r.restaurant?.address);
+                const photo = r.restaurant?.photos?.length
+                  ? pickRestaurantPhoto(r.restaurant.photos)
+                  : null;
+
                 return (
                   <div
                     key={r.id}
                     role="button"
                     tabIndex={0}
-                    className="rt-reservation-card"
+                    className="rt-reservation-list-card"
                     onClick={() => router.push(`/reservations/${r.id}`)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -273,145 +267,68 @@ export default function ReservationsPage() {
                         router.push(`/reservations/${r.id}`);
                       }
                     }}
-                    style={{
-                      display: 'flex',
-                      gap: 16,
-                      alignItems: 'flex-start',
-                      padding: '20px 0',
-                      borderBottom: idx < arr.length - 1 ? `1px solid ${colors.bordersubtle}` : 'none',
-                      flexWrap: 'wrap',
-                      cursor: 'pointer',
-                      borderRadius: radii.md,
-                      transition: 'background 0.15s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = colors.brand[50];
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'transparent';
-                    }}
                   >
-                    <div
-                      className="rt-reservation-card__thumb"
-                      style={{
-                        width: 72,
-                        height: 72,
-                        borderRadius: radii.md,
-                        overflow: 'hidden',
-                        flexShrink: 0,
-                        background: colors.brand[50],
-                      }}
-                    >
-                      {r.restaurant?.photos?.[0] ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={pickRestaurantPhoto(r.restaurant.photos)}
-                          alt=""
-                          width={72}
-                          height={72}
-                          style={{ objectFit: 'cover', width: '100%', height: '100%' }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: colors.brand[400],
-                            fontSize: 22,
-                          }}
-                        >
-                          <CalendarOutlined />
-                        </div>
-                      )}
-                    </div>
-                    <div className="rt-reservation-card__body" style={{ flex: 1, minWidth: 0 }}>
-                      <Space size={8} wrap>
+                    <div className="rt-reservation-list-card__top">
+                      <div className="rt-reservation-list-card__thumb">
+                        {photo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={photo} alt="" width={48} height={48} />
+                        ) : (
+                          <span className="rt-reservation-list-card__thumb-fallback">
+                            <CalendarOutlined />
+                          </span>
+                        )}
+                      </div>
+                      <div className="rt-reservation-list-card__heading">
                         <Link
                           href={`/reservations/${r.id}`}
+                          className="rt-reservation-list-card__name"
                           onClick={(e) => e.stopPropagation()}
-                          style={{
-                            color: colors.brand[700],
-                            fontWeight: 600,
-                            fontSize: typography.fontSize.md,
-                            textDecoration: 'none',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.textDecoration = 'underline';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.textDecoration = 'none';
-                          }}
                         >
-                          {r.restaurant?.name}
+                          {r.restaurant?.name ?? 'Restaurant'}
                         </Link>
-                        <StatusTag status={displayReservationStatus(r)} />
-                        {needsPayment && <Tag color="gold">Deposit due</Tag>}
-                        {reviewable && <Tag color="blue">Review pending</Tag>}
-                      </Space>
-                      <Space orientation="vertical" size={0} style={{ display: 'flex', marginTop: 6 }}>
-                        <Text style={{ color: colors.textSecondary }}>
-                          {new Date(r.slotStart).toLocaleString('en-US')} · {r.partySize} guests
-                        </Text>
-                        {expanded && hasExtraDetails && (
-                          <div className="rt-reservation-card__details">
-                            {r.occasion !== 'none' && (
-                              <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                                Occasion: {r.occasion}
-                              </Text>
-                            )}
-                            {r.guestNotes && (
-                              <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                                {r.guestNotes}
-                              </Text>
-                            )}
-                            {r.tables?.[0] && (
-                              <div style={{ marginTop: 8 }}>
-                                <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                                  Table: {r.tables[0].name}
-                                  {r.tables[0].floorArea ? ` · ${r.tables[0].floorArea}` : ''}
-                                </Text>
-                                {r.tables[0].photoUrl &&
-                                  !r.tables[0].photoUrl.includes('1551782450-a2132b4ba21d') && (
-                                  <img
-                                    src={r.tables[0].photoUrl}
-                                    alt={r.tables[0].name}
-                                    style={{
-                                      display: 'block',
-                                      marginTop: 8,
-                                      width: '100%',
-                                      maxWidth: 220,
-                                      borderRadius: radii.md,
-                                      objectFit: 'cover',
-                                      maxHeight: 120,
-                                    }}
-                                  />
-                                )}
-                              </div>
-                            )}
-                            {r.loyaltyPointsEarned > 0 && (
-                              <Text style={{ color: colors.success, fontSize: typography.fontSize.sm }}>
-                                +{r.loyaltyPointsEarned} points earned
-                              </Text>
-                            )}
-                            {r.packageTitle && (
-                              <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                                Package: {r.packageTitle}
-                                {r.packagePriceCents > 0
-                                  ? ` (+$${(r.packagePriceCents / 100).toFixed(2)})`
-                                  : ''}
-                              </Text>
-                            )}
-                          </div>
-                        )}
-                      </Space>
+                        {addressLabel ? (
+                          <Text type="secondary" className="rt-reservation-list-card__address">
+                            {addressLabel}
+                          </Text>
+                        ) : null}
+                      </div>
+                      <StatusTag status={displayReservationStatus(r)} />
                     </div>
-                    <Space wrap className="rt-reservation-card__actions" onClick={(e) => e.stopPropagation()}>
+
+                    <div className="rt-reservation-list-card__meta">
+                      <span>
+                        <CalendarOutlined />
+                        {formatReservationDate(r.slotStart)}
+                      </span>
+                      <span>
+                        <ClockCircleOutlined />
+                        {formatReservationTime(r.slotStart, r.slotEnd)}
+                      </span>
+                      <span>
+                        <TeamOutlined />
+                        {r.partySize}
+                      </span>
+                    </div>
+
+                    {needsPayment ? (
+                      <div className="rt-reservation-list-card__deposit">
+                        Deposit due · ${((r.depositAmountCents ?? 0) / 100).toFixed(2)}
+                      </div>
+                    ) : null}
+
+                    {reviewable ? (
+                      <div className="rt-reservation-list-card__review-cue">Review pending</div>
+                    ) : null}
+
+                    <div
+                      className="rt-reservation-list-card__actions"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {needsPayment && (
                         <Button
                           type="primary"
+                          size="small"
                           icon={<CreditCardOutlined />}
                           onClick={() => router.push(`/reservations/${r.id}`)}
                         >
@@ -421,6 +338,7 @@ export default function ReservationsPage() {
                       {reviewable && (
                         <Button
                           type="primary"
+                          size="small"
                           icon={<StarOutlined />}
                           onClick={() =>
                             setReviewFor({
@@ -435,6 +353,7 @@ export default function ReservationsPage() {
                       )}
                       {past && r.restaurant?.id && (
                         <Button
+                          size="small"
                           icon={<CalendarOutlined />}
                           onClick={() => router.push(bookAgainPath(r))}
                         >
@@ -473,29 +392,14 @@ export default function ReservationsPage() {
                           trigger={['click']}
                           placement="bottomRight"
                         >
-                          <Button icon={<MoreOutlined />} aria-label="More actions" />
+                          <Button size="small" icon={<MoreOutlined />} aria-label="More actions" />
                         </Dropdown>
                       )}
-                      <Button
-                        type="text"
-                        aria-expanded={expanded}
-                        iconPlacement="end"
-                        icon={expanded ? <UpOutlined /> : <DownOutlined />}
-                        onClick={() => {
-                          if (hasExtraDetails) {
-                            setExpandedIds((prev) => ({ ...prev, [r.id]: !prev[r.id] }));
-                            return;
-                          }
-                          router.push(`/reservations/${r.id}`);
-                        }}
-                      >
-                        Details
-                      </Button>
-                    </Space>
+                    </div>
                   </div>
                 );
               })}
-            </Card>
+            </div>
           )}
         </>
       )}

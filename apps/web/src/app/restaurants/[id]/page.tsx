@@ -105,7 +105,7 @@ export default async function RestaurantPage({ params, searchParams }: PageProps
           faqJsonLd(faq),
         ]}
       />
-      <RestaurantPageClient />
+      <RestaurantPageClient initialRestaurant={restaurant} />
     </>
   );
 }

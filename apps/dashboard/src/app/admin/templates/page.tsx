@@ -2,21 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
-import { Button, Card, Col, Form, Input, Row, Space, message } from 'antd';
-import { EyeOutlined } from '@ant-design/icons';
+import { Button, Card, Col, Form, Input, Modal, Row, Space, message } from 'antd';
+import { EyeOutlined, MailOutlined } from '@ant-design/icons';
 import { PageHeader, spacing } from '@reservations/ui';
-import { EMAIL_TEMPLATES, UPDATE_EMAIL_TEMPLATE } from '@/lib/graphql';
+import { EMAIL_TEMPLATES, SEND_TEST_EMAIL_TEMPLATE, UPDATE_EMAIL_TEMPLATE } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { EmailPreviewModal } from '@/components/EmailPreviewModal';
 import { EMAIL_TEMPLATE_VARIABLES } from '@/lib/emailPreview';
 
 export default function AdminTemplatesPage() {
-  const { ready } = useRequireAdmin();
+  const { ready, user } = useRequireAdmin();
   const { data, loading, refetch } = useQuery(EMAIL_TEMPLATES, { skip: !ready });
   const [updateTemplate, { loading: saving }] = useMutation(UPDATE_EMAIL_TEMPLATE);
+  const [sendTestEmail, { loading: sendingTest }] = useMutation(SEND_TEST_EMAIL_TEMPLATE);
   const [activeKey, setActiveKey] = useState<string>();
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [testOpen, setTestOpen] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
   const [form] = Form.useForm();
 
   const templates = data?.emailTemplates ?? [];
@@ -28,6 +31,7 @@ export default function AdminTemplatesPage() {
 
   const bodyHtmlWatch = Form.useWatch('bodyHtml', form);
   const subjectWatch = Form.useWatch('subject', form);
+  const bodyTextWatch = Form.useWatch('bodyText', form);
   const nameWatch = Form.useWatch('name', form);
 
   useEffect(() => {
@@ -36,6 +40,12 @@ export default function AdminTemplatesPage() {
     setActiveKey(tpl.key);
     form.setFieldsValue(tpl);
   }, [templates, activeKey, form]);
+
+  useEffect(() => {
+    if (testOpen) {
+      setTestEmail(user?.email ?? '');
+    }
+  }, [testOpen, user?.email]);
 
   if (!ready) return null;
 
@@ -59,6 +69,30 @@ export default function AdminTemplatesPage() {
     }
   };
 
+  const onSendTest = async () => {
+    const to = testEmail.trim();
+    if (!to) {
+      message.error('Enter an email address');
+      return;
+    }
+    if (!activeKey) return;
+    try {
+      await sendTestEmail({
+        variables: {
+          key: activeKey,
+          to,
+          subject: subjectWatch || undefined,
+          bodyHtml: bodyHtmlWatch || undefined,
+          bodyText: bodyTextWatch || undefined,
+        },
+      });
+      message.success(`Test email sent to ${to}`);
+      setTestOpen(false);
+    } catch (err: any) {
+      message.error(err.message || 'Failed to send test email');
+    }
+  };
+
   return (
     <div component="AdminTemplatesPage" style={{ display: 'contents' }}>
       <Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
@@ -76,6 +110,7 @@ export default function AdminTemplatesPage() {
                     block
                     type={t.key === activeKey ? 'primary' : 'default'}
                     onClick={() => setActiveKey(t.key)}
+                    style={{ height: 'auto', whiteSpace: 'normal', textAlign: 'left', padding: '6px 15px' }}
                   >
                     {t.name}
                   </Button>
@@ -88,9 +123,16 @@ export default function AdminTemplatesPage() {
               title={activeKey}
               loading={loading}
               extra={
-                <Space>
+                <Space wrap>
                   <Button icon={<EyeOutlined />} onClick={() => setPreviewOpen(true)}>
                     Preview
+                  </Button>
+                  <Button
+                    icon={<MailOutlined />}
+                    disabled={!activeKey}
+                    onClick={() => setTestOpen(true)}
+                  >
+                    Send test
                   </Button>
                   <Button type="primary" loading={saving} onClick={onSave}>
                     Save template
@@ -140,6 +182,37 @@ export default function AdminTemplatesPage() {
         bodyHtml={bodyHtmlWatch}
         templateName={nameWatch || activeTemplate?.name}
       />
+
+      <Modal
+        title={`Send test — ${nameWatch || activeTemplate?.name || activeKey || 'template'}`}
+        open={testOpen}
+        onCancel={() => setTestOpen(false)}
+        okText="Send test email"
+        confirmLoading={sendingTest}
+        onOk={onSendTest}
+        destroyOnHidden
+      >
+        <p style={{ marginTop: 0, color: 'var(--color-text-secondary)' }}>
+          Sends the current editor content with sample variables. Subject is prefixed with{' '}
+          <code>[Test]</code>.
+        </p>
+        <Form layout="vertical">
+          <Form.Item
+            label="Recipient email"
+            required
+            extra="Defaults to your account email. Change it to send elsewhere."
+          >
+            <Input
+              type="email"
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              placeholder="you@example.com"
+              autoFocus
+              onPressEnter={onSendTest}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

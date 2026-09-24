@@ -58,6 +58,8 @@ export function RestaurantCard({
             <RemoteImage
               uri={photo}
               style={styles.image}
+              width={400}
+              height={240}
               recyclingKey={restaurant.id}
               accessibilityLabel={restaurant.name}
             />

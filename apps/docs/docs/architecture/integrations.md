@@ -51,9 +51,9 @@ Flow:
 
 **Stub behavior:** Upload mutations return placeholder URLs without credentials.
 
-## SendGrid / Resend
+## SendGrid
 
-Transactional email. SendGrid preferred; Resend is fallback when SendGrid key absent.
+Transactional email via `SENDGRID_API_KEY`. Without the key, the API stubs sends in development.
 
 ## Telegram
 

@@ -243,13 +243,13 @@ describe('Search discovery API', () => {
       `query Search($input: SearchRestaurantsInput!) {
         searchRestaurants(input: $input) { items { id name } total }
       }`,
-      { input: { query: 'sam', city: 'New York' } },
+      { input: { query: 'pesh', city: 'New York' } },
     );
     expect(res.body.errors).toBeUndefined();
     const names: string[] = res.body.data.searchRestaurants.items.map(
       (item: { name: string }) => item.name,
     );
-    expect(names.some((name) => /samarkand/i.test(name))).toBe(true);
+    expect(names.some((name) => /peshin/i.test(name))).toBe(true);
   });
 
   it('caps recent search history entries', async () => {

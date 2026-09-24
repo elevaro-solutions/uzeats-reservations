@@ -86,3 +86,105 @@ export function defaultReservationSegment(
   if (reservations.some(isReservationUpcoming)) return 'upcoming';
   return 'past';
 }
+
+export function formatReservationDate(slotStart: string): string {
+  return new Date(slotStart).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+export function formatReservationTime(
+  slotStart: string,
+  slotEnd?: string | null,
+): string {
+  const start = new Date(slotStart).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  if (!slotEnd) return start;
+  const end = new Date(slotEnd).toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  return `${start} – ${end}`;
+}
+
+export function formatReservationWhen(slotStart: string): string {
+  return new Date(slotStart).toLocaleString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+export function formatVisitAddress(address?: {
+  line1?: string | null;
+  neighborhood?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+} | null): string | null {
+  if (!address) return null;
+  const line1 = address.line1?.trim() || '';
+  const neighborhood = address.neighborhood?.trim() || '';
+  const city = address.city?.trim() || '';
+  const state = address.state?.trim() || '';
+  if (line1 && neighborhood) return `${line1}, ${neighborhood}`;
+  if (neighborhood && city) return `${neighborhood}, ${city}`;
+  if (line1 && city) return `${line1}, ${city}`;
+  if (neighborhood) return neighborhood;
+  if (line1) return line1;
+  const locality = [city, state].filter(Boolean).join(', ');
+  return locality || null;
+}
+
+/** Short guest-facing reference from Mongo/ObjectId-style ids. */
+export function formatReservationReference(id: string): string {
+  const cleaned = id.replace(/[^a-zA-Z0-9]/g, '');
+  const slice = cleaned.slice(-8).toUpperCase();
+  return slice || id.toUpperCase();
+}
+
+export function formatDepositStatusLabel(status: string): string {
+  switch (status) {
+    case 'requires_payment':
+      return 'Payment due';
+    case 'authorized':
+      return 'Authorized';
+    case 'captured':
+      return 'Captured';
+    case 'refunded':
+      return 'Refunded';
+    case 'failed':
+      return 'Failed';
+    case 'none':
+      return 'None';
+    default:
+      return status.replace(/_/g, ' ');
+  }
+}
+
+export function isPlaceholderTablePhoto(photoUrl?: string | null): boolean {
+  if (!photoUrl) return true;
+  return photoUrl.includes('1551782450-a2132b4ba21d');
+}
+
+export type PrimaryReservationCta = 'pay_deposit' | 'leave_review' | 'book_again' | null;
+
+export function resolvePrimaryReservationCta(r: {
+  status: string;
+  slotStart: string;
+  slotEnd?: string | null;
+  depositStatus?: string | null;
+  depositAmountCents?: number | null;
+  hasReview?: boolean | null;
+}): PrimaryReservationCta {
+  if (needsDepositPayment(r)) return 'pay_deposit';
+  if (canLeaveReview(r)) return 'leave_review';
+  if (isReservationPast(r)) return 'book_again';
+  return null;
+}

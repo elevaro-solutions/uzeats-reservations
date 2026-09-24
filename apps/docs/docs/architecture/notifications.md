@@ -6,7 +6,7 @@ Tablevera delivers operational and marketing messages across multiple channels w
 
 | Channel | Technology | Opt-in |
 |---|---|---|
-| Email | SendGrid (primary) or Resend | Account email |
+| Email | SendGrid | Account email |
 | SMS | Twilio | Explicit opt-in at `/sms` |
 | Web push | VAPID + service worker | Browser permission |
 | Expo push | Expo push tokens | Mobile permission |
@@ -43,7 +43,7 @@ sequenceDiagram
   Q->>W: Process job
   W->>W: Load user prefs
   alt email enabled
-    W->>C: SendGrid/Resend
+    W->>C: SendGrid
   end
   alt sms enabled
     W->>C: Twilio

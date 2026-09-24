@@ -9,6 +9,9 @@ export type RemoteImageProps = {
   recyclingKey?: string;
   priority?: "low" | "normal" | "high";
   transition?: number;
+  /** Hint for decoder downsampling (expo-image). */
+  width?: number;
+  height?: number;
 };
 
 export function RemoteImage({
@@ -19,13 +22,19 @@ export function RemoteImage({
   recyclingKey,
   priority = "normal",
   transition = 200,
+  width,
+  height,
 }: RemoteImageProps) {
   const sourceUri = uri?.trim();
   if (!sourceUri) return null;
 
   return (
     <Image
-      source={{ uri: sourceUri }}
+      source={{
+        uri: sourceUri,
+        ...(width != null ? { width } : {}),
+        ...(height != null ? { height } : {}),
+      }}
       style={style}
       contentFit={contentFit}
       cachePolicy="memory-disk"

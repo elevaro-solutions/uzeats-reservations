@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { colors, radii } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { MESSAGES, SEND_MESSAGE, MY_RESERVATIONS } from '@/lib/graphql';
+import { skipPollWhenHidden } from '@/lib/pollVisibility';
 
 const { Title, Text } = Typography;
 
@@ -24,6 +25,7 @@ export default function MessagesPage() {
     variables: { reservationId: params.reservationId },
     skip: !user,
     pollInterval: 5000,
+    skipPollAttempt: skipPollWhenHidden,
   });
   const [sendMessage, { loading: sending }] = useMutation(SEND_MESSAGE);
 

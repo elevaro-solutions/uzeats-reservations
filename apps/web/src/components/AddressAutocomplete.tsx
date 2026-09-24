@@ -186,7 +186,7 @@ export function AddressAutocomplete({
       inputProps={{
         size: 'large',
         variant,
-        prefix: <EnvironmentFilled style={{ color: colors.textTertiary }} />,
+        prefix: <EnvironmentFilled style={{ color: colors.textSecondary }} />,
         suffix: (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}>
             {value.trim() ? (

@@ -21,7 +21,7 @@ node apps/api/dist/index.js
 
 Env: copy from `.env.example`. Set `NODE_ENV=production`, real JWT secrets, Mongo/Redis URLs, Stripe webhook secret.
 
-Set `WEB_APP_URL` and `DASHBOARD_APP_URL` on the API for password-reset links. For transactional email, prefer `SENDGRID_API_KEY` (falls back to `RESEND_API_KEY` when unset).
+Set `WEB_APP_URL` and `DASHBOARD_APP_URL` on the API for password-reset links. For transactional email, set `SENDGRID_API_KEY`.
 
 ## Web / Dashboard
 
@@ -81,4 +81,4 @@ Super admins can open **Developer** (`/admin/developer`) to see the API release 
 
 ## Contact form leads
 
-Set `ELEVARO_LEADS_API_KEY`, `ELEVARO_LEADS_REFERRER_DOMAIN`, and `ELEVARO_LEADS_SOURCE` on the API to forward diner contact submissions to Elevaro Solutions. Email notifications still send via SendGrid/Resend when configured.
+Set `ELEVARO_LEADS_API_KEY`, `ELEVARO_LEADS_REFERRER_DOMAIN`, and `ELEVARO_LEADS_SOURCE` on the API to forward diner contact submissions to Elevaro Solutions. Email notifications still send via SendGrid when configured.

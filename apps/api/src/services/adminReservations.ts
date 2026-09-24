@@ -6,11 +6,9 @@ import { Reservation } from '../models/Reservation.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { User } from '../models/User.js';
 import {
-  calendarDayRange,
   isReservationDatePeriod,
-  parseIsoDate,
   PLATFORM_RESERVATION_LIST_TIMEZONE,
-  reservationPeriodSlotRange,
+  resolveReservationSlotStartFilter,
 } from './reservationListFilter.js';
 
 function escapeRegex(value: string) {
@@ -41,13 +39,11 @@ export async function listAdminReservations(args: {
   }
 
   const period = isReservationDatePeriod(args.period) ? args.period : undefined;
-  if (period && period !== 'all') {
-    const range = reservationPeriodSlotRange(period, timeZone);
-    if (range) filter.slotStart = range;
-  } else {
-    const date = parseIsoDate(args.date);
-    if (date) filter.slotStart = calendarDayRange(date, timeZone);
-  }
+  const slotStart = resolveReservationSlotStartFilter(
+    { period: args.period, date: args.date },
+    timeZone,
+  );
+  if (slotStart) filter.slotStart = slotStart;
 
   const q = args.search?.trim();
   if (q) {

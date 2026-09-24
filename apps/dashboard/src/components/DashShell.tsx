@@ -47,7 +47,7 @@ import {
   MARK_ALL_NOTIFICATIONS_READ,
   MARK_NOTIFICATIONS_READ,
   MY_NOTIFICATIONS,
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   MY_RESTAURANT_PROFILE_CHANGE_REQUEST,
   RESTAURANT_UNREPLIED_REVIEW_COUNT,
 } from '@/lib/graphql';
@@ -70,6 +70,7 @@ import {
   DashboardSearchTrigger,
   useDashboardSearchHotkey,
 } from '@/components/DashboardSearch';
+import { skipPollWhenHidden } from '@/lib/pollVisibility';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -204,7 +205,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const toggleSearch = useCallback(() => setSearchOpen((open) => !open), []);
   useDashboardSearchHotkey(toggleSearch);
-  const { data: restaurantsData, refetch: refetchRestaurants } = useQuery(MY_RESTAURANTS, {
+  const { data: restaurantsData, refetch: refetchRestaurants } = useQuery(MY_RESTAURANTS_SHELL, {
     skip: !user || isAdmin || !isPartner,
     fetchPolicy: 'cache-and-network',
   });
@@ -216,20 +217,24 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     skip: !user || (user.role === 'diner' && !isImpersonating),
     variables: { limit: 20 },
     pollInterval: 60_000,
+    skipPollAttempt: skipPollWhenHidden,
   });
   const { data: pendingRequestCounts } = useQuery(ADMIN_PENDING_REQUEST_COUNTS, {
     skip: !isAdmin,
     pollInterval: 60_000,
+    skipPollAttempt: skipPollWhenHidden,
   });
   const { data: profileRequestData } = useQuery(MY_RESTAURANT_PROFILE_CHANGE_REQUEST, {
     skip: !user || isAdmin || !restaurantId,
     variables: { restaurantId },
     pollInterval: 60_000,
+    skipPollAttempt: skipPollWhenHidden,
   });
   const { data: unrepliedReviewData } = useQuery(RESTAURANT_UNREPLIED_REVIEW_COUNT, {
     skip: !user || isAdmin || !restaurantId || !isPartner,
     variables: { restaurantId },
     pollInterval: 60_000,
+    skipPollAttempt: skipPollWhenHidden,
   });
   const [markRead] = useMutation(MARK_NOTIFICATIONS_READ, {
     refetchQueries: [{ query: MY_NOTIFICATIONS, variables: { limit: 20 } }],

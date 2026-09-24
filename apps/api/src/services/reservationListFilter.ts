@@ -47,6 +47,55 @@ export function calendarDayRange(dateIso: string, timeZone: string): SlotStartRa
   };
 }
 
+/**
+ * Inclusive calendar date range in the restaurant zone → exclusive UTC range.
+ * Both ends are YYYY-MM-DD; end day is included.
+ */
+export function calendarDateRange(
+  startIso: string,
+  endIso: string,
+  timeZone: string,
+): SlotStartRange {
+  if (startIso > endIso) {
+    throw new Error('startDate must be on or before endDate');
+  }
+  const next = addCalendarDays(endIso, 1);
+  return {
+    $gte: zonedWallClockToUtc(startIso, '00:00', timeZone),
+    $lt: zonedWallClockToUtc(next, '00:00', timeZone),
+  };
+}
+
+/** Resolve slotStart filter from period, single date, or inclusive start/end dates. */
+export function resolveReservationSlotStartFilter(
+  args: {
+    period?: string | null;
+    date?: string | null;
+    startDate?: string | null;
+    endDate?: string | null;
+  },
+  timeZone: string,
+  now: Date = new Date(),
+): SlotStartRange | undefined {
+  const period = isReservationDatePeriod(args.period) ? args.period : undefined;
+  if (period && period !== 'all') {
+    return reservationPeriodSlotRange(period, timeZone, now);
+  }
+
+  const startDate = parseIsoDate(args.startDate ?? undefined);
+  const endDate = parseIsoDate(args.endDate ?? undefined);
+  if (startDate || endDate) {
+    if (!startDate || !endDate) {
+      throw new Error('Both startDate and endDate are required for a custom range');
+    }
+    return calendarDateRange(startDate, endDate, timeZone);
+  }
+
+  const date = parseIsoDate(args.date ?? undefined);
+  if (date) return calendarDayRange(date, timeZone);
+  return undefined;
+}
+
 /** Sunday-start week containing `dateIso` (US restaurant week). */
 export function weekStartSunday(dateIso: string, timeZone: string): string {
   const noon = zonedWallClockToUtc(dateIso, '12:00', timeZone);

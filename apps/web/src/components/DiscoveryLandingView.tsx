@@ -1,7 +1,6 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useQuery } from '@apollo/client/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import dayjs from 'dayjs';
@@ -22,14 +21,13 @@ import {
   type DiscoveryLandingMeta,
 } from '@reservations/shared';
 import {
-  RestaurantCard,
   EmptyState,
   colors,
   layout,
   typography,
   pickRestaurantPhoto,
 } from '@reservations/ui';
-import { AVAILABILITY } from '@/lib/graphql';
+import { DiscoveryRestaurantCard } from '@/components/DiscoveryRestaurantCard';
 import { useInfiniteRestaurantSearch } from '@/lib/useInfiniteRestaurantSearch';
 import { useDiscoveryViewMode } from '@/lib/useDiscoveryViewMode';
 import { useDiscoveryUrlSync } from '@/lib/useDiscoveryFilters';
@@ -523,12 +521,19 @@ function DiscoveryLandingContent({
           className="rt-fade-up"
           style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}
         >
-          <RestaurantWithSlots
-            restaurant={r}
-            date={dateStr}
-            partySize={partySize}
-            onOpen={() => router.push(buildRestaurantBookingPath(r.slug, r.id))}
-            onSelectSlot={(time) =>
+          <DiscoveryRestaurantCard
+            id={r.id}
+            name={r.name}
+            cuisine={r.cuisine}
+            priceRange={r.priceRange}
+            city={r.address.city}
+            state={r.address.state}
+            rating={r.averageRating}
+            reviewCount={r.reviewCount}
+            photoUrl={pickRestaurantPhoto(r.photos)}
+            availableSlots={r.availableSlotTimes ?? []}
+            onClick={() => router.push(buildRestaurantBookingPath(r.slug, r.id))}
+            onSelectSlot={(_, time) =>
               router.push(
                 `${buildRestaurantBookingPath(r.slug, r.id)}?date=${dateStr}&party=${partySize}&slot=${encodeURIComponent(time)}`,
               )
@@ -788,49 +793,6 @@ function DiscoveryLandingContent({
         </div>
       )}
     </div>
-  );
-}
-
-function RestaurantWithSlots({
-  restaurant,
-  date,
-  partySize,
-  onOpen,
-  onSelectSlot,
-}: {
-  restaurant: any;
-  date: string;
-  partySize: number;
-  onOpen: () => void;
-  onSelectSlot: (time: string) => void;
-}) {
-  const { data } = useQuery(AVAILABILITY, {
-    variables: { restaurantId: restaurant.id, date, partySize },
-  });
-  const slots = useMemo(
-    () =>
-      ((data as any)?.availability ?? [])
-        .filter((s: any) => s.available)
-        .slice(0, 4)
-        .map((s: any) => s.time),
-    [data],
-  );
-
-  return (
-    <RestaurantCard
-      id={restaurant.id}
-      name={restaurant.name}
-      cuisine={restaurant.cuisine}
-      priceRange={restaurant.priceRange}
-      city={restaurant.address.city}
-      state={restaurant.address.state}
-      rating={restaurant.averageRating}
-      reviewCount={restaurant.reviewCount}
-      photoUrl={pickRestaurantPhoto(restaurant.photos)}
-      availableSlots={slots}
-      onClick={onOpen}
-      onSelectSlot={(_, time) => onSelectSlot(time)}
-    />
   );
 }
 

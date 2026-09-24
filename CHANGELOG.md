@@ -4,6 +4,50 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+## [0.64.0] — 2026-09-24
+
+### Fixed
+
+- Partner `/reservations` deep-link open no longer throws `setRestaurantId is not defined` when switching to the reservation’s restaurant
+- Mark `@reservations/ui` `RestaurantCard` with `'use client'` so Next.js App Router can import its hooks (`useEffect`/`useState`) without a Server Components build error
+
+### Added
+
+- Admin Email templates: **Send test** per template (recipient defaults to the signed-in admin email; uses current editor draft + sample vars; subject prefixed `[Test]`)
+- Renamed email template label `Restaurant created — onboarding & invoice` → `Restaurant created` (list buttons wrap long names)
+- Partner `/reservations` custom filter is an inclusive date range (`startDate`/`endDate`) with Excel, PDF, and JSON export via `exportRestaurantReservations`
+- Partner `/reservations` defaults to **Upcoming**, and multi-location accounts can filter **All locations** (`locations=all`)
+- Google Business Profile booking links include UTM params (`utm_source=google`, `utm_medium=business_profile`, `utm_campaign=reservations`) via `BookingSharePanel` and `buildGoogleBusinessProfileBookingUrl`
+- Embeddable widget booking redirects include UTM params (`utm_source=widget`, `utm_medium=embed`, `utm_campaign=reservations`) via `WIDGET_EMBED_UTM`
+- Redis short-TTL cache for availability (`avail:v1:*`, 45s) plus shared Redis client for `/health`
+- Home page SSR seeds the default discovery search; discovery cards / map list / marker use `next/image` when the CDN host is allowlisted
+- Widget bootstrap query loads restaurant + availability in one GraphQL round-trip
+
+### Changed
+
+- Hero discovery search fields use a stronger fill (`#efece7`), border, and secondary labels so stacked mobile/tablet cells and the desktop bar read clearly against the white card
+- Restaurant hero gallery mirrors OpenTable: flush mosaic (2 / 3 / 5 slots), centered **See all N photos** CTA, white scrollable photos browser, then fullscreen lightbox with keyboard arrows; Photos section opens the same flow
+- Restaurant photo lightbox uses a fixed full-viewport portal (not Ant Design Modal) so images stay centered instead of pushing a black slab below the fold
+- Diner web restaurant profile (`/restaurants/...`) matches the mobile app on small screens: sheet over hero, Call/Directions/Website/Message tiles, booking card first, sticky Book footer that scrolls to the form
+- Diner web `/reservations` list and detail match the mobile app on small screens: compact list cards with meta well, restaurant card + icon detail rows, overflow menu, and sticky primary CTA
+- Partner reservation detail links the restaurant name (header subtitle + Visit card) to `/restaurant-profile?restaurant=`
+- Transactional email is SendGrid-only; removed Resend fallback (`RESEND_API_KEY`, `resend` package)
+- Ant Design DatePickers/calendars use US field formats (`M/D/YYYY`, `MMM YYYY`) via shared `antdUsLocale` — stock `en_US` still fell back to `YYYY-MM-DD`
+- Reservation confirm/success date labels use `formatUsDate` (`Sat, 9/26/2026`) instead of dayjs long English
+- Discovery search batches availability across the candidate set (one Mongo load for shifts/tables/reservations/claims) and returns `availableSlotTimes` on each item so diner home/map/SEO landings no longer fire per-card `availability` queries
+- Partner Hub shell loads `MY_RESTAURANTS_SHELL` (id/name/status + `tableCount`/`shiftCount`/`hasMenuItems`) instead of nested tables, shifts, and full menus on every page
+- GraphQL request-scoped DataLoaders for Restaurant, User, Table, bookmarks, shifts, menu, bookingWindow, Experience, and Reservation; compound Reservation `{ restaurantId, slotStart, status }` and Blackout `{ restaurantId, date }` indexes
+- Restaurant page SSR now hydrates the full detail payload (menu/booking window/etc.); Stripe `DepositPayment` is `dynamic()`-loaded; gallery hero uses `next/image` with `priority` when the CDN host is allowlisted
+- Web and dashboard Apollo clients use `BatchHttpLink` (max 10 / 15ms); API accepts GraphQL HTTP batches with one shared context so DataLoaders coalesce across the fan-out
+- All diner/partner poll queries use `skipPollAttempt` when the tab is hidden (notifications, waitlist, messages, floor ops, pending counts)
+- Discovery free-text search uses Mongo `$text` for multi-word queries (existing name/description/cuisine index) and regex for single-token prefix matches; demotes to regex when `$near` geo is applied
+- GraphQL IP rate limit raised from 100 → 300 requests/min
+- `groupAnalytics` aggregates the last 90 days; `conversations` filters to 90 days and caps at 100 threads
+- Floor ops loads shifts once for turn-time instead of per seated table
+- Mobile booking availability uses `cache-and-network`; RemoteImage accepts width/height for decoder downsampling
+
 ## [0.63.1] — 2026-09-23
 
 ### Fixed

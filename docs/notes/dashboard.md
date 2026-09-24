@@ -1,5 +1,31 @@
 # Dashboard — Learnings & Observations
 
+## [2026-09-24] Email template test send
+- `/admin/templates` **Send test** calls `sendTestEmailTemplate` with the open draft (subject/bodyHtml/bodyText) and sample vars; recipient defaults to `useRequireAdmin().user.email`. Subject gets a `[Test]` prefix. Requires `SENDGRID_API_KEY`.
+- Why it matters: Preview is client-only; test send validates real SendGrid delivery and branding wrap.
+
+## [2026-09-24] Ant Design DatePicker field format is US
+- Stock antd `en_US` omits `fieldDateFormat`, so rc-picker defaults to `YYYY-MM-DD`. Shared `antdUsLocale` sets `M/D/YYYY` / `MMM YYYY` / `h:mm A` and both web + dashboard `ConfigProvider`s use it.
+- Why it matters: Don’t assume `locale={enUS}` alone yields US date inputs — override `fieldDateFormat`.
+
+## [2026-09-24] Reservations custom range + export
+- `/reservations` “Custom range” uses `RangePicker` and URL `startDate`/`endDate` (legacy `?date=` still maps to a single-day range). Export menu downloads Excel/PDF/JSON for the current period/status filters via `exportRestaurantReservations`.
+- Default period is `upcoming` (omitted from the URL). Multi-location owners get an **All locations** option (`locations=all`); list/export omit `restaurantId` and the table shows a Location column. New reservation stays disabled until a single venue is selected.
+- Why it matters: Don’t reintroduce a single-day DatePicker for custom; multi-day lists show the When column, same as week/month periods. Don’t put `restaurant=all` in the shared shell param — use `locations=all` so DashShell keeps a real active venue.
+
+## [2026-09-23] Google Business Profile booking links carry UTMs
+- `BookingSharePanel` shows a clean booking URL plus a GBP-specific URL from `buildGoogleBusinessProfileBookingUrl` (`GOOGLE_BUSINESS_PROFILE_UTM`: source=google, medium=business_profile, campaign=reservations).
+- Embed widget redirects use `WIDGET_EMBED_UTM` (source=widget, medium=embed, campaign=reservations) on "Complete reservation".
+- Why it matters: Don’t paste the plain booking link into Profile Manager — partners must use the GBP row so analytics can attribute listing traffic. Widget traffic is tagged automatically; no embed attribute needed.
+
+## [2026-09-23] Shell polls pause when hidden; messages use skipPollAttempt
+- DashShell notification/pending/profile/unreplied polls and waitlist/floor-ops/messages use `skipPollWhenHidden`. Partner messages no longer flip `pollInterval` via a visibility listener.
+- Why it matters: Multiple open Partner Hub tabs were each polling every 15–60s in the background.
+
+## [2026-09-23] DashShell uses shell restaurant query
+- Partner chrome loads `MY_RESTAURANTS_SHELL` (counts + profile fields for onboarding), not nested tables/shifts/menus. Floor/Menu/Profile pages still use full `MY_RESTAURANTS`.
+- Why it matters: Every Partner Hub navigation used to pay N× nested GraphQL field resolvers before the location switcher painted.
+
 ## [2026-09-23] TextArea showCount needs reserved margin
 - Ant Design 6 positions `.ant-input-data-count` at `bottom: -1lh` outside `.ant-input-textarea-show-count`. Without margin on that wrapper, the counter overlaps modal footers, `Form.Item` extras/errors, and the next field (Cancel reservation, edit booking, report review, etc.).
 - Global fix in `apps/dashboard` + `apps/web` `globals.css`: `margin-bottom: calc(var(--ant-font-size) * var(--ant-line-height))` on `.ant-input-textarea-show-count`; Form.Items that contain one use `margin-bottom: 8px` so spacing isn’t doubled with the default 24px item gap.

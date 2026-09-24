@@ -9,6 +9,7 @@ export type RestaurantSeoShift = {
   active: boolean;
 };
 
+/** SSR restaurant payload — matches RESTAURANT_DETAIL minus auth-only bookmark flags. */
 export type RestaurantSeoData = {
   id: string;
   name: string;
@@ -18,6 +19,11 @@ export type RestaurantSeoData = {
   priceRange: number;
   phone?: string | null;
   website?: string | null;
+  menuUrl?: string | null;
+  diningStyles?: string[];
+  discoveryOccasions?: string[];
+  categoryIds?: string[];
+  landmarkIds?: string[];
   photos: string[];
   logoUrl?: string | null;
   averageRating: number;
@@ -27,8 +33,42 @@ export type RestaurantSeoData = {
   dietaryTags: string[];
   amenities: string[];
   meals: string[];
+  wheelchairAccessible?: boolean;
+  featured?: boolean;
   faq: Array<{ question: string; answer: string }>;
+  featuredIn?: Array<{
+    title: string;
+    description?: string | null;
+    url?: string | null;
+    logoUrl?: string | null;
+  }>;
+  termsAndConditions?: string | null;
+  isSaved?: boolean;
+  isFavorite?: boolean;
+  loyaltyEnabled?: boolean;
+  loyaltyPointsPerVisit?: number;
+  loyaltyMinRedeemPoints?: number;
+  allowGuestTableSelection?: boolean;
+  reservationsEnabled?: boolean;
+  reservationsVisible?: boolean;
   shifts: RestaurantSeoShift[];
+  timezone?: string | null;
+  bookingWindow?: { maxAdvanceDays: number; minAdvanceHours: number } | null;
+  menu?: {
+    sections: Array<{
+      id: string;
+      name: string;
+      items: Array<{
+        id: string;
+        name: string;
+        description?: string | null;
+        priceCents: number;
+        dietary?: string[];
+        photoUrl?: string | null;
+        popular?: boolean;
+      }>;
+    }>;
+  } | null;
   address: {
     line1: string;
     line2?: string | null;
@@ -38,11 +78,10 @@ export type RestaurantSeoData = {
     neighborhood?: string | null;
   };
   location: { lat: number; lng: number };
-  timezone?: string | null;
 };
 
-const RESTAURANT_SEO_QUERY = `
-  query RestaurantSeo($id: ID, $slug: String) {
+const RESTAURANT_PAGE_QUERY = `
+  query RestaurantPage($id: ID, $slug: String) {
     restaurant(id: $id, slug: $slug) {
       id
       name
@@ -50,28 +89,6 @@ const RESTAURANT_SEO_QUERY = `
       description
       cuisine
       priceRange
-      phone
-      website
-      photos
-      logoUrl
-      averageRating
-      reviewCount
-      depositRequired
-      depositAmountCents
-      dietaryTags
-      amenities
-      meals
-      faq {
-        question
-        answer
-      }
-      shifts {
-        daysOfWeek
-        startTime
-        endTime
-        active
-      }
-      timezone
       address {
         line1
         line2
@@ -83,6 +100,69 @@ const RESTAURANT_SEO_QUERY = `
       location {
         lat
         lng
+      }
+      phone
+      website
+      menuUrl
+      diningStyles
+      discoveryOccasions
+      categoryIds
+      landmarkIds
+      dietaryTags
+      amenities
+      meals
+      wheelchairAccessible
+      featured
+      faq {
+        question
+        answer
+      }
+      featuredIn {
+        title
+        description
+        url
+        logoUrl
+      }
+      termsAndConditions
+      photos
+      logoUrl
+      averageRating
+      reviewCount
+      isSaved
+      isFavorite
+      depositRequired
+      depositAmountCents
+      loyaltyEnabled
+      loyaltyPointsPerVisit
+      loyaltyMinRedeemPoints
+      allowGuestTableSelection
+      reservationsEnabled
+      reservationsVisible
+      shifts {
+        daysOfWeek
+        startTime
+        endTime
+        active
+      }
+      timezone
+      bookingWindow {
+        maxAdvanceDays
+        minAdvanceHours
+      }
+      menu {
+        sections {
+          id
+          name
+          items {
+            id
+            name
+            description
+            priceCents
+            dietary
+            photoUrl
+            popular
+          }
+        }
       }
     }
   }
@@ -96,8 +176,9 @@ export const fetchRestaurantSeo = cache(async function fetchRestaurantSeo(
       ? { id: slugOrId }
       : { slug: slugOrId };
     const data = await serverGraphql<{ restaurant: RestaurantSeoData | null }>(
-      RESTAURANT_SEO_QUERY,
+      RESTAURANT_PAGE_QUERY,
       variables,
+      { revalidate: 120, tags: [`restaurant:${slugOrId}`] },
     );
     return data.restaurant;
   } catch {

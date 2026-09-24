@@ -1,6 +1,9 @@
 import type { Types } from 'mongoose';
-import type { SearchRestaurantsInput } from '@reservations/shared';
-import { getAvailability } from './availability.js';
+import type { AvailabilitySlot, SearchRestaurantsInput } from '@reservations/shared';
+import {
+  getAvailabilityForRestaurants,
+  previewAvailableSlotTimes,
+} from './availability.js';
 import { listActiveCategoryDefs } from './discoveryTaxonomy.js';
 
 type RestaurantLike = { _id: Types.ObjectId | { toString(): string } };
@@ -46,16 +49,22 @@ export async function buildDiscoverySearchFilter(
   const filter: Record<string, unknown> = { status: 'approved' };
 
   if (input.query) {
-    const q = escapeRegex(input.query.trim());
+    const q = input.query.trim();
     if (q) {
-      const pattern = new RegExp(q, 'i');
-      filter.$or = [
-        { name: pattern },
-        { cuisine: pattern },
-        { description: pattern },
-        { 'address.city': pattern },
-        { 'address.neighborhood': pattern },
-      ];
+      // Multi-word → text index. Single token → regex so prefix/substring UX works
+      // ("sam" → Samarkand). applyGeoToFilter demotes $text when $near is attached.
+      if (/\s/.test(q)) {
+        filter.$text = { $search: q };
+      } else {
+        const pattern = new RegExp(escapeRegex(q), 'i');
+        filter.$or = [
+          { name: pattern },
+          { cuisine: pattern },
+          { description: pattern },
+          { 'address.city': pattern },
+          { 'address.neighborhood': pattern },
+        ];
+      }
     }
   }
 
@@ -101,6 +110,24 @@ export async function buildDiscoverySearchFilter(
   return filter;
 }
 
+/** Convert `$text` to regex `$or` — required when the query also uses `$near`. */
+export function demoteTextSearchToRegex(filter: Record<string, unknown>): void {
+  const text = filter.$text as { $search?: string } | undefined;
+  if (!text?.$search) return;
+  const pattern = new RegExp(escapeRegex(text.$search.trim()), 'i');
+  delete filter.$text;
+  const textOr = {
+    $or: [
+      { name: pattern },
+      { cuisine: pattern },
+      { description: pattern },
+      { 'address.city': pattern },
+      { 'address.neighborhood': pattern },
+    ],
+  };
+  appendAndClause(filter, textOr);
+}
+
 export function applyGeoToFilter(
   filter: Record<string, unknown>,
   input: SearchRestaurantsInput,
@@ -124,6 +151,7 @@ export function applyGeoToFilter(
 
     if (landmarkIds.length) {
       // Tagged landmarks OR nearby — $near cannot sit inside $or.
+      // $text is fine with $geoWithin / $or; keep it.
       const clause = {
         $or: [{ landmarkIds: { $in: landmarkIds } }, { location: geoWithin }],
       };
@@ -132,6 +160,8 @@ export function applyGeoToFilter(
       return { filter, countFilter, usingGeo };
     }
 
+    // $text + $near is illegal in MongoDB — fall back to regex before attaching $near.
+    demoteTextSearchToRegex(filter);
     filter.location = {
       $near: {
         $geometry: { type: 'Point', coordinates },
@@ -156,25 +186,34 @@ function slotMatchesTime(isoTime: string, timeHm?: string): boolean {
   return hm === timeHm;
 }
 
+export type AvailabilityFilterResult<T extends RestaurantLike> = {
+  restaurants: T[];
+  slotsByRestaurantId: Map<string, AvailabilitySlot[]>;
+};
+
+/**
+ * Filter restaurants that have at least one open slot on the date.
+ * Loads availability once for the whole candidate set (batched Mongo reads).
+ * Preserves input order.
+ */
 export async function filterByAvailability<T extends RestaurantLike>(
   restaurants: T[],
   date: string,
   partySize: number,
   time?: string,
-): Promise<T[]> {
-  // Preserve input order — pushing inside Promise.all made pagination
-  // non-deterministic and caused the client infinite-scroll loop.
-  const flags = await Promise.all(
-    restaurants.map(async (restaurant) => {
-      const slots = await getAvailability({
-        restaurantId: restaurant._id.toString(),
-        date,
-        partySize,
-      });
-      return slots.some((s) => s.available && slotMatchesTime(s.time, time));
-    }),
-  );
-  return restaurants.filter((_, index) => flags[index]);
+): Promise<AvailabilityFilterResult<T>> {
+  const slotsByRestaurantId = await getAvailabilityForRestaurants({
+    restaurantIds: restaurants.map((r) => r._id.toString()),
+    date,
+    partySize,
+  });
+
+  const filtered = restaurants.filter((restaurant) => {
+    const slots = slotsByRestaurantId.get(restaurant._id.toString()) ?? [];
+    return slots.some((s) => s.available && slotMatchesTime(s.time, time));
+  });
+
+  return { restaurants: filtered, slotsByRestaurantId };
 }
 
 export async function restaurantIdsWithAvailability(
@@ -183,14 +222,30 @@ export async function restaurantIdsWithAvailability(
   partySize: number,
   time?: string,
 ): Promise<Set<string>> {
+  const slotsByRestaurantId = await getAvailabilityForRestaurants({
+    restaurantIds,
+    date,
+    partySize,
+  });
   const available = new Set<string>();
-  await Promise.all(
-    restaurantIds.map(async (id) => {
-      const slots = await getAvailability({ restaurantId: id, date, partySize });
-      if (slots.some((s) => s.available && slotMatchesTime(s.time, time))) {
-        available.add(id);
-      }
-    }),
-  );
+  for (const id of restaurantIds) {
+    const slots = slotsByRestaurantId.get(id) ?? [];
+    if (slots.some((s) => s.available && slotMatchesTime(s.time, time))) {
+      available.add(id);
+    }
+  }
   return available;
+}
+
+export function availableSlotTimesForRestaurant(
+  slotsByRestaurantId: Map<string, AvailabilitySlot[]>,
+  restaurantId: string,
+  time?: string,
+  limit = 4,
+): string[] {
+  const slots = slotsByRestaurantId.get(restaurantId) ?? [];
+  const matching = time
+    ? slots.filter((s) => s.available && slotMatchesTime(s.time, time))
+    : slots;
+  return previewAvailableSlotTimes(matching, limit);
 }

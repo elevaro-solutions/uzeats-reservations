@@ -702,7 +702,7 @@ export async function sendInvoiceEmail(
 ): Promise<{ sent: boolean; to: string; stubbed: boolean }> {
   if (!isEmailDeliveryConfigured()) {
     throw new Error(
-      'Email is not configured. Set SENDGRID_API_KEY or RESEND_API_KEY on the API.',
+      'Email is not configured. Set SENDGRID_API_KEY on the API.',
     );
   }
 

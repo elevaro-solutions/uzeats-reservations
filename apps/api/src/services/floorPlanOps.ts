@@ -1,6 +1,7 @@
 import { Table } from '../models/Table.js';
 import { Reservation } from '../models/Reservation.js';
-import { getTurnTimeMinutes } from './availability.js';
+import { Shift } from '../models/Shift.js';
+import { turnTimeMinutesFromShifts } from './availability.js';
 
 export type FloorTableStatus = 'free' | 'reserved' | 'seated' | 'turning';
 
@@ -22,7 +23,7 @@ export async function getFloorPlanOps(restaurantId: string, date?: string) {
   const dayEnd = new Date(`${opsDate}T23:59:59`);
   const now = new Date();
 
-  const [tables, reservations] = await Promise.all([
+  const [tables, reservations, shifts] = await Promise.all([
     Table.find({ restaurantId, active: true }).sort({ name: 1 }),
     Reservation.find({
       restaurantId,
@@ -32,60 +33,61 @@ export async function getFloorPlanOps(restaurantId: string, date?: string) {
     })
       .populate('dinerId', 'firstName lastName')
       .sort({ slotStart: 1 }),
+    Shift.find({ restaurantId, active: true })
+      .select('startTime endTime turnTimeMinutes daysOfWeek')
+      .lean(),
   ]);
 
-  const tableStates = await Promise.all(
-    tables.map(async (table) => {
-      const tableId = table._id.toString();
-      const seatedRes = reservations.find(
-        (r) =>
-          r.status === 'seated' &&
-          r.tableIds.some((id) => id.toString() === tableId),
-      );
+  const tableStates = tables.map((table) => {
+    const tableId = table._id.toString();
+    const seatedRes = reservations.find(
+      (r) =>
+        r.status === 'seated' &&
+        r.tableIds.some((id) => id.toString() === tableId),
+    );
 
-      if (seatedRes) {
-        const seatedAt = seatedRes.seatedAt ?? seatedRes.slotStart;
-        const seatedMinutes = Math.floor((now.getTime() - seatedAt.getTime()) / 60_000);
-        const turnTime = await getTurnTimeMinutes(restaurantId, seatedRes.slotStart);
-        const turnMinutesRemaining = Math.max(0, turnTime - seatedMinutes);
-        const status: FloorTableStatus =
-          turnMinutesRemaining <= TURNING_THRESHOLD_MIN ? 'turning' : 'seated';
-
-        return {
-          table,
-          status,
-          reservation: seatedRes,
-          seatedMinutes,
-          turnMinutesRemaining,
-        };
-      }
-
-      const upcomingRes = reservations.find((r) => {
-        if (!['pending', 'confirmed'].includes(r.status)) return false;
-        if (!r.tableIds.some((id) => id.toString() === tableId)) return false;
-        const windowStart = new Date(r.slotStart.getTime() - RESERVED_WINDOW_MS);
-        return now >= windowStart && now < r.slotEnd;
-      });
-
-      if (upcomingRes) {
-        return {
-          table,
-          status: 'reserved' as FloorTableStatus,
-          reservation: upcomingRes,
-          seatedMinutes: null,
-          turnMinutesRemaining: null,
-        };
-      }
+    if (seatedRes) {
+      const seatedAt = seatedRes.seatedAt ?? seatedRes.slotStart;
+      const seatedMinutes = Math.floor((now.getTime() - seatedAt.getTime()) / 60_000);
+      const turnTime = turnTimeMinutesFromShifts(shifts, seatedRes.slotStart);
+      const turnMinutesRemaining = Math.max(0, turnTime - seatedMinutes);
+      const status: FloorTableStatus =
+        turnMinutesRemaining <= TURNING_THRESHOLD_MIN ? 'turning' : 'seated';
 
       return {
         table,
-        status: 'free' as FloorTableStatus,
-        reservation: null,
+        status,
+        reservation: seatedRes,
+        seatedMinutes,
+        turnMinutesRemaining,
+      };
+    }
+
+    const upcomingRes = reservations.find((r) => {
+      if (!['pending', 'confirmed'].includes(r.status)) return false;
+      if (!r.tableIds.some((id) => id.toString() === tableId)) return false;
+      const windowStart = new Date(r.slotStart.getTime() - RESERVED_WINDOW_MS);
+      return now >= windowStart && now < r.slotEnd;
+    });
+
+    if (upcomingRes) {
+      return {
+        table,
+        status: 'reserved' as FloorTableStatus,
+        reservation: upcomingRes,
         seatedMinutes: null,
         turnMinutesRemaining: null,
       };
-    }),
-  );
+    }
+
+    return {
+      table,
+      status: 'free' as FloorTableStatus,
+      reservation: null,
+      seatedMinutes: null,
+      turnMinutesRemaining: null,
+    };
+  });
 
   const assignedIds = new Set<string>();
   for (const state of tableStates) {

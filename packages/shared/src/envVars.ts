@@ -260,17 +260,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     group: 'notifications',
     apps: ['api'],
     requirement: 'recommended',
-    requiredUnlessSet: ['RESEND_API_KEY'],
-    description: 'Primary transactional email provider.',
-  },
-  {
-    key: 'RESEND_API_KEY',
-    label: 'Resend API key',
-    group: 'notifications',
-    apps: ['api'],
-    requirement: 'recommended',
-    requiredUnlessSet: ['SENDGRID_API_KEY'],
-    description: 'Fallback email provider when SendGrid is unset.',
+    description: 'Transactional email provider.',
   },
   {
     key: 'EMAIL_FROM',

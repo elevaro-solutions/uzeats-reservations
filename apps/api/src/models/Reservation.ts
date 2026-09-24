@@ -64,6 +64,16 @@ const reservationSchema = new Schema(
   { timestamps: true },
 );
 
+// Day-overlap queries: restaurant + time window + active statuses.
+reservationSchema.index(
+  { restaurantId: 1, slotStart: 1, status: 1 },
+  {
+    partialFilterExpression: {
+      status: { $in: ['pending', 'confirmed', 'seated'] },
+    },
+  },
+);
+
 // Query helper for active bookings. Overlap exclusion is enforced by TableSlotClaim.
 reservationSchema.index(
   { tableIds: 1, slotStart: 1, status: 1 },

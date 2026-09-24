@@ -4,6 +4,26 @@ export function isMongoObjectId(value: string): boolean {
   return OBJECT_ID_RE.test(value);
 }
 
+/**
+ * UTM params for booking links pasted into Google Business Profile
+ * (Profile Manager → Bookings / Reserve a table).
+ */
+export const GOOGLE_BUSINESS_PROFILE_UTM = {
+  utm_source: 'google',
+  utm_medium: 'business_profile',
+  utm_campaign: 'reservations',
+} as const;
+
+/**
+ * UTM params appended when the embeddable widget opens the booking page
+ * ("Complete reservation" / reserve button).
+ */
+export const WIDGET_EMBED_UTM = {
+  utm_source: 'widget',
+  utm_medium: 'embed',
+  utm_campaign: 'reservations',
+} as const;
+
 /** Public booking path — `/restaurants/:slug` (falls back to Mongo id). */
 export function buildRestaurantBookingPath(slug?: string | null, id?: string | null): string {
   if (slug) return `/restaurants/${slug}`;
@@ -45,4 +65,15 @@ export function buildRestaurantBookingUrl(
   }
   const qs = parts.join('&');
   return `${origin}${path}${qs ? `?${qs}` : ''}`;
+}
+
+/** Booking URL for Google Business Profile with attribution UTMs. */
+export function buildGoogleBusinessProfileBookingUrl(
+  baseUrl: string,
+  options: { slug?: string | null; id?: string | null },
+): string {
+  return buildRestaurantBookingUrl(baseUrl, {
+    ...options,
+    params: { ...GOOGLE_BUSINESS_PROFILE_UTM },
+  });
 }

@@ -86,7 +86,7 @@ export function DiscoverySearchPanel({
           size="large"
           variant="borderless"
           allowClear
-          prefix={<SearchOutlined style={{ color: colors.textTertiary }} />}
+          prefix={<SearchOutlined style={{ color: colors.textSecondary }} />}
           placeholder="Restaurant name or dish"
           value={query}
           onChange={(e) => {

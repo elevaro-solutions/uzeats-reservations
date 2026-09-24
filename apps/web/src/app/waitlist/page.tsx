@@ -27,6 +27,7 @@ import dayjs from 'dayjs';
 import { PageHeader, EmptyState, colors, radii, shadows } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { MY_WAITLIST, CANCEL_WAITLIST, RESTAURANT_DETAIL } from '@/lib/graphql';
+import { skipPollWhenHidden } from '@/lib/pollVisibility';
 
 const { Text } = Typography;
 
@@ -44,6 +45,7 @@ export default function WaitlistPage() {
   const { data, loading, refetch } = useQuery(MY_WAITLIST, {
     skip: !user,
     pollInterval: 15_000,
+    skipPollAttempt: skipPollWhenHidden,
   });
   const [cancelWaitlist] = useMutation(CANCEL_WAITLIST);
 

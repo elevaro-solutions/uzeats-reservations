@@ -39,10 +39,9 @@ import {
   type ReviewReportReason,
 } from "@reservations/shared";
 import {
-  calendarDayRange,
   isReservationDatePeriod,
-  parseIsoDate,
-  reservationPeriodSlotRange,
+  PLATFORM_RESERVATION_LIST_TIMEZONE,
+  resolveReservationSlotStartFilter,
   type ReservationDatePeriod,
 } from "../services/reservationListFilter.js";
 import { assertCanAssignRole } from "../services/roleAccess.js";
@@ -69,7 +68,6 @@ import {
 } from "../services/restaurantProfileChanges.js";
 import { sendRestaurantInquiry } from "../services/restaurantInquiry.js";
 import {
-  isRestaurantBookmarked,
   listBookmarkedRestaurants,
   setRestaurantBookmark,
 } from "../services/restaurantBookmarks.js";
@@ -118,9 +116,14 @@ import {
 import { buildOwnerOverview } from "../services/ownerOverview.js";
 import {
   applyGeoToFilter,
+  availableSlotTimesForRestaurant,
   buildDiscoverySearchFilter,
   filterByAvailability,
 } from "../services/discoverySearch.js";
+import {
+  loadRestaurantShellCounts,
+  withRestaurantShellCounts,
+} from "../services/restaurantShellCounts.js";
 import {
   clearRecentSearch,
   clearRecentSearches,
@@ -134,6 +137,7 @@ import {
   getAvailability,
   getTurnTimeMinutes,
 } from "../services/availability.js";
+import type { AvailabilitySlot } from "@reservations/shared";
 import { getBookingWindow } from "../services/accessRules.js";
 import {
   getFloorPlanOps,
@@ -356,6 +360,7 @@ import {
   exportGuestsList,
   guestListFilter,
 } from "../services/guestDinerExport.js";
+import { exportRestaurantReservationsList } from "../services/reservationExport.js";
 import { parseExportFormat } from "../services/adminExport.js";
 
 function mapSubscription(sub: any, opts?: { includeStripeIds?: boolean }) {
@@ -447,24 +452,40 @@ export const resolvers = {
       const tables = await Table.find({ restaurantId: r.id });
       return tables.map(mapTable);
     },
-    shifts: async (r: { id: string }) => {
-      const shifts = await Shift.find({ restaurantId: r.id });
-      return shifts.map(mapShift);
+    shifts: async (r: { id: string }, _: unknown, ctx: GraphQLContext) =>
+      ctx.loaders.shiftsByRestaurantId.load(r.id),
+    menu: async (r: { id: string }, _: unknown, ctx: GraphQLContext) =>
+      ctx.loaders.menuByRestaurantId.load(r.id),
+    tableCount: async (r: { id: string; tableCount?: number }) => {
+      if (typeof r.tableCount === "number") return r.tableCount;
+      return Table.countDocuments({ restaurantId: r.id });
     },
-    menu: async (r: { id: string }) => {
-      const menu = await Menu.findOne({ restaurantId: r.id });
-      if (!menu) return null;
-      return mapMenu(menu, r.id);
+    shiftCount: async (r: { id: string; shiftCount?: number }) => {
+      if (typeof r.shiftCount === "number") return r.shiftCount;
+      return Shift.countDocuments({ restaurantId: r.id });
     },
+    hasMenuItems: async (r: { id: string; hasMenuItems?: boolean }) => {
+      if (typeof r.hasMenuItems === "boolean") return r.hasMenuItems;
+      const menu = await Menu.findOne({ restaurantId: r.id })
+        .select("sections.items")
+        .lean();
+      if (!menu) return false;
+      return (menu.sections ?? []).some(
+        (section: { items?: unknown[] }) => (section.items?.length ?? 0) > 0,
+      );
+    },
+    availableSlotTimes: (r: { availableSlotTimes?: string[] }) =>
+      r.availableSlotTimes ?? [],
     isSaved: async (r: { id: string }, _: unknown, ctx: GraphQLContext) => {
       if (!ctx.user) return false;
-      return isRestaurantBookmarked(ctx.user._id.toString(), r.id, "saved");
+      return ctx.loaders.bookmark.load(`saved:${r.id}`);
     },
     isFavorite: async (r: { id: string }, _: unknown, ctx: GraphQLContext) => {
       if (!ctx.user) return false;
-      return isRestaurantBookmarked(ctx.user._id.toString(), r.id, "favorite");
+      return ctx.loaders.bookmark.load(`favorite:${r.id}`);
     },
-    bookingWindow: async (r: { id: string }) => getBookingWindow(r.id),
+    bookingWindow: async (r: { id: string }, _: unknown, ctx: GraphQLContext) =>
+      ctx.loaders.bookingWindowByRestaurantId.load(r.id),
     timezone: (r: {
       address?: { state?: string; zip?: string; country?: string };
       location?: { lat?: number; lng?: number; coordinates?: number[] };
@@ -472,17 +493,22 @@ export const resolvers = {
   },
 
   Reservation: {
-    restaurant: async (r: { restaurantId: string }) => {
-      const doc = await Restaurant.findById(r.restaurantId);
-      return doc ? mapRestaurant(doc) : null;
-    },
-    diner: async (r: { dinerId: string }) => {
-      const doc = await User.findById(r.dinerId);
-      return doc ? mapUser(doc) : null;
-    },
-    tables: async (r: { tableIds: string[] }) => {
-      const tables = await Table.find({ _id: { $in: r.tableIds } });
-      return tables.map(mapTable);
+    restaurant: async (
+      r: { restaurantId: string },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => ctx.loaders.restaurantById.load(r.restaurantId),
+    diner: async (r: { dinerId: string }, _: unknown, ctx: GraphQLContext) =>
+      ctx.loaders.userById.load(r.dinerId),
+    tables: async (
+      r: { tableIds: string[] },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => {
+      const tables = await Promise.all(
+        (r.tableIds ?? []).map((id) => ctx.loaders.tableById.load(String(id))),
+      );
+      return tables.filter(Boolean);
     },
     hasReview: async (r: { id: string; hasReview?: boolean }) => {
       if (typeof r.hasReview === "boolean") return r.hasReview;
@@ -517,42 +543,45 @@ export const resolvers = {
   },
 
   Review: {
-    diner: async (r: { dinerId: string }) => {
-      const doc = await User.findById(r.dinerId);
-      return doc ? mapUser(doc) : null;
-    },
-    restaurant: async (r: { restaurantId: string }) => {
-      const doc = await Restaurant.findById(r.restaurantId);
-      return doc ? mapRestaurant(doc) : null;
-    },
+    diner: async (r: { dinerId: string }, _: unknown, ctx: GraphQLContext) =>
+      ctx.loaders.userById.load(r.dinerId),
+    restaurant: async (
+      r: { restaurantId: string },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => ctx.loaders.restaurantById.load(r.restaurantId),
   },
 
   AuditLog: {
-    actor: async (log: { actorId: string }) => {
-      const doc = await User.findById(log.actorId);
-      return doc ? mapUser(doc) : null;
-    },
+    actor: async (
+      log: { actorId: string },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => ctx.loaders.userById.load(log.actorId),
   },
 
   Experience: {
-    restaurant: async (e: { restaurantId: string }) => {
-      const doc = await Restaurant.findById(e.restaurantId);
-      return doc ? mapRestaurant(doc) : null;
-    },
+    restaurant: async (
+      e: { restaurantId: string },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => ctx.loaders.restaurantById.load(e.restaurantId),
   },
 
   Ticket: {
-    experience: async (t: { experienceId: string }) => {
-      const doc = await Experience.findById(t.experienceId);
-      return doc ? mapExperience(doc) : null;
-    },
+    experience: async (
+      t: { experienceId: string },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => ctx.loaders.experienceById.load(t.experienceId),
   },
 
   PrivateDiningSpace: {
-    restaurant: async (s: { restaurantId: string }) => {
-      const doc = await Restaurant.findById(s.restaurantId);
-      return doc ? mapRestaurant(doc) : null;
-    },
+    restaurant: async (
+      s: { restaurantId: string },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => ctx.loaders.restaurantById.load(s.restaurantId),
   },
 
   PrivateDiningInquiry: {
@@ -561,47 +590,41 @@ export const resolvers = {
       const doc = await PrivateDiningSpace.findById(i.spaceId);
       return doc ? mapPrivateDiningSpace(doc) : null;
     },
-    diner: async (i: { dinerId: string }) => {
-      const doc = await User.findById(i.dinerId);
-      return doc ? mapUser(doc) : null;
-    },
+    diner: async (i: { dinerId: string }, _: unknown, ctx: GraphQLContext) =>
+      ctx.loaders.userById.load(i.dinerId),
   },
 
   GuestProfile: {
-    diner: async (g: { dinerId: string }) => {
-      const doc = await User.findById(g.dinerId);
-      return doc ? mapUser(doc) : null;
-    },
+    diner: async (g: { dinerId: string }, _: unknown, ctx: GraphQLContext) =>
+      ctx.loaders.userById.load(g.dinerId),
   },
 
   SurveyResponse: {
-    diner: async (s: { dinerId: string }) => {
-      const doc = await User.findById(s.dinerId);
-      return doc ? mapUser(doc) : null;
-    },
+    diner: async (s: { dinerId: string }, _: unknown, ctx: GraphQLContext) =>
+      ctx.loaders.userById.load(s.dinerId),
   },
 
   WaitlistEntry: {
-    diner: async (w: { dinerId?: string | null }) => {
-      if (!w.dinerId) return null;
-      const doc = await User.findById(w.dinerId);
-      return doc ? mapUser(doc) : null;
-    },
+    diner: async (
+      w: { dinerId?: string | null },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => (w.dinerId ? ctx.loaders.userById.load(w.dinerId) : null),
   },
 
   Conversation: {
-    diner: async (c: { dinerId: string }) => {
-      const doc = await User.findById(c.dinerId);
-      return doc ? mapUser(doc) : null;
-    },
-    restaurant: async (c: { restaurantId: string }) => {
-      const doc = await Restaurant.findById(c.restaurantId);
-      return doc ? mapRestaurant(doc) : null;
-    },
-    reservation: async (c: { reservationId: string }) => {
-      const doc = await Reservation.findById(c.reservationId);
-      return doc ? mapReservation(doc) : null;
-    },
+    diner: async (c: { dinerId: string }, _: unknown, ctx: GraphQLContext) =>
+      ctx.loaders.userById.load(c.dinerId),
+    restaurant: async (
+      c: { restaurantId: string },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => ctx.loaders.restaurantById.load(c.restaurantId),
+    reservation: async (
+      c: { reservationId: string },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => ctx.loaders.reservationById.load(c.reservationId),
   },
 
   LocationStat: {
@@ -801,26 +824,53 @@ export const resolvers = {
       const query = Restaurant.find(filter)
         .skip(requireAvailability ? 0 : skip)
         .limit(fetchLimit);
-      if (!usingGeo) query.sort({ featured: -1, averageRating: -1 });
+      if (!usingGeo) {
+        if (filter.$text) {
+          query.sort({
+            score: { $meta: 'textScore' },
+            featured: -1,
+            averageRating: -1,
+          });
+        } else {
+          query.sort({ featured: -1, averageRating: -1 });
+        }
+      }
 
       let [items, total] = await Promise.all([
         query,
         Restaurant.countDocuments(countFilter),
       ]);
 
-      if (requireAvailability && input.date) {
-        const available = await filterByAvailability(
+      let slotsByRestaurantId = new Map<string, AvailabilitySlot[]>();
+
+      if (input.date) {
+        const filtered = await filterByAvailability(
           items,
           input.date,
           input.partySize,
           input.time,
         );
-        total = available.length;
-        items = available.slice(skip, skip + input.limit);
+        slotsByRestaurantId = filtered.slotsByRestaurantId;
+        if (requireAvailability) {
+          total = filtered.restaurants.length;
+          items = filtered.restaurants.slice(skip, skip + input.limit);
+        }
       }
 
       return {
-        items: items.map(mapRestaurant),
+        items: items.map((doc) => {
+          const mapped = mapRestaurant(doc);
+          return {
+            ...mapped,
+            availableSlotTimes: input.date
+              ? availableSlotTimesForRestaurant(
+                  slotsByRestaurantId,
+                  mapped.id,
+                  input.time,
+                )
+              : [],
+          };
+        }),
         total,
         page: input.page,
         limit: input.limit,
@@ -951,8 +1001,10 @@ export const resolvers = {
     restaurantReservations: async (
       _: unknown,
       args: {
-        restaurantId: string;
+        restaurantId?: string;
         date?: string;
+        startDate?: string;
+        endDate?: string;
         period?: ReservationDatePeriod;
         status?: string;
         limit?: number;
@@ -961,26 +1013,38 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await assertRestaurantAccess(
-        user._id.toString(),
-        args.restaurantId,
-        user.role,
-      );
-      const restaurant = await Restaurant.findById(args.restaurantId);
-      const timeZone = restaurantTimeZone(restaurant ?? {});
-      const filter: Record<string, unknown> = {
-        restaurantId: args.restaurantId,
-      };
+      const filter: Record<string, unknown> = {};
+      let timeZone = PLATFORM_RESERVATION_LIST_TIMEZONE;
+
+      if (args.restaurantId) {
+        await assertRestaurantAccess(
+          user._id.toString(),
+          args.restaurantId,
+          user.role,
+        );
+        const restaurant = await Restaurant.findById(args.restaurantId);
+        timeZone = restaurantTimeZone(restaurant ?? {});
+        filter.restaurantId = args.restaurantId;
+      } else {
+        const owned = await Restaurant.find(buildOwnerRestaurantFilter(user)).select(
+          "_id",
+        );
+        filter.restaurantId = { $in: owned.map((r) => r._id) };
+      }
+
       if (args.status) filter.status = args.status;
 
       const period = isReservationDatePeriod(args.period) ? args.period : undefined;
-      if (period && period !== "all") {
-        const range = reservationPeriodSlotRange(period, timeZone);
-        if (range) filter.slotStart = range;
-      } else {
-        const date = parseIsoDate(args.date);
-        if (date) filter.slotStart = calendarDayRange(date, timeZone);
-      }
+      const slotStart = resolveReservationSlotStartFilter(
+        {
+          period: args.period,
+          date: args.date,
+          startDate: args.startDate,
+          endDate: args.endDate,
+        },
+        timeZone,
+      );
+      if (slotStart) filter.slotStart = slotStart;
 
       const newestFirst = period === "past" || period === "all";
       return paginateQuery(Reservation, filter, {
@@ -1254,7 +1318,9 @@ export const resolvers = {
       const items = await Restaurant.find(
         buildOwnerRestaurantFilter(user, args),
       ).sort({ name: 1 });
-      return items.map(mapRestaurant);
+      const mapped = items.map(mapRestaurant);
+      const counts = await loadRestaurantShellCounts(mapped.map((r) => r.id));
+      return withRestaurantShellCounts(mapped, counts);
     },
 
     myRestaurantsConnection: async (
@@ -1278,7 +1344,14 @@ export const resolvers = {
         maxLimit: 100,
         map: mapRestaurant,
       });
-      return { ...result, page: Math.floor(result.offset / result.limit) + 1 };
+      const counts = await loadRestaurantShellCounts(
+        result.items.map((r: { id: string }) => r.id),
+      );
+      return {
+        ...result,
+        items: withRestaurantShellCounts(result.items, counts),
+        page: Math.floor(result.offset / result.limit) + 1,
+      };
     },
 
     myOwnerOverview: async (
@@ -1964,10 +2037,30 @@ export const resolvers = {
         _id: { $in: restaurantIds },
       });
 
-      const reservations = await Reservation.find({
-        restaurantId: { $in: restaurantIds },
-        status: { $in: ["confirmed", "seated", "completed"] },
-      });
+      // Bound to recent activity so multi-venue groups don't scan full history into Node.
+      const since = new Date();
+      since.setUTCDate(since.getUTCDate() - 90);
+
+      const agg = await Reservation.aggregate<{
+        _id: { toString(): string };
+        count: number;
+        covers: number;
+      }>([
+        {
+          $match: {
+            restaurantId: { $in: restaurantIds },
+            status: { $in: ['confirmed', 'seated', 'completed'] },
+            slotStart: { $gte: since },
+          },
+        },
+        {
+          $group: {
+            _id: '$restaurantId',
+            count: { $sum: 1 },
+            covers: { $sum: '$partySize' },
+          },
+        },
+      ]);
 
       let totalReservations = 0;
       let totalCovers = 0;
@@ -1977,15 +2070,11 @@ export const resolvers = {
         byRestaurant.set(rId.toString(), { count: 0, covers: 0 });
       }
 
-      for (const r of reservations) {
-        totalReservations++;
-        totalCovers += r.partySize;
-        const key = r.restaurantId.toString();
-        const entry = byRestaurant.get(key);
-        if (entry) {
-          entry.count++;
-          entry.covers += r.partySize;
-        }
+      for (const row of agg) {
+        const key = row._id.toString();
+        totalReservations += row.count;
+        totalCovers += row.covers;
+        byRestaurant.set(key, { count: row.count, covers: row.covers });
       }
 
       const totalRating = restaurants.reduce(
@@ -2377,11 +2466,14 @@ export const resolvers = {
         user.role,
       );
       const mongoose = (await import("mongoose")).default;
+      const since = new Date();
+      since.setUTCDate(since.getUTCDate() - 90);
       const latest = await Message.aggregate([
         {
           $match: {
             restaurantId: new mongoose.Types.ObjectId(args.restaurantId),
             reservationId: { $ne: null },
+            createdAt: { $gte: since },
           },
         },
         { $sort: { createdAt: -1 } },
@@ -2409,6 +2501,7 @@ export const resolvers = {
         },
         { $match: { _id: { $ne: null } } },
         { $sort: { "lastMessage.createdAt": -1 } },
+        { $limit: 100 },
       ]);
       return latest.map((c) => ({
         reservationId: c._id.toString(),
@@ -5218,6 +5311,56 @@ export const resolvers = {
         tag: args.tag,
         vipStatus: args.vipStatus,
         search: args.search,
+        format: parseExportFormat(args.format ?? "xlsx"),
+      });
+    },
+
+    exportRestaurantReservations: async (
+      _: unknown,
+      args: {
+        restaurantId?: string;
+        date?: string;
+        startDate?: string;
+        endDate?: string;
+        period?: ReservationDatePeriod;
+        status?: string;
+        format?: string;
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      if (args.restaurantId) {
+        await assertRestaurantAccess(
+          user._id.toString(),
+          args.restaurantId,
+          user.role,
+        );
+        const restaurant = await Restaurant.findById(args.restaurantId).select("name");
+        return exportRestaurantReservationsList({
+          restaurantId: args.restaurantId,
+          restaurantName: restaurant?.name ?? undefined,
+          date: args.date,
+          startDate: args.startDate,
+          endDate: args.endDate,
+          period: args.period,
+          status: args.status,
+          format: parseExportFormat(args.format ?? "xlsx"),
+        });
+      }
+
+      const owned = await Restaurant.find(buildOwnerRestaurantFilter(user)).select(
+        "_id name",
+      );
+      return exportRestaurantReservationsList({
+        restaurantIds: owned.map((r) => r._id.toString()),
+        restaurantNameById: new Map(
+          owned.map((r) => [r._id.toString(), r.name ?? ""]),
+        ),
+        date: args.date,
+        startDate: args.startDate,
+        endDate: args.endDate,
+        period: args.period,
+        status: args.status,
         format: parseExportFormat(args.format ?? "xlsx"),
       });
     },

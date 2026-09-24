@@ -1,5 +1,4 @@
 import { Queue, Worker } from 'bullmq';
-import { Resend } from 'resend';
 import webpush from 'web-push';
 import {
   formatDateTimeInTimeZone,
@@ -33,8 +32,6 @@ export const reminderQueue = new Queue('reminders', { connection });
 if (env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(env.VAPID_SUBJECT, env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY);
 }
-
-const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
 
 function parseEmailFrom(from: string): { email: string; name?: string } {
   const match = from.match(/^(.+?)\s*<([^>]+)>$/);
@@ -113,39 +110,16 @@ export async function sendEmail(
   const htmlBody = wrapEmailHtml(innerHtml);
   const attachments = options?.attachments ?? [];
 
-  if (env.SENDGRID_API_KEY) {
-    await sendViaSendGrid(to, title, body, htmlBody, attachments);
-    logger.info({ to, subject: title }, '[email] sent via SendGrid');
-    return;
-  }
-  if (!resend) {
+  if (!env.SENDGRID_API_KEY) {
     logger.debug({ to, title, body, htmlBody, attachments: attachments.length }, '[email:dev] stub');
     return;
   }
-  const result = await resend.emails.send({
-    from: env.EMAIL_FROM,
-    to,
-    subject: title,
-    text: body,
-    html: htmlBody,
-    ...(attachments.length
-      ? {
-          attachments: attachments.map((a) => ({
-            filename: a.filename,
-            content: Buffer.from(a.contentBase64, 'base64'),
-            contentType: a.contentType,
-          })),
-        }
-      : {}),
-  });
-  if (result.error) {
-    throw new Error(`Resend failed: ${result.error.message}`);
-  }
-  logger.info({ to, subject: title }, '[email] sent via Resend');
+  await sendViaSendGrid(to, title, body, htmlBody, attachments);
+  logger.info({ to, subject: title }, '[email] sent via SendGrid');
 }
 
 export function isEmailDeliveryConfigured() {
-  return Boolean(env.SENDGRID_API_KEY || env.RESEND_API_KEY);
+  return Boolean(env.SENDGRID_API_KEY);
 }
 
 export async function sendSms(to: string, body: string) {

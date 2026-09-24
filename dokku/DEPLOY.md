@@ -72,7 +72,7 @@ dokku config:set tablevera-api \
   STRIPE_SECRET_KEY="sk_live_..." \
   STRIPE_WEBHOOK_SECRET="whsec_..." \
   STRIPE_CURRENCY=usd \
-  RESEND_API_KEY="re_..." \
+  SENDGRID_API_KEY="SG...." \
   EMAIL_FROM="noreply@tablevera.online" \
   DO_SPACES_KEY="..." \
   DO_SPACES_SECRET="..." \

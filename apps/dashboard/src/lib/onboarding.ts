@@ -8,6 +8,9 @@ export type OnboardingRestaurant = {
   phone?: string | null;
   tables?: unknown[] | null;
   shifts?: unknown[] | null;
+  tableCount?: number;
+  shiftCount?: number;
+  hasMenuItems?: boolean;
   menu?: {
     sections?: { items?: unknown[] }[] | null;
   } | null;
@@ -24,6 +27,7 @@ export type OnboardingStep = {
 };
 
 function hasMenuItems(restaurant: OnboardingRestaurant): boolean {
+  if (typeof restaurant.hasMenuItems === 'boolean') return restaurant.hasMenuItems;
   const sections = restaurant.menu?.sections ?? [];
   return sections.some((section) => (section.items?.length ?? 0) > 0);
 }
@@ -35,7 +39,8 @@ export function getOnboardingSteps(restaurant: OnboardingRestaurant): Onboarding
     (restaurant.description?.trim().length ?? 0) >= 10;
 
   const serviceReady =
-    (restaurant.tables?.length ?? 0) > 0 && (restaurant.shifts?.length ?? 0) > 0;
+    (restaurant.tableCount ?? restaurant.tables?.length ?? 0) > 0 &&
+    (restaurant.shiftCount ?? restaurant.shifts?.length ?? 0) > 0;
 
   const approved = restaurant.status === 'approved';
 

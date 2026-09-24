@@ -73,6 +73,8 @@ export function RestaurantHero({
           <RemoteImage
             uri={item}
             style={{ width, height }}
+            width={Math.round(width)}
+            height={Math.round(height)}
             priority="high"
             recyclingKey={`${item}-${index}`}
             accessibilityLabel={name}

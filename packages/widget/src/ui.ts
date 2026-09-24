@@ -1,7 +1,7 @@
 import type { RestaurantInfo, AvailabilitySlot, WidgetConfig, WidgetTheme } from './api';
-import { fetchRestaurant, fetchAvailability } from './api';
+import { fetchRestaurant, fetchAvailability, fetchWidgetBootstrap } from './api';
 import { getActivePalette } from '@reservations/ui/palettes';
-import { LOYALTY, RESTAURANT_LOYALTY, depositPointsFromCents, buildRestaurantBookingPath, formatUsTime } from '@reservations/shared';
+import { LOYALTY, RESTAURANT_LOYALTY, depositPointsFromCents, buildRestaurantBookingPath, formatUsTime, WIDGET_EMBED_UTM } from '@reservations/shared';
 
 // ── Theme ────────────────────────────────────────────────────────────
 
@@ -129,11 +129,18 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
 
   async function init() {
     try {
-      state.restaurant = await fetchRestaurant(config.apiUrl, config.restaurantId);
+      const boot = await fetchWidgetBootstrap(
+        config.apiUrl,
+        config.restaurantId,
+        state.date,
+        state.partySize,
+      );
+      state.restaurant = boot.restaurant;
+      state.slots = boot.slots;
       state.loading = false;
+      state.slotsLoading = false;
       applyPrimaryColor(root, resolveTheme(config, state.restaurant).primaryColor);
       render();
-      await loadSlots();
     } catch (e) {
       state.loading = false;
       state.error = e instanceof Error ? e.message : 'Failed to load restaurant';
@@ -167,6 +174,7 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
     const params = new URLSearchParams({
       date: state.date,
       party: String(state.partySize),
+      ...WIDGET_EMBED_UTM,
     });
     if (state.selectedSlot) params.set('slot', state.selectedSlot);
     const promo = state.promoCode.trim().toUpperCase();

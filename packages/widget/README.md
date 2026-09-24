@@ -58,7 +58,7 @@ Shows a "Reserve a table" button. Clicking it opens a modal with the full bookin
 
 1. The widget fetches your restaurant's details and available time slots from the Tablevera API.
 2. Diners pick a date, party size, and time slot.
-3. Clicking "Complete reservation" opens the Tablevera web app with the selection pre-filled so they can finish booking.
+3. Clicking "Complete reservation" opens the Tablevera web app with the selection pre-filled so they can finish booking. The redirect includes UTM tags (`utm_source=widget`, `utm_medium=embed`, `utm_campaign=reservations`) for traffic attribution.
 
 ## Style Isolation
 

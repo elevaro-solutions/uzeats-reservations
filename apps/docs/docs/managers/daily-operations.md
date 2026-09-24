@@ -113,11 +113,15 @@ Managers with venue access can reply and report the same as owners. Drafts are n
 
 ## Shareable links
 
-Copy a direct booking link from **Booking widget** or build URLs:
+Copy a direct booking link from **Booking widget** / **Restaurant profile** → Booking widget, or build URLs:
 
 ```
 https://tablevera.online/restaurants/{restaurant-slug}
 ```
+
+For **Google Business Profile** (Profile Manager → Bookings), copy the **Google Business Profile link** from the same panel. It appends UTM tags (`utm_source=google`, `utm_medium=business_profile`, `utm_campaign=reservations`) so analytics can attribute listing traffic.
+
+The **website embed** widget adds its own UTMs (`utm_source=widget`, `utm_medium=embed`, `utm_campaign=reservations`) when diners continue to Tablevera — no extra setup.
 
 Toggle **accept online reservations** and **hide widget** in restaurant settings when needed.
 

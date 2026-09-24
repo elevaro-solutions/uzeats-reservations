@@ -3,7 +3,11 @@
 import { useMemo, useState } from 'react';
 import { Button, Divider, Input, Segmented, Space, Typography, message } from 'antd';
 import { CopyOutlined, LinkOutlined } from '@ant-design/icons';
-import { buildRestaurantBookingUrl, buildWidgetEmbedCode } from '@reservations/shared';
+import {
+  buildGoogleBusinessProfileBookingUrl,
+  buildRestaurantBookingUrl,
+  buildWidgetEmbedCode,
+} from '@reservations/shared';
 import { spacing } from '@reservations/ui';
 import { getPublicWebUrl } from '@/lib/webUrl';
 
@@ -38,6 +42,17 @@ export function useBookingShare(
     [restaurant, webUrl],
   );
 
+  const googleBusinessProfileUrl = useMemo(
+    () =>
+      restaurant
+        ? buildGoogleBusinessProfileBookingUrl(webUrl, {
+            slug: restaurant.slug,
+            id: restaurant.id,
+          })
+        : '',
+    [restaurant, webUrl],
+  );
+
   const widgetEmbedCode = useMemo(() => {
     if (!restaurant?.id) return '';
     return buildWidgetEmbedCode({
@@ -51,7 +66,7 @@ export function useBookingShare(
     });
   }, [restaurant?.id, restaurant?.slug, embedMode, widgetTheme, webUrl]);
 
-  return { bookingUrl, widgetEmbedCode };
+  return { bookingUrl, googleBusinessProfileUrl, widgetEmbedCode };
 }
 
 type BookingSharePanelProps = {
@@ -68,7 +83,11 @@ export function BookingSharePanel({
   defaultEmbedMode = 'button',
 }: BookingSharePanelProps) {
   const [embedMode, setEmbedMode] = useState<'inline' | 'button'>(defaultEmbedMode);
-  const { bookingUrl, widgetEmbedCode } = useBookingShare(restaurant, widgetTheme, embedMode);
+  const { bookingUrl, googleBusinessProfileUrl, widgetEmbedCode } = useBookingShare(
+    restaurant,
+    widgetTheme,
+    embedMode,
+  );
 
   if (!restaurant) return null;
 
@@ -105,9 +124,38 @@ export function BookingSharePanel({
               </Space>
             }
           />
+          <Text strong style={{ display: 'block', marginTop: spacing.md, marginBottom: spacing.xs }}>
+            Google Business Profile link
+          </Text>
+          <Input
+            readOnly
+            value={googleBusinessProfileUrl}
+            addonAfter={
+              <Space size={0}>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<CopyOutlined />}
+                  onClick={() => copyBookingText(googleBusinessProfileUrl)}
+                >
+                  Copy
+                </Button>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<LinkOutlined />}
+                  href={googleBusinessProfileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Preview
+                </Button>
+              </Space>
+            }
+          />
           <Paragraph type="secondary" style={{ marginTop: spacing.sm, marginBottom: spacing.md }}>
-            <strong>Google Business Profile:</strong> Edit profile → Bookings → Add your booking
-            link. Google will show a &ldquo;Reserve a table&rdquo; button that opens this page.
+            Paste this into Google Profile Manager → Bookings. Tracking parameters attribute
+            visits from your listing&rsquo;s &ldquo;Reserve a table&rdquo; button.
           </Paragraph>
           <Divider style={{ margin: `${spacing.md}px 0` }} />
         </>
@@ -118,7 +166,8 @@ export function BookingSharePanel({
       </Text>
       <Paragraph type="secondary" style={{ marginBottom: spacing.sm }}>
         Copy this script and paste it into your restaurant website HTML — anywhere you want the
-        booking widget to appear.
+        booking widget to appear. Clicks through to Tablevera include tracking parameters so you
+        can attribute website embed traffic.
       </Paragraph>
       <Segmented
         value={embedMode}

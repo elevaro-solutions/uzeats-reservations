@@ -23,6 +23,7 @@ export const SEARCH_RESTAURANTS = gql`
         photos
         averageRating
         reviewCount
+        availableSlotTimes
       }
     }
   }

@@ -1474,12 +1474,12 @@ export default function MyRestaurantsPage() {
                 {
                   title: 'Tables',
                   width: 90,
-                  render: (_: unknown, r) => r.tables?.length ?? 0,
+                  render: (_: unknown, r) => r.tableCount ?? r.tables?.length ?? 0,
                 },
                 {
                   title: 'Shifts',
                   width: 90,
-                  render: (_: unknown, r) => r.shifts?.length ?? 0,
+                  render: (_: unknown, r) => r.shiftCount ?? r.shifts?.length ?? 0,
                 },
                 {
                   title: 'Actions',
@@ -1552,10 +1552,10 @@ export default function MyRestaurantsPage() {
                       </Text>
                       <Row gutter={12} style={{ marginTop: spacing.md }}>
                         <Col span={12}>
-                          <Statistic title="Tables" value={r.tables?.length ?? 0} />
+                          <Statistic title="Tables" value={r.tableCount ?? r.tables?.length ?? 0} />
                         </Col>
                         <Col span={12}>
-                          <Statistic title="Shifts" value={r.shifts?.length ?? 0} />
+                          <Statistic title="Shifts" value={r.shiftCount ?? r.shifts?.length ?? 0} />
                         </Col>
                       </Row>
                     </Card>

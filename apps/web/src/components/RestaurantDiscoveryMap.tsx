@@ -20,6 +20,7 @@ export type MapRestaurant = {
   photos?: string[];
   location?: { lat: number; lng: number } | null;
   address?: { city?: string; state?: string };
+  availableSlotTimes?: string[];
 };
 
 type RestaurantDiscoveryMapProps = {

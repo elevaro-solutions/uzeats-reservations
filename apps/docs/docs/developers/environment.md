@@ -64,7 +64,7 @@ Uploads are stubbed when keys are missing.
 
 | Variable | Channel |
 |---|---|
-| `SENDGRID_API_KEY` (or `RESEND_API_KEY`) | Transactional email |
+| `SENDGRID_API_KEY` | Transactional email |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot |
 | `API_PUBLIC_URL` | Telegram webhook registration |
 | `VAPID_*` | Web push notifications |

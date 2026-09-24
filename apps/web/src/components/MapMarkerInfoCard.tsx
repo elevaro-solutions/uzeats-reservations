@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useQuery } from '@apollo/client/react';
+import { useState } from 'react';
+import Image from 'next/image';
 import {
   CloseOutlined,
   EnvironmentOutlined,
@@ -11,7 +11,7 @@ import {
 } from '@ant-design/icons';
 import { formatTimeInTimeZone, timezoneFromAddress } from '@reservations/shared';
 import { colors, priceRangeLabel, radii, shadows, typography } from '@reservations/ui';
-import { AVAILABILITY } from '@/lib/graphql';
+import { canUseNextImage } from '@/lib/canUseNextImage';
 import type { MapRestaurant } from './RestaurantDiscoveryMap';
 
 type MapMarkerInfoCardProps = {
@@ -30,8 +30,6 @@ function formatSlotTime(slot: string, state?: string): string {
 
 export function MapMarkerInfoCard({
   restaurant,
-  date,
-  partySize,
   onClose,
   onOpen,
   onSelectSlot,
@@ -39,19 +37,7 @@ export function MapMarkerInfoCard({
   const photos = restaurant.photos?.filter(Boolean) ?? [];
   const [photoIndex, setPhotoIndex] = useState(0);
   const activePhoto = photos[photoIndex] ?? photos[0];
-
-  const { data } = useQuery(AVAILABILITY, {
-    variables: { restaurantId: restaurant.id, date, partySize },
-  });
-
-  const slots = useMemo(
-    () =>
-      ((data as any)?.availability ?? [])
-        .filter((s: any) => s.available)
-        .slice(0, 3)
-        .map((s: any) => s.time),
-    [data],
-  );
+  const slots = restaurant.availableSlotTimes?.slice(0, 3) ?? [];
 
   const locationLabel = restaurant.address?.city ?? 'Nearby';
   const rating = restaurant.averageRating ?? 0;
@@ -76,12 +62,22 @@ export function MapMarkerInfoCard({
     >
       <div style={{ position: 'relative', height: 168, background: colors.neutral[100] }}>
         {activePhoto ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={activePhoto}
-            alt={restaurant.name}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
+          canUseNextImage(activePhoto) ? (
+            <Image
+              src={activePhoto}
+              alt={restaurant.name}
+              fill
+              sizes="320px"
+              style={{ objectFit: 'cover' }}
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={activePhoto}
+              alt={restaurant.name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          )
         ) : (
           <div
             style={{

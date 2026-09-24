@@ -163,7 +163,7 @@ export const DEFAULT_EMAIL_TEMPLATES = [
   },
   {
     key: 'restaurant_created',
-    name: 'Restaurant created — onboarding & invoice',
+    name: 'Restaurant created',
     subject: 'Welcome to Tablevera — {{restaurantName}} is ready',
     description: 'Sent to the owner when an admin creates their restaurant account. Includes onboarding next steps and first invoice details.',
     bodyHtml: [

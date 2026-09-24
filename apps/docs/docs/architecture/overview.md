@@ -22,7 +22,7 @@ flowchart TB
     Stripe[Stripe]
     Spaces[DO Spaces]
     Twilio[Twilio SMS]
-    Email[SendGrid / Resend]
+    Email[SendGrid]
     Gemini[Gemini drafts]
   end
 

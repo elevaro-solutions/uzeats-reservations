@@ -129,7 +129,7 @@ export async function requestAdminDeleteUserCode(input: {
 
   if (!isEmailDeliveryConfigured()) {
     throw new ValidationError(
-      'Email delivery is not configured — set RESEND_API_KEY or SENDGRID_API_KEY on the API server.',
+      'Email delivery is not configured — set SENDGRID_API_KEY on the API server.',
     );
   }
 

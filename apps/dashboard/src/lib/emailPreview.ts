@@ -33,6 +33,7 @@ export const EMAIL_TEMPLATE_VARIABLES: Record<string, string[]> = {
     'billingUrl',
   ],
   invoice_ready: ['firstName', 'invoiceNumber', 'period', 'amount', 'invoiceUrl'],
+  docs_access_otp: ['firstName', 'code'],
 };
 
 export const SAMPLE_EMAIL_VARS: Record<string, string> = {
@@ -56,6 +57,7 @@ export const SAMPLE_EMAIL_VARS: Record<string, string> = {
   billingUrl: 'https://dashboard.tablevera.online/billing',
   period: 'Sep 2026',
   invoiceUrl: 'https://dashboard.tablevera.online/invoices/INV-1042',
+  code: '123456',
 };
 
 export function renderTemplateString(

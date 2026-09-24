@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@apollo/client/react';
 import {
@@ -21,12 +22,15 @@ import {
   Typography,
   message,
   Tag,
+  Spin,
 } from 'antd';
-import dayjs from 'dayjs';
+import dayjs, { type Dayjs } from 'dayjs';
 import { CheckCircleFilled, EnvironmentOutlined, StarFilled } from '@ant-design/icons';
 import { PostVisitModal } from '@/components/PostVisitModal';
 import { canLeaveReview } from '@/lib/reservationDisplay';
 import { SlotPicker, priceRangeLabel, colors, radii, pickRestaurantPhoto } from '@reservations/ui';
+import type { RestaurantSeoData } from '@/lib/restaurantSeoFetch';
+import { useIsMobileRestaurantLayout } from '@/lib/useIsMobileRestaurantLayout';
 import {
   OCCASIONS,
   BOOKABLE_OCCASIONS,
@@ -42,6 +46,7 @@ import {
   buildBookingResumePath,
   formatTimeInTimeZone,
   formatShortHours,
+  formatUsDate,
   timezoneFromAddress,
 } from '@reservations/shared';
 import {
@@ -78,8 +83,10 @@ import {
 } from '@/lib/useRestaurantPageParams';
 import { buildRestaurantFaq } from '@/lib/restaurantFaq';
 import { formatOpeningHoursLines } from '@/lib/openingHours';
-import DepositPayment from '@/components/DepositPayment';
-import { RestaurantPhotoGallery } from '@/components/restaurant/RestaurantPhotoGallery';
+import {
+  RestaurantPhotoGallery,
+  type RestaurantPhotoGalleryHandle,
+} from '@/components/restaurant/RestaurantPhotoGallery';
 import { RestaurantSectionNav } from '@/components/restaurant/RestaurantSectionNav';
 import { RestaurantAbout } from '@/components/restaurant/RestaurantAbout';
 import { RestaurantMenuSection } from '@/components/restaurant/RestaurantMenuSection';
@@ -112,9 +119,22 @@ import {
   type ExperienceItem,
 } from '@/lib/experiences';
 
+const DepositPayment = dynamic(() => import('@/components/DepositPayment'), {
+  ssr: false,
+  loading: () => (
+    <div style={{ padding: 48, textAlign: 'center' }}>
+      <Spin />
+    </div>
+  ),
+});
+
 const { Title, Paragraph, Text } = Typography;
 
-export default function RestaurantPageClient() {
+export default function RestaurantPageClient({
+  initialRestaurant = null,
+}: {
+  initialRestaurant?: RestaurantSeoData | null;
+}) {
   const params = useParams<{ id: string }>();
   const slugOrId = params.id;
   const isObjectId = isMongoObjectId(slugOrId);
@@ -149,8 +169,11 @@ export default function RestaurantPageClient() {
   const [messageOpen, setMessageOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const isMobileLayout = useIsMobileRestaurantLayout();
+  const [bookSheetHighlight, setBookSheetHighlight] = useState(false);
   const draftRestoredRef = useRef(false);
   const prevSlotPartyRef = useRef<{ slot: string | null; party: number } | null>(null);
+  const photoGalleryRef = useRef<RestaurantPhotoGalleryHandle>(null);
 
   useEffect(() => {
     setDate(bookingFromUrl.date);
@@ -233,8 +256,10 @@ export default function RestaurantPageClient() {
 
   const { data } = useQuery(RESTAURANT_DETAIL, {
     variables: isObjectId ? { id: slugOrId } : { slug: slugOrId },
+    // SSR already painted the shell; refresh in background for bookmarks / fresh menu.
+    fetchPolicy: initialRestaurant ? 'cache-and-network' : 'cache-first',
   });
-  const restaurant = (data as any)?.restaurant;
+  const restaurant = (data as { restaurant?: RestaurantSeoData } | undefined)?.restaurant ?? initialRestaurant;
   const restaurantId = restaurant?.id ?? (isObjectId ? slugOrId : undefined);
   const bookingPath = buildRestaurantBookingPath(restaurant?.slug, restaurantId);
   const timeZone = useMemo(
@@ -255,6 +280,16 @@ export default function RestaurantPageClient() {
   const formatSlotLabel = useCallback(
     (iso: string) => formatTimeInTimeZone(iso, timeZone),
     [timeZone],
+  );
+  const formatBookingDateLabel = useCallback(
+    (value: Dayjs) =>
+      formatUsDate(value.toDate(), {
+        weekday: 'short',
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+    [],
   );
 
   const { data: availData, loading: availLoading } = useQuery(AVAILABILITY, {
@@ -587,10 +622,17 @@ export default function RestaurantPageClient() {
 
   const showResumeBanner = search.get('resume') === '1' && !!user;
 
+  const scrollToBooking = useCallback(() => {
+    const el = document.getElementById('booking-form');
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setBookSheetHighlight(true);
+    window.setTimeout(() => setBookSheetHighlight(false), 1600);
+  }, []);
+
   useEffect(() => {
     if (!showResumeBanner) return;
-    document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [showResumeBanner]);
+    scrollToBooking();
+  }, [showResumeBanner, scrollToBooking]);
 
   const redirectToLoginForBooking = () => {
     if (!restaurantId) return;
@@ -676,10 +718,10 @@ export default function RestaurantPageClient() {
         photoUrl: pickRestaurantPhoto([
           ...(restaurantPhotos ?? []),
           bookedTable?.photoUrl,
-          ...(restaurant.photos ?? []),
+          ...(restaurant?.photos ?? []),
         ]),
         floorArea: bookedTable?.floorArea,
-        dateLabel: date.format('dddd, MMMM D, YYYY'),
+        dateLabel: formatBookingDateLabel(date),
         timeLabel: formatSlotLabel(selectedSlot),
         partySize,
         occasionLabel: formatOccasion(occasion),
@@ -775,7 +817,7 @@ export default function RestaurantPageClient() {
   const mapsUrl = buildMapsSearchUrl(restaurant.address, restaurant.location);
 
   const reviews = (reviewsData as any)?.restaurantReviews?.items ?? [];
-  const bookingSuccessDateLabel = bookingSuccess?.dateLabel ?? date.format('dddd, MMMM D, YYYY');
+  const bookingSuccessDateLabel = bookingSuccess?.dateLabel ?? formatBookingDateLabel(date);
   const bookingSuccessTimeLabel =
     bookingSuccess?.timeLabel ??
     (selectedSlot
@@ -786,10 +828,19 @@ export default function RestaurantPageClient() {
 
   return (
     <div component="RestaurantPage" style={{ display: 'contents' }}>
-      <div className="rt-restaurant-page">
+      <div
+        className={`rt-restaurant-page${isMobileLayout ? ' rt-restaurant-page--mobile' : ''}${
+          restaurant.reservationsVisible !== false ? ' has-book-footer' : ''
+        }`}
+      >
       <div className="rt-restaurant-profile">
-        <RestaurantPhotoGallery photos={restaurant.photos ?? []} name={restaurant.name} />
+        <RestaurantPhotoGallery
+          ref={photoGalleryRef}
+          photos={restaurant.photos ?? []}
+          name={restaurant.name}
+        />
 
+        <div className="rt-restaurant-profile__sheet">
         <div className="rt-restaurant-profile__header rt-fade-up">
           <div className="rt-restaurant-profile__heading">
             <RestaurantLogo
@@ -839,7 +890,7 @@ export default function RestaurantPageClient() {
               Deposit ${(restaurant.depositAmountCents / 100).toFixed(2)} per guest
             </Tag>
           )}
-          <div style={{ marginTop: 12 }}>
+          <div className="rt-restaurant-profile__bookmarks">
             <RestaurantBookmarkButtons
               restaurantId={restaurant.id}
               isSaved={restaurant.isSaved}
@@ -849,6 +900,8 @@ export default function RestaurantPageClient() {
           <RestaurantActions
             address={restaurant.address}
             location={restaurant.location}
+            phone={restaurant.phone}
+            website={restaurant.website}
             onMessage={() => setMessageOpen(true)}
           />
         </div>
@@ -926,7 +979,11 @@ export default function RestaurantPageClient() {
                 onLeaveReview={() => setReviewOpen(true)}
               />
 
-              <RestaurantPhotosSection photos={restaurant.photos ?? []} name={restaurant.name} />
+              <RestaurantPhotosSection
+                photos={restaurant.photos ?? []}
+                name={restaurant.name}
+                onOpenGallery={(index?: number) => photoGalleryRef.current?.openBrowser(index)}
+              />
 
               <RestaurantDetailsSection
                 address={restaurant.address}
@@ -964,8 +1021,12 @@ export default function RestaurantPageClient() {
             </div>
           </Col>
 
-          <Col xs={24} lg={10}>
-            <div className="rt-restaurant-profile__booking-sticky">
+          <Col xs={24} lg={10} className="rt-restaurant-profile__booking-col">
+            <div
+              className={`rt-restaurant-profile__booking-sticky${
+                bookSheetHighlight ? ' is-highlighted' : ''
+              }`}
+            >
           {restaurant.reservationsVisible !== false ? (
           <Card
             id="booking-form"
@@ -1555,7 +1616,16 @@ export default function RestaurantPageClient() {
             </div>
           </Col>
         </Row>
+        </div>
       </div>
+
+      {isMobileLayout && restaurant.reservationsVisible !== false ? (
+        <div className="rt-restaurant-book-footer">
+          <Button type="primary" size="large" block onClick={scrollToBooking}>
+            Book
+          </Button>
+        </div>
+      ) : null}
       </div>
 
       <ExperienceBookingModal
@@ -1593,7 +1663,7 @@ export default function RestaurantPageClient() {
             setOccasion(chosenPackage.occasions[0]);
           }
           setExperienceModalId(null);
-          document.getElementById('booking-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          scrollToBooking();
         }}
       />
 
@@ -1612,7 +1682,7 @@ export default function RestaurantPageClient() {
         depositRequired={restaurant.depositRequired}
         depositAmountCents={restaurant.depositAmountCents}
         details={{
-          dateLabel: date.format('dddd, MMMM D, YYYY'),
+          dateLabel: formatBookingDateLabel(date),
           timeLabel: selectedSlot ? formatSlotLabel(selectedSlot) : '—',
           partySize,
           occasionLabel: formatOccasion(occasion),

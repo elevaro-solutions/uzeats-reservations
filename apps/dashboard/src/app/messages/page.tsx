@@ -18,6 +18,7 @@ import {
   RESTAURANT_INQUIRIES,
   MARK_RESTAURANT_INQUIRY_READ,
 } from '@/lib/graphql';
+import { skipPollWhenHidden } from '@/lib/pollVisibility';
 
 const { Title, Text, Link } = Typography;
 
@@ -85,17 +86,11 @@ function MessagesContent() {
     skip: !activeReservationId,
     variables: { reservationId: activeReservationId },
   });
-  const [messagesPoll, setMessagesPoll] = useState(30_000);
-  useEffect(() => {
-    const sync = () => setMessagesPoll(document.hidden ? 0 : 30_000);
-    sync();
-    document.addEventListener('visibilitychange', sync);
-    return () => document.removeEventListener('visibilitychange', sync);
-  }, []);
   const { data: msgData, refetch: refetchMsgs } = useQuery(MESSAGES, {
     skip: !activeReservationId,
     variables: { reservationId: activeReservationId },
-    pollInterval: activeReservationId ? messagesPoll : 0,
+    pollInterval: activeReservationId ? 30_000 : 0,
+    skipPollAttempt: skipPollWhenHidden,
   });
   const [sendMessage, { loading: sending }] = useMutation(SEND_MESSAGE);
   const [markRead] = useMutation(MARK_CONVERSATION_READ);

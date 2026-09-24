@@ -28,6 +28,7 @@ import {
 } from '@/lib/graphql';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
+import { skipPollWhenHidden } from '@/lib/pollVisibility';
 
 const { Title } = Typography;
 
@@ -53,6 +54,7 @@ function WaitlistPageContent() {
     skip: !activeRestaurantId,
     variables: { restaurantId: activeRestaurantId, limit, offset },
     pollInterval: 15_000,
+    skipPollAttempt: skipPollWhenHidden,
   });
   const [addEntry, { loading: adding }] = useMutation(ADD_IN_HOUSE_WAITLIST);
   const [updateStatus, { loading: updating }] = useMutation(UPDATE_WAITLIST_STATUS);

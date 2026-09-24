@@ -22,8 +22,10 @@ export {
   type TableveraBrandProps,
 } from './brand';
 export { theme, priceRangeLabel } from './theme';
+export { antdUsLocale } from './antdLocale';
 export { tokens, colors, typography, spacing, radii, shadows, layout } from './tokens';
 export { RestaurantCard } from './RestaurantCard';
+export type { RestaurantCardProps, RestaurantCardPhotoRenderProps } from './RestaurantCard';
 export {
   DEFAULT_RESTAURANT_PHOTO,
   RESTAURANT_PHOTO_FALLBACKS,

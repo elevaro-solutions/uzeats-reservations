@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@apollo/client/react';
+import Image from 'next/image';
 import { Rate, Typography } from 'antd';
 import { EnvironmentOutlined } from '@ant-design/icons';
 import { formatTimeInTimeZone, timezoneFromAddress } from '@reservations/shared';
-import { colors, priceRangeLabel, radii, shadows, typography, pickRestaurantPhoto, restaurantPhotoCandidates } from '@reservations/ui';
-import { AVAILABILITY } from '@/lib/graphql';
+import { priceRangeLabel, typography, pickRestaurantPhoto, restaurantPhotoCandidates } from '@reservations/ui';
+import { canUseNextImage } from '@/lib/canUseNextImage';
 import type { MapRestaurant } from './RestaurantDiscoveryMap';
 
 const { Text } = Typography;
@@ -23,25 +23,12 @@ type MapListRestaurantCardProps = {
 
 export function MapListRestaurantCard({
   restaurant,
-  date,
-  partySize,
   active,
   onSelect,
   onOpen,
   onSelectSlot,
 }: MapListRestaurantCardProps) {
-  const { data } = useQuery(AVAILABILITY, {
-    variables: { restaurantId: restaurant.id, date, partySize },
-  });
-
-  const slots = useMemo(
-    () =>
-      ((data as any)?.availability ?? [])
-        .filter((s: any) => s.available)
-        .slice(0, 3)
-        .map((s: any) => s.time),
-    [data],
-  );
+  const slots = restaurant.availableSlotTimes?.slice(0, 3) ?? [];
 
   const photoCandidates = useMemo(
     () => restaurantPhotoCandidates(restaurant.photos),
@@ -67,16 +54,29 @@ export function MapListRestaurantCard({
       tabIndex={0}
     >
       <div className="rt-map-list-card__media">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={photo}
-          alt={restaurant.name}
-          loading="lazy"
-          decoding="async"
-          onError={() => {
-            setPhotoIndex((current) => Math.min(current + 1, photoCandidates.length - 1));
-          }}
-        />
+        {canUseNextImage(photo) ? (
+          <Image
+            src={photo}
+            alt={restaurant.name}
+            fill
+            sizes="120px"
+            style={{ objectFit: 'cover' }}
+            onError={() => {
+              setPhotoIndex((current) => Math.min(current + 1, photoCandidates.length - 1));
+            }}
+          />
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={photo}
+            alt={restaurant.name}
+            loading="lazy"
+            decoding="async"
+            onError={() => {
+              setPhotoIndex((current) => Math.min(current + 1, photoCandidates.length - 1));
+            }}
+          />
+        )}
       </div>
 
       <div className="rt-map-list-card__body">

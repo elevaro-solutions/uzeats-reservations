@@ -41,6 +41,7 @@ import {
   pointerAngleDeg,
   tableCenterPx,
 } from '@/lib/floorPlanCanvas';
+import { skipPollWhenHidden } from '@/lib/pollVisibility';
 
 const { Title, Text } = Typography;
 
@@ -408,7 +409,7 @@ export default function FloorOpsPage() {
     variables: { restaurantId: activeRestaurantId },
     pollInterval: 30_000,
     notifyOnNetworkStatusChange: false,
-    skipPollAttempt: () => typeof document !== 'undefined' && document.hidden,
+    skipPollAttempt: skipPollWhenHidden,
     onError: (err: Error) => message.error(err.message),
   });
   const initialLoading = loading && !data;
