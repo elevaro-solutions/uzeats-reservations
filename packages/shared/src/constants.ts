@@ -427,6 +427,8 @@ export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
 export const NOTIFICATION_TYPE_TO_EVENT: Record<string, NotificationEvent> = {
   new_message: "newMessage",
   new_reservation: "newReservation",
+  /** Manual-approval queue — managers must see these in the inbox. */
+  reservation_needs_approval: "newReservation",
   waitlist_available: "waitlistAvailable",
   waitlist_ready: "waitlistAvailable",
   waitlist_notified: "waitlistAvailable",
@@ -436,6 +438,7 @@ export const NOTIFICATION_TYPE_TO_EVENT: Record<string, NotificationEvent> = {
   reservation_cancelled: "reservationUpdates",
   reservation_updated: "reservationUpdates",
   reservation_reminder: "reservationUpdates",
+  reservation_pending_approval: "reservationUpdates",
   deposit_refunded: "reservationUpdates",
   new_review: "newReview",
   review_reply: "reviewReply",
@@ -450,6 +453,8 @@ export const NOTIFICATION_TYPE_TO_EVENT: Record<string, NotificationEvent> = {
   restaurant_profile_denied: "accountUpdates",
   invoice_ready: "accountUpdates",
   support_reply: "accountUpdates",
+  restaurant_inquiry: "newMessage",
+  staff_invite: "accountUpdates",
 };
 
 export const DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES: Record<

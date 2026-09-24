@@ -106,16 +106,29 @@ export async function sendEmail(
     }>;
   },
 ) {
+  const normalizedTo = to.trim().toLowerCase();
+  // Avoid SendGrid blocks / reputation hits from seed and non-routable addresses.
+  if (
+    normalizedTo.endsWith('.local') ||
+    normalizedTo.endsWith('.test') ||
+    normalizedTo.endsWith('@example.com') ||
+    normalizedTo.endsWith('@test.com')
+  ) {
+    throw new Error(`Refusing to send email to non-deliverable address: ${to}`);
+  }
+
   const innerHtml = options?.htmlBody ?? textToEmailHtml(body);
   const htmlBody = wrapEmailHtml(innerHtml);
   const attachments = options?.attachments ?? [];
 
   if (!env.SENDGRID_API_KEY) {
-    logger.debug({ to, title, body, htmlBody, attachments: attachments.length }, '[email:dev] stub');
-    return;
+    logger.warn({ to: normalizedTo, title }, '[email] no provider configured (SENDGRID_API_KEY)');
+    throw new Error(
+      'Email delivery is not configured — set SENDGRID_API_KEY on the API server.',
+    );
   }
-  await sendViaSendGrid(to, title, body, htmlBody, attachments);
-  logger.info({ to, subject: title }, '[email] sent via SendGrid');
+  await sendViaSendGrid(normalizedTo, title, body, htmlBody, attachments);
+  logger.info({ to: normalizedTo, subject: title }, '[email] sent via SendGrid');
 }
 
 export function isEmailDeliveryConfigured() {
@@ -191,19 +204,24 @@ export async function notifyUser(
 
   if (eventKey && NOTIFICATION_EVENTS.includes(eventKey)) {
     channelPrefs = mapNotificationPreferences(user.notificationPreferences)[eventKey];
-  } else {
-    // Security / account messages (e.g. password_reset) always use email defaults.
+  } else if (payload.type === 'password_reset') {
+    // Security / account messages: email only (no inbox spam).
     channelPrefs = {
       ...DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES,
       sms: false,
       webPush: false,
       platform: false,
+      messenger: false,
       email: true,
     };
+  } else {
+    // Unmapped product types: use defaults (includes in-app) so inbox never silently drops.
+    logger.warn({ type: payload.type }, '[notify] unmapped notification type; using defaults');
+    channelPrefs = { ...DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES };
   }
 
   const channels: Array<'email' | 'telegram' | 'push' | 'sms' | 'in_app'> = [];
-  // In-app inbox follows the Platform preference (except account/security messages).
+  // In-app inbox follows the Platform preference (except password_reset).
   if (payload.type !== 'password_reset' && channelPrefs.platform) {
     channels.push('in_app');
   }

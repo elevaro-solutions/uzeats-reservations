@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.65.1] — 2026-09-24
+
+### Fixed
+
+- In-app inbox for unmapped notification types (`reservation_needs_approval`, `reservation_pending_approval`, `restaurant_inquiry`, `staff_invite`) — they no longer skip Platform/in-app via the password-reset fallback
+- Email without `SENDGRID_API_KEY` is recorded as failed (no silent stub `sent`); seed `.local` / `.test` addresses are refused before hitting SendGrid
+
 ## [0.65.0] — 2026-09-24
 
 ### Fixed

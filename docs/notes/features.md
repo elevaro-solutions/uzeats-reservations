@@ -77,6 +77,11 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## notifications
 
+### [2026-09-24] Unmapped notify types skipped in-app
+- Types not in `NOTIFICATION_TYPE_TO_EVENT` used the password-reset fallback (`platform: false`), so `reservation_needs_approval`, `reservation_pending_approval`, `restaurant_inquiry`, and `staff_invite` never created inbox rows (email only).
+- Fix: map those types; unknown non-`password_reset` types now use defaults (platform on) and log a warning. Stub email without SendGrid/Resend throws so status is `failed`, not fake `sent`.
+- Why it matters: Manual-approval and inquiry alerts looked “broken” in Partner Hub / diner inbox despite successful SendGrid sends.
+
 ### [2026-09-22] Messenger ACL for Telegram Accept/Reject
 - Channel `messenger` on notification preferences (default off). `notifyRestaurantManagers` Elevaro fan-out: restaurant owner always; staff only if `newReservation.messenger` (or `reservationUpdates.messenger` for update/cancel events). Action webhook re-checks that flag for non-owners. Dashboard `/notifications` exposes the column + Connect Telegram bot; `createElevaroTelegramLink` rejects diners and users without venue access.
 - Why it matters: Previously every `restaurantIds` member got Accept/Reject; owners now opt managers in explicitly.
