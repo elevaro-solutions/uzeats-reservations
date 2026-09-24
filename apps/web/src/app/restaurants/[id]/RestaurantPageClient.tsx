@@ -45,7 +45,7 @@ import {
   buildRestaurantBookingPath,
   buildBookingResumePath,
   formatTimeInTimeZone,
-  formatShortHours,
+  formatBookingHours,
   formatUsDate,
   timezoneFromAddress,
 } from '@reservations/shared';
@@ -103,6 +103,7 @@ import { RestaurantHoursMeta } from '@/components/restaurant/RestaurantHoursMeta
 import { RestaurantLogo } from '@/components/restaurant/RestaurantLogo';
 import { buildMapsSearchUrl } from '@/lib/restaurantLinks';
 import { RestaurantExperiencesSection } from '@/components/restaurant/RestaurantExperiencesSection';
+import { RestaurantPrivateDiningSection } from '@/components/restaurant/RestaurantPrivateDiningSection';
 import { ExperienceBookingModal } from '@/components/restaurant/ExperienceBookingModal';
 import {
   ReservationConfirmModal,
@@ -116,6 +117,7 @@ import {
   isDateInExperienceRange,
   isExperienceSoldOut,
   maxBookableExperienceParty,
+  minBookableExperienceParty,
   type ExperienceItem,
 } from '@/lib/experiences';
 
@@ -428,6 +430,8 @@ export default function RestaurantPageClient({
     return experiences.filter((e) => {
       if (e.status !== 'published') return false;
       if (!isDateInExperienceRange(selectedDateStr, e)) return false;
+      const min = minBookableExperienceParty(e);
+      if (partySize < min) return false;
       return (e.availableTickets ?? 0) >= partySize;
     });
   }, [experiences, selectedDateStr, partySize]);
@@ -437,8 +441,10 @@ export default function RestaurantPageClient({
       const { start, end } = experienceDateBounds(exp);
       const keepCurrentDate = selectedDateStr >= start && selectedDateStr <= end;
       const nextDate = keepCurrentDate ? date : dayjs(start);
+      const minParty = minBookableExperienceParty(exp);
       const maxParty = maxBookableExperienceParty(exp);
-      const party = Math.min(nextPartySize ?? partySize, maxParty);
+      const raw = nextPartySize ?? partySize;
+      const party = Math.min(Math.max(raw, minParty), maxParty);
       updateBooking({
         date: nextDate,
         partySize: party,
@@ -629,6 +635,23 @@ export default function RestaurantPageClient({
     window.setTimeout(() => setBookSheetHighlight(false), 1600);
   }, []);
 
+  const bookPrivateDiningSpace = useCallback(
+    (space: {
+      id: string;
+      minGuests: number;
+      maxGuests: number;
+    }) => {
+      const nextParty = Math.min(Math.max(partySize, space.minGuests), space.maxGuests);
+      if (nextParty !== partySize) {
+        updateBooking({ partySize: nextParty, selectedSlot: null });
+      }
+      setSelectedExperienceId(null);
+      setSelectedPrivateSpaceId(space.id);
+      scrollToBooking();
+    },
+    [partySize, scrollToBooking, updateBooking],
+  );
+
   useEffect(() => {
     if (!showResumeBanner) return;
     scrollToBooking();
@@ -812,7 +835,7 @@ export default function RestaurantPageClient({
   if (!restaurant) return <div component="RestaurantPage" style={{ display: 'contents' }}><Card loading /></div>;
 
   const openingHoursLines = formatOpeningHoursLines(restaurant.shifts ?? [], timeZone);
-  const workingHoursLabel = formatShortHours(restaurant.shifts ?? [], timeZone);
+  const bookingHoursLine = formatBookingHours(restaurant.shifts ?? [], timeZone);
   const restaurantFaq = buildRestaurantFaq({ ...restaurant, openingHoursLines });
   const mapsUrl = buildMapsSearchUrl(restaurant.address, restaurant.location);
 
@@ -906,7 +929,10 @@ export default function RestaurantPageClient({
           />
         </div>
 
-        <RestaurantSectionNav hasExperiences={experiences.length > 0} />
+        <RestaurantSectionNav
+          hasExperiences={experiences.length > 0}
+          hasPrivateDining={privateSpaces.length > 0}
+        />
 
         <Row gutter={[32, 32]} className="rt-restaurant-profile__body">
           <Col xs={24} lg={14}>
@@ -965,6 +991,12 @@ export default function RestaurantPageClient({
                 onReserve={openExperienceModal}
               />
 
+              <RestaurantPrivateDiningSection
+                spaces={privateSpaces}
+                selectedSpaceId={selectedPrivateSpaceId}
+                onBook={bookPrivateDiningSpace}
+              />
+
               <RestaurantMenuSection
                 sections={restaurant.menu?.sections ?? []}
                 menuUrl={restaurant.menuUrl}
@@ -997,7 +1029,7 @@ export default function RestaurantPageClient({
                 dietaryTags={restaurant.dietaryTags}
                 wheelchairAccessible={restaurant.wheelchairAccessible}
                 location={restaurant.location}
-                bookingHoursLine={workingHoursLabel}
+                bookingHoursLine={bookingHoursLine}
               />
 
               <RestaurantFeaturedIn

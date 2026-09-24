@@ -33,6 +33,7 @@ import {
   MailOutlined,
   MoreOutlined,
   PhoneOutlined,
+  RollbackOutlined,
   TeamOutlined,
   UserDeleteOutlined,
   UserOutlined,
@@ -58,11 +59,13 @@ import {
 import {
   AVAILABILITY,
   DELETE_RESERVATION,
+  REFUND_RESERVATION_DEPOSIT,
   RESTAURANT_RESERVATION,
   UPDATE_RESERVATION,
   UPDATE_RESERVATION_STATUS,
 } from '@/lib/graphql';
 import {
+  canRefundDeposit,
   formatDepositStatus,
   formatOccasion,
   formatSource,
@@ -73,6 +76,7 @@ import {
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useFormDirty } from '@/lib/useFormDirty';
 import { CancelReservationModal } from '@/components/CancelReservationModal';
+import { RefundDepositModal } from '@/components/RefundDepositModal';
 
 const { Text, Title } = Typography;
 
@@ -94,6 +98,8 @@ type ReservationDetail = {
   guestNotes?: string | null;
   source?: string | null;
   depositAmountCents?: number | null;
+  depositRefundedCents?: number | null;
+  depositRefundableCents?: number | null;
   depositStatus?: string | null;
   experienceTitle?: string | null;
   experiencePriceCents?: number | null;
@@ -196,9 +202,11 @@ function AdminReservationDetailContent() {
   const [updateStatus, { loading: updatingStatus }] = useMutation(UPDATE_RESERVATION_STATUS);
   const [updateReservation, { loading: updating }] = useMutation(UPDATE_RESERVATION);
   const [deleteReservation, { loading: deleting }] = useMutation(DELETE_RESERVATION);
+  const [refundDeposit, { loading: refunding }] = useMutation(REFUND_RESERVATION_DEPOSIT);
 
   const [editOpen, setEditOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [refundOpen, setRefundOpen] = useState(false);
   const [editForm] = Form.useForm();
   const editDirty = useFormDirty();
   const editDate = Form.useWatch('date', editForm) as Dayjs | undefined;
@@ -309,6 +317,11 @@ function AdminReservationDetailContent() {
     });
   };
 
+  const handleRefundDeposit = () => {
+    if (!reservation || !canRefundDeposit(reservation)) return;
+    setRefundOpen(true);
+  };
+
   if (loading && !reservation) {
     return (
       <Card
@@ -372,6 +385,16 @@ function AdminReservationDetailContent() {
       onClick: () => setCancelOpen(true),
     });
   }
+  if (canRefundDeposit(reservation)) {
+    moreItems.push({
+      key: 'refund_deposit',
+      icon: <RollbackOutlined />,
+      label: reservation.depositStatus === 'authorized' ? 'Release deposit' : 'Refund deposit',
+      danger: true,
+      disabled: refunding,
+      onClick: handleRefundDeposit,
+    });
+  }
   if (moreItems.length > 0) {
     moreItems.push({ type: 'divider' });
   }
@@ -428,7 +451,13 @@ function AdminReservationDetailContent() {
           label: 'Deposit',
           value: [
             formatUsd(reservation.depositAmountCents),
-            formatDepositStatus(reservation.depositStatus),
+            formatDepositStatus(reservation.depositStatus, {
+              depositAmountCents: reservation.depositAmountCents,
+              depositRefundedCents: reservation.depositRefundedCents,
+            }),
+            (reservation.depositRefundedCents ?? 0) > 0
+              ? `${formatUsd(reservation.depositRefundedCents)} refunded`
+              : null,
           ]
             .filter(Boolean)
             .join(' · '),
@@ -537,6 +566,20 @@ function AdminReservationDetailContent() {
             <MetaChip label="Table" value={tableLabel} />
             <MetaChip label="Source" value={source ?? '—'} />
             <MetaChip label="Occasion" value={occasion ?? 'None'} />
+            {(reservation.depositAmountCents ?? 0) > 0 ? (
+              <MetaChip
+                label="Deposit"
+                value={[
+                  formatUsd(reservation.depositAmountCents),
+                  formatDepositStatus(reservation.depositStatus, {
+                    depositAmountCents: reservation.depositAmountCents,
+                    depositRefundedCents: reservation.depositRefundedCents,
+                  }),
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              />
+            ) : null}
           </div>
         </div>
 
@@ -568,6 +611,16 @@ function AdminReservationDetailContent() {
               }
             >
               Complete
+            </Button>
+          ) : null}
+          {canRefundDeposit(reservation) ? (
+            <Button
+              danger
+              icon={<RollbackOutlined />}
+              loading={refunding}
+              onClick={handleRefundDeposit}
+            >
+              {reservation.depositStatus === 'authorized' ? 'Release deposit' : 'Refund deposit'}
             </Button>
           ) : null}
           {canEdit ? (
@@ -792,6 +845,41 @@ function AdminReservationDetailContent() {
         onConfirm={async (reason) => {
           const ok = await runStatusUpdate('cancelled', reason, 'Reservation cancelled');
           if (ok) setCancelOpen(false);
+        }}
+      />
+
+      <RefundDepositModal
+        open={refundOpen}
+        isHold={reservation.depositStatus === 'authorized'}
+        guestName={name}
+        amountLabel={formatUsd(reservation.depositAmountCents)}
+        maxRefundableCents={
+          reservation.depositRefundableCents ??
+          Math.max(
+            0,
+            (reservation.depositAmountCents ?? 0) - (reservation.depositRefundedCents ?? 0),
+          )
+        }
+        loading={refunding}
+        onClose={() => setRefundOpen(false)}
+        onConfirm={async (reason, amountCents) => {
+          const isHold = reservation.depositStatus === 'authorized';
+          const remaining =
+            reservation.depositRefundableCents ??
+            Math.max(
+              0,
+              (reservation.depositAmountCents ?? 0) - (reservation.depositRefundedCents ?? 0),
+            );
+          await refundDeposit({ variables: { id: reservation.id, reason, amountCents } });
+          message.success(
+            isHold
+              ? 'Deposit hold released'
+              : amountCents != null && amountCents < remaining
+                ? 'Partial deposit refunded'
+                : 'Deposit refunded',
+          );
+          setRefundOpen(false);
+          await refetch();
         }}
       />
     </Space>

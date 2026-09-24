@@ -6,20 +6,24 @@ import { useRouter } from 'next/navigation';
 import {
   Button,
   Card,
+  Col,
   DatePicker,
   Form,
   Input,
   InputNumber,
   Modal,
+  Row,
   Select,
   Space,
   Switch,
   Table,
   Tag,
+  TimePicker,
   Typography,
   message,
 } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined, CheckOutlined, FileAddOutlined, EditOutlined } from '@ant-design/icons';
+import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS } from '@/lib/graphql';
@@ -29,7 +33,7 @@ import { useUrlPagination } from '@/lib/useUrlPagination';
 import { useFormDirty } from '@/lib/useFormDirty';
 import { gql } from '@apollo/client';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 const { TextArea } = Input;
 
 const EXPERIENCES = gql`
@@ -37,7 +41,7 @@ const EXPERIENCES = gql`
     experiences(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
       total
       items {
-        id title type date endDate startTime endTime maxGuests ticketPriceCents ticketsSold status description photoUrl requiresManualApproval
+        id title type date endDate startTime endTime minGuests maxGuests ticketPriceCents ticketsSold status description photoUrl requiresManualApproval
       }
     }
   }
@@ -73,17 +77,6 @@ const PUBLISH_EXPERIENCE = gql`
   }
 `;
 
-const EXPERIENCE_TICKETS = gql`
-  query ExperienceTickets($restaurantId: ID) {
-    experiences(restaurantId: $restaurantId) {
-      total
-      items {
-        id title
-      }
-    }
-  }
-`;
-
 const typeLabels: Record<string, string> = {
   tasting: 'Tasting Menu',
   class: 'Cooking Class',
@@ -101,6 +94,17 @@ const statusColors: Record<string, string> = {
   completed: 'green',
   cancelled: 'red',
 };
+
+function parseClock(value?: string | null) {
+  if (!value) return undefined;
+  const [hours, minutes] = value.split(':').map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return undefined;
+  return dayjs().hour(hours).minute(minutes).second(0).millisecond(0);
+}
+
+function formatClock(value?: Dayjs | null) {
+  return value ? value.format('HH:mm') : undefined;
+}
 
 function ExperiencesPageContent() {
   const { user, loading: authLoading } = useAuth();
@@ -137,6 +141,16 @@ function ExperiencesPageContent() {
         message.error('Select a date range');
         return;
       }
+      const startTime = formatClock(values.startTime);
+      const endTime = formatClock(values.endTime);
+      if (!startTime || !endTime) {
+        message.error('Select start and end times');
+        return;
+      }
+      if (values.minGuests > values.maxGuests) {
+        message.error('Min guests cannot exceed max guests');
+        return;
+      }
       const input = {
         title: values.title,
         description: values.description,
@@ -144,8 +158,9 @@ function ExperiencesPageContent() {
         photoUrl: values.photoUrls?.[0] || values.photoUrl || undefined,
         date: rangeStart.startOf('day').toISOString(),
         endDate: rangeEnd.startOf('day').toISOString(),
-        startTime: values.startTime,
-        endTime: values.endTime,
+        startTime,
+        endTime,
+        minGuests: values.minGuests,
         maxGuests: values.maxGuests,
         ticketPriceCents: Math.round(values.ticketPrice * 100),
         includes: values.includes?.split('\n').filter(Boolean) ?? [],
@@ -194,10 +209,13 @@ function ExperiencesPageContent() {
     endDate?: string;
     startTime: string;
     endTime: string;
+    minGuests?: number;
     maxGuests: number;
     ticketPriceCents: number;
     photoUrl?: string;
     requiresManualApproval?: boolean;
+    includes?: string[];
+    tags?: string[];
   }) => {
     setEditingId(record.id);
     form.setFieldsValue({
@@ -205,15 +223,24 @@ function ExperiencesPageContent() {
       description: record.description,
       type: record.type,
       dateRange: [dayjs(record.date), dayjs(record.endDate ?? record.date)],
-      startTime: record.startTime,
-      endTime: record.endTime,
+      startTime: parseClock(record.startTime),
+      endTime: parseClock(record.endTime),
+      minGuests: record.minGuests ?? 1,
       maxGuests: record.maxGuests,
       ticketPrice: record.ticketPriceCents / 100,
       photoUrls: record.photoUrl ? [record.photoUrl] : [],
       photoUrl: record.photoUrl,
+      includes: record.includes?.join('\n'),
+      tags: record.tags?.join(', '),
       requiresManualApproval: record.requiresManualApproval ?? false,
     });
     setModalOpen(true);
+    clearDirty();
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditingId(null);
     clearDirty();
   };
 
@@ -241,9 +268,12 @@ function ExperiencesPageContent() {
       render: (_: any, r: any) => `${r.startTime} – ${r.endTime}`,
     },
     {
-      title: 'Tickets',
-      key: 'tickets',
-      render: (_: any, r: any) => `${r.ticketsSold} / ${r.maxGuests}`,
+      title: 'Guests',
+      key: 'guests',
+      render: (_: any, r: any) => {
+        const min = r.minGuests ?? 1;
+        return `${r.ticketsSold} sold · ${min}–${r.maxGuests}`;
+      },
     },
     {
       title: 'Price',
@@ -290,6 +320,7 @@ function ExperiencesPageContent() {
           onClick={() => {
             setEditingId(null);
             form.resetFields();
+            form.setFieldsValue({ minGuests: 1 });
             clearDirty();
             setModalOpen(true);
           }}
@@ -311,66 +342,182 @@ function ExperiencesPageContent() {
       </Card>
 
       <Modal
-        title={editingId ? 'Edit Experience' : 'Create Experience'}
+        title={
+          <span className="rt-experience-modal__title">
+            {editingId ? (
+              <EditOutlined className="rt-experience-modal__title-icon" aria-hidden />
+            ) : (
+              <FileAddOutlined className="rt-experience-modal__title-icon" aria-hidden />
+            )}
+            <span>{editingId ? 'Edit Experience' : 'Add New Experience'}</span>
+          </span>
+        }
         open={modalOpen}
-        onCancel={() => {
-          setModalOpen(false);
-          setEditingId(null);
-          clearDirty();
+        onCancel={closeModal}
+        width={560}
+        centered
+        wrapClassName="rt-mobile-modal rt-experience-modal"
+        destroyOnHidden
+        maskClosable={!dirty}
+        footer={
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              width: '100%',
+              flexWrap: 'wrap',
+            }}
+          >
+            <Button onClick={closeModal}>Cancel</Button>
+            <Button
+              type="primary"
+              icon={<CheckOutlined />}
+              loading={creating || updating}
+              disabled={!dirty}
+              onClick={() => void handleSubmit()}
+            >
+              {editingId ? 'Save changes' : 'Create experience'}
+            </Button>
+          </div>
+        }
+        styles={{
+          body: { maxHeight: 'min(70vh, 560px)', overflowY: 'auto', overflowX: 'hidden' },
         }}
-        onOk={handleSubmit}
-        okButtonProps={{ disabled: !dirty }}
-        confirmLoading={creating || updating}
-        width={600}
       >
-        <Form form={form} layout="vertical" onValuesChange={onValuesChange}>
-          <Form.Item name="title" label="Title" rules={[{ required: true }]}>
-            <Input />
+        <Form
+          form={form}
+          layout="vertical"
+          onValuesChange={onValuesChange}
+          style={{ marginBottom: 0 }}
+        >
+          <Form.Item
+            name="title"
+            label="Title"
+            rules={[{ required: true, message: 'Enter a title' }]}
+            style={{ marginBottom: 12 }}
+          >
+            <Input placeholder="Winter tasting night" />
           </Form.Item>
-          <Form.Item name="description" label="Description" rules={[{ required: true }]}>
-            <TextArea rows={3} />
+          <Form.Item
+            name="description"
+            label="Description"
+            rules={[{ required: true, message: 'Enter a description' }]}
+            style={{ marginBottom: 12 }}
+          >
+            <TextArea rows={2} placeholder="Short overview guests will see" />
           </Form.Item>
-          <Form.Item name="type" label="Type" rules={[{ required: true }]}>
+          <Form.Item
+            name="type"
+            label="Type"
+            rules={[{ required: true, message: 'Select a type' }]}
+            style={{ marginBottom: 12 }}
+          >
             <Select
               options={Object.entries(typeLabels).map(([value, label]) => ({ value, label }))}
             />
           </Form.Item>
-          <Space wrap>
-            <Form.Item name="dateRange" label="Date range" rules={[{ required: true, message: 'Select dates' }]}>
-              <DatePicker.RangePicker />
-            </Form.Item>
-            <Form.Item name="startTime" label="Start Time" rules={[{ required: true }]}>
-              <Input placeholder="18:00" />
-            </Form.Item>
-            <Form.Item name="endTime" label="End Time" rules={[{ required: true }]}>
-              <Input placeholder="21:00" />
-            </Form.Item>
-          </Space>
-          <Space>
-            <Form.Item name="maxGuests" label="Max Guests" rules={[{ required: true }]}>
-              <InputNumber min={1} />
-            </Form.Item>
-            <Form.Item name="ticketPrice" label="Ticket Price ($)" rules={[{ required: true }]}>
-              <InputNumber min={0} step={0.01} />
-            </Form.Item>
-          </Space>
-          <Form.Item name="photoUrls" label="Photo">
+
+          <Form.Item
+            name="dateRange"
+            label="Date range"
+            rules={[{ required: true, message: 'Select dates' }]}
+            style={{ marginBottom: 12 }}
+          >
+            <DatePicker.RangePicker style={{ width: '100%' }} />
+          </Form.Item>
+
+          <Row gutter={12}>
+            <Col span={12}>
+              <Form.Item
+                name="startTime"
+                label="Start time"
+                rules={[{ required: true, message: 'Select start time' }]}
+                style={{ marginBottom: 12 }}
+              >
+                <TimePicker
+                  format="h:mm A"
+                  use12Hours
+                  minuteStep={15}
+                  needConfirm={false}
+                  style={{ width: '100%' }}
+                  placeholder="6:00 PM"
+                />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="endTime"
+                label="End time"
+                rules={[{ required: true, message: 'Select end time' }]}
+                style={{ marginBottom: 12 }}
+              >
+                <TimePicker
+                  format="h:mm A"
+                  use12Hours
+                  minuteStep={15}
+                  needConfirm={false}
+                  style={{ width: '100%' }}
+                  placeholder="9:00 PM"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Row gutter={12}>
+            <Col span={8}>
+              <Form.Item
+                name="minGuests"
+                label="Min guests"
+                rules={[{ required: true, message: 'Required' }]}
+                style={{ marginBottom: 12 }}
+                initialValue={1}
+              >
+                <InputNumber min={1} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                name="maxGuests"
+                label="Max guests"
+                rules={[{ required: true, message: 'Required' }]}
+                style={{ marginBottom: 12 }}
+              >
+                <InputNumber min={1} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item
+                name="ticketPrice"
+                label="Ticket ($)"
+                rules={[{ required: true, message: 'Required' }]}
+                style={{ marginBottom: 12 }}
+              >
+                <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item name="photoUrls" label="Cover photo" style={{ marginBottom: 12 }}>
             <PhotoUpload maxCount={1} />
           </Form.Item>
           <Form.Item name="photoUrl" hidden>
             <Input />
           </Form.Item>
-          <Form.Item name="includes" label="What's Included (one per line)">
-            <TextArea rows={3} placeholder="5-course tasting menu&#10;Wine pairings&#10;Meet the chef" />
+
+          <Form.Item name="includes" label="What's included (one per line)" style={{ marginBottom: 12 }}>
+            <TextArea rows={2} placeholder="5-course tasting menu&#10;Wine pairings&#10;Meet the chef" />
           </Form.Item>
-          <Form.Item name="tags" label="Tags (comma-separated)">
+          <Form.Item name="tags" label="Tags (comma-separated)" style={{ marginBottom: 12 }}>
             <Input placeholder="wine, tasting, special" />
           </Form.Item>
           <Form.Item
             name="requiresManualApproval"
             label="Require manual approval"
             valuePropName="checked"
-            extra="Bookings for this experience stay pending until staff confirms"
+            extra="Bookings stay pending until staff confirms"
+            style={{ marginBottom: 0 }}
           >
             <Switch />
           </Form.Item>

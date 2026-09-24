@@ -31,6 +31,7 @@ import {
   isExperienceSoldOut,
   isSlotInExperienceHours,
   maxBookableExperienceParty,
+  minBookableExperienceParty,
   truncateExperienceDescription,
   type ExperienceItem,
 } from '@/lib/experiences';
@@ -146,11 +147,18 @@ export function ExperienceBookingModal({
 
   const soldOut = isExperienceSoldOut(experience);
   const { start, end } = experienceDateBounds(experience);
+  const minParty = minBookableExperienceParty(experience);
   const maxParty = maxBookableExperienceParty(experience);
-  const partyOptions = Array.from({ length: maxParty }, (_, i) => ({
-    value: i + 1,
-    label: `${i + 1} ${i === 0 ? 'person' : 'people'}`,
-  }));
+  const partyOptions = Array.from(
+    { length: Math.max(0, maxParty - minParty + 1) },
+    (_, i) => {
+      const value = minParty + i;
+      return {
+        value,
+        label: `${value} ${value === 1 ? 'person' : 'people'}`,
+      };
+    },
+  );
   const availableSlots = experienceSlots.filter((slot) => slot.available);
   const selectedPackage = packages.find((pkg) => pkg.id === selectedPackageId) ?? null;
   const experiencePrice = experience.ticketPriceCents * partySize;
@@ -329,7 +337,7 @@ export function ExperienceBookingModal({
               suffixIcon={<ClockCircleOutlined />}
             />
             <Select
-              value={Math.min(partySize, maxParty)}
+              value={Math.min(Math.max(partySize, minParty), maxParty)}
               options={partyOptions}
               onChange={(value) => onPartySizeChange(value)}
               suffixIcon={<UserOutlined />}

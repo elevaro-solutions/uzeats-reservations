@@ -436,6 +436,7 @@ export const NOTIFICATION_TYPE_TO_EVENT: Record<string, NotificationEvent> = {
   reservation_cancelled: "reservationUpdates",
   reservation_updated: "reservationUpdates",
   reservation_reminder: "reservationUpdates",
+  deposit_refunded: "reservationUpdates",
   new_review: "newReview",
   review_reply: "reviewReply",
   survey_invitation: "surveyInvitation",

@@ -18,7 +18,7 @@ import {
   message,
 } from 'antd';
 import type { MenuProps } from 'antd';
-import { CalendarOutlined, CheckCircleOutlined, CloseCircleOutlined, DeleteOutlined, EyeOutlined, LoginOutlined, MoreOutlined, SearchOutlined, ShopOutlined, UserDeleteOutlined } from '@ant-design/icons';
+import { CalendarOutlined, CheckCircleOutlined, CloseCircleOutlined, DeleteOutlined, EyeOutlined, LoginOutlined, MoreOutlined, RollbackOutlined, SearchOutlined, ShopOutlined, UserDeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { formatUsDateTime } from '@reservations/shared';
 import { PageHeader, StatusTag, spacing } from '@reservations/ui';
@@ -26,13 +26,22 @@ import {
   ADMIN_RESERVATIONS,
   ADMIN_RESTAURANT_NAMES,
   DELETE_RESERVATION,
+  REFUND_RESERVATION_DEPOSIT,
   UPDATE_RESERVATION_STATUS,
 } from '@/lib/graphql';
-import { formatOccasion, formatSource, guestName } from '@/lib/reservationFormat';
+import {
+  canRefundDeposit,
+  formatDepositStatus,
+  formatOccasion,
+  formatSource,
+  formatUsd,
+  guestName,
+} from '@/lib/reservationFormat';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useUrlListFilters } from '@/lib/useUrlListFilters';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { CancelReservationModal } from '@/components/CancelReservationModal';
+import { RefundDepositModal } from '@/components/RefundDepositModal';
 
 const { Text } = Typography;
 
@@ -78,6 +87,8 @@ type ReservationRow = {
   guestNotes?: string;
   source?: string;
   depositAmountCents?: number;
+  depositRefundedCents?: number;
+  depositRefundableCents?: number;
   depositStatus?: string;
   experienceTitle?: string;
   packageTitle?: string;
@@ -149,6 +160,8 @@ function AdminReservationsContent() {
 
   const [updateStatus, { loading: updating }] = useMutation(UPDATE_RESERVATION_STATUS);
   const [cancelFor, setCancelFor] = useState<ReservationRow | null>(null);
+  const [refundFor, setRefundFor] = useState<ReservationRow | null>(null);
+  const [refundDeposit, { loading: refunding }] = useMutation(REFUND_RESERVATION_DEPOSIT);
   const [deleteReservation] = useMutation(DELETE_RESERVATION);
 
   if (!ready) return null;
@@ -233,6 +246,16 @@ function AdminReservationsContent() {
         danger: true,
         label: 'Cancel',
         onClick: () => setCancelFor(r),
+      });
+    }
+    if (canRefundDeposit(r)) {
+      actions.push({
+        key: 'refund_deposit',
+        icon: <RollbackOutlined />,
+        danger: true,
+        label: r.depositStatus === 'authorized' ? 'Release deposit' : 'Refund deposit',
+        disabled: refunding,
+        onClick: () => setRefundFor(r),
       });
     }
     actions.push({ type: 'divider' });
@@ -377,6 +400,26 @@ function AdminReservationsContent() {
             },
             { title: 'Party', dataIndex: 'partySize', width: 70 },
             {
+              title: 'Deposit',
+              width: 120,
+              render: (_: unknown, r: ReservationRow) => {
+                if (!(r.depositAmountCents && r.depositAmountCents > 0)) {
+                  return <Text type="secondary">—</Text>;
+                }
+                return (
+                  <Space orientation="vertical" size={0}>
+                    <Text>{formatUsd(r.depositAmountCents)}</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {formatDepositStatus(r.depositStatus, {
+                        depositAmountCents: r.depositAmountCents,
+                        depositRefundedCents: r.depositRefundedCents,
+                      })}
+                    </Text>
+                  </Space>
+                );
+              },
+            },
+            {
               title: 'Status',
               dataIndex: 'status',
               width: 120,
@@ -455,6 +498,47 @@ function AdminReservationsContent() {
           if (!cancelFor) return;
           const ok = await runStatus(cancelFor.id, 'cancelled', 'Reservation cancelled', reason);
           if (ok) setCancelFor(null);
+        }}
+      />
+
+      <RefundDepositModal
+        open={!!refundFor}
+        isHold={refundFor?.depositStatus === 'authorized'}
+        guestName={refundFor ? guestName(refundFor.diner) : undefined}
+        amountLabel={refundFor ? formatUsd(refundFor.depositAmountCents) : null}
+        maxRefundableCents={
+          refundFor
+            ? refundFor.depositRefundableCents ??
+              Math.max(
+                0,
+                (refundFor.depositAmountCents ?? 0) - (refundFor.depositRefundedCents ?? 0),
+              )
+            : null
+        }
+        loading={refunding}
+        onClose={() => setRefundFor(null)}
+        onConfirm={async (reason, amountCents) => {
+          if (!refundFor) return;
+          const isHold = refundFor.depositStatus === 'authorized';
+          try {
+            await refundDeposit({
+              variables: { id: refundFor.id, reason, amountCents },
+            });
+            message.success(
+              isHold
+                ? 'Deposit hold released'
+                : amountCents != null &&
+                    amountCents <
+                      (refundFor.depositRefundableCents ?? refundFor.depositAmountCents ?? 0)
+                  ? 'Partial deposit refunded'
+                  : 'Deposit refunded',
+            );
+            setRefundFor(null);
+            refetch();
+          } catch (err: unknown) {
+            message.error(err instanceof Error ? err.message : 'Refund failed');
+            throw err;
+          }
         }}
       />
     </>

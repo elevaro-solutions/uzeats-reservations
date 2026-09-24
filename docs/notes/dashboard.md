@@ -1,5 +1,19 @@
 # Dashboard — Learnings & Observations
 
+## [2026-09-24] Deposit refund reason modal + floor-ops
+- Shared `RefundDepositModal` (preset reason required; details required when “Other”) used on partner/admin list + detail and floor-ops. Mutation always receives `reason` for audit + diner notify body.
+- Captured deposits show a USD amount input (defaults to remaining; supports partial). Authorization holds stay full-release only.
+- Floor-ops drawer shows deposit line and Release/Refund when `canRefundDeposit`.
+- Why it matters: Don’t use bare `Modal.confirm` for refunds — reason is required for support trails.
+
+## [2026-09-24] Deposit column + partner/admin refund
+- Partner `/reservations` and admin `/admin/reservations` tables show Deposit (amount + Held/Captured/Refunded/…). Refund/release is available when `depositStatus` is `authorized` or `captured` via `refundReservationDeposit`.
+- Why it matters: List already fetched deposit fields but never rendered them; manual goodwill refunds previously required Stripe Dashboard.
+
+## [2026-09-24] Experiences modal uses TimePicker + min/max guests
+- Partner `/experiences` form stores clock values as dayjs via Ant Design `TimePicker` and serializes to `HH:mm` on submit (same pattern as Floor shifts). `minGuests` is required in GraphQL; legacy docs map to `1`.
+- Why it matters: Don’t put free-text time inputs next to RangePicker — wrap forces End Time onto its own row and breaks validation UX.
+
 ## [2026-09-24] Email template test send
 - `/admin/templates` **Send test** calls `sendTestEmailTemplate` with the open draft (subject/bodyHtml/bodyText) and sample vars; recipient defaults to `useRequireAdmin().user.email`. Subject gets a `[Test]` prefix. Requires `SENDGRID_API_KEY`.
 - Why it matters: Preview is client-only; test send validates real SendGrid delivery and branding wrap.

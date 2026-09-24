@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.65.0] — 2026-09-24
+
+### Fixed
+
+- Diner restaurant Details **Reservations** row uses `formatBookingHours` (per-shift start–end windows) instead of `formatShortHours`, which collapsed lunch+dinner into one misleading span
+- Desktop sticky booking card scrolls inside the viewport when the form is taller than the screen, so **Complete reservation** is reachable without scrolling to the page footer
+- Stripe deposit release cancels uncaptured PaymentIntents (`requires_capture`) instead of calling `refunds.create`, which fails on holds
+
+### Changed
+
+- Diner `/reservations` list: more-actions (⋯) menu sits in the card top-right next to the status badge (still hidden ≤640px so tap opens detail)
+- Partner Experiences create/edit modal: TimePickers for start/end on one row, min + max guests with ticket price, Cover photo label, tighter vertical spacing; single-photo upload shows dropzone and preview side-by-side with `overflow-x` hidden; sticky footer with Cancel | Create/Save; header matches reference (icon + title, full-width rule, aligned close)
+- Deposit refund/release confirmations require a reason (presets + optional details) via shared `RefundDepositModal`
+
+### Added
+
+- Experience `minGuests` (defaults to 1 for existing records); enforced on create/update and diner booking party size
+- Diner restaurant profile: **Private dining** content section + nav tab (shown only when active spaces exist); **Experiences** tab remains conditional on upcoming published experiences
+- Partner and admin reservations lists show a **Deposit** column (amount + status)
+- `refundReservationDeposit` GraphQL mutation for partners/admins to release authorized holds or refund captured deposits; actions on list menus, reservation detail pages, and floor-ops drawer
+- Partial refunds for captured deposits (`amountCents`); tracks `depositRefundedCents` / `depositRefundableCents`; holds remain full-release only
+- Stripe webhook sync for `payment_intent.canceled` and `charge.refunded` → `syncDepositRefundedFromStripe` (keeps DB aligned with Dashboard refunds; charge events pass cumulative `amount_refunded`)
+- `deposit_refunded` notification type maps to diner `reservationUpdates` preferences
+- API tests for deposit refund authorization, partial refunds, status rules, and webhook sync idempotency
+
 ## [0.64.0] — 2026-09-24
 
 ### Fixed
@@ -30,7 +55,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Hero discovery search fields use a stronger fill (`#efece7`), border, and secondary labels so stacked mobile/tablet cells and the desktop bar read clearly against the white card
 - Restaurant hero gallery mirrors OpenTable: flush mosaic (2 / 3 / 5 slots), centered **See all N photos** CTA, white scrollable photos browser, then fullscreen lightbox with keyboard arrows; Photos section opens the same flow
 - Restaurant photo lightbox uses a fixed full-viewport portal (not Ant Design Modal) so images stay centered instead of pushing a black slab below the fold
-- Diner web restaurant profile (`/restaurants/...`) matches the mobile app on small screens: sheet over hero, Call/Directions/Website/Message tiles, booking card first, sticky Book footer that scrolls to the form
+- Diner web restaurant profile (`/restaurants/...`) matches the mobile app on small screens: sheet over hero, Call/Directions/Website/Message tiles, booking card first, sticky Book footer that scrolls to the form; restaurant routes are full-bleed so the warm page bg no longer shows as side gutters
 - Diner web `/reservations` list and detail match the mobile app on small screens: compact list cards with meta well, restaurant card + icon detail rows, overflow menu, and sticky primary CTA
 - Partner reservation detail links the restaurant name (header subtitle + Visit card) to `/restaurant-profile?restaurant=`
 - Transactional email is SendGrid-only; removed Resend fallback (`RESEND_API_KEY`, `resend` package)

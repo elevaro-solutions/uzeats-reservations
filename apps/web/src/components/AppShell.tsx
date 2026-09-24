@@ -191,6 +191,8 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   const isFullWidthPage =
     pathname === '/' ||
     pathname === '/for-restaurants' ||
+    pathname.startsWith('/restaurants/') ||
+    pathname.startsWith('/r/') ||
     pathname.startsWith('/cities/') ||
     pathname.startsWith('/cuisine/') ||
     pathname.startsWith('/neighborhoods/') ||

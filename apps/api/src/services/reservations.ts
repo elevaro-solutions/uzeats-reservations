@@ -452,6 +452,13 @@ export async function createReservation(input: {
     if (slotDay < expStart || slotDay > expEnd) {
       throw new ValidationError('Experience is not available on the selected date');
     }
+    const minGuests = exp.minGuests ?? 1;
+    if (input.partySize < minGuests) {
+      throw new ValidationError(`This experience requires at least ${minGuests} guests`);
+    }
+    if (input.partySize > exp.maxGuests) {
+      throw new ValidationError(`This experience allows at most ${exp.maxGuests} guests`);
+    }
     const available = exp.maxGuests - (exp.ticketsSold ?? 0);
     if (available < input.partySize) {
       throw new ValidationError('Not enough experience tickets for your party size');
@@ -1457,6 +1464,194 @@ export async function seatReservationAtTable(
   reservation.status = 'seated';
   reservation.seatedAt = new Date();
   await reservation.save();
+  return reservation;
+}
+
+/**
+ * Partner/admin manual deposit refund (or authorization release).
+ * Allowed when deposit is `authorized` (full hold release) or `captured` with remaining balance.
+ * Optional `amountCents` for partial refund of captured deposits only.
+ */
+export async function refundReservationDeposit(
+  reservationId: string,
+  actorId: string,
+  reason?: string,
+  amountCents?: number,
+) {
+  const reservation = await Reservation.findById(reservationId);
+  if (!reservation) throw new NotFoundError('Reservation');
+
+  const restaurant = await Restaurant.findById(reservation.restaurantId);
+  const user = await User.findById(actorId);
+  const isOwner =
+    restaurant &&
+    (restaurant.ownerId.equals(actorId) ||
+      user?.restaurantIds?.some((id) => id.equals(restaurant._id)));
+  const isAdmin = user ? isPlatformAdmin(user.role) : false;
+  if (!isOwner && !isAdmin) throw new ForbiddenError();
+
+  if (!reservation.stripePaymentIntentId) {
+    throw new ValidationError('No deposit payment to refund');
+  }
+
+  const alreadyRefunded = reservation.depositRefundedCents ?? 0;
+  const remaining = Math.max(0, reservation.depositAmountCents - alreadyRefunded);
+
+  if (reservation.depositStatus === 'authorized') {
+    if (amountCents != null && amountCents !== reservation.depositAmountCents) {
+      throw new ValidationError(
+        'Authorization holds can only be released in full',
+      );
+    }
+    await refundDeposit(reservation.stripePaymentIntentId);
+    return applyDepositRefund(reservation, {
+      refundCents: reservation.depositAmountCents,
+      reason,
+      restaurantName: restaurant?.name,
+      notify: true,
+      fullRelease: true,
+    });
+  }
+
+  if (reservation.depositStatus === 'captured') {
+    if (remaining <= 0) {
+      throw new ValidationError('Deposit is already fully refunded');
+    }
+    const refundCents =
+      amountCents == null ? remaining : Math.round(amountCents);
+    if (!Number.isFinite(refundCents) || refundCents <= 0) {
+      throw new ValidationError('Refund amount must be greater than $0');
+    }
+    if (refundCents > remaining) {
+      throw new ValidationError(
+        `Refund amount exceeds remaining deposit ($${(remaining / 100).toFixed(2)})`,
+      );
+    }
+    await refundDeposit(reservation.stripePaymentIntentId, refundCents);
+    return applyDepositRefund(reservation, {
+      refundCents,
+      reason,
+      restaurantName: restaurant?.name,
+      notify: true,
+      fullRelease: false,
+    });
+  }
+
+  throw new ValidationError(
+    `Cannot refund deposit with status ${reservation.depositStatus}`,
+  );
+}
+
+/**
+ * Idempotent sync when Stripe reports a canceled PaymentIntent or refunded charge.
+ * Pass `amountRefundedCents` from charge.refunded (total refunded on the charge).
+ */
+export async function syncDepositRefundedFromStripe(
+  paymentIntentId: string,
+  amountRefundedCents?: number,
+) {
+  if (!paymentIntentId) return null;
+  const reservation = await Reservation.findOne({
+    stripePaymentIntentId: paymentIntentId,
+  });
+  if (!reservation) return null;
+  if (reservation.depositStatus === 'refunded') return reservation;
+  if (
+    reservation.depositStatus !== 'authorized' &&
+    reservation.depositStatus !== 'captured'
+  ) {
+    return reservation;
+  }
+
+  const restaurant = await Restaurant.findById(reservation.restaurantId).select('name');
+
+  // Canceled hold → full release
+  if (reservation.depositStatus === 'authorized') {
+    return applyDepositRefund(reservation, {
+      refundCents: reservation.depositAmountCents,
+      restaurantName: restaurant?.name,
+      notify: true,
+      fullRelease: true,
+    });
+  }
+
+  // Captured charge — sync cumulative refunded amount when provided
+  const alreadyRefunded = reservation.depositRefundedCents ?? 0;
+  const targetRefunded =
+    amountRefundedCents != null
+      ? Math.min(reservation.depositAmountCents, Math.max(0, amountRefundedCents))
+      : reservation.depositAmountCents;
+  const delta = targetRefunded - alreadyRefunded;
+  if (delta <= 0) {
+    if (targetRefunded >= reservation.depositAmountCents) {
+      reservation.depositStatus = 'refunded';
+      reservation.depositRefundedCents = reservation.depositAmountCents;
+      await reservation.save();
+    }
+    return reservation;
+  }
+
+  return applyDepositRefund(reservation, {
+    refundCents: delta,
+    restaurantName: restaurant?.name,
+    notify: true,
+    fullRelease: false,
+  });
+}
+
+async function applyDepositRefund(
+  reservation: InstanceType<typeof Reservation>,
+  opts: {
+    refundCents: number;
+    reason?: string;
+    restaurantName?: string | null;
+    notify: boolean;
+    fullRelease: boolean;
+  },
+) {
+  const prevRefunded = reservation.depositRefundedCents ?? 0;
+  const nextRefunded = Math.min(
+    reservation.depositAmountCents,
+    prevRefunded + opts.refundCents,
+  );
+  reservation.depositRefundedCents = nextRefunded;
+
+  const fullyRefunded =
+    opts.fullRelease || nextRefunded >= reservation.depositAmountCents;
+  if (fullyRefunded) {
+    reservation.depositStatus = 'refunded';
+    reservation.depositRefundedCents = reservation.depositAmountCents;
+  } else {
+    reservation.depositStatus = 'captured';
+  }
+
+  await reservation.save();
+
+  if (fullyRefunded) {
+    await reverseDepositPoints(
+      reservation.dinerId.toString(),
+      reservation._id.toString(),
+    );
+  }
+
+  if (opts.notify) {
+    const restaurantName = opts.restaurantName ?? 'the restaurant';
+    const amountLabel = `$${(opts.refundCents / 100).toFixed(2)}`;
+    const partialNote =
+      !fullyRefunded && reservation.depositAmountCents > opts.refundCents
+        ? ` (partial; $${(nextRefunded / 100).toFixed(2)} of $${(reservation.depositAmountCents / 100).toFixed(2)} refunded total)`
+        : '';
+    const body = opts.reason?.trim()
+      ? `Your ${amountLabel} deposit for ${restaurantName} was refunded${partialNote}. ${opts.reason.trim()}`
+      : `Your ${amountLabel} deposit for ${restaurantName} was refunded${partialNote}.`;
+    await notifyUser(reservation.dinerId.toString(), {
+      type: 'deposit_refunded',
+      title: fullyRefunded ? 'Deposit refunded' : 'Partial deposit refund',
+      body,
+      data: { reservationId: reservation._id.toString() },
+    }).catch(() => undefined);
+  }
+
   return reservation;
 }
 

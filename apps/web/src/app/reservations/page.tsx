@@ -293,7 +293,53 @@ export default function ReservationsPage() {
                           </Text>
                         ) : null}
                       </div>
-                      <StatusTag status={displayReservationStatus(r)} />
+                      <div className="rt-reservation-list-card__top-end">
+                        <StatusTag status={displayReservationStatus(r)} />
+                        {upcoming && (r.status === 'confirmed' || r.status === 'pending') && (
+                          <div
+                            className="rt-reservation-list-card__overflow"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Dropdown
+                              menu={{
+                                items: [
+                                  {
+                                    key: 'edit',
+                                    icon: <EditOutlined />,
+                                    label: 'Edit',
+                                    onClick: () => setEditFor(r),
+                                  },
+                                  {
+                                    key: 'message',
+                                    icon: <MessageOutlined />,
+                                    label: 'Message',
+                                    onClick: () => router.push(`/messages/${r.id}`),
+                                  },
+                                  {
+                                    key: 'cancel',
+                                    icon: <CloseCircleOutlined />,
+                                    label: 'Cancel',
+                                    danger: true,
+                                    onClick: () =>
+                                      setCancelFor({
+                                        id: r.id,
+                                        name: r.restaurant?.name ?? 'this restaurant',
+                                      }),
+                                  },
+                                ] satisfies MenuProps['items'],
+                              }}
+                              trigger={['click']}
+                              placement="bottomRight"
+                            >
+                              <Button
+                                size="small"
+                                icon={<MoreOutlined />}
+                                aria-label="More actions"
+                              />
+                            </Dropdown>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="rt-reservation-list-card__meta">
@@ -321,81 +367,48 @@ export default function ReservationsPage() {
                       <div className="rt-reservation-list-card__review-cue">Review pending</div>
                     ) : null}
 
-                    <div
-                      className="rt-reservation-list-card__actions"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {needsPayment && (
-                        <Button
-                          type="primary"
-                          size="small"
-                          icon={<CreditCardOutlined />}
-                          onClick={() => router.push(`/reservations/${r.id}`)}
-                        >
-                          Pay deposit
-                        </Button>
-                      )}
-                      {reviewable && (
-                        <Button
-                          type="primary"
-                          size="small"
-                          icon={<StarOutlined />}
-                          onClick={() =>
-                            setReviewFor({
-                              id: r.id,
-                              partySize: r.partySize,
-                              restaurant: r.restaurant,
-                            })
-                          }
-                        >
-                          Leave a review
-                        </Button>
-                      )}
-                      {past && r.restaurant?.id && (
-                        <Button
-                          size="small"
-                          icon={<CalendarOutlined />}
-                          onClick={() => router.push(bookAgainPath(r))}
-                        >
-                          Book again
-                        </Button>
-                      )}
-                      {upcoming && (r.status === 'confirmed' || r.status === 'pending') && (
-                        <Dropdown
-                          menu={{
-                            items: [
-                              {
-                                key: 'edit',
-                                icon: <EditOutlined />,
-                                label: 'Edit',
-                                onClick: () => setEditFor(r),
-                              },
-                              {
-                                key: 'message',
-                                icon: <MessageOutlined />,
-                                label: 'Message',
-                                onClick: () => router.push(`/messages/${r.id}`),
-                              },
-                              {
-                                key: 'cancel',
-                                icon: <CloseCircleOutlined />,
-                                label: 'Cancel',
-                                danger: true,
-                                onClick: () =>
-                                  setCancelFor({
-                                    id: r.id,
-                                    name: r.restaurant?.name ?? 'this restaurant',
-                                  }),
-                              },
-                            ] satisfies MenuProps['items'],
-                          }}
-                          trigger={['click']}
-                          placement="bottomRight"
-                        >
-                          <Button size="small" icon={<MoreOutlined />} aria-label="More actions" />
-                        </Dropdown>
-                      )}
-                    </div>
+                    {needsPayment || reviewable || (past && r.restaurant?.id) ? (
+                      <div
+                        className="rt-reservation-list-card__actions"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {needsPayment && (
+                          <Button
+                            type="primary"
+                            size="small"
+                            icon={<CreditCardOutlined />}
+                            onClick={() => router.push(`/reservations/${r.id}`)}
+                          >
+                            Pay deposit
+                          </Button>
+                        )}
+                        {reviewable && (
+                          <Button
+                            type="primary"
+                            size="small"
+                            icon={<StarOutlined />}
+                            onClick={() =>
+                              setReviewFor({
+                                id: r.id,
+                                partySize: r.partySize,
+                                restaurant: r.restaurant,
+                              })
+                            }
+                          >
+                            Leave a review
+                          </Button>
+                        )}
+                        {past && r.restaurant?.id && (
+                          <Button
+                            size="small"
+                            icon={<CalendarOutlined />}
+                            onClick={() => router.push(bookAgainPath(r))}
+                          >
+                            Book again
+                          </Button>
+                        )}
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}

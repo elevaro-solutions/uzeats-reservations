@@ -13,6 +13,7 @@ export type ExperienceItem = {
   endTime: string;
   ticketPriceCents: number;
   availableTickets?: number;
+  minGuests?: number;
   maxGuests?: number;
   includes?: string[];
   status: string;
@@ -56,9 +57,15 @@ export function formatExperienceBookingHours(
   return formatHmRange12(exp.startTime || '', exp.endTime || '');
 }
 
-export function formatExperiencePartyLabel(exp: { maxGuests?: number }) {
+export function formatExperiencePartyLabel(exp: { minGuests?: number; maxGuests?: number }) {
   if (!exp.maxGuests) return null;
+  const min = exp.minGuests ?? 1;
+  if (min > 1) return `${min}–${exp.maxGuests} people`;
   return `Up to ${exp.maxGuests} people`;
+}
+
+export function minBookableExperienceParty(exp: { minGuests?: number }) {
+  return Math.max(1, exp.minGuests ?? 1);
 }
 
 export function formatUsdFromCents(cents: number) {

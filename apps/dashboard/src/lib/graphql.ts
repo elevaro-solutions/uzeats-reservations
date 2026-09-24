@@ -184,6 +184,8 @@ export const RESTAURANT_RESERVATIONS = gql`
         source
         tableIds
         depositAmountCents
+        depositRefundedCents
+        depositRefundableCents
         depositStatus
         experienceTitle
         experiencePriceCents
@@ -215,6 +217,8 @@ export const RESTAURANT_RESERVATION = gql`
       source
       tableIds
       depositAmountCents
+      depositRefundedCents
+      depositRefundableCents
       depositStatus
       experienceTitle
       experiencePriceCents
@@ -274,6 +278,18 @@ export const UPDATE_RESERVATION_STATUS = gql`
   mutation UpdateReservationStatus($id: ID!, $status: ReservationStatus!, $reason: String) {
     updateReservationStatus(id: $id, status: $status, reason: $reason) {
       id status
+    }
+  }
+`;
+
+export const REFUND_RESERVATION_DEPOSIT = gql`
+  mutation RefundReservationDeposit($id: ID!, $reason: String, $amountCents: Int) {
+    refundReservationDeposit(id: $id, reason: $reason, amountCents: $amountCents) {
+      id
+      depositAmountCents
+      depositRefundedCents
+      depositRefundableCents
+      depositStatus
     }
   }
 `;
@@ -777,6 +793,8 @@ export const ADMIN_RESERVATIONS = gql`
         source
         tableIds
         depositAmountCents
+        depositRefundedCents
+        depositRefundableCents
         depositStatus
         experienceTitle
         packageTitle
@@ -3515,12 +3533,14 @@ export const FLOOR_PLAN_OPS = gql`
         table { id name minCapacity maxCapacity floorArea posX posY width height shape rotation photoUrl }
         reservation {
           id partySize slotStart slotEnd status seatedAt guestNotes
+          depositAmountCents depositRefundedCents depositRefundableCents depositStatus
           diner { firstName lastName }
           tables { id name }
         }
       }
       unassigned {
         id partySize slotStart slotEnd status guestNotes
+        depositAmountCents depositRefundedCents depositRefundableCents depositStatus
         diner { firstName lastName }
         tables { id name }
       }

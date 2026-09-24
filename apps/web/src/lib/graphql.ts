@@ -671,6 +671,7 @@ export const EXPERIENCES = gql`
         endDate
         startTime
         endTime
+        minGuests
         maxGuests
         ticketPriceCents
         availableTickets

@@ -34,6 +34,7 @@ import {
   MessageOutlined,
   MoreOutlined,
   PlusOutlined,
+  RollbackOutlined,
   UserDeleteOutlined,
 } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -58,6 +59,7 @@ import {
   DELETE_RESERVATION,
   EXPORT_RESTAURANT_RESERVATIONS,
   MY_RESTAURANTS,
+  REFUND_RESERVATION_DEPOSIT,
   RESTAURANT_RESERVATION,
   RESTAURANT_RESERVATIONS,
   UPDATE_RESERVATION,
@@ -65,8 +67,16 @@ import {
 } from '@/lib/graphql';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { useUrlPagination } from '@/lib/useUrlPagination';
-import { formatOccasion, formatSource, guestName as formatGuestName } from '@/lib/reservationFormat';
+import {
+  canRefundDeposit,
+  formatDepositStatus,
+  formatOccasion,
+  formatSource,
+  formatUsd,
+  guestName as formatGuestName,
+} from '@/lib/reservationFormat';
 import { CancelReservationModal } from '@/components/CancelReservationModal';
+import { RefundDepositModal } from '@/components/RefundDepositModal';
 import { ExportMenu, type ListExportFormat } from '@/components/ExportMenu';
 import { downloadExportPayload } from '@/lib/downloadExport';
 import {
@@ -147,6 +157,8 @@ type ReservationRow = {
   source?: string;
   tableIds?: string[];
   depositAmountCents?: number;
+  depositRefundedCents?: number;
+  depositRefundableCents?: number;
   depositStatus?: string;
   experienceTitle?: string;
   experiencePriceCents?: number;
@@ -233,6 +245,7 @@ function ReservationsPageContent() {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<ReservationRow | null>(null);
   const [cancelFor, setCancelFor] = useState<ReservationRow | null>(null);
+  const [refundFor, setRefundFor] = useState<ReservationRow | null>(null);
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
   const { limit, offset, tablePagination } = useUrlPagination({
@@ -371,6 +384,7 @@ function ReservationsPageContent() {
   const [createReservation, { loading: creating }] = useMutation(CREATE_OWNER_RESERVATION);
   const [updateReservation, { loading: updating }] = useMutation(UPDATE_RESERVATION);
   const [deleteReservation, { loading: deleting }] = useMutation(DELETE_RESERVATION);
+  const [refundDeposit, { loading: refunding }] = useMutation(REFUND_RESERVATION_DEPOSIT);
   const [exportReservations, { loading: exporting }] = useMutation(EXPORT_RESTAURANT_RESERVATIONS);
 
   const createDateStr = (createDate as Dayjs | undefined)?.format('YYYY-MM-DD');
@@ -715,6 +729,17 @@ function ReservationsPageContent() {
       });
     }
 
+    if (canRefundDeposit(r)) {
+      items.push({
+        key: 'refund_deposit',
+        icon: <RollbackOutlined />,
+        label: r.depositStatus === 'authorized' ? 'Release deposit' : 'Refund deposit',
+        danger: true,
+        disabled: refunding,
+        onClick: () => setRefundFor(r),
+      });
+    }
+
     items.push({
       key: 'message',
       icon: <MessageOutlined />,
@@ -821,7 +846,7 @@ function ReservationsPageContent() {
           rowKey="id"
           dataSource={(data?.restaurantReservations?.items ?? []) as ReservationRow[]}
           pagination={tablePagination(data?.restaurantReservations?.total ?? 0)}
-          scroll={{ x: allLocations ? 1240 : 1120 }}
+          scroll={{ x: allLocations ? 1380 : 1260 }}
           onRow={(r) => ({
             onClick: () => openView(r),
             style: { cursor: 'pointer' },
@@ -873,6 +898,26 @@ function ReservationsPageContent() {
               ellipsis: true,
               render: (_: unknown, r) =>
                 (r.tables ?? []).map((t) => t.name).join(', ') || '—',
+            },
+            {
+              title: 'Deposit',
+              width: 120,
+              render: (_: unknown, r: ReservationRow) => {
+                if (!(r.depositAmountCents && r.depositAmountCents > 0)) {
+                  return <Text type="secondary">—</Text>;
+                }
+                return (
+                  <Space orientation="vertical" size={0}>
+                    <Text>{formatUsd(r.depositAmountCents)}</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {formatDepositStatus(r.depositStatus, {
+                        depositAmountCents: r.depositAmountCents,
+                        depositRefundedCents: r.depositRefundedCents,
+                      })}
+                    </Text>
+                  </Space>
+                );
+              },
             },
             {
               title: 'Source',
@@ -1203,6 +1248,47 @@ function ReservationsPageContent() {
             'Reservation cancelled',
           );
           if (ok) setCancelFor(null);
+        }}
+      />
+
+      <RefundDepositModal
+        open={!!refundFor}
+        isHold={refundFor?.depositStatus === 'authorized'}
+        guestName={refundFor ? guestName(refundFor) : undefined}
+        amountLabel={refundFor ? formatUsd(refundFor.depositAmountCents) : null}
+        maxRefundableCents={
+          refundFor
+            ? refundFor.depositRefundableCents ??
+              Math.max(
+                0,
+                (refundFor.depositAmountCents ?? 0) - (refundFor.depositRefundedCents ?? 0),
+              )
+            : null
+        }
+        loading={refunding}
+        onClose={() => setRefundFor(null)}
+        onConfirm={async (reason, amountCents) => {
+          if (!refundFor) return;
+          const isHold = refundFor.depositStatus === 'authorized';
+          try {
+            await refundDeposit({
+              variables: { id: refundFor.id, reason, amountCents },
+            });
+            message.success(
+              isHold
+                ? 'Deposit hold released'
+                : amountCents != null &&
+                    amountCents <
+                      (refundFor.depositRefundableCents ?? refundFor.depositAmountCents ?? 0)
+                  ? 'Partial deposit refunded'
+                  : 'Deposit refunded',
+            );
+            setRefundFor(null);
+            refetch();
+          } catch (err: unknown) {
+            message.error(err instanceof Error ? err.message : 'Refund failed');
+            throw err;
+          }
         }}
       />
     </Space></div>

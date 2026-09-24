@@ -6,6 +6,7 @@ import { RESTAURANT_SECTIONS, useRestaurantPageParams, type RestaurantSection } 
 const SECTIONS: Array<{ id: RestaurantSection; label: string }> = [
   { id: 'overview', label: 'Overview' },
   { id: 'experiences', label: 'Experiences' },
+  { id: 'private-dining', label: 'Private dining' },
   { id: 'menu', label: 'Menu' },
   { id: 'reviews', label: 'Reviews' },
   { id: 'photos', label: 'Photos' },
@@ -14,7 +15,15 @@ const SECTIONS: Array<{ id: RestaurantSection; label: string }> = [
   { id: 'faq', label: 'FAQ' },
 ];
 
-export function RestaurantSectionNav({ hasExperiences = false }: { hasExperiences?: boolean }) {
+type Props = {
+  hasExperiences?: boolean;
+  hasPrivateDining?: boolean;
+};
+
+export function RestaurantSectionNav({
+  hasExperiences = false,
+  hasPrivateDining = false,
+}: Props) {
   const { section, setSection } = useRestaurantPageParams();
   const [scrollActive, setScrollActive] = useState<RestaurantSection>(section);
 
@@ -53,7 +62,7 @@ export function RestaurantSectionNav({ hasExperiences = false }: { hasExperience
     });
 
     return () => observers.forEach((o) => o.disconnect());
-  }, [hasExperiences]);
+  }, [hasExperiences, hasPrivateDining]);
 
   const goTo = (id: RestaurantSection) => {
     setSection(id);
@@ -61,7 +70,11 @@ export function RestaurantSectionNav({ hasExperiences = false }: { hasExperience
   };
 
   const active = scrollActive;
-  const items = SECTIONS.filter(({ id }) => id !== 'experiences' || hasExperiences);
+  const items = SECTIONS.filter(({ id }) => {
+    if (id === 'experiences') return hasExperiences;
+    if (id === 'private-dining') return hasPrivateDining;
+    return true;
+  });
 
   return (
     <nav className="rt-restaurant-nav" aria-label="Restaurant sections">

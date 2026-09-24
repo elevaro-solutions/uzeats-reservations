@@ -438,6 +438,10 @@ export const typeDefs = `#graphql
     occasion: Occasion!
     guestNotes: String
     depositAmountCents: Int!
+    """Cents already refunded from a captured deposit (0 until first refund)."""
+    depositRefundedCents: Int!
+    """Cents still refundable (depositAmountCents − depositRefundedCents)."""
+    depositRefundableCents: Int!
     depositStatus: String!
     clientSecret: String
     loyaltyPointsEarned: Int!
@@ -1652,6 +1656,7 @@ export const typeDefs = `#graphql
     endDate: DateTime!
     startTime: String!
     endTime: String!
+    minGuests: Int!
     maxGuests: Int!
     ticketPriceCents: Int!
     ticketsSold: Int!
@@ -2252,6 +2257,7 @@ export const typeDefs = `#graphql
     endDate: DateTime
     startTime: String!
     endTime: String!
+    minGuests: Int!
     maxGuests: Int!
     ticketPriceCents: Int!
     includes: [String!]
@@ -2908,6 +2914,8 @@ export const typeDefs = `#graphql
     confirmDepositPayment(paymentIntentId: String!): Reservation!
     updateReservation(id: ID!, input: UpdateReservationInput!): Reservation!
     updateReservationStatus(id: ID!, status: ReservationStatus!, reason: String): Reservation!
+    """Partner or admin: release an authorized deposit hold or refund a captured deposit. Optional amountCents for partial refund of captured deposits."""
+    refundReservationDeposit(id: ID!, reason: String, amountCents: Int): Reservation!
     seatReservationAtTable(reservationId: ID!, tableId: ID!): Reservation!
     deleteReservation(id: ID!): Boolean!
     joinWaitlist(input: WaitlistInput!): WaitlistEntry!

@@ -1,5 +1,17 @@
 # API — Learnings & Observations
 
+## [2026-09-24] Manual deposit refund / hold release
+- `refundReservationDeposit` is partner-or-admin only (same ownership check as status updates). Allowed when status is `authorized` (full hold only) or `captured` with remaining balance.
+- Optional `amountCents` for partial refund of captured deposits; cumulative `depositRefundedCents` on the reservation; status stays `captured` until fully refunded.
+- `refundDeposit` in Stripe: cancel PI when `requires_capture` (release hold); `refunds.create` with optional amount when `succeeded`. Stub `pi_dev_*` no-ops.
+- Reverses deposit loyalty points only on full refund; notifies diner (`deposit_refunded` → `reservationUpdates` prefs).
+- Webhooks `payment_intent.canceled` and `charge.refunded` call `syncDepositRefundedFromStripe` (idempotent; charge events pass `amount_refunded`).
+- Why it matters: Calling `refunds.create` on an uncaptured manual-capture intent fails in live Stripe; Dashboard refunds need webhook sync so list status stays accurate.
+
+## [2026-09-24] Experience minGuests
+- `Experience.minGuests` defaults to 1 in Mongoose and `mapExperience` (`?? 1`). Create/update reject min > max; booking rejects partySize below min.
+- Why it matters: Existing experiences without the field still book correctly; GraphQL exposes `minGuests: Int!`.
+
 ## [2026-09-24] Email is SendGrid-only
 - Removed Resend fallback from `sendEmail` / env schema / shared env catalog. Without `SENDGRID_API_KEY`, sends stub as `[email:dev] stub`.
 - Why it matters: Don’t set `RESEND_API_KEY` expecting delivery; production must configure SendGrid.

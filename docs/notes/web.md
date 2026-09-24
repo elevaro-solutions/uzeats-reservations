@@ -1,5 +1,19 @@
 # Web — Learnings & Observations
 
+## [2026-09-24] Sticky booking form needs a viewport max-height
+- `.rt-restaurant-profile__booking-sticky` is `position: sticky` with `top: header + section nav`. Without `max-height` + `overflow-y: auto`, a tall form (experience add-on, promo, gift card, …) pins with its CTA below the fold until page scroll reaches the footer.
+- Cap with `max-height: calc(100dvh - var(--booking-sticky-top) - 16px)` and `overscroll-behavior: contain`. Reset to `static` / `max-height: none` at ≤992px (mobile uses the Book footer instead).
+- Why it matters: Sticky without a height cap hides the primary booking action on laptop-height viewports.
+
+## [2026-09-24] Details Reservations uses booking windows
+- Header `RestaurantHoursMeta` and Details `bookingHoursLine` both use `formatBookingHours` (e.g. `11:30 AM–2:30 PM, 5:00 PM–10:00 PM`). Do not pass `formatShortHours` into Details — it collapses to earliest open → latest close and erases midday gaps.
+- Why it matters: Diners read reservation windows, not “open all afternoon.”
+
+## [2026-09-24] Profile section tabs are inventory-aware
+- `RestaurantSectionNav` only shows **Experiences** when upcoming published experiences exist, and **Private dining** when active spaces exist (`?section=experiences|private-dining`).
+- Private dining cards live in `RestaurantPrivateDiningSection`; **Book this room** clamps party size into the room’s min/max, selects the space, and scrolls to `#booking-form`.
+- Why it matters: Don’t hardcode those tabs — empty restaurants must not show dead anchors.
+
 ## [2026-09-24] Hero search field contrast
 - Stacked ≤940px fields used `--color-bg` (`#f7f5f2`) on a white card + tertiary labels — washed out.
 - Fields now always use `#efece7` + `--color-border`, secondary labels, and brand focus ring; vertical dividers dropped (redundant with bordered cells).
@@ -15,7 +29,13 @@
 ## [2026-09-24] Restaurant profile mobile mirrors the app
 - ≤992px: booking Col `order: -1` (above overview), rounded sheet over the hero, sticky Book footer → `#booking-form` with highlight.
 - Action row is Call / Directions / Website / Message tiles (not pill buttons).
+- `/restaurants/` (+ `/r/`) are `rt-site-content--bleed` so Content padding does not leave `--color-bg` gutters beside the white profile.
 - Why it matters: App profile keeps Book sticky and booking off-page; web keeps the form inline but surfaces it first + via footer.
+
+## [2026-09-24] Reservation list overflow lives top-right
+- More-actions (⋯) sits in `.rt-reservation-list-card__top-end` beside the status badge, not in the bottom actions row.
+- Still hidden ≤640px with other inline actions so tap opens detail.
+- Why it matters: Desktop cards no longer leave an orphan kebab under the meta well.
 
 ## [2026-09-24] Diner reservations mobile mirrors the app
 - List: per-card layout (thumb + status + date/time/party meta well); inline actions hidden ≤640px so tap opens detail.

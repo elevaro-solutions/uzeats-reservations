@@ -16,19 +16,26 @@ import {
   Typography,
   message,
 } from 'antd';
-import { EditOutlined, ReloadOutlined, RotateRightOutlined } from '@ant-design/icons';
+import { EditOutlined, ReloadOutlined, RollbackOutlined, RotateRightOutlined } from '@ant-design/icons';
 import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS,
   FLOOR_PLAN_OPS,
+  REFUND_RESERVATION_DEPOSIT,
   SEAT_RESERVATION_AT_TABLE,
   UPDATE_RESERVATION_STATUS,
   UPDATE_TABLE_POSITIONS,
 } from '@/lib/graphql';
 import { CancelReservationModal } from '@/components/CancelReservationModal';
-import { guestName as formatGuestName } from '@/lib/reservationFormat';
+import { RefundDepositModal } from '@/components/RefundDepositModal';
+import {
+  canRefundDeposit,
+  formatDepositStatus,
+  formatUsd,
+  guestName as formatGuestName,
+} from '@/lib/reservationFormat';
 
 import {
   DEFAULT_CELL_SIZE,
@@ -78,6 +85,10 @@ type TableState = {
     status: string;
     seatedAt?: string | null;
     guestNotes?: string;
+    depositAmountCents?: number | null;
+    depositRefundedCents?: number | null;
+    depositRefundableCents?: number | null;
+    depositStatus?: string | null;
     diner?: { firstName?: string; lastName?: string };
     tables?: { id: string; name: string }[];
   } | null;
@@ -415,10 +426,19 @@ export default function FloorOpsPage() {
   const initialLoading = loading && !data;
   const [seatAtTable, { loading: seating }] = useMutation(SEAT_RESERVATION_AT_TABLE);
   const [updateStatus, { loading: updatingStatus }] = useMutation(UPDATE_RESERVATION_STATUS);
+  const [refundDeposit, { loading: refunding }] = useMutation(REFUND_RESERVATION_DEPOSIT);
   const [updatePositions] = useMutation(UPDATE_TABLE_POSITIONS);
   const [cancelTarget, setCancelTarget] = useState<{
     id: string;
     guestName: string;
+  } | null>(null);
+  const [refundTarget, setRefundTarget] = useState<{
+    id: string;
+    guestName: string;
+    depositAmountCents?: number | null;
+    depositRefundedCents?: number | null;
+    depositRefundableCents?: number | null;
+    depositStatus?: string | null;
   } | null>(null);
 
   useEffect(() => {
@@ -715,6 +735,18 @@ export default function FloorOpsPage() {
                     Party of {selectedState.reservation.partySize} ·{' '}
                     {new Date(selectedState.reservation.slotStart).toLocaleString('en-US')}
                   </Text>
+                  {(selectedState.reservation.depositAmountCents ?? 0) > 0 ? (
+                    <>
+                      <br />
+                      <Text type="secondary">
+                        Deposit {formatUsd(selectedState.reservation.depositAmountCents)} ·{' '}
+                        {formatDepositStatus(selectedState.reservation.depositStatus, {
+                          depositAmountCents: selectedState.reservation.depositAmountCents,
+                          depositRefundedCents: selectedState.reservation.depositRefundedCents,
+                        })}
+                      </Text>
+                    </>
+                  ) : null}
                 </div>
                 {selectedState.seatedMinutes != null && (
                   <Text>Seated for {selectedState.seatedMinutes} min</Text>
@@ -751,6 +783,27 @@ export default function FloorOpsPage() {
                       Complete
                     </Button>
                   )}
+                  {canRefundDeposit(selectedState.reservation) && (
+                    <Button
+                      danger
+                      icon={<RollbackOutlined />}
+                      loading={refunding}
+                      onClick={() =>
+                        setRefundTarget({
+                          id: selectedState.reservation!.id,
+                          guestName: formatGuestName(selectedState.reservation!.diner),
+                          depositAmountCents: selectedState.reservation!.depositAmountCents,
+                          depositRefundedCents: selectedState.reservation!.depositRefundedCents,
+                          depositRefundableCents: selectedState.reservation!.depositRefundableCents,
+                          depositStatus: selectedState.reservation!.depositStatus,
+                        })
+                      }
+                    >
+                      {selectedState.reservation.depositStatus === 'authorized'
+                        ? 'Release deposit'
+                        : 'Refund deposit'}
+                    </Button>
+                  )}
                   {['pending', 'confirmed'].includes(selectedState.reservation.status) && (
                     <Button
                       danger
@@ -783,6 +836,52 @@ export default function FloorOpsPage() {
           if (!cancelTarget) return;
           const ok = await handleStatusChange(cancelTarget.id, 'cancelled', reason);
           if (ok) setCancelTarget(null);
+        }}
+      />
+
+      <RefundDepositModal
+        open={!!refundTarget}
+        isHold={refundTarget?.depositStatus === 'authorized'}
+        guestName={refundTarget?.guestName}
+        amountLabel={refundTarget ? formatUsd(refundTarget.depositAmountCents) : null}
+        maxRefundableCents={
+          refundTarget
+            ? refundTarget.depositRefundableCents ??
+              Math.max(
+                0,
+                (refundTarget.depositAmountCents ?? 0) -
+                  (refundTarget.depositRefundedCents ?? 0),
+              )
+            : null
+        }
+        loading={refunding}
+        onClose={() => setRefundTarget(null)}
+        onConfirm={async (reason, amountCents) => {
+          if (!refundTarget) return;
+          const isHold = refundTarget.depositStatus === 'authorized';
+          const remaining =
+            refundTarget.depositRefundableCents ??
+            Math.max(
+              0,
+              (refundTarget.depositAmountCents ?? 0) - (refundTarget.depositRefundedCents ?? 0),
+            );
+          try {
+            await refundDeposit({
+              variables: { id: refundTarget.id, reason, amountCents },
+            });
+            message.success(
+              isHold
+                ? 'Deposit hold released'
+                : amountCents != null && amountCents < remaining
+                  ? 'Partial deposit refunded'
+                  : 'Deposit refunded',
+            );
+            setRefundTarget(null);
+            refetch();
+          } catch (err: unknown) {
+            message.error(err instanceof Error ? err.message : 'Refund failed');
+            throw err;
+          }
         }}
       />
     </Space>

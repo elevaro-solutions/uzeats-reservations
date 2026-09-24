@@ -163,89 +163,121 @@ export default function PhotoUpload({
 
   if (singleMode) {
     return (
-      <div component="PhotoUpload" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <Dragger
-          accept="image/*"
-          showUploadList={false}
-          beforeUpload={handleUpload}
-          style={{ width: '100%' }}
+      <div
+        component="PhotoUpload"
+        style={{ display: 'flex', flexDirection: 'column', gap: 8, overflowX: 'hidden', minWidth: 0 }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            gap: 12,
+            alignItems: 'stretch',
+            minWidth: 0,
+            overflowX: 'hidden',
+          }}
         >
-          <p className="ant-upload-drag-icon" style={{ marginBottom: 8 }}>
-            <InboxOutlined style={{ color: BRAND, fontSize: 28 }} />
-          </p>
-          <p className="ant-upload-text" style={{ margin: 0, fontSize: 14 }}>
-            {showingDefault || customSrc ? 'Click or drag to replace' : 'Click or drag to upload'}
-          </p>
-          <p className="ant-upload-hint" style={{ margin: '4px 0 0' }}>
-            JPG, PNG or WebP — max 5 MB
-          </p>
-        </Dragger>
+          <div style={{ flex: '1 1 0', minWidth: 0 }}>
+            <Dragger
+              accept="image/*"
+              showUploadList={false}
+              beforeUpload={handleUpload}
+              style={{ width: '100%', height: '100%' }}
+            >
+              <p className="ant-upload-drag-icon" style={{ marginBottom: 8 }}>
+                <InboxOutlined style={{ color: BRAND, fontSize: 28 }} />
+              </p>
+              <p className="ant-upload-text" style={{ margin: 0, fontSize: 14 }}>
+                {showingDefault || customSrc ? 'Click or drag to replace' : 'Click or drag to upload'}
+              </p>
+              <p className="ant-upload-hint" style={{ margin: '4px 0 0' }}>
+                JPG, PNG or WebP — max 5 MB
+              </p>
+            </Dragger>
+          </div>
+
+          <div
+            style={{
+              flex: '0 0 148px',
+              width: 148,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              minWidth: 0,
+              alignSelf: 'stretch',
+            }}
+          >
+            <div
+              style={{
+                position: 'relative',
+                flex: 1,
+                minHeight: 96,
+                width: '100%',
+                borderRadius: 10,
+                overflow: 'hidden',
+                border: displaySrc ? '1px solid #e8e8e8' : '1px dashed #d9d9d9',
+                background: '#f5f5f5',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {displaySrc ? (
+                <>
+                  <img
+                    src={displaySrc}
+                    alt={alt}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      display: 'block',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => setPreviewUrl(displaySrc)}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.opacity = '0.4';
+                    }}
+                  />
+                  <Tag
+                    color={showingDefault ? undefined : 'success'}
+                    style={{ position: 'absolute', left: 6, bottom: 6, margin: 0 }}
+                  >
+                    {showingDefault ? 'Default' : 'Cover'}
+                  </Tag>
+                </>
+              ) : (
+                <Text type="secondary" style={{ fontSize: 12, padding: 8, textAlign: 'center' }}>
+                  No image yet
+                </Text>
+              )}
+            </div>
+            {displaySrc ? (
+              <Space size={4} wrap>
+                <Button size="small" icon={<EyeOutlined />} onClick={() => setPreviewUrl(displaySrc)}>
+                  Preview
+                </Button>
+                {customSrc ? (
+                  <Button
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleRemove(customSrc)}
+                  >
+                    Remove
+                  </Button>
+                ) : (
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Stock default
+                  </Text>
+                )}
+              </Space>
+            ) : null}
+          </div>
+        </div>
 
         {activeUploads.map(([uid, pct]) => (
           <Progress key={uid} percent={pct} size="small" strokeColor={BRAND} />
         ))}
-
-        {displaySrc ? (
-          <div>
-            <div
-              style={{
-                position: 'relative',
-                width: '100%',
-                maxWidth: 320,
-                aspectRatio: '16 / 10',
-                borderRadius: 10,
-                overflow: 'hidden',
-                border: '1px solid #e8e8e8',
-                background: '#f5f5f5',
-              }}
-            >
-              <img
-                src={displaySrc}
-                alt={alt}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  display: 'block',
-                  cursor: 'pointer',
-                }}
-                onClick={() => setPreviewUrl(displaySrc)}
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.opacity = '0.4';
-                }}
-              />
-              <Tag
-                color={showingDefault ? undefined : 'success'}
-                style={{ position: 'absolute', left: 8, bottom: 8, margin: 0 }}
-              >
-                {showingDefault ? 'Default' : 'Custom'}
-              </Tag>
-            </div>
-            <Space style={{ marginTop: 8 }}>
-              <Button size="small" icon={<EyeOutlined />} onClick={() => setPreviewUrl(displaySrc)}>
-                Preview
-              </Button>
-              {customSrc ? (
-                <Button
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={() => handleRemove(customSrc)}
-                >
-                  Remove
-                </Button>
-              ) : (
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Stock default — used until you upload
-                </Text>
-              )}
-            </Space>
-          </div>
-        ) : (
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            No image yet
-          </Text>
-        )}
 
         {lightbox}
       </div>

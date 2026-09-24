@@ -124,10 +124,60 @@ export async function retrievePaymentIntentClientSecret(paymentIntentId: string)
   return intent.client_secret ?? null;
 }
 
-export async function refundDeposit(paymentIntentId: string) {
+/**
+ * Release or refund a deposit PaymentIntent.
+ * Manual-capture holds (`requires_capture`) are cancelled (full release only).
+ * Captured charges support optional partial `amountCents`.
+ */
+export async function refundDeposit(
+  paymentIntentId: string,
+  amountCents?: number,
+) {
+  if (isStubPaymentIntent(paymentIntentId)) {
+    return {
+      id: 're_dev',
+      mode: 'stub' as const,
+      amountCents: amountCents ?? null,
+    };
+  }
   const client = getStripe();
-  if (!client || paymentIntentId.startsWith('pi_dev_')) return { id: 're_dev' };
-  return client.refunds.create({ payment_intent: paymentIntentId });
+  if (!client) {
+    return {
+      id: 're_dev',
+      mode: 'stub' as const,
+      amountCents: amountCents ?? null,
+    };
+  }
+
+  const intent = await client.paymentIntents.retrieve(paymentIntentId);
+  if (intent.status === 'canceled') {
+    return { id: paymentIntentId, mode: 'already_canceled' as const, amountCents: null };
+  }
+  // Uncaptured authorization — cancel to release the hold (cannot partial-refund).
+  if (intent.status === 'requires_capture') {
+    if (amountCents != null && amountCents < intent.amount) {
+      throw new Error('Cannot partially release an authorization hold; release the full hold or capture first');
+    }
+    await client.paymentIntents.cancel(paymentIntentId);
+    return { id: paymentIntentId, mode: 'released' as const, amountCents: intent.amount };
+  }
+  if (intent.status === 'succeeded') {
+    const params: Stripe.RefundCreateParams = { payment_intent: paymentIntentId };
+    if (amountCents != null) {
+      if (amountCents <= 0) throw new Error('Refund amount must be greater than 0');
+      if (amountCents > intent.amount) {
+        throw new Error('Refund amount exceeds deposit');
+      }
+      params.amount = amountCents;
+    }
+    const refund = await client.refunds.create(params);
+    return {
+      id: refund.id,
+      mode: 'refunded' as const,
+      amountCents: refund.amount,
+    };
+  }
+  throw new Error(`Cannot refund payment intent in status ${intent.status}`);
 }
 
 export async function captureDeposit(paymentIntentId: string) {

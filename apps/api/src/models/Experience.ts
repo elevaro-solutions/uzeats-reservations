@@ -15,6 +15,7 @@ const experienceSchema = new Schema(
     endDate: { type: Date },
     startTime: { type: String, required: true },
     endTime: { type: String, required: true },
+    minGuests: { type: Number, default: 1 },
     maxGuests: { type: Number, required: true },
     ticketPriceCents: { type: Number, required: true },
     ticketsSold: { type: Number, default: 0 },

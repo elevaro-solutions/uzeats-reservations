@@ -31,6 +31,8 @@ const reservationSchema = new Schema(
     experiencePriceCents: { type: Number, default: 0 },
     experienceTicketQty: { type: Number, default: 0 },
     depositAmountCents: { type: Number, default: 0 },
+    /** Cumulative cents refunded against a captured deposit (0 until first refund). */
+    depositRefundedCents: { type: Number, default: 0 },
     stripePaymentIntentId: { type: String },
     depositStatus: {
       type: String,

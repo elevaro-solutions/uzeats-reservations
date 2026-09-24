@@ -718,6 +718,11 @@ html {
   padding: 32px 24px;
 }
 
+/* Restaurant detail is white edge-to-edge; avoid warm layout bg flashing in gutters. */
+.rt-site-content--bleed:has(.rt-restaurant-page) {
+  background: #fff;
+}
+
 @media (max-width: 992px) {
   .rt-site-content:not(.rt-site-content--bleed) {
     padding: 24px 16px;
@@ -3567,11 +3572,16 @@ body:has(.fr-page) .ant-layout {
 
 .rt-restaurant-page {
   background: #fff;
+  width: 100%;
+  min-height: calc(100vh - var(--header-height));
+}
+
+/* Legacy breakout when rendered inside padded .rt-site-content (non-bleed). */
+.rt-site-content:not(.rt-site-content--bleed) .rt-restaurant-page {
   width: 100vw;
   margin-left: calc(50% - 50vw);
   padding-left: calc(50vw - 50%);
   padding-right: calc(50vw - 50%);
-  min-height: calc(100vh - var(--header-height));
 }
 
 .rt-restaurant-profile {
@@ -4030,9 +4040,17 @@ body:has(.fr-page) .ant-layout {
   gap: 8px;
 }
 
+/* Sticky booking rail. Cap height to the viewport below header+section nav so
+   tall forms (experience add-on, promo, gift card, …) stay scrollable and the
+   Complete reservation CTA is reachable without jumping to the page footer. */
 .rt-restaurant-profile__booking-sticky {
+  --booking-sticky-top: calc(var(--header-height) + 56px);
   position: sticky;
-  top: calc(var(--header-height) + 56px);
+  top: var(--booking-sticky-top);
+  max-height: calc(100dvh - var(--booking-sticky-top) - 16px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .rt-restaurant-booking-card {
@@ -5487,6 +5505,8 @@ body:has(.fr-page) .ant-layout {
 
   .rt-restaurant-profile__booking-sticky {
     position: static;
+    max-height: none;
+    overflow: visible;
   }
 
   .rt-restaurant-details-grid,
@@ -5511,16 +5531,25 @@ body:has(.fr-page) .ant-layout {
     padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
   }
 
+  .rt-restaurant-page--mobile {
+    background: #fff;
+  }
+
+  .rt-restaurant-page--mobile .rt-restaurant-profile {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
   .rt-restaurant-page--mobile .rt-restaurant-gallery {
     height: min(52vw, 320px);
-    margin: 0 -16px 0;
+    margin: 0;
   }
 
   .rt-restaurant-page--mobile .rt-restaurant-profile__sheet {
     position: relative;
     z-index: 1;
     margin-top: -20px;
-    padding-top: 8px;
+    padding: 8px 16px 0;
     border-radius: 20px 20px 0 0;
     background: #fff;
     box-shadow: 0 -8px 24px rgba(26, 24, 22, 0.06);
@@ -5532,8 +5561,14 @@ body:has(.fr-page) .ant-layout {
 
   .rt-restaurant-page--mobile .rt-restaurant-nav {
     top: var(--header-height);
-    margin-top: 8px;
-    margin-bottom: 20px;
+    margin: 8px -16px 20px;
+    padding-left: 16px;
+    padding-right: 16px;
+    background: #fff;
+  }
+
+  .rt-restaurant-page--mobile .rt-restaurant-profile__body {
+    background: #fff;
   }
 
   .rt-restaurant-page--mobile .rt-restaurant-actions {
@@ -5550,8 +5585,7 @@ body:has(.fr-page) .ant-layout {
     z-index: 45;
     padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid var(--color-border, #e3dfd8);
-    background: color-mix(in srgb, #fff 92%, transparent);
-    backdrop-filter: blur(10px);
+    background: #fff;
     box-shadow: 0 -8px 24px rgba(26, 24, 22, 0.08);
   }
 
@@ -6101,6 +6135,18 @@ body:has(.fr-page) .ant-layout {
   gap: 2px;
 }
 
+.rt-reservation-list-card__top-end {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.rt-reservation-list-card__overflow {
+  display: flex;
+  align-items: center;
+}
+
 .rt-reservation-list-card__name {
   color: var(--color-text, #1a1816);
   font-weight: 600;
@@ -6426,7 +6472,8 @@ body:has(.fr-page) .ant-layout {
   }
 
   /* Tap the card — keep overflow actions in the detail screen */
-  .rt-reservation-list-card__actions {
+  .rt-reservation-list-card__actions,
+  .rt-reservation-list-card__overflow {
     display: none;
   }
 

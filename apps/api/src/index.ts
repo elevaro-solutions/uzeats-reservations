@@ -19,7 +19,7 @@ import { createContext, type GraphQLContext } from "./graphql/context.js";
 import { graphqlBatchMiddleware } from "./graphql/batchHttp.js";
 import { migrateStaffRoleToManager } from "./services/migrateStaffRoleToManager.js";
 import { constructStripeEvent } from "./services/stripe.js";
-import { confirmDeposit } from "./services/reservations.js";
+import { confirmDeposit, syncDepositRefundedFromStripe } from "./services/reservations.js";
 import { startNotificationWorkers } from "./services/notifications.js";
 import { ensureDefaultEmailTemplates } from "./services/emailTemplates.js";
 import { startCampaignWorker } from "./services/campaigns.js";
@@ -199,6 +199,27 @@ async function main() {
         ) {
           const intent = event.data.object as { id: string };
           await confirmDeposit(intent.id);
+        } else if (
+          event.type === "payment_intent.canceled" ||
+          event.type === "charge.refunded"
+        ) {
+          const obj = event.data.object as {
+            id?: string;
+            amount_refunded?: number;
+            payment_intent?: string | { id?: string } | null;
+          };
+          const paymentIntentId =
+            event.type === "payment_intent.canceled"
+              ? obj.id
+              : typeof obj.payment_intent === "string"
+                ? obj.payment_intent
+                : obj.payment_intent?.id;
+          if (paymentIntentId) {
+            await syncDepositRefundedFromStripe(
+              paymentIntentId,
+              event.type === "charge.refunded" ? obj.amount_refunded : undefined,
+            );
+          }
         } else if (
           event.type === "invoice.paid" ||
           event.type === "invoice.payment_failed" ||

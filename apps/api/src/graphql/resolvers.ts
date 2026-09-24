@@ -154,6 +154,7 @@ import {
   deleteReservation,
   updateReservationStatus,
   confirmDepositPayment,
+  refundReservationDeposit,
   seatReservationAtTable,
   isReservationReviewable,
 } from "../services/reservations.js";
@@ -3767,6 +3768,33 @@ export const resolvers = {
       return mapReservation(reservation);
     },
 
+    refundReservationDeposit: async (
+      _: unknown,
+      args: { id: string; reason?: string; amountCents?: number },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const reservation = await refundReservationDeposit(
+        args.id,
+        user._id.toString(),
+        args.reason,
+        args.amountCents,
+      );
+      await logAudit({
+        actorId: user._id.toString(),
+        action: "refundReservationDeposit",
+        resource: "Reservation",
+        resourceId: args.id,
+        details: {
+          reason: args.reason,
+          amountCents: args.amountCents,
+          depositStatus: reservation.depositStatus,
+          depositRefundedCents: reservation.depositRefundedCents,
+        },
+      });
+      return mapReservation(reservation);
+    },
+
     seatReservationAtTable: async (
       _: unknown,
       args: { reservationId: string; tableId: string },
@@ -4856,8 +4884,18 @@ export const resolvers = {
           "End date must be on or after the start date",
         );
       }
+      const minGuests = args.input.minGuests ?? 1;
+      const maxGuests = args.input.maxGuests;
+      if (minGuests < 1 || maxGuests < 1) {
+        throw new ValidationError("Guest limits must be at least 1");
+      }
+      if (minGuests > maxGuests) {
+        throw new ValidationError("Min guests cannot exceed max guests");
+      }
       const doc = await Experience.create({
         ...args.input,
+        minGuests,
+        maxGuests,
         date: start,
         endDate: end,
         restaurantId: args.restaurantId,
@@ -4893,7 +4931,20 @@ export const resolvers = {
           "End date must be on or after the start date",
         );
       }
-      Object.assign(existing, args.input, { date: start, endDate: end });
+      const minGuests = args.input.minGuests ?? existing.minGuests ?? 1;
+      const maxGuests = args.input.maxGuests ?? existing.maxGuests;
+      if (minGuests < 1 || maxGuests < 1) {
+        throw new ValidationError("Guest limits must be at least 1");
+      }
+      if (minGuests > maxGuests) {
+        throw new ValidationError("Min guests cannot exceed max guests");
+      }
+      Object.assign(existing, args.input, {
+        minGuests,
+        maxGuests,
+        date: start,
+        endDate: end,
+      });
       await existing.save();
       return mapExperience(existing);
     },
