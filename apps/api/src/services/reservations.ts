@@ -6,6 +6,8 @@ import {
   resolveRestaurantRedeemPoints,
   isPlatformAdmin,
   formatDateTimeInTimeZone,
+  hmInTimeZone,
+  isoDateInTimeZone,
   restaurantTimeZone,
   bookingRequiresManualApproval,
   splitReservationCancellationReason,
@@ -446,9 +448,10 @@ export async function createReservation(input: {
     if (exp.status !== 'published') {
       throw new ValidationError('Experience is not available for booking');
     }
-    const slotDay = input.slotStart.toISOString().slice(0, 10);
-    const expStart = exp.date.toISOString().slice(0, 10);
-    const expEnd = (exp.endDate ?? exp.date).toISOString().slice(0, 10);
+    const tz = restaurantTimeZone(restaurant);
+    const slotDay = isoDateInTimeZone(input.slotStart, tz);
+    const expStart = isoDateInTimeZone(exp.date, tz);
+    const expEnd = isoDateInTimeZone(exp.endDate ?? exp.date, tz);
     if (slotDay < expStart || slotDay > expEnd) {
       throw new ValidationError('Experience is not available on the selected date');
     }
@@ -958,8 +961,13 @@ async function notifyWaitlistOnCancellation(reservation: {
   partySize: number;
   slotStart: Date;
 }) {
-  const date = reservation.slotStart.toISOString().slice(0, 10);
-  const slotTime = `${String(reservation.slotStart.getHours()).padStart(2, '0')}:${String(reservation.slotStart.getMinutes()).padStart(2, '0')}`;
+  const restaurant = await Restaurant.findById(reservation.restaurantId).select(
+    'name address location',
+  );
+  const tz = restaurantTimeZone(restaurant ?? {});
+  const date = isoDateInTimeZone(reservation.slotStart, tz);
+  const slotTime = hmInTimeZone(reservation.slotStart, tz);
+  const when = formatDateTimeInTimeZone(reservation.slotStart, tz);
 
   const candidates = await WaitlistEntry.find({
     restaurantId: reservation.restaurantId,
@@ -986,10 +994,11 @@ async function notifyWaitlistOnCancellation(reservation: {
     {
       type: 'waitlist_available',
       title: 'A table opened up!',
-      body: `A table is available on ${date}. Book now before it's gone.`,
+      body: `A table is available ${when}. Book now before it's gone.`,
       data: {
         restaurantId: reservation.restaurantId.toString(),
         slot: reservation.slotStart.toISOString(),
+        timeZone: tz,
       },
     },
     { smsRestaurantId: reservation.restaurantId.toString() },
@@ -1030,6 +1039,7 @@ async function notifyFavoriteDinersOnCancellation(reservation: {
           slug: restaurant?.slug ?? null,
           slot: reservation.slotStart.toISOString(),
           partySize: reservation.partySize,
+          timeZone: restaurantTimeZone(restaurant ?? {}),
         },
       }),
     ),

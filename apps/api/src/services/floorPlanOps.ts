@@ -1,5 +1,11 @@
+import {
+  calendarDayRange,
+  restaurantTimeZone,
+  todayIsoInTimeZone,
+} from '@reservations/shared';
 import { Table } from '../models/Table.js';
 import { Reservation } from '../models/Reservation.js';
+import { Restaurant } from '../models/Restaurant.js';
 import { Shift } from '../models/Shift.js';
 import { turnTimeMinutesFromShifts } from './availability.js';
 
@@ -8,19 +14,17 @@ export type FloorTableStatus = 'free' | 'reserved' | 'seated' | 'turning';
 const RESERVED_WINDOW_MS = 30 * 60_000;
 const TURNING_THRESHOLD_MIN = 15;
 
-function todayDateStr(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
 function overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
   return aStart < bEnd && bStart < aEnd;
 }
 
 export async function getFloorPlanOps(restaurantId: string, date?: string) {
-  const opsDate = date ?? todayDateStr();
-  const dayStart = new Date(`${opsDate}T00:00:00`);
-  const dayEnd = new Date(`${opsDate}T23:59:59`);
+  const restaurant = await Restaurant.findById(restaurantId).select('address location').lean();
+  const timeZone = restaurantTimeZone(restaurant ?? {});
+  const opsDate = date ?? todayIsoInTimeZone(timeZone);
+  const range = calendarDayRange(opsDate, timeZone);
+  const dayStart = range.$gte;
+  const dayEnd = range.$lt;
   const now = new Date();
 
   const [tables, reservations, shifts] = await Promise.all([
@@ -49,7 +53,7 @@ export async function getFloorPlanOps(restaurantId: string, date?: string) {
     if (seatedRes) {
       const seatedAt = seatedRes.seatedAt ?? seatedRes.slotStart;
       const seatedMinutes = Math.floor((now.getTime() - seatedAt.getTime()) / 60_000);
-      const turnTime = turnTimeMinutesFromShifts(shifts, seatedRes.slotStart);
+      const turnTime = turnTimeMinutesFromShifts(shifts, seatedRes.slotStart, timeZone);
       const turnMinutesRemaining = Math.max(0, turnTime - seatedMinutes);
       const status: FloorTableStatus =
         turnMinutesRemaining <= TURNING_THRESHOLD_MIN ? 'turning' : 'seated';

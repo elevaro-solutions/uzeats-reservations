@@ -128,8 +128,15 @@ export function clearAuthCookies(res: Response, app: BrowserAuthApp) {
   clearCookie(res, names.adminRefresh);
 }
 
-/** Swap dashboard session into an impersonation access cookie; backup admin tokens. */
-export function beginImpersonationCookies(res: Response, req: Request, accessToken: string) {
+/** Swap dashboard session into an impersonation access cookie; backup admin tokens.
+ *  When `alsoWeb` is true (diner targets), also set `tv_web_access` so the public
+ *  diner app can use the same impersonation token. */
+export function beginImpersonationCookies(
+  res: Response,
+  req: Request,
+  accessToken: string,
+  options?: { alsoWeb?: boolean },
+) {
   const names = cookieNames('dashboard');
   const cookies = readCookies(req);
   const currentAccess = cookies[names.access];
@@ -142,6 +149,12 @@ export function beginImpersonationCookies(res: Response, req: Request, accessTok
   }
   appendCookie(res, names.access, accessToken, IMPERSONATION_MAX_AGE_SEC);
   clearCookie(res, names.refresh);
+
+  if (options?.alsoWeb) {
+    const webNames = cookieNames('web');
+    appendCookie(res, webNames.access, accessToken, IMPERSONATION_MAX_AGE_SEC);
+    clearCookie(res, webNames.refresh);
+  }
 }
 
 /** Restore admin cookies after exiting impersonation. Returns whether restore succeeded. */
@@ -149,6 +162,11 @@ export function endImpersonationCookies(res: Response, req: Request): boolean {
   const names = cookieNames('dashboard');
   const cookies = readCookies(req);
   const adminAccess = cookies[names.adminAccess];
+
+  // Always clear diner-web impersonation cookie if present.
+  const webNames = cookieNames('web');
+  clearCookie(res, webNames.access);
+
   if (!adminAccess) {
     clearAuthCookies(res, 'dashboard');
     return false;

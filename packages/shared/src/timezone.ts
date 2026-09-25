@@ -112,6 +112,9 @@ const ZIP3_OVERRIDES: Record<string, string> = {
 
 const DEFAULT_TIMEZONE = 'America/New_York';
 
+/** Cross-restaurant / discovery calendar day when no single venue zone applies. */
+export const PLATFORM_TIMEZONE = DEFAULT_TIMEZONE;
+
 export type AddressTimeZoneInput = {
   state?: string | null;
   zip?: string | null;
@@ -212,6 +215,67 @@ export function zonedWallClockToUtc(dateIso: string, hm: string, timeZone: strin
 export function isoDateInTimeZone(date: Date, timeZone: string): string {
   const p = tzParts(date, timeZone);
   return `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
+}
+
+/** Today's calendar date (YYYY-MM-DD) in an IANA zone. */
+export function todayIsoInTimeZone(timeZone: string, now: Date = new Date()): string {
+  return isoDateInTimeZone(now, timeZone);
+}
+
+/** Add/subtract whole calendar days on a YYYY-MM-DD string (zone-agnostic arithmetic). */
+export function addCalendarDays(dateIso: string, days: number): string {
+  const [year, month, day] = dateIso.split('-').map(Number);
+  const utc = new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, (day ?? 1) + days));
+  return `${utc.getUTCFullYear()}-${String(utc.getUTCMonth() + 1).padStart(2, '0')}-${String(utc.getUTCDate()).padStart(2, '0')}`;
+}
+
+/** True when `dateIso` is strictly before today's calendar day in `timeZone`. */
+export function isPastCalendarDay(
+  dateIso: string,
+  timeZone: string,
+  now: Date = new Date(),
+): boolean {
+  return dateIso < todayIsoInTimeZone(timeZone, now);
+}
+
+/** Clamp a YYYY-MM-DD to today when it falls in the past in `timeZone`. */
+export function clampDateIsoToToday(
+  dateIso: string,
+  timeZone: string,
+  now: Date = new Date(),
+): string {
+  const today = todayIsoInTimeZone(timeZone, now);
+  return dateIso < today ? today : dateIso;
+}
+
+export type CalendarDayRange = { $gte: Date; $lt: Date };
+
+/** Inclusive calendar day in a zone → exclusive UTC range. */
+export function calendarDayRange(dateIso: string, timeZone: string): CalendarDayRange {
+  const next = addCalendarDays(dateIso, 1);
+  return {
+    $gte: zonedWallClockToUtc(dateIso, '00:00', timeZone),
+    $lt: zonedWallClockToUtc(next, '00:00', timeZone),
+  };
+}
+
+/**
+ * Inclusive calendar date range in a zone → exclusive UTC range.
+ * Both ends are YYYY-MM-DD; end day is included.
+ */
+export function calendarDateRange(
+  startIso: string,
+  endIso: string,
+  timeZone: string,
+): CalendarDayRange {
+  if (startIso > endIso) {
+    throw new Error('startDate must be on or before endDate');
+  }
+  const next = addCalendarDays(endIso, 1);
+  return {
+    $gte: zonedWallClockToUtc(startIso, '00:00', timeZone),
+    $lt: zonedWallClockToUtc(next, '00:00', timeZone),
+  };
 }
 
 export function weekdayInTimeZone(date: Date, timeZone: string): number {

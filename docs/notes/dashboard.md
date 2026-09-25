@@ -1,5 +1,11 @@
 # Dashboard — Learnings & Observations
 
+## [2026-09-25] Diner impersonation leaves Partner Hub
+- `isPartner` must use the *target* role only — never `|| isImpersonating`. Impersonating a diner sets `tv_web_access` and redirects to the public web app; DashShell/useRequirePartner bounce diner roles off the hub.
+- Admin restaurants “View as diner” opens the public booking URL; “Manage” goes to `/admin/restaurants/:id`.
+- Guest detail (`AdminAccountDetail` kind=diner) tabs: reservations / reviews / points / notification prefs (plus overview). API: `adminUserReservations`, `adminUserReviews`, `adminUserLoyalty`.
+- Why it matters: Admins must see the diner product, not Partner Hub chrome, when viewing as a guest.
+
 ## [2026-09-24] Deposit refund reason modal + floor-ops
 - Shared `RefundDepositModal` (preset reason required; details required when “Other”) used on partner/admin list + detail and floor-ops. Mutation always receives `reason` for audit + diner notify body.
 - Captured deposits show a USD amount input (defaults to remaining; supports partial). Authorization holds stay full-release only.

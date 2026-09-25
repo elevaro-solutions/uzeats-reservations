@@ -47,7 +47,11 @@ import {
   formatTimeInTimeZone,
   formatBookingHours,
   formatUsDate,
+  addCalendarDays,
+  isPastCalendarDay,
+  todayIsoInTimeZone,
   timezoneFromAddress,
+  zonedWallClockToUtc,
 } from '@reservations/shared';
 import {
   saveBookingDraftToSession,
@@ -75,6 +79,7 @@ import {
   VALIDATE_GIFT_CARD,
 } from '@/lib/graphql';
 import { getGraphQLErrorMessage, getValidationIssues, toFieldErrors } from '@/lib/errors';
+import { isSlotStillAvailable } from '@/lib/bookingSlots';
 import {
   DEFAULT_PARTY,
   defaultBookingDate,
@@ -143,7 +148,32 @@ export default function RestaurantPageClient({
   const search = useSearchParams();
   const router = useRouter();
   const { user } = useAuth();
-  const { section, bookingFromUrl, syncBookingToUrl } = useRestaurantPageParams();
+
+  const { data } = useQuery(RESTAURANT_DETAIL, {
+    variables: isObjectId ? { id: slugOrId } : { slug: slugOrId },
+    // SSR already painted the shell; refresh in background for bookmarks / fresh menu.
+    fetchPolicy: initialRestaurant ? 'cache-and-network' : 'cache-first',
+  });
+  const restaurant = (data as { restaurant?: RestaurantSeoData } | undefined)?.restaurant ?? initialRestaurant;
+  const restaurantId = restaurant?.id ?? (isObjectId ? slugOrId : undefined);
+  const bookingPath = buildRestaurantBookingPath(restaurant?.slug, restaurantId);
+  const timeZone = useMemo(
+    () =>
+      restaurant?.timezone ||
+      timezoneFromAddress({
+        state: restaurant?.address?.state,
+        zip: restaurant?.address?.zip,
+        lng: restaurant?.location?.lng,
+      }),
+    [
+      restaurant?.timezone,
+      restaurant?.address?.state,
+      restaurant?.address?.zip,
+      restaurant?.location?.lng,
+    ],
+  );
+
+  const { section, bookingFromUrl, syncBookingToUrl } = useRestaurantPageParams(timeZone);
   useRestaurantSectionScroll(section);
   const [date, setDate] = useState(bookingFromUrl.date);
   const [partySize, setPartySize] = useState(bookingFromUrl.partySize);
@@ -175,6 +205,7 @@ export default function RestaurantPageClient({
   const [bookSheetHighlight, setBookSheetHighlight] = useState(false);
   const draftRestoredRef = useRef(false);
   const prevSlotPartyRef = useRef<{ slot: string | null; party: number } | null>(null);
+  const isSubmittingRef = useRef(false);
   const photoGalleryRef = useRef<RestaurantPhotoGalleryHandle>(null);
 
   useEffect(() => {
@@ -216,7 +247,7 @@ export default function RestaurantPageClient({
 
   const resetBookingForm = useCallback(() => {
     const defaults = {
-      date: defaultBookingDate(),
+      date: defaultBookingDate(timeZone),
       partySize: DEFAULT_PARTY,
       selectedSlot: null as string | null,
       promoCode: '',
@@ -239,7 +270,7 @@ export default function RestaurantPageClient({
     setValidationSummary([]);
     prevSlotPartyRef.current = { slot: null, party: DEFAULT_PARTY };
     syncBookingToUrl(defaults);
-  }, [syncBookingToUrl]);
+  }, [syncBookingToUrl, timeZone]);
   const [depositInfo, setDepositInfo] = useState<{
     clientSecret: string;
     reservationId: string;
@@ -256,42 +287,20 @@ export default function RestaurantPageClient({
     } | null;
   } | null>(null);
 
-  const { data } = useQuery(RESTAURANT_DETAIL, {
-    variables: isObjectId ? { id: slugOrId } : { slug: slugOrId },
-    // SSR already painted the shell; refresh in background for bookmarks / fresh menu.
-    fetchPolicy: initialRestaurant ? 'cache-and-network' : 'cache-first',
-  });
-  const restaurant = (data as { restaurant?: RestaurantSeoData } | undefined)?.restaurant ?? initialRestaurant;
-  const restaurantId = restaurant?.id ?? (isObjectId ? slugOrId : undefined);
-  const bookingPath = buildRestaurantBookingPath(restaurant?.slug, restaurantId);
-  const timeZone = useMemo(
-    () =>
-      restaurant?.timezone ||
-      timezoneFromAddress({
-        state: restaurant?.address?.state,
-        zip: restaurant?.address?.zip,
-        lng: restaurant?.location?.lng,
-      }),
-    [
-      restaurant?.timezone,
-      restaurant?.address?.state,
-      restaurant?.address?.zip,
-      restaurant?.location?.lng,
-    ],
-  );
   const formatSlotLabel = useCallback(
     (iso: string) => formatTimeInTimeZone(iso, timeZone),
     [timeZone],
   );
   const formatBookingDateLabel = useCallback(
     (value: Dayjs) =>
-      formatUsDate(value.toDate(), {
+      formatUsDate(zonedWallClockToUtc(value.format('YYYY-MM-DD'), '12:00', timeZone), {
+        timeZone,
         weekday: 'short',
         month: 'numeric',
         day: 'numeric',
         year: 'numeric',
       }),
-    [],
+    [timeZone],
   );
 
   const { data: availData, loading: availLoading } = useQuery(AVAILABILITY, {
@@ -301,6 +310,7 @@ export default function RestaurantPageClient({
       partySize,
     },
     skip: !restaurantId,
+    fetchPolicy: 'network-only',
   });
   const { data: bookableData, loading: bookableLoading } = useQuery(BOOKABLE_TABLES, {
     variables: {
@@ -429,16 +439,16 @@ export default function RestaurantPageClient({
   const matchingExperiences = useMemo(() => {
     return experiences.filter((e) => {
       if (e.status !== 'published') return false;
-      if (!isDateInExperienceRange(selectedDateStr, e)) return false;
+      if (!isDateInExperienceRange(selectedDateStr, e, timeZone)) return false;
       const min = minBookableExperienceParty(e);
       if (partySize < min) return false;
       return (e.availableTickets ?? 0) >= partySize;
     });
-  }, [experiences, selectedDateStr, partySize]);
+  }, [experiences, selectedDateStr, partySize, timeZone]);
 
   const applyExperienceBookingWindow = useCallback(
     (exp: ExperienceItem, nextPartySize?: number) => {
-      const { start, end } = experienceDateBounds(exp);
+      const { start, end } = experienceDateBounds(exp, timeZone);
       const keepCurrentDate = selectedDateStr >= start && selectedDateStr <= end;
       const nextDate = keepCurrentDate ? date : dayjs(start);
       const minParty = minBookableExperienceParty(exp);
@@ -451,7 +461,7 @@ export default function RestaurantPageClient({
         selectedSlot: keepCurrentDate && party === partySize ? undefined : null,
       });
     },
-    [date, partySize, selectedDateStr, updateBooking],
+    [date, partySize, selectedDateStr, updateBooking, timeZone],
   );
 
   const openExperienceModal = useCallback(
@@ -580,9 +590,11 @@ export default function RestaurantPageClient({
   const promotions = (promotionsData as any)?.promotions?.items ?? [];
 
   useEffect(() => {
-    if (availLoading || !selectedSlot) return;
-    const match = slots.find((s: { time: string; available: boolean }) => s.time === selectedSlot);
-    if (!match?.available) {
+    // Don't wipe selection while loading or when the list is empty (brief Apollo
+    // undefined) — only clear against a real payload. Compare by instant so
+    // ISO variants from draft resume (`…000Z` vs `…Z`) still match.
+    if (availLoading || !selectedSlot || slots.length === 0) return;
+    if (!isSlotStillAvailable(slots, selectedSlot)) {
       updateBooking({ selectedSlot: null });
       setSelectedTableId(null);
     }
@@ -696,10 +708,7 @@ export default function RestaurantPageClient({
       message.warning('Select a time slot');
       return;
     }
-    const slotStillOpen = slots.some(
-      (s: { time: string; available: boolean }) => s.time === selectedSlot && s.available,
-    );
-    if (!slotStillOpen) {
+    if (!isSlotStillAvailable(slots, selectedSlot)) {
       message.warning('That time is no longer available — pick another slot');
       setSelectedSlot(null);
       return;
@@ -708,7 +717,8 @@ export default function RestaurantPageClient({
   };
 
   const submitBooking = async () => {
-    if (!user || !selectedSlot) return;
+    if (!user || !selectedSlot || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setFieldErrors({});
     setValidationSummary([]);
     try {
@@ -782,6 +792,8 @@ export default function RestaurantPageClient({
         return;
       }
       message.error(getGraphQLErrorMessage(err, 'Booking failed'));
+    } finally {
+      isSubmittingRef.current = false;
     }
   };
 
@@ -1097,10 +1109,12 @@ export default function RestaurantPageClient({
                 value={date}
                 allowClear={false}
                 disabledDate={(d) => {
-                  if (d.isBefore(dayjs().startOf('day'))) return true;
+                  const iso = d.format('YYYY-MM-DD');
+                  if (isPastCalendarDay(iso, timeZone)) return true;
                   const maxDays = restaurant?.bookingWindow?.maxAdvanceDays;
                   if (typeof maxDays === 'number' && maxDays > 0) {
-                    return d.isAfter(dayjs().add(maxDays, 'day').endOf('day'));
+                    const max = addCalendarDays(todayIsoInTimeZone(timeZone), maxDays);
+                    return iso > max;
                   }
                   return false;
                 }}
@@ -1371,7 +1385,7 @@ export default function RestaurantPageClient({
                               </Text>
                             </div>
                             <Text type="secondary" style={{ fontSize: 13 }}>
-                              {formatExperienceDateLabel(exp)} · {formatExperienceBookingHours(exp, timeZone)} ·{' '}
+                              {formatExperienceDateLabel(exp, timeZone)} · {formatExperienceBookingHours(exp, timeZone)} ·{' '}
                               {String(exp.type).replace(/_/g, ' ')}
                             </Text>
                             {exp.description && (

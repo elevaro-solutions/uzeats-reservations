@@ -39,9 +39,15 @@ import {
 } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import {
+  addCalendarDays,
   formatTimeInTimeZone,
   formatUsDateTime,
+  hmInTimeZone,
+  isPastCalendarDay,
+  isoDateInTimeZone,
   restaurantTimeZone,
+  todayIsoInTimeZone,
+  zonedWallClockToUtc,
 } from '@reservations/shared';
 import {
   PageHeader,
@@ -189,8 +195,9 @@ function guestName(r: ReservationRow) {
   return formatGuestName(r.diner);
 }
 
-function combineDateTime(date: Dayjs, time: Dayjs) {
-  return date.hour(time.hour()).minute(time.minute()).second(0).millisecond(0);
+function wallClockToIso(date: Dayjs, time: Dayjs, timeZone: string): string {
+  const hm = `${String(time.hour()).padStart(2, '0')}:${String(time.minute()).padStart(2, '0')}`;
+  return zonedWallClockToUtc(date.format('YYYY-MM-DD'), hm, timeZone).toISOString();
 }
 
 function SectionLabel({ children }: { children: string }) {
@@ -229,19 +236,6 @@ function ReservationsPageContent() {
   const statusFilter = STATUS_FILTER_OPTIONS.some((o) => o.value === rawStatus)
     ? rawStatus!
     : undefined;
-  const todayIso = dayjs().format('YYYY-MM-DD');
-  const legacyCustomDate = searchParams.get('date');
-  const customStartDate = parseListDate(
-    searchParams.get('startDate') ?? legacyCustomDate,
-    todayIso,
-  );
-  const customEndDate = parseListDate(
-    searchParams.get('endDate') ?? legacyCustomDate,
-    customStartDate,
-  );
-  const customRangeSingleDay = customStartDate === customEndDate;
-  const showTimeOnlyColumn =
-    SINGLE_DAY_PERIODS.has(period) || (period === 'custom' && customRangeSingleDay);
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<ReservationRow | null>(null);
   const [cancelFor, setCancelFor] = useState<ReservationRow | null>(null);
@@ -288,6 +282,20 @@ function ReservationsPageContent() {
     () => restaurantTimeZone(activeRestaurant ?? {}),
     [activeRestaurant],
   );
+
+  const todayIso = todayIsoInTimeZone(timeZone);
+  const legacyCustomDate = searchParams.get('date');
+  const customStartDate = parseListDate(
+    searchParams.get('startDate') ?? legacyCustomDate,
+    todayIso,
+  );
+  const customEndDate = parseListDate(
+    searchParams.get('endDate') ?? legacyCustomDate,
+    customStartDate,
+  );
+  const customRangeSingleDay = customStartDate === customEndDate;
+  const showTimeOnlyColumn =
+    SINGLE_DAY_PERIODS.has(period) || (period === 'custom' && customRangeSingleDay);
 
   const replaceListParams = useCallback(
     (updates: Record<string, string | undefined>, resetPage = true) => {
@@ -432,18 +440,19 @@ function ReservationsPageContent() {
       .filter((s) => s.available || s.time === currentSlot)
       .map((s) => ({
         value: s.time,
-        label: dayjs(s.time).format('h:mm A'),
+        label: formatTimeInTimeZone(s.time, timeZone),
       }));
 
   const openCreate = () => {
+    const today = dayjs(todayIso);
     const defaultDate =
       period === 'custom'
         ? dayjs(customStartDate)
         : period === 'tomorrow'
-          ? dayjs().add(1, 'day')
-          : dayjs();
+          ? dayjs(addCalendarDays(todayIso, 1))
+          : today;
     createForm.setFieldsValue({
-      date: defaultDate.isBefore(dayjs(), 'day') ? dayjs() : defaultDate,
+      date: defaultDate.format('YYYY-MM-DD') < todayIso ? today : defaultDate,
       time: dayjs().hour(19).minute(0),
       partySize: 2,
       source: 'phone',
@@ -464,11 +473,13 @@ function ReservationsPageContent() {
   };
 
   const openEdit = (r: ReservationRow) => {
-    const slot = dayjs(r.slotStart);
+    const dateIso = isoDateInTimeZone(new Date(r.slotStart), timeZone);
+    const hm = hmInTimeZone(new Date(r.slotStart), timeZone);
+    const [hour, minute] = hm.split(':').map(Number);
     setEditing(r);
     editForm.setFieldsValue({
-      date: slot,
-      time: slot,
+      date: dayjs(dateIso),
+      time: dayjs().hour(hour ?? 0).minute(minute ?? 0),
       partySize: r.partySize,
       occasion: r.occasion ?? 'none',
       guestNotes: r.guestNotes ?? '',
@@ -551,7 +562,7 @@ function ReservationsPageContent() {
   const handleCreate = async () => {
     try {
       const values = await createForm.validateFields();
-      const slotStart = combineDateTime(values.date, values.time).toISOString();
+      const slotStart = wallClockToIso(values.date, values.time, timeZone);
       await createReservation({
         variables: {
           input: {
@@ -595,7 +606,7 @@ function ReservationsPageContent() {
       const values = await editForm.validateFields();
       const slotStart = values.slotTime
         ? values.slotTime
-        : combineDateTime(values.date, values.time).toISOString();
+        : wallClockToIso(values.date, values.time, timeZone);
       await updateReservation({
         variables: {
           id: editing.id,
@@ -996,7 +1007,7 @@ function ReservationsPageContent() {
               <Form.Item name="date" label="Date" rules={[{ required: true }]} required>
                 <DatePicker
                   style={{ width: '100%' }}
-                  disabledDate={(d) => d.isBefore(dayjs().startOf('day'))}
+                  disabledDate={(d) => isPastCalendarDay(d.format('YYYY-MM-DD'), timeZone)}
                 />
               </Form.Item>
             </Col>
@@ -1022,8 +1033,13 @@ function ReservationsPageContent() {
                 placeholder="Choose a slot"
                 options={slotOptions(createSlotsData?.availability)}
                 onChange={(iso: string) => {
-                  const slot = dayjs(iso);
-                  createForm.setFieldsValue({ date: slot, time: slot });
+                  const dateIso = isoDateInTimeZone(new Date(iso), timeZone);
+                  const hm = hmInTimeZone(new Date(iso), timeZone);
+                  const [hour, minute] = hm.split(':').map(Number);
+                  createForm.setFieldsValue({
+                    date: dayjs(dateIso),
+                    time: dayjs().hour(hour ?? 0).minute(minute ?? 0),
+                  });
                 }}
                 allowClear
               />
@@ -1151,7 +1167,7 @@ function ReservationsPageContent() {
               <Form.Item name="date" label="Date" rules={[{ required: true }]} required>
                 <DatePicker
                   style={{ width: '100%' }}
-                  disabledDate={(d) => d.isBefore(dayjs().startOf('day'))}
+                  disabledDate={(d) => isPastCalendarDay(d.format('YYYY-MM-DD'), timeZone)}
                   onChange={() => editForm.setFieldsValue({ slotTime: undefined })}
                 />
               </Form.Item>
@@ -1189,8 +1205,14 @@ function ReservationsPageContent() {
                 options={slotOptions(editSlotsData?.availability, editing?.slotStart)}
                 value={editForm.getFieldValue('slotTime')}
                 onChange={(iso: string) => {
-                  const slot = dayjs(iso);
-                  editForm.setFieldsValue({ date: slot, time: slot, slotTime: iso });
+                  const dateIso = isoDateInTimeZone(new Date(iso), timeZone);
+                  const hm = hmInTimeZone(new Date(iso), timeZone);
+                  const [hour, minute] = hm.split(':').map(Number);
+                  editForm.setFieldsValue({
+                    date: dayjs(dateIso),
+                    time: dayjs().hour(hour ?? 0).minute(minute ?? 0),
+                    slotTime: iso,
+                  });
                 }}
                 allowClear
               />

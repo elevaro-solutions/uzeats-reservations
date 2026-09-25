@@ -167,6 +167,7 @@ type FloorTable = {
   shape: string;
   rotation: number;
   photoUrl?: string | null;
+  requiresManualApproval?: boolean;
 };
 
 type MoveInteraction = {
@@ -205,6 +206,7 @@ function TableDetailsPanel({
   selected,
   onUpdate,
   onSavePhoto,
+  onSaveManualApproval,
   onSaveLayout,
   dirty,
   saving,
@@ -214,6 +216,7 @@ function TableDetailsPanel({
   selected: FloorTable;
   onUpdate: (patch: Partial<FloorTable>) => void;
   onSavePhoto: (photoUrl: string | null) => Promise<void>;
+  onSaveManualApproval: (requiresManualApproval: boolean) => Promise<void>;
   onSaveLayout: () => Promise<void>;
   dirty: boolean;
   saving: boolean;
@@ -286,6 +289,26 @@ function TableDetailsPanel({
           ]}
           style={{ width: '100%', marginTop: 4 }}
         />
+      </div>
+      <div>
+        <Text strong>Require manual approval</Text>
+        <div style={{ marginTop: 4 }}>
+          <Switch
+            checked={Boolean(selected.requiresManualApproval)}
+            onChange={async (checked) => {
+              try {
+                await onSaveManualApproval(checked);
+                onUpdate({ requiresManualApproval: checked });
+                message.success(checked ? 'Manual approval required' : 'Auto-confirm enabled');
+              } catch (err: unknown) {
+                message.error(err instanceof Error ? err.message : 'Failed to update approval setting');
+              }
+            }}
+          />
+        </div>
+        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+          Bookings assigned to this table stay pending until staff confirms
+        </Text>
       </div>
       <div>
         <Text strong>Table photo</Text>
@@ -366,21 +389,24 @@ export default function FloorPlanPage() {
   }, [activeRestaurantId]);
 
   useEffect(() => {
-    const loaded: FloorTable[] = (data?.restaurant?.tables ?? []).map((t: FloorTable) => ({
-      id: t.id,
-      name: t.name,
-      minCapacity: t.minCapacity,
-      maxCapacity: t.maxCapacity,
-      floorArea: t.floorArea,
-      active: t.active,
-      posX: t.posX ?? 0,
-      posY: t.posY ?? 0,
-      width: t.width || 2,
-      height: t.height || 2,
-      shape: t.shape || 'rect',
-      rotation: t.rotation ?? 0,
-      photoUrl: t.photoUrl ?? null,
-    }));
+    const loaded: FloorTable[] = (data?.restaurant?.tables ?? []).map(
+      (t: FloorTable & { requiresManualApproval?: boolean }) => ({
+        id: t.id,
+        name: t.name,
+        minCapacity: t.minCapacity,
+        maxCapacity: t.maxCapacity,
+        floorArea: t.floorArea,
+        active: t.active,
+        posX: t.posX ?? 0,
+        posY: t.posY ?? 0,
+        width: t.width || 2,
+        height: t.height || 2,
+        shape: t.shape || 'rect',
+        rotation: t.rotation ?? 0,
+        photoUrl: t.photoUrl ?? null,
+        requiresManualApproval: Boolean(t.requiresManualApproval),
+      }),
+    );
     setTables(loaded);
     setSelectedId(null);
     setDirty(false);
@@ -671,7 +697,27 @@ export default function FloorPlanPage() {
           floorArea: selected.floorArea,
           combinable: false,
           active: selected.active,
+          requiresManualApproval: selected.requiresManualApproval ?? false,
           photoUrl,
+        },
+      },
+    });
+  };
+
+  const saveManualApproval = async (requiresManualApproval: boolean) => {
+    if (!selected) return;
+    await saveTableMutation({
+      variables: {
+        id: selected.id,
+        input: {
+          name: selected.name,
+          minCapacity: selected.minCapacity,
+          maxCapacity: selected.maxCapacity,
+          floorArea: selected.floorArea,
+          combinable: false,
+          active: selected.active,
+          requiresManualApproval,
+          photoUrl: selected.photoUrl ?? null,
         },
       },
     });
@@ -739,6 +785,7 @@ export default function FloorPlanPage() {
         shape: 'rect',
         rotation: 0,
         photoUrl: input.photoUrl,
+        requiresManualApproval: input.requiresManualApproval,
       };
       // Append locally so unsaved layout edits are not wiped by a refetch.
       setTables((prev) => [...prev, nextTable]);
@@ -1024,6 +1071,7 @@ export default function FloorPlanPage() {
                 selected={selected}
                 onUpdate={(patch) => updateTable(selected.id, patch)}
                 onSavePhoto={savePhoto}
+                onSaveManualApproval={saveManualApproval}
                 onSaveLayout={handleSave}
                 dirty={dirty}
                 saving={saving}
@@ -1049,6 +1097,7 @@ export default function FloorPlanPage() {
             selected={selected}
             onUpdate={(patch) => updateTable(selected.id, patch)}
             onSavePhoto={savePhoto}
+            onSaveManualApproval={saveManualApproval}
             onSaveLayout={handleSave}
             dirty={dirty}
             saving={saving}

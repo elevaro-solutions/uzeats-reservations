@@ -238,18 +238,23 @@ export function BookingFeature() {
   });
 
   useEffect(() => {
-    const clamped = clampBookingDate(discovery.date || tomorrowIsoDate());
+    const tz = restaurant?.timezone ?? undefined;
+    const clamped = clampBookingDate(
+      discovery.date || tomorrowIsoDate(tz),
+      BOOKING_MAX_DAYS_AHEAD,
+      tz,
+    );
     if (clamped !== discovery.date) {
       setDiscovery({ date: clamped });
     }
-  }, [discovery.date, setDiscovery]);
+  }, [discovery.date, setDiscovery, restaurant?.timezone]);
 
   const maxAdvanceDays =
     restaurant?.bookingWindow?.maxAdvanceDays ?? BOOKING_MAX_DAYS_AHEAD;
 
   useEffect(() => {
     if (!restaurant) return;
-    const clamped = clampBookingDate(form.date, maxAdvanceDays);
+    const clamped = clampBookingDate(form.date, maxAdvanceDays, restaurant.timezone ?? undefined);
     if (clamped !== form.date) {
       form.onSelectDate(clamped);
     }

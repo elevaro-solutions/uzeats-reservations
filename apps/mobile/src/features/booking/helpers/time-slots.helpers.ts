@@ -165,18 +165,20 @@ export function filterBookableSlots(
 
 export function maxBookableIsoDate(
   maxAdvanceDays: number = BOOKING_MAX_DAYS_AHEAD,
+  timeZone?: string,
 ): string {
   const days = Math.max(1, maxAdvanceDays);
-  const dates = buildDateRange(todayIsoDate(), days);
+  const dates = buildDateRange(todayIsoDate(timeZone), days);
   return dates[dates.length - 1]!;
 }
 
 export function clampBookingDate(
   iso: string,
   maxAdvanceDays: number = BOOKING_MAX_DAYS_AHEAD,
+  timeZone?: string,
 ): string {
-  const today = todayIsoDate();
-  const max = maxBookableIsoDate(maxAdvanceDays);
+  const today = todayIsoDate(timeZone);
+  const max = maxBookableIsoDate(maxAdvanceDays, timeZone);
   if (iso < today) return today;
   if (iso > max) return max;
   return iso;
@@ -186,9 +188,10 @@ export function getBookableDaysInMonth(
   year: number,
   month: number,
   maxAdvanceDays: number = BOOKING_MAX_DAYS_AHEAD,
+  timeZone?: string,
 ): string[] {
-  const today = todayIsoDate();
-  const max = maxBookableIsoDate(maxAdvanceDays);
+  const today = todayIsoDate(timeZone);
+  const max = maxBookableIsoDate(maxAdvanceDays, timeZone);
   const lastDay = new Date(year, month + 1, 0).getDate();
   const days: string[] = [];
 

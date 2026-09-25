@@ -196,8 +196,8 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const isAdmin = user ? isPlatformAdmin(user.role) && !isImpersonating : false;
   const isSuperAdminUser = user ? isSuperAdmin(user.role) && !isImpersonating : false;
-  const isPartner =
-    Boolean(user) && (PARTNER_ROLES.has(user!.role) || isImpersonating);
+  // Impersonation must follow the *target* role — diner impersonation is not Partner Hub.
+  const isPartner = Boolean(user) && PARTNER_ROLES.has(user!.role);
   const [restaurantId, setRestaurantId] = useState<string>();
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -247,10 +247,14 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   // Diners belong on the customer web app — never show Partner Hub chrome to them.
   useEffect(() => {
     if (authLoading || !user) return;
-    if (user.role === 'diner' && !isImpersonating) {
-      logout();
-      window.location.href = `${getPublicWebUrl()}/login?next=/`;
+    if (user.role !== 'diner') return;
+    if (isImpersonating) {
+      // Admin "View as diner" — send them to the public diner app (web cookie already set).
+      window.location.href = getPublicWebUrl();
+      return;
     }
+    logout();
+    window.location.href = `${getPublicWebUrl()}/login?next=/`;
   }, [user, authLoading, isImpersonating, logout]);
 
   useEffect(() => {
@@ -366,7 +370,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     [pathname, restaurants.length, router, searchParams],
   );
 
-  if (!user || (user.role === 'diner' && !isImpersonating)) {
+  if (!user || user.role === 'diner') {
     return <>{children}</>;
   }
 

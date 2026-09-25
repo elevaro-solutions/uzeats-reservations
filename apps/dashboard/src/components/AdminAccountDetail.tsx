@@ -43,6 +43,9 @@ import {
 import {
   ADMIN_USER,
   ADMIN_USER_RESTAURANTS,
+  ADMIN_USER_RESERVATIONS,
+  ADMIN_USER_REVIEWS,
+  ADMIN_USER_LOYALTY,
   ADMIN_RESTAURANTS,
   ADMIN_SEND_PASSWORD_RESET,
   ADMIN_UPDATE_USER,
@@ -60,6 +63,7 @@ import {
   accountListPath,
   type AccountKind,
 } from '@/lib/adminAccounts';
+import { getPublicWebUrl } from '@/lib/webUrl';
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -72,7 +76,31 @@ const ROLE_COLORS: Record<string, string> = {
   super_admin: 'red',
 };
 
-const DETAIL_TABS = ['overview', 'restaurants'] as const;
+const DETAIL_TABS = [
+  'overview',
+  'restaurants',
+  'reservations',
+  'reviews',
+  'points',
+  'notifications',
+] as const;
+
+const DINER_NOTIF_EVENTS: Array<{ key: string; title: string }> = [
+  { key: 'reservationUpdates', title: 'Reservation updates' },
+  { key: 'waitlistAvailable', title: 'Waitlist available' },
+  { key: 'availabilityAlerts', title: 'Availability alerts' },
+  { key: 'loyaltyUpdates', title: 'Loyalty updates' },
+  { key: 'surveyInvitation', title: 'Survey invitations' },
+  { key: 'reviewReply', title: 'Review replies' },
+];
+
+const DINER_NOTIF_CHANNELS: Array<{ key: string; title: string }> = [
+  { key: 'sms', title: 'SMS' },
+  { key: 'email', title: 'Email' },
+  { key: 'webPush', title: 'Web push' },
+  { key: 'platform', title: 'In-app' },
+  { key: 'messenger', title: 'Messenger' },
+];
 
 function formatDate(d?: string | null) {
   if (!d) return '—';
@@ -142,6 +170,7 @@ function AdminAccountDetailContent({ kind }: Props) {
   const showRestaurantsTab = Boolean(
     user && (user.role === 'manager' || user.role === 'restaurant_owner'),
   );
+  const showDinerTabs = kind === 'diner';
   const canManageRestaurants = Boolean(
     user && (user.role === 'manager' || user.role === 'restaurant_owner'),
   );
@@ -152,16 +181,17 @@ function AdminAccountDetailContent({ kind }: Props) {
   const allowedTabs = useMemo(() => {
     const tabs: string[] = ['overview'];
     if (showRestaurantsTab) tabs.push('restaurants');
+    if (showDinerTabs) tabs.push('reservations', 'reviews', 'points', 'notifications');
     return tabs;
-  }, [showRestaurantsTab]);
+  }, [showRestaurantsTab, showDinerTabs]);
 
   useEffect(() => {
     // Wait until the account loads — otherwise ?tab=restaurants is wiped while user is still null.
     if (!user) return;
-    if (tab === 'reservations' || (!showRestaurantsTab && tab === 'restaurants')) {
+    if (!allowedTabs.includes(tab)) {
       setTab('overview');
     }
-  }, [setTab, showRestaurantsTab, tab, user]);
+  }, [setTab, allowedTabs, tab, user]);
 
   useEffect(() => {
     if (!editModalOpen || !user) return;
@@ -194,6 +224,21 @@ function AdminAccountDetailContent({ kind }: Props) {
     refetch: refetchRestaurants,
   } = useQuery(ADMIN_USER_RESTAURANTS, {
     skip: !ready || !id || (tab !== 'restaurants' && !editModalOpen) || !showRestaurantsTab,
+    variables: { userId: id },
+  });
+
+  const { data: reservationsData, loading: reservationsLoading } = useQuery(ADMIN_USER_RESERVATIONS, {
+    skip: !ready || !id || !showDinerTabs || tab !== 'reservations',
+    variables: { userId: id, limit: 50, offset: 0 },
+  });
+
+  const { data: reviewsData, loading: reviewsLoading } = useQuery(ADMIN_USER_REVIEWS, {
+    skip: !ready || !id || !showDinerTabs || tab !== 'reviews',
+    variables: { userId: id, limit: 50, offset: 0 },
+  });
+
+  const { data: loyaltyData, loading: loyaltyLoading } = useQuery(ADMIN_USER_LOYALTY, {
+    skip: !ready || !id || !showDinerTabs || tab !== 'points',
     variables: { userId: id },
   });
 
@@ -282,7 +327,11 @@ function AdminAccountDetailContent({ kind }: Props) {
       const payload = res.data?.startImpersonation;
       beginImpersonation(payload.user, payload.impersonator);
       message.success(`Viewing as ${payload.user.firstName}`);
-      window.location.href = '/';
+      if (payload.user.role === 'diner') {
+        window.location.href = getPublicWebUrl();
+      } else {
+        window.location.href = '/';
+      }
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Impersonation failed');
     }
@@ -644,6 +693,248 @@ function AdminAccountDetailContent({ kind }: Props) {
                             loading={restLoading}
                             locale={{ emptyText: <Empty description="No restaurants assigned" /> }}
                           />
+                        </Card>
+                      ),
+                    },
+                  ]
+                : []),
+              ...(showDinerTabs
+                ? [
+                    {
+                      key: 'reservations',
+                      label: 'Reservations',
+                      children: (
+                        <Card title="Reservations">
+                          <Table
+                            dataSource={reservationsData?.adminUserReservations?.items ?? []}
+                            rowKey="id"
+                            loading={reservationsLoading}
+                            pagination={{
+                              pageSize: 20,
+                              total: reservationsData?.adminUserReservations?.total ?? 0,
+                              showTotal: (t: number) => `${t} reservation${t === 1 ? '' : 's'}`,
+                            }}
+                            locale={{ emptyText: <Empty description="No reservations" /> }}
+                            columns={[
+                              {
+                                title: 'Restaurant',
+                                key: 'restaurant',
+                                render: (_: unknown, rec: { restaurant?: { id: string; name: string } }) =>
+                                  rec.restaurant ? (
+                                    <Link href={`/admin/restaurants/${rec.restaurant.id}`}>
+                                      {rec.restaurant.name}
+                                    </Link>
+                                  ) : (
+                                    '—'
+                                  ),
+                              },
+                              {
+                                title: 'When',
+                                dataIndex: 'slotStart',
+                                key: 'slotStart',
+                                render: (v: string) => formatDate(v),
+                              },
+                              {
+                                title: 'Party',
+                                dataIndex: 'partySize',
+                                key: 'partySize',
+                              },
+                              {
+                                title: 'Status',
+                                dataIndex: 'status',
+                                key: 'status',
+                                render: (s: string) => <Tag>{s}</Tag>,
+                              },
+                              {
+                                title: 'Source',
+                                dataIndex: 'source',
+                                key: 'source',
+                                render: (s?: string) => s || '—',
+                              },
+                              {
+                                title: 'Deposit',
+                                dataIndex: 'depositAmountCents',
+                                key: 'deposit',
+                                render: (cents?: number) =>
+                                  cents != null && cents > 0
+                                    ? `$${(cents / 100).toFixed(2)}`
+                                    : '—',
+                              },
+                            ]}
+                          />
+                        </Card>
+                      ),
+                    },
+                    {
+                      key: 'reviews',
+                      label: 'Reviews',
+                      children: (
+                        <Card title="Reviews">
+                          <Table
+                            dataSource={reviewsData?.adminUserReviews?.items ?? []}
+                            rowKey="id"
+                            loading={reviewsLoading}
+                            pagination={{
+                              pageSize: 20,
+                              total: reviewsData?.adminUserReviews?.total ?? 0,
+                              showTotal: (t: number) => `${t} review${t === 1 ? '' : 's'}`,
+                            }}
+                            locale={{ emptyText: <Empty description="No reviews" /> }}
+                            columns={[
+                              {
+                                title: 'Restaurant',
+                                key: 'restaurant',
+                                render: (_: unknown, rec: { restaurant?: { id: string; name: string } }) =>
+                                  rec.restaurant ? (
+                                    <Link href={`/admin/restaurants/${rec.restaurant.id}`}>
+                                      {rec.restaurant.name}
+                                    </Link>
+                                  ) : (
+                                    '—'
+                                  ),
+                              },
+                              {
+                                title: 'Rating',
+                                dataIndex: 'rating',
+                                key: 'rating',
+                                width: 90,
+                                render: (r: number) => `${r}★`,
+                              },
+                              {
+                                title: 'Comment',
+                                dataIndex: 'comment',
+                                key: 'comment',
+                                ellipsis: true,
+                                render: (c?: string | null) => c || '—',
+                              },
+                              {
+                                title: 'Date',
+                                dataIndex: 'createdAt',
+                                key: 'createdAt',
+                                render: (v: string) => formatDate(v),
+                              },
+                            ]}
+                          />
+                        </Card>
+                      ),
+                    },
+                    {
+                      key: 'points',
+                      label: 'Points',
+                      children: (
+                        <Space orientation="vertical" size={spacing.md} style={{ width: '100%' }}>
+                          <Row gutter={[16, 16]}>
+                            <Col xs={24} sm={8}>
+                              <Card size="small">
+                                <Text type="secondary">Balance</Text>
+                                <Title level={3} style={{ margin: '4px 0 0' }}>
+                                  {user.loyaltyPoints ?? 0}
+                                </Title>
+                              </Card>
+                            </Col>
+                            <Col xs={24} sm={8}>
+                              <Card size="small">
+                                <Text type="secondary">Completed visits</Text>
+                                <Title level={3} style={{ margin: '4px 0 0' }}>
+                                  {user.loyaltyCompletedVisits ?? 0}
+                                </Title>
+                              </Card>
+                            </Col>
+                            <Col xs={24} sm={8}>
+                              <Card size="small">
+                                <Text type="secondary">Tier</Text>
+                                <Title level={3} style={{ margin: '4px 0 0' }}>
+                                  {user.loyaltyTierName ?? '—'}
+                                </Title>
+                              </Card>
+                            </Col>
+                          </Row>
+                          <Card title="Points history">
+                            <Table
+                              dataSource={loyaltyData?.adminUserLoyalty ?? []}
+                              rowKey="id"
+                              loading={loyaltyLoading}
+                              pagination={{ pageSize: 20 }}
+                              locale={{ emptyText: <Empty description="No loyalty activity" /> }}
+                              columns={[
+                                {
+                                  title: 'When',
+                                  dataIndex: 'createdAt',
+                                  key: 'createdAt',
+                                  render: (v: string) => formatDate(v),
+                                },
+                                {
+                                  title: 'Type',
+                                  dataIndex: 'type',
+                                  key: 'type',
+                                  render: (t: string) => <Tag>{t}</Tag>,
+                                },
+                                {
+                                  title: 'Points',
+                                  dataIndex: 'points',
+                                  key: 'points',
+                                  render: (p: number) => (
+                                    <Text type={p >= 0 ? 'success' : 'danger'}>
+                                      {p >= 0 ? `+${p}` : p}
+                                    </Text>
+                                  ),
+                                },
+                                {
+                                  title: 'Description',
+                                  dataIndex: 'description',
+                                  key: 'description',
+                                },
+                              ]}
+                            />
+                          </Card>
+                        </Space>
+                      ),
+                    },
+                    {
+                      key: 'notifications',
+                      label: 'Notifications',
+                      children: (
+                        <Card title="Notification settings">
+                          {user.notificationPreferences ? (
+                            <Table
+                              dataSource={DINER_NOTIF_EVENTS.map((event) => ({
+                                key: event.key,
+                                title: event.title,
+                                prefs:
+                                  (
+                                    user.notificationPreferences as Record<
+                                      string,
+                                      Record<string, boolean> | undefined
+                                    >
+                                  )[event.key] ?? {},
+                              }))}
+                              rowKey="key"
+                              pagination={false}
+                              columns={[
+                                {
+                                  title: 'Event',
+                                  dataIndex: 'title',
+                                  key: 'title',
+                                },
+                                ...DINER_NOTIF_CHANNELS.map((ch) => ({
+                                  title: ch.title,
+                                  key: ch.key,
+                                  width: 90,
+                                  align: 'center' as const,
+                                  render: (
+                                    _: unknown,
+                                    row: { prefs: Record<string, boolean> },
+                                  ) => (
+                                    <Tag color={row.prefs[ch.key] ? 'success' : 'default'}>
+                                      {row.prefs[ch.key] ? 'On' : 'Off'}
+                                    </Tag>
+                                  ),
+                                })),
+                              ]}
+                            />
+                          ) : (
+                            <Empty description="No notification preferences" />
+                          )}
                         </Card>
                       ),
                     },

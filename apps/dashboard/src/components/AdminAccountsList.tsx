@@ -68,6 +68,7 @@ import { ExportMenu, type ListExportFormat } from '@/components/ExportMenu';
 import { downloadExportPayload } from '@/lib/downloadExport';
 import { useFormDirty } from '@/lib/useFormDirty';
 import { RolesCapabilitiesModal } from '@/components/RolesCapabilitiesModal';
+import { getPublicWebUrl } from '@/lib/webUrl';
 
 const { Paragraph, Text } = Typography;
 
@@ -256,7 +257,11 @@ function AdminAccountsListContent({ kind }: Props) {
       const payload = res.data?.startImpersonation;
       beginImpersonation(payload.user, payload.impersonator);
       message.success(`Viewing as ${payload.user.firstName}`);
-      window.location.href = '/';
+      if (payload.user.role === 'diner') {
+        window.location.href = getPublicWebUrl();
+      } else {
+        window.location.href = '/';
+      }
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Impersonation failed');
     }

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { calendarDayRange, restaurantTimeZone, todayIsoInTimeZone } from '@reservations/shared';
 import { Reservation } from '../models/Reservation.js';
 import { Table } from '../models/Table.js';
 import { User } from '../models/User.js';
@@ -14,13 +15,13 @@ router.use(posAuth as any);
 router.get('/reservations', async (req: PosAuthRequest, res) => {
   try {
     const restaurantId = req.restaurant._id.toString();
-    const date = (req.query.date as string) ?? new Date().toISOString().slice(0, 10);
-    const start = new Date(`${date}T00:00:00`);
-    const end = new Date(`${date}T23:59:59`);
+    const timeZone = restaurantTimeZone(req.restaurant);
+    const date = (req.query.date as string) ?? todayIsoInTimeZone(timeZone);
+    const range = calendarDayRange(date, timeZone);
 
     const reservations = await Reservation.find({
       restaurantId,
-      slotStart: { $gte: start, $lte: end },
+      slotStart: { $gte: range.$gte, $lt: range.$lt },
       status: { $in: ['pending', 'confirmed', 'seated', 'completed', 'no_show'] },
     }).sort({ slotStart: 1 });
 

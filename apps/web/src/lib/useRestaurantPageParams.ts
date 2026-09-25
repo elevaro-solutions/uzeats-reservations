@@ -3,6 +3,12 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import dayjs, { type Dayjs } from 'dayjs';
+import {
+  PLATFORM_TIMEZONE,
+  addCalendarDays,
+  clampDateIsoToToday,
+  todayIsoInTimeZone,
+} from '@reservations/shared';
 
 export const RESTAURANT_SECTIONS = [
   'overview',
@@ -29,16 +35,16 @@ type BookingParams = {
 
 export const DEFAULT_PARTY = 2;
 
-export function defaultBookingDate(): Dayjs {
-  return dayjs().add(1, 'day');
+export function defaultBookingDate(timeZone: string = PLATFORM_TIMEZONE): Dayjs {
+  return dayjs(addCalendarDays(todayIsoInTimeZone(timeZone), 1));
 }
 
-function clampBookingDate(date: Dayjs): Dayjs {
-  const today = dayjs().startOf('day');
-  return date.isBefore(today) ? today : date;
+export function clampBookingDate(date: Dayjs, timeZone: string = PLATFORM_TIMEZONE): Dayjs {
+  const iso = clampDateIsoToToday(date.format('YYYY-MM-DD'), timeZone);
+  return dayjs(iso);
 }
 
-export function useRestaurantPageParams() {
+export function useRestaurantPageParams(timeZone: string = PLATFORM_TIMEZONE) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -56,7 +62,7 @@ export function useRestaurantPageParams() {
     const slotParam = searchParams.get('slot');
     const promoParam = searchParams.get('promo');
     return {
-      date: dateParam ? clampBookingDate(dayjs(dateParam)) : defaultBookingDate(),
+      date: dateParam ? clampBookingDate(dayjs(dateParam), timeZone) : defaultBookingDate(timeZone),
       partySize: Number(partyParam ?? DEFAULT_PARTY) || DEFAULT_PARTY,
       selectedSlot: slotParam,
       promoCode: promoParam?.toUpperCase() ?? '',
@@ -67,6 +73,7 @@ export function useRestaurantPageParams() {
     searchParams.get('slot'),
     searchParams.get('promo'),
     searchParams,
+    timeZone,
   ]);
 
   const replaceParams = useCallback(
@@ -95,7 +102,7 @@ export function useRestaurantPageParams() {
 
   const syncBookingToUrl = useCallback(
     (booking: BookingParams) => {
-      const defaultDate = defaultBookingDate().format('YYYY-MM-DD');
+      const defaultDate = defaultBookingDate(timeZone).format('YYYY-MM-DD');
       const dateStr = booking.date.format('YYYY-MM-DD');
       replaceParams({
         date: dateStr !== defaultDate ? dateStr : null,
@@ -110,7 +117,7 @@ export function useRestaurantPageParams() {
           : {}),
       });
     },
-    [replaceParams],
+    [replaceParams, timeZone],
   );
 
   return {

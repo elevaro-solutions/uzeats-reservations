@@ -17,6 +17,7 @@ import { AuthLayout } from '@/components/AuthLayout';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { getDashboardUrl } from '@/lib/urls';
 import { UPDATE_NOTIFICATION_PREFERENCES } from '@/lib/graphql';
+import { getGraphQLErrorMessage } from '@/lib/errors';
 
 export default function LoginPage() {
   return (
@@ -186,8 +187,11 @@ function LoginContent() {
                     message.success('Account created');
                     goNext();
                   } catch (err) {
+                    const raw = getGraphQLErrorMessage(err, 'Registration failed');
                     message.error(
-                      err instanceof Error ? err.message : 'Registration failed',
+                      /email already registered/i.test(raw)
+                        ? 'This email is already registered. Sign in or use a different email.'
+                        : raw,
                     );
                   } finally {
                     setLoading(false);

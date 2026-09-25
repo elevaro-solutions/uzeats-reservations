@@ -1,4 +1,9 @@
 import type { Types } from 'mongoose';
+import {
+  calendarDayRange,
+  restaurantTimeZone,
+  todayIsoInTimeZone,
+} from '@reservations/shared';
 import { Notification, Reservation, Restaurant, Shift, Table, WaitlistEntry } from '../models/index.js';
 import { buildOwnerRestaurantFilter } from './restaurantFilters.js';
 
@@ -32,12 +37,6 @@ export type OwnerOverviewStats = {
   locations: OwnerLocationOverview[];
 };
 
-function dayBounds(date: string) {
-  const start = new Date(`${date}T00:00:00`);
-  const end = new Date(`${date}T23:59:59.999`);
-  return { start, end };
-}
-
 function emptyOverview(unreadNotifications = 0): OwnerOverviewStats {
   return {
     locationsTotal: 0,
@@ -56,11 +55,11 @@ function emptyOverview(unreadNotifications = 0): OwnerOverviewStats {
 
 export async function buildOwnerOverview(
   user: { _id: Types.ObjectId; restaurantIds: Types.ObjectId[] },
-  date: string,
+  date?: string,
 ): Promise<OwnerOverviewStats> {
   const baseFilter = buildOwnerRestaurantFilter(user);
   const restaurants = await Restaurant.find(baseFilter)
-    .select('_id name status cuisine address averageRating reviewCount')
+    .select('_id name status cuisine address location averageRating reviewCount')
     .sort({ name: 1 })
     .lean();
 
@@ -95,7 +94,15 @@ export async function buildOwnerOverview(
     }
   }
 
-  const { start, end } = dayBounds(date);
+  const slotOr = restaurants.map((r) => {
+    const tz = restaurantTimeZone(r);
+    const day = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : todayIsoInTimeZone(tz);
+    const range = calendarDayRange(day, tz);
+    return {
+      restaurantId: r._id,
+      slotStart: { $gte: range.$gte, $lt: range.$lt },
+    };
+  });
 
   const [todayRows, waitlistRows, tableRows, shiftRows, unreadNotifications] = await Promise.all([
     Reservation.aggregate<{
@@ -106,8 +113,8 @@ export async function buildOwnerOverview(
       {
         $match: {
           restaurantId: { $in: ids },
-          slotStart: { $gte: start, $lte: end },
           status: { $nin: ['cancelled'] },
+          $or: slotOr,
         },
       },
       {

@@ -7,7 +7,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { CalendarIcon, ChevronDownIcon, UserIcon } from "@/assets";
 import { BottomSheet, Button, Flex, Typography } from "@/components";
-import { parseIsoDate, toIsoDate } from "@/lib/helpers/date-time.helpers";
+import { parseIsoDate, todayIsoDate, toIsoDate } from "@/lib/helpers/date-time.helpers";
 
 import { formatQuickDateLabel } from "../helpers/booking-date-label.helpers";
 import { formatGuestCount } from "../helpers/format-guest-count.helpers";
@@ -21,6 +21,7 @@ export type BookingQuickSelectorsProps = {
   date: string;
   partySize: number;
   maxAdvanceDays?: number;
+  timeZone?: string;
   onDateChange: (iso: string) => void;
   onPartySizeChange: (size: number) => void;
 };
@@ -31,6 +32,7 @@ export function BookingQuickSelectors({
   date,
   partySize,
   maxAdvanceDays = BOOKING_MAX_DAYS_AHEAD,
+  timeZone,
   onDateChange,
   onPartySizeChange,
 }: BookingQuickSelectorsProps) {
@@ -44,18 +46,24 @@ export function BookingQuickSelectors({
   const [guestPickerSession, setGuestPickerSession] = useState(0);
 
   const today = useMemo(() => {
+    const iso = todayIsoDate(timeZone);
+    const parsed = parseIsoDate(iso);
+    if (parsed) {
+      parsed.setHours(0, 0, 0, 0);
+      return parsed;
+    }
     const d = new Date();
     d.setHours(0, 0, 0, 0);
     return d;
-  }, []);
+  }, [timeZone]);
 
   const maximumDate = useMemo(() => {
-    const iso = maxBookableIsoDate(maxAdvanceDays);
+    const iso = maxBookableIsoDate(maxAdvanceDays, timeZone);
     const parsed = parseIsoDate(iso);
     if (!parsed) return undefined;
     parsed.setHours(23, 59, 59, 999);
     return parsed;
-  }, [maxAdvanceDays]);
+  }, [maxAdvanceDays, timeZone]);
 
   const sheetMinHeight = useMemo(
     () => Dimensions.get("window").height * SHEET_MIN_HEIGHT_RATIO,

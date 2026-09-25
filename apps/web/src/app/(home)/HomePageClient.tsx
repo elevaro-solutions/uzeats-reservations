@@ -34,7 +34,7 @@ import {
   ThunderboltFilled,
   TrophyOutlined,
 } from '@ant-design/icons';
-import { buildRestaurantBookingPath, RESTAURANT_DISCOVERY_CATEGORIES } from '@reservations/shared';
+import { buildRestaurantBookingPath, PLATFORM_TIMEZONE, RESTAURANT_DISCOVERY_CATEGORIES, addCalendarDays, todayIsoInTimeZone } from '@reservations/shared';
 import { SEARCH_RESTAURANTS } from '@/lib/graphql';
 import { useInfiniteRestaurantSearch } from '@/lib/useInfiniteRestaurantSearch';
 import { useDiscoveryViewMode } from '@/lib/useDiscoveryViewMode';
@@ -229,14 +229,22 @@ function HomePageContent({ initialSearch = null }: HomePageClientProps) {
     cardsPageRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [queryDraft, replaceFilters]);
 
-  const datePresets = useMemo(
-    () => [
-      { label: 'Today', value: dayjs() },
-      { label: 'Tomorrow', value: dayjs().add(1, 'day') },
-      { label: 'This weekend', value: dayjs().day() === 0 ? dayjs() : dayjs().day(6) },
-    ],
-    [],
-  );
+  const datePresets = useMemo(() => {
+    const today = todayIsoInTimeZone(PLATFORM_TIMEZONE);
+    const tomorrow = addCalendarDays(today, 1);
+    const todayDayjs = dayjs(today);
+    const saturday =
+      todayDayjs.day() === 0
+        ? todayDayjs
+        : todayDayjs.day() === 6
+          ? todayDayjs
+          : todayDayjs.day(6);
+    return [
+      { label: 'Today', value: todayDayjs },
+      { label: 'Tomorrow', value: dayjs(tomorrow) },
+      { label: 'This weekend', value: saturday },
+    ];
+  }, []);
 
   const dateStr = date.format('YYYY-MM-DD');
 

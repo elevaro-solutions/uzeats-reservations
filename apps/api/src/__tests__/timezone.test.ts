@@ -1,14 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addCalendarDays,
+  calendarDayRange,
+  clampDateIsoToToday,
   formatDateTimeInTimeZone,
   formatHm12,
   formatBookingHours,
   formatOpeningHoursLines,
   formatTimeInTimeZone,
   hmInTimeZone,
+  isPastCalendarDay,
   isoDateInTimeZone,
   restaurantTimeZone,
   timezoneFromAddress,
+  todayIsoInTimeZone,
   weekdayInTimeZone,
   zonedWallClockToUtc,
 } from '@reservations/shared';
@@ -103,5 +108,41 @@ describe('formatDateTimeInTimeZone', () => {
     expect(formatDateTimeInTimeZone(utc, 'America/New_York')).toMatch(/Sep 16, 2026, 5:00 PM/);
     expect(formatDateTimeInTimeZone(utc, 'America/Los_Angeles')).toMatch(/Sep 16, 2026, 2:00 PM/);
     expect(formatDateTimeInTimeZone(null, 'America/New_York')).toBe('');
+  });
+});
+
+describe('calendar day helpers', () => {
+  // Sep 25 2026 20:00 CDT = Sep 26 01:00 UTC = Sep 26 06:00 Asia/Tashkent
+  const eveningCentral = new Date('2026-09-26T01:00:00.000Z');
+
+  it('todayIsoInTimeZone differs between Chicago and Tashkent for the same instant', () => {
+    expect(todayIsoInTimeZone('America/Chicago', eveningCentral)).toBe('2026-09-25');
+    expect(todayIsoInTimeZone('Asia/Tashkent', eveningCentral)).toBe('2026-09-26');
+  });
+
+  it('isPastCalendarDay uses restaurant today, not browser today', () => {
+    expect(isPastCalendarDay('2026-09-25', 'America/Chicago', eveningCentral)).toBe(false);
+    expect(isPastCalendarDay('2026-09-24', 'America/Chicago', eveningCentral)).toBe(true);
+    expect(isPastCalendarDay('2026-09-25', 'Asia/Tashkent', eveningCentral)).toBe(true);
+  });
+
+  it('clampDateIsoToToday lifts past days to restaurant today', () => {
+    expect(clampDateIsoToToday('2026-09-24', 'America/Chicago', eveningCentral)).toBe(
+      '2026-09-25',
+    );
+    expect(clampDateIsoToToday('2026-09-26', 'America/Chicago', eveningCentral)).toBe(
+      '2026-09-26',
+    );
+  });
+
+  it('addCalendarDays crosses month boundaries', () => {
+    expect(addCalendarDays('2026-09-18', 1)).toBe('2026-09-19');
+    expect(addCalendarDays('2026-01-01', -1)).toBe('2025-12-31');
+  });
+
+  it('calendarDayRange is exclusive end in restaurant zone', () => {
+    const range = calendarDayRange('2026-09-25', 'America/Chicago');
+    expect(range.$gte.toISOString()).toBe('2026-09-25T05:00:00.000Z'); // CDT UTC-5
+    expect(range.$lt.toISOString()).toBe('2026-09-26T05:00:00.000Z');
   });
 });

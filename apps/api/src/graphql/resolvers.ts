@@ -32,6 +32,7 @@ import {
   MAX_POPULAR_MENU_ITEMS,
   countPopularMenuItems,
   restaurantTimeZone,
+  todayIsoInTimeZone,
   RESTAURANT_MAX_PHOTOS,
   REVIEW_REPORT_DETAILS_MAX,
   formatReviewFlagReason,
@@ -1364,7 +1365,7 @@ export const resolvers = {
       const date =
         args.date && /^\d{4}-\d{2}-\d{2}$/.test(args.date)
           ? args.date
-          : new Date().toISOString().slice(0, 10);
+          : todayIsoInTimeZone(PLATFORM_RESERVATION_LIST_TIMEZONE);
       return buildOwnerOverview(user, date);
     },
 
@@ -1591,6 +1592,42 @@ export const resolvers = {
         maxLimit: 100,
         map: mapReservation,
       });
+    },
+
+    adminUserReviews: async (
+      _: unknown,
+      args: { userId: string; limit?: number; offset?: number },
+      ctx: GraphQLContext,
+    ) => {
+      requireAdmin(ctx);
+      const user = await User.findById(args.userId).select("_id");
+      if (!user) throw new Error("User not found");
+      return paginateQuery(Review, { dinerId: user._id }, {
+        sort: { createdAt: -1 },
+        limit: args.limit,
+        offset: args.offset,
+        defaultLimit: 20,
+        maxLimit: 100,
+        map: mapReview,
+      });
+    },
+
+    adminUserLoyalty: async (
+      _: unknown,
+      args: { userId: string },
+      ctx: GraphQLContext,
+    ) => {
+      requireAdmin(ctx);
+      const user = await User.findById(args.userId).select("_id");
+      if (!user) throw new Error("User not found");
+      const items = await getLoyaltyHistory(user._id.toString());
+      return items.map((t) => ({
+        id: t._id.toString(),
+        type: t.type,
+        points: t.points,
+        description: t.description,
+        createdAt: (t as any).createdAt,
+      }));
     },
 
     adminUserRestaurants: async (
@@ -2692,7 +2729,10 @@ export const resolvers = {
       };
       if (args.activeOnly) {
         filter.active = true;
-        const today = new Date().toISOString().slice(0, 10);
+        const restaurant = await Restaurant.findById(args.restaurantId)
+          .select('address location')
+          .lean();
+        const today = todayIsoInTimeZone(restaurantTimeZone(restaurant ?? {}));
         filter.$and = [
           {
             $or: [
@@ -6457,13 +6497,17 @@ export const resolvers = {
         user.role,
       );
       await requireFeature(input.restaurantId, "waitlist");
+      const restaurant = await Restaurant.findById(input.restaurantId)
+        .select("address location")
+        .lean();
+      const preferredDate = todayIsoInTimeZone(restaurantTimeZone(restaurant ?? {}));
       const doc = await WaitlistEntry.create({
         restaurantId: input.restaurantId,
         guestName: input.guestName,
         guestPhone: input.guestPhone,
         partySize: input.partySize,
         quotedWaitMinutes: input.quotedWaitMinutes,
-        preferredDate: new Date().toISOString().slice(0, 10),
+        preferredDate,
         source: "in_house",
         status: "waiting",
       });

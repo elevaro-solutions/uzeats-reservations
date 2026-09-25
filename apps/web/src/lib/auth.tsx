@@ -55,6 +55,12 @@ const LOGOUT = gql`
   }
 `;
 
+const END_IMPERSONATION = gql`
+  mutation EndImpersonation {
+    endImpersonation
+  }
+`;
+
 export type AuthUser = {
   id: string;
   email?: string | null;
@@ -76,6 +82,13 @@ export type AuthUser = {
   };
 };
 
+type Impersonator = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string | null;
+};
+
 /** Restaurant partners belong on the dashboard, not the diner web app. */
 export function sendNonDinerToDashboard(role: string): boolean {
   if (role === 'diner') return false;
@@ -86,6 +99,8 @@ export function sendNonDinerToDashboard(role: string): boolean {
 type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
+  isImpersonating: boolean;
+  impersonator: Impersonator | null;
   login: (email: string, password: string) => Promise<AuthUser>;
   loginWithGoogle: (idToken: string) => Promise<AuthUser>;
   register: (input: {
@@ -97,6 +112,7 @@ type AuthContextValue = {
     referralCode?: string;
   }) => Promise<void>;
   logout: () => void | Promise<void>;
+  endImpersonation: () => void;
   refreshMe: () => Promise<void>;
 };
 
@@ -106,11 +122,13 @@ const API_URI = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/graphq
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [impersonator, setImpersonator] = useState<Impersonator | null>(null);
   const [loading, setLoading] = useState(true);
   const [loginMutation] = useMutation(LOGIN);
   const [googleLoginMutation] = useMutation(LOGIN_WITH_GOOGLE);
   const [registerMutation] = useMutation(REGISTER);
   const [logoutMutation] = useMutation(LOGOUT);
+  const [endImpersonationMutation] = useMutation(END_IMPERSONATION);
 
   const refreshMe = useCallback(async () => {
     try {
@@ -122,26 +140,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           'X-Client-App': 'web',
         },
         body: JSON.stringify({
-          query: `query Me {
-            me {
-              id email phone firstName lastName role loyaltyPoints
-              loyaltyCompletedVisits loyaltyTier loyaltyTierName
-              loyaltyPointsExpireAt referralCode telegramChatId
-              notificationPreferences {
-                reservationUpdates { sms email webPush platform }
-                waitlistAvailable { sms email webPush platform }
-                availabilityAlerts { sms email webPush platform }
+          query: `query SessionInfo {
+            session {
+              isImpersonating
+              user {
+                id email phone firstName lastName role loyaltyPoints
+                loyaltyCompletedVisits loyaltyTier loyaltyTierName
+                loyaltyPointsExpireAt referralCode telegramChatId
+                notificationPreferences {
+                  reservationUpdates { sms email webPush platform }
+                  waitlistAvailable { sms email webPush platform }
+                  availabilityAlerts { sms email webPush platform }
+                }
               }
+              impersonator { id firstName lastName email }
             }
           }`,
         }),
       });
       const json = await res.json();
-      const nextUser = (json.data?.me ?? null) as AuthUser | null;
+      const session = json.data?.session;
+      const nextUser = (session?.user ?? null) as AuthUser | null;
       setUser(nextUser);
-      if (nextUser) sendNonDinerToDashboard(nextUser.role);
+      setImpersonator(session?.impersonator ?? null);
+      // Don't bounce admins who are impersonating a diner back to the dashboard.
+      if (nextUser && !session?.isImpersonating) {
+        sendNonDinerToDashboard(nextUser.role);
+      }
     } catch {
       setUser(null);
+      setImpersonator(null);
     } finally {
       setLoading(false);
     }
@@ -158,6 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const result = await loginMutation({ variables: { input: { email, password } } });
     const nextUser = (result.data as { login: { user: AuthUser } }).login.user;
     setUser(nextUser);
+    setImpersonator(null);
     sendNonDinerToDashboard(nextUser.role);
     return nextUser;
   };
@@ -166,6 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const result = await googleLoginMutation({ variables: { idToken } });
     const nextUser = (result.data as { loginWithGoogle: { user: AuthUser } }).loginWithGoogle.user;
     setUser(nextUser);
+    setImpersonator(null);
     sendNonDinerToDashboard(nextUser.role);
     return nextUser;
   };
@@ -181,6 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const result = await registerMutation({ variables: { input } });
     const data = result.data as any;
     setUser(data.register.user);
+    setImpersonator(null);
   };
 
   const logout = async () => {
@@ -190,12 +221,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // still clear the local session
     }
     setUser(null);
+    setImpersonator(null);
     window.location.assign('/login');
   };
 
+  const endImpersonation = () => {
+    void (async () => {
+      try {
+        await endImpersonationMutation();
+      } catch {
+        // still leave the diner session
+      }
+      window.location.href = getDashboardUrl();
+    })();
+  };
+
   const value = useMemo(
-    () => ({ user, loading, login, loginWithGoogle: loginGoogle, register, logout, refreshMe }),
-    [user, loading, refreshMe],
+    () => ({
+      user,
+      loading,
+      isImpersonating: Boolean(impersonator),
+      impersonator,
+      login,
+      loginWithGoogle: loginGoogle,
+      register,
+      logout,
+      endImpersonation,
+      refreshMe,
+    }),
+    [user, loading, impersonator, refreshMe],
   );
 
   return <div component="AuthProvider" style={{ display: 'contents' }}><AuthContext.Provider value={value}>{children}</AuthContext.Provider></div>;

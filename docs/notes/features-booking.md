@@ -1,5 +1,16 @@
 # Booking — Learnings & Observations
 
+## [2026-09-25] Restaurant calendar day is the source of truth
+- Booking pickers, partner create/edit, waitlist alerts, POS/overview day bounds, access rules, and promos must use `restaurantTimeZone` + `isoDateInTimeZone` / `zonedWallClockToUtc` — never browser `dayjs()` or `toISOString().slice(0,10)` for service days.
+- Discovery / home “today” (no single venue) uses platform `America/New_York` (`PLATFORM_TIMEZONE`).
+- Shared helpers: `todayIsoInTimeZone`, `isPastCalendarDay`, `clampDateIsoToToday`, `addCalendarDays`, `calendarDayRange`.
+- Why it matters: A diner in Uzbekistan and a partner in US Central must both see the restaurant’s Sep 26 / 6:00 PM, not each browser’s local calendar day.
+
+## [2026-09-25] Guest resume slot match is by instant, not string
+- After login/`?resume=1`, draft `selectedSlot` ISO can differ from availability (`…000Z` vs `…Z`). Web used strict `===` and cleared/toasted “no longer available” even when the slot was open; mobile already used `slotTimesEqual`.
+- Web now uses `bookingSlots.ts` (`slotTimesEqual` / `isSlotStillAvailable`), skips clear when `slots.length === 0`, AVAILABILITY `fetchPolicy: 'network-only'`, and an in-flight submit lock.
+- Why it matters: Unsigned book → login → resume must not wipe a still-valid time or toast after a successful create from double-submit.
+
 ## [2026-09-23] Manual approval vs deposit pending
 - Restaurant `manualApprovalEnabled` (default off) + optional `manualApprovalPartySize` / `manualApprovalPartySizeOp` (`gt`|`gte`), plus `requiresManualApproval` on Table / Experience / PrivateDiningSpace / RestaurantPackage. `bookingRequiresManualApproval` in `@reservations/shared` is OR of resources + restaurant party rule.
 - Matching bookings set `Reservation.requiresManualApproval` and stay `pending`. Deposit authorize no longer auto-confirms when that flag is set; staff `updateReservationStatus(…, confirmed)` notifies the diner. UI label: `awaiting_approval`.

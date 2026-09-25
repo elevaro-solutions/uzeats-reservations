@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.67.0] — 2026-09-26
+
+### Fixed
+
+- Restaurant photo browser uses a uniform grid (2×2 for four photos) instead of a full-width mosaic that left uneven stacks
+- Reservation dates/times are consistent across Uzbekistan vs US browsers: pickers, partner create/edit, emails/waitlist, discovery, and API day bounds use restaurant (or platform ET) calendar — not browser/UTC day
+- Guest booking resume after sign-in no longer false-flags the chosen slot as unavailable (ISO time equality + empty-slots guard + network-only availability + submit lock)
+- Existing-account registration shows a clear “already registered” message on diner web and mobile
+- Admin “View as” for diners opens the public diner app (with web cookie + exit banner) instead of Partner Hub
+- Admin restaurants list “View as diner” opens the public booking page (Manage is a separate action)
+
+### Added
+
+- Live floor / Table layout edit panel: Require manual approval toggle for existing tables
+- Admin guest (diner) detail tabs: Reservations, Reviews, Points history, Notification settings
+- `adminUserReviews` and `adminUserLoyalty` GraphQL queries
+
 ## [0.66.1] — 2026-09-25
 
 ### Fixed

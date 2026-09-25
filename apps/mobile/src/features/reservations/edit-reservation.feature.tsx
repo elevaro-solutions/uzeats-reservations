@@ -5,7 +5,7 @@ import { ScrollView, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
-import { OCCASIONS, type Occasion } from "@reservations/shared";
+import { isoDateInTimeZone, OCCASIONS, PLATFORM_TIMEZONE, type Occasion } from "@reservations/shared";
 
 import { ChevronLeftIcon } from "@/assets";
 import {
@@ -21,7 +21,6 @@ import {
   getGraphQLErrorMessage,
   isUnauthenticatedError,
 } from "@/lib/graphql-errors";
-import { toIsoDate } from "@/lib/helpers/date-time.helpers";
 
 import {
   BOOKABLE_TABLES,
@@ -104,8 +103,8 @@ function hasEditChanges(params: {
   return false;
 }
 
-function toIsoDateFromSlot(slotStart: string): string {
-  return toIsoDate(new Date(slotStart));
+function toIsoDateFromSlot(slotStart: string, timeZone: string = PLATFORM_TIMEZONE): string {
+  return isoDateInTimeZone(new Date(slotStart), timeZone);
 }
 
 function parseOccasion(value: string | null | undefined): Occasion {
@@ -166,8 +165,16 @@ export function EditReservationFeature() {
   const allowGuestTableSelection = !!restaurant?.allowGuestTableSelection;
 
   useEffect(() => {
+    if (!restaurant?.timezone || !reservation || !initialized) return;
+    const restaurantDay = toIsoDateFromSlot(reservation.slotStart, restaurant.timezone);
+    if (restaurantDay !== date && slotStart === reservation.slotStart) {
+      setDate(restaurantDay);
+    }
+  }, [restaurant?.timezone, reservation, initialized, date, slotStart]);
+
+  useEffect(() => {
     if (!restaurant || !date) return;
-    const clamped = clampBookingDate(date, maxAdvanceDays);
+    const clamped = clampBookingDate(date, maxAdvanceDays, restaurant.timezone ?? undefined);
     if (clamped !== date) setDate(clamped);
   }, [restaurant, maxAdvanceDays, date]);
 

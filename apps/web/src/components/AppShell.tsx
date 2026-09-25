@@ -43,7 +43,7 @@ import { useAuth } from '@/lib/auth';
 import { MY_NOTIFICATIONS, MARK_NOTIFICATIONS_READ, MARK_ALL_NOTIFICATIONS_READ } from '@/lib/graphql';
 import { skipPollWhenHidden } from '@/lib/pollVisibility';
 import { getDashboardUrl } from '@/lib/urls';
-import { buildRestaurantBookingPath } from '@reservations/shared';
+import { buildRestaurantBookingPath, isoDateInTimeZone, PLATFORM_TIMEZONE } from '@reservations/shared';
 import { CookieConsent, openCookieSettings } from '@/components/CookieConsent';
 
 const { Header, Content, Footer } = Layout;
@@ -91,7 +91,8 @@ function availabilityAlertHref(data: Record<string, unknown>): string {
   if (typeof data.slot === 'string') {
     const slotDate = new Date(data.slot);
     if (Number.isFinite(slotDate.getTime())) {
-      params.set('date', slotDate.toISOString().slice(0, 10));
+      const tz = typeof data.timeZone === 'string' && data.timeZone ? data.timeZone : PLATFORM_TIMEZONE;
+      params.set('date', isoDateInTimeZone(slotDate, tz));
       params.set('slot', data.slot);
     }
   }
@@ -154,7 +155,8 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, logout, loading: authLoading } = useAuth();
+  const { user, logout, loading: authLoading, isImpersonating, impersonator, endImpersonation } =
+    useAuth();
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
@@ -515,6 +517,29 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
 
   return (
     <div component="AppShell" style={{ display: 'contents' }}><Layout style={{ minHeight: '100vh', background: colors.background }}>
+      {isImpersonating && impersonator && (
+        <div
+          style={{
+            background: colors.brand[700],
+            color: '#fff',
+            padding: '8px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            flexWrap: 'wrap',
+            fontSize: 13,
+          }}
+        >
+          <span>
+            Viewing as {user?.firstName} {user?.lastName} — signed in as admin{' '}
+            {impersonator.firstName} {impersonator.lastName}
+          </span>
+          <Button size="small" type="primary" ghost onClick={() => endImpersonation()}>
+            Exit impersonation
+          </Button>
+        </div>
+      )}
       <Header
         className="rt-site-header"
         style={{

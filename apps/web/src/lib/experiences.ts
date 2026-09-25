@@ -1,5 +1,12 @@
-import { formatHm12, formatHmRange12, minutesInTimeZone } from '@reservations/shared';
-import dayjs from 'dayjs';
+import {
+  PLATFORM_TIMEZONE,
+  formatHm12,
+  formatHmRange12,
+  formatUsDate,
+  isoDateInTimeZone,
+  minutesInTimeZone,
+  zonedWallClockToUtc,
+} from '@reservations/shared';
 
 export type ExperienceItem = {
   id: string;
@@ -20,29 +27,55 @@ export type ExperienceItem = {
   tags?: string[];
 };
 
-export function experienceDateBounds(exp: { date: string; endDate?: string | null }) {
-  const start = dayjs(exp.date).format('YYYY-MM-DD');
-  const end = dayjs(exp.endDate ?? exp.date).format('YYYY-MM-DD');
+export function experienceDateBounds(
+  exp: { date: string; endDate?: string | null },
+  timeZone: string = PLATFORM_TIMEZONE,
+) {
+  const start = isoDateInTimeZone(new Date(exp.date), timeZone);
+  const end = isoDateInTimeZone(new Date(exp.endDate ?? exp.date), timeZone);
   return { start, end };
 }
 
-export function formatExperienceDateLabel(exp: { date: string; endDate?: string | null }) {
-  const start = dayjs(exp.date);
-  const end = dayjs(exp.endDate ?? exp.date);
-  if (start.isSame(end, 'day')) return start.format('MMM D, YYYY');
-  if (start.isSame(end, 'year')) return `${start.format('MMM D')} – ${end.format('MMM D, YYYY')}`;
-  return `${start.format('MMM D, YYYY')} – ${end.format('MMM D, YYYY')}`;
+export function formatExperienceDateLabel(
+  exp: { date: string; endDate?: string | null },
+  timeZone: string = PLATFORM_TIMEZONE,
+) {
+  const { start, end } = experienceDateBounds(exp, timeZone);
+  const startLabel = formatUsDate(zonedWallClockToUtc(start, '12:00', timeZone), {
+    timeZone,
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  if (start === end) return startLabel;
+  const endLabel = formatUsDate(zonedWallClockToUtc(end, '12:00', timeZone), {
+    timeZone,
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  return `${startLabel} – ${endLabel}`;
 }
 
-export function formatExperienceAvailabilityLabel(exp: { date: string; endDate?: string | null }) {
-  const start = dayjs(exp.date);
-  const end = dayjs(exp.endDate ?? exp.date);
-  if (!start.isSame(end, 'day')) return 'Multiple dates available';
-  return start.format('MMM D, YYYY');
+export function formatExperienceAvailabilityLabel(
+  exp: { date: string; endDate?: string | null },
+  timeZone: string = PLATFORM_TIMEZONE,
+) {
+  const { start, end } = experienceDateBounds(exp, timeZone);
+  if (start !== end) return 'Multiple dates available';
+  return formatUsDate(zonedWallClockToUtc(start, '12:00', timeZone), {
+    timeZone,
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
-export function isDateInExperienceRange(dateStr: string, exp: { date: string; endDate?: string | null }) {
-  const { start, end } = experienceDateBounds(exp);
+export function isDateInExperienceRange(
+  dateStr: string,
+  exp: { date: string; endDate?: string | null },
+  timeZone: string = PLATFORM_TIMEZONE,
+) {
+  const { start, end } = experienceDateBounds(exp, timeZone);
   return dateStr >= start && dateStr <= end;
 }
 

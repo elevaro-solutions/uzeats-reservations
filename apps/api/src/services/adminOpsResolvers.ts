@@ -344,7 +344,9 @@ export const adminOpsMutation = {
       resourceId: args.userId,
     });
     if (resolveBrowserAuthApp(ctx.req) === 'dashboard') {
-      beginImpersonationCookies(ctx.res, ctx.req, result.accessToken);
+      beginImpersonationCookies(ctx.res, ctx.req, result.accessToken, {
+        alsoWeb: result.user.role === 'diner',
+      });
     }
     const exposeTokens = resolveBrowserAuthApp(ctx.req) !== 'dashboard';
     return {

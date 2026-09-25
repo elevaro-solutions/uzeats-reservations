@@ -737,6 +737,14 @@ export const ADMIN_USER = gql`
       phoneVerified
       restaurantIds
       createdAt
+      notificationPreferences {
+        reservationUpdates { sms email webPush platform messenger }
+        waitlistAvailable { sms email webPush platform messenger }
+        availabilityAlerts { sms email webPush platform messenger }
+        loyaltyUpdates { sms email webPush platform messenger }
+        surveyInvitation { sms email webPush platform messenger }
+        reviewReply { sms email webPush platform messenger }
+      }
     }
   }
 `;
@@ -754,6 +762,33 @@ export const ADMIN_USER_RESERVATIONS = gql`
         depositAmountCents
         restaurant { id name }
       }
+    }
+  }
+`;
+
+export const ADMIN_USER_REVIEWS = gql`
+  query AdminUserReviews($userId: ID!, $limit: Int, $offset: Int) {
+    adminUserReviews(userId: $userId, limit: $limit, offset: $offset) {
+      total
+      items {
+        id
+        rating
+        comment
+        createdAt
+        restaurant { id name }
+      }
+    }
+  }
+`;
+
+export const ADMIN_USER_LOYALTY = gql`
+  query AdminUserLoyalty($userId: ID!) {
+    adminUserLoyalty(userId: $userId) {
+      id
+      type
+      points
+      description
+      createdAt
     }
   }
 `;
@@ -2566,7 +2601,7 @@ export const DELETE_BLACKOUT = gql`
 export const UPDATE_TABLE = gql`
   mutation UpdateTable($id: ID!, $input: TableInput!) {
     updateTable(id: $id, input: $input) {
-      id name minCapacity maxCapacity floorArea active combinable
+      id name minCapacity maxCapacity floorArea active combinable requiresManualApproval
     }
   }
 `;

@@ -1,20 +1,25 @@
+import {
+  hmInTimeZone,
+  isoDateInTimeZone,
+  restaurantTimeZone,
+  weekdayInTimeZone,
+} from '@reservations/shared';
 import { AccessRule, type AccessRuleDocument } from '../models/AccessRule.js';
 import { Reservation } from '../models/Reservation.js';
+import { Restaurant } from '../models/Restaurant.js';
 import { getFeatures } from './plans.js';
 
 const DEFAULT_MAX_ADVANCE_DAYS = 90;
 
-function toHm(date: Date) {
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
-
-function ruleAppliesToSlot(rule: AccessRuleDocument, slotStart: Date) {
-  const dateStr = slotStart.toISOString().slice(0, 10);
-  if (rule.daysOfWeek?.length && !rule.daysOfWeek.includes(slotStart.getDay())) return false;
+function ruleAppliesToSlot(rule: AccessRuleDocument, slotStart: Date, timeZone: string) {
+  const dateStr = isoDateInTimeZone(slotStart, timeZone);
+  if (rule.daysOfWeek?.length && !rule.daysOfWeek.includes(weekdayInTimeZone(slotStart, timeZone))) {
+    return false;
+  }
   if (rule.startDate && dateStr < rule.startDate) return false;
   if (rule.endDate && dateStr > rule.endDate) return false;
   if (rule.startTime && rule.endTime) {
-    const hm = toHm(slotStart);
+    const hm = hmInTimeZone(slotStart, timeZone);
     if (hm < rule.startTime || hm >= rule.endTime) return false;
   }
   return true;
@@ -65,8 +70,11 @@ export async function checkAccessRules(input: {
   const features = await getFeatures(input.restaurantId);
   if (!features.accessRules) return null;
 
+  const restaurant = await Restaurant.findById(input.restaurantId).select('address location').lean();
+  const timeZone = restaurantTimeZone(restaurant ?? {});
+
   const rules = await AccessRule.find({ restaurantId: input.restaurantId, active: true });
-  const applicable = rules.filter((r) => ruleAppliesToSlot(r, input.slotStart));
+  const applicable = rules.filter((r) => ruleAppliesToSlot(r, input.slotStart, timeZone));
 
   for (const rule of applicable) {
     if (rule.minPartySize && input.partySize < rule.minPartySize) {

@@ -25,6 +25,7 @@ import {
 import { PlusOutlined, CheckOutlined, FileAddOutlined, EditOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
+import { restaurantTimeZone, zonedWallClockToUtc } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS } from '@/lib/graphql';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
@@ -118,6 +119,8 @@ function ExperiencesPageContent() {
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
+  const activeRestaurant = restaurants.find((r: { id: string }) => r.id === activeRestaurantId);
+  const timeZone = restaurantTimeZone(activeRestaurant ?? {});
 
   const { data, refetch, loading } = useQuery(EXPERIENCES, {
     skip: !activeRestaurantId,
@@ -156,8 +159,8 @@ function ExperiencesPageContent() {
         description: values.description,
         type: values.type,
         photoUrl: values.photoUrls?.[0] || values.photoUrl || undefined,
-        date: rangeStart.startOf('day').toISOString(),
-        endDate: rangeEnd.startOf('day').toISOString(),
+        date: zonedWallClockToUtc(rangeStart.format('YYYY-MM-DD'), '12:00', timeZone).toISOString(),
+        endDate: zonedWallClockToUtc(rangeEnd.format('YYYY-MM-DD'), '12:00', timeZone).toISOString(),
         startTime,
         endTime,
         minGuests: values.minGuests,

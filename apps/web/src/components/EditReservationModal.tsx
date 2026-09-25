@@ -4,7 +4,13 @@ import { useMutation, useQuery } from '@apollo/client/react';
 import { DatePicker, Input, InputNumber, Modal, Select, Space, Typography, message } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
-import { OCCASIONS } from '@reservations/shared';
+import {
+  OCCASIONS,
+  formatTimeInTimeZone,
+  isPastCalendarDay,
+  isoDateInTimeZone,
+  restaurantTimeZone,
+} from '@reservations/shared';
 import { AVAILABILITY, MY_RESERVATION, MY_RESERVATIONS, UPDATE_RESERVATION } from '@/lib/graphql';
 import { formatOccasion } from '@/components/restaurant/ReservationConfirmModal';
 
@@ -18,13 +24,23 @@ type Props = {
     partySize: number;
     occasion?: string;
     guestNotes?: string;
-    restaurant?: { id?: string; name?: string } | null;
+    restaurant?: {
+      id?: string;
+      name?: string;
+      timezone?: string | null;
+      address?: { state?: string | null; zip?: string | null; country?: string | null } | null;
+      location?: { lng?: number | null; coordinates?: number[] | null } | null;
+    } | null;
   } | null;
   onClose: () => void;
   onUpdated?: () => void;
 };
 
 export function EditReservationModal({ open, reservation, onClose, onUpdated }: Props) {
+  const timeZone = useMemo(
+    () => reservation?.restaurant?.timezone || restaurantTimeZone(reservation?.restaurant ?? {}),
+    [reservation?.restaurant],
+  );
   const [date, setDate] = useState<Dayjs>(dayjs());
   const [partySize, setPartySize] = useState(2);
   const [slotStart, setSlotStart] = useState<string | undefined>();
@@ -34,8 +50,8 @@ export function EditReservationModal({ open, reservation, onClose, onUpdated }: 
 
   useEffect(() => {
     if (!reservation || !open) return;
-    const slot = dayjs(reservation.slotStart);
-    setDate(slot);
+    const tz = reservation.restaurant?.timezone || restaurantTimeZone(reservation.restaurant ?? {});
+    setDate(dayjs(isoDateInTimeZone(new Date(reservation.slotStart), tz)));
     setPartySize(reservation.partySize);
     setSlotStart(reservation.slotStart);
     setOccasion(reservation.occasion ?? 'none');
@@ -61,9 +77,9 @@ export function EditReservationModal({ open, reservation, onClose, onUpdated }: 
       .filter((s) => s.available || s.time === current || s.time === slotStart)
       .map((s) => ({
         value: s.time,
-        label: dayjs(s.time).format('h:mm A'),
+        label: formatTimeInTimeZone(s.time, timeZone),
       }));
-  }, [slotsData, reservation?.slotStart, slotStart]);
+  }, [slotsData, reservation?.slotStart, slotStart, timeZone]);
 
   const handleOk = async () => {
     if (!dirty) return;
@@ -112,7 +128,7 @@ export function EditReservationModal({ open, reservation, onClose, onUpdated }: 
           <DatePicker
             value={date}
             allowClear={false}
-            disabledDate={(d) => d.startOf('day').isBefore(dayjs().startOf('day'))}
+            disabledDate={(d) => isPastCalendarDay(d.format('YYYY-MM-DD'), timeZone)}
             onChange={(d) => {
               if (!d) return;
               setDate(d);
@@ -159,11 +175,14 @@ export function EditReservationModal({ open, reservation, onClose, onUpdated }: 
               setOccasion(v);
               setDirty(true);
             }}
-            options={OCCASIONS.map((o) => ({ value: o, label: formatOccasion(o) }))}
+            options={OCCASIONS.map((o) => ({
+              value: o,
+              label: formatOccasion(o),
+            }))}
           />
         </div>
         <div>
-          <Text style={{ display: 'block', marginBottom: 6 }}>Special requests</Text>
+          <Text style={{ display: 'block', marginBottom: 6 }}>Notes for the restaurant</Text>
           <Input.TextArea
             rows={3}
             value={guestNotes}

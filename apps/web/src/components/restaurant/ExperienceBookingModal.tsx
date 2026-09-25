@@ -17,7 +17,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { SlotPicker, pickRestaurantPhoto } from '@reservations/ui';
-import { formatTimeInTimeZone } from '@reservations/shared';
+import { formatTimeInTimeZone, isPastCalendarDay, PLATFORM_TIMEZONE } from '@reservations/shared';
 import dayjs, { type Dayjs } from 'dayjs';
 import { buildMapsSearchUrl, formatRestaurantAddress } from '@/lib/restaurantLinks';
 import { buildCancellationPolicy } from '@/lib/restaurantTerms';
@@ -146,7 +146,7 @@ export function ExperienceBookingModal({
   if (!experience) return null;
 
   const soldOut = isExperienceSoldOut(experience);
-  const { start, end } = experienceDateBounds(experience);
+  const { start, end } = experienceDateBounds(experience, timeZone ?? PLATFORM_TIMEZONE);
   const minParty = minBookableExperienceParty(experience);
   const maxParty = maxBookableExperienceParty(experience);
   const partyOptions = Array.from(
@@ -321,7 +321,8 @@ export function ExperienceBookingModal({
               allowClear={false}
               disabledDate={(current) => {
                 const str = current.format('YYYY-MM-DD');
-                return current.isBefore(dayjs(), 'day') || str < start || str > end;
+                const tz = timeZone ?? PLATFORM_TIMEZONE;
+                return isPastCalendarDay(str, tz) || str < start || str > end;
               }}
               onChange={(next) => next && onDateChange(next)}
               suffixIcon={<CalendarOutlined />}

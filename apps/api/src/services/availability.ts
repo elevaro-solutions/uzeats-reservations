@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import {
   restaurantTimeZone,
   weekdayInTimeZone,
+  hmInTimeZone,
   zonedWallClockToUtc,
   type AvailabilitySlot,
 } from '@reservations/shared';
@@ -393,9 +394,10 @@ type TurnTimeShift = {
 export function turnTimeMinutesFromShifts(
   shifts: TurnTimeShift[],
   slotStart: Date,
+  timeZone: string,
 ): number {
-  const dayOfWeek = slotStart.getDay();
-  const hm = `${String(slotStart.getHours()).padStart(2, '0')}:${String(slotStart.getMinutes()).padStart(2, '0')}`;
+  const dayOfWeek = weekdayInTimeZone(slotStart, timeZone);
+  const hm = hmInTimeZone(slotStart, timeZone);
   const shift = shifts.find(
     (s) =>
       (s.daysOfWeek == null || s.daysOfWeek.includes(dayOfWeek)) &&
@@ -406,7 +408,9 @@ export function turnTimeMinutesFromShifts(
 }
 
 export async function getTurnTimeMinutes(restaurantId: string, slotStart: Date) {
-  const dayOfWeek = slotStart.getDay();
+  const restaurant = await Restaurant.findById(restaurantId).select('address location').lean();
+  const timeZone = restaurantTimeZone(restaurant ?? {});
+  const dayOfWeek = weekdayInTimeZone(slotStart, timeZone);
   const shifts = await Shift.find({
     restaurantId,
     active: true,
@@ -414,7 +418,7 @@ export async function getTurnTimeMinutes(restaurantId: string, slotStart: Date) 
   })
     .select('startTime endTime turnTimeMinutes daysOfWeek')
     .lean();
-  return turnTimeMinutesFromShifts(shifts, slotStart);
+  return turnTimeMinutesFromShifts(shifts, slotStart, timeZone);
 }
 
 /** First N open ISO slot times for discovery cards. */

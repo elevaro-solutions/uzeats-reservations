@@ -40,6 +40,7 @@ export type BookingDateScrollerProps = {
   selectedDate: string;
   onSelectDate: (iso: string) => void;
   maxAdvanceDays?: number;
+  timeZone?: string;
 };
 
 type ViewMonth = {
@@ -65,6 +66,7 @@ export function BookingDateScroller({
   selectedDate,
   onSelectDate,
   maxAdvanceDays = BOOKING_MAX_DAYS_AHEAD,
+  timeZone,
 }: BookingDateScrollerProps) {
   const { theme } = useUnistyles();
   const scrollRef = useRef<ScrollView>(null);
@@ -74,7 +76,7 @@ export function BookingDateScroller({
 
   function monthHasBookableDays(month: ViewMonth): boolean {
     return (
-      getBookableDaysInMonth(month.year, month.month, maxAdvanceDays).length > 0
+      getBookableDaysInMonth(month.year, month.month, maxAdvanceDays, timeZone).length > 0
     );
   }
 
@@ -82,6 +84,7 @@ export function BookingDateScroller({
     viewMonth.year,
     viewMonth.month,
     maxAdvanceDays,
+    timeZone,
   );
   const monthLabel = `${MONTH_NAMES[viewMonth.month]} ${viewMonth.year}`;
   const canGoPrev = monthHasBookableDays(shiftMonth(viewMonth, -1));

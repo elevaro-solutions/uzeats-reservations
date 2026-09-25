@@ -297,14 +297,20 @@ export const RestaurantPhotoGallery = forwardRef<RestaurantPhotoGalleryHandle, P
               <CloseOutlined />
             </button>
           </div>
-          <div className="rt-restaurant-photos-browser__grid">
+          <div
+            className={`rt-restaurant-photos-browser__grid${
+              gallery.length === 1
+                ? ' rt-restaurant-photos-browser__grid--single'
+                : gallery.length === 3
+                  ? ' rt-restaurant-photos-browser__grid--three'
+                  : ''
+            }`}
+          >
             {gallery.map((url, i) => (
               <button
                 key={url + i}
                 type="button"
-                className={`rt-restaurant-photos-browser__cell${
-                  i % 5 === 0 ? ' rt-restaurant-photos-browser__cell--wide' : ''
-                }`}
+                className="rt-restaurant-photos-browser__cell"
                 onClick={() => setLightboxIndex(i)}
                 aria-label={`View photo ${i + 1} of ${gallery.length}`}
               >

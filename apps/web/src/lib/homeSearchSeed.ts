@@ -1,4 +1,5 @@
 import { cache } from 'react';
+import { PLATFORM_TIMEZONE, addCalendarDays, todayIsoInTimeZone } from '@reservations/shared';
 import { DEFAULT_LOCATION } from '@/lib/cities';
 import { serverGraphql } from '@/lib/serverGraphql';
 
@@ -57,9 +58,7 @@ const SEARCH_QUERY = `
 `;
 
 function defaultSeedDate(): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() + 1);
-  return d.toISOString().slice(0, 10);
+  return addCalendarDays(todayIsoInTimeZone(PLATFORM_TIMEZONE), 1);
 }
 
 /** Default home grid seed (NYC + tomorrow + party 2). Short revalidate — slots move. */

@@ -1,7 +1,17 @@
 import {
+  PLATFORM_TIMEZONE,
+  addCalendarDays,
+  calendarDateRange,
+  calendarDayRange,
   isoDateInTimeZone,
   weekdayInTimeZone,
   zonedWallClockToUtc,
+} from '@reservations/shared';
+
+export {
+  addCalendarDays,
+  calendarDateRange,
+  calendarDayRange,
 } from '@reservations/shared';
 
 export const RESERVATION_DATE_PERIODS = [
@@ -17,7 +27,7 @@ export const RESERVATION_DATE_PERIODS = [
 ] as const;
 
 /** Calendar periods for cross-restaurant admin lists (no single venue zone). */
-export const PLATFORM_RESERVATION_LIST_TIMEZONE = 'America/New_York';
+export const PLATFORM_RESERVATION_LIST_TIMEZONE = PLATFORM_TIMEZONE;
 
 export type ReservationDatePeriod = (typeof RESERVATION_DATE_PERIODS)[number];
 
@@ -30,40 +40,6 @@ export function isReservationDatePeriod(value: unknown): value is ReservationDat
     typeof value === 'string' &&
     (RESERVATION_DATE_PERIODS as readonly string[]).includes(value)
   );
-}
-
-export function addCalendarDays(dateIso: string, days: number): string {
-  const [year, month, day] = dateIso.split('-').map(Number);
-  const utc = new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, (day ?? 1) + days));
-  return `${utc.getUTCFullYear()}-${String(utc.getUTCMonth() + 1).padStart(2, '0')}-${String(utc.getUTCDate()).padStart(2, '0')}`;
-}
-
-/** Inclusive calendar day in the restaurant zone → exclusive UTC range. */
-export function calendarDayRange(dateIso: string, timeZone: string): SlotStartRange {
-  const next = addCalendarDays(dateIso, 1);
-  return {
-    $gte: zonedWallClockToUtc(dateIso, '00:00', timeZone),
-    $lt: zonedWallClockToUtc(next, '00:00', timeZone),
-  };
-}
-
-/**
- * Inclusive calendar date range in the restaurant zone → exclusive UTC range.
- * Both ends are YYYY-MM-DD; end day is included.
- */
-export function calendarDateRange(
-  startIso: string,
-  endIso: string,
-  timeZone: string,
-): SlotStartRange {
-  if (startIso > endIso) {
-    throw new Error('startDate must be on or before endDate');
-  }
-  const next = addCalendarDays(endIso, 1);
-  return {
-    $gte: zonedWallClockToUtc(startIso, '00:00', timeZone),
-    $lt: zonedWallClockToUtc(next, '00:00', timeZone),
-  };
 }
 
 /** Resolve slotStart filter from period, single date, or inclusive start/end dates. */

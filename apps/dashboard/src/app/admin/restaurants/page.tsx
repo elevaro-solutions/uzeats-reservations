@@ -78,6 +78,8 @@ import {
 } from '@/lib/restaurantFormTooltips';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { isPlatformAdmin, isSuperAdmin } from '@/lib/roles';
+import { getPublicWebUrl } from '@/lib/webUrl';
+import { buildRestaurantBookingUrl } from '@reservations/shared';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { useUrlListFilters } from '@/lib/useUrlListFilters';
 import { buildMenuSectionsFromImport } from '@/lib/importedMenu';
@@ -594,11 +596,22 @@ function AdminRestaurantsContent() {
   };
 
   const actionItems = (r: RestaurantRecord): MenuProps['items'] => {
+    const dinerUrl = buildRestaurantBookingUrl(getPublicWebUrl(), {
+      slug: r.slug,
+      id: r.id,
+    });
     const items: NonNullable<MenuProps['items']> = [
       {
         key: 'view',
         icon: <EyeOutlined />,
         label: 'View as diner',
+        onClick: () => {
+          window.open(dinerUrl, '_blank', 'noopener,noreferrer');
+        },
+      },
+      {
+        key: 'manage',
+        label: 'Manage',
         onClick: () => router.push(`/admin/restaurants/${r.id}`),
       },
       {

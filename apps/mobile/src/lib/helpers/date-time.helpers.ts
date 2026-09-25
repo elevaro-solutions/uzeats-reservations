@@ -1,3 +1,9 @@
+import {
+  addCalendarDays,
+  PLATFORM_TIMEZONE,
+  todayIsoInTimeZone,
+} from "@reservations/shared";
+
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const MONTH = [
   "Jan",
@@ -35,14 +41,12 @@ export function toIsoDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-export function todayIsoDate(): string {
-  return toIsoDate(new Date());
+export function todayIsoDate(timeZone: string = PLATFORM_TIMEZONE): string {
+  return todayIsoInTimeZone(timeZone);
 }
 
-export function tomorrowIsoDate(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return toIsoDate(d);
+export function tomorrowIsoDate(timeZone: string = PLATFORM_TIMEZONE): string {
+  return addCalendarDays(todayIsoInTimeZone(timeZone), 1);
 }
 
 export function formatDisplayDate(iso: string): string {
@@ -54,9 +58,9 @@ export function formatDisplayDate(iso: string): string {
 }
 
 /** Today / Tomorrow when applicable, otherwise short weekday+date. */
-export function formatRelativeDayLabel(iso: string): string {
-  if (iso === todayIsoDate()) return "Today";
-  if (iso === tomorrowIsoDate()) return "Tomorrow";
+export function formatRelativeDayLabel(iso: string, timeZone: string = PLATFORM_TIMEZONE): string {
+  if (iso === todayIsoDate(timeZone)) return "Today";
+  if (iso === tomorrowIsoDate(timeZone)) return "Tomorrow";
   return formatDisplayDate(iso);
 }
 

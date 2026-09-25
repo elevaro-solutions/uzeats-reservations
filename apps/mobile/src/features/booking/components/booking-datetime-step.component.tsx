@@ -72,6 +72,7 @@ export function BookingDatetimeStep({
         date={date}
         partySize={partySize}
         maxAdvanceDays={maxAdvanceDays}
+        timeZone={timeZone}
         onDateChange={onDateChange}
         onPartySizeChange={onPartySizeChange}
       />

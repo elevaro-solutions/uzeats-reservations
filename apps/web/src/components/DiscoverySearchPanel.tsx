@@ -2,10 +2,9 @@
 
 import type { ReactNode } from 'react';
 import type { Dayjs } from 'dayjs';
-import dayjs from 'dayjs';
 import { Button, DatePicker, Input, Select, Tag } from 'antd';
 import { EnvironmentFilled, SearchOutlined } from '@ant-design/icons';
-import { CUISINES } from '@reservations/shared';
+import { CUISINES, PLATFORM_TIMEZONE, isPastCalendarDay } from '@reservations/shared';
 import { colors, radii, shadows, typography } from '@reservations/ui';
 import {
   AddressAutocomplete,
@@ -154,7 +153,7 @@ export function DiscoverySearchPanel({
           onChange={(d) => d && onDateChange(d)}
           allowClear={false}
           format="ddd, MMM D"
-          disabledDate={(d) => d.isBefore(dayjs().startOf('day'))}
+          disabledDate={(d) => isPastCalendarDay(d.format('YYYY-MM-DD'), PLATFORM_TIMEZONE)}
           presets={datePresets}
         />
       </div>

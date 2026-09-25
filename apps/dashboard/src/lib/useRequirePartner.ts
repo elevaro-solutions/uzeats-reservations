@@ -14,7 +14,7 @@ export function useRequirePartner() {
   const router = useRouter();
 
   const allowed =
-    Boolean(user) && (PARTNER_ROLES.has(user!.role) || isImpersonating);
+    Boolean(user) && PARTNER_ROLES.has(user!.role);
 
   useEffect(() => {
     if (loading) return;
@@ -22,10 +22,13 @@ export function useRequirePartner() {
       router.replace('/login');
       return;
     }
-    if (user.role === 'diner' && !isImpersonating) {
-      logout();
-      window.location.href = `${getPublicWebUrl()}/login?next=/`;
+    if (user.role !== 'diner') return;
+    if (isImpersonating) {
+      window.location.href = getPublicWebUrl();
+      return;
     }
+    logout();
+    window.location.href = `${getPublicWebUrl()}/login?next=/`;
   }, [user, loading, isImpersonating, logout, router]);
 
   return { ready: !loading && allowed, webUrl: getPublicWebUrl() };

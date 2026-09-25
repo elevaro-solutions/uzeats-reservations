@@ -2,7 +2,12 @@
 
 import { useCallback, useMemo } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import dayjs from 'dayjs';
+import {
+  PLATFORM_TIMEZONE,
+  addCalendarDays,
+  clampDateIsoToToday,
+  todayIsoInTimeZone,
+} from '@reservations/shared';
 
 export type DiscoveryFilterState = {
   query: string;
@@ -25,15 +30,12 @@ export type DiscoveryFilterState = {
   view: 'list' | 'map';
 };
 
-const DEFAULT_DATE = dayjs().add(1, 'day').format('YYYY-MM-DD');
-
-function todayIso(): string {
-  return dayjs().format('YYYY-MM-DD');
+function defaultDiscoveryDate(): string {
+  return addCalendarDays(todayIsoInTimeZone(PLATFORM_TIMEZONE), 1);
 }
 
 function clampBookingDate(iso: string): string {
-  const today = todayIso();
-  return iso < today ? today : iso;
+  return clampDateIsoToToday(iso, PLATFORM_TIMEZONE);
 }
 
 function parseList(value: string | null): string[] {
@@ -57,7 +59,7 @@ export function defaultDiscoveryFilters(): DiscoveryFilterState {
     topRatedOnly: false,
     accessibleOnly: false,
     nearMe: false,
-    date: DEFAULT_DATE,
+    date: defaultDiscoveryDate(),
     partySize: 2,
     view: 'list',
   };
@@ -73,6 +75,7 @@ export function discoveryFiltersFromSearchParams(
   params: URLSearchParams,
 ): DiscoveryFilterState {
   const view = params.get('view') === 'map' ? 'map' : 'list';
+  const defaultDate = defaultDiscoveryDate();
   return {
     query: params.get('q') ?? '',
     cuisine: params.get('cuisine') ?? undefined,
@@ -89,7 +92,7 @@ export function discoveryFiltersFromSearchParams(
     lng: parseNumber(params.get('lng')),
     locationLabel: params.get('loc') ?? undefined,
     nearMe: params.get('near') === '1',
-    date: clampBookingDate(params.get('date') ?? DEFAULT_DATE),
+    date: clampBookingDate(params.get('date') ?? defaultDate),
     partySize: parseNumber(params.get('party')) ?? 2,
     view,
   };
@@ -121,7 +124,7 @@ export function discoveryFiltersToSearchParams(
   if (filters.lng != null) params.set('lng', String(filters.lng));
   if (filters.locationLabel) params.set('loc', filters.locationLabel);
   if (filters.nearMe) params.set('near', '1');
-  if (filters.date !== DEFAULT_DATE) params.set('date', filters.date);
+  if (filters.date !== defaultDiscoveryDate()) params.set('date', filters.date);
   if (filters.partySize !== 2) params.set('party', String(filters.partySize));
   if (filters.view === 'map') params.set('view', 'map');
   if (page && page > 1) params.set('page', String(page));

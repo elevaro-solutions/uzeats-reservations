@@ -2716,6 +2716,8 @@ export const typeDefs = `#graphql
     ): UserConnection!
     adminUser(id: ID!): User
     adminUserReservations(userId: ID!, limit: Int, offset: Int): ReservationConnection!
+    adminUserReviews(userId: ID!, limit: Int, offset: Int): ReviewConnection!
+    adminUserLoyalty(userId: ID!): [LoyaltyTransaction!]!
     adminReservations(
       restaurantId: ID
       status: ReservationStatus

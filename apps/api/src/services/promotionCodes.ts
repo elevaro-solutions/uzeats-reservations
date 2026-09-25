@@ -1,5 +1,11 @@
-import { promotionDiscountCents } from '@reservations/shared';
+import {
+  isoDateInTimeZone,
+  promotionDiscountCents,
+  restaurantTimeZone,
+  weekdayInTimeZone,
+} from '@reservations/shared';
 import { Promotion, type PromotionDocument } from '../models/Marketing.js';
+import { Restaurant } from '../models/Restaurant.js';
 
 function normalizeCode(code: string) {
   return code.trim().toUpperCase();
@@ -27,12 +33,16 @@ function discountForPromotion(promo: PromotionDocument, depositCents: number) {
   });
 }
 
-export function isPromotionValidForSlot(promo: PromotionDocument, slotStart: Date): string | null {
+export function isPromotionValidForSlot(
+  promo: PromotionDocument,
+  slotStart: Date,
+  timeZone: string,
+): string | null {
   if (!promo.active) return 'Promotion is not active';
   if (!promotionHasDiscount(promo)) return 'This promotion does not include a deposit discount';
   if (!hasRedemptionsLeft(promo)) return 'This promotion has reached its redemption limit';
 
-  const dateStr = slotStart.toISOString().slice(0, 10);
+  const dateStr = isoDateInTimeZone(slotStart, timeZone);
   if (promo.startDate && dateStr < promo.startDate) {
     return 'Promotion is not valid for this date';
   }
@@ -40,7 +50,7 @@ export function isPromotionValidForSlot(promo: PromotionDocument, slotStart: Dat
     return 'Promotion has expired';
   }
 
-  const dayOfWeek = slotStart.getDay();
+  const dayOfWeek = weekdayInTimeZone(slotStart, timeZone);
   if (promo.daysOfWeek?.length && !promo.daysOfWeek.includes(dayOfWeek)) {
     return 'Promotion is not valid on this day of the week';
   }
@@ -65,7 +75,9 @@ export async function findValidPromotion(input: {
   const promo = candidates.find((p) => normalizeCode(p.code ?? '') === normalized);
   if (!promo) throw new Error('Invalid promotion code');
 
-  const slotError = isPromotionValidForSlot(promo, input.slotStart);
+  const restaurant = await Restaurant.findById(input.restaurantId).select('address location').lean();
+  const timeZone = restaurantTimeZone(restaurant ?? {});
+  const slotError = isPromotionValidForSlot(promo, input.slotStart, timeZone);
   if (slotError) throw new Error(slotError);
 
   return promo;
@@ -78,6 +90,9 @@ export async function findBestAutoPromotion(input: {
 }) {
   if (input.depositCents <= 0) return null;
 
+  const restaurant = await Restaurant.findById(input.restaurantId).select('address location').lean();
+  const timeZone = restaurantTimeZone(restaurant ?? {});
+
   const promos = await Promotion.find({
     restaurantId: input.restaurantId,
     active: true,
@@ -86,7 +101,7 @@ export async function findBestAutoPromotion(input: {
 
   let best: { promotion: PromotionDocument; discountCents: number } | null = null;
   for (const promo of promos) {
-    if (isPromotionValidForSlot(promo, input.slotStart)) continue;
+    if (isPromotionValidForSlot(promo, input.slotStart, timeZone)) continue;
     const discountCents = discountForPromotion(promo, input.depositCents);
     if (discountCents <= 0) continue;
     if (!best || discountCents > best.discountCents) {

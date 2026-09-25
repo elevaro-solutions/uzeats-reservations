@@ -44,7 +44,11 @@ import {
   OCCASIONS,
   formatTimeInTimeZone,
   formatUsDateTime,
+  hmInTimeZone,
+  isPastCalendarDay,
+  isoDateInTimeZone,
   restaurantTimeZone,
+  zonedWallClockToUtc,
 } from '@reservations/shared';
 import {
   EmptyState,
@@ -126,8 +130,9 @@ type ReservationDetail = {
   } | null;
 };
 
-function combineDateTime(date: Dayjs, time: Dayjs) {
-  return date.hour(time.hour()).minute(time.minute()).second(0).millisecond(0);
+function wallClockToIso(date: Dayjs, time: Dayjs, timeZone: string): string {
+  const hm = `${String(time.hour()).padStart(2, '0')}:${String(time.minute()).padStart(2, '0')}`;
+  return zonedWallClockToUtc(date.format('YYYY-MM-DD'), hm, timeZone).toISOString();
 }
 
 function MetaChip({ label, value }: { label: string; value: string }) {
@@ -225,10 +230,13 @@ function AdminReservationDetailContent() {
   });
 
   const openEdit = (r: ReservationDetail) => {
-    const slot = dayjs(r.slotStart);
+    const tz = restaurantTimeZone(r.restaurant ?? {});
+    const dateIso = isoDateInTimeZone(new Date(r.slotStart), tz);
+    const hm = hmInTimeZone(new Date(r.slotStart), tz);
+    const [hour, minute] = hm.split(':').map(Number);
     editForm.setFieldsValue({
-      date: slot,
-      time: slot,
+      date: dayjs(dateIso),
+      time: dayjs().hour(hour ?? 0).minute(minute ?? 0),
       partySize: r.partySize,
       occasion: r.occasion ?? 'none',
       guestNotes: r.guestNotes ?? '',
@@ -280,7 +288,7 @@ function AdminReservationDetailContent() {
       const values = await editForm.validateFields();
       const slotStart = values.slotTime
         ? values.slotTime
-        : combineDateTime(values.date, values.time).toISOString();
+        : wallClockToIso(values.date, values.time, timeZone);
       await updateReservation({
         variables: {
           id: reservation.id,
@@ -770,6 +778,7 @@ function AdminReservationDetailContent() {
               <Form.Item name="date" label="Date" rules={[{ required: true }]} required>
                 <DatePicker
                   style={{ width: '100%' }}
+                  disabledDate={(d) => isPastCalendarDay(d.format('YYYY-MM-DD'), timeZone)}
                   onChange={() => {
                     editForm.setFieldsValue({ slotTime: undefined });
                     editDirty.markDirty();
@@ -813,8 +822,14 @@ function AdminReservationDetailContent() {
                 options={slotOptions}
                 value={editForm.getFieldValue('slotTime')}
                 onChange={(iso: string) => {
-                  const slot = dayjs(iso);
-                  editForm.setFieldsValue({ date: slot, time: slot, slotTime: iso });
+                  const dateIso = isoDateInTimeZone(new Date(iso), timeZone);
+                  const hm = hmInTimeZone(new Date(iso), timeZone);
+                  const [hour, minute] = hm.split(':').map(Number);
+                  editForm.setFieldsValue({
+                    date: dayjs(dateIso),
+                    time: dayjs().hour(hour ?? 0).minute(minute ?? 0),
+                    slotTime: iso,
+                  });
                   editDirty.markDirty();
                 }}
                 allowClear

@@ -22,6 +22,7 @@ import {
 } from 'antd';
 import { CheckCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { isPastCalendarDay, restaurantTimeZone } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import {
   MY_RESTAURANTS,
@@ -43,6 +44,8 @@ export default function BlackoutsPage() {
   const restaurantIds = restaurants.map((r: { id: string }) => r.id);
   const { restaurantId, setRestaurantId } = useActiveRestaurant(restaurantIds);
   const activeRestaurantId = validatedRestaurantId(restaurantId, restaurantIds);
+  const activeRestaurant = restaurants.find((r: { id: string }) => r.id === activeRestaurantId);
+  const timeZone = restaurantTimeZone(activeRestaurant ?? {});
 
   const { data: blackoutsData, refetch } = useQuery(RESTAURANT_BLACKOUTS, {
     skip: !activeRestaurantId,
@@ -117,7 +120,7 @@ export default function BlackoutsPage() {
                 >
                   <DatePicker
                     style={{ width: '100%' }}
-                    disabledDate={(d) => d.isBefore(dayjs(), 'day')}
+                    disabledDate={(d) => isPastCalendarDay(d.format('YYYY-MM-DD'), timeZone)}
                   />
                 </Form.Item>
                 <Form.Item name="reason" label="Reason">
