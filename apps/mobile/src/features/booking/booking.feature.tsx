@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Alert, ScrollView, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -13,6 +13,10 @@ import {
   Loader,
   Typography,
 } from "@/components";
+import {
+  PushPermissionModal,
+  usePushPermissionPrompt,
+} from "@/features/notifications";
 import { useAuth } from "@/graphql";
 import { tomorrowIsoDate } from "@/lib/helpers/date-time.helpers";
 import { useAppStore } from "@/store";
@@ -236,6 +240,30 @@ export function BookingFeature() {
     persistDraft,
     refetchMyWaitlist,
   });
+
+  const pushPrompt = usePushPermissionPrompt({ auto: false });
+  const { maybeShow: maybeShowPushPrompt } = pushPrompt;
+  const pushPromptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pushPromptTimerRef.current) {
+        clearTimeout(pushPromptTimerRef.current);
+      }
+    };
+  }, []);
+
+  const onWaitlistSuccessClose = useCallback(() => {
+    dismissWaitlistSuccess();
+    // Let the waitlist modal finish dismissing before priming push.
+    if (pushPromptTimerRef.current) {
+      clearTimeout(pushPromptTimerRef.current);
+    }
+    pushPromptTimerRef.current = setTimeout(() => {
+      pushPromptTimerRef.current = null;
+      void maybeShowPushPrompt();
+    }, 400);
+  }, [dismissWaitlistSuccess, maybeShowPushPrompt]);
 
   useEffect(() => {
     const tz = restaurant?.timezone ?? undefined;
@@ -486,9 +514,18 @@ export function BookingFeature() {
 
       <BookingWaitlistSuccessModal
         visible={waitlistSuccess != null}
-        onClose={dismissWaitlistSuccess}
+        onClose={onWaitlistSuccessClose}
         position={waitlistSuccess?.position}
         estimatedWaitMinutes={waitlistSuccess?.estimatedWaitMinutes}
+      />
+
+      <PushPermissionModal
+        visible={pushPrompt.visible}
+        loading={pushPrompt.loading}
+        onClose={pushPrompt.onDismiss}
+        onAllow={() => {
+          void pushPrompt.onAllow();
+        }}
       />
     </View>
   );

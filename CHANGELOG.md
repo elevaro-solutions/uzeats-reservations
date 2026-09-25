@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.67.1] — 2026-09-26
+
+### Changed
+
+- Mobile push: soft in-app permission prompt after booking confirmation or waitlist join (OS dialog only on Allow); sign-in no longer triggers a cold OS permission dialog
+
 ## [0.67.0] — 2026-09-26
 
 ### Fixed

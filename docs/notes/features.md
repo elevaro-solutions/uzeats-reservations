@@ -77,6 +77,11 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## notifications
 
+### [2026-09-26] Soft push prime after booking/waitlist; bootstrap never OS-prompts
+- Mobile no longer calls `requestPermissionsAsync` on sign-in. `PushBootstrap` only silently re-registers an Expo token when OS permission is already `granted`.
+- Soft in-app `PushPermissionModal` (location-style priming) appears once after reservation confirmation or waitlist success dismiss, only when status is `undetermined` and MMKV `pushSoftPromptCompleted` is unset. Allow → OS dialog + register; Not now → mark completed (no soft-nag). Settings Enable still requests permission.
+- Why it matters: Cold OS prompts on login get denied; ask at high-intent moments only after an affirmative tap.
+
 ### [2026-09-24] Unmapped notify types skipped in-app
 - Types not in `NOTIFICATION_TYPE_TO_EVENT` used the password-reset fallback (`platform: false`), so `reservation_needs_approval`, `reservation_pending_approval`, `restaurant_inquiry`, and `staff_invite` never created inbox rows (email only).
 - Fix: map those types; unknown non-`password_reset` types now use defaults (platform on) and log a warning. Stub email without SendGrid/Resend throws so status is `failed`, not fake `sent`.
@@ -108,11 +113,11 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 - Why it matters: Don’t easignore/gitignore the client file or Android builds won’t register with FCM; don’t commit the private key.
 
 ### [2026-09-16] Shared deep-link helper; settings never auto-registers
-- Push observer and inbox CTA both use `resolveNotificationLinkFromData` (`url` → `reservationId` → `restaurantId`). Settings keeps `auto: false` and only registers on Enable (root `PushBootstrap` owns auto-register). Inbox/settings match Profile sign-in (`/sign-in` + `next`) and `sessionOffline` retry before guest CTA.
+- Push observer and inbox CTA both use `resolveNotificationLinkFromData` (`url` → `reservationId` → `restaurantId`). Settings keeps `auto: false` and only registers on Enable (root `PushBootstrap` owns silent re-register when already granted). Inbox/settings match Profile sign-in (`/sign-in` + `next`) and `sessionOffline` retry before guest CTA.
 - Why it matters: Don’t re-duplicate deep-link order in the observer; don’t add a settings effect that races bootstrap.
 
 ### [2026-09-14] Push bootstrap is global; deep-link order matters
-- `PushBootstrap` in root layout registers on auth and handles taps: `data.url` → `reservationId` → `restaurantId`. Needs EAS `projectId` for Expo push token. Cold-start uses `getLastNotificationResponse()` once. Settings screen disables auto-register (`auto: false`) to avoid double flows.
+- `PushBootstrap` in root layout silently re-registers on auth when permission is already granted and handles taps: `data.url` → `reservationId` → `restaurantId`. Soft permission priming lives on booking confirmation / waitlist success (see 2026-09-26). Needs EAS `projectId` for Expo push token. Cold-start uses `getLastNotificationResponse()` once. Settings screen disables auto-register (`auto: false`) to avoid double flows.
 - Why it matters: A notification tap can navigate on launch. Don’t mount a second auto-registering bootstrap on the settings screen.
 
 ### [2026-09-15] Inbox vs push settings routes

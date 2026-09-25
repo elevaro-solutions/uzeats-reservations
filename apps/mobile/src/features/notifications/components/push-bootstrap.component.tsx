@@ -2,8 +2,9 @@ import { useNotificationObserver } from "../hooks/use-notification-observer.hook
 import { useRegisterPush } from "../hooks/use-register-push.hook";
 
 /**
- * Mount once under Apollo/Auth providers to register the device token and
- * handle notification taps. Renders nothing.
+ * Mount once under Apollo/Auth providers. Silently re-registers the Expo push
+ * token when permission is already granted (never shows the OS dialog) and
+ * handles notification taps. Renders nothing.
  */
 export function PushBootstrap() {
   useRegisterPush({ auto: true });

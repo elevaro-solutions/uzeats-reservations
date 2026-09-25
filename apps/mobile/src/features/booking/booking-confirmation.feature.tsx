@@ -21,6 +21,10 @@ import {
   RemoteImage,
   Typography,
 } from "@/components";
+import {
+  PushPermissionModal,
+  usePushPermissionPrompt,
+} from "@/features/notifications";
 import { IconPropsType } from "@/types";
 
 import { MY_RESERVATION } from "./api/booking.operations";
@@ -122,6 +126,9 @@ export function BookingConfirmationFeature() {
   );
 
   const reservation = data?.myReservation;
+  const pushPrompt = usePushPermissionPrompt({
+    auto: Boolean(reservation && !error),
+  });
 
   if (loading && !reservation) {
     return (
@@ -302,6 +309,15 @@ export function BookingConfirmationFeature() {
           Home
         </Button>
       </View>
+
+      <PushPermissionModal
+        visible={pushPrompt.visible}
+        loading={pushPrompt.loading}
+        onClose={pushPrompt.onDismiss}
+        onAllow={() => {
+          void pushPrompt.onAllow();
+        }}
+      />
     </View>
   );
 }

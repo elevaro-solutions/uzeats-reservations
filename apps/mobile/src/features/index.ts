@@ -9,7 +9,13 @@ export { ProfileFeature } from "./profile";
 export { FavoritesFeature } from "./favorites";
 export { HelpCenterFeature } from "./help-center";
 export { LegalFeature } from "./legal";
-export { NotificationsFeature, NotificationSettingsFeature, PushBootstrap } from "./notifications";
+export {
+  NotificationsFeature,
+  NotificationSettingsFeature,
+  PushBootstrap,
+  PushPermissionModal,
+  usePushPermissionPrompt,
+} from "./notifications";
 export { DemoFeature } from "./demo/demo.feature";
 export { SearchFeature } from "./search";
 export { RestaurantProfileFeature } from "./restaurant-profile";
