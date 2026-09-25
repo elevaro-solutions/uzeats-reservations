@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.66.1] — 2026-09-25
+
+### Fixed
+
+- Elevaro Telegram Open button links to `/reservations/{id}` (detail) instead of `/reservations?id=` (list ignored the query)
+
 ## [0.66.0] — 2026-09-25
 
 ### Changed

@@ -1,5 +1,9 @@
 # API — Learnings & Observations
 
+## [2026-09-25] Elevaro Open URL must be detail path
+- Messenger `openUrl` is `{DASHBOARD_APP_URL}/reservations/{reservationId}`. `?id=` was ignored by the list page (it only deep-links via `reservationId` or `/reservations/[id]`).
+- Why it matters: Telegram Open must land on the booking, not the full list.
+
 ## [2026-09-25] Elevaro messenger copy owned by API
 - `notifyRestaurantManagers` builds Telegram `title`/`body` for reservation events (loads diner + tables) and sends them as request overrides to Elevaro Notifier. Missing fields become `—`; cancel omits special request.
 - Why it matters: Bot manifests are only fallbacks — changing Tablevera alert layout does not require a notifier redeploy.

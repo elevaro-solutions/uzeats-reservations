@@ -402,7 +402,7 @@ export async function notifyRestaurantManagers(
     if (messengerUserIds.length === 0) return;
 
     const openUrl = env.DASHBOARD_APP_URL
-      ? `${env.DASHBOARD_APP_URL.replace(/\/$/, '')}/reservations?id=${reservationId}`
+      ? `${env.DASHBOARD_APP_URL.replace(/\/$/, '')}/reservations/${reservationId}`
       : undefined;
     const actions =
       payload.type === 'new_reservation'
