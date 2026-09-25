@@ -1,5 +1,9 @@
 # API — Learnings & Observations
 
+## [2026-09-25] Elevaro messenger copy owned by API
+- `notifyRestaurantManagers` builds Telegram `title`/`body` for reservation events (loads diner + tables) and sends them as request overrides to Elevaro Notifier. Missing fields become `—`; cancel omits special request.
+- Why it matters: Bot manifests are only fallbacks — changing Tablevera alert layout does not require a notifier redeploy.
+
 ## [2026-09-24] Manual deposit refund / hold release
 - `refundReservationDeposit` is partner-or-admin only (same ownership check as status updates). Allowed when status is `authorized` (full hold only) or `captured` with remaining balance.
 - Optional `amountCents` for partial refund of captured deposits; cumulative `depositRefundedCents` on the reservation; status stays `captured` until fully refunded.

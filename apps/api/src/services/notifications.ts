@@ -15,6 +15,7 @@ import { User } from '../models/User.js';
 import { Notification } from '../models/Loyalty.js';
 import { Reservation } from '../models/Reservation.js';
 import { Restaurant } from '../models/Restaurant.js';
+import { Table } from '../models/Table.js';
 import { mapNotificationPreferences } from '../lib/notificationPreferences.js';
 import { releaseTableSlotClaims } from './tableSlotClaims.js';
 import { captureDeposit } from './stripe.js';
@@ -23,6 +24,85 @@ import { textToEmailHtml, wrapEmailHtml } from './emailBranding.js';
 import { sendElevaroMerchantNotification } from './elevaroNotifier.js';
 
 export { wrapEmailHtml } from './emailBranding.js';
+
+const EMPTY_FIELD = '—';
+
+function displayOrDash(value: string | null | undefined): string {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : EMPTY_FIELD;
+}
+
+async function buildReservationMessengerContent(
+  reservationId: string,
+  restaurant: (Parameters<typeof restaurantTimeZone>[0] & { name?: string | null }) | null,
+  fallbackTitle: string,
+  options?: { includeSpecialRequest?: boolean },
+): Promise<{
+  title: string;
+  body: string;
+  payload: Record<string, unknown>;
+}> {
+  const includeSpecialRequest = options?.includeSpecialRequest !== false;
+  const reservation = await Reservation.findById(reservationId);
+  if (!reservation) {
+    return {
+      title: fallbackTitle,
+      body: restaurant?.name ? String(restaurant.name) : EMPTY_FIELD,
+      payload: { reservationId },
+    };
+  }
+
+  const [diner, tables] = await Promise.all([
+    User.findById(reservation.dinerId).select('firstName lastName email phone'),
+    Table.find({ _id: { $in: reservation.tableIds } }).select('name'),
+  ]);
+
+  const guestName = [diner?.firstName, diner?.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  const email = displayOrDash(diner?.email);
+  const phone = displayOrDash(diner?.phone);
+  const tableNumber = displayOrDash(
+    tables
+      .map((t) => t.name)
+      .filter(Boolean)
+      .join(', '),
+  );
+  const specialRequest = displayOrDash(reservation.guestNotes);
+  const when = formatDateTimeInTimeZone(
+    reservation.slotStart,
+    restaurantTimeZone(restaurant ?? {}),
+  );
+  const partySize = String(reservation.partySize);
+
+  const lines = [
+    `Email: ${email}`,
+    `Full name: ${displayOrDash(guestName)}`,
+    `Table: ${tableNumber}`,
+    `Phone: ${phone}`,
+  ];
+  if (includeSpecialRequest) {
+    lines.push(`Special request: ${specialRequest}`);
+  }
+  lines.push(`Time: ${when}`, `Guests: ${partySize}`);
+
+  return {
+    title: fallbackTitle,
+    body: lines.join('\n'),
+    payload: {
+      reservationId,
+      restaurantName: restaurant?.name ?? '',
+      email,
+      guestName: guestName || EMPTY_FIELD,
+      tableNumber,
+      phone,
+      specialRequest,
+      when,
+      partySize,
+    },
+  };
+}
 
 const connection = { url: env.REDIS_URL };
 
@@ -328,21 +408,39 @@ export async function notifyRestaurantManagers(
       payload.type === 'new_reservation'
         ? (['accept', 'reject', 'open'] as const)
         : (['open'] as const);
-    void sendElevaroMerchantNotification({
-      platformUserIds: messengerUserIds,
-      eventType: payload.type,
-      resourceType: 'reservation',
-      resourceId: reservationId,
-      idempotencyKey: `${payload.type}:${reservationId}`,
-      payload: {
-        restaurantName: restaurant.name,
-        title: payload.title,
-        body: payload.body,
-        ...(payload.data ?? {}),
-      },
-      actions: [...actions],
-      openUrl,
-    });
+
+    const messengerTitle =
+      payload.type === 'new_reservation'
+        ? 'New reservation'
+        : payload.type === 'reservation_cancelled'
+          ? 'Reservation cancelled'
+          : payload.type === 'reservation_updated'
+            ? 'Reservation updated'
+            : payload.title;
+
+    void (async () => {
+      const content = await buildReservationMessengerContent(
+        reservationId,
+        restaurant,
+        messengerTitle,
+        { includeSpecialRequest: payload.type !== 'reservation_cancelled' },
+      );
+      await sendElevaroMerchantNotification({
+        platformUserIds: messengerUserIds,
+        eventType: payload.type,
+        resourceType: 'reservation',
+        resourceId: reservationId,
+        idempotencyKey: `${payload.type}:${reservationId}`,
+        title: content.title,
+        body: content.body,
+        payload: {
+          ...content.payload,
+          ...(payload.data ?? {}),
+        },
+        actions: [...actions],
+        openUrl,
+      });
+    })();
   }
 }
 

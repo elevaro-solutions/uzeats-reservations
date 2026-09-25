@@ -16,8 +16,13 @@ export async function sendElevaroMerchantNotification(input: {
   resourceType: string;
   resourceId: string;
   idempotencyKey: string;
+  /** Overrides notifier manifest title when set */
+  title?: string;
+  /** Overrides notifier manifest body when set */
+  body?: string;
   payload?: Record<string, unknown>;
   actions?: Array<'accept' | 'reject' | 'open'>;
+  actionLabels?: Partial<Record<'accept' | 'reject' | 'open', string>>;
   openUrl?: string;
 }): Promise<void> {
   if (!notifierConfigured()) return;
@@ -40,8 +45,11 @@ export async function sendElevaroMerchantNotification(input: {
         eventType: input.eventType,
         resourceType: input.resourceType,
         resourceId: input.resourceId,
+        title: input.title,
+        body: input.body,
         payload: input.payload,
         actions: input.actions,
+        actionLabels: input.actionLabels,
         openUrl: input.openUrl,
       }),
     });
