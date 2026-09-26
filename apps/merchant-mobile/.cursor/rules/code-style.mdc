@@ -1,0 +1,16 @@
+---
+description: TypeScript and code quality conventions for Tablevera mobile
+globs: src/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Code style
+
+- TypeScript **strict**
+- Double quotes, 2-space indent, semicolons
+- Prefer named exports for components
+- Path alias: `@/*` → `src/*`
+- Keep files focused; split when a component + helpers exceeds ~200 lines
+- No `any` unless interfacing with untyped native APIs (narrow ASAP)
+- Prefer `function` declarations for components
+- Do not import from `@reservations/ui` (web/antd) — mobile has its own kit

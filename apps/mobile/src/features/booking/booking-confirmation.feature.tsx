@@ -239,7 +239,9 @@ export function BookingConfirmationFeature() {
               <Typography weight="semibold">{restaurant?.name}</Typography>
               {address ? (
                 <Flex direction="row" alignItems="flex-start" gap={0.75}>
-                  <MapPinIcon size={14} color={iconColor} />
+                  <View style={styles.addressIcon}>
+                    <MapPinIcon size={14} color={iconColor} />
+                  </View>
                   <Typography
                     size="text-sm"
                     color="secondary"
@@ -381,6 +383,13 @@ const styles = StyleSheet.create(({ space, radius, colors, shadows }) => ({
   meta: {
     flex: 1,
     minWidth: 0,
+  },
+  // Match text-sm lineHeight so the pin centers on the first address line.
+  addressIcon: {
+    width: 14,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   addressText: {
     flex: 1,

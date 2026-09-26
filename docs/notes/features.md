@@ -225,3 +225,54 @@ AddReviewSheet require all four; restaurant avg still rolls up overall only.
 ### [2026-09-14] Dual discovery indexes; draft query vs committed query
 - Global `DISCOVERY_INDEX` plus feature-scoped ops in `features/search/api/search.operations.ts`. Input draft debounces for suggestions; results use `committedQuery`. Clearing the field clears committed query so chips don’t stick.
 - Why it matters: Don’t assume all search ops live in `graphql/operations.ts`. Typing without submitting doesn’t redefine the result set.
+
+## merchant-more
+
+### [2026-09-21] Account hub (tab still routed as `more`)
+- Screen: centered profile, active restaurant switcher, one grouped Notifications + Waitlist list, muted Partner Hub note, logout confirm `Dialog`. Tab shows Account + filled `UserIcon`.
+- Why it matters: IA is account/venue + day-of shortcuts — not app settings or billing; avoid stacking cards/alerts that crowd the first viewport.
+
+## merchant-mobile (partner app)
+
+### [2026-09-21] Waitlist/Floor toast copy is outcome-oriented
+- Waitlist Notify/Seat/Remove toast success+error via `waitlistActionToastCopy` (not status nouns like `Marked cancelled`). Floor Complete/No-show/Cancel maps API statuses to human labels so `no_show` never appears raw. Message send errors use the shared `Please try again` fallback.
+- Why it matters: Staff see the action they took; don’t reuse `Marked ${status}` with underscores.
+
+### [2026-09-21] Messages inbox vs notifications venue scope
+- Inbox queries are active-venue only; notifications are cross-venue and threads are reservation-scoped. Deep-linking into a conversation for another venue left Messages empty until `activeRestaurantId` was synced via `syncActiveRestaurantId` (toast on multi-venue change; see `docs/notes/merchant-mobile/features.md`).
+- Reservation detail had the same trap (list-scoped to active venue). Fixed with `partnerReservation(id)` + notification `restaurantId`.
+- Why it matters: Opening a conversation or reservation from a notification must not depend on which venue is selected.
+
+### [2026-09-21] Reservation detail matches list-card action hierarchy
+- Detail screen: status pill via `reservationStatusVisual`, calendar time block, Guest/Booking/Table cards; phone/email open `tel:`/`mailto:`. Sticky footer = primary lifecycle CTA + More → `ReservationActionsSheet`; Cancel/No-show require `Dialog` confirm. Assign table only for pending/confirmed/seated.
+- Why it matters: Keep detail aligned with list cards — don’t stack a rainbow of status buttons or show assign on terminal bookings.
+
+### [2026-09-21] Create reservation walk-in auto-seats
+- API seats when `seatImmediately || source === 'walkin'`. Merchant create form forces Seat immediately on (Switch disabled) for walk-ins.
+- Why it matters: UI must not imply walk-ins can stay “confirmed only.”
+
+### [2026-09-19] More-actions sheet matches diner overflow list; No-show is neutral
+- Sheet body: muted uppercase “Actions” label over a bordered `slate1` group (diner overflow-menu pattern). Cancel stays `error`; No-show uses `secondary` → `textPrimary`. Status chips can still paint no_show red via `reservationStatusVisual`.
+- Why it matters: Section label clarifies the nested group; keep destructive Cancel red-only.
+
+### [2026-09-19] Reservation cards: time block + secondary CTA
+- List cards: muted calendar-style time block (`formatSlotTimeParts` → large clock + AM/PM) left; diner column (semibold name, guests/table with Users/Armchair icons); status pill absolute top-right; primary next action is full-width filled `secondary` with soft-radius More beside it (not circular).
+- Status pills still use `reservationStatusVisual` (pending amber, confirmed blue, seated green, completed/cancelled slate, no_show red) — not Floor’s table-ops palette. Cancel / No-show stay in More → BottomSheet.
+- Why it matters: Don’t use brand primary for every list CTA; don’t round the overflow control past `radius.md`.
+
+### [2026-09-19] Reservations list uses lifecycle status colors + primary/overflow actions
+- List cards lead with time · party · table, then guest; status pills use `reservationStatusVisual` (pending amber, confirmed blue, seated green, completed/cancelled slate, no_show red) — not Floor’s table-ops palette.
+- Only the primary next action (Confirm / Seat / Complete) sits on the card; Cancel / No-show live in a More → BottomSheet.
+- Why it matters: Don’t reintroduce a rainbow action row or reuse Floor seated=red on booking status chips.
+
+### [2026-09-18] Floor uses furniture cards + status washes, not an absolute canvas
+- Merchant Floor is a capacity-bucket furniture grid (2/4/6/banquet) with soft washes for `free` / `reserved` / `seated` / `turning`. Area filter is client-side on `floorArea`; layout coords (`posX`/`posY`) stay dashboard-only.
+- Why it matters: Don’t port dashboard canvas UX to the phone; keep partner mobile scannable without pan-zoom.
+
+### [2026-09-18] Reservations date filter is optional; upcoming/past are client-side
+- `restaurantReservations(date:)` accepts an optional date. Merchant list passes `date=today` for Today; omits date for Upcoming/Past and filters by `slotStart` (plus status chips) on the client.
+- Why it matters: Don’t assume a range API — broad fetch + client filter matches the dashboard lookup pattern (`limit: 100–200`).
+
+### [2026-09-18] Waitlist status includes `seated` in GraphQL
+- API `WaitlistStatus` includes `seated`; shared `WAITLIST_STATUSES` may lag. Merchant Notify/Seat/Remove map to `notified` / `seated` / `cancelled`.
+- Why it matters: Prefer the GraphQL enum over the shared constant when wiring floor waitlist actions.

@@ -297,6 +297,7 @@ import {
   mapBoostCampaign,
   mapIntegration,
   mapAuditLog,
+  refId,
   mapMenu,
   slugify,
 } from "./mappers.js";
@@ -1059,6 +1060,27 @@ export const resolvers = {
     },
 
     restaurantReservation: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const reservation = await Reservation.findById(args.id);
+      if (!reservation) return null;
+      try {
+        await assertRestaurantAccess(
+          user._id.toString(),
+          reservation.restaurantId.toString(),
+          user.role,
+        );
+      } catch {
+        return null;
+      }
+      return mapReservation(reservation);
+    },
+
+    /** Merchant-mobile alias of restaurantReservation (deep links / venue sync). */
+    partnerReservation: async (
       _: unknown,
       args: { id: string },
       ctx: GraphQLContext,

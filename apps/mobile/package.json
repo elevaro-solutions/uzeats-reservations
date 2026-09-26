@@ -9,6 +9,7 @@
     "android": "expo start --android --dev-client",
     "ios": "expo start --ios --dev-client",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "eas-build-post-install": "cd ../.. && pnpm --filter @reservations/shared build",
     "build:development": "eas build --profile development",
     "build:preview": "eas build --profile preview",
     "build:production": "eas build --profile production"
@@ -23,6 +24,7 @@
     "@reservations/shared": "workspace:^",
     "@shopify/flash-list": "2.0.2",
     "@stripe/stripe-react-native": "^0.75.0",
+    "babel-preset-expo": "~57.0.8",
     "expo": "~57.0.16",
     "expo-calendar": "~57.0.3",
     "expo-constants": "~57.0.14",
@@ -65,7 +67,9 @@
   "expo": {
     "autolinking": {
       "android": {
-        "buildFromSource": ["expo-linear-gradient"]
+        "buildFromSource": [
+          "expo-linear-gradient"
+        ]
       }
     }
   }

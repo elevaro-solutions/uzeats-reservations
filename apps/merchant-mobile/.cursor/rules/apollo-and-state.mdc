@@ -1,0 +1,19 @@
+---
+description: Merchant mobile Apollo and Zustand patterns
+globs: apps/merchant-mobile/src/graphql/**/*,apps/merchant-mobile/src/store/**/*
+---
+
+# Apollo (`src/graphql`)
+
+Links: `errorLink → authLink → httpLink` → `API_URL`.
+
+- Tokens in SecureStore only — never MMKV
+- On `Authentication required`, refresh via `refreshToken` mutation then retry
+- Shared auth ops: `src/graphql/operations.ts`
+- Feature-specific ops live under `src/features/<x>/api/`
+- Reject diner/admin with `isPartnerMobileRole` after login and on `refreshMe`
+
+# Zustand + MMKV (`src/store`)
+
+- Persist `activeRestaurantId` (and other non-sensitive prefs) to MMKV
+- Auth user/session: React context + SecureStore (`src/graphql/auth.tsx`)

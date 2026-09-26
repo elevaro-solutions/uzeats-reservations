@@ -2660,6 +2660,8 @@ export const typeDefs = `#graphql
       offset: Int
     ): ReservationConnection!
     restaurantReservation(id: ID!): Reservation
+    """Partner ops alias of restaurantReservation (merchant mobile deep links)."""
+    partnerReservation(id: ID!): Reservation
     myWaitlist: [WaitlistEntry!]!
     restaurantWaitlist(restaurantId: ID!, limit: Int, offset: Int): WaitlistConnection!
     restaurantReviews(restaurantId: ID!, limit: Int, offset: Int): ReviewConnection!

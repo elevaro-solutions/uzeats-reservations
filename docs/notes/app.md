@@ -1,5 +1,13 @@
 # App — Learnings & Observations
 
+## [2026-09-26] EAS needs babel-preset-expo as a direct dependency
+- Same as merchant: pnpm + EAS Release bundle cannot resolve `babel-preset-expo` unless it’s in app `dependencies`. Missing preset surfaces as Metro `transformFile` of undefined.
+- Why it matters: Don’t rely on transitive `expo` linkage for Babel presets under pnpm on EAS.
+
+## [2026-09-26] EAS must build @reservations/shared (dist is gitignored)
+- Same as merchant: `@reservations/shared` points at gitignored `dist/`. `eas-build-post-install` runs `pnpm --filter @reservations/shared build` from monorepo root before Metro embed.
+- Why it matters: Clean EAS clones fail `@reservations/shared` resolution without the hook.
+
 ## [2026-09-18] Photo library usage string is native-only; Metro won’t save you
 - iOS kills the process (TCC) if `NSPhotoLibraryUsageDescription` is missing when `expo-image-picker` opens the library — not a JS exception. `app.config.js` / the `expo-image-picker` plugin only apply after `expo prebuild` / `expo run:ios` regenerates `ios/Tablevera/Info.plist` (gitignored).
 - The review-photos merge also dropped the opening `[` on the `expo-splash-screen` plugin entry, so `require(app.config.js)` threw `Unexpected string` until fixed.

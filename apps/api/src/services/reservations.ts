@@ -287,7 +287,8 @@ async function findOrCreateDiner(guest: {
     email: guest.email?.toLowerCase(),
     phone: guest.phone,
     firstName: guest.firstName,
-    lastName: guest.lastName ?? '',
+    // Owner guest input allows omitting last name; User.lastName may be empty.
+    lastName: guest.lastName?.trim() || '',
     role: 'diner',
   });
 }
@@ -1139,7 +1140,10 @@ export async function confirmDeposit(paymentIntentId: string) {
       body: `Party of ${reservation.partySize} at ${formatReservationWhen(reservation.slotStart, restaurant)}${
         restaurant ? ` — ${restaurant.name}` : ''
       }`,
-      data: { reservationId: reservation._id.toString() },
+      data: {
+        restaurantId: reservation.restaurantId.toString(),
+        reservationId: reservation._id.toString(),
+      },
     });
   } else if (wasPending && needsManualApproval) {
     const restaurant = await Restaurant.findById(reservation.restaurantId);
@@ -1384,7 +1388,10 @@ export async function updateReservationDetails(
       type: 'reservation_updated',
       title: 'Reservation updated',
       body: `A guest updated their reservation at ${restaurantName} (${when}, party of ${reservation.partySize}).`,
-      data: { reservationId: reservation._id.toString() },
+      data: {
+        restaurantId: reservation.restaurantId.toString(),
+        reservationId: reservation._id.toString(),
+      },
     });
   } else {
     await notifyUser(

@@ -114,7 +114,11 @@ export async function recordGuestSpend(input: {
       type: 'guest_spend_alert',
       title: 'High spend alert',
       body: `A guest check just hit $${(input.amountCents / 100).toFixed(2)} at ${restaurant.name}.`,
-      data: { reservationId: input.reservationId, amountCents: input.amountCents },
+      data: {
+        restaurantId: input.restaurantId,
+        reservationId: input.reservationId,
+        amountCents: input.amountCents,
+      },
     });
   } catch (err) {
     logger.error({ err }, '[guests] spend alert failed');

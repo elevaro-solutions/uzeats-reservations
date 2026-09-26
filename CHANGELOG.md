@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Merchant mobile app (`apps/merchant-mobile`): Expo SDK 57 partner ops client for `restaurant_owner` / `manager` (Overview, Reservations, Floor, Messages, Waitlist, Notifications, Account)
+- API: `partnerReservation(id)` alias of `restaurantReservation` for merchant-mobile deep links
+
+### Changed
+
+- Merchant mobile: Reservations/Floor/Messages/Waitlist/Account UX polish, loading skeletons, brand icons, EAS/FCM wiring, and ops feature splits
+
+### Fixed
+
+- Merchant + diner mobile: EAS builds resolve `babel-preset-expo` and build `@reservations/shared` on install
+- Merchant mobile: dedicated EAS project (`tablevera-merchant`); reservation detail works across venues via `partnerReservation`
+
 ## [0.67.1] — 2026-09-26
 
 ### Changed

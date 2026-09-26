@@ -1,0 +1,17 @@
+import { Circle, Path, Rect } from "react-native-svg";
+
+import { IconPropsType } from "@/types";
+
+import { SvgWrapper } from "../components/svg-wrapper.component";
+
+export function ClipboardClockIcon(props: IconPropsType) {
+  return (
+    <SvgWrapper {...props}>
+      <Path d="M16 14v2.2l1.6 1" />
+      <Path d="M16 4h2a2 2 0 0 1 2 2v.832" />
+      <Path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h2" />
+      <Circle cx={16} cy={16} r={6} />
+      <Rect x={8} y={2} width={8} height={4} rx={1} />
+    </SvgWrapper>
+  );
+}
