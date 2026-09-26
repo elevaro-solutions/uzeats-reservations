@@ -1,5 +1,10 @@
 # app — Learnings & Observations
 
+## [2026-09-26] EAS needs babel-preset-expo as a direct dependency
+- `babel.config.js` uses `presets: ["babel-preset-expo"]`, but with pnpm the preset is not resolvable from the app unless declared. EAS Release JS bundle then fails: `Cannot find module 'babel-preset-expo'` → Metro `transformFile` of undefined (iOS + Android).
+- Fix: add `babel-preset-expo` to app `dependencies` (not only transitive via `expo`; keep it out of `devDependencies` so production installs still get it).
+- Why it matters: Local Metro can appear fine if the package is already linked elsewhere; clean EAS workers are strict.
+
 ## [2026-09-26] EAS must build @reservations/shared (dist is gitignored)
 - `@reservations/shared` `main`/`exports` point at `dist/index.js`, but `dist/` is root-gitignored. EAS clones have no dist → Metro fails resolving `@reservations/shared` during `expo export:embed`.
 - Fix: `eas-build-post-install` in app `package.json` runs `pnpm --filter @reservations/shared build` from the monorepo root (same hook on diner `apps/mobile`).

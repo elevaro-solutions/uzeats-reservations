@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.59.4] — 2026-09-26
+
+### Fixed
+
+- Merchant + diner mobile: declare `babel-preset-expo` so EAS/pnpm Metro can resolve Babel (fixes `transformFile` / missing preset on Release bundle)
+
+### Docs
+
+- Merchant mobile notes: EAS Release bundle needs direct `babel-preset-expo` under pnpm
+
 ## [0.59.3] — 2026-09-26
 
 ### Fixed
