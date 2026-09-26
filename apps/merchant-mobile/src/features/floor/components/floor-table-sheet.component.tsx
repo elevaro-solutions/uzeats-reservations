@@ -29,6 +29,7 @@ export type FloorTableSheetProps = {
   visible: boolean;
   selected: FloorTableState | null;
   seatGuestName?: string | null;
+  timeZone?: string;
   busy?: boolean;
   onClose: () => void;
   onSeatHere: () => void;
@@ -39,6 +40,7 @@ export function FloorTableSheet({
   visible,
   selected,
   seatGuestName,
+  timeZone,
   busy = false,
   onClose,
   onSeatHere,
@@ -163,6 +165,7 @@ export function FloorTableSheet({
             reservation={selected.reservation}
             seatGuestName={seatGuestName}
             status={selected.status}
+            timeZone={timeZone}
           />
 
           <FloorTableSheetTiming

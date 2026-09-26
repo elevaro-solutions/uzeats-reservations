@@ -1,7 +1,11 @@
 import {
-  formatRelativeDayLabel,
-  toIsoDate,
-} from "@/lib/helpers/date-time.helpers";
+  calendarDayRange,
+  isoDateInTimeZone,
+  PLATFORM_TIMEZONE,
+  todayIsoInTimeZone,
+} from "@reservations/shared";
+
+import { formatRelativeDayLabel } from "@/lib/helpers/date-time.helpers";
 
 import type { ReservationListItem } from "../components/reservation-card.component";
 
@@ -11,28 +15,19 @@ export type ListRow =
   | { type: "header"; id: string; label: string }
   | { type: "reservation"; id: string; reservation: ReservationListItem };
 
-export function startOfToday(): number {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
-export function endOfToday(): number {
-  const d = new Date();
-  d.setHours(23, 59, 59, 999);
-  return d.getTime();
-}
-
 export function filterReservationsForRange(
   items: ReservationListItem[],
   range: RangeKey,
+  timeZone: string = PLATFORM_TIMEZONE,
 ): ReservationListItem[] {
-  const start = startOfToday();
-  const end = endOfToday();
+  const todayIso = todayIsoInTimeZone(timeZone);
+  const { $gte: dayStart, $lt: dayEnd } = calendarDayRange(todayIso, timeZone);
+  const start = dayStart.getTime();
+  const end = dayEnd.getTime();
 
   const filtered = items.filter((item) => {
     const slot = new Date(item.slotStart).getTime();
-    if (range === "today" && (slot < start || slot > end)) return false;
+    if (range === "today" && (slot < start || slot >= end)) return false;
     if (range === "upcoming" && slot < start) return false;
     if (range === "past" && slot >= start) return false;
     return true;
@@ -48,6 +43,7 @@ export function filterReservationsForRange(
 export function buildListRows(
   items: ReservationListItem[],
   range: RangeKey,
+  timeZone: string = PLATFORM_TIMEZONE,
 ): ListRow[] {
   if (range === "today") {
     return items.map((reservation) => ({
@@ -61,13 +57,13 @@ export function buildListRows(
   let lastDay: string | null = null;
 
   for (const reservation of items) {
-    const dayIso = toIsoDate(new Date(reservation.slotStart));
+    const dayIso = isoDateInTimeZone(new Date(reservation.slotStart), timeZone);
     if (dayIso !== lastDay) {
       lastDay = dayIso;
       rows.push({
         type: "header",
         id: `day-${dayIso}`,
-        label: formatRelativeDayLabel(dayIso),
+        label: formatRelativeDayLabel(dayIso, timeZone),
       });
     }
     rows.push({

@@ -18,6 +18,7 @@ export type BookingWaitlistChipsProps = {
   showWaitlist?: boolean;
   isOnWaitlist?: boolean;
   selectedSlot?: string | null;
+  timeZone?: string;
 };
 
 export function BookingWaitlistChips({
@@ -28,6 +29,7 @@ export function BookingWaitlistChips({
   showWaitlist = false,
   isOnWaitlist = false,
   selectedSlot = null,
+  timeZone,
 }: BookingWaitlistChipsProps) {
   const { theme } = useUnistyles();
   const { width: screenWidth } = useWindowDimensions();
@@ -58,6 +60,7 @@ export function BookingWaitlistChips({
           {nearbySlots.map((slot) => {
             const selected =
               selectedSlot != null && slotTimesEqual(selectedSlot, slot.time);
+            const label = formatSlotTime(slot.time, timeZone);
             return (
               <Pressable
                 key={slot.time}
@@ -72,14 +75,14 @@ export function BookingWaitlistChips({
                 ]}
                 accessibilityRole="button"
                 accessibilityState={{ selected }}
-                accessibilityLabel={`Select ${formatSlotTime(slot.time)}`}
+                accessibilityLabel={`Select ${label}`}
               >
                 <Typography
                   weight={selected ? "semibold" : "medium"}
                   size="text-sm"
                   color={selected ? "inverse" : "primary"}
                 >
-                  {formatSlotTime(slot.time)}
+                  {label}
                 </Typography>
               </Pressable>
             );

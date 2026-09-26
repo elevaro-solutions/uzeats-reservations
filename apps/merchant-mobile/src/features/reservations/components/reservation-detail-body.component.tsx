@@ -17,6 +17,7 @@ export type ReservationDetailBodyProps = {
   tableLabel: string | null;
   canAssignTable: boolean;
   hasFooterActions: boolean;
+  timeZone?: string;
   onAssignTable: () => void;
 };
 
@@ -27,6 +28,7 @@ export function ReservationDetailBody({
   tableLabel,
   canAssignTable,
   hasFooterActions,
+  timeZone,
   onAssignTable,
 }: ReservationDetailBodyProps) {
   const insets = useSafeAreaInsets();
@@ -52,6 +54,7 @@ export function ReservationDetailBody({
         partySize={reservation.partySize}
         tableLabel={tableLabel}
         occasion={reservation.occasion}
+        timeZone={timeZone}
       />
 
       <ReservationDetailSection title="Guest" rows={guestRows} />

@@ -10,7 +10,7 @@ import {
   InlineAlert,
   Typography,
 } from "@/components";
-import { OCCASION_LABELS, type Occasion } from "@reservations/shared";
+import { OCCASION_LABELS, PLATFORM_TIMEZONE, type Occasion } from "@reservations/shared";
 
 import { formatCents } from "../helpers/booking-pricing.helpers";
 import { formatGuestCount } from "../helpers/format-guest-count.helpers";
@@ -34,6 +34,7 @@ export type BookingConfirmSheetProps = {
   termsAccepted: boolean;
   onTermsAcceptedChange: (value: boolean) => void;
   errorMessage?: string | null;
+  timeZone?: string | null;
 };
 
 export function BookingConfirmSheet({
@@ -51,11 +52,13 @@ export function BookingConfirmSheet({
   termsAccepted,
   onTermsAcceptedChange,
   errorMessage,
+  timeZone,
 }: BookingConfirmSheetProps) {
   const { theme } = useUnistyles();
   const occasionLabel = OCCASION_LABELS[occasion];
   const trimmedNotes = notes.trim();
   const [termsHint, setTermsHint] = useState(false);
+  const zone = timeZone ?? PLATFORM_TIMEZONE;
 
   function handleConfirm() {
     if (!termsAccepted) {
@@ -109,7 +112,7 @@ export function BookingConfirmSheet({
                 label: "Date",
                 content: (
                   <Typography weight="medium" style={styles.valueText}>
-                    {formatSlotDateLong(slotStart)}
+                    {formatSlotDateLong(slotStart, zone)}
                   </Typography>
                 ),
               },
@@ -117,7 +120,7 @@ export function BookingConfirmSheet({
                 label: "Time",
                 content: (
                   <Typography weight="medium" style={styles.valueText}>
-                    {formatSlotTime(slotStart)}
+                    {formatSlotTime(slotStart, zone)}
                   </Typography>
                 ),
               },

@@ -9,6 +9,7 @@ import { toast } from "sonner-native";
 import { InlineAlert, SegmentedControl, Typography } from "@/components";
 import { useActiveRestaurant } from "@/features/restaurants";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
+import { PLATFORM_TIMEZONE } from "@reservations/shared";
 
 import {
   CONVERSATIONS,
@@ -45,6 +46,7 @@ export function MessagesFeature() {
     restaurantsReady,
   } = useActiveRestaurant();
   const restaurantId = activeRestaurant?.id ?? null;
+  const timeZone = activeRestaurant?.timezone ?? PLATFORM_TIMEZONE;
   const [filter, setFilter] = useState<InboxFilter>("all");
   const [refreshing, setRefreshing] = useState(false);
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
@@ -168,6 +170,7 @@ export function MessagesFeature() {
           emptyTitle={emptyCopy.title}
           emptyDescription={emptyCopy.description}
           contentPaddingBottom={insets.bottom + theme.space(3)}
+          timeZone={timeZone}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}

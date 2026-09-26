@@ -25,6 +25,7 @@ import {
   getGraphQLErrorMessage,
   isUnauthenticatedError,
 } from "@/lib/graphql-errors";
+import { PLATFORM_TIMEZONE } from "@reservations/shared";
 
 import { MY_RESERVATION } from "../booking/api/booking.operations";
 import { formatReservationWhen } from "../reservations/helpers/reservation-display.helpers";
@@ -51,7 +52,10 @@ type ReservationMetaQuery = {
     id: string;
     slotStart: string;
     partySize: number;
-    restaurant?: { name?: string | null } | null;
+    restaurant?: {
+      name?: string | null;
+      timezone?: string | null;
+    } | null;
   } | null;
 };
 
@@ -110,7 +114,10 @@ export function ReservationMessagesFeature() {
 
   const subtitle = reservation
     ? [
-        formatReservationWhen(reservation.slotStart),
+        formatReservationWhen(
+          reservation.slotStart,
+          reservation.restaurant?.timezone ?? PLATFORM_TIMEZONE,
+        ),
         `party of ${reservation.partySize}`,
       ].join(" · ")
     : null;

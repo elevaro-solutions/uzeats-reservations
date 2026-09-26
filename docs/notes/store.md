@@ -1,5 +1,9 @@
 # Store — Learnings & Observations
 
+## [2026-09-26] Discovery default date is platform tomorrow
+- `DEFAULT_DISCOVERY_FILTERS.date` and `resetDiscovery` use `tomorrowIsoDate(PLATFORM_TIMEZONE)`, not device local midnight.
+- Why it matters: Matches multi-venue discovery day convention (platform ET) documented under booking timezone notes.
+
 ## [2026-09-14] MMKV for prefs/drafts; SecureStore for tokens
 - Zustand persist (`tablevera-app`) and booking drafts (via `@reservations/shared`) share `createMMKV({ id: "tablevera" })`. Auth tokens stay in SecureStore only.
 - Why it matters: Clearing MMKV wipes UI prefs and drafts, not session. Never put tokens in Zustand.

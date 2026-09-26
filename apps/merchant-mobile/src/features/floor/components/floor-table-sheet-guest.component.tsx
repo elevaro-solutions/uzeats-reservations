@@ -9,10 +9,12 @@ import type { FloorTableState } from "../helpers/floor.types";
 
 export type FloorTableSheetGuestProps = {
   reservation: NonNullable<FloorTableState["reservation"]>;
+  timeZone?: string;
 };
 
 export function FloorTableSheetGuest({
   reservation,
+  timeZone,
 }: FloorTableSheetGuestProps) {
   const { theme } = useUnistyles();
   const name = guestDisplayName(reservation.diner);
@@ -54,7 +56,7 @@ export function FloorTableSheetGuest({
             >
               <ClockIcon size={14} color={theme.colors.textMuted} />
               <Typography size="text-sm" color="muted" numberOfLines={1}>
-                {formatSlotDateTime(reservation.slotStart)}
+                {formatSlotDateTime(reservation.slotStart, timeZone)}
               </Typography>
             </Flex>
           </Flex>
@@ -107,13 +109,17 @@ export function FloorTableSheetGuestSection({
   reservation,
   seatGuestName,
   status,
+  timeZone,
 }: {
   reservation?: FloorTableState["reservation"];
   seatGuestName?: string | null;
   status: string;
+  timeZone?: string;
 }) {
   if (reservation) {
-    return <FloorTableSheetGuest reservation={reservation} />;
+    return (
+      <FloorTableSheetGuest reservation={reservation} timeZone={timeZone} />
+    );
   }
   if (seatGuestName && status !== "seated") {
     return <FloorTableSheetSeatPrompt seatGuestName={seatGuestName} />;

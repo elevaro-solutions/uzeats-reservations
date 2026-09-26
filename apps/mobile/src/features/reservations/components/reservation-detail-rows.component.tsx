@@ -21,7 +21,7 @@ import {
   WineIcon,
 } from "@/assets";
 import { Flex, RemoteImage, Typography } from "@/components";
-import { OCCASION_LABELS, type Occasion } from "@reservations/shared";
+import { OCCASION_LABELS, PLATFORM_TIMEZONE, type Occasion } from "@reservations/shared";
 import { IconPropsType } from "@/types";
 
 import {
@@ -48,6 +48,9 @@ export type ReservationDetailRowsReservation = {
   depositStatus?: string | null;
   requiresManualApproval?: boolean | null;
   loyaltyPointsEarned?: number | null;
+  restaurant?: {
+    timezone?: string | null;
+  } | null;
   tables?:
     | {
         id: string;
@@ -166,18 +169,23 @@ export function ReservationDetailRows({
   const depositCents = reservation.depositAmountCents ?? 0;
   const loyalty = reservation.loyaltyPointsEarned ?? 0;
   const showSecondary = Boolean(tableLabel) || depositCents > 0 || loyalty > 0;
+  const timeZone = reservation.restaurant?.timezone ?? PLATFORM_TIMEZONE;
 
   const visitRows: DetailRowItem[] = [
     {
       key: "date",
       label: "Date",
-      value: formatReservationDate(reservation.slotStart),
+      value: formatReservationDate(reservation.slotStart, timeZone),
       icon: <CalendarIcon size={18} color={iconColor} />,
     },
     {
       key: "time",
       label: "Time",
-      value: formatReservationTime(reservation.slotStart, reservation.slotEnd),
+      value: formatReservationTime(
+        reservation.slotStart,
+        reservation.slotEnd,
+        timeZone,
+      ),
       icon: <ClockIcon size={18} color={iconColor} />,
     },
     {

@@ -441,6 +441,7 @@ export function EditReservationFeature() {
               date={date}
               partySize={partySize}
               maxAdvanceDays={maxAdvanceDays}
+              timeZone={restaurant?.timezone ?? undefined}
               onDateChange={onSelectDate}
               onPartySizeChange={onPartySizeChange}
             />

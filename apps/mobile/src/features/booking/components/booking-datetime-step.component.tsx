@@ -112,6 +112,7 @@ export function BookingDatetimeStep({
                 showWaitlist={showWaitlist && slots.length > 0}
                 isOnWaitlist={isOnWaitlist}
                 selectedSlot={selectedSlot}
+                timeZone={timeZone}
               />
             </BookingSection>
           ) : null}

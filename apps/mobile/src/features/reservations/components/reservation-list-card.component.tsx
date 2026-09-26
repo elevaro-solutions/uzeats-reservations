@@ -1,3 +1,4 @@
+import { PLATFORM_TIMEZONE } from "@reservations/shared";
 import { Pressable, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
@@ -24,6 +25,7 @@ export type ReservationListCardItem = {
     id?: string;
     name?: string;
     photos?: (string | null)[] | null;
+    timezone?: string | null;
     address?: {
       city?: string | null;
       neighborhood?: string | null;
@@ -47,6 +49,7 @@ export function ReservationListCard({ item, onPress }: ReservationListCardProps)
     null;
   const depositDue = needsDepositPayment(item);
   const muted = theme.colors.textMuted;
+  const timeZone = item.restaurant?.timezone ?? PLATFORM_TIMEZONE;
 
   return (
     <View style={styles.shadow}>
@@ -56,8 +59,8 @@ export function ReservationListCard({ item, onPress }: ReservationListCardProps)
         accessibilityRole="button"
         accessibilityLabel={[
           item.restaurant?.name,
-          formatReservationDate(item.slotStart),
-          formatReservationTime(item.slotStart, item.slotEnd),
+          formatReservationDate(item.slotStart, timeZone),
+          formatReservationTime(item.slotStart, item.slotEnd, timeZone),
           `${item.partySize} guests`,
         ]
           .filter(Boolean)
@@ -103,13 +106,13 @@ export function ReservationListCard({ item, onPress }: ReservationListCardProps)
               <Flex direction="row" alignItems="center" gap={0.5}>
                 <CalendarIcon size={14} color={muted} />
                 <Typography size="text-xs" weight="medium" color="secondary">
-                  {formatReservationDate(item.slotStart)}
+                  {formatReservationDate(item.slotStart, timeZone)}
                 </Typography>
               </Flex>
               <Flex direction="row" alignItems="center" gap={0.5}>
                 <ClockIcon size={14} color={muted} />
                 <Typography size="text-xs" weight="medium" color="secondary">
-                  {formatReservationTime(item.slotStart, item.slotEnd)}
+                  {formatReservationTime(item.slotStart, item.slotEnd, timeZone)}
                 </Typography>
               </Flex>
               <Flex direction="row" alignItems="center" gap={0.5}>

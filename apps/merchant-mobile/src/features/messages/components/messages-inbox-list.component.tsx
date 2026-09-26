@@ -23,6 +23,7 @@ export type MessagesInboxListProps = {
   emptyDescription: string;
   contentPaddingBottom: number;
   refreshControl: ReactElement<RefreshControlProps>;
+  timeZone: string;
   onPressConversation: (reservationId: string) => void;
   onPressInquiry: (inquiry: Inquiry) => void;
 };
@@ -33,6 +34,7 @@ export function MessagesInboxList({
   emptyDescription,
   contentPaddingBottom,
   refreshControl,
+  timeZone,
   onPressConversation,
   onPressInquiry,
 }: MessagesInboxListProps) {
@@ -60,7 +62,7 @@ export function MessagesInboxList({
               const partySize = conversation.reservation?.partySize;
               const meta = slotStart
                 ? [
-                    formatConversationWhen(slotStart),
+                    formatConversationWhen(slotStart, timeZone),
                     partySize ? `party of ${partySize}` : null,
                   ]
                     .filter(Boolean)

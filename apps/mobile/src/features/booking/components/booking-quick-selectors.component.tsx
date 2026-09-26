@@ -120,7 +120,7 @@ export function BookingQuickSelectors({
     }
   }
 
-  const dateLabel = formatQuickDateLabel(date);
+  const dateLabel = formatQuickDateLabel(date, timeZone);
   const guestLabel = formatGuestCount(partySize);
   const doneLabel = `Done · ${formatGuestCount(draftPartySize)}`;
 

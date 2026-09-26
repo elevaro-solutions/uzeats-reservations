@@ -17,7 +17,12 @@ import { ChevronLeftIcon } from "@/assets";
 import { Button, Flex, IconButton, Typography } from "@/components";
 import { useActiveRestaurant } from "@/features/restaurants";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
-import { todayIsoDate, toE164Us } from "@/lib/helpers";
+import { toE164Us } from "@/lib/helpers";
+import {
+  PLATFORM_TIMEZONE,
+  todayIsoInTimeZone,
+  zonedWallClockToUtc,
+} from "@reservations/shared";
 
 import { CREATE_OWNER_RESERVATION } from "./api/reservations.operations";
 import { CreateReservationForm } from "./components/create-reservation-form.component";
@@ -30,14 +35,15 @@ export function CreateReservationFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
-  const { activeRestaurantId } = useActiveRestaurant();
+  const { activeRestaurantId, activeRestaurant } = useActiveRestaurant();
+  const timeZone = activeRestaurant?.timezone ?? PLATFORM_TIMEZONE;
 
   const {
     control,
     handleSubmit,
     watch,
     setValue,
-    formState: { errors },
+    formState: { dirtyFields, errors },
   } = useForm<CreateReservationFormValues>({
     resolver: zodResolver(createReservationFormSchema),
     defaultValues: {
@@ -45,7 +51,7 @@ export function CreateReservationFeature() {
       lastName: "",
       phone: "",
       partySize: 2,
-      date: todayIsoDate(),
+      date: todayIsoInTimeZone(timeZone),
       time: "19:00",
       source: "phone",
       seatImmediately: false,
@@ -61,6 +67,11 @@ export function CreateReservationFeature() {
     }
   }, [isWalkIn, setValue]);
 
+  useEffect(() => {
+    if (dirtyFields.date) return;
+    setValue("date", todayIsoInTimeZone(timeZone), { shouldDirty: false });
+  }, [dirtyFields.date, setValue, timeZone]);
+
   const [createReservation, { loading }] = useMutation(CREATE_OWNER_RESERVATION);
 
   const onSubmit = handleSubmit(async (values) => {
@@ -69,7 +80,11 @@ export function CreateReservationFeature() {
       return;
     }
 
-    const slotStart = new Date(`${values.date}T${values.time}:00`).toISOString();
+    const slotStart = zonedWallClockToUtc(
+      values.date,
+      values.time,
+      timeZone,
+    ).toISOString();
     const phoneE164 = toE164Us(values.phone);
 
     try {
@@ -127,6 +142,7 @@ export function CreateReservationFeature() {
           control={control}
           errors={errors}
           isWalkIn={isWalkIn}
+          timeZone={timeZone}
         />
       </ScrollView>
 

@@ -211,6 +211,7 @@ export const MY_RESERVATIONS = gql`
         name
         slug
         photos
+        timezone
         address {
           line1
           city

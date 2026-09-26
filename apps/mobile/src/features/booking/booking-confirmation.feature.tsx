@@ -25,6 +25,7 @@ import {
   PushPermissionModal,
   usePushPermissionPrompt,
 } from "@/features/notifications";
+import { PLATFORM_TIMEZONE } from "@reservations/shared";
 import { IconPropsType } from "@/types";
 
 import { MY_RESERVATION } from "./api/booking.operations";
@@ -67,6 +68,7 @@ type MyReservationResult = {
       slug?: string | null;
       photos?: (string | null)[] | null;
       phone?: string | null;
+      timezone?: string | null;
       address?: {
         line1?: string | null;
         line2?: string | null;
@@ -191,6 +193,7 @@ export function BookingConfirmationFeature() {
 
   const restaurant = reservation.restaurant;
   const photo = pickPhoto(restaurant?.photos);
+  const timeZone = restaurant?.timezone ?? PLATFORM_TIMEZONE;
   const address = [
     restaurant?.address?.line1,
     restaurant?.address?.city,
@@ -260,12 +263,12 @@ export function BookingConfirmationFeature() {
           <Flex gap={2}>
             <MetaRow icon={<CalendarIcon size={20} color={iconColor} />}>
               <Typography weight="medium">
-                {formatSlotDateLong(reservation.slotStart)}
+                {formatSlotDateLong(reservation.slotStart, timeZone)}
               </Typography>
             </MetaRow>
             <MetaRow icon={<ClockIcon size={20} color={iconColor} />}>
               <Typography weight="medium">
-                {formatSlotTime(reservation.slotStart)}
+                {formatSlotTime(reservation.slotStart, timeZone)}
               </Typography>
             </MetaRow>
             <MetaRow icon={<UserIcon size={20} color={iconColor} />}>

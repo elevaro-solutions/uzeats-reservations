@@ -1,3 +1,5 @@
+import { formatUsDateTime, PLATFORM_TIMEZONE } from "@reservations/shared";
+
 function startOfLocalDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
@@ -56,8 +58,12 @@ export function formatInboxRelativeTime(iso: string): string {
   });
 }
 
-export function formatConversationWhen(slotStart: string): string {
-  return new Date(slotStart).toLocaleString([], {
+export function formatConversationWhen(
+  slotStart: string,
+  timeZone: string = PLATFORM_TIMEZONE,
+): string {
+  return formatUsDateTime(slotStart, {
+    timeZone,
     weekday: "short",
     month: "short",
     day: "numeric",

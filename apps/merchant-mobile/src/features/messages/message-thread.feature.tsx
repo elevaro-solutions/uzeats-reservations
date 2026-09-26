@@ -18,6 +18,7 @@ import {
   useActiveRestaurant,
 } from "@/features/restaurants";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
+import { PLATFORM_TIMEZONE } from "@reservations/shared";
 
 import {
   CONVERSATION,
@@ -57,7 +58,7 @@ export function MessageThreadFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
-  const { restaurants } = useActiveRestaurant();
+  const { restaurants, activeRestaurant } = useActiveRestaurant();
   const [draft, setDraft] = useState("");
   const listRef = useRef<FlatList<ThreadMessage>>(null);
 
@@ -79,12 +80,16 @@ export function MessageThreadFeature() {
 
   const messages = data?.messages ?? [];
   const conversation = conversationData?.conversation;
+  const venueRestaurant =
+    restaurants.find((r) => r.id === conversation?.restaurantId) ??
+    activeRestaurant;
+  const timeZone = venueRestaurant?.timezone ?? PLATFORM_TIMEZONE;
   const guestName = dinerDisplayName(conversation?.diner);
   const slotStart = conversation?.reservation?.slotStart;
   const partySize = conversation?.reservation?.partySize;
   const subtitle = slotStart
     ? [
-        formatConversationWhen(slotStart),
+        formatConversationWhen(slotStart, timeZone),
         partySize ? `party of ${partySize}` : null,
       ]
         .filter(Boolean)

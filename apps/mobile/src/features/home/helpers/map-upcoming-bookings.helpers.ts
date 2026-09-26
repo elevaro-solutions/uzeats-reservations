@@ -1,3 +1,5 @@
+import { PLATFORM_TIMEZONE } from "@reservations/shared";
+
 import type { BookingCarouselItem } from "../components/bookings-carousel.component";
 import {
   formatBookingCardAddress,
@@ -26,14 +28,17 @@ export function mapUpcomingBookings(
         new Date(a.slotStart).getTime() - new Date(b.slotStart).getTime(),
     )
     .slice(0, limit)
-    .map((r) => ({
-      id: r.id,
-      restaurantId: r.restaurant.id,
-      restaurantName: r.restaurant.name,
-      photo: r.restaurant.photos?.[0],
-      addressLabel: formatBookingCardAddress(r.restaurant.address),
-      dateLabel: formatBookingCardDate(r.slotStart),
-      timeLabel: formatBookingCardTimeRange(r.slotStart, r.slotEnd),
-      partySize: r.partySize,
-    }));
+    .map((r) => {
+      const timeZone = r.restaurant.timezone ?? PLATFORM_TIMEZONE;
+      return {
+        id: r.id,
+        restaurantId: r.restaurant.id,
+        restaurantName: r.restaurant.name,
+        photo: r.restaurant.photos?.[0],
+        addressLabel: formatBookingCardAddress(r.restaurant.address),
+        dateLabel: formatBookingCardDate(r.slotStart, timeZone),
+        timeLabel: formatBookingCardTimeRange(r.slotStart, r.slotEnd, timeZone),
+        partySize: r.partySize,
+      };
+    });
 }

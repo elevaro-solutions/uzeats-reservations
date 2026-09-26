@@ -2,6 +2,9 @@ import { createMMKV } from "react-native-mmkv";
 import { createJSONStorage, persist, StateStorage } from "zustand/middleware";
 import { create } from "zustand";
 
+import { tomorrowIsoDate } from "@/lib/helpers/date-time.helpers";
+import { PLATFORM_TIMEZONE } from "@reservations/shared";
+
 export const mmkv = createMMKV({ id: "tablevera" });
 
 const mmkvStorage: StateStorage = {
@@ -17,13 +20,8 @@ const mmkvStorage: StateStorage = {
   },
 };
 
-function tomorrowIsoDate(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+function platformTomorrowIsoDate(): string {
+  return tomorrowIsoDate(PLATFORM_TIMEZONE);
 }
 
 export type DiscoveryFilters = {
@@ -52,7 +50,7 @@ export type DiscoveryFilters = {
 export const DEFAULT_DISCOVERY_FILTERS: DiscoveryFilters = {
   query: "",
   city: "New York",
-  date: tomorrowIsoDate(),
+  date: platformTomorrowIsoDate(),
   partySize: 2,
   radiusKm: 25,
   nearMe: false,
@@ -87,7 +85,7 @@ export const useAppStore = create<AppStore>()(
         set({
           discovery: {
             ...DEFAULT_DISCOVERY_FILTERS,
-            date: tomorrowIsoDate(),
+            date: platformTomorrowIsoDate(),
           },
           lastSearchCity: "New York",
         }),

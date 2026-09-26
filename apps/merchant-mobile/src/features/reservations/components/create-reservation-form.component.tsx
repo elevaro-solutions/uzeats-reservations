@@ -23,12 +23,14 @@ export type CreateReservationFormProps = {
   control: Control<CreateReservationFormValues>;
   errors: FieldErrors<CreateReservationFormValues>;
   isWalkIn: boolean;
+  timeZone: string;
 };
 
 export function CreateReservationForm({
   control,
   errors,
   isWalkIn,
+  timeZone,
 }: CreateReservationFormProps) {
   return (
     <Flex gap={2.5}>
@@ -109,7 +111,7 @@ export function CreateReservationForm({
               label="Date"
               mode="date"
               value={value}
-              onChange={(next) => onChange(next ?? todayIsoDate())}
+              onChange={(next) => onChange(next ?? todayIsoDate(timeZone))}
             />
             {errors.date?.message ? (
               <Typography size="text-xs" color="error">

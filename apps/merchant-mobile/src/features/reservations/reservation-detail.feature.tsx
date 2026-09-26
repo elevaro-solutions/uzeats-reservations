@@ -10,6 +10,7 @@ import { Button, Dialog, Flex } from "@/components";
 import { useActiveRestaurant, syncActiveRestaurantId } from "@/features/restaurants";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
 import { guestDisplayName } from "@/lib/helpers";
+import { PLATFORM_TIMEZONE } from "@reservations/shared";
 
 import {
   BOOKABLE_TABLES,
@@ -83,6 +84,10 @@ export function ReservationDetailFeature() {
   const venueRestaurant =
     restaurants.find((r) => r.id === venueRestaurantId) ??
     (activeRestaurant?.id === venueRestaurantId ? activeRestaurant : null);
+  const timeZone =
+    venueRestaurant?.timezone ??
+    activeRestaurant?.timezone ??
+    PLATFORM_TIMEZONE;
 
   useEffect(() => {
     syncActiveRestaurantId(venueRestaurantId, { restaurants });
@@ -224,6 +229,7 @@ export function ReservationDetailFeature() {
             tableLabel={tableLabel}
             canAssignTable={canAssignTable}
             hasFooterActions={Boolean(primary || secondary.length > 0)}
+            timeZone={timeZone}
             onAssignTable={() => setTableSheetOpen(true)}
           />
           <ReservationDetailFooter

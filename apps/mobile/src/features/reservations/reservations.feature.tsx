@@ -40,6 +40,7 @@ type ReservationItem = {
     id?: string;
     name?: string;
     photos?: (string | null)[] | null;
+    timezone?: string | null;
     address?: {
       city?: string | null;
       neighborhood?: string | null;

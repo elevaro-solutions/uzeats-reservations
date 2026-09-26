@@ -1,5 +1,18 @@
 # Booking — Learnings & Observations
 
+## [2026-09-26] TZ QA suite locks diner D1–D8 surfaces
+- `restaurant-local-tz-qa.test.ts` asserts chip / confirm / confirmation / home+list+detail / edit Today / waitlist chips / messages “when” all format the same NY 19:00 ISO as `7:00 PM` under `TZ=Asia/Tashkent` (and London). Phone-local format of that instant is `4:00 AM` — must never appear on visit clocks.
+- Why it matters: Regression net for traveler-phone vs US venue wall clock without needing a simulator TZ flip each time.
+
+## [2026-09-26] Waitlist chips + quick date label need venue TZ
+- `BookingDatetimeStep` already had `timeZone` for the main grid but did not forward it to `BookingWaitlistChips`. Edit flow passed TZ to time sections but not `BookingQuickSelectors` / `formatQuickDateLabel`.
+- Why it matters: Nearby chips and “Today” on the date trigger could disagree with the slot grid near restaurant day boundaries.
+
+## [2026-09-26] Confirm sheet must use restaurant timezone
+- Slot chips already passed `restaurant.timezone` into `formatSlotTime`; confirm sheet and post-book confirmation used device-local `toLocale*` (no zone). Same ISO could show different clocks.
+- Pass `timeZone` into `formatSlotTime` / `formatSlotDateLong` (fallback `PLATFORM_TIMEZONE`).
+- Why it matters: Diner phone TZ ≠ venue TZ must not disagree between picker and “Confirm reservation”.
+
 ## [2026-09-25] Restaurant calendar day is the source of truth
 - Booking pickers, partner create/edit, waitlist alerts, POS/overview day bounds, access rules, and promos must use `restaurantTimeZone` + `isoDateInTimeZone` / `zonedWallClockToUtc` — never browser `dayjs()` or `toISOString().slice(0,10)` for service days.
 - Discovery / home “today” (no single venue) uses platform `America/New_York` (`PLATFORM_TIMEZONE`).

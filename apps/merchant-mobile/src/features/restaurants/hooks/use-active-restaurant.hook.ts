@@ -12,6 +12,7 @@ export type PartnerRestaurant = {
   status?: string | null;
   cuisine?: string | null;
   phone?: string | null;
+  timezone?: string | null;
   address?: {
     line1?: string | null;
     city?: string | null;

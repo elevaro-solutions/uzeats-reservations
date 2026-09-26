@@ -330,6 +330,7 @@ export const MY_RESERVATION = gql`
         phone
         averageRating
         isSaved
+        timezone
         address {
           line1
           line2

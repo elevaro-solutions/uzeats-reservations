@@ -8,6 +8,7 @@ import { Button, Empty, Flex, InlineAlert, Typography } from "@/components";
 import { useActiveRestaurant } from "@/features/restaurants";
 import { getGraphQLErrorMessage } from "@/lib/graphql-errors";
 import { guestDisplayName } from "@/lib/helpers";
+import { PLATFORM_TIMEZONE } from "@reservations/shared";
 
 import {
   FLOOR_PLAN_OPS,
@@ -41,6 +42,7 @@ export function FloorFeature() {
     refetch: refetchRestaurants,
   } = useActiveRestaurant();
   const restaurantId = activeRestaurant?.id ?? null;
+  const timeZone = activeRestaurant?.timezone ?? PLATFORM_TIMEZONE;
 
   const [selected, setSelected] = useState<FloorTableState | null>(null);
   const [selectedUnassignedId, setSelectedUnassignedId] = useState<
@@ -203,6 +205,7 @@ export function FloorFeature() {
           <FloorArrivingSection
             unassigned={unassigned}
             selectedUnassignedId={selectedUnassignedId}
+            timeZone={timeZone}
             onSelect={setSelectedUnassignedId}
           />
           <FloorTablesGrid
@@ -219,6 +222,7 @@ export function FloorFeature() {
         visible={Boolean(selected)}
         selected={selected}
         seatGuestName={selectedGuestLabel}
+        timeZone={timeZone}
         busy={busy}
         onClose={() => setSelected(null)}
         onSeatHere={() => {

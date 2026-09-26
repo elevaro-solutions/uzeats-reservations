@@ -65,6 +65,10 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## home
 
+### [2026-09-26] Upcoming cards use restaurant timezone
+- Home carousel maps `MY_RESERVATIONS` with `restaurant.timezone` into `formatBookingCardDate` / `formatBookingCardTimeRange` (same wall clock as Reservations tab). Types include `timezone` on the nested restaurant.
+- Why it matters: Leaving home on device-local clocks made the same booking disagree with the Reservations list for travelers.
+
 ### [2026-09-14] Opens Search by mutating global discovery
 - Home `setDiscovery(...)` then `router.push("/search")`. Upcoming bookings reuse `MY_RESERVATIONS` (same query as Reservations tab), mapped/limited client-side.
 - Why it matters: Back from Search shows whatever Home wrote into the MMKV-backed store. Booking `refetchQueries: MY_RESERVATIONS` refreshes the Home carousel too.
@@ -140,6 +144,10 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 - Why it matters: Profile and auth agreement share the legal feature routes.
 
 ## reservations
+
+### [2026-09-26] List/detail use restaurant IANA zone (not device)
+- Diner `formatReservationWhen` / `Date` / `Time` take `restaurant.timezone` (from `MY_RESERVATIONS` / `MY_RESERVATION`) and format via shared `formatUsDateTime` / `formatUsDate` / `formatTimeInTimeZone`; missing zone → `PLATFORM_TIMEZONE`. Booking/edit already passed timezone for slots.
+- Why it matters: A diner in Tashkent viewing a NYC booking must see 7:00 PM ET, same as dashboard — not device-local `toLocale*`.
 
 ### [2026-09-18] Display locale is US English
 - Reservation when/date/time helpers and API notification bodies format with `en-US` (12-hour). Shared helpers: `formatUsDate` / `formatUsTime` / `formatUsDateTime` (`DISPLAY_LOCALE`).
@@ -233,6 +241,18 @@ AddReviewSheet require all four; restaurant avg still rolls up overall only.
 - Why it matters: IA is account/venue + day-of shortcuts — not app settings or billing; avoid stacking cards/alerts that crowd the first viewport.
 
 ## merchant-mobile (partner app)
+
+### [2026-09-26] TZ QA: venue NY + host Asia/Tashkent
+- Automated checklist in `apps/api/src/__tests__/restaurant-local-tz-qa.test.ts` (D1–D8 / M1–M6) + live `createOwnerReservation` at 19:00 with host `GMT+0500`: saved slot formats `7:00 PM`, lands on Partner Hub `date: todayIsoInTimeZone(venue)`, and sits in `calendarDayRange`. 19:00 ET → 4:00 AM Tashkent next calendar day (not midnight).
+- Why it matters: Confirms mobile wiring matches Hub when phone TZ is far; chat bubble relative times may stay device-local by design.
+
+### [2026-09-26] Ops “today” + list filters use restaurant calendar day
+- Reservations Today query, client range filter (`calendarDayRange`), day headers, overview `date`, create-form date fallback, and message conversation “when” all use `activeRestaurant.timezone` (fallback `PLATFORM_TIMEZONE`). Create form resets default date when venue TZ loads unless the user edited date.
+- Why it matters: Slot clocks alone were not enough — device midnight could drop/mislabel restaurant-today bookings and skew overview covers.
+
+### [2026-09-26] Reservation clocks use `activeRestaurant.timezone`
+- List/detail/floor slot labels pass venue timezone into `formatSlotDateTime` / `formatSlotTimeParts` (shared `formatTimeInTimeZone` + `DISPLAY_LOCALE`). Create submit uses `zonedWallClockToUtc` + `todayIsoInTimeZone` — not device `new Date(\`dateTtime\`)`.
+- Why it matters: Staff phone TZ ≠ restaurant TZ must still match Partner Hub wall clock for the same booking.
 
 ### [2026-09-21] Waitlist/Floor toast copy is outcome-oriented
 - Waitlist Notify/Seat/Remove toast success+error via `waitlistActionToastCopy` (not status nouns like `Marked cancelled`). Floor Complete/No-show/Cancel maps API statuses to human labels so `no_show` never appears raw. Message send errors use the shared `Please try again` fallback.

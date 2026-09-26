@@ -14,6 +14,7 @@ import type { ListRow, RangeKey } from "../helpers/reservations-list.helpers";
 export type ReservationsListBodyProps = {
   listRows: ListRow[];
   range: RangeKey;
+  timeZone?: string;
   showEmptyAdd: boolean;
   refreshing: boolean;
   updatingId: string | null;
@@ -29,6 +30,7 @@ export type ReservationsListBodyProps = {
 export function ReservationsListBody({
   listRows,
   range,
+  timeZone,
   showEmptyAdd,
   refreshing,
   updatingId,
@@ -102,6 +104,7 @@ export function ReservationsListBody({
             <View style={styles.cardWrap}>
               <ReservationCard
                 reservation={item.reservation}
+                timeZone={timeZone}
                 actionLoading={updatingId === item.reservation.id}
                 onPress={() => onOpenDetail(item.reservation.id)}
                 onAction={(action) => {

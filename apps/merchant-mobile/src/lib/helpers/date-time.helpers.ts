@@ -1,3 +1,11 @@
+import {
+  addCalendarDays,
+  DISPLAY_LOCALE,
+  formatTimeInTimeZone,
+  PLATFORM_TIMEZONE,
+  todayIsoInTimeZone,
+} from "@reservations/shared";
+
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 const MONTH = [
   "Jan",
@@ -35,14 +43,12 @@ export function toIsoDate(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-export function todayIsoDate(): string {
-  return toIsoDate(new Date());
+export function todayIsoDate(timeZone: string = PLATFORM_TIMEZONE): string {
+  return todayIsoInTimeZone(timeZone);
 }
 
-export function tomorrowIsoDate(): string {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return toIsoDate(d);
+export function tomorrowIsoDate(timeZone: string = PLATFORM_TIMEZONE): string {
+  return addCalendarDays(todayIsoInTimeZone(timeZone), 1);
 }
 
 export function formatDisplayDate(iso: string): string {
@@ -54,9 +60,12 @@ export function formatDisplayDate(iso: string): string {
 }
 
 /** Today / Tomorrow when applicable, otherwise short weekday+date. */
-export function formatRelativeDayLabel(iso: string): string {
-  if (iso === todayIsoDate()) return "Today";
-  if (iso === tomorrowIsoDate()) return "Tomorrow";
+export function formatRelativeDayLabel(
+  iso: string,
+  timeZone: string = PLATFORM_TIMEZONE,
+): string {
+  if (iso === todayIsoDate(timeZone)) return "Today";
+  if (iso === tomorrowIsoDate(timeZone)) return "Tomorrow";
   return formatDisplayDate(iso);
 }
 
@@ -83,25 +92,24 @@ export function formatDisplayTime(time?: string): string {
 }
 
 /** Locale time from an ISO datetime string (e.g. reservation slotStart). */
-export function formatSlotDateTime(iso: string, timeZone?: string): string {
-  return new Date(iso).toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-    ...(timeZone ? { timeZone } : {}),
-  });
+export function formatSlotDateTime(
+  iso: string,
+  timeZone: string = PLATFORM_TIMEZONE,
+): string {
+  return formatTimeInTimeZone(iso, timeZone);
 }
 
 /** Split slot time for calendar-style blocks: large clock + small AM/PM. */
 export function formatSlotTimeParts(
   iso: string,
-  timeZone?: string,
+  timeZone: string = PLATFORM_TIMEZONE,
 ): { time: string; period: "AM" | "PM" } {
   const date = new Date(iso);
-  const parts = new Intl.DateTimeFormat([], {
+  const parts = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-    ...(timeZone ? { timeZone } : {}),
+    timeZone,
   }).formatToParts(date);
 
   const hour = parts.find((p) => p.type === "hour")?.value ?? "";

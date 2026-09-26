@@ -1,14 +1,18 @@
 import { View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
+import {
+  addCalendarDays,
+  formatUsDate,
+  isoDateInTimeZone,
+  PLATFORM_TIMEZONE,
+  todayIsoInTimeZone,
+} from "@reservations/shared";
 
 import { ArmchairIcon, UsersIcon } from "@/assets";
 import { Flex, Typography } from "@/components";
 import {
-  formatDisplayDate,
-  formatRelativeDayLabel,
   formatSlotDateTime,
   formatSlotTimeParts,
-  toIsoDate,
 } from "@/lib/helpers";
 
 import {
@@ -31,15 +35,22 @@ export type ReservationDetailHeroProps = {
   partySize: number;
   tableLabel: string | null;
   occasion?: string | null;
+  timeZone?: string;
 };
 
-function formatSlotDayLabel(iso: string): string {
+function formatSlotDayLabel(iso: string, timeZone: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  const dayIso = toIsoDate(date);
-  const relative = formatRelativeDayLabel(dayIso);
-  if (relative === "Today" || relative === "Tomorrow") return relative;
-  return formatDisplayDate(dayIso);
+  const dayIso = isoDateInTimeZone(date, timeZone);
+  const today = todayIsoInTimeZone(timeZone);
+  if (dayIso === today) return "Today";
+  if (dayIso === addCalendarDays(today, 1)) return "Tomorrow";
+  return formatUsDate(iso, {
+    timeZone,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 export function ReservationDetailHero({
@@ -50,15 +61,16 @@ export function ReservationDetailHero({
   partySize,
   tableLabel,
   occasion,
+  timeZone = PLATFORM_TIMEZONE,
 }: ReservationDetailHeroProps) {
   const { theme } = useUnistyles();
   const visual = reservationStatusVisual(status, theme.colors);
   const guestName = guestDisplayName(diner);
-  const { time, period } = formatSlotTimeParts(slotStart);
-  const dayLabel = formatSlotDayLabel(slotStart);
-  const endTime = slotEnd ? formatSlotDateTime(slotEnd) : null;
+  const { time, period } = formatSlotTimeParts(slotStart, timeZone);
+  const dayLabel = formatSlotDayLabel(slotStart, timeZone);
+  const endTime = slotEnd ? formatSlotDateTime(slotEnd, timeZone) : null;
   const timeRangeLabel = endTime
-    ? `${formatSlotDateTime(slotStart)} – ${endTime}`
+    ? `${formatSlotDateTime(slotStart, timeZone)} – ${endTime}`
     : null;
   const occasionLabel = reservationOccasionLabel(occasion);
   const occasionKey = occasion?.trim();

@@ -20,7 +20,7 @@ import {
 } from "@/lib/graphql-errors";
 import { useAppStore } from "@/store";
 import { AddReviewSheet } from "@/features/restaurant-profile/components/add-review-sheet.component";
-import { buildReservationCancellationReason } from "@reservations/shared";
+import { buildReservationCancellationReason, PLATFORM_TIMEZONE } from "@reservations/shared";
 
 import {
   CONFIRM_DEPOSIT,
@@ -76,6 +76,7 @@ type MyReservationQuery = {
       phone?: string | null;
       averageRating?: number | null;
       isSaved?: boolean | null;
+      timezone?: string | null;
       address?: {
         line1?: string | null;
         line2?: string | null;
@@ -434,8 +435,9 @@ export function ReservationDetailFeature() {
   const depositDue = needsDepositPayment(reservation);
   const ineligibleCaption = visitIneligibleCaption(reservation);
   const restaurantPhoto = reservation.restaurant?.photos?.find(Boolean);
+  const timeZone = reservation.restaurant?.timezone ?? PLATFORM_TIMEZONE;
   const overflowSubtitle = [
-    formatReservationWhen(reservation.slotStart),
+    formatReservationWhen(reservation.slotStart, timeZone),
     `party of ${reservation.partySize}`,
   ].join(" · ");
   const footerPad = primary
@@ -518,6 +520,7 @@ export function ReservationDetailFeature() {
         restaurantName={reservation.restaurant?.name}
         slotStart={reservation.slotStart}
         slotEnd={reservation.slotEnd}
+        timeZone={timeZone}
         status={reservation.status}
         depositAmountCents={reservation.depositAmountCents ?? 0}
         depositStatus={reservation.depositStatus ?? "none"}

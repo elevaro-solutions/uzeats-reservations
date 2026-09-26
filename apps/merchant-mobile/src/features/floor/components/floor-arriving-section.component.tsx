@@ -6,12 +6,14 @@ import { FloorArrivingCard } from "./floor-arriving-card.component";
 export type FloorArrivingSectionProps = {
   unassigned: UnassignedReservation[];
   selectedUnassignedId: string | null;
+  timeZone?: string;
   onSelect: (id: string | null) => void;
 };
 
 export function FloorArrivingSection({
   unassigned,
   selectedUnassignedId,
+  timeZone,
   onSelect,
 }: FloorArrivingSectionProps) {
   if (unassigned.length === 0) return null;
@@ -33,6 +35,7 @@ export function FloorArrivingSection({
             <FloorArrivingCard
               key={item.id}
               item={item}
+              timeZone={timeZone}
               selected={selectedRow}
               onPress={() => onSelect(selectedRow ? null : item.id)}
             />

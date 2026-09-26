@@ -13,6 +13,7 @@ export const MY_RESTAURANTS = gql`
       status
       cuisine
       phone
+      timezone
       address {
         line1
         city

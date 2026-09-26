@@ -34,6 +34,7 @@ export type ReservationListItem = {
 
 export type ReservationCardProps = {
   reservation: ReservationListItem;
+  timeZone?: string;
   onPress: () => void;
   onAction: (action: ReservationAction) => void;
   actionLoading?: boolean;
@@ -41,6 +42,7 @@ export type ReservationCardProps = {
 
 export function ReservationCard({
   reservation,
+  timeZone,
   onPress,
   onAction,
   actionLoading,
@@ -52,8 +54,8 @@ export function ReservationCard({
   const secondary = secondaryReservationActions(reservation.status);
   const visual = reservationStatusVisual(reservation.status, theme.colors);
   const guestName = guestDisplayName(reservation.diner);
-  const timeLabel = formatSlotDateTime(reservation.slotStart);
-  const { time, period } = formatSlotTimeParts(reservation.slotStart);
+  const timeLabel = formatSlotDateTime(reservation.slotStart, timeZone);
+  const { time, period } = formatSlotTimeParts(reservation.slotStart, timeZone);
   const tableLabel =
     reservation.tables
       ?.map((t) => t.name)

@@ -19,6 +19,7 @@ import {
   useActiveRestaurant,
 } from "@/features/restaurants";
 import { todayIsoDate } from "@/lib/helpers";
+import { PLATFORM_TIMEZONE } from "@reservations/shared";
 
 import { OverviewSkeleton, OverviewTodayContent } from "./components";
 
@@ -43,14 +44,17 @@ export function OverviewFeature() {
   const { theme } = useUnistyles();
   const {
     activeRestaurantId,
+    activeRestaurant,
     restaurants,
     loading: restaurantsLoading,
   } = useActiveRestaurant();
+  const timeZone = activeRestaurant?.timezone ?? PLATFORM_TIMEZONE;
+  const overviewDate = todayIsoDate(timeZone);
 
   const { data, loading, error, refetch } = useQuery<OwnerOverviewQuery>(
     MY_OWNER_OVERVIEW,
     {
-      variables: { date: todayIsoDate() },
+      variables: { date: overviewDate },
       skip: restaurants.length === 0,
       fetchPolicy: "cache-and-network",
     },
@@ -74,11 +78,11 @@ export function OverviewFeature() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await refetch({ date: todayIsoDate() });
+      await refetch({ date: overviewDate });
     } finally {
       setRefreshing(false);
     }
-  }, [refetch]);
+  }, [overviewDate, refetch]);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>

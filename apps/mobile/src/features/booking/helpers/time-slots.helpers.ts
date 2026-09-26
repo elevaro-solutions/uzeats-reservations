@@ -5,6 +5,8 @@ import {
   todayIsoDate,
 } from "@/lib/helpers/date-time.helpers";
 import {
+  formatUsDate,
+  PLATFORM_TIMEZONE,
   weekdayInTimeZone,
   zonedWallClockToUtc,
 } from "@reservations/shared";
@@ -104,12 +106,19 @@ export function groupSlotsByShift(
   return result;
 }
 
-export function formatSlotTime(time: string, timeZone?: string): string {
+export function formatSlotTime(
+  time: string,
+  timeZone: string = PLATFORM_TIMEZONE,
+): string {
   return formatSlotDateTime(time, timeZone);
 }
 
-export function formatSlotDateLong(time: string): string {
-  return new Date(time).toLocaleDateString("en-US", {
+export function formatSlotDateLong(
+  time: string,
+  timeZone: string = PLATFORM_TIMEZONE,
+): string {
+  return formatUsDate(time, {
+    timeZone,
     weekday: "long",
     month: "long",
     day: "numeric",

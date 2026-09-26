@@ -6,10 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.67.2] — 2026-09-26
+
 ### Added
 
 - Merchant mobile app (`apps/merchant-mobile`): Expo SDK 57 partner ops client for `restaurant_owner` / `manager` (Overview, Reservations, Floor, Messages, Waitlist, Notifications, Account)
 - API: `partnerReservation(id)` alias of `restaurantReservation` for merchant-mobile deep links
+- API tests: restaurant-local timezone QA suite (`restaurant-local-tz-qa.test.ts`) covering diner D1–D8 + merchant M1–M6 wall-clock / venue-today checks under a far process TZ
 
 ### Changed
 
@@ -17,8 +20,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Diner + merchant mobile: reservation list/detail (and merchant floor/create) show restaurant-local wall-clock times via `restaurant.timezone` / `activeRestaurant.timezone`, matching Partner Hub; fallback `PLATFORM_TIMEZONE`
+- Diner mobile: booking confirm sheet and confirmation screen format date/time in restaurant timezone (same as slot chips), not device-local
+- Merchant mobile: Today query, list range filter/day headers, overview date, create-form date fallback, and message conversation “when” use restaurant calendar day (not device midnight)
+- Diner mobile: home upcoming cards, waitlist nearby chips, edit quick date label, and discovery default “tomorrow” use restaurant/`PLATFORM_TIMEZONE` (slot formatters no longer silently fall back to device local)
 - Merchant + diner mobile: EAS builds resolve `babel-preset-expo` and build `@reservations/shared` on install
 - Merchant mobile: dedicated EAS project (`tablevera-merchant`); reservation detail works across venues via `partnerReservation`
+
+### Docs
+
+- Notes for diner booking/reservations and merchant ops “today” restaurant timezone wiring and QA findings
 
 ## [0.67.1] — 2026-09-26
 

@@ -510,6 +510,7 @@ export function BookingFeature() {
         termsAccepted={form.termsAccepted}
         onTermsAcceptedChange={form.setTermsAccepted}
         errorMessage={submitError}
+        timeZone={restaurant?.timezone}
       />
 
       <BookingWaitlistSuccessModal

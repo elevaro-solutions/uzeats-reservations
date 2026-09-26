@@ -17,12 +17,14 @@ export type FloorArrivingCardItem = {
 
 export type FloorArrivingCardProps = {
   item: FloorArrivingCardItem;
+  timeZone?: string;
   selected?: boolean;
   onPress: () => void;
 };
 
 export function FloorArrivingCard({
   item,
+  timeZone,
   selected = false,
   onPress,
 }: FloorArrivingCardProps) {
@@ -30,7 +32,7 @@ export function FloorArrivingCard({
   const name = guestDisplayName(item.diner);
   const partyLabel =
     item.partySize === 1 ? "1 guest" : `${item.partySize} guests`;
-  const slotLabel = formatSlotDateTime(item.slotStart);
+  const slotLabel = formatSlotDateTime(item.slotStart, timeZone);
 
   return (
     <Pressable

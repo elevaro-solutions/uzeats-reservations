@@ -21,6 +21,7 @@ import {
   formatDisplayDate,
   todayIsoDate,
 } from "@/lib/helpers/date-time.helpers";
+import { PLATFORM_TIMEZONE } from "@reservations/shared";
 
 import {
   RESTAURANT_RESERVATIONS,
@@ -46,14 +47,15 @@ type ReservationsQuery = {
 export function ReservationsFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { activeRestaurantId, loading: restaurantsLoading } =
+  const { activeRestaurantId, activeRestaurant, loading: restaurantsLoading } =
     useActiveRestaurant();
+  const timeZone = activeRestaurant?.timezone ?? PLATFORM_TIMEZONE;
   const [range, setRange] = useState<RangeKey>("today");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const queryDate = range === "today" ? todayIsoDate() : undefined;
-  const todayLabel = formatDisplayDate(todayIsoDate());
+  const queryDate = range === "today" ? todayIsoDate(timeZone) : undefined;
+  const todayLabel = formatDisplayDate(todayIsoDate(timeZone));
 
   const { data, loading, error, refetch } = useQuery<ReservationsQuery>(
     RESTAURANT_RESERVATIONS,
@@ -76,10 +78,14 @@ export function ReservationsFeature() {
       filterReservationsForRange(
         data?.restaurantReservations?.items ?? [],
         range,
+        timeZone,
       ),
-    [data, range],
+    [data, range, timeZone],
   );
-  const listRows = useMemo(() => buildListRows(items, range), [items, range]);
+  const listRows = useMemo(
+    () => buildListRows(items, range, timeZone),
+    [items, range, timeZone],
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -176,6 +182,7 @@ export function ReservationsFeature() {
         <ReservationsListBody
           listRows={listRows}
           range={range}
+          timeZone={timeZone}
           showEmptyAdd={showEmptyAdd}
           refreshing={refreshing}
           updatingId={updatingId}

@@ -1,5 +1,6 @@
 import {
   addCalendarDays,
+  formatTimeInTimeZone,
   PLATFORM_TIMEZONE,
   todayIsoInTimeZone,
 } from "@reservations/shared";
@@ -87,12 +88,11 @@ export function formatDisplayTime(time?: string): string {
 }
 
 /** Locale time from an ISO datetime string (e.g. reservation slotStart). */
-export function formatSlotDateTime(iso: string, timeZone?: string): string {
-  return new Date(iso).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    ...(timeZone ? { timeZone } : {}),
-  });
+export function formatSlotDateTime(
+  iso: string,
+  timeZone: string = PLATFORM_TIMEZONE,
+): string {
+  return formatTimeInTimeZone(iso, timeZone);
 }
 
 export function timeToDate(time: string): Date {

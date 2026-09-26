@@ -8,6 +8,7 @@ export type MyReservation = {
     id: string;
     name: string;
     photos: string[];
+    timezone?: string | null;
     address?: {
       line1?: string | null;
       city?: string | null;

@@ -2,9 +2,10 @@ import { formatPriceRangeChip } from "@/features/discovery/helpers/format-price-
 import {
   formatDisplayDate,
   formatDisplayTime,
-  toIsoDate,
+  tomorrowIsoDate,
 } from "@/lib/helpers/date-time.helpers";
 import { useAppStore, type DiscoveryFilters } from "@/store";
+import { PLATFORM_TIMEZONE } from "@reservations/shared";
 
 import { WHEELCHAIR_ACCESSIBLE_LABEL } from "./filter-option-icons.helpers";
 
@@ -47,12 +48,6 @@ function pushMultiValueChips(
       },
     });
   }
-}
-
-function tomorrowIsoDate(): string {
-  const date = new Date();
-  date.setDate(date.getDate() + 1);
-  return toIsoDate(date);
 }
 
 const SHORTCUT_FILTERS: Array<{
@@ -152,7 +147,8 @@ export function buildActiveFilterChips(
     chips.push({
       key: "date",
       label: formatDisplayDate(discovery.date),
-      clear: () => setDiscovery({ date: tomorrowIsoDate(), time: undefined }),
+      clear: () =>
+        setDiscovery({ date: tomorrowIsoDate(PLATFORM_TIMEZONE), time: undefined }),
     });
     chips.push({
       key: "time",

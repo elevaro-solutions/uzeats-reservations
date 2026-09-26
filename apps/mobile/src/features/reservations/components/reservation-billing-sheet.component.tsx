@@ -9,6 +9,7 @@ import {
   InlineAlert,
   Typography,
 } from "@/components";
+import { PLATFORM_TIMEZONE } from "@reservations/shared";
 
 import {
   depositStatusTone,
@@ -29,6 +30,7 @@ export type ReservationBillingSheetProps = {
   depositStatus: string;
   status: string;
   slotEnd?: string | null;
+  timeZone?: string | null;
   paying?: boolean;
   onPayDeposit?: () => void;
 };
@@ -42,6 +44,7 @@ export function ReservationBillingSheet({
   depositStatus,
   status,
   slotEnd,
+  timeZone,
   paying = false,
   onPayDeposit,
 }: ReservationBillingSheetProps) {
@@ -55,6 +58,7 @@ export function ReservationBillingSheet({
 
   const showHoldAlert =
     depositStatus === "requires_payment" || depositStatus === "authorized";
+  const visitTimeZone = timeZone ?? PLATFORM_TIMEZONE;
 
   return (
     <BottomSheet
@@ -99,7 +103,7 @@ export function ReservationBillingSheet({
         </SummaryRow>
         <SummaryRow label="Visit" last>
           <Typography size="text-sm" weight="medium" style={styles.valueText}>
-            {formatReservationDate(slotStart)}
+            {formatReservationDate(slotStart, visitTimeZone)}
           </Typography>
         </SummaryRow>
       </View>

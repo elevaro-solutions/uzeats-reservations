@@ -1,3 +1,10 @@
+import {
+  formatTimeInTimeZone,
+  formatUsDate,
+  formatUsDateTime,
+  PLATFORM_TIMEZONE,
+} from "@reservations/shared";
+
 const TERMINAL_STATUSES = new Set(["cancelled", "completed", "no_show"]);
 const ACTIVE_STATUSES = new Set(["pending", "confirmed", "seated"]);
 /** Guests may edit pending/confirmed only — seated visits need the restaurant. */
@@ -103,9 +110,12 @@ export function defaultReservationSegment(
   return "all";
 }
 
-export function formatReservationWhen(slotStart: string): string {
-  const date = new Date(slotStart);
-  return date.toLocaleString("en-US", {
+export function formatReservationWhen(
+  slotStart: string,
+  timeZone: string = PLATFORM_TIMEZONE,
+): string {
+  return formatUsDateTime(slotStart, {
+    timeZone,
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -114,8 +124,12 @@ export function formatReservationWhen(slotStart: string): string {
   });
 }
 
-export function formatReservationDate(slotStart: string): string {
-  return new Date(slotStart).toLocaleDateString("en-US", {
+export function formatReservationDate(
+  slotStart: string,
+  timeZone: string = PLATFORM_TIMEZONE,
+): string {
+  return formatUsDate(slotStart, {
+    timeZone,
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -125,16 +139,11 @@ export function formatReservationDate(slotStart: string): string {
 export function formatReservationTime(
   slotStart: string,
   slotEnd?: string | null,
+  timeZone: string = PLATFORM_TIMEZONE,
 ): string {
-  const start = new Date(slotStart).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const start = formatTimeInTimeZone(slotStart, timeZone);
   if (!slotEnd) return start;
-  const end = new Date(slotEnd).toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  const end = formatTimeInTimeZone(slotEnd, timeZone);
   return `${start} – ${end}`;
 }
 

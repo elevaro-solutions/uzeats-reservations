@@ -10,7 +10,7 @@ Feature domain notes shared with diner mobile live under `docs/notes/features.md
 | [components](./components.md) | Shared UI | Copied Forest & Gold kit from diner mobile; no `@reservations/ui` |
 | [features](./features.md) | Domains | Partner ops features; see also `docs/notes/features.md` → merchant-mobile |
 | [graphql](./graphql.md) | Apollo / auth | Partner-only SecureStore session; `isPartnerMobileRole` gate |
-| [lib](./lib.md) | Helpers | Date helpers, GraphQL error helpers |
+| [lib](./lib.md) | Helpers | Date helpers: slot clocks + `todayIsoDate`/`formatRelativeDayLabel` are restaurant/`PLATFORM_TIMEZONE`-aware; GraphQL error helpers |
 | [store](./store.md) | Zustand + MMKV | `activeRestaurantId` only; tokens never in MMKV |
 
 ## [2026-09-18] Scaffold notes
