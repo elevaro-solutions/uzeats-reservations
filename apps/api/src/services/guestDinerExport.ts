@@ -23,7 +23,7 @@ export function dinerExportTable(users: Array<{
   email?: string | null;
   phone?: string | null;
   firstName: string;
-  lastName: string;
+  lastName?: string | null;
   loyaltyPoints?: number | null;
   emailVerified?: boolean | null;
   phoneVerified?: boolean | null;
@@ -45,7 +45,7 @@ export function dinerExportTable(users: Array<{
     rows: users.map((u) => [
       u._id.toString(),
       u.firstName,
-      u.lastName,
+      u.lastName ?? '',
       u.email ?? '',
       u.phone ?? '',
       u.loyaltyPoints ?? 0,
@@ -99,7 +99,10 @@ type GuestExportDoc = {
 
 export function guestExportTable(
   guests: GuestExportDoc[],
-  dinersById: Map<string, { firstName: string; lastName: string; email?: string | null; phone?: string | null }>,
+  dinersById: Map<
+    string,
+    { firstName: string; lastName?: string | null; email?: string | null; phone?: string | null }
+  >,
   restaurantNameById?: Map<string, string>,
   title = 'Guests',
 ): ExportTable {
@@ -231,7 +234,7 @@ export function adminUsersExportTable(
     email?: string | null;
     phone?: string | null;
     firstName: string;
-    lastName: string;
+    lastName?: string | null;
     role: string;
     restaurantIds?: Array<{ toString(): string }> | null;
     emailVerified?: boolean | null;
@@ -257,7 +260,7 @@ export function adminUsersExportTable(
     rows: users.map((u) => [
       u._id.toString(),
       u.firstName,
-      u.lastName,
+      u.lastName ?? '',
       u.email ?? '',
       u.phone ?? '',
       u.role,

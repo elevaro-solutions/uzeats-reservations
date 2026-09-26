@@ -50,7 +50,7 @@ export function reservationExportTable(
   reservations: ReservationExportDoc[],
   dinersById: Map<
     string,
-    { firstName: string; lastName: string; email?: string | null; phone?: string | null }
+    { firstName: string; lastName?: string | null; email?: string | null; phone?: string | null }
   >,
   tableNameById: Map<string, string>,
   title: string,

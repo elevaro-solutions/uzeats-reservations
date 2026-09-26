@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.68.1] — 2026-09-26
+
+### Fixed
+
+- API build: allow nullable `User.lastName` in diner/guest/reservation export typings (unblocks Dokku deploy after optional lastName)
+
 ## [0.68.0] — 2026-09-26
 
 ### Added
