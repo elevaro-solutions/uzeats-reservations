@@ -1,5 +1,10 @@
 # app — Learnings & Observations
 
+## [2026-09-26] EAS must build @reservations/shared (dist is gitignored)
+- `@reservations/shared` `main`/`exports` point at `dist/index.js`, but `dist/` is root-gitignored. EAS clones have no dist → Metro fails resolving `@reservations/shared` during `expo export:embed`.
+- Fix: `eas-build-post-install` in app `package.json` runs `pnpm --filter @reservations/shared build` from the monorepo root (same hook on diner `apps/mobile`).
+- Why it matters: Local machines often have leftover `packages/shared/dist` from turbo/dev; EAS workers do not. Don’t commit dist — keep the hook.
+
 ## [2026-09-26] EAS env: EXPO_PUBLIC_API_URL on preview/production only
 - Dashboard env on `@xondamir/tablevera-merchant`: `EXPO_PUBLIC_API_URL=https://api.tablevera.online/graphql` for preview + production. Development intentionally omitted → `config.ts` falls back to `http://localhost:4000/graphql`.
 - Same URL is also in `eas.json` `build.preview|production.env` (parity with diner). Merchant has no Google/Stripe/Maps vars.

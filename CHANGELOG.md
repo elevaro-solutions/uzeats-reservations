@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Merchant + diner mobile: EAS `eas-build-post-install` builds `@reservations/shared` so Metro can resolve `dist/index.js` (gitignored; missing on clean EAS clones)
+
 ## [0.59.2] — 2026-09-26
 
 ### Fixed

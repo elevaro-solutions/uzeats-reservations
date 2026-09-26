@@ -6,7 +6,7 @@ Merchant mobile notes live under [`merchant-mobile/LEARNINGS.md`](./merchant-mob
 
 | Module | Notes | Summary |
 | --- | --- | --- |
-| [app](./app.md) | Expo Router | Thin route files; presentation/auth gestures live in root layout; sign-in path + barrel inconsistencies |
+| [app](./app.md) | Expo Router | Thin route files; presentation/auth gestures live in root layout; sign-in path + barrel inconsistencies; EAS builds `@reservations/shared` via post-install |
 | [assets](./assets.md) | Icons / brand | Hand-rolled Lucide set with manual barrel; dining-style icons live under discovery |
 | [components](./components.md) | Shared UI | Partial barrel; toast is sonner-native; BottomSheet is a custom Modal |
 | [features](./features.md) | Domains | Discovery SDK, favorite≠save, search mode machine, push, reservations, and more |
