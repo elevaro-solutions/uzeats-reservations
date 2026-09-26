@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.59.2] — 2026-09-26
+
+### Fixed
+
+- Merchant mobile: link a dedicated EAS project (`tablevera-merchant`) instead of the diner `tablevera` projectId; set `cli.appVersionSource`
+
+### Docs
+
+- Merchant mobile notes: EAS projectId/slug must not reuse the diner app; `EXPO_PUBLIC_API_URL` on EAS preview/production only (development → localhost)
+
 ## [0.59.1] — 2026-09-23
 
 ### Added

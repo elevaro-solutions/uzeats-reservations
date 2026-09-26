@@ -1,5 +1,15 @@
 # app — Learnings & Observations
 
+## [2026-09-26] EAS env: EXPO_PUBLIC_API_URL on preview/production only
+- Dashboard env on `@xondamir/tablevera-merchant`: `EXPO_PUBLIC_API_URL=https://api.tablevera.online/graphql` for preview + production. Development intentionally omitted → `config.ts` falls back to `http://localhost:4000/graphql`.
+- Same URL is also in `eas.json` `build.preview|production.env` (parity with diner). Merchant has no Google/Stripe/Maps vars.
+- Why it matters: OTA / EAS Update and dashboard-driven builds pick up dashboard env; leaving development unset keeps local Metro on localhost.
+
+## [2026-09-23] Dedicated EAS project (not diner tablevera)
+- `extra.eas.projectId` must match slug `tablevera-merchant`. Reusing the diner ID (`16386e83-…` / slug `tablevera`) fails `eas build` with a slug mismatch.
+- Merchant project: `@xondamir/tablevera-merchant` → `9df93ad5-d9cb-47d7-9d72-35513f8c81e3`. `eas.json` sets `cli.appVersionSource: "remote"`.
+- Why it matters: Dynamic `app.config.js` cannot be auto-written by `eas init` — paste the new `projectId` manually after init.
+
 ## [2026-09-23] Android google-services.json is committed; wire via googleServicesFile
 - `android.googleServicesFile` → `./google-services.json` (client config; tracked). Includes `uz.alitech.tablevera.merchant` under Firebase project `uzeats-app`. Do **not** easignore/gitignore the client file or Android FCM registration fails; ignore only `*firebase-adminsdk*.json` / `*service-account*.json` (EAS credentials upload).
 - Why it matters: Push bootstrap needs a native rebuild after this config change; Expo Go / OTA alone won’t register FCM.

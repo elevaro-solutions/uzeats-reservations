@@ -61,8 +61,7 @@ const config = {
   extra: {
     router: {},
     eas: {
-      // Replace with a dedicated EAS project when first building merchant.
-      projectId: "16386e83-34eb-4a95-8c46-2ec3c9b6d423",
+      projectId: "9df93ad5-d9cb-47d7-9d72-35513f8c81e3",
     },
   },
   owner: "xondamir",
