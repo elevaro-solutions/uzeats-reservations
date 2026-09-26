@@ -92,7 +92,7 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 - Why it matters: Manual-approval and inquiry alerts looked “broken” in Partner Hub / diner inbox despite successful SendGrid sends.
 
 ### [2026-09-22] Messenger ACL for Telegram Accept/Reject
-- Channel `messenger` on notification preferences (default off). `notifyRestaurantManagers` Elevaro fan-out: restaurant owner always; staff only if `newReservation.messenger` (or `reservationUpdates.messenger` for update/cancel events). Action webhook re-checks that flag for non-owners. Dashboard `/notifications` exposes the column + Connect Telegram bot; `createElevaroTelegramLink` rejects diners and users without venue access.
+- Channel `messenger` on notification preferences (default off). `notifyRestaurantManagers` Elevaro fan-out: restaurant owner always; staff only if `newReservation.messenger` (or `reservationUpdates.messenger` for update/cancel events). Action webhook re-checks that flag for non-owners. Dashboard `/notifications` exposes the column + Connect Telegram bot (up to 2 chats per user); `createElevaroTelegramLink` rejects diners and users without venue access; `elevaroTelegramLinks` returns current links + max.
 - Why it matters: Previously every `restaurantIds` member got Accept/Reject; owners now opt managers in explicitly.
 
 ### [2026-09-22] Diner web push toggle needs local opt-in (+ VAPID for delivery)

@@ -6,6 +6,17 @@ function notifierConfigured(): boolean {
   return Boolean(env.ELEVARO_NOTIFIER_URL && env.ELEVARO_NOTIFIER_API_KEY);
 }
 
+export class ElevaroTelegramLinkLimitError extends Error {
+  readonly code = 'TELEGRAM_LINK_LIMIT' as const;
+  readonly maxLinks: number;
+
+  constructor(message: string, maxLinks = 2) {
+    super(message);
+    this.name = 'ElevaroTelegramLinkLimitError';
+    this.maxLinks = maxLinks;
+  }
+}
+
 /**
  * Fan-out actionable merchant alerts to Elevaro Merchant Notifier
  * (Telegram / WhatsApp). No-op when ELEVARO_NOTIFIER_* is unset.
@@ -78,11 +89,45 @@ export async function createElevaroTelegramLink(
     },
     body: JSON.stringify({ platformUserId, platformId: 'tablevera' }),
   });
+  if (res.status === 409) {
+    const body = (await res.json().catch(() => null)) as {
+      error?: string;
+      maxLinks?: number;
+    } | null;
+    throw new ElevaroTelegramLinkLimitError(
+      body?.error || 'Telegram link limit reached',
+      body?.maxLinks ?? 2,
+    );
+  }
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Elevaro link failed: ${res.status} ${text}`);
   }
   return res.json() as Promise<{ deepLink: string; expiresAt: string }>;
+}
+
+export async function listElevaroTelegramLinks(
+  platformUserId: string,
+): Promise<{ links: Array<{ chatId: string; linkedAt: string }>; maxLinks: number } | null> {
+  if (!notifierConfigured()) return null;
+  const base = env.ELEVARO_NOTIFIER_URL.replace(/\/$/, '');
+  const url = new URL(`${base}/v1/links/telegram`);
+  url.searchParams.set('platformUserId', platformUserId);
+  url.searchParams.set('platformId', 'tablevera');
+  const res = await fetch(url.toString(), {
+    method: 'GET',
+    headers: {
+      'X-Api-Key': env.ELEVARO_NOTIFIER_API_KEY,
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Elevaro list links failed: ${res.status} ${text}`);
+  }
+  return res.json() as Promise<{
+    links: Array<{ chatId: string; linkedAt: string }>;
+    maxLinks: number;
+  }>;
 }
 
 export function verifyElevaroNotifierSignature(

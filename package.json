@@ -1,6 +1,6 @@
 {
   "name": "reservations",
-  "version": "0.67.2",
+  "version": "0.68.0",
   "private": true,
   "scripts": {
     "dev": "turbo run dev --parallel --filter='!@reservations/mobile'",

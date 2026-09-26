@@ -3456,6 +3456,18 @@ export const CREATE_ELEVARO_TELEGRAM_LINK = gql`
   }
 `;
 
+export const ELEVARO_TELEGRAM_LINKS = gql`
+  query ElevaroTelegramLinks {
+    elevaroTelegramLinks {
+      maxLinks
+      links {
+        chatId
+        linkedAt
+      }
+    }
+  }
+`;
+
 // ---- Integrations & settings ----
 
 export const INTEGRATIONS = gql`

@@ -1301,6 +1301,32 @@ export const resolvers = {
       };
     },
 
+    elevaroTelegramLinks: async (
+      _: unknown,
+      __: unknown,
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      if (user.role === 'diner') {
+        throw new Error('Only restaurant managers can view merchant Telegram links');
+      }
+      const hasVenueAccess =
+        isPlatformAdmin(user.role) ||
+        user.role === 'restaurant_owner' ||
+        (Array.isArray(user.restaurantIds) && user.restaurantIds.length > 0);
+      if (!hasVenueAccess) {
+        throw new Error('No restaurant access to view merchant Telegram links');
+      }
+      const { listElevaroTelegramLinks } = await import(
+        "../services/elevaroNotifier.js"
+      );
+      const result = await listElevaroTelegramLinks(user._id.toString());
+      if (!result) {
+        throw new Error("Elevaro merchant notifier is not configured");
+      }
+      return result;
+    },
+
     unreadNotificationCount: async (
       _: unknown,
       __: unknown,
@@ -4807,20 +4833,28 @@ export const resolvers = {
       if (!hasVenueAccess) {
         throw new Error('No restaurant access to link the merchant Telegram bot');
       }
-      const { createElevaroTelegramLink } = await import(
-        "../services/elevaroNotifier.js"
-      );
-      const link = await createElevaroTelegramLink(user._id.toString());
-      if (!link) {
-        throw new Error("Elevaro merchant notifier is not configured");
+      const {
+        createElevaroTelegramLink,
+        ElevaroTelegramLinkLimitError,
+      } = await import("../services/elevaroNotifier.js");
+      try {
+        const link = await createElevaroTelegramLink(user._id.toString());
+        if (!link) {
+          throw new Error("Elevaro merchant notifier is not configured");
+        }
+        return {
+          deepLink: link.deepLink,
+          expiresAt:
+            typeof link.expiresAt === 'string'
+              ? link.expiresAt
+              : new Date(link.expiresAt).toISOString(),
+        };
+      } catch (err) {
+        if (err instanceof ElevaroTelegramLinkLimitError) {
+          throw new Error(err.message);
+        }
+        throw err;
       }
-      return {
-        deepLink: link.deepLink,
-        expiresAt:
-          typeof link.expiresAt === 'string'
-            ? link.expiresAt
-            : new Date(link.expiresAt).toISOString(),
-      };
     },
 
     markNotificationsRead: async (

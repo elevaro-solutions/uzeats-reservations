@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.68.0] — 2026-09-26
+
+### Added
+
+- GraphQL `elevaroTelegramLinks` query; Notifications page shows Linked N/2 and allows a second Telegram connect (max 2 per user via Elevaro)
+
+### Changed
+
+- Elevaro Telegram reservation body includes `Restaurant:` line so multi-venue managers can tell venues apart
+
 ## [0.67.2] — 2026-09-26
 
 ### Added

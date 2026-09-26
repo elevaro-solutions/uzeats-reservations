@@ -479,6 +479,16 @@ export const typeDefs = `#graphql
     expiresAt: String!
   }
 
+  type ElevaroTelegramLinkedChat {
+    chatId: String!
+    linkedAt: String!
+  }
+
+  type ElevaroTelegramLinks {
+    links: [ElevaroTelegramLinkedChat!]!
+    maxLinks: Int!
+  }
+
   type WaitlistEntry {
     id: ID!
     restaurantId: ID!
@@ -2675,6 +2685,7 @@ export const typeDefs = `#graphql
     myRestaurantLoyaltyBalance(restaurantId: ID!): Int!
     myRestaurantLoyaltyHistory(restaurantId: ID, limit: Int): [RestaurantLoyaltyTransaction!]!
     myNotifications(limit: Int, offset: Int): AppNotificationConnection!
+    elevaroTelegramLinks: ElevaroTelegramLinks!
     unreadNotificationCount: Int!
     myOwnerSupportTickets(status: String, limit: Int, offset: Int): SupportTicketConnection!
     myOwnerSupportTicket(id: ID!): SupportTicket

@@ -1,5 +1,13 @@
 # API — Learnings & Observations
 
+## [2026-09-26] Restaurant name in Telegram body
+- `buildReservationMessengerContent` prefixes `Restaurant: {name}` so multi-venue managers can tell bookings apart in one Telegram chat.
+- Why it matters: one Elevaro link covers all venues for a user; without the name, Accept/Reject alerts looked identical.
+
+## [2026-09-25] Multi Telegram per dashboard user
+- Elevaro allows up to 2 Telegram chats per `platformUserId`. GraphQL `elevaroTelegramLinks` + create returns limit error when full. Dashboard Notifications shows N/2.
+- Why it matters: Owners with two phones no longer need a second staff login; `/unlink` in a chat frees one slot.
+
 ## [2026-09-25] Elevaro Open URL must be detail path
 - Messenger `openUrl` is `{DASHBOARD_APP_URL}/reservations/{reservationId}`. `?id=` was ignored by the list page (it only deep-links via `reservationId` or `/reservations/[id]`).
 - Why it matters: Telegram Open must land on the booking, not the full list.

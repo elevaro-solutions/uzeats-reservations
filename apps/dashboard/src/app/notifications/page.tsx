@@ -20,6 +20,7 @@ import { PageHeader } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import {
   CREATE_ELEVARO_TELEGRAM_LINK,
+  ELEVARO_TELEGRAM_LINKS,
   MY_RESTAURANTS,
   RESTAURANT_TEAM,
   UPDATE_NOTIFICATION_PREFERENCES,
@@ -152,8 +153,16 @@ export default function NotificationsSettingsPage() {
     user?.role === 'manager' ||
     user?.role === 'admin' ||
     user?.role === 'super_admin';
+  const {
+    data: telegramLinksData,
+    refetch: refetchTelegramLinks,
+  } = useQuery(ELEVARO_TELEGRAM_LINKS, {
+    skip: !user || !canLinkTelegram,
+  });
   const team: TeamUser[] = data?.restaurantTeam ?? [];
-
+  const telegramLinkCount = telegramLinksData?.elevaroTelegramLinks?.links?.length ?? 0;
+  const telegramMaxLinks = telegramLinksData?.elevaroTelegramLinks?.maxLinks ?? 2;
+  const telegramAtLimit = telegramLinkCount >= telegramMaxLinks;
   const visibleTeam = useMemo(() => {
     let list = team;
     if (!canManageTeam && user) {
@@ -229,8 +238,10 @@ export default function NotificationsSettingsPage() {
       }
       window.open(deepLink, '_blank', 'noopener,noreferrer');
       message.success('Open Telegram and tap Start to link your account');
+      await refetchTelegramLinks();
     } catch (err) {
       message.error(err instanceof Error ? err.message : 'Failed to create Telegram link');
+      await refetchTelegramLinks();
     }
   };
 
@@ -248,13 +259,24 @@ export default function NotificationsSettingsPage() {
         extra={
           <Space wrap>
             {canLinkTelegram && (
-              <Button
-                icon={<SendOutlined />}
-                loading={linkingTelegram}
-                onClick={handleConnectTelegram}
-              >
-                Connect Telegram bot
-              </Button>
+              <Space orientation="vertical" size={0} style={{ alignItems: 'flex-end' }}>
+                <Button
+                  icon={<SendOutlined />}
+                  loading={linkingTelegram}
+                  disabled={telegramAtLimit}
+                  onClick={handleConnectTelegram}
+                >
+                  {telegramLinkCount > 0
+                    ? 'Connect another Telegram'
+                    : 'Connect Telegram bot'}
+                </Button>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Linked: {telegramLinkCount}/{telegramMaxLinks}
+                  {telegramAtLimit
+                    ? ' — /unlink in Telegram to free a slot'
+                    : ''}
+                </Text>
+              </Space>
             )}
             <Select
               style={{ width: 260 }}

@@ -77,6 +77,7 @@ async function buildReservationMessengerContent(
   const partySize = String(reservation.partySize);
 
   const lines = [
+    `Restaurant: ${displayOrDash(restaurant?.name)}`,
     `Email: ${email}`,
     `Full name: ${displayOrDash(guestName)}`,
     `Table: ${tableNumber}`,
