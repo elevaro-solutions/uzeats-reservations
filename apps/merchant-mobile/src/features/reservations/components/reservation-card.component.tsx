@@ -83,7 +83,7 @@ export function ReservationCard({
 
         <Flex direction="row" alignItems="center" gap={1.5}>
           <View style={styles.timeBlock}>
-            <Typography weight="semibold" size="display-xs" numberOfLines={1}>
+            <Typography weight="semibold" size="text-xl" numberOfLines={1}>
               {time}
             </Typography>
             <Typography weight="medium" size="text-xs" color="muted">

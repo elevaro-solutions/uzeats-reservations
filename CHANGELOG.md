@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.59.5] — 2026-09-26
+
+### Changed
+
+- Merchant mobile: reservation card guest name uses `text-xl` typography
+
 ## [0.59.4] — 2026-09-26
 
 ### Fixed
