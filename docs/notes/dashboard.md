@@ -1,5 +1,9 @@
 # Dashboard — Learnings & Observations
 
+## [2026-09-27] Source chip vs Traffic chips
+- List/detail **Source** is billing channel (`network` → label “Platform”). Extra chips from `attributionMetaChips`: Traffic (e.g. Google Business Profile), Campaign, Landing, Booked from, Referrer.
+- Why it matters: Don’t overload Source with UTMs — partners need both fee channel and marketing origin.
+
 ## [2026-09-25] Diner impersonation leaves Partner Hub
 - `isPartner` must use the *target* role only — never `|| isImpersonating`. Impersonating a diner sets `tv_web_access` and redirects to the public web app; DashShell/useRequirePartner bounce diner roles off the hub.
 - Admin restaurants “View as diner” opens the public booking URL; “Manage” goes to `/admin/restaurants/:id`.

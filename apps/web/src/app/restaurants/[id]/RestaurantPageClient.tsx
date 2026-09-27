@@ -58,6 +58,7 @@ import {
   loadBookingDraftFromSession,
   clearBookingDraftFromSession,
 } from '@/lib/bookingDraft';
+import { getBookingAttributionForSubmit } from '@/lib/bookingAttribution';
 import { useAuth } from '@/lib/auth';
 import {
   RESTAURANT_DETAIL,
@@ -740,6 +741,7 @@ export default function RestaurantPageClient({
             ...(selectedPackageId ? { packageId: selectedPackageId } : {}),
             ...(selectedPrivateSpaceId ? { privateDiningSpaceId: selectedPrivateSpaceId } : {}),
             ...(selectedExperienceId ? { experienceId: selectedExperienceId } : {}),
+            ...getBookingAttributionForSubmit(),
           },
         },
       });

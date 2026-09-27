@@ -55,6 +55,15 @@ const reservationSchema = new Schema(
       enum: ['network', 'website', 'widget', 'phone', 'walkin'],
       default: 'network',
     },
+    // Marketing attribution (UTMs / landing) — independent of billing `source`
+    utmSource: { type: String, maxlength: 100 },
+    utmMedium: { type: String, maxlength: 100 },
+    utmCampaign: { type: String, maxlength: 100 },
+    utmContent: { type: String, maxlength: 100 },
+    utmTerm: { type: String, maxlength: 100 },
+    landingPath: { type: String, maxlength: 500 },
+    originUrl: { type: String, maxlength: 1000 },
+    referrer: { type: String, maxlength: 1000 },
     cancelledAt: { type: Date },
     cancellationReason: { type: String },
     // POS-reported check total for this visit

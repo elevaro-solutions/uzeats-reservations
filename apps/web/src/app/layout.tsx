@@ -4,6 +4,7 @@ import { AntdRegistry } from '@ant-design/nextjs-registry';
 import { Providers } from '@/lib/apollo';
 import { AppShell } from '@/components/AppShell';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { GoogleAnalytics } from '@/components/GoogleAnalytics';
 import { JsonLd } from '@/components/JsonLd';
 import { PaletteStyles } from '@reservations/ui';
 import { getSiteUrl, organizationJsonLd, websiteJsonLd } from '@/lib/seo';
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <PaletteStyles />
       </head>
       <body suppressHydrationWarning style={{ fontFamily: 'var(--font-sans), system-ui, sans-serif' }}>
+        <GoogleAnalytics />
         <JsonLd data={[organizationJsonLd(), websiteJsonLd()]} />
         <AntdRegistry>
           <Providers>

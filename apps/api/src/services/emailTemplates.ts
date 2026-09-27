@@ -3,18 +3,32 @@ import {
   EmailTemplate,
   type EmailTemplateDocument,
 } from '../models/EmailTemplate.js';
+import { emailDetailBox } from './emailBranding.js';
 import { isEmailDeliveryConfigured, sendEmail } from './notifications.js';
 
 /** Sample substitution values for preview and admin test sends. */
 export const SAMPLE_EMAIL_TEMPLATE_VARS: Record<string, string> = {
   firstName: 'Alex',
+  guestName: 'Alex Rivera',
   restaurantName: 'Cedar & Salt',
   resetUrl: 'https://tablevera.online/reset?token=preview',
   bookUrl: 'https://tablevera.online/restaurants/cedar-salt',
   inviteUrl: 'https://dashboard.tablevera.online/accept-invite?token=preview',
   role: 'Manager',
   date: 'Saturday, Sep 12 · 7:30 PM',
-  partySize: '4',
+  partySize: '4 guests',
+  occasion: 'Anniversary',
+  guestNotes: 'Window seat if possible',
+  address: '12 Harbor St, Portland, OR 97201',
+  detailBox: emailDetailBox([
+    { label: 'Name', value: 'Alex Rivera' },
+    { label: 'Restaurant', value: 'Cedar & Salt' },
+    { label: 'Address', value: '12 Harbor St, Portland, OR 97201' },
+    { label: 'Date & time', value: 'Saturday, Sep 12 · 7:30 PM' },
+    { label: 'Party size', value: '4 guests' },
+    { label: 'Occasion', value: 'Anniversary' },
+    { label: 'Special requests', value: 'Window seat if possible' },
+  ]),
   reason: 'Change of plans',
   messageSection:
     '<p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#1a1816;"><strong>Message:</strong> Running late from work — sorry!</p>',

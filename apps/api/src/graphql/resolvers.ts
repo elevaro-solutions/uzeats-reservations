@@ -3722,11 +3722,19 @@ export const resolvers = {
         redeemRestaurantPoints: input.redeemRestaurantPoints,
         promoCode: input.promoCode,
         giftCardCode: input.giftCardCode,
-        source: (rawInput as any).source,
+        source: input.source,
         tableId: input.tableId,
         packageId: input.packageId,
         privateDiningSpaceId: input.privateDiningSpaceId,
         experienceId: input.experienceId,
+        utmSource: input.utmSource,
+        utmMedium: input.utmMedium,
+        utmCampaign: input.utmCampaign,
+        utmContent: input.utmContent,
+        utmTerm: input.utmTerm,
+        landingPath: input.landingPath,
+        originUrl: input.originUrl,
+        referrer: input.referrer,
       });
       await logAudit({
         actorId: user._id.toString(),
@@ -3736,6 +3744,8 @@ export const resolvers = {
         details: {
           restaurantId: input.restaurantId,
           partySize: input.partySize,
+          source: result.reservation.source,
+          utmSource: input.utmSource,
         },
       });
       return {

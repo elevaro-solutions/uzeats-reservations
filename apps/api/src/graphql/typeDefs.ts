@@ -453,6 +453,18 @@ export const typeDefs = `#graphql
     giftCardId: ID
     giftCardDiscountCents: Int!
     source: ReservationSource!
+    """UTM / traffic source (e.g. google, widget) — marketing attribution, not billing."""
+    utmSource: String
+    utmMedium: String
+    utmCampaign: String
+    utmContent: String
+    utmTerm: String
+    """Path (+ query) of the first page in the booking session (often with UTMs)."""
+    landingPath: String
+    """Full URL when the diner submitted the reservation."""
+    originUrl: String
+    """External document.referrer captured at first touch (if any)."""
+    referrer: String
     totalSpendCents: Int!
     seatedAt: DateTime
     hasReview: Boolean!
@@ -2063,6 +2075,14 @@ export const typeDefs = `#graphql
     packageId: ID
     privateDiningSpaceId: ID
     experienceId: ID
+    utmSource: String
+    utmMedium: String
+    utmCampaign: String
+    utmContent: String
+    utmTerm: String
+    landingPath: String
+    originUrl: String
+    referrer: String
   }
 
   input OwnerGuestInput {

@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.69.0] — 2026-09-27
+
+### Added
+
+- Diner web: Google Analytics 4 (`NEXT_PUBLIC_GA_MEASUREMENT_ID`) with Consent Mode v2 — analytics/marketing storage stays denied until the cookie banner grants them; SPA route changes send page views (UTMs on booking URLs are picked up automatically)
+- Reservation marketing attribution: web captures first-touch UTMs + landing path / referrer / book URL; API stores them on the reservation; partner/admin detail + lists show Traffic / Landing / Booked from (billing `source` still network/website/widget/phone/walkin; widget UTMs set `source=widget`; `network` displays as Platform)
+- API script `rehost-external-images.ts` to audit/rehost non–DigitalOcean Spaces restaurant gallery, logo, and menu photo URLs into Spaces (dry-run by default; `--apply`)
+
+### Changed
+
+- Merchant “New reservation” (and related) emails now include a confirmation-style detail box: guest name, email, phone, date/time, party size, occasion, table, special requests, and optional package/room/experience — not just the one-line summary
+- Diner `booking_confirmation` email template shows the same reservation detail fields (guest name, address, occasion, notes, add-ons, deposit) inline in the body; ICS remains attached for calendar apps
+
+### Fixed
+
+- Restaurant photo browser modal no longer stacks/crops images: cells use each photo’s natural aspect ratio (`height: auto`) instead of a forced 4:3 cover crop
+
 ## [0.68.1] — 2026-09-26
 
 ### Fixed

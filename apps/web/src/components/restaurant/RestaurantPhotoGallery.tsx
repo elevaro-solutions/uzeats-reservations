@@ -32,12 +32,33 @@ function GalleryImage({
   alt,
   priority,
   sizes,
+  /** `cover` fills a sized parent (mosaic). `natural` keeps intrinsic ratio (browser grid). */
+  fit = 'cover',
 }: {
   src: string;
   alt: string;
   priority?: boolean;
   sizes: string;
+  fit?: 'cover' | 'natural';
 }) {
+  if (fit === 'natural') {
+    if (canUseNextImage(src)) {
+      return (
+        <Image
+          src={src}
+          alt={alt}
+          width={1200}
+          height={900}
+          priority={priority}
+          sizes={sizes}
+          style={{ width: '100%', height: 'auto' }}
+        />
+      );
+    }
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={src} alt={alt} />;
+  }
+
   if (canUseNextImage(src)) {
     return (
       <Image
@@ -317,7 +338,8 @@ export const RestaurantPhotoGallery = forwardRef<RestaurantPhotoGalleryHandle, P
                 <GalleryImage
                   src={url}
                   alt={`${name} photo ${i + 1}`}
-                  sizes="(max-width: 768px) 50vw, 280px"
+                  fit="natural"
+                  sizes="(max-width: 768px) 50vw, 440px"
                 />
               </button>
             ))}

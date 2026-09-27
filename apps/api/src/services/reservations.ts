@@ -11,6 +11,9 @@ import {
   restaurantTimeZone,
   bookingRequiresManualApproval,
   splitReservationCancellationReason,
+  OCCASION_LABELS,
+  resolveDinerReservationSource,
+  type Occasion,
 } from '@reservations/shared';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../lib/errors.js';
 import { Reservation } from '../models/Reservation.js';
@@ -42,7 +45,14 @@ import {
   scheduleReservationReminders,
 } from './notifications.js';
 import { renderEmailTemplate } from './emailTemplates.js';
-import { EMAIL_BRAND, emailButton, emailLinkFallback, emailParagraph, escapeHtml } from './emailBranding.js';
+import {
+  EMAIL_BRAND,
+  emailButton,
+  emailDetailBox,
+  emailLinkFallback,
+  emailParagraph,
+  escapeHtml,
+} from './emailBranding.js';
 import { buildIcsAttachment, googleCalendarUrl } from './calendarInvite.js';
 import { env } from '../config/env.js';
 import { checkAccessRules } from './accessRules.js';
@@ -76,6 +86,19 @@ function publicWebBaseUrl() {
   return (env.WEB_APP_URL || EMAIL_BRAND.siteUrl).replace(/\/+$/, '');
 }
 
+function formatOccasionForEmail(occasion: string | null | undefined) {
+  if (!occasion) return OCCASION_LABELS.none;
+  return OCCASION_LABELS[occasion as Occasion] ?? occasion;
+}
+
+function formatPartySizeForEmail(partySize: number) {
+  return `${partySize} ${partySize === 1 ? 'guest' : 'guests'}`;
+}
+
+function formatUsdCents(cents: number) {
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
 async function notifyDinerBookingConfirmed(input: {
   dinerId: string;
   restaurantId: string;
@@ -93,7 +116,13 @@ async function notifyDinerBookingConfirmed(input: {
     zip?: string | null;
   } | null;
 }) {
-  const diner = await User.findById(input.dinerId);
+  const [diner, reservation] = await Promise.all([
+    User.findById(input.dinerId),
+    Reservation.findById(input.reservationId),
+  ]);
+  const tables = reservation
+    ? await Table.find({ _id: { $in: reservation.tableIds } }).select('name')
+    : [];
   const when = formatReservationWhen(input.slotStart, input.restaurant);
   const end = input.slotEnd
     ? new Date(input.slotEnd)
@@ -106,9 +135,17 @@ async function notifyDinerBookingConfirmed(input: {
   ]
     .filter(Boolean)
     .join(', ');
+  const guestName = [diner?.firstName, diner?.lastName].filter(Boolean).join(' ').trim();
+  const occasion = formatOccasionForEmail(reservation?.occasion);
+  const partySizeLabel = formatPartySizeForEmail(input.partySize);
+  const tableName = tables
+    .map((t) => t.name)
+    .filter(Boolean)
+    .join(', ');
+  const guestNotes = (reservation?.guestNotes ?? input.guestNotes ?? '').trim();
   const event = {
     title: `Dinner at ${input.restaurantName}`,
-    description: [`Party of ${input.partySize}`, input.guestNotes ? `Notes: ${input.guestNotes}` : null]
+    description: [`Party of ${input.partySize}`, guestNotes ? `Notes: ${guestNotes}` : null]
       .filter(Boolean)
       .join('\n'),
     location,
@@ -117,11 +154,69 @@ async function notifyDinerBookingConfirmed(input: {
     uid: `${input.reservationId}@tablevera.online`,
   };
   const reservationUrl = `${publicWebBaseUrl()}/reservations/${input.reservationId}`;
+
+  const detailRows: Array<{ label: string; value: string }> = [
+    { label: 'Name', value: guestName || diner?.firstName || 'Guest' },
+  ];
+  if (diner?.email?.trim()) {
+    detailRows.push({ label: 'Email', value: diner.email.trim() });
+  }
+  detailRows.push({ label: 'Restaurant', value: input.restaurantName });
+  if (location) detailRows.push({ label: 'Address', value: location });
+  detailRows.push(
+    { label: 'Date & time', value: when },
+    { label: 'Party size', value: partySizeLabel },
+    { label: 'Occasion', value: occasion },
+  );
+  if (tableName) detailRows.push({ label: 'Table', value: tableName });
+  if (reservation?.packageTitle) {
+    const packagePrice = reservation.packagePriceCents ?? 0;
+    detailRows.push({
+      label: 'Package',
+      value:
+        packagePrice > 0
+          ? `${reservation.packageTitle} (+${formatUsdCents(packagePrice)})`
+          : reservation.packageTitle,
+    });
+  }
+  if (reservation?.privateDiningSpaceName) {
+    const privatePrice = reservation.privateDiningPriceCents ?? 0;
+    detailRows.push({
+      label: 'Private room',
+      value:
+        privatePrice > 0
+          ? `${reservation.privateDiningSpaceName} (+${formatUsdCents(privatePrice)})`
+          : reservation.privateDiningSpaceName,
+    });
+  }
+  if (reservation?.experienceTitle) {
+    const experiencePrice = reservation.experiencePriceCents ?? 0;
+    detailRows.push({
+      label: 'Experience',
+      value:
+        experiencePrice > 0
+          ? `${reservation.experienceTitle} (+${formatUsdCents(experiencePrice)})`
+          : reservation.experienceTitle,
+    });
+  }
+  if (guestNotes) detailRows.push({ label: 'Special requests', value: guestNotes });
+  if ((reservation?.depositAmountCents ?? 0) > 0) {
+    detailRows.push({
+      label: 'Deposit',
+      value: formatUsdCents(reservation!.depositAmountCents),
+    });
+  }
+
   const rendered = await renderEmailTemplate('booking_confirmation', {
     firstName: diner?.firstName || 'there',
+    guestName: guestName || diner?.firstName || 'Guest',
     restaurantName: input.restaurantName,
     date: when,
-    partySize: String(input.partySize),
+    partySize: partySizeLabel,
+    occasion,
+    guestNotes: guestNotes || 'None',
+    address: location || '—',
+    detailBox: emailDetailBox(detailRows),
   });
   const htmlBody = [
     rendered.bodyHtml,
@@ -137,7 +232,7 @@ async function notifyDinerBookingConfirmed(input: {
       title: rendered.subject,
       body:
         rendered.bodyText ||
-        `Your reservation at ${input.restaurantName} on ${when} for ${input.partySize} is confirmed.`,
+        `Your reservation at ${input.restaurantName} on ${when} for ${partySizeLabel} is confirmed.`,
       htmlBody,
       attachments: [buildIcsAttachment(event)],
       data: { reservationId: input.reservationId },
@@ -358,6 +453,14 @@ export async function createReservation(input: {
   packageId?: string;
   privateDiningSpaceId?: string;
   experienceId?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  utmContent?: string;
+  utmTerm?: string;
+  landingPath?: string;
+  originUrl?: string;
+  referrer?: string;
 }) {
   const restaurant = await Restaurant.findById(input.restaurantId);
   if (!restaurant || restaurant.status !== 'approved') {
@@ -617,7 +720,19 @@ export async function createReservation(input: {
     requiresManualApproval: needsManualApproval,
     occasion: input.occasion ?? 'none',
     guestNotes: input.guestNotes ?? '',
-    source: input.source ?? 'network',
+    source: resolveDinerReservationSource({
+      source: input.source,
+      utmSource: input.utmSource,
+      utmMedium: input.utmMedium,
+    }),
+    utmSource: input.utmSource,
+    utmMedium: input.utmMedium,
+    utmCampaign: input.utmCampaign,
+    utmContent: input.utmContent,
+    utmTerm: input.utmTerm,
+    landingPath: input.landingPath,
+    originUrl: input.originUrl,
+    referrer: input.referrer,
     packageId,
     packageTitle,
     packagePriceCents,

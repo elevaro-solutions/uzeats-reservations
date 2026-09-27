@@ -25,6 +25,12 @@ type ReservationExportDoc = {
   partySize: number;
   status: string;
   source?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
+  landingPath?: string | null;
+  originUrl?: string | null;
+  referrer?: string | null;
   occasion?: string | null;
   guestNotes?: string | null;
   slotStart?: Date | null;
@@ -68,6 +74,12 @@ export function reservationExportTable(
       'partySize',
       'status',
       'source',
+      'utmSource',
+      'utmMedium',
+      'utmCampaign',
+      'landingPath',
+      'originUrl',
+      'referrer',
       'occasion',
       'slotStart',
       'slotEnd',
@@ -99,6 +111,12 @@ export function reservationExportTable(
         r.partySize,
         r.status,
         r.source ?? '',
+        r.utmSource ?? '',
+        r.utmMedium ?? '',
+        r.utmCampaign ?? '',
+        r.landingPath ?? '',
+        r.originUrl ?? '',
+        r.referrer ?? '',
         r.occasion ?? '',
         iso(r.slotStart),
         iso(r.slotEnd),

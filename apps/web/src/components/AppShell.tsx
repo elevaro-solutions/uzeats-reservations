@@ -45,6 +45,7 @@ import { skipPollWhenHidden } from '@/lib/pollVisibility';
 import { getDashboardUrl } from '@/lib/urls';
 import { buildRestaurantBookingPath, isoDateInTimeZone, PLATFORM_TIMEZONE } from '@reservations/shared';
 import { CookieConsent, openCookieSettings } from '@/components/CookieConsent';
+import { BookingAttributionCapture } from '@/components/BookingAttributionCapture';
 
 const { Header, Content, Footer } = Layout;
 const { Text } = Typography;
@@ -863,6 +864,9 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
         </div>
       </Footer>
 
+      <Suspense fallback={null}>
+        <BookingAttributionCapture />
+      </Suspense>
       <CookieConsent />
     </Layout></div>
   );

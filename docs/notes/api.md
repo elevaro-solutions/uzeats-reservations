@@ -1,5 +1,20 @@
 # API — Learnings & Observations
 
+## [2026-09-27] Reservation attribution ≠ billing source
+- `source` (network/website/widget/phone/walkin) drives cover fees. Marketing fields (`utmSource`/`utmMedium`/…, `landingPath`, `originUrl`, `referrer`) are separate.
+- Diner create uses `resolveDinerReservationSource`: widget UTMs → `widget`; Google GBP UTMs stay `network` with `utmSource=google`.
+- Why it matters: Don’t add `google` to the ReservationSource enum — that would break fee rules.
+
+## [2026-09-27] Reservation emails carry full detail rows
+- Merchant `notifyRestaurantManagers` builds HTML via `buildReservationAlertContent` (same fields as Telegram: guest, email, phone, table, occasion, special request, party, when) for `new_reservation` / update / cancel / needs-approval. Push/SMS keep the short one-liner; email gets the detail box + View reservation CTA.
+- Diner `booking_confirmation` injects a runtime `{{detailBox}}` (name, email, address, date/time, party, occasion, table, add-ons, notes, deposit). ICS stays attached; don’t treat the attachment as the only place details live.
+- Why it matters: Gmail showed “New reservation” as a single summary line while Telegram had the full guest sheet — partners thought details were “missing” or only in an attachment.
+
+## [2026-09-27] External gallery/menu URLs (Netlify landings)
+- Prod (`tablevera.online`) still had restaurant `photos` + menu `photoUrl` pointing at `restaurants-landings.netlify.app` (and some Google / venue-site / Uber CDN hosts). Import rehosts DoorDash/Uber only; Netlify landings were stored as raw strings.
+- Rehost: `apps/api/scripts/rehost-external-images.ts` (dry-run default; `--apply`; optional `--slug=`). Needs prod `MONGODB_URI` + `DO_SPACES_*`.
+- Why it matters: Hotlinked hosts break Next image allowlisting and can die if the landing site moves; gallery should be Spaces-only.
+
 ## [2026-09-26] Restaurant name in Telegram body
 - `buildReservationMessengerContent` prefixes `Restaurant: {name}` so multi-venue managers can tell bookings apart in one Telegram chat.
 - Why it matters: one Elevaro link covers all venues for a user; without the name, Accept/Reject alerts looked identical.
@@ -13,7 +28,7 @@
 - Why it matters: Telegram Open must land on the booking, not the full list.
 
 ## [2026-09-25] Elevaro messenger copy owned by API
-- `notifyRestaurantManagers` builds Telegram `title`/`body` for reservation events (loads diner + tables) and sends them as request overrides to Elevaro Notifier. Missing fields become `—`; cancel omits special request.
+- `notifyRestaurantManagers` builds reservation alert `title`/`body`/`htmlBody` via `buildReservationAlertContent` (loads diner + tables) for email and Elevaro Telegram. Missing fields become `—`; cancel omits special request.
 - Why it matters: Bot manifests are only fallbacks — changing Tablevera alert layout does not require a notifier redeploy.
 
 ## [2026-09-24] Manual deposit refund / hold release

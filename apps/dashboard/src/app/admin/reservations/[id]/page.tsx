@@ -77,6 +77,7 @@ import {
   guestInitials,
   guestName as formatGuestName,
 } from '@/lib/reservationFormat';
+import { attributionMetaChips } from '@/lib/reservationAttribution';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useFormDirty } from '@/lib/useFormDirty';
 import { CancelReservationModal } from '@/components/CancelReservationModal';
@@ -101,6 +102,14 @@ type ReservationDetail = {
   occasion?: string | null;
   guestNotes?: string | null;
   source?: string | null;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
+  utmContent?: string | null;
+  utmTerm?: string | null;
+  landingPath?: string | null;
+  originUrl?: string | null;
+  referrer?: string | null;
   depositAmountCents?: number | null;
   depositRefundedCents?: number | null;
   depositRefundableCents?: number | null;
@@ -573,6 +582,9 @@ function AdminReservationDetailContent() {
             <MetaChip label="Guests" value={String(reservation.partySize)} />
             <MetaChip label="Table" value={tableLabel} />
             <MetaChip label="Source" value={source ?? '—'} />
+            {attributionMetaChips(reservation).map((chip) => (
+              <MetaChip key={chip.label} label={chip.label} value={chip.value} />
+            ))}
             <MetaChip label="Occasion" value={occasion ?? 'None'} />
             {(reservation.depositAmountCents ?? 0) > 0 ? (
               <MetaChip

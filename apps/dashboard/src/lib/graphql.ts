@@ -182,6 +182,14 @@ export const RESTAURANT_RESERVATIONS = gql`
         occasion
         guestNotes
         source
+        utmSource
+        utmMedium
+        utmCampaign
+        utmContent
+        utmTerm
+        landingPath
+        originUrl
+        referrer
         tableIds
         depositAmountCents
         depositRefundedCents
@@ -215,6 +223,14 @@ export const RESTAURANT_RESERVATION = gql`
       occasion
       guestNotes
       source
+      utmSource
+      utmMedium
+      utmCampaign
+      utmContent
+      utmTerm
+      landingPath
+      originUrl
+      referrer
       tableIds
       depositAmountCents
       depositRefundedCents
@@ -826,6 +842,12 @@ export const ADMIN_RESERVATIONS = gql`
         occasion
         guestNotes
         source
+        utmSource
+        utmMedium
+        utmCampaign
+        landingPath
+        originUrl
+        referrer
         tableIds
         depositAmountCents
         depositRefundedCents

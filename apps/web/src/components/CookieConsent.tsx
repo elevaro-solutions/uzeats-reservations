@@ -28,7 +28,7 @@ const COOKIE_CATEGORIES = [
     key: 'analytics' as const,
     title: 'Analytics',
     description:
-      'Help us understand how the platform is used so we can improve search, booking flows, and performance.',
+      'Google Analytics helps us understand how the platform is used so we can improve search, booking flows, and performance.',
     required: false,
   },
   {

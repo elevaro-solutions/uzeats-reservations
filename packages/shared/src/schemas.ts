@@ -209,6 +209,21 @@ export const shiftInputSchema = z.object({
   active: z.boolean().default(true),
 });
 
+const optionalAttributionString = (max: number) =>
+  z.string().trim().min(1).max(max).optional();
+
+/** Optional marketing attribution on diner createReservation. */
+export const reservationAttributionInputSchema = z.object({
+  utmSource: optionalAttributionString(100),
+  utmMedium: optionalAttributionString(100),
+  utmCampaign: optionalAttributionString(100),
+  utmContent: optionalAttributionString(100),
+  utmTerm: optionalAttributionString(100),
+  landingPath: optionalAttributionString(500),
+  originUrl: optionalAttributionString(1000),
+  referrer: optionalAttributionString(1000),
+});
+
 export const reservationInputSchema = z.object({
   restaurantId: z.string().min(1),
   partySize: z.number().int().min(1).max(50),
@@ -219,10 +234,20 @@ export const reservationInputSchema = z.object({
   redeemRestaurantPoints: z.number().int().min(0).optional(),
   promoCode: z.string().min(1).max(40).optional(),
   giftCardCode: z.string().min(1).max(40).optional(),
+  /** Billing channel; diner clients may omit — resolved from UTMs when possible. */
+  source: z.enum(["network", "website", "widget"]).optional(),
   tableId: z.string().min(1).optional(),
   packageId: z.string().min(1).optional(),
   privateDiningSpaceId: z.string().min(1).optional(),
   experienceId: z.string().min(1).optional(),
+  utmSource: optionalAttributionString(100),
+  utmMedium: optionalAttributionString(100),
+  utmCampaign: optionalAttributionString(100),
+  utmContent: optionalAttributionString(100),
+  utmTerm: optionalAttributionString(100),
+  landingPath: optionalAttributionString(500),
+  originUrl: optionalAttributionString(1000),
+  referrer: optionalAttributionString(1000),
 });
 
 export const restaurantPackageInputSchema = z.object({

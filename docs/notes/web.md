@@ -1,5 +1,20 @@
 # Web — Learnings & Observations
 
+## [2026-09-27] Booking attribution is first-touch in sessionStorage
+- `BookingAttributionCapture` writes UTMs + `landingPath` + external `referrer` to `tablevera_booking_attribution` on navigation. First UTM touch wins for the tab session.
+- `createReservation` spreads `getBookingAttributionForSubmit()` (stored UTMs + current `originUrl`). API `resolveDinerReservationSource` maps widget UTMs → billing `source=widget`; Google GBP stays `network` with `utmSource=google`.
+- Why it matters: Partners see Platform vs Google Business Profile vs widget without conflating cover-fee channel and campaign traffic.
+
+## [2026-09-27] GA4 loads with Consent Mode, not after consent
+- `GoogleAnalytics` always injects gtag when `NEXT_PUBLIC_GA_MEASUREMENT_ID` is set, but defaults `analytics_storage` / `ad_*` to denied. `cookieconsentchange` calls `gtag('consent', 'update', …)`.
+- Page views use `send_page_view: false` + manual `config` on App Router pathname/search changes so client navigations are counted.
+- Why it matters: EU/UK Consent Mode v2 expects the tag present with denied defaults; waiting to load the script until Accept breaks cookieless pings and UTM attribution timing.
+
+## [2026-09-27] Photo browser cells must not use `fill` + fixed aspect-ratio
+- The “See all photos” modal mixed Next `Image fill` (Spaces) with in-flow `<img>` (Netlify/etc.) inside `aspect-ratio: 4/3` + `object-fit: cover` buttons. Absolute-fill children don’t contribute height; grid rows collapsed and photos overlapped.
+- Browser cells use `fit="natural"` (`width: 100%; height: auto`) and `align-items: start`. Mosaic hero/thumbs still use `cover` + fill.
+- Why it matters: External hosts skip the Next allowlist; uniform cover crop also hid each photo’s true ratio.
+
 ## [2026-09-24] Sticky booking form needs a viewport max-height
 - `.rt-restaurant-profile__booking-sticky` is `position: sticky` with `top: header + section nav`. Without `max-height` + `overflow-y: auto`, a tall form (experience add-on, promo, gift card, …) pins with its CTA below the fold until page scroll reaches the footer.
 - Cap with `max-height: calc(100dvh - var(--booking-sticky-top) - 16px)` and `overscroll-behavior: contain`. Reset to `static` / `max-height: none` at ≤992px (mobile uses the Book footer instead).

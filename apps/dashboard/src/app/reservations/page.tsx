@@ -41,6 +41,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import {
   addCalendarDays,
   formatTimeInTimeZone,
+  formatTrafficSource,
   formatUsDateTime,
   hmInTimeZone,
   isPastCalendarDay,
@@ -161,6 +162,10 @@ type ReservationRow = {
   occasion?: string;
   guestNotes?: string;
   source?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  landingPath?: string;
+  originUrl?: string;
   tableIds?: string[];
   depositAmountCents?: number;
   depositRefundedCents?: number;
@@ -933,10 +938,21 @@ function ReservationsPageContent() {
             {
               title: 'Source',
               dataIndex: 'source',
-              width: 90,
-              render: (source?: string) => {
-                const label = formatSource(source);
-                return label ? <Tag>{label}</Tag> : <Text type="secondary">—</Text>;
+              width: 110,
+              render: (_: unknown, r: ReservationRow) => {
+                const label = formatSource(r.source);
+                const traffic = formatTrafficSource(r);
+                if (!label && !traffic) return <Text type="secondary">—</Text>;
+                return (
+                  <Space orientation="vertical" size={0}>
+                    {label ? <Tag style={{ marginInlineEnd: 0 }}>{label}</Tag> : null}
+                    {traffic ? (
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {traffic}
+                      </Text>
+                    ) : null}
+                  </Space>
+                );
               },
             },
             {

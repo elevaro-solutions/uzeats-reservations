@@ -45,19 +45,21 @@ const COOKIE_TABLE = [
   },
   {
     key: '4',
-    name: '_ga / _gid (if enabled)',
+    name: '_ga / _gid (Google Analytics 4)',
     type: 'Cookie',
     category: 'Analytics',
-    purpose: 'Measures traffic and product usage to improve the booking experience.',
+    purpose:
+      'Google Analytics measures traffic, page views, and product usage (including UTM campaign tags on booking links) when you allow Analytics cookies.',
     duration: 'Up to 24 months',
   },
   {
     key: '5',
-    name: 'Marketing pixels (if enabled)',
+    name: 'Google ads / marketing cookies (if enabled)',
     type: 'Cookie / pixel',
     category: 'Marketing',
-    purpose: 'Measures campaign performance and helps deliver relevant offers.',
-    duration: 'Varies by provider',
+    purpose:
+      'When Marketing cookies are allowed, Google Consent Mode may enable ad-related storage for campaign measurement. We do not sell your data.',
+    duration: 'Varies by Google',
   },
 ];
 

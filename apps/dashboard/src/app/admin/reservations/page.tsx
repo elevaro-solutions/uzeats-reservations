@@ -20,7 +20,7 @@ import {
 import type { MenuProps } from 'antd';
 import { CalendarOutlined, CheckCircleOutlined, CloseCircleOutlined, DeleteOutlined, EyeOutlined, LoginOutlined, MoreOutlined, RollbackOutlined, SearchOutlined, ShopOutlined, UserDeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { formatUsDateTime } from '@reservations/shared';
+import { formatTrafficSource, formatUsDateTime } from '@reservations/shared';
 import { PageHeader, StatusTag, spacing } from '@reservations/ui';
 import {
   ADMIN_RESERVATIONS,
@@ -86,6 +86,10 @@ type ReservationRow = {
   occasion?: string;
   guestNotes?: string;
   source?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  landingPath?: string;
+  originUrl?: string;
   depositAmountCents?: number;
   depositRefundedCents?: number;
   depositRefundableCents?: number;
@@ -428,10 +432,21 @@ function AdminReservationsContent() {
             {
               title: 'Source',
               dataIndex: 'source',
-              width: 100,
-              render: (s?: string) => {
-                const label = formatSource(s);
-                return label ? <Tag>{label}</Tag> : '—';
+              width: 120,
+              render: (_: unknown, r: ReservationRow) => {
+                const label = formatSource(r.source);
+                const traffic = formatTrafficSource(r);
+                if (!label && !traffic) return '—';
+                return (
+                  <Space orientation="vertical" size={0}>
+                    {label ? <Tag style={{ marginInlineEnd: 0 }}>{label}</Tag> : null}
+                    {traffic ? (
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {traffic}
+                      </Text>
+                    ) : null}
+                  </Space>
+                );
               },
             },
             {

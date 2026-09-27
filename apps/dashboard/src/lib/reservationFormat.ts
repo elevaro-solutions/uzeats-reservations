@@ -22,7 +22,18 @@ export function formatOccasion(occasion?: string | null) {
 export function formatSource(source?: string | null) {
   if (!source) return null;
   if (source === 'walkin') return 'Walk-in';
+  if (source === 'network') return 'Platform';
   return source.charAt(0).toUpperCase() + source.slice(1);
+}
+
+export function formatAttributionUrl(url?: string | null) {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    return `${parsed.pathname}${parsed.search}` || url;
+  } catch {
+    return url;
+  }
 }
 
 export function formatUsd(cents?: number | null) {
