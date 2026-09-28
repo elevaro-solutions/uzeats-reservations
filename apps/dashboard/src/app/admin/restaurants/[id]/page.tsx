@@ -405,7 +405,7 @@ function AdminRestaurantDetailContent() {
               {
                 key: 'reservations',
                 label: 'Reservations',
-                children: <AdminRestaurantReservationsPanel restaurantId={restaurant.id} />,
+                children: <AdminRestaurantReservationsPanel restaurantId={restaurant.id} restaurant={restaurant} />,
               },
               {
                 key: 'reviews',

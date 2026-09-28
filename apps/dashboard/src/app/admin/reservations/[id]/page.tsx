@@ -489,7 +489,7 @@ function AdminReservationDetailContent() {
     )
     .map((s: { time: string }) => ({
       value: s.time,
-      label: dayjs(s.time).format('h:mm A'),
+      label: formatTimeInTimeZone(s.time, timeZone),
     }));
 
   return (

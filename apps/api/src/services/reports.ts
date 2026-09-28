@@ -1,12 +1,39 @@
 import mongoose from 'mongoose';
+import {
+  addCalendarDays,
+  calendarDateRange,
+  calendarDayRange,
+  isoDateInTimeZone,
+  restaurantTimeZone,
+  todayIsoInTimeZone,
+  weekdayInTimeZone,
+  zonedWallClockToUtc,
+} from '@reservations/shared';
 import { Reservation } from '../models/Reservation.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { GuestProfile } from '../models/GuestProfile.js';
 import { Shift } from '../models/Shift.js';
 import { User } from '../models/User.js';
 
-function dayBounds(date: string) {
-  return { start: new Date(`${date}T00:00:00`), end: new Date(`${date}T23:59:59`) };
+async function loadRestaurantTimeZone(restaurantId: string): Promise<string> {
+  const restaurant = await Restaurant.findById(restaurantId).select('address location').lean();
+  return restaurantTimeZone(restaurant ?? {});
+}
+
+/** Restaurant-local day (or shift) window as exclusive-end UTC range. */
+export function restaurantDayWindow(
+  date: string,
+  timeZone: string,
+  shift?: { startTime: string; endTime: string } | null,
+): { start: Date; end: Date } {
+  if (shift?.startTime && shift?.endTime) {
+    return {
+      start: zonedWallClockToUtc(date, shift.startTime, timeZone),
+      end: zonedWallClockToUtc(date, shift.endTime, timeZone),
+    };
+  }
+  const { $gte, $lt } = calendarDayRange(date, timeZone);
+  return { start: $gte, end: $lt };
 }
 
 /**
@@ -14,27 +41,23 @@ function dayBounds(date: string) {
  * reservations in the shift window enriched with guest intelligence.
  */
 export async function buildPreShiftReport(restaurantId: string, date: string, shiftId?: string) {
-  const { start, end } = dayBounds(date);
+  const timeZone = await loadRestaurantTimeZone(restaurantId);
 
-  let windowStart = start;
-  let windowEnd = end;
   let shiftName = 'All day';
+  let shiftTimes: { startTime: string; endTime: string } | null = null;
   if (shiftId) {
     const shift = await Shift.findById(shiftId);
     if (shift) {
       shiftName = shift.name;
-      const [sh, sm] = shift.startTime.split(':').map(Number);
-      const [eh, em] = shift.endTime.split(':').map(Number);
-      windowStart = new Date(start);
-      windowStart.setHours(sh ?? 0, sm ?? 0, 0, 0);
-      windowEnd = new Date(start);
-      windowEnd.setHours(eh ?? 23, em ?? 59, 0, 0);
+      shiftTimes = { startTime: shift.startTime, endTime: shift.endTime };
     }
   }
 
+  const { start: windowStart, end: windowEnd } = restaurantDayWindow(date, timeZone, shiftTimes);
+
   const reservations = await Reservation.find({
     restaurantId,
-    slotStart: { $gte: windowStart, $lte: windowEnd },
+    slotStart: { $gte: windowStart, $lt: windowEnd },
     status: { $in: ['pending', 'confirmed', 'seated'] },
   }).sort({ slotStart: 1 });
 
@@ -92,6 +115,7 @@ export async function buildPreShiftReport(restaurantId: string, date: string, sh
  * over the trailing 8 weeks of completed reservations.
  */
 export async function buildRevenueForecast(restaurantId: string, days = 14) {
+  const timeZone = await loadRestaurantTimeZone(restaurantId);
   const since = new Date(Date.now() - 56 * 86_400_000);
   const completed = await Reservation.find({
     restaurantId,
@@ -103,22 +127,23 @@ export async function buildRevenueForecast(restaurantId: string, days = 14) {
   for (let d = 0; d < 7; d++) byDow.set(d, { covers: 0, revenueCents: 0, daysSeen: new Set() });
 
   for (const r of completed) {
-    const dow = r.slotStart.getDay();
+    const dow = weekdayInTimeZone(r.slotStart, timeZone);
     const bucket = byDow.get(dow)!;
     bucket.covers += r.partySize;
     bucket.revenueCents += r.totalSpendCents || r.depositAmountCents || 0;
-    bucket.daysSeen.add(r.slotStart.toISOString().slice(0, 10));
+    bucket.daysSeen.add(isoDateInTimeZone(r.slotStart, timeZone));
   }
 
+  const today = todayIsoInTimeZone(timeZone);
   const points = [];
   for (let i = 1; i <= days; i++) {
-    const date = new Date();
-    date.setDate(date.getDate() + i);
-    const dow = date.getDay();
+    const dateIso = addCalendarDays(today, i);
+    const noon = zonedWallClockToUtc(dateIso, '12:00', timeZone);
+    const dow = weekdayInTimeZone(noon, timeZone);
     const bucket = byDow.get(dow)!;
     const sampleDays = Math.max(1, bucket.daysSeen.size);
     points.push({
-      date: date.toISOString().slice(0, 10),
+      date: dateIso,
       projectedCovers: Math.round(bucket.covers / sampleDays),
       projectedRevenueCents: Math.round(bucket.revenueCents / sampleDays),
     });
@@ -149,13 +174,13 @@ export async function buildCustomReport(input: {
   );
   if (metrics.length === 0) throw new Error('Select at least one valid metric');
 
-  const { start } = dayBounds(input.startDate);
-  const { end } = dayBounds(input.endDate);
+  const timeZone = await loadRestaurantTimeZone(input.restaurantId);
+  const { $gte: start, $lt: end } = calendarDateRange(input.startDate, input.endDate, timeZone);
 
   const groupExpr: Record<string, unknown> = {
-    day: { $dateToString: { format: '%Y-%m-%d', date: '$slotStart' } },
-    week: { $dateToString: { format: '%G-W%V', date: '$slotStart' } },
-    month: { $dateToString: { format: '%Y-%m', date: '$slotStart' } },
+    day: { $dateToString: { format: '%Y-%m-%d', date: '$slotStart', timezone: timeZone } },
+    week: { $dateToString: { format: '%G-W%V', date: '$slotStart', timezone: timeZone } },
+    month: { $dateToString: { format: '%Y-%m', date: '$slotStart', timezone: timeZone } },
     source: '$source',
     status: '$status',
     occasion: '$occasion',
@@ -165,7 +190,7 @@ export async function buildCustomReport(input: {
     {
       $match: {
         restaurantId: new mongoose.Types.ObjectId(input.restaurantId),
-        slotStart: { $gte: start, $lte: end },
+        slotStart: { $gte: start, $lt: end },
       },
     },
     {

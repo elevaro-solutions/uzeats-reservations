@@ -14,6 +14,9 @@
 - Prod (`tablevera.online`) still had restaurant `photos` + menu `photoUrl` pointing at `restaurants-landings.netlify.app` (and some Google / venue-site / Uber CDN hosts). Import rehosts DoorDash/Uber only; Netlify landings were stored as raw strings.
 - Rehost: `apps/api/scripts/rehost-external-images.ts` (dry-run default; `--apply`; optional `--slug=`). Needs prod `MONGODB_URI` + `DO_SPACES_*`.
 - Why it matters: Hotlinked hosts break Next image allowlisting and can die if the landing site moves; gallery should be Spaces-only.
+## [2026-09-27] Discovery time filter + reports are restaurant-zone
+- `slotMatchesTime` must use `hmInTimeZone` + `restaurantTimeZone(r)`, not `Date#getHours` (host local). Pre-shift / custom reports use `calendarDayRange` / `zonedWallClockToUtc` and `$dateToString.timezone` — never `new Date(\`${date}T00:00:00\`)`.
+- Why it matters: A LA 7pm slot is UTC 02:00 next day; host-local matching and midnight bounds skew discovery filters and day buckets when the API runs outside the venue zone.
 
 ## [2026-09-26] Restaurant name in Telegram body
 - `buildReservationMessengerContent` prefixes `Restaurant: {name}` so multi-venue managers can tell bookings apart in one Telegram chat.

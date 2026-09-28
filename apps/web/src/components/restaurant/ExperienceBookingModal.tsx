@@ -98,8 +98,7 @@ type Props = {
 };
 
 function formatSlotLabel(time: string, timeZone?: string) {
-  if (timeZone) return formatTimeInTimeZone(time, timeZone);
-  return new Date(time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return formatTimeInTimeZone(time, timeZone ?? PLATFORM_TIMEZONE);
 }
 
 export function ExperienceBookingModal({

@@ -21,6 +21,15 @@ import {
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import {
+  PLATFORM_TIMEZONE,
+  addCalendarDays,
+  formatHm12,
+  hmInTimeZone,
+  isoDateInTimeZone,
+  restaurantTimeZone,
+  todayIsoInTimeZone,
+} from '@reservations/shared';
 import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS, RESTAURANT_RESERVATIONS } from '@/lib/graphql';
@@ -38,15 +47,25 @@ export default function AnalyticsPage() {
   const [allReservations, setAllReservations] = useState<any[]>([]);
   const [fetching, setFetching] = useState(false);
 
+  const activeRestaurant = useMemo(
+    () => restaurants.find((r: { id: string }) => r.id === activeRestaurantId) ?? null,
+    [restaurants, activeRestaurantId],
+  );
+  const timeZone = useMemo(
+    () => (activeRestaurant ? restaurantTimeZone(activeRestaurant) : PLATFORM_TIMEZONE),
+    [activeRestaurant],
+  );
+
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
 
-  const fetchAllDays = useCallback(async (resId: string) => {
+  const fetchAllDays = useCallback(async (resId: string, tz: string) => {
     setFetching(true);
     try {
+      const today = todayIsoInTimeZone(tz);
       const promises = Array.from({ length: 30 }, (_, i) => {
-        const date = dayjs().subtract(29 - i, 'day').format('YYYY-MM-DD');
+        const date = addCalendarDays(today, -(29 - i));
         return client.query({
           query: RESTAURANT_RESERVATIONS,
           variables: { restaurantId: resId, date, limit: 500, offset: 0 },
@@ -62,8 +81,8 @@ export default function AnalyticsPage() {
   }, [client]);
 
   useEffect(() => {
-    if (activeRestaurantId) fetchAllDays(activeRestaurantId);
-  }, [activeRestaurantId, fetchAllDays]);
+    if (activeRestaurantId) fetchAllDays(activeRestaurantId, timeZone);
+  }, [activeRestaurantId, fetchAllDays, timeZone]);
 
   const stats = useMemo(() => {
     const byStatus: Record<string, number> = { confirmed: 0, completed: 0, cancelled: 0, no_show: 0 };
@@ -72,9 +91,10 @@ export default function AnalyticsPage() {
     const slotCounts: Record<string, number> = {};
     const last7Days: Record<string, number> = {};
 
-    const thisMonth = dayjs().format('YYYY-MM');
+    const today = todayIsoInTimeZone(timeZone);
+    const thisMonth = today.slice(0, 7);
     for (let i = 6; i >= 0; i--) {
-      last7Days[dayjs().subtract(i, 'day').format('YYYY-MM-DD')] = 0;
+      last7Days[addCalendarDays(today, -i)] = 0;
     }
 
     for (const r of allReservations) {
@@ -82,15 +102,16 @@ export default function AnalyticsPage() {
       if (status && byStatus[status] !== undefined) byStatus[status]++;
       totalPartySize += r.partySize ?? 0;
 
-      const rDate = r.slotStart?.slice(0, 10);
-      if (rDate?.startsWith(thisMonth)) {
+      if (!r.slotStart) continue;
+      const rDate = isoDateInTimeZone(new Date(r.slotStart), timeZone);
+      if (rDate.startsWith(thisMonth)) {
         thisMonthCovers += r.partySize ?? 0;
       }
-      if (rDate && last7Days[rDate] !== undefined) {
+      if (last7Days[rDate] !== undefined) {
         last7Days[rDate]++;
       }
 
-      const hour = r.slotStart?.slice(11, 16);
+      const hour = hmInTimeZone(new Date(r.slotStart), timeZone);
       if (hour) slotCounts[hour] = (slotCounts[hour] ?? 0) + 1;
     }
 
@@ -98,10 +119,11 @@ export default function AnalyticsPage() {
 
     const topSlots = Object.entries(slotCounts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 5);
+      .slice(0, 5)
+      .map(([hm, count]) => [formatHm12(hm), count] as [string, number]);
 
     return { byStatus, avgPartySize, thisMonthCovers, last7Days, topSlots };
-  }, [allReservations]);
+  }, [allReservations, timeZone]);
 
   const maxDaily = Math.max(...Object.values(stats.last7Days), 1);
 

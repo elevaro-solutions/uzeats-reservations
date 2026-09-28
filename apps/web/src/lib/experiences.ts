@@ -141,9 +141,7 @@ export function isSlotInExperienceHours(
   const start = hmToMinutes(exp.startTime);
   const end = hmToMinutes(exp.endTime);
   if (start == null || end == null) return true;
-  const mins = timeZone
-    ? minutesInTimeZone(slotIso, timeZone)
-    : new Date(slotIso).getHours() * 60 + new Date(slotIso).getMinutes();
+  const mins = minutesInTimeZone(slotIso, timeZone ?? PLATFORM_TIMEZONE);
   if (end >= start) return mins >= start && mins <= end;
   return mins >= start || mins <= end;
 }

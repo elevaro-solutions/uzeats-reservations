@@ -18,6 +18,7 @@ import {
 } from 'antd';
 import { EditOutlined, ReloadOutlined, RollbackOutlined, RotateRightOutlined } from '@ant-design/icons';
 import { colors } from '@reservations/ui';
+import { formatTimeInTimeZone, formatUsDateTime, restaurantTimeZone } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
@@ -415,6 +416,14 @@ export default function FloorOpsPage() {
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
+  const activeRestaurant = useMemo(
+    () => restaurants.find((r: { id: string }) => r.id === activeRestaurantId),
+    [restaurants, activeRestaurantId],
+  );
+  const timeZone = useMemo(
+    () => restaurantTimeZone(activeRestaurant ?? {}),
+    [activeRestaurant],
+  );
   const { data, loading, refetch } = useQuery(FLOOR_PLAN_OPS, {
     skip: !activeRestaurantId,
     variables: { restaurantId: activeRestaurantId },
@@ -690,7 +699,7 @@ export default function FloorOpsPage() {
                   </Text>
                   <div>
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                      Party {r.partySize} · {new Date(r.slotStart).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      Party {r.partySize} · {formatTimeInTimeZone(r.slotStart, timeZone)}
                     </Text>
                   </div>
                   <Tag style={{ marginTop: 4 }}>{r.status}</Tag>
@@ -733,7 +742,13 @@ export default function FloorOpsPage() {
                   <br />
                   <Text type="secondary">
                     Party of {selectedState.reservation.partySize} ·{' '}
-                    {new Date(selectedState.reservation.slotStart).toLocaleString('en-US')}
+                    {formatUsDateTime(selectedState.reservation.slotStart, {
+                      timeZone,
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
                   </Text>
                   {(selectedState.reservation.depositAmountCents ?? 0) > 0 ? (
                     <>

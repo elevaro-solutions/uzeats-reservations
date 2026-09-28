@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Badge, Button, Card, Empty, Input, List, Select, Space, Tag, Typography, message } from 'antd';
 import { MailOutlined, SendOutlined } from '@ant-design/icons';
 import { colors } from '@reservations/ui';
+import { formatUsDateTime, restaurantTimeZone } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
@@ -22,9 +23,10 @@ import { skipPollWhenHidden } from '@/lib/pollVisibility';
 
 const { Title, Text, Link } = Typography;
 
-function formatSlot(iso?: string) {
+function formatSlot(iso: string | undefined, timeZone: string) {
   if (!iso) return null;
-  return new Date(iso).toLocaleString('en-US', {
+  return formatUsDateTime(iso, {
+    timeZone,
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
@@ -74,6 +76,14 @@ function MessagesContent() {
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, setRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
+  const activeRestaurant = useMemo(
+    () => restaurants.find((r: { id: string }) => r.id === activeRestaurantId),
+    [restaurants, activeRestaurantId],
+  );
+  const timeZone = useMemo(
+    () => restaurantTimeZone(activeRestaurant ?? {}),
+    [activeRestaurant],
+  );
   const { data: convData, refetch: refetchConvs } = useQuery(CONVERSATIONS, {
     skip: !activeRestaurantId,
     variables: { restaurantId: activeRestaurantId },
@@ -263,7 +273,7 @@ function MessagesContent() {
                       description={
                         <Space orientation="vertical" size={0} style={{ width: '100%' }}>
                           <Text type="secondary" style={{ fontSize: 12 }}>
-                            {formatSlot(item.sortAt)}
+                            {formatSlot(item.sortAt, timeZone)}
                           </Text>
                           <Text type="secondary" ellipsis style={{ maxWidth: 240 }}>
                             {item.message}
@@ -275,7 +285,7 @@ function MessagesContent() {
                 );
               }
 
-              const slot = formatSlot(item.reservation?.slotStart);
+              const slot = formatSlot(item.reservation?.slotStart, timeZone);
               return (
                 <List.Item
                   onClick={() => selectConversation(item.reservationId)}
@@ -332,7 +342,7 @@ function MessagesContent() {
                     <MailOutlined /> {activeInquiry.senderEmail}
                   </Link>
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    {formatSlot(activeInquiry.sortAt)}
+                    {formatSlot(activeInquiry.sortAt, timeZone)}
                   </Text>
                 </Space>
               </div>
@@ -363,7 +373,7 @@ function MessagesContent() {
                   </Text>
                   {activeConversation.reservation?.slotStart && (
                     <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
-                      {formatSlot(activeConversation.reservation.slotStart)}
+                      {formatSlot(activeConversation.reservation.slotStart, timeZone)}
                       {activeConversation.reservation.partySize
                         ? ` · party of ${activeConversation.reservation.partySize}`
                         : ''}

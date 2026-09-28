@@ -1,7 +1,16 @@
 import type { RestaurantInfo, AvailabilitySlot, WidgetConfig, WidgetTheme } from './api';
 import { fetchRestaurant, fetchAvailability, fetchWidgetBootstrap } from './api';
 import { getActivePalette } from '@reservations/ui/palettes';
-import { LOYALTY, RESTAURANT_LOYALTY, depositPointsFromCents, buildRestaurantBookingPath, formatUsTime, WIDGET_EMBED_UTM } from '@reservations/shared';
+import {
+  LOYALTY,
+  RESTAURANT_LOYALTY,
+  PLATFORM_TIMEZONE,
+  depositPointsFromCents,
+  buildRestaurantBookingPath,
+  formatTimeInTimeZone,
+  todayIsoInTimeZone,
+  WIDGET_EMBED_UTM,
+} from '@reservations/shared';
 
 // ── Theme ────────────────────────────────────────────────────────────
 
@@ -55,13 +64,16 @@ function h<K extends keyof HTMLElementTagNameMap>(
   return el;
 }
 
-function formatTime(iso: string): string {
-  return formatUsTime(iso);
+function venueTimeZone(restaurant: RestaurantInfo | null): string {
+  return restaurant?.timezone || PLATFORM_TIMEZONE;
 }
 
-function todayISO(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function formatTime(iso: string, timeZone: string): string {
+  return formatTimeInTimeZone(iso, timeZone);
+}
+
+function todayISO(timeZone: string = PLATFORM_TIMEZONE): string {
+  return todayIsoInTimeZone(timeZone);
 }
 
 function brandIcon(appUrl: string): HTMLImageElement {
@@ -136,7 +148,19 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
         state.partySize,
       );
       state.restaurant = boot.restaurant;
-      state.slots = boot.slots;
+      const tz = venueTimeZone(state.restaurant);
+      const venueToday = todayISO(tz);
+      if (state.date < venueToday) {
+        state.date = venueToday;
+        state.slots = await fetchAvailability(
+          config.apiUrl,
+          config.restaurantId,
+          state.date,
+          state.partySize,
+        );
+      } else {
+        state.slots = boot.slots;
+      }
       state.loading = false;
       state.slotsLoading = false;
       applyPrimaryColor(root, resolveTheme(config, state.restaurant).primaryColor);
@@ -242,7 +266,7 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
       lang: 'en-US',
     }) as HTMLInputElement;
     dateInput.value = state.date;
-    dateInput.min = todayISO();
+    dateInput.min = todayISO(venueTimeZone(state.restaurant));
     dateInput.addEventListener('change', () => {
       state.date = dateInput.value;
       loadSlots();
@@ -309,7 +333,7 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
             className: `rt-slot${isSelected ? ' rt-slot--selected' : ''}`,
             type: 'button',
           },
-          [formatTime(slot.time)],
+          [formatTime(slot.time, venueTimeZone(state.restaurant))],
         );
         btn.addEventListener('click', () => {
           state.selectedSlot = isSelected ? null : slot.time;

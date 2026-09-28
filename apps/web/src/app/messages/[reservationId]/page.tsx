@@ -7,8 +7,10 @@ import { Button, Card, Empty, Input, Space, Typography, message } from 'antd';
 import { ArrowLeftOutlined, SendOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { colors, radii } from '@reservations/ui';
+import { PLATFORM_TIMEZONE } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { MESSAGES, SEND_MESSAGE, MY_RESERVATIONS } from '@/lib/graphql';
+import { formatReservationWhen } from '@/lib/reservationDisplay';
 import { skipPollWhenHidden } from '@/lib/pollVisibility';
 
 const { Title, Text } = Typography;
@@ -35,13 +37,10 @@ export default function MessagesPage() {
   );
   const restaurantName = reservation?.restaurant?.name ?? 'Restaurant';
   const slotLabel = reservation?.slotStart
-    ? new Date(reservation.slotStart).toLocaleString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      })
+    ? formatReservationWhen(
+        reservation.slotStart,
+        reservation.restaurant?.timezone ?? PLATFORM_TIMEZONE,
+      )
     : null;
 
   useEffect(() => {

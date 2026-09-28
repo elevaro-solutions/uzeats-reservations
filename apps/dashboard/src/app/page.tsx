@@ -20,6 +20,7 @@ import {
   TeamOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { PLATFORM_TIMEZONE, todayIsoInTimeZone } from '@reservations/shared';
 import { EmptyState, PageHeader, StatusTag, colors, radii, spacing, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { canCreateRestaurant, isPlatformAdmin } from '@/lib/roles';
@@ -97,13 +98,15 @@ function selectRestaurant(id: string) {
 export default function OverviewPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const today = useMemo(() => dayjs().format('YYYY-MM-DD'), []);
-
+  // Omit date so API uses each location's restaurant-local "today"
   const { data: overviewData, loading: overviewLoading } = useQuery(MY_OWNER_OVERVIEW, {
     skip: !user,
-    variables: { date: today },
     fetchPolicy: 'cache-and-network',
   });
+  const overviewTodayLabel = useMemo(
+    () => dayjs(todayIsoInTimeZone(PLATFORM_TIMEZONE)).format('MMM D, YYYY'),
+    [],
+  );
   const { data: notifData } = useQuery(MY_NOTIFICATIONS, {
     skip: !user,
     variables: { limit: 5 },
@@ -203,7 +206,7 @@ export default function OverviewPage() {
           title={isMultiLocation ? 'Multi-location overview' : 'Overview'}
           subtitle={
             isMultiLocation
-              ? `Summary across ${locationsTotal} locations for ${dayjs(today).format('MMM D, YYYY')}`
+              ? `Summary across ${locationsTotal} locations for ${overviewTodayLabel}`
               : "Today's service snapshot"
           }
           extra={

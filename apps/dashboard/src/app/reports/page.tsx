@@ -22,6 +22,7 @@ import {
 } from 'antd';
 import { PrinterOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
+import { formatTimeInTimeZone, restaurantTimeZone } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
@@ -53,7 +54,13 @@ const GROUP_BY_OPTIONS = [
   { value: 'occasion', label: 'Occasion' },
 ];
 
-function PreShiftTab({ restaurantId }: { restaurantId?: string }) {
+function PreShiftTab({
+  restaurantId,
+  timeZone,
+}: {
+  restaurantId?: string;
+  timeZone: string;
+}) {
   const [date, setDate] = useState<Dayjs>(dayjs());
   const { data, loading, error } = useQuery(PRE_SHIFT_REPORT, {
     skip: !restaurantId,
@@ -104,7 +111,7 @@ function PreShiftTab({ restaurantId }: { restaurantId?: string }) {
                   <Card key={e.reservationId} size="small">
                     <Space orientation="vertical" size={4} style={{ width: '100%' }}>
                       <Space wrap>
-                        <Text strong>{dayjs(e.slotStart).format('h:mm A')}</Text>
+                        <Text strong>{formatTimeInTimeZone(e.slotStart, timeZone)}</Text>
                         <Text strong>{e.guestName}</Text>
                         <Tag>Party of {e.partySize}</Tag>
                         {e.vipStatus === 'vip' && <Tag color="gold">VIP</Tag>}
@@ -347,6 +354,10 @@ export default function ReportsPage() {
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
+  const activeRestaurant = restaurants.find(
+    (r: { id: string }) => r.id === activeRestaurantId,
+  );
+  const timeZone = restaurantTimeZone(activeRestaurant ?? {});
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -364,7 +375,9 @@ export default function ReportsPage() {
             {
               key: 'preshift',
               label: 'Pre-shift',
-              children: <PreShiftTab restaurantId={activeRestaurantId} />,
+              children: (
+                <PreShiftTab restaurantId={activeRestaurantId} timeZone={timeZone} />
+              ),
             },
             {
               key: 'forecast',

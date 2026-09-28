@@ -29,6 +29,7 @@ import {
   RESERVATION_CANCELLATION_REASONS,
   buildReservationCancellationReason,
   OCCASION_LABELS,
+  PLATFORM_TIMEZONE,
   type Occasion,
 } from '@reservations/shared';
 import DepositPayment from '@/components/DepositPayment';
@@ -189,6 +190,7 @@ export default function ReservationDetailPage() {
       photos?: string[];
       phone?: string;
       isSaved?: boolean;
+      timezone?: string | null;
       address?: {
         line1?: string;
         line2?: string;
@@ -488,12 +490,19 @@ export default function ReservationDetailPage() {
             />
             <DetailRow
               label="Date"
-              value={formatReservationDate(r.slotStart)}
+              value={formatReservationDate(
+                r.slotStart,
+                r.restaurant?.timezone ?? PLATFORM_TIMEZONE,
+              )}
               icon={<CalendarOutlined />}
             />
             <DetailRow
               label="Time"
-              value={formatReservationTime(r.slotStart, r.slotEnd)}
+              value={formatReservationTime(
+                r.slotStart,
+                r.slotEnd,
+                r.restaurant?.timezone ?? PLATFORM_TIMEZONE,
+              )}
               icon={<ClockCircleOutlined />}
             />
             <DetailRow

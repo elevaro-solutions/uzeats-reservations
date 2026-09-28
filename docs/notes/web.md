@@ -14,6 +14,9 @@
 - The “See all photos” modal mixed Next `Image fill` (Spaces) with in-flow `<img>` (Netlify/etc.) inside `aspect-ratio: 4/3` + `object-fit: cover` buttons. Absolute-fill children don’t contribute height; grid rows collapsed and photos overlapped.
 - Browser cells use `fit="natural"` (`width: 100%; height: auto`) and `align-items: start`. Mosaic hero/thumbs still use `cover` + fill.
 - Why it matters: External hosts skip the Next allowlist; uniform cover crop also hid each photo’s true ratio.
+## [2026-09-27] Discovery card slot chips need restaurant TZ
+- `RestaurantCard` takes optional `timeZone` and formats chips with `formatTimeInTimeZone` (fallback `PLATFORM_TIMEZONE`). Home + discovery landings pass `r.timezone` from SEARCH, else `timezoneFromAddress({ state })`. SEARCH / home seed selections include `timezone`.
+- Why it matters: Bare `formatUsTime(slot)` followed the browser zone and showed wrong wall clocks for out-of-zone diners.
 
 ## [2026-09-24] Sticky booking form needs a viewport max-height
 - `.rt-restaurant-profile__booking-sticky` is `position: sticky` with `top: header + section nav`. Without `max-height` + `overflow-y: auto`, a tall form (experience add-on, promo, gift card, …) pins with its CTA below the fold until page scroll reaches the footer.

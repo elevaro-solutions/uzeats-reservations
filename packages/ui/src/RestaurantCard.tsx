@@ -4,7 +4,7 @@ import type { ReactNode, CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { Card, Rate, Typography } from 'antd';
 import { EnvironmentOutlined, FireFilled, StarFilled } from '@ant-design/icons';
-import { formatUsTime } from '@reservations/shared';
+import { formatTimeInTimeZone, PLATFORM_TIMEZONE } from '@reservations/shared';
 import { priceRangeLabel } from './theme';
 import { colors, radii, shadows, typography } from './tokens';
 import { DEFAULT_RESTAURANT_PHOTO, restaurantPhotoCandidates } from './restaurantPhoto';
@@ -30,6 +30,8 @@ export interface RestaurantCardProps {
   photoUrl?: string;
   availableSlots?: string[];
   bookedToday?: number;
+  /** Restaurant IANA zone for slot chips; defaults to platform ET. */
+  timeZone?: string;
   onClick?: (id: string) => void;
   onSelectSlot?: (id: string, time: string) => void;
   /** Override cover photo (e.g. next/image on web). */
@@ -48,6 +50,7 @@ export function RestaurantCard({
   photoUrl,
   availableSlots = [],
   bookedToday,
+  timeZone,
   onClick,
   onSelectSlot,
   renderPhoto,
@@ -251,7 +254,7 @@ export function RestaurantCard({
               onMouseEnter={(e) => (e.currentTarget.style.background = colors.brand[700])}
               onMouseLeave={(e) => (e.currentTarget.style.background = colors.brand[600])}
             >
-              {formatUsTime(slot)}
+              {formatTimeInTimeZone(slot, timeZone ?? PLATFORM_TIMEZONE)}
             </button>
           ))}
         </div>

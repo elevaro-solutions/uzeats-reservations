@@ -6,8 +6,10 @@ import { ArrowLeftOutlined, CalendarOutlined, CreditCardOutlined, RightOutlined 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { EmptyState, PageHeader, colors, radii, shadows, typography } from '@reservations/ui';
+import { PLATFORM_TIMEZONE } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { MY_RESERVATIONS } from '@/lib/graphql';
+import { formatReservationWhen } from '@/lib/reservationDisplay';
 
 const { Text } = Typography;
 
@@ -24,6 +26,7 @@ type BillingReservation = {
     id?: string;
     name?: string;
     slug?: string;
+    timezone?: string | null;
     address?: {
       city?: string;
       state?: string;
@@ -227,7 +230,11 @@ export default function BillingPage() {
                       </Text>
                       <Text type="secondary" style={{ display: 'block', marginTop: 6 }}>
                         <CalendarOutlined style={{ marginRight: 6 }} />
-                        {new Date(reservation.slotStart).toLocaleString('en-US')} · {reservation.partySize}{' '}
+                        {formatReservationWhen(
+                          reservation.slotStart,
+                          reservation.restaurant?.timezone ?? PLATFORM_TIMEZONE,
+                        )}{' '}
+                        · {reservation.partySize}{' '}
                         {reservation.partySize === 1 ? 'guest' : 'guests'}
                       </Text>
                       {(reservation.restaurant?.address?.city || reservation.restaurant?.address?.state) && (

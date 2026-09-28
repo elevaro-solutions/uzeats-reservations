@@ -870,6 +870,7 @@ export const resolvers = {
                   slotsByRestaurantId,
                   mapped.id,
                   input.time,
+                  restaurantTimeZone(doc),
                 )
               : [],
           };

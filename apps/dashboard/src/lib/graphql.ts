@@ -776,7 +776,12 @@ export const ADMIN_USER_RESERVATIONS = gql`
         status
         source
         depositAmountCents
-        restaurant { id name }
+        restaurant {
+          id
+          name
+          address { state zip country }
+          location { lat lng }
+        }
       }
     }
   }
@@ -858,7 +863,12 @@ export const ADMIN_RESERVATIONS = gql`
         privateDiningSpaceName
         createdAt
         diner { id firstName lastName phone email }
-        restaurant { id name }
+        restaurant {
+          id
+          name
+          address { state zip country }
+          location { lat lng }
+        }
         tables { id name floorArea }
       }
     }

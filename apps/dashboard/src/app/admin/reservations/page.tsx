@@ -20,7 +20,7 @@ import {
 import type { MenuProps } from 'antd';
 import { CalendarOutlined, CheckCircleOutlined, CloseCircleOutlined, DeleteOutlined, EyeOutlined, LoginOutlined, MoreOutlined, RollbackOutlined, SearchOutlined, ShopOutlined, UserDeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { formatTrafficSource, formatUsDateTime } from '@reservations/shared';
+import { formatTrafficSource, formatUsDateTime, restaurantTimeZone } from '@reservations/shared';
 import { PageHeader, StatusTag, spacing } from '@reservations/ui';
 import {
   ADMIN_RESERVATIONS,
@@ -105,7 +105,12 @@ type ReservationRow = {
     phone?: string;
     email?: string;
   };
-  restaurant?: { id: string; name: string } | null;
+  restaurant?: {
+    id: string;
+    name: string;
+    address?: { state?: string; zip?: string; country?: string } | null;
+    location?: { lat?: number; lng?: number } | null;
+  } | null;
   tables?: { id: string; name: string }[];
 };
 
@@ -370,6 +375,7 @@ function AdminReservationsContent() {
               render: (v: string, r: ReservationRow) => (
                 <Link href={`/admin/reservations/${r.id}`}>
                   {formatUsDateTime(v, {
+                    timeZone: restaurantTimeZone(r.restaurant ?? {}),
                     month: 'short',
                     day: 'numeric',
                     year: 'numeric',

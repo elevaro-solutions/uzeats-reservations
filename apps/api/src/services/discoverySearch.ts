@@ -1,12 +1,20 @@
 import type { Types } from 'mongoose';
-import type { AvailabilitySlot, SearchRestaurantsInput } from '@reservations/shared';
+import type {
+  AvailabilitySlot,
+  RestaurantTimeZoneInput,
+  SearchRestaurantsInput,
+} from '@reservations/shared';
+import { hmInTimeZone, PLATFORM_TIMEZONE, restaurantTimeZone } from '@reservations/shared';
+import { Restaurant } from '../models/Restaurant.js';
 import {
   getAvailabilityForRestaurants,
   previewAvailableSlotTimes,
 } from './availability.js';
 import { listActiveCategoryDefs } from './discoveryTaxonomy.js';
 
-type RestaurantLike = { _id: Types.ObjectId | { toString(): string } };
+type RestaurantLike = RestaurantTimeZoneInput & {
+  _id: Types.ObjectId | { toString(): string };
+};
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -179,11 +187,14 @@ export function applyGeoToFilter(
   return { filter, countFilter: cloneFilter(), usingGeo };
 }
 
-function slotMatchesTime(isoTime: string, timeHm?: string): boolean {
+/** Match slot ISO against diner HH:mm in the restaurant IANA zone (not host local). */
+export function slotMatchesTime(
+  isoTime: string,
+  timeHm: string | undefined,
+  timeZone: string,
+): boolean {
   if (!timeHm) return true;
-  const d = new Date(isoTime);
-  const hm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  return hm === timeHm;
+  return hmInTimeZone(new Date(isoTime), timeZone) === timeHm;
 }
 
 export type AvailabilityFilterResult<T extends RestaurantLike> = {
@@ -210,7 +221,8 @@ export async function filterByAvailability<T extends RestaurantLike>(
 
   const filtered = restaurants.filter((restaurant) => {
     const slots = slotsByRestaurantId.get(restaurant._id.toString()) ?? [];
-    return slots.some((s) => s.available && slotMatchesTime(s.time, time));
+    const timeZone = restaurantTimeZone(restaurant);
+    return slots.some((s) => s.available && slotMatchesTime(s.time, time, timeZone));
   });
 
   return { restaurants: filtered, slotsByRestaurantId };
@@ -227,10 +239,22 @@ export async function restaurantIdsWithAvailability(
     date,
     partySize,
   });
+
+  const tzById = new Map<string, string>();
+  if (time) {
+    const docs = await Restaurant.find({ _id: { $in: restaurantIds } })
+      .select('address location')
+      .lean();
+    for (const doc of docs) {
+      tzById.set(doc._id.toString(), restaurantTimeZone(doc));
+    }
+  }
+
   const available = new Set<string>();
   for (const id of restaurantIds) {
     const slots = slotsByRestaurantId.get(id) ?? [];
-    if (slots.some((s) => s.available && slotMatchesTime(s.time, time))) {
+    const timeZone = tzById.get(id) ?? PLATFORM_TIMEZONE;
+    if (slots.some((s) => s.available && slotMatchesTime(s.time, time, timeZone))) {
       available.add(id);
     }
   }
@@ -241,11 +265,12 @@ export function availableSlotTimesForRestaurant(
   slotsByRestaurantId: Map<string, AvailabilitySlot[]>,
   restaurantId: string,
   time?: string,
+  timeZone: string = PLATFORM_TIMEZONE,
   limit = 4,
 ): string[] {
   const slots = slotsByRestaurantId.get(restaurantId) ?? [];
   const matching = time
-    ? slots.filter((s) => s.available && slotMatchesTime(s.time, time))
+    ? slots.filter((s) => s.available && slotMatchesTime(s.time, time, timeZone))
     : slots;
   return previewAvailableSlotTimes(matching, limit);
 }

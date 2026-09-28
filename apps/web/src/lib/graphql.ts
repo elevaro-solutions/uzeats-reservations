@@ -12,6 +12,7 @@ export const SEARCH_RESTAURANTS = gql`
         slug
         cuisine
         priceRange
+        timezone
         address {
           city
           state
@@ -201,6 +202,7 @@ export const MY_RESERVATIONS = gql`
         slug
         photos
         isSaved
+        timezone
         address {
           city
           state
@@ -241,6 +243,7 @@ export const MY_RESERVATION = gql`
         photos
         phone
         isSaved
+        timezone
         address {
           line1
           line2
@@ -579,6 +582,7 @@ export const RESERVATION_FOR_SURVEY = gql`
       restaurant {
         id
         name
+        timezone
       }
     }
   }

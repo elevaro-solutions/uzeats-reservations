@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { canEditUser, isPlatformAdmin, isSuperAdmin } from '@/lib/roles';
 import { useUrlTab } from '@/lib/useUrlTab';
 import { PageHeader, PhoneInput, colors, radii, spacing, usPhoneRules } from '@reservations/ui';
+import { formatUsDateTime, restaurantTimeZone } from '@reservations/shared';
 import { useFormDirty } from '@/lib/useFormDirty';
 import {
   Button,
@@ -732,7 +733,15 @@ function AdminAccountDetailContent({ kind }: Props) {
                                 title: 'When',
                                 dataIndex: 'slotStart',
                                 key: 'slotStart',
-                                render: (v: string) => formatDate(v),
+                                render: (v: string, rec: any) =>
+                                  formatUsDateTime(v, {
+                                    timeZone: restaurantTimeZone(rec.restaurant ?? {}),
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric',
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                  }),
                               },
                               {
                                 title: 'Party',

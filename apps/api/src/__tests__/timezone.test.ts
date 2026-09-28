@@ -146,3 +146,31 @@ describe('calendar day helpers', () => {
     expect(range.$lt.toISOString()).toBe('2026-09-26T05:00:00.000Z');
   });
 });
+
+describe('discovery slot time match (restaurant zone)', () => {
+  it('matches HH:mm in the venue zone, not the host local clock', () => {
+    // Same contract as discoverySearch.slotMatchesTime (hmInTimeZone, not getHours).
+    // 7:00 PM Pacific = 02:00 UTC next day — host getHours() would usually disagree.
+    const slot = zonedWallClockToUtc('2026-09-16', '19:00', 'America/Los_Angeles');
+    expect(slot.toISOString()).toBe('2026-09-17T02:00:00.000Z');
+    expect(hmInTimeZone(slot, 'America/Los_Angeles')).toBe('19:00');
+    expect(hmInTimeZone(slot, 'America/New_York')).toBe('22:00');
+    expect(hmInTimeZone(slot, 'America/Los_Angeles') === '19:00').toBe(true);
+    expect(hmInTimeZone(slot, 'America/New_York') === '19:00').toBe(false);
+  });
+});
+
+describe('report day windows (restaurant zone)', () => {
+  it('uses restaurant-local midnight and shift wall clocks', () => {
+    // Same contract as reports.restaurantDayWindow.
+    const la = 'America/Los_Angeles';
+    const day = calendarDayRange('2026-09-16', la);
+    expect(day.$gte.toISOString()).toBe('2026-09-16T07:00:00.000Z'); // PDT UTC-7
+    expect(day.$lt.toISOString()).toBe('2026-09-17T07:00:00.000Z');
+
+    const dinnerStart = zonedWallClockToUtc('2026-09-16', '17:00', la);
+    const dinnerEnd = zonedWallClockToUtc('2026-09-16', '22:00', la);
+    expect(dinnerStart.toISOString()).toBe('2026-09-17T00:00:00.000Z'); // 5pm PDT
+    expect(dinnerEnd.toISOString()).toBe('2026-09-17T05:00:00.000Z'); // 10pm PDT
+  });
+});

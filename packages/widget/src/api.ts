@@ -17,6 +17,7 @@ export interface Address {
   line1: string;
   city: string;
   state: string;
+  zip?: string;
 }
 
 export interface RestaurantInfo {
@@ -25,6 +26,8 @@ export interface RestaurantInfo {
   slug: string;
   cuisine: string;
   address: Address;
+  /** IANA zone from API (address/geo-derived). */
+  timezone: string;
   photos: string[];
   averageRating: number;
   reviewCount: number;
@@ -70,7 +73,8 @@ const RESTAURANT_FIELDS = `
   name
   slug
   cuisine
-  address { line1 city state }
+  timezone
+  address { line1 city state zip }
   photos
   averageRating
   reviewCount

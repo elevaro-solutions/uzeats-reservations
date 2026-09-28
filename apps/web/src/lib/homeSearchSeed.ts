@@ -9,6 +9,7 @@ export type HomeSearchSeedItem = {
   slug?: string | null;
   cuisine: string;
   priceRange: number;
+  timezone?: string | null;
   address: { city: string; state: string };
   location?: { lat: number; lng: number } | null;
   photos: string[];
@@ -46,6 +47,7 @@ const SEARCH_QUERY = `
         slug
         cuisine
         priceRange
+        timezone
         address { city state }
         location { lat lng }
         photos

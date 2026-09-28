@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.69.1] — 2026-09-28
+
+### Fixed
+
+- Booking widget slot labels and calendar "today" use restaurant IANA timezone (not embed-page device local)
+- Partner overview omits browser `date` so each location's "today" is restaurant-local; analytics day buckets / top slots use venue TZ
+- API discovery time filter and partner reports use restaurant IANA timezone for slot HH:mm matching and calendar/shift day windows (no longer host-local `getHours` / `T00:00:00`)
+- Web diner: reservation list/detail, billing, messages, and survey show slot times in restaurant IANA timezone (not device local), matching mobile
+- Discovery restaurant card slot chips and Partner Hub / admin ops clocks (floor-ops, reports, messages, admin reservations panels) format slots in the restaurant IANA zone via shared helpers — not device `toLocale*` / bare `dayjs(...).format('h:mm A')`
+
 ## [0.69.0] — 2026-09-27
 
 ### Added

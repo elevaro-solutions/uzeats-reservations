@@ -3,6 +3,9 @@
 ## [2026-09-27] Source chip vs Traffic chips
 - List/detail **Source** is billing channel (`network` → label “Platform”). Extra chips from `attributionMetaChips`: Traffic (e.g. Google Business Profile), Campaign, Landing, Booked from, Referrer.
 - Why it matters: Don’t overload Source with UTMs — partners need both fee channel and marketing origin.
+## [2026-09-27] Slot clocks use restaurantTimeZone, not device local
+- Floor-ops, pre-shift reports, messages `formatSlot`, admin restaurant day panel, admin reservations list/detail slot picker, and guest-detail When column pass `restaurantTimeZone(...)` into `formatTimeInTimeZone` / `formatUsDateTime`. List queries that only had `restaurant { id name }` now also select address/location when formatting slots.
+- Why it matters: Partner Hub in UZ/EU browsers was showing US dinner slots shifted by device offset.
 
 ## [2026-09-25] Diner impersonation leaves Partner Hub
 - `isPartner` must use the *target* role only — never `|| isImpersonating`. Impersonating a diner sets `tv_web_access` and redirects to the public web app; DashShell/useRequirePartner bounce diner roles off the hub.

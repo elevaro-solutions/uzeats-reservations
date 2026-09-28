@@ -31,7 +31,12 @@ import { StatusTag, PageHeader, EmptyState, pickRestaurantPhoto } from '@reserva
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { RESERVATION_CANCELLATION_REASONS, buildRestaurantBookingPath, buildReservationCancellationReason } from '@reservations/shared';
+import {
+  RESERVATION_CANCELLATION_REASONS,
+  PLATFORM_TIMEZONE,
+  buildRestaurantBookingPath,
+  buildReservationCancellationReason,
+} from '@reservations/shared';
 import {
   MY_RESERVATIONS,
   UPDATE_RESERVATION_STATUS,
@@ -345,11 +350,18 @@ export default function ReservationsPage() {
                     <div className="rt-reservation-list-card__meta">
                       <span>
                         <CalendarOutlined />
-                        {formatReservationDate(r.slotStart)}
+                        {formatReservationDate(
+                          r.slotStart,
+                          r.restaurant?.timezone ?? PLATFORM_TIMEZONE,
+                        )}
                       </span>
                       <span>
                         <ClockCircleOutlined />
-                        {formatReservationTime(r.slotStart, r.slotEnd)}
+                        {formatReservationTime(
+                          r.slotStart,
+                          r.slotEnd,
+                          r.restaurant?.timezone ?? PLATFORM_TIMEZONE,
+                        )}
                       </span>
                       <span>
                         <TeamOutlined />

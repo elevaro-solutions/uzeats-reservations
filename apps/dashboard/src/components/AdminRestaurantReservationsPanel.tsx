@@ -18,6 +18,7 @@ import {
 import type { MenuProps } from 'antd';
 import { CalendarOutlined, CheckCircleOutlined, CloseCircleOutlined, DeleteOutlined, EyeOutlined, LoginOutlined, MoreOutlined, ReloadOutlined, UserDeleteOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
+import { formatTimeInTimeZone, restaurantTimeZone } from '@reservations/shared';
 import { StatusTag, spacing } from '@reservations/ui';
 import {
   DELETE_RESERVATION,
@@ -42,9 +43,18 @@ type ReservationRow = {
   tables?: { id: string; name: string }[];
 };
 
-export function AdminRestaurantReservationsPanel({ restaurantId }: { restaurantId: string }) {
+type RestaurantTzInput = Parameters<typeof restaurantTimeZone>[0];
+
+export function AdminRestaurantReservationsPanel({
+  restaurantId,
+  restaurant,
+}: {
+  restaurantId: string;
+  restaurant?: RestaurantTzInput;
+}) {
   const router = useRouter();
   const [date, setDate] = useState<Dayjs>(dayjs());
+  const timeZone = restaurantTimeZone(restaurant ?? {});
   const { data, loading, refetch } = useQuery(RESTAURANT_RESERVATIONS, {
     variables: {
       restaurantId,
@@ -172,7 +182,7 @@ export function AdminRestaurantReservationsPanel({ restaurantId }: { restaurantI
             dataIndex: 'slotStart',
             width: 100,
             render: (v: string, r: ReservationRow) => (
-              <Link href={`/admin/reservations/${r.id}`}>{dayjs(v).format('h:mm A')}</Link>
+              <Link href={`/admin/reservations/${r.id}`}>{formatTimeInTimeZone(v, timeZone)}</Link>
             ),
           },
           {

@@ -16,7 +16,9 @@ import {
   message,
 } from 'antd';
 import { useAuth } from '@/lib/auth';
+import { PLATFORM_TIMEZONE } from '@reservations/shared';
 import { RESERVATION_FOR_SURVEY, SURVEY_CONFIG, SUBMIT_SURVEY } from '@/lib/graphql';
+import { formatReservationWhen } from '@/lib/reservationDisplay';
 
 const { Title, Text } = Typography;
 
@@ -141,8 +143,12 @@ export default function SurveyPage() {
         How was your visit?
       </Title>
       <Text type="secondary">
-        {reservation.restaurant?.name} · {new Date(reservation.slotStart).toLocaleString('en-US')} ·{' '}
-        {reservation.partySize} guests
+        {reservation.restaurant?.name} ·{' '}
+        {formatReservationWhen(
+          reservation.slotStart,
+          reservation.restaurant?.timezone ?? PLATFORM_TIMEZONE,
+        )}{' '}
+        · {reservation.partySize} guests
       </Text>
 
       <Space orientation="vertical" size={20} style={{ width: '100%', marginTop: 24 }}>

@@ -145,6 +145,10 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## reservations
 
+### [2026-09-27] Web diner slot labels use restaurant IANA zone
+- Web `formatReservationDate` / `Time` / `When` take `timeZone` (default `PLATFORM_TIMEZONE`) and format via shared helpers; list/detail/billing/messages/survey pass `restaurant.timezone` from `MY_RESERVATIONS` / `MY_RESERVATION` / `RESERVATION_FOR_SURVEY`.
+- Why it matters: Web previously used device-local `toLocale*`; a diner abroad saw wrong wall-clock times vs Partner Hub / mobile.
+
 ### [2026-09-26] List/detail use restaurant IANA zone (not device)
 - Diner `formatReservationWhen` / `Date` / `Time` take `restaurant.timezone` (from `MY_RESERVATIONS` / `MY_RESERVATION`) and format via shared `formatUsDateTime` / `formatUsDate` / `formatTimeInTimeZone`; missing zone → `PLATFORM_TIMEZONE`. Booking/edit already passed timezone for slots.
 - Why it matters: A diner in Tashkent viewing a NYC booking must see 7:00 PM ET, same as dashboard — not device-local `toLocale*`.

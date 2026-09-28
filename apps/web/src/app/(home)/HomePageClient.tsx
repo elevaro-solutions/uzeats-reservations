@@ -34,7 +34,7 @@ import {
   ThunderboltFilled,
   TrophyOutlined,
 } from '@ant-design/icons';
-import { buildRestaurantBookingPath, PLATFORM_TIMEZONE, RESTAURANT_DISCOVERY_CATEGORIES, addCalendarDays, todayIsoInTimeZone } from '@reservations/shared';
+import { buildRestaurantBookingPath, PLATFORM_TIMEZONE, RESTAURANT_DISCOVERY_CATEGORIES, addCalendarDays, timezoneFromAddress, todayIsoInTimeZone } from '@reservations/shared';
 import { SEARCH_RESTAURANTS } from '@/lib/graphql';
 import { useInfiniteRestaurantSearch } from '@/lib/useInfiniteRestaurantSearch';
 import { useDiscoveryViewMode } from '@/lib/useDiscoveryViewMode';
@@ -559,6 +559,9 @@ function HomePageContent({ initialSearch = null }: HomePageClientProps) {
             reviewCount={r.reviewCount}
             photoUrl={pickRestaurantPhoto(r.photos)}
             availableSlots={r.availableSlotTimes ?? []}
+            timeZone={
+              r.timezone || timezoneFromAddress({ state: r.address?.state })
+            }
             onClick={() => router.push(buildRestaurantBookingPath(r.slug, r.id))}
             onSelectSlot={(_, time) =>
               router.push(

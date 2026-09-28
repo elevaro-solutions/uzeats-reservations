@@ -18,6 +18,7 @@ import {
   buildRestaurantBookingPath,
   cuisineSlug,
   discoverySlug,
+  timezoneFromAddress,
   type DiscoveryLandingMeta,
 } from '@reservations/shared';
 import {
@@ -532,6 +533,9 @@ function DiscoveryLandingContent({
             reviewCount={r.reviewCount}
             photoUrl={pickRestaurantPhoto(r.photos)}
             availableSlots={r.availableSlotTimes ?? []}
+            timeZone={
+              r.timezone || timezoneFromAddress({ state: r.address?.state })
+            }
             onClick={() => router.push(buildRestaurantBookingPath(r.slug, r.id))}
             onSelectSlot={(_, time) =>
               router.push(
