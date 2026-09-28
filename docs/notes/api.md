@@ -1,5 +1,24 @@
 # API — Learnings & Observations
 
+## [2026-09-28] `deleteReview` is author or super admin
+- Mutation permanently removes the Review, recomputes `Restaurant.averageRating` / `reviewCount` (zeros when none left), and calls `reverseReviewPoints` (idempotent adjust; swallows insufficient-balance).
+- Auth: `dinerId` match, else `requireSuperAdmin` (not `requireAdmin`). Creators may delete while impersonated; super-admin path still blocks impersonation.
+- Why it matters: Hiding stays a platform-admin moderation tool; permanent delete is narrower.
+
+## [2026-09-28] Complete must not 500 on loyalty side effects
+- `updateReservationStatus(..., 'completed')` saves the status even if visit points, restaurant loyalty, guest-profile recompute, or slot release throws. Those errors are logged. `$inc` on `loyaltyPoints` is avoided when the stored value is null (legacy users) — Mongo rejects `$inc` on null and production masks that as `INTERNAL_SERVER_ERROR`.
+- Staff (owner/manager/admin) may complete from `pending` or `confirmed`. Diners still cannot skip seat → complete. Floor’s secondary Complete button uses that path.
+- Why it matters: The Complete button was returning `{ message: "Internal server error" }` and leaving the visit open whenever a side effect threw.
+
+## [2026-09-28] Pricing package order is `planOrder`
+- Empty `PlatformConfig.planOrder` keeps built-ins first, then custom keys. `reorderPlanPackages` stores the full catalog key list. `getEffectivePlans` sorts with `orderPlans`; keys missing from the list stay at the end.
+- Why it matters: Public `/pricing` used to re-sort to Basic, Core, Pro and ignore any admin order.
+
+## [2026-09-28] Built-in plan delete is a catalog tombstone
+- `deletePlanPackage` lets a super admin hide a built-in key via `PlatformConfig.deletedPlanKeys`. The code default and any `planOverrides` stay so `getEffectivePlan` still resolves restaurants already on that package.
+- `getEffectivePlans` (pricing, signup, admin list) omits deleted keys. Custom packages are still removed by dropping the override, and any admin can do that. The last remaining catalog package cannot be deleted.
+- Why it matters: Deleting Basic/Core/Pro must not wipe features for current subscribers, and must not reappear on the next config read because those keys live in `plans.ts`.
+
 ## [2026-09-27] Reservation attribution ≠ billing source
 - `source` (network/website/widget/phone/walkin) drives cover fees. Marketing fields (`utmSource`/`utmMedium`/…, `landingPath`, `originUrl`, `referrer`) are separate.
 - Diner create uses `resolveDinerReservationSource`: widget UTMs → `widget`; Google GBP UTMs stay `network` with `utmSource=google`.

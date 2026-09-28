@@ -1,5 +1,19 @@
 # Web — Learnings & Observations
 
+## [2026-09-28] The Apollo auth-refresh link replays mutations
+- `errorLink` in `lib/apollo.tsx` forwards any operation whose response carries `Authentication required` after refreshing the session — mutations included. It now marks the operation context (`authRetried`) so each one replays at most once; without the cap a persistent auth error re-sent the operation on every pass.
+- On refresh failure, queued operations are rejected (`rejectPendingRequests`) instead of being dropped; the old code cleared the array and left those subscribers hanging forever behind a spinner.
+- The same link shape lives in `apps/dashboard`, `apps/mobile`, and `apps/merchant-mobile` — mobile already rejects pending requests but still has no replay cap.
+- Why it matters: Anything non-idempotent (booking, payment confirm) can be executed more than once by the transport layer, so writes need their own server-side guard.
+
+## [2026-09-28] Public pricing visibility is `visibleOnPricing` only
+- `/pricing` cards include every plan with `visibleOnPricing !== false`, including custom keys. The compare grid still uses the static Basic/Core/Pro matrix for those three keys when they are visible.
+- Why it matters: Filtering `!isCustom && isStandardPlanKey` made a new package flash (API list) and then vanish. The admin switch is the only public-catalog gate.
+
+## [2026-09-28] My reviews can delete
+- `/reviews` Delete calls `deleteReview`; only the signed-in author succeeds (API enforces). Confirm modal before mutate; refetch `myReviews`.
+- Why it matters: Author delete lives on diner web, not Partner Hub.
+
 ## [2026-09-27] Booking attribution is first-touch in sessionStorage
 - `BookingAttributionCapture` writes UTMs + `landingPath` + external `referrer` to `tablevera_booking_attribution` on navigation. First UTM touch wins for the tab session.
 - `createReservation` spreads `getBookingAttributionForSubmit()` (stored UTMs + current `originUrl`). API `resolveDinerReservationSource` maps widget UTMs → billing `source=widget`; Google GBP stays `network` with `utmSource=google`.

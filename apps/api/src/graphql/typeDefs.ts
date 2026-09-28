@@ -3005,6 +3005,7 @@ export const typeDefs = `#graphql
     updatePlanPackage(input: PlanPackageInput!): PlanInfo!
     createPlanPackage(input: CreatePlanPackageInput!): PlanInfo!
     deletePlanPackage(key: String!): Boolean!
+    reorderPlanPackages(keys: [String!]!): [PlanInfo!]!
     startImpersonation(userId: ID!): ImpersonationPayload!
     endImpersonation: Boolean!
     inviteManager(
@@ -3199,6 +3200,8 @@ export const typeDefs = `#graphql
     reportReview(reviewId: ID!, reason: ReviewReportReason!, details: String): Review!
     """Hide or unhide a review. Platform admins only — partners must use reportReview."""
     setReviewHidden(reviewId: ID!, hidden: Boolean!): Review!
+    """Permanently delete a review. Review author or super admin only."""
+    deleteReview(reviewId: ID!): Boolean!
     """Append public image URLs to the restaurant gallery (deduped, capped)."""
     addRestaurantPhotos(restaurantId: ID!, urls: [String!]!): Restaurant!
 

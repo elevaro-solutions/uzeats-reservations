@@ -31,7 +31,7 @@ Policy implemented in `apps/api/src/services/planChangePolicy.ts`:
 | **Revenue** | Aggregated MRR and revenue charts |
 | **Churn** | Cancellation and downgrade trends |
 | **Loyalty** | View outstanding points; super admins edit earn rates and create tiers |
-| **Pricing** | Configure plan prices and annual billing discounts |
+| **Pricing** | Configure plan prices and annual billing discounts. Drag packages to set the order used on the public pricing page. Super admins can delete any package, including built-in Basic, Core, and Pro. Restaurants already on a deleted package keep it. At least one package must remain. |
 
 Annual billing discounts are defined in `@reservations/shared` (`annualBilling.ts`).
 

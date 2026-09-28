@@ -1,5 +1,11 @@
 # Booking — Learnings & Observations
 
+## [2026-09-28] Duplicate bookings are blocked in the service, not the UI
+- `createReservation` rejects a second live (`pending` / `confirmed` / `seated`) reservation for the same `dinerId` + `restaurantId` + `slotStart` before `resolveTable` runs, so the error is "already have a reservation", not "no tables available".
+- Table slot claims only serialize the *same* table, so a replayed submit landed on a different table and looked like a legitimate second booking. Client-side locks (`isSubmittingRef`, modal `loading`) do not cover replays from the Apollo link layer.
+- Terminal statuses are excluded on purpose: cancelled / completed / no-show slots must stay rebookable, and tests reuse one slot across visits.
+- Why it matters: Don't rely on the booking form to prevent doubles, and don't widen the guard to overlapping ranges — that would block a party split across two tables.
+
 ## [2026-09-26] TZ QA suite locks diner D1–D8 surfaces
 - `restaurant-local-tz-qa.test.ts` asserts chip / confirm / confirmation / home+list+detail / edit Today / waitlist chips / messages “when” all format the same NY 19:00 ISO as `7:00 PM` under `TZ=Asia/Tashkent` (and London). Phone-local format of that instant is `4:00 AM` — must never appear on visit clocks.
 - Why it matters: Regression net for traveler-phone vs US venue wall clock without needing a simulator TZ flip each time.

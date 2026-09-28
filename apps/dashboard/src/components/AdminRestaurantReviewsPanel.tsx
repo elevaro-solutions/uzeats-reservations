@@ -19,6 +19,7 @@ import {
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
+  DeleteOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
   MessageOutlined,
@@ -30,11 +31,14 @@ import { RESTAURANT_MAX_PHOTOS, browserMediaUrl } from '@reservations/shared';
 import { colors } from '@reservations/ui';
 import {
   ADD_RESTAURANT_PHOTOS,
+  DELETE_REVIEW,
   GENERATE_REVIEW_REPLY_DRAFT,
   REPLY_TO_REVIEW,
   RESTAURANT_REVIEWS,
   SET_REVIEW_HIDDEN,
 } from '@/lib/graphql';
+import { useAuth } from '@/lib/auth';
+import { isSuperAdmin } from '@/lib/roles';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 
 const { Text, Paragraph } = Typography;
@@ -48,6 +52,8 @@ export function AdminRestaurantReviewsPanel({
   photos?: string[];
   onPhotosSaved?: () => void;
 }) {
+  const { user } = useAuth();
+  const canDelete = user ? isSuperAdmin(user.role) : false;
   const [replying, setReplying] = useState<any>(null);
   const [replyText, setReplyText] = useState('');
   const [selectedByReview, setSelectedByReview] = useState<Record<string, string[]>>({});
@@ -63,6 +69,7 @@ export function AdminRestaurantReviewsPanel({
   const [generateDraft, { loading: generatingDraft }] = useMutation(GENERATE_REVIEW_REPLY_DRAFT);
   const [addRestaurantPhotos, { loading: addingPhotos }] = useMutation(ADD_RESTAURANT_PHOTOS);
   const [setReviewHidden] = useMutation(SET_REVIEW_HIDDEN);
+  const [deleteReview] = useMutation(DELETE_REVIEW);
 
   const galleryPhotos = photos;
 
@@ -99,6 +106,25 @@ export function AdminRestaurantReviewsPanel({
     await setReviewHidden({ variables: { reviewId: review.id, hidden: !review.hidden } });
     message.success(review.hidden ? 'Review unhidden' : 'Review hidden from public listing');
     refetch();
+  };
+
+  const handleDelete = (review: any) => {
+    Modal.confirm({
+      title: 'Delete this review permanently?',
+      content: 'This cannot be undone. Restaurant rating stats will be recalculated.',
+      okText: 'Delete',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deleteReview({ variables: { reviewId: review.id } });
+          message.success('Review deleted');
+          refetch();
+        } catch (err: any) {
+          message.error(err?.message ?? 'Failed to delete review');
+          throw err;
+        }
+      },
+    });
   };
 
   const togglePhotoSelected = (reviewId: string, url: string, checked: boolean) => {
@@ -193,6 +219,18 @@ export function AdminRestaurantReviewsPanel({
                           label: r.hidden ? 'Unhide' : 'Hide',
                           onClick: () => void toggleHidden(r),
                         },
+                        ...(canDelete
+                          ? [
+                              { type: 'divider' as const },
+                              {
+                                key: 'delete',
+                                danger: true,
+                                icon: <DeleteOutlined />,
+                                label: 'Delete',
+                                onClick: () => handleDelete(r),
+                              },
+                            ]
+                          : []),
                       ] as MenuProps['items'],
                     }}
                     trigger={['click']}

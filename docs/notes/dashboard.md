@@ -1,5 +1,21 @@
 # Dashboard — Learnings & Observations
 
+## [2026-09-28] Review delete is super-admin (or author) only
+- `deleteReview` allows the review’s `dinerId` or `requireSuperAdmin`. Regular platform admins still hide/report; Delete appears on admin restaurant Reviews, Moderation, and guest Reviews tab only when `isSuperAdmin`.
+- Why it matters: Don’t gate permanent delete on `requireAdmin` — that would let account managers wipe reviews.
+
+## [2026-09-28] Pricing package drag order
+- `/admin/pricing` package rows use a handle (`HolderOutlined`) to reorder. Drop calls `reorderPlanPackages` and refetches. The list does not use the card loading spinner during that refetch.
+- Why it matters: The public pricing page now follows API array order, so a client sort back to Basic/Core/Pro would undo the drag.
+
+## [2026-09-28] Visible packages include custom keys
+- Billing plan changes, partner “add location”, and admin package assignment no longer drop `isCustom` plans. Public/partner pickers still hide `visibleOnPricing === false`. Admin assignment lists every non-`free` package so a hidden package can still be assigned.
+- Why it matters: The pricing switch only updates `visibleOnPricing`. An `isCustom` filter made that switch look broken.
+
+## [2026-09-28] Pricing package delete
+- `/admin/pricing` shows Delete for custom packages (any admin) and for built-in Basic/Core/Pro only when the signed-in user is a super admin.
+- Why it matters: Built-in keys are not `isCustom`, so a Delete button gated only on that flag never appears for the default packages.
+
 ## [2026-09-27] Source chip vs Traffic chips
 - List/detail **Source** is billing channel (`network` → label “Platform”). Extra chips from `attributionMetaChips`: Traffic (e.g. Google Business Profile), Campaign, Landing, Booked from, Referrer.
 - Why it matters: Don’t overload Source with UTMs — partners need both fee channel and marketing origin.

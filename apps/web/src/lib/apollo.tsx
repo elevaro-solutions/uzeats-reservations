@@ -29,11 +29,21 @@ const authLink = setContext((_, { headers }) => ({
   },
 }));
 
+type PendingRequest = {
+  resolve: () => void;
+  reject: (error: unknown) => void;
+};
+
 let isRefreshing = false;
-let pendingRequests: Array<() => void> = [];
+let pendingRequests: PendingRequest[] = [];
 
 function resolvePendingRequests() {
-  pendingRequests.forEach((cb) => cb());
+  pendingRequests.forEach(({ resolve }) => resolve());
+  pendingRequests = [];
+}
+
+function rejectPendingRequests(error: unknown) {
+  pendingRequests.forEach(({ reject }) => reject(error));
   pendingRequests = [];
 }
 
@@ -43,10 +53,17 @@ const errorLink = onError(({ error, operation, forward }) => {
   const authError = error.errors.find((e) => e.message === 'Authentication required');
   if (!authError) return;
 
+  // Replay each operation at most once per refresh. Without this an operation
+  // whose auth error survives the refresh loops forever, and a mutation such as
+  // createReservation is re-sent — and re-applied — on every pass.
+  if (operation.getContext().authRetried) return;
+  operation.setContext({ authRetried: true });
+
   if (isRefreshing) {
     return new Observable((subscriber) => {
-      pendingRequests.push(() => {
-        forward(operation).subscribe(subscriber);
+      pendingRequests.push({
+        resolve: () => forward(operation).subscribe(subscriber),
+        reject: (err) => subscriber.error(err),
       });
     });
   }
@@ -76,7 +93,7 @@ const errorLink = onError(({ error, operation, forward }) => {
       })
       .catch(() => {
         isRefreshing = false;
-        pendingRequests = [];
+        rejectPendingRequests(error);
         window.location.href = '/login';
         subscriber.error(error);
       });

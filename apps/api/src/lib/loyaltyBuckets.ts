@@ -127,7 +127,7 @@ export async function addCreditBucket(
   session: ClientSession,
   options?: { reservationId?: string; type?: 'earn' | 'adjust' },
 ) {
-  if (points <= 0) return 0;
+  if (!Number.isFinite(points) || points <= 0) return 0;
 
   const program = await getLoyaltyProgram();
   const expiresAt =
@@ -135,7 +135,12 @@ export async function addCreditBucket(
       ? computePointsExpiryDate(program.pointsExpiryMonths)
       : undefined;
 
-  await User.findByIdAndUpdate(userId, { $inc: { loyaltyPoints: points } }, { session });
+  // $inc throws when a legacy user has loyaltyPoints: null. Treat that as 0.
+  await User.updateOne(
+    { _id: userId },
+    [{ $set: { loyaltyPoints: { $add: [{ $ifNull: ['$loyaltyPoints', 0] }, points] } } }],
+    { session },
+  );
   await LoyaltyTransaction.create(
     [
       {

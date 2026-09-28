@@ -51,6 +51,7 @@ import {
   ADMIN_SEND_PASSWORD_RESET,
   ADMIN_UPDATE_USER,
   ASSIGN_USER_RESTAURANTS,
+  DELETE_REVIEW,
   REMOVE_USER_RESTAURANT,
   START_IMPERSONATION,
 } from '@/lib/graphql';
@@ -233,10 +234,13 @@ function AdminAccountDetailContent({ kind }: Props) {
     variables: { userId: id, limit: 50, offset: 0 },
   });
 
-  const { data: reviewsData, loading: reviewsLoading } = useQuery(ADMIN_USER_REVIEWS, {
-    skip: !ready || !id || !showDinerTabs || tab !== 'reviews',
-    variables: { userId: id, limit: 50, offset: 0 },
-  });
+  const { data: reviewsData, loading: reviewsLoading, refetch: refetchReviews } = useQuery(
+    ADMIN_USER_REVIEWS,
+    {
+      skip: !ready || !id || !showDinerTabs || tab !== 'reviews',
+      variables: { userId: id, limit: 50, offset: 0 },
+    },
+  );
 
   const { data: loyaltyData, loading: loyaltyLoading } = useQuery(ADMIN_USER_LOYALTY, {
     skip: !ready || !id || !showDinerTabs || tab !== 'points',
@@ -253,8 +257,10 @@ function AdminAccountDetailContent({ kind }: Props) {
   const [startImpersonation, { loading: impersonating }] = useMutation(START_IMPERSONATION);
   const [assignRestaurants, { loading: assigning }] = useMutation(ASSIGN_USER_RESTAURANTS);
   const [removeRestaurant, { loading: removingRestaurant }] = useMutation(REMOVE_USER_RESTAURANT);
+  const [deleteReview] = useMutation(DELETE_REVIEW);
 
   const canEdit = user && currentUser ? canEditUser(currentUser.role, user.role) : false;
+  const canDeleteReviews = currentUser ? isSuperAdmin(currentUser.role) : false;
   const platformRoleSelectOptions = isSuperAdmin(currentUser?.role ?? '')
     ? PLATFORM_ROLE_OPTIONS
     : PLATFORM_ROLE_OPTIONS.filter(
@@ -822,6 +828,39 @@ function AdminAccountDetailContent({ kind }: Props) {
                                 key: 'createdAt',
                                 render: (v: string) => formatDate(v),
                               },
+                              ...(canDeleteReviews
+                                ? [
+                                    {
+                                      title: '',
+                                      key: 'actions',
+                                      width: 90,
+                                      render: (_: unknown, rec: { id: string }) => (
+                                        <Popconfirm
+                                          title="Delete this review permanently?"
+                                          okText="Delete"
+                                          okButtonProps={{ danger: true }}
+                                          onConfirm={async () => {
+                                            try {
+                                              await deleteReview({
+                                                variables: { reviewId: rec.id },
+                                              });
+                                              message.success('Review deleted');
+                                              refetchReviews();
+                                            } catch (err: any) {
+                                              message.error(
+                                                err?.message ?? 'Failed to delete review',
+                                              );
+                                            }
+                                          }}
+                                        >
+                                          <Button type="link" danger size="small">
+                                            Delete
+                                          </Button>
+                                        </Popconfirm>
+                                      ),
+                                    },
+                                  ]
+                                : []),
                             ]}
                           />
                         </Card>

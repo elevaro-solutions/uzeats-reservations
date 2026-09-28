@@ -56,9 +56,17 @@ export async function awardRestaurantVisitPoints(input: {
 
   return withRestaurantLoyaltyTransaction(async (session) => {
     await getOrCreateProfile(input.restaurantId, input.dinerId, session);
-    await GuestProfile.findOneAndUpdate(
+    await GuestProfile.updateOne(
       { restaurantId: input.restaurantId, dinerId: input.dinerId },
-      { $inc: { loyaltyPoints: input.pointsPerVisit } },
+      [
+        {
+          $set: {
+            loyaltyPoints: {
+              $add: [{ $ifNull: ['$loyaltyPoints', 0] }, input.pointsPerVisit],
+            },
+          },
+        },
+      ],
       { session },
     );
     await RestaurantLoyaltyTransaction.create(

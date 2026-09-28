@@ -233,10 +233,10 @@ function mapOverrideToPlan(
   };
 }
 
-export async function getEffectivePlans(): Promise<EffectivePlan[]> {
-  const config = await getPlatformConfig();
-  const overrides = getPlanOverridesMap(config);
-
+/** Every defined package, including built-ins hidden from the catalog. */
+export function assemblePlans(
+  overrides: Record<string, PlanOverrideFields>,
+): EffectivePlan[] {
   const plans: EffectivePlan[] = BUILTIN_KEYS.map((key) =>
     mapOverrideToPlan(key, overrides[key], PLANS[key]),
   );
@@ -250,8 +250,103 @@ export async function getEffectivePlans(): Promise<EffectivePlan[]> {
   return plans;
 }
 
+export function getDeletedPlanKeys(doc: PlatformConfigDocument): Set<string> {
+  const raw = (doc as { deletedPlanKeys?: unknown }).deletedPlanKeys;
+  if (!Array.isArray(raw)) return new Set();
+  return new Set(
+    raw
+      .map((key) => String(key).trim().toLowerCase())
+      .filter((key) => key.length > 0),
+  );
+}
+
+/** Catalog shown on pricing, signup, and admin package lists. */
+export function visiblePlans(
+  plans: EffectivePlan[],
+  deletedKeys: Set<string>,
+): EffectivePlan[] {
+  return plans.filter((plan) => !deletedKeys.has(plan.key));
+}
+
+export function getPlanOrder(doc: PlatformConfigDocument): string[] {
+  const raw = (doc as { planOrder?: unknown }).planOrder;
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const keys: string[] = [];
+  for (const item of raw) {
+    const key = String(item).trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    keys.push(key);
+  }
+  return keys;
+}
+
+/** Apply a saved order. Keys missing from `planOrder` stay at the end, in their previous order. */
+export function orderPlans<T extends { key: string }>(plans: T[], planOrder: string[]): T[] {
+  if (!planOrder.length) return plans;
+  const rank = new Map(planOrder.map((key, index) => [key, index]));
+  return [...plans].sort((a, b) => {
+    const ai = rank.get(a.key);
+    const bi = rank.get(b.key);
+    if (ai == null && bi == null) return 0;
+    if (ai == null) return 1;
+    if (bi == null) return -1;
+    return ai - bi;
+  });
+}
+
+/** Keep requested keys that exist, then append any catalog keys the client omitted. */
+export function normalizePlanOrder(catalogKeys: string[], requested: string[]): string[] {
+  const catalog = new Set(catalogKeys);
+  const seen = new Set<string>();
+  const next: string[] = [];
+  for (const raw of requested) {
+    const key = String(raw).trim().toLowerCase();
+    if (!catalog.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    next.push(key);
+  }
+  for (const key of catalogKeys) {
+    if (!seen.has(key)) next.push(key);
+  }
+  return next;
+}
+
+export function setPlanOrder(doc: PlatformConfigDocument, keys: string[]): string[] {
+  const catalog = visiblePlans(assemblePlans(getPlanOverridesMap(doc)), getDeletedPlanKeys(doc));
+  const next = normalizePlanOrder(
+    catalog.map((plan) => plan.key),
+    keys,
+  );
+  (doc as { planOrder?: string[] }).planOrder = next;
+  doc.markModified('planOrder');
+  return next;
+}
+
+export function appendPlanToOrder(doc: PlatformConfigDocument, key: string) {
+  const current = getPlanOrder(doc);
+  if (!current.length || current.includes(key)) return;
+  (doc as { planOrder?: string[] }).planOrder = [...current, key];
+  doc.markModified('planOrder');
+}
+
+export function removePlanFromOrder(doc: PlatformConfigDocument, key: string) {
+  const current = getPlanOrder(doc);
+  if (!current.includes(key)) return;
+  (doc as { planOrder?: string[] }).planOrder = current.filter((planKey) => planKey !== key);
+  doc.markModified('planOrder');
+}
+
+export async function getEffectivePlans(): Promise<EffectivePlan[]> {
+  const config = await getPlatformConfig();
+  const catalog = visiblePlans(assemblePlans(getPlanOverridesMap(config)), getDeletedPlanKeys(config));
+  return orderPlans(catalog, getPlanOrder(config));
+}
+
 export async function getEffectivePlan(planKey: string): Promise<EffectivePlan | null> {
-  const plans = await getEffectivePlans();
+  const config = await getPlatformConfig();
+  const plans = assemblePlans(getPlanOverridesMap(config));
   return plans.find((p) => p.key === planKey) ?? null;
 }
 

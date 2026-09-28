@@ -660,11 +660,12 @@ export default function MyRestaurantsPage() {
       discountAmountCents?: number | null;
       annualFreeMonths?: number | null;
       trialDays: number;
+      visibleOnPricing?: boolean;
       isCustom?: boolean;
     }> })?.plans ?? []);
     const base: Omit<PlanOption, 'priceLabel' | 'discountLabel'>[] = fromApi.length
       ? (() => {
-          const list = fromApi.filter((p) => p.key !== 'free' && p.isCustom !== true);
+          const list = fromApi.filter((p) => p.key !== 'free' && p.visibleOnPricing !== false);
           return list.map((p) => ({
             key: p.key,
             name: p.name,

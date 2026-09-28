@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
   Button,
@@ -19,7 +19,7 @@ import {
   Typography,
   message,
 } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { HolderOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageHeader, spacing } from '@reservations/ui';
 import {
   computeAnnualSavings,
@@ -35,9 +35,11 @@ import {
   CREATE_PLAN_PACKAGE,
   DELETE_PLAN_PACKAGE,
   PLATFORM_CONFIG,
+  REORDER_PLAN_PACKAGES,
   UPDATE_PLATFORM_CONFIG,
   UPDATE_PLAN_PACKAGE,
 } from '@/lib/graphql';
+import { isSuperAdmin } from '@/lib/roles';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useFormDirty } from '@/lib/useFormDirty';
 
@@ -151,7 +153,8 @@ function trialPeriodValue(trialDays: number): number | 'custom' {
 }
 
 export default function AdminPricingPage() {
-  const { ready } = useRequireAdmin();
+  const { ready, user } = useRequireAdmin();
+  const canDeleteBuiltin = user ? isSuperAdmin(user.role) : false;
   const { data, loading, refetch } = useQuery(ADMIN_PLANS, { skip: !ready });
   const { data: configData, refetch: refetchConfig } = useQuery(PLATFORM_CONFIG, {
     skip: !ready,
@@ -160,7 +163,12 @@ export default function AdminPricingPage() {
   const [updateConfig, { loading: savingAnnual }] = useMutation(UPDATE_PLATFORM_CONFIG);
   const [createPlan, { loading: creating }] = useMutation(CREATE_PLAN_PACKAGE);
   const [deletePlan, { loading: deleting }] = useMutation(DELETE_PLAN_PACKAGE);
+  const [reorderPlans, { loading: reordering }] = useMutation(REORDER_PLAN_PACKAGES);
   const [activeKey, setActiveKey] = useState<string>('basic');
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [orderedKeys, setOrderedKeys] = useState<string[] | null>(null);
+  const suppressClick = useRef(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [form] = Form.useForm();
   const [annualForm] = Form.useForm();
@@ -170,6 +178,17 @@ export default function AdminPricingPage() {
   const createDirty = useFormDirty();
 
   const plans = data?.plans ?? [];
+  const displayPlans = (() => {
+    if (!orderedKeys?.length) return plans;
+    const byKey = new Map(plans.map((plan: { key: string }) => [plan.key, plan]));
+    const ordered = orderedKeys
+      .map((key) => byKey.get(key))
+      .filter((plan): plan is (typeof plans)[number] => Boolean(plan));
+    for (const plan of plans) {
+      if (!orderedKeys.includes(plan.key)) ordered.push(plan);
+    }
+    return ordered;
+  })();
   const trialEnabled = Form.useWatch('trialEnabled', form);
   const trialPeriod = Form.useWatch('trialPeriod', form);
   const discountType = Form.useWatch('discountType', form) as PlanDiscountType | undefined;
@@ -410,23 +429,46 @@ export default function AdminPricingPage() {
 
   const onDelete = () => {
     const plan = plans.find((p: any) => p.key === activeKey);
-    if (!plan?.isCustom) return;
+    if (!plan) return;
+    if (!plan.isCustom && !canDeleteBuiltin) return;
     Modal.confirm({
       title: `Delete ${plan.name}?`,
-      content: 'This removes the custom package. Existing subscriptions keep their current plan key.',
+      content: plan.isCustom
+        ? 'This removes the custom package. Restaurants already on it keep their current plan key.'
+        : 'This removes the package from pricing, signup, and plan pickers. Restaurants already on it keep this package.',
       okType: 'danger',
       okText: 'Delete',
       onOk: async () => {
         try {
           await deletePlan({ variables: { key: activeKey } });
           message.success('Package deleted');
-          setActiveKey('basic');
+          const next = plans.find((p: any) => p.key !== activeKey);
+          if (next) setActiveKey(next.key);
           refetch();
         } catch (err: any) {
           message.error(err.message || 'Failed to delete package');
         }
       },
     });
+  };
+
+  const commitReorder = async (from: number, to: number) => {
+    setDragIndex(null);
+    setDropIndex(null);
+    if (reordering || from === to || from < 0 || to < 0) return;
+    const keys = displayPlans.map((plan: { key: string }) => plan.key);
+    const [moved] = keys.splice(from, 1);
+    if (!moved) return;
+    keys.splice(to, 0, moved);
+    setOrderedKeys(keys);
+    try {
+      await reorderPlans({ variables: { keys } });
+      await refetch();
+      setOrderedKeys(null);
+    } catch (err: any) {
+      setOrderedKeys(null);
+      message.error(err.message || 'Failed to reorder packages');
+    }
   };
 
   const activePlan = plans.find((p: any) => p.key === activeKey);
@@ -764,7 +806,7 @@ export default function AdminPricingPage() {
         <Col xs={24} md={8}>
           <Card
             title="Packages"
-            loading={loading}
+            loading={loading && !data}
             extra={
               <Button
                 type="link"
@@ -778,20 +820,83 @@ export default function AdminPricingPage() {
               </Button>
             }
           >
+            <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+              Drag the handle to reorder. This order is used on the public pricing page.
+            </Text>
             <Space orientation="vertical" style={{ width: '100%' }}>
-              {plans.map((p: any) => (
-                <Button
-                  key={p.key}
-                  block
-                  type={p.key === activeKey ? 'primary' : 'default'}
-                  onClick={() => setActiveKey(p.key)}
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                >
-                  <span>
-                    {p.name} · ${(p.monthlyPriceCents / 100).toFixed(0)}/mo
-                    {typeof p.managerSeats === 'number' ? ` · ${p.managerSeats} mgr` : ''}
-                  </span>
-                  <span>
+              {displayPlans.map((p: any, index: number) => {
+                const selected = p.key === activeKey;
+                const isDropTarget = dropIndex === index && dragIndex !== index;
+                return (
+                  <div
+                    key={p.key}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      if (suppressClick.current) {
+                        suppressClick.current = false;
+                        return;
+                      }
+                      setActiveKey(p.key);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setActiveKey(p.key);
+                      }
+                    }}
+                    onDragOver={(event) => {
+                      if (dragIndex === null || reordering) return;
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = 'move';
+                      setDropIndex(index);
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const from = dragIndex ?? Number(event.dataTransfer.getData('text/plain'));
+                      suppressClick.current = true;
+                      void commitReorder(from, index);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '8px 10px',
+                      borderRadius: 8,
+                      border: isDropTarget ? '1px dashed #0b3d2e' : '1px solid transparent',
+                      background: selected ? '#0b3d2e' : '#f5f5f5',
+                      color: selected ? '#fff' : 'inherit',
+                      cursor: 'pointer',
+                      opacity: dragIndex === index ? 0.55 : 1,
+                    }}
+                  >
+                    <span
+                      draggable={!reordering}
+                      aria-label={`Reorder ${p.name}`}
+                      onClick={(event) => event.stopPropagation()}
+                      onDragStart={(event) => {
+                        suppressClick.current = true;
+                        setDragIndex(index);
+                        event.dataTransfer.effectAllowed = 'move';
+                        event.dataTransfer.setData('text/plain', String(index));
+                      }}
+                      onDragEnd={() => {
+                        setDragIndex(null);
+                        setDropIndex(null);
+                        setTimeout(() => {
+                          suppressClick.current = false;
+                        }, 0);
+                      }}
+                      style={{ cursor: reordering ? 'wait' : 'grab', display: 'inline-flex' }}
+                    >
+                      <HolderOutlined />
+                    </span>
+                    <span style={{ flex: 1 }}>
+                      {p.name} · ${(p.monthlyPriceCents / 100).toFixed(0)}/mo
+                      {typeof p.managerSeats === 'number' ? ` · ${p.managerSeats} mgr` : ''}
+                    </span>
                     {p.visibleOnPricing === false ? (
                       <Tag style={{ marginInlineEnd: 0 }}>Hidden</Tag>
                     ) : (
@@ -799,19 +904,19 @@ export default function AdminPricingPage() {
                         Pricing
                       </Tag>
                     )}
-                  </span>
-                </Button>
-              ))}
+                  </div>
+                );
+              })}
             </Space>
           </Card>
         </Col>
         <Col xs={24} md={16}>
           <Card
             title={`Edit ${activePlan?.name ?? activeKey}`}
-            loading={loading}
+            loading={loading && !data}
             extra={
               <Space>
-                {activePlan?.isCustom ? (
+                {activePlan && (activePlan.isCustom || canDeleteBuiltin) ? (
                   <Button danger loading={deleting} onClick={onDelete}>
                     Delete
                   </Button>

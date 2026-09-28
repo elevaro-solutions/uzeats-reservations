@@ -198,7 +198,7 @@ export function PlanSelector({
 }) {
   const [billing, setBilling] = useState<'monthly' | 'annual'>('monthly');
 
-  const visiblePlans = plans.filter((p) => p.key !== 'free' && (p as { isCustom?: boolean }).isCustom !== true);
+  const visiblePlans = plans.filter((p) => p.key !== 'free');
 
   const annualMonthlyPrice = (monthly: number, freeMonths: number) => {
     const paidMonths = 12 - freeMonths;

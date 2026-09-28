@@ -55,6 +55,7 @@ import {
 } from './emailBranding.js';
 import { buildIcsAttachment, googleCalendarUrl } from './calendarInvite.js';
 import { env } from '../config/env.js';
+import { logger } from '../lib/logger.js';
 import { checkAccessRules } from './accessRules.js';
 import { updateGuestProfileAfterVisit, sendSurveyInvitation } from './guests.js';
 import {
@@ -70,6 +71,13 @@ import { listBookmarkUserIds } from './restaurantBookmarks.js';
 import { RestaurantPackage } from '../models/RestaurantPackage.js';
 import { PrivateDiningSpace } from '../models/PrivateDining.js';
 import { Experience } from '../models/Experience.js';
+
+/** ObjectId.equals without throwing when the ref is missing or not an ObjectId. */
+function refEquals(value: unknown, id: string): boolean {
+  if (!value || typeof value !== 'object' || !('equals' in value)) return false;
+  const equals = (value as { equals?: unknown }).equals;
+  return typeof equals === 'function' && (value as { equals: (other: string) => boolean }).equals(id);
+}
 
 /** Only alert favorites when the freed slot is soon (same urgency as walk-in demand). */
 const AVAILABILITY_ALERT_MAX_HOURS = 48;
@@ -580,6 +588,18 @@ export async function createReservation(input: {
   const turn = await getTurnTimeMinutes(input.restaurantId, input.slotStart);
   const slotEnd = new Date(input.slotStart.getTime() + turn * 60_000);
 
+  // Last line of defence against replayed / double-submitted bookings: a diner
+  // cannot hold two live reservations for the same venue and start time.
+  const duplicate = await Reservation.findOne({
+    dinerId: input.dinerId,
+    restaurantId: input.restaurantId,
+    slotStart: input.slotStart,
+    status: { $in: ['pending', 'confirmed', 'seated'] },
+  }).select('_id');
+  if (duplicate) {
+    throw new ConflictError('You already have a reservation at this restaurant for that time');
+  }
+
   const table = await resolveTable({
     restaurantId: input.restaurantId,
     partySize: input.partySize,
@@ -879,11 +899,12 @@ export async function updateReservationStatus(
 
   const restaurant = await Restaurant.findById(reservation.restaurantId);
   const user = await User.findById(actorId);
-  const isOwner =
+  const isOwner = Boolean(
     restaurant &&
-    (restaurant.ownerId.equals(actorId) ||
-      user?.restaurantIds?.some((id) => id.equals(restaurant._id)));
-  const isDiner = reservation.dinerId.equals(actorId);
+      (refEquals(restaurant.ownerId, actorId) ||
+        user?.restaurantIds?.some((id) => refEquals(id, restaurant._id.toString()))),
+  );
+  const isDiner = refEquals(reservation.dinerId, actorId);
   const isAdmin = user ? isPlatformAdmin(user.role) : false;
 
   if (!isOwner && !isDiner && !isAdmin) throw new ForbiddenError();
@@ -892,9 +913,16 @@ export async function updateReservationStatus(
   // bookings should not fail — most reservations skip pending entirely.
   if (reservation.status === status) return reservation;
 
+  // Floor offers Complete on an arriving (not yet seated) party. Staff may
+  // close those out; diners still have to follow seat → complete.
+  const isStaff = isOwner || isAdmin;
   const allowed: Record<string, string[]> = {
-    pending: ['confirmed', 'cancelled'],
-    confirmed: ['seated', 'cancelled', 'no_show'],
+    pending: isStaff
+      ? ['confirmed', 'cancelled', 'completed']
+      : ['confirmed', 'cancelled'],
+    confirmed: isStaff
+      ? ['seated', 'cancelled', 'no_show', 'completed']
+      : ['seated', 'cancelled', 'no_show'],
     seated: ['completed', 'no_show'],
     completed: [],
     cancelled: [],
@@ -956,25 +984,31 @@ export async function updateReservationStatus(
     reservation.depositStatus = 'captured';
   }
 
-  if (status === 'completed') {
-    const points = await awardCompletedVisitPoints(
-      reservation.dinerId.toString(),
-      reservation._id.toString(),
-    );
-    reservation.loyaltyPointsEarned = points;
+  if (status === 'completed' && reservation.dinerId) {
+    try {
+      const points = await awardCompletedVisitPoints(
+        reservation.dinerId.toString(),
+        reservation._id.toString(),
+      );
+      reservation.loyaltyPointsEarned = points;
 
-    const restaurantDoc = await Restaurant.findById(reservation.restaurantId).select(
-      'loyaltyEnabled loyaltyPointsPerVisit',
-    );
-    if (restaurantDoc?.loyaltyEnabled) {
-      const restaurantPoints = await awardRestaurantVisitPoints({
-        restaurantId: reservation.restaurantId.toString(),
-        dinerId: reservation.dinerId.toString(),
-        reservationId: reservation._id.toString(),
-        pointsPerVisit:
-          restaurantDoc.loyaltyPointsPerVisit ?? RESTAURANT_LOYALTY.DEFAULT_POINTS_PER_VISIT,
-      });
-      reservation.restaurantLoyaltyPointsEarned = restaurantPoints;
+      const restaurantDoc = await Restaurant.findById(reservation.restaurantId).select(
+        'loyaltyEnabled loyaltyPointsPerVisit',
+      );
+      if (restaurantDoc?.loyaltyEnabled) {
+        const restaurantPoints = await awardRestaurantVisitPoints({
+          restaurantId: reservation.restaurantId.toString(),
+          dinerId: reservation.dinerId.toString(),
+          reservationId: reservation._id.toString(),
+          pointsPerVisit:
+            restaurantDoc.loyaltyPointsPerVisit ?? RESTAURANT_LOYALTY.DEFAULT_POINTS_PER_VISIT,
+        });
+        reservation.restaurantLoyaltyPointsEarned = restaurantPoints;
+      }
+    } catch (err) {
+      // Points must not block close-out. A loyalty/transaction failure was
+      // surfacing as a masked Internal server error on the Complete button.
+      logger.error({ err, reservationId }, '[reservations] loyalty award on complete failed');
     }
 
     await recordCoverFee(reservation);
@@ -984,7 +1018,11 @@ export async function updateReservationStatus(
   await reservation.save();
 
   if (status === 'cancelled' || status === 'completed' || status === 'no_show') {
-    await releaseTableSlotClaims(reservation._id);
+    try {
+      await releaseTableSlotClaims(reservation._id);
+    } catch (err) {
+      logger.error({ err, reservationId }, '[reservations] failed to release table slots');
+    }
   }
 
   if (status === 'confirmed') {
@@ -1038,7 +1076,11 @@ export async function updateReservationStatus(
   }
 
   if (status === 'completed') {
-    await updateGuestProfileAfterVisit(reservation);
+    try {
+      await updateGuestProfileAfterVisit(reservation);
+    } catch (err) {
+      logger.error({ err, reservationId }, '[reservations] guest profile update on complete failed');
+    }
     await sendSurveyInvitation(reservation);
   }
 

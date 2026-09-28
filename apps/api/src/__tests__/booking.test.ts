@@ -250,6 +250,42 @@ describe('Booking Flow (E2E)', () => {
     reservationId = payload.reservation.id;
   });
 
+  it('should reject a replayed booking for the same diner, venue, and slot', async () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(18, 0, 0, 0);
+
+    const res = await graphqlRequest(
+      agent,
+      `mutation CreateReservation($input: ReservationInput!) {
+        createReservation(input: $input) { reservation { id } }
+      }`,
+      {
+        input: {
+          restaurantId,
+          partySize: 2,
+          slotStart: tomorrow.toISOString(),
+          occasion: 'date',
+        },
+      },
+      dinerToken,
+    );
+
+    expect(res.body.errors).toBeDefined();
+    expect(res.body.errors[0].message).toMatch(/already have a reservation/i);
+
+    const mine = await graphqlRequest(
+      agent,
+      `query { myReservations { id slotStart } }`,
+      {},
+      dinerToken,
+    );
+    const atSlot = (mine.body.data.myReservations as Array<{ slotStart: string }>).filter(
+      (r) => new Date(r.slotStart).getTime() === tomorrow.getTime(),
+    );
+    expect(atSlot).toHaveLength(1);
+  });
+
   it('should treat confirming an already-confirmed reservation as a no-op', async () => {
     const res = await graphqlRequest(
       agent,

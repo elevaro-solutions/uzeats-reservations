@@ -2496,6 +2496,14 @@ export const DELETE_PLAN_PACKAGE = gql`
   }
 `;
 
+export const REORDER_PLAN_PACKAGES = gql`
+  mutation ReorderPlanPackages($keys: [String!]!) {
+    reorderPlanPackages(keys: $keys) {
+      key
+    }
+  }
+`;
+
 export const RESTAURANT_PROFILE = gql`
   query RestaurantProfile($id: ID!) {
     restaurant(id: $id) {
@@ -3092,6 +3100,12 @@ export const SET_REVIEW_HIDDEN = gql`
     setReviewHidden(reviewId: $reviewId, hidden: $hidden) {
       id hidden
     }
+  }
+`;
+
+export const DELETE_REVIEW = gql`
+  mutation DeleteReview($reviewId: ID!) {
+    deleteReview(reviewId: $reviewId)
   }
 `;
 

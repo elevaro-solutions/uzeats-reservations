@@ -160,7 +160,11 @@ import {
   isReservationReviewable,
 } from "../services/reservations.js";
 import { paginateQuery, normalizePagination } from "../lib/pagination.js";
-import { getLoyaltyHistory, awardReviewPoints } from "../services/loyalty.js";
+import {
+  getLoyaltyHistory,
+  awardReviewPoints,
+  reverseReviewPoints,
+} from "../services/loyalty.js";
 import { generateReviewReplyDraft } from "../services/reviewReplyDraft.js";
 import {
   getMyRestaurantLoyaltyBalances,
@@ -316,11 +320,15 @@ import {
   buildMultiLocationAnalytics,
 } from "../services/reports.js";
 import {
+  appendPlanToOrder,
   BUILTIN_PLAN_KEYS,
+  getDeletedPlanKeys,
   getEffectivePlan,
   getEffectivePlans,
   getPlanOverridesMap,
   getPlatformConfig,
+  removePlanFromOrder,
+  setPlanOrder,
   mapPlatformConfig,
   getAnnualBillingSettings,
   mapAnnualBillingSettings,
@@ -4480,6 +4488,9 @@ export const resolvers = {
         throw new Error("Invalid plan key");
       }
       const doc = await getPlatformConfig();
+      if (getDeletedPlanKeys(doc).has(key)) {
+        throw new Error("Plan not found. Create it first.");
+      }
       const overrides = getPlanOverridesMap(doc);
       const existing = toPlainPlanOverride(overrides[key]);
       if (!BUILTIN_PLAN_KEYS.has(key) && !overrides[key]) {
@@ -4613,6 +4624,7 @@ export const resolvers = {
         (doc.planOverrides as any)[key] = next;
       }
       doc.markModified("planOverrides");
+      appendPlanToOrder(doc, key);
       await doc.save();
       await logAudit({
         actorId: admin._id.toString(),
@@ -4631,29 +4643,65 @@ export const resolvers = {
       args: { key: string },
       ctx: GraphQLContext,
     ) => {
-      const admin = requireAdmin(ctx);
       const key = args.key.trim().toLowerCase();
-      if (BUILTIN_PLAN_KEYS.has(key)) {
-        throw new Error("Built-in packages cannot be deleted");
-      }
+      const isBuiltin = BUILTIN_PLAN_KEYS.has(key);
+      const admin = isBuiltin ? requireSuperAdmin(ctx) : requireAdmin(ctx);
       const doc = await getPlatformConfig();
       const overrides = getPlanOverridesMap(doc);
-      if (!overrides[key]) throw new Error("Plan not found");
+      const deleted = getDeletedPlanKeys(doc);
+      const inCatalog =
+        !deleted.has(key) && (isBuiltin || Boolean(overrides[key]));
+      if (!inCatalog) throw new Error("Plan not found");
 
-      if ((doc as any).planOverrides instanceof Map) {
-        (doc as any).planOverrides.delete(key);
-      } else {
-        delete (doc.planOverrides as any)[key];
+      const catalog = await getEffectivePlans();
+      if (catalog.filter((plan) => plan.key !== key).length === 0) {
+        throw new Error("At least one pricing package must remain");
       }
-      doc.markModified("planOverrides");
+
+      if (isBuiltin) {
+        (doc as any).deletedPlanKeys = [...deleted, key];
+        doc.markModified("deletedPlanKeys");
+      } else if ((doc as any).planOverrides instanceof Map) {
+        (doc as any).planOverrides.delete(key);
+        doc.markModified("planOverrides");
+      } else if (doc.planOverrides) {
+        delete (doc.planOverrides as any)[key];
+        doc.markModified("planOverrides");
+      }
+
+      const annual = (doc as any).annualBilling;
+      if (annual && Array.isArray(annual.planKeys)) {
+        annual.planKeys = annual.planKeys.filter((planKey: string) => planKey !== key);
+        doc.markModified("annualBilling");
+      }
+      removePlanFromOrder(doc, key);
+
       await doc.save();
       await logAudit({
         actorId: admin._id.toString(),
         action: "deletePlanPackage",
         resource: "PlatformConfig",
-        details: { plan: key },
+        details: { plan: key, builtin: isBuiltin },
       });
       return true;
+    },
+
+    reorderPlanPackages: async (
+      _: unknown,
+      args: { keys: string[] },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireAdmin(ctx);
+      const doc = await getPlatformConfig();
+      const planOrder = setPlanOrder(doc, args.keys ?? []);
+      await doc.save();
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: "reorderPlanPackages",
+        resource: "PlatformConfig",
+        details: { planOrder },
+      });
+      return getEffectivePlans();
     },
 
     createSubscription: async (
@@ -5971,6 +6019,52 @@ export const resolvers = {
       review.hidden = args.hidden;
       await review.save();
       return mapReview(review);
+    },
+
+    deleteReview: async (
+      _: unknown,
+      args: { reviewId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const review = await Review.findById(args.reviewId);
+      if (!review) throw new NotFoundError("Review");
+
+      const isCreator = review.dinerId.equals(user._id);
+      if (!isCreator) {
+        requireSuperAdmin(ctx);
+      }
+
+      const restaurantId = review.restaurantId;
+      const dinerId = review.dinerId.toString();
+      const reservationId = review.reservationId.toString();
+
+      await review.deleteOne();
+
+      const stats = await Review.aggregate([
+        { $match: { restaurantId } },
+        {
+          $group: {
+            _id: "$restaurantId",
+            averageRating: { $avg: "$rating" },
+            reviewCount: { $sum: 1 },
+          },
+        },
+      ]);
+      if (stats[0]) {
+        await Restaurant.findByIdAndUpdate(restaurantId, {
+          averageRating: Math.round(stats[0].averageRating * 10) / 10,
+          reviewCount: stats[0].reviewCount,
+        });
+      } else {
+        await Restaurant.findByIdAndUpdate(restaurantId, {
+          averageRating: 0,
+          reviewCount: 0,
+        });
+      }
+
+      await reverseReviewPoints(dinerId, reservationId);
+      return true;
     },
 
     // ---- Two-way messaging ----

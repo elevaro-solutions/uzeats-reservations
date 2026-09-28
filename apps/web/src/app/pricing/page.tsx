@@ -290,21 +290,6 @@ function formatDollars(cents: number): string {
   return Number.isInteger(dollars) ? `$${dollars}` : `$${dollars.toFixed(2)}`;
 }
 
-function sortPlans(plans: ApiPlan[]): ApiPlan[] {
-  return [...plans].sort((a, b) => {
-    const ai = PLAN_ORDER.indexOf(a.key as PlanKey);
-    const bi = PLAN_ORDER.indexOf(b.key as PlanKey);
-    if (ai === -1 && bi === -1) return 0;
-    if (ai === -1) return 1;
-    if (bi === -1) return -1;
-    return ai - bi;
-  });
-}
-
-function isStandardPlanKey(key: string): key is PlanKey {
-  return (PLAN_ORDER as readonly string[]).includes(key);
-}
-
 function getPlanDisplay(
   plan: ApiPlan,
   billingPeriod: BillingPeriod,
@@ -403,18 +388,13 @@ export default function PricingPage() {
       : FALLBACK_PLANS);
 
   const visiblePlans = useMemo(
-    () =>
-      sortPlans(
-        allPlans.filter(
-          (p) => p.visibleOnPricing !== false && !p.isCustom && isStandardPlanKey(p.key),
-        ),
-      ),
+    () => allPlans.filter((p) => p.visibleOnPricing !== false),
     [allPlans],
   );
 
-  const comparisonPlans = COMPARISON_PLAN_KEYS.filter((key) =>
-    visiblePlans.some((p) => p.key === key),
-  );
+  const comparisonPlans = visiblePlans
+    .map((plan) => plan.key)
+    .filter((key): key is PlanKey => (COMPARISON_PLAN_KEYS as readonly string[]).includes(key));
 
   const selectedPlanData = visiblePlans.find((p) => p.key === selectedPlan) ?? visiblePlans[1];
 
@@ -605,15 +585,19 @@ export default function PricingPage() {
                     </li>
                   </ul>
 
-                  <p className="pricing-plan-card__section-label">Includes</p>
-                  <ul className="pricing-plan-card__features">
-                    {highlights.map((item) => (
-                      <li key={item} className="pricing-plan-card__feature">
-                        <CheckOutlined className="pricing-plan-card__check" />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  {highlights.length > 0 ? (
+                    <>
+                      <p className="pricing-plan-card__section-label">Includes</p>
+                      <ul className="pricing-plan-card__features">
+                        {highlights.map((item) => (
+                          <li key={item} className="pricing-plan-card__feature">
+                            <CheckOutlined className="pricing-plan-card__check" />
+                            <span>{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : null}
                 </div>
               </Col>
             );

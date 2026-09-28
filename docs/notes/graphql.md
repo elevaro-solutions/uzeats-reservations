@@ -1,5 +1,9 @@
 # GraphQL — Learnings & Observations
 
+## [2026-09-28] `deleteReview`
+- `deleteReview(reviewId): Boolean!` — review author or super admin. Recomputes restaurant rating aggregates; reverses review loyalty points when possible.
+- Why it matters: Distinct from `setReviewHidden` (any platform admin). Regular `admin` / `account_manager` cannot delete.
+
 ## [2026-09-24] Partner reservation custom range + export
 - `restaurantReservations` accepts inclusive `startDate`/`endDate` (YYYY-MM-DD, restaurant TZ midnights). Period still wins when set (except `all`). Legacy single `date` remains for one-day filters. `restaurantId` is optional — omit it to list every venue the caller can access (platform TZ for the window).
 - `exportRestaurantReservations` mirrors those filters (+ `status`/`format`) and returns Excel/PDF/JSON via the shared `formatExport` helpers (cap 5000 rows); multi-venue exports include a restaurant column.

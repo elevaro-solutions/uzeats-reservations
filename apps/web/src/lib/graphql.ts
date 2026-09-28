@@ -399,6 +399,12 @@ export const CREATE_REVIEW = gql`
   }
 `;
 
+export const DELETE_REVIEW = gql`
+  mutation DeleteReview($reviewId: ID!) {
+    deleteReview(reviewId: $reviewId)
+  }
+`;
+
 export const JOIN_WAITLIST = gql`
   mutation JoinWaitlist($input: WaitlistInput!) {
     joinWaitlist(input: $input) {

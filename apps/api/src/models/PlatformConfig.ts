@@ -93,6 +93,10 @@ const platformConfigSchema = new Schema(
       of: planOverrideSchema,
       default: {},
     },
+    /** Built-in plan keys removed from the public catalog. Overrides stay so existing subscriptions still resolve. */
+    deletedPlanKeys: { type: [String], default: [] },
+    /** Catalog display order. Empty means built-ins first, then custom packages. */
+    planOrder: { type: [String], default: [] },
     annualBilling: {
       enabled: { type: Boolean, default: true },
       scope: { type: String, enum: ['all', 'selected'], default: 'all' },

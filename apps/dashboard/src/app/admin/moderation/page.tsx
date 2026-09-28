@@ -11,12 +11,15 @@ import {
   type ReviewReportReason,
 } from '@reservations/shared';
 import {
+  DELETE_REVIEW,
   FLAGGED_CONTENT,
   SET_MESSAGE_HIDDEN,
   SET_REVIEW_HIDDEN_ADMIN,
   UNFLAG_MESSAGE,
   UNFLAG_REVIEW,
 } from '@/lib/graphql';
+import { useAuth } from '@/lib/auth';
+import { isSuperAdmin } from '@/lib/roles';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 
 const { Text } = Typography;
@@ -48,12 +51,15 @@ function detailHref(row: FlaggedRow) {
 export default function AdminModerationPage() {
   const router = useRouter();
   const { ready } = useRequireAdmin();
+  const { user } = useAuth();
+  const canDelete = user ? isSuperAdmin(user.role) : false;
   const { data, loading, refetch } = useQuery(FLAGGED_CONTENT, {
     skip: !ready,
     variables: { limit: 100 },
   });
   const [unflagReview] = useMutation(UNFLAG_REVIEW);
   const [hideReview] = useMutation(SET_REVIEW_HIDDEN_ADMIN);
+  const [deleteReview] = useMutation(DELETE_REVIEW);
   const [unflagMessage] = useMutation(UNFLAG_MESSAGE);
   const [hideMessage] = useMutation(SET_MESSAGE_HIDDEN);
 
@@ -100,6 +106,21 @@ export default function AdminModerationPage() {
           refetch();
         },
       });
+    }
+    if (canDelete) {
+      items.push(
+        { type: 'divider' },
+        {
+          key: 'delete',
+          danger: true,
+          label: 'Delete permanently',
+          onClick: async () => {
+            await deleteReview({ variables: { reviewId: r.id } });
+            message.success('Review deleted');
+            refetch();
+          },
+        },
+      );
     }
     return items;
   };

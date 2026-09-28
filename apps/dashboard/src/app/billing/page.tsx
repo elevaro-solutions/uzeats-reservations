@@ -148,7 +148,6 @@ function featureLabel(key: string) {
 
 function isPartnerSelectablePlan(plan: PlanRecord) {
   if (plan.key === 'free') return false;
-  if (plan.isCustom) return false;
   if (plan.visibleOnPricing === false) return false;
   return true;
 }

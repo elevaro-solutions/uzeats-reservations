@@ -1,20 +1,23 @@
 'use client';
 
-import { useQuery } from '@apollo/client/react';
+import { useMutation, useQuery } from '@apollo/client/react';
 import { useRouter } from 'next/navigation';
 import {
   Button,
   Card,
   Image,
   List,
+  Modal,
   Rate,
   Space,
   Spin,
   Tag,
   Typography,
+  message,
 } from 'antd';
 import {
   CalendarOutlined,
+  DeleteOutlined,
   SearchOutlined,
   StarOutlined,
 } from '@ant-design/icons';
@@ -22,7 +25,7 @@ import dayjs from 'dayjs';
 import { browserMediaUrl, buildRestaurantBookingPath } from '@reservations/shared';
 import { EmptyState, PageHeader, colors, radii } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
-import { MY_REVIEWS } from '@/lib/graphql';
+import { DELETE_REVIEW, MY_REVIEWS } from '@/lib/graphql';
 
 const { Text, Paragraph } = Typography;
 
@@ -53,10 +56,30 @@ export default function MyReviewsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  const { data, loading } = useQuery(MY_REVIEWS, {
+  const { data, loading, refetch } = useQuery(MY_REVIEWS, {
     skip: !user,
     variables: { limit: 50, offset: 0 },
   });
+  const [deleteReview, { loading: deleting }] = useMutation(DELETE_REVIEW);
+
+  const handleDelete = (review: MyReview) => {
+    Modal.confirm({
+      title: 'Delete this review?',
+      content: 'This permanently removes your rating and comments. You can write a new review later if the visit is still eligible.',
+      okText: 'Delete',
+      okButtonProps: { danger: true, loading: deleting },
+      onOk: async () => {
+        try {
+          await deleteReview({ variables: { reviewId: review.id } });
+          message.success('Review deleted');
+          await refetch();
+        } catch (err) {
+          message.error(err instanceof Error ? err.message : 'Failed to delete review');
+          throw err;
+        }
+      },
+    });
+  };
 
   if (authLoading) {
     return (
@@ -254,13 +277,24 @@ export default function MyReviewsPage() {
                       </div>
                     ) : null}
 
-                    <Button
-                      type="link"
-                      style={{ padding: 0, alignSelf: 'flex-start' }}
-                      onClick={() => router.push(`/reservations/${review.reservationId}`)}
-                    >
-                      View reservation
-                    </Button>
+                    <Space size={8} wrap>
+                      <Button
+                        type="link"
+                        style={{ padding: 0 }}
+                        onClick={() => router.push(`/reservations/${review.reservationId}`)}
+                      >
+                        View reservation
+                      </Button>
+                      <Button
+                        type="link"
+                        danger
+                        icon={<DeleteOutlined />}
+                        style={{ padding: 0 }}
+                        onClick={() => handleDelete(review)}
+                      >
+                        Delete
+                      </Button>
+                    </Space>
                   </Space>
                 </Card>
               </List.Item>

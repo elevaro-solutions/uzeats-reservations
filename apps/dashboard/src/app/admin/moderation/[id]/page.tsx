@@ -27,12 +27,15 @@ import {
 } from '@reservations/shared';
 import { PageHeader, colors, spacing } from '@reservations/ui';
 import {
+  DELETE_REVIEW,
   FLAGGED_CONTENT_ITEM,
   SET_MESSAGE_HIDDEN,
   SET_REVIEW_HIDDEN_ADMIN,
   UNFLAG_MESSAGE,
   UNFLAG_REVIEW,
 } from '@/lib/graphql';
+import { useAuth } from '@/lib/auth';
+import { isSuperAdmin } from '@/lib/roles';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 
 const { Text, Paragraph } = Typography;
@@ -51,6 +54,8 @@ function ModerationDetailContent() {
   const id = String(params?.id ?? '');
   const type = searchParams.get('type') === 'message' ? 'message' : 'review';
   const { ready } = useRequireAdmin();
+  const { user } = useAuth();
+  const canDelete = user ? isSuperAdmin(user.role) : false;
 
   const { data, loading, refetch } = useQuery(FLAGGED_CONTENT_ITEM, {
     skip: !ready || !id,
@@ -59,6 +64,7 @@ function ModerationDetailContent() {
   });
   const [unflagReview] = useMutation(UNFLAG_REVIEW);
   const [hideReview] = useMutation(SET_REVIEW_HIDDEN_ADMIN);
+  const [deleteReview] = useMutation(DELETE_REVIEW);
   const [unflagMessage] = useMutation(UNFLAG_MESSAGE);
   const [hideMessage] = useMutation(SET_MESSAGE_HIDDEN);
 
@@ -131,6 +137,21 @@ function ModerationDetailContent() {
                         await hideReview({ variables: { id: item.id, hidden: true } });
                         await unflagReview({ variables: { id: item.id } });
                         message.success('Hidden and cleared from queue');
+                        afterAction(true);
+                      },
+                    } as NonNullable<MenuProps['items']>[number],
+                  ]
+                : []),
+              ...(canDelete
+                ? [
+                    { type: 'divider' as const },
+                    {
+                      key: 'delete',
+                      danger: true,
+                      label: 'Delete permanently',
+                      onClick: async () => {
+                        await deleteReview({ variables: { reviewId: item.id } });
+                        message.success('Review deleted');
                         afterAction(true);
                       },
                     } as NonNullable<MenuProps['items']>[number],

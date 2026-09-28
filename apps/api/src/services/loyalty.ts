@@ -83,7 +83,7 @@ export async function earnPointsOnce(
   description: string,
   reservationId?: string,
 ): Promise<number> {
-  if (points <= 0) return 0;
+  if (!Number.isFinite(points) || points <= 0) return 0;
 
   const filter: Record<string, unknown> = { userId, type: 'earn', description };
   if (reservationId) filter.reservationId = reservationId;
@@ -249,7 +249,15 @@ export async function awardCompletedVisitPoints(dinerId: string, reservationId: 
   );
 
   if (awarded > 0) {
-    await User.findByIdAndUpdate(dinerId, { $inc: { loyaltyCompletedVisits: 1 } });
+    await User.updateOne({ _id: dinerId }, [
+      {
+        $set: {
+          loyaltyCompletedVisits: {
+            $add: [{ $ifNull: ['$loyaltyCompletedVisits', 0] }, 1],
+          },
+        },
+      },
+    ]);
     if (visitsBefore === 0 && user.referredByUserId) {
       await awardReferralBonus(user.referredByUserId.toString(), dinerId, program.referralBonusPoints);
     }
@@ -290,6 +298,37 @@ export async function reverseDepositPoints(dinerId: string, reservationId: strin
     'Deposit points reversed — reservation cancelled',
     reservationId,
   );
+}
+
+/** Claw back review earn points when a review is deleted. */
+export async function reverseReviewPoints(dinerId: string, reservationId: string) {
+  const existing = await LoyaltyTransaction.findOne({
+    userId: dinerId,
+    reservationId,
+    type: 'earn',
+    description: LOYALTY_EARN_REASONS.REVIEW,
+  });
+  if (!existing || existing.points <= 0) return 0;
+
+  const alreadyReversed = await LoyaltyTransaction.findOne({
+    userId: dinerId,
+    reservationId,
+    type: 'adjust',
+    description: 'Review points reversed — review deleted',
+  });
+  if (alreadyReversed) return 0;
+
+  try {
+    return await adjustPoints(
+      dinerId,
+      -existing.points,
+      'Review points reversed — review deleted',
+      reservationId,
+    );
+  } catch {
+    // Points may already have been spent; still allow the review delete.
+    return 0;
+  }
 }
 
 export async function getLoyaltyHistory(userId: string) {

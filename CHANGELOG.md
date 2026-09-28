@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.70.0] — 2026-09-28
+
+### Added
+
+- Super admins can delete any pricing package, including built-in Basic, Core, and Pro. Deleted built-ins leave the public catalog; restaurants already on that package keep it. At least one package must remain.
+- Admins can drag pricing packages into order. That order is saved and used on the public pricing page, signup, and billing.
+
+### Fixed
+
+- Booking the same restaurant and time twice no longer creates two reservations. `createReservation` rejects a second live (pending / confirmed / seated) reservation for the same diner, venue, and slot start with "You already have a reservation at this restaurant for that time"
+- Diner web retries a failed operation at most once after a token refresh. The Apollo error link used to replay every operation that returned `Authentication required`, including mutations such as `createReservation`, with no cap — and queued operations were dropped without notifying their subscribers when the refresh itself failed, leaving spinners running
+- Marking a reservation completed no longer fails with a masked internal server error when loyalty points, the guest profile, or table-slot release throws. Staff can also close an arriving party from confirmed or pending without seating first.
+- Packages marked “Show on public pricing page” stay on `/pricing`, partner registration, billing, and new-location plan pickers. Custom packages were drawn and then removed because those screens only kept Basic, Core, and Pro.
+- Review authors can delete their own reviews (diner web My reviews). Super admins can permanently delete any review from restaurant reviews, moderation, and guest detail. Deleting recalculates restaurant rating stats and claws back review loyalty points when still available.
+
 ## [0.69.1] — 2026-09-28
 
 ### Fixed
