@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { Types } from 'mongoose';
 import {
   getPlanPriceDisplay,
   planForBillingPeriod,
@@ -406,7 +407,7 @@ export async function createManualInvoice(input: {
     existing.packageDurationMonths = packageDurationMonths ?? undefined;
     existing.planKey = planKey ?? undefined;
     existing.billingCycle = billingCycle ?? undefined;
-    existing.serviceIds = serviceIds as typeof existing.serviceIds;
+    existing.serviceIds = serviceIds.map((id) => new Types.ObjectId(id));
     if (!existing.payToken) existing.payToken = newPayToken();
     existing.stripePaymentIntentId = undefined;
     await existing.save();

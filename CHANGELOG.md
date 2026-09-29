@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.71.1] — 2026-09-29
+
+### Fixed
+
+- API build: map invoice `serviceIds` to `ObjectId` when replacing a duplicate-period invoice (unblocks Dokku deploy)
+
 ## [0.71.0] — 2026-09-29
 
 ### Added
