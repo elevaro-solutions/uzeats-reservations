@@ -809,7 +809,10 @@ function AdminAccountDetailContent({ kind }: Props) {
                               {
                                 title: 'Restaurant',
                                 key: 'restaurant',
-                                render: (_: unknown, rec: { restaurant?: { id: string; name: string } }) =>
+                                render: (
+                                  _: unknown,
+                                  rec: { id: string; restaurant?: { id: string; name: string } },
+                                ) =>
                                   rec.restaurant ? (
                                     <Link href={`/admin/restaurants/${rec.restaurant.id}`}>
                                       {rec.restaurant.name}
@@ -844,7 +847,13 @@ function AdminAccountDetailContent({ kind }: Props) {
                                       title: '',
                                       key: 'actions',
                                       width: 90,
-                                      render: (_: unknown, rec: { id: string }) => (
+                                      render: (
+                                        _: unknown,
+                                        rec: {
+                                          id: string;
+                                          restaurant?: { id: string; name: string };
+                                        },
+                                      ) => (
                                         <Popconfirm
                                           title="Delete this review permanently?"
                                           okText="Delete"

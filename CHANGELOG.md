@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.71.2] — 2026-09-29
+
+### Fixed
+
+- Dashboard build: admin guest Reviews table delete column record type includes `id` (unblocks Dokku dashboard deploy)
+
 ## [0.71.1] — 2026-09-29
 
 ### Fixed
