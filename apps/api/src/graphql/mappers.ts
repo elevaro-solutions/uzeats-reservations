@@ -206,7 +206,45 @@ export function mapReservation(r: any, clientSecret?: string | null) {
   };
 }
 
+export function mapReviewReportResponses(
+  raw: unknown,
+  flaggedById?: string | null,
+) {
+  if (!Array.isArray(raw)) return [];
+  const reporterId = flaggedById ? String(flaggedById) : null;
+  return raw.map((item) => {
+    const authorId = item.authorId?.toString?.() ?? item.authorId ?? null;
+    const storedFromReporter =
+      typeof item.fromReporter === 'boolean' ? item.fromReporter : null;
+    return {
+      id: item._id.toString(),
+      body: item.body ?? '',
+      createdAt: item.createdAt ?? null,
+      authorId,
+      fromReporter:
+        storedFromReporter ??
+        Boolean(reporterId && authorId && authorId === reporterId),
+      attachments: (Array.isArray(item.attachments) ? item.attachments : []).map(
+        (attachment: {
+          _id: { toString(): string };
+          url: string;
+          filename: string;
+          contentType: string;
+          size?: number | null;
+        }) => ({
+          id: attachment._id.toString(),
+          url: attachment.url,
+          filename: attachment.filename,
+          contentType: attachment.contentType,
+          size: attachment.size ?? null,
+        }),
+      ),
+    };
+  });
+}
+
 export function mapReview(r: any) {
+  const flaggedById = r.flaggedById ? r.flaggedById.toString() : null;
   return {
     id: r._id.toString(),
     restaurantId: r.restaurantId.toString(),
@@ -226,6 +264,8 @@ export function mapReview(r: any) {
     flagReasonCode: r.flagReasonCode ?? null,
     flagDetails: r.flagDetails ?? null,
     flaggedAt: r.flaggedAt ?? null,
+    flaggedById,
+    reportResponses: mapReviewReportResponses(r.reportResponses, flaggedById),
     createdAt: r.createdAt,
   };
 }

@@ -11,6 +11,8 @@ const USER_FIELDS = `
   firstName
   lastName
   role
+  emailVerified
+  needsEmailVerification
   loyaltyPoints
   loyaltyCompletedVisits
   loyaltyTier
@@ -37,6 +39,7 @@ const REGISTER = gql`
   mutation Register($input: RegisterInput!) {
     register(input: $input) {
       user { ${USER_FIELDS} }
+      devCode
     }
   }
 `;
@@ -68,6 +71,8 @@ export type AuthUser = {
   firstName: string;
   lastName: string;
   role: string;
+  emailVerified?: boolean;
+  needsEmailVerification?: boolean;
   loyaltyPoints: number;
   loyaltyCompletedVisits?: number;
   loyaltyTier?: string;
@@ -110,7 +115,7 @@ type AuthContextValue = {
     lastName: string;
     phone?: string;
     referralCode?: string;
-  }) => Promise<void>;
+  }) => Promise<AuthUser>;
   logout: () => void | Promise<void>;
   endImpersonation: () => void;
   refreshMe: () => Promise<void>;
@@ -144,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             session {
               isImpersonating
               user {
-                id email phone firstName lastName role loyaltyPoints
+                id email phone firstName lastName role emailVerified needsEmailVerification loyaltyPoints
                 loyaltyCompletedVisits loyaltyTier loyaltyTierName
                 loyaltyPointsExpireAt referralCode telegramChatId
                 notificationPreferences {
@@ -209,9 +214,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     referralCode?: string;
   }) => {
     const result = await registerMutation({ variables: { input } });
-    const data = result.data as any;
-    setUser(data.register.user);
+    const data = result.data as {
+      register: { user: AuthUser; devCode?: string | null };
+    };
+    const nextUser = data.register.user;
+    setUser(nextUser);
     setImpersonator(null);
+    if (data.register.devCode) {
+      sessionStorage.setItem('tv_verify_dev_code', data.register.devCode);
+    } else {
+      sessionStorage.removeItem('tv_verify_dev_code');
+    }
+    return nextUser;
   };
 
   const logout = async () => {

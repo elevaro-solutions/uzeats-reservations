@@ -17,6 +17,7 @@ const EMAIL_BRAND = {
 
 export const EMAIL_TEMPLATE_VARIABLES: Record<string, string[]> = {
   password_reset: ['firstName', 'resetUrl'],
+  email_verification: ['firstName', 'code'],
   booking_confirmation: [
     'firstName',
     'guestName',

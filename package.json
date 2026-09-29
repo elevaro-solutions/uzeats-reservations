@@ -1,9 +1,9 @@
 {
   "name": "reservations",
-  "version": "0.70.0",
+  "version": "0.71.0",
   "private": true,
   "scripts": {
-    "dev": "turbo run dev --parallel --filter='!@reservations/mobile'",
+    "dev": "turbo run dev --parallel --filter='!@reservations/mobile' --filter='!@reservations/merchant-mobile'",
     "dev:mobile": "pnpm --filter @reservations/mobile dev",
     "build": "turbo run build",
     "lint": "turbo run lint",

@@ -1,10 +1,28 @@
 # Web — Learnings & Observations
 
+## [2026-09-29] Restaurant reviews preview + all-reviews modal
+- Profile `#reviews` shows `RESTAURANT_REVIEWS_PREVIEW_LIMIT` (5) with a `ReviewSort` Select (newest / oldest / highest / lowest). `restaurantReviews(sort:)` is server-side.
+- "Show all N reviews" opens a modal (same pattern as photos browser) rather than a dedicated route so diners stay on the booking profile. Modal reuses sort + paginates with growing `limit` (max 100).
+- Why it matters: Full-page reviews would drop booking context; dumping every review inline makes long profiles hard to scan.
+
+## [2026-09-29] Review Read more hides owner reply
+- `RestaurantReviewCard` clamps comments to 2 lines. Owner reply renders only when expanded. Read more also appears when there is an owner reply even if the comment fits.
+- Hover-to-react uses `REVIEW_REACTION_OPTIONS` without login. Web Apollo sends `X-Visitor-Key` from `localStorage` (`tv_visitor_key`) so guests can toggle reactions; signed-in users still use their account.
+- Why it matters: Showing the full owner reply under a clamped guest comment made short cards look like walls of text.
+
+## [2026-09-29] Signup email verification page
+- When `needsEmailVerification` is true, AppShell redirects to `/verify-email`. Users submit a 6-digit code. Signup may store a local-dev code in `sessionStorage` (`tv_verify_dev_code`) when SendGrid is unset.
+- Why it matters: With the admin toggle on, creating an account must not drop people on the homepage unverified.
+
 ## [2026-09-28] The Apollo auth-refresh link replays mutations
 - `errorLink` in `lib/apollo.tsx` forwards any operation whose response carries `Authentication required` after refreshing the session — mutations included. It now marks the operation context (`authRetried`) so each one replays at most once; without the cap a persistent auth error re-sent the operation on every pass.
 - On refresh failure, queued operations are rejected (`rejectPendingRequests`) instead of being dropped; the old code cleared the array and left those subscribers hanging forever behind a spinner.
 - The same link shape lives in `apps/dashboard`, `apps/mobile`, and `apps/merchant-mobile` — mobile already rejects pending requests but still has no replay cap.
 - Why it matters: Anything non-idempotent (booking, payment confirm) can be executed more than once by the transport layer, so writes need their own server-side guard.
+
+## [2026-09-29] Pricing Includes come from the API
+- `/pricing` card bullets use `plan.highlights` when the field is an array, including an empty array. `PLAN_HIGHLIGHTS` is only the fallback when the query omits the field.
+- Why it matters: A missing array and an empty array are different — empty means a super admin cleared Includes.
 
 ## [2026-09-28] Public pricing visibility is `visibleOnPricing` only
 - `/pricing` cards include every plan with `visibleOnPricing !== false`, including custom keys. The compare grid still uses the static Basic/Core/Pro matrix for those three keys when they are visible.

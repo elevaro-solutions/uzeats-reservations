@@ -10,6 +10,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/en';
 import { antdUsLocale, theme } from '@reservations/ui';
 import { AuthProvider } from '@/lib/auth';
+import { getVisitorKey } from '@/lib/visitorKey';
 
 dayjs.locale('en');
 
@@ -22,12 +23,16 @@ const httpLink = new BatchHttpLink({
   batchInterval: 15,
 });
 
-const authLink = setContext((_, { headers }) => ({
-  headers: {
-    ...headers,
-    'X-Client-App': 'web',
-  },
-}));
+const authLink = setContext((_, { headers }) => {
+  const visitorKey = getVisitorKey();
+  return {
+    headers: {
+      ...headers,
+      'X-Client-App': 'web',
+      ...(visitorKey ? { 'X-Visitor-Key': visitorKey } : {}),
+    },
+  };
+});
 
 type PendingRequest = {
   resolve: () => void;
@@ -77,6 +82,7 @@ const errorLink = onError(({ error, operation, forward }) => {
       headers: {
         'Content-Type': 'application/json',
         'X-Client-App': 'web',
+        ...(getVisitorKey() ? { 'X-Visitor-Key': getVisitorKey() } : {}),
       },
       body: JSON.stringify({
         query: `mutation RefreshToken { refreshToken { accessToken user { id } } }`,

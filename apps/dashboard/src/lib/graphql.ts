@@ -399,7 +399,14 @@ export const ADMIN_PENDING_REQUEST_COUNTS = gql`
       slugRequests
       profileChangeRequests
       moderationItems
+      openInvoices
     }
+  }
+`;
+
+export const RESTAURANT_OPEN_INVOICE_COUNT = gql`
+  query RestaurantOpenInvoiceCount($restaurantId: ID!) {
+    restaurantOpenInvoiceCount(restaurantId: $restaurantId)
   }
 `;
 
@@ -1770,6 +1777,14 @@ export const FLAGGED_CONTENT_ITEM = gql`
       flagDetails
       flaggedAt
       flaggedByName
+      reportResponses {
+        id
+        body
+        createdAt
+        authorName
+        fromReporter
+        attachments { id url filename }
+      }
       createdAt
     }
   }
@@ -1778,6 +1793,46 @@ export const FLAGGED_CONTENT_ITEM = gql`
 export const UNFLAG_REVIEW = gql`
   mutation UnflagReview($id: ID!) {
     unflagReview(id: $id) { id flaggedAt }
+  }
+`;
+
+export const RESPOND_TO_REVIEW_REPORT = gql`
+  mutation RespondToReviewReport(
+    $reviewId: ID!
+    $body: String!
+    $attachments: [OwnerSupportAttachmentInput!]
+  ) {
+    respondToReviewReport(reviewId: $reviewId, body: $body, attachments: $attachments) {
+      id
+      reportResponses {
+        id
+        body
+        createdAt
+        authorName
+        fromReporter
+        attachments { id url filename }
+      }
+    }
+  }
+`;
+
+export const REPLY_TO_REVIEW_REPORT = gql`
+  mutation ReplyToReviewReport(
+    $reviewId: ID!
+    $body: String!
+    $attachments: [OwnerSupportAttachmentInput!]
+  ) {
+    replyToReviewReport(reviewId: $reviewId, body: $body, attachments: $attachments) {
+      id
+      reportResponses {
+        id
+        body
+        createdAt
+        authorName
+        fromReporter
+        attachments { id url filename }
+      }
+    }
   }
 `;
 
@@ -1951,6 +2006,26 @@ export const REQUEST_PASSWORD_RESET = gql`
     requestPasswordReset(email: $email, app: $app) {
       success
       message
+    }
+  }
+`;
+
+export const VERIFY_EMAIL = gql`
+  mutation VerifyEmail($code: String!) {
+    verifyEmail(code: $code) {
+      success
+      message
+    }
+  }
+`;
+
+export const RESEND_VERIFICATION_EMAIL = gql`
+  mutation ResendVerificationEmail {
+    resendVerificationEmail {
+      success
+      message
+      emailed
+      devCode
     }
   }
 `;
@@ -2313,11 +2388,12 @@ export const PLATFORM_CONFIG = gql`
       allowPublicRegistration
       allowPartnerRegistration
       requireAdminDelete2FA
+      requireSignupEmailVerification
       invoicePrefix
       currency
       featureFlags {
         waitlist deposits partnerRegistration publicRegistration
-        messaging reviews experiences campaigns widget
+        messaging reviews experiences campaigns widget sms
       }
       annualBilling {
         enabled
@@ -2345,11 +2421,12 @@ export const UPDATE_PLATFORM_CONFIG = gql`
       allowPublicRegistration
       allowPartnerRegistration
       requireAdminDelete2FA
+      requireSignupEmailVerification
       invoicePrefix
       currency
       featureFlags {
         waitlist deposits partnerRegistration publicRegistration
-        messaging reviews experiences campaigns widget
+        messaging reviews experiences campaigns widget sms
       }
       annualBilling {
         enabled
@@ -2360,6 +2437,23 @@ export const UPDATE_PLATFORM_CONFIG = gql`
         discountPercent
       }
       updatedAt
+    }
+  }
+`;
+
+export const PLATFORM_FEATURE_FLAGS = gql`
+  query PlatformFeatureFlags {
+    platformFeatureFlags {
+      waitlist
+      deposits
+      partnerRegistration
+      publicRegistration
+      messaging
+      reviews
+      experiences
+      campaigns
+      widget
+      sms
     }
   }
 `;
@@ -2427,6 +2521,7 @@ export const ADMIN_PLANS = gql`
       visibleOnPricing
       isCustom
       managerSeats
+      highlights
       features {
         floorPlans
         smartAssign
@@ -2469,6 +2564,7 @@ export const UPDATE_PLAN_PACKAGE = gql`
       visibleOnPricing
       isCustom
       managerSeats
+      highlights
     }
   }
 `;
@@ -2486,7 +2582,14 @@ export const CREATE_PLAN_PACKAGE = gql`
       visibleOnPricing
       isCustom
       managerSeats
+      highlights
     }
+  }
+`;
+
+export const GENERATE_PLAN_DESCRIPTION = gql`
+  mutation GeneratePlanPackageDescription($input: GeneratePlanPackageDescriptionInput!) {
+    generatePlanPackageDescription(input: $input)
   }
 `;
 
@@ -2757,15 +2860,52 @@ export const RESTAURANT_INVOICES = gql`
         currency
         subtotalCents
         totalCents
+        originalTotalCents
+        isDiscounted
         dueDate
         paidAt
+        canceledAt
+        notes
         payUrl
+        createdAt
         lines {
           description
           quantity
           unitAmountCents
           amountCents
+          originalAmountCents
         }
+      }
+    }
+  }
+`;
+
+export const RESTAURANT_INVOICE = gql`
+  query RestaurantInvoice($id: ID!) {
+    restaurantInvoice(id: $id) {
+      id
+      number
+      status
+      billingPeriod
+      currency
+      subtotalCents
+      totalCents
+      originalTotalCents
+      isDiscounted
+      dueDate
+      paidAt
+      canceledAt
+      notes
+      payUrl
+      createdAt
+      restaurantId
+      restaurantName
+      lines {
+        description
+        quantity
+        unitAmountCents
+        amountCents
+        originalAmountCents
       }
     }
   }
@@ -2805,6 +2945,8 @@ export const REGISTER_RESTAURANT_PARTNER = gql`
         lastName
         role
         restaurantIds
+        emailVerified
+        needsEmailVerification
       }
       restaurant {
         id
@@ -2819,6 +2961,7 @@ export const REGISTER_RESTAURANT_PARTNER = gql`
       }
       clientSecret
       paymentMode
+      devCode
     }
   }
 `;
@@ -3057,7 +3200,15 @@ export const RESTAURANT_REVIEWS = gql`
       total
       items {
         id rating foodRating serviceRating atmosphereRating comment photos ownerReply ownerRepliedAt
-        hidden flagged flagReason flagReasonCode flagDetails flaggedAt createdAt dinerId
+        hidden flagged flagReason flagReasonCode flagDetails flaggedAt flaggedById createdAt dinerId
+        reportResponses {
+          id
+          body
+          createdAt
+          authorName
+          fromReporter
+          attachments { id url filename }
+        }
         diner { id firstName lastName }
       }
     }

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button, Image, Progress, Typography, Upload, App } from 'antd';
-import { DeleteOutlined, InboxOutlined } from '@ant-design/icons';
+import { DeleteOutlined, InboxOutlined, PaperClipOutlined } from '@ant-design/icons';
 import type { RcFile } from 'antd/es/upload';
 import {
   SUPPORT_TICKET_ATTACHMENT_CONTENT_TYPES,
@@ -31,12 +31,21 @@ type SupportAttachmentUploadProps = {
   value?: SupportAttachmentDraft[];
   onChange?: (files: SupportAttachmentDraft[]) => void;
   maxCount?: number;
+  /** `compact` = paperclip control for chat composers; default is the large dragger. */
+  variant?: 'dragger' | 'compact';
+  /** Placed before the paperclip in compact mode (e.g. chat text field). */
+  leading?: ReactNode;
+  /** Placed after the paperclip in compact mode (e.g. send button). */
+  trailing?: ReactNode;
 };
 
 export default function SupportAttachmentUpload({
   value = [],
   onChange,
   maxCount = SUPPORT_TICKET_ATTACHMENT_MAX_COUNT,
+  variant = 'dragger',
+  leading,
+  trailing,
 }: SupportAttachmentUploadProps) {
   const { message } = App.useApp();
   const [uploading, setUploading] = useState<Record<string, number>>({});
@@ -106,6 +115,119 @@ export default function SupportAttachmentUpload({
   };
 
   const activeUploads = Object.entries(uploading);
+
+  if (variant === 'compact') {
+    return (
+      <div component="SupportAttachmentUpload">
+        {value.length > 0 || activeUploads.length > 0 ? (
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 8,
+              marginBottom: 8,
+              alignItems: 'center',
+            }}
+          >
+            {value.map((item) => (
+              <div
+                key={item.url}
+                style={{
+                  position: 'relative',
+                  width: 56,
+                  height: 56,
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  border: `1px solid ${colors.bordersubtle}`,
+                  background: colors.neutral[50],
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setPreviewUrl(item.url)}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    height: '100%',
+                    padding: 0,
+                    border: 0,
+                    cursor: 'pointer',
+                    background: 'transparent',
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={browserMediaUrl(item.url)}
+                    alt={item.filename}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                </button>
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => handleRemove(item.url)}
+                  aria-label={`Remove ${item.filename}`}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    width: 22,
+                    height: 22,
+                    minWidth: 22,
+                    padding: 0,
+                    background: 'rgba(255,255,255,0.9)',
+                  }}
+                />
+              </div>
+            ))}
+            {activeUploads.map(([uid, pct]) => (
+              <div key={uid} style={{ width: 56 }}>
+                <Progress percent={pct} size="small" showInfo={false} />
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+          {leading ? <div style={{ flex: 1, minWidth: 0 }}>{leading}</div> : null}
+          <Upload
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            multiple
+            showUploadList={false}
+            beforeUpload={handleUpload}
+            disabled={value.length >= maxCount}
+          >
+            <Button
+              type="text"
+              shape="circle"
+              icon={<PaperClipOutlined />}
+              disabled={value.length >= maxCount}
+              aria-label="Attach image"
+              title="Attach image"
+            />
+          </Upload>
+          {trailing}
+        </div>
+
+        {previewUrl ? (
+          <Image
+            style={{ display: 'none' }}
+            src={previewUrl}
+            alt="Attachment preview"
+            preview={{
+              visible: Boolean(previewUrl),
+              src: previewUrl,
+              onVisibleChange: (visible) => {
+                if (!visible) setPreviewUrl(undefined);
+              },
+            }}
+          />
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div component="SupportAttachmentUpload">

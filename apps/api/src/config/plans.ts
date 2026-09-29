@@ -109,6 +109,48 @@ export function normalizeManagerSeats(value: unknown, fallback = DEFAULT_MANAGER
 
 export type PlanKey = keyof typeof PLANS;
 
+/** Default “Includes” lines on the public pricing cards until a super admin overrides them. */
+export const DEFAULT_PLAN_HIGHLIGHTS: Record<string, string[]> = {
+  basic: [
+    'Tablevera listing & booking widget',
+    'Deposits & no-show fees',
+    'Review management',
+    'Google Reserve integration',
+  ],
+  core: [
+    'Floor plans & Smart Assign',
+    'Free website reservations',
+    'In-house and online waitlist',
+    '360° guest profiles',
+  ],
+  pro: [
+    'Advanced guest insights',
+    'Revenue forecasting',
+    'Custom report builder',
+    'Dedicated account manager',
+  ],
+};
+
+const MAX_PLAN_HIGHLIGHTS = 12;
+const MAX_HIGHLIGHT_LENGTH = 140;
+
+/** Trim, drop blanks, and cap the public Includes list. An empty array is kept. */
+export function sanitizePlanHighlights(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const lines: string[] = [];
+  for (const item of value) {
+    const line = String(item).replace(/\s+/g, ' ').trim().slice(0, MAX_HIGHLIGHT_LENGTH);
+    if (!line) continue;
+    const key = line.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    lines.push(line);
+    if (lines.length >= MAX_PLAN_HIGHLIGHTS) break;
+  }
+  return lines;
+}
+
 export const FEATURE_LABELS: Record<FeatureKey, string> = {
   floorPlans: 'Customizable floor plans',
   smartAssign: 'Smart Assign',

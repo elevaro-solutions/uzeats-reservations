@@ -49,6 +49,7 @@ import {
   MY_NOTIFICATIONS,
   MY_RESTAURANTS_SHELL,
   MY_RESTAURANT_PROFILE_CHANGE_REQUEST,
+  RESTAURANT_OPEN_INVOICE_COUNT,
   RESTAURANT_UNREPLIED_REVIEW_COUNT,
 } from '@/lib/graphql';
 import {
@@ -166,7 +167,10 @@ function notificationHref(n: AppNotification): string {
       return reservationId ? reservationManageHref(data) : withRestaurantParam('/guests', data);
     case 'new_review':
     case 'review_reply':
+    case 'review_report_response':
       return withRestaurantParam('/reviews', data);
+    case 'invoice_ready':
+      return withRestaurantParam('/billing', data);
     default:
       return '/notifications';
   }
@@ -187,6 +191,14 @@ import { getPublicWebUrl } from '@/lib/webUrl';
 import { canCreateRestaurant, isPlatformAdmin, isSuperAdmin } from '@/lib/roles';
 
 const PARTNER_ROLES = new Set(['restaurant_owner', 'manager', 'admin', 'account_manager', 'super_admin']);
+const AUTH_SHELL_PATHS = [
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+  '/verify-email',
+  '/accept-invite',
+];
 
 export function DashShell({ children }: { children: React.ReactNode }) {
   const { user, logout, loading: authLoading, isImpersonating, impersonator, endImpersonation } =
@@ -198,6 +210,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   const isSuperAdminUser = user ? isSuperAdmin(user.role) && !isImpersonating : false;
   // Impersonation must follow the *target* role — diner impersonation is not Partner Hub.
   const isPartner = Boolean(user) && PARTNER_ROLES.has(user!.role);
+  const isAuthShellRoute = AUTH_SHELL_PATHS.some((p) => pathname.startsWith(p));
   const [restaurantId, setRestaurantId] = useState<string>();
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -236,6 +249,12 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     pollInterval: 60_000,
     skipPollAttempt: skipPollWhenHidden,
   });
+  const { data: openInvoiceData } = useQuery(RESTAURANT_OPEN_INVOICE_COUNT, {
+    skip: !user || isAdmin || !restaurantId || !isPartner,
+    variables: { restaurantId },
+    pollInterval: 60_000,
+    skipPollAttempt: skipPollWhenHidden,
+  });
   const [markRead] = useMutation(MARK_NOTIFICATIONS_READ, {
     refetchQueries: [{ query: MY_NOTIFICATIONS, variables: { limit: 20 } }],
   });
@@ -256,6 +275,13 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     logout();
     window.location.href = `${getPublicWebUrl()}/login?next=/`;
   }, [user, authLoading, isImpersonating, logout]);
+
+  useEffect(() => {
+    if (authLoading || !user || isImpersonating) return;
+    if (!user.needsEmailVerification) return;
+    if (pathname.startsWith('/verify-email')) return;
+    router.replace('/verify-email');
+  }, [authLoading, user, isImpersonating, pathname, router]);
 
   useEffect(() => {
     if (!user || !isPartner) return;
@@ -322,18 +348,24 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     pendingRequestCounts?.adminPendingRequestCounts?.profileChangeRequests ?? 0;
   const pendingModerationItems =
     pendingRequestCounts?.adminPendingRequestCounts?.moderationItems ?? 0;
+  const openInvoicesAdmin =
+    pendingRequestCounts?.adminPendingRequestCounts?.openInvoices ?? 0;
   const ownerPendingProfile =
     profileRequestData?.myRestaurantProfileChangeRequest?.status === 'pending' ? 1 : 0;
   const unrepliedReviewCount: number =
     unrepliedReviewData?.restaurantUnrepliedReviewCount ?? 0;
+  const openInvoiceCount: number =
+    openInvoiceData?.restaurantOpenInvoiceCount ?? 0;
 
   const items = useMemo(() => {
     const badgeByHref: Record<string, number> = {
       '/reviews': unrepliedReviewCount,
+      '/billing': openInvoiceCount,
       '/grow': ownerPendingProfile,
       '/admin/slug-requests': pendingSlugRequests,
       '/admin/profile-requests': pendingProfileRequests,
       '/admin/moderation': pendingModerationItems,
+      '/admin/billing': openInvoicesAdmin,
     };
     const pages = isAdmin
       ? adminSiderPages({ isSuperAdmin: isSuperAdminUser })
@@ -350,10 +382,12 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     isSuperAdminUser,
     onboardingProgress.showOnboarding,
     unrepliedReviewCount,
+    openInvoiceCount,
     ownerPendingProfile,
     pendingSlugRequests,
     pendingProfileRequests,
     pendingModerationItems,
+    openInvoicesAdmin,
   ]);
 
   const switchRestaurant = useCallback(
@@ -370,7 +404,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     [pathname, restaurants.length, router, searchParams],
   );
 
-  if (!user || user.role === 'diner') {
+  if (!user || user.role === 'diner' || isAuthShellRoute) {
     return <>{children}</>;
   }
 

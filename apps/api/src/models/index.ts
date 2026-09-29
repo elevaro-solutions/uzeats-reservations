@@ -6,6 +6,7 @@ export { Reservation } from './Reservation.js';
 export { TableSlotClaim } from './TableSlotClaim.js';
 export { WaitlistEntry } from './Waitlist.js';
 export { Review } from './Review.js';
+export { ReviewReaction } from './ReviewReaction.js';
 export { Menu } from './Menu.js';
 export { LoyaltyTransaction, Notification } from './Loyalty.js';
 export { AuditLog } from './AuditLog.js';

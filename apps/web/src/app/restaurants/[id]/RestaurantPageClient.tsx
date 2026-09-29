@@ -52,6 +52,9 @@ import {
   todayIsoInTimeZone,
   timezoneFromAddress,
   zonedWallClockToUtc,
+  DEFAULT_REVIEW_SORT,
+  RESTAURANT_REVIEWS_PREVIEW_LIMIT,
+  type ReviewSort,
 } from '@reservations/shared';
 import {
   saveBookingDraftToSession,
@@ -69,6 +72,7 @@ import {
   JOIN_WAITLIST,
   BOOKABLE_TABLES,
   RESTAURANT_REVIEWS,
+  REACT_TO_REVIEW,
   PROMOTIONS,
   EXPERIENCES,
   RESTAURANT_PACKAGES,
@@ -201,6 +205,7 @@ export default function RestaurantPageClient({
   const [giftCardCode, setGiftCardCode] = useState('');
   const [messageOpen, setMessageOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewSort, setReviewSort] = useState<ReviewSort>(DEFAULT_REVIEW_SORT);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const isMobileLayout = useIsMobileRestaurantLayout();
   const [bookSheetHighlight, setBookSheetHighlight] = useState(false);
@@ -323,7 +328,12 @@ export default function RestaurantPageClient({
   });
   const bookableTables = (bookableData as any)?.bookableTables ?? [];
   const { data: reviewsData, refetch: refetchReviews } = useQuery(RESTAURANT_REVIEWS, {
-    variables: { restaurantId: restaurantId!, limit: 50, offset: 0 },
+    variables: {
+      restaurantId: restaurantId!,
+      limit: RESTAURANT_REVIEWS_PREVIEW_LIMIT,
+      offset: 0,
+      sort: reviewSort,
+    },
     skip: !restaurantId,
   });
   const { data: myReservationsData, refetch: refetchMyReservations } = useQuery(MY_RESERVATIONS, {
@@ -380,6 +390,7 @@ export default function RestaurantPageClient({
   });
   const [confirmDeposit] = useMutation(CONFIRM_DEPOSIT);
   const [joinWaitlist, { loading: waitlisting }] = useMutation(JOIN_WAITLIST);
+  const [reactToReview] = useMutation(REACT_TO_REVIEW);
 
   const slots = (availData as any)?.availability ?? [];
   const allPackages = (packagesData as { restaurantPackages?: Array<{
@@ -1018,11 +1029,20 @@ export default function RestaurantPageClient({
               />
 
               <RestaurantReviewsSection
+                restaurantId={restaurantId!}
+                restaurantName={restaurant.name}
                 reviews={reviews}
                 averageRating={restaurant.averageRating}
                 reviewCount={restaurant.reviewCount}
+                sort={reviewSort}
+                onSortChange={setReviewSort}
                 canLeaveReview={Boolean(reviewableReservation)}
                 onLeaveReview={() => setReviewOpen(true)}
+                currentUserId={user?.id}
+                onReact={async (reviewId, reaction) => {
+                  await reactToReview({ variables: { reviewId, reaction } });
+                  await refetchReviews();
+                }}
               />
 
               <RestaurantPhotosSection

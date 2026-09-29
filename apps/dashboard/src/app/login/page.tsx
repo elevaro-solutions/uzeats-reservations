@@ -17,7 +17,13 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   if (user) {
-    router.replace(isPlatformAdmin(user.role) ? '/admin' : '/');
+    router.replace(
+      user.needsEmailVerification
+        ? '/verify-email'
+        : isPlatformAdmin(user.role)
+          ? '/admin'
+          : '/',
+    );
     return null;
   }
 
@@ -31,8 +37,12 @@ export default function LoginPage() {
         onFinish={async (values) => {
           setLoading(true);
           try {
-            await login(values.email, values.password);
+            const signedIn = await login(values.email, values.password);
             message.success('Signed in');
+            if (signedIn.needsEmailVerification) {
+              router.push('/verify-email');
+              return;
+            }
             // Role-aware landing is handled by / redirect for admins
             router.push('/');
           } catch (err) {

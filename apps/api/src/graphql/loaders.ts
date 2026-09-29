@@ -1,5 +1,6 @@
 import DataLoader from 'dataloader';
 import mongoose from 'mongoose';
+import type { ReviewReactionType } from '@reservations/shared';
 import { Restaurant } from '../models/Restaurant.js';
 import { User } from '../models/User.js';
 import { Table } from '../models/Table.js';
@@ -9,6 +10,12 @@ import { Experience } from '../models/Experience.js';
 import { Reservation } from '../models/Reservation.js';
 import { RestaurantBookmark, type RestaurantBookmarkKind } from '../models/RestaurantBookmark.js';
 import { getBookingWindow } from '../services/accessRules.js';
+import {
+  emptyReactionCounts,
+  getMyReactionsForReviews,
+  getReactionCountsForReviews,
+  type ReviewReactionCounts,
+} from '../services/reviewReactions.js';
 import {
   mapRestaurant,
   mapUser,
@@ -46,13 +53,24 @@ export type GraphQLLoaders = {
   bookingWindowByRestaurantId: DataLoader<string, MappedBookingWindow>;
   experienceById: DataLoader<string, ReturnType<typeof mapExperience> | null>;
   reservationById: DataLoader<string, ReturnType<typeof mapReservation> | null>;
+  reviewReactionCounts: DataLoader<string, ReviewReactionCounts>;
+  myReviewReaction: DataLoader<string, ReviewReactionType | null>;
 };
 
 function bookmarkKey(restaurantId: string, kind: RestaurantBookmarkKind) {
   return `${kind}:${restaurantId}`;
 }
 
-export function createLoaders(userId: string | null): GraphQLLoaders {
+export function createLoaders(identity: {
+  userId?: string | null;
+  visitorKey?: string | null;
+} | string | null): GraphQLLoaders {
+  const userId =
+    typeof identity === 'string' || identity == null
+      ? identity
+      : identity.userId ?? null;
+  const visitorKey =
+    typeof identity === 'string' || identity == null ? null : identity.visitorKey ?? null;
   const restaurantById = new DataLoader<string, ReturnType<typeof mapRestaurant> | null>(
     async (ids) => {
       const objectIds = ids.map(toObjectId).filter((id): id is mongoose.Types.ObjectId => !!id);
@@ -135,6 +153,16 @@ export function createLoaders(userId: string | null): GraphQLLoaders {
     },
   );
 
+  const reviewReactionCounts = new DataLoader<string, ReviewReactionCounts>(async (ids) => {
+    const map = await getReactionCountsForReviews([...ids]);
+    return ids.map((id) => map.get(id) ?? emptyReactionCounts());
+  });
+
+  const myReviewReaction = new DataLoader<string, ReviewReactionType | null>(async (ids) => {
+    const map = await getMyReactionsForReviews([...ids], { userId, visitorKey });
+    return ids.map((id) => map.get(id) ?? null);
+  });
+
   return {
     restaurantById,
     userById,
@@ -145,6 +173,8 @@ export function createLoaders(userId: string | null): GraphQLLoaders {
     bookingWindowByRestaurantId,
     experienceById,
     reservationById,
+    reviewReactionCounts,
+    myReviewReaction,
   };
 }
 

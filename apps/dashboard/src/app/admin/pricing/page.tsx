@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
   Button,
@@ -19,7 +19,7 @@ import {
   Typography,
   message,
 } from 'antd';
-import { HolderOutlined, PlusOutlined } from '@ant-design/icons';
+import { BulbOutlined, HolderOutlined, MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageHeader, spacing } from '@reservations/ui';
 import {
   computeAnnualSavings,
@@ -34,6 +34,7 @@ import {
   ADMIN_PLANS,
   CREATE_PLAN_PACKAGE,
   DELETE_PLAN_PACKAGE,
+  GENERATE_PLAN_DESCRIPTION,
   PLATFORM_CONFIG,
   REORDER_PLAN_PACKAGES,
   UPDATE_PLATFORM_CONFIG,
@@ -91,6 +92,9 @@ const FEATURE_TOGGLES = [
 const FIELD_TIPS = {
   name: 'Public package name shown on pricing, billing, and registration.',
   description: 'Short blurb under the plan name on the public pricing page.',
+  highlights: 'Bullet lines under Includes on the public pricing card. Leave empty to show no includes.',
+  generateDescription:
+    'Drafts the short description from the package name, includes, features, and manager accounts. You can edit it before saving.',
   visibleOnPricing:
     'When on, this package appears as a card on the public /pricing page and in partner registration.',
   monthlyPrice: 'Recurring monthly subscription price charged after any trial ends.',
@@ -147,6 +151,49 @@ function featuresInput(features: Record<string, unknown> | undefined | null) {
   );
 }
 
+function highlightsInput(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((line) => String(line).trim())
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+function PackageHighlightsField() {
+  return (
+    <Form.Item label="Includes" tooltip={FIELD_TIPS.highlights} style={{ marginBottom: 12 }}>
+      <Form.List name="highlights">
+        {(fields, { add, remove }) => (
+          <div>
+            {fields.map(({ key, name, ...rest }) => (
+              <Space key={key} align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
+                <Form.Item
+                  {...rest}
+                  name={name}
+                  style={{ flex: 1, marginBottom: 0, minWidth: 280 }}
+                  rules={[{ required: true, whitespace: true, message: 'Enter a line or remove it' }]}
+                >
+                  <Input placeholder="What's included" />
+                </Form.Item>
+                <Button
+                  type="text"
+                  danger
+                  aria-label="Remove include"
+                  icon={<MinusCircleOutlined />}
+                  onClick={() => remove(name)}
+                />
+              </Space>
+            ))}
+            <Button type="dashed" onClick={() => add('')} icon={<PlusOutlined />} block>
+              Add include
+            </Button>
+          </div>
+        )}
+      </Form.List>
+    </Form.Item>
+  );
+}
+
 function trialPeriodValue(trialDays: number): number | 'custom' {
   if (trialDays <= 0) return 30;
   return (TRIAL_PRESETS as readonly number[]).includes(trialDays) ? trialDays : 'custom';
@@ -154,7 +201,8 @@ function trialPeriodValue(trialDays: number): number | 'custom' {
 
 export default function AdminPricingPage() {
   const { ready, user } = useRequireAdmin();
-  const canDeleteBuiltin = user ? isSuperAdmin(user.role) : false;
+  const isSuperAdminUser = user ? isSuperAdmin(user.role) : false;
+  const canDeleteBuiltin = isSuperAdminUser;
   const { data, loading, refetch } = useQuery(ADMIN_PLANS, { skip: !ready });
   const { data: configData, refetch: refetchConfig } = useQuery(PLATFORM_CONFIG, {
     skip: !ready,
@@ -164,6 +212,9 @@ export default function AdminPricingPage() {
   const [createPlan, { loading: creating }] = useMutation(CREATE_PLAN_PACKAGE);
   const [deletePlan, { loading: deleting }] = useMutation(DELETE_PLAN_PACKAGE);
   const [reorderPlans, { loading: reordering }] = useMutation(REORDER_PLAN_PACKAGES);
+  const [generateDescription, { loading: generatingDescription }] = useMutation(
+    GENERATE_PLAN_DESCRIPTION,
+  );
   const [activeKey, setActiveKey] = useState<string>('basic');
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
@@ -178,6 +229,11 @@ export default function AdminPricingPage() {
   const createDirty = useFormDirty();
 
   const plans = data?.plans ?? [];
+  const smsEnabled = configData?.platformConfig?.featureFlags?.sms !== false;
+  const featureToggles = useMemo(
+    () => (smsEnabled ? FEATURE_TOGGLES : FEATURE_TOGGLES.filter((f) => f.key !== 'premiumSms')),
+    [smsEnabled],
+  );
   const displayPlans = (() => {
     if (!orderedKeys?.length) return plans;
     const byKey = new Map(plans.map((plan: { key: string }) => [plan.key, plan]));
@@ -239,6 +295,7 @@ export default function AdminPricingPage() {
       customTrialDays: days > 0 && !(TRIAL_PRESETS as readonly number[]).includes(days) ? days : 7,
       visibleOnPricing: plan.visibleOnPricing !== false,
       managerSeats: plan.managerSeats ?? 1,
+      highlights: Array.isArray(plan.highlights) ? plan.highlights : [],
       features: featuresInput(plan.features),
     });
     packageDirty.clearDirty();
@@ -356,6 +413,14 @@ export default function AdminPricingPage() {
       await form.validateFields();
       const values = form.getFieldsValue(true);
       const discount = resolveDiscountInput(values);
+      const nextFeatures = featuresInput(values.features);
+      // Premium SMS toggle is hidden when the platform kill switch is off — keep stored value.
+      if (!smsEnabled) {
+        const current = plans.find((p: { key: string }) => p.key === activeKey);
+        if (current?.features && typeof current.features.premiumSms === 'boolean') {
+          nextFeatures.premiumSms = current.features.premiumSms;
+        }
+      }
       await updatePlan({
         variables: {
           input: {
@@ -373,8 +438,9 @@ export default function AdminPricingPage() {
             websiteCoverFeeCents: dollarsToCents(values.websiteCoverFee),
             trialDays: resolveTrialDays(values),
             visibleOnPricing: values.visibleOnPricing,
+            ...(isSuperAdminUser ? { highlights: highlightsInput(values.highlights) } : {}),
             managerSeats: Math.max(1, Math.round(Number(values.managerSeats) || 1)),
-            features: featuresInput(values.features),
+            features: nextFeatures,
           },
         },
       });
@@ -409,6 +475,7 @@ export default function AdminPricingPage() {
             websiteCoverFeeCents: dollarsToCents(values.websiteCoverFee),
             trialDays: resolveTrialDays(values),
             visibleOnPricing: values.visibleOnPricing !== false,
+            ...(isSuperAdminUser ? { highlights: highlightsInput(values.highlights) } : {}),
             managerSeats: Math.max(1, Math.round(Number(values.managerSeats) || 1)),
             features: featuresInput(values.features),
           },
@@ -424,6 +491,39 @@ export default function AdminPricingPage() {
     } catch (err: any) {
       if (err?.errorFields) return;
       message.error(err.message || 'Failed to create package');
+    }
+  };
+
+  const onGenerateDescription = async (target: 'edit' | 'create') => {
+    const source = target === 'edit' ? form : createForm;
+    const values = source.getFieldsValue(true);
+    const name = String(values.name ?? '').trim();
+    if (!name) {
+      message.error('Enter a package name first');
+      return;
+    }
+    const enabled = featuresInput(values.features);
+    try {
+      const result = await generateDescription({
+        variables: {
+          input: {
+            name,
+            highlights: highlightsInput(values.highlights),
+            featureLabels: featureToggles.filter((feature) => enabled[feature.key]).map(
+              (feature) => feature.label,
+            ),
+            managerSeats: Math.max(1, Math.round(Number(values.managerSeats) || 1)),
+            monthlyPriceCents: dollarsToCents(values.monthlyPrice),
+          },
+        },
+      });
+      const text = result.data?.generatePlanPackageDescription;
+      if (!text) throw new Error('No description returned');
+      source.setFieldValue('description', text);
+      if (target === 'edit') packageDirty.markDirty();
+      else createDirty.markDirty();
+    } catch (err: any) {
+      message.error(err.message || 'Failed to generate description');
     }
   };
 
@@ -941,13 +1041,24 @@ export default function AdminPricingPage() {
               >
                 <Input />
               </Form.Item>
-              <Form.Item
-                name="description"
-                label="Short description"
-                tooltip={FIELD_TIPS.description}
-              >
-                <Input.TextArea rows={2} placeholder="Shown on the public pricing page" />
+              <Form.Item label="Short description" tooltip={FIELD_TIPS.description}>
+                <Form.Item name="description" noStyle>
+                  <Input.TextArea rows={2} placeholder="Shown on the public pricing page" />
+                </Form.Item>
+                {isSuperAdminUser ? (
+                  <Button
+                    type="link"
+                    icon={<BulbOutlined />}
+                    loading={generatingDescription}
+                    title={FIELD_TIPS.generateDescription}
+                    onClick={() => onGenerateDescription('edit')}
+                    style={{ paddingLeft: 0 }}
+                  >
+                    Generate description
+                  </Button>
+                ) : null}
               </Form.Item>
+              {isSuperAdminUser ? <PackageHighlightsField /> : null}
               <Form.Item
                 name="visibleOnPricing"
                 label="Show on public pricing page"
@@ -1010,7 +1121,7 @@ export default function AdminPricingPage() {
                 Features
               </Text>
               <Row gutter={[12, 12]}>
-                {FEATURE_TOGGLES.map((f) => (
+                {featureToggles.map((f) => (
                   <Col xs={12} md={8} key={f.key}>
                     <Form.Item
                       name={['features', f.key]}
@@ -1061,6 +1172,7 @@ export default function AdminPricingPage() {
             networkCoverFee: 0,
             websiteCoverFee: 0,
             managerSeats: 1,
+            highlights: [],
             features: {},
           }}
         >
@@ -1072,9 +1184,24 @@ export default function AdminPricingPage() {
           >
             <Input placeholder="e.g. Starter" />
           </Form.Item>
-          <Form.Item name="description" label="Short description" tooltip={FIELD_TIPS.description}>
-            <Input.TextArea rows={2} />
+          <Form.Item label="Short description" tooltip={FIELD_TIPS.description}>
+            <Form.Item name="description" noStyle>
+              <Input.TextArea rows={2} />
+            </Form.Item>
+            {isSuperAdminUser ? (
+              <Button
+                type="link"
+                icon={<BulbOutlined />}
+                    loading={generatingDescription}
+                    title={FIELD_TIPS.generateDescription}
+                    onClick={() => onGenerateDescription('create')}
+                style={{ paddingLeft: 0 }}
+              >
+                Generate description
+              </Button>
+            ) : null}
           </Form.Item>
+          {isSuperAdminUser ? <PackageHighlightsField /> : null}
           <Form.Item
             name="visibleOnPricing"
             label="Show on public pricing page"

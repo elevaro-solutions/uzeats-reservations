@@ -14,12 +14,16 @@ export function useRequirePartner() {
   const router = useRouter();
 
   const allowed =
-    Boolean(user) && PARTNER_ROLES.has(user!.role);
+    Boolean(user) && PARTNER_ROLES.has(user!.role) && !user!.needsEmailVerification;
 
   useEffect(() => {
     if (loading) return;
     if (!user) {
       router.replace('/login');
+      return;
+    }
+    if (user.needsEmailVerification) {
+      router.replace('/verify-email');
       return;
     }
     if (user.role !== 'diner') return;

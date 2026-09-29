@@ -247,6 +247,7 @@ type ApiPlan = {
   trialDays: number;
   visibleOnPricing: boolean;
   isCustom: boolean;
+  highlights?: string[] | null;
 };
 
 const FALLBACK_PLANS: ApiPlan[] = [
@@ -260,6 +261,7 @@ const FALLBACK_PLANS: ApiPlan[] = [
     trialDays: 30,
     visibleOnPricing: true,
     isCustom: false,
+    highlights: [...PLAN_HIGHLIGHTS.basic],
   },
   {
     key: 'core',
@@ -271,6 +273,7 @@ const FALLBACK_PLANS: ApiPlan[] = [
     trialDays: 30,
     visibleOnPricing: true,
     isCustom: false,
+    highlights: [...PLAN_HIGHLIGHTS.core],
   },
   {
     key: 'pro',
@@ -282,6 +285,7 @@ const FALLBACK_PLANS: ApiPlan[] = [
     trialDays: 30,
     visibleOnPricing: true,
     isCustom: false,
+    highlights: [...PLAN_HIGHLIGHTS.pro],
   },
 ];
 
@@ -497,7 +501,9 @@ export default function PricingPage() {
             const description =
               plan.description?.trim() || PLAN_BLURBS[planKey] || 'Built for your restaurant.';
             const ctaLabel = plan.trialDays > 0 ? 'Start free trial' : 'Choose plan';
-            const highlights = PLAN_HIGHLIGHTS[planKey] ?? [];
+            const highlights = Array.isArray(plan.highlights)
+              ? plan.highlights
+              : (PLAN_HIGHLIGHTS[planKey] ?? []);
             const display = getPlanDisplay(plan, billingPeriod, annualBilling);
             const badge = getDiscountBadge(display, plan, isCore, billingPeriod, annualBilling);
             const finePrint = getFinePrint(display, plan, billingPeriod);

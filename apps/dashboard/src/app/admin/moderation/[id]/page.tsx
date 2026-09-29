@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
@@ -29,11 +29,14 @@ import { PageHeader, colors, spacing } from '@reservations/ui';
 import {
   DELETE_REVIEW,
   FLAGGED_CONTENT_ITEM,
+  RESPOND_TO_REVIEW_REPORT,
   SET_MESSAGE_HIDDEN,
   SET_REVIEW_HIDDEN_ADMIN,
   UNFLAG_MESSAGE,
   UNFLAG_REVIEW,
 } from '@/lib/graphql';
+import { ReviewReportChat } from '@/components/ReviewReportThread';
+import type { SupportAttachmentDraft } from '@/components/SupportAttachmentUpload';
 import { useAuth } from '@/lib/auth';
 import { isSuperAdmin } from '@/lib/roles';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
@@ -62,7 +65,10 @@ function ModerationDetailContent() {
     variables: { id, type },
     fetchPolicy: 'cache-and-network',
   });
+  const [responseBody, setResponseBody] = useState('');
+  const [responseAttachments, setResponseAttachments] = useState<SupportAttachmentDraft[]>([]);
   const [unflagReview] = useMutation(UNFLAG_REVIEW);
+  const [respondToReport, { loading: sendingResponse }] = useMutation(RESPOND_TO_REVIEW_REPORT);
   const [hideReview] = useMutation(SET_REVIEW_HIDDEN_ADMIN);
   const [deleteReview] = useMutation(DELETE_REVIEW);
   const [unflagMessage] = useMutation(UNFLAG_MESSAGE);
@@ -84,6 +90,35 @@ function ModerationDetailContent() {
       </div>
     );
   }
+
+  const sendReportResponse = async () => {
+    if (!item) return;
+    if (!responseBody.trim() && responseAttachments.length === 0) {
+      message.error('Write a response or attach an image');
+      return;
+    }
+    try {
+      await respondToReport({
+        variables: {
+          reviewId: item.id,
+          body: responseBody.trim(),
+          attachments: responseAttachments.map((file) => ({
+            url: file.url,
+            key: file.key,
+            filename: file.filename,
+            contentType: file.contentType,
+            size: file.size,
+          })),
+        },
+      });
+      message.success('Response sent to the reporter');
+      setResponseBody('');
+      setResponseAttachments([]);
+      refetch();
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Failed to send response');
+    }
+  };
 
   const isReview = item?.type === 'review';
   const photos: string[] = item?.photos ?? [];
@@ -279,6 +314,41 @@ function ModerationDetailContent() {
                   </Space>
                 ) : null}
               </Card>
+
+              {isReview && item ? (
+                <ReviewReportChat
+                  title="Report chat"
+                  mineIsReporter={false}
+                  opening={{
+                    flaggedByName: item.flaggedByName,
+                    flagReason: reasonLabel(item.flagReasonCode, item.flagReason),
+                    flagDetails: item.flagDetails,
+                    flaggedAt: item.flaggedAt,
+                  }}
+                  responses={item.reportResponses}
+                  composer={
+                    item.flaggedByName && item.flagged
+                      ? {
+                          body: responseBody,
+                          attachments: responseAttachments,
+                          onBodyChange: setResponseBody,
+                          onAttachmentsChange: setResponseAttachments,
+                          onSend: () => void sendReportResponse(),
+                          sending: sendingResponse,
+                          placeholder: `Message ${item.flaggedByName}…`,
+                          hint: `Chat with ${item.flaggedByName} about this report — not the guest who wrote the review. Enter to send.`,
+                        }
+                      : null
+                  }
+                  closedNotice={
+                    item.flaggedByName && !item.flagged
+                      ? 'Report dismissed — chat is closed. History stays visible to you and the reporter.'
+                      : !item.flaggedByName
+                        ? 'This report has no reporter, so a response can’t be delivered.'
+                        : null
+                  }
+                />
+              ) : null}
             </Space>
           </Col>
 

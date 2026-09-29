@@ -17,6 +17,7 @@ const emailTemplateSchema = new Schema(
       unique: true,
       enum: [
         'password_reset',
+        'email_verification',
         'booking_confirmation',
         'booking_reminder',
         'booking_cancelled',
@@ -61,6 +62,20 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     ].join(''),
     bodyText:
       'Hi {{firstName}},\n\nWe received a request to reset your Tablevera password.\n\nUse this link to reset your password:\n{{resetUrl}}\n\nThis link expires in 1 hour. If you did not request a reset, you can ignore this email.',
+  },
+  {
+    key: 'email_verification',
+    name: 'Email verification',
+    subject: 'Your Tablevera verification code',
+    description: 'Sent after signup when email verification is required.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('Welcome to Tablevera. Enter this code to confirm your email address and finish setting up your account.'),
+      emailDetailBox([{ label: 'Verification code', value: '{{code}}' }]),
+      emailMuted('This code expires in 10 minutes. If you didn\'t create an account, you can safely ignore this email.'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\nWelcome to Tablevera. Enter this code to confirm your email:\n\n{{code}}\n\nThis code expires in 10 minutes. If you did not create an account, you can ignore this email.',
   },
   {
     key: 'booking_confirmation',

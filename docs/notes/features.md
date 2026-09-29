@@ -171,6 +171,15 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## restaurant-profile
 
+### [2026-09-29] Web reviews preview + sort + all modal
+- Profile shows 5 reviews (`RESTAURANT_REVIEWS_PREVIEW_LIMIT`) with Newest / Oldest / Highest / Lowest (`ReviewSort` on `restaurantReviews`).
+- "Show all N reviews" opens a modal (keeps booking context) with the same sort and Load more — not a separate route.
+- Why it matters: Matches OpenTable-style scan-then-browse; a dedicated page would pull diners off the book flow.
+
+### [2026-09-29] Review cards clamp to two lines
+- Mobile `ReviewCard` uses `numberOfLines={2}` until Read more. Owner reply only renders when expanded. Short comments with a reply still show Read more so the reply isn’t orphaned forever.
+- Why it matters: Matching web — guest text first, restaurant response on demand.
+
 ### [2026-09-18] Web restaurant details show reservation windows, not hours
 - Web diner restaurant page dropped Hours (open/closed + weekly schedule) from the header and Details. Reservations stays, formatted as wall-clock ranges without a timezone suffix (`5:00 PM–10:00 PM`). Booking intro no longer says “Times shown in EDT”.
 - Shared `formatBookingHours` / `formatShortHours` / `formatOpeningHoursLines` / `formatHmRange12` no longer append an abbreviation. Slot labels still convert ISO instants with the restaurant IANA zone so 7:00 PM Eastern is not 4:00 PM Pacific.

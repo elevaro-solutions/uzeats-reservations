@@ -22,6 +22,7 @@ import {
   CREATE_ELEVARO_TELEGRAM_LINK,
   ELEVARO_TELEGRAM_LINKS,
   MY_RESTAURANTS,
+  PLATFORM_FEATURE_FLAGS,
   RESTAURANT_TEAM,
   UPDATE_NOTIFICATION_PREFERENCES,
 } from '@/lib/graphql';
@@ -122,6 +123,12 @@ export default function NotificationsSettingsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: featureFlagsData } = useQuery(PLATFORM_FEATURE_FLAGS, { skip: !user });
+  const smsEnabled = featureFlagsData?.platformFeatureFlags?.sms !== false;
+  const channels = useMemo(
+    () => (smsEnabled ? CHANNELS : CHANNELS.filter((c) => c.key !== 'sms')),
+    [smsEnabled],
+  );
   const restaurantIds = useMemo(
     () => (restData?.myRestaurants ?? []).map((r: { id: string }) => r.id),
     [restData],
@@ -407,7 +414,7 @@ export default function NotificationsSettingsPage() {
                     </div>
                   ),
                 },
-                ...CHANNELS.map((channel) => ({
+                ...channels.map((channel) => ({
                   title: channel.title,
                   key: channel.key,
                   align: 'center' as const,

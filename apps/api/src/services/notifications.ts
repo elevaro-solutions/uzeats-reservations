@@ -358,7 +358,7 @@ export async function notifyUser(
 
   if (eventKey && NOTIFICATION_EVENTS.includes(eventKey)) {
     channelPrefs = mapNotificationPreferences(user.notificationPreferences)[eventKey];
-  } else if (payload.type === 'password_reset') {
+  } else if (payload.type === 'password_reset' || payload.type === 'email_verification') {
     // Security / account messages: email only (no inbox spam).
     channelPrefs = {
       ...DEFAULT_NOTIFICATION_CHANNEL_PREFERENCES,
@@ -375,8 +375,12 @@ export async function notifyUser(
   }
 
   const channels: Array<'email' | 'telegram' | 'push' | 'sms' | 'in_app'> = [];
-  // In-app inbox follows the Platform preference (except password_reset).
-  if (payload.type !== 'password_reset' && channelPrefs.platform) {
+  // In-app inbox follows the Platform preference (except account security emails).
+  if (
+    payload.type !== 'password_reset' &&
+    payload.type !== 'email_verification' &&
+    channelPrefs.platform
+  ) {
     channels.push('in_app');
   }
   if (channelPrefs.email && user.email) channels.push('email');

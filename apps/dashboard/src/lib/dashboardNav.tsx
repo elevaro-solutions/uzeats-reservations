@@ -209,6 +209,11 @@ export const PARTNER_PAGES: DashboardPage[] = [
   page('/billing', 'Billing', 'Account', 'partner', <DollarOutlined />, {
     keywords: ['subscription', 'plan', 'invoice'],
   }),
+  page('/billing/invoices', 'Invoice detail', 'Account', 'partner', <FileDoneOutlined />, {
+    keywords: ['invoice', 'pdf', 'pay'],
+    description: 'Invoice breakdown, pay link, and PDF',
+    parentSiderHref: '/billing',
+  }),
   page('/support', 'Support', 'Account', 'partner', <CustomerServiceOutlined />, {
     keywords: ['help', 'ticket', 'contact'],
     description: 'Open a ticket with Tablevera about billing, settings, or the dashboard',

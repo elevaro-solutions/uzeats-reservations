@@ -322,7 +322,7 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     apps: ['api'],
     requirement: 'recommended',
     description:
-      'Google AI Studio key for personalized review reply drafts (free tier). Without it, a templated draft is used.',
+      'Google AI Studio key for review reply drafts and pricing package descriptions. Without it, a templated draft is used.',
   },
   {
     key: 'GEMINI_MODEL',

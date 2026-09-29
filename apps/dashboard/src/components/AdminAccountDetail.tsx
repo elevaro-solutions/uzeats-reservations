@@ -52,6 +52,7 @@ import {
   ADMIN_UPDATE_USER,
   ASSIGN_USER_RESTAURANTS,
   DELETE_REVIEW,
+  PLATFORM_CONFIG,
   REMOVE_USER_RESTAURANT,
   START_IMPERSONATION,
 } from '@/lib/graphql';
@@ -157,6 +158,15 @@ function AdminAccountDetailContent({ kind }: Props) {
     skip: !ready || !id,
     variables: { id },
   });
+  const { data: configData } = useQuery(PLATFORM_CONFIG, { skip: !ready });
+  const smsEnabled = configData?.platformConfig?.featureFlags?.sms !== false;
+  const dinerNotifChannels = useMemo(
+    () =>
+      smsEnabled
+        ? DINER_NOTIF_CHANNELS
+        : DINER_NOTIF_CHANNELS.filter((ch) => ch.key !== 'sms'),
+    [smsEnabled],
+  );
 
   const user = data?.adminUser ?? null;
   const actualKind = user ? accountKindForRole(user.role) : null;
@@ -964,7 +974,7 @@ function AdminAccountDetailContent({ kind }: Props) {
                                   dataIndex: 'title',
                                   key: 'title',
                                 },
-                                ...DINER_NOTIF_CHANNELS.map((ch) => ({
+                                ...dinerNotifChannels.map((ch) => ({
                                   title: ch.title,
                                   key: ch.key,
                                   width: 90,

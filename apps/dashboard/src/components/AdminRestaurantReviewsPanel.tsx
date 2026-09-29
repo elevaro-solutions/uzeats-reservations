@@ -27,7 +27,12 @@ import {
   PictureOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import { RESTAURANT_MAX_PHOTOS, browserMediaUrl } from '@reservations/shared';
+import {
+  RESTAURANT_MAX_PHOTOS,
+  REVIEW_REPORT_REASON_LABELS,
+  browserMediaUrl,
+  type ReviewReportReason,
+} from '@reservations/shared';
 import { colors } from '@reservations/ui';
 import {
   ADD_RESTAURANT_PHOTOS,
@@ -40,6 +45,7 @@ import {
 import { useAuth } from '@/lib/auth';
 import { isSuperAdmin } from '@/lib/roles';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { ReviewReportChat } from '@/components/ReviewReportThread';
 
 const { Text, Paragraph } = Typography;
 
@@ -344,21 +350,51 @@ export function AdminRestaurantReviewsPanel({
                           )}
                         </div>
                       )}
-                      {r.ownerReply && (
+                      {r.ownerReply ? (
                         <div
                           style={{
                             background: colors.brand[50],
-                            borderLeft: `3px solid ${colors.brand[600]}`,
-                            padding: '8px 12px',
-                            borderRadius: 4,
+                            borderRadius: 8,
+                            padding: 12,
+                            marginTop: 8,
+                            marginBottom: 8,
                           }}
                         >
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            Restaurant reply ·{' '}
-                            {new Date(r.ownerRepliedAt).toLocaleDateString('en-US')}
+                          <Text strong style={{ display: 'block', marginBottom: 4 }}>
+                            Owner reply
                           </Text>
-                          <div>{r.ownerReply}</div>
+                          <Paragraph style={{ marginBottom: 0, whiteSpace: 'pre-wrap' }}>
+                            {r.ownerReply}
+                          </Paragraph>
+                          {r.ownerRepliedAt ? (
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              {new Date(r.ownerRepliedAt).toLocaleString('en-US')}
+                            </Text>
+                          ) : null}
                         </div>
+                      ) : null}
+                      {(r.flagged ||
+                        (r.reportResponses?.length ?? 0) > 0 ||
+                        r.flagReason) && (
+                        <ReviewReportChat
+                          title="Report chat"
+                          mineIsReporter={false}
+                          opening={{
+                            flagReason: r.flagReasonCode
+                              ? REVIEW_REPORT_REASON_LABELS[
+                                  r.flagReasonCode as ReviewReportReason
+                                ] ?? r.flagReason
+                              : r.flagReason,
+                            flagDetails: r.flagDetails,
+                            flaggedAt: r.flaggedAt,
+                          }}
+                          responses={r.reportResponses}
+                          closedNotice={
+                            r.flagged
+                              ? null
+                              : 'Report closed — history stays visible'
+                          }
+                        />
                       )}
                     </>
                   }

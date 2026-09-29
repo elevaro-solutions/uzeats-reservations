@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client/react';
 import { useRouter } from 'next/navigation';
 import {
@@ -18,6 +19,7 @@ import {
 import {
   CalendarOutlined,
   DeleteOutlined,
+  EditOutlined,
   SearchOutlined,
   StarOutlined,
 } from '@ant-design/icons';
@@ -26,6 +28,7 @@ import { browserMediaUrl, buildRestaurantBookingPath } from '@reservations/share
 import { EmptyState, PageHeader, colors, radii } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { DELETE_REVIEW, MY_REVIEWS } from '@/lib/graphql';
+import { EditReviewModal } from '@/components/EditReviewModal';
 
 const { Text, Paragraph } = Typography;
 
@@ -55,6 +58,7 @@ type MyReview = {
 export default function MyReviewsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const [editing, setEditing] = useState<MyReview | null>(null);
 
   const { data, loading, refetch } = useQuery(MY_REVIEWS, {
     skip: !user,
@@ -287,6 +291,14 @@ export default function MyReviewsPage() {
                       </Button>
                       <Button
                         type="link"
+                        icon={<EditOutlined />}
+                        style={{ padding: 0 }}
+                        onClick={() => setEditing(review)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        type="link"
                         danger
                         icon={<DeleteOutlined />}
                         style={{ padding: 0 }}
@@ -302,6 +314,13 @@ export default function MyReviewsPage() {
           }}
         />
       )}
+
+      <EditReviewModal
+        open={!!editing}
+        review={editing}
+        onClose={() => setEditing(null)}
+        onSaved={() => void refetch()}
+      />
     </div>
   );
 }

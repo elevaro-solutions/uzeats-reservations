@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useLazyQuery } from '@/lib/apollo-hooks';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Alert,
   Badge,
   Button,
   Card,
   Col,
-  Descriptions,
+  Drawer,
   Dropdown,
   Modal,
   Row,
@@ -17,21 +17,23 @@ import {
   Space,
   Spin,
   Switch,
-  Table,
   Tag,
   Typography,
   message,
 } from 'antd';
 import {
+  AppstoreOutlined,
   CalendarOutlined,
   CheckCircleOutlined,
   CheckOutlined,
   CrownOutlined,
+  DesktopOutlined,
   DollarOutlined,
   DownOutlined,
   ExclamationCircleOutlined,
   GlobalOutlined,
   PhoneOutlined,
+  RightOutlined,
   SwapOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
@@ -63,8 +65,10 @@ import {
   SET_PREMIUM_SMS_ADDON,
   PLAN_CHANGE_PAYMENT,
   CONFIRM_PLAN_CHANGE_PAYMENT,
+  PLATFORM_FEATURE_FLAGS,
 } from '@/lib/graphql';
 import { SignupPaymentForm, type SignupPaymentMode } from '@/components/SignupPaymentForm';
+import { PartnerInvoiceDetail } from '@/components/PartnerInvoiceDetail';
 
 const { Text, Paragraph } = Typography;
 
@@ -82,6 +86,14 @@ const INVOICE_STATUS_COLORS: Record<string, string> = {
   overdue: 'red',
   paid: 'green',
   canceled: 'default',
+};
+
+const INVOICE_STATUS_LABELS: Record<string, string> = {
+  upcoming: 'Upcoming',
+  pending: 'Due',
+  overdue: 'Overdue',
+  paid: 'Paid',
+  canceled: 'Canceled',
 };
 
 const FEATURE_LABELS: Record<string, string> = {
@@ -224,10 +236,215 @@ function PlanPanel({
   );
 }
 
+function UsageMetric({
+  label,
+  value,
+  emphasize,
+}: {
+  label: string;
+  value: ReactNode;
+  emphasize?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        flex: '1 1 0',
+        minWidth: 110,
+        padding: `${spacing.sm}px ${spacing.md}px`,
+        borderRadius: radii.md,
+        background: colors.neutral[0],
+        border: `1px solid ${colors.bordersubtle}`,
+      }}
+    >
+      <Text
+        type="secondary"
+        style={{
+          display: 'block',
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+        }}
+      >
+        {label}
+      </Text>
+      <div
+        style={{
+          marginTop: 6,
+          fontSize: 22,
+          fontWeight: 700,
+          lineHeight: 1.2,
+          color: emphasize ? colors.brand[700] : colors.textPrimary,
+          letterSpacing: '-0.02em',
+        }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function SourceRow({
+  icon,
+  source,
+  covers,
+  feeCents,
+}: {
+  icon: ReactNode;
+  source: string;
+  covers: number;
+  feeCents: number;
+}) {
+  const active = covers > 0 || feeCents > 0;
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '10px 0',
+        borderBottom: `1px solid ${colors.bordersubtle}`,
+        opacity: active ? 1 : 0.55,
+      }}
+    >
+      <span
+        style={{
+          width: 32,
+          height: 32,
+          borderRadius: 8,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: active ? colors.brand[50] : colors.neutral[100],
+          color: active ? colors.brand[600] : colors.neutral[500],
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </span>
+      <Text style={{ flex: 1, minWidth: 0, fontWeight: active ? 600 : 400 }}>{source}</Text>
+      <Text type="secondary" style={{ width: 64, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+        {covers}
+      </Text>
+      <Text
+        strong={active}
+        style={{
+          width: 72,
+          textAlign: 'right',
+          fontVariantNumeric: 'tabular-nums',
+          color: active ? colors.textPrimary : colors.textTertiary,
+        }}
+      >
+        {formatCents(feeCents)}
+      </Text>
+    </div>
+  );
+}
+
+type PartnerInvoice = {
+  id: string;
+  number: string;
+  status: string;
+  billingPeriod: string;
+  currency?: string | null;
+  subtotalCents?: number | null;
+  totalCents: number;
+  originalTotalCents?: number | null;
+  isDiscounted?: boolean | null;
+  dueDate: string;
+  paidAt?: string | null;
+  canceledAt?: string | null;
+  notes?: string | null;
+  payUrl?: string | null;
+  createdAt?: string | null;
+  lines?: Array<{
+    description: string;
+    quantity: number;
+    unitAmountCents: number;
+    amountCents: number;
+    originalAmountCents?: number | null;
+  }> | null;
+};
+
+const INVOICE_LIST_PREVIEW = 3;
+
+function InvoiceListRow({
+  invoice,
+  selected,
+  onSelect,
+}: {
+  invoice: PartnerInvoice;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        width: '100%',
+        padding: '12px 14px',
+        border: `1px solid ${selected ? colors.brand[300] : colors.bordersubtle}`,
+        borderRadius: radii.md,
+        background: selected ? colors.brand[50] : colors.neutral[0],
+        boxShadow: selected ? `inset 3px 0 0 ${colors.brand[600]}` : undefined,
+        cursor: 'pointer',
+        textAlign: 'left',
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <Text strong style={{ color: colors.textPrimary }}>
+            {dayjs(invoice.billingPeriod).format('MMM YYYY')}
+          </Text>
+          <Tag
+            color={INVOICE_STATUS_COLORS[invoice.status] ?? 'default'}
+            style={{ marginInlineEnd: 0 }}
+          >
+            {INVOICE_STATUS_LABELS[invoice.status] ?? statusLabel(invoice.status)}
+          </Tag>
+        </div>
+        <Text type="secondary" style={{ display: 'block', marginTop: 2, fontSize: 13 }}>
+          {invoice.number}
+          {' · '}
+          {invoice.status === 'paid' && invoice.paidAt
+            ? `Paid ${dayjs(invoice.paidAt).format('MMM D, YYYY · h:mm A')}`
+            : invoice.status === 'overdue'
+              ? `Overdue · was due ${dayjs(invoice.dueDate).format('MMM D, YYYY')}`
+              : `Due ${dayjs(invoice.dueDate).format('MMM D, YYYY')}`}
+        </Text>
+      </div>
+      <Text
+        strong
+        style={{
+          fontVariantNumeric: 'tabular-nums',
+          flexShrink: 0,
+          color:
+            invoice.status === 'overdue'
+              ? colors.error
+              : invoice.status === 'paid'
+                ? colors.success
+                : colors.textPrimary,
+        }}
+      >
+        {formatCents(invoice.totalCents)}
+      </Text>
+      <RightOutlined style={{ color: colors.neutral[400], fontSize: 12, flexShrink: 0 }} />
+    </button>
+  );
+}
+
 export default function BillingPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [period, setPeriod] = useState(() => dayjs().format('YYYY-MM'));
+  const [showAllInvoices, setShowAllInvoices] = useState(false);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
@@ -245,12 +462,14 @@ export default function BillingPage() {
     { variables: { restaurantId: activeRestaurantId }, skip: !activeRestaurantId },
   );
   const { data: plansData } = useQuery(PLANS);
+  const { data: featureFlagsData } = useQuery(PLATFORM_FEATURE_FLAGS);
+  const smsEnabled = featureFlagsData?.platformFeatureFlags?.sms !== false;
   const { data: feesData, loading: feesLoading } = useQuery(COVER_FEE_SUMMARY, {
     variables: { restaurantId: activeRestaurantId, period },
     skip: !activeRestaurantId,
   });
   const { data: invoiceData, loading: invoiceLoading } = useQuery(RESTAURANT_INVOICES, {
-    variables: { restaurantId: activeRestaurantId, period, limit: 1, offset: 0 },
+    variables: { restaurantId: activeRestaurantId, limit: 24, offset: 0 },
     skip: !activeRestaurantId,
   });
 
@@ -276,8 +495,47 @@ export default function BillingPage() {
     [plansData?.plans],
   );
   const summary = feesData?.coverFeeSummary;
-  const periodInvoice = invoiceData?.restaurantInvoices?.items?.[0];
+  const invoices = useMemo(
+    () => (invoiceData?.restaurantInvoices?.items ?? []) as PartnerInvoice[],
+    [invoiceData?.restaurantInvoices?.items],
+  );
+  const visibleInvoices = showAllInvoices
+    ? invoices
+    : invoices.slice(0, INVOICE_LIST_PREVIEW);
+  const selectedInvoice =
+    invoices.find((inv) => inv.id === selectedInvoiceId) ?? null;
   const currentPlanMeta = plans.find((p) => p.key === subscription?.plan);
+
+  useEffect(() => {
+    setShowAllInvoices(false);
+    setSelectedInvoiceId(null);
+  }, [activeRestaurantId]);
+
+  useEffect(() => {
+    const fromUrl = searchParams.get('invoice');
+    if (!fromUrl || invoices.length === 0) return;
+    if (invoices.some((inv) => inv.id === fromUrl)) {
+      setSelectedInvoiceId(fromUrl);
+      const match = invoices.find((inv) => inv.id === fromUrl);
+      if (match?.billingPeriod) setPeriod(match.billingPeriod);
+    }
+  }, [searchParams, invoices]);
+
+  const openInvoice = (invoice: PartnerInvoice) => {
+    setSelectedInvoiceId(invoice.id);
+    setPeriod(invoice.billingPeriod);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('invoice', invoice.id);
+    router.replace(`/billing?${params.toString()}`, { scroll: false });
+  };
+
+  const closeInvoice = () => {
+    setSelectedInvoiceId(null);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('invoice');
+    const qs = params.toString();
+    router.replace(qs ? `/billing?${qs}` : '/billing', { scroll: false });
+  };
 
   const handleSubscribe = async (plan: string) => {
     if (!activeRestaurantId) return;
@@ -416,10 +674,18 @@ export default function BillingPage() {
     }
   };
 
-  const periodOptions = Array.from({ length: 6 }, (_, i) => {
-    const m = dayjs().subtract(i, 'month').format('YYYY-MM');
-    return { value: m, label: dayjs(m).format('MMMM YYYY') };
-  });
+  const periodOptions = useMemo(() => {
+    const months = new Set(
+      Array.from({ length: 6 }, (_, i) => dayjs().subtract(i, 'month').format('YYYY-MM')),
+    );
+    for (const inv of invoices) {
+      if (inv.billingPeriod) months.add(inv.billingPeriod);
+    }
+    months.add(period);
+    return [...months]
+      .sort((a, b) => b.localeCompare(a))
+      .map((m) => ({ value: m, label: dayjs(m).format('MMMM YYYY') }));
+  }, [invoices, period]);
 
   const coverBreakdown = summary
     ? [
@@ -433,13 +699,13 @@ export default function BillingPage() {
           source: 'Website',
           covers: summary.websiteCovers,
           feeCents: summary.websiteFeeCents ?? 0,
-          icon: <GlobalOutlined />,
+          icon: <DesktopOutlined />,
         },
         {
           source: 'Widget',
           covers: summary.widgetCovers,
           feeCents: summary.widgetFeeCents ?? 0,
-          icon: <CrownOutlined />,
+          icon: <AppstoreOutlined />,
         },
         {
           source: 'Phone',
@@ -470,7 +736,7 @@ export default function BillingPage() {
   const planDisplayName = currentPlanMeta?.name ?? String(subscription?.plan ?? '').replace(/^./, (s) => s.toUpperCase());
   const includedFeatures = enabledFeatureEntries(subscription?.features, {
     hideAddonWhenIncluded: true,
-  });
+  }).filter(([key]) => smsEnabled || (key !== 'premiumSms' && key !== 'premiumSmsAddon'));
   const pendingPlanName = subscription?.pendingPlan
     ? (plans.find((p) => p.key === subscription.pendingPlan)?.name ?? subscription.pendingPlan)
     : null;
@@ -799,198 +1065,173 @@ export default function BillingPage() {
             </Card>
 
             <Card
-              title="Usage & invoice"
+              title="Usage & invoices"
               extra={periodToolbar}
+              styles={{ body: { paddingTop: spacing.md } }}
             >
-              <Text type="secondary" style={{ display: 'block', marginBottom: spacing.md }}>
-                Cover fees accrue when reservations are completed. The period invoice is the bill —
-                cover totals below are a breakdown, not a separate charge.
+              <Text type="secondary" style={{ display: 'block', marginBottom: spacing.lg }}>
+                Cover fees accrue when reservations are completed and appear as line items on the
+                period invoice — not as a separate charge. Open an invoice for the full breakdown,
+                pay link, and PDF.
               </Text>
 
-              {feesLoading ? (
-                <Spin />
-              ) : summary ? (
-                <>
-                  <Row gutter={[16, 16]} style={{ marginBottom: spacing.md }}>
-                    <Col xs={12} md={8}>
-                      <div>
-                        <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>
-                          Total covers
-                        </Text>
-                        <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>
-                          {summary.totalCovers}
-                        </div>
-                      </div>
-                    </Col>
-                    <Col xs={12} md={8}>
-                      <div>
-                        <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>
-                          Cover fees
-                        </Text>
-                        <div
-                          style={{
-                            fontSize: 22,
-                            fontWeight: 700,
-                            marginTop: 4,
-                            color: summary.totalFeeCents > 0 ? colors.error : colors.success,
-                          }}
-                        >
-                          {formatCents(summary.totalFeeCents)}
-                        </div>
-                      </div>
-                    </Col>
-                    <Col xs={24} md={8}>
-                      <div>
-                        <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase' }}>
-                          Avg fee / cover
-                        </Text>
-                        <div style={{ fontSize: 22, fontWeight: 700, marginTop: 4 }}>
-                          {summary.totalCovers > 0
+              <PlanPanel title="Cover usage" icon={<TeamOutlined />}>
+                {feesLoading ? (
+                  <Spin />
+                ) : summary ? (
+                  <>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: spacing.sm,
+                        marginBottom: spacing.md,
+                      }}
+                    >
+                      <UsageMetric label="Covers" value={summary.totalCovers} />
+                      <UsageMetric
+                        label="Cover fees"
+                        value={formatCents(summary.totalFeeCents)}
+                        emphasize={summary.totalFeeCents > 0}
+                      />
+                      <UsageMetric
+                        label="Avg / cover"
+                        value={
+                          summary.totalCovers > 0
                             ? formatCents(Math.round(summary.totalFeeCents / summary.totalCovers))
-                            : '$0.00'}
-                        </div>
-                      </div>
-                    </Col>
-                  </Row>
+                            : '$0.00'
+                        }
+                      />
+                    </div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: 12,
+                        padding: '0 0 6px',
+                        borderBottom: `1px solid ${colors.bordersubtle}`,
+                      }}
+                    >
+                      <span style={{ width: 32 }} />
+                      <Text
+                        type="secondary"
+                        style={{
+                          flex: 1,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          letterSpacing: '0.04em',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Source
+                      </Text>
+                      <Text
+                        type="secondary"
+                        style={{
+                          width: 64,
+                          textAlign: 'right',
+                          fontSize: 11,
+                          fontWeight: 600,
+                          letterSpacing: '0.04em',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Covers
+                      </Text>
+                      <Text
+                        type="secondary"
+                        style={{
+                          width: 72,
+                          textAlign: 'right',
+                          fontSize: 11,
+                          fontWeight: 600,
+                          letterSpacing: '0.04em',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Fees
+                      </Text>
+                    </div>
+                    {coverBreakdown.map((row) => (
+                      <SourceRow key={row.source} {...row} />
+                    ))}
+                  </>
+                ) : (
+                  <Text type="secondary">No cover fee data for this period.</Text>
+                )}
+              </PlanPanel>
 
-                  <Table
-                    dataSource={coverBreakdown}
-                    rowKey="source"
-                    pagination={false}
-                    size="small"
-                    style={{ marginBottom: spacing.lg }}
-                    columns={[
-                      {
-                        title: 'Source',
-                        dataIndex: 'source',
-                        render: (text: string, row: { icon: ReactNode }) => (
-                          <Space>
-                            {row.icon}
-                            {text}
-                          </Space>
-                        ),
-                      },
-                      {
-                        title: 'Covers',
-                        dataIndex: 'covers',
-                        align: 'right' as const,
-                      },
-                      {
-                        title: 'Fees',
-                        dataIndex: 'feeCents',
-                        align: 'right' as const,
-                        render: (cents: number) => formatCents(cents),
-                      },
-                    ]}
-                  />
-                </>
-              ) : (
-                <Text type="secondary">No cover fee data for this period.</Text>
-              )}
-
-              <div
-                style={{
-                  borderTop: `1px solid ${colors.border}`,
-                  paddingTop: spacing.md,
-                  marginTop: spacing.sm,
-                }}
-              >
+              <div style={{ marginTop: spacing.lg }}>
                 <div
                   style={{
                     display: 'flex',
                     justifyContent: 'space-between',
-                    alignItems: 'center',
+                    alignItems: 'baseline',
                     gap: 12,
+                    marginBottom: spacing.sm,
                     flexWrap: 'wrap',
-                    marginBottom: spacing.md,
                   }}
                 >
-                  <Text strong style={{ fontSize: 15 }}>
-                    Invoice · {dayjs(period).format('MMMM YYYY')}
-                  </Text>
-                  {periodInvoice ? (
-                    <Tag color={INVOICE_STATUS_COLORS[periodInvoice.status] ?? 'default'}>
-                      {String(periodInvoice.status).toUpperCase()}
-                    </Tag>
+                  <Text strong>Invoices</Text>
+                  {invoices.length > 0 ? (
+                    <Text type="secondary" style={{ fontSize: 13 }}>
+                      {showAllInvoices
+                        ? `${invoices.length} total`
+                        : `Showing ${Math.min(INVOICE_LIST_PREVIEW, invoices.length)} of ${invoices.length}`}
+                    </Text>
                   ) : null}
                 </div>
-
-                {invoiceLoading ? (
+                {invoiceLoading && invoices.length === 0 ? (
                   <Spin />
-                ) : periodInvoice ? (
+                ) : invoices.length === 0 ? (
+                  <Text type="secondary">No invoices yet for this restaurant.</Text>
+                ) : (
                   <>
-                    <Descriptions
-                      column={{ xs: 1, sm: 2, md: 3 }}
-                      size="small"
-                      bordered
-                      style={{ marginBottom: spacing.md }}
-                    >
-                      <Descriptions.Item label="Number">{periodInvoice.number}</Descriptions.Item>
-                      <Descriptions.Item label="Due">
-                        {dayjs(periodInvoice.dueDate).format('MMM D, YYYY')}
-                      </Descriptions.Item>
-                      <Descriptions.Item label="Total">
-                        <Text strong>{formatCents(periodInvoice.totalCents)}</Text>
-                      </Descriptions.Item>
-                    </Descriptions>
-                    <Table
-                      dataSource={periodInvoice.lines ?? []}
-                      rowKey={(row: { description: string }, index?: number) =>
-                        `${row.description}-${index ?? 0}`
-                      }
-                      pagination={false}
-                      size="small"
-                      columns={[
-                        { title: 'Item', dataIndex: 'description' },
-                        {
-                          title: 'Qty',
-                          dataIndex: 'quantity',
-                          align: 'right' as const,
-                        },
-                        {
-                          title: 'Unit',
-                          dataIndex: 'unitAmountCents',
-                          align: 'right' as const,
-                          render: (cents: number) => formatCents(cents),
-                        },
-                        {
-                          title: 'Amount',
-                          dataIndex: 'amountCents',
-                          align: 'right' as const,
-                          render: (cents: number) => formatCents(cents),
-                        },
-                      ]}
-                      summary={() => (
-                        <Table.Summary.Row>
-                          <Table.Summary.Cell index={0} colSpan={3}>
-                            <Text strong>Total</Text>
-                          </Table.Summary.Cell>
-                          <Table.Summary.Cell index={3} align="right">
-                            <Text strong>{formatCents(periodInvoice.totalCents)}</Text>
-                          </Table.Summary.Cell>
-                        </Table.Summary.Row>
-                      )}
-                    />
-                    {periodInvoice.payUrl &&
-                    periodInvoice.status !== 'paid' &&
-                    periodInvoice.status !== 'canceled' &&
-                    periodInvoice.totalCents > 0 ? (
-                      <div style={{ marginTop: spacing.md }}>
-                        <Button type="primary" href={periodInvoice.payUrl} target="_blank">
-                          Pay {formatCents(periodInvoice.totalCents)}
-                        </Button>
-                      </div>
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      {visibleInvoices.map((invoice) => (
+                        <InvoiceListRow
+                          key={invoice.id}
+                          invoice={invoice}
+                          selected={invoice.id === selectedInvoiceId}
+                          onSelect={() => openInvoice(invoice)}
+                        />
+                      ))}
+                    </div>
+                    {invoices.length > INVOICE_LIST_PREVIEW ? (
+                      <Button
+                        type="link"
+                        onClick={() => setShowAllInvoices((v) => !v)}
+                        style={{ paddingInline: 0, marginTop: spacing.sm }}
+                      >
+                        {showAllInvoices
+                          ? 'Show less'
+                          : `Show all (${invoices.length})`}
+                      </Button>
                     ) : null}
                   </>
-                ) : (
-                  <Text type="secondary">
-                    No invoice for this period yet. Period invoices are generated automatically and
-                    include the plan plus cover fees by source.
-                  </Text>
                 )}
               </div>
             </Card>
 
+            <Drawer
+              title={
+                selectedInvoice
+                  ? `Invoice ${selectedInvoice.number}`
+                  : 'Invoice'
+              }
+              placement="right"
+              width={520}
+              open={Boolean(selectedInvoiceId)}
+              onClose={closeInvoice}
+              destroyOnHidden
+            >
+              <PartnerInvoiceDetail
+                invoice={selectedInvoice}
+                showOpenPageLink
+                restaurantQuery={activeRestaurantId}
+              />
+            </Drawer>
+
+            {smsEnabled ? (
             <Card title="Premium SMS">
               <div
                 style={{
@@ -1030,6 +1271,7 @@ export default function BillingPage() {
                 )}
               </div>
             </Card>
+            ) : null}
 
             <Card title="Included features">
               {includedFeatures.length === 0 ? (
@@ -1063,7 +1305,9 @@ export default function BillingPage() {
                   plan.description?.trim() ||
                   PLAN_BLURBS[plan.key] ||
                   'Built for your restaurant.';
-                const planFeatures = enabledFeatureEntries(plan.features);
+                const planFeatures = enabledFeatureEntries(plan.features).filter(
+                  ([key]) => smsEnabled || (key !== 'premiumSms' && key !== 'premiumSmsAddon'),
+                );
                 return (
                   <Col key={plan.key} xs={24} md={8}>
                     <Card

@@ -78,6 +78,8 @@ const userSchema = new Schema(
     },
     passwordResetToken: { type: String },
     passwordResetExpires: { type: Date },
+    emailVerificationToken: { type: String },
+    emailVerificationExpires: { type: Date },
   },
   { timestamps: true },
 );

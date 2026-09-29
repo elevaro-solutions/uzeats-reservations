@@ -1000,6 +1000,17 @@ a {
   overflow-x: auto;
 }
 
+.rt-dash-content .rt-invoices-table.ant-table-wrapper,
+.rt-dash-content .ant-table-wrapper:has(.rt-invoices-table) {
+  overflow-x: visible;
+}
+
+.rt-dash-content .rt-invoices-table .ant-table-cell {
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
 .rt-notif-dropdown {
   display: flex;
   flex-direction: column;

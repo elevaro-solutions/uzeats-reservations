@@ -32,10 +32,16 @@ export function graphqlRequest(
   query: string,
   variables?: Record<string, unknown>,
   token?: string,
+  extraHeaders?: Record<string, string>,
 ) {
   const req = agent.post('/graphql').send({ query, variables });
   if (token) {
     req.set('Authorization', `Bearer ${token}`);
+  }
+  if (extraHeaders) {
+    for (const [key, value] of Object.entries(extraHeaders)) {
+      req.set(key, value);
+    }
   }
   return req;
 }

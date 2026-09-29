@@ -83,7 +83,7 @@ const FALLBACK_PLAN_OPTIONS: Omit<PlanOption, 'priceLabel' | 'discountLabel'>[] 
   {
     key: 'pro',
     name: 'Pro',
-    blurb: 'Full suite with guest insights, campaigns, and SMS.',
+    blurb: 'Full suite with guest insights and campaigns.',
     trialDays: 30,
     pricing: { monthlyPriceCents: 19900 },
   },
@@ -120,6 +120,8 @@ type PendingSignup = {
     lastName: string;
     role: string;
     restaurantIds: string[];
+    emailVerified?: boolean;
+    needsEmailVerification?: boolean;
   };
   restaurant: { id: string; name: string };
   clientSecret: string;
@@ -234,7 +236,9 @@ function RegisterForm() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (!authLoading && user && !pendingSignup) router.replace('/');
+    if (!authLoading && user && !pendingSignup) {
+      router.replace(user.needsEmailVerification ? '/verify-email' : '/');
+    }
   }, [authLoading, user, router, pendingSignup]);
 
   if (authLoading || (user && !pendingSignup)) {
@@ -359,6 +363,11 @@ function RegisterForm() {
 
       const payload = data.registerRestaurantPartner;
       localStorage.setItem('activeRestaurantId', payload.restaurant.id);
+      if (payload.devCode) {
+        sessionStorage.setItem('tv_verify_dev_code', payload.devCode);
+      } else {
+        sessionStorage.removeItem('tv_verify_dev_code');
+      }
 
       const mode = payload.paymentMode === 'setup' ? 'setup' : 'payment';
       const needsPayment = Boolean(payload.clientSecret) && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
@@ -428,6 +437,13 @@ function RegisterForm() {
     restaurantName: string,
   ) => {
     setSession(nextUser);
+    if (nextUser.needsEmailVerification) {
+      message.success(
+        `${restaurantName} submitted — verify your email to continue`,
+      );
+      router.push('/verify-email');
+      return;
+    }
     message.success(
       `${restaurantName} submitted — ${planInfo.name}${planInfo.trialDays > 0 ? ' trial started' : ' selected'}`,
     );

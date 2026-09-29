@@ -5,16 +5,24 @@ import {
   type AnnualBillingSettings,
   type PlanDiscountType,
 } from '@reservations/shared';
+import { env } from '../config/env.js';
 import {
   DEFAULT_MANAGER_SEATS,
+  DEFAULT_PLAN_HIGHLIGHTS,
   FEATURE_KEYS,
   PLANS,
   normalizeManagerSeats,
+  sanitizePlanHighlights,
   type FeatureKey,
   type PlanFeatures,
   type PlanKey,
 } from '../config/plans.js';
 import { PlatformConfig, type PlatformConfigDocument } from '../models/PlatformConfig.js';
+
+/** Unset config falls back to on in production, off in local/test. */
+export function defaultRequireSignupEmailVerification() {
+  return env.NODE_ENV === 'production';
+}
 
 export type EffectivePlan = {
   key: string;
@@ -33,6 +41,8 @@ export type EffectivePlan = {
   managerSeats: number;
   visibleOnPricing: boolean;
   isCustom: boolean;
+  /** Public pricing card “Includes” lines. */
+  highlights: string[];
   features: PlanFeatures;
 };
 
@@ -50,44 +60,51 @@ export type PlanOverrideFields = {
   trialDays?: number;
   managerSeats?: number;
   visibleOnPricing?: boolean;
+  highlights?: string[] | null;
   features?: Record<string, boolean> | Map<string, boolean>;
 };
 
 const BUILTIN_KEYS = Object.keys(PLANS) as PlanKey[];
 export const BUILTIN_PLAN_KEYS = new Set<string>(BUILTIN_KEYS);
 
-const DEFAULTS = {
-  supportEmail: 'support@tablevera.online',
-  supportPhone: '+16507707788',
-  defaultSignupRole: 'diner' as UserRole,
-  defaultPartnerRole: 'restaurant_owner' as UserRole,
-  defaultManagerRole: 'manager' as UserRole,
-  maintenanceMode: false,
-  allowPublicRegistration: true,
-  allowPartnerRegistration: true,
-  requireAdminDelete2FA: true,
-  invoicePrefix: 'INV',
-  currency: 'usd',
-  featureFlags: {
-    waitlist: true,
-    deposits: true,
-    partnerRegistration: true,
-    publicRegistration: true,
-    messaging: true,
-    reviews: true,
-    experiences: true,
-    campaigns: true,
-    widget: true,
-  },
-  annualBilling: {
-    enabled: true,
-    scope: 'all' as const,
-    planKeys: [] as string[],
-    discountType: 'months_free' as const,
-    freeMonths: 2,
-    discountPercent: 17,
-  },
-};
+function buildDefaults() {
+  return {
+    supportEmail: 'support@tablevera.online',
+    supportPhone: '+16507707788',
+    defaultSignupRole: 'diner' as UserRole,
+    defaultPartnerRole: 'restaurant_owner' as UserRole,
+    defaultManagerRole: 'manager' as UserRole,
+    maintenanceMode: false,
+    allowPublicRegistration: true,
+    allowPartnerRegistration: true,
+    requireAdminDelete2FA: true,
+    requireSignupEmailVerification: defaultRequireSignupEmailVerification(),
+    invoicePrefix: 'INV',
+    currency: 'usd',
+    featureFlags: {
+      waitlist: true,
+      deposits: true,
+      partnerRegistration: true,
+      publicRegistration: true,
+      messaging: true,
+      reviews: true,
+      experiences: true,
+      campaigns: true,
+      widget: true,
+      sms: true,
+    },
+    annualBilling: {
+      enabled: true,
+      scope: 'all' as const,
+      planKeys: [] as string[],
+      discountType: 'months_free' as const,
+      freeMonths: 2,
+      discountPercent: 17,
+    },
+  };
+}
+
+const DEFAULTS = buildDefaults();
 
 function emptyFeatures(): PlanFeatures {
   return Object.fromEntries(FEATURE_KEYS.map((k) => [k, false])) as PlanFeatures;
@@ -185,7 +202,7 @@ export function uniquePlanKey(name: string, existingKeys: Set<string>): string {
 export async function getPlatformConfig(): Promise<PlatformConfigDocument> {
   let doc = await PlatformConfig.findOne({ key: 'default' });
   if (!doc) {
-    doc = await PlatformConfig.create({ key: 'default', ...DEFAULTS });
+    doc = await PlatformConfig.create({ key: 'default', ...buildDefaults() });
   }
   return doc;
 }
@@ -229,6 +246,9 @@ function mapOverrideToPlan(
         ? Boolean(override.visibleOnPricing)
         : true,
     isCustom,
+    highlights: Array.isArray(override?.highlights)
+      ? sanitizePlanHighlights(override.highlights)
+      : [...(DEFAULT_PLAN_HIGHLIGHTS[key] ?? [])],
     features: mergeFeatures(base?.features ?? emptyFeatures(), override?.features),
   };
 }
@@ -367,6 +387,15 @@ export async function getAnnualBillingSettings(): Promise<AnnualBillingSettings>
   return mapAnnualBillingSettings(config);
 }
 
+export function resolveRequireSignupEmailVerification(
+  value: boolean | null | undefined,
+): boolean {
+  if (value === undefined || value === null) {
+    return defaultRequireSignupEmailVerification();
+  }
+  return Boolean(value);
+}
+
 export function mapPlatformConfig(doc: PlatformConfigDocument) {
   const flags = (doc.featureFlags as any) ?? {};
   return {
@@ -380,6 +409,9 @@ export function mapPlatformConfig(doc: PlatformConfigDocument) {
     allowPublicRegistration: doc.allowPublicRegistration !== false,
     allowPartnerRegistration: doc.allowPartnerRegistration !== false,
     requireAdminDelete2FA: doc.requireAdminDelete2FA !== false,
+    requireSignupEmailVerification: resolveRequireSignupEmailVerification(
+      doc.requireSignupEmailVerification,
+    ),
     invoicePrefix: doc.invoicePrefix ?? DEFAULTS.invoicePrefix,
     currency: doc.currency ?? DEFAULTS.currency,
     featureFlags: {
@@ -392,6 +424,7 @@ export function mapPlatformConfig(doc: PlatformConfigDocument) {
       experiences: flags.experiences !== false,
       campaigns: flags.campaigns !== false,
       widget: flags.widget !== false,
+      sms: flags.sms !== false,
     },
     annualBilling: mapAnnualBillingSettings(doc),
     updatedAt: (doc as any).updatedAt ?? new Date(),
@@ -404,4 +437,47 @@ export async function isFeatureEnabled(
   const config = await getPlatformConfig();
   const mapped = mapPlatformConfig(config);
   return mapped.featureFlags[flag] !== false;
+}
+
+/** Mentions of SMS in package marketing copy (descriptions / includes). */
+const SMS_WORD_RE = /\bsms\b/i;
+
+/** Soft-strip trailing “and SMS” / inline SMS from a single marketing line. */
+export function stripSmsFromCopy(text: string): string {
+  return text
+    .replace(/\s*,\s*and\s+SMS\b\.?/gi, '')
+    .replace(/\s+and\s+SMS\b\.?/gi, '')
+    .replace(/\bSMS\s*[,&]?\s*/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([.,;:!?])/g, '$1')
+    .trim();
+}
+
+export function stripSmsFromHighlights(highlights: string[]): string[] {
+  return highlights
+    .filter((line) => !SMS_WORD_RE.test(line))
+    .map((line) => stripSmsFromCopy(line))
+    .filter((line) => line.length > 0);
+}
+
+/** Hide Premium SMS from partner/public plan payloads when the platform kill switch is off. */
+export function gatePlanSmsForClients<
+  T extends {
+    features: PlanFeatures;
+    description: string | null;
+    highlights: string[];
+  },
+>(plan: T, smsEnabled: boolean): T {
+  if (smsEnabled) return plan;
+  return {
+    ...plan,
+    description: plan.description ? stripSmsFromCopy(plan.description) : null,
+    highlights: stripSmsFromHighlights(plan.highlights ?? []),
+    features: { ...plan.features, premiumSms: false },
+  };
+}
+
+export async function isSignupEmailVerificationRequired(): Promise<boolean> {
+  const config = await getPlatformConfig();
+  return mapPlatformConfig(config).requireSignupEmailVerification;
 }

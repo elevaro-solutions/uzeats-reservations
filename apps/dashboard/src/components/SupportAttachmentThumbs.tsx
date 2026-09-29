@@ -13,21 +13,23 @@ export type SupportAttachmentThumb = {
 export function SupportAttachmentThumbs({
   items,
   showFilename = false,
+  size = 96,
 }: {
   items: SupportAttachmentThumb[];
   showFilename?: boolean;
+  size?: number;
 }) {
   if (!items.length) return null;
   return (
     <Image.PreviewGroup>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: showFilename ? 12 : 0 }}>
         {items.map((item) => (
-          <div key={item.id} style={{ width: 96 }}>
+          <div key={item.id} style={{ width: size }}>
             <Image
               src={browserMediaUrl(item.url)}
               alt={item.filename}
-              width={96}
-              height={96}
+              width={size}
+              height={size}
               style={{
                 objectFit: 'cover',
                 borderRadius: 8,

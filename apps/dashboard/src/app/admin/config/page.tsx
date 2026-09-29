@@ -28,6 +28,7 @@ const FEATURE_FLAGS = [
   ['waitlist', 'Waitlist'],
   ['deposits', 'Deposits'],
   ['messaging', 'Messaging'],
+  ['sms', 'Premium SMS'],
   ['reviews', 'Reviews'],
   ['experiences', 'Experiences'],
   ['campaigns', 'Campaigns'],
@@ -89,6 +90,7 @@ const ROLE_OPTIONS = [
 export default function AdminConfigPage() {
   const { ready, user } = useRequireAdmin();
   const canClearSeed = user ? isSuperAdmin(user.role) : false;
+  const canEditSignupEmailVerification = canClearSeed;
   const { data, loading, refetch } = useQuery(PLATFORM_CONFIG, { skip: !ready });
   const [updateConfig, { loading: saving }] = useMutation(UPDATE_PLATFORM_CONFIG);
   const [clearSeed, { loading: clearing }] = useMutation(CLEAR_SEED_DATA);
@@ -130,6 +132,11 @@ export default function AdminConfigPage() {
             allowPublicRegistration: values.allowPublicRegistration,
             allowPartnerRegistration: values.allowPartnerRegistration,
             requireAdminDelete2FA: values.requireAdminDelete2FA,
+            ...(canEditSignupEmailVerification
+              ? {
+                  requireSignupEmailVerification: values.requireSignupEmailVerification,
+                }
+              : {}),
             invoicePrefix: values.invoicePrefix,
             currency: values.currency,
             featureFlags: values.featureFlags,
@@ -253,14 +260,28 @@ export default function AdminConfigPage() {
         );
       case 'security':
         return (
-          <Form.Item
-            name="requireAdminDelete2FA"
-            label="Require 2FA to delete users"
-            valuePropName="checked"
-            extra="When enabled, deleting a user sends a confirmation code to support.uzeats@gmail.com."
-          >
-            <Switch />
-          </Form.Item>
+          <>
+            <Form.Item
+              name="requireAdminDelete2FA"
+              label="Require 2FA to delete users"
+              valuePropName="checked"
+              extra="When enabled, deleting a user sends a confirmation code to support.uzeats@gmail.com."
+            >
+              <Switch />
+            </Form.Item>
+            <Form.Item
+              name="requireSignupEmailVerification"
+              label="Require signup email verification"
+              valuePropName="checked"
+              extra={
+                canEditSignupEmailVerification
+                  ? 'When enabled, new email signups stay unverified until they confirm. Default: off locally, on in production.'
+                  : 'Super admins only. When enabled, new email signups stay unverified until they confirm.'
+              }
+            >
+              <Switch disabled={!canEditSignupEmailVerification} />
+            </Form.Item>
+          </>
         );
       case 'features':
         return (

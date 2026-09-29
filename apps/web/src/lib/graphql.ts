@@ -399,6 +399,37 @@ export const CREATE_REVIEW = gql`
   }
 `;
 
+export const UPDATE_REVIEW = gql`
+  mutation UpdateReview($reviewId: ID!, $input: UpdateReviewInput!) {
+    updateReview(reviewId: $reviewId, input: $input) {
+      id
+      rating
+      foodRating
+      serviceRating
+      atmosphereRating
+      comment
+      photos
+    }
+  }
+`;
+
+export const REACT_TO_REVIEW = gql`
+  mutation ReactToReview($reviewId: ID!, $reaction: ReviewReactionType!) {
+    reactToReview(reviewId: $reviewId, reaction: $reaction) {
+      id
+      myReaction
+      reactionCounts {
+        love
+        helpful
+        amazing
+        yum
+        omg
+        total
+      }
+    }
+  }
+`;
+
 export const DELETE_REVIEW = gql`
   mutation DeleteReview($reviewId: ID!) {
     deleteReview(reviewId: $reviewId)
@@ -418,11 +449,22 @@ export const JOIN_WAITLIST = gql`
 `;
 
 export const RESTAURANT_REVIEWS = gql`
-  query RestaurantReviews($restaurantId: ID!, $limit: Int, $offset: Int) {
-    restaurantReviews(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
+  query RestaurantReviews(
+    $restaurantId: ID!
+    $limit: Int
+    $offset: Int
+    $sort: ReviewSort
+  ) {
+    restaurantReviews(
+      restaurantId: $restaurantId
+      limit: $limit
+      offset: $offset
+      sort: $sort
+    ) {
       total
       items {
         id
+        dinerId
         rating
         foodRating
         serviceRating
@@ -431,6 +473,15 @@ export const RESTAURANT_REVIEWS = gql`
         photos
         createdAt
         ownerReply
+        myReaction
+        reactionCounts {
+          love
+          helpful
+          amazing
+          yum
+          omg
+          total
+        }
         diner {
           firstName
           lastName
@@ -520,6 +571,26 @@ export const REQUEST_PASSWORD_RESET = gql`
     requestPasswordReset(email: $email, app: $app) {
       success
       message
+    }
+  }
+`;
+
+export const VERIFY_EMAIL = gql`
+  mutation VerifyEmail($code: String!) {
+    verifyEmail(code: $code) {
+      success
+      message
+    }
+  }
+`;
+
+export const RESEND_VERIFICATION_EMAIL = gql`
+  mutation ResendVerificationEmail {
+    resendVerificationEmail {
+      success
+      message
+      emailed
+      devCode
     }
   }
 `;
@@ -745,6 +816,7 @@ export const PLANS = gql`
       trialDays
       visibleOnPricing
       isCustom
+      highlights
     }
     annualBillingSettings {
       enabled

@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.71.0] — 2026-09-29
+
+### Added
+
+- Partner Billing invoice detail drawer and `/billing/invoices/[id]` with line items, pay link, and PDF download. Partners with venue access can use `restaurantInvoice` and `exportInvoicePdf`.
+- Platform feature kill switch for Premium SMS (`featureFlags.sms` in Platform configuration). When off, SMS is hidden from packages, partner Billing, notifications, and plan marketing copy; guest SMS sending and the SMS add-on mutation are blocked. Auth OTP SMS is unchanged.
+- Restaurant profile reviews show the top 5 with Newest / Oldest / Highest / Lowest sort, plus a Show all reviews modal that keeps diners on the booking page.
+- Partner Billing and admin Billing sidebar badges show unpaid invoice counts (`restaurantOpenInvoiceCount` / `adminPendingRequestCounts.openInvoices`).
+- Signup email verification flow when the platform toggle is on: 6-digit code email (or a local-dev code), `/verify-email` pages on web and Partner Hub, and gating for unverified accounts.
+- Super admins can toggle whether signup email verification is required (Platform configuration → Security). Unset defaults: off in local/test, on in production. When off, new email signups are marked verified automatically.
+- Super admins can edit the Includes lines on a pricing package. Generate description drafts the public blurb from the package name, includes, features, and manager accounts.
+- Admin and reporter review-report exchanges are a two-way chat (opening report + replies with optional images) on moderation and Partner Hub reviews. Guests do not see the thread. Any owner/manager with venue access can reply until an admin dismisses the report; dismissing closes new messages but keeps the history. The chat UI uses messaging-style bubbles and a compact composer (paperclip + send).
+- Review authors can edit their own review (ratings, comment, photos) from My reviews.
+- Diners can hover to react to restaurant reviews with Google-style emojis (Love, Helpful, Amazing, Yum, OMG). No login required for guests (browser visitor key); signed-in users keep one reaction per account. Choosing the same again clears it.
+- Long reviews on the restaurant page (and mobile profile) clamp to two lines with Read more; the restaurant response stays hidden until expanded.
+
+### Changed
+
+- Admin Create manual invoice auto-selects the restaurant’s current subscription package (and monthly/annual cycle from period length) when a restaurant is chosen, and syncs the amount. Monthly/Annual segmented control sits above the plan picker; annual hides package duration (always 12 months). Marking paid requires a justification (stored on invoice notes). Invoice list cells no longer wrap mid-value. Creating for a period that already has an invoice prompts confirmation with required justification; by default Create anyway cancels the existing invoice and creates a new number — optional Replace checkbox overwrites in place (`forceCreate` + `replaceExisting`).
+- Partner Billing Usage & invoices shows cover usage for the selected period, the latest 3 invoices with Show all, and opens invoice detail in a right drawer (pay, line items, PDF) or full page at `/billing/invoices/[id]`. Paid and overdue invoices use status alerts, amount labels/colors, and (for overdue) a emphasized pay CTA.
+- `pnpm dev` no longer starts the merchant mobile Expo app (`@reservations/merchant-mobile`).
+
+### Fixed
+
+- Hiding a review drops it from the restaurant’s public review count and average rating. Unhiding restores both. New and deleted reviews use the same visible-only totals.
+
 ## [0.70.0] — 2026-09-28
 
 ### Added

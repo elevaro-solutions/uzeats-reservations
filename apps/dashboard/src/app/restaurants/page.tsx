@@ -221,7 +221,7 @@ const FALLBACK_PLAN_OPTIONS: Omit<PlanOption, 'priceLabel' | 'discountLabel'>[] 
   {
     key: 'pro',
     name: 'Pro',
-    blurb: 'Full suite with guest insights, campaigns, and SMS.',
+    blurb: 'Full suite with guest insights and campaigns.',
     trialDays: 30,
     pricing: { monthlyPriceCents: 19900 },
   },

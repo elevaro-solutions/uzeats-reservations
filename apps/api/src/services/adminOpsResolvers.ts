@@ -22,11 +22,12 @@ import { CoverFee } from '../models/CoverFee.js';
 import { SupportTicket } from '../models/SupportTicket.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { requireAdmin, requireAuth, requireSuperAdmin, type GraphQLContext } from '../graphql/context.js';
-import { mapRestaurant, mapUser, slugify } from '../graphql/mappers.js';
+import { mapRestaurant, mapReviewReportResponses, mapUser, slugify } from '../graphql/mappers.js';
 import { ForbiddenError } from '../lib/errors.js';
 import { provisionDefaultRestaurantSetup } from './restaurantSetup.js';
 import { createRestaurantSubscription } from './restaurantSubscription.js';
 import { logAudit } from './audit.js';
+import { recomputePublicReviewStats } from './reviewStats.js';
 import { adjustPoints } from './loyalty.js';
 import {
   assignUserToRestaurants,
@@ -142,7 +143,12 @@ function mapFlaggedReview(r: any, restaurantName?: string | null, authorName?: s
     flagReasonCode: r.flagReasonCode ?? null,
     flagDetails: r.flagDetails ?? null,
     flaggedAt: r.flaggedAt ?? null,
+    flaggedById: r.flaggedById ? r.flaggedById.toString() : null,
     flaggedByName: null,
+    reportResponses: mapReviewReportResponses(
+      r.reportResponses,
+      r.flaggedById ? r.flaggedById.toString() : null,
+    ),
     createdAt: r.createdAt,
   };
 }
@@ -165,7 +171,9 @@ function mapFlaggedMessage(m: any, restaurantName?: string | null, authorName?: 
     flagReasonCode: null,
     flagDetails: null,
     flaggedAt: m.flaggedAt ?? null,
+    flaggedById: null,
     flaggedByName: null,
+    reportResponses: [],
     createdAt: m.createdAt,
   };
 }
@@ -1256,16 +1264,11 @@ export const adminOpsMutation = {
 
   unflagReview: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
     requireAdmin(ctx);
+    // Keep reason / reporter / chat history so both sides can still read the
+    // thread; flagged:false closes new messages for admin and reporter.
     const doc = await Review.findByIdAndUpdate(
       args.id,
-      {
-        flagged: false,
-        flagReason: null,
-        flagReasonCode: null,
-        flagDetails: null,
-        flaggedAt: null,
-        flaggedById: null,
-      },
+      { flagged: false },
       { new: true },
     );
     if (!doc) throw new Error('Review not found');
@@ -1284,6 +1287,7 @@ export const adminOpsMutation = {
       { new: true },
     );
     if (!doc) throw new Error('Review not found');
+    await recomputePublicReviewStats(doc.restaurantId);
     return mapFlaggedReview(doc);
   },
 

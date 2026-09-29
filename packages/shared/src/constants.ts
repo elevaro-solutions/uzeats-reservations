@@ -44,6 +44,48 @@ export const RESERVATION_STATUSES = [
 /** Max diner-uploaded photos per public review. */
 export const REVIEW_MAX_PHOTOS = 3;
 
+/** Google-style reactions a diner can leave on someone else's review. */
+export const REVIEW_REACTIONS = ["love", "helpful", "amazing", "yum", "omg"] as const;
+
+export type ReviewReactionType = (typeof REVIEW_REACTIONS)[number];
+
+export const REVIEW_REACTION_OPTIONS: {
+  type: ReviewReactionType;
+  emoji: string;
+  label: string;
+}[] = [
+  { type: "love", emoji: "❤️", label: "Love" },
+  { type: "helpful", emoji: "🙏", label: "Helpful" },
+  { type: "amazing", emoji: "🔥", label: "Amazing" },
+  { type: "yum", emoji: "😋", label: "Yum" },
+  { type: "omg", emoji: "🤯", label: "OMG" },
+];
+
+export function isReviewReactionType(value: string): value is ReviewReactionType {
+  return (REVIEW_REACTIONS as readonly string[]).includes(value);
+}
+
+/** Public restaurant review list ordering (matches GraphQL `ReviewSort`). */
+export const REVIEW_SORTS = ["newest", "oldest", "highest", "lowest"] as const;
+
+export type ReviewSort = (typeof REVIEW_SORTS)[number];
+
+export const REVIEW_SORT_LABELS: Record<ReviewSort, string> = {
+  newest: "Newest",
+  oldest: "Oldest",
+  highest: "Highest rated",
+  lowest: "Lowest rated",
+};
+
+export const DEFAULT_REVIEW_SORT: ReviewSort = "newest";
+
+/** Reviews shown on the restaurant profile before "Show all". */
+export const RESTAURANT_REVIEWS_PREVIEW_LIMIT = 5;
+
+export function isReviewSort(value: string): value is ReviewSort {
+  return (REVIEW_SORTS as readonly string[]).includes(value);
+}
+
 /** Max photos on a restaurant gallery (hero + extras). */
 export const RESTAURANT_MAX_PHOTOS = 10;
 
@@ -453,6 +495,7 @@ export const NOTIFICATION_TYPE_TO_EVENT: Record<string, NotificationEvent> = {
   restaurant_profile_denied: "accountUpdates",
   invoice_ready: "accountUpdates",
   support_reply: "accountUpdates",
+  review_report_response: "accountUpdates",
   restaurant_inquiry: "newMessage",
   staff_invite: "accountUpdates",
 };

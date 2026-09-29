@@ -6,13 +6,20 @@ import { getAccessTokenFromRequest } from '../services/authCookies.js';
 import type { UserDocument } from '../models/User.js';
 import { AuthenticationError, ForbiddenError } from '../lib/errors.js';
 import { createLoaders, type GraphQLLoaders } from './loaders.js';
+import { normalizeVisitorKey, VISITOR_KEY_HEADER } from '../services/reviewReactions.js';
 
 export interface GraphQLContext {
   user: UserDocument | null;
   impersonator: UserDocument | null;
+  visitorKey: string | null;
   req: Request;
   res: Response;
   loaders: GraphQLLoaders;
+}
+
+function visitorKeyFromRequest(req: Request): string | null {
+  const raw = req.headers[VISITOR_KEY_HEADER];
+  return normalizeVisitorKey(Array.isArray(raw) ? raw[0] : raw);
 }
 
 export async function createContext({
@@ -22,14 +29,16 @@ export async function createContext({
   req: Request;
   res: Response;
 }): Promise<GraphQLContext> {
+  const visitorKey = visitorKeyFromRequest(req);
   const token = getAccessTokenFromRequest(req);
   if (!token) {
     return {
       user: null,
       impersonator: null,
+      visitorKey,
       req,
       res,
-      loaders: createLoaders(null),
+      loaders: createLoaders({ userId: null, visitorKey }),
     };
   }
   try {
@@ -42,26 +51,32 @@ export async function createContext({
         return {
           user: null,
           impersonator: null,
+          visitorKey,
           req,
           res,
-          loaders: createLoaders(null),
+          loaders: createLoaders({ userId: null, visitorKey }),
         };
       }
     }
     return {
       user,
       impersonator,
+      visitorKey,
       req,
       res,
-      loaders: createLoaders(user?._id.toString() ?? null),
+      loaders: createLoaders({
+        userId: user?._id.toString() ?? null,
+        visitorKey: user ? null : visitorKey,
+      }),
     };
   } catch {
     return {
       user: null,
       impersonator: null,
+      visitorKey,
       req,
       res,
-      loaders: createLoaders(null),
+      loaders: createLoaders({ userId: null, visitorKey }),
     };
   }
 }

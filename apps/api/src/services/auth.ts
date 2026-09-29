@@ -5,13 +5,14 @@ import { OAuth2Client } from 'google-auth-library';
 import type { JwtPayload, UserRole } from '@reservations/shared';
 import { env } from '../config/env.js';
 import { User } from '../models/User.js';
-import { notifyUser } from './notifications.js';
+import { notifyUser, isEmailDeliveryConfigured, sendEmail } from './notifications.js';
 import { renderEmailTemplate } from './emailTemplates.js';
 import { emailNotice } from './emailBranding.js';
-import { getPlatformConfig } from './platformConfig.js';
+import { getPlatformConfig, resolveRequireSignupEmailVerification } from './platformConfig.js';
 import { clampRegistrationRole } from './roleAccess.js';
 import { generateUniqueReferralCode } from '../lib/referralCode.js';
 import { AuthenticationError } from '../lib/errors.js';
+import { logger } from '../lib/logger.js';
 
 /** Demo emails that were renamed; login must accept every address in a group. */
 const DEMO_EMAIL_EQUIVALENTS: string[][] = [
@@ -117,6 +118,10 @@ export async function registerWithEmail(input: {
     referredByUserId = referrer._id;
   }
 
+  const requireEmailVerification = resolveRequireSignupEmailVerification(
+    config.requireSignupEmailVerification,
+  );
+
   const passwordHash = await hashPassword(input.password);
   const user = await User.create({
     email: input.email.toLowerCase(),
@@ -125,13 +130,22 @@ export async function registerWithEmail(input: {
     lastName: input.lastName,
     phone: input.phone,
     role: clampRegistrationRole(config.defaultSignupRole, 'diner'),
-    emailVerified: false,
+    emailVerified: !requireEmailVerification,
     referralCode: await generateUniqueReferralCode(input.firstName),
     referredByUserId,
   });
 
+  if (requireEmailVerification) {
+    const sent = await sendSignupVerificationEmail(user).catch((err) => {
+      logger.warn({ err, userId: user._id.toString() }, '[auth] signup verification email failed');
+      return null;
+    });
+    const tokens = await issueTokens(user);
+    return { user, devCode: sent?.devCode ?? null, ...tokens };
+  }
+
   const tokens = await issueTokens(user);
-  return { user, ...tokens };
+  return { user, devCode: null as string | null, ...tokens };
 }
 
 export async function loginWithEmail(email: string, password: string) {
@@ -340,6 +354,165 @@ const PARTNER_ROLES = new Set<UserRole>([
 
 function passwordResetAppForRole(role: UserRole): 'web' | 'dashboard' {
   return PARTNER_ROLES.has(role) ? 'dashboard' : 'web';
+}
+
+const EMAIL_VERIFICATION_TTL_MS = 10 * 60 * 1000;
+
+function useDevEmailOtp(): boolean {
+  return Boolean(env.AUTH_DEV_OTP) && env.NODE_ENV !== 'production';
+}
+
+function generateEmailVerificationCode() {
+  if (useDevEmailOtp()) return '123456';
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+async function createEmailVerificationCode(userId: string) {
+  const code = generateEmailVerificationCode();
+  await User.findByIdAndUpdate(userId, {
+    emailVerificationToken: hashOpaqueToken(code),
+    emailVerificationExpires: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS),
+  });
+  return { code };
+}
+
+export async function sendSignupVerificationEmail(user: {
+  _id: { toString(): string };
+  email?: string | null;
+  firstName?: string | null;
+}) {
+  if (!user.email) {
+    return {
+      success: false,
+      message: 'This account has no email address to verify.',
+      emailed: false,
+      devCode: null as string | null,
+    };
+  }
+
+  const { code } = await createEmailVerificationCode(user._id.toString());
+  const rendered = await renderEmailTemplate('email_verification', {
+    firstName: user.firstName || 'there',
+    code,
+  });
+
+  let emailed = false;
+  if (isEmailDeliveryConfigured()) {
+    try {
+      await sendEmail(user.email, rendered.subject, rendered.bodyText, {
+        htmlBody: rendered.bodyHtml,
+      });
+      emailed = true;
+    } catch (err) {
+      if (env.NODE_ENV === 'production') throw err;
+      logger.warn(
+        { err, email: user.email },
+        '[auth] verification email send failed; exposing code for local use',
+      );
+    }
+  } else if (env.NODE_ENV === 'production') {
+    throw new Error('Email delivery is not configured — set SENDGRID_API_KEY on the API server.');
+  } else {
+    logger.info({ email: user.email, code }, '[auth] email verification code (dev, no SendGrid)');
+  }
+
+  const exposeDevCode =
+    env.NODE_ENV !== 'production' && (!emailed || useDevEmailOtp());
+
+  return {
+    success: true,
+    message: emailed
+      ? `Verification code sent to ${user.email}`
+      : env.NODE_ENV === 'production'
+        ? `Verification code sent to ${user.email}`
+        : `Verification email is not configured locally. Use the code shown for ${user.email}.`,
+    emailed,
+    devCode: exposeDevCode ? code : null,
+  };
+}
+
+export async function resendVerificationEmail(userId: string) {
+  const user = await User.findById(userId);
+  if (!user) throw new AuthenticationError('Authentication required');
+  if (!user.email) {
+    return {
+      success: false,
+      message: 'This account has no email address to verify.',
+      emailed: false,
+      devCode: null as string | null,
+    };
+  }
+  if (user.emailVerified) {
+    return {
+      success: true,
+      message: 'Your email is already verified.',
+      emailed: false,
+      devCode: null as string | null,
+    };
+  }
+
+  const required = await (async () => {
+    const config = await getPlatformConfig();
+    return resolveRequireSignupEmailVerification(config.requireSignupEmailVerification);
+  })();
+  if (!required) {
+    user.emailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save();
+    return {
+      success: true,
+      message: 'Email verification is not required. Your account is ready.',
+      emailed: false,
+      devCode: null as string | null,
+    };
+  }
+
+  return sendSignupVerificationEmail(user);
+}
+
+export async function verifyEmailCode(userId: string, rawCode: string) {
+  const code = rawCode.trim();
+  if (!/^\d{6}$/.test(code)) {
+    throw new Error('Enter the 6-digit code from your email');
+  }
+
+  const user = await User.findById(userId);
+  if (!user) throw new AuthenticationError('Authentication required');
+  if (user.emailVerified) {
+    return { success: true, message: 'Email verified successfully.' };
+  }
+  if (!user.emailVerificationToken || !user.emailVerificationExpires) {
+    throw new Error('No verification code pending — request a new code');
+  }
+  if (user.emailVerificationExpires.getTime() <= Date.now()) {
+    throw new Error('Invalid or expired verification code');
+  }
+
+  const codeHash = hashOpaqueToken(code);
+  const valid =
+    user.emailVerificationToken === codeHash ||
+    // Legacy plaintext codes until they expire.
+    user.emailVerificationToken === code;
+  if (!valid) {
+    throw new Error('Invalid or expired verification code');
+  }
+
+  user.emailVerified = true;
+  user.emailVerificationToken = undefined;
+  user.emailVerificationExpires = undefined;
+  await user.save();
+
+  return { success: true, message: 'Email verified successfully.' };
+}
+
+export async function userNeedsEmailVerification(user: {
+  email?: string | null;
+  emailVerified?: boolean | null;
+}): Promise<boolean> {
+  if (!user.email || user.emailVerified) return false;
+  const config = await getPlatformConfig();
+  return resolveRequireSignupEmailVerification(config.requireSignupEmailVerification);
 }
 
 async function createPasswordResetToken(userId: string, app: 'web' | 'dashboard') {

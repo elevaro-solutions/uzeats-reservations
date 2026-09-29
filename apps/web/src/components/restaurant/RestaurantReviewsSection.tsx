@@ -1,44 +1,56 @@
 'use client';
 
-import { Button, Image, Rate, Typography } from 'antd';
+import { useState } from 'react';
+import { Button, Select, Typography } from 'antd';
 import { StarFilled, StarOutlined } from '@ant-design/icons';
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
+import {
+  DEFAULT_REVIEW_SORT,
+  RESTAURANT_REVIEWS_PREVIEW_LIMIT,
+  REVIEW_SORT_LABELS,
+  REVIEW_SORTS,
+  type ReviewReactionType,
+  type ReviewSort,
+} from '@reservations/shared';
 import { colors } from '@reservations/ui';
-import { browserMediaUrl } from '@reservations/shared';
+import {
+  RestaurantReviewCard,
+  type RestaurantReviewItem,
+} from '@/components/restaurant/RestaurantReviewCard';
+import { RestaurantAllReviewsModal } from '@/components/restaurant/RestaurantAllReviewsModal';
 
-dayjs.extend(relativeTime);
-
-const { Title, Text, Paragraph } = Typography;
-
-type Review = {
-  id?: string;
-  rating: number;
-  foodRating?: number | null;
-  serviceRating?: number | null;
-  atmosphereRating?: number | null;
-  comment?: string | null;
-  photos?: string[] | null;
-  createdAt?: string;
-  ownerReply?: string | null;
-  diner?: { firstName?: string; lastName?: string };
-};
+const { Title, Text } = Typography;
 
 type Props = {
-  reviews: Review[];
+  restaurantId: string;
+  restaurantName: string;
+  reviews: RestaurantReviewItem[];
   averageRating: number;
   reviewCount: number;
+  sort?: ReviewSort;
+  onSortChange?: (sort: ReviewSort) => void;
   canLeaveReview?: boolean;
   onLeaveReview?: () => void;
+  currentUserId?: string | null;
+  onReact?: (reviewId: string, reaction: ReviewReactionType) => Promise<void>;
 };
 
 export function RestaurantReviewsSection({
+  restaurantId,
+  restaurantName,
   reviews,
   averageRating,
   reviewCount,
+  sort = DEFAULT_REVIEW_SORT,
+  onSortChange,
   canLeaveReview = false,
   onLeaveReview,
+  currentUserId,
+  onReact,
 }: Props) {
+  const [allOpen, setAllOpen] = useState(false);
+  const preview = reviews.slice(0, RESTAURANT_REVIEWS_PREVIEW_LIMIT);
+  const hasMoreThanPreview = reviewCount > preview.length;
+
   return (
     <section id="reviews" className="rt-restaurant-section">
       <div className="rt-restaurant-section__header">
@@ -68,73 +80,57 @@ export function RestaurantReviewsSection({
             : 'No reviews yet. Be the first to share your experience after your visit.'}
         </Text>
       ) : (
-        <div className="rt-restaurant-reviews">
-          {reviews.map((r, idx) => (
-            <article key={r.id ?? idx} className="rt-restaurant-review">
-              <div className="rt-restaurant-review__header">
-                <div className="rt-restaurant-review__avatar">
-                  {(r.diner?.firstName?.[0] ?? 'G').toUpperCase()}
-                </div>
-                <div>
-                  <Text strong>
-                    {r.diner?.firstName} {r.diner?.lastName?.[0] ? `${r.diner.lastName[0]}.` : ''}
-                  </Text>
-                  <div className="rt-restaurant-review__meta">
-                    <Rate disabled value={r.rating} style={{ fontSize: 12 }} />
-                    {r.createdAt && (
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        {dayjs(r.createdAt).fromNow()}
-                      </Text>
-                    )}
-                  </div>
-                </div>
-              </div>
-              {r.comment && <Paragraph className="rt-restaurant-review__comment">{r.comment}</Paragraph>}
-              {(r.foodRating != null || r.serviceRating != null || r.atmosphereRating != null) && (
-                <div className="rt-restaurant-review__qualities">
-                  {r.foodRating != null && (
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      Food {r.foodRating}/5
-                    </Text>
-                  )}
-                  {r.serviceRating != null && (
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      Service {r.serviceRating}/5
-                    </Text>
-                  )}
-                  {r.atmosphereRating != null && (
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      Atmosphere {r.atmosphereRating}/5
-                    </Text>
-                  )}
-                </div>
-              )}
-              {r.photos && r.photos.length > 0 && (
-                <div className="rt-restaurant-review__photos">
-                  <Image.PreviewGroup>
-                    {r.photos.map((url) => (
-                      <Image
-                        key={url}
-                        src={browserMediaUrl(url)}
-                        alt="Review photo"
-                        width={72}
-                        height={72}
-                        style={{ objectFit: 'cover', borderRadius: 8 }}
-                      />
-                    ))}
-                  </Image.PreviewGroup>
-                </div>
-              )}
-              {r.ownerReply && (
-                <div className="rt-restaurant-review__reply">
-                  <Text strong style={{ fontSize: 13 }}>Response from the restaurant</Text>
-                  <Paragraph style={{ marginBottom: 0, marginTop: 4 }}>{r.ownerReply}</Paragraph>
-                </div>
-              )}
-            </article>
-          ))}
-        </div>
+        <>
+          <div className="rt-restaurant-reviews__toolbar">
+            <Text type="secondary" style={{ fontSize: 13 }}>
+              Showing {preview.length}
+              {reviewCount > preview.length ? ` of ${reviewCount}` : ''}
+            </Text>
+            <Select
+              value={sort}
+              onChange={(value) => onSortChange?.(value)}
+              options={REVIEW_SORTS.map((value) => ({
+                value,
+                label: REVIEW_SORT_LABELS[value],
+              }))}
+              aria-label="Sort reviews"
+              style={{ minWidth: 168 }}
+            />
+          </div>
+
+          <div className="rt-restaurant-reviews">
+            {preview.map((review, idx) => (
+              <RestaurantReviewCard
+                key={review.id ?? idx}
+                review={review}
+                currentUserId={currentUserId}
+                onReact={onReact}
+              />
+            ))}
+          </div>
+
+          {hasMoreThanPreview ? (
+            <div className="rt-restaurant-reviews__footer">
+              <Button type="default" size="large" onClick={() => setAllOpen(true)}>
+                Show all {reviewCount} reviews
+              </Button>
+            </div>
+          ) : null}
+        </>
       )}
+
+      <RestaurantAllReviewsModal
+        open={allOpen}
+        onClose={() => setAllOpen(false)}
+        restaurantId={restaurantId}
+        restaurantName={restaurantName}
+        averageRating={averageRating}
+        reviewCount={reviewCount}
+        sort={sort}
+        onSortChange={(next) => onSortChange?.(next)}
+        currentUserId={currentUserId}
+        onReact={onReact}
+      />
     </section>
   );
 }

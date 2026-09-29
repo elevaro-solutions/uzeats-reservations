@@ -3,10 +3,12 @@ import { Restaurant } from '../models/Restaurant.js';
 import { User } from '../models/User.js';
 import { logAudit } from './audit.js';
 import { hashPassword, issueTokens } from './auth.js';
-import { getEffectivePlan, getPlatformConfig } from './platformConfig.js';
+import { getEffectivePlan, getPlatformConfig, resolveRequireSignupEmailVerification } from './platformConfig.js';
 import { createRestaurantSubscription } from './restaurantSubscription.js';
 import { provisionDefaultRestaurantSetup } from './restaurantSetup.js';
 import { clampRegistrationRole } from './roleAccess.js';
+import { sendSignupVerificationEmail } from './auth.js';
+import { logger } from '../lib/logger.js';
 
 function restaurantSlugBase(name: string) {
   return (
@@ -77,6 +79,9 @@ export async function registerRestaurantPartner(input: RegisterRestaurantPartner
   }
 
   const passwordHash = await hashPassword(input.account.password);
+  const requireEmailVerification = resolveRequireSignupEmailVerification(
+    config.requireSignupEmailVerification,
+  );
   const user = await User.create({
     email,
     passwordHash,
@@ -84,7 +89,7 @@ export async function registerRestaurantPartner(input: RegisterRestaurantPartner
     lastName: input.account.lastName,
     phone: input.account.phone,
     role: clampRegistrationRole(config.defaultPartnerRole, 'restaurant_owner'),
-    emailVerified: false,
+    emailVerified: !requireEmailVerification,
   });
 
   let restaurant;
@@ -142,6 +147,18 @@ export async function registerRestaurantPartner(input: RegisterRestaurantPartner
     details: { plan: planDef.key },
   });
 
+  if (requireEmailVerification) {
+    const sent = await sendSignupVerificationEmail(user).catch((err) => {
+      logger.warn(
+        { err, userId: user._id.toString() },
+        '[partnerRegister] signup verification email failed',
+      );
+      return null;
+    });
+    const tokens = await issueTokens(user);
+    return { user, restaurant, subscription, devCode: sent?.devCode ?? null, ...tokens };
+  }
+
   const tokens = await issueTokens(user);
-  return { user, restaurant, subscription, ...tokens };
+  return { user, restaurant, subscription, devCode: null as string | null, ...tokens };
 }

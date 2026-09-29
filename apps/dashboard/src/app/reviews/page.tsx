@@ -46,8 +46,11 @@ import {
   REPORT_REVIEW,
   RESTAURANT_REVIEWS,
   REPLY_TO_REVIEW,
+  REPLY_TO_REVIEW_REPORT,
 } from '@/lib/graphql';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { ReviewReportChat } from '@/components/ReviewReportThread';
+import type { SupportAttachmentDraft } from '@/components/SupportAttachmentUpload';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -64,6 +67,9 @@ function ReviewsPageContent() {
   const [reporting, setReporting] = useState<any>(null);
   const [reportReason, setReportReason] = useState<ReviewReportReason | null>(null);
   const [reportDetails, setReportDetails] = useState('');
+  const [reportChatReview, setReportChatReview] = useState<any>(null);
+  const [reportChatBody, setReportChatBody] = useState('');
+  const [reportChatAttachments, setReportChatAttachments] = useState<SupportAttachmentDraft[]>([]);
   const [selectedByReview, setSelectedByReview] = useState<Record<string, string[]>>({});
   const { page, pageSize, limit, offset, setPagination } = useUrlPagination({
     defaultPageSize: 20,
@@ -90,6 +96,7 @@ function ReviewsPageContent() {
   );
   const [addRestaurantPhotos, { loading: addingPhotos }] = useMutation(ADD_RESTAURANT_PHOTOS);
   const [reportReview, { loading: reportingReview }] = useMutation(REPORT_REVIEW);
+  const [replyToReport, { loading: replyingToReport }] = useMutation(REPLY_TO_REVIEW_REPORT);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -143,6 +150,42 @@ function ReviewsPageContent() {
         : null,
     );
     setReportDetails(review.flagDetails ?? '');
+  };
+
+  const handleReportChatReply = async (review = reportChatReview) => {
+    if (!review?.id) return;
+    if (reportChatReview?.id && reportChatReview.id !== review.id) {
+      setReportChatReview(review);
+    }
+    const body = reportChatBody.trim();
+    const attachments = reportChatAttachments;
+    if (!body && attachments.length === 0) return;
+    try {
+      await replyToReport({
+        variables: {
+          reviewId: review.id,
+          body,
+          attachments: attachments.map((a) => ({
+            url: a.url,
+            filename: a.filename,
+            contentType: a.contentType,
+            size: a.size,
+            key: a.key,
+          })),
+        },
+      });
+      message.success('Message sent');
+      setReportChatBody('');
+      setReportChatAttachments([]);
+      const result = await refetch();
+      const updated = result.data?.restaurantReviews?.items?.find(
+        (item: { id: string }) => item.id === review.id,
+      );
+      if (updated) setReportChatReview(updated);
+      else setReportChatReview(null);
+    } catch (err: any) {
+      message.error(err?.message ?? 'Failed to send message');
+    }
   };
 
   const handleReport = async () => {
@@ -406,21 +449,89 @@ function ReviewsPageContent() {
                             )}
                           </div>
                         )}
-                        {r.ownerReply && (
+                        {r.ownerReply ? (
                           <div
                             style={{
                               background: colors.brand[50],
-                              borderLeft: `3px solid ${colors.brand[600]}`,
-                              padding: '8px 12px',
-                              borderRadius: 4,
+                              borderRadius: 8,
+                              padding: 12,
+                              marginTop: 8,
+                              marginBottom: 8,
                             }}
                           >
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                              Restaurant reply ·{' '}
-                              {new Date(r.ownerRepliedAt).toLocaleDateString('en-US')}
+                            <Text strong style={{ display: 'block', marginBottom: 4 }}>
+                              Owner reply
                             </Text>
-                            <div>{r.ownerReply}</div>
+                            <Paragraph style={{ marginBottom: 0, whiteSpace: 'pre-wrap' }}>
+                              {r.ownerReply}
+                            </Paragraph>
+                            {r.ownerRepliedAt ? (
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                {new Date(r.ownerRepliedAt).toLocaleString('en-US')}
+                              </Text>
+                            ) : null}
                           </div>
+                        ) : null}
+                        {(r.flagged ||
+                          (r.reportResponses?.length ?? 0) > 0 ||
+                          r.flagReason) && (
+                          <ReviewReportChat
+                            title="Report chat with Tablevera"
+                            mineIsReporter
+                            opening={{
+                              flaggedByName:
+                                r.flaggedById === user?.id ? 'You' : 'Reporter',
+                              flagReason: r.flagReasonCode
+                                ? REVIEW_REPORT_REASON_LABELS[
+                                    r.flagReasonCode as ReviewReportReason
+                                  ] ?? r.flagReason
+                                : r.flagReason,
+                              flagDetails: r.flagDetails,
+                              flaggedAt: r.flaggedAt,
+                            }}
+                            responses={r.reportResponses}
+                            composer={
+                              r.flagged
+                                ? {
+                                    body:
+                                      reportChatReview?.id === r.id ? reportChatBody : '',
+                                    attachments:
+                                      reportChatReview?.id === r.id
+                                        ? reportChatAttachments
+                                        : [],
+                                    onBodyChange: (value) => {
+                                      if (reportChatReview?.id !== r.id) {
+                                        setReportChatReview(r);
+                                        setReportChatAttachments([]);
+                                      }
+                                      setReportChatBody(value);
+                                    },
+                                    onAttachmentsChange: (files) => {
+                                      if (reportChatReview?.id !== r.id) {
+                                        setReportChatReview(r);
+                                        setReportChatBody('');
+                                      }
+                                      setReportChatAttachments(files);
+                                    },
+                                    onSend: () => {
+                                      if (reportChatReview?.id !== r.id) {
+                                        setReportChatReview(r);
+                                      }
+                                      void handleReportChatReply(r);
+                                    },
+                                    sending:
+                                      replyingToReport && reportChatReview?.id === r.id,
+                                    placeholder: 'Message Tablevera…',
+                                    hint: 'Open until Tablevera dismisses this report. Enter to send, Shift+Enter for a new line.',
+                                  }
+                                : null
+                            }
+                            closedNotice={
+                              r.flagged
+                                ? null
+                                : 'Report closed — you can still read this chat'
+                            }
+                          />
                         )}
                       </>
                     }

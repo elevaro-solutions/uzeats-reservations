@@ -24,11 +24,21 @@ export const typeDefs = `#graphql
     accessToken: String!
     refreshToken: String!
     user: User!
+    """Present in non-production when a verification email could not be delivered (or AUTH_DEV_OTP)."""
+    devCode: String
   }
 
   type MessagePayload {
     success: Boolean!
     message: String!
+  }
+
+  type EmailVerificationPayload {
+    success: Boolean!
+    message: String!
+    emailed: Boolean!
+    """Present in non-production when a verification email could not be delivered (or AUTH_DEV_OTP)."""
+    devCode: String
   }
 
   enum DocsAccessRequestStatus { pending approved denied }
@@ -232,6 +242,7 @@ export const typeDefs = `#graphql
     loyaltyPointsExpireAt: DateTime
     referralCode: String
     emailVerified: Boolean!
+    needsEmailVerification: Boolean!
     phoneVerified: Boolean!
     telegramChatId: String
     notificationPreferences: NotificationPreferences!
@@ -577,7 +588,60 @@ export const typeDefs = `#graphql
     flagReasonCode: ReviewReportReason
     flagDetails: String
     flaggedAt: DateTime
+    """Partner who filed the report, when known."""
+    flaggedById: ID
+    """Replies in the moderation chat between Tablevera and the reporter. Empty for diners."""
+    reportResponses: [ReviewReportResponse!]!
+    """Google-style emoji reaction totals for this review."""
+    reactionCounts: ReviewReactionCounts!
+    """The signed-in diner's reaction, if any."""
+    myReaction: ReviewReactionType
     createdAt: DateTime!
+  }
+
+  enum ReviewReactionType {
+    love
+    helpful
+    amazing
+    yum
+    omg
+  }
+
+  """Ordering for public restaurant review lists."""
+  enum ReviewSort {
+    newest
+    oldest
+    highest
+    lowest
+  }
+
+  type ReviewReactionCounts {
+    love: Int!
+    helpful: Int!
+    amazing: Int!
+    yum: Int!
+    omg: Int!
+    total: Int!
+  }
+
+  type ReviewReportAttachment {
+    id: ID!
+    url: String!
+    filename: String!
+    contentType: String!
+    size: Int
+  }
+
+  """A message in the moderation chat between Tablevera and the review reporter."""
+  type ReviewReportResponse {
+    id: ID!
+    body: String!
+    attachments: [ReviewReportAttachment!]!
+    createdAt: DateTime!
+    authorId: ID
+    authorName: String
+    """True when the partner who filed the report wrote this message."""
+    fromReporter: Boolean!
   }
 
   type MenuItem {
@@ -718,6 +782,8 @@ export const typeDefs = `#graphql
     managerSeats: Int!
     visibleOnPricing: Boolean!
     isCustom: Boolean!
+    """Public pricing card Includes lines."""
+    highlights: [String!]!
     features: SubscriptionFeatures!
   }
 
@@ -909,6 +975,7 @@ export const typeDefs = `#graphql
     slugRequests: Int!
     profileChangeRequests: Int!
     moderationItems: Int!
+    openInvoices: Int!
   }
 
   type LoyaltyTier {
@@ -1057,6 +1124,14 @@ export const typeDefs = `#graphql
     notes: String
     description: String
     markPaid: Boolean
+    """Required when markPaid is true — why this invoice is marked paid without a payment link."""
+    paidJustification: String
+    """Proceed when an invoice already exists for this restaurant + period (requires duplicateJustification)."""
+    forceCreate: Boolean
+    """When forceCreate is true, overwrite the existing invoice in place. Default is false (cancel existing, create a new number)."""
+    replaceExisting: Boolean
+    """Required when forceCreate is true — why admins are creating despite the existing period invoice."""
+    duplicateJustification: String
   }
 
   type InvoicePaymentSession {
@@ -1161,6 +1236,8 @@ export const typeDefs = `#graphql
     experiences: Boolean!
     campaigns: Boolean!
     widget: Boolean!
+    """Premium SMS / guest SMS product (not auth OTP)."""
+    sms: Boolean!
   }
 
   input PlatformFeatureFlagsInput {
@@ -1173,6 +1250,7 @@ export const typeDefs = `#graphql
     experiences: Boolean
     campaigns: Boolean
     widget: Boolean
+    sms: Boolean
   }
 
   enum AnnualBillingScope {
@@ -1243,6 +1321,7 @@ export const typeDefs = `#graphql
     allowPublicRegistration: Boolean!
     allowPartnerRegistration: Boolean!
     requireAdminDelete2FA: Boolean!
+    requireSignupEmailVerification: Boolean!
     invoicePrefix: String!
     currency: String!
     featureFlags: PlatformFeatureFlags!
@@ -1260,6 +1339,7 @@ export const typeDefs = `#graphql
     allowPublicRegistration: Boolean
     allowPartnerRegistration: Boolean
     requireAdminDelete2FA: Boolean
+    requireSignupEmailVerification: Boolean
     invoicePrefix: String
     currency: String
     featureFlags: PlatformFeatureFlagsInput
@@ -1306,6 +1386,7 @@ export const typeDefs = `#graphql
     trialDays: Int
     managerSeats: Int
     visibleOnPricing: Boolean
+    highlights: [String!]
     features: SubscriptionFeaturesInput
   }
 
@@ -1323,7 +1404,16 @@ export const typeDefs = `#graphql
     trialDays: Int
     managerSeats: Int
     visibleOnPricing: Boolean
+    highlights: [String!]
     features: SubscriptionFeaturesInput
+  }
+
+  input GeneratePlanPackageDescriptionInput {
+    name: String!
+    highlights: [String!]
+    featureLabels: [String!]
+    managerSeats: Int
+    monthlyPriceCents: Int
   }
 
   input SubscriptionFeaturesInput {
@@ -1626,7 +1716,9 @@ export const typeDefs = `#graphql
     flagReasonCode: ReviewReportReason
     flagDetails: String
     flaggedAt: DateTime
+    flaggedById: ID
     flaggedByName: String
+    reportResponses: [ReviewReportResponse!]!
     createdAt: DateTime!
   }
 
@@ -2021,6 +2113,8 @@ export const typeDefs = `#graphql
     subscription: SubscriptionType!
     clientSecret: String
     paymentMode: String
+    """Present in non-production when a verification email could not be delivered (or AUTH_DEV_OTP)."""
+    devCode: String
   }
 
   input TableInput {
@@ -2122,6 +2216,15 @@ export const typeDefs = `#graphql
 
   input ReviewInput {
     reservationId: ID!
+    rating: Int!
+    foodRating: Int
+    serviceRating: Int
+    atmosphereRating: Int
+    comment: String
+    photos: [String!]
+  }
+
+  input UpdateReviewInput {
     rating: Int!
     foodRating: Int
     serviceRating: Int
@@ -2694,11 +2797,19 @@ export const typeDefs = `#graphql
     partnerReservation(id: ID!): Reservation
     myWaitlist: [WaitlistEntry!]!
     restaurantWaitlist(restaurantId: ID!, limit: Int, offset: Int): WaitlistConnection!
-    restaurantReviews(restaurantId: ID!, limit: Int, offset: Int): ReviewConnection!
+    restaurantReviews(
+      restaurantId: ID!
+      limit: Int
+      offset: Int
+      """Defaults to newest."""
+      sort: ReviewSort
+    ): ReviewConnection!
     """Reviews written by the signed-in diner (includes own hidden reviews)."""
     myReviews(limit: Int, offset: Int): ReviewConnection!
     """Count of visible reviews that still need an owner/manager reply (sidebar badge)."""
     restaurantUnrepliedReviewCount(restaurantId: ID!): Int!
+    """Count of unpaid invoices with a balance for a restaurant (Billing sidebar badge)."""
+    restaurantOpenInvoiceCount(restaurantId: ID!): Int!
     loyaltyProgram: LoyaltyProgram!
     myLoyalty: [LoyaltyTransaction!]!
     myRestaurantLoyalty: [RestaurantLoyaltyBalance!]!
@@ -2818,8 +2929,12 @@ export const typeDefs = `#graphql
     partnerEmailAvailable(email: String!): Boolean!
     partnerRestaurantNameAvailable(name: String!, excludeRestaurantId: ID): Boolean!
     annualBillingSettings: AnnualBillingSettings!
+    """Public kill switches (waitlist, SMS, etc.). Safe for partner and diner clients."""
+    platformFeatureFlags: PlatformFeatureFlags!
     coverFeeSummary(restaurantId: ID!, period: String): CoverFeeSummary!
     restaurantInvoices(restaurantId: ID!, period: String, limit: Int, offset: Int): InvoiceConnection!
+    """Single restaurant invoice for partners with venue access (Billing detail)."""
+    restaurantInvoice(id: ID!): Invoice
 
     myRestaurantGroups: [RestaurantGroup!]!
     groupAnalytics(groupId: ID!): GroupAnalytics!
@@ -2904,6 +3019,8 @@ export const typeDefs = `#graphql
     logout(refreshToken: String): Boolean!
     requestPasswordReset(email: String!, app: String): MessagePayload!
     resetPassword(token: String!, newPassword: String!): MessagePayload!
+    verifyEmail(code: String!): MessagePayload!
+    resendVerificationEmail: EmailVerificationPayload!
     acceptManagerInvite(token: String!, password: String!): AuthPayload!
     submitContactForm(input: ContactFormInput!): MessagePayload!
     createOwnerSupportTicket(input: CreateOwnerSupportTicketInput!): SupportTicket!
@@ -3006,6 +3123,7 @@ export const typeDefs = `#graphql
     createPlanPackage(input: CreatePlanPackageInput!): PlanInfo!
     deletePlanPackage(key: String!): Boolean!
     reorderPlanPackages(keys: [String!]!): [PlanInfo!]!
+    generatePlanPackageDescription(input: GeneratePlanPackageDescriptionInput!): String!
     startImpersonation(userId: ID!): ImpersonationPayload!
     endImpersonation: Boolean!
     inviteManager(
@@ -3198,10 +3316,35 @@ export const typeDefs = `#graphql
     Owners and managers with venue access. Details required when reason is other.
     """
     reportReview(reviewId: ID!, reason: ReviewReportReason!, details: String): Review!
+    """
+    Send a moderation reply to the partner who reported this review.
+    Platform admins only. Body or at least one image is required.
+    """
+    respondToReviewReport(
+      reviewId: ID!
+      body: String!
+      attachments: [OwnerSupportAttachmentInput!]
+    ): Review!
+    """
+    Partner follow-up on a review report chat. Venue staff with access.
+    Body or at least one image is required.
+    """
+    replyToReviewReport(
+      reviewId: ID!
+      body: String!
+      attachments: [OwnerSupportAttachmentInput!]
+    ): Review!
     """Hide or unhide a review. Platform admins only — partners must use reportReview."""
     setReviewHidden(reviewId: ID!, hidden: Boolean!): Review!
     """Permanently delete a review. Review author or super admin only."""
     deleteReview(reviewId: ID!): Boolean!
+    """Edit a review. Review author only."""
+    updateReview(reviewId: ID!, input: UpdateReviewInput!): Review!
+    """
+    React to a review with a Google-style emoji. One reaction per diner.
+    Pass the same reaction again to clear it. Cannot react to your own review.
+    """
+    reactToReview(reviewId: ID!, reaction: ReviewReactionType!): Review!
     """Append public image URLs to the restaurant gallery (deduped, capped)."""
     addRestaurantPhotos(restaurantId: ID!, urls: [String!]!): Restaurant!
 

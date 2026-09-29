@@ -16,6 +16,7 @@ import { Review } from '../models/Review.js';
 import { Message } from '../models/Message.js';
 import { Invoice } from '../models/Invoice.js';
 import { env } from '../config/env.js';
+import { mapReviewReportResponses } from '../graphql/mappers.js';
 import { notifyUser, wrapEmailHtml } from './notifications.js';
 
 type TimelineEventInput = {
@@ -1103,9 +1104,14 @@ export async function listFlaggedContent(limit = 50) {
       flagReasonCode: (r as any).flagReasonCode ?? null,
       flagDetails: (r as any).flagDetails ?? null,
       flaggedAt: (r as any).flaggedAt ?? null,
+      flaggedById: (r as any).flaggedById?.toString?.() ?? null,
       flaggedByName: (r as any).flaggedById
         ? userById.get((r as any).flaggedById.toString()) ?? null
         : null,
+      reportResponses: mapReviewReportResponses(
+        (r as any).reportResponses,
+        (r as any).flaggedById?.toString?.() ?? null,
+      ),
       createdAt: (r as any).createdAt,
     })),
     messages: messages.map((m) => ({
@@ -1124,9 +1130,11 @@ export async function listFlaggedContent(limit = 50) {
       flagReasonCode: null,
       flagDetails: null,
       flaggedAt: (m as any).flaggedAt ?? null,
+      flaggedById: (m as any).flaggedById?.toString?.() ?? null,
       flaggedByName: (m as any).flaggedById
         ? userById.get((m as any).flaggedById.toString()) ?? null
         : null,
+      reportResponses: [],
       createdAt: (m as any).createdAt,
     })),
   };
@@ -1160,7 +1168,12 @@ export async function getFlaggedContentItem(id: string, type: string) {
       flagReasonCode: (r as any).flagReasonCode ?? null,
       flagDetails: (r as any).flagDetails ?? null,
       flaggedAt: (r as any).flaggedAt ?? null,
+      flaggedById: (r as any).flaggedById?.toString?.() ?? null,
       flaggedByName: flaggedBy ? `${flaggedBy.firstName} ${flaggedBy.lastName}` : null,
+      reportResponses: mapReviewReportResponses(
+        (r as any).reportResponses,
+        (r as any).flaggedById?.toString?.() ?? null,
+      ),
       createdAt: (r as any).createdAt,
     };
   }
@@ -1191,7 +1204,9 @@ export async function getFlaggedContentItem(id: string, type: string) {
       flagReasonCode: null,
       flagDetails: null,
       flaggedAt: (m as any).flaggedAt ?? null,
+      flaggedById: (m as any).flaggedById?.toString?.() ?? null,
       flaggedByName: flaggedBy ? `${flaggedBy.firstName} ${flaggedBy.lastName}` : null,
+      reportResponses: [],
       createdAt: (m as any).createdAt,
     };
   }

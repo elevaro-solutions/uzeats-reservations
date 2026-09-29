@@ -14,6 +14,8 @@ const LOGIN = gql`
         lastName
         role
         restaurantIds
+        emailVerified
+        needsEmailVerification
       }
     }
   }
@@ -38,6 +40,8 @@ export type DashUser = {
   lastName: string;
   role: string;
   restaurantIds: string[];
+  emailVerified?: boolean;
+  needsEmailVerification?: boolean;
 };
 
 type Impersonator = {
@@ -52,11 +56,12 @@ const AuthContext = createContext<{
   loading: boolean;
   impersonator: Impersonator | null;
   isImpersonating: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<DashUser>;
   setSession: (user: DashUser) => void;
   beginImpersonation: (user: DashUser, impersonator: Impersonator) => void;
   endImpersonation: () => void;
   logout: () => void | Promise<void>;
+  refreshMe: () => Promise<void>;
 } | null>(null);
 
 const API_URI = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/graphql';
@@ -82,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           query: `query SessionInfo {
             session {
               isImpersonating
-              user { id email firstName lastName role restaurantIds }
+              user { id email firstName lastName role restaurantIds emailVerified needsEmailVerification }
               impersonator { id firstName lastName email }
             }
           }`,
@@ -144,6 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
     }
     setSession(nextUser);
+    return nextUser;
   };
 
   const logout = async () => {
@@ -168,8 +174,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       beginImpersonation,
       endImpersonation,
       logout,
+      refreshMe,
     }),
-    [user, loading, impersonator],
+    [user, loading, impersonator, refreshMe],
   );
 
   return (

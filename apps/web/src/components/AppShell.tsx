@@ -50,7 +50,7 @@ import { BookingAttributionCapture } from '@/components/BookingAttributionCaptur
 const { Header, Content, Footer } = Layout;
 const { Text } = Typography;
 
-const AUTH_PATHS = ['/login', '/forgot-password', '/reset-password'];
+const AUTH_PATHS = ['/login', '/forgot-password', '/reset-password', '/verify-email'];
 
 type AppNotification = {
   id: string;
@@ -217,8 +217,13 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     if (authLoading || !user) return;
     if (user.role !== 'diner') {
       window.location.replace(dashboardUrl);
+      return;
     }
-  }, [user, authLoading, dashboardUrl]);
+    if (user.needsEmailVerification && !pathname.startsWith('/verify-email')) {
+      const next = pathname && pathname !== '/' ? `?next=${encodeURIComponent(pathname)}` : '';
+      router.replace(`/verify-email${next}`);
+    }
+  }, [user, authLoading, dashboardUrl, pathname, router]);
 
   const signInHref = isRestaurantMarketing ? `${dashboardUrl}/login` : '/login';
   const getStartedHref = isRestaurantMarketing ? '/pricing' : '/login';

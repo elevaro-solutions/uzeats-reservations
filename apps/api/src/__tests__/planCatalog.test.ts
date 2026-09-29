@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PLANS } from '../config/plans.js';
+import { DEFAULT_PLAN_HIGHLIGHTS, PLANS } from '../config/plans.js';
 import { assemblePlans, normalizePlanOrder, orderPlans, visiblePlans } from '../services/platformConfig.js';
 
 describe('plan catalog', () => {
@@ -36,5 +36,15 @@ describe('plan catalog', () => {
       'basic',
       'core',
     ]);
+  });
+
+  it('uses saved includes lines and falls back to defaults when unset', () => {
+    const plans = assemblePlans({
+      basic: { highlights: ['  Custom line  ', 'Custom line', ''] },
+      launch: { name: 'Launch', monthlyPriceCents: 7900, highlights: [] },
+    });
+    expect(plans.find((plan) => plan.key === 'basic')?.highlights).toEqual(['Custom line']);
+    expect(plans.find((plan) => plan.key === 'core')?.highlights).toEqual(DEFAULT_PLAN_HIGHLIGHTS.core);
+    expect(plans.find((plan) => plan.key === 'launch')?.highlights).toEqual([]);
   });
 });

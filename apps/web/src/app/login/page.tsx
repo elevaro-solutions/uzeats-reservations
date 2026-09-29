@@ -38,7 +38,16 @@ function LoginContent() {
   const prefillPhone = search.get('phone') ?? undefined;
   const prefillSmsOptIn = search.get('smsOptIn') === '1';
 
-  const goNext = () => {
+  const goNext = (signedIn?: { needsEmailVerification?: boolean }) => {
+    if (signedIn?.needsEmailVerification) {
+      const next = search.get('next');
+      router.push(
+        isSafeInternalPath(next)
+          ? `/verify-email?next=${encodeURIComponent(next)}`
+          : '/verify-email',
+      );
+      return;
+    }
     const next = search.get('next');
     router.push(isSafeInternalPath(next) ? next : '/');
   };
@@ -49,7 +58,7 @@ function LoginContent() {
       const signedIn = await loginWithGoogle(idToken);
       if (signedIn.role !== 'diner') return;
       message.success('Signed in with Google');
-      goNext();
+      goNext(signedIn);
     } catch (err) {
       message.error(err instanceof Error ? err.message : 'Google sign-in failed');
     } finally {
@@ -84,7 +93,7 @@ function LoginContent() {
                     const signedIn = await login(values.email, values.password);
                     if (signedIn.role !== 'diner') return;
                     message.success('Signed in');
-                    goNext();
+                    goNext(signedIn);
                   } catch (err) {
                     message.error(
                       err instanceof Error ? err.message : 'Login failed',
@@ -161,7 +170,7 @@ function LoginContent() {
                 onFinish={async (values) => {
                   setLoading(true);
                   try {
-                    await register({
+                    const signedUp = await register({
                       email: values.email,
                       password: values.password,
                       firstName: values.firstName,
@@ -184,8 +193,12 @@ function LoginContent() {
                         // Account is created; SMS prefs can be fixed in profile.
                       }
                     }
-                    message.success('Account created');
-                    goNext();
+                    message.success(
+                      signedUp.needsEmailVerification
+                        ? 'Account created — verify your email to continue'
+                        : 'Account created',
+                    );
+                    goNext(signedUp);
                   } catch (err) {
                     const raw = getGraphQLErrorMessage(err, 'Registration failed');
                     message.error(

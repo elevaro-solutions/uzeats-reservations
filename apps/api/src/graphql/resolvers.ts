@@ -11,6 +11,8 @@ import {
   updateReservationInputSchema,
   waitlistInputSchema,
   reviewInputSchema,
+  updateReviewInputSchema,
+  reviewReactionSchema,
   notificationPreferencesSchema,
   searchRestaurantsSchema,
   discoveryIndexInputSchema,
@@ -37,7 +39,9 @@ import {
   REVIEW_REPORT_DETAILS_MAX,
   formatReviewFlagReason,
   isReviewReportReason,
+  isReviewSort,
   type ReviewReportReason,
+  type ReviewSort,
 } from "@reservations/shared";
 import {
   isReservationDatePeriod,
@@ -92,6 +96,9 @@ import {
   resetPassword,
   adminCreatePasswordReset,
   hashOpaqueToken,
+  verifyEmailCode,
+  resendVerificationEmail,
+  userNeedsEmailVerification,
 } from "../services/auth.js";
 import {
   acceptManagerInvite,
@@ -166,6 +173,10 @@ import {
   reverseReviewPoints,
 } from "../services/loyalty.js";
 import { generateReviewReplyDraft } from "../services/reviewReplyDraft.js";
+import { recomputePublicReviewStats } from "../services/reviewStats.js";
+import { respondToReviewReport, replyToReviewReport } from "../services/reviewReportResponse.js";
+import { ReviewReaction } from "../models/ReviewReaction.js";
+import { generatePlanPackageDescription } from "../services/planDescription.js";
 import {
   getMyRestaurantLoyaltyBalances,
   getRestaurantLoyaltyBalance,
@@ -212,7 +223,6 @@ import {
   AuditLog,
   Subscription,
   CoverFee,
-  Invoice,
   Experience,
   Ticket,
   RestaurantPackage,
@@ -311,7 +321,7 @@ import {
 } from "../services/notifications.js";
 import { requireFeature } from "../services/plans.js";
 import { getManagerSeatsUsage } from "../services/managerSeats.js";
-import { normalizeManagerSeats } from "../config/plans.js";
+import { normalizeManagerSeats, sanitizePlanHighlights } from "../config/plans.js";
 import { executeCampaign, scheduleCampaign } from "../services/campaigns.js";
 import {
   buildPreShiftReport,
@@ -333,6 +343,7 @@ import {
   getAnnualBillingSettings,
   mapAnnualBillingSettings,
   isFeatureEnabled,
+  gatePlanSmsForClients,
   pickDiscountOverrides,
   toPlainPlanOverride,
   uniquePlanKey,
@@ -340,6 +351,7 @@ import {
 import { getDeveloperInfo } from "../services/developerInfo.js";
 import {
   confirmInvoicePayment,
+  countOpenInvoices,
   createManualInvoice,
   ensureInvoicePayLink,
   exportInvoicePdf,
@@ -403,6 +415,11 @@ function mapSubscription(sub: any, opts?: { includeStripeIds?: boolean }) {
   };
 }
 
+async function gateSubscriptionFeaturesForSms(features: Record<string, unknown>) {
+  if (await isFeatureEnabled("sms")) return features;
+  return { ...features, premiumSms: false, premiumSmsAddon: false };
+}
+
 async function assertRestaurantAccess(
   userId: string,
   restaurantId: string,
@@ -424,6 +441,22 @@ function assertCanManageBilling(role: string) {
   }
 }
 
+/** Mongo sort for public `restaurantReviews`. Rating ties break on newest. */
+function reviewMongoSort(sort?: ReviewSort | null): Record<string, 1 | -1> {
+  const key = sort && isReviewSort(sort) ? sort : "newest";
+  switch (key) {
+    case "oldest":
+      return { createdAt: 1 };
+    case "highest":
+      return { rating: -1, createdAt: -1 };
+    case "lowest":
+      return { rating: 1, createdAt: -1 };
+    case "newest":
+    default:
+      return { createdAt: -1 };
+  }
+}
+
 export const resolvers = {
   DateTime: {
     serialize: (v: Date | string) => (v instanceof Date ? v.toISOString() : v),
@@ -434,6 +467,15 @@ export const resolvers = {
 
   User: {
     id: (u: { id: string }) => u.id,
+    needsEmailVerification: async (u: {
+      email?: string | null;
+      emailVerified?: boolean | null;
+    }) => userNeedsEmailVerification(u),
+  },
+
+  SubscriptionType: {
+    features: async (sub: { features?: Record<string, unknown> }) =>
+      gateSubscriptionFeaturesForSms(sub.features ?? {}),
   },
 
   Restaurant: {
@@ -561,6 +603,48 @@ export const resolvers = {
       _: unknown,
       ctx: GraphQLContext,
     ) => ctx.loaders.restaurantById.load(r.restaurantId),
+    reportResponses: async (
+      r: { restaurantId: string; reportResponses?: unknown[] },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => {
+      if (!ctx.user) return [];
+      if (!isPlatformAdmin(ctx.user.role)) {
+        try {
+          await assertRestaurantAccess(
+            ctx.user._id.toString(),
+            r.restaurantId,
+            ctx.user.role,
+          );
+        } catch {
+          return [];
+        }
+      }
+      return r.reportResponses ?? [];
+    },
+    reactionCounts: async (
+      r: { id: string },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => ctx.loaders.reviewReactionCounts.load(r.id),
+    myReaction: async (
+      r: { id: string },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => ctx.loaders.myReviewReaction.load(r.id),
+  },
+
+  ReviewReportResponse: {
+    authorName: async (
+      r: { authorId?: string | null },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => {
+      if (!r.authorId) return null;
+      const user = await ctx.loaders.userById.load(r.authorId);
+      if (!user) return null;
+      return `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || null;
+    },
   },
 
   AuditLog: {
@@ -1161,7 +1245,12 @@ export const resolvers = {
 
     restaurantReviews: async (
       _: unknown,
-      args: { restaurantId: string; limit?: number; offset?: number },
+      args: {
+        restaurantId: string;
+        limit?: number;
+        offset?: number;
+        sort?: ReviewSort | null;
+      },
       ctx: GraphQLContext,
     ) => {
       // Owners see hidden reviews too; the public does not.
@@ -1183,7 +1272,7 @@ export const resolvers = {
       };
       if (!includeHidden) filter.hidden = { $ne: true };
       return paginateQuery(Review, filter, {
-        sort: { createdAt: -1 },
+        sort: reviewMongoSort(args.sort),
         limit: args.limit,
         offset: args.offset,
         defaultLimit: 50,
@@ -1230,6 +1319,20 @@ export const resolvers = {
           { ownerReply: "" },
         ],
       });
+    },
+
+    restaurantOpenInvoiceCount: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      return countOpenInvoices(args.restaurantId);
     },
 
     myLoyalty: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
@@ -1526,9 +1629,7 @@ export const resolvers = {
           { $match: { status: { $in: ["active", "past_due"] } } },
           { $group: { _id: null, mrrCents: { $sum: "$monthlyPriceCents" } } },
         ]),
-        Invoice.countDocuments({
-          status: { $in: ["pending", "overdue", "upcoming"] },
-        }),
+        countOpenInvoices(),
       ]);
       return {
         users,
@@ -1546,12 +1647,14 @@ export const resolvers = {
 
     adminPendingRequestCounts: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       requireAdmin(ctx);
-      const [slugRequests, profileChangeRequests, moderationItems] = await Promise.all([
-        pendingRestaurantSlugRequestCount(),
-        pendingRestaurantProfileChangeRequestCount(),
-        pendingFlaggedContentCount(),
-      ]);
-      return { slugRequests, profileChangeRequests, moderationItems };
+      const [slugRequests, profileChangeRequests, moderationItems, openInvoices] =
+        await Promise.all([
+          pendingRestaurantSlugRequestCount(),
+          pendingRestaurantProfileChangeRequestCount(),
+          pendingFlaggedContentCount(),
+          countOpenInvoices(),
+        ]);
+      return { slugRequests, profileChangeRequests, moderationItems, openInvoices };
     },
 
     loyaltyProgram: async () => getLoyaltyProgram(),
@@ -1880,7 +1983,14 @@ export const resolvers = {
       };
     },
 
-    plans: async () => getEffectivePlans(),
+    plans: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      const plans = await getEffectivePlans();
+      // Admins edit raw package features; partners/public hide SMS when kill switch is off.
+      if (ctx.user && isPlatformAdmin(ctx.user.role)) return plans;
+      const smsEnabled = await isFeatureEnabled("sms");
+      if (smsEnabled) return plans;
+      return plans.map((plan) => gatePlanSmsForClients(plan, false));
+    },
 
     managerInviteByToken: async (_: unknown, args: { token: string }) => {
       if (!args.token?.trim()) throw new Error("Invite token is required");
@@ -1902,6 +2012,11 @@ export const resolvers = {
       ),
 
     annualBillingSettings: async () => getAnnualBillingSettings(),
+
+    platformFeatureFlags: async () => {
+      const doc = await getPlatformConfig();
+      return mapPlatformConfig(doc).featureFlags;
+    },
 
     adminInvoices: async (
       _: unknown,
@@ -1935,7 +2050,13 @@ export const resolvers = {
       args: { id: string },
       ctx: GraphQLContext,
     ) => {
-      requireAdmin(ctx);
+      const user = requireAuth(ctx);
+      const invoice = await getInvoiceById(args.id);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        invoice.restaurantId,
+        user.role,
+      );
       return exportInvoicePdf(args.id);
     },
 
@@ -2085,6 +2206,21 @@ export const resolvers = {
         limit: args.limit,
         offset: args.offset,
       });
+    },
+
+    restaurantInvoice: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const invoice = await getInvoiceById(args.id);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        invoice.restaurantId,
+        user.role,
+      );
+      return invoice;
     },
 
     myRestaurantGroups: async (
@@ -3059,6 +3195,7 @@ export const resolvers = {
       return {
         ...authPayloadTokens(ctx.req, result),
         user: mapUser(result.user),
+        devCode: result.devCode ?? null,
       };
     },
 
@@ -3080,6 +3217,7 @@ export const resolvers = {
         }),
         clientSecret: result.subscription.clientSecret ?? null,
         paymentMode: result.subscription.paymentMode ?? null,
+        devCode: result.devCode ?? null,
       };
     },
 
@@ -3095,6 +3233,7 @@ export const resolvers = {
       return {
         ...authPayloadTokens(ctx.req, result),
         user: mapUser(result.user),
+        devCode: null,
       };
     },
 
@@ -3109,6 +3248,7 @@ export const resolvers = {
       return {
         ...authPayloadTokens(ctx.req, result),
         user: mapUser(result.user),
+        devCode: null,
       };
     },
 
@@ -3198,6 +3338,24 @@ export const resolvers = {
     ) => {
       const newPassword = passwordSchema.parse(args.newPassword);
       return resetPassword(args.token, newPassword);
+    },
+
+    verifyEmail: async (
+      _: unknown,
+      args: { code: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      return verifyEmailCode(user._id.toString(), args.code);
+    },
+
+    resendVerificationEmail: async (
+      _: unknown,
+      __: unknown,
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      return resendVerificationEmail(user._id.toString());
     },
 
     acceptManagerInvite: async (
@@ -4028,22 +4186,7 @@ export const resolvers = {
         photos: input.photos ?? [],
       });
 
-      const stats = await Review.aggregate([
-        { $match: { restaurantId: reservation.restaurantId } },
-        {
-          $group: {
-            _id: "$restaurantId",
-            averageRating: { $avg: "$rating" },
-            reviewCount: { $sum: 1 },
-          },
-        },
-      ]);
-      if (stats[0]) {
-        await Restaurant.findByIdAndUpdate(reservation.restaurantId, {
-          averageRating: Math.round(stats[0].averageRating * 10) / 10,
-          reviewCount: stats[0].reviewCount,
-        });
-      }
+      await recomputePublicReviewStats(reservation.restaurantId);
 
       await awardReviewPoints(user._id.toString(), reservation._id.toString());
 
@@ -4066,6 +4209,82 @@ export const resolvers = {
           reservationId: reservation._id.toString(),
         },
       });
+
+      return mapReview(review);
+    },
+
+    updateReview: async (
+      _: unknown,
+      args: { reviewId: string; input: unknown },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      if (!(await isFeatureEnabled("reviews"))) {
+        throw new Error("Reviews are temporarily unavailable");
+      }
+      const input = updateReviewInputSchema.parse(args.input);
+      const review = await Review.findById(args.reviewId);
+      if (!review) throw new NotFoundError("Review");
+      if (!review.dinerId.equals(user._id)) {
+        throw new ForbiddenError("Only the review author can edit this review");
+      }
+
+      review.rating = input.rating;
+      if (input.foodRating != null) review.foodRating = input.foodRating;
+      else review.foodRating = undefined;
+      if (input.serviceRating != null) review.serviceRating = input.serviceRating;
+      else review.serviceRating = undefined;
+      if (input.atmosphereRating != null) {
+        review.atmosphereRating = input.atmosphereRating;
+      } else {
+        review.atmosphereRating = undefined;
+      }
+      review.comment = input.comment ?? "";
+      review.photos = input.photos ?? [];
+      await review.save();
+      await recomputePublicReviewStats(review.restaurantId);
+      return mapReview(review);
+    },
+
+    reactToReview: async (
+      _: unknown,
+      args: { reviewId: string; reaction: string },
+      ctx: GraphQLContext,
+    ) => {
+      if (!(await isFeatureEnabled("reviews"))) {
+        throw new Error("Reviews are temporarily unavailable");
+      }
+      const reaction = reviewReactionSchema.parse(args.reaction);
+      const review = await Review.findById(args.reviewId);
+      if (!review) throw new NotFoundError("Review");
+      if (review.hidden) throw new NotFoundError("Review");
+
+      const user = ctx.user;
+      const visitorKey = user ? null : ctx.visitorKey;
+      if (!user && !visitorKey) {
+        throw new ValidationError("Missing visitor key");
+      }
+      if (user && review.dinerId.equals(user._id)) {
+        throw new ValidationError("You cannot react to your own review");
+      }
+
+      const identityFilter = user
+        ? { reviewId: review._id, userId: user._id }
+        : { reviewId: review._id, visitorKey: visitorKey! };
+
+      const existing = await ReviewReaction.findOne(identityFilter);
+      if (existing && existing.type === reaction) {
+        await existing.deleteOne();
+      } else if (existing) {
+        existing.type = reaction;
+        await existing.save();
+      } else {
+        await ReviewReaction.create({
+          reviewId: review._id,
+          ...(user ? { userId: user._id } : { visitorKey: visitorKey! }),
+          type: reaction,
+        });
+      }
 
       return mapReview(review);
     },
@@ -4196,6 +4415,10 @@ export const resolvers = {
           notes?: string | null;
           description?: string | null;
           markPaid?: boolean | null;
+          paidJustification?: string | null;
+          forceCreate?: boolean | null;
+          replaceExisting?: boolean | null;
+          duplicateJustification?: string | null;
         };
       },
       ctx: GraphQLContext,
@@ -4216,6 +4439,13 @@ export const resolvers = {
           serviceIds: args.input.serviceIds,
           packageDurationMonths: args.input.packageDurationMonths,
           markPaid: Boolean(args.input.markPaid),
+          paidJustification: args.input.paidJustification ?? null,
+          forceCreate: Boolean(args.input.forceCreate),
+          replaceExisting: Boolean(args.input.replaceExisting),
+          duplicateJustification: args.input.duplicateJustification ?? null,
+          replacedExisting: Boolean(
+            args.input.forceCreate && args.input.replaceExisting,
+          ),
         },
       });
       return invoice;
@@ -4411,6 +4641,12 @@ export const resolvers = {
           (doc as any)[key] = args.input[key];
         }
       }
+      if (args.input.requireSignupEmailVerification !== undefined) {
+        requireSuperAdmin(ctx);
+        (doc as any).requireSignupEmailVerification = Boolean(
+          args.input.requireSignupEmailVerification,
+        );
+      }
       if (
         args.input.featureFlags &&
         typeof args.input.featureFlags === "object"
@@ -4477,6 +4713,7 @@ export const resolvers = {
           trialDays?: number;
           managerSeats?: number;
           visibleOnPricing?: boolean;
+          highlights?: string[] | null;
           features?: Record<string, boolean>;
         };
       },
@@ -4533,6 +4770,9 @@ export const resolvers = {
         ...(args.input.visibleOnPricing !== undefined
           ? { visibleOnPricing: args.input.visibleOnPricing }
           : {}),
+        ...(args.input.highlights !== undefined
+          ? { highlights: sanitizePlanHighlights(args.input.highlights) }
+          : {}),
         ...(args.input.features !== undefined
           ? {
               features: {
@@ -4581,6 +4821,7 @@ export const resolvers = {
           trialDays?: number;
           managerSeats?: number;
           visibleOnPricing?: boolean;
+          highlights?: string[] | null;
           features?: Record<string, boolean>;
         };
       },
@@ -4614,6 +4855,9 @@ export const resolvers = {
         trialDays: args.input.trialDays ?? 0,
         managerSeats: normalizeManagerSeats(args.input.managerSeats),
         visibleOnPricing: args.input.visibleOnPricing !== false,
+        ...(args.input.highlights !== undefined
+          ? { highlights: sanitizePlanHighlights(args.input.highlights) }
+          : {}),
         features: args.input.features ?? {},
       };
 
@@ -4702,6 +4946,23 @@ export const resolvers = {
         details: { planOrder },
       });
       return getEffectivePlans();
+    },
+
+    generatePlanPackageDescription: async (
+      _: unknown,
+      args: {
+        input: {
+          name: string;
+          highlights?: string[] | null;
+          featureLabels?: string[] | null;
+          managerSeats?: number | null;
+          monthlyPriceCents?: number | null;
+        };
+      },
+      ctx: GraphQLContext,
+    ) => {
+      requireSuperAdmin(ctx);
+      return generatePlanPackageDescription(args.input);
     },
 
     createSubscription: async (
@@ -6007,6 +6268,37 @@ export const resolvers = {
       return mapReview(review);
     },
 
+    respondToReviewReport: async (
+      _: unknown,
+      args: { reviewId: string; body: string; attachments?: unknown },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireAdmin(ctx);
+      const review = await respondToReviewReport({
+        reviewId: args.reviewId,
+        adminId: admin._id.toString(),
+        body: args.body,
+        attachments: args.attachments,
+      });
+      return mapReview(review);
+    },
+
+    replyToReviewReport: async (
+      _: unknown,
+      args: { reviewId: string; body: string; attachments?: unknown },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const review = await replyToReviewReport({
+        reviewId: args.reviewId,
+        userId: user._id.toString(),
+        userRole: user.role,
+        body: args.body,
+        attachments: args.attachments,
+      });
+      return mapReview(review);
+    },
+
     setReviewHidden: async (
       _: unknown,
       args: { reviewId: string; hidden: boolean },
@@ -6018,6 +6310,7 @@ export const resolvers = {
       if (!review) throw new Error("Review not found");
       review.hidden = args.hidden;
       await review.save();
+      await recomputePublicReviewStats(review.restaurantId);
       return mapReview(review);
     },
 
@@ -6040,28 +6333,8 @@ export const resolvers = {
       const reservationId = review.reservationId.toString();
 
       await review.deleteOne();
-
-      const stats = await Review.aggregate([
-        { $match: { restaurantId } },
-        {
-          $group: {
-            _id: "$restaurantId",
-            averageRating: { $avg: "$rating" },
-            reviewCount: { $sum: 1 },
-          },
-        },
-      ]);
-      if (stats[0]) {
-        await Restaurant.findByIdAndUpdate(restaurantId, {
-          averageRating: Math.round(stats[0].averageRating * 10) / 10,
-          reviewCount: stats[0].reviewCount,
-        });
-      } else {
-        await Restaurant.findByIdAndUpdate(restaurantId, {
-          averageRating: 0,
-          reviewCount: 0,
-        });
-      }
+      await ReviewReaction.deleteMany({ reviewId: args.reviewId });
+      await recomputePublicReviewStats(restaurantId);
 
       await reverseReviewPoints(dinerId, reservationId);
       return true;
@@ -6731,6 +7004,9 @@ export const resolvers = {
         user.role,
       );
       assertCanManageBilling(user.role);
+      if (!(await isFeatureEnabled("sms"))) {
+        throw new Error("Premium SMS is not available on this platform");
+      }
       const sub = await Subscription.findOne({
         restaurantId: args.restaurantId,
       });

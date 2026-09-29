@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Pressable } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
 import { Flex, RemoteImage, StarRatingDisplay, Typography, UserAvatar } from "@/components";
@@ -12,6 +14,13 @@ export type ReviewCardProps = {
 };
 
 export function ReviewCard({ review, isLast = false }: ReviewCardProps) {
+  const [expanded, setExpanded] = useState(false);
+  const comment = review.comment?.trim() ?? "";
+  const hasOwnerReply = Boolean(review.ownerReply?.trim());
+  const commentNeedsClamp = comment.length > 140;
+  const canExpand = commentNeedsClamp || hasOwnerReply;
+  const showFull = expanded || !canExpand;
+
   return (
     <Flex gap={1.5} style={[styles.card, isLast ? styles.cardLast : undefined]}>
       <Flex
@@ -46,10 +55,30 @@ export function ReviewCard({ review, isLast = false }: ReviewCardProps) {
         </Typography>
       </Flex>
 
-      {review.comment?.trim() ? (
-        <Typography size="text-sm" color="secondary" style={styles.comment}>
-          {review.comment}
-        </Typography>
+      {comment ? (
+        <Flex gap={0.5}>
+          <Typography
+            size="text-sm"
+            color="secondary"
+            style={styles.comment}
+            numberOfLines={showFull ? undefined : 2}
+          >
+            {comment}
+          </Typography>
+          {canExpand ? (
+            <Pressable onPress={() => setExpanded((value) => !value)} hitSlop={8}>
+              <Typography size="text-sm" weight="semibold" color="primary">
+                {expanded ? "Show less" : "Read more"}
+              </Typography>
+            </Pressable>
+          ) : null}
+        </Flex>
+      ) : hasOwnerReply ? (
+        <Pressable onPress={() => setExpanded((value) => !value)} hitSlop={8}>
+          <Typography size="text-sm" weight="semibold" color="primary">
+            {expanded ? "Show less" : "Read more"}
+          </Typography>
+        </Pressable>
       ) : null}
 
       {review.foodRating != null ||
@@ -87,7 +116,7 @@ export function ReviewCard({ review, isLast = false }: ReviewCardProps) {
         </Flex>
       ) : null}
 
-      {review.ownerReply?.trim() ? (
+      {expanded && review.ownerReply?.trim() ? (
         <Flex style={styles.reply} gap={0.75}>
           <Typography size="text-xs" weight="semibold">
             Response from the restaurant

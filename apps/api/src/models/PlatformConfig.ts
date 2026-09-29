@@ -21,6 +21,8 @@ const planOverrideSchema = new Schema(
     /** Owner-invited manager seats included with this package (≥1). */
     managerSeats: { type: Number, min: 1, max: 100 },
     visibleOnPricing: { type: Boolean, default: true },
+    /** Public pricing card “Includes” lines. Absent means built-in defaults. */
+    highlights: { type: [String], default: undefined },
     features: { type: Schema.Types.Mixed },
   },
   { _id: false },
@@ -75,6 +77,8 @@ const platformConfigSchema = new Schema(
     allowPublicRegistration: { type: Boolean, default: true },
     allowPartnerRegistration: { type: Boolean, default: true },
     requireAdminDelete2FA: { type: Boolean, default: true },
+    /** When true, new email signups stay unverified until they confirm. Unset → env default (prod on, local off). */
+    requireSignupEmailVerification: { type: Boolean },
     invoicePrefix: { type: String, default: 'INV' },
     currency: { type: String, default: 'usd' },
     featureFlags: {
@@ -87,6 +91,8 @@ const platformConfigSchema = new Schema(
       experiences: { type: Boolean, default: true },
       campaigns: { type: Boolean, default: true },
       widget: { type: Boolean, default: true },
+      /** Premium SMS / guest SMS product (not auth OTP). */
+      sms: { type: Boolean, default: true },
     },
     planOverrides: {
       type: Map,

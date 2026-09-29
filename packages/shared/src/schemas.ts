@@ -9,6 +9,7 @@ import {
   CUISINES,
   WAITLIST_STATUSES,
   REVIEW_MAX_PHOTOS,
+  REVIEW_REACTIONS,
   OWNER_SUPPORT_TICKET_SUBJECT_KEYS,
   SUPPORT_TICKET_ATTACHMENT_CONTENT_TYPES,
   SUPPORT_TICKET_ATTACHMENT_MAX_BYTES,
@@ -330,6 +331,12 @@ export const reviewInputSchema = z.object({
     .optional(),
 });
 
+export const updateReviewInputSchema = reviewInputSchema.omit({
+  reservationId: true,
+});
+
+export const reviewReactionSchema = z.enum(REVIEW_REACTIONS);
+
 export const notificationChannelPreferencesSchema = z.object({
   sms: z.boolean().nullish(),
   email: z.boolean().nullish(),
@@ -528,6 +535,8 @@ export type UpdateReservationInput = z.infer<
 >;
 export type WaitlistInput = z.infer<typeof waitlistInputSchema>;
 export type ReviewInput = z.infer<typeof reviewInputSchema>;
+export type UpdateReviewInput = z.infer<typeof updateReviewInputSchema>;
+export type ReviewReactionInput = z.infer<typeof reviewReactionSchema>;
 export type NotificationPreferencesInput = z.infer<
   typeof notificationPreferencesSchema
 >;
@@ -661,6 +670,27 @@ export const ownerSupportTicketInputSchema = z
   });
 
 export type OwnerSupportTicketInput = z.infer<typeof ownerSupportTicketInputSchema>;
+
+export const reviewReportResponseInputSchema = z
+  .object({
+    body: z.string().trim().max(5000).default(""),
+    attachments: z
+      .array(ownerSupportAttachmentInputSchema)
+      .max(SUPPORT_TICKET_ATTACHMENT_MAX_COUNT)
+      .optional()
+      .default([]),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.body && value.attachments.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Write a response or attach an image",
+        path: ["body"],
+      });
+    }
+  });
+
+export type ReviewReportResponseInput = z.infer<typeof reviewReportResponseInputSchema>;
 
 export const ownerSupportReplyInputSchema = z
   .object({

@@ -3,6 +3,7 @@ export class AppError extends Error {
     message: string,
     public code: string,
     public statusCode: number = 400,
+    public details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'AppError';
@@ -34,8 +35,8 @@ export class ValidationError extends AppError {
 }
 
 export class ConflictError extends AppError {
-  constructor(message: string) {
-    super(message, 'CONFLICT', 409);
+  constructor(message: string, details?: Record<string, unknown>) {
+    super(message, 'CONFLICT', 409, details);
   }
 }
 

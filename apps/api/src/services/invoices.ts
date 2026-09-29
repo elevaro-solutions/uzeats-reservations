@@ -9,6 +9,7 @@ import { Invoice } from '../models/Invoice.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { Subscription } from '../models/Subscription.js';
 import { env } from '../config/env.js';
+import { ConflictError, ValidationError } from '../lib/errors.js';
 import { type ExportPayload } from './adminExport.js';
 import { brandedInvoiceExportPayload } from './invoicePdf.js';
 import {
@@ -232,25 +233,52 @@ export async function createManualInvoice(input: {
   notes?: string | null;
   description?: string | null;
   markPaid?: boolean | null;
+  paidJustification?: string | null;
+  forceCreate?: boolean | null;
+  replaceExisting?: boolean | null;
+  duplicateJustification?: string | null;
 }) {
   const period = input.billingPeriod.trim();
   periodBounds(period);
 
   const amountCents = Math.round(Number(input.amountCents));
   if (!Number.isFinite(amountCents) || amountCents < 0) {
-    throw new Error('amountCents must be a non-negative integer');
+    throw new ValidationError('amountCents must be a non-negative integer');
   }
 
   const restaurant = await Restaurant.findById(input.restaurantId).select('name');
   if (!restaurant) throw new Error('Restaurant not found');
 
-  const existing = await Invoice.findOne({
-    restaurantId: input.restaurantId,
-    billingPeriod: period,
-  });
-  if (existing) {
-    throw new Error(
-      `Invoice already exists for this restaurant and period (${period}). Cancel or change period first.`,
+  // Prefer a non-canceled invoice for the period (unique index is restaurant+period).
+  const existing =
+    (await Invoice.findOne({
+      restaurantId: input.restaurantId,
+      billingPeriod: period,
+      status: { $ne: 'canceled' },
+    })) ||
+    (await Invoice.findOne({
+      restaurantId: input.restaurantId,
+      billingPeriod: period,
+    }));
+  const forceCreate = Boolean(input.forceCreate);
+  const replaceExisting = Boolean(input.replaceExisting);
+  const duplicateJustification = input.duplicateJustification?.trim() || '';
+  if (existing && !forceCreate) {
+    throw new ConflictError(
+      `An invoice already exists for this restaurant and period (${existing.number}).`,
+      {
+        invoiceId: existing._id.toString(),
+        invoiceNumber: existing.number,
+        status: existing.status,
+        totalCents: existing.totalCents,
+        currency: existing.currency || 'usd',
+        billingPeriod: existing.billingPeriod,
+      },
+    );
+  }
+  if (existing && forceCreate && duplicateJustification.length < 3) {
+    throw new ValidationError(
+      'Justification is required to create an invoice when one already exists for this period',
     );
   }
 
@@ -258,7 +286,22 @@ export async function createManualInvoice(input: {
   const config = await getPlatformConfig();
   const prefix = config.invoicePrefix || 'INV';
   const currency = config.currency || 'usd';
-  const status = input.markPaid ? 'paid' : invoiceStatusForDueDate(dueDate);
+  const markPaid = Boolean(input.markPaid);
+  const paidJustification = input.paidJustification?.trim() || '';
+  if (markPaid && paidJustification.length < 3) {
+    throw new ValidationError('Justification is required when marking an invoice as paid');
+  }
+  const status = markPaid ? 'paid' : invoiceStatusForDueDate(dueDate);
+  const noteParts = [
+    existing && forceCreate && replaceExisting
+      ? `Replaced ${existing.number}: ${duplicateJustification}`
+      : existing && forceCreate
+        ? `Created despite ${existing.number} (canceled): ${duplicateJustification}`
+        : null,
+    markPaid ? `Marked paid: ${paidJustification}` : null,
+    input.notes?.trim() || null,
+  ].filter(Boolean);
+  const notes = noteParts.length ? noteParts.join('\n') : undefined;
 
   const billingCycle =
     input.billingCycle === 'annual' || input.billingCycle === 'monthly'
@@ -332,7 +375,7 @@ export async function createManualInvoice(input: {
   }
 
   if (packageDurationMonths != null && packageDurationMonths < 1) {
-    throw new Error('packageDurationMonths must be at least 1');
+    throw new ValidationError('packageDurationMonths must be at least 1');
   }
 
   const originalFromInput =
@@ -346,13 +389,43 @@ export async function createManualInvoice(input: {
         ? catalogTotal
         : undefined;
 
-  // Scale line amounts to the editable total when lines came from catalog.
-  if (lines.length && catalogTotal > 0 && amountCents !== catalogTotal) {
-    // Keep line catalog amounts; put the negotiated total on the invoice totals.
-    // Line display still shows catalog; invoice total is the charged amount.
+  const sub = await Subscription.findOne({ restaurantId: input.restaurantId });
+
+  if (existing && forceCreate && replaceExisting) {
+    existing.subscriptionId = sub?._id;
+    existing.status = status;
+    existing.currency = currency;
+    existing.subtotalCents = amountCents;
+    existing.totalCents = amountCents;
+    existing.originalTotalCents = originalTotalCents;
+    existing.set('lines', lines);
+    existing.dueDate = dueDate;
+    existing.paidAt = markPaid ? new Date() : undefined;
+    existing.canceledAt = undefined;
+    existing.notes = notes;
+    existing.packageDurationMonths = packageDurationMonths ?? undefined;
+    existing.planKey = planKey ?? undefined;
+    existing.billingCycle = billingCycle ?? undefined;
+    existing.serviceIds = serviceIds as typeof existing.serviceIds;
+    if (!existing.payToken) existing.payToken = newPayToken();
+    existing.stripePaymentIntentId = undefined;
+    await existing.save();
+    return mapInvoice(existing, restaurant.name);
   }
 
-  const sub = await Subscription.findOne({ restaurantId: input.restaurantId });
+  if (existing && forceCreate && !replaceExisting) {
+    // Free the unique (restaurantId, billingPeriod) slot so a new invoice can be created.
+    const cancelNote = `Canceled for duplicate-period create: ${duplicateJustification}`;
+    existing.status = 'canceled';
+    existing.canceledAt = existing.canceledAt ?? new Date();
+    existing.notes = existing.notes?.trim()
+      ? `${existing.notes.trim()}\n${cancelNote}`
+      : cancelNote;
+    // Move canceled invoice off the period key so the unique index allows the new doc.
+    existing.billingPeriod = `${period}~canceled-${existing.number}`;
+    await existing.save();
+  }
+
   const countForPeriod = await Invoice.countDocuments({ billingPeriod: period });
   const seq = String(countForPeriod + 1).padStart(4, '0');
   const number = `${prefix}-${period.replace('-', '')}-M${seq}`;
@@ -370,8 +443,8 @@ export async function createManualInvoice(input: {
     originalTotalCents,
     lines,
     dueDate,
-    paidAt: input.markPaid ? new Date() : undefined,
-    notes: input.notes?.trim() || undefined,
+    paidAt: markPaid ? new Date() : undefined,
+    notes,
     packageDurationMonths: packageDurationMonths ?? undefined,
     planKey: planKey ?? undefined,
     billingCycle: billingCycle ?? undefined,
@@ -564,6 +637,16 @@ export async function listInvoices(input: {
     total,
     items: items.map((doc) => mapInvoice(doc, nameById.get(doc.restaurantId.toString()))),
   };
+}
+
+/** Unpaid invoices with a balance (sidebar badge / admin open-invoice stats). */
+export async function countOpenInvoices(restaurantId?: string) {
+  const filter: Record<string, unknown> = {
+    status: { $in: ['pending', 'overdue', 'upcoming'] },
+    totalCents: { $gt: 0 },
+  };
+  if (restaurantId?.trim()) filter.restaurantId = restaurantId.trim();
+  return Invoice.countDocuments(filter);
 }
 
 export type InvoiceStatusValue = 'upcoming' | 'pending' | 'paid' | 'canceled' | 'overdue';

@@ -140,7 +140,10 @@ async function main() {
       if (original instanceof AppError) {
         return {
           message: original.message,
-          extensions: { code: original.code },
+          extensions: {
+            code: original.code,
+            ...(original.details ?? {}),
+          },
         };
       }
 

@@ -5,15 +5,20 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useLazyQuery, useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
+  Alert,
   Button,
   Card,
   Checkbox,
+  Col,
   DatePicker,
+  Divider,
   Dropdown,
   Form,
   Input,
   InputNumber,
   Modal,
+  Row,
+  Segmented,
   Select,
   Space,
   Table,
@@ -34,7 +39,7 @@ import {
   MoreOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import { PageHeader, spacing } from '@reservations/ui';
+import { PageHeader, colors, radii, spacing } from '@reservations/ui';
 import {
   getPlanPriceDisplay,
   planForBillingPeriod,
@@ -117,6 +122,7 @@ type ManualInvoiceForm = {
   description?: string;
   notes?: string;
   markPaid?: boolean;
+  paidJustification?: string;
 };
 
 function AdminInvoicesContent() {
@@ -127,11 +133,23 @@ function AdminInvoicesContent() {
   const [period, setPeriod] = useState(currentPeriod());
   const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
   const [manualOpen, setManualOpen] = useState(false);
+  const [duplicateConfirm, setDuplicateConfirm] = useState<{
+    invoiceId: string;
+    invoiceNumber: string;
+    status: string;
+    totalCents: number;
+    currency: string;
+    billingPeriod: string;
+    pendingInput: Record<string, unknown>;
+  } | null>(null);
+  const [duplicateJustification, setDuplicateJustification] = useState('');
+  const [replaceExisting, setReplaceExisting] = useState(false);
   const [manualForm] = Form.useForm<ManualInvoiceForm>();
   const planKey = Form.useWatch('planKey', manualForm);
   const billingCycle = Form.useWatch('billingCycle', manualForm) as BillingPeriod | undefined;
   const serviceIds = Form.useWatch('serviceIds', manualForm) as string[] | undefined;
   const amountDollars = Form.useWatch('amountDollars', manualForm) as number | undefined;
+  const markPaid = Form.useWatch('markPaid', manualForm) as boolean | undefined;
   const { limit, offset, setPagination, tablePagination } = useUrlPagination({
     defaultPageSize: 20,
   });
@@ -166,18 +184,42 @@ function AdminInvoicesContent() {
   const [setInvoiceStatuses, { loading: bulkUpdating }] = useMutation(SET_INVOICE_STATUSES);
 
   const emailConfigured = Boolean(emailConfigData?.emailDeliveryConfigured);
+  const restaurants = useMemo(
+    () =>
+      (restaurantsData?.adminRestaurants?.items ?? []) as Array<{
+        id: string;
+        name: string;
+        subscription?: {
+          plan?: string | null;
+          currentPeriodStart?: string | null;
+          currentPeriodEnd?: string | null;
+        } | null;
+      }>,
+    [restaurantsData],
+  );
   const restaurantOptions = useMemo(
     () =>
-      (restaurantsData?.adminRestaurants?.items ?? []).map((r: { id: string; name: string }) => ({
+      restaurants.map((r) => ({
         value: r.id,
         label: r.name,
       })),
-    [restaurantsData],
+    [restaurants],
   );
 
   const plans = plansData?.plans ?? [];
   const services = servicesData?.platformServices ?? [];
   const annualBilling = configData?.platformConfig?.annualBilling;
+
+  const inferBillingCycle = (sub?: {
+    currentPeriodStart?: string | null;
+    currentPeriodEnd?: string | null;
+  } | null): BillingPeriod => {
+    if (sub?.currentPeriodStart && sub?.currentPeriodEnd) {
+      const months = dayjs(sub.currentPeriodEnd).diff(dayjs(sub.currentPeriodStart), 'month', true);
+      if (months >= 10) return 'annual';
+    }
+    return 'monthly';
+  };
 
   const computeCatalog = (
     nextPlanKey?: string | null,
@@ -238,6 +280,42 @@ function AdminInvoicesContent() {
     });
   };
 
+  const amountCentsPreview = Math.round(Number(amountDollars ?? 0) * 100);
+  const showDiscount =
+    catalog.listCents > 0 &&
+    Number.isFinite(amountCentsPreview) &&
+    amountCentsPreview < catalog.listCents;
+  const cycle: BillingPeriod = billingCycle === 'annual' ? 'annual' : 'monthly';
+  const isAnnual = cycle === 'annual';
+
+  const packageOptions = useMemo(
+    () =>
+      plans.map(
+        (p: {
+          key: string;
+          name: string;
+          monthlyPriceCents: number;
+        }) => {
+          const priced = planForBillingPeriod(p, cycle, {
+            annualBilling,
+            planKey: p.key,
+          });
+          const display = getPlanPriceDisplay(priced);
+          const priceLabel =
+            display.primaryCents === 0
+              ? 'Free'
+              : isAnnual
+                ? `${money(display.primaryCents)}/yr`
+                : `${money(display.primaryCents)}/mo`;
+          return {
+            value: p.key,
+            label: `${p.name} — ${priceLabel}`,
+          };
+        },
+      ),
+    [plans, cycle, isAnnual, annualBilling],
+  );
+
   if (!ready) return null;
 
   const items = data?.adminInvoices?.items ?? [];
@@ -251,12 +329,6 @@ function AdminInvoicesContent() {
   const reopenIds = selected
     .filter((r: { status: string }) => r.status === 'canceled')
     .map((r: { id: string }) => r.id);
-
-  const amountCentsPreview = Math.round(Number(amountDollars ?? 0) * 100);
-  const showDiscount =
-    catalog.listCents > 0 &&
-    Number.isFinite(amountCentsPreview) &&
-    amountCentsPreview < catalog.listCents;
 
   const onGenerate = async () => {
     try {
@@ -282,44 +354,139 @@ function AdminInvoicesContent() {
       serviceIds: [],
       markPaid: false,
     });
+    setDuplicateConfirm(null);
+    setDuplicateJustification('');
     setManualOpen(true);
+  };
+
+  const buildManualInput = (values: ManualInvoiceForm) => {
+    const amountCents = Math.round(Number(values.amountDollars) * 100);
+    if (!Number.isFinite(amountCents) || amountCents < 0) {
+      throw new Error('Enter a valid amount');
+    }
+    const originalAmountCents =
+      catalog.listCents > amountCents ? catalog.listCents : undefined;
+    const durationMonths =
+      (values.billingCycle || 'monthly') === 'annual'
+        ? 12
+        : values.packageDurationMonths || undefined;
+    return {
+      restaurantId: values.restaurantId,
+      billingPeriod: values.billingPeriod.format('YYYY-MM'),
+      dueDate: values.dueDate.toISOString(),
+      amountCents,
+      originalAmountCents,
+      packageDurationMonths: durationMonths,
+      planKey: values.planKey || undefined,
+      billingCycle: values.planKey ? values.billingCycle || 'monthly' : undefined,
+      serviceIds: values.serviceIds?.length ? values.serviceIds : undefined,
+      description: values.description?.trim() || undefined,
+      notes: values.notes?.trim() || undefined,
+      markPaid: Boolean(values.markPaid),
+      paidJustification: values.markPaid
+        ? values.paidJustification?.trim() || undefined
+        : undefined,
+    };
+  };
+
+  const submitManualInvoice = async (
+    input: Record<string, unknown>,
+    opts?: {
+      forceCreate?: boolean;
+      replaceExisting?: boolean;
+      duplicateJustification?: string;
+    },
+  ) => {
+    const res = await createManual({
+      variables: {
+        input: {
+          ...input,
+          forceCreate: opts?.forceCreate || undefined,
+          replaceExisting: opts?.replaceExisting || undefined,
+          duplicateJustification: opts?.duplicateJustification || undefined,
+        },
+      },
+    });
+    const inv = res.data?.createManualInvoice;
+    message.success(
+      opts?.forceCreate && opts?.replaceExisting
+        ? `Replaced invoice ${inv?.number ?? ''}`
+        : `Created invoice ${inv?.number ?? ''}`,
+    );
+    setManualOpen(false);
+    setDuplicateConfirm(null);
+    setDuplicateJustification('');
+    setReplaceExisting(false);
+    manualForm.resetFields();
+    refetch();
   };
 
   const onCreateManual = async () => {
     try {
       const values = await manualForm.validateFields();
-      const amountCents = Math.round(Number(values.amountDollars) * 100);
-      if (!Number.isFinite(amountCents) || amountCents < 0) {
-        message.error('Enter a valid amount');
-        return;
+      const input = buildManualInput(values);
+      try {
+        await submitManualInvoice(input);
+      } catch (err: any) {
+        const graphQLError =
+          err?.graphQLErrors?.[0] ??
+          err?.cause?.graphQLErrors?.[0] ??
+          err?.errors?.[0];
+        const extensions = (graphQLError?.extensions ?? err?.extensions) as
+          | {
+              code?: string;
+              invoiceId?: string;
+              invoiceNumber?: string;
+              status?: string;
+              totalCents?: number;
+              currency?: string;
+              billingPeriod?: string;
+            }
+          | undefined;
+        if (
+          (extensions?.code === 'CONFLICT' ||
+            /already exists for this restaurant and period/i.test(String(err?.message ?? ''))) &&
+          (extensions?.invoiceNumber || /INV-/i.test(String(err?.message ?? '')))
+        ) {
+          const numberFromMessage =
+            extensions?.invoiceNumber ||
+            String(err?.message ?? '').match(/\(([^)]+)\)/)?.[1] ||
+            'existing invoice';
+          setDuplicateConfirm({
+            invoiceId: String(extensions?.invoiceId ?? ''),
+            invoiceNumber: String(numberFromMessage),
+            status: String(extensions?.status ?? 'unknown'),
+            totalCents: Number(extensions?.totalCents ?? 0),
+            currency: String(extensions?.currency ?? 'usd'),
+            billingPeriod: String(extensions?.billingPeriod ?? input.billingPeriod),
+            pendingInput: input,
+          });
+          setDuplicateJustification('');
+          setReplaceExisting(false);
+          return;
+        }
+        throw err;
       }
-      const originalAmountCents =
-        catalog.listCents > amountCents ? catalog.listCents : undefined;
-      const res = await createManual({
-        variables: {
-          input: {
-            restaurantId: values.restaurantId,
-            billingPeriod: values.billingPeriod.format('YYYY-MM'),
-            dueDate: values.dueDate.toISOString(),
-            amountCents,
-            originalAmountCents,
-            packageDurationMonths: values.packageDurationMonths || undefined,
-            planKey: values.planKey || undefined,
-            billingCycle: values.planKey ? values.billingCycle || 'monthly' : undefined,
-            serviceIds: values.serviceIds?.length ? values.serviceIds : undefined,
-            description: values.description?.trim() || undefined,
-            notes: values.notes?.trim() || undefined,
-            markPaid: Boolean(values.markPaid),
-          },
-        },
-      });
-      const inv = res.data?.createManualInvoice;
-      message.success(`Created invoice ${inv?.number ?? ''}`);
-      setManualOpen(false);
-      manualForm.resetFields();
-      refetch();
     } catch (err: any) {
       if (err?.errorFields) return;
+      message.error(err.message || 'Failed to create invoice');
+    }
+  };
+
+  const onConfirmDuplicateCreate = async () => {
+    if (!duplicateConfirm) return;
+    const justification = duplicateJustification.trim();
+    if (justification.length < 3) {
+      message.error('Enter a justification to create an invoice for this period anyway');
+      return;
+    }
+    try {
+      await submitManualInvoice(duplicateConfirm.pendingInput, {
+        forceCreate: true,
+        replaceExisting,
+        duplicateJustification: justification,
+      });
+    } catch (err: any) {
       message.error(err.message || 'Failed to create invoice');
     }
   };
@@ -555,6 +722,7 @@ function AdminInvoicesContent() {
             </Space>
           )}
           <Table
+            className="rt-invoices-table"
             loading={loading}
             rowKey="id"
             dataSource={items}
@@ -594,7 +762,7 @@ function AdminInvoicesContent() {
                         title: 'Amount',
                         dataIndex: 'amountCents',
                         render: (v: number, line: any) => (
-                          <Space size={6}>
+                          <Space size={6} wrap={false}>
                             {line.originalAmountCents != null &&
                               line.originalAmountCents > v && (
                                 <Typography.Text delete type="secondary">
@@ -614,8 +782,10 @@ function AdminInvoicesContent() {
               {
                 title: 'Number',
                 dataIndex: 'number',
+                ellipsis: true,
+                onCell: () => ({ style: { whiteSpace: 'nowrap' } }),
                 render: (number: string, r: any) => (
-                  <Link href={`/admin/invoices/${r.id}`} style={{ fontWeight: 500 }}>
+                  <Link href={`/admin/invoices/${r.id}`} style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>
                     {number}
                   </Link>
                 ),
@@ -623,26 +793,38 @@ function AdminInvoicesContent() {
               {
                 title: 'Restaurant',
                 dataIndex: 'restaurantName',
+                ellipsis: true,
+                onCell: () => ({ style: { whiteSpace: 'nowrap' } }),
                 render: (v: string | null, r: any) =>
                   r.restaurantId ? (
-                    <Link href={`/admin/restaurants/${r.restaurantId}`} style={{ fontWeight: 500 }}>
+                    <Link
+                      href={`/admin/restaurants/${r.restaurantId}`}
+                      style={{ fontWeight: 500, whiteSpace: 'nowrap' }}
+                    >
                       {v || 'Restaurant'}
                     </Link>
                   ) : (
-                    v || '—'
+                    <span style={{ whiteSpace: 'nowrap' }}>{v || '—'}</span>
                   ),
               },
-              { title: 'Period', dataIndex: 'billingPeriod', width: 110 },
+              {
+                title: 'Period',
+                dataIndex: 'billingPeriod',
+                width: 110,
+                onCell: () => ({ style: { whiteSpace: 'nowrap' } }),
+              },
               {
                 title: 'Duration',
                 dataIndex: 'packageDurationMonths',
                 width: 90,
+                onCell: () => ({ style: { whiteSpace: 'nowrap' } }),
                 render: (v: number | null) => (v ? `${v} mo` : '—'),
               },
               {
                 title: 'Status',
                 dataIndex: 'status',
                 width: 120,
+                onCell: () => ({ style: { whiteSpace: 'nowrap' } }),
                 render: (s: string) => (
                   <Tag color={STATUS_COLORS[s] ?? 'default'}>{statusLabel(s)}</Tag>
                 ),
@@ -651,14 +833,16 @@ function AdminInvoicesContent() {
                 title: 'Due',
                 dataIndex: 'dueDate',
                 width: 120,
+                onCell: () => ({ style: { whiteSpace: 'nowrap' } }),
                 render: (v: string) => new Date(v).toLocaleDateString('en-US'),
               },
               {
                 title: 'Total',
                 dataIndex: 'totalCents',
                 width: 160,
+                onCell: () => ({ style: { whiteSpace: 'nowrap' } }),
                 render: (v: number, r: any) => (
-                  <Space size={6}>
+                  <Space size={6} wrap={false}>
                     {r.isDiscounted && r.originalTotalCents != null && (
                       <Typography.Text delete type="secondary">
                         {money(r.originalTotalCents, r.currency)}
@@ -672,6 +856,7 @@ function AdminInvoicesContent() {
                 title: 'Actions',
                 width: 72,
                 fixed: 'right',
+                onCell: () => ({ style: { whiteSpace: 'nowrap' } }),
                 render: (_: unknown, r: any) => (
                   <Dropdown
                     menu={{ items: rowActionItems(r) }}
@@ -695,12 +880,13 @@ function AdminInvoicesContent() {
         confirmLoading={creatingManual}
         okText="Create invoice"
         destroyOnHidden
-        width={560}
+        width={600}
+        styles={{ body: { paddingTop: 8, maxHeight: 'min(72vh, 720px)', overflowY: 'auto' } }}
       >
         <Form
           form={manualForm}
           layout="vertical"
-          style={{ marginTop: 8 }}
+          requiredMark="optional"
           onValuesChange={(changed, all) => {
             if (changed.billingPeriod && dayjs.isDayjs(changed.billingPeriod)) {
               const currentDue = manualForm.getFieldValue('dueDate') as Dayjs | undefined;
@@ -710,6 +896,29 @@ function AdminInvoicesContent() {
               ) {
                 manualForm.setFieldValue('dueDate', changed.billingPeriod.startOf('month'));
               }
+            }
+            if ('restaurantId' in changed) {
+              const restaurant = restaurants.find((r) => r.id === changed.restaurantId);
+              const planFromAccount = restaurant?.subscription?.plan ?? null;
+              const planExists =
+                Boolean(planFromAccount) &&
+                plans.some((p: { key: string }) => p.key === planFromAccount);
+              if (planExists && planFromAccount) {
+                const nextCycle = inferBillingCycle(restaurant?.subscription);
+                manualForm.setFieldsValue({
+                  planKey: planFromAccount,
+                  billingCycle: nextCycle,
+                });
+                syncAmountFromCatalog(planFromAccount, nextCycle, all.serviceIds || []);
+              } else {
+                manualForm.setFieldsValue({
+                  planKey: undefined,
+                  billingCycle: 'monthly',
+                  packageDurationMonths: 1,
+                });
+                syncAmountFromCatalog(null, 'monthly', all.serviceIds || []);
+              }
+              return;
             }
             if (
               'planKey' in changed ||
@@ -724,37 +933,79 @@ function AdminInvoicesContent() {
             }
           }}
         >
+          <Typography.Text type="secondary" style={{ display: 'block', marginBottom: spacing.md }}>
+            Bill a restaurant for a package and optional add-ons. Amounts update from the catalog;
+            edit the total to apply a discount.
+          </Typography.Text>
+
           <Form.Item
             name="restaurantId"
             label="Restaurant"
+            required
             rules={[{ required: true, message: 'Select a restaurant' }]}
           >
             <Select
               showSearch
-              placeholder="Select restaurant"
+              placeholder="Search restaurants"
               options={restaurantOptions}
               optionFilterProp="label"
+              size="large"
             />
           </Form.Item>
-          <Form.Item name="planKey" label="Package (optional)">
-            <Select
-              allowClear
-              placeholder="Select plan package"
-              options={plans.map((p: { key: string; name: string; monthlyPriceCents: number }) => ({
-                value: p.key,
-                label: `${p.name} — ${money(p.monthlyPriceCents)}/mo`,
-              }))}
-            />
-          </Form.Item>
-          <Form.Item name="billingCycle" label="Billing cycle">
-            <Select
-              disabled={!planKey}
-              options={[
-                { value: 'monthly', label: 'Monthly' },
-                { value: 'annual', label: 'Annual' },
-              ]}
-            />
-          </Form.Item>
+
+          <div
+            style={{
+              marginBottom: spacing.md,
+              padding: spacing.md,
+              borderRadius: radii.md,
+              background: colors.neutral[50],
+              border: `1px solid ${colors.bordersubtle}`,
+            }}
+          >
+            <Typography.Text
+              strong
+              style={{ display: 'block', marginBottom: spacing.sm }}
+            >
+              Package
+            </Typography.Text>
+            <Form.Item name="billingCycle" style={{ marginBottom: spacing.sm }}>
+              <Segmented
+                block
+                options={[
+                  { label: 'Monthly', value: 'monthly' },
+                  { label: 'Annual', value: 'annual' },
+                ]}
+              />
+            </Form.Item>
+            <Form.Item
+              name="planKey"
+              label="Plan"
+              style={{ marginBottom: isAnnual ? 0 : undefined }}
+              extra="Defaults to the restaurant’s current subscription when you pick a restaurant."
+            >
+              <Select
+                allowClear
+                placeholder="Select plan package"
+                options={packageOptions}
+                size="large"
+              />
+            </Form.Item>
+            {!isAnnual ? (
+              <Form.Item
+                name="packageDurationMonths"
+                label="Package duration (months)"
+                style={{ marginBottom: 0 }}
+                extra="How many months of plan coverage this invoice includes."
+              >
+                <InputNumber min={1} max={120} step={1} precision={0} style={{ width: '100%' }} />
+              </Form.Item>
+            ) : (
+              <Typography.Text type="secondary" style={{ fontSize: 13 }}>
+                Annual billing covers 12 months.
+              </Typography.Text>
+            )}
+          </div>
+
           <Form.Item name="serviceIds" label="Services (optional)">
             <Select
               mode="multiple"
@@ -766,26 +1017,36 @@ function AdminInvoicesContent() {
               }))}
             />
           </Form.Item>
-          <Form.Item
-            name="billingPeriod"
-            label="Billing period"
-            rules={[{ required: true, message: 'Select a period' }]}
-          >
-            <DatePicker picker="month" style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            name="dueDate"
-            label="Due date"
-            rules={[{ required: true, message: 'Select a due date' }]}
-          >
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="packageDurationMonths" label="Package duration (months)">
-            <InputNumber min={1} max={120} step={1} precision={0} style={{ width: '100%' }} />
-          </Form.Item>
+
+          <Divider style={{ margin: `${spacing.sm}px 0 ${spacing.md}px` }} />
+
+          <Row gutter={12}>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="billingPeriod"
+                label="Billing period"
+                required
+                rules={[{ required: true, message: 'Select a period' }]}
+              >
+                <DatePicker picker="month" style={{ width: '100%' }} size="large" />
+              </Form.Item>
+            </Col>
+            <Col xs={24} sm={12}>
+              <Form.Item
+                name="dueDate"
+                label="Due date"
+                required
+                rules={[{ required: true, message: 'Select a due date' }]}
+              >
+                <DatePicker style={{ width: '100%' }} size="large" />
+              </Form.Item>
+            </Col>
+          </Row>
+
           <Form.Item
             name="amountDollars"
             label="Amount"
+            required
             rules={[{ required: true, message: 'Enter an amount' }]}
             extra={
               showDiscount ? (
@@ -799,7 +1060,8 @@ function AdminInvoicesContent() {
                 </Space>
               ) : catalog.chargeCents > 0 ? (
                 <Typography.Text type="secondary">
-                  Package total {money(catalog.chargeCents)} — edit to discount
+                  Catalog total {money(catalog.chargeCents)}
+                  {isAnnual ? ' / year' : ' / month'} — edit to discount
                 </Typography.Text>
               ) : null
             }
@@ -809,20 +1071,106 @@ function AdminInvoicesContent() {
               step={0.01}
               precision={2}
               prefix="$"
+              size="large"
               style={{ width: '100%' }}
               placeholder="0.00"
             />
           </Form.Item>
+
           <Form.Item name="description" label="Custom line description (optional)">
             <Input placeholder="Used when no package/services selected" />
           </Form.Item>
           <Form.Item name="notes" label="Notes (optional)">
             <Input.TextArea rows={2} placeholder="Internal note" />
           </Form.Item>
-          <Form.Item name="markPaid" valuePropName="checked">
+          <Form.Item name="markPaid" valuePropName="checked" style={{ marginBottom: markPaid ? 12 : 0 }}>
             <Checkbox>Mark as paid immediately</Checkbox>
           </Form.Item>
+          {markPaid ? (
+            <Form.Item
+              name="paidJustification"
+              label="Paid justification"
+              required
+              rules={[
+                {
+                  required: true,
+                  whitespace: true,
+                  min: 3,
+                  message: 'Explain why this invoice is marked paid',
+                },
+              ]}
+              extra="Required when marking paid without collecting payment (e.g. offline payment, courtesy credit)."
+              style={{ marginBottom: 0 }}
+            >
+              <Input.TextArea
+                rows={3}
+                placeholder="e.g. Received wire transfer #4821 on Sep 29"
+                maxLength={500}
+                showCount
+              />
+            </Form.Item>
+          ) : null}
         </Form>
+      </Modal>
+
+      <Modal
+        title="Invoice already exists for this period"
+        open={Boolean(duplicateConfirm)}
+        onCancel={() => {
+          setDuplicateConfirm(null);
+          setDuplicateJustification('');
+          setReplaceExisting(false);
+        }}
+        onOk={() => void onConfirmDuplicateCreate()}
+        confirmLoading={creatingManual}
+        okText={replaceExisting ? 'Replace & create' : 'Create anyway'}
+        okButtonProps={{ danger: replaceExisting }}
+        destroyOnHidden
+        width={520}
+      >
+        {duplicateConfirm ? (
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+            <Alert
+              type="warning"
+              showIcon
+              message={`${duplicateConfirm.invoiceNumber} already covers ${dayjs(duplicateConfirm.billingPeriod).format('MMMM YYYY')}`}
+              description={
+                <>
+                  Status:{' '}
+                  <Tag color={STATUS_COLORS[duplicateConfirm.status] ?? 'default'}>
+                    {statusLabel(duplicateConfirm.status)}
+                  </Tag>
+                  · Total {money(duplicateConfirm.totalCents, duplicateConfirm.currency)}. You can
+                  still create an invoice for this period — by default a new invoice is created and
+                  the existing one is canceled. Check Replace below to overwrite the existing
+                  invoice in place (same number).
+                </>
+              }
+            />
+            <div>
+              <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+                Justification <Typography.Text type="danger">*</Typography.Text>
+              </Typography.Text>
+              <Input.TextArea
+                rows={4}
+                value={duplicateJustification}
+                onChange={(e) => setDuplicateJustification(e.target.value)}
+                placeholder="Why create another invoice for this period? e.g. Corrected package amount after plan change"
+                maxLength={500}
+                showCount
+              />
+              <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
+                Saved on the invoice notes and audit log.
+              </Typography.Text>
+            </div>
+            <Checkbox
+              checked={replaceExisting}
+              onChange={(e) => setReplaceExisting(e.target.checked)}
+            >
+              Replace existing invoice ({duplicateConfirm.invoiceNumber})
+            </Checkbox>
+          </Space>
+        ) : null}
       </Modal>
     </div>
   );

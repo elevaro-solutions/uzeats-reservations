@@ -1,5 +1,45 @@
 # Dashboard — Learnings & Observations
 
+## [2026-09-29] Manual invoice auto-fills restaurant package
+- Create manual invoice: selecting `restaurantId` sets `planKey` / `billingCycle` from `adminRestaurants.subscription` (annual if current period ≥ ~10 months) and re-runs catalog amount sync. Clear/no sub clears the package.
+- Package section: Monthly/Annual `Segmented` above the plan select (default monthly). Plan option prices follow the cycle. Annual hides package duration and submits 12 months.
+- Duplicate period: API throws `CONFLICT` with existing invoice details; admin UI requires justification then `forceCreate`. Default creates a new invoice and cancels the old one (period key freed as `YYYY-MM~canceled-INV-…`). Optional Replace checkbox sets `replaceExisting` to overwrite in place (same number).
+- Why it matters: Don’t leave Package blank after restaurant pick — admins expect the venue’s live plan; don’t show monthly duration on annual invoices; don’t hard-block period duplicates without an override path; don’t replace by default.
+
+## [2026-09-29] Platform SMS kill switch hides Premium SMS UI
+- Admin → Platform configuration → Feature kill switches → **Premium SMS** (`featureFlags.sms`). Off = no Premium SMS card on partner `/billing`, no `premiumSms` in plan feature lists / package marketing for non-admins, no SMS column on partner Notifications (or admin diner prefs). Public `platformFeatureFlags` query; package overrides keep stored `premiumSms` for when SMS is turned back on. Admin pricing hides the Premium SMS toggle while the flag is off (`getFieldsValue(true)` keeps the prior value on save).
+- Why it matters: Don’t re-surface “Premium SMS” in packages or Billing while the kill switch is off; OTP/auth SMS is separate.
+
+## [2026-09-29] Billing usage & invoice layout
+- Usage & invoices: cover usage for the period picker + invoice list (latest 3, Show all). Click opens a right Drawer (`?invoice=`) with pay / PDF / Open page; full page at `/billing/invoices/[id]`.
+- `exportInvoicePdf` allows venue access (not admin-only). `restaurantInvoice(id)` is the partner single-invoice query.
+- Avoid ant `Table` on this card — dash content wrappers add `overflow-x: auto` and short tables pick up awkward scrollbars.
+- Why it matters: Owners need a short list plus deep detail without leaving Billing; PDF must work for partners.
+
+## [2026-09-29] Open invoice count badges
+- Partner `/billing` badges `restaurantOpenInvoiceCount` (active venue; status upcoming/pending/overdue with `totalCents > 0`). Admin `/admin/billing` badges `adminPendingRequestCounts.openInvoices` (platform-wide). Same 60s `skipPollWhenHidden` poll as other sider counts.
+- `invoice_ready` notifications deep-link to `/billing` (with restaurant when present).
+- Why it matters: Don’t poll full invoice lists from DashShell; don’t badge zero-dollar or paid/canceled invoices.
+
+## [2026-09-29] Review report exchanges are chat-style
+- `ReviewReportChat` is a messaging shell: bubble thread (asymmetric corners, brand fill for “mine”, auto-scroll) + compact composer (textarea, paperclip, send). Enter sends; Shift+Enter newline.
+- Partner Hub Reviews and admin moderation detail both use it. `SupportAttachmentUpload` `variant="compact"` is for chat only; support tickets keep the large dragger.
+- Why it matters: The old Card + tall textarea + full dropzone read as a form, not a conversation.
+
+## [2026-09-29] Moderation reply is for the reporter
+- Review report detail (`/admin/moderation/[id]?type=review`) sends `respondToReviewReport` with the support image uploader. Partner Hub reviews render `reportResponses` via `ReviewReportThread`.
+- Why it matters: The guest-facing owner reply stays a separate action. Don’t put this composer on the public restaurant page.
+
+## [2026-09-29] Signup email verification toggle is super-admin
+- `/admin/config` → Security: “Require signup email verification”. Non–super-admins see it disabled and saves omit the field. Mutation rejects non–super-admin updates for that key.
+- When on, web `/verify-email` and Partner Hub `/verify-email` gate unverified sessions after signup/login. Users enter a 6-digit code; local-dev shows the code when SendGrid is unset.
+- Why it matters: Same pattern as Includes on pricing — regular admins must not flip a security default by accident on a shared Save.
+
+## [2026-09-29] Includes editor and description generator are super-admin
+- `/admin/pricing` shows Includes (add/remove lines) and Generate description only for `super_admin`. Saves from other admins omit `highlights` so they don’t wipe the list.
+- Generate writes the description field and marks the form dirty; it does not save by itself.
+- Why it matters: The public card reads `highlights` from the API. A non-super save that always sent the form’s highlights would clear lines the field never rendered.
+
 ## [2026-09-28] Review delete is super-admin (or author) only
 - `deleteReview` allows the review’s `dinerId` or `requireSuperAdmin`. Regular platform admins still hide/report; Delete appears on admin restaurant Reviews, Moderation, and guest Reviews tab only when `isSuperAdmin`.
 - Why it matters: Don’t gate permanent delete on `requireAdmin` — that would let account managers wipe reviews.

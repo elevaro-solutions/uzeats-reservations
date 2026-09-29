@@ -1,5 +1,54 @@
 # API — Learnings & Observations
 
+## [2026-09-29] Manual invoice duplicate period override
+- `createManualInvoice` conflicts when restaurant+period already has an invoice (`CONFLICT` + existing details). `forceCreate` + `duplicateJustification` proceeds; `replaceExisting` (default false) overwrites in place. Without replace: cancel the old invoice, rewrite its `billingPeriod` to `YYYY-MM~canceled-{number}` to free the unique index, then create a new number.
+- Why it matters: Unique `{ restaurantId, billingPeriod }` blocks a second active invoice; don’t replace by default; canceled period keys won’t match period filters/lists.
+
+## [2026-09-29] Platform `featureFlags.sms` gates Premium SMS
+- Default on. Public `platformFeatureFlags` exposes kill switches. Non-admin `plans` strips `premiumSms` and SMS mentions from description/highlights when off; admins still see raw package features. `getFeatures` / `hasPremiumSms` / `SubscriptionType.features` / `setPremiumSmsAddon` all respect the flag. Does not affect auth OTP SMS.
+- Why it matters: Partner Billing and package cards must not advertise SMS while the platform switch is off; stored add-on bits stay on the subscription for when SMS is re-enabled.
+
+## [2026-09-29] `restaurantReviews` supports `ReviewSort`
+- Optional `sort: ReviewSort` (`newest` | `oldest` | `highest` | `lowest`); default `newest` (`createdAt: -1`). Rating sorts break ties on newest.
+- Why it matters: Profile preview (`limit: 5`) and the all-reviews modal must share the same ordering without client-side re-sort of a partial page.
+
+## [2026-09-29] Open invoice counts for nav badges
+- `countOpenInvoices(restaurantId?)` — status in upcoming/pending/overdue and `totalCents > 0`. Powers `restaurantOpenInvoiceCount`, `adminStats.openInvoices`, and `adminPendingRequestCounts.openInvoices`.
+- `exportInvoicePdf` is auth + `assertRestaurantAccess` on the invoice’s restaurant (admins still pass). `restaurantInvoice(id)` is the partner detail query.
+- Why it matters: Keep admin nav on the lightweight pending-counts query; don’t reintroduce a raw `Invoice.countDocuments` in resolvers; partners need PDF without admin role.
+
+## [2026-09-29] Review report chat is two-way
+- `respondToReviewReport` (admin) and `replyToReviewReport` (any owner/manager with venue access, or platform admin) both append `Review.reportResponses` while `flagged` is true. Partner replies notify the last non-reporter author when one exists.
+- Stored `fromReporter` marks partner-side bubbles (fallback: authorId === flaggedById for older rows).
+- Dismiss (`unflagReview`) sets `flagged: false` only — keeps reason, `flaggedById`, and chat history. Further admin/reporter messages fail with "This report was closed".
+- Guests still get an empty `reportResponses` array.
+- Why it matters: Chat UI needs opening report + both sides ordered by time; venue staff (not only the original filer) must be able to answer Tablevera; dismiss ends the conversation without wiping the thread.
+
+## [2026-09-29] Review edit + Google-style reactions
+- `updateReview` is author-only; replaces rating/qualities/comment/photos and calls `recomputePublicReviewStats`. Does not touch owner reply or report state.
+- `reactToReview` stores one `ReviewReaction` per signed-in user (`reviewId`+`userId`) or per guest (`reviewId`+`visitorKey` from `X-Visitor-Key`). Auth is not required. Same reaction again deletes it. Own reviews rejected for signed-in authors only.
+- Field resolvers batch `reactionCounts` / `myReaction` via loaders (user id preferred; else visitor key).
+- Why it matters: Public cards must not count hidden reviews; reactions are separate from ratings and must not inflate `reviewCount`.
+
+## [2026-09-29] Review report replies go to the reporter
+- `respondToReviewReport` is admin-only. It appends `Review.reportResponses` (plain text plus image attachments) and notifies `flaggedById` with type `review_report_response`.
+- `Review.reportResponses` is empty unless the viewer is a platform admin or has venue access. Dismissing a report (`unflagReview`) keeps `flaggedById` and reason fields so the closed thread stays readable.
+- Why it matters: This is not the public owner reply. Guests querying `restaurantReviews` must not receive the moderation thread.
+
+## [2026-09-29] Signup email verification gate is platform config
+- `PlatformConfig.requireSignupEmailVerification` — unset means `NODE_ENV === 'production'`. Super admin only on `updatePlatformConfig`. `registerWithEmail` / `registerRestaurantPartner` set `emailVerified: !required` and send a 6-digit `email_verification` code (10 min) when required.
+- `User.needsEmailVerification` is require-flag ∧ has email ∧ !verified. Mutations: `verifyEmail(code)` (auth required), `resendVerificationEmail`. Non-prod may return `devCode` when SendGrid is unset or `AUTH_DEV_OTP` (fixed `123456`).
+- Why it matters: Local signups stay usable without a verify-email flow; production defaults to requiring verification once that flow exists.
+
+## [2026-09-29] Public review stats exclude hidden reviews
+- `recomputePublicReviewStats` aggregates reviews with `hidden: { $ne: true }` and writes `Restaurant.averageRating` / `reviewCount` (both 0 when none remain). Called from `createReview`, `deleteReview`, `setReviewHidden`, and `setReviewHiddenAdmin`.
+- Why it matters: Hiding used to flip the flag only, so cards and the restaurant page still counted a review diners cannot see. A later create or delete would have put hidden reviews back into the stored totals.
+
+## [2026-09-29] Package includes vs description draft
+- `highlights` on a plan override is the public Includes list. Missing means `DEFAULT_PLAN_HIGHLIGHTS` for Basic/Core/Pro (and none for custom). A saved empty array stays empty.
+- `generatePlanPackageDescription` is super-admin only. Gemini when `GEMINI_API_KEY` is set; otherwise `buildTemplatePlanDescription`.
+- Why it matters: Don’t treat an omitted `highlights` field as “clear the list” — that would wipe the built-in bullets on every unrelated save.
+
 ## [2026-09-28] `deleteReview` is author or super admin
 - Mutation permanently removes the Review, recomputes `Restaurant.averageRating` / `reviewCount` (zeros when none left), and calls `reverseReviewPoints` (idempotent adjust; swallows insufficient-balance).
 - Auth: `dinerId` match, else `requireSuperAdmin` (not `requireAdmin`). Creators may delete while impersonated; super-admin path still blocks impersonation.
