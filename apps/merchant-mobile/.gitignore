@@ -4,6 +4,10 @@
 expo-env.d.ts
 # @end expo-cli
 
+# Native projects (generated via expo prebuild / run:android)
+android/
+ios/
+
 # Firebase / FCM private keys (google-services.json is committed; this is the EAS upload key)
 *firebase-adminsdk*.json
 *service-account*.json

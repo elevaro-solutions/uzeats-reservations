@@ -1,5 +1,10 @@
 import { ReactElement } from "react";
-import { Pressable, StyleProp, ViewStyle } from "react-native";
+import {
+  Pressable,
+  type PressableProps,
+  StyleProp,
+  ViewStyle,
+} from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { renderIcon } from "@/lib/helpers";
@@ -13,6 +18,7 @@ export type IconButtonProps = {
   variant?: "ghost" | "surface";
   color?: string;
   style?: StyleProp<ViewStyle>;
+  hitSlop?: PressableProps["hitSlop"];
   accessibilityLabel: string;
 };
 
@@ -30,6 +36,7 @@ export function IconButton({
   size = "md",
   variant = "ghost",
   color,
+  hitSlop,
   accessibilityLabel,
 }: IconButtonProps) {
   const { theme } = useUnistyles();
@@ -40,6 +47,7 @@ export function IconButton({
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      hitSlop={hitSlop}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => [

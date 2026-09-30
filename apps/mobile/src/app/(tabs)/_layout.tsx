@@ -1,4 +1,5 @@
 import { Tabs } from "expo-router";
+import { Pressable } from "react-native";
 import { useUnistyles } from "react-native-unistyles";
 
 import { CalendarCheckIcon, HomeIcon, UserIcon } from "@/assets";
@@ -20,6 +21,11 @@ export default function TabsLayout() {
           backgroundColor: theme.colors.background,
         },
         headerTintColor: theme.colors.textPrimary,
+        // Disable Android Material ripple (React Navigation default is oversized /
+        // borderless). Drop `ref` — BottomTabBarButtonProps ref typing mismatches Pressable.
+        tabBarButton: ({ ref: _ref, ...props }) => (
+          <Pressable {...props} android_ripple={null} />
+        ),
       }}
     >
       <Tabs.Screen

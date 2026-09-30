@@ -1,6 +1,5 @@
-import type { ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
 import {
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -9,6 +8,7 @@ import {
   View,
   type ViewStyle,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import Animated, {
   FadeIn,
   FadeOut,
@@ -22,7 +22,11 @@ import { XIcon } from "@/assets";
 
 import { Flex } from "../flex";
 import { IconButton } from "../icon-button";
+import { SheetPortal } from "../sheet-portal";
 import { Typography } from "../typography";
+
+const IS_ANDROID = Platform.OS === "android";
+const CLOSE_HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
 export type BottomSheetProps = {
   visible: boolean;
@@ -64,7 +68,7 @@ export function BottomSheet({
   scrollable = false,
   padded = true,
   contentContainerStyle,
-  accessibilityLabel = "Close",
+  accessibilityLabel = "Dismiss",
 }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
@@ -74,13 +78,45 @@ export function BottomSheet({
   const showHeader = Boolean(title || description || showClose);
   const bottomPad = Math.max(insets.bottom, theme.space(2));
 
-  const Root = keyboardAvoiding ? KeyboardAvoidingView : View;
-  const rootProps = keyboardAvoiding
-    ? {
-        style: styles.modalRoot,
-        behavior: Platform.OS === "ios" ? ("padding" as const) : undefined,
-      }
-    : { style: styles.modalRoot };
+  const handleRequestClose = useCallback(() => {
+    if (canDismiss) onClose();
+  }, [canDismiss, onClose]);
+
+  const chrome = (
+    <SheetChrome
+      onClose={onClose}
+      title={title}
+      description={description}
+      footer={footer}
+      showHandle={showHandle}
+      showClose={showClose}
+      showHeader={showHeader}
+      headerBorder={headerBorder}
+      maxHeight={maxHeight}
+      minHeight={minHeight}
+      canDismiss={canDismiss}
+      loading={loading}
+      keyboardAvoiding={keyboardAvoiding}
+      scrollable={scrollable}
+      padded={padded}
+      contentContainerStyle={contentContainerStyle}
+      accessibilityLabel={accessibilityLabel}
+      bottomPad={bottomPad}
+      overlayColor={theme.colors.overlay}
+      backgroundColor={theme.colors.background}
+    >
+      {children}
+    </SheetChrome>
+  );
+
+  // Android: root portal covers the tab bar (RN Modal Dialog leaves a hollow gap
+  // under edge-to-edge). iOS: Modal presentation is correct — keep it.
+  if (IS_ANDROID) {
+    if (!visible) return null;
+    return (
+      <SheetPortal onRequestClose={handleRequestClose}>{chrome}</SheetPortal>
+    );
+  }
 
   return (
     <Modal
@@ -89,97 +125,162 @@ export function BottomSheet({
       animationType="fade"
       onRequestClose={canDismiss ? onClose : undefined}
     >
-      <Root {...rootProps}>
-        <Animated.View
-          entering={FadeIn.duration(200)}
-          exiting={FadeOut.duration(200)}
-          style={styles.backdropLayer}
-        >
-          <Pressable
-            style={styles.backdrop(theme.colors.overlay)}
-            onPress={canDismiss ? onClose : undefined}
-            accessibilityRole="button"
-            accessibilityLabel={accessibilityLabel}
-          />
-        </Animated.View>
-
-        <Animated.View
-          entering={SlideInDown.duration(280)}
-          exiting={SlideOutDown.duration(220)}
-          style={[
-            styles.sheet(theme.colors.background),
-            { maxHeight, minHeight },
-            !footer ? { paddingBottom: bottomPad } : null,
-          ]}
-        >
-          {showHandle ? (
-            <View style={styles.handleRow}>
-              <View style={styles.handle} />
-            </View>
-          ) : null}
-
-          {showHeader ? (
-            <Flex
-              direction="row"
-              alignItems={description ? "flex-start" : "center"}
-              justifyContent="space-between"
-              style={[styles.header, headerBorder && styles.headerBorder]}
-            >
-              <View style={styles.headerTitleBlock}>
-                {title ? (
-                  <Typography size="text-xl" weight="bold">
-                    {title}
-                  </Typography>
-                ) : null}
-                {description ? (
-                  <Typography size="text-sm" color="secondary">
-                    {description}
-                  </Typography>
-                ) : null}
-              </View>
-              {showClose ? (
-                <IconButton
-                  icon={<XIcon />}
-                  variant="ghost"
-                  size="sm"
-                  accessibilityLabel="Close"
-                  onPress={onClose}
-                  disabled={loading}
-                />
-              ) : null}
-            </Flex>
-          ) : null}
-
-          {scrollable ? (
-            <ScrollView
-              bounces
-              nestedScrollEnabled
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator
-              style={styles.bodyScroll}
-              contentContainerStyle={[
-                padded ? styles.body : null,
-                contentContainerStyle,
-              ]}
-            >
-              {children}
-            </ScrollView>
-          ) : children ? (
-            <View
-              style={[padded ? styles.body : null, contentContainerStyle]}
-            >
-              {children}
-            </View>
-          ) : null}
-
-          {footer ? (
-            <View style={[styles.footer, { paddingBottom: bottomPad }]}>
-              {footer}
-            </View>
-          ) : null}
-        </Animated.View>
-      </Root>
+      {chrome}
     </Modal>
+  );
+}
+
+type SheetChromeProps = {
+  onClose: () => void;
+  title?: string;
+  description?: string;
+  children?: ReactNode;
+  footer?: ReactNode;
+  showHandle: boolean;
+  showClose: boolean;
+  showHeader: boolean;
+  headerBorder: boolean;
+  maxHeight: number | `${number}%`;
+  minHeight?: number;
+  canDismiss: boolean;
+  loading: boolean;
+  keyboardAvoiding: boolean;
+  scrollable: boolean;
+  padded: boolean;
+  contentContainerStyle?: StyleProp<ViewStyle>;
+  accessibilityLabel: string;
+  bottomPad: number;
+  overlayColor: string;
+  backgroundColor: string;
+};
+
+function SheetChrome({
+  onClose,
+  title,
+  description,
+  children,
+  footer,
+  showHandle,
+  showClose,
+  showHeader,
+  headerBorder,
+  maxHeight,
+  minHeight,
+  canDismiss,
+  loading,
+  keyboardAvoiding,
+  scrollable,
+  padded,
+  contentContainerStyle,
+  accessibilityLabel,
+  bottomPad,
+  overlayColor,
+  backgroundColor,
+}: SheetChromeProps) {
+  const Root = keyboardAvoiding ? KeyboardAvoidingView : View;
+  const rootProps = keyboardAvoiding
+    ? {
+        style: styles.modalRoot,
+        behavior: "padding" as const,
+      }
+    : { style: styles.modalRoot };
+
+  return (
+    <Root {...rootProps}>
+      <Animated.View
+        entering={FadeIn.duration(200)}
+        exiting={FadeOut.duration(200)}
+        style={styles.backdropLayer}
+      >
+        <Pressable
+          style={styles.backdrop(overlayColor)}
+          onPress={canDismiss ? onClose : undefined}
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel}
+        />
+      </Animated.View>
+
+      <Animated.View
+        entering={SlideInDown.duration(280)}
+        exiting={SlideOutDown.duration(220)}
+        style={[
+          styles.sheet(backgroundColor),
+          { maxHeight, minHeight },
+          !footer ? { paddingBottom: bottomPad } : null,
+        ]}
+      >
+        {showHandle ? (
+          <View style={styles.handleRow}>
+            <View
+              style={[styles.handle, IS_ANDROID ? styles.handleAndroid : null]}
+            />
+          </View>
+        ) : null}
+
+        {showHeader ? (
+          <Flex
+            direction="row"
+            alignItems={description ? "flex-start" : "center"}
+            justifyContent="space-between"
+            style={[
+              styles.header,
+              showHandle && IS_ANDROID ? styles.headerAfterHandleAndroid : null,
+              headerBorder && styles.headerBorder,
+            ]}
+          >
+            <View style={styles.headerTitleBlock}>
+              {title ? (
+                <Typography size="text-xl" weight="bold">
+                  {title}
+                </Typography>
+              ) : null}
+              {description ? (
+                <Typography size="text-sm" color="secondary">
+                  {description}
+                </Typography>
+              ) : null}
+            </View>
+            {showClose ? (
+              <IconButton
+                icon={<XIcon />}
+                variant="ghost"
+                size="sm"
+                accessibilityLabel="Close"
+                onPress={onClose}
+                disabled={loading}
+                hitSlop={CLOSE_HIT_SLOP}
+              />
+            ) : null}
+          </Flex>
+        ) : null}
+
+        {scrollable ? (
+          <ScrollView
+            bounces
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator
+            style={styles.bodyScroll}
+            contentContainerStyle={[
+              padded ? styles.body : null,
+              contentContainerStyle,
+            ]}
+          >
+            {children}
+          </ScrollView>
+        ) : children ? (
+          <View style={[padded ? styles.body : null, contentContainerStyle]}>
+            {children}
+          </View>
+        ) : null}
+
+        {footer ? (
+          <View style={[styles.footer, { paddingBottom: bottomPad }]}>
+            {footer}
+          </View>
+        ) : null}
+      </Animated.View>
+    </Root>
   );
 }
 
@@ -201,6 +302,7 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     overflow: "hidden",
+    zIndex: 1,
   }),
   handleRow: {
     alignItems: "center",
@@ -213,11 +315,18 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     borderRadius: radius.full,
     backgroundColor: colors.slate5,
   },
+  handleAndroid: {
+    width: space(6),
+    height: 5,
+  },
   header: {
     paddingHorizontal: space(2.5),
     paddingTop: space(2.5),
     paddingBottom: space(2),
     flexShrink: 0,
+  },
+  headerAfterHandleAndroid: {
+    paddingTop: space(1),
   },
   headerBorder: {
     borderBottomWidth: 1,
@@ -229,7 +338,6 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     gap: space(0.5),
     paddingRight: space(1),
   },
-  // Shrink when the sheet hits maxHeight so content can scroll.
   bodyScroll: {
     flexGrow: 0,
     flexShrink: 1,

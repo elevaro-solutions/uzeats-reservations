@@ -1,4 +1,9 @@
-import { Modal, Pressable, ScrollView, View } from "react-native";
+import { useState } from "react";
+import { LayoutChangeEvent, Modal, Pressable, View } from "react-native";
+import {
+  KeyboardAwareScrollView,
+  KeyboardStickyView,
+} from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { REVIEW_MAX_PHOTOS } from "@reservations/shared";
@@ -41,6 +46,7 @@ export function AddReviewSheet({
 }: AddReviewSheetProps) {
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
+  const [footerHeight, setFooterHeight] = useState(0);
   const {
     ratings,
     setQuality,
@@ -55,6 +61,16 @@ export function AddReviewSheet({
     handleSubmit,
   } = useCreateReview({ visible, reservationId, onClose, onSubmitted });
 
+  // bottomOffset is caret→keyboard; sticky Submit sits in between, and the
+  // multiline comment keeps the caret near the top of a tall field.
+  const keyboardBottomOffset =
+    footerHeight + theme.space(2) + theme.space(10);
+
+  function onFooterLayout(event: LayoutChangeEvent) {
+    const next = event.nativeEvent.layout.height;
+    setFooterHeight((prev) => (prev === next ? prev : next));
+  }
+
   return (
     <Modal
       visible={visible}
@@ -63,21 +79,30 @@ export function AddReviewSheet({
       onRequestClose={onClose}
     >
       <Flex flex={1} style={styles.sheet}>
-        <Flex direction="row" justifyContent="flex-end" style={styles.topBar}>
+        <Flex
+          direction="row"
+          justifyContent="flex-end"
+          style={[
+            styles.topBar,
+            { paddingTop: insets.top + theme.space(2) },
+          ]}
+        >
           <Pressable
             onPress={onClose}
             hitSlop={12}
             accessibilityRole="button"
             accessibilityLabel="Close review form"
           >
-            <XIcon size={24} />
+            <XIcon size={24} color={theme.colors.textPrimary} />
           </Pressable>
         </Flex>
 
-        <ScrollView
+        <KeyboardAwareScrollView
+          style={styles.scrollView}
           contentContainerStyle={styles.body}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          bottomOffset={keyboardBottomOffset}
         >
           <Flex alignItems="center" gap={1.5} style={styles.hero}>
             {restaurantPhoto?.trim() ? (
@@ -172,37 +197,46 @@ export function AddReviewSheet({
               </Button>
             ) : null}
           </Flex>
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
-        <Flex
-          style={[
-            styles.footer,
-            { paddingBottom: Math.max(insets.bottom, styles.footerPad.padding) },
-          ]}
-        >
-          <Button
-            fullWidth
-            size="lg"
-            disabled={!hasAllRatings || loading || !reservationId}
-            loading={loading}
-            onPress={handleSubmit}
+        <KeyboardStickyView onLayout={onFooterLayout}>
+          <View
+            style={[
+              styles.footer,
+              {
+                paddingBottom: Math.max(
+                  insets.bottom,
+                  styles.footerPad.padding,
+                ),
+              },
+            ]}
           >
-            Submit
-          </Button>
-        </Flex>
+            <Button
+              fullWidth
+              size="lg"
+              disabled={!hasAllRatings || loading || !reservationId}
+              loading={loading}
+              onPress={handleSubmit}
+            >
+              Submit
+            </Button>
+          </View>
+        </KeyboardStickyView>
       </Flex>
     </Modal>
   );
 }
 
-const styles = StyleSheet.create(({ space, colors, radius }) => ({
+const styles = StyleSheet.create(({ space, colors, radius, shadows }) => ({
   sheet: {
     backgroundColor: colors.background,
   },
   topBar: {
     paddingHorizontal: space(2),
-    paddingTop: space(2),
     paddingBottom: space(0.5),
+  },
+  scrollView: {
+    flex: 1,
   },
   body: {
     paddingHorizontal: space(2),
@@ -258,6 +292,8 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     paddingTop: space(1.5),
     borderTopWidth: 1,
     borderTopColor: colors.slate3,
+    backgroundColor: colors.background,
+    ...shadows.stickyFooter,
   },
   footerPad: {
     padding: space(2),

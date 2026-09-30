@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.72.2] — 2026-09-30
+
+### Added
+
+- Diner + merchant mobile: `react-native-keyboard-controller` with root `KeyboardProvider` so forms stay above the keyboard under Android edge-to-edge
+- Diner + merchant mobile: `SheetPortal` for Android BottomSheets (covers tab bar under edge-to-edge)
+
+### Changed
+
+- Diner mobile: EAS `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` updated to the new Android OAuth client
+
+### Fixed
+
+- Diner + merchant mobile: auth, messages, create-reservation, booking details, review sheet, and BottomSheet `keyboardAvoiding` no longer leave inputs behind the software keyboard
+- Diner + merchant mobile: auth helper footers (“Don’t have an account?”, partner help copy) are not keyboard-sticky — only the form scroll view avoids the keyboard
+- Diner + merchant mobile: Android BottomSheet content updates live again — `SheetPortal` notifies the host when children change without remounting entries
+- Diner + merchant mobile: bottom tab bar has no Android press ripple (`tabBarButton` + `android_ripple={null}`)
+- Diner mobile: Location and Filters modal headers respect Android status-bar safe area; Add Review close X / sticky Submit footer fixes
+
 ## [0.72.1] — 2026-09-30
 
 ### Fixed

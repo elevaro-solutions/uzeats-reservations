@@ -11,6 +11,8 @@ export type {
 } from "./segmented-control";
 export { BottomSheet } from "./bottom-sheet";
 export type { BottomSheetProps } from "./bottom-sheet";
+export { SheetPortal, SheetPortalProvider } from "./sheet-portal";
+export type { SheetPortalProps } from "./sheet-portal";
 export { Dialog } from "./dialog";
 export type { DialogProps } from "./dialog";
 export { Divider } from "./divider";

@@ -1,5 +1,14 @@
 # App — Learnings & Observations
 
+## [2026-09-29] Keyboard: use react-native-keyboard-controller (not RN KAV alone)
+- Android edge-to-edge disables reliable `adjustResize`; stock `KeyboardAvoidingView` with `behavior={undefined}` on Android leaves auth/forms behind the keyboard. Fix: `react-native-keyboard-controller` + root `KeyboardProvider`, then `KeyboardAwareScrollView` / `KeyboardStickyView` on forms and chat composers. Native rebuild required after install.
+- Why it matters: Don’t reintroduce RN-only KAV for form screens; sheets with `keyboardAvoiding` use the library’s `KeyboardAvoidingView` + `behavior="padding"`.
+
+## [2026-09-29] Tab bar Android ripple disabled
+- Same as merchant: React Navigation `BottomTabItem` defaults to oversized borderless Android ripple (`overflow: 'visible'` on uikit).
+- Fix: `screenOptions.tabBarButton` → `Pressable` with `android_ripple={null}` (omit mismatched `ref`). Matches merchant-mobile.
+- Why it matters: Don’t tune radius/borderless — disable ink if Material ripple isn’t wanted.
+
 ## [2026-09-26] EAS needs babel-preset-expo as a direct dependency
 - Same as merchant: pnpm + EAS Release bundle cannot resolve `babel-preset-expo` unless it’s in app `dependencies`. Missing preset surfaces as Metro `transformFile` of undefined.
 - Why it matters: Don’t rely on transitive `expo` linkage for Babel presets under pnpm on EAS.

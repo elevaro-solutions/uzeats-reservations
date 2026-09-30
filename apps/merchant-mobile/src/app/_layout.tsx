@@ -10,9 +10,11 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { StyleSheet } from "react-native-unistyles";
 import { Toaster } from "sonner-native";
 
+import { SheetPortalProvider } from "@/components";
 import { PushBootstrap } from "@/features";
 import { Providers } from "@/graphql";
 
@@ -38,35 +40,42 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <Providers>
-        <PushBootstrap />
-        <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen
-            name="(auth)"
-            options={{
-              presentation: "card",
-              animation: "slide_from_bottom",
-            }}
-          />
-          <Stack.Screen name="waitlist" options={{ headerShown: false }} />
-          <Stack.Screen name="notifications" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="reservations/[id]"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="reservations/create"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="messages/[reservationId]"
-            options={{ headerShown: false }}
-          />
-        </Stack>
-        <Toaster position="top-center" theme="light" />
-      </Providers>
+      <KeyboardProvider>
+        <Providers>
+          <SheetPortalProvider>
+            <PushBootstrap />
+            <StatusBar style="dark" />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen
+                name="(auth)"
+                options={{
+                  presentation: "card",
+                  animation: "slide_from_bottom",
+                }}
+              />
+              <Stack.Screen name="waitlist" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="notifications"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="reservations/[id]"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="reservations/create"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="messages/[reservationId]"
+                options={{ headerShown: false }}
+              />
+            </Stack>
+            <Toaster position="top-center" theme="light" />
+          </SheetPortalProvider>
+        </Providers>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

@@ -1,6 +1,10 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { Alert, ScrollView, View } from "react-native";
+import { Alert, View } from "react-native";
+import {
+  KeyboardAwareScrollView,
+  KeyboardStickyView,
+} from "react-native-keyboard-controller";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -369,7 +373,7 @@ export function BookingFeature() {
         <View style={styles.sideSlot} />
       </Flex>
 
-      <ScrollView
+      <KeyboardAwareScrollView
         style={styles.scrollView}
         contentContainerStyle={[
           styles.scroll,
@@ -380,6 +384,7 @@ export function BookingFeature() {
           },
         ]}
         keyboardShouldPersistTaps="handled"
+        bottomOffset={theme.space(14)}
       >
         {form.slotStaleMessage ? (
           <InlineAlert
@@ -455,14 +460,15 @@ export function BookingFeature() {
             onRedeemRestaurantPointsChange={form.setRedeemRestaurantPoints}
           />
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
-      <View
-        style={[
-          styles.footer,
-          { paddingBottom: Math.max(insets.bottom, theme.space(2)) },
-        ]}
-      >
+      <KeyboardStickyView>
+        <View
+          style={[
+            styles.footer,
+            { paddingBottom: Math.max(insets.bottom, theme.space(2)) },
+          ]}
+        >
         {form.step === "datetime" ? (
           <Button
             fullWidth
@@ -493,7 +499,8 @@ export function BookingFeature() {
             </Button>
           </Flex>
         )}
-      </View>
+        </View>
+      </KeyboardStickyView>
 
       <BookingConfirmSheet
         visible={confirmOpen}

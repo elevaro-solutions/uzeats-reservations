@@ -3,12 +3,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { View } from "react-native";
 import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  View,
-} from "react-native";
+  KeyboardAwareScrollView,
+  KeyboardStickyView,
+} from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { toast } from "sonner-native";
@@ -114,10 +113,7 @@ export function CreateReservationFeature() {
   });
 
   return (
-    <KeyboardAvoidingView
-      style={[styles.screen, { paddingTop: insets.top }]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <View style={[styles.screen, { paddingTop: insets.top }]}>
       <Flex direction="row" alignItems="center" style={styles.topBar}>
         <IconButton
           icon={<ChevronLeftIcon />}
@@ -133,10 +129,11 @@ export function CreateReservationFeature() {
         <View style={styles.chromeBtn} />
       </Flex>
 
-      <ScrollView
+      <KeyboardAwareScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.content}
         style={styles.scroll}
+        bottomOffset={theme.space(12)}
       >
         <CreateReservationForm
           control={control}
@@ -144,26 +141,28 @@ export function CreateReservationFeature() {
           isWalkIn={isWalkIn}
           timeZone={timeZone}
         />
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
-      <View
-        style={[
-          styles.footer,
-          { paddingBottom: Math.max(insets.bottom, theme.space(2)) },
-        ]}
-      >
-        <Button
-          fullWidth
-          size="xl"
-          loading={loading}
-          onPress={() => {
-            void onSubmit();
-          }}
+      <KeyboardStickyView>
+        <View
+          style={[
+            styles.footer,
+            { paddingBottom: Math.max(insets.bottom, theme.space(2)) },
+          ]}
         >
-          Create reservation
-        </Button>
-      </View>
-    </KeyboardAvoidingView>
+          <Button
+            fullWidth
+            size="xl"
+            loading={loading}
+            onPress={() => {
+              void onSubmit();
+            }}
+          >
+            Create reservation
+          </Button>
+        </View>
+      </KeyboardStickyView>
+    </View>
   );
 }
 

@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
-import { Pressable, ScrollView } from "react-native";
+import { Pressable } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useRouter } from "expo-router";
@@ -43,22 +44,24 @@ export function AuthScreen({
         },
       ]}
     >
-      <ScrollView
+      <KeyboardAwareScrollView
+        style={styles.scroll}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.content,
           !showBack && showLogo ? styles.entryContent : null,
         ]}
         showsVerticalScrollIndicator={false}
+        bottomOffset={theme.space(2)}
       >
         {showBack ? (
           <Pressable
             onPress={() => {
               if (router.canGoBack()) {
                 router.back();
-            } else {
-              router.replace("/(auth)/sign-in");
-            }
+              } else {
+                router.replace("/(auth)/sign-in");
+              }
             }}
             accessibilityRole="button"
             accessibilityLabel="Go back"
@@ -89,7 +92,7 @@ export function AuthScreen({
         </Flex>
 
         <Flex gap={3}>{children}</Flex>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {footer ? <Flex style={styles.footer}>{footer}</Flex> : null}
     </Flex>
@@ -100,6 +103,9 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   screen: {
     backgroundColor: colors.background,
     paddingHorizontal: space(2.5),
+  },
+  scroll: {
+    flex: 1,
   },
   content: {
     flexGrow: 1,

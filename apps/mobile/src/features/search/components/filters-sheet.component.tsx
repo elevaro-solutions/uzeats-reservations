@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Modal, ScrollView } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { Flex } from "@/components";
 import {
@@ -39,6 +40,8 @@ export function FiltersSheet({
   onClose,
   onApplied,
 }: FiltersSheetProps) {
+  const insets = useSafeAreaInsets();
+  const { theme } = useUnistyles();
   const {
     draft,
     customTime,
@@ -97,7 +100,14 @@ export function FiltersSheet({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <Flex flex={1} style={styles.sheet}>
+      <Flex
+        flex={1}
+        style={[
+          styles.sheet,
+          // Android ignores pageSheet — Modal is edge-to-edge, so inset the header.
+          { paddingTop: insets.top + theme.space(3) },
+        ]}
+      >
         <FiltersSheetHeader
           activeFilterCount={activeFilterCount}
           onClearAll={clearAllBrowseFilters}
@@ -158,7 +168,6 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     overflow: "hidden",
-    paddingTop: space(3),
   },
   sheetBody: {
     paddingHorizontal: space(2),

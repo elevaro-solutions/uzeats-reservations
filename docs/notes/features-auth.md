@@ -1,5 +1,15 @@
 # Auth — Learnings & Observations
 
+## [2026-09-29] AuthScreen keyboard avoidance
+- `AuthScreen` uses `KeyboardAwareScrollView` for form fields only. The account helper footer is a normal pinned footer (not `KeyboardStickyView`) so it stays at the screen bottom and can sit under the keyboard — sticky footers were colliding with “Forgot Password?” / primary CTAs.
+- Why it matters: Matches merchant auth; sticky is for action bars (messages, create reservation), not auth helper links.
+
+## [2026-09-29] Android Google Sign-In: OAuth GCP ≠ Firebase FCM
+- Diner uses GCP project `836445078330` for OAuth (`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` + Android/iOS clients) and Firebase `uzeats-app` only for FCM (`google-services.json` can have empty `oauth_client`).
+- `GoogleSignin.configure` uses the **Web** client id only; `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` is not read at runtime. `DEVELOPER_ERROR` after account pick = package + signing SHA-1 mismatch on the **OAuth** Android client.
+- Local `expo run:android` signs with `android/app/debug.keystore` SHA-1 `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25` — different from EAS/Play fingerprints; register both. Stale `android/` with wrong `applicationId` (e.g. `com.tablevera.app`) also breaks Sign-In; regenerate via `expo prebuild`.
+- Why it matters: Fixing Firebase alone or swapping Android client id in env won’t clear `DEVELOPER_ERROR`.
+
 ## [2026-09-25] Duplicate-email register message
 - API throws `Email already registered`. Diner web must use `getGraphQLErrorMessage` (Apollo CombinedGraphQLErrors); mobile `getAuthErrorMessage` wraps the shared GraphQL helper and maps that string to “Sign in or use a different email.”
 - Why it matters: `err instanceof Error` alone often surfaces a generic Apollo wrapper, not the API message.

@@ -10,9 +10,11 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { StyleSheet } from "react-native-unistyles";
 import { Toaster } from "sonner-native";
 
+import { SheetPortalProvider } from "@/components";
 import { Providers } from "@/graphql";
 import { PushBootstrap } from "@/features";
 
@@ -38,97 +40,101 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <Providers>
-        <PushBootstrap />
-        <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen
-            name="(auth)"
-            options={{
-              presentation: "card",
-              animation: "slide_from_bottom",
-            }}
-          />
-          <Stack.Screen
-            name="search"
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="favorites"
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="notifications"
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="notification-settings"
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="help"
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="privacy"
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="terms"
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="restaurant/[id]"
-            options={{
-              headerShown: false,
-            }}
-          />
-          <Stack.Screen
-            name="restaurant/[id]/book"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="booking/confirmation"
-            options={{ headerShown: false, gestureEnabled: false }}
-          />
-          <Stack.Screen
-            name="reservations/[id]/index"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="reservations/[id]/messages"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="reservations/[id]/edit"
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="demo"
-            options={{
-              headerShown: true,
-              title: "Component kit",
-              presentation: "modal",
-            }}
-          />
-        </Stack>
-        <Toaster position="top-center" theme="light" />
-      </Providers>
+      <KeyboardProvider>
+        <Providers>
+          <SheetPortalProvider>
+            <PushBootstrap />
+            <StatusBar style="dark" />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen
+                name="(auth)"
+                options={{
+                  presentation: "card",
+                  animation: "slide_from_bottom",
+                }}
+              />
+              <Stack.Screen
+                name="search"
+                options={{
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen
+                name="favorites"
+                options={{
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen
+                name="notifications"
+                options={{
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen
+                name="notification-settings"
+                options={{
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen
+                name="help"
+                options={{
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen
+                name="privacy"
+                options={{
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen
+                name="terms"
+                options={{
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen
+                name="restaurant/[id]"
+                options={{
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen
+                name="restaurant/[id]/book"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="booking/confirmation"
+                options={{ headerShown: false, gestureEnabled: false }}
+              />
+              <Stack.Screen
+                name="reservations/[id]/index"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="reservations/[id]/messages"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="reservations/[id]/edit"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="demo"
+                options={{
+                  headerShown: true,
+                  title: "Component kit",
+                  presentation: "modal",
+                }}
+              />
+            </Stack>
+            <Toaster position="top-center" theme="light" />
+          </SheetPortalProvider>
+        </Providers>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

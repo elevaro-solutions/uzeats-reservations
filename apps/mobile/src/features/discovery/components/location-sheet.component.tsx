@@ -6,6 +6,7 @@ import {
   ScrollView,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { NavigationIcon, SearchIcon, XIcon } from "@/assets";
@@ -45,6 +46,7 @@ export function LocationSheet({
   onSelectPlace,
   onUseCurrentLocation,
 }: LocationSheetProps) {
+  const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
   const [query, setQuery] = useState("");
   const [resolvingPlaceId, setResolvingPlaceId] = useState<string | null>(null);
@@ -84,7 +86,14 @@ export function LocationSheet({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <Flex flex={1} style={styles.sheet}>
+      <Flex
+        flex={1}
+        style={[
+          styles.sheet,
+          // Android ignores pageSheet — Modal is edge-to-edge, so inset the header.
+          { paddingTop: insets.top + theme.space(3) },
+        ]}
+      >
         <Flex
           direction="row"
           alignItems="center"
@@ -258,7 +267,6 @@ export function LocationSheet({
 const styles = StyleSheet.create(({ space, colors, radius }) => ({
   sheet: {
     backgroundColor: colors.background,
-    paddingTop: space(3),
   },
   header: {
     paddingHorizontal: space(2),

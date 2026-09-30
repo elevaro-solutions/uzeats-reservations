@@ -1,12 +1,8 @@
 import { useMutation, useQuery } from "@apollo/client";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import {
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  View,
-} from "react-native";
+import { FlatList, View } from "react-native";
+import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
@@ -123,11 +119,7 @@ export function ReservationMessagesFeature() {
     : null;
 
   return (
-    <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={0}
-    >
+    <View style={styles.screen}>
       <Flex
         direction="row"
         alignItems="center"
@@ -269,21 +261,23 @@ export function ReservationMessagesFeature() {
         />
       )}
 
-      <View
-        style={[
-          styles.composer,
-          { paddingBottom: Math.max(insets.bottom, theme.space(1.5)) },
-        ]}
-      >
-        <MessageInput
-          value={draft}
-          onChangeText={setDraft}
-          placeholder={`Message ${restaurantName}…`}
-          sending={sending}
-          onSend={() => void onSend()}
-        />
-      </View>
-    </KeyboardAvoidingView>
+      <KeyboardStickyView>
+        <View
+          style={[
+            styles.composer,
+            { paddingBottom: Math.max(insets.bottom, theme.space(1.5)) },
+          ]}
+        >
+          <MessageInput
+            value={draft}
+            onChangeText={setDraft}
+            placeholder={`Message ${restaurantName}…`}
+            sending={sending}
+            onSend={() => void onSend()}
+          />
+        </View>
+      </KeyboardStickyView>
+    </View>
   );
 }
 

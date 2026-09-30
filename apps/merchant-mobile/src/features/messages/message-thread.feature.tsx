@@ -1,12 +1,8 @@
 import { useMutation, useQuery } from "@apollo/client";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import {
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  View,
-} from "react-native";
+import { FlatList, View } from "react-native";
+import { KeyboardStickyView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { toast } from "sonner-native";
@@ -128,11 +124,7 @@ export function MessageThreadFeature() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={styles.screen}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={0}
-    >
+    <View style={styles.screen}>
       <MessageThreadHeader
         guestName={guestName}
         subtitle={subtitle}
@@ -184,23 +176,25 @@ export function MessageThreadFeature() {
         />
       )}
 
-      <View
-        style={[
-          styles.composer,
-          { paddingBottom: Math.max(insets.bottom, theme.space(1.5)) },
-        ]}
-      >
-        <MessageInput
-          value={draft}
-          onChangeText={setDraft}
-          placeholder={`Message ${guestName}…`}
-          sending={sending}
-          onSend={() => {
-            void onSend();
-          }}
-        />
-      </View>
-    </KeyboardAvoidingView>
+      <KeyboardStickyView>
+        <View
+          style={[
+            styles.composer,
+            { paddingBottom: Math.max(insets.bottom, theme.space(1.5)) },
+          ]}
+        >
+          <MessageInput
+            value={draft}
+            onChangeText={setDraft}
+            placeholder={`Message ${guestName}…`}
+            sending={sending}
+            onSend={() => {
+              void onSend();
+            }}
+          />
+        </View>
+      </KeyboardStickyView>
+    </View>
   );
 }
 

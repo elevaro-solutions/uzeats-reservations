@@ -20,6 +20,10 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 - No `app/` screen named discovery. Home/search/favorites/restaurant-profile import cards, location, search builders, `useToggleFavorite`.
 - Why it matters: Treat it as the discovery SDK — changes ripple across domains.
 
+### [2026-09-30] LocationSheet needs Android status-bar inset
+- `presentationStyle="pageSheet"` is iOS-only; on Android the Modal is edge-to-edge. Header `paddingTop` must include `useSafeAreaInsets().top` (same pattern as FiltersSheet / AddReviewSheet).
+- Why it matters: Fixed `space(3)` alone puts “Your location” under the status bar / punch-hole on Android.
+
 ### [2026-09-14] Home feed ignores browse filters; Places degrades silently
 - `buildHomeFeedInput` only applies location (search facets must not affect Home). Cuisine chips on Home mutate store then navigate to Search. Google Places REST needs `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY`; missing key returns `[]` / `null` and the location sheet falls back toward New York without an obvious “key missing” error. Module-level Places session token for billing.
 - Why it matters: Home and Search share discovery state but not the same filter contract. Location failures look like empty predictions, not config errors.
@@ -171,6 +175,14 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## restaurant-profile
 
+### [2026-09-30] AddReviewSheet sticky Submit needs opaque footer + measured bottomOffset
+- `KeyboardStickyView` translates the Submit footer over the scroll view when the keyboard opens (layout is not resized). Without `backgroundColor` / `stickyFooter` shadow, Photos copy showed through under the button. `bottomOffset` must clear the measured footer height plus the multiline comment field — caret-based avoidance alone left Submit overlapping the input bottom.
+- Why it matters: Same sticky-footer + aware-scroll pairing as booking; multiline fields need extra clearance beyond footer height.
+
+### [2026-09-30] AddReviewSheet close X had no stroke color
+- Close control was `<XIcon size={24} />` with no `color`. `SvgWrapper` passes that through as `stroke={undefined}`, so the X was invisible. Photo remove on the same sheet already used `theme.colors.textPrimary`. Top bar also used fixed `paddingTop: space(2)` — on Android `pageSheet` is ignored and the Modal is edge-to-edge, so the hit target sat under the status bar (same pattern as FiltersSheet). Now: explicit icon color + `insets.top + space(2)`.
+- Why it matters: Raw Lucide icons outside `IconButton` need an explicit theme color; full-screen Android Modals need top safe-area, not only bottom.
+
 ### [2026-09-29] Web reviews preview + sort + all modal
 - Profile shows 5 reviews (`RESTAURANT_REVIEWS_PREVIEW_LIMIT`) with Newest / Oldest / Highest / Lowest (`ReviewSort` on `restaurantReviews`).
 - "Show all N reviews" opens a modal (keeps booking context) with the same sort and Load more — not a separate route.
@@ -238,6 +250,10 @@ AddReviewSheet require all four; restaurant avg still rolls up overall only.
 - Why it matters: Profile can show restaurants that aren’t bookable online. Review eligibility loads the full reservation list (cache helps if Reservations already fetched).
 
 ## search
+
+### [2026-09-29] Filters Modal needs top safe-area on Android
+- `FiltersSheet` uses RN `Modal` with `presentationStyle="pageSheet"`. iOS sheets sit below the status bar; Android ignores `pageSheet` and draws edge-to-edge, so a fixed `paddingTop: space(3)` put “Filters” under the status icons. Header now uses `insets.top + space(3)` (footer already used `insets.bottom`).
+- Why it matters: Full-screen Android modals must inset both ends; don’t assume `pageSheet` behavior cross-platform.
 
 ### [2026-09-14] Mode machine ≠ filters alone
 - Modes `idle | suggestions | results`. `hasActiveSearchFilters` ignores date/party/near-me — those alone stay on browse/discovery UI. `requireAvailability` only when `time` is set.

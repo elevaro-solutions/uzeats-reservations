@@ -1,5 +1,14 @@
 # app — Learnings & Observations
 
+## [2026-09-29] Keyboard: react-native-keyboard-controller + root KeyboardProvider
+- Same as diner: Android edge-to-edge breaks stock RN keyboard avoidance. Install `react-native-keyboard-controller`, wrap root `_layout` in `KeyboardProvider`, use `KeyboardAwareScrollView` / `KeyboardStickyView` on auth, create-reservation, and message composer. Native rebuild required.
+- Why it matters: Don’t rely on `adjustResize` alone for partner forms.
+
+## [2026-09-29] Tab bar Android ripple is borderless by default
+- Expo Router / React Navigation `BottomTabItem` passes `android_ripple: { borderless: true }` with no `radius` and `overflow: 'visible'` (uikit), so the Material ripple draws a large circle that bleeds above the tab bar. Bounding it (`borderless: false`) becomes a rectangle; capping `radius` still leaves a visible ink effect.
+- Fix: override `screenOptions.tabBarButton` with a `Pressable` and `android_ripple={null}` (omit the mismatched `ref`) so there is no press ink feedback on Android. iOS already uses `pressOpacity: 1` from BottomTabItem.
+- Why it matters: Don’t try to “fix” the default ripple size — disable it if the Material ink isn’t wanted.
+
 ## [2026-09-26] EAS needs babel-preset-expo as a direct dependency
 - `babel.config.js` uses `presets: ["babel-preset-expo"]`, but with pnpm the preset is not resolvable from the app unless declared. EAS Release JS bundle then fails: `Cannot find module 'babel-preset-expo'` → Metro `transformFile` of undefined (iOS + Android).
 - Fix: add `babel-preset-expo` to app `dependencies` (not only transitive via `expo`; keep it out of `devDependencies` so production installs still get it).
