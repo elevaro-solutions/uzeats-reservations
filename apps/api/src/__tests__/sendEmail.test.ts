@@ -23,7 +23,7 @@ describe('sendEmail via SendGrid', () => {
   });
 
   it('omits attachments when none are provided', async () => {
-    await sendEmail('diner@example.com', 'Confirm reservation', 'See you soon.');
+    await sendEmail('diner@tablevera.online', 'Confirm reservation', 'See you soon.');
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -33,7 +33,7 @@ describe('sendEmail via SendGrid', () => {
   });
 
   it('includes attachments when provided', async () => {
-    await sendEmail('billing@example.com', 'Invoice', 'PDF attached.', {
+    await sendEmail('billing@tablevera.online', 'Invoice', 'PDF attached.', {
       attachments: [
         {
           filename: 'invoice.pdf',
@@ -55,5 +55,23 @@ describe('sendEmail via SendGrid', () => {
         disposition: 'attachment',
       },
     ]);
+  });
+
+  it('strips MIME parameters from attachment types (SendGrid rejects ;)', async () => {
+    await sendEmail('diner@tablevera.online', 'Confirm reservation', 'See you soon.', {
+      attachments: [
+        {
+          filename: 'reservation.ics',
+          contentBase64: 'aWNz',
+          contentType: 'text/calendar; charset=utf-8',
+        },
+      ],
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string) as {
+      attachments: Array<{ type: string }>;
+    };
+    expect(body.attachments[0]?.type).toBe('text/calendar');
   });
 });

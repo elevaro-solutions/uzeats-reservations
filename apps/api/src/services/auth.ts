@@ -11,7 +11,12 @@ import { emailNotice } from './emailBranding.js';
 import { getPlatformConfig, resolveRequireSignupEmailVerification } from './platformConfig.js';
 import { clampRegistrationRole } from './roleAccess.js';
 import { generateUniqueReferralCode } from '../lib/referralCode.js';
-import { AuthenticationError } from '../lib/errors.js';
+import {
+  AuthenticationError,
+  ConflictError,
+  ForbiddenError,
+  ValidationError,
+} from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 
 /** Demo emails that were renamed; login must accept every address in a group. */
@@ -102,11 +107,11 @@ export async function registerWithEmail(input: {
   referralCode?: string;
 }) {
   const existing = await User.findOne({ email: input.email.toLowerCase() });
-  if (existing) throw new Error('Email already registered');
+  if (existing) throw new ConflictError('Email already registered');
 
   const config = await getPlatformConfig();
   if (config.allowPublicRegistration === false) {
-    throw new Error('Public registration is currently disabled');
+    throw new ForbiddenError('Public registration is currently disabled');
   }
 
   let referredByUserId = undefined;
@@ -114,7 +119,7 @@ export async function registerWithEmail(input: {
     const referrer = await User.findOne({
       referralCode: input.referralCode.trim().toUpperCase(),
     });
-    if (!referrer) throw new Error('Invalid referral code');
+    if (!referrer) throw new ValidationError('Invalid referral code');
     referredByUserId = referrer._id;
   }
 

@@ -184,7 +184,11 @@ export const notificationQueue = new Queue('notifications', { connection });
 export const reminderQueue = new Queue('reminders', { connection });
 
 if (env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(env.VAPID_SUBJECT, env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY);
+  try {
+    webpush.setVapidDetails(env.VAPID_SUBJECT, env.VAPID_PUBLIC_KEY, env.VAPID_PRIVATE_KEY);
+  } catch (err) {
+    logger.warn({ err }, '[push] invalid VAPID keys; web push disabled');
+  }
 }
 
 function parseEmailFrom(from: string): { email: string; name?: string } {
@@ -228,7 +232,8 @@ async function sendViaSendGrid(
     payload.attachments = attachments.map((a) => ({
       content: a.contentBase64,
       filename: a.filename,
-      type: a.contentType,
+      // SendGrid 400s if type contains ';' or CRLF (e.g. "text/calendar; charset=utf-8").
+      type: a.contentType.split(';')[0]!.trim(),
       disposition: 'attachment',
     }));
   }

@@ -88,7 +88,7 @@ export async function syncUserExpiryDate(userId: string, session?: ClientSession
 export async function consumePointsFifo(
   userId: string,
   points: number,
-  session: ClientSession,
+  session?: ClientSession,
 ) {
   if (points <= 0) return;
 
@@ -100,7 +100,7 @@ export async function consumePointsFifo(
     remainingPoints: { $gt: 0 },
   })
     .sort({ createdAt: 1 })
-    .session(session);
+    .session(session ?? null);
 
   let remaining = points;
   for (const bucket of buckets) {
@@ -124,7 +124,7 @@ export async function addCreditBucket(
   userId: string,
   points: number,
   description: string,
-  session: ClientSession,
+  session?: ClientSession,
   options?: { reservationId?: string; type?: 'earn' | 'adjust' },
 ) {
   if (!Number.isFinite(points) || points <= 0) return 0;

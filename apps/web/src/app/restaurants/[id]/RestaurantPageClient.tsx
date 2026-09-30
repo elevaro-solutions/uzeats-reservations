@@ -207,6 +207,7 @@ export default function RestaurantPageClient({
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewSort, setReviewSort] = useState<ReviewSort>(DEFAULT_REVIEW_SORT);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const isMobileLayout = useIsMobileRestaurantLayout();
   const [bookSheetHighlight, setBookSheetHighlight] = useState(false);
   const draftRestoredRef = useRef(false);
@@ -725,12 +726,14 @@ export default function RestaurantPageClient({
       setSelectedSlot(null);
       return;
     }
+    setConfirmError(null);
     setConfirmOpen(true);
   };
 
   const submitBooking = async () => {
     if (!user || !selectedSlot || isSubmittingRef.current) return;
     isSubmittingRef.current = true;
+    setConfirmError(null);
     setFieldErrors({});
     setValidationSummary([]);
     try {
@@ -801,10 +804,14 @@ export default function RestaurantPageClient({
       if (issues.length > 0) {
         setFieldErrors(toFieldErrors(issues));
         setValidationSummary(issues.map((i) => i.message));
+        setConfirmOpen(false);
+        setConfirmError(null);
         message.error('Please fix the highlighted fields and try again.');
         return;
       }
-      message.error(getGraphQLErrorMessage(err, 'Booking failed'));
+      // Keep the confirm modal open and show the error inside it — top-of-page
+      // toasts are easy to miss behind the modal overlay.
+      setConfirmError(getGraphQLErrorMessage(err, 'Booking failed'));
     } finally {
       isSubmittingRef.current = false;
     }
@@ -1749,6 +1756,7 @@ export default function RestaurantPageClient({
         termsAndConditions={restaurant.termsAndConditions}
         depositRequired={restaurant.depositRequired}
         depositAmountCents={restaurant.depositAmountCents}
+        error={confirmError}
         details={{
           dateLabel: formatBookingDateLabel(date),
           timeLabel: selectedSlot ? formatSlotLabel(selectedSlot) : '—',
@@ -1778,10 +1786,14 @@ export default function RestaurantPageClient({
               ? redeemRestaurantPoints
               : undefined,
         }}
-        onClose={() => setConfirmOpen(false)}
+        onClose={() => {
+          setConfirmOpen(false);
+          setConfirmError(null);
+        }}
         onConfirm={submitBooking}
         onViewTerms={() => {
           setConfirmOpen(false);
+          setConfirmError(null);
           document.getElementById('terms')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }}
       />

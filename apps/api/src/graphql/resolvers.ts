@@ -283,10 +283,12 @@ import {
   type GraphQLContext,
 } from "./context.js";
 import {
+  ConflictError,
   ForbiddenError,
   NotFoundError,
   ValidationError,
 } from "../lib/errors.js";
+import { logger } from "../lib/logger.js";
 import {
   mapUser,
   mapRestaurant,
@@ -4163,18 +4165,18 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       if (!(await isFeatureEnabled("reviews"))) {
-        throw new Error("Reviews are temporarily unavailable");
+        throw new ValidationError("Reviews are temporarily unavailable");
       }
       const input = reviewInputSchema.parse(args.input);
       const reservation = await Reservation.findById(input.reservationId);
-      if (!reservation || !reservation.dinerId.equals(user._id)) {
-        throw new Error("Reservation not found");
+      if (!reservation || !reservation.dinerId?.equals(user._id)) {
+        throw new NotFoundError("Reservation");
       }
       if (!isReservationReviewable(reservation)) {
-        throw new Error("Can only review after your visit");
+        throw new ValidationError("Can only review after your visit");
       }
       const existing = await Review.findOne({ reservationId: reservation._id });
-      if (existing) throw new Error("Already reviewed");
+      if (existing) throw new ConflictError("Already reviewed");
 
       const review: any = await Review.create({
         restaurantId: reservation.restaurantId,
@@ -4192,7 +4194,16 @@ export const resolvers = {
 
       await recomputePublicReviewStats(reservation.restaurantId);
 
-      await awardReviewPoints(user._id.toString(), reservation._id.toString());
+      try {
+        await awardReviewPoints(user._id.toString(), reservation._id.toString());
+      } catch (err) {
+        // Review must succeed even when loyalty writes fail (standalone Mongo
+        // rejects multi-doc transactions; production masks that as 500).
+        logger.error(
+          { err, reservationId: reservation._id.toString() },
+          "[createReview] loyalty award failed",
+        );
+      }
 
       const restaurantId = reservation.restaurantId.toString();
       const dinerName =

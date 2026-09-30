@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.72.3] — 2026-09-30
+
+### Added
+
+- Saved restaurants page (`/saved`): Remove button on each Saved and Favorites list item to unsave or unfavorite without opening the restaurant.
+
+### Fixed
+
+- A new diner's first reservation no longer returns "Internal server error" while the booking is actually saved (so a retry said "You already have a reservation…"). The first-booking loyalty bonus used a Mongo transaction, which fails on standalone production Mongo; it now falls back to non-transactional writes. All post-save side effects in `createReservation` (deposit/first-booking points, reminders, diner and restaurant notifications) are logged and skipped on failure instead of failing the mutation.
+- Signup / partner register no longer return a masked "Internal server error" for duplicate email (and related registration conflicts). Those paths now throw `ConflictError` / `ForbiddenError` / `ValidationError` so production `formatError` preserves the real message.
+- Booking confirmation emails failed SendGrid with a 400 because the ICS attachment used `text/calendar; charset=utf-8` — SendGrid rejects attachment MIME types that contain `;`. ICS type is now plain `text/calendar`, and `sendViaSendGrid` strips MIME parameters from all attachment types.
+- `createReview` no longer returns a masked Internal Server Error when awarding loyalty points on standalone MongoDB (production). Loyalty multi-doc transactions fall back to non-transactional writes; review creation soft-fails the points side effect and returns typed GraphQL errors (`Already reviewed`, etc.).
+- Restaurant booking confirm modal: booking failures (e.g. duplicate reservation) show a prominent error banner above the confirm buttons (title + description, stronger red styling, appear animation) instead of a easy-to-miss top-of-page toast.
+
 ## [0.72.2] — 2026-09-30
 
 ### Added
@@ -39,6 +53,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- API GraphQL schema: replace invalid `/** */` comments with `#` comments so the server can start (block comments are not valid GraphQL syntax).
 - Restaurant "See all photos" modal: photos no longer overlap each other; the browser grid is now a CSS-columns masonry layout that keeps each photo's natural aspect ratio.
 
 ## [0.71.2] — 2026-09-29

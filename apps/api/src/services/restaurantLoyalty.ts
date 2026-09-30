@@ -1,22 +1,14 @@
-import mongoose, { type ClientSession } from 'mongoose';
+import { type ClientSession } from 'mongoose';
 import { RESTAURANT_LOYALTY } from '@reservations/shared';
 import { GuestProfile } from '../models/GuestProfile.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { RestaurantLoyaltyTransaction } from '../models/RestaurantLoyalty.js';
+import { withOptionalTransaction } from '../lib/mongoTransaction.js';
 
 async function withRestaurantLoyaltyTransaction<T>(
-  fn: (session: ClientSession) => Promise<T>,
+  fn: (session: ClientSession | undefined) => Promise<T>,
 ): Promise<T> {
-  const session = await mongoose.startSession();
-  try {
-    let result!: T;
-    await session.withTransaction(async () => {
-      result = await fn(session);
-    });
-    return result;
-  } finally {
-    await session.endSession();
-  }
+  return withOptionalTransaction(fn);
 }
 
 async function getOrCreateProfile(

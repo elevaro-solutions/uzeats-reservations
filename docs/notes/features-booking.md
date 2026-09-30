@@ -1,5 +1,20 @@
 # Booking — Learnings & Observations
 
+## [2026-09-30] createReservation side effects run after the booking is saved
+- `Reservation.create` + slot claim happen first; points awards, reminders, and notifications run afterwards. Any throw there returned `INTERNAL_SERVER_ERROR` with the reservation already persisted, and the retry hit the duplicate guard ("You already have a reservation…").
+- Trigger seen in prod: `awardFirstBookingBonus` (only when `priorReservations === 0`, i.e. right after signup) used `session.withTransaction`, which standalone Dokku Mongo rejects. Now uses `withOptionalTransaction`, and every post-save step is wrapped in `softFail` (logged, not thrown).
+- Why it matters: New diners always failed their first booking in production and got no confirmation email or reminders for it.
+
+## [2026-09-30] SendGrid rejects ICS MIME params on confirmation email
+- `buildIcsAttachment` used `contentType: 'text/calendar; charset=utf-8'`. SendGrid mail/send returns 400: attachment `type` cannot contain `;` or CRLF. Booking confirmation notifications were recorded as `failed` while the reservation still succeeded.
+- Fix: use `text/calendar` only; `sendViaSendGrid` also strips `;…` from any attachment type before POST.
+- Why it matters: Diners saw a confirmed booking in-app but never got the confirmation email / calendar invite.
+
+## [2026-09-30] Confirm-modal booking errors need in-modal Alert
+- `message.error` toasts render at the top of the viewport; with `ReservationConfirmModal` open they sit above/outside the user’s focus and are easy to miss (white toast on a dimmed page).
+- Conflict errors like duplicate slot stay on the modal — pass `error` into the modal and render a high-contrast Alert in the footer (above Confirm), not only a default Alert at the top of the body. Validation field errors still close the modal so highlighted inputs on the form are reachable.
+- Why it matters: Diners retrying Confirm after a blocked double-book saw no obvious failure.
+
 ## [2026-09-29] Deposit Elements follow PlatformConfig.stripeMode
 - API creates PaymentIntents with the secret for `PlatformConfig.stripeMode` (`test` | `live`). Web/dashboard load the matching publishable key from public `stripeClientConfig` (env `NEXT_PUBLIC_*` is fallback only).
 - Why it matters: After a super-admin sandbox↔production switch, a stale build-time publishable key breaks Payment Element confirmation.

@@ -51,7 +51,8 @@ export function buildIcsAttachment(event: CalendarInviteEvent): {
   return {
     filename: 'reservation.ics',
     contentBase64: Buffer.from(ics, 'utf8').toString('base64'),
-    contentType: 'text/calendar; charset=utf-8',
+    // SendGrid rejects attachment types that contain ';' (e.g. charset params).
+    contentType: 'text/calendar',
   };
 }
 

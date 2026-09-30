@@ -1,17 +1,23 @@
 'use client';
 
-import { useQuery } from '@apollo/client/react';
-import { Button, Card, Space, Spin, Tabs, Typography } from 'antd';
-import { BookOutlined, HeartOutlined } from '@ant-design/icons';
+import { useMutation, useQuery } from '@apollo/client/react';
+import { Button, Card, Space, Spin, Tabs, Typography, message } from 'antd';
+import { BookOutlined, DeleteOutlined, HeartOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import { PageHeader, EmptyState, priceRangeLabel, colors, radii, shadows } from '@reservations/ui';
 import { buildRestaurantBookingPath } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
-import { MY_SAVED_RESTAURANTS } from '@/lib/graphql';
+import {
+  MY_SAVED_RESTAURANTS,
+  UNSAVE_RESTAURANT,
+  UNFAVORITE_RESTAURANT,
+} from '@/lib/graphql';
 
 const { Text } = Typography;
+
+type BookmarkKind = 'saved' | 'favorite';
 
 type RestaurantItem = {
   id: string;
@@ -29,7 +35,43 @@ type RestaurantItem = {
   };
 };
 
-function RestaurantList({ items, emptyTitle }: { items: RestaurantItem[]; emptyTitle: string }) {
+function RestaurantList({
+  items,
+  emptyTitle,
+  kind,
+}: {
+  items: RestaurantItem[];
+  emptyTitle: string;
+  kind: BookmarkKind;
+}) {
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  const [unsaveRestaurant] = useMutation(UNSAVE_RESTAURANT, {
+    refetchQueries: [{ query: MY_SAVED_RESTAURANTS, variables: { kind: 'saved' } }],
+  });
+  const [unfavoriteRestaurant] = useMutation(UNFAVORITE_RESTAURANT, {
+    refetchQueries: [{ query: MY_SAVED_RESTAURANTS, variables: { kind: 'favorite' } }],
+  });
+
+  const handleRemove = async (e: MouseEvent, restaurantId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setRemovingId(restaurantId);
+    try {
+      if (kind === 'saved') {
+        await unsaveRestaurant({ variables: { restaurantId } });
+        message.success('Removed from saved');
+      } else {
+        await unfavoriteRestaurant({ variables: { restaurantId } });
+        message.success('Removed from favorites');
+      }
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : 'Could not remove restaurant');
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
   if (items.length === 0) {
     return (
       <EmptyState
@@ -54,18 +96,26 @@ function RestaurantList({ items, emptyTitle }: { items: RestaurantItem[]; emptyT
       }}
     >
       {items.map((r, idx, arr) => (
-        <Link
+        <div
           key={r.id}
-          href={buildRestaurantBookingPath(r.slug, r.id)}
-          style={{ color: 'inherit', textDecoration: 'none' }}
+          style={{
+            display: 'flex',
+            gap: 16,
+            alignItems: 'center',
+            padding: '16px 0',
+            borderBottom: idx < arr.length - 1 ? `1px solid ${colors.bordersubtle}` : 'none',
+          }}
         >
-          <div
+          <Link
+            href={buildRestaurantBookingPath(r.slug, r.id)}
             style={{
+              color: 'inherit',
+              textDecoration: 'none',
               display: 'flex',
               gap: 16,
               alignItems: 'center',
-              padding: '16px 0',
-              borderBottom: idx < arr.length - 1 ? `1px solid ${colors.bordersubtle}` : 'none',
+              flex: 1,
+              minWidth: 0,
               cursor: 'pointer',
             }}
           >
@@ -111,8 +161,19 @@ function RestaurantList({ items, emptyTitle }: { items: RestaurantItem[]; emptyT
                 </Text>
               )}
             </div>
-          </div>
-        </Link>
+          </Link>
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            aria-label={kind === 'saved' ? 'Remove from saved' : 'Remove from favorites'}
+            loading={removingId === r.id}
+            onClick={(e) => void handleRemove(e, r.id)}
+            style={{ flexShrink: 0 }}
+          >
+            Remove
+          </Button>
+        </div>
       ))}
     </Card>
   );
@@ -121,7 +182,7 @@ function RestaurantList({ items, emptyTitle }: { items: RestaurantItem[]; emptyT
 export default function SavedRestaurantsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const [tab, setTab] = useState<'saved' | 'favorite'>('saved');
+  const [tab, setTab] = useState<BookmarkKind>('saved');
 
   const { data: savedData, loading: savedLoading } = useQuery(MY_SAVED_RESTAURANTS, {
     skip: !user,
@@ -159,7 +220,7 @@ export default function SavedRestaurantsPage() {
 
       <Tabs
         activeKey={tab}
-        onChange={(key) => setTab(key as 'saved' | 'favorite')}
+        onChange={(key) => setTab(key as BookmarkKind)}
         items={[
           {
             key: 'saved',
@@ -171,7 +232,7 @@ export default function SavedRestaurantsPage() {
             children: savedLoading ? (
               <Card loading style={{ minHeight: 120 }} />
             ) : (
-              <RestaurantList items={saved} emptyTitle="No saved restaurants" />
+              <RestaurantList items={saved} emptyTitle="No saved restaurants" kind="saved" />
             ),
           },
           {
@@ -189,7 +250,11 @@ export default function SavedRestaurantsPage() {
                   Favorites get table-open alerts when someone cancels within 48 hours.{' '}
                   <Link href="/profile#notifications">Manage alerts</Link>
                 </Text>
-                <RestaurantList items={favorites} emptyTitle="No favorite restaurants" />
+                <RestaurantList
+                  items={favorites}
+                  emptyTitle="No favorite restaurants"
+                  kind="favorite"
+                />
               </Space>
             ),
           },

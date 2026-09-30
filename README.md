@@ -78,7 +78,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Restaurant search (city, cuisine, text, nearby geo) with **list and map views**, infinite scroll, SEO landing pages (city/state/cuisine/occasion/neighborhood/landmark hubs, cuisine×city, near-me, top/best restaurants), and live availability slots — taxonomy managed in admin **Discovery**
 - **Blog** — published articles with SEO metadata; platform admins manage posts in the dashboard
 - **For restaurants** marketing page (`/for-restaurants`) plus public pricing and contact-sales flows
-- **Bookmarks/Saved** — diners can save favorite restaurants and view them at `/saved`
+- **Bookmarks/Saved** — diners can save favorite restaurants and view them at `/saved` (Remove on list items to unsave/unfavorite)
 - **Restaurant inquiries** — contact restaurants directly from the detail page
 - Google Places address autocomplete and device near-me (falls back to curated US cities)
 - Concurrent-safe booking via atomic table slot claims (no replica set required); optional **manual approval** for online bookings (party-size and per-resource rules)

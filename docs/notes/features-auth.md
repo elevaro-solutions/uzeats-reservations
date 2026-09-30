@@ -1,5 +1,9 @@
 # Auth — Learnings & Observations
 
+## [2026-09-30] Duplicate-email register must throw ConflictError
+- `registerWithEmail` previously used plain `Error`; production GraphQL `formatError` rewrote it to `"Internal server error"`. Now throws `ConflictError('Email already registered')` (same for partner register).
+- Why it matters: Web/mobile already map that exact string — the API had to stop masking it.
+
 ## [2026-09-29] AuthScreen keyboard avoidance
 - `AuthScreen` uses `KeyboardAwareScrollView` for form fields only. The account helper footer is a normal pinned footer (not `KeyboardStickyView`) so it stays at the screen bottom and can sit under the keyboard — sticky footers were colliding with “Forgot Password?” / primary CTAs.
 - Why it matters: Matches merchant auth; sticky is for action bars (messages, create reservation), not auth helper links.

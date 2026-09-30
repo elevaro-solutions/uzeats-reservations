@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Button, Checkbox, Descriptions, Modal, Typography, type DescriptionsProps } from 'antd';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Button, Checkbox, Descriptions, Modal, Typography, type DescriptionsProps } from 'antd';
 import { resolveRestaurantTerms } from '@/lib/restaurantTerms';
 
 const { Text, Paragraph, Link } = Typography;
@@ -38,6 +38,8 @@ type Props = {
   depositRequired?: boolean;
   depositAmountCents?: number;
   details: ReservationConfirmDetails;
+  /** Shown inside the modal so booking failures stay visible over the confirm UI */
+  error?: string | null;
   onClose: () => void;
   onConfirm: () => void;
   onViewTerms?: () => void;
@@ -59,15 +61,22 @@ export function ReservationConfirmModal({
   depositRequired,
   depositAmountCents,
   details,
+  error,
   onClose,
   onConfirm,
   onViewTerms,
 }: Props) {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const errorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) setAcceptedTerms(false);
   }, [open]);
+
+  useEffect(() => {
+    if (!error) return;
+    errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [error]);
 
   const termsText = resolveRestaurantTerms({
     name: restaurantName,
@@ -180,20 +189,35 @@ export function ReservationConfirmModal({
       onCancel={onClose}
       width={560}
       destroyOnClose
-      footer={[
-        <Button key="cancel" onClick={onClose} disabled={confirming}>
-          Go back
-        </Button>,
-        <Button
-          key="confirm"
-          type="primary"
-          loading={confirming}
-          disabled={!acceptedTerms}
-          onClick={onConfirm}
-        >
-          Confirm reservation
-        </Button>,
-      ]}
+      className={error ? 'rt-reservation-confirm-modal rt-reservation-confirm-modal--error' : 'rt-reservation-confirm-modal'}
+      footer={
+        <div className="rt-reservation-confirm-modal__footer">
+          {error ? (
+            <div ref={errorRef} className="rt-reservation-confirm-modal__error">
+              <Alert
+                type="error"
+                showIcon
+                message="Reservation not confirmed"
+                description={error}
+              />
+            </div>
+          ) : null}
+          <div className="rt-reservation-confirm-modal__actions">
+            <Button key="cancel" onClick={onClose} disabled={confirming}>
+              Go back
+            </Button>
+            <Button
+              key="confirm"
+              type="primary"
+              loading={confirming}
+              disabled={!acceptedTerms}
+              onClick={onConfirm}
+            >
+              Confirm reservation
+            </Button>
+          </div>
+        </div>
+      }
     >
       <Descriptions
         column={1}

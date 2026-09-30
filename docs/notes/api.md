@@ -4,6 +4,22 @@
 - `apps/api/src/graphql/typeDefs.ts` is raw GraphQL SDL in a template string. Only `#` line comments and `"""` descriptions are valid — JSDoc `/** … */` (used in the Stripe mode fields) makes Apollo fail at boot with `Unexpected character: "/"`.
 - Why it matters: A bad comment takes down the whole API; CI/typecheck does not parse the SDL string.
 
+## [2026-09-30] Register duplicate email must use AppError
+- Production `formatError` only preserves `AppError` / Zod / Mongoose messages; plain `throw new Error('Email already registered')` became `"Internal server error"`.
+- `registerWithEmail` and `registerRestaurantPartner` now use `ConflictError` / `ForbiddenError` / `ValidationError` for user-facing registration failures.
+- Why it matters: Clients already remap `Email already registered`; they only showed a generic 500 because the API masked it in production.
+
+## [2026-09-30] SendGrid attachment `type` must be parameter-free
+- SendGrid rejects `attachments[].type` values containing `;` (e.g. `text/calendar; charset=utf-8`). That silently failed every booking confirmation email that attached `reservation.ics` while the booking itself succeeded.
+- `sendViaSendGrid` now takes only the MIME type before the first `;`. Prefer bare types at the call site (`text/calendar`, `application/pdf`).
+- Why it matters: Notification rows show `status: failed` with a SendGrid 400; don’t re-test delivery without fixing the type.
+
+## [2026-09-30] Loyalty transactions need a replica set (or a fallback)
+- `withOptionalTransaction` (`lib/mongoTransaction.ts`) wraps platform + restaurant loyalty writes. Replica-set / mongos use `session.withTransaction`; standalone Mongo (Dokku prod) throws `IllegalOperation` / code 20 (“Transaction numbers are only allowed…”). We cache that and retry without a session.
+- `createReview` soft-fails `awardReviewPoints` (log only) so a points failure cannot 500 after the Review row is already inserted — same pattern as complete-status loyalty awards.
+- Plain `throw new Error("Already reviewed")` was masked as `INTERNAL_SERVER_ERROR` in production `formatError`; createReview now uses `ConflictError` / `NotFoundError` / `ValidationError`.
+- Why it matters: First createReview attempt wrote the review then crashed on points; retry looked like a mysterious 500 (`Already reviewed`).
+
 ## [2026-09-29] Stripe sandbox ↔ production mode
 - `PlatformConfig.stripeMode` is `test` | `live` (unset → test outside production NODE_ENV, live in production). Super-admin only on `updatePlatformConfig`.
 - Secrets: prefer `STRIPE_SECRET_KEY_TEST` / `_LIVE` (+ webhook + `STRIPE_PUBLISHABLE_KEY_*`). Legacy `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` fall back only when the key prefix matches the requested mode.

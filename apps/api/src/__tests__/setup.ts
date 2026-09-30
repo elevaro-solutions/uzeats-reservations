@@ -16,6 +16,10 @@ process.env.AUTH_DEV_OTP = 'true';
 process.env.MONGODB_URI = 'mongodb://placeholder';
 process.env.GOOGLE_CLIENT_ID = '';
 process.env.GOOGLE_CLIENT_SECRET = '';
+// Placeholder keys in local .env must not crash web-push on import.
+process.env.VAPID_PUBLIC_KEY = '';
+process.env.VAPID_PRIVATE_KEY = '';
+process.env.SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || '';
 
 vi.mock('bullmq', () => ({
   Queue: class MockQueue {

@@ -1,4 +1,5 @@
 import type { RegisterRestaurantPartnerInput } from '@reservations/shared';
+import { ConflictError, ForbiddenError, ValidationError } from '../lib/errors.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { User } from '../models/User.js';
 import { logAudit } from './audit.js';
@@ -64,18 +65,20 @@ function isDuplicateKeyError(err: unknown): boolean {
 export async function registerRestaurantPartner(input: RegisterRestaurantPartnerInput) {
   const config = await getPlatformConfig();
   if (config.allowPartnerRegistration === false) {
-    throw new Error('Partner registration is currently disabled');
+    throw new ForbiddenError('Partner registration is currently disabled');
   }
 
   const planDef = await getEffectivePlan(input.plan);
-  if (!planDef) throw new Error(`Invalid plan: ${input.plan}`);
+  if (!planDef) throw new ValidationError(`Invalid plan: ${input.plan}`);
 
   const email = input.account.email.toLowerCase();
   const existing = await User.findOne({ email });
-  if (existing) throw new Error('Email already registered');
+  if (existing) throw new ConflictError('Email already registered');
 
   if (!(await isRestaurantNameAvailable(input.restaurant.name))) {
-    throw new Error('A restaurant with this name already exists. Choose a different name.');
+    throw new ConflictError(
+      'A restaurant with this name already exists. Choose a different name.',
+    );
   }
 
   const passwordHash = await hashPassword(input.account.password);
@@ -119,7 +122,9 @@ export async function registerRestaurantPartner(input: RegisterRestaurantPartner
   } catch (err) {
     await User.findByIdAndDelete(user._id);
     if (isDuplicateKeyError(err)) {
-      throw new Error('A restaurant with this name already exists. Choose a different name.');
+      throw new ConflictError(
+        'A restaurant with this name already exists. Choose a different name.',
+      );
     }
     throw err;
   }

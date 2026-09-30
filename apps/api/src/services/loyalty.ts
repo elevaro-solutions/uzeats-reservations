@@ -1,4 +1,4 @@
-import mongoose, { type ClientSession } from 'mongoose';
+import { type ClientSession } from 'mongoose';
 import {
   LOYALTY_EARN_REASONS,
   depositPointsFromCents,
@@ -12,6 +12,7 @@ import {
   consumePointsFifo,
   reconcileUserLoyaltyBuckets,
 } from '../lib/loyaltyBuckets.js';
+import { withOptionalTransaction } from '../lib/mongoTransaction.js';
 import { getLoyaltyProgram } from './loyaltyProgram.js';
 
 type LoyaltyNotificationType = 'points_earned' | 'points_redeemed' | 'points_refunded';
@@ -48,17 +49,10 @@ function notifyLoyaltyUpdate(
   });
 }
 
-async function withLoyaltyTransaction<T>(fn: (session: ClientSession) => Promise<T>): Promise<T> {
-  const session = await mongoose.startSession();
-  try {
-    let result!: T;
-    await session.withTransaction(async () => {
-      result = await fn(session);
-    });
-    return result;
-  } finally {
-    await session.endSession();
-  }
+async function withLoyaltyTransaction<T>(
+  fn: (session: ClientSession | undefined) => Promise<T>,
+): Promise<T> {
+  return withOptionalTransaction(fn);
 }
 
 export async function earnPoints(
@@ -110,7 +104,7 @@ export async function redeemPoints(
   }
 
   return withLoyaltyTransaction(async (session) => {
-    const user = await User.findById(userId).select('loyaltyPoints').session(session);
+    const user = await User.findById(userId).select('loyaltyPoints').session(session ?? null);
     if (!user || (user.loyaltyPoints ?? 0) < points) {
       throw new Error('Insufficient loyalty points');
     }
@@ -164,7 +158,7 @@ export async function adjustPoints(
 
   return withLoyaltyTransaction(async (session) => {
     if (delta < 0) {
-      const user = await User.findById(userId).select('loyaltyPoints').session(session);
+      const user = await User.findById(userId).select('loyaltyPoints').session(session ?? null);
       if (!user || (user.loyaltyPoints ?? 0) < -delta) {
         throw new Error('Cannot adjust: insufficient loyalty points');
       }

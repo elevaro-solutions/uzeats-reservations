@@ -811,57 +811,78 @@ export async function createReservation(input: {
     throw err;
   }
 
+  // The booking is already saved. A side-effect failure here must not return an
+  // error, or the diner retries and hits the duplicate-reservation guard.
+  const reservationId = reservation._id.toString();
+  const softFail = async (label: string, fn: () => Promise<unknown>) => {
+    try {
+      await fn();
+    } catch (err) {
+      logger.error({ err, reservationId }, `[reservations] ${label} after create failed`);
+    }
+  };
+
   if (depositStatus === 'authorized') {
-    await awardDepositPoints({
-      dinerId: input.dinerId,
-      reservationId: reservation._id.toString(),
-      depositAmountCents,
-      depositStatus,
-    });
+    await softFail('deposit points', () =>
+      awardDepositPoints({
+        dinerId: input.dinerId,
+        reservationId,
+        depositAmountCents,
+        depositStatus,
+      }),
+    );
   }
 
   if (priorReservations === 0) {
-    await awardFirstBookingBonus(input.dinerId);
+    await softFail('first booking bonus', () => awardFirstBookingBonus(input.dinerId));
   }
 
   if (reservation.status === 'confirmed') {
-    await scheduleReservationReminders(reservation._id.toString());
-    await notifyDinerBookingConfirmed({
-      dinerId: input.dinerId,
-      restaurantId: input.restaurantId,
-      reservationId: reservation._id.toString(),
-      restaurantName: restaurant.name,
-      slotStart: input.slotStart,
-      slotEnd: reservation.slotEnd,
-      partySize: input.partySize,
-      guestNotes: reservation.guestNotes,
-      restaurant,
-      address: restaurant.address,
-    });
-    await notifyRestaurantManagers(input.restaurantId, {
-      type: 'new_reservation',
-      title: 'New reservation',
-      body: `Party of ${input.partySize} at ${formatReservationWhen(input.slotStart, restaurant)} — ${restaurant.name}`,
-      data: { reservationId: reservation._id.toString() },
-    });
+    await softFail('reminder scheduling', () => scheduleReservationReminders(reservationId));
+    await softFail('diner confirmation', () =>
+      notifyDinerBookingConfirmed({
+        dinerId: input.dinerId,
+        restaurantId: input.restaurantId,
+        reservationId,
+        restaurantName: restaurant.name,
+        slotStart: input.slotStart,
+        slotEnd: reservation.slotEnd,
+        partySize: input.partySize,
+        guestNotes: reservation.guestNotes,
+        restaurant,
+        address: restaurant.address,
+      }),
+    );
+    await softFail('manager notification', () =>
+      notifyRestaurantManagers(input.restaurantId, {
+        type: 'new_reservation',
+        title: 'New reservation',
+        body: `Party of ${input.partySize} at ${formatReservationWhen(input.slotStart, restaurant)} — ${restaurant.name}`,
+        data: { reservationId },
+      }),
+    );
   } else if (needsManualApproval && !requiresPayment) {
-    await notifyDinerBookingPendingApproval({
-      dinerId: input.dinerId,
-      restaurantId: input.restaurantId,
-      reservationId: reservation._id.toString(),
-      restaurantName: restaurant.name,
-      slotStart: input.slotStart,
-      partySize: input.partySize,
-      restaurant,
-    });
-    await notifyRestaurantBookingNeedsApproval({
-      restaurantId: input.restaurantId,
-      reservationId: reservation._id.toString(),
-      restaurantName: restaurant.name,
-      slotStart: input.slotStart,
-      partySize: input.partySize,
-      restaurant,
-    });
+    await softFail('diner pending-approval notice', () =>
+      notifyDinerBookingPendingApproval({
+        dinerId: input.dinerId,
+        restaurantId: input.restaurantId,
+        reservationId,
+        restaurantName: restaurant.name,
+        slotStart: input.slotStart,
+        partySize: input.partySize,
+        restaurant,
+      }),
+    );
+    await softFail('restaurant approval notice', () =>
+      notifyRestaurantBookingNeedsApproval({
+        restaurantId: input.restaurantId,
+        reservationId,
+        restaurantName: restaurant.name,
+        slotStart: input.slotStart,
+        partySize: input.partySize,
+        restaurant,
+      }),
+    );
   }
 
   return { reservation, clientSecret: requiresPayment ? clientSecret : null };
