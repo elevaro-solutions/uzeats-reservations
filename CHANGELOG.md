@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.72.1] — 2026-09-30
+
+### Fixed
+
+- API startup: replace invalid JSDoc (`/** */`) comments in GraphQL `typeDefs` with `"""` descriptions so Apollo can parse the schema (unblocks `reservetable-api` / tablevera.online).
+
 ## [0.72.0] — 2026-09-30
 
 ### Added

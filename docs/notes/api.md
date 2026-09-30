@@ -1,5 +1,9 @@
 # API — Learnings & Observations
 
+## [2026-09-30] GraphQL SDL rejects `/** */` / `//` comments
+- `apps/api/src/graphql/typeDefs.ts` is raw GraphQL SDL in a template string. Only `#` line comments and `"""` descriptions are valid — JSDoc `/** … */` (used in the Stripe mode fields) makes Apollo fail at boot with `Unexpected character: "/"`.
+- Why it matters: A bad comment takes down the whole API; CI/typecheck does not parse the SDL string.
+
 ## [2026-09-29] Stripe sandbox ↔ production mode
 - `PlatformConfig.stripeMode` is `test` | `live` (unset → test outside production NODE_ENV, live in production). Super-admin only on `updatePlatformConfig`.
 - Secrets: prefer `STRIPE_SECRET_KEY_TEST` / `_LIVE` (+ webhook + `STRIPE_PUBLISHABLE_KEY_*`). Legacy `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` fall back only when the key prefix matches the requested mode.
