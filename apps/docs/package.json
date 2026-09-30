@@ -1,6 +1,6 @@
 {
   "name": "@reservations/docs",
-  "version": "0.71.2",
+  "version": "0.72.0",
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",

@@ -18,6 +18,13 @@ import {
   type PlanKey,
 } from '../config/plans.js';
 import { PlatformConfig, type PlatformConfigDocument } from '../models/PlatformConfig.js';
+import {
+  getStripeClientConfig,
+  isStripeModeConfigured,
+  resolveStripeMode,
+  setActiveStripeMode,
+  type StripeMode,
+} from './stripe.js';
 
 /** Unset config falls back to on in production, off in local/test. */
 export function defaultRequireSignupEmailVerification() {
@@ -398,6 +405,7 @@ export function resolveRequireSignupEmailVerification(
 
 export function mapPlatformConfig(doc: PlatformConfigDocument) {
   const flags = (doc.featureFlags as any) ?? {};
+  const stripeMode = resolveStripeMode((doc as any).stripeMode);
   return {
     id: doc._id.toString(),
     supportEmail: doc.supportEmail ?? DEFAULTS.supportEmail,
@@ -414,6 +422,9 @@ export function mapPlatformConfig(doc: PlatformConfigDocument) {
     ),
     invoicePrefix: doc.invoicePrefix ?? DEFAULTS.invoicePrefix,
     currency: doc.currency ?? DEFAULTS.currency,
+    stripeMode,
+    stripeSandboxConfigured: isStripeModeConfigured('test'),
+    stripeProductionConfigured: isStripeModeConfigured('live'),
     featureFlags: {
       waitlist: flags.waitlist !== false,
       deposits: flags.deposits !== false,
@@ -430,6 +441,35 @@ export function mapPlatformConfig(doc: PlatformConfigDocument) {
     updatedAt: (doc as any).updatedAt ?? new Date(),
   };
 }
+
+/** Load PlatformConfig.stripeMode into the process-local Stripe client cache. */
+export async function initStripeModeFromConfig() {
+  const doc = await getPlatformConfig();
+  setActiveStripeMode(resolveStripeMode((doc as any).stripeMode));
+}
+
+export function applyStripeModeToConfig(
+  doc: PlatformConfigDocument,
+  mode: StripeMode,
+) {
+  if (mode !== 'test' && mode !== 'live') {
+    throw new Error('Invalid stripeMode: must be test or live');
+  }
+  if (mode === 'live' && !isStripeModeConfigured('live')) {
+    throw new Error(
+      'Production Stripe keys are not configured. Set STRIPE_SECRET_KEY_LIVE (or a live STRIPE_SECRET_KEY).',
+    );
+  }
+  if (mode === 'test' && !isStripeModeConfigured('test')) {
+    throw new Error(
+      'Sandbox Stripe keys are not configured. Set STRIPE_SECRET_KEY_TEST (or a test STRIPE_SECRET_KEY).',
+    );
+  }
+  (doc as any).stripeMode = mode;
+  setActiveStripeMode(mode);
+}
+
+export { getStripeClientConfig };
 
 export async function isFeatureEnabled(
   flag: keyof typeof DEFAULTS.featureFlags,

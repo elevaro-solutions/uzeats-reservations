@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.72.0] — 2026-09-30
+
+### Added
+
+- Super admins can switch the platform Stripe environment between sandbox and production from Platform configuration → Billing (`PlatformConfig.stripeMode`). Dual env keys (`STRIPE_SECRET_KEY_TEST` / `_LIVE`, webhook + publishable pairs) with legacy single-key fallbacks; public `stripeClientConfig` serves the matching publishable key to web/dashboard Elements.
+
+### Fixed
+
+- Restaurant "See all photos" modal: photos no longer overlap each other; the browser grid is now a CSS-columns masonry layout that keeps each photo's natural aspect ratio.
+
 ## [0.71.2] — 2026-09-29
 
 ### Fixed

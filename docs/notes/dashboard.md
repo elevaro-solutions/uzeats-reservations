@@ -1,5 +1,11 @@
 # Dashboard — Learnings & Observations
 
+## [2026-09-29] Stripe environment switcher is super-admin
+- `/admin/config` → Billing: Sandbox / Production `Segmented` (`stripeMode`). Non–super-admins see it disabled; saves omit the field. Mutation is super-admin only and requires the target mode’s secret keys to be configured.
+- Switching to production asks for confirmation. Tags show whether sandbox/production secrets are present (from `stripeSandboxConfigured` / `stripeProductionConfigured`).
+- Partner signup payment and diner Elements use `stripeClientConfig` (API-served publishable key) with `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` as fallback.
+- Why it matters: Same pattern as signup email verification — regular admins must not flip live charges on a shared Save; Elements must track the API mode without a rebuild.
+
 ## [2026-09-29] Manual invoice auto-fills restaurant package
 - Create manual invoice: selecting `restaurantId` sets `planKey` / `billingCycle` from `adminRestaurants.subscription` (annual if current period ≥ ~10 months) and re-runs catalog amount sync. Clear/no sub clears the package.
 - Package section: Monthly/Annual `Segmented` above the plan select (default monthly). Plan option prices follow the cycle. Annual hides package duration and submits 12 months.

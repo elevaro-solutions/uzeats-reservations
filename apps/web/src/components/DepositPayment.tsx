@@ -8,13 +8,15 @@ import {
   useElements,
   useStripe,
 } from '@stripe/react-stripe-js';
+import { useQuery } from '@apollo/client/react';
 import { Alert, Button, Card, Space, Spin, Typography } from 'antd';
 import { colors } from '@reservations/ui';
+import { STRIPE_CLIENT_CONFIG } from '@/lib/graphql';
 
 const { Title, Text } = Typography;
 
 const BRAND_COLOR = colors.brand[600];
-const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
+const ENV_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 
 function PaymentForm({
   amount,
@@ -97,10 +99,25 @@ export default function DepositPayment({
   onSuccess: () => void;
   onCancel: () => void;
 }) {
+  const { data, loading } = useQuery(STRIPE_CLIENT_CONFIG);
+  const publishableKey =
+    (data as { stripeClientConfig?: { publishableKey?: string | null } } | undefined)
+      ?.stripeClientConfig?.publishableKey ||
+    ENV_PUBLISHABLE_KEY ||
+    '';
+
   const stripePromise = useMemo(
     () => (publishableKey ? loadStripe(publishableKey) : null),
-    [],
+    [publishableKey],
   );
+
+  if (loading && !publishableKey) {
+    return (
+      <Card style={{ maxWidth: 520, margin: '0 auto', textAlign: 'center' }}>
+        <Spin />
+      </Card>
+    );
+  }
 
   if (!publishableKey || !stripePromise) {
     return (

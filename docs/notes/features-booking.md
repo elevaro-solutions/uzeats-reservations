@@ -1,5 +1,9 @@
 # Booking — Learnings & Observations
 
+## [2026-09-29] Deposit Elements follow PlatformConfig.stripeMode
+- API creates PaymentIntents with the secret for `PlatformConfig.stripeMode` (`test` | `live`). Web/dashboard load the matching publishable key from public `stripeClientConfig` (env `NEXT_PUBLIC_*` is fallback only).
+- Why it matters: After a super-admin sandbox↔production switch, a stale build-time publishable key breaks Payment Element confirmation.
+
 ## [2026-09-28] Duplicate bookings are blocked in the service, not the UI
 - `createReservation` rejects a second live (`pending` / `confirmed` / `seated`) reservation for the same `dinerId` + `restaurantId` + `slotStart` before `resolveTable` runs, so the error is "already have a reservation", not "no tables available".
 - Table slot claims only serialize the *same* table, so a replayed submit landed on a different table and looked like a legitimate second booking. Client-side locks (`isSubmittingRef`, modal `loading`) do not cover replays from the Apollo link layer.

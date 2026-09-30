@@ -1324,9 +1324,22 @@ export const typeDefs = `#graphql
     requireSignupEmailVerification: Boolean!
     invoicePrefix: String!
     currency: String!
+    /** Active Stripe environment: sandbox (test) or production (live). Super-admin switchable. */
+    stripeMode: StripeMode!
+    stripeSandboxConfigured: Boolean!
+    stripeProductionConfigured: Boolean!
     featureFlags: PlatformFeatureFlags!
     annualBilling: AnnualBillingSettings!
     updatedAt: DateTime!
+  }
+
+  enum StripeMode { test live }
+
+  type StripeClientConfig {
+    mode: StripeMode!
+    publishableKey: String
+    sandboxConfigured: Boolean!
+    productionConfigured: Boolean!
   }
 
   input PlatformConfigInput {
@@ -1342,6 +1355,8 @@ export const typeDefs = `#graphql
     requireSignupEmailVerification: Boolean
     invoicePrefix: String
     currency: String
+    /** Super-admin only. Switches API Stripe calls between sandbox and production keys. */
+    stripeMode: StripeMode
     featureFlags: PlatformFeatureFlagsInput
     annualBilling: AnnualBillingSettingsInput
   }
@@ -2884,6 +2899,8 @@ export const typeDefs = `#graphql
     adminRevenueReport(period: String): PlatformRevenueReport!
     platformConfig: PlatformConfig!
     developerInfo: DeveloperInfo!
+    /** Public: publishable key for the active Stripe environment (sandbox vs production). */
+    stripeClientConfig: StripeClientConfig!
     session: SessionInfo!
     supportTickets(
       status: String

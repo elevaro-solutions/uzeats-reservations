@@ -12,11 +12,12 @@ import {
   EXPORT_INVOICE_PDF_BY_TOKEN,
   INVOICE_BY_PAY_TOKEN,
   START_INVOICE_PAYMENT,
+  STRIPE_CLIENT_CONFIG,
 } from '@/lib/graphql';
 
 const { Text, Title } = Typography;
 
-const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
+const ENV_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 
 function money(cents: number, currency = 'usd') {
   return (cents / 100).toLocaleString('en-US', {
@@ -155,6 +156,7 @@ export default function InvoicePayClient({ token }: { token: string }) {
     variables: { token },
     skip: !token,
   });
+  const { data: stripeConfig } = useQuery(STRIPE_CLIENT_CONFIG);
   const [startPayment, { loading: starting }] = useMutation(START_INVOICE_PAYMENT);
   const [exportPdf] = useLazyQuery(EXPORT_INVOICE_PDF_BY_TOKEN);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -164,9 +166,14 @@ export default function InvoicePayClient({ token }: { token: string }) {
   const [paid, setPaid] = useState(false);
 
   const invoice = (data as any)?.invoiceByPayToken;
+  const publishableKey =
+    (stripeConfig as { stripeClientConfig?: { publishableKey?: string | null } } | undefined)
+      ?.stripeClientConfig?.publishableKey ||
+    ENV_PUBLISHABLE_KEY ||
+    '';
   const stripePromise = useMemo(
     () => (publishableKey ? loadStripe(publishableKey) : null),
-    [],
+    [publishableKey],
   );
 
   useEffect(() => {

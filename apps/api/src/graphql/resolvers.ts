@@ -347,6 +347,8 @@ import {
   pickDiscountOverrides,
   toPlainPlanOverride,
   uniquePlanKey,
+  applyStripeModeToConfig,
+  getStripeClientConfig,
 } from "../services/platformConfig.js";
 import { getDeveloperInfo } from "../services/developerInfo.js";
 import {
@@ -2114,6 +2116,8 @@ export const resolvers = {
       requireSuperAdmin(ctx);
       return getDeveloperInfo();
     },
+
+    stripeClientConfig: async () => getStripeClientConfig(),
 
     coverFeeSummary: async (
       _: unknown,
@@ -4646,6 +4650,10 @@ export const resolvers = {
         (doc as any).requireSignupEmailVerification = Boolean(
           args.input.requireSignupEmailVerification,
         );
+      }
+      if (args.input.stripeMode !== undefined) {
+        requireSuperAdmin(ctx);
+        applyStripeModeToConfig(doc, args.input.stripeMode as "test" | "live");
       }
       if (
         args.input.featureFlags &&

@@ -1,5 +1,12 @@
 # API — Learnings & Observations
 
+## [2026-09-29] Stripe sandbox ↔ production mode
+- `PlatformConfig.stripeMode` is `test` | `live` (unset → test outside production NODE_ENV, live in production). Super-admin only on `updatePlatformConfig`.
+- Secrets: prefer `STRIPE_SECRET_KEY_TEST` / `_LIVE` (+ webhook + `STRIPE_PUBLISHABLE_KEY_*`). Legacy `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` fall back only when the key prefix matches the requested mode.
+- `getStripe()` refreshes mode from Mongo (~5s TTL) and caches clients per mode. Webhooks try the active mode secret first, then the other.
+- Public `stripeClientConfig` returns `{ mode, publishableKey }` so Elements match the API secret after a switch. Stored `cus_` / `sub_` / `pi_` IDs are not migrated across modes.
+- Why it matters: Flipping live without live keys must fail closed; build-time `NEXT_PUBLIC_*` alone will mismatch after a mode switch.
+
 ## [2026-09-29] Manual invoice duplicate period override
 - `createManualInvoice` conflicts when restaurant+period already has an invoice (`CONFLICT` + existing details). `forceCreate` + `duplicateJustification` proceeds; `replaceExisting` (default false) overwrites in place. Without replace: cancel the old invoice, rewrite its `billingPeriod` to `YYYY-MM~canceled-{number}` to free the unique index, then create a new number.
 - Why it matters: Unique `{ restaurantId, billingPeriod }` blocks a second active invoice; don’t replace by default; canceled period keys won’t match period filters/lists.

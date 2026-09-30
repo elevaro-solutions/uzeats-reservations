@@ -3,16 +3,16 @@
 import { useMemo, useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js';
-import { useMutation } from '@apollo/client/react';
-import { Button, Card, Space, Typography, message, Result } from 'antd';
+import { useMutation, useQuery } from '@apollo/client/react';
+import { Button, Card, Space, Spin, Typography, message, Result } from 'antd';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CalendarOutlined } from '@ant-design/icons';
 import { PageHeader, colors, radii, shadows } from '@reservations/ui';
-import { CONFIRM_DEPOSIT } from '@/lib/graphql';
+import { CONFIRM_DEPOSIT, STRIPE_CLIENT_CONFIG } from '@/lib/graphql';
 
 const { Title, Text, Paragraph } = Typography;
 
-const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
+const ENV_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 
 function DepositForm({
   reservationId,
@@ -74,10 +74,16 @@ export default function DepositPayPage() {
   const reservationId = search.get('reservationId') ?? '';
   const amountCents = Number(search.get('amount') ?? 0);
   const paymentIntentId = clientSecret.split('_secret')[0] ?? '';
+  const { data: stripeConfig, loading: stripeLoading } = useQuery(STRIPE_CLIENT_CONFIG);
+  const publishableKey =
+    (stripeConfig as { stripeClientConfig?: { publishableKey?: string | null } } | undefined)
+      ?.stripeClientConfig?.publishableKey ||
+    ENV_PUBLISHABLE_KEY ||
+    '';
 
   const stripePromise = useMemo(
     () => (publishableKey ? loadStripe(publishableKey) : null),
-    [],
+    [publishableKey],
   );
 
   if (!clientSecret || !reservationId) {
@@ -112,14 +118,23 @@ export default function DepositPayPage() {
     );
   }
 
+  if (stripeLoading && !publishableKey) {
+    return (
+      <Card style={{ maxWidth: 520, margin: '40px auto', textAlign: 'center' }}>
+        <Spin />
+      </Card>
+    );
+  }
+
   if (!publishableKey || !stripePromise) {
     return (
       <Card style={{ maxWidth: 520, margin: '40px auto' }}>
         <Title level={3}>Deposit payment</Title>
         <Paragraph>
           Stripe publishable key is not configured. Set{' '}
-          <Text code>NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</Text> and{' '}
-          <Text code>STRIPE_SECRET_KEY</Text> to collect real deposits.
+          <Text code>STRIPE_PUBLISHABLE_KEY_TEST</Text> /{' '}
+          <Text code>STRIPE_PUBLISHABLE_KEY_LIVE</Text> on the API (or{' '}
+          <Text code>NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</Text>) and matching secret keys.
         </Paragraph>
         <Paragraph type="secondary">
           In local stub mode, deposits are auto-confirmed when booking.

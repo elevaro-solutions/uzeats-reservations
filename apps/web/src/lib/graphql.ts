@@ -178,6 +178,17 @@ export const CONFIRM_DEPOSIT = gql`
   }
 `;
 
+export const STRIPE_CLIENT_CONFIG = gql`
+  query StripeClientConfig {
+    stripeClientConfig {
+      mode
+      publishableKey
+      sandboxConfigured
+      productionConfigured
+    }
+  }
+`;
+
 export const MY_RESERVATIONS = gql`
   query MyReservations {
     myReservations {

@@ -18,6 +18,7 @@ import { resolvers } from "./graphql/resolvers.js";
 import { createContext, type GraphQLContext } from "./graphql/context.js";
 import { graphqlBatchMiddleware } from "./graphql/batchHttp.js";
 import { migrateStaffRoleToManager } from "./services/migrateStaffRoleToManager.js";
+import { initStripeModeFromConfig } from "./services/platformConfig.js";
 import { constructStripeEvent } from "./services/stripe.js";
 import { confirmDeposit, syncDepositRefundedFromStripe } from "./services/reservations.js";
 import { startNotificationWorkers } from "./services/notifications.js";
@@ -53,6 +54,7 @@ async function main() {
   await connectDb();
   await migrateStaffRoleToManager();
   await ensureDefaultEmailTemplates();
+  await initStripeModeFromConfig();
   startNotificationWorkers();
   startCampaignWorker();
   startLoyaltyWorker();

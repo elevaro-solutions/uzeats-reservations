@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
+  Alert,
   Button,
   Card,
   Col,
@@ -10,9 +11,11 @@ import {
   Input,
   Modal,
   Row,
+  Segmented,
   Select,
   Space,
   Switch,
+  Tag,
   Typography,
   message,
 } from 'antd';
@@ -51,7 +54,7 @@ const CONFIG_SECTIONS = [
   {
     key: 'billing',
     label: 'Billing',
-    description: 'Defaults for invoices and subscription charges.',
+    description: 'Defaults for invoices and subscription charges, plus the Stripe environment.',
   },
   {
     key: 'registration',
@@ -78,6 +81,7 @@ const CONFIG_SECTIONS = [
 const NON_DANGER_SECTIONS = CONFIG_SECTIONS.filter((s) => s.key !== 'danger');
 
 type ConfigSectionKey = (typeof CONFIG_SECTIONS)[number]['key'];
+type StripeMode = 'test' | 'live';
 
 const ROLE_OPTIONS = [
   { value: 'diner', label: 'Guest' },
@@ -91,16 +95,24 @@ export default function AdminConfigPage() {
   const { ready, user } = useRequireAdmin();
   const canClearSeed = user ? isSuperAdmin(user.role) : false;
   const canEditSignupEmailVerification = canClearSeed;
+  const canEditStripeMode = canClearSeed;
   const { data, loading, refetch } = useQuery(PLATFORM_CONFIG, { skip: !ready });
   const [updateConfig, { loading: saving }] = useMutation(UPDATE_PLATFORM_CONFIG);
   const [clearSeed, { loading: clearing }] = useMutation(CLEAR_SEED_DATA);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const [liveConfirmOpen, setLiveConfirmOpen] = useState(false);
+  const [pendingLiveValues, setPendingLiveValues] = useState<Record<string, unknown> | null>(
+    null,
+  );
   const [activeKey, setActiveKey] = useState<ConfigSectionKey>('support');
   const [form] = Form.useForm();
   const { dirty, clearDirty, onValuesChange } = useFormDirty();
 
   const visibleSections = canClearSeed ? CONFIG_SECTIONS : NON_DANGER_SECTIONS;
   const activeSection = visibleSections.find((s) => s.key === activeKey) ?? visibleSections[0];
+  const savedStripeMode = (data?.platformConfig?.stripeMode as StripeMode | undefined) ?? 'test';
+  const sandboxConfigured = Boolean(data?.platformConfig?.stripeSandboxConfigured);
+  const productionConfigured = Boolean(data?.platformConfig?.stripeProductionConfigured);
 
   useEffect(() => {
     if (!data?.platformConfig) return;
@@ -116,38 +128,62 @@ export default function AdminConfigPage() {
 
   if (!ready) return null;
 
+  const saveConfig = async (values: Record<string, unknown>) => {
+    await updateConfig({
+      variables: {
+        input: {
+          supportEmail: values.supportEmail,
+          supportPhone: values.supportPhone,
+          defaultSignupRole: values.defaultSignupRole,
+          defaultPartnerRole: values.defaultPartnerRole,
+          defaultManagerRole: values.defaultManagerRole,
+          maintenanceMode: values.maintenanceMode,
+          allowPublicRegistration: values.allowPublicRegistration,
+          allowPartnerRegistration: values.allowPartnerRegistration,
+          requireAdminDelete2FA: values.requireAdminDelete2FA,
+          ...(canEditSignupEmailVerification
+            ? {
+                requireSignupEmailVerification: values.requireSignupEmailVerification,
+              }
+            : {}),
+          invoicePrefix: values.invoicePrefix,
+          currency: values.currency,
+          ...(canEditStripeMode && values.stripeMode !== savedStripeMode
+            ? { stripeMode: values.stripeMode }
+            : {}),
+          featureFlags: values.featureFlags,
+        },
+      },
+    });
+    message.success('Configuration saved');
+    clearDirty();
+    refetch();
+  };
+
   const onSave = async () => {
     if (!dirty) return;
     try {
       const values = await form.validateFields();
-      await updateConfig({
-        variables: {
-          input: {
-            supportEmail: values.supportEmail,
-            supportPhone: values.supportPhone,
-            defaultSignupRole: values.defaultSignupRole,
-            defaultPartnerRole: values.defaultPartnerRole,
-            defaultManagerRole: values.defaultManagerRole,
-            maintenanceMode: values.maintenanceMode,
-            allowPublicRegistration: values.allowPublicRegistration,
-            allowPartnerRegistration: values.allowPartnerRegistration,
-            requireAdminDelete2FA: values.requireAdminDelete2FA,
-            ...(canEditSignupEmailVerification
-              ? {
-                  requireSignupEmailVerification: values.requireSignupEmailVerification,
-                }
-              : {}),
-            invoicePrefix: values.invoicePrefix,
-            currency: values.currency,
-            featureFlags: values.featureFlags,
-          },
-        },
-      });
-      message.success('Configuration saved');
-      clearDirty();
-      refetch();
+      const nextMode = values.stripeMode as StripeMode | undefined;
+      if (canEditStripeMode && nextMode === 'live' && savedStripeMode !== 'live') {
+        setPendingLiveValues(values);
+        setLiveConfirmOpen(true);
+        return;
+      }
+      await saveConfig(values);
     } catch (err: any) {
       if (err?.errorFields) return;
+      message.error(err.message || 'Failed to save configuration');
+    }
+  };
+
+  const onConfirmLive = async () => {
+    if (!pendingLiveValues) return;
+    try {
+      await saveConfig(pendingLiveValues);
+      setLiveConfirmOpen(false);
+      setPendingLiveValues(null);
+    } catch (err: any) {
       message.error(err.message || 'Failed to save configuration');
     }
   };
@@ -208,28 +244,85 @@ export default function AdminConfigPage() {
         );
       case 'billing':
         return (
-          <Row gutter={16}>
-            <Col xs={24} sm={12}>
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+            <Row gutter={16}>
+              <Col xs={24} sm={12}>
+                <Form.Item
+                  name="invoicePrefix"
+                  label="Invoice number prefix"
+                  rules={[{ required: true }]}
+                >
+                  <Input />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item name="currency" label="Billing currency" rules={[{ required: true }]}>
+                  <Select
+                    options={[
+                      { value: 'usd', label: 'USD' },
+                      { value: 'eur', label: 'EUR' },
+                      { value: 'gbp', label: 'GBP' },
+                    ]}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <div>
+              <Text strong>Stripe environment</Text>
+              <Paragraph type="secondary" style={{ marginTop: 4, marginBottom: 12 }}>
+                {canEditStripeMode
+                  ? 'Routes API payment calls to sandbox or production Stripe keys. Existing customers, subscriptions, and payment intents are not migrated.'
+                  : 'Super admins only. Shows which Stripe account the API is using.'}
+              </Paragraph>
+              <Space wrap size={8} style={{ marginBottom: 12 }}>
+                <Tag color={sandboxConfigured ? 'green' : 'default'}>
+                  Sandbox keys {sandboxConfigured ? 'configured' : 'missing'}
+                </Tag>
+                <Tag color={productionConfigured ? 'green' : 'default'}>
+                  Production keys {productionConfigured ? 'configured' : 'missing'}
+                </Tag>
+              </Space>
               <Form.Item
-                name="invoicePrefix"
-                label="Invoice number prefix"
-                rules={[{ required: true }]}
+                name="stripeMode"
+                style={{ marginBottom: 0 }}
+                extra={
+                  canEditStripeMode
+                    ? 'Set STRIPE_SECRET_KEY_TEST / STRIPE_SECRET_KEY_LIVE (and matching publishable + webhook secrets) in the API env.'
+                    : undefined
+                }
               >
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12}>
-              <Form.Item name="currency" label="Billing currency" rules={[{ required: true }]}>
-                <Select
+                <Segmented
+                  disabled={!canEditStripeMode}
                   options={[
-                    { value: 'usd', label: 'USD' },
-                    { value: 'eur', label: 'EUR' },
-                    { value: 'gbp', label: 'GBP' },
+                    {
+                      value: 'test',
+                      label: 'Sandbox',
+                      disabled: canEditStripeMode && !sandboxConfigured,
+                    },
+                    {
+                      value: 'live',
+                      label: 'Production',
+                      disabled: canEditStripeMode && !productionConfigured,
+                    },
                   ]}
                 />
               </Form.Item>
-            </Col>
-          </Row>
+              <Form.Item noStyle shouldUpdate={(prev, next) => prev.stripeMode !== next.stripeMode}>
+                {() =>
+                  form.getFieldValue('stripeMode') === 'live' ? (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      style={{ marginTop: 12 }}
+                      message="Production charges real cards"
+                      description="Switching to production uses live Stripe keys for deposits, invoices, and subscriptions. Test Stripe IDs will not work against the live account."
+                    />
+                  ) : null
+                }
+              </Form.Item>
+            </div>
+          </Space>
         );
       case 'registration':
         return (
@@ -367,6 +460,27 @@ export default function AdminConfigPage() {
           </Card>
         </Col>
       </Row>
+
+      <Modal
+        title="Switch to production Stripe?"
+        open={liveConfirmOpen}
+        onCancel={() => {
+          setLiveConfirmOpen(false);
+          setPendingLiveValues(null);
+        }}
+        okText="Use production Stripe"
+        okButtonProps={{ danger: true, loading: saving }}
+        onOk={onConfirmLive}
+      >
+        <Paragraph>
+          The API will charge real cards and talk to your live Stripe account. Existing sandbox
+          customer and subscription IDs will not work until you switch back.
+        </Paragraph>
+        <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+          Make sure <Text code>STRIPE_SECRET_KEY_LIVE</Text>, webhook, and publishable keys are set
+          before continuing.
+        </Paragraph>
+      </Modal>
 
       <Modal
         title="Clear seed data?"

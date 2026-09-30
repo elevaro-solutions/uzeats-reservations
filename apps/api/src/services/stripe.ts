@@ -1,19 +1,114 @@
 import Stripe from 'stripe';
 import { env } from '../config/env.js';
+import { PlatformConfig } from '../models/PlatformConfig.js';
 
-let stripe: Stripe | null = null;
+export type StripeMode = 'test' | 'live';
 
-function getStripe() {
-  if (!env.STRIPE_SECRET_KEY) return null;
-  if (!stripe) stripe = new Stripe(env.STRIPE_SECRET_KEY);
-  return stripe;
+/** Process-local cache of PlatformConfig.stripeMode (refreshed from DB on TTL / setActiveStripeMode). */
+let activeMode: StripeMode | null = null;
+let modeCachedAt = 0;
+const MODE_CACHE_TTL_MS = 5_000;
+const clients = new Map<StripeMode, Stripe>();
+
+export function defaultStripeMode(): StripeMode {
+  return env.NODE_ENV === 'production' ? 'live' : 'test';
+}
+
+export function resolveStripeMode(stored?: string | null): StripeMode {
+  if (stored === 'test' || stored === 'live') return stored;
+  return defaultStripeMode();
+}
+
+export function setActiveStripeMode(mode: StripeMode) {
+  activeMode = mode;
+  modeCachedAt = Date.now();
+}
+
+export function getActiveStripeMode(): StripeMode {
+  return activeMode ?? defaultStripeMode();
+}
+
+async function refreshActiveMode(): Promise<StripeMode> {
+  if (activeMode && Date.now() - modeCachedAt < MODE_CACHE_TTL_MS) {
+    return activeMode;
+  }
+  try {
+    const doc = await PlatformConfig.findOne({ key: 'default' })
+      .select('stripeMode')
+      .lean<{ stripeMode?: string | null }>();
+    const mode = resolveStripeMode(doc?.stripeMode);
+    setActiveStripeMode(mode);
+    return mode;
+  } catch {
+    return getActiveStripeMode();
+  }
+}
+
+function secretForMode(mode: StripeMode): string {
+  const specific =
+    mode === 'test' ? env.STRIPE_SECRET_KEY_TEST : env.STRIPE_SECRET_KEY_LIVE;
+  if (specific) return specific;
+  const legacy = env.STRIPE_SECRET_KEY;
+  if (!legacy) return '';
+  if (mode === 'test' && legacy.startsWith('sk_live_')) return '';
+  if (mode === 'live' && legacy.startsWith('sk_test_')) return '';
+  return legacy;
+}
+
+function webhookSecretForMode(mode: StripeMode): string {
+  const specific =
+    mode === 'test' ? env.STRIPE_WEBHOOK_SECRET_TEST : env.STRIPE_WEBHOOK_SECRET_LIVE;
+  if (specific) return specific;
+  return env.STRIPE_WEBHOOK_SECRET || '';
+}
+
+function publishableForMode(mode: StripeMode): string {
+  const specific =
+    mode === 'test' ? env.STRIPE_PUBLISHABLE_KEY_TEST : env.STRIPE_PUBLISHABLE_KEY_LIVE;
+  if (specific) return specific;
+  const legacy = env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  if (!legacy) return '';
+  if (mode === 'test' && legacy.startsWith('pk_live_')) return '';
+  if (mode === 'live' && legacy.startsWith('pk_test_')) return '';
+  return legacy;
+}
+
+export function isStripeModeConfigured(mode: StripeMode): boolean {
+  return Boolean(secretForMode(mode));
+}
+
+export function getStripePublishableKey(mode?: StripeMode): string {
+  return publishableForMode(mode ?? getActiveStripeMode());
+}
+
+export async function getStripeClientConfig() {
+  const mode = await refreshActiveMode();
+  const publishableKey = publishableForMode(mode) || null;
+  return {
+    mode,
+    publishableKey,
+    sandboxConfigured: isStripeModeConfigured('test'),
+    productionConfigured: isStripeModeConfigured('live'),
+  };
+}
+
+async function getStripe() {
+  const mode = await refreshActiveMode();
+  const secret = secretForMode(mode);
+  if (!secret) return null;
+  let client = clients.get(mode);
+  if (!client) {
+    client = new Stripe(secret);
+    clients.set(mode, client);
+  }
+  return client;
 }
 
 export async function createDepositIntent(input: {
   amountCents: number;
   metadata: Record<string, string>;
 }) {
-  const client = getStripe();
+  const client = await getStripe();
   if (!client) {
     if (env.NODE_ENV === 'production') {
       throw new Error('Payment processing unavailable');
@@ -43,7 +138,7 @@ export async function createInvoicePaymentIntent(input: {
   currency?: string;
   metadata: Record<string, string>;
 }) {
-  const client = getStripe();
+  const client = await getStripe();
   if (!client) {
     if (env.NODE_ENV === 'production') {
       throw new Error('Payment processing unavailable');
@@ -82,7 +177,7 @@ export async function assertPaymentIntentAuthorized(paymentIntentId: string) {
     return;
   }
 
-  const client = getStripe();
+  const client = await getStripe();
   if (!client) {
     throw new Error('Payment processing unavailable');
   }
@@ -103,7 +198,7 @@ export async function assertPaymentIntentSucceeded(paymentIntentId: string) {
     return;
   }
 
-  const client = getStripe();
+  const client = await getStripe();
   if (!client) {
     throw new Error('Payment processing unavailable');
   }
@@ -118,7 +213,7 @@ export async function retrievePaymentIntentClientSecret(paymentIntentId: string)
   if (isStubPaymentIntent(paymentIntentId)) {
     return `${paymentIntentId}_secret_dev`;
   }
-  const client = getStripe();
+  const client = await getStripe();
   if (!client) return null;
   const intent = await client.paymentIntents.retrieve(paymentIntentId);
   return intent.client_secret ?? null;
@@ -140,7 +235,7 @@ export async function refundDeposit(
       amountCents: amountCents ?? null,
     };
   }
-  const client = getStripe();
+  const client = await getStripe();
   if (!client) {
     return {
       id: 're_dev',
@@ -181,7 +276,7 @@ export async function refundDeposit(
 }
 
 export async function captureDeposit(paymentIntentId: string) {
-  const client = getStripe();
+  const client = await getStripe();
   if (!client || paymentIntentId.startsWith('pi_dev_')) return { id: paymentIntentId };
   return client.paymentIntents.capture(paymentIntentId);
 }
@@ -191,7 +286,7 @@ export async function createStripeCustomer(input: {
   name: string;
   metadata: Record<string, string>;
 }) {
-  const client = getStripe();
+  const client = await getStripe();
   if (!client) {
     return { id: `cus_dev_${Date.now()}`, isStub: true as const };
   }
@@ -239,7 +334,7 @@ export async function createStripeSubscription(input: {
   /** When true, create an incomplete subscription and return a client secret for Payment Element. */
   collectPaymentMethod?: boolean;
 }) {
-  const client = getStripe();
+  const client = await getStripe();
   if (!client) {
     const now = new Date();
     const periodEnd = new Date(now);
@@ -288,7 +383,7 @@ export async function createStripeSubscription(input: {
 }
 
 export async function cancelStripeSubscription(subscriptionId: string) {
-  const client = getStripe();
+  const client = await getStripe();
   if (!client || subscriptionId.startsWith('sub_dev_')) {
     return { id: subscriptionId, status: 'cancelled' };
   }
@@ -323,7 +418,7 @@ async function createCustomerSetupIntent(client: Stripe, customerId: string) {
 }
 
 export async function attachLatestCardAsDefault(customerId: string, subscriptionId?: string) {
-  const client = getStripe();
+  const client = await getStripe();
   if (!client || customerId.startsWith('cus_dev_')) return;
   const cards = await client.paymentMethods.list({ customer: customerId, type: 'card', limit: 1 });
   const paymentMethodId = cards.data[0]?.id;
@@ -339,7 +434,7 @@ export async function attachLatestCardAsDefault(customerId: string, subscription
 }
 
 export async function payOpenSubscriptionInvoice(subscriptionId: string) {
-  const client = getStripe();
+  const client = await getStripe();
   if (!client || subscriptionId.startsWith('sub_dev_')) return;
   const sub = await client.subscriptions.retrieve(subscriptionId, {
     expand: ['latest_invoice'],
@@ -368,7 +463,7 @@ export async function syncPaidSubscriptionAfterCard(input: {
     await attachLatestCardAsDefault(input.customerId, input.subscriptionId);
   }
   if (!input.subscriptionId || input.monthlyPriceCents <= 0) return;
-  const client = getStripe();
+  const client = await getStripe();
   if (client && !input.subscriptionId.startsWith('sub_dev_')) {
     const current = await currentSubscriptionUnitAmount(client, input.subscriptionId);
     if (current !== input.monthlyPriceCents) {
@@ -394,7 +489,7 @@ export async function updateStripeSubscription(
   paymentMode: 'payment' | 'setup' | null;
 }> {
   const collectPayment = Boolean(options?.collectPayment && priceAmountCents > 0);
-  const client = getStripe();
+  const client = await getStripe();
   if (!client || subscriptionId.startsWith('sub_dev_')) {
     return {
       id: subscriptionId,
@@ -466,7 +561,7 @@ export async function getOpenSubscriptionPayment(subscriptionId: string): Promis
   clientSecret: string | null;
   paymentMode: 'payment' | 'setup' | null;
 }> {
-  const client = getStripe();
+  const client = await getStripe();
   if (!client || subscriptionId.startsWith('sub_dev_')) {
     return { amountDueCents: 0, clientSecret: null, paymentMode: null };
   }
@@ -483,15 +578,41 @@ export async function getOpenSubscriptionPayment(subscriptionId: string): Promis
 }
 
 export async function constructStripeEvent(rawBody: Buffer, signature: string) {
-  const client = getStripe();
-  if (!client || !env.STRIPE_WEBHOOK_SECRET) {
+  const mode = await refreshActiveMode();
+  const orderedModes: StripeMode[] = mode === 'live' ? ['live', 'test'] : ['test', 'live'];
+  const secrets = orderedModes
+    .map((m) => webhookSecretForMode(m))
+    .filter((s, i, arr) => Boolean(s) && arr.indexOf(s) === i);
+
+  if (secrets.length === 0) {
     throw new Error('Stripe webhook not configured');
   }
-  return client.webhooks.constructEvent(rawBody, signature, env.STRIPE_WEBHOOK_SECRET);
+
+  // Any Stripe instance can verify signatures; prefer the active-mode client.
+  const client =
+    (await getStripe()) ??
+    (secretForMode('test')
+      ? new Stripe(secretForMode('test'))
+      : secretForMode('live')
+        ? new Stripe(secretForMode('live'))
+        : null);
+  if (!client) {
+    throw new Error('Stripe webhook not configured');
+  }
+
+  let lastError: unknown;
+  for (const secret of secrets) {
+    try {
+      return client.webhooks.constructEvent(rawBody, signature, secret);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error('Invalid Stripe webhook signature');
 }
 
 export async function listRecentStripeInvoices(limit = 50) {
-  const client = getStripe();
+  const client = await getStripe();
   if (!client) {
     return { invoices: [] as any[], stub: true as const };
   }

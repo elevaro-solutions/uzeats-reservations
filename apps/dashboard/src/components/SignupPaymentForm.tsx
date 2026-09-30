@@ -8,13 +8,15 @@ import {
   useElements,
   useStripe,
 } from '@stripe/react-stripe-js';
-import { Alert, Button, Space, Typography } from 'antd';
+import { Alert, Button, Space, Spin, Typography } from 'antd';
 import { colors } from '@reservations/ui';
+import { useQuery } from '@/lib/apollo-hooks';
+import { STRIPE_CLIENT_CONFIG } from '@/lib/graphql';
 
 const { Text } = Typography;
 
 const BRAND_COLOR = colors.brand[600];
-const publishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
+const ENV_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '';
 
 export type SignupPaymentMode = 'payment' | 'setup';
 
@@ -100,10 +102,22 @@ export function SignupPaymentForm({
   description?: string;
   onSuccess: () => void;
 }) {
+  const { data, loading } = useQuery(STRIPE_CLIENT_CONFIG);
+  const publishableKey =
+    data?.stripeClientConfig?.publishableKey || ENV_PUBLISHABLE_KEY || '';
+
   const stripePromise = useMemo(
     () => (publishableKey ? loadStripe(publishableKey) : null),
-    [],
+    [publishableKey],
   );
+
+  if (loading && !publishableKey) {
+    return (
+      <Space orientation="vertical" size={16} style={{ width: '100%', alignItems: 'center' }}>
+        <Spin />
+      </Space>
+    );
+  }
 
   if (!publishableKey || !stripePromise || !clientSecret) {
     return (

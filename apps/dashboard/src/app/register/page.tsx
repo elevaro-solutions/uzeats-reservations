@@ -370,7 +370,7 @@ function RegisterForm() {
       }
 
       const mode = payload.paymentMode === 'setup' ? 'setup' : 'payment';
-      const needsPayment = Boolean(payload.clientSecret) && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+      const needsPayment = Boolean(payload.clientSecret);
 
       if (needsPayment && payload.clientSecret) {
         setPendingSignup({

@@ -46,8 +46,17 @@ const envSchema = z.object({
     .optional()
     .transform((v) => v === 'true')
     .default('false'),
+  /** Legacy single secret — used when mode-specific keys are unset and the prefix matches. */
   STRIPE_SECRET_KEY: z.string().optional().default(''),
+  STRIPE_SECRET_KEY_TEST: z.string().optional().default(''),
+  STRIPE_SECRET_KEY_LIVE: z.string().optional().default(''),
   STRIPE_WEBHOOK_SECRET: z.string().optional().default(''),
+  STRIPE_WEBHOOK_SECRET_TEST: z.string().optional().default(''),
+  STRIPE_WEBHOOK_SECRET_LIVE: z.string().optional().default(''),
+  STRIPE_PUBLISHABLE_KEY_TEST: z.string().optional().default(''),
+  STRIPE_PUBLISHABLE_KEY_LIVE: z.string().optional().default(''),
+  /** Legacy publishable key shared with web/dashboard `.env` files. */
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string().optional().default(''),
   STRIPE_CURRENCY: z.string().default('usd'),
   DO_SPACES_KEY: z.string().optional().default(''),
   DO_SPACES_SECRET: z.string().optional().default(''),
@@ -82,15 +91,23 @@ if (parsed.NODE_ENV === 'production') {
     (parsed as { AUTH_DEV_OTP: boolean }).AUTH_DEV_OTP = false;
   }
 
-  if (!parsed.STRIPE_SECRET_KEY) {
+  const hasStripeSecret =
+    Boolean(parsed.STRIPE_SECRET_KEY) ||
+    Boolean(parsed.STRIPE_SECRET_KEY_LIVE) ||
+    Boolean(parsed.STRIPE_SECRET_KEY_TEST);
+  if (!hasStripeSecret) {
     throw new Error(
-      '[env] STRIPE_SECRET_KEY is required in production — deposit-enabled restaurants cannot function without it',
+      '[env] Stripe secret key is required in production — set STRIPE_SECRET_KEY or STRIPE_SECRET_KEY_LIVE / STRIPE_SECRET_KEY_TEST',
     );
   }
 
-  if (!parsed.STRIPE_WEBHOOK_SECRET) {
+  const hasStripeWebhook =
+    Boolean(parsed.STRIPE_WEBHOOK_SECRET) ||
+    Boolean(parsed.STRIPE_WEBHOOK_SECRET_LIVE) ||
+    Boolean(parsed.STRIPE_WEBHOOK_SECRET_TEST);
+  if (!hasStripeWebhook) {
     throw new Error(
-      '[env] STRIPE_WEBHOOK_SECRET is required in production — Stripe webhooks must be verified',
+      '[env] Stripe webhook secret is required in production — set STRIPE_WEBHOOK_SECRET or STRIPE_WEBHOOK_SECRET_LIVE / STRIPE_WEBHOOK_SECRET_TEST',
     );
   }
 

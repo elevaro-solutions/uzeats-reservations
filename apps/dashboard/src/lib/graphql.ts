@@ -2391,6 +2391,9 @@ export const PLATFORM_CONFIG = gql`
       requireSignupEmailVerification
       invoicePrefix
       currency
+      stripeMode
+      stripeSandboxConfigured
+      stripeProductionConfigured
       featureFlags {
         waitlist deposits partnerRegistration publicRegistration
         messaging reviews experiences campaigns widget sms
@@ -2424,6 +2427,9 @@ export const UPDATE_PLATFORM_CONFIG = gql`
       requireSignupEmailVerification
       invoicePrefix
       currency
+      stripeMode
+      stripeSandboxConfigured
+      stripeProductionConfigured
       featureFlags {
         waitlist deposits partnerRegistration publicRegistration
         messaging reviews experiences campaigns widget sms
@@ -2437,6 +2443,17 @@ export const UPDATE_PLATFORM_CONFIG = gql`
         discountPercent
       }
       updatedAt
+    }
+  }
+`;
+
+export const STRIPE_CLIENT_CONFIG = gql`
+  query StripeClientConfig {
+    stripeClientConfig {
+      mode
+      publishableKey
+      sandboxConfigured
+      productionConfigured
     }
   }
 `;

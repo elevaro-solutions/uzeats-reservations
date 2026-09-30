@@ -81,6 +81,11 @@ const platformConfigSchema = new Schema(
     requireSignupEmailVerification: { type: Boolean },
     invoicePrefix: { type: String, default: 'INV' },
     currency: { type: String, default: 'usd' },
+    /**
+     * Which Stripe account the API uses: sandbox (`test`) or production (`live`).
+     * Unset → test outside production NODE_ENV, live in production.
+     */
+    stripeMode: { type: String, enum: ['test', 'live'] },
     featureFlags: {
       waitlist: { type: Boolean, default: true },
       deposits: { type: Boolean, default: true },
