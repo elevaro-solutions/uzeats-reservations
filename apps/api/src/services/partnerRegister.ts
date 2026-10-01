@@ -73,11 +73,12 @@ export async function registerRestaurantPartner(input: RegisterRestaurantPartner
 
   const email = input.account.email.toLowerCase();
   const existing = await User.findOne({ email });
-  if (existing) throw new ConflictError('Email already registered');
+  if (existing) throw new ConflictError('Email already registered', { field: 'email' });
 
   if (!(await isRestaurantNameAvailable(input.restaurant.name))) {
     throw new ConflictError(
       'A restaurant with this name already exists. Choose a different name.',
+      { field: 'name' },
     );
   }
 
@@ -124,6 +125,7 @@ export async function registerRestaurantPartner(input: RegisterRestaurantPartner
     if (isDuplicateKeyError(err)) {
       throw new ConflictError(
         'A restaurant with this name already exists. Choose a different name.',
+        { field: 'name' },
       );
     }
     throw err;

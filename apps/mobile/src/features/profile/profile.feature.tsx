@@ -246,6 +246,7 @@ export function ProfileFeature() {
           points={user.loyaltyPoints}
           completedVisits={user.loyaltyCompletedVisits}
           referralCode={user.referralCode}
+          referralBonusPoints={program.referralBonusPoints}
           tiers={program.tiers}
         />
 

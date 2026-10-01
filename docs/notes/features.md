@@ -135,6 +135,10 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## profile
 
+### [2026-10-01] Referral bonus pts shown to diners
+- Web `/profile` and mobile `ProfileLoyaltyCard` render `loyaltyProgram.referralBonusPoints` beside the referral code (and include it in the mobile Share message). Admin `/admin/loyalty` Referrals tab already showed the bonus.
+- Why it matters: Clients already queried `referralBonusPoints` but never displayed it, so QA saw points for admins only.
+
 ### [2026-09-16] Language is display-only; Push alerts uses sliders icon
 - Language row sets `showChevron: false` (not actionable yet). Preferences “Push alerts” uses `SlidersHorizontalIcon` so it isn’t confused with Shortcuts “Notifications” (`BellIcon`). Loyalty card no longer ships `MOCK_LOYALTY_*` QA flags; track UI lives in `loyalty-tier-progress-track.component.tsx`.
 - Why it matters: Two Bell rows looked like the same destination; mock flags are easy to leave on by accident.

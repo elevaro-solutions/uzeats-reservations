@@ -17,6 +17,7 @@ export type ProfileLoyaltyCardProps = {
   points: number;
   completedVisits?: number | null;
   referralCode?: string | null;
+  referralBonusPoints?: number | null;
   tiers?: LoyaltyTierDef[] | null;
 };
 
@@ -24,17 +25,23 @@ export function ProfileLoyaltyCard({
   points,
   completedVisits,
   referralCode,
+  referralBonusPoints,
   tiers,
 }: ProfileLoyaltyCardProps) {
   const { theme } = useUnistyles();
   const progress = getLoyaltyTierProgress(completedVisits ?? 0, tiers);
   const palette = getLoyaltyTierColors(progress.currentTier.id);
   const visits = progress.completedVisits;
+  const bonusPts = referralBonusPoints ?? 0;
 
   async function shareReferral() {
     if (!referralCode) return;
+    const bonusHint =
+      bonusPts > 0
+        ? ` You'll earn ${bonusPts.toLocaleString("en-US")} pts after their first visit.`
+        : "";
     await Share.share({
-      message: `Join Tablevera with my referral code: ${referralCode}`,
+      message: `Join Tablevera with my referral code: ${referralCode}.${bonusHint}`,
     });
   }
 
@@ -130,6 +137,12 @@ export function ProfileLoyaltyCard({
             <Typography weight="semibold" size="text-sm">
               {referralCode}
             </Typography>
+            {bonusPts > 0 ? (
+              <Typography size="text-xs" color="muted">
+                Earn {bonusPts.toLocaleString("en-US")} pts when a friend
+                completes their first visit
+              </Typography>
+            ) : null}
           </Flex>
           <Pressable
             onPress={() => void shareReferral()}

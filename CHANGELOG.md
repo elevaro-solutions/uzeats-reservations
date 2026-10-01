@@ -19,6 +19,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Diner + merchant mobile: reservation slot clocks honor restaurant IANA zone on device-local phones (Hermes no longer shows Tashkent AM for ET dinner via `toLocaleTimeString`)
 - API seed: reservation/blackout wall clocks use `zonedWallClockToUtc` in venue TZ instead of host `Date#setHours`
 
+## [0.72.4] — 2026-10-01
+
+### Fixed
+
+- Diner profile (web + mobile) now shows the live referral bonus points from `loyaltyProgram` next to the referral code. Admins already saw this on Loyalty; guests only saw the code.
+- Diners can message a restaurant about their reservation even when the venue is on Basic. The Core+ `twoWayMessaging` plan gate now applies only to restaurant replies, so guests no longer see "Upgrade to unlock it."
+- Auth forms (diner web login/register, partner hub login/register, diner mobile sign-in/sign-up) show field-related GraphQL errors (e.g. `Email already registered` / `CONFLICT`) under the matching input instead of only a toast or banner. API conflict/validation/auth errors now include `extensions.field` for reliable mapping.
+- Wrong signup email verification codes no longer show a masked "Internal server error". `verifyEmail` now throws `ValidationError` so production returns messages like "Invalid or expired verification code".
+
 ## [0.72.3] — 2026-09-30
 
 ### Added

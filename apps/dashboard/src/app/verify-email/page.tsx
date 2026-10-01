@@ -11,6 +11,7 @@ import { AuthLayout } from '@/components/AuthLayout';
 import { useAuth } from '@/lib/auth';
 import { isPlatformAdmin } from '@/lib/roles';
 import { RESEND_VERIFICATION_EMAIL, VERIFY_EMAIL } from '@/lib/graphql';
+import { getGraphQLErrorMessage } from '@/lib/errors';
 
 const { Text, Paragraph } = Typography;
 
@@ -70,7 +71,7 @@ function VerifyEmailContent() {
       message.success('Email verified');
       setTimeout(goHome, 800);
     } catch (err) {
-      message.error(err instanceof Error ? err.message : 'Verification failed');
+      message.error(getGraphQLErrorMessage(err, 'Verification failed'));
     }
   };
 
@@ -85,7 +86,7 @@ function VerifyEmailContent() {
       }
       message.success(payload?.message || 'Verification code sent');
     } catch (err) {
-      message.error(err instanceof Error ? err.message : 'Could not resend verification code');
+      message.error(getGraphQLErrorMessage(err, 'Could not resend verification code'));
     }
   };
 

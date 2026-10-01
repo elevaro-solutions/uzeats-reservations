@@ -11,8 +11,8 @@ export class AppError extends Error {
 }
 
 export class AuthenticationError extends AppError {
-  constructor(message = 'Authentication required') {
-    super(message, 'UNAUTHENTICATED', 401);
+  constructor(message = 'Authentication required', details?: Record<string, unknown>) {
+    super(message, 'UNAUTHENTICATED', 401, details);
   }
 }
 
@@ -29,8 +29,8 @@ export class NotFoundError extends AppError {
 }
 
 export class ValidationError extends AppError {
-  constructor(message: string) {
-    super(message, 'VALIDATION_ERROR', 400);
+  constructor(message: string, details?: Record<string, unknown>) {
+    super(message, 'VALIDATION_ERROR', 400, details);
   }
 }
 

@@ -37,6 +37,7 @@ import { AuthLayout } from '@/components/AuthLayout';
 import { useAuth } from '@/lib/auth';
 import { getPublicWebUrl } from '@/lib/webUrl';
 import { addressSelectionToFields } from '@/lib/address';
+import { getGraphQLErrorMessage, getGraphQLFieldErrors } from '@/lib/errors';
 import { PARTNER_EMAIL_AVAILABLE, PARTNER_RESTAURANT_NAME_AVAILABLE, PLANS, REGISTER_RESTAURANT_PARTNER } from '@/lib/graphql';
 import { SignupPaymentForm, type SignupPaymentMode } from '@/components/SignupPaymentForm';
 import {
@@ -417,7 +418,23 @@ function RegisterForm() {
         }
         return;
       }
-      const msg = err instanceof Error ? err.message : '';
+      const msg = getGraphQLErrorMessage(err, '');
+      const fieldErrors = getGraphQLFieldErrors(err);
+      const fieldEntries = Object.entries(fieldErrors);
+      if (fieldEntries.length > 0) {
+        form.setFields(
+          fieldEntries.map(([name, errors]) => ({ name, errors: [errors] })),
+        );
+        if (fieldErrors.email) setStep(1);
+        else if (fieldErrors.name) setStep(2);
+        const firstField = fieldEntries[0]?.[0];
+        if (firstField) {
+          requestAnimationFrame(() => {
+            form.scrollToField(firstField, { block: 'center', behavior: 'smooth' });
+          });
+        }
+        return;
+      }
       if (/already exists|duplicate key|slug/i.test(msg)) {
         form.setFields([
           {

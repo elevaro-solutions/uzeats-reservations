@@ -12,7 +12,10 @@ import { AuthScreen } from "./components/auth-screen.component";
 import { GoogleSignInButton } from "./components/google-sign-in-button.component";
 import { OrDivider } from "./components/or-divider.component";
 import { PasswordField } from "./components/password-field.component";
-import { getAuthErrorMessage } from "./helpers/auth-error.helpers";
+import {
+  applyAuthFieldErrors,
+  getAuthErrorMessage,
+} from "./helpers/auth-error.helpers";
 import { goAfterAuth } from "./helpers/auth-navigation.helpers";
 import {
   loginSchema,
@@ -29,6 +32,7 @@ export function SignInFeature() {
   const {
     control,
     handleSubmit,
+    setError,
     formState: { errors },
   } = useForm<SignInFormValues>({
     resolver: zodResolver(loginSchema),
@@ -44,7 +48,9 @@ export function SignInFeature() {
       await login(values.email, values.password);
       finish();
     } catch (err) {
-      setFormError(getAuthErrorMessage(err, "Sign in failed"));
+      if (!applyAuthFieldErrors(err, setError)) {
+        setFormError(getAuthErrorMessage(err, "Sign in failed"));
+      }
     } finally {
       setSubmitting(false);
     }

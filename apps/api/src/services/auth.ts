@@ -107,7 +107,7 @@ export async function registerWithEmail(input: {
   referralCode?: string;
 }) {
   const existing = await User.findOne({ email: input.email.toLowerCase() });
-  if (existing) throw new ConflictError('Email already registered');
+  if (existing) throw new ConflictError('Email already registered', { field: 'email' });
 
   const config = await getPlatformConfig();
   if (config.allowPublicRegistration === false) {
@@ -119,7 +119,7 @@ export async function registerWithEmail(input: {
     const referrer = await User.findOne({
       referralCode: input.referralCode.trim().toUpperCase(),
     });
-    if (!referrer) throw new ValidationError('Invalid referral code');
+    if (!referrer) throw new ValidationError('Invalid referral code', { field: 'referralCode' });
     referredByUserId = referrer._id;
   }
 
@@ -155,14 +155,15 @@ export async function registerWithEmail(input: {
 
 export async function loginWithEmail(email: string, password: string) {
   const user = await User.findOne({ email: { $in: demoEmailCandidates(email) } });
-  if (!user) throw new AuthenticationError('Invalid credentials');
+  if (!user) throw new AuthenticationError('Invalid credentials', { field: 'password' });
   if (!user.passwordHash) {
     throw new AuthenticationError(
       user.googleId ? 'This account uses Google sign-in' : 'Invalid credentials',
+      { field: user.googleId ? 'email' : 'password' },
     );
   }
   const ok = await verifyPassword(password, user.passwordHash);
-  if (!ok) throw new AuthenticationError('Invalid credentials');
+  if (!ok) throw new AuthenticationError('Invalid credentials', { field: 'password' });
   const tokens = await issueTokens(user);
   return { user, ...tokens };
 }
@@ -479,7 +480,7 @@ export async function resendVerificationEmail(userId: string) {
 export async function verifyEmailCode(userId: string, rawCode: string) {
   const code = rawCode.trim();
   if (!/^\d{6}$/.test(code)) {
-    throw new Error('Enter the 6-digit code from your email');
+    throw new ValidationError('Enter the 6-digit code from your email');
   }
 
   const user = await User.findById(userId);
@@ -488,10 +489,10 @@ export async function verifyEmailCode(userId: string, rawCode: string) {
     return { success: true, message: 'Email verified successfully.' };
   }
   if (!user.emailVerificationToken || !user.emailVerificationExpires) {
-    throw new Error('No verification code pending — request a new code');
+    throw new ValidationError('No verification code pending — request a new code');
   }
   if (user.emailVerificationExpires.getTime() <= Date.now()) {
-    throw new Error('Invalid or expired verification code');
+    throw new ValidationError('Invalid or expired verification code');
   }
 
   const codeHash = hashOpaqueToken(code);
@@ -500,7 +501,7 @@ export async function verifyEmailCode(userId: string, rawCode: string) {
     // Legacy plaintext codes until they expire.
     user.emailVerificationToken === code;
   if (!valid) {
-    throw new Error('Invalid or expired verification code');
+    throw new ValidationError('Invalid or expired verification code');
   }
 
   user.emailVerified = true;

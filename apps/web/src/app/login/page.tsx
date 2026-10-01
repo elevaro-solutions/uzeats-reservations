@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Button, Checkbox, Divider, Form, Input, Tabs, message } from 'antd';
+import { Button, Checkbox, Divider, Form, Input, Tabs, message, type FormInstance } from 'antd';
 import {
   LockOutlined,
   MailOutlined,
@@ -17,7 +17,7 @@ import { AuthLayout } from '@/components/AuthLayout';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { getDashboardUrl } from '@/lib/urls';
 import { UPDATE_NOTIFICATION_PREFERENCES } from '@/lib/graphql';
-import { getGraphQLErrorMessage } from '@/lib/errors';
+import { getGraphQLErrorMessage, getGraphQLFieldErrors } from '@/lib/errors';
 
 export default function LoginPage() {
   return (
@@ -27,12 +27,22 @@ export default function LoginPage() {
   );
 }
 
+function applyFieldErrors(form: FormInstance, err: unknown): boolean {
+  const fieldErrors = getGraphQLFieldErrors(err);
+  const entries = Object.entries(fieldErrors);
+  if (entries.length === 0) return false;
+  form.setFields(entries.map(([name, errors]) => ({ name, errors: [errors] })));
+  return true;
+}
+
 function LoginContent() {
   const { login, loginWithGoogle, register } = useAuth();
   const router = useRouter();
   const search = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [loginForm] = Form.useForm();
+  const [registerForm] = Form.useForm();
   const [updatePrefs] = useMutation(UPDATE_NOTIFICATION_PREFERENCES);
   const preferRegisterTab = search.get('tab') === 'register' || search.get('smsOptIn') === '1';
   const prefillPhone = search.get('phone') ?? undefined;
@@ -85,6 +95,7 @@ function LoginContent() {
             label: 'Sign in',
             children: (
               <Form
+                form={loginForm}
                 layout="vertical"
                 requiredMark={false}
                 onFinish={async (values) => {
@@ -95,9 +106,11 @@ function LoginContent() {
                     message.success('Signed in');
                     goNext(signedIn);
                   } catch (err) {
-                    message.error(
-                      err instanceof Error ? err.message : 'Login failed',
-                    );
+                    if (!applyFieldErrors(loginForm, err)) {
+                      message.error(
+                        err instanceof Error ? err.message : 'Login failed',
+                      );
+                    }
                   } finally {
                     setLoading(false);
                   }
@@ -160,6 +173,7 @@ function LoginContent() {
             label: 'Create account',
             children: (
               <Form
+                form={registerForm}
                 layout="vertical"
                 requiredMark={false}
                 initialValues={{
@@ -200,12 +214,9 @@ function LoginContent() {
                     );
                     goNext(signedUp);
                   } catch (err) {
-                    const raw = getGraphQLErrorMessage(err, 'Registration failed');
-                    message.error(
-                      /email already registered/i.test(raw)
-                        ? 'This email is already registered. Sign in or use a different email.'
-                        : raw,
-                    );
+                    if (!applyFieldErrors(registerForm, err)) {
+                      message.error(getGraphQLErrorMessage(err, 'Registration failed'));
+                    }
                   } finally {
                     setLoading(false);
                   }

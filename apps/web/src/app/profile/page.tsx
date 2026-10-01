@@ -379,6 +379,9 @@ export default function ProfilePage() {
           {user?.referralCode && (
             <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
               Referral code: <Text strong copyable>{user.referralCode}</Text>
+              {' · '}
+              Earn <Text strong>{program.referralBonusPoints}</Text> pts when a friend completes
+              their first visit
             </Text>
           )}
           {user?.loyaltyPointsExpireAt && (

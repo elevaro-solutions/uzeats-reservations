@@ -9,12 +9,14 @@ import { colors, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { isPlatformAdmin } from '@/lib/roles';
 import { AuthLayout } from '@/components/AuthLayout';
+import { getGraphQLErrorMessage, getGraphQLFieldErrors } from '@/lib/errors';
 
 export default function LoginPage() {
   const { message } = App.useApp();
   const { login, user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [form] = Form.useForm();
 
   if (user) {
     router.replace(
@@ -32,6 +34,7 @@ export default function LoginPage() {
       subheading="Sign in to manage your restaurant"
     >
       <Form
+        form={form}
         layout="vertical"
         requiredMark={false}
         onFinish={async (values) => {
@@ -46,7 +49,13 @@ export default function LoginPage() {
             // Role-aware landing is handled by / redirect for admins
             router.push('/');
           } catch (err) {
-            message.error(err instanceof Error ? err.message : 'Login failed');
+            const fieldErrors = getGraphQLFieldErrors(err);
+            const entries = Object.entries(fieldErrors);
+            if (entries.length > 0) {
+              form.setFields(entries.map(([name, errors]) => ({ name, errors: [errors] })));
+            } else {
+              message.error(getGraphQLErrorMessage(err, 'Login failed'));
+            }
           } finally {
             setLoading(false);
           }

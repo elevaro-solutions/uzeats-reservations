@@ -1,5 +1,9 @@
 # Auth — Learnings & Observations
 
+## [2026-10-01] Field-level GraphQL auth errors
+- Conflict / validation / invalid-credentials errors now carry `extensions.field` (e.g. `email`, `password`, `referralCode`, `name`). Clients use `getGraphQLFieldErrors` (web/dashboard) or `applyAuthFieldErrors` (mobile) to set Ant Design / RHF field errors; toast/banner is only for non-field failures.
+- Why it matters: Duplicate-email register previously surfaced as a toast after the API stopped masking it — diners/partners still had to guess which input failed.
+
 ## [2026-09-30] Duplicate-email register must throw ConflictError
 - `registerWithEmail` previously used plain `Error`; production GraphQL `formatError` rewrote it to `"Internal server error"`. Now throws `ConflictError('Email already registered')` (same for partner register).
 - Why it matters: Web/mobile already map that exact string — the API had to stop masking it.

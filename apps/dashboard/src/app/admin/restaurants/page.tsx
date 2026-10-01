@@ -191,7 +191,14 @@ function mapCreateApiErrorToFields(
   if (/email already registered/i.test(msg)) {
     setMode('new');
     form.setFieldsValue({ ownerMode: 'new' });
-    form.setFields([{ name: 'ownerEmail', errors: [msg] }]);
+    form.setFields([
+      {
+        name: 'ownerEmail',
+        errors: [
+          'This email is already registered. Sign in or use a different email.',
+        ],
+      },
+    ]);
     setStep(0);
     requestAnimationFrame(() => {
       form.scrollToField('ownerEmail', { block: 'center', behavior: 'smooth' });

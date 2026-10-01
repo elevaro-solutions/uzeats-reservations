@@ -66,3 +66,39 @@ export function toFieldErrors(
   }
   return fieldErrors;
 }
+
+/**
+ * Field-related GraphQL errors (`extensions.field` / Zod issues), with message
+ * heuristics for older CONFLICT responses that only returned a code.
+ */
+export function getGraphQLFieldErrors(error: unknown): Record<string, string> {
+  const fromIssues = toFieldErrors(getValidationIssues(error));
+  if (Object.keys(fromIssues).length > 0) return fromIssues;
+
+  const message = getGraphQLErrorMessage(error, "");
+  if (!message) return {};
+
+  let field: string | undefined;
+  for (const gqlError of getGraphQLErrorExtensions(error)) {
+    const ext = gqlError.extensions as { field?: unknown } | undefined;
+    if (typeof ext?.field === "string" && ext.field) {
+      field = ext.field;
+      break;
+    }
+  }
+
+  if (!field) {
+    if (/email already registered/i.test(message)) field = "email";
+    else if (/invalid referral code/i.test(message)) field = "referralCode";
+    else if (/invalid credentials/i.test(message)) field = "password";
+    else if (/uses google sign-in/i.test(message)) field = "email";
+  }
+
+  if (!field) return {};
+
+  const display = /email already registered/i.test(message)
+    ? "This email is already registered. Sign in or use a different email."
+    : message;
+
+  return { [field]: display };
+}

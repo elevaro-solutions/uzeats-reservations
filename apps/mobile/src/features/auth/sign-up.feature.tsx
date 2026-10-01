@@ -12,7 +12,10 @@ import { GoogleSignInButton } from "./components/google-sign-in-button.component
 import { OrDivider } from "./components/or-divider.component";
 import { PasswordField } from "./components/password-field.component";
 import { TermsToggle } from "./components/terms-toggle.component";
-import { getAuthErrorMessage } from "./helpers/auth-error.helpers";
+import {
+  applyAuthFieldErrors,
+  getAuthErrorMessage,
+} from "./helpers/auth-error.helpers";
 import { goAfterAuth } from "./helpers/auth-navigation.helpers";
 import {
   signUpSchema,
@@ -30,6 +33,7 @@ export function SignUpFeature() {
   const {
     control,
     handleSubmit,
+    setError,
     formState: { errors },
   } = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
@@ -50,7 +54,9 @@ export function SignUpFeature() {
       await register(toRegisterInput(values));
       finish();
     } catch (err) {
-      setFormError(getAuthErrorMessage(err, "Sign up failed"));
+      if (!applyAuthFieldErrors(err, setError)) {
+        setFormError(getAuthErrorMessage(err, "Sign up failed"));
+      }
     } finally {
       setSubmitting(false);
     }

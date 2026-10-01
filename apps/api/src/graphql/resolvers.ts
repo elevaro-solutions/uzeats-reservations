@@ -6387,7 +6387,11 @@ export const resolvers = {
         senderType = "restaurant";
       }
 
-      await requireFeature(restaurantId, "twoWayMessaging");
+      // Guests can always message about their reservation. Only restaurant
+      // replies require the Core+ twoWayMessaging plan feature.
+      if (senderType === "restaurant") {
+        await requireFeature(restaurantId, "twoWayMessaging");
+      }
 
       const doc = await Message.create({
         restaurantId,

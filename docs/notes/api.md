@@ -1,5 +1,14 @@
 # API — Learnings & Observations
 
+## [2026-10-01] `twoWayMessaging` gates restaurant sends only
+- `sendMessage` used to call `requireFeature(restaurantId, "twoWayMessaging")` for both diner and restaurant senders. Diners on a Basic venue saw partner upgrade copy ("…not included in your current plan. Upgrade to unlock it.").
+- Guests may always send about their reservation; only `senderType === "restaurant"` requires Core+.
+- Why it matters: Plan upgrade language is partner-facing; guest Message UI must not surface it.
+
+## [2026-10-01] AppError `details.field` for form mapping
+- `ConflictError` / `ValidationError` / `AuthenticationError` can pass `{ field: 'email' }` (etc.); `formatError` spreads `details` into GraphQL `extensions`. Register duplicate email → `field: 'email'`; partner name conflict → `field: 'name'`; invalid credentials → `field: 'password'`.
+- Why it matters: Clients show the message under the input without regex-only heuristics (heuristics remain as fallback).
+
 ## [2026-09-30] GraphQL SDL rejects `/** */` / `//` comments
 - `apps/api/src/graphql/typeDefs.ts` is raw GraphQL SDL in a template string. Only `#` line comments and `"""` descriptions are valid — JSDoc `/** … */` (used in the Stripe mode fields) makes Apollo fail at boot with `Unexpected character: "/"`.
 - Why it matters: A bad comment takes down the whole API; CI/typecheck does not parse the SDL string.
@@ -61,6 +70,11 @@
 - `respondToReviewReport` is admin-only. It appends `Review.reportResponses` (plain text plus image attachments) and notifies `flaggedById` with type `review_report_response`.
 - `Review.reportResponses` is empty unless the viewer is a platform admin or has venue access. Dismissing a report (`unflagReview`) keeps `flaggedById` and reason fields so the closed thread stays readable.
 - Why it matters: This is not the public owner reply. Guests querying `restaurantReviews` must not receive the moderation thread.
+
+## [2026-10-01] verifyEmail wrong code must be ValidationError
+- `verifyEmailCode` used plain `Error` for bad/expired/missing codes. Production `formatError` masks non-`AppError` as "Internal server error", so the UI showed that instead of "Invalid or expired verification code".
+- Fix: throw `ValidationError` for those cases (same pattern as signup duplicate-email).
+- Why it matters: User-facing auth validation must use `AppError` subclasses or production hides the real message.
 
 ## [2026-09-29] Signup email verification gate is platform config
 - `PlatformConfig.requireSignupEmailVerification` — unset means `NODE_ENV === 'production'`. Super admin only on `updatePlatformConfig`. `registerWithEmail` / `registerRestaurantPartner` set `emailVerified: !required` and send a 6-digit `email_verification` code (10 min) when required.
