@@ -1,4 +1,5 @@
 import { FlashList } from "@shopify/flash-list";
+import { useCallback, useMemo } from "react";
 import { Pressable, RefreshControl, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,6 +9,7 @@ import { Button, Empty, Typography } from "@/components";
 
 import type { ReservationListItem } from "./reservation-card.component";
 import { ReservationCard } from "./reservation-card.component";
+import { ReservationListSkeleton } from "./reservation-list-skeleton.component";
 import type { ReservationAction } from "../helpers/reservation-status.helpers";
 import type { ListRow, RangeKey } from "../helpers/reservations-list.helpers";
 
@@ -16,6 +18,8 @@ export type ReservationsListBodyProps = {
   range: RangeKey;
   timeZone?: string;
   showEmptyAdd: boolean;
+  /** Tab has no cached rows yet — show skeleton instead of empty. */
+  pending?: boolean;
   refreshing: boolean;
   updatingId: string | null;
   onRefresh: () => void;
@@ -32,6 +36,7 @@ export function ReservationsListBody({
   range,
   timeZone,
   showEmptyAdd,
+  pending = false,
   refreshing,
   updatingId,
   onRefresh,
@@ -42,18 +47,63 @@ export function ReservationsListBody({
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
 
+  const contentContainerStyle = useMemo(
+    () => ({
+      paddingTop: theme.space(1.5),
+      paddingBottom: insets.bottom + theme.space(12),
+    }),
+    [insets.bottom, theme],
+  );
+
+  const keyExtractor = useCallback((item: ListRow) => item.id, []);
+
+  const getItemType = useCallback(
+    (item: ListRow) => (item.type === "header" ? "sectionHeader" : "row"),
+    [],
+  );
+
+  const renderItem = useCallback(
+    ({ item }: { item: ListRow }) => {
+      if (item.type === "header") {
+        return (
+          <View style={styles.dayHeader}>
+            <Typography
+              weight="semibold"
+              size="text-sm"
+              color="muted"
+              align="center"
+            >
+              {item.label}
+            </Typography>
+          </View>
+        );
+      }
+
+      return (
+        <View style={styles.cardWrap}>
+          <ReservationCard
+            reservation={item.reservation}
+            timeZone={timeZone}
+            actionLoading={updatingId === item.reservation.id}
+            onPress={() => onOpenDetail(item.reservation.id)}
+            onAction={(action) => {
+              onAction(item.reservation, action);
+            }}
+          />
+        </View>
+      );
+    },
+    [onAction, onOpenDetail, timeZone, updatingId],
+  );
+
   return (
     <>
       <FlashList
-        data={listRows}
-        keyExtractor={(item) => item.id}
-        getItemType={(item) =>
-          item.type === "header" ? "sectionHeader" : "row"
-        }
-        contentContainerStyle={{
-          paddingTop: theme.space(1.5),
-          paddingBottom: insets.bottom + theme.space(12),
-        }}
+        data={pending ? [] : listRows}
+        keyExtractor={keyExtractor}
+        getItemType={getItemType}
+        contentContainerStyle={contentContainerStyle}
+        extraData={updatingId}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -63,57 +113,32 @@ export function ReservationsListBody({
           />
         }
         ListEmptyComponent={
-          <View style={styles.emptyWrap}>
-            <Empty
-              title="No reservations"
-              description={
-                range === "today"
-                  ? "Nothing on the books for today."
-                  : "No reservations in this range."
-              }
-            >
-              {showEmptyAdd ? (
-                <Button
-                  size="lg"
-                  startIcon={<PlusIcon />}
-                  onPress={onOpenCreate}
-                >
-                  Add reservation
-                </Button>
-              ) : null}
-            </Empty>
-          </View>
-        }
-        renderItem={({ item }) => {
-          if (item.type === "header") {
-            return (
-              <View style={styles.dayHeader}>
-                <Typography
-                  weight="semibold"
-                  size="text-sm"
-                  color="muted"
-                  align="center"
-                >
-                  {item.label}
-                </Typography>
-              </View>
-            );
-          }
-
-          return (
-            <View style={styles.cardWrap}>
-              <ReservationCard
-                reservation={item.reservation}
-                timeZone={timeZone}
-                actionLoading={updatingId === item.reservation.id}
-                onPress={() => onOpenDetail(item.reservation.id)}
-                onAction={(action) => {
-                  onAction(item.reservation, action);
-                }}
-              />
+          pending ? (
+            <ReservationListSkeleton count={4} />
+          ) : (
+            <View style={styles.emptyWrap}>
+              <Empty
+                title="No reservations"
+                description={
+                  range === "today"
+                    ? "Nothing on the books for today."
+                    : "No reservations in this range."
+                }
+              >
+                {showEmptyAdd ? (
+                  <Button
+                    size="lg"
+                    startIcon={<PlusIcon />}
+                    onPress={onOpenCreate}
+                  >
+                    Add reservation
+                  </Button>
+                ) : null}
+              </Empty>
             </View>
-          );
-        }}
+          )
+        }
+        renderItem={renderItem}
       />
 
       <Pressable

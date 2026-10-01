@@ -1,7 +1,14 @@
-import { useCallback, useEffect, useRef } from "react";
-import { Pressable, type StyleProp, View, type ViewStyle } from "react-native";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  type LayoutChangeEvent,
+  type StyleProp,
+  View,
+  type ViewStyle,
+} from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Easing,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -23,98 +30,144 @@ export type SegmentedControlProps<T extends string> = {
 };
 
 const THUMB_TIMING = {
-  duration: 200,
+  duration: 220,
   easing: Easing.out(Easing.cubic),
 };
 
+/**
+ * Equal-width segmented control.
+ *
+ * Performance notes:
+ * - `value` is the single source of truth; there is no duplicate `selected`
+ *   React state to keep in sync.
+ * - The thumb lives entirely on the UI thread. Only `translateX` animates
+ *   (segments are equal-width, so the thumb `width` is set once) which keeps the
+ *   drop shadow cached and avoids per-frame layout.
+ * - A tap retargets the pill in the gesture `onBegin` worklet, so it slides
+ *   instantly even while the JS thread commits `onChange` / re-renders the pane.
+ */
 export function SegmentedControl<T extends string>({
   options,
   value,
   onChange,
   style,
 }: SegmentedControlProps<T>) {
-  const layouts = useRef<Partial<Record<T, { x: number; width: number }>>>({});
-  const thumbX = useSharedValue(0);
-  const thumbWidth = useSharedValue(0);
-  const thumbReady = useSharedValue(0);
-
-  const moveThumb = useCallback(
-    (next: T, animate: boolean) => {
-      const layout = layouts.current[next];
-      if (!layout) return;
-
-      if (animate) {
-        thumbX.value = withTiming(layout.x, THUMB_TIMING);
-        thumbWidth.value = withTiming(layout.width, THUMB_TIMING);
-      } else {
-        thumbX.value = layout.x;
-        thumbWidth.value = layout.width;
-      }
-      thumbReady.value = 1;
-    },
-    [thumbReady, thumbWidth, thumbX],
+  const count = options.length;
+  const selectedIndex = Math.max(
+    0,
+    options.findIndex((option) => option.value === value),
   );
 
+  // Track width feeds the equal-width segment math; `progress` is the animated
+  // index the thumb is resting at / sliding toward (both live on the UI thread).
+  const trackWidth = useSharedValue(0);
+  const progress = useSharedValue(selectedIndex);
+  const selectedSv = useSharedValue(selectedIndex);
+
+  // Keep latest `value` / `onChange` on refs so the gesture objects can stay
+  // stable across renders instead of being rebuilt on every tab change.
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  const commit = useCallback((next: T) => {
+    if (next !== valueRef.current) onChangeRef.current(next);
+  }, []);
+
+  // External `value` changes (and first mount) retarget the thumb; also mirror
+  // the selected index onto the UI thread for cancel-restore.
   useEffect(() => {
-    moveThumb(value, true);
-  }, [moveThumb, value]);
+    selectedSv.value = selectedIndex;
+    progress.value = withTiming(selectedIndex, THUMB_TIMING);
+  }, [selectedIndex, progress, selectedSv]);
 
-  const thumbStyle = useAnimatedStyle(() => ({
-    opacity: thumbReady.value,
-    transform: [{ translateX: thumbX.value }],
-    width: thumbWidth.value,
-  }));
+  const optionsKey = options.map((option) => option.value).join("|");
+  const gestures = useMemo(
+    () =>
+      options.map((option, index) =>
+        Gesture.Tap()
+          .maxDuration(10_000)
+          .onBegin(() => {
+            "worklet";
+            progress.value = withTiming(index, THUMB_TIMING);
+          })
+          .onEnd(() => {
+            "worklet";
+            runOnJS(commit)(option.value);
+          })
+          .onFinalize((_event, success) => {
+            "worklet";
+            if (!success) {
+              progress.value = withTiming(selectedSv.value, THUMB_TIMING);
+            }
+          }),
+      ),
+    // `optionsKey` captures option identity without depending on array identity
+    // (some callers pass an inline `options` array).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [optionsKey, commit, progress, selectedSv],
+  );
 
-  function handleSegmentLayout(option: T, x: number, width: number) {
-    layouts.current[option] = { x, width };
-    if (option === value) {
-      moveThumb(option, false);
-    }
-  }
+  const onRowLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      trackWidth.value = event.nativeEvent.layout.width;
+    },
+    [trackWidth],
+  );
+
+  const thumbStyle = useAnimatedStyle(() => {
+    const segmentWidth = count > 0 ? trackWidth.value / count : 0;
+    return {
+      width: segmentWidth,
+      opacity: trackWidth.value > 0 ? 1 : 0,
+      transform: [{ translateX: progress.value * segmentWidth }],
+    };
+  });
 
   return (
     <View style={[styles.track, style]} accessibilityRole="tablist">
-      <View style={styles.row}>
-        <Animated.View
-          pointerEvents="none"
-          style={[styles.thumb, thumbStyle]}
-        />
-        {options.map((option) => {
-          const selected = option.value === value;
-          return (
-            <Pressable
-              key={option.value}
-              onPress={() => {
-                if (option.value !== value) onChange(option.value);
-              }}
-              onLayout={(event) => {
-                const { x, width } = event.nativeEvent.layout;
-                handleSegmentLayout(option.value, x, width);
-              }}
-              accessibilityRole="tab"
-              accessibilityLabel={option.label}
-              accessibilityState={{ selected }}
-              style={({ pressed }) => [
-                styles.segment,
-                pressed && !selected ? styles.pressed : null,
-              ]}
-            >
-              <Typography
-                weight={selected ? "semibold" : "medium"}
-                size="text-sm"
-                color={selected ? "textPrimary" : "muted"}
-                numberOfLines={1}
-                style={styles.label}
-              >
-                {option.label}
-              </Typography>
-            </Pressable>
-          );
-        })}
+      <View style={styles.row} onLayout={onRowLayout}>
+        <Animated.View pointerEvents="none" style={[styles.thumb, thumbStyle]} />
+        {options.map((option, index) => (
+          <GestureDetector key={option.value} gesture={gestures[index]}>
+            <Segment
+              label={option.label}
+              selected={option.value === value}
+            />
+          </GestureDetector>
+        ))}
       </View>
     </View>
   );
 }
+
+type SegmentProps = {
+  label: string;
+  selected: boolean;
+};
+
+const Segment = memo(function Segment({ label, selected }: SegmentProps) {
+  return (
+    <View
+      accessible
+      accessibilityRole="tab"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+      style={styles.segment}
+    >
+      <Typography
+        weight={selected ? "semibold" : "medium"}
+        size="text-sm"
+        color={selected ? "textPrimary" : "muted"}
+        numberOfLines={1}
+        style={styles.label}
+      >
+        {label}
+      </Typography>
+    </View>
+  );
+});
 
 const styles = StyleSheet.create(({ space, colors, radius, shadows }) => ({
   track: {
@@ -150,9 +203,6 @@ const styles = StyleSheet.create(({ space, colors, radius, shadows }) => ({
     paddingVertical: space(1),
     paddingHorizontal: space(1),
     zIndex: 1,
-  },
-  pressed: {
-    opacity: 0.72,
   },
   label: {
     textAlign: "center",

@@ -3,13 +3,13 @@ import { gql } from "@apollo/client";
 export const RESTAURANT_RESERVATIONS = gql`
   query RestaurantReservations(
     $restaurantId: ID!
-    $date: String
+    $period: ReservationDatePeriod
     $limit: Int
     $offset: Int
   ) {
     restaurantReservations(
       restaurantId: $restaurantId
-      date: $date
+      period: $period
       limit: $limit
       offset: $offset
     ) {

@@ -1,7 +1,7 @@
 import { useQuery } from "@apollo/client";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { RefreshControl, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -70,6 +70,9 @@ export function ReservationsFeature() {
 
   const reservations = data?.myReservations ?? [];
   const [segment, setSegment] = useState<ReservationListSegment>("upcoming");
+  // Keep `segment` immediate so the tab pill slides instantly; filter the list
+  // off a deferred copy so the re-render can't block the animation.
+  const deferredSegment = useDeferredValue(segment);
   const [segmentInitialized, setSegmentInitialized] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [retryingSession, setRetryingSession] = useState(false);
@@ -81,11 +84,11 @@ export function ReservationsFeature() {
   }, [reservations, segmentInitialized]);
 
   const filtered = useMemo(
-    () => filterReservationsBySegment(reservations, segment),
-    [reservations, segment],
+    () => filterReservationsBySegment(reservations, deferredSegment),
+    [reservations, deferredSegment],
   );
 
-  const emptyCopy = emptyCopyForSegment(segment);
+  const emptyCopy = emptyCopyForSegment(deferredSegment);
 
   async function onRefresh() {
     setRefreshing(true);

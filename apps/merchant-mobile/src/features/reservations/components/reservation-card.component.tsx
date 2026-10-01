@@ -1,13 +1,10 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Pressable, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { ArmchairIcon, MoreHorizontalIcon, UsersIcon } from "@/assets";
 import { Button, Flex, IconButton, Typography } from "@/components";
-import {
-  formatSlotDateTime,
-  formatSlotTimeParts,
-} from "@/lib/helpers/date-time.helpers";
+import { formatSlotTimeParts } from "@/lib/helpers/date-time.helpers";
 
 import {
   guestDisplayName,
@@ -40,7 +37,7 @@ export type ReservationCardProps = {
   actionLoading?: boolean;
 };
 
-export function ReservationCard({
+export const ReservationCard = memo(function ReservationCard({
   reservation,
   timeZone,
   onPress,
@@ -54,8 +51,8 @@ export function ReservationCard({
   const secondary = secondaryReservationActions(reservation.status);
   const visual = reservationStatusVisual(reservation.status, theme.colors);
   const guestName = guestDisplayName(reservation.diner);
-  const timeLabel = formatSlotDateTime(reservation.slotStart, timeZone);
   const { time, period } = formatSlotTimeParts(reservation.slotStart, timeZone);
+  const timeLabel = `${time} ${period}`;
   const tableLabel =
     reservation.tables
       ?.map((t) => t.name)
@@ -174,7 +171,7 @@ export function ReservationCard({
       />
     </>
   );
-}
+});
 
 const styles = StyleSheet.create(({ space, colors, radius }) => ({
   card: {

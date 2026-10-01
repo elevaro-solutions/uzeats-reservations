@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@apollo/client";
 import { useRouter } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
@@ -33,7 +33,7 @@ import { ReservationsListBody } from "./components/reservations-list-body.compon
 import type { ReservationAction } from "./helpers/reservation-status.helpers";
 import {
   buildListRows,
-  filterReservationsForRange,
+  sortReservationsForRange,
   type RangeKey,
 } from "./helpers/reservations-list.helpers";
 
@@ -44,6 +44,19 @@ type ReservationsQuery = {
   };
 };
 
+const LIST_LIMIT = 100;
+
+const RANGE_OPTIONS: { value: RangeKey; label: string }[] = [
+  { value: "today", label: "Today" },
+  { value: "upcoming", label: "Upcoming" },
+  { value: "past", label: "Past" },
+];
+
+const PERIOD_QUERY_OPTIONS = {
+  fetchPolicy: "cache-and-network" as const,
+  nextFetchPolicy: "cache-first" as const,
+};
+
 export function ReservationsFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -51,73 +64,133 @@ export function ReservationsFeature() {
     useActiveRestaurant();
   const timeZone = activeRestaurant?.timezone ?? PLATFORM_TIMEZONE;
   const [range, setRange] = useState<RangeKey>("today");
+  // Keep `range` immediate so the tab pill slides instantly; drive the expensive
+  // list computation off a deferred copy so the heavy re-render can't block it.
+  const deferredRange = useDeferredValue(range);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  const queryDate = range === "today" ? todayIsoDate(timeZone) : undefined;
   const todayLabel = formatDisplayDate(todayIsoDate(timeZone));
+  const skip = !activeRestaurantId;
 
-  const { data, loading, error, refetch } = useQuery<ReservationsQuery>(
-    RESTAURANT_RESERVATIONS,
-    {
-      skip: !activeRestaurantId,
-      variables: {
-        restaurantId: activeRestaurantId,
-        date: queryDate,
-        limit: 100,
-        offset: 0,
-      },
-      fetchPolicy: "cache-and-network",
+  // Warm all three period caches on mount so tab switches are cache hits.
+  const todayQuery = useQuery<ReservationsQuery>(RESTAURANT_RESERVATIONS, {
+    skip,
+    variables: {
+      restaurantId: activeRestaurantId,
+      period: "today",
+      limit: LIST_LIMIT,
+      offset: 0,
     },
-  );
+    ...PERIOD_QUERY_OPTIONS,
+  });
+  const upcomingQuery = useQuery<ReservationsQuery>(RESTAURANT_RESERVATIONS, {
+    skip,
+    variables: {
+      restaurantId: activeRestaurantId,
+      period: "upcoming",
+      limit: LIST_LIMIT,
+      offset: 0,
+    },
+    ...PERIOD_QUERY_OPTIONS,
+  });
+  const pastQuery = useQuery<ReservationsQuery>(RESTAURANT_RESERVATIONS, {
+    skip,
+    variables: {
+      restaurantId: activeRestaurantId,
+      period: "past",
+      limit: LIST_LIMIT,
+      offset: 0,
+    },
+    ...PERIOD_QUERY_OPTIONS,
+  });
+
+  const queries = {
+    today: todayQuery,
+    upcoming: upcomingQuery,
+    past: pastQuery,
+  } as const;
+  const activeQuery = queries[deferredRange];
 
   const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
 
   const items = useMemo(
     () =>
-      filterReservationsForRange(
-        data?.restaurantReservations?.items ?? [],
-        range,
-        timeZone,
+      sortReservationsForRange(
+        activeQuery.data?.restaurantReservations?.items ?? [],
+        deferredRange,
       ),
-    [data, range, timeZone],
+    [activeQuery.data, deferredRange],
   );
   const listRows = useMemo(
-    () => buildListRows(items, range, timeZone),
-    [items, range, timeZone],
+    () => buildListRows(items, deferredRange, timeZone),
+    [items, deferredRange, timeZone],
   );
+
+  const refetchAll = useCallback(async () => {
+    await Promise.all([
+      todayQuery.refetch(),
+      upcomingQuery.refetch(),
+      pastQuery.refetch(),
+    ]);
+  }, [todayQuery.refetch, upcomingQuery.refetch, pastQuery.refetch]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await refetch();
+      if (range === "today") await todayQuery.refetch();
+      else if (range === "upcoming") await upcomingQuery.refetch();
+      else await pastQuery.refetch();
     } finally {
       setRefreshing(false);
     }
-  }, [refetch]);
+  }, [range, todayQuery.refetch, upcomingQuery.refetch, pastQuery.refetch]);
 
-  async function handleAction(
-    reservation: ReservationListItem,
-    action: ReservationAction,
-  ) {
-    setUpdatingId(reservation.id);
-    try {
-      await updateStatus({
-        variables: { id: reservation.id, status: action.status },
-      });
-      toast.success(`Marked ${action.label.toLowerCase()}`);
-      await refetch();
-    } catch (err) {
-      toast.error("Couldn't update reservation", {
-        description: getGraphQLErrorMessage(err, "Please try again"),
-      });
-    } finally {
-      setUpdatingId(null);
-    }
-  }
+  const handleAction = useCallback(
+    async (reservation: ReservationListItem, action: ReservationAction) => {
+      setUpdatingId(reservation.id);
+      try {
+        await updateStatus({
+          variables: { id: reservation.id, status: action.status },
+        });
+        toast.success(`Marked ${action.label.toLowerCase()}`);
+        await refetchAll();
+      } catch (err) {
+        toast.error("Couldn't update reservation", {
+          description: getGraphQLErrorMessage(err, "Please try again"),
+        });
+      } finally {
+        setUpdatingId(null);
+      }
+    },
+    [refetchAll, updateStatus],
+  );
 
-  const isLoading = restaurantsLoading || (loading && !data);
-  const showEmptyAdd = range === "today" && items.length === 0;
+  const onOpenCreate = useCallback(() => {
+    router.push("/reservations/create");
+  }, [router]);
+
+  const onOpenDetail = useCallback(
+    (id: string) => {
+      router.push(`/reservations/${id}`);
+    },
+    [router],
+  );
+
+  // Full-screen skeleton only on first paint. Parallel period queries keep
+  // upcoming/past warm so later tab switches hit cache without empty flash.
+  const bootstrapping =
+    restaurantsLoading ||
+    (todayQuery.loading &&
+      !todayQuery.data &&
+      !upcomingQuery.data &&
+      !pastQuery.data);
+  const tabPending = Boolean(activeQuery.loading && !activeQuery.data);
+  const showEmptyAdd =
+    deferredRange === "today" &&
+    items.length === 0 &&
+    !tabPending &&
+    !bootstrapping;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -145,57 +218,52 @@ export function ReservationsFeature() {
         />
       </Flex>
 
-      <View style={styles.filters}>
+      <View style={styles.filters} collapsable={false}>
         <SegmentedControl
-          options={[
-            { value: "today", label: "Today" },
-            { value: "upcoming", label: "Upcoming" },
-            { value: "past", label: "Past" },
-          ]}
+          options={RANGE_OPTIONS}
           value={range}
           onChange={setRange}
         />
       </View>
 
-      {error ? (
-        <View style={styles.pad}>
-          <InlineAlert
-            tone="error"
-            title="Couldn't load reservations"
-            message={error.message}
-          />
-          <Button
-            fullWidth
-            style={styles.retry}
-            onPress={() => {
-              void refetch();
-            }}
-          >
-            Try again
-          </Button>
-        </View>
-      ) : null}
+      <View style={styles.listPane}>
+        {activeQuery.error ? (
+          <View style={styles.pad}>
+            <InlineAlert
+              tone="error"
+              title="Couldn't load reservations"
+              message={activeQuery.error.message}
+            />
+            <Button
+              fullWidth
+              style={styles.retry}
+              onPress={() => {
+                void activeQuery.refetch();
+              }}
+            >
+              Try again
+            </Button>
+          </View>
+        ) : null}
 
-      {isLoading ? (
-        <ReservationListSkeleton count={4} />
-      ) : (
-        <ReservationsListBody
-          listRows={listRows}
-          range={range}
-          timeZone={timeZone}
-          showEmptyAdd={showEmptyAdd}
-          refreshing={refreshing}
-          updatingId={updatingId}
-          onRefresh={() => {
-            void onRefresh();
-          }}
-          onOpenCreate={() => router.push("/reservations/create")}
-          onOpenDetail={(id) => router.push(`/reservations/${id}`)}
-          onAction={(reservation, action) => {
-            void handleAction(reservation, action);
-          }}
-        />
-      )}
+        {bootstrapping ? (
+          <ReservationListSkeleton count={4} />
+        ) : (
+          <ReservationsListBody
+            listRows={listRows}
+            range={deferredRange}
+            timeZone={timeZone}
+            showEmptyAdd={showEmptyAdd}
+            pending={tabPending}
+            refreshing={refreshing}
+            updatingId={updatingId}
+            onRefresh={onRefresh}
+            onOpenCreate={onOpenCreate}
+            onOpenDetail={onOpenDetail}
+            onAction={handleAction}
+          />
+        )}
+      </View>
     </View>
   );
 }
@@ -224,6 +292,10 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     paddingHorizontal: space(2),
     paddingTop: space(1.5),
     paddingBottom: space(1),
+    zIndex: 1,
+  },
+  listPane: {
+    flex: 1,
   },
   pad: {
     paddingHorizontal: space(2),

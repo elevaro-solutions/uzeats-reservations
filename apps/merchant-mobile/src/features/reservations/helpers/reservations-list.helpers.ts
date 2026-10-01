@@ -1,8 +1,6 @@
 import {
-  calendarDayRange,
   isoDateInTimeZone,
   PLATFORM_TIMEZONE,
-  todayIsoInTimeZone,
 } from "@reservations/shared";
 
 import { formatRelativeDayLabel } from "@/lib/helpers/date-time.helpers";
@@ -15,25 +13,12 @@ export type ListRow =
   | { type: "header"; id: string; label: string }
   | { type: "reservation"; id: string; reservation: ReservationListItem };
 
-export function filterReservationsForRange(
+/** Sort server-period results; filtering is done by API `period`. */
+export function sortReservationsForRange(
   items: ReservationListItem[],
   range: RangeKey,
-  timeZone: string = PLATFORM_TIMEZONE,
 ): ReservationListItem[] {
-  const todayIso = todayIsoInTimeZone(timeZone);
-  const { $gte: dayStart, $lt: dayEnd } = calendarDayRange(todayIso, timeZone);
-  const start = dayStart.getTime();
-  const end = dayEnd.getTime();
-
-  const filtered = items.filter((item) => {
-    const slot = new Date(item.slotStart).getTime();
-    if (range === "today" && (slot < start || slot >= end)) return false;
-    if (range === "upcoming" && slot < start) return false;
-    if (range === "past" && slot >= start) return false;
-    return true;
-  });
-
-  return filtered.sort((a, b) => {
+  return [...items].sort((a, b) => {
     const diff =
       new Date(a.slotStart).getTime() - new Date(b.slotStart).getTime();
     return range === "past" ? -diff : diff;

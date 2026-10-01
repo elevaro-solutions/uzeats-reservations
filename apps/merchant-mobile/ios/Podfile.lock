@@ -1728,6 +1728,51 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - react-native-keyboard-controller (1.22.5):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - react-native-keyboard-controller/common (= 1.22.5)
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
+  - react-native-keyboard-controller/common (1.22.5):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - react-native-safe-area-context (5.7.0):
     - hermes-engine
     - RCTRequired
@@ -2620,6 +2665,7 @@ DEPENDENCIES:
   - "React-Mapbuffer (from `../../../node_modules/.pnpm/react-native@0.86.2_@babel+core@7.29.7_@react-native+metro-config@0.86.2_@babel+core@7.29.7___6ozhrdt4phkafgxfe4t65qdkca/node_modules/react-native/ReactCommon`)"
   - "React-microtasksnativemodule (from `../../../node_modules/.pnpm/react-native@0.86.2_@babel+core@7.29.7_@react-native+metro-config@0.86.2_@babel+core@7.29.7___6ozhrdt4phkafgxfe4t65qdkca/node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)"
   - "React-mutationobservernativemodule (from `../../../node_modules/.pnpm/react-native@0.86.2_@babel+core@7.29.7_@react-native+metro-config@0.86.2_@babel+core@7.29.7___6ozhrdt4phkafgxfe4t65qdkca/node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver`)"
+  - "react-native-keyboard-controller (from `../../../node_modules/.pnpm/react-native-keyboard-controller@1.22.5_react-native-reanimated@4.5.1_react-native-worklets@0_k67azyiebazo2vbsx5pxra2qiq/node_modules/react-native-keyboard-controller`)"
   - "react-native-safe-area-context (from `../../../node_modules/.pnpm/react-native-safe-area-context@5.7.0_react-native@0.86.2_@babel+core@7.29.7_@react-native+met_xr746e3h6hej2uufiumuyw7s4u/node_modules/react-native-safe-area-context`)"
   - "React-NativeModulesApple (from `../../../node_modules/.pnpm/react-native@0.86.2_@babel+core@7.29.7_@react-native+metro-config@0.86.2_@babel+core@7.29.7___6ozhrdt4phkafgxfe4t65qdkca/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)"
   - "React-networking (from `../../../node_modules/.pnpm/react-native@0.86.2_@babel+core@7.29.7_@react-native+metro-config@0.86.2_@babel+core@7.29.7___6ozhrdt4phkafgxfe4t65qdkca/node_modules/react-native/ReactCommon/react/networking`)"
@@ -2814,6 +2860,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/.pnpm/react-native@0.86.2_@babel+core@7.29.7_@react-native+metro-config@0.86.2_@babel+core@7.29.7___6ozhrdt4phkafgxfe4t65qdkca/node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
   React-mutationobservernativemodule:
     :path: "../../../node_modules/.pnpm/react-native@0.86.2_@babel+core@7.29.7_@react-native+metro-config@0.86.2_@babel+core@7.29.7___6ozhrdt4phkafgxfe4t65qdkca/node_modules/react-native/ReactCommon/react/nativemodule/mutationobserver"
+  react-native-keyboard-controller:
+    :path: "../../../node_modules/.pnpm/react-native-keyboard-controller@1.22.5_react-native-reanimated@4.5.1_react-native-worklets@0_k67azyiebazo2vbsx5pxra2qiq/node_modules/react-native-keyboard-controller"
   react-native-safe-area-context:
     :path: "../../../node_modules/.pnpm/react-native-safe-area-context@5.7.0_react-native@0.86.2_@babel+core@7.29.7_@react-native+met_xr746e3h6hej2uufiumuyw7s4u/node_modules/react-native-safe-area-context"
   React-NativeModulesApple:
@@ -2978,6 +3026,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: bfc59384f088a74c1cbe31902b5ba3d89c5947ce
   React-microtasksnativemodule: 4e4a0a4e42861c767989099d02cd871dbe11736f
   React-mutationobservernativemodule: 6aaa67618b68a616b1293967c20a1dfcc26632a5
+  react-native-keyboard-controller: eaddbef75a59d2aa73485807be74b6430d889158
   react-native-safe-area-context: a2325922b8594ddd27f98fb13437aec126be2502
   React-NativeModulesApple: f313ed47b56405d621e12ecda106a72020959ff3
   React-networking: a0686d5a80eddbcd7bb702421fca503a76aacb1a

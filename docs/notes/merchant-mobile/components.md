@@ -1,5 +1,12 @@
 # components — Learnings & Observations
 
+## [2026-10-01] SegmentedControl rebuilt: `value` is the only state
+
+- Rewrote from the local-`selected` + refs + `measure()` version to a single source of truth (`value` prop). The equal-width thumb animates `translateX` only (via a `progress` shared value); `width` is set once. Do NOT animate `width` — the thumb carries `shadows.soft`, so animating width forced a per-frame layout + shadow recompute (the previous "worst animation").
+- Tap retargets the pill in the gesture `onBegin` worklet (UI thread) so it slides even while JS is busy; `onEnd` commits via `runOnJS(onChange)`; `onFinalize(!success)` snaps back on cancel. Gestures memoized on `optionsKey` (option values), not array identity, so Messages' inline `options` don't rebuild them. Labels go through a `memo`'d `Segment` so only the two changed tabs re-layout.
+- Consuming screens use `useDeferredValue` for the pane (see reservations.feature) so the list rebuild runs in a non-blocking pass and can't stall the slide.
+- Why it matters: A tab tap used to synchronously rebuild ~100 rows + re-render FlashList on the JS thread while the pill tried to animate — the sluggishness this fixes.
+
 ## [2026-09-29] KeyboardController for forms + sheets
 - Same stack as diner: root `KeyboardProvider`; auth uses `KeyboardAwareScrollView` only (helper footer is not sticky); BottomSheet `keyboardAvoiding` uses library `KeyboardAvoidingView` with `behavior="padding"` (RN KAV fails under edge-to-edge). Sticky footers stay for create-reservation CTA and message composer.
 - Why it matters: Auth helper copy must not ride the keyboard; action bars still do.

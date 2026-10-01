@@ -2,6 +2,20 @@
 
 See also dated entries under `docs/notes/features.md` → `## merchant-mobile (partner app)` and `## merchant-more`.
 
+## [2026-09-30] Reservations tabs: chrome is independent of list fetch
+
+- SegmentedControl owns the thumb on press (equal-width track). Reservations `range` is urgent; do not wrap it in `useDeferredValue` — that delayed labels and let FlashList empty/reflow snap the pill.
+- Keep the three period queries with `nextFetchPolicy: cache-first`. List pane is `flex: 1` under a non-collapsing filter bar so skeleton/list swaps cannot relayout the tabs.
+- Cold tab → in-list pending skeleton. Warm cache → rows. Never let query `loading` drive the selected segment.
+- Why it matters: Staff tap Today/Upcoming/Past and the pill must slide even while Apollo is still resolving.
+
+## [2026-09-30] Reservations tabs query by API `period`
+
+- Today / Upcoming / Past pass `period` on `RESTAURANT_RESERVATIONS` (same as Partner Hub). Do not omit `period` and client-filter an unscoped `limit: 100` (oldest-first) — that made Upcoming slow and often empty.
+- Run **three parallel** `useQuery` hooks (one per period) so Apollo keeps each cache warm. A single `useQuery` whose `period` variable changes clears `data` on switch → empty flash, then results; `previousData` from another tab is the wrong list.
+- Full-screen skeleton only on first bootstrap. Tab switches keep FlashList mounted; a still-loading tab uses in-list `pending` skeleton instead of “No reservations”.
+- Why it matters: Tab changes are a new Apollo cache key; warm all periods up front so switches are cache hits.
+
 ## [2026-09-22] Shared ops action list vs sheet
 
 - `StatusActionsList` / `StatusActionsSheet` live under `@/components/status-actions-sheet`. Reservations and Waitlist wrap the sheet with domain icons; Floor embeds `StatusActionsList` inside the table BottomSheet (no nested sheet).

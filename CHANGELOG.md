@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Diner + merchant mobile: rebuilt `SegmentedControl` — single `value` source of truth, UI-thread thumb that animates `translateX` only (equal-width, fixed width, cached shadow), gesture `onBegin` worklet for instant pill movement, and a `memo`'d segment label so only the changed tabs re-layout
+- Diner + merchant mobile: Reservations screens drive the list off a `useDeferredValue` copy of the active tab, so the heavy list re-render runs in a non-blocking pass and no longer stalls the tab slide/animation
+
+### Fixed
+
+- Merchant mobile: Reservations Today / Upcoming / Past pill slides on press; list fetch cannot snap or reset the active tab (`nextFetchPolicy: cache-first` after the first warm)
+- Shared timezone: cache `Intl.DateTimeFormat` per IANA zone in `tzParts` (Hermes allocates formatters slowly on every reservation card paint)
+- Merchant mobile: Reservations Today / Upcoming / Past tab switches use server `period`, warm all three period queries in parallel, and keep FlashList mounted (no empty-flash or multi-second cold fetch on tab change)
+- Diner + merchant mobile: reservation slot clocks honor restaurant IANA zone on device-local phones (Hermes no longer shows Tashkent AM for ET dinner via `toLocaleTimeString`)
+- API seed: reservation/blackout wall clocks use `zonedWallClockToUtc` in venue TZ instead of host `Date#setHours`
+
 ## [0.72.3] — 2026-09-30
 
 ### Added

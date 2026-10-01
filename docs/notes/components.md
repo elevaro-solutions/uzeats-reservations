@@ -1,5 +1,11 @@
 # Components — Learnings & Observations
 
+## [2026-10-01] SegmentedControl: UI-thread thumb, `value` is the only state
+- Rebuilt to a single source of truth (`value` prop) — no duplicate `selected` state, refs, or `measure()` fallback. The thumb is equal-width, so only `translateX` animates (via `progress` shared value); `width` is set once. Never animate `width` here: the thumb carries `shadows.soft`, and animating width forces per-frame layout + shadow recompute (the old jank).
+- Tap moves the pill in the gesture `onBegin` worklet (UI thread), so it slides even while JS is busy; `onEnd` commits via `runOnJS`; `onFinalize(!success)` snaps back on cancel. Gestures are memoized on `optionsKey` (option values), not array identity, so inline `options` props don't rebuild them. Labels render through a `memo`'d `Segment` so only the two changed tabs re-layout.
+- Pair with `useDeferredValue` on the consuming screen (see reservations) so the pane's heavy re-render runs in a non-blocking pass and can't stall the slide.
+- Why it matters: Reservations tabs were sluggish because a tap synchronously rebuilt the list on the JS thread while the pill animation competed for the same frames.
+
 ## [2026-09-29] KeyboardController for forms + BottomSheet
 - Stock RN `KeyboardAvoidingView` fails under Android edge-to-edge. App uses `react-native-keyboard-controller`: root `KeyboardProvider`; form screens use `KeyboardAwareScrollView`; auth helper footers are plain (not sticky); action footers (booking, messages, review) use `KeyboardStickyView`. BottomSheet `keyboardAvoiding` uses the library’s `KeyboardAvoidingView` with `behavior="padding"` on both platforms.
 - Why it matters: Sticky auth helpers collided with in-form links/CTAs under the keyboard.

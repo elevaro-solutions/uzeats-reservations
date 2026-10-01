@@ -1,7 +1,7 @@
 import {
   addCalendarDays,
-  DISPLAY_LOCALE,
   formatTimeInTimeZone,
+  formatTimePartsInTimeZone,
   PLATFORM_TIMEZONE,
   todayIsoInTimeZone,
 } from "@reservations/shared";
@@ -96,7 +96,7 @@ export function formatSlotDateTime(
   iso: string,
   timeZone: string = PLATFORM_TIMEZONE,
 ): string {
-  return formatTimeInTimeZone(iso, timeZone);
+  return formatTimeInTimeZone(iso, timeZone || PLATFORM_TIMEZONE);
 }
 
 /** Split slot time for calendar-style blocks: large clock + small AM/PM. */
@@ -104,20 +104,7 @@ export function formatSlotTimeParts(
   iso: string,
   timeZone: string = PLATFORM_TIMEZONE,
 ): { time: string; period: "AM" | "PM" } {
-  const date = new Date(iso);
-  const parts = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-    timeZone,
-  }).formatToParts(date);
-
-  const hour = parts.find((p) => p.type === "hour")?.value ?? "";
-  const minute = parts.find((p) => p.type === "minute")?.value ?? "00";
-  const dayPeriod = parts.find((p) => p.type === "dayPeriod")?.value ?? "";
-  const period: "AM" | "PM" = /pm/i.test(dayPeriod) ? "PM" : "AM";
-
-  return { time: `${hour}:${minute}`, period };
+  return formatTimePartsInTimeZone(iso, timeZone || PLATFORM_TIMEZONE);
 }
 
 export function timeToDate(time: string): Date {
