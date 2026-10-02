@@ -54,6 +54,16 @@ sequenceDiagram
   W->>C: In-app inbox record
 ```
 
+## Reservation reminders
+
+BullMQ `reminders` queue schedules guest alerts at **24h**, **2h**, and **30 min** before `slotStart` (`REMINDER_OFFSETS_MINUTES`).
+
+- Preference event: `reservationUpdates`
+- Closer reminders (≤2h) attach Expo/web-push category `reservation_reminder_late` with **Yes / No** ("Are you running late?")
+- **Yes** → GraphQL `reportRunningLate` → reservation message thread + manager notify
+- **No** → dismiss
+- Slot time edits cancel and reschedule pending jobs (including legacy `reminder-*-24h` / `2h` ids)
+
 ## In-app inbox
 
 Dashboard and web apps poll/subscribe to `MY_NOTIFICATIONS`. Users can mark read individually or bulk.

@@ -319,7 +319,7 @@ function AdminAccountsListContent({ kind }: Props) {
       const values = await createForm.validateFields();
       const role =
         values.role ?? meta.role ?? (kind === 'platform' ? 'admin' : 'restaurant_owner');
-      if (role === 'manager' && !(values.restaurantIds ?? []).length) {
+      if ((role === 'manager' || role === 'host') && !(values.restaurantIds ?? []).length) {
         message.error('Managers require at least one restaurant');
         return;
       }
@@ -1010,7 +1010,9 @@ function AdminAccountsListContent({ kind }: Props) {
               name="restaurantIds"
               label="Restaurants"
               rules={
-                meta.requireRestaurantsOnCreate || createRole === 'manager'
+                meta.requireRestaurantsOnCreate ||
+                createRole === 'manager' ||
+                createRole === 'host'
                   ? [{ required: true, message: 'Select at least one restaurant' }]
                   : undefined
               }
@@ -1020,7 +1022,9 @@ function AdminAccountsListContent({ kind }: Props) {
                 options={restaurantOptions}
                 optionFilterProp="label"
                 placeholder={
-                  meta.requireRestaurantsOnCreate || createRole === 'manager'
+                  meta.requireRestaurantsOnCreate ||
+                  createRole === 'manager' ||
+                  createRole === 'host'
                     ? 'Required venue access'
                     : 'Optional venue access'
                 }

@@ -9,7 +9,7 @@ import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { AuthLayout } from '@/components/AuthLayout';
 import { useAuth } from '@/lib/auth';
 import { ACCEPT_MANAGER_INVITE, MANAGER_INVITE_BY_TOKEN } from '@/lib/graphql';
-import { isPlatformAdmin } from '@/lib/roles';
+import { partnerLandingPath } from '@/lib/roles';
 
 const { Text } = Typography;
 
@@ -27,7 +27,7 @@ export default function AcceptInviteForm() {
   const [acceptInvite, { loading: accepting }] = useMutation(ACCEPT_MANAGER_INVITE);
 
   if (user) {
-    router.replace(isPlatformAdmin(user.role) ? '/admin' : '/');
+    router.replace(partnerLandingPath(user.role));
     return null;
   }
 
@@ -136,7 +136,7 @@ export default function AcceptInviteForm() {
       }
       setSession(nextUser);
       message.success('Welcome to Tablevera');
-      router.replace('/');
+      router.replace(partnerLandingPath(nextUser.role));
     } catch (err) {
       message.error(err instanceof Error ? err.message : 'Failed to accept invitation');
     }

@@ -23,7 +23,7 @@ import dayjs from 'dayjs';
 import { PLATFORM_TIMEZONE, todayIsoInTimeZone } from '@reservations/shared';
 import { EmptyState, PageHeader, StatusTag, colors, radii, spacing, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
-import { canCreateRestaurant, isPlatformAdmin } from '@/lib/roles';
+import { canCreateRestaurant, isHostRole, isPlatformAdmin, partnerLandingPath } from '@/lib/roles';
 import {
   MY_NOTIFICATIONS,
   MY_OWNER_OVERVIEW,
@@ -122,6 +122,9 @@ export default function OverviewPage() {
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
     if (!authLoading && user && isPlatformAdmin(user.role)) router.replace('/admin');
+    if (!authLoading && user && isHostRole(user.role)) {
+      router.replace(partnerLandingPath(user.role));
+    }
   }, [authLoading, user, router]);
 
   const overview = overviewData?.myOwnerOverview;

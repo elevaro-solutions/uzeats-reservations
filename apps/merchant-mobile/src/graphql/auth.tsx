@@ -24,7 +24,7 @@ export type MobileUser = {
   phone?: string | null;
   firstName: string;
   lastName: string;
-  role: "diner" | "restaurant_owner" | "manager" | "admin" | "super_admin";
+  role: "diner" | "restaurant_owner" | "manager" | "host" | "admin" | "super_admin";
 };
 
 type AuthTokens = {
@@ -76,7 +76,7 @@ async function persistSession(tokens: AuthTokens, user: MobileUser) {
 }
 
 const PARTNER_ONLY_MESSAGE =
-  "Partner accounts only. Sign in with a restaurant owner or manager account.";
+  "Partner accounts only. Sign in with a restaurant owner, manager, or host account.";
 
 function assertPartnerUser(user: MobileUser): MobileUser {
   if (!isPartnerMobileRole(user.role)) {

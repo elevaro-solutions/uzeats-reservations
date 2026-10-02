@@ -22,9 +22,11 @@ Mobile stores tokens from the `AuthPayload` mutation response.
 | Role | Description |
 |---|---|
 | `diner` | Guest — book, review, loyalty |
-| `restaurant_owner` | Owns venue(s), billing, managers, full settings |
+| `restaurant_owner` | Owns venue(s), billing, managers/hosts, full settings |
 | `manager` | Operates venue — no billing or new restaurant creation |
+| `host` | Front-of-house — reservations (today default), waitlist, live floor, guests, messages, deposits; no settings/billing/grow |
 | `admin` | Platform operator — most admin pages |
+| `account_manager` | Platform operator (limited elevated admin edits) |
 | `super_admin` | Full platform control including destructive ops |
 
 ## Permission helpers
@@ -32,10 +34,14 @@ Mobile stores tokens from the `AuthPayload` mutation response.
 Defined in `packages/shared/src/roles.ts`:
 
 ```typescript
-isPlatformAdmin(role)      // admin | super_admin
+isPlatformAdmin(role)      // admin | account_manager | super_admin
 isSuperAdmin(role)         // super_admin only
+isHostRole(role)           // host
+isVenueStaffRole(role)     // manager | host (consume team seats)
 canManageBilling(role)     // restaurant_owner | platform admin
-canCreateRestaurant(role)  // owner | platform admin
+canCreateRestaurant(role)  // not manager/host
+canAccessPartnerPath(role, pathname) // host FOH allowlist
+partnerLandingPath(role)   // host → /reservations; admin → /admin; else /
 canEditUser(actor, target) // super_admin guard for elevated users
 ```
 

@@ -70,7 +70,7 @@ const platformConfigSchema = new Schema(
     },
     defaultManagerRole: {
       type: String,
-      enum: ['diner', 'restaurant_owner', 'manager'],
+      enum: ['diner', 'restaurant_owner', 'manager', 'host'],
       default: 'manager',
     },
     maintenanceMode: { type: Boolean, default: false },

@@ -89,7 +89,7 @@ export function PlatformRolesCapabilitiesTable() {
 export function RestaurantRolesCapabilitiesTable() {
   return (
     <CapabilitiesTable<RestaurantCapabilityRow>
-      description="Owners and managers use Partner Hub for assigned venues. Managers cannot manage billing or add locations."
+      description="Owners and managers use Partner Hub for assigned venues. Hosts are limited to day-of operations (reservations, waitlist, live floor, guests, messages, deposits). Managers cannot manage billing or add locations."
       columns={RESTAURANT_ACCOUNT_ROLE_OPTIONS}
       dataSource={RESTAURANT_ROLE_CAPABILITIES}
     />

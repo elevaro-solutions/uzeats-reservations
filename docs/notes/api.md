@@ -1,5 +1,15 @@
 # API — Learnings & Observations
 
+## [2026-10-01] Reservation reminder offsets are minutes + late-check category
+- `scheduleReservationReminders` uses `REMINDER_OFFSETS_MINUTES` job ids `reminder-{id}-{minutes}m` (also removes legacy `*h`). Worker accepts legacy `{ hours }` payloads.
+- Closer reminders pass `pushCategoryId: reservation_reminder_late` into `notifyUser` → Expo `categoryId` / web-push payload. `reportRunningLate` is diner-only and reuses the Message + manager notify path (no plan gate).
+- Why it matters: Reschedule on slot edit or guests get reminders for the old time; category must be registered on the device before Yes/No appear.
+
+## [2026-10-01] Host shares manager team seats
+- `countManagerSeatsUsed` / pending invites / `wouldConsumeManagerSeat` include `host` with `manager`. Owners may invite `manager` or `host`; seat error copy says “team seats (managers and hosts)”.
+- GraphQL `UserRole` enum and User/ManagerInvite mongoose enums include `host`. Support ticket resolvers allow host.
+- Why it matters: Creating a host without a free seat must fail the same way as a second manager on Basic.
+
 ## [2026-10-01] `twoWayMessaging` gates restaurant sends only
 - `sendMessage` used to call `requireFeature(restaurantId, "twoWayMessaging")` for both diner and restaurant senders. Diners on a Basic venue saw partner upgrade copy ("…not included in your current plan. Upgrade to unlock it.").
 - Guests may always send about their reservation; only `senderType === "restaurant"` requires Core+.

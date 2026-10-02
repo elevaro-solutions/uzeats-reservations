@@ -96,6 +96,7 @@ const ROLE_FILTER_OPTIONS = [
   { value: 'all', label: 'All roles' },
   { value: 'restaurant_owner', label: 'Owner' },
   { value: 'manager', label: 'Manager' },
+  { value: 'host', label: 'Host' },
   { value: 'admin', label: 'Admin' },
 ];
 
@@ -158,6 +159,7 @@ export default function NotificationsSettingsPage() {
   const canLinkTelegram =
     user?.role === 'restaurant_owner' ||
     user?.role === 'manager' ||
+    user?.role === 'host' ||
     user?.role === 'admin' ||
     user?.role === 'super_admin';
   const {

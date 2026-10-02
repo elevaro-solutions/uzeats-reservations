@@ -7,7 +7,7 @@ const managerInviteSchema = new Schema(
     lastName: { type: String, required: true, trim: true },
     role: {
       type: String,
-      enum: ['manager', 'restaurant_owner'],
+      enum: ['manager', 'host', 'restaurant_owner'],
       default: 'manager',
     },
     restaurantIds: [{ type: Schema.Types.ObjectId, ref: 'Restaurant' }],

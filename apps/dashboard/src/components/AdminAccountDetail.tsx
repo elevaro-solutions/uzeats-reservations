@@ -74,6 +74,7 @@ const ROLE_COLORS: Record<string, string> = {
   diner: 'default',
   restaurant_owner: 'blue',
   manager: 'cyan',
+  host: 'geekblue',
   admin: 'orange',
   account_manager: 'purple',
   super_admin: 'red',
@@ -180,15 +181,24 @@ function AdminAccountDetailContent({ kind }: Props) {
   }, [user, actualKind, kind, router]);
 
   const showRestaurantsTab = Boolean(
-    user && (user.role === 'manager' || user.role === 'restaurant_owner'),
+    user &&
+      (user.role === 'manager' ||
+        user.role === 'host' ||
+        user.role === 'restaurant_owner'),
   );
   const showDinerTabs = kind === 'diner';
   const canManageRestaurants = Boolean(
-    user && (user.role === 'manager' || user.role === 'restaurant_owner'),
+    user &&
+      (user.role === 'manager' ||
+        user.role === 'host' ||
+        user.role === 'restaurant_owner'),
   );
   const editRole = Form.useWatch('role', form);
   const showRestaurantFieldsInEdit =
-    canManageRestaurants || editRole === 'manager' || editRole === 'restaurant_owner';
+    canManageRestaurants ||
+    editRole === 'manager' ||
+    editRole === 'host' ||
+    editRole === 'restaurant_owner';
 
   const allowedTabs = useMemo(() => {
     const tabs: string[] = ['overview'];
@@ -289,11 +299,20 @@ function AdminAccountDetailContent({ kind }: Props) {
       const nextRole = values.role ?? user?.role;
       const shouldSaveRestaurants =
         nextRole === 'manager' ||
+        nextRole === 'host' ||
         nextRole === 'restaurant_owner' ||
         user?.role === 'manager' ||
+        user?.role === 'host' ||
         user?.role === 'restaurant_owner';
-      if (nextRole === 'manager' && !(values.restaurantIds ?? []).length) {
-        message.error('Managers require at least one restaurant');
+      if (
+        (nextRole === 'manager' || nextRole === 'host') &&
+        !(values.restaurantIds ?? []).length
+      ) {
+        message.error(
+          nextRole === 'host'
+            ? 'Hosts require at least one restaurant'
+            : 'Managers require at least one restaurant',
+        );
         return;
       }
       await updateUser({
@@ -1056,12 +1075,17 @@ function AdminAccountDetailContent({ kind }: Props) {
               name="restaurantIds"
               label="Assigned restaurants"
               extra={
-                editRole === 'manager' || user?.role === 'manager'
-                  ? 'Managers need at least one restaurant for Partner Hub access.'
+                editRole === 'manager' ||
+                editRole === 'host' ||
+                user?.role === 'manager' ||
+                user?.role === 'host'
+                  ? 'Managers and hosts need at least one restaurant for Partner Hub access.'
                   : undefined
               }
               rules={
-                editRole === 'manager' || (!editRole && user?.role === 'manager')
+                editRole === 'manager' ||
+                editRole === 'host' ||
+                (!editRole && (user?.role === 'manager' || user?.role === 'host'))
                   ? [{ required: true, type: 'array', min: 1, message: 'Select at least one restaurant' }]
                   : undefined
               }

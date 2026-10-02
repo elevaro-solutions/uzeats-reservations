@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { isVenueStaffRole } from '@reservations/shared';
 import { User } from '../models/User.js';
 import { ManagerInvite } from '../models/ManagerInvite.js';
 import { Restaurant } from '../models/Restaurant.js';
@@ -18,8 +19,8 @@ export type ManagerSeatsUsage = {
 };
 
 /**
- * Active manager seats = `manager` users assigned to the venue.
- * Primary restaurant owner does not consume a manager seat.
+ * Active team seats = `manager` + `host` users assigned to the venue.
+ * Primary restaurant owner does not consume a seat.
  */
 export async function countManagerSeatsUsed(
   restaurantId: string,
@@ -31,7 +32,7 @@ export async function countManagerSeatsUsed(
     .map((id) => new mongoose.Types.ObjectId(id));
 
   const filter: Record<string, unknown> = {
-    role: 'manager',
+    role: { $in: ['manager', 'host'] },
     restaurantIds: restaurantOid,
   };
   if (exclude.length) {
@@ -55,7 +56,7 @@ export async function countPendingManagerInvites(
     .filter(Boolean);
 
   const filter: Record<string, unknown> = {
-    role: 'manager',
+    role: { $in: ['manager', 'host'] },
     restaurantIds: restaurantOid,
     userId: { $exists: false },
     acceptedAt: { $exists: false },
@@ -109,8 +110,8 @@ export async function getManagerSeatsUsage(restaurantId: string): Promise<Manage
 }
 
 /**
- * Ensures adding `addCount` manager seats fits the package quota.
- * Call before inviting or assigning a new `manager` user to a restaurant.
+ * Ensures adding `addCount` team seats fits the package quota.
+ * Call before inviting or assigning a new `manager`/`host` user to a restaurant.
  */
 export async function assertManagerSeatsAvailable(
   restaurantId: string,
@@ -138,16 +139,17 @@ export async function assertManagerSeatsAvailable(
 
   if (used + pending + addCount > limit) {
     throw new PlanFeatureError(
-      `Your ${planKey} package includes ${limit} manager seat${limit === 1 ? '' : 's'} ` +
-        `(${used} used, ${pending} pending). Upgrade your package to invite more managers.`,
+      `Your ${planKey} package includes ${limit} team seat${limit === 1 ? '' : 's'} ` +
+        `(managers and hosts; ${used} used, ${pending} pending). ` +
+        `Upgrade your package to invite more staff.`,
     );
   }
   return usage;
 }
 
 /**
- * Whether assigning this user to the restaurant would consume a new manager seat.
- * Existing managers already on the venue do not consume an additional seat.
+ * Whether assigning this user to the restaurant would consume a new team seat.
+ * Existing managers/hosts already on the venue do not consume an additional seat.
  */
 export async function wouldConsumeManagerSeat(
   restaurantId: string,
@@ -157,7 +159,7 @@ export async function wouldConsumeManagerSeat(
   const user = await User.findById(userId);
   if (!user) return true;
   const role = nextRole || user.role;
-  if (role !== 'manager') return false;
+  if (!isVenueStaffRole(role)) return false;
   const alreadyAssigned = user.restaurantIds?.some((id) => id.equals(restaurantId));
   return !alreadyAssigned;
 }

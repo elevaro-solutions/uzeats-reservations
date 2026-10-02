@@ -85,6 +85,12 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## notifications
 
+### [2026-10-01] Closer reminders ask "running late?"
+- Offsets: `REMINDER_OFFSETS_MINUTES = [1440, 120, 30]` (24h / 2h / 30m). Reminders with lead ≤ `REMINDER_LATE_CHECK_MAX_MINUTES` (120) send Expo/web push with `categoryId: reservation_reminder_late` (Yes/No).
+- Yes → `reportRunningLate` → diner `Message` ("I'm running late.") + `notifyRestaurantManagers` (`new_message`, title "Guest running late"). No → dismiss.
+- Diner mobile registers the category in `useNotificationObserver`; cold-start must not re-fire Yes (only default body taps deep-link). Slot edits call `scheduleReservationReminders` after canceling old jobs (including legacy `*h` ids).
+- Why it matters: Don't put late-check buttons on the 24h reminder; don't route diner Yes/No through Elevaro (merchant-only).
+
 ### [2026-09-26] Soft push prime after booking/waitlist; bootstrap never OS-prompts
 - Mobile no longer calls `requestPermissionsAsync` on sign-in. `PushBootstrap` only silently re-registers an Expo token when OS permission is already `granted`.
 - Soft in-app `PushPermissionModal` (location-style priming) appears once after reservation confirmation or waitlist success dismiss, only when status is `undetermined` and MMKV `pushSoftPromptCompleted` is unset. Allow → OS dialog + register; Not now → mark completed (no soft-nag). Settings Enable still requests permission.

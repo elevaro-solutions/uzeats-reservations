@@ -1,7 +1,7 @@
 export const typeDefs = `#graphql
   scalar DateTime
 
-  enum UserRole { diner restaurant_owner manager admin account_manager super_admin }
+  enum UserRole { diner restaurant_owner manager host admin account_manager super_admin }
   enum RestaurantStatus { pending approved rejected suspended }
   enum ReservationStatus { pending confirmed seated completed cancelled no_show }
   enum ReservationDatePeriod {
@@ -3366,6 +3366,8 @@ export const typeDefs = `#graphql
     addRestaurantPhotos(restaurantId: ID!, urls: [String!]!): Restaurant!
 
     sendMessage(reservationId: ID!, body: String!): Message!
+    """Guest reports running late from a reservation reminder (Yes action)."""
+    reportRunningLate(reservationId: ID!, etaMinutes: Int): Message!
     markConversationRead(reservationId: ID!): Boolean!
     markRestaurantInquiryRead(id: ID!): RestaurantInquiry!
 

@@ -1,5 +1,9 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-01] Host sider + search filter
+- `filterPagesForUser(..., { role })` + `DashShell` redirect use `HOST_ALLOWED_PATH_PREFIXES`. Hosts bounce from `/` and forbidden routes to `/reservations`. ⌘K search receives the same `role` so hosts cannot jump to Settings via search.
+- Why it matters: Nav hide alone is not enough — deep links and search must enforce the same allowlist.
+
 ## [2026-09-29] Stripe environment switcher is super-admin
 - `/admin/config` → Billing: Sandbox / Production `Segmented` (`stripeMode`). Non–super-admins see it disabled; saves omit the field. Mutation is super-admin only and requires the target mode’s secret keys to be configured.
 - Switching to production asks for confirmation. Tags show whether sandbox/production secrets are present (from `stripeSandboxConfigured` / `stripeProductionConfigured`).

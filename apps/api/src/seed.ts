@@ -31,6 +31,7 @@ const SEED_PASSWORD = 'Password123!';
 const ADMIN_EMAIL = 'a@tablevera.local';
 const OWNER_EMAIL = 'owner@tablevera.local';
 const STAFF_EMAIL = 'staff@tablevera.local';
+const HOST_EMAIL = 'host@tablevera.local';
 const DINER_EMAIL = 'diner@tablevera.local';
 const DINER2_EMAIL = 'diner2@tablevera.local';
 
@@ -490,7 +491,7 @@ async function seed() {
     }
   }
 
-  const [owner, staff, diner, diner2] = await User.create([
+  const [owner, staff, host, diner, diner2] = await User.create([
     {
       email: OWNER_EMAIL,
       passwordHash,
@@ -510,6 +511,17 @@ async function seed() {
       role: 'manager',
       emailVerified: true,
       phone: '+15550001002',
+      phoneVerified: true,
+      loyaltyPoints: 0,
+    },
+    {
+      email: HOST_EMAIL,
+      passwordHash,
+      firstName: 'Helen',
+      lastName: 'Host',
+      role: 'host',
+      emailVerified: true,
+      phone: '+15550001004',
       phoneVerified: true,
       loyaltyPoints: 0,
     },
@@ -699,6 +711,9 @@ async function seed() {
 
     if (r.name === 'Samarkand Palace') {
       await User.findByIdAndUpdate(staff!._id, {
+        $addToSet: { restaurantIds: restaurant._id },
+      });
+      await User.findByIdAndUpdate(host!._id, {
         $addToSet: { restaurantIds: restaurant._id },
       });
       await Restaurant.findByIdAndUpdate(restaurant._id, {
@@ -1238,6 +1253,7 @@ async function seed() {
   console.log(`  ${superAdmin.email}   — super admin (preserved if already present)`);
   console.log(`  ${OWNER_EMAIL}   — restaurant owner (all venues)`);
   console.log(`  ${STAFF_EMAIL}   — manager at Samarkand Palace`);
+  console.log(`  ${HOST_EMAIL}    — host at Samarkand Palace (FOH)`);
   console.log(`  ${DINER_EMAIL}   — diner (750 pts)`);
   console.log(`  ${DINER2_EMAIL}  — second diner (200 pts)`);
   console.log('');

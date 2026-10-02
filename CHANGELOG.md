@@ -6,8 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.73.0] — 2026-10-02
+
+### Added
+
+- Partner Hub `host` role (FOH): reservations (lands on today), waitlist, live floor, guests, messages, deposits via reservation detail, and support — no settings, billing, grow, or insights. Invitable from Team / admin; consumes package team seats with managers. Seed: `host@tablevera.local`.
+- Guest reservation reminders at **24h**, **2h**, and **30 min** before seating. Closer reminders (≤2h) include **Are you running late? Yes / No** on Expo and web push; Yes calls `reportRunningLate` and notifies the restaurant via the message thread
+
 ### Changed
 
+- Reservation time edits reschedule pending BullMQ reminder / no-show jobs (and clear legacy `*h` job ids)
 - Diner + merchant mobile: rebuilt `SegmentedControl` — single `value` source of truth, UI-thread thumb that animates `translateX` only (equal-width, fixed width, cached shadow), gesture `onBegin` worklet for instant pill movement, and a `memo`'d segment label so only the changed tabs re-layout
 - Diner + merchant mobile: Reservations screens drive the list off a `useDeferredValue` copy of the active tab, so the heavy list re-render runs in a non-blocking pass and no longer stalls the tab slide/animation
 

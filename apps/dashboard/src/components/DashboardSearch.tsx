@@ -31,6 +31,7 @@ type DashboardSearchProps = {
   isAdmin: boolean;
   showOnboarding?: boolean;
   isSuperAdmin?: boolean;
+  role?: string;
   restaurants?: RestaurantOption[];
   onSelectRestaurant?: (id: string) => void;
 };
@@ -89,6 +90,7 @@ export function DashboardSearch({
   isAdmin,
   showOnboarding = false,
   isSuperAdmin = false,
+  role,
   restaurants = [],
   onSelectRestaurant,
 }: DashboardSearchProps) {
@@ -102,6 +104,7 @@ export function DashboardSearch({
     const pages = filterPagesForUser(isAdmin ? ADMIN_PAGES : PARTNER_PAGES, {
       showOnboarding,
       isSuperAdmin,
+      role,
     }).map((p) => ({ ...p, kind: 'page' as const }));
 
     if (isAdmin || restaurants.length === 0) return pages;
@@ -118,7 +121,7 @@ export function DashboardSearch({
     }));
 
     return [...pages, ...restaurantEntries];
-  }, [isAdmin, showOnboarding, isSuperAdmin, restaurants]);
+  }, [isAdmin, showOnboarding, isSuperAdmin, role, restaurants]);
 
   const results = useMemo(() => {
     if (query.trim()) return matchPages(catalog, query);

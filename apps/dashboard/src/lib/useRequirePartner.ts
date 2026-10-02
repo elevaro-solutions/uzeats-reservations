@@ -5,16 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 
 import { getPublicWebUrl } from '@/lib/webUrl';
+import { isPartnerHubRole } from '@reservations/shared';
 
-const PARTNER_ROLES = new Set(['restaurant_owner', 'manager', 'admin', 'account_manager', 'super_admin']);
-
-/** Partner Hub is for owners, managers, and admins — diners use the web app. */
+/** Partner Hub is for owners, managers, hosts, and admins — diners use the web app. */
 export function useRequirePartner() {
   const { user, loading, logout, isImpersonating } = useAuth();
   const router = useRouter();
 
   const allowed =
-    Boolean(user) && PARTNER_ROLES.has(user!.role) && !user!.needsEmailVerification;
+    Boolean(user) && isPartnerHubRole(user!.role) && !user!.needsEmailVerification;
 
   useEffect(() => {
     if (loading) return;

@@ -46,6 +46,7 @@ import {
   ReadOutlined,
   StopOutlined,
 } from '@ant-design/icons';
+import { HOST_ALLOWED_PATH_PREFIXES } from '@reservations/shared';
 
 export type DashboardAudience = 'partner' | 'admin';
 
@@ -202,8 +203,8 @@ export const PARTNER_PAGES: DashboardPage[] = [
     keywords: ['configuration', 'preferences'],
   }),
   page('/team', 'Team', 'Account', 'partner', <TeamOutlined />, {
-    keywords: ['managers', 'manager', 'invite', 'seats'],
-    description: 'Invite managers within your package seat limit',
+    keywords: ['managers', 'manager', 'host', 'invite', 'seats'],
+    description: 'Invite managers and hosts within your package seat limit',
     parentSiderHref: '/settings',
   }),
   page('/billing', 'Billing', 'Account', 'partner', <DollarOutlined />, {
@@ -386,11 +387,16 @@ export type SearchablePage = DashboardPage & {
 
 export function filterPagesForUser(
   pages: DashboardPage[],
-  opts: { showOnboarding?: boolean; isSuperAdmin?: boolean },
+  opts: { showOnboarding?: boolean; isSuperAdmin?: boolean; role?: string },
 ): DashboardPage[] {
   return pages.filter((p) => {
     if (p.when === 'onboarding') return Boolean(opts.showOnboarding);
     if (p.when === 'super_admin') return Boolean(opts.isSuperAdmin);
+    if (opts.role === 'host') {
+      return HOST_ALLOWED_PATH_PREFIXES.some(
+        (prefix) => p.href === prefix || p.href.startsWith(`${prefix}/`),
+      );
+    }
     return true;
   });
 }
@@ -430,7 +436,7 @@ export function matchPages(pages: SearchablePage[], query: string): SearchablePa
 export function hubChildPages(
   pages: DashboardPage[],
   parentHref: string,
-  opts: { showOnboarding?: boolean; isSuperAdmin?: boolean } = {},
+  opts: { showOnboarding?: boolean; isSuperAdmin?: boolean; role?: string } = {},
 ): DashboardPage[] {
   return filterPagesForUser(
     pages.filter((p) => p.parentSiderHref === parentHref),
@@ -438,7 +444,10 @@ export function hubChildPages(
   );
 }
 
-export function partnerSiderPages(opts: { showOnboarding?: boolean }): DashboardPage[] {
+export function partnerSiderPages(opts: {
+  showOnboarding?: boolean;
+  role?: string;
+}): DashboardPage[] {
   return filterPagesForUser(
     PARTNER_PAGES.filter((p) => !p.parentSiderHref),
     opts,

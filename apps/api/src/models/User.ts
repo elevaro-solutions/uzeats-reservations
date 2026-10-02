@@ -49,6 +49,7 @@ const userSchema = new Schema(
         'diner',
         'restaurant_owner',
         'manager',
+        'host',
         'admin',
         'account_manager',
         'super_admin',

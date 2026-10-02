@@ -87,6 +87,7 @@ const ROLE_OPTIONS = [
   { value: 'diner', label: 'Guest' },
   { value: 'restaurant_owner', label: 'Owner' },
   { value: 'manager', label: 'Manager' },
+  { value: 'host', label: 'Host' },
   { value: 'admin', label: 'Admin' },
   { value: 'account_manager', label: 'Account manager' },
 ];

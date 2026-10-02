@@ -49,14 +49,17 @@ export async function inviteManager(input: {
   email: string;
   firstName: string;
   lastName: string;
-  role?: 'manager' | 'restaurant_owner';
+  role?: 'manager' | 'host' | 'restaurant_owner';
   restaurantIds: string[];
   invitedById: string;
 }) {
   const config = await getPlatformConfig();
-  const role = (input.role || config.defaultManagerRole || 'manager') as 'manager' | 'restaurant_owner';
-  if (!['manager', 'restaurant_owner'].includes(role)) {
-    throw new Error('Invite role must be manager or restaurant_owner');
+  const role = (input.role || config.defaultManagerRole || 'manager') as
+    | 'manager'
+    | 'host'
+    | 'restaurant_owner';
+  if (!['manager', 'host', 'restaurant_owner'].includes(role)) {
+    throw new Error('Invite role must be manager, host, or restaurant_owner');
   }
   if (!input.restaurantIds.length) throw new Error('At least one restaurant is required');
 
@@ -68,14 +71,14 @@ export async function inviteManager(input: {
   const email = input.email.toLowerCase();
   const existingBefore = await User.findOne({ email });
 
-  // Manager seats apply to `manager` invites. Skip restaurants the user already manages.
-  if (role === 'manager') {
+  // Team seats apply to manager/host invites. Skip restaurants the user already staffs.
+  if (role === 'manager' || role === 'host') {
     for (const restaurantId of input.restaurantIds) {
       if (existingBefore) {
         const consumes = await wouldConsumeManagerSeat(
           restaurantId,
           existingBefore._id.toString(),
-          'manager',
+          role,
         );
         if (!consumes) continue;
       }
@@ -180,6 +183,7 @@ const CREATABLE_ACCOUNT_ROLES = [
   'diner',
   'restaurant_owner',
   'manager',
+  'host',
   'admin',
   'account_manager',
 ] as const;
@@ -211,8 +215,11 @@ export async function adminCreateUser(input: {
     input.role === 'diner' || input.role === 'admin' || input.role === 'account_manager'
       ? []
       : (input.restaurantIds ?? []);
-  if (input.role === 'manager' && restaurantIds.length === 0) {
-    throw new Error('Manager accounts require at least one restaurant');
+  if (
+    (input.role === 'manager' || input.role === 'host') &&
+    restaurantIds.length === 0
+  ) {
+    throw new Error(`${input.role === 'host' ? 'Host' : 'Manager'} accounts require at least one restaurant`);
   }
   if (restaurantIds.length) {
     const restaurants = await Restaurant.find({ _id: { $in: restaurantIds } });
@@ -220,7 +227,7 @@ export async function adminCreateUser(input: {
       throw new Error('One or more restaurants not found');
     }
   }
-  if (input.role === 'manager') {
+  if (input.role === 'manager' || input.role === 'host') {
     for (const restaurantId of restaurantIds) {
       await assertManagerSeatsAvailable(restaurantId);
     }
@@ -252,7 +259,7 @@ export async function assignUserToRestaurants(input: {
   }
 
   const nextRole = (input.role ?? user.role) as string;
-  if (nextRole === 'manager') {
+  if (nextRole === 'manager' || nextRole === 'host') {
     for (const restaurantId of input.restaurantIds) {
       const consumes = await wouldConsumeManagerSeat(
         restaurantId,
@@ -286,6 +293,7 @@ export async function removeUserFromRestaurant(userId: string, restaurantId: str
 
 const INVITE_ROLE_LABELS: Record<string, string> = {
   manager: 'Manager',
+  host: 'Host',
   restaurant_owner: 'Owner',
 };
 

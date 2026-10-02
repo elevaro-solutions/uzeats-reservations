@@ -120,6 +120,7 @@ export default function SupportTicketDetailPage() {
             u.role === 'admin' ||
             u.role === 'account_manager' ||
             u.role === 'manager' ||
+            u.role === 'host' ||
             u.role === 'restaurant_owner',
         )
         .map((u: any) => ({

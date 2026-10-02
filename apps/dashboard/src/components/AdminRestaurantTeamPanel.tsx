@@ -21,6 +21,7 @@ const ROLE_LABELS: Record<string, string> = {
   diner: 'Guest',
   restaurant_owner: 'Owner',
   manager: 'Manager',
+  host: 'Host',
   admin: 'Admin',
   account_manager: 'Account manager',
   super_admin: 'Super admin',
@@ -30,6 +31,7 @@ const ROLE_COLORS: Record<string, string> = {
   diner: 'default',
   restaurant_owner: 'blue',
   manager: 'cyan',
+  host: 'geekblue',
   admin: 'orange',
   account_manager: 'purple',
   super_admin: 'red',
@@ -37,6 +39,7 @@ const ROLE_COLORS: Record<string, string> = {
 
 const TEAM_ROLE_OPTIONS = [
   { value: 'manager', label: 'Manager' },
+  { value: 'host', label: 'Host' },
   { value: 'restaurant_owner', label: 'Owner' },
 ];
 
@@ -161,7 +164,7 @@ export function AdminRestaurantTeamPanel({
           {members.length === 0 ? (
             <EmptyState
               title="No team members"
-              description="Assign an owner or manager to this venue."
+              description="Assign an owner, manager, or host to this venue."
             />
           ) : (
             <Table<TeamMember>

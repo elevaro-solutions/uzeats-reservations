@@ -353,6 +353,7 @@ function passwordResetBaseUrl(app: 'web' | 'dashboard') {
 const PARTNER_ROLES = new Set<UserRole>([
   'restaurant_owner',
   'manager',
+  'host',
   'admin',
   'account_manager',
   'super_admin',

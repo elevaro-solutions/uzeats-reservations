@@ -7,7 +7,9 @@ import {
   NOTIFICATION_EVENTS,
   NOTIFICATION_TYPE_TO_EVENT,
   OCCASION_LABELS,
-  REMINDER_HOURS,
+  REMINDER_LATE_CHECK_MAX_MINUTES,
+  REMINDER_OFFSETS_MINUTES,
+  RESERVATION_REMINDER_LATE_CATEGORY_ID,
   type NotificationChannel,
   type Occasion,
 } from '@reservations/shared';
@@ -309,16 +311,18 @@ async function sendPush(
   title: string,
   body: string,
   data?: Record<string, unknown>,
+  categoryId?: string,
 ) {
   for (const t of tokens) {
     try {
       if (t.platform === 'web' && env.VAPID_PUBLIC_KEY) {
         await webpush.sendNotification(
           JSON.parse(t.token),
-          JSON.stringify({ title, body, data }),
+          JSON.stringify({ title, body, data, categoryId }),
         );
       } else {
-        // Expo push
+        // Expo push — categoryId enables interactive Yes/No actions on iOS/Android
+        // when the client registered the matching notification category.
         await fetch('https://exp.host/--/api/v2/push/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -327,6 +331,7 @@ async function sendPush(
             title,
             body,
             data,
+            ...(categoryId ? { categoryId } : {}),
           }),
         });
       }
@@ -349,6 +354,8 @@ export async function notifyUser(
       contentType: string;
     }>;
     data?: Record<string, unknown>;
+    /** Expo / web-push interactive category (e.g. running-late Yes/No). */
+    pushCategoryId?: string;
   },
   opts?: {
     /** When set, also send SMS if this restaurant has Premium SMS and the user has a phone. */
@@ -423,7 +430,13 @@ export async function notifyUser(
       } else if (channel === 'telegram' && user.telegramChatId) {
         await sendTelegramNotification(user.telegramChatId, payload.title, payload.body);
       } else if (channel === 'push') {
-        await sendPush(user.pushTokens, payload.title, payload.body, payload.data);
+        await sendPush(
+          user.pushTokens,
+          payload.title,
+          payload.body,
+          payload.data,
+          payload.pushCategoryId,
+        );
       } else if (channel === 'sms' && user.phone) {
         await sendSms(user.phone, `${payload.title}: ${payload.body}`);
       }
@@ -559,17 +572,49 @@ export async function notifyRestaurantManagers(
   }
 }
 
+function formatReminderLead(minutes: number): string {
+  if (minutes >= 60 && minutes % 60 === 0) {
+    return `${minutes / 60}h`;
+  }
+  return `${minutes} min`;
+}
+
+function reminderJobId(reservationId: string, minutes: number) {
+  return `reminder-${reservationId}-${minutes}m`;
+}
+
+/** Remove pending reminder + no-show jobs (also clears legacy `*h` job ids). */
+export async function cancelReservationReminders(reservationId: string) {
+  const jobIds = [
+    ...REMINDER_OFFSETS_MINUTES.map((m) => reminderJobId(reservationId, m)),
+    // Legacy hour-based ids from before minute offsets
+    `reminder-${reservationId}-24h`,
+    `reminder-${reservationId}-2h`,
+    `noshow-${reservationId}`,
+  ];
+  for (const jobId of jobIds) {
+    try {
+      const job = await reminderQueue.getJob(jobId);
+      if (job) await job.remove();
+    } catch (err) {
+      logger.warn({ err, jobId }, '[reminders] failed to remove job');
+    }
+  }
+}
+
 export async function scheduleReservationReminders(reservationId: string) {
   const reservation = await Reservation.findById(reservationId);
   if (!reservation) return;
 
-  for (const hours of REMINDER_HOURS) {
-    const runAt = new Date(reservation.slotStart.getTime() - hours * 60 * 60 * 1000);
+  await cancelReservationReminders(reservationId);
+
+  for (const minutes of REMINDER_OFFSETS_MINUTES) {
+    const runAt = new Date(reservation.slotStart.getTime() - minutes * 60 * 1000);
     if (runAt <= new Date()) continue;
     await reminderQueue.add(
       'reservation-reminder',
-      { reservationId, hours },
-      { delay: runAt.getTime() - Date.now(), jobId: `reminder-${reservationId}-${hours}h` },
+      { reservationId, minutes },
+      { delay: runAt.getTime() - Date.now(), jobId: reminderJobId(reservationId, minutes) },
     );
   }
 
@@ -596,10 +641,21 @@ export function startNotificationWorkers() {
     'reminders',
     async (job) => {
       if (job.name === 'reservation-reminder') {
-        const { reservationId, hours } = job.data as {
+        const data = job.data as {
           reservationId: string;
-          hours: number;
+          minutes?: number;
+          /** Legacy jobs scheduled with hour offsets. */
+          hours?: number;
         };
+        const { reservationId } = data;
+        const minutes =
+          typeof data.minutes === 'number'
+            ? data.minutes
+            : typeof data.hours === 'number'
+              ? data.hours * 60
+              : null;
+        if (minutes == null) return;
+
         const reservation = await Reservation.findById(reservationId);
         if (!reservation || !['confirmed', 'pending'].includes(reservation.status)) return;
         const restaurant = await Restaurant.findById(reservation.restaurantId);
@@ -607,13 +663,24 @@ export function startNotificationWorkers() {
           reservation.slotStart,
           restaurantTimeZone(restaurant ?? {}),
         );
+        const lead = formatReminderLead(minutes);
+        const askLate = minutes <= REMINDER_LATE_CHECK_MAX_MINUTES;
         await notifyUser(
           reservation.dinerId.toString(),
           {
             type: 'reservation_reminder',
-            title: `Reservation in ${hours}h`,
-            body: `Reminder: ${restaurant?.name ?? 'Restaurant'} at ${when}`,
-            data: { reservationId },
+            title: `Reservation in ${lead}`,
+            body: askLate
+              ? `Reminder: ${restaurant?.name ?? 'Restaurant'} at ${when}. Are you running late?`
+              : `Reminder: ${restaurant?.name ?? 'Restaurant'} at ${when}`,
+            data: {
+              reservationId,
+              minutes,
+              askRunningLate: askLate,
+            },
+            ...(askLate
+              ? { pushCategoryId: RESERVATION_REMINDER_LATE_CATEGORY_ID }
+              : {}),
           },
           { smsRestaurantId: reservation.restaurantId.toString() },
         );

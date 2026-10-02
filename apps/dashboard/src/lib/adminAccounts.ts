@@ -1,10 +1,10 @@
 export type AccountKind = 'diner' | 'manager' | 'restaurant_owner' | 'platform';
 
-export type ManagedAccountRole = 'diner' | 'manager' | 'restaurant_owner';
+export type ManagedAccountRole = 'diner' | 'manager' | 'host' | 'restaurant_owner';
 
 export type PlatformAccountRole = 'admin' | 'account_manager' | 'super_admin';
 
-export type RestaurantAccountRole = 'restaurant_owner' | 'manager';
+export type RestaurantAccountRole = 'restaurant_owner' | 'manager' | 'host';
 
 export type AccountRecord = {
   id: string;
@@ -41,6 +41,7 @@ export const ROLE_LABELS: Record<string, string> = {
   diner: 'Guest',
   restaurant_owner: 'Owner',
   manager: 'Manager',
+  host: 'Host',
   admin: 'Admin',
   account_manager: 'Account manager',
   super_admin: 'Super Admin',
@@ -58,6 +59,7 @@ export const RESTAURANT_ACCOUNT_ROLE_OPTIONS: Array<{
 }> = [
   { value: 'restaurant_owner', label: 'Owner' },
   { value: 'manager', label: 'Manager' },
+  { value: 'host', label: 'Host' },
 ];
 
 /** Roles an admin can pick when creating an admin (super admin is promote-only). */
@@ -80,6 +82,7 @@ export type RestaurantCapabilityRow = {
   capability: string;
   restaurant_owner: PlatformCapabilityCell;
   manager: PlatformCapabilityCell;
+  host: PlatformCapabilityCell;
 };
 
 /** Shown on Admins → Roles & capabilities. */
@@ -170,48 +173,70 @@ export const RESTAURANT_ROLE_CAPABILITIES: RestaurantCapabilityRow[] = [
     capability: 'Partner Hub for assigned venues',
     restaurant_owner: true,
     manager: true,
+    host: true,
   },
   {
     id: 'reservations',
-    capability: 'Reservations, waitlist, and floor',
+    capability: 'Reservations, waitlist, live floor, deposits',
     restaurant_owner: true,
     manager: true,
+    host: true,
   },
   {
     id: 'guests',
-    capability: 'Guest CRM and reviews',
+    capability: 'Guest CRM and messages',
     restaurant_owner: true,
     manager: true,
+    host: true,
+  },
+  {
+    id: 'reviews',
+    capability: 'Reviews and grow / marketing',
+    restaurant_owner: true,
+    manager: true,
+    host: false,
+  },
+  {
+    id: 'settings',
+    capability: 'Venue settings, menu, floor plan',
+    restaurant_owner: true,
+    manager: true,
+    host: false,
   },
   {
     id: 'support',
     capability: 'Open and reply to support tickets',
     restaurant_owner: true,
     manager: true,
+    host: true,
   },
   {
     id: 'import',
     capability: 'Import restaurant / menu data',
     restaurant_owner: true,
     manager: true,
+    host: false,
   },
   {
     id: 'billing',
     capability: 'Billing, plans, and payment methods',
     restaurant_owner: true,
     manager: false,
+    host: false,
   },
   {
     id: 'add_location',
     capability: 'Add restaurant locations',
     restaurant_owner: true,
     manager: false,
+    host: false,
   },
   {
     id: 'team',
     capability: 'Invite and manage venue team',
     restaurant_owner: true,
     manager: false,
+    host: false,
   },
 ];
 
@@ -247,9 +272,9 @@ export const ACCOUNT_KIND_META: Record<AccountKind, AccountKindMeta> = {
   restaurant_owner: {
     title: 'Restaurant accounts',
     singular: 'Restaurant account',
-    subtitle: 'Owners and managers with Partner Hub access to venues.',
+    subtitle: 'Owners, managers, and hosts with Partner Hub access to venues.',
     createLabel: 'Create account',
-    roles: ['restaurant_owner', 'manager'],
+    roles: ['restaurant_owner', 'manager', 'host'],
     showRestaurants: true,
     showLoyalty: false,
     showInvite: true,
@@ -276,7 +301,9 @@ export const ACCOUNT_KIND_META: Record<AccountKind, AccountKindMeta> = {
 
 export function accountKindForRole(role: string): AccountKind {
   if (role === 'diner') return 'diner';
-  if (role === 'restaurant_owner' || role === 'manager') return 'restaurant_owner';
+  if (role === 'restaurant_owner' || role === 'manager' || role === 'host') {
+    return 'restaurant_owner';
+  }
   return 'platform';
 }
 

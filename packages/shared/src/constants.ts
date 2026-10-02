@@ -2,6 +2,7 @@ export const USER_ROLES = [
   "diner",
   "restaurant_owner",
   "manager",
+  "host",
   "admin",
   "account_manager",
   "super_admin",
@@ -389,6 +390,19 @@ export const LOYALTY_EARN_REASONS = {
 
 export const DEFAULT_SLOT_INTERVAL_MINUTES = 15;
 export const DEFAULT_TURN_TIME_MINUTES = 90;
+/**
+ * Guest reservation reminder offsets before `slotStart` (minutes).
+ * Closer reminders (≤ {@link REMINDER_LATE_CHECK_MAX_MINUTES}) include
+ * interactive "Are you running late?" Yes/No push actions.
+ */
+export const REMINDER_OFFSETS_MINUTES = [24 * 60, 2 * 60, 30] as const;
+/** Reminders at or below this lead time get running-late action buttons. */
+export const REMINDER_LATE_CHECK_MAX_MINUTES = 2 * 60;
+/** Expo / web-push category id for interactive reservation reminders. */
+export const RESERVATION_REMINDER_LATE_CATEGORY_ID = "reservation_reminder_late";
+export const REMINDER_ACTION_RUNNING_LATE_YES = "RUNNING_LATE_YES";
+export const REMINDER_ACTION_RUNNING_LATE_NO = "RUNNING_LATE_NO";
+/** @deprecated Use {@link REMINDER_OFFSETS_MINUTES} */
 export const REMINDER_HOURS = [24, 2] as const;
 export const CANCELLATION_REFUND_HOURS = 24;
 

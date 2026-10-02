@@ -21,8 +21,8 @@ import {
   TeamOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { StatusTag, EmptyState, pickRestaurantPhoto } from '@reservations/ui';
 import {
   buildRestaurantBookingPath,
@@ -40,6 +40,7 @@ import {
   UPDATE_RESERVATION_STATUS,
   CONFIRM_DEPOSIT,
   SAVE_RESTAURANT,
+  REPORT_RUNNING_LATE,
 } from '@/lib/graphql';
 import { EditReservationModal } from '@/components/EditReservationModal';
 import { PostVisitModal } from '@/components/PostVisitModal';
@@ -86,6 +87,7 @@ function DetailRow({
 export default function ReservationDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const reservationId = params.id;
 
@@ -97,6 +99,8 @@ export default function ReservationDetailPage() {
   const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
   const [confirmDeposit] = useMutation(CONFIRM_DEPOSIT);
   const [saveRestaurant, { loading: saving }] = useMutation(SAVE_RESTAURANT);
+  const [reportRunningLate] = useMutation(REPORT_RUNNING_LATE);
+  const lateReportedRef = useRef(false);
 
   const [reviewOpen, setReviewOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -105,6 +109,22 @@ export default function ReservationDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+
+  useEffect(() => {
+    if (!user || !reservationId) return;
+    if (searchParams.get('runningLate') !== '1') return;
+    if (lateReportedRef.current) return;
+    lateReportedRef.current = true;
+    void reportRunningLate({ variables: { reservationId } })
+      .then(() => {
+        message.success("Restaurant notified that you're running late");
+        router.replace(`/reservations/${reservationId}`);
+      })
+      .catch((err: unknown) => {
+        message.error(err instanceof Error ? err.message : 'Could not notify the restaurant');
+        router.replace(`/reservations/${reservationId}`);
+      });
+  }, [user, reservationId, searchParams, reportRunningLate, router]);
 
   if (authLoading) {
     return (

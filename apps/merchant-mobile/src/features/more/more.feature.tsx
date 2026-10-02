@@ -46,11 +46,13 @@ export function MoreFeature() {
     .join(" ");
 
   const partnerHubMessage =
-    user?.role === "manager"
-      ? "Billing and adding restaurants are available to owners in Partner Hub."
-      : user?.role === "restaurant_owner"
-        ? "Billing, venue setup, and marketing live in Partner Hub on the web. This app is for day-of service."
-        : null;
+    user?.role === "host"
+      ? "Hosts see day-of tools here. Venue settings and billing stay in Partner Hub for owners and managers."
+      : user?.role === "manager"
+        ? "Billing and adding restaurants are available to owners in Partner Hub."
+        : user?.role === "restaurant_owner"
+          ? "Billing, venue setup, and marketing live in Partner Hub on the web. This app is for day-of service."
+          : null;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>

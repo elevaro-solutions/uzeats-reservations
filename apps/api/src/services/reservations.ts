@@ -23,6 +23,7 @@ import { WaitlistEntry } from '../models/Waitlist.js';
 import { User } from '../models/User.js';
 import { Subscription } from '../models/Subscription.js';
 import { CoverFee } from '../models/CoverFee.js';
+import { Message } from '../models/Message.js';
 import { findAvailableTable, getTurnTimeMinutes } from './availability.js';
 import { smartAssignTable } from './smartAssign.js';
 import {
@@ -1464,6 +1465,9 @@ export async function updateReservationDetails(
   const reservation = await Reservation.findById(reservationId);
   if (!reservation) throw new NotFoundError('Reservation');
 
+  const originalSlotStartMs = reservation.slotStart.getTime();
+  const originalSlotEndMs = reservation.slotEnd.getTime();
+
   const restaurant = await Restaurant.findById(reservation.restaurantId);
   const user = await User.findById(actorId);
   const isOwner =
@@ -1559,6 +1563,13 @@ export async function updateReservationDetails(
 
   await reservation.save();
 
+  if (
+    reservation.slotStart.getTime() !== originalSlotStartMs ||
+    reservation.slotEnd.getTime() !== originalSlotEndMs
+  ) {
+    await scheduleReservationReminders(reservation._id.toString());
+  }
+
   const restaurantName = restaurant?.name ?? 'the restaurant';
   const when = formatReservationWhen(reservation.slotStart, restaurant);
   if (isDiner) {
@@ -1585,6 +1596,55 @@ export async function updateReservationDetails(
   }
 
   return reservation;
+}
+
+/**
+ * Guest taps "Yes" on a running-late reminder — posts a structured message
+ * and notifies restaurant managers (same channel as sendMessage).
+ */
+export async function reportRunningLate(
+  reservationId: string,
+  dinerId: string,
+  etaMinutes?: number | null,
+) {
+  const reservation = await Reservation.findById(reservationId);
+  if (!reservation) throw new NotFoundError('Reservation');
+  if (!reservation.dinerId.equals(dinerId)) throw new ForbiddenError();
+  if (!['confirmed', 'pending'].includes(reservation.status)) {
+    throw new ValidationError('Can only report running late for an upcoming reservation');
+  }
+
+  const eta =
+    typeof etaMinutes === 'number' && Number.isFinite(etaMinutes)
+      ? Math.min(180, Math.max(1, Math.round(etaMinutes)))
+      : null;
+  const body = eta
+    ? `I'm running late — about ${eta} minutes.`
+    : "I'm running late.";
+
+  const doc = await Message.create({
+    restaurantId: reservation.restaurantId,
+    dinerId: reservation.dinerId,
+    reservationId: reservation._id,
+    senderType: 'diner',
+    senderId: dinerId,
+    body,
+  });
+
+  await notifyRestaurantManagers(reservation.restaurantId.toString(), {
+    type: 'new_message',
+    title: 'Guest running late',
+    body: body.slice(0, 200),
+    data: {
+      restaurantId: reservation.restaurantId.toString(),
+      dinerId: reservation.dinerId.toString(),
+      reservationId: reservation._id.toString(),
+      runningLate: true,
+      ...(eta != null ? { etaMinutes: eta } : {}),
+    },
+  });
+
+  return doc;
 }
 
 /** Seat a guest at a specific table in one operation (floor ops). */

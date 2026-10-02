@@ -86,6 +86,7 @@ export const adminCreateUserSchema = z.object({
     "diner",
     "restaurant_owner",
     "manager",
+    "host",
     "admin",
     "account_manager",
   ]),

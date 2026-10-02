@@ -728,6 +728,16 @@ export const SEND_MESSAGE = gql`
   }
 `;
 
+export const REPORT_RUNNING_LATE = gql`
+  mutation ReportRunningLate($reservationId: ID!, $etaMinutes: Int) {
+    reportRunningLate(reservationId: $reservationId, etaMinutes: $etaMinutes) {
+      id
+      body
+      createdAt
+    }
+  }
+`;
+
 export const PROMOTIONS = gql`
   query Promotions($restaurantId: ID!, $activeOnly: Boolean, $limit: Int, $offset: Int) {
     promotions(restaurantId: $restaurantId, activeOnly: $activeOnly, limit: $limit, offset: $offset) {

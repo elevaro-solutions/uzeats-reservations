@@ -7,7 +7,7 @@ import { App, Button, Form, Input } from 'antd';
 import { LockOutlined, MailOutlined } from '@ant-design/icons';
 import { colors, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
-import { isPlatformAdmin } from '@/lib/roles';
+import { partnerLandingPath } from '@/lib/roles';
 import { AuthLayout } from '@/components/AuthLayout';
 import { getGraphQLErrorMessage, getGraphQLFieldErrors } from '@/lib/errors';
 
@@ -22,9 +22,7 @@ export default function LoginPage() {
     router.replace(
       user.needsEmailVerification
         ? '/verify-email'
-        : isPlatformAdmin(user.role)
-          ? '/admin'
-          : '/',
+        : partnerLandingPath(user.role),
     );
     return null;
   }
@@ -46,8 +44,8 @@ export default function LoginPage() {
               router.push('/verify-email');
               return;
             }
-            // Role-aware landing is handled by / redirect for admins
-            router.push('/');
+            // Role-aware landing (hosts → /reservations today; admins → /admin)
+            router.push(partnerLandingPath(signedIn.role));
           } catch (err) {
             const fieldErrors = getGraphQLFieldErrors(err);
             const entries = Object.entries(fieldErrors);

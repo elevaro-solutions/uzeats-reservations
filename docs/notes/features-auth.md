@@ -1,5 +1,11 @@
 # Auth — Learnings & Observations
 
+## [2026-10-01] Host role is FOH-scoped Partner Hub
+- `host` is a venue staff role (with `manager`) — assigned via `restaurantIds`, consumes package team seats, invitable from Team / admin.
+- Dashboard allowlist: `/reservations` (login landing; book defaults to today), `/waitlist`, `/floor-ops`, `/guests`, `/messages`, `/support`, `/notifications`. Deposits are handled on reservation detail, not a separate settings page.
+- Shared helpers: `isHostRole`, `isVenueStaffRole`, `canAccessPartnerPath`, `partnerLandingPath`. Merchant mobile accepts hosts via `PARTNER_MOBILE_ROLES`.
+- Why it matters: Don’t give hosts Settings/Billing/Grow; don’t treat host like diner for Partner Hub chrome.
+
 ## [2026-10-01] Field-level GraphQL auth errors
 - Conflict / validation / invalid-credentials errors now carry `extensions.field` (e.g. `email`, `password`, `referralCode`, `name`). Clients use `getGraphQLFieldErrors` (web/dashboard) or `applyAuthFieldErrors` (mobile) to set Ant Design / RHF field errors; toast/banner is only for non-field failures.
 - Why it matters: Duplicate-email register previously surfaced as a toast after the API stopped masking it — diners/partners still had to guess which input failed.

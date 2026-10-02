@@ -391,23 +391,28 @@ export const adminOpsMutation = {
 
     const isAdmin = isPlatformAdmin(actor.role);
     if (!isAdmin) {
-      // Owners may only invite Managers for venues they own.
-      if (args.role && args.role !== 'manager') {
-        throw new ForbiddenError('Owners can only invite managers');
+      // Owners may invite Managers or Hosts for venues they own.
+      if (args.role && args.role !== 'manager' && args.role !== 'host') {
+        throw new ForbiddenError('Owners can only invite managers or hosts');
       }
       for (const restaurant of restaurants) {
         if (!restaurant.ownerId.equals(actor._id)) {
-          throw new ForbiddenError('You can only invite managers to restaurants you own');
+          throw new ForbiddenError('You can only invite staff to restaurants you own');
         }
       }
     }
 
+    const inviteRole = (isAdmin ? args.role : args.role || 'manager') as
+      | 'manager'
+      | 'host'
+      | 'restaurant_owner'
+      | undefined;
     const result = await inviteManager({
       email: args.email,
       firstName: args.firstName,
       lastName: args.lastName,
       restaurantIds,
-      role: (isAdmin ? args.role : 'manager') as 'manager' | 'restaurant_owner' | undefined,
+      role: inviteRole,
       invitedById: actor._id.toString(),
     });
     await logAudit({
@@ -415,7 +420,7 @@ export const adminOpsMutation = {
       action: 'inviteManager',
       resource: 'User',
       resourceId: result.user._id.toString(),
-      details: { email: args.email, restaurantIds, role: isAdmin ? args.role : 'manager' },
+      details: { email: args.email, restaurantIds, role: inviteRole ?? 'manager' },
     });
     return {
       inviteUrl: result.inviteUrl,
@@ -476,8 +481,8 @@ export const adminOpsMutation = {
       if (target._id.equals(restaurant.ownerId)) {
         throw new ForbiddenError('Cannot remove the restaurant owner');
       }
-      if (target.role !== 'manager') {
-        throw new ForbiddenError('Owners can only remove managers from the team');
+      if (target.role !== 'manager' && target.role !== 'host') {
+        throw new ForbiddenError('Owners can only remove managers or hosts from the team');
       }
     }
 

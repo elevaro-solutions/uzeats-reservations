@@ -188,9 +188,9 @@ function formatRelativeTime(iso: string) {
 }
 
 import { getPublicWebUrl } from '@/lib/webUrl';
-import { canCreateRestaurant, isPlatformAdmin, isSuperAdmin } from '@/lib/roles';
+import { canCreateRestaurant, canAccessPartnerPath, isHostRole, isPlatformAdmin, isSuperAdmin, partnerLandingPath } from '@/lib/roles';
 
-const PARTNER_ROLES = new Set(['restaurant_owner', 'manager', 'admin', 'account_manager', 'super_admin']);
+const PARTNER_ROLES = new Set(['restaurant_owner', 'manager', 'host', 'admin', 'account_manager', 'super_admin']);
 const AUTH_SHELL_PATHS = [
   '/login',
   '/register',
@@ -283,6 +283,14 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     router.replace('/verify-email');
   }, [authLoading, user, isImpersonating, pathname, router]);
 
+  // Hosts are FOH-only — bounce off settings/billing/grow/etc. to today's book.
+  useEffect(() => {
+    if (authLoading || !user || isAuthShellRoute) return;
+    if (!isHostRole(user.role)) return;
+    if (canAccessPartnerPath(user.role, pathname)) return;
+    router.replace(partnerLandingPath(user.role));
+  }, [authLoading, user, pathname, isAuthShellRoute, router]);
+
   useEffect(() => {
     if (!user || !isPartner) return;
     if (isPlatformAdmin(user.role) && !isImpersonating) return;
@@ -369,7 +377,10 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     };
     const pages = isAdmin
       ? adminSiderPages({ isSuperAdmin: isSuperAdminUser })
-      : partnerSiderPages({ showOnboarding: onboardingProgress.showOnboarding });
+      : partnerSiderPages({
+          showOnboarding: onboardingProgress.showOnboarding,
+          role: user?.role,
+        });
     return groupPagesForMenu(pages).map((group) => ({
       type: 'group' as const,
       label: group.label,
@@ -388,6 +399,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     pendingProfileRequests,
     pendingModerationItems,
     openInvoicesAdmin,
+    user?.role,
   ]);
 
   const switchRestaurant = useCallback(
@@ -911,6 +923,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
         isAdmin={isAdmin}
         showOnboarding={onboardingProgress.showOnboarding}
         isSuperAdmin={isSuperAdminUser}
+        role={user?.role}
         restaurants={restaurants.map((r: { id: string; name: string; city?: string | null }) => ({
           id: r.id,
           name: r.name,

@@ -165,6 +165,7 @@ import {
   refundReservationDeposit,
   seatReservationAtTable,
   isReservationReviewable,
+  reportRunningLate as reportRunningLateService,
 } from "../services/reservations.js";
 import { paginateQuery, normalizePagination } from "../lib/pagination.js";
 import {
@@ -1461,7 +1462,7 @@ export const resolvers = {
       args: { status?: string; limit?: number; offset?: number },
       ctx: GraphQLContext,
     ) => {
-      const user = requireRole(ctx, ["restaurant_owner", "manager"]);
+      const user = requireRole(ctx, ["restaurant_owner", "manager", "host"]);
       return listOwnerSupportTickets({
         userId: user._id.toString(),
         status: args.status,
@@ -1471,7 +1472,7 @@ export const resolvers = {
     },
 
     myOwnerSupportTicket: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
-      const user = requireRole(ctx, ["restaurant_owner", "manager"]);
+      const user = requireRole(ctx, ["restaurant_owner", "manager", "host"]);
       return getOwnerSupportTicket(user._id.toString(), args.id);
     },
 
@@ -3402,7 +3403,7 @@ export const resolvers = {
       },
       ctx: GraphQLContext,
     ) => {
-      const user = requireRole(ctx, ["restaurant_owner", "manager"]);
+      const user = requireRole(ctx, ["restaurant_owner", "manager", "host"]);
       return createOwnerSupportTicket({
         userId: user._id.toString(),
         restaurantIds: user.restaurantIds ?? [],
@@ -3430,7 +3431,7 @@ export const resolvers = {
       },
       ctx: GraphQLContext,
     ) => {
-      const user = requireRole(ctx, ["restaurant_owner", "manager"]);
+      const user = requireRole(ctx, ["restaurant_owner", "manager", "host"]);
       return addOwnerSupportReply({
         userId: user._id.toString(),
         ticketId: args.ticketId,
@@ -4350,6 +4351,7 @@ export const resolvers = {
         "diner",
         "restaurant_owner",
         "manager",
+        "host",
         "admin",
         "account_manager",
         "super_admin",
@@ -4640,7 +4642,7 @@ export const resolvers = {
         "invoicePrefix",
         "currency",
       ] as const;
-      const safeRoles = ["diner", "restaurant_owner", "manager"] as const;
+      const safeRoles = ["diner", "restaurant_owner", "manager", "host"] as const;
       for (const key of allowed) {
         if (args.input[key] !== undefined) {
           if (
@@ -4650,7 +4652,7 @@ export const resolvers = {
             !(safeRoles as readonly string[]).includes(String(args.input[key]))
           ) {
             throw new Error(
-              `Invalid ${key}: must be diner, restaurant_owner, or manager`,
+              `Invalid ${key}: must be diner, restaurant_owner, manager, or host`,
             );
           }
           (doc as any)[key] = args.input[key];
@@ -6423,6 +6425,20 @@ export const resolvers = {
         });
       }
 
+      return mapMessage(doc);
+    },
+
+    reportRunningLate: async (
+      _: unknown,
+      args: { reservationId: string; etaMinutes?: number | null },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const doc = await reportRunningLateService(
+        args.reservationId,
+        user._id.toString(),
+        args.etaMinutes,
+      );
       return mapMessage(doc);
     },
 

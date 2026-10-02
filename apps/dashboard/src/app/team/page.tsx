@@ -38,7 +38,13 @@ const { Text, Paragraph } = Typography;
 const ROLE_LABELS: Record<string, string> = {
   restaurant_owner: 'Owner',
   manager: 'Manager',
+  host: 'Host',
 };
+
+const STAFF_ROLE_OPTIONS = [
+  { value: 'manager', label: 'Manager — full venue ops' },
+  { value: 'host', label: 'Host — reservations, floor, deposits' },
+];
 
 type TeamMember = {
   id: string;
@@ -91,7 +97,10 @@ export default function TeamPage() {
     () => members.find((m) => m.role === 'restaurant_owner'),
     [members],
   );
-  const managers = useMemo(() => members.filter((m) => m.role === 'manager'), [members]);
+  const staff = useMemo(
+    () => members.filter((m) => m.role === 'manager' || m.role === 'host'),
+    [members],
+  );
   const atSeatLimit = Boolean(seats && seats.remaining <= 0);
 
   useEffect(() => {
@@ -99,9 +108,6 @@ export default function TeamPage() {
     if (!user) {
       router.replace('/login');
       return;
-    }
-    if (user.role === 'manager') {
-      // Managers can view the roster but not invite; still allow page.
     }
   }, [authLoading, user, router]);
 
@@ -115,13 +121,14 @@ export default function TeamPage() {
     if (!restaurantId || !dirty) return;
     try {
       const values = await form.validateFields();
+      const role = values.role === 'host' ? 'host' : 'manager';
       const res = await inviteManager({
         variables: {
           email: values.email.trim(),
           firstName: values.firstName.trim(),
           lastName: values.lastName.trim(),
           restaurantIds: [restaurantId],
-          role: 'manager',
+          role,
         },
       });
       message.success(`Invited ${res.data?.inviteManager?.email}`);
@@ -139,10 +146,10 @@ export default function TeamPage() {
     if (!restaurantId) return;
     try {
       await removeUserRestaurant({ variables: { userId, restaurantId } });
-      message.success('Manager removed');
+      message.success('Team member removed');
       await refresh();
     } catch (err: unknown) {
-      message.error(err instanceof Error ? err.message : 'Failed to remove manager');
+      message.error(err instanceof Error ? err.message : 'Failed to remove team member');
     }
   };
 
@@ -150,7 +157,7 @@ export default function TeamPage() {
     <div component="TeamPage" style={{ display: 'contents' }}>
       <PageHeader
         title="Team"
-        subtitle="Invite managers to help run this restaurant. Seat limits come from your package."
+        subtitle="Invite managers and hosts to help run this restaurant. Seat limits come from your package."
         extra={
           restaurants.length > 1 ? (
             <Select
@@ -172,24 +179,24 @@ export default function TeamPage() {
           <Card loading={seatsLoading}>
             <Space orientation="vertical" size={8} style={{ width: '100%' }}>
               <Text strong>
-                Manager seats:{' '}
+                Team seats:{' '}
                 {seats
                   ? `${seats.used + seats.pending} / ${seats.limit} used`
                   : '—'}
               </Text>
               <Paragraph type="secondary" style={{ marginBottom: 0 }}>
                 Your <Text code>{seats?.planKey ?? 'basic'}</Text> package includes{' '}
-                {seats?.limit ?? 1} manager seat{(seats?.limit ?? 1) === 1 ? '' : 's'}. The
-                restaurant owner does not use a manager seat.
+                {seats?.limit ?? 1} team seat{(seats?.limit ?? 1) === 1 ? '' : 's'} for managers
+                and hosts. The restaurant owner does not use a team seat.
               </Paragraph>
               {atSeatLimit && canEdit ? (
                 <Alert
                   type="warning"
                   showIcon
-                  message="Manager seat limit reached"
+                  message="Team seat limit reached"
                   description={
                     <span>
-                      Upgrade your package to invite more managers.{' '}
+                      Upgrade your package to invite more staff.{' '}
                       <Link href="/billing">Go to Billing</Link>
                     </span>
                   }
@@ -199,7 +206,7 @@ export default function TeamPage() {
           </Card>
 
           <Card
-            title={`Managers (${managers.length})`}
+            title={`Staff (${staff.length})`}
             loading={teamLoading || restaurantsLoading}
             extra={
               canEdit ? (
@@ -209,28 +216,29 @@ export default function TeamPage() {
                   disabled={atSeatLimit}
                   onClick={() => {
                     clearDirty();
+                    form.setFieldsValue({ role: 'manager' });
                     setInviteOpen(true);
                   }}
                 >
-                  Invite manager
+                  Invite staff
                 </Button>
               ) : null
             }
           >
-            {managers.length === 0 ? (
+            {staff.length === 0 ? (
               <EmptyState
-                title="No managers yet"
+                title="No staff yet"
                 description={
                   canEdit
                     ? atSeatLimit
-                      ? 'Upgrade your package to add a manager.'
-                      : 'Invite a manager to help with reservations, floor ops, and guests.'
-                    : 'Only the restaurant owner can invite managers.'
+                      ? 'Upgrade your package to add staff.'
+                      : 'Invite a manager for full ops, or a host for reservations, floor, and deposits.'
+                    : 'Only the restaurant owner can invite staff.'
                 }
               />
             ) : (
               <Table<TeamMember>
-                dataSource={managers}
+                dataSource={staff}
                 rowKey="id"
                 pagination={false}
                 columns={[
@@ -252,7 +260,9 @@ export default function TeamPage() {
                     title: 'Role',
                     dataIndex: 'role',
                     render: (role: string) => (
-                      <Tag color="cyan">{ROLE_LABELS[role] ?? role}</Tag>
+                      <Tag color={role === 'host' ? 'geekblue' : 'cyan'}>
+                        {ROLE_LABELS[role] ?? role}
+                      </Tag>
                     ),
                   },
                   {
@@ -290,7 +300,7 @@ export default function TeamPage() {
       )}
 
       <Modal
-        title="Invite manager"
+        title="Invite staff"
         open={inviteOpen}
         onCancel={() => {
           setInviteOpen(false);
@@ -303,7 +313,19 @@ export default function TeamPage() {
         okButtonProps={{ disabled: !dirty }}
         destroyOnClose
       >
-        <Form form={form} layout="vertical" onValuesChange={onValuesChange}>
+        <Form
+          form={form}
+          layout="vertical"
+          onValuesChange={onValuesChange}
+          initialValues={{ role: 'manager' }}
+        >
+          <Form.Item
+            name="role"
+            label="Role"
+            rules={[{ required: true, message: 'Select a role' }]}
+          >
+            <Select options={STAFF_ROLE_OPTIONS} />
+          </Form.Item>
           <Form.Item
             name="firstName"
             label="First name"
@@ -333,3 +355,4 @@ export default function TeamPage() {
     </div>
   );
 }
+
