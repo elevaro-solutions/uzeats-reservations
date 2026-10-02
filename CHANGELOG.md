@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.73.1] — 2026-10-02
+
+### Added
+
+- Admin reservations list: super admins can multi-select rows and bulk-delete with a confirmation modal
+
+### Changed
+
+- Partner/admin reservation list Source column shows only the billing channel pill (e.g. Widget) — no redundant “Website widget” subtitle; hover shows the booked-from / referrer URL
+- Reservation detail attribution chips: omit redundant widget Traffic, surface UTM source/medium/content/term, and shorten Landing / Booked from paths (full URL on hover)
+- Admin reservations list columns stay on one line (When / Restaurant / Guest) with ellipsis instead of wrapping tall rows
+- Single-row reservation Delete asks for confirmation before removing
+
+### Fixed
+
+- Admin reservation row menu no longer shows doubled dividers when status actions are empty (e.g. cancelled bookings)
+
 ## [0.73.0] — 2026-10-02
 
 ### Added

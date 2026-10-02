@@ -20,6 +20,7 @@ import {
   Table,
   Tag,
   TimePicker,
+  Tooltip,
   Typography,
   message,
 } from 'antd';
@@ -41,7 +42,6 @@ import dayjs, { type Dayjs } from 'dayjs';
 import {
   addCalendarDays,
   formatTimeInTimeZone,
-  formatTrafficSource,
   formatUsDateTime,
   hmInTimeZone,
   isPastCalendarDay,
@@ -82,6 +82,7 @@ import {
   formatUsd,
   guestName as formatGuestName,
 } from '@/lib/reservationFormat';
+import { sourceOriginTooltip } from '@/lib/reservationAttribution';
 import { CancelReservationModal } from '@/components/CancelReservationModal';
 import { RefundDepositModal } from '@/components/RefundDepositModal';
 import { ExportMenu, type ListExportFormat } from '@/components/ExportMenu';
@@ -166,6 +167,7 @@ type ReservationRow = {
   utmMedium?: string;
   landingPath?: string;
   originUrl?: string;
+  referrer?: string;
   tableIds?: string[];
   depositAmountCents?: number;
   depositRefundedCents?: number;
@@ -941,17 +943,15 @@ function ReservationsPageContent() {
               width: 110,
               render: (_: unknown, r: ReservationRow) => {
                 const label = formatSource(r.source);
-                const traffic = formatTrafficSource(r);
-                if (!label && !traffic) return <Text type="secondary">—</Text>;
-                return (
-                  <Space orientation="vertical" size={0}>
-                    {label ? <Tag style={{ marginInlineEnd: 0 }}>{label}</Tag> : null}
-                    {traffic ? (
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        {traffic}
-                      </Text>
-                    ) : null}
-                  </Space>
+                if (!label) return <Text type="secondary">—</Text>;
+                const origin = sourceOriginTooltip(r);
+                const tag = <Tag style={{ marginInlineEnd: 0 }}>{label}</Tag>;
+                return origin ? (
+                  <Tooltip title={<span style={{ wordBreak: 'break-all' }}>{origin}</span>}>
+                    {tag}
+                  </Tooltip>
+                ) : (
+                  tag
                 );
               },
             },

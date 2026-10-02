@@ -88,8 +88,9 @@ export function formatTrafficSource(attrs: {
   if (source === 'google' && medium === 'business_profile') {
     return 'Google Business Profile';
   }
+  // Widget/embed is already shown as billing Source ("Widget") — omit redundant traffic label.
   if (source === 'widget' || medium === 'embed') {
-    return 'Website widget';
+    return null;
   }
   if (source === 'google') return 'Google';
   if (source) {

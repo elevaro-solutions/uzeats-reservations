@@ -1,5 +1,10 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-02] Admin reservations list row menu dividers
+- `rowMenu` builds primary / status / secondary sections and only inserts a divider between non-empty sections. Cancelled (and completed/no-show) rows have no status actions, so the old always-push-divider pattern produced a double line between View and Open restaurant.
+- Super-admin bulk delete uses table `rowSelection` + `Modal.confirm`; deletes run via sequential `deleteReservation` (no bulk mutation). Column cells use `nowrap` / `ellipsis` so When / Restaurant / Guest do not wrap into tall rows.
+- Why it matters: Empty status sections still pushed dividers; long emails/`formatUsDateTime` commas wrapped without nowrap.
+
 ## [2026-10-01] Host sider + search filter
 - `filterPagesForUser(..., { role })` + `DashShell` redirect use `HOST_ALLOWED_PATH_PREFIXES`. Hosts bounce from `/` and forbidden routes to `/reservations`. ⌘K search receives the same `role` so hosts cannot jump to Settings via search.
 - Why it matters: Nav hide alone is not enough — deep links and search must enforce the same allowlist.
@@ -58,6 +63,11 @@
 - `/admin/pricing` package rows use a handle (`HolderOutlined`) to reorder. Drop calls `reorderPlanPackages` and refetches. The list does not use the card loading spinner during that refetch.
 - Why it matters: The public pricing page now follows API array order, so a client sort back to Basic/Core/Pro would undo the drag.
 
+## [2026-10-02] Source pill vs UTM chips
+- List Source is billing only (`widget` → “Widget”); `formatTrafficSource` returns null for widget/embed so it no longer duplicates as “Website widget”. Hover tooltip uses `originUrl` (else `referrer`).
+- Detail chips from `attributionMetaChips`: Traffic (non-widget), UTM source / Medium / Campaign / Content / Term, Landing & Booked from (path with `?…`, full string on hover), Referrer.
+- Why it matters: Widget + Website widget + raw query strings made the detail card unreadable; partners still need UTMs and the booking URL on demand.
+
 ## [2026-09-28] Visible packages include custom keys
 - Billing plan changes, partner “add location”, and admin package assignment no longer drop `isCustom` plans. Public/partner pickers still hide `visibleOnPricing === false`. Admin assignment lists every non-`free` package so a hidden package can still be assigned.
 - Why it matters: The pricing switch only updates `visibleOnPricing`. An `isCustom` filter made that switch look broken.
@@ -67,6 +77,7 @@
 - Why it matters: Built-in keys are not `isCustom`, so a Delete button gated only on that flag never appears for the default packages.
 
 ## [2026-09-27] Source chip vs Traffic chips
+- Superseded by [2026-10-02] Source pill vs UTM chips — widget traffic label removed; UTMs are explicit chips.
 - List/detail **Source** is billing channel (`network` → label “Platform”). Extra chips from `attributionMetaChips`: Traffic (e.g. Google Business Profile), Campaign, Landing, Booked from, Referrer.
 - Why it matters: Don’t overload Source with UTMs — partners need both fee channel and marketing origin.
 ## [2026-09-27] Slot clocks use restaurantTimeZone, not device local

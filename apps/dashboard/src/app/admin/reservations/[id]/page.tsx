@@ -82,6 +82,7 @@ import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useFormDirty } from '@/lib/useFormDirty';
 import { CancelReservationModal } from '@/components/CancelReservationModal';
 import { RefundDepositModal } from '@/components/RefundDepositModal';
+import { ReservationMetaChip } from '@/components/ReservationMetaChip';
 
 const { Text, Title } = Typography;
 
@@ -144,43 +145,6 @@ function wallClockToIso(date: Dayjs, time: Dayjs, timeZone: string): string {
   return zonedWallClockToUtc(date.format('YYYY-MM-DD'), hm, timeZone).toISOString();
 }
 
-function MetaChip({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      style={{
-        flex: '1 1 140px',
-        minWidth: 128,
-        padding: '14px 16px',
-        background: colors.surface,
-        borderRadius: radii.md,
-        border: `1px solid ${colors.bordersubtle}`,
-      }}
-    >
-      <div
-        style={{
-          fontSize: typography.fontSize.xs,
-          fontWeight: typography.fontWeight.bold,
-          letterSpacing: typography.letterSpacing.wide,
-          textTransform: 'uppercase',
-          color: colors.textTertiary,
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          marginTop: 6,
-          fontSize: typography.fontSize.md,
-          fontWeight: typography.fontWeight.semibold,
-          color: colors.textPrimary,
-          lineHeight: typography.lineHeight.snug,
-        }}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
 
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -579,15 +543,20 @@ function AdminReservationDetailContent() {
           </div>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 22 }}>
-            <MetaChip label="Guests" value={String(reservation.partySize)} />
-            <MetaChip label="Table" value={tableLabel} />
-            <MetaChip label="Source" value={source ?? '—'} />
+            <ReservationMetaChip label="Guests" value={String(reservation.partySize)} />
+            <ReservationMetaChip label="Table" value={tableLabel} />
+            <ReservationMetaChip label="Source" value={source ?? '—'} />
             {attributionMetaChips(reservation).map((chip) => (
-              <MetaChip key={chip.label} label={chip.label} value={chip.value} />
+              <ReservationMetaChip
+                key={chip.label}
+                label={chip.label}
+                value={chip.value}
+                title={chip.title}
+              />
             ))}
-            <MetaChip label="Occasion" value={occasion ?? 'None'} />
+            <ReservationMetaChip label="Occasion" value={occasion ?? 'None'} />
             {(reservation.depositAmountCents ?? 0) > 0 ? (
-              <MetaChip
+              <ReservationMetaChip
                 label="Deposit"
                 value={[
                   formatUsd(reservation.depositAmountCents),

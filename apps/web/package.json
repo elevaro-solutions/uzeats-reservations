@@ -1,6 +1,6 @@
 {
   "name": "@reservations/web",
-  "version": "0.73.0",
+  "version": "0.73.1",
   "private": true,
   "scripts": {
     "predev": "pnpm --filter @reservations/widget build",

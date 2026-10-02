@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useState } from 'react';
+import { Suspense, useCallback, useState, type Key } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
@@ -10,17 +10,19 @@ import {
   DatePicker,
   Dropdown,
   Input,
+  Modal,
   Select,
   Space,
   Table,
   Tag,
+  Tooltip,
   Typography,
   message,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import { CalendarOutlined, CheckCircleOutlined, CloseCircleOutlined, DeleteOutlined, EyeOutlined, LoginOutlined, MoreOutlined, RollbackOutlined, SearchOutlined, ShopOutlined, UserDeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { formatTrafficSource, formatUsDateTime, restaurantTimeZone } from '@reservations/shared';
+import { formatUsDateTime, restaurantTimeZone } from '@reservations/shared';
 import { PageHeader, StatusTag, spacing } from '@reservations/ui';
 import {
   ADMIN_RESERVATIONS,
@@ -37,6 +39,8 @@ import {
   formatUsd,
   guestName,
 } from '@/lib/reservationFormat';
+import { sourceOriginTooltip } from '@/lib/reservationAttribution';
+import { isSuperAdmin } from '@/lib/roles';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useUrlListFilters } from '@/lib/useUrlListFilters';
 import { useUrlPagination } from '@/lib/useUrlPagination';
@@ -90,6 +94,7 @@ type ReservationRow = {
   utmMedium?: string;
   landingPath?: string;
   originUrl?: string;
+  referrer?: string;
   depositAmountCents?: number;
   depositRefundedCents?: number;
   depositRefundableCents?: number;
@@ -115,7 +120,8 @@ type ReservationRow = {
 };
 
 function AdminReservationsContent() {
-  const { ready } = useRequireAdmin();
+  const { ready, user } = useRequireAdmin();
+  const canBulkDelete = user ? isSuperAdmin(user.role) : false;
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -170,6 +176,8 @@ function AdminReservationsContent() {
   const [updateStatus, { loading: updating }] = useMutation(UPDATE_RESERVATION_STATUS);
   const [cancelFor, setCancelFor] = useState<ReservationRow | null>(null);
   const [refundFor, setRefundFor] = useState<ReservationRow | null>(null);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [refundDeposit, { loading: refunding }] = useMutation(REFUND_RESERVATION_DEPOSIT);
   const [deleteReservation] = useMutation(DELETE_RESERVATION);
 
@@ -198,8 +206,61 @@ function AdminReservationsContent() {
     }
   };
 
+  const confirmDeleteOne = (r: ReservationRow) => {
+    Modal.confirm({
+      title: 'Delete this reservation?',
+      content: `Permanently deletes the booking for ${guestName(r.diner)}. This cannot be undone.`,
+      okText: 'Delete',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deleteReservation({ variables: { id: r.id } });
+          message.success('Reservation deleted');
+          setSelectedRowKeys((keys) => keys.filter((k) => String(k) !== r.id));
+          refetch();
+        } catch (err: unknown) {
+          message.error(err instanceof Error ? err.message : 'Delete failed');
+          throw err;
+        }
+      },
+    });
+  };
+
+  const bulkDelete = () => {
+    const ids = selectedRowKeys.map(String);
+    if (!ids.length) return;
+    Modal.confirm({
+      title: `Delete ${ids.length} reservation${ids.length === 1 ? '' : 's'}?`,
+      content: 'Permanently deletes the selected bookings. This cannot be undone.',
+      okText: 'Delete',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        setBulkDeleting(true);
+        try {
+          const results = await Promise.allSettled(
+            ids.map((id) => deleteReservation({ variables: { id } })),
+          );
+          const deleted = results.filter((r) => r.status === 'fulfilled').length;
+          const failed = results.length - deleted;
+          if (deleted > 0) {
+            message.success(`Deleted ${deleted} reservation${deleted === 1 ? '' : 's'}`);
+          }
+          if (failed > 0) {
+            message.warning(`${failed} reservation${failed === 1 ? '' : 's'} could not be deleted`);
+          }
+          setSelectedRowKeys([]);
+          refetch();
+        } catch (err: unknown) {
+          message.error(err instanceof Error ? err.message : 'Bulk delete failed');
+        } finally {
+          setBulkDeleting(false);
+        }
+      },
+    });
+  };
+
   const rowMenu = (r: ReservationRow): MenuProps['items'] => {
-    const actions: MenuProps['items'] = [
+    const primary: NonNullable<MenuProps['items']> = [
       {
         key: 'view',
         icon: <EyeOutlined />,
@@ -208,16 +269,17 @@ function AdminReservationsContent() {
       },
     ];
     if (['pending', 'confirmed', 'seated'].includes(r.status)) {
-      actions.push({
+      primary.push({
         key: 'edit',
         icon: <CalendarOutlined />,
         label: 'Change date & time',
         onClick: () => router.push(`/admin/reservations/${r.id}?edit=1`),
       });
     }
-    actions.push({ type: 'divider' });
+
+    const statusActions: NonNullable<MenuProps['items']> = [];
     if (r.status === 'pending') {
-      actions.push({
+      statusActions.push({
         key: 'confirm',
         icon: <CheckCircleOutlined />,
         label: 'Confirm',
@@ -225,7 +287,7 @@ function AdminReservationsContent() {
       });
     }
     if (r.status === 'confirmed') {
-      actions.push({
+      statusActions.push({
         key: 'seat',
         icon: <LoginOutlined />,
         label: 'Seat',
@@ -233,7 +295,7 @@ function AdminReservationsContent() {
       });
     }
     if (r.status === 'seated') {
-      actions.push({
+      statusActions.push({
         key: 'complete',
         icon: <CheckCircleOutlined />,
         label: 'Complete',
@@ -241,7 +303,7 @@ function AdminReservationsContent() {
       });
     }
     if (r.status === 'confirmed' || r.status === 'seated') {
-      actions.push({
+      statusActions.push({
         key: 'no_show',
         icon: <UserDeleteOutlined />,
         label: 'No-show',
@@ -249,7 +311,7 @@ function AdminReservationsContent() {
       });
     }
     if (r.status === 'pending' || r.status === 'confirmed') {
-      actions.push({
+      statusActions.push({
         key: 'cancel',
         icon: <CloseCircleOutlined />,
         danger: true,
@@ -258,7 +320,7 @@ function AdminReservationsContent() {
       });
     }
     if (canRefundDeposit(r)) {
-      actions.push({
+      statusActions.push({
         key: 'refund_deposit',
         icon: <RollbackOutlined />,
         danger: true,
@@ -267,29 +329,30 @@ function AdminReservationsContent() {
         onClick: () => setRefundFor(r),
       });
     }
-    actions.push({ type: 'divider' });
-    actions.push({
-      key: 'venue',
-      icon: <ShopOutlined />,
-      label: 'Open restaurant',
-      onClick: () => router.push(`/admin/restaurants/${r.restaurantId}?tab=reservations`),
-    });
-    actions.push({
-      key: 'delete',
-      icon: <DeleteOutlined />,
-      danger: true,
-      label: 'Delete',
-      onClick: async () => {
-        try {
-          await deleteReservation({ variables: { id: r.id } });
-          message.success('Reservation deleted');
-          refetch();
-        } catch (err: unknown) {
-          message.error(err instanceof Error ? err.message : 'Delete failed');
-        }
+
+    const secondary: NonNullable<MenuProps['items']> = [
+      {
+        key: 'venue',
+        icon: <ShopOutlined />,
+        label: 'Open restaurant',
+        onClick: () => router.push(`/admin/restaurants/${r.restaurantId}?tab=reservations`),
       },
+      {
+        key: 'delete',
+        icon: <DeleteOutlined />,
+        danger: true,
+        label: 'Delete',
+        onClick: () => confirmDeleteOne(r),
+      },
+    ];
+
+    const sections = [primary, statusActions, secondary].filter((s) => s.length > 0);
+    const items: NonNullable<MenuProps['items']> = [];
+    sections.forEach((section, index) => {
+      if (index > 0) items.push({ type: 'divider' });
+      items.push(...section);
     });
-    return actions;
+    return items;
   };
 
   return (
@@ -364,150 +427,206 @@ function AdminReservationsContent() {
       </Card>
 
       <Card>
-        <Table
-          rowKey="id"
-          loading={loading || updating}
-          columns={[
-            {
-              title: 'When',
-              dataIndex: 'slotStart',
-              width: 170,
-              render: (v: string, r: ReservationRow) => (
-                <Link href={`/admin/reservations/${r.id}`}>
-                  {formatUsDateTime(v, {
-                    timeZone: restaurantTimeZone(r.restaurant ?? {}),
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  })}
-                </Link>
-              ),
-            },
-            {
-              title: 'Restaurant',
-              render: (_: unknown, r: ReservationRow) => (
-                <Link href={`/admin/restaurants/${r.restaurantId}?tab=reservations`}>
-                  {r.restaurant?.name || r.restaurantId}
-                </Link>
-              ),
-            },
-            {
-              title: 'Guest',
-              render: (_: unknown, r: ReservationRow) => (
-                <Space orientation="vertical" size={0}>
-                  {r.diner?.id ? (
-                    <Link href={`/admin/diners/${r.diner.id}`}>{guestName(r.diner)}</Link>
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+          {canBulkDelete && selectedRowKeys.length > 0 ? (
+            <Space wrap>
+              <Text type="secondary">{selectedRowKeys.length} selected</Text>
+              <Button
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                loading={bulkDeleting}
+                onClick={bulkDelete}
+              >
+                Delete
+              </Button>
+              <Button size="small" onClick={() => setSelectedRowKeys([])}>
+                Clear
+              </Button>
+            </Space>
+          ) : null}
+          <Table
+            rowKey="id"
+            loading={loading || updating || bulkDeleting}
+            scroll={{ x: 1100 }}
+            onChange={() => setSelectedRowKeys([])}
+            rowSelection={
+              canBulkDelete
+                ? {
+                    selectedRowKeys,
+                    onChange: setSelectedRowKeys,
+                    preserveSelectedRowKeys: true,
+                  }
+                : undefined
+            }
+            columns={[
+              {
+                title: 'When',
+                dataIndex: 'slotStart',
+                width: 180,
+                render: (v: string, r: ReservationRow) => (
+                  <Link href={`/admin/reservations/${r.id}`} style={{ whiteSpace: 'nowrap' }}>
+                    {formatUsDateTime(v, {
+                      timeZone: restaurantTimeZone(r.restaurant ?? {}),
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </Link>
+                ),
+              },
+              {
+                title: 'Restaurant',
+                width: 180,
+                ellipsis: true,
+                render: (_: unknown, r: ReservationRow) => {
+                  const name = r.restaurant?.name || r.restaurantId;
+                  return (
+                    <Link
+                      href={`/admin/restaurants/${r.restaurantId}?tab=reservations`}
+                      title={name}
+                      style={{
+                        display: 'block',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {name}
+                    </Link>
+                  );
+                },
+              },
+              {
+                title: 'Guest',
+                width: 220,
+                render: (_: unknown, r: ReservationRow) => {
+                  const contact = [r.diner?.phone, r.diner?.email].filter(Boolean).join(' · ');
+                  return (
+                    <Space orientation="vertical" size={0} style={{ maxWidth: '100%' }}>
+                      {r.diner?.id ? (
+                        <Link
+                          href={`/admin/diners/${r.diner.id}`}
+                          style={{ whiteSpace: 'nowrap' }}
+                        >
+                          {guestName(r.diner)}
+                        </Link>
+                      ) : (
+                        <Text style={{ whiteSpace: 'nowrap' }}>{guestName(r.diner)}</Text>
+                      )}
+                      <Text
+                        type="secondary"
+                        style={{ fontSize: 12, maxWidth: 200 }}
+                        ellipsis={{ tooltip: contact || undefined }}
+                      >
+                        {contact || '—'}
+                      </Text>
+                    </Space>
+                  );
+                },
+              },
+              { title: 'Party', dataIndex: 'partySize', width: 70 },
+              {
+                title: 'Deposit',
+                width: 110,
+                render: (_: unknown, r: ReservationRow) => {
+                  if (!(r.depositAmountCents && r.depositAmountCents > 0)) {
+                    return <Text type="secondary">—</Text>;
+                  }
+                  return (
+                    <Space orientation="vertical" size={0}>
+                      <Text style={{ whiteSpace: 'nowrap' }}>{formatUsd(r.depositAmountCents)}</Text>
+                      <Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                        {formatDepositStatus(r.depositStatus, {
+                          depositAmountCents: r.depositAmountCents,
+                          depositRefundedCents: r.depositRefundedCents,
+                        })}
+                      </Text>
+                    </Space>
+                  );
+                },
+              },
+              {
+                title: 'Status',
+                dataIndex: 'status',
+                width: 120,
+                render: (s: string) => <StatusTag status={s} />,
+              },
+              {
+                title: 'Source',
+                dataIndex: 'source',
+                width: 110,
+                render: (_: unknown, r: ReservationRow) => {
+                  const label = formatSource(r.source);
+                  if (!label) return '—';
+                  const origin = sourceOriginTooltip(r);
+                  const tag = <Tag style={{ marginInlineEnd: 0 }}>{label}</Tag>;
+                  return origin ? (
+                    <Tooltip title={<span style={{ wordBreak: 'break-all' }}>{origin}</span>}>
+                      {tag}
+                    </Tooltip>
                   ) : (
-                    <Text>{guestName(r.diner)}</Text>
+                    tag
+                  );
+                },
+              },
+              {
+                title: '',
+                width: 56,
+                fixed: 'right',
+                render: (_: unknown, r: ReservationRow) => (
+                  <Dropdown menu={{ items: rowMenu(r) }} trigger={['click']}>
+                    <Button size="small" icon={<MoreOutlined />} aria-label="Reservation actions" />
+                  </Dropdown>
+                ),
+              },
+            ]}
+            dataSource={items}
+            pagination={{
+              ...tablePagination(total),
+              showTotal: (n) => `${n} reservation${n === 1 ? '' : 's'}`,
+            }}
+            expandable={{
+              expandedRowRender: (r: ReservationRow) => (
+                <Space orientation="vertical" size={4}>
+                  <Text>
+                    <Text strong>Tables: </Text>
+                    {r.tables?.map((t) => t.name).join(', ') || '—'}
+                  </Text>
+                  <Text>
+                    <Text strong>Occasion: </Text>
+                    {formatOccasion(r.occasion) || '—'}
+                  </Text>
+                  {(r.packageTitle || r.experienceTitle || r.privateDiningSpaceName) && (
+                    <Text>
+                      <Text strong>Add-on: </Text>
+                      {[r.packageTitle, r.experienceTitle, r.privateDiningSpaceName]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </Text>
                   )}
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {[r.diner?.phone, r.diner?.email].filter(Boolean).join(' · ') || '—'}
+                  {r.guestNotes ? (
+                    <Text>
+                      <Text strong>Notes: </Text>
+                      {r.guestNotes}
+                    </Text>
+                  ) : null}
+                  <Text type="secondary">
+                    Booked {r.createdAt ? formatUsDateTime(r.createdAt, {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    }) : '—'}
                   </Text>
                 </Space>
               ),
-            },
-            { title: 'Party', dataIndex: 'partySize', width: 70 },
-            {
-              title: 'Deposit',
-              width: 120,
-              render: (_: unknown, r: ReservationRow) => {
-                if (!(r.depositAmountCents && r.depositAmountCents > 0)) {
-                  return <Text type="secondary">—</Text>;
-                }
-                return (
-                  <Space orientation="vertical" size={0}>
-                    <Text>{formatUsd(r.depositAmountCents)}</Text>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {formatDepositStatus(r.depositStatus, {
-                        depositAmountCents: r.depositAmountCents,
-                        depositRefundedCents: r.depositRefundedCents,
-                      })}
-                    </Text>
-                  </Space>
-                );
-              },
-            },
-            {
-              title: 'Status',
-              dataIndex: 'status',
-              width: 120,
-              render: (s: string) => <StatusTag status={s} />,
-            },
-            {
-              title: 'Source',
-              dataIndex: 'source',
-              width: 120,
-              render: (_: unknown, r: ReservationRow) => {
-                const label = formatSource(r.source);
-                const traffic = formatTrafficSource(r);
-                if (!label && !traffic) return '—';
-                return (
-                  <Space orientation="vertical" size={0}>
-                    {label ? <Tag style={{ marginInlineEnd: 0 }}>{label}</Tag> : null}
-                    {traffic ? (
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        {traffic}
-                      </Text>
-                    ) : null}
-                  </Space>
-                );
-              },
-            },
-            {
-              title: '',
-              width: 56,
-              render: (_: unknown, r: ReservationRow) => (
-                <Dropdown menu={{ items: rowMenu(r) }} trigger={['click']}>
-                  <Button size="small" icon={<MoreOutlined />} aria-label="Reservation actions" />
-                </Dropdown>
-              ),
-            },
-          ]}
-          dataSource={items}
-          pagination={{
-            ...tablePagination(total),
-            showTotal: (n) => `${n} reservation${n === 1 ? '' : 's'}`,
-          }}
-          expandable={{
-            expandedRowRender: (r: ReservationRow) => (
-              <Space orientation="vertical" size={4}>
-                <Text>
-                  <Text strong>Tables: </Text>
-                  {r.tables?.map((t) => t.name).join(', ') || '—'}
-                </Text>
-                <Text>
-                  <Text strong>Occasion: </Text>
-                  {formatOccasion(r.occasion) || '—'}
-                </Text>
-                {(r.packageTitle || r.experienceTitle || r.privateDiningSpaceName) && (
-                  <Text>
-                    <Text strong>Add-on: </Text>
-                    {[r.packageTitle, r.experienceTitle, r.privateDiningSpaceName]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </Text>
-                )}
-                {r.guestNotes ? (
-                  <Text>
-                    <Text strong>Notes: </Text>
-                    {r.guestNotes}
-                  </Text>
-                ) : null}
-                <Text type="secondary">
-                  Booked {r.createdAt ? formatUsDateTime(r.createdAt, {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                  }) : '—'}
-                </Text>
-              </Space>
-            ),
-          }}
-        />
+            }}
+          />
+        </Space>
       </Card>
 
       <CancelReservationModal
