@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery } from '@apollo/client/react';
 import {
+  Alert,
   Button,
   Dropdown,
   Space,
@@ -82,7 +83,7 @@ type ReviewTarget = {
 export default function ReservationsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { data, loading, refetch } = useQuery(MY_RESERVATIONS, {
+  const { data, loading, error, refetch } = useQuery(MY_RESERVATIONS, {
     skip: !user,
     fetchPolicy: 'network-only',
   });
@@ -206,6 +207,18 @@ export default function ReservationsPage() {
             <div key={i} className="rt-reservation-list-card rt-reservation-list-card--skeleton" />
           ))}
         </div>
+      ) : error && reservations.length === 0 ? (
+        <Alert
+          type="error"
+          showIcon
+          message="Couldn't load your reservations"
+          description={error.message}
+          action={
+            <Button size="small" onClick={() => void refetch()}>
+              Retry
+            </Button>
+          }
+        />
       ) : reservations.length === 0 ? (
         <EmptyState
           icon={<CalendarOutlined />}

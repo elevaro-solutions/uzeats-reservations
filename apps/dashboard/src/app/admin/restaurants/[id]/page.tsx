@@ -151,7 +151,6 @@ function AdminRestaurantDetailContent() {
   const goToTab = (key: string) => {
     setTab(key, key === 'manage' ? undefined : { section: undefined });
   };
-  const [previewKey, setPreviewKey] = useState(0);
   const [restaurantOverride, setRestaurantOverride] = useState<RestaurantDetail | null>(null);
 
   // Tables tab state
@@ -209,7 +208,6 @@ function AdminRestaurantDetailContent() {
     if (result.data?.restaurant) {
       setRestaurantOverride(result.data.restaurant);
     }
-    setPreviewKey((k) => k + 1);
   };
 
   const teamMembers = teamData?.restaurantTeam ?? [];
@@ -774,33 +772,62 @@ function AdminRestaurantDetailContent() {
                 label: 'Diner preview',
                 children: (
                   <Card
-                    styles={{
-                      body: {
-                        padding: 0,
-                        overflow: 'hidden',
-                        minHeight: 'calc(100vh - 280px)',
-                      },
-                    }}
+                    style={{ maxWidth: 640 }}
+                    cover={
+                      restaurant.photos?.[0] ? (
+                        <img
+                          src={restaurant.photos[0]}
+                          alt={`${restaurant.name} cover`}
+                          style={{ height: 240, objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            height: 240,
+                            display: 'grid',
+                            placeItems: 'center',
+                            background: colors.brand[50],
+                          }}
+                        >
+                          <Avatar
+                            src={logoSrc ?? undefined}
+                            size={72}
+                            style={{ background: colors.brand[600] }}
+                          >
+                            {restaurantInitials(restaurant.name)}
+                          </Avatar>
+                        </div>
+                      )
+                    }
                   >
-                    {dinerUrl ? (
-                      <iframe
-                        key={previewKey}
-                        title={`${restaurant.name} diner preview`}
-                        src={dinerUrl}
-                        style={{
-                          display: 'block',
-                          width: '100%',
-                          height: 'calc(100vh - 280px)',
-                          minHeight: 560,
-                          border: 0,
-                          background: '#fff',
-                        }}
-                      />
-                    ) : (
-                      <div style={{ padding: spacing.lg }}>
+                    <Space orientation="vertical" size={spacing.sm} style={{ width: '100%' }}>
+                      <Typography.Title level={4} style={{ margin: 0 }}>
+                        {restaurant.name}
+                      </Typography.Title>
+                      {identityLine ? <Text type="secondary">{identityLine}</Text> : null}
+                      {dinerUrl ? (
+                        <>
+                          <Text type="secondary" copyable={{ text: dinerUrl }} style={{ wordBreak: 'break-all' }}>
+                            {dinerUrl}
+                          </Text>
+                          <Button
+                            type="primary"
+                            icon={<ExportOutlined />}
+                            href={dinerUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            Open diner preview
+                          </Button>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            Opens the public diner page in a new tab. The diner site can&apos;t be
+                            embedded here because it blocks framing for security.
+                          </Text>
+                        </>
+                      ) : (
                         <Text type="secondary">Unable to build diner preview URL.</Text>
-                      </div>
-                    )}
+                      )}
+                    </Space>
                   </Card>
                 ),
               },

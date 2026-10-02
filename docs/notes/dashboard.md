@@ -1,5 +1,14 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-02] New tables always land at (0,0); `tableInputSchema` strips position
+- `createTable` callers (`/floor-plan` + Table, `/floor` Tables & shifts, admin restaurant Tables, `provisionDefaultRestaurantSetup`) never set a position, and shared `tableInputSchema` has no `posX`/`posY`/`width`/`height`, so Zod strips them even though GraphQL `TableInput` declares them. Every new table is saved 2×2 at 0,0 and stacks on the previous ones until moved and saved.
+- Why it matters: Fixing placement only on the client is not enough. The schema (or a server-side free-cell picker) has to change too.
+- Fixed (same day): the schema now has optional `posX`/`posY`/`width`/`height` with **no defaults**, because `updateTable` reuses it and `Object.assign`s the result, so defaults would reset the layout on every edit. `createTable` runs `placeNewTable` (`apps/api/src/services/tablePlacement.ts`), which keeps a requested rect only when it doesn't overlap a same-area table (area match is case-insensitive) and otherwise uses `findFreeFloorSpot` from `@reservations/shared`. `/floor-plan` sends a spot computed from its local, possibly unsaved layout and then uses the returned position. Server checks run against *saved* positions only, so an unsaved local move can still produce an overlap until the layout is saved.
+
+## [2026-10-02] antd 6 `Spin` with `display: block` loses centering
+- Standalone `Spin` root is `.ant-spin-section` (`inline-flex`, column, `align-items: center`). Overriding it with `style={{ display: 'block', margin: '80px auto' }}` turns off the flex centering, and nothing sets `text-align`, so the dots render at the left edge. A bare `<Spin />` inside a `Card` is left-aligned too.
+- Why it matters: Wrap loaders in a centering container (e.g. `display: grid; place-items: center`, as `AdminAccountDetail` does) instead of styling `Spin` directly.
+
 ## [2026-10-02] Admin reservations list row menu dividers
 - `rowMenu` builds primary / status / secondary sections and only inserts a divider between non-empty sections. Cancelled (and completed/no-show) rows have no status actions, so the old always-push-divider pattern produced a double line between View and Open restaurant.
 - Super-admin bulk delete uses table `rowSelection` + `Modal.confirm`; deletes run via sequential `deleteReservation` (no bulk mutation). Column cells use `nowrap` / `ellipsis` so When / Restaurant / Guest do not wrap into tall rows.

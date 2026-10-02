@@ -779,7 +779,11 @@ export default function RestaurantProfilePage() {
   ];
 
   if (dataLoading) {
-    return <Spin size="large" style={{ display: 'block', margin: '80px auto' }} />;
+    return (
+      <div style={{ display: 'grid', placeItems: 'center', minHeight: 320 }}>
+        <Spin size="large" />
+      </div>
+    );
   }
 
   return (

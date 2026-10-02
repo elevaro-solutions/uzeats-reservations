@@ -12,5 +12,5 @@ export default function EditRedirectPage() {
     router.replace('/restaurant-profile');
   }, [router]);
 
-  return <div component="EditRedirectPage" style={{ display: 'contents' }}><Spin size="large" style={{ display: 'block', margin: '80px auto' }} /></div>;
+  return <div component="EditRedirectPage" style={{ display: 'contents' }}><div style={{ display: 'grid', placeItems: 'center', minHeight: 320 }}><Spin size="large" /></div></div>;
 }

@@ -74,7 +74,7 @@ export default function AdminInvoiceDetailPage() {
   const id = String(params?.id ?? '');
   const { ready } = useRequireAdmin();
 
-  const { data, loading, refetch } = useQuery(ADMIN_INVOICE, {
+  const { data, loading, error, refetch } = useQuery(ADMIN_INVOICE, {
     skip: !ready || !id,
     variables: { id },
   });
@@ -147,7 +147,9 @@ export default function AdminInvoiceDetailPage() {
             </Link>
           }
         />
-        <Empty description="Invoice not found" />
+        <Card>
+          <Empty description={error ? error.message || 'Failed to load invoice' : 'Invoice not found'} />
+        </Card>
       </Space>
     );
   }
@@ -176,9 +178,11 @@ export default function AdminInvoiceDetailPage() {
           }
         />
 
-        {loading || !invoice ? (
+        {!invoice ? (
           <Card>
-            <Spin />
+            <div style={{ display: 'grid', placeItems: 'center', minHeight: 240 }}>
+              <Spin size="large" />
+            </div>
           </Card>
         ) : (
           <>

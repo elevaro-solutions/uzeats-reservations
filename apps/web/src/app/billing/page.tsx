@@ -249,14 +249,25 @@ export default function BillingPage() {
                       </Text>
                     </div>
 
-                    <div style={{ minWidth: 180, textAlign: 'right' }}>
-                      <Text type="secondary" style={{ display: 'block', fontSize: typography.fontSize.sm }}>
-                        Deposit amount
-                      </Text>
-                      <Text strong style={{ fontSize: 24 }}>
-                        {formatMoney(reservation.depositAmountCents)}
-                      </Text>
-                      <Space style={{ marginTop: 12 }} wrap>
+                    <div
+                      style={{
+                        minWidth: 180,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-end',
+                        textAlign: 'right',
+                        gap: 12,
+                      }}
+                    >
+                      <div>
+                        <Text type="secondary" style={{ display: 'block', fontSize: typography.fontSize.sm }}>
+                          Deposit amount
+                        </Text>
+                        <Text strong style={{ display: 'block', fontSize: 24, lineHeight: 1.2 }}>
+                          {formatMoney(reservation.depositAmountCents)}
+                        </Text>
+                      </div>
+                      <Space wrap style={{ justifyContent: 'flex-end' }}>
                         {reservation.depositStatus === 'requires_payment' ? (
                           <Button type="primary" onClick={() => router.push(`/reservations/${reservation.id}`)}>
                             Pay now

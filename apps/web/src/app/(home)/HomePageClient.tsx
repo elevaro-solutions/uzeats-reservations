@@ -582,10 +582,15 @@ function HomePageContent({ initialSearch = null }: HomePageClientProps) {
             {discoverySearch('map')}
           </div>
           <div className="rt-map-page__content">
-            {loading ? (
-              <div className="rt-map-page__loading">
-                <Skeleton active paragraph={{ rows: 8 }} />
-              </div>
+            {loading && visibleRestaurants.length === 0 ? (
+              // Keep filters + map chrome mounted; only the list side shows a skeleton.
+              renderMapResults(
+                [],
+                visibleTotal,
+                resultsTitle,
+                false,
+                <Skeleton active paragraph={{ rows: 8 }} />,
+              )
             ) : visibleRestaurants.length > 0 ? (
               renderMapResults(visibleRestaurants, visibleTotal, resultsTitle)
             ) : hasDiscoveryFilters ? (
@@ -601,9 +606,13 @@ function HomePageContent({ initialSearch = null }: HomePageClientProps) {
                 />,
               )
             ) : noResults && topLoading ? (
-              <div className="rt-map-page__loading">
-                <Skeleton active paragraph={{ rows: 8 }} />
-              </div>
+              renderMapResults(
+                [],
+                0,
+                resultsTitle,
+                false,
+                <Skeleton active paragraph={{ rows: 8 }} />,
+              )
             ) : topRestaurants.length > 0 ? (
               renderMapResults(topRestaurants, topRestaurants.length, 'Top restaurants across Tablevera', true)
             ) : (

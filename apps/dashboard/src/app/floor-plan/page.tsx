@@ -26,6 +26,11 @@ import {
 } from 'antd';
 import { PlusOutlined, RotateRightOutlined, SaveOutlined } from '@ant-design/icons';
 import { colors } from '@reservations/ui';
+import {
+  DEFAULT_TABLE_HEIGHT,
+  DEFAULT_TABLE_WIDTH,
+  findFreeFloorSpot,
+} from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
@@ -314,6 +319,7 @@ function TableDetailsPanel({
         <Text strong>Table photo</Text>
         <PhotoUpload
           maxCount={1}
+          layout="stacked"
           value={selected.photoUrl ? [selected.photoUrl] : []}
           onChange={async (urls) => {
             const photoUrl = urls[0] ?? null;
@@ -753,6 +759,15 @@ export default function FloorPlanPage() {
   }) => {
     if (!activeRestaurantId) return;
     const floorArea = values.floorArea?.trim() || 'Main';
+    // Local layout may hold unsaved moves the server can't see, so suggest a spot
+    // from it; the server keeps it unless it collides with saved tables.
+    const areaKey = floorArea.toLowerCase();
+    const preferred = findFreeFloorSpot(
+      tables.filter((t) => (t.floorArea || 'Main').toLowerCase() === areaKey),
+      DEFAULT_TABLE_WIDTH,
+      DEFAULT_TABLE_HEIGHT,
+      FLOOR_GRID_COLS,
+    );
     const input = {
       name: values.name.trim(),
       minCapacity: values.minCapacity,
@@ -762,13 +777,19 @@ export default function FloorPlanPage() {
       active: values.active ?? true,
       requiresManualApproval: values.requiresManualApproval ?? false,
       photoUrl: values.photoUrl?.[0] ?? null,
+      posX: preferred.posX,
+      posY: preferred.posY,
+      width: DEFAULT_TABLE_WIDTH,
+      height: DEFAULT_TABLE_HEIGHT,
     };
 
     try {
       const result = await createTable({
         variables: { restaurantId: activeRestaurantId, input },
       });
-      const created = result.data?.createTable as { id: string; name: string } | undefined;
+      const created = result.data?.createTable as
+        | { id: string; name: string; posX: number; posY: number; width: number; height: number }
+        | undefined;
       if (!created?.id) throw new Error('Failed to add table');
 
       const nextTable: FloorTable = {
@@ -778,10 +799,10 @@ export default function FloorPlanPage() {
         maxCapacity: input.maxCapacity,
         floorArea,
         active: input.active,
-        posX: 0,
-        posY: 0,
-        width: 2,
-        height: 2,
+        posX: created.posX ?? input.posX,
+        posY: created.posY ?? input.posY,
+        width: created.width ?? input.width,
+        height: created.height ?? input.height,
         shape: 'rect',
         rotation: 0,
         photoUrl: input.photoUrl,

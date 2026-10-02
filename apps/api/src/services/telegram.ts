@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
-import { ValidationError } from '../lib/errors.js';
+import { AppError, ValidationError } from '../lib/errors.js';
 
 const TELEGRAM_API = 'https://api.telegram.org';
 
@@ -87,7 +87,17 @@ export async function verifyTelegramChat(chatId: string): Promise<void> {
 
   if (!env.TELEGRAM_BOT_TOKEN) return;
 
-  const res = await callTelegramApi('getChat', { chat_id: trimmed });
+  let res: TelegramApiResponse;
+  try {
+    res = await callTelegramApi('getChat', { chat_id: trimmed });
+  } catch (err) {
+    logger.warn({ err }, '[telegram] getChat request failed');
+    throw new AppError(
+      'Telegram is temporarily unreachable. Please try again in a moment.',
+      'TELEGRAM_UNAVAILABLE',
+      503,
+    );
+  }
   if (!res.ok) {
     throw new ValidationError(
       'Could not verify this chat ID. Open @uzeatsbot in Telegram, send /start, then paste the ID it replies with.',

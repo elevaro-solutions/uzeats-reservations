@@ -133,7 +133,11 @@ export function PartnerInvoiceDetail({
   };
 
   if (loading) {
-    return <Spin style={{ display: 'block', margin: '48px auto' }} />;
+    return (
+      <div style={{ display: 'grid', placeItems: 'center', minHeight: 160 }}>
+        <Spin />
+      </div>
+    );
   }
 
   if (!invoice) {

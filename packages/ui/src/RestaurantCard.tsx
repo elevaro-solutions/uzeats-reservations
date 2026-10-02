@@ -89,6 +89,8 @@ export function RestaurantCard({
       style={{
         overflow: 'hidden',
         height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
         borderRadius: radii.lg,
         border: `1px solid ${colors.bordersubtle}`,
         transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
@@ -160,7 +162,7 @@ export function RestaurantCard({
         </div>
       }
       onClick={() => onClick?.(id)}
-      styles={{ body: { padding: 16 } }}
+      styles={{ body: { padding: 16, flex: 1, display: 'flex', flexDirection: 'column' } }}
     >
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
         <Text
@@ -186,6 +188,7 @@ export function RestaurantCard({
         <div
           style={{
             marginTop: 8,
+            alignSelf: 'flex-start',
             display: 'inline-flex',
             alignItems: 'center',
             gap: 5,
@@ -216,10 +219,11 @@ export function RestaurantCard({
         </div>
       )}
 
+      {/* Pins slots to the card bottom so rows align when optional meta rows are absent. */}
+      <div style={{ marginTop: 'auto', paddingTop: 14 }}>
       {availableSlots.length > 0 ? (
         <div
           style={{
-            marginTop: 14,
             display: 'grid',
             gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
             gap: 6,
@@ -266,7 +270,6 @@ export function RestaurantCard({
             onClick?.(id);
           }}
           style={{
-            marginTop: 14,
             width: '100%',
             display: 'flex',
             alignItems: 'center',
@@ -296,6 +299,7 @@ export function RestaurantCard({
           Check availability
         </button>
       )}
+      </div>
     </Card>
     </div>
   );

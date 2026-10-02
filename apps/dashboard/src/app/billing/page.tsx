@@ -367,6 +367,7 @@ type PartnerInvoice = {
 };
 
 const INVOICE_LIST_PREVIEW = 3;
+const PLAN_FEATURE_PREVIEW = 6;
 
 function InvoiceListRow({
   invoice,
@@ -445,6 +446,7 @@ export default function BillingPage() {
   const [period, setPeriod] = useState(() => dayjs().format('YYYY-MM'));
   const [showAllInvoices, setShowAllInvoices] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const [expandedPlans, setExpandedPlans] = useState<Record<string, boolean>>({});
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
@@ -820,7 +822,9 @@ export default function BillingPage() {
             description="Choose a location to view its subscription, invoices, and cover fees."
           />
         ) : subLoading ? (
-          <Spin size="large" style={{ display: 'block', margin: '80px auto' }} />
+          <div style={{ display: 'grid', placeItems: 'center', minHeight: 240 }}>
+            <Spin size="large" />
+          </div>
         ) : subscription ? (
           <>
             <Row gutter={[16, 16]}>
@@ -1077,7 +1081,9 @@ export default function BillingPage() {
 
               <PlanPanel title="Cover usage" icon={<TeamOutlined />}>
                 {feesLoading ? (
-                  <Spin />
+                  <div style={{ display: 'grid', placeItems: 'center', minHeight: 120 }}>
+                    <Spin />
+                  </div>
                 ) : summary ? (
                   <>
                     <div
@@ -1181,7 +1187,9 @@ export default function BillingPage() {
                   ) : null}
                 </div>
                 {invoiceLoading && invoices.length === 0 ? (
-                  <Spin />
+                  <div style={{ display: 'grid', placeItems: 'center', minHeight: 120 }}>
+                    <Spin />
+                  </div>
                 ) : invoices.length === 0 ? (
                   <Text type="secondary">No invoices yet for this restaurant.</Text>
                 ) : (
@@ -1313,9 +1321,18 @@ export default function BillingPage() {
                     <Card
                       style={{
                         height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
                         borderRadius: radii.lg,
                         borderColor: isRecommended ? colors.brand[500] : colors.border,
                         borderWidth: isRecommended ? 2 : 1,
+                      }}
+                      styles={{
+                        body: {
+                          flex: 1,
+                          display: 'flex',
+                          flexDirection: 'column',
+                        },
                       }}
                       title={
                         <Space>
@@ -1342,7 +1359,11 @@ export default function BillingPage() {
                         </Button>,
                       ]}
                     >
-                      <Space orientation="vertical" size={8} style={{ width: '100%' }}>
+                      <Space
+                        orientation="vertical"
+                        size={8}
+                        style={{ width: '100%', flex: 1 }}
+                      >
                         {getPlanDiscountLabel(plan) ? (
                           <Tag color="gold">{getPlanDiscountLabel(plan)}</Tag>
                         ) : null}
@@ -1367,17 +1388,32 @@ export default function BillingPage() {
                               Core booking tools
                             </Text>
                           ) : (
-                            planFeatures.slice(0, 6).map(([key]) => (
+                            (expandedPlans[plan.key]
+                              ? planFeatures
+                              : planFeatures.slice(0, PLAN_FEATURE_PREVIEW)
+                            ).map(([key]) => (
                               <div key={key} style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
                                 <CheckOutlined style={{ color: colors.success, marginTop: 3 }} />
                                 <Text style={{ fontSize: 13 }}>{featureLabel(key)}</Text>
                               </div>
                             ))
                           )}
-                          {planFeatures.length > 6 ? (
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                              +{planFeatures.length - 6} more
-                            </Text>
+                          {planFeatures.length > PLAN_FEATURE_PREVIEW ? (
+                            <Button
+                              type="link"
+                              size="small"
+                              style={{ paddingInline: 0, fontSize: 12 }}
+                              onClick={() =>
+                                setExpandedPlans((prev) => ({
+                                  ...prev,
+                                  [plan.key]: !prev[plan.key],
+                                }))
+                              }
+                            >
+                              {expandedPlans[plan.key]
+                                ? 'Show less'
+                                : `+${planFeatures.length - PLAN_FEATURE_PREVIEW} more`}
+                            </Button>
                           ) : null}
                         </div>
                       </Space>

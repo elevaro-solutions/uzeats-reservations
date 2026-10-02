@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { useQuery } from '@/lib/apollo-hooks';
-import { Button, Spin } from 'antd';
+import { Button, Card, Spin } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { PageHeader, spacing } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
@@ -49,13 +49,15 @@ export default function PartnerInvoicePage() {
             </Link>
           }
         />
-        <div style={{ marginTop: spacing.lg }}>
+        <Card style={{ marginTop: spacing.lg }}>
           {loading && !invoice ? (
-            <Spin size="large" style={{ display: 'block', margin: '80px auto' }} />
+            <div style={{ display: 'grid', placeItems: 'center', minHeight: 240 }}>
+              <Spin size="large" />
+            </div>
           ) : (
             <PartnerInvoiceDetail invoice={invoice} />
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );

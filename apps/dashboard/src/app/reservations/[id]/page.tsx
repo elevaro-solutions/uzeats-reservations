@@ -107,7 +107,7 @@ function InfoRow({ label, children }: { label: string; children: ReactNode }) {
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: '120px 1fr',
+        gridTemplateColumns: '120px minmax(0, 1fr)',
         gap: 12,
         padding: '12px 0',
         borderBottom: `1px solid ${colors.bordersubtle}`,
@@ -116,7 +116,7 @@ function InfoRow({ label, children }: { label: string; children: ReactNode }) {
       <Text type="secondary" style={{ fontSize: typography.fontSize.sm, paddingTop: 2 }}>
         {label}
       </Text>
-      <div style={{ minWidth: 0 }}>{children}</div>
+      <div style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{children}</div>
     </div>
   );
 }
@@ -432,7 +432,7 @@ function ReservationDetailPageContent() {
                     </Text>
                   ) : null}
                   {reservation.diner?.email ? (
-                    <Text type="secondary">
+                    <Text type="secondary" style={{ minWidth: 0, maxWidth: '100%', overflowWrap: 'anywhere' }}>
                       <MailOutlined style={{ marginRight: 6 }} />
                       <a href={`mailto:${reservation.diner.email}`} style={{ color: 'inherit' }}>
                         {reservation.diner.email}

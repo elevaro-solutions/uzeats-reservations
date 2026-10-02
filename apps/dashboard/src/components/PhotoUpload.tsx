@@ -34,6 +34,8 @@ interface PhotoUploadProps {
    * Defaults on when more than one photo is allowed.
    */
   showHeroOrder?: boolean;
+  /** Single-photo mode only: `stacked` puts the preview under the dropzone for narrow panels. */
+  layout?: 'inline' | 'stacked';
 }
 
 function galleryRole(index: number): { label: string; color?: string } {
@@ -57,6 +59,7 @@ export default function PhotoUpload({
   placeholderSrc,
   alt = 'Photo',
   showHeroOrder,
+  layout = 'inline',
 }: PhotoUploadProps) {
   const [uploading, setUploading] = useState<Record<string, number>>({});
   const [previewUrl, setPreviewUrl] = useState<string>();
@@ -162,6 +165,7 @@ export default function PhotoUpload({
   ) : null;
 
   if (singleMode) {
+    const stacked = layout === 'stacked';
     return (
       <div
         component="PhotoUpload"
@@ -170,13 +174,14 @@ export default function PhotoUpload({
         <div
           style={{
             display: 'flex',
+            flexDirection: stacked ? 'column' : 'row',
             gap: 12,
             alignItems: 'stretch',
             minWidth: 0,
             overflowX: 'hidden',
           }}
         >
-          <div style={{ flex: '1 1 0', minWidth: 0 }}>
+          <div style={{ flex: stacked ? '0 0 auto' : '1 1 0', minWidth: 0 }}>
             <Dragger
               accept="image/*"
               showUploadList={false}
@@ -197,8 +202,8 @@ export default function PhotoUpload({
 
           <div
             style={{
-              flex: '0 0 148px',
-              width: 148,
+              flex: stacked ? '0 0 auto' : '0 0 148px',
+              width: stacked ? '100%' : 148,
               display: 'flex',
               flexDirection: 'column',
               gap: 8,
@@ -209,8 +214,9 @@ export default function PhotoUpload({
             <div
               style={{
                 position: 'relative',
-                flex: 1,
+                flex: stacked ? 'none' : 1,
                 minHeight: 96,
+                aspectRatio: stacked ? '16 / 10' : undefined,
                 width: '100%',
                 borderRadius: 10,
                 overflow: 'hidden',

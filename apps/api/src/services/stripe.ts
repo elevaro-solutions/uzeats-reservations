@@ -1,8 +1,53 @@
 import Stripe from 'stripe';
 import { env } from '../config/env.js';
 import { PlatformConfig } from '../models/PlatformConfig.js';
+import { AppError, ValidationError } from '../lib/errors.js';
 
 export type StripeMode = 'test' | 'live';
+
+class PaymentUnavailableError extends AppError {
+  constructor(message = 'Payment processing unavailable') {
+    super(message, 'PAYMENT_UNAVAILABLE', 503);
+  }
+}
+
+/**
+ * Maps Stripe SDK errors to AppError so GraphQL keeps a useful message in production.
+ * Returns null for non-Stripe errors.
+ */
+export function formatStripeError(err: unknown): AppError | null {
+  if (!(err instanceof Stripe.errors.StripeError)) return null;
+  const details = err.code ? { stripeCode: err.code } : undefined;
+  switch (err.type) {
+    case 'StripeCardError':
+      return new AppError(err.message || 'Your card was declined.', 'PAYMENT_DECLINED', 402, details);
+    case 'StripeInvalidRequestError':
+      return new AppError(
+        `Payment provider rejected the request: ${err.message}`,
+        'PAYMENT_PROVIDER_ERROR',
+        400,
+        details,
+      );
+    case 'StripeAuthenticationError':
+    case 'StripePermissionError':
+      return new PaymentUnavailableError(
+        'Payment processing is misconfigured. Please contact support.',
+      );
+    case 'StripeRateLimitError':
+    case 'StripeConnectionError':
+    case 'StripeAPIError':
+      return new PaymentUnavailableError(
+        'Payment provider is temporarily unavailable. Please try again in a moment.',
+      );
+    default:
+      return new AppError(
+        'Payment provider error. Please try again or contact support.',
+        'PAYMENT_PROVIDER_ERROR',
+        502,
+        details,
+      );
+  }
+}
 
 /** Process-local cache of PlatformConfig.stripeMode (refreshed from DB on TTL / setActiveStripeMode). */
 let activeMode: StripeMode | null = null;
@@ -111,7 +156,7 @@ export async function createDepositIntent(input: {
   const client = await getStripe();
   if (!client) {
     if (env.NODE_ENV === 'production') {
-      throw new Error('Payment processing unavailable');
+      throw new PaymentUnavailableError();
     }
     const id = `pi_dev_${Date.now()}`;
     return {
@@ -141,7 +186,7 @@ export async function createInvoicePaymentIntent(input: {
   const client = await getStripe();
   if (!client) {
     if (env.NODE_ENV === 'production') {
-      throw new Error('Payment processing unavailable');
+      throw new PaymentUnavailableError();
     }
     const id = `pi_dev_${Date.now()}`;
     return {
@@ -172,20 +217,20 @@ export function isStubPaymentIntent(paymentIntentId: string) {
 export async function assertPaymentIntentAuthorized(paymentIntentId: string) {
   if (isStubPaymentIntent(paymentIntentId)) {
     if (env.NODE_ENV === 'production') {
-      throw new Error('Invalid payment intent');
+      throw new ValidationError('Invalid payment intent');
     }
     return;
   }
 
   const client = await getStripe();
   if (!client) {
-    throw new Error('Payment processing unavailable');
+    throw new PaymentUnavailableError();
   }
 
   const intent = await client.paymentIntents.retrieve(paymentIntentId);
   // Manual-capture deposits land in requires_capture; auto-capture / tickets may be succeeded.
   if (intent.status !== 'requires_capture' && intent.status !== 'succeeded') {
-    throw new Error(`Payment not completed (status: ${intent.status})`);
+    throw new ValidationError(`Payment not completed (status: ${intent.status})`);
   }
 }
 
@@ -193,19 +238,19 @@ export async function assertPaymentIntentAuthorized(paymentIntentId: string) {
 export async function assertPaymentIntentSucceeded(paymentIntentId: string) {
   if (isStubPaymentIntent(paymentIntentId)) {
     if (env.NODE_ENV === 'production') {
-      throw new Error('Invalid payment intent');
+      throw new ValidationError('Invalid payment intent');
     }
     return;
   }
 
   const client = await getStripe();
   if (!client) {
-    throw new Error('Payment processing unavailable');
+    throw new PaymentUnavailableError();
   }
 
   const intent = await client.paymentIntents.retrieve(paymentIntentId);
   if (intent.status !== 'succeeded') {
-    throw new Error(`Payment not completed (status: ${intent.status})`);
+    throw new ValidationError(`Payment not completed (status: ${intent.status})`);
   }
 }
 
@@ -251,7 +296,7 @@ export async function refundDeposit(
   // Uncaptured authorization — cancel to release the hold (cannot partial-refund).
   if (intent.status === 'requires_capture') {
     if (amountCents != null && amountCents < intent.amount) {
-      throw new Error('Cannot partially release an authorization hold; release the full hold or capture first');
+      throw new ValidationError('Cannot partially release an authorization hold; release the full hold or capture first');
     }
     await client.paymentIntents.cancel(paymentIntentId);
     return { id: paymentIntentId, mode: 'released' as const, amountCents: intent.amount };
@@ -259,9 +304,9 @@ export async function refundDeposit(
   if (intent.status === 'succeeded') {
     const params: Stripe.RefundCreateParams = { payment_intent: paymentIntentId };
     if (amountCents != null) {
-      if (amountCents <= 0) throw new Error('Refund amount must be greater than 0');
+      if (amountCents <= 0) throw new ValidationError('Refund amount must be greater than 0');
       if (amountCents > intent.amount) {
-        throw new Error('Refund amount exceeds deposit');
+        throw new ValidationError('Refund amount exceeds deposit');
       }
       params.amount = amountCents;
     }
@@ -272,7 +317,7 @@ export async function refundDeposit(
       amountCents: refund.amount,
     };
   }
-  throw new Error(`Cannot refund payment intent in status ${intent.status}`);
+  throw new ValidationError(`Cannot refund payment intent in status ${intent.status}`);
 }
 
 export async function captureDeposit(paymentIntentId: string) {
@@ -507,7 +552,7 @@ export async function updateStripeSubscription(
 
   const sub = await client.subscriptions.retrieve(subscriptionId);
   const itemId = sub.items.data[0]?.id;
-  if (!itemId) throw new Error('No subscription item found');
+  if (!itemId) throw new AppError('Stripe subscription has no items', 'PAYMENT_PROVIDER_ERROR', 502);
   const customerId = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id;
   const hasPm = Boolean(
     collectPayment &&

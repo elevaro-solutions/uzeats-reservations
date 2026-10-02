@@ -199,6 +199,11 @@ export const tableInputSchema = z.object({
   active: z.boolean().default(true),
   photoUrl: z.string().url().optional().nullable(),
   requiresManualApproval: z.boolean().optional().default(false),
+  // No defaults: `updateTable` reuses this schema and must not reset the layout.
+  posX: z.number().min(0).max(500).optional(),
+  posY: z.number().min(0).max(500).optional(),
+  width: z.number().min(1).max(24).optional(),
+  height: z.number().min(1).max(24).optional(),
 });
 
 export const shiftInputSchema = z.object({

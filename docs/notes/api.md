@@ -1,5 +1,10 @@
 # API — Learnings & Observations
 
+## [2026-10-02] Billing / Stripe / Telegram must use AppError (or formatStripeError)
+- Production `formatError` only preserves `AppError`, Zod, and Mongoose messages. Plain `Error` from `createSubscription`, `changePlan`, invoice pay-by-token, and Elevaro Telegram link paths showed as "Internal server error".
+- Stripe SDK failures are mapped via `formatStripeError` in `formatError` (and services throw `AppError` / `ValidationError` where we control the throw). Telegram link-limit / upstream failures use dedicated `AppError` subclasses in `elevaroNotifier.ts`.
+- Why it matters: Owners hitting trial start, plan upgrade, invoice pay links, or Connect Telegram need the real message; prod logs alone are not enough for the UI.
+
 ## [2026-10-01] Reservation reminder offsets are minutes + late-check category
 - `scheduleReservationReminders` uses `REMINDER_OFFSETS_MINUTES` job ids `reminder-{id}-{minutes}m` (also removes legacy `*h`). Worker accepts legacy `{ hours }` payloads.
 - Closer reminders pass `pushCategoryId: reservation_reminder_late` into `notifyUser` → Expo `categoryId` / web-push payload. `reportRunningLate` is diner-only and reuses the Message + manager notify path (no plan gate).

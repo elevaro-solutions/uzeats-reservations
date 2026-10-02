@@ -206,7 +206,11 @@ export default function ProfilePage() {
   };
 
   if (listLoading || authLoading) {
-    return <Spin size="large" style={{ display: 'block', margin: '80px auto' }} />;
+    return (
+      <div style={{ display: 'grid', placeItems: 'center', minHeight: 320 }}>
+        <Spin size="large" />
+      </div>
+    );
   }
 
   return (
@@ -258,7 +262,9 @@ export default function ProfilePage() {
       </Card>
 
       {profileLoading && !restaurant ? (
-        <Spin size="large" style={{ display: 'block', margin: '40px auto' }} />
+        <div style={{ display: 'grid', placeItems: 'center', minHeight: 240 }}>
+          <Spin size="large" />
+        </div>
       ) : restaurant ? (
         <Card className="rt-surface-card" styles={{ body: { padding: spacing.lg } }} style={{ borderRadius: radii.lg }}>
           {pending && (

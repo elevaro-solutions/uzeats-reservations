@@ -325,7 +325,7 @@ export const RESTAURANT_WAITLIST = gql`
 export const CREATE_TABLE = gql`
   mutation CreateTable($restaurantId: ID!, $input: TableInput!) {
     createTable(restaurantId: $restaurantId, input: $input) {
-      id name
+      id name posX posY width height
     }
   }
 `;

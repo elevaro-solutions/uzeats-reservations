@@ -141,7 +141,8 @@ export default function ReservationDetailPage() {
 
   const reservation = (data as { myReservation?: Record<string, unknown> } | undefined)?.myReservation;
 
-  if (loading) {
+  // Skeleton only on first load: refetches (e.g. after a review) must keep modals mounted.
+  if (loading && !data) {
     return (
       <div className="rt-reservation-detail">
         <div className="rt-reservation-detail__topbar">

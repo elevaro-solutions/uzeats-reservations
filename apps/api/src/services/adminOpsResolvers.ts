@@ -23,7 +23,7 @@ import { SupportTicket } from '../models/SupportTicket.js';
 import { AuditLog } from '../models/AuditLog.js';
 import { requireAdmin, requireAuth, requireSuperAdmin, type GraphQLContext } from '../graphql/context.js';
 import { mapRestaurant, mapReviewReportResponses, mapUser, slugify } from '../graphql/mappers.js';
-import { ForbiddenError } from '../lib/errors.js';
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../lib/errors.js';
 import { provisionDefaultRestaurantSetup } from './restaurantSetup.js';
 import { createRestaurantSubscription } from './restaurantSubscription.js';
 import { logAudit } from './audit.js';
@@ -536,14 +536,14 @@ export const adminOpsMutation = {
   ) => {
     const admin = requireAdmin(ctx);
     const target = await User.findById(args.userId);
-    if (!target) throw new Error('User not found');
+    if (!target) throw new NotFoundError('User');
     assertCanEditUser(admin.role, target.role);
 
     const updates: Record<string, unknown> = {};
     if (args.input.firstName !== undefined) updates.firstName = args.input.firstName.trim();
     if (args.input.lastName !== undefined) updates.lastName = args.input.lastName.trim();
     if (args.input.loyaltyPoints !== undefined) {
-      if (args.input.loyaltyPoints < 0) throw new Error('loyaltyPoints must be >= 0');
+      if (args.input.loyaltyPoints < 0) throw new ValidationError('loyaltyPoints must be >= 0');
       const current = target.loyaltyPoints ?? 0;
       const delta = args.input.loyaltyPoints - current;
       if (delta !== 0) {
@@ -566,7 +566,7 @@ export const adminOpsMutation = {
         'account_manager',
         'super_admin',
       ];
-      if (!validRoles.includes(args.input.role)) throw new Error('Invalid role');
+      if (!validRoles.includes(args.input.role)) throw new ValidationError('Invalid role');
       await assertCanAssignRole(admin.role, args.input.role);
       updates.role = args.input.role;
     }
@@ -575,16 +575,16 @@ export const adminOpsMutation = {
     }
     if (args.input.email !== undefined) {
       const email = args.input.email.trim().toLowerCase();
-      if (!email) throw new Error('Email cannot be empty');
+      if (!email) throw new ValidationError('Email cannot be empty');
       const existing = await User.findOne({ email, _id: { $ne: target._id } });
-      if (existing) throw new Error('Email already in use');
+      if (existing) throw new ConflictError('Email already in use');
       updates.email = email;
     }
     if (args.input.phone !== undefined) {
       const phone = args.input.phone.trim() || null;
       if (phone) {
         const existing = await User.findOne({ phone, _id: { $ne: target._id } });
-        if (existing) throw new Error('Phone already in use');
+        if (existing) throw new ConflictError('Phone already in use');
       }
       updates.phone = phone;
     }
@@ -594,7 +594,7 @@ export const adminOpsMutation = {
     }
 
     const updated = await User.findById(args.userId);
-    if (!updated) throw new Error('User not found');
+    if (!updated) throw new NotFoundError('User');
     await logAudit({
       actorId: admin._id.toString(),
       action: 'adminUpdateUser',

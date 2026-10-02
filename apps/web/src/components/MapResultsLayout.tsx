@@ -77,6 +77,15 @@ export function MapResultsLayout({
           <div className="rt-map-page__list-header-top">
             <Text strong style={{ fontSize: typography.fontSize.lg, display: 'block' }}>
               {total.toLocaleString('en-US')} restaurant{total === 1 ? '' : 's'} available
+              {restaurants.length > 0 && restaurants.length < total ? (
+                <Text
+                  type="secondary"
+                  style={{ fontSize: typography.fontSize.sm, fontWeight: 400, display: 'block', marginTop: 2 }}
+                >
+                  Showing {restaurants.length.toLocaleString('en-US')} on the map
+                  {hasMore ? ' — load more for the rest' : ''}
+                </Text>
+              ) : null}
             </Text>
             <DiscoveryFiltersDrawer
               filtersContent={drawerContent}

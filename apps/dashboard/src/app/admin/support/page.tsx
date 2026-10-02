@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useMemo, useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
@@ -21,12 +21,8 @@ import { EyeOutlined, MoreOutlined } from '@ant-design/icons';
 import { PageHeader, spacing } from '@reservations/ui';
 import { SUPPORT_TICKET_SUBJECTS } from '@reservations/shared';
 import { RichTextEditor } from '@/components/RichTextEditor';
-import {
-  ADMIN_RESTAURANTS,
-  ADMIN_USERS,
-  CREATE_SUPPORT_TICKET,
-  SUPPORT_TICKETS,
-} from '@/lib/graphql';
+import { AdminRestaurantSelect, AdminUserSelect } from '@/components/AdminSearchSelect';
+import { CREATE_SUPPORT_TICKET, SUPPORT_TICKETS } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import {
@@ -36,6 +32,7 @@ import {
   STATUS_COLORS,
   STATUS_OPTIONS,
   SUBJECT_OPTIONS,
+  SUPPORT_ASSIGNEE_ROLES,
   personLabel,
 } from '@/lib/supportTickets';
 
@@ -64,50 +61,7 @@ function SupportPageContent() {
       offset,
     },
   });
-  const { data: usersData } = useQuery(ADMIN_USERS, {
-    skip: !ready,
-    variables: { limit: 200, offset: 0 },
-  });
-  const { data: restaurantsData } = useQuery(ADMIN_RESTAURANTS, {
-    skip: !ready,
-    variables: { limit: 200, offset: 0 },
-  });
   const [createTicket, { loading: creating }] = useMutation(CREATE_SUPPORT_TICKET);
-
-  const users = usersData?.adminUsers?.items ?? [];
-  const staffOptions = useMemo(
-    () =>
-      users
-        .filter(
-          (u: any) =>
-            u.role === 'admin' ||
-            u.role === 'account_manager' ||
-            u.role === 'manager' ||
-            u.role === 'host' ||
-            u.role === 'restaurant_owner',
-        )
-        .map((u: any) => ({
-          value: u.id,
-          label: `${u.firstName} ${u.lastName}${u.email ? ` (${u.email})` : ''}`,
-        })),
-    [users],
-  );
-  const userOptions = useMemo(
-    () =>
-      users.map((u: any) => ({
-        value: u.id,
-        label: `${u.firstName} ${u.lastName}${u.email ? ` (${u.email})` : ''}`,
-      })),
-    [users],
-  );
-  const restaurantOptions = useMemo(
-    () =>
-      (restaurantsData?.adminRestaurants?.items ?? []).map((r: any) => ({
-        value: r.id,
-        label: r.name,
-      })),
-    [restaurantsData],
-  );
 
   if (!ready) return null;
 
@@ -164,10 +118,9 @@ function SupportPageContent() {
             }}
             options={STATUS_OPTIONS}
           />
-          <Select
+          <AdminUserSelect
             allowClear
-            showSearch
-            optionFilterProp="label"
+            roles={SUPPORT_ASSIGNEE_ROLES}
             placeholder="Assignee"
             style={{ width: 220 }}
             value={assigneeId}
@@ -175,12 +128,9 @@ function SupportPageContent() {
               setAssigneeId(v);
               setPagination(1);
             }}
-            options={staffOptions}
           />
-          <Select
+          <AdminRestaurantSelect
             allowClear
-            showSearch
-            optionFilterProp="label"
             placeholder="Restaurant"
             style={{ width: 220 }}
             value={restaurantId}
@@ -188,7 +138,6 @@ function SupportPageContent() {
               setRestaurantId(v);
               setPagination(1);
             }}
-            options={restaurantOptions}
           />
           <Input.Search
             placeholder="Search subject"
@@ -329,31 +278,17 @@ function SupportPageContent() {
             </Form.Item>
           </Space>
           <Form.Item name="assigneeId" label="Assign to admin">
-            <Select
+            <AdminUserSelect
               allowClear
-              showSearch
-              optionFilterProp="label"
-              options={staffOptions}
+              roles={SUPPORT_ASSIGNEE_ROLES}
               placeholder="Unassigned"
             />
           </Form.Item>
           <Form.Item name="restaurantId" label="Restaurant">
-            <Select
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              options={restaurantOptions}
-              placeholder="Optional"
-            />
+            <AdminRestaurantSelect allowClear placeholder="Optional" />
           </Form.Item>
           <Form.Item name="requesterId" label="Requester">
-            <Select
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              options={userOptions}
-              placeholder="Optional"
-            />
+            <AdminUserSelect allowClear placeholder="Optional" />
           </Form.Item>
           <Form.Item name="note" label="Initial internal note">
             <Input.TextArea rows={3} />

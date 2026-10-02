@@ -6,6 +6,7 @@ import {
   type StripeSubscriptionPayment,
 } from './stripe.js';
 import { logAudit } from './audit.js';
+import { ConflictError, ValidationError } from '../lib/errors.js';
 
 export type CreatedRestaurantSubscription = SubscriptionDocument & StripeSubscriptionPayment;
 
@@ -18,11 +19,11 @@ export async function createRestaurantSubscription(input: {
   collectPaymentMethod?: boolean;
 }): Promise<CreatedRestaurantSubscription> {
   const planDef = await getEffectivePlan(input.plan);
-  if (!planDef) throw new Error(`Invalid plan: ${input.plan}`);
+  if (!planDef) throw new ValidationError(`Invalid plan: ${input.plan}`);
   const planKey = planDef.key;
 
   const existing = await Subscription.findOne({ restaurantId: input.restaurantId });
-  if (existing) throw new Error('Subscription already exists for this restaurant');
+  if (existing) throw new ConflictError('Subscription already exists for this restaurant');
 
   const customer = await createStripeCustomer({
     email: input.customerEmail,

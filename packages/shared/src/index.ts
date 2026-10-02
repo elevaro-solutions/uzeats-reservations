@@ -21,3 +21,4 @@ export * from './timezone.js';
 export * from './displayLocale.js';
 export * from './mediaUrl.js';
 export * from './manualApproval.js';
+export * from './floorPlacement.js';

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
@@ -44,10 +44,13 @@ import SupportAttachmentUpload, {
   type SupportAttachmentDraft,
 } from '@/components/SupportAttachmentUpload';
 import {
+  AdminRestaurantSelect,
+  AdminUserSelect,
+  adminUserLabel,
+} from '@/components/AdminSearchSelect';
+import {
   ADD_SUPPORT_ATTACHMENT,
   ADD_SUPPORT_NOTE,
-  ADMIN_RESTAURANTS,
-  ADMIN_USERS,
   DELETE_SUPPORT_NOTE,
   REMOVE_SUPPORT_ATTACHMENT,
   SUPPORT_TICKET,
@@ -64,6 +67,7 @@ import {
   PRIORITY_OPTIONS,
   STATUS_COLORS,
   STATUS_OPTIONS,
+  SUPPORT_ASSIGNEE_ROLES,
   canManageOwnedItem,
   formatBytes,
   formatEventLabel,
@@ -93,14 +97,6 @@ export default function SupportTicketDetailPage() {
     skip: !ready || !id,
     variables: { id },
   });
-  const { data: usersData } = useQuery(ADMIN_USERS, {
-    skip: !ready,
-    variables: { limit: 200, offset: 0 },
-  });
-  const { data: restaurantsData } = useQuery(ADMIN_RESTAURANTS, {
-    skip: !ready,
-    variables: { limit: 200, offset: 0 },
-  });
 
   const [updateTicket, { loading: updating }] = useMutation(UPDATE_SUPPORT_TICKET);
   const [addNote, { loading: noting }] = useMutation(ADD_SUPPORT_NOTE);
@@ -111,40 +107,15 @@ export default function SupportTicketDetailPage() {
   const [removeAttachment] = useMutation(REMOVE_SUPPORT_ATTACHMENT);
 
   const ticket = data?.supportTicket;
-  const users = usersData?.adminUsers?.items ?? [];
-  const staffOptions = useMemo(
-    () =>
-      users
-        .filter(
-          (u: any) =>
-            u.role === 'admin' ||
-            u.role === 'account_manager' ||
-            u.role === 'manager' ||
-            u.role === 'host' ||
-            u.role === 'restaurant_owner',
-        )
-        .map((u: any) => ({
-          value: u.id,
-          label: `${u.firstName} ${u.lastName}${u.email ? ` (${u.email})` : ''}`,
-        })),
-    [users],
-  );
-  const userOptions = useMemo(
-    () =>
-      users.map((u: any) => ({
-        value: u.id,
-        label: `${u.firstName} ${u.lastName}${u.email ? ` (${u.email})` : ''}`,
-      })),
-    [users],
-  );
-  const restaurantOptions = useMemo(
-    () =>
-      (restaurantsData?.adminRestaurants?.items ?? []).map((r: any) => ({
-        value: r.id,
-        label: r.name,
-      })),
-    [restaurantsData],
-  );
+  const assigneeOption = ticket?.assignee
+    ? { value: ticket.assignee.id, label: adminUserLabel(ticket.assignee) }
+    : null;
+  const requesterOption = ticket?.requester
+    ? { value: ticket.requester.id, label: adminUserLabel(ticket.requester) }
+    : null;
+  const restaurantOption = ticket?.restaurant
+    ? { value: ticket.restaurant.id, label: ticket.restaurant.name }
+    : null;
 
   if (!ready) return null;
 
@@ -545,12 +516,11 @@ export default function SupportTicketDetailPage() {
                     />
                   </Form.Item>
                   <Form.Item label="Assignee (admin)">
-                    <Select
+                    <AdminUserSelect
                       allowClear
-                      showSearch
-                      optionFilterProp="label"
+                      roles={SUPPORT_ASSIGNEE_ROLES}
                       value={ticket.assigneeId ?? undefined}
-                      options={staffOptions}
+                      selectedOption={assigneeOption}
                       placeholder="Unassigned"
                       onChange={(assigneeId) =>
                         patch({ assigneeId: assigneeId ?? null }, 'Assignee updated')
@@ -558,12 +528,10 @@ export default function SupportTicketDetailPage() {
                     />
                   </Form.Item>
                   <Form.Item label="Restaurant">
-                    <Select
+                    <AdminRestaurantSelect
                       allowClear
-                      showSearch
-                      optionFilterProp="label"
                       value={ticket.restaurantId ?? undefined}
-                      options={restaurantOptions}
+                      selectedOption={restaurantOption}
                       placeholder="None"
                       onChange={(restaurantId) =>
                         patch({ restaurantId: restaurantId ?? null }, 'Restaurant updated')
@@ -571,12 +539,10 @@ export default function SupportTicketDetailPage() {
                     />
                   </Form.Item>
                   <Form.Item label="Requester">
-                    <Select
+                    <AdminUserSelect
                       allowClear
-                      showSearch
-                      optionFilterProp="label"
                       value={ticket.requesterId ?? undefined}
-                      options={userOptions}
+                      selectedOption={requesterOption}
                       placeholder="None"
                       onChange={(requesterId) =>
                         patch({ requesterId: requesterId ?? null }, 'Requester updated')

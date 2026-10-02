@@ -10,7 +10,7 @@ import { Invoice } from '../models/Invoice.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { Subscription } from '../models/Subscription.js';
 import { env } from '../config/env.js';
-import { ConflictError, ValidationError } from '../lib/errors.js';
+import { AppError, ConflictError, NotFoundError, ValidationError } from '../lib/errors.js';
 import { type ExportPayload } from './adminExport.js';
 import { brandedInvoiceExportPayload } from './invoicePdf.js';
 import {
@@ -58,7 +58,7 @@ export function previousUtcBillingPeriod(date = new Date()) {
 
 function periodBounds(period: string) {
   const [year, month] = period.split('-').map(Number);
-  if (!year || !month) throw new Error('billingPeriod must be YYYY-MM');
+  if (!year || !month) throw new ValidationError('billingPeriod must be YYYY-MM');
   const start = new Date(Date.UTC(year, month - 1, 1));
   const end = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
   // Usage (cover fees) is complete when the month closes — due on the 1st of the next month.
@@ -181,7 +181,7 @@ export function mapInvoice(doc: any, restaurantName?: string) {
 
 function parseDueDate(value: Date | string) {
   const dueDate = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(dueDate.getTime())) throw new Error('dueDate must be a valid date');
+  if (Number.isNaN(dueDate.getTime())) throw new ValidationError('dueDate must be a valid date');
   return dueDate;
 }
 
@@ -199,7 +199,7 @@ async function resolvePlanCatalogPrice(
   durationMonths: number;
 }> {
   const plan = await getEffectivePlan(planKey);
-  if (!plan) throw new Error(`Unknown plan: ${planKey}`);
+  if (!plan) throw new ValidationError(`Unknown plan: ${planKey}`);
   const annualBilling = await getAnnualBillingSettings();
   const priced = planForBillingPeriod(plan, billingCycle, {
     annualBilling,
@@ -248,7 +248,7 @@ export async function createManualInvoice(input: {
   }
 
   const restaurant = await Restaurant.findById(input.restaurantId).select('name');
-  if (!restaurant) throw new Error('Restaurant not found');
+  if (!restaurant) throw new NotFoundError('Restaurant');
 
   // Prefer a non-canceled invoice for the period (unique index is restaurant+period).
   const existing =
@@ -345,7 +345,7 @@ export async function createManualInvoice(input: {
   if (serviceIds.length) {
     const services = await getPlatformServicesByIds(serviceIds);
     if (services.length !== serviceIds.length) {
-      throw new Error('One or more services were not found');
+      throw new ValidationError('One or more services were not found');
     }
     for (const svc of services) {
       lines.push({
@@ -654,7 +654,7 @@ export type InvoiceStatusValue = 'upcoming' | 'pending' | 'paid' | 'canceled' | 
 
 export async function setInvoiceStatus(id: string, status: InvoiceStatusValue) {
   const doc = await Invoice.findById(id);
-  if (!doc) throw new Error('Invoice not found');
+  if (!doc) throw new NotFoundError('Invoice');
   doc.status = status;
   if (status === 'paid') {
     doc.paidAt = new Date();
@@ -672,7 +672,7 @@ export async function setInvoiceStatus(id: string, status: InvoiceStatusValue) {
 
 export async function setInvoiceStatuses(ids: string[], status: InvoiceStatusValue) {
   const uniqueIds = [...new Set(ids.filter(Boolean))];
-  if (!uniqueIds.length) throw new Error('No invoices selected');
+  if (!uniqueIds.length) throw new ValidationError('No invoices selected');
 
   const items = [];
   for (const id of uniqueIds) {
@@ -683,7 +683,7 @@ export async function setInvoiceStatuses(ids: string[], status: InvoiceStatusVal
 
 export async function ensureInvoicePayLink(id: string) {
   const doc = await Invoice.findById(id);
-  if (!doc) throw new Error('Invoice not found');
+  if (!doc) throw new NotFoundError('Invoice');
   if (!doc.payToken) {
     doc.payToken = newPayToken();
     await doc.save();
@@ -694,21 +694,21 @@ export async function ensureInvoicePayLink(id: string) {
 
 export async function getInvoiceById(id: string) {
   const doc = await Invoice.findById(id);
-  if (!doc) throw new Error('Invoice not found');
+  if (!doc) throw new NotFoundError('Invoice');
   const restaurant = await Restaurant.findById(doc.restaurantId).select('name');
   return mapInvoice(doc, restaurant?.name);
 }
 
 export async function getInvoiceByPayToken(token: string) {
   const doc = await Invoice.findOne({ payToken: token });
-  if (!doc) throw new Error('Invoice not found');
+  if (!doc) throw new NotFoundError('Invoice');
   const restaurant = await Restaurant.findById(doc.restaurantId).select('name');
   return mapInvoice(doc, restaurant?.name);
 }
 
 export async function exportInvoicePdf(id: string): Promise<ExportPayload> {
   const doc = await Invoice.findById(id);
-  if (!doc) throw new Error('Invoice not found');
+  if (!doc) throw new NotFoundError('Invoice');
   const restaurant = await Restaurant.findById(doc.restaurantId).select('name address');
   const mapped = mapInvoice(doc, restaurant?.name);
   return buildInvoicePdf(mapped, formatRestaurantAddress(restaurant?.address));
@@ -716,7 +716,7 @@ export async function exportInvoicePdf(id: string): Promise<ExportPayload> {
 
 export async function exportInvoicePdfByToken(token: string): Promise<ExportPayload> {
   const doc = await Invoice.findOne({ payToken: token });
-  if (!doc) throw new Error('Invoice not found');
+  if (!doc) throw new NotFoundError('Invoice');
   const restaurant = await Restaurant.findById(doc.restaurantId).select('name address');
   const mapped = mapInvoice(doc, restaurant?.name);
   return buildInvoicePdf(mapped, formatRestaurantAddress(restaurant?.address));
@@ -785,16 +785,18 @@ export async function sendInvoiceEmail(
   toEmail?: string | null,
 ): Promise<{ sent: boolean; to: string; stubbed: boolean }> {
   if (!isEmailDeliveryConfigured()) {
-    throw new Error(
+    throw new AppError(
       'Email is not configured. Set SENDGRID_API_KEY on the API.',
+      'SERVICE_UNAVAILABLE',
+      503,
     );
   }
 
   const doc = await Invoice.findById(id);
-  if (!doc) throw new Error('Invoice not found');
+  if (!doc) throw new NotFoundError('Invoice');
 
   const restaurant = await Restaurant.findById(doc.restaurantId).select('name address ownerId');
-  if (!restaurant) throw new Error('Restaurant not found');
+  if (!restaurant) throw new NotFoundError('Restaurant');
 
   let to = toEmail?.trim().toLowerCase() || '';
   if (!to) {
@@ -802,7 +804,7 @@ export async function sendInvoiceEmail(
     to = owner?.email?.trim().toLowerCase() || '';
   }
   if (!to) {
-    throw new Error('No recipient email found for this restaurant owner');
+    throw new ValidationError('No recipient email found for this restaurant owner');
   }
 
   const invoice = mapInvoice(doc, restaurant.name);
@@ -878,9 +880,9 @@ export { isEmailDeliveryConfigured };
 
 export async function startInvoicePayment(token: string) {
   const doc = await Invoice.findOne({ payToken: token });
-  if (!doc) throw new Error('Invoice not found');
-  if (doc.status === 'paid') throw new Error('Invoice is already paid');
-  if (doc.status === 'canceled') throw new Error('Invoice is canceled');
+  if (!doc) throw new NotFoundError('Invoice');
+  if (doc.status === 'paid') throw new ConflictError('Invoice is already paid');
+  if (doc.status === 'canceled') throw new ConflictError('Invoice is canceled');
   if (doc.totalCents <= 0) {
     doc.status = 'paid';
     doc.paidAt = new Date();
@@ -926,7 +928,7 @@ export async function startInvoicePayment(token: string) {
 
 export async function confirmInvoicePayment(token: string, paymentIntentId: string) {
   const doc = await Invoice.findOne({ payToken: token });
-  if (!doc) throw new Error('Invoice not found');
+  if (!doc) throw new NotFoundError('Invoice');
   if (doc.status === 'paid') {
     const restaurant = await Restaurant.findById(doc.restaurantId).select('name');
     return mapInvoice(doc, restaurant?.name);
@@ -935,7 +937,7 @@ export async function confirmInvoicePayment(token: string, paymentIntentId: stri
   await assertPaymentIntentSucceeded(paymentIntentId);
 
   if (doc.stripePaymentIntentId && doc.stripePaymentIntentId !== paymentIntentId) {
-    throw new Error('Payment intent does not match this invoice');
+    throw new ValidationError('Payment intent does not match this invoice');
   }
 
   doc.status = 'paid';
@@ -956,7 +958,7 @@ export async function confirmInvoicePayment(token: string, paymentIntentId: stri
 /** Re-fetch client secret for an existing invoice payment intent (e.g. page refresh). */
 export async function resumeInvoicePayment(token: string) {
   const doc = await Invoice.findOne({ payToken: token });
-  if (!doc) throw new Error('Invoice not found');
+  if (!doc) throw new NotFoundError('Invoice');
   if (doc.status === 'paid') {
     const restaurant = await Restaurant.findById(doc.restaurantId).select('name');
     return {

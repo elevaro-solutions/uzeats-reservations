@@ -6,11 +6,12 @@ import {
   updateStripeSubscription,
 } from './stripe.js';
 import { logAudit } from './audit.js';
+import { ConflictError, NotFoundError, ValidationError } from '../lib/errors.js';
 import { evaluatePlanChange, type PlanChangeDecision, type PlanSnapshot } from './planChangePolicy.js';
 
 async function toSnapshot(planKey: string): Promise<PlanSnapshot> {
   const plan = await getEffectivePlan(planKey);
-  if (!plan) throw new Error(`Invalid plan: ${planKey}`);
+  if (!plan) throw new ValidationError(`Invalid plan: ${planKey}`);
   return {
     key: plan.key,
     name: plan.name,
@@ -72,7 +73,7 @@ export async function previewPlanChange(
   toPlanKey: string,
 ): Promise<PlanChangeDecision> {
   const sub = await Subscription.findOne({ restaurantId });
-  if (!sub) throw new Error('No subscription found');
+  if (!sub) throw new NotFoundError('Subscription');
   await applyPendingPlanChangeIfDue(sub);
   const fromPlan = await toSnapshot(sub.plan);
   const toPlan = await toSnapshot(toPlanKey);
@@ -92,7 +93,7 @@ export async function changeRestaurantPlan(input: {
   actorId: string;
 }): Promise<PlanChangeResult> {
   const sub = await Subscription.findOne({ restaurantId: input.restaurantId });
-  if (!sub) throw new Error('No subscription found');
+  if (!sub) throw new NotFoundError('Subscription');
   await applyPendingPlanChangeIfDue(sub);
 
   const fromPlan = await toSnapshot(sub.plan);
@@ -112,11 +113,11 @@ export async function changeRestaurantPlan(input: {
       });
       return { subscription: sub, clientSecret: null, paymentMode: null, amountDueCents: 0 };
     }
-    throw new Error(decision.blockedReason ?? 'You are already on this plan.');
+    throw new ConflictError(decision.blockedReason ?? 'You are already on this plan.');
   }
 
   if (!decision.allowed) {
-    throw new Error(decision.blockedReason ?? 'This plan change is not allowed.');
+    throw new ValidationError(decision.blockedReason ?? 'This plan change is not allowed.');
   }
 
   let clientSecret: string | null = null;
@@ -172,7 +173,7 @@ export async function changeRestaurantPlan(input: {
 
 export async function getPlanChangePayment(restaurantId: string): Promise<PlanChangeResult> {
   const sub = await Subscription.findOne({ restaurantId });
-  if (!sub) throw new Error('No subscription found');
+  if (!sub) throw new NotFoundError('Subscription');
   let amountDueCents = sub.amountDueCents ?? 0;
   let clientSecret: string | null = null;
   let paymentMode: 'payment' | 'setup' | null = null;
@@ -191,7 +192,7 @@ export async function getPlanChangePayment(restaurantId: string): Promise<PlanCh
 
 export async function markPlanChangePaid(restaurantId: string) {
   const sub = await Subscription.findOne({ restaurantId });
-  if (!sub) throw new Error('No subscription found');
+  if (!sub) throw new NotFoundError('Subscription');
   await syncPaidSubscriptionAfterCard({
     customerId: sub.stripeCustomerId ?? undefined,
     subscriptionId: sub.stripeSubscriptionId ?? undefined,
@@ -205,8 +206,8 @@ export async function markPlanChangePaid(restaurantId: string) {
 
 export async function cancelPendingPlanChange(input: { restaurantId: string; actorId: string }) {
   const sub = await Subscription.findOne({ restaurantId: input.restaurantId });
-  if (!sub) throw new Error('No subscription found');
-  if (!sub.pendingPlan) throw new Error('No scheduled plan change to cancel.');
+  if (!sub) throw new NotFoundError('Subscription');
+  if (!sub.pendingPlan) throw new ValidationError('No scheduled plan change to cancel.');
   clearPending(sub);
   await sub.save();
   await logAudit({

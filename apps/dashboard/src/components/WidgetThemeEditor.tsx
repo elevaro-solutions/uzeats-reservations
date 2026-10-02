@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react';
 import { useMutation } from '@/lib/apollo-hooks';
-import { Button, Col, Form, Input, Row, Space, Switch, Typography, message } from 'antd';
+import { Button, Col, ColorPicker, Form, Input, Row, Space, Switch, Typography, message } from 'antd';
+import type { Color } from 'antd/es/color-picker';
 import { colors } from '@reservations/ui';
 import type { WidgetTheme } from '@/components/BookingSharePanel';
 import { UPDATE_RESTAURANT_SETTINGS } from '@/lib/graphql';
@@ -92,21 +93,18 @@ export function WidgetThemeEditor({
                   message: 'Enter a hex color like #0b3d2e',
                 },
               ]}
+              getValueFromEvent={(color: Color) => color.toHexString()}
             >
-              <Input
-                placeholder={colors.brand[600]}
-                addonBefore={
-                  <span
-                    style={{
-                      display: 'inline-block',
-                      width: 14,
-                      height: 14,
-                      borderRadius: 4,
-                      background: widgetTheme.primaryColor || colors.brand[600],
-                      border: `1px solid ${colors.border}`,
-                    }}
-                  />
-                }
+              <ColorPicker
+                showText
+                disabledAlpha
+                format="hex"
+                presets={[
+                  {
+                    label: 'Brand',
+                    colors: [colors.brand[600], colors.brand[800], '#111827', '#b91c1c', '#1d4ed8'],
+                  },
+                ]}
               />
             </Form.Item>
           </Col>

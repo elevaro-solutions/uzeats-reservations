@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.73.2] — 2026-10-02
+
+### Added
+
+- Admin searchable user/restaurant selects (`AdminSearchSelect`) so Team assign and Support pickers query the server instead of truncating to the newest 100 accounts
+- Widget theme editor: Ant Design `ColorPicker` for the primary color (hex still stored)
+
+### Changed
+
+- Admin restaurant Diner preview tab: open-in-new-tab card instead of a blank iframe (diner web blocks framing)
+- Partner reservations: choosing Seated / Completed / Cancelled / No-show while on Upcoming switches the period to All dates (and shows a hint if the combo is empty)
+- Map discovery: keep filters + map mounted while results load; list header notes "Showing X on the map" when only a page of markers is loaded
+- Partner billing plan cards: equal-height flex layout with expandable "+N more" features; Telegram connect aligns with the restaurant selector
+
+### Fixed
+
+- Diner web reservation detail: submitting a review no longer resets the review modal back to the form — background refetches keep the page (and modal) mounted instead of flashing the skeleton
+- Diner web reservations list: a failed load shows an error alert with Retry instead of the "No reservations yet" empty state
+- Restaurant cards: time-slot / Check availability row is pinned to the card bottom so it aligns across cards with and without ratings or "booked today" badges
+- Diner web billing: deposit amount sits above the Pay now / View reservation buttons with clear spacing instead of sharing one cramped line
+- Floor plan: new tables no longer all land at (0,0) and stack — `createTable` now accepts `posX`/`posY`/`width`/`height` and the server moves a missing or colliding position to the first free grid spot in the same floor area; the floor-plan editor suggests a spot from its local layout and uses the position the server returns
+- Billing / plan change / invoice pay-by-token / Telegram link failures surface real messages instead of production "Internal server error" (`AppError` + Stripe/`formatStripeError` in GraphQL `formatError`)
+- Dashboard loaders: antd 6 `Spin` centered via grid wrappers (billing, invoices, restaurant profile, admin invoice, profile)
+- Reservation detail long emails wrap instead of overflowing the card
+- Floor-plan photo upload supports stacked layout in the narrow table details panel
+- Onboarding Continue button places the arrow icon after the label
+- Partner invoice detail page wraps content in a Card (white background on the page canvas)
+
 ## [0.73.1] — 2026-10-02
 
 ### Added

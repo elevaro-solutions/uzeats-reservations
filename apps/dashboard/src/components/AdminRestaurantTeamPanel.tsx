@@ -6,14 +6,9 @@ import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { Button, Card, Select, Space, Table, Tag, Typography, message } from 'antd';
 import { UserAddOutlined } from '@ant-design/icons';
 import { EmptyState, formatPhoneDisplay, spacing } from '@reservations/ui';
-import {
-  ADMIN_USERS,
-  ASSIGN_USER_RESTAURANTS,
-  REMOVE_USER_RESTAURANT,
-  RESTAURANT_TEAM,
-} from '@/lib/graphql';
+import { ASSIGN_USER_RESTAURANTS, REMOVE_USER_RESTAURANT, RESTAURANT_TEAM } from '@/lib/graphql';
 import { accountDetailPath } from '@/lib/adminAccounts';
-import { isPlatformAdmin } from '@/lib/roles';
+import { AdminUserSelect } from '@/components/AdminSearchSelect';
 
 const { Text } = Typography;
 
@@ -36,6 +31,9 @@ const ROLE_COLORS: Record<string, string> = {
   account_manager: 'purple',
   super_admin: 'red',
 };
+
+/** Diners and platform admins are excluded server-side so search hits only venue staff. */
+const ASSIGNABLE_ACCOUNT_ROLES = ['restaurant_owner', 'manager', 'host'];
 
 const TEAM_ROLE_OPTIONS = [
   { value: 'manager', label: 'Manager' },
@@ -65,24 +63,11 @@ export function AdminRestaurantTeamPanel({
   const { data: teamData, refetch: refetchTeam } = useQuery(RESTAURANT_TEAM, {
     variables: { restaurantId },
   });
-  const { data: usersData } = useQuery(ADMIN_USERS, {
-    variables: { limit: 500, offset: 0 },
-  });
   const [assignUserRestaurants, { loading: assigning }] = useMutation(ASSIGN_USER_RESTAURANTS);
   const [removeUserRestaurant] = useMutation(REMOVE_USER_RESTAURANT);
 
   const members = (teamData?.restaurantTeam ?? []) as TeamMember[];
   const owner = ownerId ? members.find((member) => member.id === ownerId) : undefined;
-
-  const assignableUserOptions = (usersData?.adminUsers?.items ?? [])
-    .filter((user: { id: string; role: string }) => {
-      if (isPlatformAdmin(user.role)) return false;
-      return !members.some((member) => member.id === user.id);
-    })
-    .map((user: { id: string; firstName: string; lastName: string; email?: string; role: string }) => ({
-      value: user.id,
-      label: `${user.firstName} ${user.lastName}${user.email ? ` (${user.email})` : ''} — ${ROLE_LABELS[user.role] ?? user.role}`,
-    }));
 
   const handleAssign = async () => {
     if (!assignUserId) return;
@@ -133,14 +118,14 @@ export function AdminRestaurantTeamPanel({
           title={`Team (${members.length})`}
           extra={
             <Space wrap>
-              <Select
-                style={{ minWidth: 260 }}
-                placeholder="Assign an account"
+              <AdminUserSelect
+                style={{ minWidth: 300 }}
+                placeholder="Search accounts to assign"
+                roles={ASSIGNABLE_ACCOUNT_ROLES}
+                roleLabel={(role) => ROLE_LABELS[role] ?? role}
+                excludeIds={members.map((member) => member.id)}
                 value={assignUserId}
                 onChange={setAssignUserId}
-                options={assignableUserOptions}
-                showSearch
-                optionFilterProp="label"
                 allowClear
               />
               <Select

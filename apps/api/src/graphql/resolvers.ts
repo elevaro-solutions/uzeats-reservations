@@ -275,6 +275,7 @@ import {
   pendingFlaggedContentCount,
 } from "../services/supportOps.js";
 import { provisionDefaultRestaurantSetup } from "../services/restaurantSetup.js";
+import { placeNewTable } from "../services/tablePlacement.js";
 import { restaurantInputToDb } from "../lib/restaurantInput.js";
 import {
   requireAuth,
@@ -1425,21 +1426,23 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       if (user.role === 'diner') {
-        throw new Error('Only restaurant managers can view merchant Telegram links');
+        throw new ForbiddenError('Only restaurant managers can view merchant Telegram links');
       }
       const hasVenueAccess =
         isPlatformAdmin(user.role) ||
         user.role === 'restaurant_owner' ||
         (Array.isArray(user.restaurantIds) && user.restaurantIds.length > 0);
       if (!hasVenueAccess) {
-        throw new Error('No restaurant access to view merchant Telegram links');
+        throw new ForbiddenError('No restaurant access to view merchant Telegram links');
       }
-      const { listElevaroTelegramLinks } = await import(
+      const { listElevaroTelegramLinks, ElevaroNotifierUnavailableError } = await import(
         "../services/elevaroNotifier.js"
       );
       const result = await listElevaroTelegramLinks(user._id.toString());
       if (!result) {
-        throw new Error("Elevaro merchant notifier is not configured");
+        throw new ElevaroNotifierUnavailableError(
+          "Telegram notifications are not configured on this server",
+        );
       }
       return result;
     },
@@ -3700,8 +3703,10 @@ export const resolvers = {
         user.role,
       );
       const input = tableInputSchema.parse(args.input);
+      const layout = await placeNewTable(args.restaurantId, input.floorArea, input);
       const doc = await Table.create({
         ...input,
+        ...layout,
         restaurantId: args.restaurantId,
       });
       return mapTable(doc);
@@ -5000,10 +5005,10 @@ export const resolvers = {
       assertCanManageBilling(user.role);
 
       const planDef = await getEffectivePlan(args.plan);
-      if (!planDef) throw new Error(`Invalid plan: ${args.plan}`);
+      if (!planDef) throw new ValidationError(`Invalid plan: ${args.plan}`);
 
       const restaurant = await Restaurant.findById(args.restaurantId);
-      if (!restaurant) throw new Error("Restaurant not found");
+      if (!restaurant) throw new NotFoundError("Restaurant");
 
       const sub = await createRestaurantSubscription({
         restaurantId: args.restaurantId,
@@ -5046,8 +5051,8 @@ export const resolvers = {
       const sub = await Subscription.findOne({
         restaurantId: args.restaurantId,
       });
-      if (!sub) throw new Error("No subscription found");
-      if (sub.status === "cancelled") throw new Error("Already cancelled");
+      if (!sub) throw new NotFoundError("Subscription");
+      if (sub.status === "cancelled") throw new ConflictError("Subscription is already cancelled");
 
       if (sub.stripeSubscriptionId) {
         await cancelStripeSubscription(sub.stripeSubscriptionId);
@@ -5165,37 +5170,32 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       if (user.role === 'diner') {
-        throw new Error('Only restaurant managers can link the merchant Telegram bot');
+        throw new ForbiddenError('Only restaurant managers can link the merchant Telegram bot');
       }
       const hasVenueAccess =
         isPlatformAdmin(user.role) ||
         user.role === 'restaurant_owner' ||
         (Array.isArray(user.restaurantIds) && user.restaurantIds.length > 0);
       if (!hasVenueAccess) {
-        throw new Error('No restaurant access to link the merchant Telegram bot');
+        throw new ForbiddenError('No restaurant access to link the merchant Telegram bot');
       }
       const {
         createElevaroTelegramLink,
-        ElevaroTelegramLinkLimitError,
+        ElevaroNotifierUnavailableError,
       } = await import("../services/elevaroNotifier.js");
-      try {
-        const link = await createElevaroTelegramLink(user._id.toString());
-        if (!link) {
-          throw new Error("Elevaro merchant notifier is not configured");
-        }
-        return {
-          deepLink: link.deepLink,
-          expiresAt:
-            typeof link.expiresAt === 'string'
-              ? link.expiresAt
-              : new Date(link.expiresAt).toISOString(),
-        };
-      } catch (err) {
-        if (err instanceof ElevaroTelegramLinkLimitError) {
-          throw new Error(err.message);
-        }
-        throw err;
+      const link = await createElevaroTelegramLink(user._id.toString());
+      if (!link) {
+        throw new ElevaroNotifierUnavailableError(
+          "Telegram notifications are not configured on this server",
+        );
       }
+      return {
+        deepLink: link.deepLink,
+        expiresAt:
+          typeof link.expiresAt === 'string'
+            ? link.expiresAt
+            : new Date(link.expiresAt).toISOString(),
+      };
     },
 
     markNotificationsRead: async (

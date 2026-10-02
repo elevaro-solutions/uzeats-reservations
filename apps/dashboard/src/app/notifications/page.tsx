@@ -266,9 +266,9 @@ export default function NotificationsSettingsPage() {
         title="Notifications"
         subtitle="Select a team member to configure feature alerts by channel. Owners always receive Telegram Accept/Reject; enable Messenger for managers who should act on bookings."
         extra={
-          <Space wrap>
-            {canLinkTelegram && (
-              <Space orientation="vertical" size={0} style={{ alignItems: 'flex-end' }}>
+          <Space orientation="vertical" size={4} style={{ alignItems: 'flex-end' }}>
+            <Space wrap align="center">
+              {canLinkTelegram && (
                 <Button
                   icon={<SendOutlined />}
                   loading={linkingTelegram}
@@ -279,24 +279,26 @@ export default function NotificationsSettingsPage() {
                     ? 'Connect another Telegram'
                     : 'Connect Telegram bot'}
                 </Button>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  Linked: {telegramLinkCount}/{telegramMaxLinks}
-                  {telegramAtLimit
-                    ? ' — /unlink in Telegram to free a slot'
-                    : ''}
-                </Text>
-              </Space>
+              )}
+              <Select
+                style={{ width: 260 }}
+                value={restaurantId}
+                onChange={setRestaurantId}
+                options={(restData?.myRestaurants ?? []).map((r: { id: string; name: string }) => ({
+                  value: r.id,
+                  label: r.name,
+                }))}
+                placeholder="Select restaurant"
+              />
+            </Space>
+            {canLinkTelegram && (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Telegram linked: {telegramLinkCount}/{telegramMaxLinks}
+                {telegramAtLimit
+                  ? ' — /unlink in Telegram to free a slot'
+                  : ''}
+              </Text>
             )}
-            <Select
-              style={{ width: 260 }}
-              value={restaurantId}
-              onChange={setRestaurantId}
-              options={(restData?.myRestaurants ?? []).map((r: { id: string; name: string }) => ({
-                value: r.id,
-                label: r.name,
-              }))}
-              placeholder="Select restaurant"
-            />
           </Space>
         }
       />

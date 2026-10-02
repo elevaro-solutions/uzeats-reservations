@@ -145,6 +145,9 @@ const STATUS_FILTER_OPTIONS = [
   { value: 'no_show', label: 'No-show' },
 ];
 
+/** Statuses whose slots are almost always in the past, so `upcoming` (slot >= now) hides them. */
+const PAST_LEANING_STATUSES = new Set(['seated', 'completed', 'cancelled', 'no_show']);
+
 const SINGLE_DAY_PERIODS = new Set<DatePeriod>(['today', 'yesterday', 'tomorrow']);
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -850,7 +853,14 @@ function ReservationsPageContent() {
             value={statusFilter}
             style={{ width: 160 }}
             options={STATUS_FILTER_OPTIONS}
-            onChange={(value: string | undefined) => replaceListParams({ status: value })}
+            onChange={(value: string | undefined) => {
+              if (value && period === 'upcoming' && PAST_LEANING_STATUSES.has(value)) {
+                replaceListParams({ status: value, period: 'all' });
+                message.info('Showing all dates — Upcoming only includes future slots');
+                return;
+              }
+              replaceListParams({ status: value });
+            }}
           />
           <ExportMenu
             formats={['xlsx', 'pdf', 'json']}
@@ -865,6 +875,23 @@ function ReservationsPageContent() {
           dataSource={(data?.restaurantReservations?.items ?? []) as ReservationRow[]}
           pagination={tablePagination(data?.restaurantReservations?.total ?? 0)}
           scroll={{ x: allLocations ? 1380 : 1260 }}
+          locale={
+            period === 'upcoming' && statusFilter && PAST_LEANING_STATUSES.has(statusFilter)
+              ? {
+                  emptyText: (
+                    <Space orientation="vertical" size={spacing.xs}>
+                      <Text type="secondary">
+                        No upcoming reservations with this status. Upcoming only shows future
+                        slots.
+                      </Text>
+                      <Button size="small" onClick={() => replaceListParams({ period: 'all' })}>
+                        Show all dates
+                      </Button>
+                    </Space>
+                  ),
+                }
+              : undefined
+          }
           onRow={(r) => ({
             onClick: () => openView(r),
             style: { cursor: 'pointer' },

@@ -297,6 +297,7 @@ function StepCard({
             <Button
               type={step.complete ? 'default' : 'primary'}
               icon={step.complete ? undefined : <ArrowRightOutlined />}
+              iconPlacement="end"
             >
               {step.complete ? 'Review' : 'Continue'}
             </Button>

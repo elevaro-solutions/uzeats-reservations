@@ -19,7 +19,7 @@ import { createContext, type GraphQLContext } from "./graphql/context.js";
 import { graphqlBatchMiddleware } from "./graphql/batchHttp.js";
 import { migrateStaffRoleToManager } from "./services/migrateStaffRoleToManager.js";
 import { initStripeModeFromConfig } from "./services/platformConfig.js";
-import { constructStripeEvent } from "./services/stripe.js";
+import { constructStripeEvent, formatStripeError } from "./services/stripe.js";
 import { confirmDeposit, syncDepositRefundedFromStripe } from "./services/reservations.js";
 import { startNotificationWorkers } from "./services/notifications.js";
 import { ensureDefaultEmailTemplates } from "./services/emailTemplates.js";
@@ -167,6 +167,18 @@ async function main() {
         return {
           message: mongooseError.message,
           extensions: { code: mongooseError.code },
+        };
+      }
+
+      const stripeError = formatStripeError(original);
+      if (stripeError) {
+        logger.warn({ err: original }, "[graphql] stripe error");
+        return {
+          message: stripeError.message,
+          extensions: {
+            code: stripeError.code,
+            ...(stripeError.details ?? {}),
+          },
         };
       }
 

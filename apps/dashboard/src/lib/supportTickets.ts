@@ -7,6 +7,14 @@ import {
   type UserRole,
 } from '@reservations/shared';
 
+export const SUPPORT_ASSIGNEE_ROLES: UserRole[] = [
+  'admin',
+  'account_manager',
+  'manager',
+  'host',
+  'restaurant_owner',
+];
+
 export const STATUS_COLORS: Record<string, string> = {
   open: 'red',
   in_progress: 'gold',
