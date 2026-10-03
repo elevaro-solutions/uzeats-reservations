@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.75.3] — 2026-10-04
+
+### Fixed
+
+- Dashboard floor-plan area settings: annotate fixture/room/area callbacks so Next production typecheck passes
+
 ## [0.75.2] — 2026-10-04
 
 ### Fixed

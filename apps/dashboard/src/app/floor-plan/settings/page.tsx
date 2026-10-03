@@ -158,9 +158,9 @@ export default function FloorPlanAreaSettingsPage() {
     const areas = Array.from(
       new Set([
         ...tables.map((t) => t.floorArea).filter(Boolean),
-        ...fixtures.map((f) => f.floorArea).filter(Boolean),
-        ...rooms.map((r) => r.floorArea).filter(Boolean),
-        ...areaAppearances.map((a) => a.floorArea),
+        ...fixtures.map((f: FloorFixture) => f.floorArea).filter(Boolean),
+        ...rooms.map((r: { floorArea: string }) => r.floorArea).filter(Boolean),
+        ...areaAppearances.map((a: FloorPlanAreaAppearance) => a.floorArea),
       ]),
     );
     const preferred = areaFromUrl && areas.includes(areaFromUrl) ? areaFromUrl : areas[0] || 'Main';
