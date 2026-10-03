@@ -190,6 +190,87 @@ export const registerRestaurantPartnerSchema = z.object({
   plan: z.string().min(1).max(40),
 });
 
+/** Built-in or custom shape key (lowercase slug). */
+export const tableShapeSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^[a-z][a-z0-9_]{0,39}$/, 'Invalid table shape key');
+
+export const floorFixtureKindSchema = z.enum([
+  'bar',
+  'host_stand',
+  'kitchen',
+  'wall',
+  'door',
+  'plant',
+  'other',
+]);
+
+export const floorFixtureSchema = z.object({
+  id: z.string().min(1).max(80),
+  name: z.string().min(1).max(60),
+  kind: floorFixtureKindSchema,
+  floorArea: z.string().max(60).default('Main'),
+  posX: z.number().min(0).max(500),
+  posY: z.number().min(0).max(500),
+  width: z.number().min(0.5).max(48),
+  height: z.number().min(0.5).max(48),
+  rotation: z.number().min(0).max(360).default(0),
+});
+
+export const tablePositionInputSchema = z.object({
+  id: z.string().min(1),
+  posX: z.number().min(0).max(500),
+  posY: z.number().min(0).max(500),
+  width: z.number().min(1).max(24).optional(),
+  height: z.number().min(1).max(24).optional(),
+  shape: tableShapeSchema.optional(),
+  rotation: z.number().min(0).max(360).optional(),
+  combineGroupId: z.string().min(1).max(80).nullable().optional(),
+});
+
+export const floorRoomPointSchema = z.object({
+  x: z.number().min(0).max(500),
+  y: z.number().min(0).max(500),
+});
+
+export const floorRoomSchema = z.object({
+  id: z.string().min(1).max(80),
+  name: z.string().min(1).max(60),
+  floorArea: z.string().max(60).default('Main'),
+  points: z.array(floorRoomPointSchema).min(3).max(40),
+});
+
+export const floorPlanScaleSchema = z.object({
+  unit: z.enum(['ft', 'm']).default('ft'),
+  unitsPerCell: z.number().min(0.25).max(50).default(2),
+});
+
+/** Hex color for the floor-plan canvas (#rgb, #rrggbb, or #rrggbbaa). */
+export const floorPlanBackgroundColorSchema = z
+  .string()
+  .regex(/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/, 'Invalid color')
+  .nullable()
+  .optional();
+
+export const floorPlanAreaAppearanceSchema = z.object({
+  floorArea: z.string().min(1).max(60),
+  backgroundColor: floorPlanBackgroundColorSchema,
+  backgroundUrl: z.string().max(1000).nullable().optional(),
+});
+
+export const floorPlanSaveInputSchema = z.object({
+  backgroundUrl: z.string().max(1000).nullable().optional(),
+  backgroundColor: floorPlanBackgroundColorSchema,
+  /** Per-area canvas color/image overrides (selected floor area). */
+  areaAppearances: z.array(floorPlanAreaAppearanceSchema).max(40).optional(),
+  fixtures: z.array(floorFixtureSchema).max(200).optional(),
+  positions: z.array(tablePositionInputSchema).max(500).optional(),
+  rooms: z.array(floorRoomSchema).max(40).optional(),
+  scale: floorPlanScaleSchema.nullable().optional(),
+});
+
 export const tableInputSchema = z.object({
   name: z.string().min(1).max(40),
   minCapacity: z.number().int().min(1).max(50),
@@ -204,8 +285,9 @@ export const tableInputSchema = z.object({
   posY: z.number().min(0).max(500).optional(),
   width: z.number().min(1).max(24).optional(),
   height: z.number().min(1).max(24).optional(),
-  shape: z.enum(['rect', 'round']).optional(),
+  shape: tableShapeSchema.optional(),
   rotation: z.number().min(0).max(360).optional(),
+  combineGroupId: z.string().min(1).max(80).nullable().optional(),
 });
 
 export const shiftInputSchema = z.object({
@@ -532,6 +614,11 @@ export type RegisterRestaurantPartnerInput = z.infer<
   typeof registerRestaurantPartnerSchema
 >;
 export type TableInput = z.infer<typeof tableInputSchema>;
+export type FloorFixtureInput = z.infer<typeof floorFixtureSchema>;
+export type FloorRoomInput = z.infer<typeof floorRoomSchema>;
+export type FloorPlanScaleInput = z.infer<typeof floorPlanScaleSchema>;
+export type FloorPlanSaveInput = z.infer<typeof floorPlanSaveInputSchema>;
+export type TablePositionInput = z.infer<typeof tablePositionInputSchema>;
 export type ShiftInput = z.infer<typeof shiftInputSchema>;
 export type ReservationInput = z.infer<typeof reservationInputSchema>;
 export type RestaurantPackageInput = z.infer<

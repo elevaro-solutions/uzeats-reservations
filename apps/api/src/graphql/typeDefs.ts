@@ -326,6 +326,18 @@ export const typeDefs = `#graphql
     faq: [RestaurantFaqItem!]!
     featuredIn: [RestaurantFeaturedInItem!]!
     termsAndConditions: String
+    """Optional underlay image for the table layout editor / live floor (legacy default)."""
+    floorPlanBackgroundUrl: String
+    """Optional solid canvas color behind the grid (hex; legacy default)."""
+    floorPlanBackgroundColor: String
+    """Per-floor-area canvas color / underlay image."""
+    floorPlanAreaAppearances: [FloorPlanAreaAppearance!]!
+    floorFixtures: [FloorFixture!]!
+    floorRooms: [FloorRoom!]!
+    floorPlanScale: FloorPlanScale
+    """Unpublished layout edits; null when the live plan is current."""
+    floorPlanDraft: FloorPlanDraft
+    floorPlanPublishedAt: DateTime
     subscription: SubscriptionType
     tables: [Table!]!
     shifts: [Shift!]!
@@ -394,6 +406,63 @@ export const typeDefs = `#graphql
     showReviews: Boolean
   }
 
+  type FloorFixture {
+    id: ID!
+    name: String!
+    kind: String!
+    floorArea: String!
+    posX: Float!
+    posY: Float!
+    width: Float!
+    height: Float!
+    rotation: Float!
+  }
+
+  type FloorRoomPoint {
+    x: Float!
+    y: Float!
+  }
+
+  type FloorRoom {
+    id: ID!
+    name: String!
+    floorArea: String!
+    points: [FloorRoomPoint!]!
+  }
+
+  type FloorPlanScale {
+    unit: String!
+    unitsPerCell: Float!
+  }
+
+  type FloorPlanDraftPosition {
+    id: ID!
+    posX: Float!
+    posY: Float!
+    width: Float
+    height: Float
+    shape: String
+    rotation: Float
+    combineGroupId: String
+  }
+
+  type FloorPlanAreaAppearance {
+    floorArea: String!
+    backgroundColor: String
+    backgroundUrl: String
+  }
+
+  type FloorPlanDraft {
+    updatedAt: DateTime!
+    backgroundUrl: String
+    backgroundColor: String
+    areaAppearances: [FloorPlanAreaAppearance!]!
+    fixtures: [FloorFixture!]!
+    positions: [FloorPlanDraftPosition!]!
+    rooms: [FloorRoom!]!
+    scale: FloorPlanScale
+  }
+
   type Table {
     id: ID!
     restaurantId: ID!
@@ -409,6 +478,8 @@ export const typeDefs = `#graphql
     height: Float!
     shape: String!
     rotation: Float!
+    """Shared id when joined with other tables for larger parties."""
+    combineGroupId: String
     photoUrl: String
     requiresManualApproval: Boolean!
   }
@@ -571,6 +642,12 @@ export const typeDefs = `#graphql
     tables: [FloorPlanTableState!]!
     unassigned: [Reservation!]!
     date: String!
+    """Published canvas underlay defaults (live ops uses published layout, not draft)."""
+    backgroundUrl: String
+    backgroundColor: String
+    areaAppearances: [FloorPlanAreaAppearance!]!
+    floorFixtures: [FloorFixture!]!
+    floorPlanScale: FloorPlanScale
   }
 
   """Policy reasons for reporting a review (owners/managers). Opinion disagreement is not valid."""
@@ -1206,6 +1283,43 @@ export const typeDefs = `#graphql
     slug: String
     description: String
     priceCents: Int!
+    active: Boolean
+    sortOrder: Int
+  }
+
+  """Floor-plan table shape catalog (built-in + custom). Managed by superadmin."""
+  type TableShapeDef {
+    id: ID!
+    key: String!
+    label: String!
+    description: String!
+    iconUrl: String
+    """Canvas silhouette: rect, round, booth, banquette, high_top, communal, bar."""
+    renderPreset: String!
+    """Where name/capacity text sits: center/top/bottom/left/right or outside_*."""
+    labelPosition: String!
+    """Font-size multiplier for table labels (0.6–1.8, default 1)."""
+    labelFontScale: Float!
+    active: Boolean!
+    sortOrder: Int!
+    builtin: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
+  }
+
+  type TableShapeDefConnection {
+    items: [TableShapeDef!]!
+    total: Int!
+  }
+
+  input TableShapeDefInput {
+    key: String
+    label: String!
+    description: String
+    iconUrl: String
+    renderPreset: String
+    labelPosition: String
+    labelFontScale: Float
     active: Boolean
     sortOrder: Int
   }
@@ -2174,6 +2288,7 @@ export const typeDefs = `#graphql
     height: Float
     shape: String
     rotation: Float
+    combineGroupId: String
     photoUrl: String
     requiresManualApproval: Boolean
   }
@@ -2186,6 +2301,52 @@ export const typeDefs = `#graphql
     height: Float
     shape: String
     rotation: Float
+    combineGroupId: String
+  }
+
+  input FloorFixtureInput {
+    id: ID!
+    name: String!
+    kind: String!
+    floorArea: String
+    posX: Float!
+    posY: Float!
+    width: Float!
+    height: Float!
+    rotation: Float
+  }
+
+  input FloorRoomPointInput {
+    x: Float!
+    y: Float!
+  }
+
+  input FloorRoomInput {
+    id: ID!
+    name: String!
+    floorArea: String
+    points: [FloorRoomPointInput!]!
+  }
+
+  input FloorPlanScaleInput {
+    unit: String!
+    unitsPerCell: Float!
+  }
+
+  input FloorPlanAreaAppearanceInput {
+    floorArea: String!
+    backgroundColor: String
+    backgroundUrl: String
+  }
+
+  input FloorPlanSaveInput {
+    backgroundUrl: String
+    backgroundColor: String
+    areaAppearances: [FloorPlanAreaAppearanceInput!]
+    fixtures: [FloorFixtureInput!]
+    positions: [TablePositionInput!]
+    rooms: [FloorRoomInput!]
+    scale: FloorPlanScaleInput
   }
 
   input ShiftInput {
@@ -2951,6 +3112,10 @@ export const typeDefs = `#graphql
     emailDeliveryConfigured: Boolean!
     adminPlatformServices(active: Boolean, search: String, limit: Int, offset: Int): PlatformServiceConnection!
     platformServices(active: Boolean): [PlatformService!]!
+    """Active table shapes for floor-plan pickers (partners + admins)."""
+    tableShapes(active: Boolean): [TableShapeDef!]!
+    """Superadmin catalog of all table shapes."""
+    adminTableShapes(active: Boolean, search: String, limit: Int, offset: Int): TableShapeDefConnection!
     adminRevenueReport(period: String): PlatformRevenueReport!
     platformConfig: PlatformConfig!
     developerInfo: DeveloperInfo!
@@ -3187,6 +3352,9 @@ export const typeDefs = `#graphql
     createPlatformService(input: PlatformServiceInput!): PlatformService!
     updatePlatformService(id: ID!, input: PlatformServiceInput!): PlatformService!
     deletePlatformService(id: ID!): Boolean!
+    createTableShapeDef(input: TableShapeDefInput!): TableShapeDef!
+    updateTableShapeDef(id: ID!, input: TableShapeDefInput!): TableShapeDef!
+    deleteTableShapeDef(id: ID!): Boolean!
     setInvoiceStatus(id: ID!, status: InvoiceStatus!): Invoice!
     setInvoiceStatuses(ids: [ID!]!, status: InvoiceStatus!): BulkInvoiceStatusResult!
     updatePlatformConfig(input: PlatformConfigInput!): PlatformConfig!
@@ -3446,6 +3614,10 @@ export const typeDefs = `#graphql
 
     setFeaturedPlacement(restaurantId: ID!, featured: Boolean!, days: Int): Restaurant!
     updateTablePositions(restaurantId: ID!, positions: [TablePositionInput!]!): [Table!]!
+    """Persist unpublished layout edits (background, fixtures, positions)."""
+    saveFloorPlanDraft(restaurantId: ID!, input: FloorPlanSaveInput!): Restaurant!
+    """Apply layout to live tables/fixtures and clear the draft."""
+    publishFloorPlan(restaurantId: ID!, input: FloorPlanSaveInput!): Restaurant!
     updateRestaurantSettings(
       restaurantId: ID!
       spendAlertThresholdCents: Int

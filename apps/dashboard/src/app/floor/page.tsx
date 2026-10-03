@@ -10,7 +10,6 @@ import {
   Card,
   Checkbox,
   Col,
-  Divider,
   Form,
   Input,
   InputNumber,
@@ -29,6 +28,7 @@ import {
   Typography,
 } from 'antd';
 import {
+  CheckOutlined,
   ClockCircleOutlined,
   DeleteOutlined,
   EditOutlined,
@@ -37,8 +37,8 @@ import {
 } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
-import PhotoUpload from '@/components/PhotoUpload';
 import { EmptyState, PageHeader, colors, radii, spacing } from '@reservations/ui';
+import { findAreaName, TableFormFields } from '@/components/TableFormFields';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { useUrlTab } from '@/lib/useUrlTab';
@@ -72,6 +72,7 @@ type FloorTable = {
   floorArea?: string;
   combinable?: boolean;
   active?: boolean;
+  shape?: string;
   photoUrl?: string | null;
   requiresManualApproval?: boolean;
 };
@@ -105,98 +106,6 @@ function displayClock(value?: string | null) {
 
 function mutationError(err: unknown, fallback: string) {
   return err instanceof Error ? err.message : fallback;
-}
-
-function normalizeAreaName(value: string) {
-  return value.trim().replace(/\s+/g, ' ');
-}
-
-function findAreaName(name: string, areas: string[]) {
-  const lower = name.toLowerCase();
-  return areas.find((area) => area.toLowerCase() === lower);
-}
-
-type FloorAreaSelectProps = {
-  value?: string;
-  onChange?: (value?: string) => void;
-  areas: string[];
-  onAddArea?: (value: string) => void;
-};
-
-function FloorAreaSelect({ value, onChange, areas, onAddArea }: FloorAreaSelectProps) {
-  const [draft, setDraft] = useState('');
-
-  const options = useMemo(() => {
-    const seen = new Set<string>();
-    const items: { value: string; label: string }[] = [];
-    for (const area of areas) {
-      const key = area.toLowerCase();
-      if (!area || seen.has(key)) continue;
-      seen.add(key);
-      items.push({ value: area, label: area });
-    }
-    if (value && !seen.has(value.toLowerCase())) {
-      items.unshift({ value, label: value });
-    }
-    return items.sort((a, b) => a.label.localeCompare(b.label));
-  }, [areas, value]);
-
-  const addArea = () => {
-    const next = normalizeAreaName(draft);
-    if (!next) return;
-    const existing = findAreaName(next, options.map((item) => item.value));
-    const selected = existing ?? next;
-    if (!existing) onAddArea?.(selected);
-    onChange?.(selected);
-    setDraft('');
-  };
-
-  return (
-    <Select
-      showSearch
-      allowClear
-      value={value}
-      onChange={(next) => onChange?.(next)}
-      options={options}
-      placeholder="Select or add an area"
-      optionFilterProp="label"
-      popupRender={(menu) => (
-        <>
-          {menu}
-          <Divider style={{ margin: '8px 0' }} />
-          <Space
-            style={{ padding: '0 8px 8px', width: '100%' }}
-            orientation="vertical"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <Input
-              placeholder="New area name"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onMouseDown={(e) => e.stopPropagation()}
-              onKeyDown={(e) => {
-                e.stopPropagation();
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  addArea();
-                }
-              }}
-              maxLength={40}
-            />
-            <Button
-              type="text"
-              icon={<PlusOutlined />}
-              onClick={addArea}
-              disabled={!normalizeAreaName(draft)}
-              block
-            >
-              Add “{normalizeAreaName(draft) || '…'}”
-            </Button>
-          </Space>
-        </>
-      )}
-    />
-  );
 }
 
 function FloorPageContent() {
@@ -262,6 +171,7 @@ function FloorPageContent() {
       minCapacity: 2,
       maxCapacity: 4,
       floorArea: 'Main',
+      shape: 'rect',
       combinable: false,
       active: true,
       requiresManualApproval: false,
@@ -278,6 +188,7 @@ function FloorPageContent() {
       minCapacity: table.minCapacity,
       maxCapacity: table.maxCapacity,
       floorArea: table.floorArea ?? 'Main',
+      shape: table.shape || 'rect',
       combinable: table.combinable ?? false,
       active: table.active ?? true,
       requiresManualApproval: table.requiresManualApproval ?? false,
@@ -334,6 +245,7 @@ function FloorPageContent() {
     minCapacity: number;
     maxCapacity: number;
     floorArea?: string;
+    shape?: string;
     combinable?: boolean;
     active?: boolean;
     requiresManualApproval?: boolean;
@@ -345,6 +257,7 @@ function FloorPageContent() {
       minCapacity: values.minCapacity,
       maxCapacity: values.maxCapacity,
       floorArea: values.floorArea?.trim() || 'Main',
+      shape: values.shape || 'rect',
       combinable: values.combinable ?? false,
       active: values.active ?? true,
       requiresManualApproval: values.requiresManualApproval ?? false,
@@ -685,17 +598,49 @@ function FloorPageContent() {
       </Space>
 
       <Modal
-        title={editingTable ? 'Edit table' : 'Add table'}
+        title={
+          <span className="rt-table-modal__title">
+            {editingTable ? (
+              <EditOutlined className="rt-table-modal__title-icon" aria-hidden />
+            ) : (
+              <TableOutlined className="rt-table-modal__title-icon" aria-hidden />
+            )}
+            <span>{editingTable ? 'Edit table' : 'Add table'}</span>
+          </span>
+        }
         open={tableModalOpen}
         onCancel={closeTableModal}
-        onOk={() => tableForm.submit()}
         confirmLoading={creatingTable || updatingTable}
-        okText={editingTable ? 'Save table' : 'Add table'}
-        okButtonProps={{ disabled: !tableDirty.dirty }}
         centered
         width={520}
+        wrapClassName="rt-mobile-modal rt-table-modal"
+        destroyOnHidden
         focusable={{ trap: false }}
-        styles={{ body: { maxHeight: 'min(70vh, 560px)', overflowY: 'auto' } }}
+        maskClosable={!tableDirty.dirty}
+        footer={
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              width: '100%',
+              flexWrap: 'wrap',
+            }}
+          >
+            <Button onClick={closeTableModal}>Cancel</Button>
+            <Button
+              type="primary"
+              icon={<CheckOutlined />}
+              loading={creatingTable || updatingTable}
+              disabled={!tableDirty.dirty}
+              onClick={() => tableForm.submit()}
+            >
+              {editingTable ? 'Save table' : 'Add table'}
+            </Button>
+          </div>
+        }
+        styles={{ body: { maxHeight: 'min(70vh, 560px)', overflowY: 'auto', overflowX: 'hidden' } }}
       >
         <Form
           form={tableForm}
@@ -703,89 +648,16 @@ function FloorPageContent() {
           requiredMark={false}
           onValuesChange={tableDirty.onValuesChange}
           onFinish={(values) => void handleTableSubmit(values)}
-          style={{ marginTop: 8 }}
+          style={{ marginBottom: 0 }}
         >
-          <Form.Item
-            name="name"
-            label="Table name"
-            rules={[{ required: true, message: 'Enter a table name' }]}
-          >
-            <Input placeholder="e.g. T1, Window 4, Banquette" maxLength={40} />
-          </Form.Item>
-          <Row gutter={[16, 16]}>
-            <Col span={12}>
-              <Form.Item
-                name="minCapacity"
-                label="Min guests"
-                rules={[{ required: true, message: 'Enter min guests' }]}
-              >
-                <InputNumber min={1} max={50} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="maxCapacity"
-                label="Max guests"
-                dependencies={['minCapacity']}
-                rules={[
-                  { required: true, message: 'Enter max guests' },
-                  ({ getFieldValue }) => ({
-                    validator(_, value) {
-                      const min = getFieldValue('minCapacity');
-                      if (value != null && min != null && value < min) {
-                        return Promise.reject(new Error('Max must be at least min'));
-                      }
-                      return Promise.resolve();
-                    },
-                  }),
-                ]}
-              >
-                <InputNumber min={1} max={50} style={{ width: '100%' }} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item
-            name="floorArea"
-            label="Floor area"
-            extra="Used to group tables on the floor plan and in diner booking."
-          >
-            <FloorAreaSelect
-              areas={floorAreas}
-              onAddArea={(area) => {
-                setCustomFloorAreas((prev) =>
-                  findAreaName(area, prev) ? prev : [...prev, area],
-                );
-              }}
-            />
-          </Form.Item>
-          <Row gutter={[16, 16]}>
-            <Col span={12}>
-              <Form.Item
-                name="combinable"
-                label="Combinable"
-                valuePropName="checked"
-                extra="Join with nearby tables for larger parties"
-              >
-                <Switch />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="active" label="Active" valuePropName="checked">
-                <Switch />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item
-            name="requiresManualApproval"
-            label="Require manual approval"
-            valuePropName="checked"
-            extra="Bookings assigned to this table stay pending until staff confirms"
-          >
-            <Switch />
-          </Form.Item>
-          <Form.Item name="photoUrl" label="Photo" extra="Optional. Shown on the diner restaurant page.">
-            <PhotoUpload maxCount={1} />
-          </Form.Item>
+          <TableFormFields
+            floorAreas={floorAreas}
+            onAddArea={(area) => {
+              setCustomFloorAreas((prev) =>
+                findAreaName(area, prev) ? prev : [...prev, area],
+              );
+            }}
+          />
         </Form>
       </Modal>
 

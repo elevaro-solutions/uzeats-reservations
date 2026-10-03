@@ -5,6 +5,7 @@ import {
   phoneOtpVerifySchema,
   restaurantInputSchema,
   tableInputSchema,
+  floorPlanSaveInputSchema,
   shiftInputSchema,
   reservationInputSchema,
   ownerReservationInputSchema,
@@ -326,6 +327,9 @@ import {
   mapAuditLog,
   refId,
   mapMenu,
+  mapFloorFixture,
+  mapFloorPlanAreaAppearances,
+  mapFloorPlanScale,
   slugify,
 } from "./mappers.js";
 import {
@@ -389,6 +393,12 @@ import {
   listPlatformServices,
   updatePlatformService,
 } from "../services/platformServices.js";
+import {
+  createTableShapeDef,
+  deleteTableShapeDef,
+  listTableShapes,
+  updateTableShapeDef,
+} from "../services/tableShapes.js";
 import {
   adminOpsMutation,
   adminOpsQuery,
@@ -1067,6 +1077,11 @@ export const resolvers = {
           turnMinutesRemaining: state.turnMinutesRemaining,
         })),
         unassigned: ops.unassigned.map((r) => mapReservation(r)),
+        backgroundUrl: ops.backgroundUrl,
+        backgroundColor: ops.backgroundColor,
+        areaAppearances: mapFloorPlanAreaAppearances(ops.areaAppearances),
+        floorFixtures: (ops.floorFixtures ?? []).map(mapFloorFixture),
+        floorPlanScale: mapFloorPlanScale(ops.floorPlanScale),
       };
     },
 
@@ -2162,6 +2177,29 @@ export const resolvers = {
     ) => {
       requireAdmin(ctx);
       return listPlatformServices(args);
+    },
+
+    tableShapes: async (_: unknown, args: { active?: boolean }) => {
+      const result = await listTableShapes({
+        active: args.active ?? true,
+        limit: 200,
+        offset: 0,
+      });
+      return result.items;
+    },
+
+    adminTableShapes: async (
+      _: unknown,
+      args: {
+        active?: boolean | null;
+        search?: string | null;
+        limit?: number;
+        offset?: number;
+      },
+      ctx: GraphQLContext,
+    ) => {
+      requireSuperAdmin(ctx);
+      return listTableShapes(args);
     },
 
     platformServices: async (_: unknown, args: { active?: boolean }) => {
@@ -4665,6 +4703,82 @@ export const resolvers = {
       return true;
     },
 
+    createTableShapeDef: async (
+      _: unknown,
+      args: {
+        input: {
+          key?: string | null;
+          label: string;
+          description?: string | null;
+          iconUrl?: string | null;
+          renderPreset?: string | null;
+          labelPosition?: string | null;
+          labelFontScale?: number | null;
+          active?: boolean | null;
+          sortOrder?: number | null;
+        };
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireSuperAdmin(ctx);
+      const shape = await createTableShapeDef(args.input);
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: "createTableShapeDef",
+        resource: "TableShapeDef",
+        resourceId: shape.id,
+        details: { key: shape.key, label: shape.label },
+      });
+      return shape;
+    },
+
+    updateTableShapeDef: async (
+      _: unknown,
+      args: {
+        id: string;
+        input: {
+          key?: string | null;
+          label: string;
+          description?: string | null;
+          iconUrl?: string | null;
+          renderPreset?: string | null;
+          labelPosition?: string | null;
+          labelFontScale?: number | null;
+          active?: boolean | null;
+          sortOrder?: number | null;
+        };
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireSuperAdmin(ctx);
+      const shape = await updateTableShapeDef(args.id, args.input);
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: "updateTableShapeDef",
+        resource: "TableShapeDef",
+        resourceId: args.id,
+        details: { key: shape.key },
+      });
+      return shape;
+    },
+
+    deleteTableShapeDef: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireSuperAdmin(ctx);
+      const result = await deleteTableShapeDef(args.id);
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: "deleteTableShapeDef",
+        resource: "TableShapeDef",
+        resourceId: args.id,
+        details: { reassignedTables: result.reassignedTables },
+      });
+      return true;
+    },
+
     setInvoiceStatus: async (
       _: unknown,
       args: { id: string; status: string },
@@ -6890,6 +7004,7 @@ export const resolvers = {
           height?: number;
           shape?: string;
           rotation?: number;
+          combineGroupId?: string | null;
         }>;
       },
       ctx: GraphQLContext,
@@ -6901,23 +7016,61 @@ export const resolvers = {
         user.role,
       );
       await requireFeature(args.restaurantId, "floorPlans");
-      const updated = [];
-      for (const pos of args.positions) {
-        const table = await Table.findOne({
-          _id: pos.id,
-          restaurantId: args.restaurantId,
-        });
-        if (!table) continue;
-        table.posX = pos.posX;
-        table.posY = pos.posY;
-        if (pos.width != null) table.width = pos.width;
-        if (pos.height != null) table.height = pos.height;
-        if (pos.shape) table.shape = pos.shape as any;
-        if (pos.rotation != null) table.rotation = pos.rotation;
-        await table.save();
-        updated.push(mapTable(table));
-      }
-      return updated;
+      const { applyFloorPlanPositions, parseFloorPlanSaveInput } = await import(
+        "../services/floorPlan.js"
+      );
+      const parsed = parseFloorPlanSaveInput({ positions: args.positions });
+      const updated = await applyFloorPlanPositions(
+        args.restaurantId,
+        parsed.positions ?? [],
+      );
+      return updated.map(mapTable);
+    },
+
+    saveFloorPlanDraft: async (
+      _: unknown,
+      args: { restaurantId: string; input: unknown },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      await requireFeature(args.restaurantId, "floorPlans");
+      const input = floorPlanSaveInputSchema.parse(args.input);
+      const { saveFloorPlanDraftDoc } = await import("../services/floorPlan.js");
+      const doc = await saveFloorPlanDraftDoc(args.restaurantId, input);
+      return mapRestaurant(doc);
+    },
+
+    publishFloorPlan: async (
+      _: unknown,
+      args: { restaurantId: string; input: unknown },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      await requireFeature(args.restaurantId, "floorPlans");
+      const input = floorPlanSaveInputSchema.parse(args.input);
+      const { publishFloorPlanDoc } = await import("../services/floorPlan.js");
+      const doc = await publishFloorPlanDoc(args.restaurantId, input);
+      await logAudit({
+        actorId: user._id.toString(),
+        action: "publishFloorPlan",
+        resource: "Restaurant",
+        resourceId: args.restaurantId,
+        details: {
+          fixtureCount: input.fixtures?.length ?? null,
+          positionCount: input.positions?.length ?? null,
+        },
+      });
+      return mapRestaurant(doc);
     },
 
     updateRestaurantSettings: async (

@@ -2,6 +2,11 @@
 
 See also dated entries under `docs/notes/features.md` → `## merchant-mobile (partner app)` and `## merchant-more`.
 
+## [2026-10-03] Floor ops: spatial plan uses layout coords
+
+- Floor Plan mode renders `posX`/`posY`/`width`/`height`/`rotation` from `floorPlanOps` (Cards mode keeps the capacity grid). Empty venues still prompt Partner Hub setup.
+- Why it matters: Layout edits only show on device after Publish on `/floor-plan`, not after Save draft.
+
 ## [2026-10-03] Android mailto/tel: skip Linking.canOpenURL
 
 - `Linking.canOpenURL('mailto:…' | 'tel:…')` returns false on Android 11+ without manifest `<queries>`, even when Gmail/dialer is installed. Reservation detail and inquiry email used that gate and toasted “No mail app…” without ever calling `openURL`.

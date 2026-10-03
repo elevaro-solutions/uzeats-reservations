@@ -10,6 +10,13 @@ export type FloorTableState = {
     minCapacity: number;
     maxCapacity: number;
     floorArea?: string | null;
+    posX?: number | null;
+    posY?: number | null;
+    width?: number | null;
+    height?: number | null;
+    shape?: string | null;
+    rotation?: number | null;
+    combineGroupId?: string | null;
   };
   reservation?: {
     id: string;

@@ -1,5 +1,56 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-03] Floor plan area backgrounds are per floor area
+- `floorPlanAreaAppearances[]` (draft + published) stores per-area `backgroundColor` / `backgroundUrl`. Restaurant-level `floorPlanBackgroundColor` / `Url` remain legacy fallbacks when an area has no entry.
+- `/floor-plan/settings` picks a floor area first; Save below the form drafts that state. Layout editor and Live floor resolve via `resolveFloorAreaAppearance(area, …)`.
+- Why it matters: Changing Patio color must not recolor Main; layout save must keep sending `areaAppearances` so drafts are not wiped.
+
+## [2026-10-03] Mobile nav: one sider, not a duplicate drawer
+- Burger (≤991px) toggles the existing `Sider` via `collapsedWidth={0}` + `rt-dash-sider--mobile-open`. Layout width stays 0 so content is not pushed; CSS expands the fixed overlay. A `rt-dash-sider-mask` button closes on outside tap.
+- Removed the portaled left `Drawer` that re-rendered the same `Menu` items (looked like a second identical sidebar).
+- Why it matters: Don’t add a second Menu copy for mobile — keep one sider and overlay it.
+
+## [2026-10-03] Live floor shows published customized layout
+- `floorPlanOps` returns published `backgroundUrl` / `backgroundColor` / `floorFixtures` / scale. `/floor-ops` keeps per-area grid cards but renders shapes via the same canvas helpers + `useTableShapes` as Table layout.
+- Why it matters: Draft-only layout edits won’t appear on Live floor until Publish; status fill colors stay for seating state.
+
+## [2026-10-03] Floor plan Area settings page
+- Canvas color/image (per area) and scale live at `/floor-plan/settings` (not the layout toolbar). Save draft / Publish send a full snapshot so position drafts are not wiped.
+- Why it matters: Publishing area settings merges current draft tables/fixtures; don’t publish only `{ backgroundColor }` without loading the rest.
+
+## [2026-10-03] Shape label position + font scale
+- `TableShapeDef.labelPosition` / `labelFontScale` drive chip placement and size on `/floor-plan`. Positions include `outside_*` (label sibling of the clipped shape body so it isn’t cut off).
+- Why it matters: Outside labels need `overflow: visible` on the table wrapper; keep icon/overlays in the inner clipped body.
+
+## [2026-10-03] Shape icons: SVG upload + in-table render
+- API uploads allow `image/svg+xml` after `sanitizeSvg` (strips script/foreignObject/on* / javascript:). Raster sniff unchanged; SVG is a separate sniff path.
+- Floor-plan canvas draws `iconUrl` inside each table (behind the label chip). Prefer `<img src>` over inline SVG markup.
+- Why it matters: Don’t re-block SVG globally for photos — only sanitize; keep restaurant gallery accept as raster-friendly `image/*` unless a caller opts into SVG.
+
+## [2026-10-03] Floor plan canvas background color
+- `floorPlanBackgroundColor` (hex) persists on Restaurant + draft; editor Color picker + presets; grid line contrast adapts for dark fills. Underlay image still optional on top.
+- Why it matters: Draft load must prefer draft `backgroundColor`/`backgroundUrl` (including null clears) when `floorPlanDraft.updatedAt` is set — don’t fall back to published values for cleared fields.
+
+## [2026-10-03] Superadmin table shape catalog
+- Shapes live in `TableShapeDef` (seeded builtins). Superadmin CRUD at `/admin/table-shapes` with optional `iconUrl` upload and `renderPreset` for canvas silhouette.
+- Partners load `tableShapes(active: true)` for pickers; uploaded icons replace built-in SVG glyphs. Deleting a shape reassigns tables to `rect` (rect itself cannot be deleted/deactivated).
+- Why it matters: `Table.shape` is a free slug (not a fixed mongoose enum); canvas styling uses `renderPreset`, not the key alone.
+
+## [2026-10-03] Floor plan shapes need glyphs + canvas cues
+- Text-only Shape options look interchangeable; `TableShapeGlyph` / `TABLE_SHAPE_SELECT_OPTIONS` put an SVG beside each label in `/floor-plan` details and `TableFormFields`.
+- Canvas distinction is more than border-radius: `shapeAccent` + `shapeCanvasExtras` add backrest bands, banquette side rail, high-top pedestal, communal dividers, and bar seat dots.
+- Why it matters: Partners pick shapes by silhouette; don’t rely on the capacity subtitle alone.
+
+## [2026-10-03] Floor plan: marquee, rooms, scale, templates, CSV, print
+- Canvas empty-drag marquees tables; Draw room clicks vertices (Enter/Finish ≥3). Scale (`floorPlanScale`) and rooms persist via draft/publish.
+- Templates only rearrange existing tables in the filtered area. CSV matches by table name (update) or creates. Print opens a print-friendly window from current canvas state.
+- Why it matters: Publish still required before merchant mobile Plan view / live ops see layout meta changes from draft.
+
+## [2026-10-03] Table layout: draft vs publish + canvas tooling
+- `/floor-plan` keeps a local history stack and can `saveFloorPlanDraft` (Restaurant.floorPlanDraft) or `publishFloorPlan` (applies positions/fixtures/background, clears draft). Loading prefers draft positions when present.
+- Overlap is warned per floor area (axis-aligned); publish blocks while overlaps remain. Alignment guides snap during drag. Fixtures live on the restaurant doc (not Table).
+- Why it matters: Don’t refetch tables after local create while dirty; draft/publish is the persistence path for layout meta beyond `updateTablePositions`.
+
 ## [2026-10-03] Add table modal: shape was stripped by Zod
 - GraphQL `TableInput` already had `shape`/`rotation`, and the floor-plan UI defaulted new tables to `rect` locally, but shared `tableInputSchema` omitted both fields so `createTable`/`updateTable` Zod-parsed them away. Shape only stuck via `updateTablePositions`.
 - The Add/Edit table form (`TableFormFields` on `/floor` and `/floor-plan`) now collects shape; the schema accepts optional `shape`/`rotation` with **no defaults** (same reason as layout fields: `updateTable` `Object.assign`s the parse result).
@@ -307,7 +358,7 @@
 
 ## [2026-09-21] Page search is role-aware and shares the nav catalog
 - `lib/dashboardNav.tsx` is the source of truth for Partner Hub and admin pages (sidebar + ⌘K search). Pages with `parentSiderHref` stay searchable but out of the sider (hubs: Grow, Insights, Settings tools, admin Billing/Platform).
-- `DashboardSearch` mounts from `DashShell` (header + mobile drawer). Partners can also switch restaurants from the palette. Recent picks live in `localStorage` (`rt-dash-recent-pages`).
+- `DashboardSearch` mounts from `DashShell` (header + mobile sider search). Partners can also switch restaurants from the palette. Recent picks live in `localStorage` (`rt-dash-recent-pages`).
 - Why it matters: Don’t hardcode a second nav list for search — extend `PARTNER_PAGES` / `ADMIN_PAGES` instead.
 
 ## [2026-09-21] Admin reservations is a platform-wide list
@@ -350,7 +401,7 @@
 - Default cell size is `DEFAULT_CELL_SIZE` (40px); Fit still sets `gridCellSize` to `null` and uses `cellSizeForWidth`. Keep initial wrap size in CSS (`width: 100%` + flex fill), not React pixel styles.
 - Why it matters: A small dashed grid on a wide card is almost always this feedback loop, not missing table data.
 
-## [2026-09-18] Mobile nav Drawer must not sit in a Layout flex row
-- Ant Design 6 `Layout` with `has-sider` is `flex-direction: row` and sets direct child `.ant-layout` to `width: 0`. A left `Drawer` as a sibling of `Sider`/`Content` can leave an empty column even when closed. Keep the desktop `Sider` in a `hasSider` row; portal the mobile `Drawer` to `document.body` outside that Layout.
+## [2026-09-18] Mobile nav must not add a second Layout column
+- Ant Design 6 `Layout` with `has-sider` is `flex-direction: row` and sets direct child `.ant-layout` to `width: 0`. Superseded by [2026-10-03] Mobile nav: one sider — no portaled Drawer; overlay the same `Sider`.
 - Partner `/notifications` also skipped the default `.rt-dash-content` `max-width: 1200px` (`margin: 0 auto`) so the page fills the column after the primary nav instead of looking like a second sidebar gap.
 - Why it matters: An empty strip next to the sidebar is usually a Layout child or centered max-width, not a second Menu.

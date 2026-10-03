@@ -11,6 +11,7 @@ import {
   Drawer,
   Dropdown,
   List,
+  Modal,
   Row,
   Space,
   Spin,
@@ -54,6 +55,9 @@ import { ADD_RESTAURANT_HREF, isInactiveRestaurant, restaurantHref } from '@/lib
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 
 const { Text, Paragraph, Title } = Typography;
+
+const ALERTS_PREVIEW_LIMIT = 3;
+const ALERTS_FETCH_LIMIT = 20;
 
 type OwnerLocationRow = {
   restaurantId: string;
@@ -143,6 +147,7 @@ export default function OverviewPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [selectedAlert, setSelectedAlert] = useState<AppNotification | null>(null);
+  const [alertsModalOpen, setAlertsModalOpen] = useState(false);
 
   // Omit date so API uses each location's restaurant-local "today"
   const { data: overviewData, loading: overviewLoading } = useQuery(MY_OWNER_OVERVIEW, {
@@ -155,10 +160,10 @@ export default function OverviewPage() {
   );
   const { data: notifData, refetch: refetchNotifs } = useQuery(MY_NOTIFICATIONS, {
     skip: !user,
-    variables: { limit: 10 },
+    variables: { limit: ALERTS_FETCH_LIMIT },
   });
   const [markRead] = useMutation(MARK_NOTIFICATIONS_READ, {
-    refetchQueries: [{ query: MY_NOTIFICATIONS, variables: { limit: 10 } }],
+    refetchQueries: [{ query: MY_NOTIFICATIONS, variables: { limit: ALERTS_FETCH_LIMIT } }],
   });
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];

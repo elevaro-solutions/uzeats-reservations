@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.75.0] — 2026-10-03
+
+### Added
+
+- Floor plan follow-ups: drag-marquee multi-select, room polygons, real-world scale (ft/m per cell), layout templates, CSV import/export, and Print layout
+- Partner Hub table layout builder: undo/redo, multi-select, alignment guides, overlap warnings, in-canvas edit (name/capacity/area/active), duplicate/delete, richer shapes (booth/banquette/high-top/communal/bar), background underlay, non-bookable fixtures, visual combine groups, and draft vs publish (`saveFloorPlanDraft` / `publishFloorPlan`)
+- Merchant mobile Floor: spatial plan view (pos/size/rotation) with Plan/Cards toggle
+- Superadmin **Table shapes** catalog (`/admin/table-shapes`): add/edit/delete shapes, upload preview icons, choose canvas silhouette preset; partners see active shapes (with icons) in floor-plan and table forms
+- Floor plan canvas **background color** picker (presets + custom hex), saved with draft/publish alongside the optional underlay image
+
+### Changed
+
+- Floor plan Shape picker shows SVG previews (booth backrest, banquette curve, high-top pedestal, communal segments, bar rail); canvas tables use distinct silhouettes and overlays so shapes are readable at a glance
+- Partner Hub `/floor-plan/settings`: background color and image are per selected floor area; Save controls sit below the area form (scale stays venue-wide)
+- Partner Hub mobile nav: burger toggles the same left sidebar as an overlay (with dimmed mask) instead of opening a second drawer that duplicated the menu
+- Floor-plan Shape pickers load the live shape catalog; uploaded icons (SVG/PNG) replace built-in glyphs and are drawn inside tables on the canvas
+- Uploads accept sanitized SVG (`image/svg+xml`) for shape icons; scripts/event handlers are stripped server-side
+- Superadmin table shapes: live preview plus configurable label **position** (inside or outside the shape) and **font size** applied on the floor plan
+- Partner Hub **Area settings** (`/floor-plan/settings`): canvas color, background image, and real-world scale (ft/m) moved off the table-layout toolbar
+- Live floor (`/floor-ops`) uses the published customized layout: shape silhouettes/icons, label placement, background color/image, and fixtures — still one grid card per floor area
+
+### Docs
+
+- Floor plan builder / table shapes notes (`docs/notes/dashboard.md`, merchant-mobile); QA plan for v0.74.0
+
 ## [0.74.0] — 2026-10-03
 
 ### Added

@@ -89,6 +89,33 @@ EOF
 3. If push fails due to upstream divergence, run `git pull --rebase origin <branch>` then push again.
 4. Report success with the branch name and commit hash.
 
+## Step 7: QA changelog summary (required)
+
+After a successful push, **always** paste a changelog-style summary in the chat for the QA team to copy. Do not skip this step. Do not only link to `CHANGELOG.md`.
+
+Use this format (omit empty sections):
+
+```markdown
+## [VERSION] — YYYY-MM-DD
+
+### Added
+- …
+
+### Changed
+- …
+
+### Fixed
+- …
+```
+
+Rules for the QA summary:
+
+- Base it on the version entry just released (the one written in Step 2).
+- Prefer clear, testable, user-facing wording (what to try / what should happen).
+- Keep bullets concise; drop internal-only notes (file paths, helper names, Docs section) unless QA needs them.
+- Lead the reply with branch + commit hash + version, then the full changelog block.
+- If the push only included a tiny fix, still show Added/Changed/Fixed as applicable — even a short Fixed list is required.
+
 ## Rules
 
 - NEVER force push
@@ -97,3 +124,4 @@ EOF
 - If there are merge conflicts, stop and ask the user for guidance
 - Keep commit messages meaningful — summarize the overall intent, not individual file changes
 - Date format in CHANGELOG: `YYYY-MM-DD`
+- After every successful push, always show the Step 7 QA changelog summary in chat

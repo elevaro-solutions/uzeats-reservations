@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { sniffAllowedImageContentType } from '../services/spaces.js';
+import {
+  sanitizeSvg,
+  sniffAllowedImageContentType,
+  sniffSvgContentType,
+} from '../services/spaces.js';
 import { hostAllowed, isPrivateIpAddress } from '../lib/safeRemoteImage.js';
 import { sanitizeBlogHtml, sanitizeSupportHtml } from '@reservations/shared';
 
@@ -53,6 +57,24 @@ describe('sniffAllowedImageContentType', () => {
       null,
     );
     expect(sniffAllowedImageContentType(Buffer.from('<html><script>alert(1)</script>'))).toBe(null);
+  });
+});
+
+describe('sniffSvgContentType + sanitizeSvg', () => {
+  it('detects svg and rejects html shells', () => {
+    expect(
+      sniffSvgContentType(Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><circle/></svg>')),
+    ).toBe('image/svg+xml');
+    expect(sniffSvgContentType(Buffer.from('<html><svg></svg></html>'))).toBe(null);
+  });
+
+  it('strips script and event handlers', () => {
+    const dirty =
+      '<svg xmlns="http://www.w3.org/2000/svg" onclick="alert(1)"><script>alert(1)</script><circle r="4"/></svg>';
+    const clean = sanitizeSvg(dirty);
+    expect(clean).toContain('<circle');
+    expect(clean).not.toMatch(/script/i);
+    expect(clean).not.toMatch(/onclick/i);
   });
 });
 

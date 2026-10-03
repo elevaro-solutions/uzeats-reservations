@@ -370,7 +370,8 @@ export const RESTAURANT_WAITLIST = gql`
 export const CREATE_TABLE = gql`
   mutation CreateTable($restaurantId: ID!, $input: TableInput!) {
     createTable(restaurantId: $restaurantId, input: $input) {
-      id name posX posY width height shape
+      id name minCapacity maxCapacity floorArea active combinable
+      posX posY width height shape rotation combineGroupId photoUrl requiresManualApproval
     }
   }
 `;
@@ -2344,6 +2345,88 @@ export const DELETE_PLATFORM_SERVICE = gql`
   }
 `;
 
+export const TABLE_SHAPES_QUERY = gql`
+  query TableShapes($active: Boolean) {
+    tableShapes(active: $active) {
+      id
+      key
+      label
+      description
+      iconUrl
+      renderPreset
+      labelPosition
+      labelFontScale
+      active
+      sortOrder
+      builtin
+    }
+  }
+`;
+
+export const ADMIN_TABLE_SHAPES = gql`
+  query AdminTableShapes($active: Boolean, $search: String, $limit: Int, $offset: Int) {
+    adminTableShapes(active: $active, search: $search, limit: $limit, offset: $offset) {
+      total
+      items {
+        id
+        key
+        label
+        description
+        iconUrl
+        renderPreset
+        labelPosition
+        labelFontScale
+        active
+        sortOrder
+        builtin
+        updatedAt
+      }
+    }
+  }
+`;
+
+export const CREATE_TABLE_SHAPE_DEF = gql`
+  mutation CreateTableShapeDef($input: TableShapeDefInput!) {
+    createTableShapeDef(input: $input) {
+      id
+      key
+      label
+      description
+      iconUrl
+      renderPreset
+      labelPosition
+      labelFontScale
+      active
+      sortOrder
+      builtin
+    }
+  }
+`;
+
+export const UPDATE_TABLE_SHAPE_DEF = gql`
+  mutation UpdateTableShapeDef($id: ID!, $input: TableShapeDefInput!) {
+    updateTableShapeDef(id: $id, input: $input) {
+      id
+      key
+      label
+      description
+      iconUrl
+      renderPreset
+      labelPosition
+      labelFontScale
+      active
+      sortOrder
+      builtin
+    }
+  }
+`;
+
+export const DELETE_TABLE_SHAPE_DEF = gql`
+  mutation DeleteTableShapeDef($id: ID!) {
+    deleteTableShapeDef(id: $id)
+  }
+`;
+
 export const SET_INVOICE_STATUS = gql`
   mutation SetInvoiceStatus($id: ID!, $status: InvoiceStatus!) {
     setInvoiceStatus(id: $id, status: $status) {
@@ -2810,7 +2893,9 @@ export const DELETE_BLACKOUT = gql`
 export const UPDATE_TABLE = gql`
   mutation UpdateTable($id: ID!, $input: TableInput!) {
     updateTable(id: $id, input: $input) {
-      id name minCapacity maxCapacity floorArea active combinable requiresManualApproval shape
+      id name minCapacity maxCapacity floorArea active combinable
+      requiresManualApproval shape rotation combineGroupId photoUrl
+      posX posY width height
     }
   }
 `;
@@ -3828,7 +3913,61 @@ export const UPDATE_RESTAURANT_SETTINGS = gql`
 export const UPDATE_TABLE_POSITIONS = gql`
   mutation UpdateTablePositions($restaurantId: ID!, $positions: [TablePositionInput!]!) {
     updateTablePositions(restaurantId: $restaurantId, positions: $positions) {
-      id posX posY width height shape rotation
+      id posX posY width height shape rotation combineGroupId
+    }
+  }
+`;
+
+export const SAVE_FLOOR_PLAN_DRAFT = gql`
+  mutation SaveFloorPlanDraft($restaurantId: ID!, $input: FloorPlanSaveInput!) {
+    saveFloorPlanDraft(restaurantId: $restaurantId, input: $input) {
+      id
+      floorPlanBackgroundUrl
+      floorPlanBackgroundColor
+      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl }
+      floorPlanPublishedAt
+      floorPlanScale { unit unitsPerCell }
+      floorFixtures { id name kind floorArea posX posY width height rotation }
+      floorRooms { id name floorArea points { x y } }
+      floorPlanDraft {
+        updatedAt
+        backgroundUrl
+        backgroundColor
+        areaAppearances { floorArea backgroundColor backgroundUrl }
+        scale { unit unitsPerCell }
+        fixtures { id name kind floorArea posX posY width height rotation }
+        rooms { id name floorArea points { x y } }
+        positions { id posX posY width height shape rotation combineGroupId }
+      }
+    }
+  }
+`;
+
+export const PUBLISH_FLOOR_PLAN = gql`
+  mutation PublishFloorPlan($restaurantId: ID!, $input: FloorPlanSaveInput!) {
+    publishFloorPlan(restaurantId: $restaurantId, input: $input) {
+      id
+      floorPlanBackgroundUrl
+      floorPlanBackgroundColor
+      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl }
+      floorPlanPublishedAt
+      floorPlanScale { unit unitsPerCell }
+      floorFixtures { id name kind floorArea posX posY width height rotation }
+      floorRooms { id name floorArea points { x y } }
+      floorPlanDraft {
+        updatedAt
+        backgroundUrl
+        backgroundColor
+        areaAppearances { floorArea backgroundColor backgroundUrl }
+        scale { unit unitsPerCell }
+        fixtures { id name kind floorArea posX posY width height rotation }
+        rooms { id name floorArea points { x y } }
+        positions { id posX posY width height shape rotation combineGroupId }
+      }
+      tables {
+        id name minCapacity maxCapacity floorArea active combinable
+        posX posY width height shape rotation combineGroupId photoUrl requiresManualApproval
+      }
     }
   }
 `;
@@ -3837,7 +3976,27 @@ export const FLOOR_PLAN_TABLES = gql`
   query FloorPlanTables($id: ID) {
     restaurant(id: $id) {
       id name
-      tables { id name minCapacity maxCapacity floorArea active posX posY width height shape rotation photoUrl requiresManualApproval }
+      floorPlanBackgroundUrl
+      floorPlanBackgroundColor
+      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl }
+      floorPlanPublishedAt
+      floorPlanScale { unit unitsPerCell }
+      floorFixtures { id name kind floorArea posX posY width height rotation }
+      floorRooms { id name floorArea points { x y } }
+      floorPlanDraft {
+        updatedAt
+        backgroundUrl
+        backgroundColor
+        areaAppearances { floorArea backgroundColor backgroundUrl }
+        scale { unit unitsPerCell }
+        fixtures { id name kind floorArea posX posY width height rotation }
+        rooms { id name floorArea points { x y } }
+        positions { id posX posY width height shape rotation combineGroupId }
+      }
+      tables {
+        id name minCapacity maxCapacity floorArea active combinable
+        posX posY width height shape rotation combineGroupId photoUrl requiresManualApproval
+      }
     }
   }
 `;
@@ -3846,6 +4005,11 @@ export const FLOOR_PLAN_OPS = gql`
   query FloorPlanOps($restaurantId: ID!, $date: String) {
     floorPlanOps(restaurantId: $restaurantId, date: $date) {
       date
+      backgroundUrl
+      backgroundColor
+      areaAppearances { floorArea backgroundColor backgroundUrl }
+      floorPlanScale { unit unitsPerCell }
+      floorFixtures { id name kind floorArea posX posY width height rotation }
       tables {
         status
         seatedMinutes

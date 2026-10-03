@@ -23,6 +23,7 @@ import { constructStripeEvent, formatStripeError } from "./services/stripe.js";
 import { confirmDeposit, syncDepositRefundedFromStripe } from "./services/reservations.js";
 import { startNotificationWorkers } from "./services/notifications.js";
 import { ensureDefaultEmailTemplates } from "./services/emailTemplates.js";
+import { ensureDefaultTableShapes } from "./services/tableShapes.js";
 import { startCampaignWorker } from "./services/campaigns.js";
 import { startLoyaltyWorker } from "./services/loyaltyExpiry.js";
 import { startBillingWorker } from "./services/billingJobs.js";
@@ -55,6 +56,7 @@ async function main() {
   await connectDb();
   await migrateStaffRoleToManager();
   await ensureDefaultEmailTemplates();
+  await ensureDefaultTableShapes();
   await initStripeModeFromConfig();
   startNotificationWorkers();
   startCampaignWorker();

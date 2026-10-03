@@ -102,6 +102,70 @@ const restaurantSchema = new Schema(
       },
     ],
     termsAndConditions: { type: String, default: '' },
+    /** Optional underlay image for the table layout editor / live floor (legacy default). */
+    floorPlanBackgroundUrl: { type: String },
+    /** Optional solid canvas color behind the grid (hex; legacy default). */
+    floorPlanBackgroundColor: { type: String },
+    /** Per-floor-area canvas color / underlay image. */
+    floorPlanAreaAppearances: [
+      {
+        floorArea: { type: String, required: true },
+        backgroundColor: { type: String },
+        backgroundUrl: { type: String },
+      },
+    ],
+    /** Non-bookable venue objects (bar, walls, host stand, …). */
+    floorFixtures: [
+      {
+        id: { type: String, required: true },
+        name: { type: String, required: true },
+        kind: {
+          type: String,
+          enum: ['bar', 'host_stand', 'kitchen', 'wall', 'door', 'plant', 'other'],
+          required: true,
+        },
+        floorArea: { type: String, default: 'Main' },
+        posX: { type: Number, default: 0 },
+        posY: { type: Number, default: 0 },
+        width: { type: Number, default: 2 },
+        height: { type: Number, default: 1 },
+        rotation: { type: Number, default: 0 },
+      },
+    ],
+    /**
+     * Unpublished layout edits. When set, the table-layout editor prefers this
+     * over live table positions until publishFloorPlan clears it.
+     */
+    floorPlanDraft: {
+      updatedAt: { type: Date },
+      backgroundUrl: { type: String },
+      backgroundColor: { type: String },
+      areaAppearances: { type: Schema.Types.Mixed },
+      fixtures: { type: Schema.Types.Mixed },
+      positions: { type: Schema.Types.Mixed },
+      rooms: { type: Schema.Types.Mixed },
+      scale: { type: Schema.Types.Mixed },
+    },
+    floorPlanPublishedAt: { type: Date },
+    /** Room polygons for the layout editor (grid units). */
+    floorRooms: [
+      {
+        id: { type: String, required: true },
+        name: { type: String, required: true },
+        floorArea: { type: String, default: 'Main' },
+        points: [
+          {
+            x: { type: Number, required: true },
+            y: { type: Number, required: true },
+          },
+        ],
+      },
+    ],
+    /** Real-world scale for one grid cell. */
+    floorPlanScale: {
+      unit: { type: String, enum: ['ft', 'm'], default: 'ft' },
+      unitsPerCell: { type: Number, default: 2, min: 0.25, max: 50 },
+    },
   },
   { timestamps: true },
 );

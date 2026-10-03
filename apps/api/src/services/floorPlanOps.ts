@@ -19,7 +19,11 @@ function overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
 }
 
 export async function getFloorPlanOps(restaurantId: string, date?: string) {
-  const restaurant = await Restaurant.findById(restaurantId).select('address location').lean();
+  const restaurant = await Restaurant.findById(restaurantId)
+    .select(
+      'address location floorPlanBackgroundUrl floorPlanBackgroundColor floorPlanAreaAppearances floorFixtures floorPlanScale',
+    )
+    .lean();
   const timeZone = restaurantTimeZone(restaurant ?? {});
   const opsDate = date ?? todayIsoInTimeZone(timeZone);
   const range = calendarDayRange(opsDate, timeZone);
@@ -109,6 +113,11 @@ export async function getFloorPlanOps(restaurantId: string, date?: string) {
     tables: tableStates,
     unassigned,
     date: opsDate,
+    backgroundUrl: restaurant?.floorPlanBackgroundUrl ?? null,
+    backgroundColor: restaurant?.floorPlanBackgroundColor ?? null,
+    areaAppearances: restaurant?.floorPlanAreaAppearances ?? [],
+    floorFixtures: restaurant?.floorFixtures ?? [],
+    floorPlanScale: restaurant?.floorPlanScale ?? null,
   };
 }
 

@@ -4,13 +4,17 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { env } from '../config/env.js';
 
-/** Browser-safe image types only — reject HTML/SVG/JS that enable stored XSS on the CDN. */
+/**
+ * Browser-safe image types. SVG is allowed only after sanitizeSvg() strips scripts /
+ * event handlers — still prefer rendering via <img>, not inline HTML.
+ */
 export const ALLOWED_UPLOAD_CONTENT_TYPES = new Set([
   'image/jpeg',
   'image/jpg',
   'image/png',
   'image/webp',
   'image/gif',
+  'image/svg+xml',
 ]);
 
 const EXT_BY_TYPE: Record<string, string> = {
@@ -19,6 +23,7 @@ const EXT_BY_TYPE: Record<string, string> = {
   'image/png': 'png',
   'image/webp': 'webp',
   'image/gif': 'gif',
+  'image/svg+xml': 'svg',
 };
 
 /** Local fallback when DO Spaces credentials are missing (dev). */
@@ -27,7 +32,7 @@ export const LOCAL_UPLOAD_DIR = path.resolve(process.cwd(), '.data', 'uploads');
 export function assertAllowedUploadContentType(contentType: string) {
   const normalized = contentType.split(';')[0]?.trim().toLowerCase() ?? '';
   if (!ALLOWED_UPLOAD_CONTENT_TYPES.has(normalized)) {
-    throw new Error('Unsupported file type. Allowed: JPEG, PNG, WebP, GIF');
+    throw new Error('Unsupported file type. Allowed: JPEG, PNG, WebP, GIF, SVG');
   }
   return normalized === 'image/jpg' ? 'image/jpeg' : normalized;
 }
@@ -61,6 +66,37 @@ export function sniffAllowedImageContentType(body: Buffer): string | null {
     return 'image/webp';
   }
   return null;
+}
+
+/** Detect SVG from UTF-8 text (optional XML prologue). Not a raster sniff. */
+export function sniffSvgContentType(body: Buffer): string | null {
+  if (body.length < 4 || body.length > 2 * 1024 * 1024) return null;
+  // Reject if it looks like binary raster (already handled) or HTML shell.
+  const head = body.toString('utf8', 0, Math.min(body.length, 8192)).replace(/^\uFEFF/, '').trimStart();
+  if (/^<!DOCTYPE\s+html/i.test(head) || /^<html[\s>]/i.test(head)) return null;
+  if (/^<\?xml\b/i.test(head) || /^<svg[\s>]/i.test(head) || /^<!DOCTYPE\s+svg/i.test(head)) {
+    if (/<svg[\s>]/i.test(head) || /<svg[\s>]/i.test(body.toString('utf8'))) {
+      return 'image/svg+xml';
+    }
+  }
+  return null;
+}
+
+/**
+ * Strip common XSS vectors from SVG before storing on the CDN.
+ * Safe for <img src> usage; still not intended for untrusted inline HTML.
+ */
+export function sanitizeSvg(svg: string): string {
+  let out = svg.replace(/^\uFEFF/, '');
+  out = out.replace(/<(script|foreignObject|iframe|embed|object|link|meta|base)[\s\S]*?<\/\1>/gi, '');
+  out = out.replace(/<(script|foreignObject|iframe|embed|object|link|meta|base)\b[^>]*\/?>/gi, '');
+  out = out.replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+  out = out.replace(/(href|xlink:href|src)\s*=\s*(['"])\s*javascript:[^'"]*\2/gi, '$1=$2$2');
+  out = out.replace(/<style\b[^>]*>[\s\S]*?@import[\s\S]*?<\/style>/gi, '');
+  if (!/<svg[\s>]/i.test(out)) {
+    throw new Error('Invalid SVG: missing <svg> root');
+  }
+  return out.trim();
 }
 
 function getClient() {
@@ -118,14 +154,22 @@ export async function uploadObject(input: {
   contentType: string;
   body: Buffer;
 }) {
-  const sniffed = sniffAllowedImageContentType(input.body);
-  if (!sniffed) {
-    throw new Error('Unsupported file type. Allowed: JPEG, PNG, WebP, GIF');
+  const sniffedRaster = sniffAllowedImageContentType(input.body);
+  const sniffedSvg = sniffedRaster ? null : sniffSvgContentType(input.body);
+  if (!sniffedRaster && !sniffedSvg) {
+    throw new Error('Unsupported file type. Allowed: JPEG, PNG, WebP, GIF, SVG');
   }
-  const contentType = sniffed;
+
+  let contentType = sniffedRaster ?? sniffedSvg!;
+  let body = input.body;
+  if (sniffedSvg) {
+    body = Buffer.from(sanitizeSvg(body.toString('utf8')), 'utf8');
+    contentType = 'image/svg+xml';
+  }
+
   const client = getClient();
   if (!client) {
-    return saveLocalObject({ key: input.key, body: input.body });
+    return saveLocalObject({ key: input.key, body });
   }
 
   await client.send(
@@ -134,7 +178,9 @@ export async function uploadObject(input: {
       Key: input.key,
       ContentType: contentType,
       ACL: 'public-read',
-      Body: input.body,
+      Body: body,
+      // Discourage treating SVG as an active document when opened directly.
+      ContentDisposition: sniffedSvg ? 'inline' : undefined,
     }),
   );
 

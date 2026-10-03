@@ -14,9 +14,12 @@ const tableSchema = new Schema(
     posY: { type: Number, default: 0 },
     width: { type: Number, default: 2 },
     height: { type: Number, default: 2 },
-    shape: { type: String, enum: ['rect', 'round'], default: 'rect' },
+    /** Shape key from TableShapeDef (built-in or custom). */
+    shape: { type: String, default: 'rect', trim: true, lowercase: true },
     /** Visual rotation in degrees (0–360), applied around the table center. */
     rotation: { type: Number, default: 0 },
+    /** Shared id when this table is visually/joined with others for party seating. */
+    combineGroupId: { type: String, default: null },
     photoUrl: { type: String },
     /** When true, bookings assigned to this table need staff confirmation. */
     requiresManualApproval: { type: Boolean, default: false },
@@ -25,6 +28,7 @@ const tableSchema = new Schema(
 );
 
 tableSchema.index({ restaurantId: 1, name: 1 }, { unique: true });
+tableSchema.index({ restaurantId: 1, combineGroupId: 1 });
 
 export type TableDocument = InferSchemaType<typeof tableSchema> & {
   _id: mongoose.Types.ObjectId;

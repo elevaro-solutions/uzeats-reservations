@@ -1,24 +1,14 @@
+import { floorRectsOverlap, type FloorRectLike } from './floorPlan.js';
+
 /** Floor-plan editor grid, in table grid units. */
 export const FLOOR_PLAN_GRID_COLS = 24;
 export const FLOOR_PLAN_GRID_ROWS = 16;
 export const DEFAULT_TABLE_WIDTH = 2;
 export const DEFAULT_TABLE_HEIGHT = 2;
 
-export type FloorRect = {
-  posX: number;
-  posY: number;
-  width: number;
-  height: number;
-};
+export type FloorRect = FloorRectLike;
 
-export function floorRectsOverlap(a: FloorRect, b: FloorRect): boolean {
-  return (
-    a.posX < b.posX + b.width &&
-    b.posX < a.posX + a.width &&
-    a.posY < b.posY + b.height &&
-    b.posY < a.posY + a.height
-  );
-}
+export { floorRectsOverlap };
 
 /**
  * Top-left-most grid cell where a `width`×`height` table fits without overlapping

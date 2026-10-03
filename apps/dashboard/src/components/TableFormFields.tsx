@@ -15,11 +15,14 @@ import {
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import PhotoUpload from '@/components/PhotoUpload';
+import {
+  TABLE_SHAPE_SELECT_OPTIONS,
+  buildTableShapeSelectOptions,
+} from '@/components/TableShapeGlyph';
+import { useTableShapes } from '@/lib/useTableShapes';
 
-export const TABLE_SHAPE_OPTIONS = [
-  { value: 'rect', label: 'Rectangle' },
-  { value: 'round', label: 'Round' },
-] as const;
+/** Static fallback — prefer `useTableShapes` / live catalog in forms. */
+export const TABLE_SHAPE_OPTIONS = TABLE_SHAPE_SELECT_OPTIONS;
 
 export const tableFormTips = {
   name: 'Label shown on the floor plan and when diners pick a table.',
@@ -137,6 +140,12 @@ export function TableFormFields({
   onAddArea,
   showShape = true,
 }: TableFormFieldsProps) {
+  const { shapes } = useTableShapes();
+  const shapeOptions = useMemo(
+    () => (shapes.length ? buildTableShapeSelectOptions(shapes) : TABLE_SHAPE_OPTIONS),
+    [shapes],
+  );
+
   return (
     <>
       <Form.Item
@@ -203,7 +212,9 @@ export function TableFormFields({
           style={{ marginBottom: 12 }}
         >
           <Select
-            options={TABLE_SHAPE_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+            options={shapeOptions}
+            optionLabelProp="label"
+            popupMatchSelectWidth={240}
             placeholder="Select shape"
           />
         </Form.Item>

@@ -29,13 +29,22 @@ interface PhotoUploadProps {
   /** Shown when there is no uploaded image (e.g. taxonomy stock default). Not saved. */
   placeholderSrc?: string | null;
   alt?: string;
+  /** File input accept attribute (default `image/*`). Use to allow SVG icons. */
+  accept?: string;
+  /** Hint under the upload control (compact / single layouts). */
+  hint?: string;
   /**
    * Restaurant gallery mode: first photo is the large hero, the next two sit beside it.
    * Defaults on when more than one photo is allowed.
    */
   showHeroOrder?: boolean;
-  /** Single-photo mode only: `stacked` puts the preview under the dropzone for narrow panels. */
-  layout?: 'inline' | 'stacked';
+  /**
+   * Single-photo mode only:
+   * - `inline` — dropzone + preview side by side
+   * - `stacked` — preview under the dropzone
+   * - `compact` — square thumb + small upload controls (side panels)
+   */
+  layout?: 'inline' | 'stacked' | 'compact';
 }
 
 function galleryRole(index: number): { label: string; color?: string } {
@@ -58,9 +67,13 @@ export default function PhotoUpload({
   maxCount = 10,
   placeholderSrc,
   alt = 'Photo',
+  accept = 'image/*',
+  hint,
   showHeroOrder,
   layout = 'inline',
 }: PhotoUploadProps) {
+  const uploadHint = hint ?? 'JPG, PNG or WebP — max 5 MB';
+  const compactHint = hint ?? 'JPG/PNG · max 5 MB';
   const [uploading, setUploading] = useState<Record<string, number>>({});
   const [previewUrl, setPreviewUrl] = useState<string>();
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -97,12 +110,18 @@ export default function PhotoUpload({
       return false;
     }
 
+    // Some browsers leave SVG type empty — set it so the API accept list matches.
+    const uploadBlob: Blob =
+      !file.type && /\.svg$/i.test(file.name)
+        ? new File([file], file.name, { type: 'image/svg+xml' })
+        : file;
+
     pendingCountRef.current += 1;
     const uid = file.uid;
     setUploading((prev) => ({ ...prev, [uid]: 0 }));
 
     try {
-      const { publicUrl } = await uploadFile(file, file.name, {
+      const { publicUrl } = await uploadFile(uploadBlob, file.name, {
         onProgress: (pct) => setUploading((prev) => ({ ...prev, [uid]: pct })),
       });
       const next = maxCount === 1 ? [publicUrl] : [...urlsRef.current, publicUrl];
@@ -166,6 +185,98 @@ export default function PhotoUpload({
 
   if (singleMode) {
     const stacked = layout === 'stacked';
+    const compact = layout === 'compact';
+
+    if (compact) {
+      const thumb = 72;
+      return (
+        <div
+          component="PhotoUpload"
+          style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0 }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <div
+              style={{
+                position: 'relative',
+                width: thumb,
+                height: thumb,
+                flex: `0 0 ${thumb}px`,
+                borderRadius: 8,
+                overflow: 'hidden',
+                border: displaySrc ? '1px solid #e8e8e8' : '1px dashed #d9d9d9',
+                background: '#f5f5f5',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {displaySrc ? (
+                <img
+                  src={displaySrc}
+                  alt={alt}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => setPreviewUrl(displaySrc)}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.opacity = '0.4';
+                  }}
+                />
+              ) : (
+                <InboxOutlined style={{ color: '#bfbfbf', fontSize: 18 }} />
+              )}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+              <Upload
+                accept={accept}
+                showUploadList={false}
+                beforeUpload={handleUpload}
+              >
+                <Button size="small">
+                  {customSrc ? 'Replace' : 'Upload'}
+                </Button>
+              </Upload>
+              {displaySrc ? (
+                <Space size={4} wrap>
+                  <Button
+                    size="small"
+                    type="text"
+                    icon={<EyeOutlined />}
+                    onClick={() => setPreviewUrl(displaySrc)}
+                  >
+                    View
+                  </Button>
+                  {customSrc ? (
+                    <Button
+                      size="small"
+                      type="text"
+                      danger
+                      icon={<DeleteOutlined />}
+                      onClick={() => handleRemove(customSrc)}
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
+                </Space>
+              ) : (
+                <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.3 }}>
+                  {compactHint}
+                </Text>
+              )}
+            </div>
+          </div>
+          {activeUploads.map(([uid, pct]) => (
+            <Progress key={uid} percent={pct} size="small" strokeColor={BRAND} />
+          ))}
+          {lightbox}
+        </div>
+      );
+    }
+
     return (
       <div
         component="PhotoUpload"
@@ -176,17 +287,17 @@ export default function PhotoUpload({
             display: 'flex',
             flexDirection: stacked ? 'column' : 'row',
             gap: 12,
-            alignItems: 'stretch',
+            alignItems: stacked ? 'stretch' : 'flex-start',
             minWidth: 0,
             overflowX: 'hidden',
           }}
         >
           <div style={{ flex: stacked ? '0 0 auto' : '1 1 0', minWidth: 0 }}>
             <Dragger
-              accept="image/*"
+              accept={accept}
               showUploadList={false}
               beforeUpload={handleUpload}
-              style={{ width: '100%', height: '100%' }}
+              style={{ width: '100%' }}
             >
               <p className="ant-upload-drag-icon" style={{ marginBottom: 8 }}>
                 <InboxOutlined style={{ color: BRAND, fontSize: 28 }} />
@@ -195,29 +306,28 @@ export default function PhotoUpload({
                 {showingDefault || customSrc ? 'Click or drag to replace' : 'Click or drag to upload'}
               </p>
               <p className="ant-upload-hint" style={{ margin: '4px 0 0' }}>
-                JPG, PNG or WebP — max 5 MB
+                {uploadHint}
               </p>
             </Dragger>
           </div>
 
           <div
             style={{
-              flex: stacked ? '0 0 auto' : '0 0 148px',
-              width: stacked ? '100%' : 148,
+              flex: stacked ? '0 0 auto' : '0 0 120px',
+              width: stacked ? '100%' : 120,
               display: 'flex',
               flexDirection: 'column',
               gap: 8,
               minWidth: 0,
-              alignSelf: 'stretch',
             }}
           >
             <div
               style={{
                 position: 'relative',
-                flex: stacked ? 'none' : 1,
-                minHeight: 96,
-                aspectRatio: stacked ? '16 / 10' : undefined,
-                width: '100%',
+                width: stacked ? '100%' : 120,
+                height: stacked ? undefined : 120,
+                aspectRatio: stacked ? '1 / 1' : '1 / 1',
+                maxWidth: stacked ? 160 : undefined,
                 borderRadius: 10,
                 overflow: 'hidden',
                 border: displaySrc ? '1px solid #e8e8e8' : '1px dashed #d9d9d9',
@@ -298,7 +408,7 @@ export default function PhotoUpload({
     <div component="PhotoUpload">
       {value.length < maxCount && (
         <Dragger
-          accept="image/*"
+          accept={accept}
           multiple
           showUploadList={false}
           beforeUpload={handleUpload}
@@ -309,7 +419,7 @@ export default function PhotoUpload({
           </p>
           <p className="ant-upload-text">Click or drag photos here</p>
           <p className="ant-upload-hint">
-            JPG, PNG or WebP — max 5 MB each — up to {maxCount} photos
+            {hint ?? `JPG, PNG or WebP — max 5 MB each — up to ${maxCount} photos`}
           </p>
         </Dragger>
       )}

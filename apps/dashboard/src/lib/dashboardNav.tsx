@@ -122,6 +122,11 @@ export const PARTNER_PAGES: DashboardPage[] = [
     description: 'Drag tables on the floor canvas for each area',
     parentSiderHref: '/settings',
   }),
+  page('/floor-plan/settings', 'Area settings', 'Service', 'partner', <SettingOutlined />, {
+    keywords: ['background', 'color', 'scale', 'feet', 'meters', 'underlay'],
+    description: 'Canvas color, background image, and real-world scale',
+    parentSiderHref: '/settings',
+  }),
   page('/floor', 'Tables & shifts', 'Service', 'partner', <TableOutlined />, {
     keywords: ['areas', 'capacity', 'schedule'],
     description: 'Areas, table capacity, and shift schedules',
@@ -376,6 +381,12 @@ export const ADMIN_PAGES: DashboardPage[] = [
     keywords: ['history', 'activity'],
     description: 'Admin activity and change history',
     parentSiderHref: '/admin/platform',
+  }),
+  page('/admin/table-shapes', 'Table shapes', 'Platform', 'admin', <LayoutOutlined />, {
+    keywords: ['floor plan', 'booth', 'icons', 'silhouettes'],
+    description: 'Manage floor-plan table shapes and preview icons',
+    parentSiderHref: '/admin/platform',
+    when: 'super_admin',
   }),
   page('/admin/developer', 'Developer', 'Platform', 'admin', <ToolOutlined />, {
     keywords: ['debug', 'tools'],

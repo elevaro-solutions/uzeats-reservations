@@ -1,0 +1,27 @@
+---
+description: After every git push / release, show a QA-facing changelog summary in chat
+alwaysApply: true
+---
+
+# QA changelog after push
+
+Whenever you successfully push a release or deploy commit to GitHub (especially via the git-push skill), end the reply with a **changelog-style summary for the QA team** pasted in the chat.
+
+## Required format
+
+```markdown
+## [VERSION] — YYYY-MM-DD
+
+### Added
+- …
+
+### Changed
+- …
+
+### Fixed
+- …
+```
+
+Omit empty sections. Prefer concise, testable, user-facing bullets. Drop internal-only paths/helper names unless QA needs them.
+
+Lead with branch, commit hash, and version, then the full block. Do not only link to `CHANGELOG.md`.

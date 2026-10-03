@@ -14,6 +14,13 @@ export const FLOOR_PLAN_OPS = gql`
           minCapacity
           maxCapacity
           floorArea
+          posX
+          posY
+          width
+          height
+          shape
+          rotation
+          combineGroupId
         }
         reservation {
           id

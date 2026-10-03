@@ -15,12 +15,12 @@ import {
   Spin,
   Alert,
   message,
-  Drawer,
   Tooltip,
   Divider,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
+  CloseOutlined,
   DollarOutlined,
   SettingOutlined,
   SafetyOutlined,
@@ -108,6 +108,8 @@ const AUTH_SHELL_PATHS = [
   '/verify-email',
   '/accept-invite',
 ];
+/** Matches Ant Design `lg` / `.rt-dash-menu-btn` media query (max-width: 991px). */
+const MOBILE_NAV_MQ = '(max-width: 991px)';
 
 export function DashShell({ children }: { children: React.ReactNode }) {
   const { user, logout, loading: authLoading, isImpersonating, impersonator, endImpersonation } =
@@ -123,6 +125,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   const [restaurantId, setRestaurantId] = useState<string>();
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [isMobileNav, setIsMobileNav] = useState(false);
   const [restaurantSelectOpen, setRestaurantSelectOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const toggleSearch = useCallback(() => setSearchOpen((open) => !open), []);
@@ -242,6 +245,17 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     setRestaurantSelectOpen(false);
     setSearchOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_NAV_MQ);
+    const sync = () => {
+      setIsMobileNav(mq.matches);
+      if (!mq.matches) setMobileNavOpen(false);
+    };
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
 
   const selectedKey = useMemo(() => {
     if (pathname === '/edit' || pathname.startsWith('/edit/')) return '/settings';
@@ -610,14 +624,23 @@ export function DashShell({ children }: { children: React.ReactNode }) {
         />
       )}
       <Layout hasSider>
+      {/* On mobile, Sider stays collapsed in the layout (width 0); --mobile-open expands the fixed overlay. */}
       <Sider
         theme="light"
         width={248}
-        className="rt-dash-sider"
+        collapsedWidth={0}
+        collapsible
+        collapsed={isMobileNav}
+        trigger={null}
+        className={
+          isMobileNav && mobileNavOpen ? 'rt-dash-sider rt-dash-sider--mobile-open' : 'rt-dash-sider'
+        }
         style={{
           borderRight: `1px solid ${colors.bordersubtle}`,
-          position: 'sticky',
+          position: isMobileNav ? 'fixed' : 'sticky',
           top: 0,
+          left: 0,
+          zIndex: isMobileNav ? 1200 : undefined,
           height: '100vh',
           overflow: 'auto',
           background: colors.surface,
@@ -626,10 +649,23 @@ export function DashShell({ children }: { children: React.ReactNode }) {
         <div className="rt-dash-sider__brand">
           <TableveraWordmark iconSize={28} />
         </div>
+        {isMobileNav ? (
+          <div className="rt-dash-sider__search">
+            <DashboardSearchTrigger
+              onClick={() => {
+                setMobileNavOpen(false);
+                setSearchOpen(true);
+              }}
+            />
+          </div>
+        ) : null}
         <Menu
           mode="inline"
           selectedKeys={[selectedKey]}
           items={items}
+          onClick={() => {
+            if (isMobileNav) setMobileNavOpen(false);
+          }}
           style={{ border: 'none', paddingBlock: 8, background: 'transparent' }}
         />
       </Sider>
@@ -642,7 +678,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
               aria-label={mobileNavOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={mobileNavOpen}
               onClick={() => setMobileNavOpen((open) => !open)}
-              icon={<MenuOutlined />}
+              icon={mobileNavOpen ? <CloseOutlined /> : <MenuOutlined />}
             />
             {isAdmin ? (
               <Text type="secondary" className="rt-dash-header__tagline">
@@ -841,33 +877,14 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       </Layout>
       </Layout>
     </Layout>
-      <Drawer
-        placement="left"
-        open={mobileNavOpen}
-        onClose={() => setMobileNavOpen(false)}
-        size={280}
-        zIndex={1200}
-        getContainer={() => document.body}
-        className="rt-dash-nav-drawer"
-        styles={{ body: { padding: 0 } }}
-        title={<TableveraWordmark iconSize={26} />}
-      >
-        <div className="rt-dash-nav-drawer__search">
-          <DashboardSearchTrigger
-            onClick={() => {
-              setMobileNavOpen(false);
-              setSearchOpen(true);
-            }}
-          />
-        </div>
-        <Menu
-          mode="inline"
-          selectedKeys={[selectedKey]}
-          items={items}
+      {isMobileNav && mobileNavOpen ? (
+        <button
+          type="button"
+          className="rt-dash-sider-mask"
+          aria-label="Close menu"
           onClick={() => setMobileNavOpen(false)}
-          style={{ border: 'none', paddingBlock: 8, background: 'transparent' }}
         />
-      </Drawer>
+      ) : null}
       <DashboardSearch
         open={searchOpen}
         onOpenChange={setSearchOpen}

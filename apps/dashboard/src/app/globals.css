@@ -732,13 +732,24 @@ a {
   color: var(--color-text-tertiary);
 }
 
-.rt-dash-nav-drawer__search {
+.rt-dash-sider__search {
   padding: 12px 12px 0;
 }
 
-.rt-dash-nav-drawer__search .rt-dash-search-trigger {
+.rt-dash-sider__search .rt-dash-search-trigger {
   width: 100%;
   max-width: none;
+}
+
+.rt-dash-sider-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 1190;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: rgba(15, 23, 42, 0.45);
+  cursor: pointer;
 }
 
 .rt-dash-search__input-wrap {
@@ -943,9 +954,41 @@ a {
 
 .rt-floor-plan-details.ant-card {
   flex: 0 0 300px;
-  max-width: 360px;
+  max-width: 340px;
   height: 100%;
   overflow: auto;
+}
+
+.rt-floor-plan-details .ant-card-head {
+  min-height: 44px;
+  padding: 0 14px;
+}
+
+.rt-floor-plan-details .ant-card-head-title {
+  font-size: 15px;
+  font-weight: 600;
+  padding: 10px 0;
+}
+
+.rt-floor-plan-details .ant-card-body {
+  padding: 12px 14px 16px;
+}
+
+.rt-floor-plan-details-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.rt-floor-plan-details-section {
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--rt-border, #f0f0f0);
+}
+
+.rt-floor-plan-details-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }
 
 .rt-floor-plan-canvas {
@@ -982,9 +1025,6 @@ a {
   box-sizing: border-box;
 }
 
-.rt-dash-nav-drawer.ant-drawer {
-  position: fixed;
-}
 
 .rt-notifications-page {
   width: 100%;
@@ -1096,12 +1136,37 @@ a {
 }
 
 @media (max-width: 991px) {
+  /* Single sider: layout slot stays 0; burger adds --mobile-open for a fixed overlay */
   .rt-dash-sider.ant-layout-sider {
-    display: none !important;
-    width: 0 !important;
-    min-width: 0 !important;
-    max-width: 0 !important;
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1200;
+    height: 100vh !important;
+    max-height: 100dvh !important;
     flex: 0 0 0 !important;
+  }
+
+  .rt-dash-sider.ant-layout-sider-collapsed:not(.rt-dash-sider--mobile-open) {
+    pointer-events: none;
+    border-right-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .rt-dash-sider.rt-dash-sider--mobile-open.ant-layout-sider {
+    width: 248px !important;
+    max-width: 248px !important;
+    min-width: 248px !important;
+    flex: 0 0 0 !important;
+    pointer-events: auto;
+    overflow: auto !important;
+    border-right: 1px solid var(--color-border-subtle) !important;
+    box-shadow: 8px 0 24px rgba(15, 23, 42, 0.12);
+  }
+
+  .rt-dash-sider.rt-dash-sider--mobile-open .ant-layout-sider-children {
+    width: 248px;
   }
 
   .rt-dash-menu-btn {
@@ -1221,12 +1286,23 @@ a {
 .rt-dash-content .ant-row.rt-stat-grid > .ant-col,
 .rt-stat-grid > .ant-col {
   display: flex;
+  min-width: 0;
+}
+
+/* Stretch card/link children so equal Col spans keep equal card widths */
+.rt-dash-content .ant-row.rt-stat-grid > .ant-col > *,
+.rt-stat-grid > .ant-col > * {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .rt-stat-grid .ant-card,
 .rt-dash-content .rt-stat-grid .ant-card {
   width: 100%;
   height: 100%;
+  min-width: 0;
 }
 
 .rt-dash-content > .ant-spin,

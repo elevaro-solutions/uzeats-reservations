@@ -18,7 +18,13 @@ import {
 } from 'antd';
 import { EditOutlined, ReloadOutlined, RollbackOutlined, RotateRightOutlined } from '@ant-design/icons';
 import { colors } from '@reservations/ui';
-import { formatTimeInTimeZone, formatUsDateTime, restaurantTimeZone } from '@reservations/shared';
+import {
+  formatTimeInTimeZone,
+  formatUsDateTime,
+  resolveFloorAreaAppearance,
+  restaurantTimeZone,
+  type FloorPlanAreaAppearance,
+} from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
@@ -46,10 +52,20 @@ import {
   applyFreeRotation,
   areaGridBounds,
   cellSizeForWidth,
+  floorGridLineColor,
   normalizeRotation,
   pointerAngleDeg,
+  resolveFloorBackgroundColor,
+  shapeAccent,
+  shapeBorderRadius,
+  shapeCanvasExtras,
   tableCenterPx,
 } from '@/lib/floorPlanCanvas';
+import {
+  tableShapeLabelChipStyle,
+  tableShapeLabelFontSizes,
+} from '@/lib/tableShapeLabel';
+import { useTableShapes } from '@/lib/useTableShapes';
 import { skipPollWhenHidden } from '@/lib/pollVisibility';
 
 const { Title, Text } = Typography;
@@ -111,16 +127,42 @@ function formatTimer(minutes: number | null | undefined) {
 type FloorOpsData = {
   tables: TableState[];
   unassigned: NonNullable<TableState['reservation']>[];
+  backgroundUrl: string | null;
+  backgroundColor: string | null;
+  areaAppearances: FloorPlanAreaAppearance[];
+  floorFixtures: FloorFixtureView[];
 };
 
 function snapshotFloorOps(ops: FloorOpsData | null | undefined) {
   if (!ops) return '';
-  return JSON.stringify({ tables: ops.tables, unassigned: ops.unassigned });
+  return JSON.stringify({
+    tables: ops.tables,
+    unassigned: ops.unassigned,
+    backgroundUrl: ops.backgroundUrl,
+    backgroundColor: ops.backgroundColor,
+    areaAppearances: ops.areaAppearances,
+    floorFixtures: ops.floorFixtures,
+  });
 }
+
+type FloorFixtureView = {
+  id: string;
+  name: string;
+  kind: string;
+  floorArea: string;
+  posX: number;
+  posY: number;
+  width: number;
+  height: number;
+  rotation: number;
+};
 
 function FloorAreaCanvas({
   title,
   states,
+  fixtures,
+  backgroundUrl,
+  backgroundColor,
   cellSize: forcedCellSize,
   selectedTableId,
   dragReservationId,
@@ -132,6 +174,9 @@ function FloorAreaCanvas({
 }: {
   title: string;
   states: TableState[];
+  fixtures: FloorFixtureView[];
+  backgroundUrl: string | null;
+  backgroundColor: string | null;
   cellSize: number | null;
   selectedTableId?: string | null;
   dragReservationId: string | null;
@@ -141,6 +186,7 @@ function FloorAreaCanvas({
   onRotateCommit: (tableId: string, rotation: number) => void;
   onEdit: () => void;
 }) {
+  const { labelFor, renderPresetFor, iconUrlFor, labelLayoutFor } = useTableShapes();
   const wrapRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const rotateRef = useRef<{
@@ -153,13 +199,28 @@ function FloorAreaCanvas({
   } | null>(null);
   const cellSizeRef = useRef(DEFAULT_CELL_SIZE);
   const [fittedSize, setFittedSize] = useState(DEFAULT_CELL_SIZE);
+  const areaFixtures = useMemo(
+    () => fixtures.filter((f) => (f.floorArea || 'Main') === title),
+    [fixtures, title],
+  );
   const bounds = useMemo(
-    () => areaGridBounds(states.map((s) => s.table)),
-    [states],
+    () =>
+      areaGridBounds([
+        ...states.map((s) => s.table),
+        ...areaFixtures.map((f) => ({
+          posX: f.posX,
+          posY: f.posY,
+          width: f.width,
+          height: f.height,
+        })),
+      ]),
+    [states, areaFixtures],
   );
   const cellSize = forcedCellSize ?? fittedSize;
   cellSizeRef.current = cellSize;
   const busy = states.filter((s) => s.status !== 'free').length;
+  const canvasBg = resolveFloorBackgroundColor(backgroundColor);
+  const gridLine = floorGridLineColor(backgroundColor);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -266,19 +327,57 @@ function FloorAreaCanvas({
             width: '100%',
             height: bounds.rows * cellSize,
             minHeight: '100%',
-            background: `repeating-linear-gradient(
-              0deg, transparent, transparent ${cellSize - 1}px, ${colors.neutral[100]} ${cellSize - 1}px, ${colors.neutral[100]} ${cellSize}px
-            ),
-            repeating-linear-gradient(
-              90deg, transparent, transparent ${cellSize - 1}px, ${colors.neutral[100]} ${cellSize - 1}px, ${colors.neutral[100]} ${cellSize}px
-            )`,
+            overflow: 'visible',
+            backgroundColor: canvasBg,
+            backgroundImage: (() => {
+              const grid = `linear-gradient(to right, ${gridLine} 1px, transparent 1px), linear-gradient(to bottom, ${gridLine} 1px, transparent 1px)`;
+              return backgroundUrl ? `${grid}, url(${backgroundUrl})` : grid;
+            })(),
+            backgroundSize: backgroundUrl
+              ? `${cellSize}px ${cellSize}px, ${cellSize}px ${cellSize}px, cover`
+              : `${cellSize}px ${cellSize}px`,
+            backgroundPosition: '0 0, 0 0, center',
+            backgroundRepeat: 'repeat, repeat, no-repeat',
           }}
         >
+          {areaFixtures.map((f) => (
+            <div
+              key={f.id}
+              style={{
+                position: 'absolute',
+                left: (f.posX - bounds.minX) * cellSize,
+                top: (f.posY - bounds.minY) * cellSize,
+                width: f.width * cellSize - 4,
+                height: f.height * cellSize - 4,
+                transform: `rotate(${f.rotation ?? 0}deg)`,
+                transformOrigin: 'center center',
+                border: '1px dashed #78716c',
+                background: 'rgba(120,113,108,0.18)',
+                borderRadius: 4,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 10,
+                color: colors.textSecondary,
+                pointerEvents: 'none',
+                zIndex: 1,
+                boxSizing: 'border-box',
+              }}
+            >
+              {f.name}
+            </div>
+          ))}
           {states.map((state) => {
             const t = state.table;
             const bg = STATUS_COLORS[state.status] ?? STATUS_COLORS.free;
             const isTurning = state.status === 'turning';
             const isSelected = t.id === selectedTableId;
+            const renderPreset = renderPresetFor(t.shape);
+            const shapeLabel = labelFor(t.shape);
+            const shapeIconUrl = iconUrlFor(t.shape);
+            const labelLayout = labelLayoutFor(t.shape);
+            const labelFonts = tableShapeLabelFontSizes(cellSize, labelLayout.fontScale);
+            const shapeExtras = shapeCanvasExtras(renderPreset, cellSize);
             return (
               <div
                 key={t.id}
@@ -290,6 +389,8 @@ function FloorAreaCanvas({
                   height: t.height * cellSize - 4,
                   transform: `rotate(${t.rotation ?? 0}deg)`,
                   transformOrigin: 'center center',
+                  zIndex: isSelected ? 5 : 2,
+                  overflow: 'visible',
                 }}
               >
                 <div
@@ -310,13 +411,15 @@ function FloorAreaCanvas({
                     onDropOnTable(t.id);
                   }}
                   style={{
+                    position: 'relative',
                     width: '100%',
                     height: '100%',
                     background: bg,
-                    borderRadius: t.shape === 'round' ? 999 : 6,
+                    borderRadius: shapeBorderRadius(renderPreset),
                     border: isSelected
                       ? `2px solid ${colors.brand[700]}`
                       : '2px solid rgba(255,255,255,0.5)',
+                    boxShadow: shapeAccent(renderPreset),
                     color: '#fff',
                     display: 'flex',
                     flexDirection: 'column',
@@ -326,15 +429,62 @@ function FloorAreaCanvas({
                     fontSize: 11,
                     fontWeight: 600,
                     padding: 4,
+                    overflow: 'hidden',
                     animation: isTurning ? 'floorOpsPulse 1.5s ease-in-out infinite' : undefined,
+                    ...shapeExtras.style,
                   }}
                 >
-                  <span>{t.name}</span>
-                  <span style={{ opacity: 0.85 }}>
+                  {shapeExtras.overlay?.map((style, i) => (
+                    <div key={`ops-shape-${t.id}-${i}`} style={style} />
+                  ))}
+                  {shapeIconUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={shapeIconUrl}
+                      alt=""
+                      draggable={false}
+                      style={{
+                        position: 'absolute',
+                        inset: '12%',
+                        width: '76%',
+                        height: '76%',
+                        objectFit: 'contain',
+                        pointerEvents: 'none',
+                        zIndex: 0,
+                        opacity: 0.85,
+                        filter: 'brightness(1.15)',
+                      }}
+                    />
+                  ) : null}
+                </div>
+                <div
+                  style={{
+                    ...tableShapeLabelChipStyle(labelLayout.position),
+                    background:
+                      labelLayout.position.startsWith('outside_') || shapeIconUrl
+                        ? 'rgba(255,255,255,0.94)'
+                        : 'rgba(0,0,0,0.28)',
+                    color:
+                      labelLayout.position.startsWith('outside_') || shapeIconUrl
+                        ? colors.textPrimary
+                        : '#fff',
+                    boxShadow:
+                      labelLayout.position.startsWith('outside_') || shapeIconUrl
+                        ? '0 0 0 1px rgba(255,255,255,0.7)'
+                        : 'none',
+                  }}
+                >
+                  <span style={{ fontWeight: 600, fontSize: labelFonts.name }}>
+                    {t.name}
+                  </span>
+                  <span style={{ fontSize: labelFonts.meta, opacity: 0.9 }}>
                     {t.minCapacity}-{t.maxCapacity}
+                    {!shapeIconUrl && renderPreset !== 'rect' && renderPreset !== 'round'
+                      ? ` · ${shapeLabel}`
+                      : ''}
                   </span>
                   {state.turnMinutesRemaining != null && state.status !== 'free' && (
-                    <span style={{ fontSize: 10, marginTop: 2 }}>
+                    <span style={{ fontSize: Math.max(8, labelFonts.meta - 1) }}>
                       {formatTimer(state.turnMinutesRemaining)}
                     </span>
                   )}
@@ -386,7 +536,7 @@ function FloorAreaCanvas({
                       justifyContent: 'center',
                       cursor: 'grab',
                       padding: 0,
-                      zIndex: 3,
+                      zIndex: 6,
                     }}
                   >
                     <RotateRightOutlined style={{ fontSize: 11 }} />
@@ -411,7 +561,14 @@ export default function FloorOpsPage() {
   const [dragReservationId, setDragReservationId] = useState<string | null>(null);
   const [gridCellSize, setGridCellSize] = useState<number | null>(DEFAULT_CELL_SIZE);
   const [manualRefreshing, setManualRefreshing] = useState(false);
-  const [ops, setOps] = useState<FloorOpsData>({ tables: [], unassigned: [] });
+  const [ops, setOps] = useState<FloorOpsData>({
+    tables: [],
+    unassigned: [],
+    backgroundUrl: null,
+    backgroundColor: null,
+    areaAppearances: [],
+    floorFixtures: [],
+  });
   const opsSnapshotRef = useRef('');
 
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
@@ -462,13 +619,18 @@ export default function FloorOpsPage() {
   useEffect(() => {
     const next = data?.floorPlanOps as FloorOpsData | undefined;
     if (!next) return;
-    const snapshot = snapshotFloorOps(next);
-    if (snapshot === opsSnapshotRef.current) return;
-    opsSnapshotRef.current = snapshot;
-    setOps({
+    const normalized: FloorOpsData = {
       tables: next.tables ?? [],
       unassigned: next.unassigned ?? [],
-    });
+      backgroundUrl: next.backgroundUrl ?? null,
+      backgroundColor: next.backgroundColor ?? null,
+      areaAppearances: Array.isArray(next.areaAppearances) ? next.areaAppearances : [],
+      floorFixtures: next.floorFixtures ?? [],
+    };
+    const snapshot = snapshotFloorOps(normalized);
+    if (snapshot === opsSnapshotRef.current) return;
+    opsSnapshotRef.current = snapshot;
+    setOps(normalized);
   }, [data]);
 
   const tableStates = ops.tables;
@@ -649,26 +811,35 @@ export default function FloorOpsPage() {
               <Empty description="No tables configured. Add tables in Tables & shifts." />
             </Card>
           ) : (
-            areaPlans.map(([area, states]) => (
-              <FloorAreaCanvas
-                key={area}
-                title={area}
-                states={states}
-                cellSize={gridCellSize}
-                selectedTableId={selectedState?.table.id}
-                dragReservationId={dragReservationId}
-                onSelect={setSelectedState}
-                onDropOnTable={onDropOnTable}
-                onRotateChange={applyTableRotation}
-                onRotateCommit={(tableId, rotation) => void handleRotateTable(tableId, rotation)}
-                onEdit={() => {
-                  const params = new URLSearchParams();
-                  if (activeRestaurantId) params.set('restaurant', activeRestaurantId);
-                  params.set('area', area);
-                  router.push(`/floor-plan?${params.toString()}`);
-                }}
-              />
-            ))
+            areaPlans.map(([area, states]) => {
+              const appearance = resolveFloorAreaAppearance(area, ops.areaAppearances, {
+                backgroundColor: ops.backgroundColor,
+                backgroundUrl: ops.backgroundUrl,
+              });
+              return (
+                <FloorAreaCanvas
+                  key={area}
+                  title={area}
+                  states={states}
+                  fixtures={ops.floorFixtures}
+                  backgroundUrl={appearance.backgroundUrl}
+                  backgroundColor={appearance.backgroundColor}
+                  cellSize={gridCellSize}
+                  selectedTableId={selectedState?.table.id}
+                  dragReservationId={dragReservationId}
+                  onSelect={setSelectedState}
+                  onDropOnTable={onDropOnTable}
+                  onRotateChange={applyTableRotation}
+                  onRotateCommit={(tableId, rotation) => void handleRotateTable(tableId, rotation)}
+                  onEdit={() => {
+                    const params = new URLSearchParams();
+                    if (activeRestaurantId) params.set('restaurant', activeRestaurantId);
+                    params.set('area', area);
+                    router.push(`/floor-plan?${params.toString()}`);
+                  }}
+                />
+              );
+            })
           )}
         </div>
 

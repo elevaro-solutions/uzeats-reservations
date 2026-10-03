@@ -117,7 +117,88 @@ export function mapRestaurant(r: any) {
       }),
     ),
     termsAndConditions: r.termsAndConditions?.trim() || null,
+    floorPlanBackgroundUrl: r.floorPlanBackgroundUrl ?? null,
+    floorPlanBackgroundColor: r.floorPlanBackgroundColor ?? null,
+    floorPlanAreaAppearances: mapFloorPlanAreaAppearances(r.floorPlanAreaAppearances),
+    floorFixtures: (r.floorFixtures ?? []).map(mapFloorFixture),
+    floorRooms: (r.floorRooms ?? []).map(mapFloorRoom),
+    floorPlanScale: mapFloorPlanScale(r.floorPlanScale),
+    floorPlanDraft: r.floorPlanDraft?.updatedAt
+      ? {
+          updatedAt: r.floorPlanDraft.updatedAt,
+          backgroundUrl: r.floorPlanDraft.backgroundUrl ?? null,
+          backgroundColor: r.floorPlanDraft.backgroundColor ?? null,
+          areaAppearances: mapFloorPlanAreaAppearances(r.floorPlanDraft.areaAppearances),
+          fixtures: Array.isArray(r.floorPlanDraft.fixtures)
+            ? r.floorPlanDraft.fixtures.map(mapFloorFixture)
+            : [],
+          positions: Array.isArray(r.floorPlanDraft.positions)
+            ? r.floorPlanDraft.positions.map((p: any) => ({
+                id: String(p.id),
+                posX: Number(p.posX) || 0,
+                posY: Number(p.posY) || 0,
+                width: p.width != null ? Number(p.width) : null,
+                height: p.height != null ? Number(p.height) : null,
+                shape: p.shape ?? null,
+                rotation: p.rotation != null ? Number(p.rotation) : null,
+                combineGroupId: p.combineGroupId ?? null,
+              }))
+            : [],
+          rooms: Array.isArray(r.floorPlanDraft.rooms)
+            ? r.floorPlanDraft.rooms.map(mapFloorRoom)
+            : [],
+          scale: mapFloorPlanScale(r.floorPlanDraft.scale) ?? mapFloorPlanScale(r.floorPlanScale),
+        }
+      : null,
+    floorPlanPublishedAt: r.floorPlanPublishedAt ?? null,
     createdAt: r.createdAt,
+  };
+}
+
+export function mapFloorPlanAreaAppearances(raw: unknown) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((a: any) => a && typeof a.floorArea === 'string' && a.floorArea.trim())
+    .map((a: any) => ({
+      floorArea: String(a.floorArea).trim() || 'Main',
+      backgroundColor: a.backgroundColor ?? null,
+      backgroundUrl: a.backgroundUrl ?? null,
+    }));
+}
+
+export function mapFloorFixture(f: any) {
+  return {
+    id: String(f.id),
+    name: f.name,
+    kind: f.kind,
+    floorArea: f.floorArea || 'Main',
+    posX: f.posX ?? 0,
+    posY: f.posY ?? 0,
+    width: f.width ?? 2,
+    height: f.height ?? 1,
+    rotation: f.rotation ?? 0,
+  };
+}
+
+export function mapFloorRoom(room: any) {
+  return {
+    id: String(room.id),
+    name: room.name || 'Room',
+    floorArea: room.floorArea || 'Main',
+    points: Array.isArray(room.points)
+      ? room.points.map((p: any) => ({
+          x: Number(p.x) || 0,
+          y: Number(p.y) || 0,
+        }))
+      : [],
+  };
+}
+
+export function mapFloorPlanScale(scale: any) {
+  if (!scale || scale.unitsPerCell == null) return null;
+  return {
+    unit: scale.unit === 'm' ? 'm' : 'ft',
+    unitsPerCell: Number(scale.unitsPerCell) || 2,
   };
 }
 
@@ -137,6 +218,7 @@ export function mapTable(t: any) {
     height: t.height ?? 2,
     shape: t.shape ?? 'rect',
     rotation: t.rotation ?? 0,
+    combineGroupId: t.combineGroupId ?? null,
     photoUrl: t.photoUrl ?? null,
     requiresManualApproval: t.requiresManualApproval === true,
   };
