@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.73.3] — 2026-10-03
+
+### Fixed
+
+- Merchant mobile: error toasts no longer render behind Android BottomSheets (e.g. Change table capacity errors) — root `Toaster` mounts above `SheetPortalHost`
+- Merchant mobile: tapping guest Email (reservation details / inquiry sheet) opens the mail app on Android — no longer blocked by a false `Linking.canOpenURL` check
+
 ## [0.73.2] — 2026-10-02
 
 ### Added

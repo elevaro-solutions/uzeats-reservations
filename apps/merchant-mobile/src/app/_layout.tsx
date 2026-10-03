@@ -9,6 +9,7 @@ import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
+import { Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { StyleSheet } from "react-native-unistyles";
@@ -72,8 +73,11 @@ export default function RootLayout() {
                 options={{ headerShown: false }}
               />
             </Stack>
-            <Toaster position="top-center" theme="light" />
           </SheetPortalProvider>
+          {/* Above SheetPortalHost (zIndex/elevation 1000) so sheet errors stay visible. */}
+          <View style={styles.toastLayer} pointerEvents="box-none">
+            <Toaster position="top-center" theme="light" />
+          </View>
         </Providers>
       </KeyboardProvider>
     </GestureHandlerRootView>
@@ -84,5 +88,10 @@ const styles = StyleSheet.create(({ colors }) => ({
   root: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  toastLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1100,
+    elevation: Platform.OS === "android" ? 1100 : 0,
   },
 }));

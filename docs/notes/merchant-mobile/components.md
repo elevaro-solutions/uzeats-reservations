@@ -1,5 +1,9 @@
 # components — Learnings & Observations
 
+## [2026-10-03] Toaster must sit above SheetPortalHost
+- Root `Toaster` used to mount inside `SheetPortalProvider` children, so Android sheets (`SheetPortalHost` zIndex/elevation 1000) painted over error toasts (e.g. Change table capacity fail while the sheet stayed open). Sonner’s inner elevation cannot beat a sibling host elevation. Mount `Toaster` after `SheetPortalProvider` in a `pointerEvents="box-none"` layer with zIndex/elevation 1100.
+- Why it matters: Any toast fired while an Android BottomSheet is open (assign table, floor, waitlist) must stay readable; do not put `Toaster` back under the host.
+
 ## [2026-10-01] SegmentedControl rebuilt: `value` is the only state
 
 - Rewrote from the local-`selected` + refs + `measure()` version to a single source of truth (`value` prop). The equal-width thumb animates `translateX` only (via a `progress` shared value); `width` is set once. Do NOT animate `width` — the thumb carries `shadows.soft`, so animating width forced a per-frame layout + shadow recompute (the previous "worst animation").

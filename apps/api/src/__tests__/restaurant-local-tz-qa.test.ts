@@ -10,6 +10,7 @@ import {
   addCalendarDays,
   calendarDayRange,
   formatTimeInTimeZone,
+  formatTimePartsInTimeZone,
   formatUsDate,
   formatUsDateTime,
   isoDateInTimeZone,
@@ -24,6 +25,11 @@ const PHONE_TZ = 'Asia/Tashkent';
 /** Same as merchant/diner formatSlotDateTime / formatSlotTime. */
 function formatSlotClock(iso: string, timeZone: string): string {
   return formatTimeInTimeZone(iso, timeZone);
+}
+
+/** Same as merchant formatSlotTimeParts (list card big clock). */
+function formatSlotParts(iso: string, timeZone: string): { time: string; period: 'AM' | 'PM' } {
+  return formatTimePartsInTimeZone(iso, timeZone);
 }
 
 /** Same as diner formatSlotDateLong. */
@@ -70,7 +76,7 @@ function formatRelativeDayLabel(
   return dayIso;
 }
 
-/** Same as merchant filterReservationsForRange("today"). */
+/** Same as API period "today" / merchant Today tab (venue calendar day). */
 function isOnVenueToday(slotIso: string, timeZone: string, now: Date = new Date()): boolean {
   const todayIso = todayIsoInTimeZone(timeZone, now);
   const { $gte, $lt } = calendarDayRange(todayIso, timeZone);
@@ -194,6 +200,15 @@ describe('Merchant surfaces M1–M6', () => {
 
   it('M4 Floor arriving / table sheet clocks match list', () => {
     expect(formatSlotClock(tonight, VENUE_TZ)).toBe('7:00 PM');
+  });
+
+  it('M4b list card time parts stay venue PM under phone-local morning', () => {
+    // 6:30 PM EDT → 3:30 AM Tashkent — card must show 6:30 + PM, not phone AM
+    const dinner = zonedWallClockToUtc('2026-09-26', '18:30', VENUE_TZ).toISOString();
+    expect(formatSlotParts(dinner, VENUE_TZ)).toEqual({ time: '6:30', period: 'PM' });
+    expect(formatSlotParts(dinner, PHONE_TZ)).toEqual({ time: '3:30', period: 'AM' });
+    expect(formatSlotClock(dinner, VENUE_TZ)).toBe('6:30 PM');
+    expect(formatSlotClock(dinner, PHONE_TZ)).toBe('3:30 AM');
   });
 
   it('M5 create “tonight 7:00” → zonedWallClockToUtc; clear date → venue today', () => {

@@ -1,5 +1,9 @@
 # API — Learnings & Observations
 
+## [2026-09-30] Seed reservation slots use venue zonedWallClockToUtc
+- `seed.ts` `atOffset` / `slot` / `dateStr` build wall clocks via `zonedWallClockToUtc` + `todayIsoInTimeZone(PLATFORM_TIMEZONE)` — not host `Date#setHours`.
+- Why it matters: Reseeding on an Asia/Tashkent API host used to persist “19:00 local” as wrong UTC instants vs US Eastern venues.
+
 ## [2026-10-02] Billing / Stripe / Telegram must use AppError (or formatStripeError)
 - Production `formatError` only preserves `AppError`, Zod, and Mongoose messages. Plain `Error` from `createSubscription`, `changePlan`, invoice pay-by-token, and Elevaro Telegram link paths showed as "Internal server error".
 - Stripe SDK failures are mapped via `formatStripeError` in `formatError` (and services throw `AppError` / `ValidationError` where we control the throw). Telegram link-limit / upstream failures use dedicated `AppError` subclasses in `elevaroNotifier.ts`.

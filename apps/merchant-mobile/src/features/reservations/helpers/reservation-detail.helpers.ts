@@ -41,20 +41,15 @@ export async function openContactUrl(
 ): Promise<void> {
   const label = kind === "phone" ? "phone" : "email";
   try {
-    const supported = await Linking.canOpenURL(url);
-    if (!supported) {
-      toast.error(`Couldn't open ${label}`, {
-        description:
-          kind === "phone"
-            ? "No phone app is available on this device."
-            : "No mail app is available on this device.",
-      });
-      return;
-    }
+    // Do not gate on Linking.canOpenURL — on Android 11+ it returns false for
+    // mailto/tel without <queries>, even when a mail/phone app is installed.
     await Linking.openURL(url);
   } catch {
     toast.error(`Couldn't open ${label}`, {
-      description: "Please try again.",
+      description:
+        kind === "phone"
+          ? "No phone app is available on this device."
+          : "No mail app is available on this device.",
     });
   }
 }

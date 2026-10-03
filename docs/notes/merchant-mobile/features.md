@@ -2,6 +2,12 @@
 
 See also dated entries under `docs/notes/features.md` → `## merchant-mobile (partner app)` and `## merchant-more`.
 
+## [2026-10-03] Android mailto/tel: skip Linking.canOpenURL
+
+- `Linking.canOpenURL('mailto:…' | 'tel:…')` returns false on Android 11+ without manifest `<queries>`, even when Gmail/dialer is installed. Reservation detail and inquiry email used that gate and toasted “No mail app…” without ever calling `openURL`.
+- Fix: `openContactUrl` calls `Linking.openURL` and toasts only on failure (same pattern as diner mobile). Inquiry sheet reuses that helper.
+- Why it matters: Don’t reintroduce a `canOpenURL` pre-check for contact URLs unless Android package-visibility queries are declared.
+
 ## [2026-09-30] Reservations tabs: chrome is independent of list fetch
 
 - SegmentedControl owns the thumb on press (equal-width track). Reservations `range` is urgent; do not wrap it in `useDeferredValue` — that delayed labels and let FlashList empty/reflow snap the pill.

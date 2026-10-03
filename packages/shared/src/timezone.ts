@@ -171,18 +171,34 @@ function timezoneFromLongitude(lng?: number | null): string | null {
   return 'Pacific/Honolulu';
 }
 
+const TZ_PARTS_OPTIONS: Omit<Intl.DateTimeFormatOptions, 'timeZone'> = {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  weekday: 'short',
+  hourCycle: 'h23',
+};
+
+/** Reuse formatters — Hermes allocates Intl slowly; cards call tzParts often. */
+const tzPartsFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function tzPartsFormatter(timeZone: string): Intl.DateTimeFormat {
+  let formatter = tzPartsFormatterCache.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
+      ...TZ_PARTS_OPTIONS,
+      timeZone,
+    });
+    tzPartsFormatterCache.set(timeZone, formatter);
+  }
+  return formatter;
+}
+
 function tzParts(date: Date, timeZone: string) {
-  const parts = new Intl.DateTimeFormat(DISPLAY_LOCALE, {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    weekday: 'short',
-    hourCycle: 'h23',
-  }).formatToParts(date);
+  const parts = tzPartsFormatter(timeZone).formatToParts(date);
   const get = (type: Intl.DateTimeFormatPartTypes) =>
     parts.find((p) => p.type === type)?.value ?? '';
   return {
@@ -331,15 +347,54 @@ function toValidDate(iso: string | Date | null | undefined): Date | null {
   return date;
 }
 
+function resolveTimeZone(timeZone: string | null | undefined): string {
+  return timeZone ? timeZone : PLATFORM_TIMEZONE;
+}
+
+/**
+ * 12-hour clock in an IANA zone via `tzParts` / `hmInTimeZone` (not `toLocaleTimeString`).
+ * Hermes/Android can ignore `timeZone` on locale time APIs while still honoring it on
+ * `formatToParts` with `hourCycle: 'h23'` — keep clocks on the same path as day bucketing.
+ */
 export function formatTimeInTimeZone(
   iso: string | Date | null | undefined,
   timeZone: string,
-  options: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit' },
+  _options?: Intl.DateTimeFormatOptions,
 ): string {
   const date = toValidDate(iso);
   if (!date) return '';
-  return date.toLocaleTimeString(DISPLAY_LOCALE, { timeZone, ...options });
+  return formatHm12(hmInTimeZone(date, resolveTimeZone(timeZone)));
 }
+
+/** Split clock for calendar-style UI: `{ time: '6:30', period: 'PM' }` in an IANA zone. */
+export function formatTimePartsInTimeZone(
+  iso: string | Date | null | undefined,
+  timeZone: string,
+): { time: string; period: 'AM' | 'PM' } {
+  const date = toValidDate(iso);
+  if (!date) return { time: '', period: 'AM' };
+  const hm = hmInTimeZone(date, resolveTimeZone(timeZone));
+  const [hourStr = '0', minute = '00'] = hm.split(':');
+  const hour24 = Number(hourStr);
+  const period: 'AM' | 'PM' = hour24 >= 12 ? 'PM' : 'AM';
+  const hour12 = hour24 % 12 || 12;
+  return { time: `${hour12}:${minute}`, period };
+}
+
+const MONTH_SHORT = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
 
 /** US date + 12-hour time in a restaurant IANA zone, e.g. `Sep 16, 2026, 5:00 PM EDT`. */
 export function formatDateTimeInTimeZone(
@@ -348,15 +403,14 @@ export function formatDateTimeInTimeZone(
 ): string {
   const date = toValidDate(iso);
   if (!date) return '';
-  return date.toLocaleString(DISPLAY_LOCALE, {
-    timeZone,
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZoneName: 'short',
-  });
+  const zone = resolveTimeZone(timeZone);
+  const p = tzParts(date, zone);
+  const month = MONTH_SHORT[p.month - 1] ?? '';
+  const time = formatHm12(
+    `${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')}`,
+  );
+  const abbr = timeZoneAbbr(zone, date);
+  return `${month} ${p.day}, ${p.year}, ${time} ${abbr}`;
 }
 
 export function minutesInTimeZone(iso: string | Date | null | undefined, timeZone: string): number {

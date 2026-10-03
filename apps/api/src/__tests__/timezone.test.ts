@@ -8,9 +8,11 @@ import {
   formatBookingHours,
   formatOpeningHoursLines,
   formatTimeInTimeZone,
+  formatTimePartsInTimeZone,
   hmInTimeZone,
   isPastCalendarDay,
   isoDateInTimeZone,
+  PLATFORM_TIMEZONE,
   restaurantTimeZone,
   timezoneFromAddress,
   todayIsoInTimeZone,
@@ -99,6 +101,42 @@ describe('formatTimeInTimeZone', () => {
     expect(formatTimeInTimeZone(undefined, 'America/New_York')).toBe('');
     expect(formatTimeInTimeZone('', 'America/New_York')).toBe('');
     expect(formatTimeInTimeZone('not-a-date', 'America/New_York')).toBe('');
+  });
+
+  // 6:30 PM EDT = 22:30 UTC = 3:30 AM Asia/Tashkent next calendar morning
+  const dinnerEt = new Date('2026-09-30T22:30:00.000Z');
+
+  it('formats restaurant wall clock via tzParts, not host TZ', () => {
+    expect(formatTimeInTimeZone(dinnerEt, 'America/New_York')).toBe('6:30 PM');
+    expect(formatTimeInTimeZone(dinnerEt, 'Asia/Tashkent')).toBe('3:30 AM');
+  });
+
+  it('falls back to PLATFORM_TIMEZONE for empty timeZone', () => {
+    expect(formatTimeInTimeZone(dinnerEt, '')).toBe(
+      formatTimeInTimeZone(dinnerEt, PLATFORM_TIMEZONE),
+    );
+  });
+});
+
+describe('formatTimePartsInTimeZone', () => {
+  const dinnerEt = new Date('2026-09-30T22:30:00.000Z');
+
+  it('splits 12-hour clock in the restaurant zone', () => {
+    expect(formatTimePartsInTimeZone(dinnerEt, 'America/New_York')).toEqual({
+      time: '6:30',
+      period: 'PM',
+    });
+    expect(formatTimePartsInTimeZone(dinnerEt, 'Asia/Tashkent')).toEqual({
+      time: '3:30',
+      period: 'AM',
+    });
+  });
+
+  it('returns empty time for invalid input', () => {
+    expect(formatTimePartsInTimeZone(null, 'America/New_York')).toEqual({
+      time: '',
+      period: 'AM',
+    });
   });
 });
 

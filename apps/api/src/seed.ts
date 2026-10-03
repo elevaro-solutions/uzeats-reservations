@@ -6,6 +6,10 @@ import {
   DINING_STYLES,
   DISCOVERY_OCCASIONS,
   MEALS,
+  PLATFORM_TIMEZONE,
+  addCalendarDays,
+  todayIsoInTimeZone,
+  zonedWallClockToUtc,
 } from '@reservations/shared';
 import { env } from './config/env.js';
 import { PLANS } from './config/plans.js';
@@ -44,19 +48,34 @@ const LEGACY_DEMO_EMAILS = [
   'diner2@reservations.local',
 ];
 
-function atOffset(days: number, hours = 19, minutes = 0): Date {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  d.setHours(hours, minutes, 0, 0);
-  return d;
+/** Demo venues are US Eastern; wall clocks must not follow the API host TZ. */
+const SEED_VENUE_TZ = PLATFORM_TIMEZONE;
+
+function dateIsoOffset(days: number, timeZone: string = SEED_VENUE_TZ): string {
+  return addCalendarDays(todayIsoInTimeZone(timeZone), days);
 }
 
-function dateStr(days: number): string {
-  return atOffset(days).toISOString().slice(0, 10);
+function atOffset(
+  days: number,
+  hours = 19,
+  minutes = 0,
+  timeZone: string = SEED_VENUE_TZ,
+): Date {
+  const hm = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  return zonedWallClockToUtc(dateIsoOffset(days, timeZone), hm, timeZone);
 }
 
-function slot(days: number, hours = 19, turnMinutes = 90) {
-  const start = atOffset(days, hours);
+function dateStr(days: number, timeZone: string = SEED_VENUE_TZ): string {
+  return dateIsoOffset(days, timeZone);
+}
+
+function slot(
+  days: number,
+  hours = 19,
+  turnMinutes = 90,
+  timeZone: string = SEED_VENUE_TZ,
+) {
+  const start = atOffset(days, hours, 0, timeZone);
   return { slotStart: start, slotEnd: new Date(start.getTime() + turnMinutes * 60_000) };
 }
 

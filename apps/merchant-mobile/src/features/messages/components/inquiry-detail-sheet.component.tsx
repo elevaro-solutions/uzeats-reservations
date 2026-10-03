@@ -1,8 +1,8 @@
-import { Linking, View } from "react-native";
+import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
-import { toast } from "sonner-native";
 
 import { BottomSheet, Button, Typography } from "@/components";
+import { openContactUrl } from "@/features/reservations/helpers/reservation-detail.helpers";
 
 import {
   formatInboxRelativeTime,
@@ -36,21 +36,7 @@ export function InquiryDetailSheet({
 
   async function onEmail() {
     if (!email) return;
-    const url = `mailto:${email}`;
-    try {
-      const supported = await Linking.canOpenURL(url);
-      if (!supported) {
-        toast.error("Couldn't open email", {
-          description: "No mail app is available on this device.",
-        });
-        return;
-      }
-      await Linking.openURL(url);
-    } catch {
-      toast.error("Couldn't open email", {
-        description: "Try again from your mail app.",
-      });
-    }
+    await openContactUrl(`mailto:${email}`, "email");
   }
 
   return (
