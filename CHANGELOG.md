@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.73.4] — 2026-10-03
+
+### Fixed
+
+- Diner discovery map (`/?view=map`) and Google Places autocomplete no longer fail with "Map unavailable" — CSP `script-src` now allows `maps.googleapis.com` / `maps.gstatic.com` when maps headers are enabled.
+
 ## [0.73.3] — 2026-10-03
 
 ### Fixed
@@ -86,7 +92,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Diner profile (web + mobile) now shows the live referral bonus points from `loyaltyProgram` next to the referral code. Admins already saw this on Loyalty; guests only saw the code.
 - Diners can message a restaurant about their reservation even when the venue is on Basic. The Core+ `twoWayMessaging` plan gate now applies only to restaurant replies, so guests no longer see "Upgrade to unlock it."
 - Auth forms (diner web login/register, partner hub login/register, diner mobile sign-in/sign-up) show field-related GraphQL errors (e.g. `Email already registered` / `CONFLICT`) under the matching input instead of only a toast or banner. API conflict/validation/auth errors now include `extensions.field` for reliable mapping.
-- Wrong signup email verification codes no longer show a masked "Internal server error". `verifyEmail` now throws `ValidationError` so production returns messages like "Invalid or expired verification code".
+- Wrong signup email verification codes no longer show a masked "Internal server error". `verifyEmail` now throws `ValidationError` so production returns messages like "Invalid or expired verification code".>>>>>>> 9316f3f (fix(web): allow Google Maps scripts in CSP v0.72.4)
 
 ## [0.72.3] — 2026-09-30
 

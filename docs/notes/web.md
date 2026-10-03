@@ -1,5 +1,10 @@
 # Web — Learnings & Observations
 
+## [2026-10-03] Discovery map needs Maps hosts in CSP script-src
+- Prod showed "Map unavailable" even with `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` baked in. The Maps loader `<script>` was present but `performance` reported `responseStatus: 0` and `window.google.maps` stayed undefined — CSP blocked `https://maps.googleapis.com`.
+- `securityHeaders({ maps: true })` only opened `frame-src` for embed iframes; it did not allow the JS API. Fix: when `maps` is true, also add `maps.googleapis.com` and `maps.gstatic.com` to `script-src`.
+- Why it matters: A missing/invalid key and a CSP block look the same in the UI ("Map unavailable").
+
 ## [2026-09-29] Restaurant reviews preview + all-reviews modal
 - Profile `#reviews` shows `RESTAURANT_REVIEWS_PREVIEW_LIMIT` (5) with a `ReviewSort` Select (newest / oldest / highest / lowest). `restaurantReviews(sort:)` is server-side.
 - "Show all N reviews" opens a modal (same pattern as photos browser) rather than a dedicated route so diners stay on the booking profile. Modal reuses sort + paginates with growing `limit` (max 100).

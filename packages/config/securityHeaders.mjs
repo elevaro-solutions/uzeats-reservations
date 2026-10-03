@@ -18,6 +18,13 @@ function localUploadImgOrigins() {
 
 /** Browser CSP. Next/Antd/Stripe still need unsafe-inline; sanitizer is the XSS gate. */
 export function contentSecurityPolicy({ maps } = { maps: false }) {
+  const scripts = [
+    "'self'",
+    "'unsafe-inline'",
+    "'unsafe-eval'",
+    'https://js.stripe.com',
+    'https://accounts.google.com',
+  ];
   const connect = [
     "'self'",
     apiOrigin(),
@@ -30,12 +37,15 @@ export function contentSecurityPolicy({ maps } = { maps: false }) {
     'https://hooks.stripe.com',
     'https://accounts.google.com',
   ];
+  // Discovery map + Places autocomplete load the Maps JS API from Google.
+  // maps:true only used to allow iframe embeds; script-src must also allow the loader.
   if (maps) {
+    scripts.push('https://maps.googleapis.com', 'https://maps.gstatic.com');
     frames.push('https://maps.google.com', 'https://www.google.com');
   }
   return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://accounts.google.com",
+    `script-src ${scripts.join(' ')}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob: https: ${localUploadImgOrigins()}`,
     "font-src 'self' data:",
