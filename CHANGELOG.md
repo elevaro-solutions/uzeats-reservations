@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.75.2] — 2026-10-04
+
+### Fixed
+
+- Web/dashboard forgot-password: type the `requestPasswordReset` mutation result so Next production builds pass typecheck
+
 ## [0.75.1] — 2026-10-04
 
 ### Fixed

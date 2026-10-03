@@ -21,7 +21,9 @@ type ResetResult = {
 };
 
 export default function ForgotPasswordPage() {
-  const [requestReset, { loading }] = useMutation(REQUEST_PASSWORD_RESET);
+  const [requestReset, { loading }] = useMutation<{ requestPasswordReset: ResetResult }>(
+    REQUEST_PASSWORD_RESET,
+  );
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [attemptsRemaining, setAttemptsRemaining] = useState(3);
@@ -48,7 +50,7 @@ export default function ForgotPasswordPage() {
       const { data } = await requestReset({
         variables: { email: targetEmail, app: 'dashboard' },
       });
-      applyResult(data?.requestPasswordReset as ResetResult | undefined);
+      applyResult(data?.requestPasswordReset);
     } catch {
       setAttemptsRemaining((prev) => Math.max(0, prev - 1));
       setSubmitted(true);
