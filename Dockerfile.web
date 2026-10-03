@@ -12,6 +12,8 @@ COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile --prod=false
 
 FROM base AS builder
+# Dokku builders are memory-constrained; Next/tsc can OOM at the default heap.
+ENV NODE_OPTIONS=--max-old-space-size=4096
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY

@@ -10,6 +10,8 @@ COPY apps/api/package.json apps/api/
 RUN pnpm install --frozen-lockfile --prod=false
 
 FROM base AS builder
+# Dokku builders are memory-constrained; tsc OOMs at the default ~1.5GB heap.
+ENV NODE_OPTIONS=--max-old-space-size=4096
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
