@@ -34,6 +34,7 @@ import {
   MY_RESTAURANTS,
   REFUND_RESERVATION_DEPOSIT,
   RESTAURANT_RESERVATION,
+  PENDING_BADGE_REFETCH,
   UPDATE_RESERVATION_STATUS,
 } from '@/lib/graphql';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
@@ -135,8 +136,8 @@ function ReservationDetailPageContent() {
     skip: !user || !reservationId,
     variables: { id: reservationId },
   });
-  const [updateStatus, { loading: updatingStatus }] = useMutation(UPDATE_RESERVATION_STATUS);
-  const [deleteReservation, { loading: deleting }] = useMutation(DELETE_RESERVATION);
+  const [updateStatus, { loading: updatingStatus }] = useMutation(UPDATE_RESERVATION_STATUS, PENDING_BADGE_REFETCH);
+  const [deleteReservation, { loading: deleting }] = useMutation(DELETE_RESERVATION, PENDING_BADGE_REFETCH);
   const [refundDeposit, { loading: refunding }] = useMutation(REFUND_RESERVATION_DEPOSIT);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [refundOpen, setRefundOpen] = useState(false);

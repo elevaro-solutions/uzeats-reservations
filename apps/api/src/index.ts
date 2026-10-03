@@ -26,6 +26,7 @@ import { ensureDefaultEmailTemplates } from "./services/emailTemplates.js";
 import { startCampaignWorker } from "./services/campaigns.js";
 import { startLoyaltyWorker } from "./services/loyaltyExpiry.js";
 import { startBillingWorker } from "./services/billingJobs.js";
+import { startWaitlistWorker } from "./services/waitlistJobs.js";
 import {
   handleTelegramWebhook,
   startTelegramBot,
@@ -59,6 +60,7 @@ async function main() {
   startCampaignWorker();
   startLoyaltyWorker();
   startBillingWorker();
+  startWaitlistWorker();
 
   const app = express();
 

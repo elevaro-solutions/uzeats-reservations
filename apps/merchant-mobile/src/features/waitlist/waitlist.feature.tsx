@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from "@apollo/client";
+import { restaurantTimeZone, todayIsoInTimeZone } from "@reservations/shared";
 import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
@@ -7,12 +8,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { ClipboardClockIcon, PlusIcon } from "@/assets";
-import { Button, Empty, InlineAlert } from "@/components";
+import { Button, Empty, InlineAlert, SegmentedControl } from "@/components";
 import { useActiveRestaurant } from "@/features/restaurants";
 
 import {
   ADD_IN_HOUSE_WAITLIST,
   RESTAURANT_WAITLIST_FULL,
+  UPDATE_WAITLIST_ENTRY,
   UPDATE_WAITLIST_STATUS,
 } from "./api/waitlist.operations";
 import {
@@ -25,9 +27,12 @@ import {
 import type { AddWalkInPayload } from "./helpers/add-walk-in-schema.helpers";
 import {
   runAddWalkIn,
+  runUpdateWaitlistEntry,
   runWaitlistStatusAction,
 } from "./helpers/waitlist-actions.helpers";
 import {
+  entryDisplayName,
+  entryPhone,
   isTerminalWaitlistStatus,
   type WaitlistAction,
 } from "./helpers/waitlist-status.helpers";
@@ -39,27 +44,52 @@ type WaitlistQuery = {
   };
 };
 
+type QueueTab = "active" | "history";
+
+const ACTIVE_STATUSES = ["waiting", "notified"];
+const HISTORY_STATUSES = ["seated", "booked", "expired", "cancelled"];
+
 export function WaitlistFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
-  const { activeRestaurantId, loading: restaurantsLoading } =
-    useActiveRestaurant();
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const {
+    activeRestaurantId,
+    activeRestaurant,
+    loading: restaurantsLoading,
+  } = useActiveRestaurant();
+  const [sheetMode, setSheetMode] = useState<"add" | "edit" | null>(null);
+  const [editingEntry, setEditingEntry] = useState<WaitlistListItem | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [queueTab, setQueueTab] = useState<QueueTab>("active");
+
+  const todayIso = useMemo(() => {
+    const tz = restaurantTimeZone(activeRestaurant ?? {});
+    return todayIsoInTimeZone(tz);
+  }, [activeRestaurant]);
+
+  const statuses = queueTab === "active" ? ACTIVE_STATUSES : HISTORY_STATUSES;
 
   const { data, loading, error, refetch } = useQuery<WaitlistQuery>(
     RESTAURANT_WAITLIST_FULL,
     {
       skip: !activeRestaurantId,
-      variables: { restaurantId: activeRestaurantId, limit: 50, offset: 0 },
+      variables: {
+        restaurantId: activeRestaurantId,
+        limit: 50,
+        offset: 0,
+        statuses,
+        // History is day-scoped; live queue includes future online joins.
+        preferredDate: queueTab === "history" ? todayIso : undefined,
+      },
       pollInterval: 15_000,
       fetchPolicy: "cache-and-network",
     },
   );
 
   const [addEntry, { loading: adding }] = useMutation(ADD_IN_HOUSE_WAITLIST);
+  const [updateEntry, { loading: updating }] = useMutation(UPDATE_WAITLIST_ENTRY);
   const [updateStatus] = useMutation(UPDATE_WAITLIST_STATUS);
 
   const items = useMemo(() => data?.restaurantWaitlist?.items ?? [], [data]);
@@ -77,7 +107,18 @@ export function WaitlistFeature() {
     }
   }, [refetch]);
 
+  function closeSheet() {
+    setSheetMode(null);
+    setEditingEntry(null);
+  }
+
   async function handleAction(id: string, action: WaitlistAction) {
+    if (action.action === "edit") {
+      const entry = items.find((item) => item.id === id) ?? null;
+      setEditingEntry(entry);
+      setSheetMode("edit");
+      return;
+    }
     await runWaitlistStatusAction({
       id,
       action,
@@ -93,19 +134,48 @@ export function WaitlistFeature() {
       values,
       addEntry,
       refetch,
-      onSuccess: () => setSheetOpen(false),
+      onSuccess: closeSheet,
+    });
+  }
+
+  async function handleEdit(values: AddWalkInPayload) {
+    if (!editingEntry) return;
+    const hadDiner = Boolean(editingEntry.dinerId);
+    const clearDinerId = hadDiner && !values.dinerId;
+    await runUpdateWaitlistEntry({
+      id: editingEntry.id,
+      values,
+      clearDinerId,
+      updateEntry,
+      refetch,
+      onSuccess: closeSheet,
     });
   }
 
   const isLoading = restaurantsLoading || (loading && !data);
   const isEmpty = !isLoading && items.length === 0;
+  const sheetOpen = sheetMode != null;
+  const sheetLoading = sheetMode === "edit" ? updating : adding;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
       <WaitlistHeader
-        waitingCount={!isLoading && !isEmpty ? waitingCount : null}
+        waitingCount={
+          !isLoading && !isEmpty && queueTab === "active" ? waitingCount : null
+        }
         onBack={() => router.back()}
       />
+
+      <View style={styles.pad}>
+        <SegmentedControl<QueueTab>
+          value={queueTab}
+          onChange={setQueueTab}
+          options={[
+            { value: "active", label: "Live" },
+            { value: "history", label: "History" },
+          ]}
+        />
+      </View>
 
       {error ? (
         <View style={styles.pad}>
@@ -140,8 +210,12 @@ export function WaitlistFeature() {
             <View style={styles.emptyWrap}>
               <Empty
                 icon={<ClipboardClockIcon />}
-                title="No one waiting"
-                description="When walk-ins arrive without a reservation, add them below."
+                title={queueTab === "active" ? "No one waiting" : "No history today"}
+                description={
+                  queueTab === "active"
+                    ? "When walk-ins arrive without a reservation, add them below."
+                    : "Seated, booked, and cancelled parties from today show here."
+                }
               />
             </View>
           }
@@ -157,7 +231,7 @@ export function WaitlistFeature() {
         />
       )}
 
-      {!isLoading ? (
+      {!isLoading && queueTab === "active" ? (
         <View
           style={[
             styles.footer,
@@ -168,7 +242,10 @@ export function WaitlistFeature() {
             fullWidth
             size="xl"
             startIcon={<PlusIcon />}
-            onPress={() => setSheetOpen(true)}
+            onPress={() => {
+              setEditingEntry(null);
+              setSheetMode("add");
+            }}
           >
             Add walk-in
           </Button>
@@ -177,9 +254,22 @@ export function WaitlistFeature() {
 
       <AddWalkInSheet
         visible={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        loading={adding}
-        onSubmit={handleAdd}
+        mode={sheetMode === "edit" ? "edit" : "add"}
+        restaurantId={activeRestaurantId}
+        initialValues={
+          sheetMode === "edit" && editingEntry
+            ? {
+                dinerId: editingEntry.dinerId,
+                guestName: entryDisplayName(editingEntry),
+                guestPhone: entryPhone(editingEntry),
+                partySize: editingEntry.partySize,
+                quotedWaitMinutes: editingEntry.quotedWaitMinutes,
+              }
+            : null
+        }
+        onClose={closeSheet}
+        loading={sheetLoading}
+        onSubmit={sheetMode === "edit" ? handleEdit : handleAdd}
       />
     </View>
   );
@@ -201,6 +291,7 @@ const styles = StyleSheet.create(({ space, colors, shadows }) => ({
   },
   pad: {
     paddingHorizontal: space(2),
+    paddingTop: space(1.5),
   },
   footer: {
     paddingHorizontal: space(2),

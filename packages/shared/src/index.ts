@@ -22,3 +22,4 @@ export * from './displayLocale.js';
 export * from './mediaUrl.js';
 export * from './manualApproval.js';
 export * from './floorPlacement.js';
+export * from './waitlist.js';

@@ -20,6 +20,7 @@ export { DemoFeature } from "./demo/demo.feature";
 export { SearchFeature } from "./search";
 export { RestaurantProfileFeature } from "./restaurant-profile";
 export { BookingFeature, BookingConfirmationFeature } from "./booking";
+export { WaitlistFeature } from "./waitlist";
 export {
   SignInFeature,
   SignUpFeature,

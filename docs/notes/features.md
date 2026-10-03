@@ -335,3 +335,7 @@ AddReviewSheet require all four; restaurant avg still rolls up overall only.
 ### [2026-09-18] Waitlist status includes `seated` in GraphQL
 - API `WaitlistStatus` includes `seated`; shared `WAITLIST_STATUSES` may lag. Merchant Notify/Seat/Remove map to `notified` / `seated` / `cancelled`.
 - Why it matters: Prefer the GraphQL enum over the shared constant when wiring floor waitlist actions.
+
+### [2026-10-03] Waitlist convert / expire / diner manage list
+- Online join sends preferred time window from the unavailable slot (`preferredWindowFromSlot`, +2h). Booking a matching day marks waitlist `booked`. Notified holds expire after `WAITLIST_NOTIFY_HOLD_MINUTES` (15) via BullMQ and cascade to the next party when `notifiedSlot` is set. Seat creates a walk-in reservation. Diner mobile has `/waitlist` (Profile shortcut) for cancel/book.
+- Why it matters: Don’t leave `booked`/`expired` as dead enums; partner Seat is not status-only anymore.

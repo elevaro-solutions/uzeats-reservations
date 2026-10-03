@@ -24,6 +24,7 @@ import { CLEAR_SEED_DATA, PLATFORM_CONFIG, UPDATE_PLATFORM_CONFIG } from '@/lib/
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { isSuperAdmin } from '@/lib/roles';
 import { useFormDirty } from '@/lib/useFormDirty';
+import { useUrlTab } from '@/lib/useUrlTab';
 
 const { Paragraph, Text } = Typography;
 
@@ -81,6 +82,7 @@ const CONFIG_SECTIONS = [
 const NON_DANGER_SECTIONS = CONFIG_SECTIONS.filter((s) => s.key !== 'danger');
 
 type ConfigSectionKey = (typeof CONFIG_SECTIONS)[number]['key'];
+const CONFIG_SECTION_KEYS: readonly string[] = CONFIG_SECTIONS.map((s) => s.key);
 type StripeMode = 'test' | 'live';
 
 const ROLE_OPTIONS = [
@@ -105,7 +107,13 @@ export default function AdminConfigPage() {
   const [pendingLiveValues, setPendingLiveValues] = useState<Record<string, unknown> | null>(
     null,
   );
-  const [activeKey, setActiveKey] = useState<ConfigSectionKey>('support');
+  const [activeKeyRaw, setActiveKeyRaw] = useUrlTab({
+    param: 'section',
+    defaultValue: 'support',
+    allowed: CONFIG_SECTION_KEYS,
+  });
+  const activeKey = activeKeyRaw as ConfigSectionKey;
+  const setActiveKey = (key: ConfigSectionKey) => setActiveKeyRaw(key);
   const [form] = Form.useForm();
   const { dirty, clearDirty, onValuesChange } = useFormDirty();
 

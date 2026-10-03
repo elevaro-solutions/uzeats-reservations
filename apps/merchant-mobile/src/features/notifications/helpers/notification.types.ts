@@ -5,6 +5,7 @@ export type KnownNotificationType =
   | "waitlist_available"
   | "waitlist_ready"
   | "waitlist_notified"
+  | "waitlist_overdue"
   | "saved_restaurant_available"
   | "guest_spend_alert"
   | "reservation_confirmed"

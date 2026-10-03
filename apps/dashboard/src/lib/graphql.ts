@@ -104,6 +104,7 @@ export const MY_RESTAURANTS = gql`
       loyaltyMinRedeemPoints
       tables {
         id name minCapacity maxCapacity floorArea active combinable photoUrl
+        shape requiresManualApproval
       }
       shifts {
         id name daysOfWeek startTime endTime slotIntervalMinutes turnTimeMinutes active
@@ -134,9 +135,53 @@ export const MY_RESTAURANTS_SHELL = gql`
         city
         state
       }
+      depositRequired
       tableCount
       shiftCount
       hasMenuItems
+    }
+  }
+`;
+
+export const SETUP_GUIDE_SIGNALS = gql`
+  query SetupGuideSignals($restaurantId: ID!, $withTeam: Boolean!) {
+    accessRules(restaurantId: $restaurantId) {
+      id
+    }
+    mySubscription(restaurantId: $restaurantId) {
+      id
+      status
+      features {
+        accessRules
+      }
+    }
+    platformFeatureFlags {
+      deposits
+    }
+    restaurantManagerSeats(restaurantId: $restaurantId) @include(if: $withTeam) {
+      restaurantId
+      used
+      pending
+    }
+  }
+`;
+
+export const PLATFORM_SETUP_SIGNALS = gql`
+  query PlatformSetupSignals {
+    platformConfig {
+      id
+      supportEmail
+      supportPhone
+      stripeMode
+      stripeSandboxConfigured
+      stripeProductionConfigured
+    }
+    adminStats {
+      restaurants
+      pendingRestaurants
+    }
+    adminUsers(roles: [admin, account_manager, super_admin], limit: 1) {
+      total
     }
   }
 `;
@@ -325,7 +370,7 @@ export const RESTAURANT_WAITLIST = gql`
 export const CREATE_TABLE = gql`
   mutation CreateTable($restaurantId: ID!, $input: TableInput!) {
     createTable(restaurantId: $restaurantId, input: $input) {
-      id name posX posY width height
+      id name posX posY width height shape
     }
   }
 `;
@@ -2006,6 +2051,10 @@ export const REQUEST_PASSWORD_RESET = gql`
     requestPasswordReset(email: $email, app: $app) {
       success
       message
+      attemptsUsed
+      attemptsRemaining
+      maxAttempts
+      supportEmail
     }
   }
 `;
@@ -2761,7 +2810,7 @@ export const DELETE_BLACKOUT = gql`
 export const UPDATE_TABLE = gql`
   mutation UpdateTable($id: ID!, $input: TableInput!) {
     updateTable(id: $id, input: $input) {
-      id name minCapacity maxCapacity floorArea active combinable requiresManualApproval
+      id name minCapacity maxCapacity floorArea active combinable requiresManualApproval shape
     }
   }
 `;
@@ -3210,6 +3259,16 @@ export const RESTAURANT_UNREPLIED_REVIEW_COUNT = gql`
     restaurantUnrepliedReviewCount(restaurantId: $restaurantId)
   }
 `;
+
+export const RESTAURANT_PENDING_RESERVATION_COUNT = gql`
+  query RestaurantPendingReservationCount($restaurantId: ID!) {
+    restaurantPendingReservationCount(restaurantId: $restaurantId)
+  }
+`;
+
+export const PENDING_BADGE_REFETCH = {
+  refetchQueries: ['RestaurantPendingReservationCount'],
+};
 
 export const RESTAURANT_REVIEWS = gql`
   query DashboardRestaurantReviews($restaurantId: ID!, $limit: Int, $offset: Int) {
@@ -3822,27 +3881,71 @@ export const SEAT_RESERVATION_AT_TABLE = gql`
 export const ADD_IN_HOUSE_WAITLIST = gql`
   mutation AddInHouseWaitlistEntry($input: InHouseWaitlistInput!) {
     addInHouseWaitlistEntry(input: $input) {
-      id guestName status
+      id guestName status dinerId
+    }
+  }
+`;
+
+export const WAITLIST_GUEST_SEARCH = gql`
+  query WaitlistGuestSearch($restaurantId: ID!, $search: String!, $limit: Int) {
+    searchWaitlistGuests(restaurantId: $restaurantId, search: $search, limit: $limit) {
+      dinerId
+      guestName
+      guestPhone
+      email
+      totalVisits
+      vipStatus
+      inGuestBook
+    }
+  }
+`;
+
+export const UPDATE_WAITLIST_ENTRY = gql`
+  mutation UpdateWaitlistEntry($input: UpdateWaitlistEntryInput!) {
+    updateWaitlistEntry(input: $input) {
+      id
+      guestName
+      guestPhone
+      partySize
+      quotedWaitMinutes
+      dinerId
+      status
     }
   }
 `;
 
 export const UPDATE_WAITLIST_STATUS = gql`
-  mutation UpdateWaitlistStatus($id: ID!, $status: WaitlistStatus!) {
-    updateWaitlistStatus(id: $id, status: $status) {
-      id status
+  mutation UpdateWaitlistStatus($id: ID!, $status: WaitlistStatus!, $tableId: ID) {
+    updateWaitlistStatus(id: $id, status: $status, tableId: $tableId) {
+      id status reservationId
     }
   }
 `;
 
 export const RESTAURANT_WAITLIST_FULL = gql`
-  query RestaurantWaitlistFull($restaurantId: ID!, $limit: Int, $offset: Int) {
-    restaurantWaitlist(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
+  query RestaurantWaitlistFull(
+    $restaurantId: ID!
+    $limit: Int
+    $offset: Int
+    $statuses: [WaitlistStatus!]
+    $preferredDate: String
+    $source: String
+  ) {
+    restaurantWaitlist(
+      restaurantId: $restaurantId
+      limit: $limit
+      offset: $offset
+      statuses: $statuses
+      preferredDate: $preferredDate
+      source: $source
+    ) {
       total
       items {
-        id partySize preferredDate preferredTimeStart status createdAt
+        id partySize preferredDate preferredTimeStart preferredTimeEnd status createdAt
         dinerId guestName guestPhone source quotedWaitMinutes
         position partiesAhead estimatedWaitMinutes estimatedReadyAt
+        waitingMinutes promisedWaitMinutes isOverdue
+        reservationId notifiedAt notifiedSlot
         diner { firstName lastName phone }
       }
     }

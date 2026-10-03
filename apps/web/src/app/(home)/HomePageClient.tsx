@@ -445,8 +445,11 @@ function HomePageContent({ initialSearch = null }: HomePageClientProps) {
     accessibleOnly,
   };
 
+  // A cuisine that maps to a quick-pick category is already counted via categoryIds.
   const activeFilterCount =
-    countActiveDiscoveryFilters(mapFilterState) + (filters.query ? 1 : 0);
+    countActiveDiscoveryFilters(mapFilterState) +
+    (filters.query ? 1 : 0) +
+    (cuisine && activeCategoryIds.length === 0 ? 1 : 0);
 
   const mapFiltersProps = {
     categories: RESTAURANT_DISCOVERY_CATEGORIES.map((category) => ({
@@ -466,6 +469,8 @@ function HomePageContent({ initialSearch = null }: HomePageClientProps) {
     onTopRatedChange: (enabled: boolean) => replaceFilters({ topRatedOnly: enabled }),
     onAccessibleChange: (enabled: boolean) => replaceFilters({ accessibleOnly: enabled }),
     onClearAll: clearMapFilters,
+    cuisine,
+    onCuisineChange: handleCuisineChange,
   };
 
   const mapFiltersSidebar = <MapFiltersSidebar {...mapFiltersProps} />;
@@ -523,7 +528,6 @@ function HomePageContent({ initialSearch = null }: HomePageClientProps) {
       variant={variant}
       actionsSlot={variant === 'map' ? viewToggle : undefined}
       query={queryDraft}
-      cuisine={cuisine}
       locationInput={locationInput}
       usingDeviceLocation={usingDeviceLocation}
       partySize={partySize}
@@ -531,7 +535,6 @@ function HomePageContent({ initialSearch = null }: HomePageClientProps) {
       geoLoading={geoLoading}
       datePresets={datePresets}
       onQueryChange={setQueryDraft}
-      onCuisineChange={handleCuisineChange}
       onLocationInputChange={setLocationInput}
       onSelectLocation={(loc) => applyLocation(loc)}
       onUseMyLocation={requestLocation}

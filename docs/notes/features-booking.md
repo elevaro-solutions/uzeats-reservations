@@ -133,3 +133,9 @@
 - `text-sm` is 14/20. A bare 14px `MapPinIcon` with `alignItems: flex-start` sits at the top of the line box and reads optically high.
 - Wrap the icon in a 14×20 well (`justifyContent: center`) so it centers on the first line while multi-line addresses still top-align.
 - Why it matters: Don’t swap to `alignItems: center` alone if address can wrap — center against the whole block drifts the pin.
+
+## [2026-10-03] Guest-facing manual-approval preview
+- `previewBookingManualApproval` (`@reservations/shared`) mirrors the server's `bookingRequiresManualApproval` before submit. It returns `required`, `possible`, or `none`. When no table is picked, the server smart-assigns from the same `bookableTables` candidates, so the result is only `required` if every candidate opts in, and `possible` if some do.
+- Diner mobile now fetches `bookableTables` on the details step even when guest table selection is off, because the preview needs the candidate tables.
+- After booking, rely on `reservation.requiresManualApproval`, not the preview. Deposit bookings also sit in `pending`, so check the flag rather than the status alone.
+- Why it matters: If you change approval rules in `createReservation`, update the shared preview too, or guests will see the wrong notice.

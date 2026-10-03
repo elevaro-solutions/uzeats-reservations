@@ -9,7 +9,7 @@ import { colors, typography } from '@reservations/ui';
 import { useMutation } from '@/lib/apollo-hooks';
 import { AuthLayout } from '@/components/AuthLayout';
 import { useAuth } from '@/lib/auth';
-import { isPlatformAdmin } from '@/lib/roles';
+import { partnerLandingPath } from '@/lib/roles';
 import { RESEND_VERIFICATION_EMAIL, VERIFY_EMAIL } from '@/lib/graphql';
 import { getGraphQLErrorMessage } from '@/lib/errors';
 
@@ -35,7 +35,7 @@ function VerifyEmailContent() {
   const [form] = Form.useForm<{ code: string }>();
 
   const goHome = () => {
-    router.replace(user && isPlatformAdmin(user.role) ? '/admin' : '/');
+    router.replace(user ? partnerLandingPath(user.role) : '/login');
   };
 
   useEffect(() => {

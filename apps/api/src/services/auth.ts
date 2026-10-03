@@ -5,10 +5,15 @@ import { OAuth2Client } from 'google-auth-library';
 import type { JwtPayload, UserRole } from '@reservations/shared';
 import { env } from '../config/env.js';
 import { User } from '../models/User.js';
+import { PasswordResetAttempt } from '../models/PasswordResetAttempt.js';
 import { notifyUser, isEmailDeliveryConfigured, sendEmail } from './notifications.js';
 import { renderEmailTemplate } from './emailTemplates.js';
 import { emailNotice } from './emailBranding.js';
-import { getPlatformConfig, resolveRequireSignupEmailVerification } from './platformConfig.js';
+import {
+  getPlatformConfig,
+  mapPlatformConfig,
+  resolveRequireSignupEmailVerification,
+} from './platformConfig.js';
 import { clampRegistrationRole } from './roleAccess.js';
 import { generateUniqueReferralCode } from '../lib/referralCode.js';
 import {
@@ -18,6 +23,23 @@ import {
   ValidationError,
 } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
+
+/** Platform-owned mailboxes are not reliably deliverable; route resets to Support contacts. */
+const PLATFORM_OWNED_EMAIL_DOMAIN = '@tablevera.online';
+/** Super-admin inbox when Support contacts still points at a platform-owned address. */
+const SUPER_ADMIN_SUPPORT_INBOX = 'support.uzeats@gmail.com';
+/** Max forgot-password emails per address within the rolling window. */
+export const MAX_PASSWORD_RESET_REQUESTS = 3;
+const PASSWORD_RESET_REQUEST_WINDOW_MS = 60 * 60 * 1000;
+
+export type PasswordResetRequestResult = {
+  success: boolean;
+  message: string;
+  attemptsUsed: number;
+  attemptsRemaining: number;
+  maxAttempts: number;
+  supportEmail: string;
+};
 
 /** Demo emails that were renamed; login must accept every address in a group. */
 const DEMO_EMAIL_EQUIVALENTS: string[][] = [
@@ -531,21 +553,75 @@ async function createPasswordResetToken(userId: string, app: 'web' | 'dashboard'
   return { token, resetUrl: `${passwordResetBaseUrl(app)}/reset-password?token=${token}` };
 }
 
+/** True for platform-owned addresses (e.g. seed / ops accounts on @tablevera.online). */
+export function isPlatformOwnedEmail(email: string) {
+  return email.trim().toLowerCase().endsWith(PLATFORM_OWNED_EMAIL_DOMAIN);
+}
+
+/**
+ * Where to deliver a password-reset email.
+ * @tablevera.online accounts redirect to Support contacts (`supportEmail`),
+ * falling back to the super-admin inbox when that contact is also platform-owned.
+ */
+export async function resolvePasswordResetDeliveryEmail(accountEmail: string): Promise<string> {
+  const normalized = accountEmail.trim().toLowerCase();
+  if (!isPlatformOwnedEmail(normalized)) return normalized;
+
+  const config = mapPlatformConfig(await getPlatformConfig());
+  const supportEmail = (config.supportEmail || '').trim().toLowerCase();
+  if (supportEmail && !isPlatformOwnedEmail(supportEmail)) {
+    return supportEmail;
+  }
+  return SUPER_ADMIN_SUPPORT_INBOX;
+}
+
 async function sendPasswordResetEmail(
-  user: { _id: { toString(): string }; firstName?: string | null },
+  user: {
+    _id: { toString(): string };
+    email?: string | null;
+    firstName?: string | null;
+  },
   resetUrl: string,
   adminInitiated = false,
-) {
+): Promise<{ deliveredTo: string }> {
+  const accountEmail = (user.email || '').trim().toLowerCase();
+  const deliveredTo = accountEmail
+    ? await resolvePasswordResetDeliveryEmail(accountEmail)
+    : accountEmail;
+  const redirected =
+    Boolean(accountEmail) &&
+    Boolean(deliveredTo) &&
+    deliveredTo !== accountEmail;
+
   const rendered = await renderEmailTemplate('password_reset', {
     firstName: user.firstName || 'there',
     resetUrl,
   });
-  const bodyText = adminInitiated
-    ? `A platform admin started a password reset for your account.\n\n${rendered.bodyText}`
-    : rendered.bodyText;
-  const htmlBody = adminInitiated
-    ? `${emailNotice('A platform admin started a password reset for your account.')}${rendered.bodyHtml}`
+
+  const notices: string[] = [];
+  if (adminInitiated) {
+    notices.push('A platform admin started a password reset for your account.');
+  }
+  if (redirected) {
+    notices.push(
+      `Password reset for ${accountEmail} was sent to the platform support inbox.`,
+    );
+  }
+
+  const noticePrefix = notices.length ? `${notices.join('\n')}\n\n` : '';
+  const bodyText = `${noticePrefix}${rendered.bodyText}`;
+  const htmlBody = notices.length
+    ? `${notices.map((n) => emailNotice(n)).join('')}${rendered.bodyHtml}`
     : rendered.bodyHtml;
+
+  if (redirected) {
+    await sendEmail(deliveredTo, rendered.subject, bodyText, { htmlBody });
+    logger.info(
+      { accountEmail, deliveredTo },
+      '[auth] password reset redirected to support inbox',
+    );
+    return { deliveredTo };
+  }
 
   await notifyUser(user._id.toString(), {
     type: 'password_reset',
@@ -553,22 +629,113 @@ async function sendPasswordResetEmail(
     body: bodyText,
     htmlBody,
   });
+  return { deliveredTo: accountEmail };
 }
 
-export async function requestPasswordReset(email: string, app?: 'web' | 'dashboard') {
-  const user = await User.findOne({ email: email.toLowerCase() });
-  if (!user) {
-    return { success: true, message: 'If that email exists, a reset link has been sent.' };
+async function resolveSupportContactEmail() {
+  const config = mapPlatformConfig(await getPlatformConfig());
+  const supportEmail = (config.supportEmail || '').trim().toLowerCase();
+  if (supportEmail && !isPlatformOwnedEmail(supportEmail)) {
+    return supportEmail;
   }
-  if (!user.email) {
-    return { success: true, message: 'If that email exists, a reset link has been sent.' };
+  return SUPER_ADMIN_SUPPORT_INBOX;
+}
+
+async function consumePasswordResetAttempt(email: string): Promise<{
+  allowed: boolean;
+  attemptsUsed: number;
+  attemptsRemaining: number;
+}> {
+  const now = new Date();
+  const existing = await PasswordResetAttempt.findOne({ email });
+  const windowExpired =
+    !existing ||
+    now.getTime() - existing.windowStartedAt.getTime() >= PASSWORD_RESET_REQUEST_WINDOW_MS;
+
+  if (windowExpired) {
+    const doc = await PasswordResetAttempt.findOneAndUpdate(
+      { email },
+      { $set: { count: 1, windowStartedAt: now } },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+    return {
+      allowed: true,
+      attemptsUsed: doc?.count ?? 1,
+      attemptsRemaining: MAX_PASSWORD_RESET_REQUESTS - 1,
+    };
   }
 
-  const resetApp = app ?? passwordResetAppForRole(user.role);
-  const { resetUrl } = await createPasswordResetToken(user._id.toString(), resetApp);
-  await sendPasswordResetEmail(user, resetUrl);
+  if (existing.count >= MAX_PASSWORD_RESET_REQUESTS) {
+    return {
+      allowed: false,
+      attemptsUsed: existing.count,
+      attemptsRemaining: 0,
+    };
+  }
 
-  return { success: true, message: 'If that email exists, a reset link has been sent.' };
+  const doc = await PasswordResetAttempt.findOneAndUpdate(
+    { email, count: { $lt: MAX_PASSWORD_RESET_REQUESTS } },
+    { $inc: { count: 1 } },
+    { new: true },
+  );
+  if (!doc) {
+    return {
+      allowed: false,
+      attemptsUsed: MAX_PASSWORD_RESET_REQUESTS,
+      attemptsRemaining: 0,
+    };
+  }
+
+  return {
+    allowed: true,
+    attemptsUsed: doc.count,
+    attemptsRemaining: Math.max(0, MAX_PASSWORD_RESET_REQUESTS - doc.count),
+  };
+}
+
+function passwordResetLimitMessage(supportEmail: string) {
+  return `You've reached the limit of ${MAX_PASSWORD_RESET_REQUESTS} password reset emails. If you still need help, contact support at ${supportEmail}.`;
+}
+
+export async function requestPasswordReset(
+  email: string,
+  app?: 'web' | 'dashboard',
+): Promise<PasswordResetRequestResult> {
+  const normalized = email.trim().toLowerCase();
+  const supportEmail = await resolveSupportContactEmail();
+  const attempt = await consumePasswordResetAttempt(normalized);
+
+  if (!attempt.allowed) {
+    return {
+      success: true,
+      message: passwordResetLimitMessage(supportEmail),
+      attemptsUsed: attempt.attemptsUsed,
+      attemptsRemaining: 0,
+      maxAttempts: MAX_PASSWORD_RESET_REQUESTS,
+      supportEmail,
+    };
+  }
+
+  const user = await User.findOne({ email: normalized });
+  if (user?.email) {
+    const resetApp = app ?? passwordResetAppForRole(user.role);
+    const { resetUrl } = await createPasswordResetToken(user._id.toString(), resetApp);
+    await sendPasswordResetEmail(user, resetUrl);
+  }
+
+  const remainingHint =
+    attempt.attemptsRemaining > 0
+      ? ` You can resend ${attempt.attemptsRemaining} more time${attempt.attemptsRemaining === 1 ? '' : 's'}.`
+      : ` If you don't receive it, contact support at ${supportEmail}.`;
+
+  return {
+    success: true,
+    message: `If that email exists, a reset link has been sent.${remainingHint}`,
+    attemptsUsed: attempt.attemptsUsed,
+    attemptsRemaining: attempt.attemptsRemaining,
+    maxAttempts: MAX_PASSWORD_RESET_REQUESTS,
+    supportEmail,
+  };
 }
 
 /** Admin support tool: create a reset link, optionally email it, always return the URL. */
@@ -583,20 +750,21 @@ export async function adminCreatePasswordReset(input: {
   const resetApp = passwordResetAppForRole(user.role);
   const { resetUrl } = await createPasswordResetToken(user._id.toString(), resetApp);
   let emailed = false;
+  let deliveredTo = user.email;
 
   if (input.sendEmail !== false) {
-    await sendPasswordResetEmail(user, resetUrl, true);
+    ({ deliveredTo } = await sendPasswordResetEmail(user, resetUrl, true));
     emailed = true;
   }
 
   return {
     success: true,
     message: emailed
-      ? `Password reset email sent to ${user.email}`
+      ? `Password reset email sent to ${deliveredTo}`
       : 'Password reset link generated (not emailed)',
     resetUrl,
     emailed,
-    email: user.email,
+    email: deliveredTo,
   };
 }
 

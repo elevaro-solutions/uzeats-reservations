@@ -41,7 +41,7 @@ isVenueStaffRole(role)     // manager | host (consume team seats)
 canManageBilling(role)     // restaurant_owner | platform admin
 canCreateRestaurant(role)  // not manager/host
 canAccessPartnerPath(role, pathname) // host FOH allowlist
-partnerLandingPath(role)   // host → /reservations; admin → /admin; else /
+partnerLandingPath(role)   // host → /reservations; admin → /admin; else /overview
 canEditUser(actor, target) // super_admin guard for elevated users
 ```
 

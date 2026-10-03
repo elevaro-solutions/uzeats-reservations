@@ -3,24 +3,65 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useMutation } from '@/lib/apollo-hooks';
-import { Alert, Button, Form, Input, Space } from 'antd';
+import { Alert, Button, Form, Input, Space, Typography } from 'antd';
 import { MailOutlined } from '@ant-design/icons';
 import { colors, typography } from '@reservations/ui';
 import { REQUEST_PASSWORD_RESET } from '@/lib/graphql';
 import { AuthLayout } from '@/components/AuthLayout';
 
+const FALLBACK_SUPPORT_EMAIL = 'support@tablevera.online';
+
+type ResetResult = {
+  success: boolean;
+  message: string;
+  attemptsUsed: number;
+  attemptsRemaining: number;
+  maxAttempts: number;
+  supportEmail: string;
+};
+
 export default function ForgotPasswordPage() {
   const [requestReset, { loading }] = useMutation(REQUEST_PASSWORD_RESET);
+  const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [attemptsRemaining, setAttemptsRemaining] = useState(3);
+  const [maxAttempts, setMaxAttempts] = useState(3);
+  const [supportEmail, setSupportEmail] = useState(FALLBACK_SUPPORT_EMAIL);
+  const [statusMessage, setStatusMessage] = useState(
+    "If an account exists with that email, we've sent a password reset link.",
+  );
 
-  const onFinish = async (values: { email: string }) => {
-    try {
-      await requestReset({ variables: { email: values.email, app: 'dashboard' } });
-    } catch {
-      // Always show the same message to avoid email enumeration
+  const applyResult = (result: ResetResult | null | undefined) => {
+    if (!result) {
+      setSubmitted(true);
+      return;
     }
+    setAttemptsRemaining(result.attemptsRemaining);
+    setMaxAttempts(result.maxAttempts);
+    setSupportEmail(result.supportEmail || FALLBACK_SUPPORT_EMAIL);
+    setStatusMessage(result.message);
     setSubmitted(true);
   };
+
+  const sendReset = async (targetEmail: string) => {
+    try {
+      const { data } = await requestReset({
+        variables: { email: targetEmail, app: 'dashboard' },
+      });
+      applyResult(data?.requestPasswordReset as ResetResult | undefined);
+    } catch {
+      setAttemptsRemaining((prev) => Math.max(0, prev - 1));
+      setSubmitted(true);
+    }
+  };
+
+  const onFinish = async (values: { email: string }) => {
+    const nextEmail = values.email.trim();
+    setEmail(nextEmail);
+    await sendReset(nextEmail);
+  };
+
+  const exhausted = submitted && attemptsRemaining <= 0;
 
   return (
     <div component="ForgotPasswordPage" style={{ display: 'contents' }}>
@@ -35,11 +76,37 @@ export default function ForgotPasswordPage() {
         {submitted ? (
           <Space orientation="vertical" size={16} style={{ width: '100%' }}>
             <Alert
-              type="success"
-              message="Check your email"
-              description="If an account exists with that email, we've sent a password reset link."
+              type={exhausted ? 'warning' : 'success'}
+              message={exhausted ? "Still didn't get the email?" : 'Check your email'}
+              description={
+                exhausted ? (
+                  <span>
+                    You&apos;ve used all {maxAttempts} reset email attempts. Contact support at{' '}
+                    <Typography.Link href={`mailto:${supportEmail}`}>
+                      {supportEmail}
+                    </Typography.Link>{' '}
+                    and we&apos;ll help you reset your password.
+                  </span>
+                ) : (
+                  statusMessage
+                )
+              }
               showIcon
             />
+            {!exhausted ? (
+              <Button
+                block
+                size="large"
+                loading={loading}
+                onClick={() => void sendReset(email)}
+                style={{
+                  height: 46,
+                  fontWeight: typography.fontWeight.semibold,
+                }}
+              >
+                Resend email ({attemptsRemaining} left)
+              </Button>
+            ) : null}
             <Link href="/login">
               <Button
                 type="primary"

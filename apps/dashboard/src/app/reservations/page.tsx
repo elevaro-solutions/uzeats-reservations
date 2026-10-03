@@ -18,9 +18,7 @@ import {
   Space,
   Switch,
   Table,
-  Tag,
   TimePicker,
-  Tooltip,
   Typography,
   message,
 } from 'antd';
@@ -70,19 +68,16 @@ import {
   RESTAURANT_RESERVATION,
   RESTAURANT_RESERVATIONS,
   UPDATE_RESERVATION,
+  PENDING_BADGE_REFETCH,
   UPDATE_RESERVATION_STATUS,
 } from '@/lib/graphql';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import {
   canRefundDeposit,
-  formatDepositStatus,
-  formatOccasion,
-  formatSource,
   formatUsd,
   guestName as formatGuestName,
 } from '@/lib/reservationFormat';
-import { sourceOriginTooltip } from '@/lib/reservationAttribution';
 import { CancelReservationModal } from '@/components/CancelReservationModal';
 import { RefundDepositModal } from '@/components/RefundDepositModal';
 import { ExportMenu, type ListExportFormat } from '@/components/ExportMenu';
@@ -398,10 +393,10 @@ function ReservationsPageContent() {
   const lookedUpReservation = (lookupData?.restaurantReservation ?? undefined) as
     | ReservationRow
     | undefined;
-  const [updateStatus, { loading: updatingStatus }] = useMutation(UPDATE_RESERVATION_STATUS);
-  const [createReservation, { loading: creating }] = useMutation(CREATE_OWNER_RESERVATION);
-  const [updateReservation, { loading: updating }] = useMutation(UPDATE_RESERVATION);
-  const [deleteReservation, { loading: deleting }] = useMutation(DELETE_RESERVATION);
+  const [updateStatus, { loading: updatingStatus }] = useMutation(UPDATE_RESERVATION_STATUS, PENDING_BADGE_REFETCH);
+  const [createReservation, { loading: creating }] = useMutation(CREATE_OWNER_RESERVATION, PENDING_BADGE_REFETCH);
+  const [updateReservation, { loading: updating }] = useMutation(UPDATE_RESERVATION, PENDING_BADGE_REFETCH);
+  const [deleteReservation, { loading: deleting }] = useMutation(DELETE_RESERVATION, PENDING_BADGE_REFETCH);
   const [refundDeposit, { loading: refunding }] = useMutation(REFUND_RESERVATION_DEPOSIT);
   const [exportReservations, { loading: exporting }] = useMutation(EXPORT_RESTAURANT_RESERVATIONS);
 
@@ -874,7 +869,7 @@ function ReservationsPageContent() {
           rowKey="id"
           dataSource={(data?.restaurantReservations?.items ?? []) as ReservationRow[]}
           pagination={tablePagination(data?.restaurantReservations?.total ?? 0)}
-          scroll={{ x: allLocations ? 1380 : 1260 }}
+          tableLayout="fixed"
           locale={
             period === 'upcoming' && statusFilter && PAST_LEANING_STATUSES.has(statusFilter)
               ? {
@@ -901,7 +896,7 @@ function ReservationsPageContent() {
               ? [
                   {
                     title: 'Location',
-                    width: 160,
+                    width: '18%',
                     ellipsis: true,
                     render: (_: unknown, r: ReservationRow) =>
                       r.restaurant?.name ?? '—',
@@ -911,7 +906,7 @@ function ReservationsPageContent() {
             {
               title: showTimeOnlyColumn ? 'Time' : 'When',
               dataIndex: 'slotStart',
-              width: showTimeOnlyColumn ? 90 : 150,
+              width: showTimeOnlyColumn ? '12%' : '18%',
               render: (v: string) =>
                 showTimeOnlyColumn
                   ? formatTimeInTimeZone(v, timeZone)
@@ -925,105 +920,34 @@ function ReservationsPageContent() {
             },
             {
               title: 'Guest',
-              render: (_: unknown, r) => (
-                  <Space orientation="vertical" size={0}>
-                    <Text>{guestName(r)}</Text>
-                    {r.diner?.phone ? (
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        {r.diner.phone}
-                      </Text>
-                    ) : null}
-                  </Space>
-              ),
+              ellipsis: true,
+              render: (_: unknown, r) => guestName(r),
             },
-            { title: 'Party', dataIndex: 'partySize', width: 70 },
+            { title: 'Party', dataIndex: 'partySize', width: '10%' },
             {
               title: 'Table',
-              width: 80,
+              width: '12%',
               ellipsis: true,
               render: (_: unknown, r) =>
                 (r.tables ?? []).map((t) => t.name).join(', ') || '—',
             },
             {
-              title: 'Deposit',
-              width: 120,
-              render: (_: unknown, r: ReservationRow) => {
-                if (!(r.depositAmountCents && r.depositAmountCents > 0)) {
-                  return <Text type="secondary">—</Text>;
-                }
-                return (
-                  <Space orientation="vertical" size={0}>
-                    <Text>{formatUsd(r.depositAmountCents)}</Text>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {formatDepositStatus(r.depositStatus, {
-                        depositAmountCents: r.depositAmountCents,
-                        depositRefundedCents: r.depositRefundedCents,
-                      })}
-                    </Text>
-                  </Space>
-                );
-              },
-            },
-            {
-              title: 'Source',
-              dataIndex: 'source',
-              width: 110,
-              render: (_: unknown, r: ReservationRow) => {
-                const label = formatSource(r.source);
-                if (!label) return <Text type="secondary">—</Text>;
-                const origin = sourceOriginTooltip(r);
-                const tag = <Tag style={{ marginInlineEnd: 0 }}>{label}</Tag>;
-                return origin ? (
-                  <Tooltip title={<span style={{ wordBreak: 'break-all' }}>{origin}</span>}>
-                    {tag}
-                  </Tooltip>
-                ) : (
-                  tag
-                );
-              },
-            },
-            {
-              title: 'Occasion',
-              dataIndex: 'occasion',
-              width: 120,
-              render: (occasion: string) => {
-                const label = formatOccasion(occasion);
-                return label ? <Tag>{label}</Tag> : <Text type="secondary">—</Text>;
-              },
-            },
-            {
-              title: 'Special request',
-              dataIndex: 'guestNotes',
-              ellipsis: true,
-              render: (notes: string) =>
-                notes?.trim() ? (
-                  <Text ellipsis={{ tooltip: notes }}>{notes}</Text>
-                ) : (
-                  <Text type="secondary">—</Text>
-                ),
-            },
-            {
               title: 'Status',
               dataIndex: 'status',
-              width: 110,
+              width: '14%',
               render: (s: string) => <StatusTag status={s} />,
             },
             {
-              title: 'Actions',
-              width: 108,
-              fixed: 'right',
+              title: '',
+              key: 'actions',
+              width: 56,
+              align: 'right' as const,
               render: (_: unknown, r) => (
-                <Space size={4} onClick={(e) => e.stopPropagation()}>
-                  <Button
-                    size="small"
-                    icon={<EyeOutlined />}
-                    aria-label="View reservation"
-                    onClick={() => openView(r)}
-                  />
+                <div onClick={(e) => e.stopPropagation()}>
                   <Dropdown menu={{ items: actionItems(r) }} trigger={['click']} placement="bottomRight">
-                    <Button size="small" icon={<MoreOutlined />} aria-label="More actions" />
+                    <Button size="small" type="text" icon={<MoreOutlined />} aria-label="More actions" />
                   </Dropdown>
-                </Space>
+                </div>
               ),
             },
           ]}

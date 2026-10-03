@@ -8,6 +8,7 @@ import {
   BellIcon,
   CalendarIcon,
   CircleHelpIcon,
+  ClockIcon,
   GlobeIcon,
   HeartIcon,
   LockIcon,
@@ -257,6 +258,11 @@ export function ProfileFeature() {
                 title: "Reservations",
                 icon: <CalendarIcon size={20} color={iconColor} />,
                 onPress: () => router.push("/reservations"),
+              },
+              {
+                title: "My waitlist",
+                icon: <ClockIcon size={20} color={iconColor} />,
+                onPress: () => router.push("/waitlist"),
               },
               {
                 title: "Favorites",

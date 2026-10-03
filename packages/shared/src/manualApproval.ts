@@ -46,3 +46,40 @@ export function bookingRequiresManualApproval(input: {
   if (flags.some(Boolean)) return true;
   return matchesManualApprovalPartySize(input.partySize, input.restaurant);
 }
+
+/**
+ * `required` = booking will definitely wait for restaurant confirmation;
+ * `possible` = depends on which table smart-assign picks.
+ */
+export type BookingApprovalPreview = 'required' | 'possible' | 'none';
+
+/**
+ * Pre-booking guess of `bookingRequiresManualApproval` for diner UIs. When no
+ * table is picked, the server assigns one from `candidateTableFlags`, so
+ * approval is only certain if every candidate opts in.
+ */
+export function previewBookingManualApproval(input: {
+  restaurant: ManualApprovalSettings;
+  partySize: number;
+  resourceRequiresApproval?: Array<boolean | null | undefined>;
+  selectedTableRequiresApproval?: boolean | null;
+  candidateTableFlags?: Array<boolean | null | undefined> | null;
+}): BookingApprovalPreview {
+  if (
+    bookingRequiresManualApproval({
+      restaurant: input.restaurant,
+      partySize: input.partySize,
+      resourceRequiresApproval: [
+        ...(input.resourceRequiresApproval ?? []),
+        input.selectedTableRequiresApproval,
+      ],
+    })
+  ) {
+    return 'required';
+  }
+  if (input.selectedTableRequiresApproval != null) return 'none';
+  const candidates = input.candidateTableFlags ?? [];
+  if (candidates.length === 0) return 'none';
+  if (candidates.every(Boolean)) return 'required';
+  return candidates.some(Boolean) ? 'possible' : 'none';
+}

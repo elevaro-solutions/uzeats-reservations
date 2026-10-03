@@ -143,26 +143,42 @@ html {
   padding: 0 24px 48px;
 }
 
-/* ---------- Hero search panel (segmented search bar) ---------- */
+/* ---------- Hero search panel (single pill, seamless segments) ---------- */
 .rt-search-panel {
-  margin-top: 32px;
-  background: #fff;
-  border-radius: var(--radius-xl);
-  padding: 10px;
+  max-width: 1080px;
+  margin: 32px auto 0;
+  background: rgba(255, 255, 255, 0.97);
+  border-radius: 999px;
+  padding: 6px;
   box-shadow:
-    0 24px 64px rgba(0, 0, 0, 0.32),
-    0 0 0 1px rgba(255, 255, 255, 0.06);
+    0 18px 50px rgba(0, 0, 0, 0.28),
+    0 2px 6px rgba(0, 0, 0, 0.08),
+    0 0 0 1px rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
   text-align: left;
+  transition: background 0.2s ease;
+}
+
+/* Square field highlights would poke past the pill's curved ends; popups portal to body */
+.rt-search-panel:not(.rt-search-panel--map),
+.rt-search-panel--map .rt-search-panel__fields {
+  overflow: hidden;
+}
+
+/* Airbnb-style focus: bar dims, active segment lifts out as a white chip */
+.rt-search-panel:not(.rt-search-panel--map):focus-within {
+  background: #f1efeb;
 }
 
 .rt-search-panel__fields {
   display: flex;
-  align-items: stretch;
-  gap: 6px;
+  align-items: center;
+  gap: 0;
   flex: 1;
   width: 100%;
   min-width: 0;
@@ -171,37 +187,43 @@ html {
 .rt-search-field {
   display: flex;
   flex-direction: column;
-  justify-content: flex-start;
+  justify-content: center;
+  align-self: stretch;
   min-width: 0;
-  padding: 8px 10px 6px;
-  border-radius: var(--radius-lg);
-  background: #efece7;
-  border: 1px solid var(--color-border);
+  padding: 9px 8px 4px;
+  border-radius: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
   transition:
     background 0.18s ease,
-    border-color 0.18s ease,
     box-shadow 0.18s ease;
 }
 
 .rt-search-field:hover {
-  background: #e8e4dd;
-  border-color: #d4cfc6;
+  background: #f1efeb;
 }
 
-.rt-search-field:focus-within {
-  background: var(--color-brand-50);
-  border-color: var(--color-brand-200);
-  box-shadow: 0 0 0 2px rgba(var(--color-brand-rgb), 0.14);
+.rt-search-panel:focus-within .rt-search-field:hover {
+  background: #e7e4de;
+}
+
+.rt-search-field:focus-within,
+.rt-search-panel:focus-within .rt-search-field:focus-within {
+  background: #fff;
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 
 .rt-search-label {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--color-text-secondary);
-  padding: 2px 4px 0;
-  line-height: 1.4;
+  letter-spacing: 0.09em;
+  color: var(--color-text);
+  padding: 0 11px;
+  line-height: 1.3;
   user-select: none;
 }
 
@@ -232,94 +254,157 @@ html {
   color: var(--color-text-secondary);
 }
 
-/* Dividers unused once fields have their own fill + border */
+/* Antd large controls stack padding on top of min-height and each
+   renders at a different height; pin them all to one row height so labels align. */
+.rt-search-panel .rt-search-field .ant-input-affix-wrapper,
+.rt-search-panel .rt-search-field .ant-select,
+.rt-search-panel .rt-search-field .ant-select-selector,
+.rt-search-panel .rt-search-field .ant-select-selection-wrap,
+.rt-search-panel .rt-search-field .ant-select-selection-search,
+.rt-search-panel .rt-search-field .ant-picker {
+  height: 36px;
+  min-height: 0;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.rt-search-panel .rt-search-field .ant-input,
+.rt-search-panel .rt-search-field .ant-select-content {
+  min-height: 0;
+  height: auto;
+}
+
+/* The lifted white segment is the focus indicator; drop the inner rings */
+.rt-search-panel .rt-search-field :is(input, .ant-input-affix-wrapper, .ant-select, .ant-select-selector, .ant-picker) {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+.rt-search-panel .rt-search-field .ant-input,
+.rt-search-panel .rt-search-field .ant-select-selection-item,
+.rt-search-panel .rt-search-field .ant-select-placeholder,
+.rt-search-panel .rt-search-field .ant-picker-input > input {
+  font-size: 15px;
+}
+
+/* Hairline separators; hidden next to a hovered/focused segment */
 .rt-search-divider {
-  display: none;
+  flex: 0 0 1px;
+  width: 1px;
+  height: 32px;
+  background: var(--color-border);
+  transition: opacity 0.15s ease;
+}
+
+.rt-search-field:hover + .rt-search-divider,
+.rt-search-field:focus-within + .rt-search-divider,
+.rt-search-divider:has(+ .rt-search-field:hover),
+.rt-search-divider:has(+ .rt-search-field:focus-within) {
+  opacity: 0;
 }
 
 .rt-search-submit {
   display: flex;
   align-items: stretch;
   flex-shrink: 0;
-  padding: 0;
+  padding: 0 0 0 6px;
 }
 
-/* Map-mode search: compact card with integrated view toggle */
-.rt-search-panel--map {
-  margin-top: 0;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0;
-  padding: 0;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--color-border-subtle);
-  overflow: hidden;
-  background: var(--color-surface);
-}
-
-.rt-search-panel__map-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--color-border-subtle);
+.rt-search-panel .rt-search-submit .ant-btn {
+  border-radius: 999px !important;
+  padding-inline: 24px !important;
+  font-size: 15px;
   background: linear-gradient(
-    180deg,
-    var(--color-bg) 0%,
-    var(--color-surface) 100%
-  );
+    135deg,
+    var(--color-brand-500) 0%,
+    var(--color-brand-700) 100%
+  ) !important;
 }
 
-.rt-search-panel__map-title {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--color-text-secondary);
+/* Map-mode search: compact pill toolbar with the view toggle inline */
+.rt-search-panel--map {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.rt-search-panel--map .rt-search-panel__fields {
+  padding: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 6px 16px rgba(0, 0, 0, 0.06);
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.rt-search-panel--map .rt-search-panel__fields:hover {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.05),
+    0 8px 22px rgba(0, 0, 0, 0.09);
+}
+
+.rt-search-panel--map .rt-search-panel__fields:focus-within {
+  background: #f1efeb;
+}
+
+.rt-search-panel--map .rt-search-field {
+  padding: 5px 6px 1px;
+}
+
+.rt-search-panel--map .rt-search-label {
+  font-size: 10px;
+}
+
+.rt-search-panel.rt-search-panel--map .rt-search-field .ant-input-affix-wrapper,
+.rt-search-panel.rt-search-panel--map .rt-search-field .ant-select,
+.rt-search-panel.rt-search-panel--map .rt-search-field .ant-select-selector,
+.rt-search-panel.rt-search-panel--map .rt-search-field .ant-select-selection-wrap,
+.rt-search-panel.rt-search-panel--map .rt-search-field .ant-select-selection-search,
+.rt-search-panel.rt-search-panel--map .rt-search-field .ant-picker {
+  height: 30px;
+}
+
+.rt-search-panel--map .rt-search-field :is(.ant-input, .ant-select-selection-item, .ant-select-placeholder, .ant-picker-input > input) {
+  font-size: 14px !important;
+}
+
+.rt-search-panel--map .rt-search-divider {
+  height: 26px;
+}
+
+.rt-search-panel--map .rt-search-submit {
+  padding-left: 4px;
+}
+
+.rt-search-panel--map .rt-search-submit .ant-btn {
+  padding-inline: 18px !important;
+  font-size: 14px;
 }
 
 .rt-search-panel__map-actions {
   flex-shrink: 0;
 }
 
-.rt-search-panel--map .rt-search-panel__fields {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: 6px;
-  padding: 8px;
-}
-
-.rt-search-panel--map .rt-search-field {
-  background: #efece7;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: none;
-}
-
-.rt-search-panel--map .rt-search-field:hover {
-  background: #e8e4dd;
-  border-color: #d4cfc6;
-}
-
-.rt-search-panel--map .rt-search-field:focus-within {
-  background: var(--color-brand-50);
-  border-color: var(--color-brand-200);
-  box-shadow: 0 0 0 2px rgba(var(--color-brand-rgb), 0.14);
-}
-
-.rt-search-panel--map .rt-search-submit {
-  padding: 2px 0 0;
-}
-
 /* Field widths — desktop */
+.rt-search-panel .rt-sf-what {
+  border-radius: 999px 0 0 999px;
+}
+
 .rt-sf-what {
   flex: 1.4 1 175px;
-}
-.rt-sf-cuisine {
-  flex: 0.9 1 118px;
 }
 .rt-sf-where {
   flex: 1.6 1 195px;
@@ -333,20 +418,54 @@ html {
 
 /* Stack the panel on smaller screens */
 @media (max-width: 940px) {
+  .rt-search-panel:not(.rt-search-panel--map) {
+    border-radius: var(--radius-xl);
+    padding: 8px;
+  }
+
   .rt-search-panel__fields {
     flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .rt-search-divider {
+    display: none;
+  }
+
+  .rt-search-panel .rt-search-field,
+  .rt-search-panel .rt-sf-what {
+    border-radius: 0;
+    background: #f4f2ee;
+  }
+
+  .rt-search-panel .rt-search-submit {
+    padding: 2px 0 0;
+  }
+
+  .rt-search-panel .rt-search-submit .ant-btn {
+    border-radius: var(--radius-lg) !important;
+  }
+
+  .rt-search-panel--map {
+    flex-direction: column;
+    align-items: stretch;
     gap: 8px;
   }
 
   .rt-search-panel--map .rt-search-panel__fields {
-    padding: 8px;
+    padding: 6px;
+    border-radius: var(--radius-xl);
+  }
+
+  .rt-search-panel--map .rt-search-panel__map-actions {
+    order: -1;
+    align-self: flex-end;
   }
 
   .rt-sf-what,
   .rt-sf-where {
     flex: 1 1 100%;
   }
-  .rt-sf-cuisine,
   .rt-sf-when,
   .rt-sf-who {
     flex: 1 1 40%;
@@ -357,14 +476,6 @@ html {
   }
   .rt-search-submit .ant-btn {
     width: 100%;
-  }
-}
-
-@media (max-width: 560px) {
-  .rt-sf-cuisine,
-  .rt-sf-when,
-  .rt-sf-who {
-    flex: 1 1 100%;
   }
 }
 
@@ -1949,17 +2060,6 @@ html.rt-map-view .rt-site-footer {
 
   .rt-map-page__search-bar {
     padding: 10px 12px;
-  }
-
-  .rt-search-panel__map-bar {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .rt-search-panel__map-actions {
-    width: 100%;
-    display: flex;
-    justify-content: flex-end;
   }
 
   .rt-hero-orb {

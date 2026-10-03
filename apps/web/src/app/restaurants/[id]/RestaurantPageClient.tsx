@@ -52,6 +52,8 @@ import {
   todayIsoInTimeZone,
   timezoneFromAddress,
   zonedWallClockToUtc,
+  previewBookingManualApproval,
+  preferredWindowFromSlot,
   DEFAULT_REVIEW_SORT,
   RESTAURANT_REVIEWS_PREVIEW_LIMIT,
   type ReviewSort,
@@ -192,6 +194,7 @@ export default function RestaurantPageClient({
     timeLabel: string;
     partySize: number;
     occasionLabel: string;
+    awaitingApproval?: boolean;
   } | null>(null);
   const [occasion, setOccasion] = useState('none');
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
@@ -291,6 +294,7 @@ export default function RestaurantPageClient({
       timeLabel: string;
       partySize: number;
       occasionLabel: string;
+      awaitingApproval?: boolean;
     } | null;
   } | null>(null);
 
@@ -405,6 +409,7 @@ export default function RestaurantPageClient({
     occasions: string[];
     minPartySize?: number | null;
     maxPartySize?: number | null;
+    requiresManualApproval?: boolean;
   }> } | undefined)?.restaurantPackages ?? [];
 
   const matchingPackages = useMemo(() => {
@@ -433,6 +438,7 @@ export default function RestaurantPageClient({
     rentalFeeCents: number;
     minimumSpendCents: number;
     photoUrl?: string | null;
+    requiresManualApproval?: boolean;
   }> } | undefined)?.privateDiningSpaces ?? [];
 
   const matchingPrivateSpaces = useMemo(() => {
@@ -599,6 +605,25 @@ export default function RestaurantPageClient({
     depositAfterPromo - (giftValidation?.valid ? giftValidation.discountCents : 0),
   );
   const selectedTable = bookableTables.find((t: { id: string }) => t.id === selectedTableId);
+  const approvalPreview = previewBookingManualApproval({
+    restaurant: {
+      enabled: restaurant?.manualApprovalEnabled === true,
+      partySizeOp: restaurant?.manualApprovalPartySizeOp === 'gt' ? 'gt' : 'gte',
+      partySize: restaurant?.manualApprovalPartySize ?? null,
+    },
+    partySize,
+    resourceRequiresApproval: [
+      selectedPackage?.requiresManualApproval,
+      selectedPrivateSpace?.requiresManualApproval,
+      selectedExperience?.requiresManualApproval,
+    ],
+    selectedTableRequiresApproval: selectedTable
+      ? selectedTable.requiresManualApproval === true
+      : undefined,
+    candidateTableFlags: selectedSlot
+      ? bookableTables.map((t: { requiresManualApproval?: boolean }) => t.requiresManualApproval)
+      : null,
+  });
   const availableCount = slots.filter((s: any) => s.available).length;
   const promotions = (promotionsData as any)?.promotions?.items ?? [];
 
@@ -774,6 +799,7 @@ export default function RestaurantPageClient({
         timeLabel: formatSlotLabel(selectedSlot),
         partySize,
         occasionLabel: formatOccasion(occasion),
+        awaitingApproval: payload?.reservation?.requiresManualApproval === true,
       };
       if (payload?.clientSecret) {
         const cs = payload.clientSecret as string;
@@ -847,12 +873,16 @@ export default function RestaurantPageClient({
       redirectToLoginForBooking();
       return;
     }
+    const preferredWindow = selectedSlot
+      ? preferredWindowFromSlot(selectedSlot, timeZone)
+      : null;
     const { data: wlData } = await joinWaitlist({
       variables: {
         input: {
           restaurantId: restaurantId!,
           partySize,
           preferredDate: date.format('YYYY-MM-DD'),
+          ...(preferredWindow ?? {}),
         },
       },
     });
@@ -1114,7 +1144,9 @@ export default function RestaurantPageClient({
               />
             )}
             <Text type="secondary" className="rt-restaurant-booking-card__intro">
-              Pick a date, party size, and time — confirmed in seconds.
+              {approvalPreview === 'none'
+                ? 'Pick a date, party size, and time — confirmed in seconds.'
+                : 'Pick a date, party size, and time — the restaurant reviews some bookings before confirming.'}
             </Text>
             {user && (
               <Text type="secondary" className="rt-restaurant-booking-card__loyalty">
@@ -1206,6 +1238,11 @@ export default function RestaurantPageClient({
                             <Text type="secondary" style={{ fontSize: 12 }}>
                               {t.floorArea} · {t.minCapacity}-{t.maxCapacity} guests
                             </Text>
+                            {t.requiresManualApproval ? (
+                              <Tag color="warning" style={{ marginTop: 6, marginInlineEnd: 0 }}>
+                                Needs approval
+                              </Tag>
+                            ) : null}
                           </Card>
                         </Col>
                       );
@@ -1644,6 +1681,24 @@ export default function RestaurantPageClient({
                 />
               )}
 
+              {approvalPreview !== 'none' && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                  message={
+                    approvalPreview === 'required'
+                      ? 'This booking needs restaurant approval'
+                      : 'This booking may need restaurant approval'
+                  }
+                  description={
+                    approvalPreview === 'required'
+                      ? `${restaurant.name} reviews this request before confirming. It stays pending until approved, and we'll notify you as soon as they respond.`
+                      : `Some tables at ${restaurant.name} need approval. If yours does, the booking stays pending until the restaurant confirms, and we'll notify you when they respond.`
+                  }
+                />
+              )}
+
               <div className="rt-restaurant-booking-card__actions">
                 <Button type="primary" loading={booking} onClick={book}>
                   Complete reservation
@@ -1756,6 +1811,7 @@ export default function RestaurantPageClient({
         termsAndConditions={restaurant.termsAndConditions}
         depositRequired={restaurant.depositRequired}
         depositAmountCents={restaurant.depositAmountCents}
+        approvalPreview={approvalPreview}
         error={confirmError}
         details={{
           dateLabel: formatBookingDateLabel(date),
@@ -1800,7 +1856,7 @@ export default function RestaurantPageClient({
 
       <Modal
         open={!!bookingSuccess}
-        title="Reservation confirmed"
+        title={bookingSuccess?.awaitingApproval ? 'Request sent' : 'Reservation confirmed'}
         onOk={() => {
           router.push('/reservations');
         }}
@@ -1828,6 +1884,14 @@ export default function RestaurantPageClient({
             style={{ width: '100%' }}
             styles={{ item: { width: '100%' } }}
           >
+            {bookingSuccess.awaitingApproval ? (
+              <Alert
+                type="warning"
+                showIcon
+                message={`Awaiting approval from ${restaurant.name}`}
+                description="Your table isn't confirmed yet. The restaurant will review your request, and we'll notify you as soon as it's approved or declined. You can track its status on your reservations page."
+              />
+            ) : null}
             <Space size={8} align="center">
               <CheckCircleFilled style={{ color: '#1f7a63' }} />
               <Text strong style={{ fontSize: 15 }}>
@@ -1835,9 +1899,11 @@ export default function RestaurantPageClient({
                 {bookingSuccess.floorArea ? ` · ${bookingSuccess.floorArea}` : ''}
               </Text>
             </Space>
-            <Text type="secondary">
-              We sent your confirmation details and booking status to your reservations page.
-            </Text>
+            {bookingSuccess.awaitingApproval ? null : (
+              <Text type="secondary">
+                We sent your confirmation details and booking status to your reservations page.
+              </Text>
+            )}
             <Descriptions
               size="small"
               column={1}

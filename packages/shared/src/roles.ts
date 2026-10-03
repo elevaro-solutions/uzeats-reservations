@@ -109,7 +109,7 @@ export function canImportRestaurant(role: string): boolean {
 /** Whether a Partner Hub pathname is allowed for this role. Hosts are FOH-only. */
 export function canAccessPartnerPath(role: string, pathname: string): boolean {
   if (!isHostRole(role)) return true;
-  if (pathname === '/' || pathname === '') return false;
+  if (pathname === '/' || pathname === '' || pathname === '/overview') return false;
   return HOST_ALLOWED_PATH_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
@@ -119,7 +119,7 @@ export function canAccessPartnerPath(role: string, pathname: string): boolean {
 export function partnerLandingPath(role: string): string {
   if (isPlatformAdmin(role)) return '/admin';
   if (isHostRole(role)) return '/reservations';
-  return '/';
+  return '/overview';
 }
 
 /** Whether `actorRole` may modify a user with `targetRole`. */

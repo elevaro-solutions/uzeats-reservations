@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Checkbox, Descriptions, Modal, Typography, type DescriptionsProps } from 'antd';
+import type { BookingApprovalPreview } from '@reservations/shared';
 import { resolveRestaurantTerms } from '@/lib/restaurantTerms';
 
 const { Text, Paragraph, Link } = Typography;
@@ -37,6 +38,7 @@ type Props = {
   termsAndConditions?: string | null;
   depositRequired?: boolean;
   depositAmountCents?: number;
+  approvalPreview?: BookingApprovalPreview;
   details: ReservationConfirmDetails;
   /** Shown inside the modal so booking failures stay visible over the confirm UI */
   error?: string | null;
@@ -60,6 +62,7 @@ export function ReservationConfirmModal({
   termsAndConditions,
   depositRequired,
   depositAmountCents,
+  approvalPreview = 'none',
   details,
   error,
   onClose,
@@ -213,12 +216,29 @@ export function ReservationConfirmModal({
               disabled={!acceptedTerms}
               onClick={onConfirm}
             >
-              Confirm reservation
+              {approvalPreview === 'required' ? 'Send request' : 'Confirm reservation'}
             </Button>
           </div>
         </div>
       }
     >
+      {approvalPreview !== 'none' ? (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={
+            approvalPreview === 'required'
+              ? 'Requires restaurant approval'
+              : 'May require restaurant approval'
+          }
+          description={
+            approvalPreview === 'required'
+              ? `${restaurantName} will review this request before confirming. Your booking stays pending until then, and we'll notify you when they respond.`
+              : `If your assigned table needs approval, ${restaurantName} will review the request first. We'll notify you when it's confirmed.`
+          }
+        />
+      ) : null}
       <Descriptions
         column={1}
         size="small"

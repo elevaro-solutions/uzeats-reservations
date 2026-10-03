@@ -33,6 +33,15 @@ export const typeDefs = `#graphql
     message: String!
   }
 
+  type PasswordResetRequestPayload {
+    success: Boolean!
+    message: String!
+    attemptsUsed: Int!
+    attemptsRemaining: Int!
+    maxAttempts: Int!
+    supportEmail: String!
+  }
+
   type EmailVerificationPayload {
     success: Boolean!
     message: String!
@@ -515,6 +524,7 @@ export const typeDefs = `#graphql
   type WaitlistEntry {
     id: ID!
     restaurantId: ID!
+    restaurant: Restaurant
     dinerId: ID
     diner: User
     guestName: String
@@ -526,11 +536,19 @@ export const typeDefs = `#graphql
     preferredTimeStart: String
     preferredTimeEnd: String
     status: WaitlistStatus!
+    notifiedAt: DateTime
     notifiedSlot: DateTime
+    reservationId: ID
     position: Int
     partiesAhead: Int
     estimatedWaitMinutes: Int
     estimatedReadyAt: DateTime
+    """Minutes since the party joined (waiting/notified only)."""
+    waitingMinutes: Int
+    """Quoted wait, else ETA estimate, else platform default — threshold for overdue."""
+    promisedWaitMinutes: Int
+    """True when waitingMinutes exceeds promisedWaitMinutes."""
+    isOverdue: Boolean!
     createdAt: DateTime!
   }
 
@@ -916,6 +934,17 @@ export const typeDefs = `#graphql
   type WaitlistConnection {
     items: [WaitlistEntry!]!
     total: Int!
+  }
+
+  """Diner hit for linking an in-house waitlist walk-in to an existing account."""
+  type WaitlistGuestSearchResult {
+    dinerId: ID!
+    guestName: String!
+    guestPhone: String
+    email: String
+    totalVisits: Int!
+    vipStatus: String
+    inGuestBook: Boolean!
   }
 
   type ReviewConnection {
@@ -2768,9 +2797,23 @@ export const typeDefs = `#graphql
 
   input InHouseWaitlistInput {
     restaurantId: ID!
-    guestName: String!
+    """Existing diner account from the restaurant guest book."""
+    dinerId: ID
+    guestName: String
     guestPhone: String
     partySize: Int!
+    quotedWaitMinutes: Int
+  }
+
+  input UpdateWaitlistEntryInput {
+    id: ID!
+    """Pass null to unlink a diner account."""
+    dinerId: ID
+    guestName: String
+    """Empty string clears the phone."""
+    guestPhone: String
+    partySize: Int
+    """Null clears the quoted wait."""
     quotedWaitMinutes: Int
   }
 
@@ -2811,7 +2854,17 @@ export const typeDefs = `#graphql
     """Partner ops alias of restaurantReservation (merchant mobile deep links)."""
     partnerReservation(id: ID!): Reservation
     myWaitlist: [WaitlistEntry!]!
-    restaurantWaitlist(restaurantId: ID!, limit: Int, offset: Int): WaitlistConnection!
+    restaurantWaitlist(
+      restaurantId: ID!
+      limit: Int
+      offset: Int
+      """Defaults to waiting + notified (live queue). Pass history statuses to include seated/booked/expired/cancelled."""
+      statuses: [WaitlistStatus!]
+      preferredDate: String
+      source: String
+    ): WaitlistConnection!
+    """Search platform diners (and guest-book visits) to link a walk-in waitlist entry."""
+    searchWaitlistGuests(restaurantId: ID!, search: String!, limit: Int): [WaitlistGuestSearchResult!]!
     restaurantReviews(
       restaurantId: ID!
       limit: Int
@@ -2823,6 +2876,8 @@ export const typeDefs = `#graphql
     myReviews(limit: Int, offset: Int): ReviewConnection!
     """Count of visible reviews that still need an owner/manager reply (sidebar badge)."""
     restaurantUnrepliedReviewCount(restaurantId: ID!): Int!
+    """Count of upcoming reservations still pending confirmation (Reservations sidebar badge)."""
+    restaurantPendingReservationCount(restaurantId: ID!): Int!
     """Count of unpaid invoices with a balance for a restaurant (Billing sidebar badge)."""
     restaurantOpenInvoiceCount(restaurantId: ID!): Int!
     loyaltyProgram: LoyaltyProgram!
@@ -3034,7 +3089,7 @@ export const typeDefs = `#graphql
     verifyPhoneOtp(input: PhoneOtpVerifyInput!): AuthPayload!
     refreshToken(refreshToken: String): AuthPayload!
     logout(refreshToken: String): Boolean!
-    requestPasswordReset(email: String!, app: String): MessagePayload!
+    requestPasswordReset(email: String!, app: String): PasswordResetRequestPayload!
     resetPassword(token: String!, newPassword: String!): MessagePayload!
     verifyEmail(code: String!): MessagePayload!
     resendVerificationEmail: EmailVerificationPayload!
@@ -3406,7 +3461,9 @@ export const typeDefs = `#graphql
     ): Restaurant!
 
     addInHouseWaitlistEntry(input: InHouseWaitlistInput!): WaitlistEntry!
-    updateWaitlistStatus(id: ID!, status: WaitlistStatus!): WaitlistEntry!
+    """Edit guest details / party / quoted wait on an active (waiting|notified) entry."""
+    updateWaitlistEntry(input: UpdateWaitlistEntryInput!): WaitlistEntry!
+    updateWaitlistStatus(id: ID!, status: WaitlistStatus!, tableId: ID): WaitlistEntry!
 
     setPremiumSmsAddon(restaurantId: ID!, enabled: Boolean!): SubscriptionType!
   }

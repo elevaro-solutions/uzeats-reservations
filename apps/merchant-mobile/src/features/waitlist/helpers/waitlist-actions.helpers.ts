@@ -22,6 +22,7 @@ export async function runWaitlistStatusAction(options: {
   setBusyId: (id: string | null) => void;
 }): Promise<void> {
   const { id, action, updateStatus, refetch, setBusyId } = options;
+  if (action.action !== "status") return;
   const copy = waitlistActionToastCopy(action);
   setBusyId(id);
   try {
@@ -34,6 +35,40 @@ export async function runWaitlistStatusAction(options: {
     });
   } finally {
     setBusyId(null);
+  }
+}
+
+export async function runUpdateWaitlistEntry(options: {
+  id: string;
+  values: AddWalkInPayload;
+  /** When true, clear dinerId on the entry (guest unlinked in the form). */
+  clearDinerId?: boolean;
+  updateEntry: MutateFn;
+  refetch: RefetchFn;
+  onSuccess: () => void;
+}): Promise<void> {
+  const { id, values, clearDinerId, updateEntry, refetch, onSuccess } = options;
+  try {
+    const input: Record<string, unknown> = {
+      id,
+      guestName: values.guestName,
+      guestPhone: values.guestPhone ?? "",
+      partySize: values.partySize,
+      quotedWaitMinutes: values.quotedWaitMinutes ?? null,
+    };
+    if (clearDinerId) {
+      input.dinerId = null;
+    } else if (values.dinerId) {
+      input.dinerId = values.dinerId;
+    }
+    await updateEntry({ variables: { input } });
+    toast.success("Waitlist updated");
+    onSuccess();
+    await refetch();
+  } catch (err) {
+    toast.error("Couldn't update waitlist", {
+      description: getGraphQLErrorMessage(err, "Please try again"),
+    });
   }
 }
 
@@ -54,6 +89,7 @@ export async function runAddWalkIn(options: {
       variables: {
         input: {
           restaurantId,
+          dinerId: values.dinerId,
           guestName: values.guestName,
           guestPhone: values.guestPhone,
           partySize: values.partySize,
@@ -61,7 +97,7 @@ export async function runAddWalkIn(options: {
         },
       },
     });
-    toast.success("Walk-in added");
+    toast.success(values.dinerId ? "Guest added" : "Walk-in added");
     onSuccess();
     await refetch();
   } catch (err) {

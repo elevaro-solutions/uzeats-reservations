@@ -17,7 +17,7 @@ export function useRequireAdmin() {
       router.replace('/login');
       return;
     }
-    if (!isAdmin) router.replace('/');
+    if (!isAdmin) router.replace('/overview');
   }, [authLoading, user, isAdmin, router]);
 
   return { user, authLoading, ready: !authLoading && isAdmin };

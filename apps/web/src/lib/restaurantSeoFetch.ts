@@ -51,6 +51,9 @@ export type RestaurantSeoData = {
   allowGuestTableSelection?: boolean;
   reservationsEnabled?: boolean;
   reservationsVisible?: boolean;
+  manualApprovalEnabled?: boolean;
+  manualApprovalPartySizeOp?: string;
+  manualApprovalPartySize?: number | null;
   shifts: RestaurantSeoShift[];
   timezone?: string | null;
   bookingWindow?: { maxAdvanceDays: number; minAdvanceHours: number } | null;
@@ -138,6 +141,9 @@ const RESTAURANT_PAGE_QUERY = `
       allowGuestTableSelection
       reservationsEnabled
       reservationsVisible
+      manualApprovalEnabled
+      manualApprovalPartySizeOp
+      manualApprovalPartySize
       shifts {
         daysOfWeek
         startTime

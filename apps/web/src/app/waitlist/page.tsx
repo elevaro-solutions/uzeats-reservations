@@ -7,7 +7,6 @@ import {
   Card,
   List,
   Modal,
-  Progress,
   Space,
   Spin,
   Tag,
@@ -26,7 +25,7 @@ import {
 import dayjs from 'dayjs';
 import { PageHeader, EmptyState, colors, radii, shadows } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
-import { MY_WAITLIST, CANCEL_WAITLIST, RESTAURANT_DETAIL } from '@/lib/graphql';
+import { MY_WAITLIST, CANCEL_WAITLIST } from '@/lib/graphql';
 import { skipPollWhenHidden } from '@/lib/pollVisibility';
 
 const { Text } = Typography;
@@ -34,6 +33,8 @@ const { Text } = Typography;
 const STATUS_CONFIG: Record<string, { color: string; icon: React.ReactNode; label: string }> = {
   waiting: { color: 'processing', icon: <ClockCircleOutlined />, label: 'Waiting' },
   notified: { color: 'success', icon: <CheckCircleOutlined />, label: 'Notified' },
+  booked: { color: 'success', icon: <CheckCircleOutlined />, label: 'Booked' },
+  seated: { color: 'success', icon: <CheckCircleOutlined />, label: 'Seated' },
   expired: { color: 'default', icon: <ExclamationCircleOutlined />, label: 'Expired' },
   cancelled: { color: 'error', icon: <CloseCircleOutlined />, label: 'Cancelled' },
 };
@@ -142,7 +143,10 @@ export default function WaitlistPage() {
                 >
                   <div style={{ flex: 1, minWidth: 200 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                      <WaitlistRestaurantName restaurantId={entry.restaurantId} />
+                      <Text strong style={{ fontSize: 16 }}>
+                        {entry.restaurant?.name ??
+                          `Restaurant #${String(entry.restaurantId).slice(-6)}`}
+                      </Text>
                       <Tag icon={cfg.icon} color={cfg.color}>
                         {cfg.label}
                       </Tag>
@@ -173,17 +177,6 @@ export default function WaitlistPage() {
                             ? ` · ~${entry.estimatedWaitMinutes} min`
                             : ''}
                         </Text>
-                        {entry.estimatedWaitMinutes != null && (
-                          <Progress
-                            percent={Math.min(
-                              100,
-                              Math.max(5, 100 - entry.estimatedWaitMinutes * 2),
-                            )}
-                            showInfo={false}
-                            strokeColor={colors.brand[600]}
-                            style={{ marginTop: 8, maxWidth: 280 }}
-                          />
-                        )}
                       </div>
                     )}
 
@@ -215,7 +208,7 @@ export default function WaitlistPage() {
                         Book now
                       </Button>
                     )}
-                    {entry.status === 'waiting' && (
+                    {(entry.status === 'waiting' || entry.status === 'notified') && (
                       <Button danger onClick={() => handleCancel(entry.id)}>
                         Cancel
                       </Button>
@@ -228,17 +221,5 @@ export default function WaitlistPage() {
         />
       )}
     </div>
-  );
-}
-
-function WaitlistRestaurantName({ restaurantId }: { restaurantId: string }) {
-  const { data } = useQuery(RESTAURANT_DETAIL, {
-    variables: { id: restaurantId },
-  });
-
-  return (
-    <div component="WaitlistRestaurantName" style={{ display: 'contents' }}><Text strong style={{ fontSize: 16 }}>
-      {(data as any)?.restaurant?.name ?? `Restaurant #${restaurantId.slice(-6)}`}
-    </Text></div>
   );
 }

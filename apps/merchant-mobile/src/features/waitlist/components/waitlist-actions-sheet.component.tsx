@@ -18,6 +18,10 @@ export type WaitlistActionsSheetProps = {
   onAction: (action: WaitlistAction) => void;
 };
 
+function actionKey(action: WaitlistAction): string {
+  return action.action === "edit" ? "edit" : action.status;
+}
+
 export function WaitlistActionsSheet({
   visible,
   guestName,
@@ -27,10 +31,10 @@ export function WaitlistActionsSheet({
   onAction,
 }: WaitlistActionsSheetProps) {
   const items: StatusActionItem[] = actions.map((action) => ({
-    key: action.status,
+    key: actionKey(action),
     label: action.label,
     tone: action.tone,
-    icon: waitlistActionIcon(action.status) as ReactElement<IconPropsType>,
+    icon: waitlistActionIcon(actionKey(action)) as ReactElement<IconPropsType>,
   }));
 
   return (
@@ -41,7 +45,7 @@ export function WaitlistActionsSheet({
       loading={loading}
       onClose={onClose}
       onAction={(item) => {
-        const action = actions.find((a) => a.status === item.key);
+        const action = actions.find((a) => actionKey(a) === item.key);
         if (action) onAction(action);
       }}
     />

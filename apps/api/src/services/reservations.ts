@@ -6,7 +6,6 @@ import {
   resolveRestaurantRedeemPoints,
   isPlatformAdmin,
   formatDateTimeInTimeZone,
-  hmInTimeZone,
   isoDateInTimeZone,
   restaurantTimeZone,
   bookingRequiresManualApproval,
@@ -19,7 +18,6 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '.
 import { Reservation } from '../models/Reservation.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { Table } from '../models/Table.js';
-import { WaitlistEntry } from '../models/Waitlist.js';
 import { User } from '../models/User.js';
 import { Subscription } from '../models/Subscription.js';
 import { CoverFee } from '../models/CoverFee.js';
@@ -67,7 +65,10 @@ import { redeemGiftCardBalance, resolveGiftCardDiscount } from './giftCards.js';
 import { BoostCampaign } from '../models/Marketing.js';
 import { claimTableSlots, releaseTableSlotClaims } from './tableSlotClaims.js';
 import { getBookableTables } from './floorPlanOps.js';
-import { partySizeMatches, timeWindowMatches } from './waitlistEta.js';
+import {
+  markWaitlistBookedForReservation,
+  notifyNextWaitlistForSlot,
+} from './waitlist.js';
 import { listBookmarkUserIds } from './restaurantBookmarks.js';
 import { RestaurantPackage } from '../models/RestaurantPackage.js';
 import { PrivateDiningSpace } from '../models/PrivateDining.js';
@@ -838,6 +839,15 @@ export async function createReservation(input: {
     await softFail('first booking bonus', () => awardFirstBookingBonus(input.dinerId));
   }
 
+  await softFail('waitlist convert', () =>
+    markWaitlistBookedForReservation({
+      dinerId: input.dinerId,
+      restaurantId: input.restaurantId,
+      slotStart: input.slotStart,
+      reservationId,
+    }),
+  );
+
   if (reservation.status === 'confirmed') {
     await softFail('reminder scheduling', () => scheduleReservationReminders(reservationId));
     await softFail('diner confirmation', () =>
@@ -1093,7 +1103,18 @@ export async function updateReservationStatus(
   }
 
   if (status === 'cancelled' || status === 'no_show') {
-    await notifyWaitlistOnCancellation(reservation);
+    try {
+      await notifyNextWaitlistForSlot({
+        restaurantId: reservation.restaurantId,
+        partySize: reservation.partySize,
+        slotStart: reservation.slotStart,
+      });
+    } catch (err) {
+      logger.error(
+        { err, reservationId },
+        '[reservations] waitlist notify on cancellation failed',
+      );
+    }
     await notifyFavoriteDinersOnCancellation(reservation);
   }
 
@@ -1134,55 +1155,6 @@ async function attributeBoostCampaign(reservation: any) {
   } catch (err) {
     console.error('Failed to attribute boost campaign:', err);
   }
-}
-
-async function notifyWaitlistOnCancellation(reservation: {
-  restaurantId: mongoose.Types.ObjectId;
-  partySize: number;
-  slotStart: Date;
-}) {
-  const restaurant = await Restaurant.findById(reservation.restaurantId).select(
-    'name address location',
-  );
-  const tz = restaurantTimeZone(restaurant ?? {});
-  const date = isoDateInTimeZone(reservation.slotStart, tz);
-  const slotTime = hmInTimeZone(reservation.slotStart, tz);
-  const when = formatDateTimeInTimeZone(reservation.slotStart, tz);
-
-  const candidates = await WaitlistEntry.find({
-    restaurantId: reservation.restaurantId,
-    preferredDate: date,
-    partySize: { $lte: reservation.partySize + 2, $gte: Math.max(1, reservation.partySize - 2) },
-    status: 'waiting',
-  })
-    .sort({ createdAt: 1 })
-    .limit(10);
-
-  const entry = candidates.find((e) =>
-    partySizeMatches(e.partySize, reservation.partySize) &&
-    timeWindowMatches(e, slotTime),
-  );
-  if (!entry) return;
-
-  entry.status = 'notified';
-  entry.notifiedAt = new Date();
-  entry.notifiedSlot = reservation.slotStart;
-  await entry.save();
-  if (!entry.dinerId) return;
-  await notifyUser(
-    entry.dinerId.toString(),
-    {
-      type: 'waitlist_available',
-      title: 'A table opened up!',
-      body: `A table is available ${when}. Book now before it's gone.`,
-      data: {
-        restaurantId: reservation.restaurantId.toString(),
-        slot: reservation.slotStart.toISOString(),
-        timeZone: tz,
-      },
-    },
-    { smsRestaurantId: reservation.restaurantId.toString() },
-  );
 }
 
 /**
@@ -1359,13 +1331,18 @@ export async function createOwnerReservation(input: {
   guest: { firstName: string; lastName?: string; phone?: string; email?: string };
   tableId?: string;
   seatImmediately?: boolean;
+  /** When seating an online waitlist diner, reuse their account. */
+  dinerId?: string;
 }) {
   const restaurant = await Restaurant.findById(input.restaurantId);
   if (!restaurant || restaurant.status !== 'approved') {
     throw new ValidationError('Restaurant not available');
   }
 
-  const diner = await findOrCreateDiner(input.guest);
+  const diner = input.dinerId
+    ? await User.findById(input.dinerId)
+    : await findOrCreateDiner(input.guest);
+  if (!diner) throw new NotFoundError('Guest');
   const dinerId = diner._id.toString();
 
   const accessViolation = await checkAccessRules({

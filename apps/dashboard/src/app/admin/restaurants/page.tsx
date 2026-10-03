@@ -280,8 +280,12 @@ function AdminRestaurantsContent() {
   });
   const { data: plansData } = useQuery(PLANS, { skip: !ready });
 
-  const [setStatus] = useMutation(SET_RESTAURANT_STATUS);
-  const [setStatuses, { loading: bulkUpdating }] = useMutation(SET_RESTAURANT_STATUSES);
+  const [setStatus] = useMutation(SET_RESTAURANT_STATUS, {
+    refetchQueries: ['PlatformSetupSignals'],
+  });
+  const [setStatuses, { loading: bulkUpdating }] = useMutation(SET_RESTAURANT_STATUSES, {
+    refetchQueries: ['PlatformSetupSignals'],
+  });
   const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
   const [createRestaurant, { loading: creating }] = useMutation(ADMIN_CREATE_RESTAURANT);
   const [deleteRestaurant] = useMutation(ADMIN_DELETE_RESTAURANT, {

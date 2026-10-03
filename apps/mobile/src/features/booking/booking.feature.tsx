@@ -24,11 +24,13 @@ import {
 import { useAuth } from "@/graphql";
 import { tomorrowIsoDate } from "@/lib/helpers/date-time.helpers";
 import { useAppStore } from "@/store";
+import { previewBookingManualApproval } from "@reservations/shared";
 
 import { BookingConfirmSheet } from "./components/booking-confirm-sheet.component";
 import { BookingDatetimeStep } from "./components/booking-datetime-step.component";
 import { BookingDetailsStep } from "./components/booking-details-step.component";
 import { BookingWaitlistSuccessModal } from "./components/booking-waitlist-success-modal.component";
+import { bookingApprovalNotice } from "./helpers/booking-approval.helpers";
 import { saveBookingDraft } from "./helpers/booking-draft.helpers";
 import { formatCents } from "./helpers/booking-pricing.helpers";
 import { canProceedToDetails } from "./helpers/booking-validation.helpers";
@@ -133,6 +135,27 @@ export function BookingFeature() {
   const selectedPrivateSpace = privateSpaces.find(
     (s) => s.id === form.selectedPrivateSpaceId,
   );
+
+  const approvalPreview = previewBookingManualApproval({
+    restaurant: {
+      enabled: restaurant?.manualApprovalEnabled === true,
+      partySizeOp: restaurant?.manualApprovalPartySizeOp === "gt" ? "gt" : "gte",
+      partySize: restaurant?.manualApprovalPartySize ?? null,
+    },
+    partySize: form.partySize,
+    resourceRequiresApproval: [
+      selectedPackage?.requiresManualApproval,
+      selectedPrivateSpace?.requiresManualApproval,
+      selectedExperience?.requiresManualApproval,
+    ],
+    selectedTableRequiresApproval: selectedTable
+      ? selectedTable.requiresManualApproval === true
+      : undefined,
+    candidateTableFlags: tables.map((t) => t.requiresManualApproval),
+  });
+  const approvalNotice = restaurant
+    ? bookingApprovalNotice(approvalPreview, restaurant.name)
+    : null;
 
   const {
     restaurantMinRedeem,
@@ -241,6 +264,8 @@ export function BookingFeature() {
     user,
     partySize: form.partySize,
     date: form.date,
+    selectedSlot: form.selectedSlot,
+    timeZone: restaurant?.timezone,
     persistDraft,
     refetchMyWaitlist,
   });
@@ -458,6 +483,7 @@ export function BookingFeature() {
             onGiftCardCodeChange={form.setGiftCardCode}
             onRedeemPointsChange={form.setRedeemPoints}
             onRedeemRestaurantPointsChange={form.setRedeemRestaurantPoints}
+            approvalNotice={approvalNotice}
           />
         )}
       </KeyboardAwareScrollView>
@@ -518,6 +544,8 @@ export function BookingFeature() {
         onTermsAcceptedChange={form.setTermsAccepted}
         errorMessage={submitError}
         timeZone={restaurant?.timezone}
+        approvalNotice={approvalNotice}
+        approvalRequired={approvalPreview === "required"}
       />
 
       <BookingWaitlistSuccessModal

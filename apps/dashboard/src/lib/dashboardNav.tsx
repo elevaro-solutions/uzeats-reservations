@@ -97,8 +97,8 @@ function page(
 
 /** Partner Hub pages (sidebar + search). Hub children stay searchable via parentSiderHref. */
 export const PARTNER_PAGES: DashboardPage[] = [
-  page('/', 'Overview', 'Service', 'partner', <DashboardOutlined />, {
-    keywords: ['home', 'dashboard'],
+  page('/overview', 'Overview', 'Service', 'partner', <DashboardOutlined />, {
+    keywords: ['home', 'dashboard', 'multi-location'],
   }),
   page('/restaurants', 'My restaurants', 'Service', 'partner', <ShopOutlined />, {
     keywords: ['locations', 'venues'],
@@ -261,6 +261,11 @@ export const PARTNER_PAGES: DashboardPage[] = [
 export const ADMIN_PAGES: DashboardPage[] = [
   page('/admin', 'Overview', 'Support', 'admin', <SafetyOutlined />, {
     keywords: ['home', 'dashboard'],
+  }),
+  page('/admin/setup', 'Platform setup', 'Support', 'admin', <CompassOutlined />, {
+    keywords: ['setup', 'checklist', 'get started', 'onboarding'],
+    description: 'Checklist for configuring Stripe, support, packages, and restaurants',
+    when: 'onboarding',
   }),
   page('/admin/restaurants', 'Restaurants', 'Support', 'admin', <ShopOutlined />, {
     keywords: ['venues', 'locations'],
@@ -454,7 +459,10 @@ export function partnerSiderPages(opts: {
   );
 }
 
-export function adminSiderPages(opts: { isSuperAdmin?: boolean }): DashboardPage[] {
+export function adminSiderPages(opts: {
+  isSuperAdmin?: boolean;
+  showOnboarding?: boolean;
+}): DashboardPage[] {
   return filterPagesForUser(
     ADMIN_PAGES.filter((p) => !p.parentSiderHref),
     opts,
@@ -499,7 +507,7 @@ export function siderKeyForPathname(
   if (exact) return exact.href;
 
   const prefixMatch = pages
-    .filter((p) => p.href !== '/' && (pathname === p.href || pathname.startsWith(`${p.href}/`)))
+    .filter((p) => pathname === p.href || pathname.startsWith(`${p.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0];
   if (prefixMatch?.parentSiderHref) return prefixMatch.parentSiderHref;
   if (prefixMatch) return prefixMatch.href;

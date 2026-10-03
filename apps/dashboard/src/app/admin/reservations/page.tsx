@@ -1,9 +1,9 @@
 'use client';
 
-import { Suspense, useCallback, useState, type Key } from 'react';
+import { Suspense, useCallback, useEffect, useState, type Key } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useMutation, useQuery } from '@/lib/apollo-hooks';
+import { useApolloClient, useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
   Button,
   Card,
@@ -125,11 +125,14 @@ function AdminReservationsContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { searchQuery, status, setSearch, setStatus } = useUrlListFilters({
+  const { search, searchQuery, status, setSearch, setStatus } = useUrlListFilters({
     search: 'q',
     status: 'status',
   });
-  const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 20 });
+  const { page, pageSize, limit, offset, setPagination, tablePagination } = useUrlPagination({
+    defaultPageSize: 20,
+  });
+  const apolloClient = useApolloClient();
 
   const restaurantId = searchParams.get('restaurant') || undefined;
   const periodParam = searchParams.get('period') || 'all';
@@ -156,6 +159,7 @@ function AdminReservationsContent() {
 
   const { data, loading, refetch } = useQuery(ADMIN_RESERVATIONS, {
     skip: !ready,
+    fetchPolicy: 'cache-and-network',
     variables: {
       restaurantId,
       status: status || undefined,
@@ -180,6 +184,23 @@ function AdminReservationsContent() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [refundDeposit, { loading: refunding }] = useMutation(REFUND_RESERVATION_DEPOSIT);
   const [deleteReservation] = useMutation(DELETE_RESERVATION);
+
+  const loadedTotal: number | undefined = data?.adminReservations?.total;
+  useEffect(() => {
+    if (loading || loadedTotal == null) return;
+    const lastPage = Math.max(1, Math.ceil(loadedTotal / pageSize));
+    if (page > lastPage) setPagination(lastPage);
+  }, [loading, loadedTotal, page, pageSize, setPagination]);
+
+  const evictDeleted = (ids: string[]) => {
+    const { cache } = apolloClient;
+    for (const id of ids) {
+      cache.evict({ id: cache.identify({ __typename: 'Reservation', id }) });
+    }
+    // Every cached page/search result may now have shifted rows and a stale total.
+    cache.evict({ id: 'ROOT_QUERY', fieldName: 'adminReservations' });
+    cache.gc();
+  };
 
   if (!ready) return null;
 
@@ -217,6 +238,7 @@ function AdminReservationsContent() {
           await deleteReservation({ variables: { id: r.id } });
           message.success('Reservation deleted');
           setSelectedRowKeys((keys) => keys.filter((k) => String(k) !== r.id));
+          evictDeleted([r.id]);
           refetch();
         } catch (err: unknown) {
           message.error(err instanceof Error ? err.message : 'Delete failed');
@@ -240,8 +262,10 @@ function AdminReservationsContent() {
           const results = await Promise.allSettled(
             ids.map((id) => deleteReservation({ variables: { id } })),
           );
-          const deleted = results.filter((r) => r.status === 'fulfilled').length;
+          const deletedIds = ids.filter((_, i) => results[i]!.status === 'fulfilled');
+          const deleted = deletedIds.length;
           const failed = results.length - deleted;
+          if (deleted > 0) evictDeleted(deletedIds);
           if (deleted > 0) {
             message.success(`Deleted ${deleted} reservation${deleted === 1 ? '' : 's'}`);
           }
@@ -368,9 +392,8 @@ function AdminReservationsContent() {
             allowClear
             prefix={<SearchOutlined />}
             placeholder="Search guest, email, phone, or restaurant"
-            defaultValue={searchQuery}
-            onPressEnter={(e) => setSearch((e.target as HTMLInputElement).value)}
-            onBlur={(e) => setSearch(e.target.value)}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             style={{ width: 320 }}
           />
           <Select

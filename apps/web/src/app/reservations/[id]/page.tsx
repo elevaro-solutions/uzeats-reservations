@@ -192,6 +192,7 @@ export default function ReservationDetailPage() {
   const r = reservation as {
     id: string;
     status: string;
+    requiresManualApproval?: boolean;
     slotStart: string;
     slotEnd?: string;
     partySize: number;
@@ -449,6 +450,16 @@ export default function ReservationDetailPage() {
             className="rt-reservation-detail__alert"
             message="Deposit required to hold your table"
             description={`Authorize a $${(r.depositAmountCents / 100).toFixed(2)} deposit to confirm this reservation. The hold is only captured if you no-show.`}
+          />
+        )}
+
+        {displayReservationStatus(r) === 'awaiting_approval' && (
+          <Alert
+            type="warning"
+            showIcon
+            className="rt-reservation-detail__alert"
+            message="Awaiting restaurant approval"
+            description={`${r.restaurant?.name ?? 'The restaurant'} is reviewing your request. Your table isn't confirmed yet — we'll notify you as soon as it's approved or declined.`}
           />
         )}
 

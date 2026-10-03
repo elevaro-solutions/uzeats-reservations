@@ -6,6 +6,53 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.74.0] — 2026-10-03
+
+### Added
+
+- Waitlist convert/expire loop: booking a matching day marks the diner’s waitlist entry `booked`; notified holds expire after 15 minutes and cascade to the next party; Seat creates a walk-in reservation (optional `tableId`)
+- Preferred time window on diner join (web + mobile) from the unavailable slot; walk-in SMS on auto-notify when Premium SMS is on
+- Partner waitlist filters (live/history, source, date) on Partner Hub and Live/History on merchant mobile
+- Diner mobile My waitlist screen (`/waitlist`, Profile shortcut) with cancel / book-now and waitlist notification deep links
+- Partner waitlist shows elapsed wait vs promised wait; hosts get `waitlist_overdue` alerts when a party exceeds quoted wait (or 45 min default), with re-alerts every 15 minutes
+- Add walk-in can link an existing diner account (`dinerId`) via `searchWaitlistGuests` (name/email/phone, digit-tolerant). Guest-book visits rank first; matching walk-in phone also soft-links a platform account
+- Partners can edit active waitlist entries (`updateWaitlistEntry`: guest name/phone, party size, quoted wait, diner link) on Partner Hub and merchant mobile
+- Partner register Business step: “Enter address manually” when Google Places search is unavailable or skipped
+- Stripe-style floating Setup guide in Partner Hub (owners/managers) and admin (`admin` / `super_admin`): grouped sections, progress bar, inline task actions, skip optional steps, minimize to a launcher pill, hide/reopen from the account menu
+- Admin `/admin/setup` Platform setup checklist (support contacts, Stripe keys/mode, feature switches, pricing, email templates, restaurant approvals, admin team)
+- Admin config sections are deep-linkable via `?section=`
+- Forgot-password flow allows up to 3 reset emails per address per hour, then shows a contact-support message with the platform support email
+- Partner Hub Reservations sidebar item shows a badge with the number of upcoming reservations awaiting confirmation (`restaurantPendingReservationCount`)
+- Guests are told when a booking needs restaurant approval, on web and diner mobile. Before booking, a notice appears in the booking form and the confirm step ("Send request" button), and tables that need approval are labelled. The notice says "may need approval" when the outcome depends on which table is auto-assigned. After booking, the success screen reads "Request sent / Awaiting approval" instead of "Reservation confirmed", and the reservation detail page explains the pending status. Uses the new shared `previewBookingManualApproval` helper, which mirrors the server rules
+
+### Changed
+
+- Partner Hub Add/Edit table modal (Tables & shifts + Table layout): clearer header/footer, label tooltips with help icons, shape (rectangle/round) on create/edit, and no horizontal scroll in the form body. `tableInputSchema` now accepts optional `shape`/`rotation` so create/update persist them
+- Shared `WAITLIST_STATUSES` includes `seated`; partner waitlist status updates validate transitions; online join respects per-restaurant waitlist plan feature; ETA enrichment is batched per restaurant/date
+- Partner Hub overview lives at `/overview` (root `/` redirects by role). Summary cards link to restaurants, reservations, waitlist, notifications, and reviews; multi-location restaurant table is paginated; recent alerts open in a right-side detail drawer
+- Partner Hub `/reservations` table shows only When, Guest, Party, Table, Status, and Actions (plus Location when viewing all locations); deposit, source, occasion, special request, and phone stay on the detail page / create-edit modals. Layout uses fixed percentages so the list fills the card without horizontal scrolling
+- Partner Hub `/waitlist` list cleaned up to Position, Guest, Party, Wait, Status, and a compact actions menu (no horizontal scroll); source / preferred slot show as secondary text under the guest name
+- Web home hero search redesigned as a single seamless pill (square field segments with hairline dividers, lifted white focus segment, pill CTA); compact rounded card on mobile with When/Guests side by side; Cuisine field removed from the hero
+- Web map view search uses the same pill style as a compact single-row toolbar with the Cards/Map toggle inline (replaces the "Search & book" header card with grey tiles)
+- Web discovery Cuisine filter moved from the search bar into the Filters sidebar/drawer (Cards and Map views); counts toward active filters and is cleared by "Clear all". Hidden on cuisine landing pages where the cuisine is fixed
+- Partner `/onboarding` is now the grouped full-page version of the setup guide (listing, service, payments, team, go live). The "Configure booking rules" step completes once an access rule exists, instead of never completing
+- The "Finish setting up" banner only appears after the floating guide is hidden and required steps remain
+- Setup guide steps tick off without leaving the page: refreshes on query-string changes, window focus, and a 30s poll; approving/rejecting restaurants refreshes the platform guide immediately
+- Admin Platform hub has a permanent **Platform setup** card with live progress, so the checklist is reachable after the floating guide is dismissed
+- Setup guide is plan- and role-aware: booking rules become an "Upgrade plan" step for owners on Basic and are hidden for managers; the deposits step is hidden when the platform deposits switch is off; "Switch Stripe to production" is marked super-admin only for other admins (they can skip it); review-only steps say they are checked off once opened
+- Password resets for `@tablevera.online` accounts are emailed to the platform Support contacts address (usually `support.uzeats@gmail.com`) instead of the platform-owned mailbox
+
+### Fixed
+
+- Setup guide: "Invite your admin team" only completes once another platform admin account exists (it used to tick off on click)
+- Dashboard address search (register / add restaurant): CSP now allows the Google Maps JS + Places scripts (`maps: true` + `maps.googleapis.com` / `maps.gstatic.com` in `script-src`)
+- Address autocomplete dropdown portals to `document.body` so modal overflow no longer clips suggestions
+- Admin `/admin/reservations`: after deleting, other pages and searches no longer show deleted rows or stale totals; a `?page=` past the end redirects to the last page; search applies as you type (and on clear); paging order is stable when bookings share a time slot
+
+### Docs
+
+- Notes for waitlist ops, setup guide, manual-approval preview, password-reset delivery limits, and Partner Hub overview/list cleanups (`docs/notes/api.md`, `dashboard.md`, `web.md`, `features*.md`, merchant-mobile)
+
 ## [0.73.4] — 2026-10-03
 
 ### Fixed
@@ -92,7 +139,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Diner profile (web + mobile) now shows the live referral bonus points from `loyaltyProgram` next to the referral code. Admins already saw this on Loyalty; guests only saw the code.
 - Diners can message a restaurant about their reservation even when the venue is on Basic. The Core+ `twoWayMessaging` plan gate now applies only to restaurant replies, so guests no longer see "Upgrade to unlock it."
 - Auth forms (diner web login/register, partner hub login/register, diner mobile sign-in/sign-up) show field-related GraphQL errors (e.g. `Email already registered` / `CONFLICT`) under the matching input instead of only a toast or banner. API conflict/validation/auth errors now include `extensions.field` for reliable mapping.
-- Wrong signup email verification codes no longer show a masked "Internal server error". `verifyEmail` now throws `ValidationError` so production returns messages like "Invalid or expired verification code".>>>>>>> 9316f3f (fix(web): allow Google Maps scripts in CSP v0.72.4)
+- Wrong signup email verification codes no longer show a masked "Internal server error". `verifyEmail` now throws `ValidationError` so production returns messages like "Invalid or expired verification code".
 
 ## [0.72.3] — 2026-09-30
 

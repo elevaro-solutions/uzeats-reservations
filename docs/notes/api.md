@@ -1,5 +1,19 @@
 # API — Learnings & Observations
 
+## [2026-10-03] Waitlist partner edit
+- `updateWaitlistEntry` edits waiting|notified entries (name/phone/party/quoted wait/`dinerId`; null unlinks). Reuses `resolveWalkInGuestFields`; duplicate active diner on the same date is rejected.
+- Why it matters: Status transitions alone couldn’t fix a wrong party size or quote after add.
+
+## [2026-10-03] Waitlist convert, expire cascade, seat → reservation
+- `createReservation` soft-fails into `markWaitlistBookedForReservation` (same diner/restaurant/date, waiting|notified → `booked` + `reservationId`).
+- Cancel/no-show and the minute BullMQ job (`waitlistJobs`) call `notifyNextWaitlistForSlot` / `expireStaleNotifiedWaitlistEntries` (`WAITLIST_NOTIFY_HOLD_MINUTES` = 15). Walk-ins get SMS on auto-notify when premium SMS is on.
+- Partner `updateWaitlistStatus(seated)` creates a walk-in reservation via `createOwnerReservation` (optional `tableId`, optional waitlist `dinerId`). Transitions are validated with `canPartnerTransitionWaitlist`.
+- Why it matters: Docs’ convert/expire loop is now real; Seat is not a status-only noop.
+
+## [2026-10-03] Waitlist overdue host alerts
+- GraphQL exposes `waitingMinutes` / `promisedWaitMinutes` / `isOverdue` (quoted → ETA → 45m default). Minute job `notify-overdue` alerts managers via `waitlist_overdue` (pref key `newReservation`) and stamps `overdueNotifiedAt` (re-alert every 15m).
+- Why it matters: Quote a wait on walk-in add so overdue fires against the promise, not only the 45m default.
+
 ## [2026-09-30] Seed reservation slots use venue zonedWallClockToUtc
 - `seed.ts` `atOffset` / `slot` / `dateStr` build wall clocks via `zonedWallClockToUtc` + `todayIsoInTimeZone(PLATFORM_TIMEZONE)` — not host `Date#setHours`.
 - Why it matters: Reseeding on an Asia/Tashkent API host used to persist “19:00 local” as wrong UTC instants vs US Eastern venues.

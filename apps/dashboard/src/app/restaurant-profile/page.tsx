@@ -850,7 +850,7 @@ export default function RestaurantProfilePage() {
           <Card style={{ borderRadius: radii.lg }}>
             <Text type="secondary">
               No restaurants yet.{' '}
-              <Link href="/" style={{ color: colors.brand[600], fontWeight: 600 }}>
+              <Link href="/overview" style={{ color: colors.brand[600], fontWeight: 600 }}>
                 Add one from Overview
               </Link>
             </Text>

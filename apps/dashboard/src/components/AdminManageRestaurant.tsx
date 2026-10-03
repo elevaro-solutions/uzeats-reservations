@@ -449,7 +449,9 @@ export function AdminManageRestaurant({
   });
 
   const [updateRestaurant, { loading: saving }] = useMutation(ADMIN_UPDATE_RESTAURANT);
-  const [setStatus] = useMutation(SET_RESTAURANT_STATUS);
+  const [setStatus] = useMutation(SET_RESTAURANT_STATUS, {
+    refetchQueries: ['PlatformSetupSignals'],
+  });
   const [assignPackage, { loading: assigningPlan }] = useMutation(ADMIN_ASSIGN_RESTAURANT_PACKAGE);
   const [assignUserRestaurants, { loading: assigningUser }] = useMutation(ASSIGN_USER_RESTAURANTS);
   const [removeUserRestaurant] = useMutation(REMOVE_USER_RESTAURANT);

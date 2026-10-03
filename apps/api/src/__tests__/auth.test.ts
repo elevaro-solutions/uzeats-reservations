@@ -321,13 +321,24 @@ describe('Authentication (E2E)', () => {
       const requestRes = await graphqlRequest(
         agent,
         `mutation RequestPasswordReset($email: String!, $app: String) {
-          requestPasswordReset(email: $email, app: $app) { success message }
+          requestPasswordReset(email: $email, app: $app) {
+            success
+            message
+            attemptsUsed
+            attemptsRemaining
+            maxAttempts
+            supportEmail
+          }
         }`,
         { email: 'reset@test.com', app: 'web' },
       );
 
       expect(requestRes.body.errors).toBeUndefined();
       expect(requestRes.body.data.requestPasswordReset.success).toBe(true);
+      expect(requestRes.body.data.requestPasswordReset.attemptsUsed).toBe(1);
+      expect(requestRes.body.data.requestPasswordReset.attemptsRemaining).toBe(2);
+      expect(requestRes.body.data.requestPasswordReset.maxAttempts).toBe(3);
+      expect(requestRes.body.data.requestPasswordReset.supportEmail).toBeTruthy();
 
       const user = await mongoose.connection.db!
         .collection('users')

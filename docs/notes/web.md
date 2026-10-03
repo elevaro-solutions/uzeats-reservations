@@ -129,6 +129,10 @@
 - Owner-reply inbox (`review_reply`) deep-links to `/reviews`, not the reservation detail.
 - Why it matters: Don’t put My reviews on the partner DashShell account menu — that’s diner web only.
 
+## [2026-10-03] CSP `maps: true` must allow Maps script hosts
+- `securityHeaders({ maps: true })` used to only add Maps `frame-src`. Places Autocomplete still needs `script-src` (and connect) for `maps.googleapis.com` / `maps.gstatic.com`. Without those, `<script>` load fails while `fetch` of the same URL can return 200.
+- Why it matters: Diner discovery address search and Partner Hub register/add-restaurant share `@reservations/ui` Google Places helpers.
+
 ## [2026-09-23] Local upload thumbs need same-origin or http API in CSP
 - Review photos store `http://localhost:4000/api/uploads/local/...`. CSP `img-src ... https:` blocks those. Running Next often had CSP without the API origin even after `securityHeaders` added it (stale config eval).
 - Fix: always allow `http://localhost:4000` / `127.0.0.1:4000` in img-src; rewrite `/api/uploads/local/*` to the API; render with `browserMediaUrl()` so thumbs use `'self'`.
@@ -143,4 +147,8 @@
 - Admin TipTap posts were rendered with `dangerouslySetInnerHTML` and no sanitizer. `sanitizeBlogHtml` (`sanitize-html`) runs on GraphQL write (schema transform), `mapBlogPost` read, and the diner article page. Tags are TipTap-shaped; `a[href]` is http(s) only with `rel=noopener`.
 - Next `headers()` add CSP (`object-src 'none'`, `frame-ancestors 'none'`). Script-src still includes `'unsafe-inline'` because Next/Antd/Stripe/GSI need it — sanitizer is the XSS control, CSP is defense in depth for plugins/objects. `img-src` includes the GraphQL API origin so local upload URLs on `http://localhost:4000` are not blocked.
 - Why it matters: Never render CMS HTML raw. Don’t tighten `script-src` to `'self'` without Next nonces.
+
+## [2026-10-03] Hero search bar control heights
+- Antd large `Input`/`Select`/`DatePicker`/`AutoComplete` each render at different heights in `DiscoverySearchPanel`, and a `min-height` on the inner `.ant-input`/`.ant-select-content` stacks on top of the wrapper's 11–12px padding (58px controls). The panel pins wrappers to `height: 36px` (30px in `--map`) with zero block padding so labels line up.
+- Why it matters: Add new search fields as `.rt-search-field` children so they pick up the `.rt-search-panel .rt-search-field` height rules, or the pill grows and labels misalign.
 

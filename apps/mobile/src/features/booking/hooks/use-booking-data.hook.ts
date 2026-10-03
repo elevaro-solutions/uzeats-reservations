@@ -104,11 +104,7 @@ export function useBookingData({
       slotStart: selectedSlot,
       partySize,
     },
-    skip:
-      !restaurantId ||
-      !selectedSlot ||
-      !restaurant?.allowGuestTableSelection ||
-      step !== "details",
+    skip: !restaurantId || !selectedSlot || step !== "details",
     fetchPolicy: "no-cache",
   });
 

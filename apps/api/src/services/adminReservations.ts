@@ -80,7 +80,7 @@ export async function listAdminReservations(args: {
 
   const newestFirst = !period || period === 'past' || period === 'all';
   return paginateQuery(Reservation, filter, {
-    sort: { slotStart: newestFirst ? -1 : 1 },
+    sort: newestFirst ? { slotStart: -1, _id: -1 } : { slotStart: 1, _id: 1 },
     limit: args.limit,
     offset: args.offset,
     defaultLimit: 20,

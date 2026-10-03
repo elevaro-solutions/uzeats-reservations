@@ -25,6 +25,7 @@ export type ExperienceItem = {
   includes?: string[];
   status: string;
   tags?: string[];
+  requiresManualApproval?: boolean;
 };
 
 export function experienceDateBounds(

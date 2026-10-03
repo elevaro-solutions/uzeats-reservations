@@ -11,6 +11,7 @@ export type BookableTable = {
   maxCapacity: number;
   floorArea?: string | null;
   photoUrl?: string | null;
+  requiresManualApproval?: boolean | null;
 };
 
 export type BookablePackage = {
@@ -25,6 +26,7 @@ export type BookablePackage = {
   minPartySize?: number | null;
   maxPartySize?: number | null;
   active: boolean;
+  requiresManualApproval?: boolean | null;
 };
 
 export type BookableExperience = {
@@ -42,6 +44,7 @@ export type BookableExperience = {
   availableTickets: number;
   status: string;
   tags?: string[] | null;
+  requiresManualApproval?: boolean | null;
 };
 
 export type PrivateDiningSpace = {
@@ -55,6 +58,7 @@ export type PrivateDiningSpace = {
   photoUrl?: string | null;
   amenities?: string[] | null;
   active: boolean;
+  requiresManualApproval?: boolean | null;
 };
 
 export type PromotionValidation = {
@@ -87,6 +91,9 @@ export type RestaurantBookingInfo = {
   allowGuestTableSelection: boolean;
   reservationsEnabled?: boolean | null;
   reservationsVisible?: boolean | null;
+  manualApprovalEnabled?: boolean | null;
+  manualApprovalPartySizeOp?: string | null;
+  manualApprovalPartySize?: number | null;
   bookingWindow?: {
     maxAdvanceDays: number;
     minAdvanceHours: number;

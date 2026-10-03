@@ -88,6 +88,9 @@ export const RESTAURANT_DETAIL = gql`
       allowGuestTableSelection
       reservationsEnabled
       reservationsVisible
+      manualApprovalEnabled
+      manualApprovalPartySizeOp
+      manualApprovalPartySize
       shifts {
         daysOfWeek
         startTime
@@ -137,6 +140,7 @@ export const BOOKABLE_TABLES = gql`
       maxCapacity
       floorArea
       photoUrl
+      requiresManualApproval
     }
   }
 `;
@@ -582,6 +586,10 @@ export const REQUEST_PASSWORD_RESET = gql`
     requestPasswordReset(email: $email, app: $app) {
       success
       message
+      attemptsUsed
+      attemptsRemaining
+      maxAttempts
+      supportEmail
     }
   }
 `;
@@ -649,6 +657,10 @@ export const MY_WAITLIST = gql`
       estimatedWaitMinutes
       estimatedReadyAt
       createdAt
+      restaurant {
+        id
+        name
+      }
     }
   }
 `;
@@ -780,6 +792,7 @@ export const EXPERIENCES = gql`
         includes
         status
         tags
+        requiresManualApproval
       }
     }
   }
@@ -799,6 +812,7 @@ export const RESTAURANT_PACKAGES = gql`
       minPartySize
       maxPartySize
       active
+      requiresManualApproval
     }
   }
 `;
@@ -816,6 +830,7 @@ export const PRIVATE_DINING_SPACES = gql`
       photoUrl
       amenities
       active
+      requiresManualApproval
     }
   }
 `;

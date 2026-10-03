@@ -227,32 +227,37 @@ export function AddressAutocomplete({
   }
 
   return (
-    <div component="AddressAutocomplete" style={{ display: 'contents' }}><AutoComplete       value={query}
-      onChange={setQuery}
-      disabled={disabled}
-      options={useGoogle ? googleOptions : fallbackOptions}
-      popupMatchSelectWidth={popupMatchSelectWidth ?? true}
-      style={style}
-      notFoundContent={
-        useGoogle && searching
-          ? 'Searching addresses…'
-          : useGoogle && query.trim().length >= MIN_QUERY_LENGTH
-            ? 'No addresses found'
-            : undefined
-      }
-      filterOption={
-        useGoogle
-          ? false
-          : (input, option) => {
-              const haystack = (option as AddressFallbackOption | undefined)?.search;
-              return haystack ? haystack.includes(input.toLowerCase()) : false;
-            }
-      }
-      onSelect={(selected, option) => {
-        void handleSelect(String(selected), option);
-      }}
-    >
-      {inputEl}
-    </AutoComplete></div>
+    <div component="AddressAutocomplete" style={{ display: 'contents' }}>
+      <AutoComplete
+        value={query}
+        onChange={setQuery}
+        disabled={disabled}
+        options={useGoogle ? googleOptions : fallbackOptions}
+        popupMatchSelectWidth={popupMatchSelectWidth ?? true}
+        // Modal / overflow parents (e.g. Add restaurant) clip inline dropdowns.
+        getPopupContainer={() => document.body}
+        style={style}
+        notFoundContent={
+          useGoogle && searching
+            ? 'Searching addresses…'
+            : useGoogle && query.trim().length >= MIN_QUERY_LENGTH
+              ? 'No addresses found'
+              : undefined
+        }
+        filterOption={
+          useGoogle
+            ? false
+            : (input, option) => {
+                const haystack = (option as AddressFallbackOption | undefined)?.search;
+                return haystack ? haystack.includes(input.toLowerCase()) : false;
+              }
+        }
+        onSelect={(selected, option) => {
+          void handleSelect(String(selected), option);
+        }}
+      >
+        {inputEl}
+      </AutoComplete>
+    </div>
   );
 }

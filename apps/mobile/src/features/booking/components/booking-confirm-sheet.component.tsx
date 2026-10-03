@@ -35,6 +35,8 @@ export type BookingConfirmSheetProps = {
   onTermsAcceptedChange: (value: boolean) => void;
   errorMessage?: string | null;
   timeZone?: string | null;
+  approvalNotice?: { title: string; message: string } | null;
+  approvalRequired?: boolean;
 };
 
 export function BookingConfirmSheet({
@@ -53,6 +55,8 @@ export function BookingConfirmSheet({
   onTermsAcceptedChange,
   errorMessage,
   timeZone,
+  approvalNotice,
+  approvalRequired = false,
 }: BookingConfirmSheetProps) {
   const { theme } = useUnistyles();
   const occasionLabel = OCCASION_LABELS[occasion];
@@ -89,10 +93,20 @@ export function BookingConfirmSheet({
         >
           {depositCents > 0
             ? "Confirm & authorize deposit"
-            : "Confirm reservation"}
+            : approvalRequired
+              ? "Send request"
+              : "Confirm reservation"}
         </Button>
       }
     >
+      {approvalNotice ? (
+        <InlineAlert
+          tone="warning"
+          title={approvalNotice.title}
+          message={approvalNotice.message}
+        />
+      ) : null}
+
       <Flex gap={1.5}>
         <Typography size="text-md" weight="semibold" color="secondary">
           Reservation details

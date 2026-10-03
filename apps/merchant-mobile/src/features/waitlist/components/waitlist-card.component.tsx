@@ -1,4 +1,10 @@
-import { useState } from "react";
+import {
+  formatWaitlistWaitingLabel,
+  isActiveWaitlistWaitStatus,
+  isWaitlistWaitOverdue,
+  waitlistWaitingMinutes,
+} from "@reservations/shared";
+import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
@@ -28,6 +34,11 @@ export type WaitlistListItem = {
   quotedWaitMinutes?: number | null;
   position?: number | null;
   estimatedWaitMinutes?: number | null;
+  waitingMinutes?: number | null;
+  promisedWaitMinutes?: number | null;
+  isOverdue?: boolean | null;
+  createdAt?: string | null;
+  dinerId?: string | null;
   diner?: {
     firstName?: string | null;
     lastName?: string | null;
@@ -48,17 +59,50 @@ export function WaitlistCard({
 }: WaitlistCardProps) {
   const { theme } = useUnistyles();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (!isActiveWaitlistWaitStatus(entry.status)) return;
+    const id = setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, [entry.status]);
+
+  const liveWaitingMinutes =
+    entry.createdAt && isActiveWaitlistWaitStatus(entry.status)
+      ? waitlistWaitingMinutes(entry.createdAt, new Date(nowMs))
+      : (entry.waitingMinutes ?? null);
+  const overdue =
+    liveWaitingMinutes != null &&
+    isWaitlistWaitOverdue({
+      status: entry.status,
+      waitingMinutes: liveWaitingMinutes,
+      quotedWaitMinutes: entry.quotedWaitMinutes,
+      estimatedWaitMinutes: entry.estimatedWaitMinutes,
+    });
 
   const primary = primaryWaitlistAction(entry.status);
   const secondary = secondaryWaitlistActions(entry.status);
-  const visual = waitlistStatusVisual(entry.status, theme.colors);
+  const visual = overdue
+    ? {
+        label: "Overdue",
+        chipBg: theme.colors.errorSubtle,
+        chipText: theme.colors.error,
+      }
+    : waitlistStatusVisual(entry.status, theme.colors);
   const guestName = entryDisplayName(entry);
-  const metric = waitlistMetric(entry);
+  const metric = waitlistMetric({
+    ...entry,
+    waitingMinutes: liveWaitingMinutes,
+    isOverdue: overdue,
+  });
   const phone = entryPhone(entry);
-  const waitLabel = waitMinutesLabel(entry);
+  const waitLabel =
+    liveWaitingMinutes != null
+      ? `Waiting ${formatWaitlistWaitingLabel(liveWaitingMinutes)}`
+      : waitMinutesLabel(entry);
   const showWaitInMeta =
     waitLabel != null &&
-    !(entry.status === "waiting" && entry.position != null);
+    !(entry.status === "waiting" && entry.position != null && !overdue);
 
   return (
     <>
@@ -81,10 +125,19 @@ export function WaitlistCard({
 
         <Flex direction="row" alignItems="center" gap={1.5}>
           <View style={styles.metricBlock}>
-            <Typography weight="semibold" size="display-xs" numberOfLines={1}>
+            <Typography
+              weight="semibold"
+              size="display-xs"
+              numberOfLines={1}
+              style={overdue ? { color: theme.colors.error } : undefined}
+            >
               {metric.primary}
             </Typography>
-            <Typography weight="medium" size="text-xs" color="muted">
+            <Typography
+              weight="medium"
+              size="text-xs"
+              color={overdue ? "error" : "muted"}
+            >
               {metric.secondary}
             </Typography>
           </View>
@@ -158,7 +211,9 @@ export function WaitlistCard({
                     color="secondary"
                     fullWidth
                     loading={actionLoading}
-                    startIcon={waitlistActionIcon(primary.status)}
+                    startIcon={waitlistActionIcon(
+                      primary.action === "edit" ? "edit" : primary.status,
+                    )}
                     onPress={() => onAction(primary)}
                   >
                     {primary.label}

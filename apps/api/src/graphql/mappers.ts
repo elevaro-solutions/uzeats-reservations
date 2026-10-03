@@ -1,5 +1,11 @@
 import { mapNotificationPreferences } from '../lib/notificationPreferences.js';
-import { resolveLoyaltyTier } from '@reservations/shared';
+import {
+  isActiveWaitlistWaitStatus,
+  isWaitlistWaitOverdue,
+  resolveLoyaltyTier,
+  waitlistPromisedMinutes,
+  waitlistWaitingMinutes,
+} from '@reservations/shared';
 import { peekLoyaltyProgram } from '../services/loyaltyProgram.js';
 
 function id(doc: { _id: { toString(): string } }) {
@@ -271,6 +277,24 @@ export function mapReview(r: any) {
 }
 
 export function mapWaitlistEntry(w: any) {
+  const estimatedWaitMinutes = w._eta?.estimatedWaitMinutes ?? null;
+  const active = isActiveWaitlistWaitStatus(w.status);
+  const waitingMinutes = active ? waitlistWaitingMinutes(w.createdAt) : null;
+  const promisedWaitMinutes = active
+    ? waitlistPromisedMinutes({
+        quotedWaitMinutes: w.quotedWaitMinutes,
+        estimatedWaitMinutes,
+      })
+    : null;
+  const isOverdue =
+    waitingMinutes != null &&
+    isWaitlistWaitOverdue({
+      status: w.status,
+      waitingMinutes,
+      quotedWaitMinutes: w.quotedWaitMinutes,
+      estimatedWaitMinutes,
+    });
+
   return {
     id: w._id.toString(),
     restaurantId: w.restaurantId.toString(),
@@ -284,12 +308,17 @@ export function mapWaitlistEntry(w: any) {
     preferredTimeStart: w.preferredTimeStart,
     preferredTimeEnd: w.preferredTimeEnd,
     status: w.status,
+    notifiedAt: w.notifiedAt ?? null,
     notifiedSlot: w.notifiedSlot,
+    reservationId: w.reservationId?.toString() ?? null,
     createdAt: w.createdAt,
     position: w._eta?.position ?? null,
     partiesAhead: w._eta?.partiesAhead ?? null,
-    estimatedWaitMinutes: w._eta?.estimatedWaitMinutes ?? null,
+    estimatedWaitMinutes,
     estimatedReadyAt: w._eta?.estimatedReadyAt ?? null,
+    waitingMinutes,
+    promisedWaitMinutes,
+    isOverdue,
   };
 }
 

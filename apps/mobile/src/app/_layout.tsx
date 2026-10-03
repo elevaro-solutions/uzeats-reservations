@@ -67,6 +67,12 @@ export default function RootLayout() {
                 }}
               />
               <Stack.Screen
+                name="waitlist"
+                options={{
+                  headerShown: false,
+                }}
+              />
+              <Stack.Screen
                 name="notifications"
                 options={{
                   headerShown: false,

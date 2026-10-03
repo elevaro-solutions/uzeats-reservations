@@ -35,6 +35,7 @@ import {
   EyeOutlined,
   MenuOutlined,
   PlusOutlined,
+  CompassOutlined,
 } from '@ant-design/icons';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
@@ -50,6 +51,7 @@ import {
   MY_RESTAURANTS_SHELL,
   MY_RESTAURANT_PROFILE_CHANGE_REQUEST,
   RESTAURANT_OPEN_INVOICE_COUNT,
+  RESTAURANT_PENDING_RESERVATION_COUNT,
   RESTAURANT_UNREPLIED_REVIEW_COUNT,
 } from '@/lib/graphql';
 import {
@@ -59,7 +61,8 @@ import {
   restaurantSelectFilterOption,
   validatedRestaurantId,
 } from '@/lib/restaurants';
-import { getOnboardingProgress, getOnboardingSteps } from '@/lib/onboarding';
+import { useSetupGuide } from '@/lib/useSetupGuide';
+import { SetupGuidePanel } from '@/components/SetupGuide';
 import {
   adminSiderPages,
   groupPagesForMenu,
@@ -72,19 +75,16 @@ import {
   useDashboardSearchHotkey,
 } from '@/components/DashboardSearch';
 import { skipPollWhenHidden } from '@/lib/pollVisibility';
+import {
+  type AppNotification,
+  formatRelativeTime,
+  notificationHref,
+} from '@/lib/notificationLinks';
+import { getPublicWebUrl } from '@/lib/webUrl';
+import { canCreateRestaurant, canAccessPartnerPath, isHostRole, isPlatformAdmin, isSuperAdmin, partnerLandingPath } from '@/lib/roles';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
-
-type AppNotification = {
-  id: string;
-  type: string;
-  title: string;
-  body: string;
-  data?: string | null;
-  readAt?: string | null;
-  createdAt: string;
-};
 
 function navLink(href: string, label: string, count?: number) {
   return (
@@ -98,97 +98,6 @@ function navLink(href: string, label: string, count?: number) {
 function menuItem(href: string, icon: React.ReactNode, label: string, count?: number) {
   return { key: href, icon, label: navLink(href, label, count) };
 }
-
-function parseNotificationData(data: string | null | undefined): Record<string, unknown> {
-  if (!data) return {};
-  try {
-    const parsed = JSON.parse(data) as unknown;
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as Record<string, unknown>;
-    }
-    return {};
-  } catch {
-    return {};
-  }
-}
-
-function asNotificationId(value: unknown): string | undefined {
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
-}
-
-function withRestaurantParam(path: string, data: Record<string, unknown>): string {
-  const restaurantId = asNotificationId(data.restaurantId);
-  if (!restaurantId) return path;
-  const url = new URL(path, 'http://dashboard.local');
-  url.searchParams.set('restaurant', restaurantId);
-  return `${url.pathname}${url.search}`;
-}
-
-function reservationManageHref(data: Record<string, unknown>): string {
-  const reservationId = asNotificationId(data.reservationId);
-  const restaurantId = asNotificationId(data.restaurantId);
-  if (reservationId) {
-    return restaurantId
-      ? `/reservations/${reservationId}?restaurant=${encodeURIComponent(restaurantId)}`
-      : `/reservations/${reservationId}`;
-  }
-  if (restaurantId) return `/reservations?restaurant=${encodeURIComponent(restaurantId)}`;
-  return '/reservations';
-}
-
-function notificationHref(n: AppNotification): string {
-  const data = parseNotificationData(n.data);
-  const reservationId = asNotificationId(data.reservationId);
-
-  switch (n.type) {
-    case 'new_message':
-      return withRestaurantParam(
-        reservationId ? `/messages?reservationId=${encodeURIComponent(reservationId)}` : '/messages',
-        data,
-      );
-    case 'restaurant_inquiry':
-      return withRestaurantParam(
-        asNotificationId(data.inquiryId)
-          ? `/messages?inquiryId=${encodeURIComponent(asNotificationId(data.inquiryId)!)}`
-          : '/messages',
-        data,
-      );
-    case 'new_reservation':
-    case 'reservation_confirmed':
-    case 'reservation_reminder':
-    case 'reservation_cancelled':
-    case 'reservation_updated':
-      return reservationManageHref(data);
-    case 'waitlist_available':
-    case 'waitlist_ready':
-    case 'waitlist_notified':
-      return withRestaurantParam('/waitlist', data);
-    case 'guest_spend_alert':
-      return reservationId ? reservationManageHref(data) : withRestaurantParam('/guests', data);
-    case 'new_review':
-    case 'review_reply':
-    case 'review_report_response':
-      return withRestaurantParam('/reviews', data);
-    case 'invoice_ready':
-      return withRestaurantParam('/billing', data);
-    default:
-      return '/notifications';
-  }
-}
-
-function formatRelativeTime(iso: string) {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return 'Just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
-import { getPublicWebUrl } from '@/lib/webUrl';
-import { canCreateRestaurant, canAccessPartnerPath, isHostRole, isPlatformAdmin, isSuperAdmin, partnerLandingPath } from '@/lib/roles';
 
 const PARTNER_ROLES = new Set(['restaurant_owner', 'manager', 'host', 'admin', 'account_manager', 'super_admin']);
 const AUTH_SHELL_PATHS = [
@@ -244,6 +153,12 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     skipPollAttempt: skipPollWhenHidden,
   });
   const { data: unrepliedReviewData } = useQuery(RESTAURANT_UNREPLIED_REVIEW_COUNT, {
+    skip: !user || isAdmin || !restaurantId || !isPartner,
+    variables: { restaurantId },
+    pollInterval: 60_000,
+    skipPollAttempt: skipPollWhenHidden,
+  });
+  const { data: pendingReservationData } = useQuery(RESTAURANT_PENDING_RESERVATION_COUNT, {
     skip: !user || isAdmin || !restaurantId || !isPartner,
     variables: { restaurantId },
     pollInterval: 60_000,
@@ -349,8 +264,17 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     Boolean(activeRestaurant) &&
     (activeRestaurant as { status?: string }).status !== 'approved';
 
-  const onboardingSteps = activeRestaurant ? getOnboardingSteps(activeRestaurant) : [];
-  const onboardingProgress = getOnboardingProgress(onboardingSteps);
+  const {
+    guide: setupGuide,
+    progress: setupProgress,
+    local: setupLocal,
+  } = useSetupGuide({
+    user,
+    isAdmin,
+    restaurant: isPartner && !isAdmin ? activeRestaurant : undefined,
+    refetchRestaurants,
+  });
+  const showOnboarding = Boolean(setupGuide) && !setupProgress.allComplete;
   const pendingSlugRequests = pendingRequestCounts?.adminPendingRequestCounts?.slugRequests ?? 0;
   const pendingProfileRequests =
     pendingRequestCounts?.adminPendingRequestCounts?.profileChangeRequests ?? 0;
@@ -364,9 +288,12 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     unrepliedReviewData?.restaurantUnrepliedReviewCount ?? 0;
   const openInvoiceCount: number =
     openInvoiceData?.restaurantOpenInvoiceCount ?? 0;
+  const pendingReservationCount: number =
+    pendingReservationData?.restaurantPendingReservationCount ?? 0;
 
   const items = useMemo(() => {
     const badgeByHref: Record<string, number> = {
+      '/reservations': pendingReservationCount,
       '/reviews': unrepliedReviewCount,
       '/billing': openInvoiceCount,
       '/grow': ownerPendingProfile,
@@ -376,9 +303,9 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       '/admin/billing': openInvoicesAdmin,
     };
     const pages = isAdmin
-      ? adminSiderPages({ isSuperAdmin: isSuperAdminUser })
+      ? adminSiderPages({ isSuperAdmin: isSuperAdminUser, showOnboarding })
       : partnerSiderPages({
-          showOnboarding: onboardingProgress.showOnboarding,
+          showOnboarding,
           role: user?.role,
         });
     return groupPagesForMenu(pages).map((group) => ({
@@ -391,7 +318,8 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   }, [
     isAdmin,
     isSuperAdminUser,
-    onboardingProgress.showOnboarding,
+    showOnboarding,
+    pendingReservationCount,
     unrepliedReviewCount,
     openInvoiceCount,
     ownerPendingProfile,
@@ -434,12 +362,16 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   };
   const notifications: AppNotification[] = notifData?.myNotifications?.items ?? [];
   const unreadCount: number = notifData?.unreadNotificationCount ?? 0;
+  const onChecklistPage = Boolean(setupGuide) && pathname === setupGuide?.checklistHref;
   const showOnboardingBanner =
     !isAdmin &&
-    isPartner &&
-    activeRestaurant &&
-    onboardingProgress.showOnboarding &&
-    pathname !== '/onboarding';
+    Boolean(setupGuide) &&
+    setupLocal.state.hidden &&
+    setupProgress.hasActionableRequired &&
+    !onChecklistPage;
+  const openSetupGuide = () => {
+    setupLocal.setHidden(false);
+  };
 
   const profileMenu: MenuProps['items'] = [
     {
@@ -466,6 +398,18 @@ export function DashShell({ children }: { children: React.ReactNode }) {
             onClick: () => router.push('/admin/config'),
           },
         ]
+      : []),
+    ...(showOnboarding && setupLocal.state.hidden
+      ? [
+          {
+            key: 'setup-guide',
+            icon: <CompassOutlined />,
+            label: 'Show setup guide',
+          },
+        ]
+      : []),
+    ...(isAdmin
+      ? []
       : [
           {
             key: 'settings',
@@ -821,6 +765,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
                   if (key === 'support') router.push('/support');
                   if (key === 'invoices') router.push('/admin/invoices');
                   if (key === 'admin-config') router.push('/admin/config');
+                  if (key === 'setup-guide') openSetupGuide();
                 },
               }}
               placement="bottomRight"
@@ -873,13 +818,12 @@ export function DashShell({ children }: { children: React.ReactNode }) {
               message="Finish setting up your restaurant"
               description={
                 <span>
-                  {onboardingProgress.completedRequired} of {onboardingProgress.totalRequired}{' '}
-                  required steps complete for {activeRestaurant?.name}. Complete your profile, tables
-                  & shifts, and await approval to start taking reservations.
+                  {setupProgress.completedRequired} of {setupProgress.totalRequired} required steps
+                  complete for {activeRestaurant?.name}. Finish them to start taking reservations.
                 </span>
               }
               action={
-                <Button size="small" type="primary" onClick={() => router.push('/onboarding')}>
+                <Button size="small" type="primary" onClick={openSetupGuide}>
                   Continue setup
                 </Button>
               }
@@ -887,6 +831,13 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           )}
           {children}
         </Content>
+        {setupGuide && !onChecklistPage && (
+          <SetupGuidePanel
+            guide={setupGuide}
+            local={setupLocal}
+            subtitle={isAdmin ? undefined : activeRestaurant?.name}
+          />
+        )}
       </Layout>
       </Layout>
     </Layout>
@@ -921,7 +872,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
         open={searchOpen}
         onOpenChange={setSearchOpen}
         isAdmin={isAdmin}
-        showOnboarding={onboardingProgress.showOnboarding}
+        showOnboarding={showOnboarding}
         isSuperAdmin={isSuperAdminUser}
         role={user?.role}
         restaurants={restaurants.map((r: { id: string; name: string; city?: string | null }) => ({

@@ -50,7 +50,7 @@ import {
   EXPORT_ADMIN_USERS,
 } from '@/lib/graphql';
 import { useAuth } from '@/lib/auth';
-import { isPlatformAdmin, isSuperAdmin, canEditUser } from '@/lib/roles';
+import { isPlatformAdmin, isSuperAdmin, canEditUser, partnerLandingPath } from '@/lib/roles';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useUrlListFilters } from '@/lib/useUrlListFilters';
 import { useUrlPagination } from '@/lib/useUrlPagination';
@@ -260,7 +260,7 @@ function AdminAccountsListContent({ kind }: Props) {
       if (payload.user.role === 'diner') {
         window.location.href = getPublicWebUrl();
       } else {
-        window.location.href = '/';
+        window.location.href = partnerLandingPath(payload.user.role);
       }
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Impersonation failed');

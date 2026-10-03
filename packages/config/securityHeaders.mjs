@@ -40,7 +40,9 @@ export function contentSecurityPolicy({ maps } = { maps: false }) {
   // Discovery map + Places autocomplete load the Maps JS API from Google.
   // maps:true only used to allow iframe embeds; script-src must also allow the loader.
   if (maps) {
+    // Places Autocomplete loads the Maps JS API + runtime chunks from gstatic.
     scripts.push('https://maps.googleapis.com', 'https://maps.gstatic.com');
+    connect.push('https://maps.gstatic.com', 'https://places.googleapis.com');
     frames.push('https://maps.google.com', 'https://www.google.com');
   }
   return [

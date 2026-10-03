@@ -21,13 +21,22 @@ const waitlistSchema = new Schema(
     },
     notifiedAt: { type: Date },
     notifiedSlot: { type: Date },
+    /** Last time hosts were alerted that this party's wait is overdue. */
+    overdueNotifiedAt: { type: Date },
+    /** Set when converted to a reservation (booked) or seated as walk-in. */
+    reservationId: { type: Schema.Types.ObjectId, ref: 'Reservation' },
   },
   { timestamps: true },
 );
 
-export type WaitlistDocument = InferSchemaType<typeof waitlistSchema> & {
-  _id: mongoose.Types.ObjectId;
-};
+waitlistSchema.index({ status: 1, notifiedAt: 1 });
+waitlistSchema.index({ status: 1, createdAt: 1, overdueNotifiedAt: 1 });
+waitlistSchema.index({ restaurantId: 1, preferredDate: 1, status: 1, createdAt: 1 });
+
+export type WaitlistDocument = InferSchemaType<typeof waitlistSchema> &
+  mongoose.Document & {
+    _id: mongoose.Types.ObjectId;
+  };
 
 export const WaitlistEntry: Model<WaitlistDocument> =
   mongoose.models.WaitlistEntry ??

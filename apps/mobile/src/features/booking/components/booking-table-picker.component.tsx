@@ -70,6 +70,11 @@ export function BookingTablePicker({
                     {table.minCapacity}–{table.maxCapacity} guests
                     {table.floorArea ? ` · ${table.floorArea}` : ""}
                   </Typography>
+                  {table.requiresManualApproval ? (
+                    <Typography size="text-xs" weight="medium" color="warning">
+                      Needs restaurant approval
+                    </Typography>
+                  ) : null}
                 </Flex>
                 {selected ? (
                   <CheckIcon size={20} color={theme.colors.primary7} />

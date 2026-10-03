@@ -65,7 +65,14 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<void>;
   register: (input: RegisterInput) => Promise<void>;
-  requestPasswordReset: (email: string) => Promise<{ success: boolean; message: string }>;
+  requestPasswordReset: (email: string) => Promise<{
+    success: boolean;
+    message: string;
+    attemptsUsed: number;
+    attemptsRemaining: number;
+    maxAttempts: number;
+    supportEmail: string;
+  }>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
 };
@@ -275,7 +282,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data } = await requestPasswordResetMutation({
         variables: { email, app: "web" },
       });
-      return data.requestPasswordReset as { success: boolean; message: string };
+      return data.requestPasswordReset as {
+        success: boolean;
+        message: string;
+        attemptsUsed: number;
+        attemptsRemaining: number;
+        maxAttempts: number;
+        supportEmail: string;
+      };
     },
     [requestPasswordResetMutation],
   );

@@ -56,7 +56,7 @@ export default function BookingWidgetPage() {
             title="No restaurant selected"
             description="Add a restaurant from Overview, then return here to copy your embed script."
             action={
-              <Button type="primary" onClick={() => router.push('/')}>
+              <Button type="primary" onClick={() => router.push('/overview')}>
                 Go to Overview
               </Button>
             }

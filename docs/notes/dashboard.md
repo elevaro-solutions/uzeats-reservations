@@ -1,5 +1,39 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-03] Add table modal: shape was stripped by Zod
+- GraphQL `TableInput` already had `shape`/`rotation`, and the floor-plan UI defaulted new tables to `rect` locally, but shared `tableInputSchema` omitted both fields so `createTable`/`updateTable` Zod-parsed them away. Shape only stuck via `updateTablePositions`.
+- The Add/Edit table form (`TableFormFields` on `/floor` and `/floor-plan`) now collects shape; the schema accepts optional `shape`/`rotation` with **no defaults** (same reason as layout fields: `updateTable` `Object.assign`s the parse result).
+- Modal body uses `overflowX: 'hidden'` (plus `.rt-table-modal`) so help-icon labels and the photo upload don’t force a horizontal scrollbar.
+- Why it matters: Sending shape from the client is not enough if the shared Zod input schema still strips it.
+
+## [2026-10-03] Partner overview is `/overview`, not `/`
+- Owner/manager landing is `partnerLandingPath` → `/overview`. Root `/` only redirects (login / role bounce). Hosts still cannot open overview (`canAccessPartnerPath` blocks `/` and `/overview`).
+- Summary stat cards are links; multi-location **All locations today** uses client table pagination (page size 10+). Recent alerts open a right Drawer (mark read + “View related” via `notificationHref` in `lib/notificationLinks.ts`, shared with the header bell).
+- Why it matters: Don’t put overview UI back on `app/page.tsx`, and keep notification deep-links in one helper so the drawer and the bell stay aligned.
+
+## [2026-10-03] Admin reservations: deletes leave stale cached pages
+- Apollo's default `cache-first` keeps one `adminReservations` entry per variable set (each page, each search). `refetch()` after a delete only refreshes the current page, so other pages and earlier searches came back with deleted rows and old totals. The list now uses `cache-and-network`, and deletes evict the `Reservation` entities plus the `adminReservations` root field.
+- Deleting the last rows of the final page left `?page=N` past the end. antd `Table` silently clamps its displayed `current`, so the pager and the URL `offset` disagree. The page now redirects to the last valid page once `total` loads.
+- The API sorted by `slotStart` alone. Many bookings share a slot, so skip/limit order was not deterministic and rows repeated or went missing between pages. `_id` is now the tiebreaker.
+- Why it matters: Any offset-paginated admin list with deletes needs all three: cache invalidation, page clamping, and a unique sort key.
+
+## [2026-10-03] Setup guide: one model, two surfaces, client-only skips
+- `lib/onboarding.ts` builds the grouped guide (`buildPartnerSetupGuide` / `buildPlatformSetupGuide`). `DashShell` renders the floating `SetupGuidePanel`; `/onboarding` and `/admin/setup` render `SetupChecklist` from the same model. Hosts get no guide, managers get no Payments/Team sections, and only `admin` / `super_admin` get the platform guide.
+- Skips, "review" visits (`completeOnVisit` tasks with no data signal), and minimized/hidden flags live in `localStorage` (`rt-setup-guide:<userId>:<scope>`), not the API, so they don't follow the user across devices. Venues whose required steps were already done on first view start minimized.
+- `useSetupGuide` refreshes its signals on any URL change (path or query), on window focus, and every 30s while the guide is incomplete. The shell restaurant list is refetched only on URL change/focus, not on the poll. Pages save through their own queries (e.g. `tableCount` isn't on `MY_RESTAURANTS`), and most setup work happens in place: approving from `/admin/restaurants?status=pending` never changes the pathname, so a pathname-only refetch left "Clear the approval queue" unchecked. Restaurant status mutations also `refetchQueries: ['PlatformSetupSignals']`.
+- Use `completeOnVisit` only for "review" steps that have no data signal. Steps that ask for an action (inviting admins, adding rules) need a real count, or clicking Start ticks them off with nothing done. The admin-team step uses `adminUsers(roles: [admin, account_manager, super_admin]) { total } > 1`.
+- Role/plan gates the guide follows: managers get no Payments/Team sections and no booking-rules step on plans without `accessRules` (Basic), because they can't upgrade. Owners on those plans get an "Upgrade plan" step instead. Deposits are hidden when `platformFeatureFlags.deposits` is off. The platform guide is only for `admin`/`super_admin`, and non-super admins see Stripe production as blocked but skippable. Stripe keys are API env vars, so "Connect Stripe" can only be checked off, not done from the UI.
+- Why it matters: add new steps in `onboarding.ts`, not in the pages. Required steps decide the "ready to take reservations" state and the banner, so a new step should stay optional unless booking truly can't work without it.
+
+## [2026-10-03] Reservations sidebar badge counts upcoming `pending` only
+- `restaurantPendingReservationCount` counts `status: pending` with `slotStart >= now`, so it can be lower than the Pending filter on `/reservations` (which also lists past, never-confirmed bookings).
+- Partner reservation mutations (`/reservations`, `/reservations/[id]`, `/floor-ops`) pass `PENDING_BADGE_REFETCH` to refetch the badge by operation name; other callers fall back to the 60s poll in `DashShell`.
+
+## [2026-10-03] Address search needs CSP `maps: true` + script-src hosts
+- Partner Hub `/register` and Add restaurant use shared `AddressAutocomplete` (Maps JS Places). Dashboard `next.config` previously sent `securityHeaders({ maps: false })`, and even `maps: true` only widened `frame-src` — `script-src` still omitted `maps.googleapis.com` / `maps.gstatic.com`, so the script tag hit CSP and never defined `window.google`.
+- Why it matters: Fetching the Maps URL can return 200 while `<script src>` is blocked; UI falls back to a plain input and register’s address fields stay hidden until “Enter address manually” (or a successful Places pick).
+- Fixed: CSP helper adds Maps script/connect hosts when `maps: true`; dashboard enables it. Autocomplete popup uses `getPopupContainer={() => document.body}` so `.rt-add-restaurant-modal` overflow does not clip suggestions.
+
 ## [2026-10-02] New tables always land at (0,0); `tableInputSchema` strips position
 - `createTable` callers (`/floor-plan` + Table, `/floor` Tables & shifts, admin restaurant Tables, `provisionDefaultRestaurantSetup`) never set a position, and shared `tableInputSchema` has no `posX`/`posY`/`width`/`height`, so Zod strips them even though GraphQL `TableInput` declares them. Every new table is saved 2×2 at 0,0 and stacks on the previous ones until moved and saved.
 - Why it matters: Fixing placement only on the client is not enough. The schema (or a server-side free-cell picker) has to change too.
@@ -130,6 +164,18 @@
 - `BookingSharePanel` shows a clean booking URL plus a GBP-specific URL from `buildGoogleBusinessProfileBookingUrl` (`GOOGLE_BUSINESS_PROFILE_UTM`: source=google, medium=business_profile, campaign=reservations).
 - Embed widget redirects use `WIDGET_EMBED_UTM` (source=widget, medium=embed, campaign=reservations) on "Complete reservation".
 - Why it matters: Don’t paste the plain booking link into Profile Manager — partners must use the GBP row so analytics can attribute listing traffic. Widget traffic is tagged automatically; no embed attribute needed.
+
+## [2026-10-03] Waitlist filters + outcome toasts
+- `/waitlist` supports Live / History / All, source filter, and date filter. History defaults to restaurant-local today; live queue keeps all dates. Seat/Notify/Cancel toasts match merchant mobile outcome copy. Seat creates a walk-in reservation.
+- Why it matters: Don’t default the live queue to today-only or future online joins disappear.
+
+## [2026-10-03] Waitlist walk-in guest picker
+- Add walk-in uses `searchWaitlistGuests` (Input + result list, not Ant Select). Matches platform diners by name/email/phone (digit-tolerant); guest-book visits sort first. Linked rows show “Walk-in · Account”.
+- Why it matters: Guest-book-only search looked “broken” when diners had accounts but no prior visit at that venue.
+
+## [2026-10-03] Waitlist edit entry
+- Row actions include Edit for waiting/notified; same modal as Add walk-in calls `updateWaitlistEntry`. Clearing the linked guest sends `dinerId: null`.
+- Why it matters: Hosts can fix party size / quoted wait without cancel+re-add.
 
 ## [2026-09-23] Shell polls pause when hidden; messages use skipPollAttempt
 - DashShell notification/pending/profile/unreplied polls and waitlist/floor-ops/messages use `skipPollWhenHidden`. Partner messages no longer flip `pollInterval` via a visibility listener.

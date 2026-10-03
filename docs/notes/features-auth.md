@@ -1,8 +1,22 @@
 # Auth — Learnings & Observations
 
+## [2026-10-03] Forgot-password: 3 emails/hour then contact support
+- `requestPasswordReset` returns `PasswordResetRequestPayload` with `attemptsUsed` / `attemptsRemaining` / `maxAttempts` / `supportEmail`. Counts are stored in `PasswordResetAttempt` (1h window, max 3) for any email (including unknown) so enumeration stays flat.
+- Clients show Resend while remaining > 0; at 0 they show mailto support (platform Support contacts email).
+- Why it matters: Stops reset spam (especially when `@tablevera.online` redirects to support) and gives users a clear next step.
+
+## [2026-10-03] @tablevera.online password resets go to Support contacts
+- `requestPasswordReset` / admin-initiated reset still mint the token on the account email, but delivery for `*@tablevera.online` uses platform `supportEmail` (Support contacts). If that contact is also `@tablevera.online`, falls back to `support.uzeats@gmail.com`.
+- Redirected messages include a notice naming the original account; admin create-reset response `email` / message reflect the inbox that actually received the link.
+- Why it matters: Platform-owned addresses are not reliable user inboxes — ops/support need the reset link.
+
+## [2026-10-03] Partner landing is `/overview`
+- `partnerLandingPath` for owners/managers is `/overview` (was `/`). Hosts still land on `/reservations`; platform admins on `/admin`. Root `/` redirects via the same helper.
+- Why it matters: Deep links and post-login redirects should use `partnerLandingPath`, not hard-coded `/`.
+
 ## [2026-10-01] Host role is FOH-scoped Partner Hub
 - `host` is a venue staff role (with `manager`) — assigned via `restaurantIds`, consumes package team seats, invitable from Team / admin.
-- Dashboard allowlist: `/reservations` (login landing; book defaults to today), `/waitlist`, `/floor-ops`, `/guests`, `/messages`, `/support`, `/notifications`. Deposits are handled on reservation detail, not a separate settings page.
+- Dashboard allowlist: `/reservations` (login landing; book defaults to today), `/waitlist`, `/floor-ops`, `/guests`, `/messages`, `/support`, `/notifications`. Deposits are handled on reservation detail, not a separate settings page. Overview (`/` / `/overview`) is blocked.
 - Shared helpers: `isHostRole`, `isVenueStaffRole`, `canAccessPartnerPath`, `partnerLandingPath`. Merchant mobile accepts hosts via `PARTNER_MOBILE_ROLES`.
 - Why it matters: Don’t give hosts Settings/Billing/Grow; don’t treat host like diner for Partner Hub chrome.
 

@@ -7,6 +7,7 @@ export const QUOTED_WAIT_HELPER =
   "Minutes you told the guest. Sets a minimum for the estimated wait.";
 
 export const addWalkInFormSchema = z.object({
+  dinerId: z.string().optional(),
   guestName: z
     .string()
     .trim()
@@ -40,6 +41,7 @@ export const addWalkInFormSchema = z.object({
 export type AddWalkInFormValues = z.infer<typeof addWalkInFormSchema>;
 
 export type AddWalkInPayload = {
+  dinerId?: string;
   guestName: string;
   guestPhone?: string;
   partySize: number;
@@ -47,6 +49,7 @@ export type AddWalkInPayload = {
 };
 
 export const ADD_WALK_IN_DEFAULT_VALUES: AddWalkInFormValues = {
+  dinerId: undefined,
   guestName: "",
   guestPhone: "",
   partySize: 2,

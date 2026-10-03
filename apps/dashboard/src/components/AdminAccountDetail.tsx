@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useAuth } from '@/lib/auth';
-import { canEditUser, isPlatformAdmin, isSuperAdmin } from '@/lib/roles';
+import { canEditUser, isPlatformAdmin, isSuperAdmin, partnerLandingPath } from '@/lib/roles';
 import { useUrlTab } from '@/lib/useUrlTab';
 import { PageHeader, PhoneInput, colors, radii, spacing, usPhoneRules } from '@reservations/ui';
 import { formatUsDateTime, restaurantTimeZone } from '@reservations/shared';
@@ -366,7 +366,7 @@ function AdminAccountDetailContent({ kind }: Props) {
       if (payload.user.role === 'diner') {
         window.location.href = getPublicWebUrl();
       } else {
-        window.location.href = '/';
+        window.location.href = partnerLandingPath(payload.user.role);
       }
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Impersonation failed');

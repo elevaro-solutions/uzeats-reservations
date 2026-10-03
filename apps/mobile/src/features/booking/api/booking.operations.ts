@@ -31,6 +31,7 @@ export const BOOKABLE_TABLES = gql`
       maxCapacity
       floorArea
       photoUrl
+      requiresManualApproval
     }
   }
 `;
@@ -199,6 +200,7 @@ export const RESTAURANT_PACKAGES = gql`
       minPartySize
       maxPartySize
       active
+      requiresManualApproval
     }
   }
 `;
@@ -232,6 +234,7 @@ export const EXPERIENCES = gql`
         availableTickets
         status
         tags
+        requiresManualApproval
       }
     }
   }
@@ -250,6 +253,7 @@ export const PRIVATE_DINING_SPACES = gql`
       photoUrl
       amenities
       active
+      requiresManualApproval
     }
   }
 `;
@@ -274,6 +278,9 @@ export const BOOKING_RESTAURANT = gql`
       allowGuestTableSelection
       reservationsEnabled
       reservationsVisible
+      manualApprovalEnabled
+      manualApprovalPartySizeOp
+      manualApprovalPartySize
       bookingWindow {
         maxAdvanceDays
         minAdvanceHours

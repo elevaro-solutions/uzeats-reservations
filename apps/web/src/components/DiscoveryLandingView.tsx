@@ -484,7 +484,6 @@ function DiscoveryLandingContent({
       variant={variant}
       actionsSlot={variant === 'map' ? viewToggle : undefined}
       query={queryDraft}
-      cuisine={preset.cuisine}
       locationInput={locationInput}
       usingDeviceLocation={usingDeviceLocation}
       partySize={partySize}
@@ -492,7 +491,6 @@ function DiscoveryLandingContent({
       geoLoading={geoLoading}
       datePresets={datePresets}
       onQueryChange={setQueryDraft}
-      onCuisineChange={() => {}}
       onLocationInputChange={setLocationInput}
       onSelectLocation={(loc) => applyLocation(loc)}
       onUseMyLocation={requestLocation}

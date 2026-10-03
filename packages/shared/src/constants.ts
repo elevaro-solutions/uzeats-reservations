@@ -229,9 +229,25 @@ export const WAITLIST_STATUSES = [
   "waiting",
   "notified",
   "booked",
+  "seated",
   "expired",
   "cancelled",
 ] as const;
+
+/** How long a notified party has to book/check in before the offer expires. */
+export const WAITLIST_NOTIFY_HOLD_MINUTES = 15;
+
+/** Default preferred-time window width when joining from a specific unavailable slot. */
+export const WAITLIST_PREFERRED_WINDOW_MINUTES = 120;
+
+/**
+ * When no quoted/estimated wait exists, treat a party as overdue after this many
+ * minutes so hosts still get a long-wait alert.
+ */
+export const WAITLIST_DEFAULT_OVERDUE_MINUTES = 45;
+
+/** Minimum gap between host overdue re-alerts for the same waitlist entry. */
+export const WAITLIST_OVERDUE_REENOTIFY_MINUTES = 15;
 
 export const SUPPORT_TICKET_STATUSES = [
   "open",
@@ -488,6 +504,8 @@ export const NOTIFICATION_TYPE_TO_EVENT: Record<string, NotificationEvent> = {
   waitlist_available: "waitlistAvailable",
   waitlist_ready: "waitlistAvailable",
   waitlist_notified: "waitlistAvailable",
+  /** Host alert when a party has waited past their quoted/estimated wait. */
+  waitlist_overdue: "newReservation",
   saved_restaurant_available: "availabilityAlerts",
   guest_spend_alert: "guestSpendAlert",
   reservation_confirmed: "reservationUpdates",

@@ -22,6 +22,7 @@ import {
   accessRuleInputSchema,
   promotionInputSchema,
   inHouseWaitlistInputSchema,
+  updateWaitlistEntryInputSchema,
   createBlackoutInputSchema,
   restaurantPackageInputSchema,
   normalizeAnnualBillingSettings,
@@ -155,6 +156,14 @@ import {
   enrichWaitlistEntries,
   enrichWaitlistEntry,
 } from "../services/waitlistEta.js";
+import {
+  assertPartnerWaitlistTransition,
+  notifyWaitlistEntry,
+  resolveWaitlistGuestName,
+  resolveWalkInGuestFields,
+  updateWaitlistEntry,
+} from "../services/waitlist.js";
+import { searchWaitlistGuests } from "../services/waitlistGuestSearch.js";
 import {
   createReservation,
   createOwnerReservation,
@@ -323,7 +332,7 @@ import {
   notifyUser,
   notifyRestaurantManagers,
 } from "../services/notifications.js";
-import { requireFeature } from "../services/plans.js";
+import { getFeatures, requireFeature } from "../services/plans.js";
 import { getManagerSeatsUsage } from "../services/managerSeats.js";
 import { normalizeManagerSeats, sanitizePlanHighlights } from "../config/plans.js";
 import { executeCampaign, scheduleCampaign } from "../services/campaigns.js";
@@ -711,6 +720,11 @@ export const resolvers = {
       _: unknown,
       ctx: GraphQLContext,
     ) => (w.dinerId ? ctx.loaders.userById.load(w.dinerId) : null),
+    restaurant: async (
+      w: { restaurantId: string },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => ctx.loaders.restaurantById.load(w.restaurantId),
   },
 
   Conversation: {
@@ -1211,9 +1225,34 @@ export const resolvers = {
       });
     },
 
+    searchWaitlistGuests: async (
+      _: unknown,
+      args: { restaurantId: string; search: string; limit?: number },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      return searchWaitlistGuests({
+        restaurantId: args.restaurantId,
+        search: args.search,
+        limit: args.limit,
+      });
+    },
+
     restaurantWaitlist: async (
       _: unknown,
-      args: { restaurantId: string; limit?: number; offset?: number },
+      args: {
+        restaurantId: string;
+        limit?: number;
+        offset?: number;
+        statuses?: string[] | null;
+        preferredDate?: string | null;
+        source?: string | null;
+      },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
@@ -1226,13 +1265,26 @@ export const resolvers = {
         { limit: args.limit, offset: args.offset },
         { limit: 50, max: 100 },
       );
-      const filter = {
+      const statuses =
+        args.statuses && args.statuses.length > 0
+          ? args.statuses
+          : ["waiting", "notified"];
+      const filter: Record<string, unknown> = {
         restaurantId: args.restaurantId,
-        status: { $in: ["waiting", "notified"] },
+        status: { $in: statuses },
       };
+      if (args.preferredDate) {
+        filter.preferredDate = args.preferredDate;
+      }
+      if (args.source === "online" || args.source === "in_house") {
+        filter.source = args.source;
+      }
+      const historyMode = statuses.some((s) =>
+        ["seated", "booked", "expired", "cancelled"].includes(s),
+      );
       const [docs, total] = await Promise.all([
         WaitlistEntry.find(filter)
-          .sort({ createdAt: 1 })
+          .sort(historyMode ? { createdAt: -1 } : { createdAt: 1 })
           .skip(offset)
           .limit(limit),
         WaitlistEntry.countDocuments(filter),
@@ -1324,6 +1376,24 @@ export const resolvers = {
           { ownerReply: null },
           { ownerReply: "" },
         ],
+      });
+    },
+
+    restaurantPendingReservationCount: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      return Reservation.countDocuments({
+        restaurantId: args.restaurantId,
+        status: "pending",
+        slotStart: { $gte: new Date() },
       });
     },
 
@@ -4116,15 +4186,23 @@ export const resolvers = {
     ) => {
       const user = requireAuth(ctx);
       if (!(await isFeatureEnabled("waitlist"))) {
-        throw new Error("Waitlist is temporarily unavailable");
+        throw new ValidationError("Waitlist is temporarily unavailable");
       }
       const input = waitlistInputSchema.parse(args.input);
       const restaurant = await Restaurant.findById(input.restaurantId);
       if (!restaurant || restaurant.status !== "approved") {
-        throw new Error("Restaurant not available");
+        throw new ValidationError("Restaurant not available");
       }
       if (restaurant.reservationsEnabled === false) {
-        throw new Error("This restaurant is not accepting online reservations");
+        throw new ValidationError(
+          "This restaurant is not accepting online reservations",
+        );
+      }
+      const features = await getFeatures(input.restaurantId);
+      if (!features.waitlist) {
+        throw new ValidationError(
+          "Waitlist is not available at this restaurant",
+        );
       }
 
       const existing = await WaitlistEntry.findOne({
@@ -4158,7 +4236,10 @@ export const resolvers = {
       const user = requireAuth(ctx);
       const entry = await WaitlistEntry.findById(args.id);
       if (!entry || !entry.dinerId?.equals(user._id))
-        throw new Error("Not found");
+        throw new ValidationError("Waitlist entry not found");
+      if (!["waiting", "notified"].includes(entry.status)) {
+        throw new ValidationError("This waitlist entry can no longer be cancelled");
+      }
       entry.status = "cancelled";
       await entry.save();
       return true;
@@ -6954,7 +7035,8 @@ export const resolvers = {
       args: {
         input: {
           restaurantId: string;
-          guestName: string;
+          dinerId?: string;
+          guestName?: string;
           guestPhone?: string;
           partySize: number;
           quotedWaitMinutes?: number;
@@ -6974,10 +7056,32 @@ export const resolvers = {
         .select("address location")
         .lean();
       const preferredDate = todayIsoInTimeZone(restaurantTimeZone(restaurant ?? {}));
-      const doc = await WaitlistEntry.create({
-        restaurantId: input.restaurantId,
+
+      const { dinerId, guestName, guestPhone } = await resolveWalkInGuestFields({
+        dinerId: input.dinerId,
         guestName: input.guestName,
         guestPhone: input.guestPhone,
+      });
+
+      if (dinerId) {
+        const existing = await WaitlistEntry.findOne({
+          dinerId,
+          restaurantId: input.restaurantId,
+          preferredDate,
+          status: { $in: ["waiting", "notified"] },
+        });
+        if (existing) {
+          throw new ValidationError(
+            "This guest is already on the waitlist for today",
+          );
+        }
+      }
+
+      const doc = await WaitlistEntry.create({
+        restaurantId: input.restaurantId,
+        dinerId,
+        guestName,
+        guestPhone,
         partySize: input.partySize,
         quotedWaitMinutes: input.quotedWaitMinutes,
         preferredDate,
@@ -6987,44 +7091,71 @@ export const resolvers = {
       return mapWaitlistEntry(doc);
     },
 
+    updateWaitlistEntry: async (
+      _: unknown,
+      args: { input: unknown },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const input = updateWaitlistEntryInputSchema.parse(args.input);
+      const existing = await WaitlistEntry.findById(input.id).select(
+        "restaurantId",
+      );
+      if (!existing) throw new ValidationError("Waitlist entry not found");
+      await assertRestaurantAccess(
+        user._id.toString(),
+        existing.restaurantId.toString(),
+        user.role,
+      );
+      await requireFeature(existing.restaurantId.toString(), "waitlist");
+      const doc = await updateWaitlistEntry(input);
+      return mapWaitlistEntry(doc);
+    },
+
     updateWaitlistStatus: async (
       _: unknown,
-      args: { id: string; status: string },
+      args: { id: string; status: string; tableId?: string | null },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
       const entry = await WaitlistEntry.findById(args.id);
-      if (!entry) throw new Error("Waitlist entry not found");
+      if (!entry) throw new ValidationError("Waitlist entry not found");
       await assertRestaurantAccess(
         user._id.toString(),
         entry.restaurantId.toString(),
         user.role,
       );
-      entry.status = args.status as any;
+      assertPartnerWaitlistTransition(entry.status, args.status);
+
       if (args.status === "notified") {
-        entry.notifiedAt = new Date();
-        if (entry.dinerId) {
-          await notifyUser(
-            entry.dinerId.toString(),
-            {
-              type: "waitlist_ready",
-              title: "Your table is ready!",
-              body: "Please check in with the host.",
-              data: { waitlistId: args.id },
-            },
-            { smsRestaurantId: entry.restaurantId.toString() },
-          );
-        } else if (entry.guestPhone) {
-          const { sendSms } = await import("../services/notifications.js");
-          const { hasPremiumSms } = await import("../services/plans.js");
-          if (await hasPremiumSms(entry.restaurantId.toString())) {
-            await sendSms(
-              entry.guestPhone,
-              "Your table is ready! Please check in with the host.",
-            );
-          }
-        }
+        await notifyWaitlistEntry(entry, { kind: "ready" });
+        return mapWaitlistEntry(entry);
       }
+
+      if (args.status === "seated") {
+        const guest = await resolveWaitlistGuestName(entry);
+        // Seat is a now-action; prefer a still-future notified slot when present.
+        const slotStart =
+          entry.notifiedSlot && entry.notifiedSlot.getTime() > Date.now()
+            ? entry.notifiedSlot
+            : new Date();
+        const reservation = await createOwnerReservation({
+          restaurantId: entry.restaurantId.toString(),
+          partySize: entry.partySize,
+          slotStart,
+          source: "walkin",
+          seatImmediately: true,
+          guest,
+          tableId: args.tableId ?? undefined,
+          dinerId: entry.dinerId?.toString(),
+        });
+        entry.status = "seated";
+        entry.reservationId = reservation._id;
+        await entry.save();
+        return mapWaitlistEntry(entry);
+      }
+
+      entry.status = args.status as typeof entry.status;
       await entry.save();
       return mapWaitlistEntry(entry);
     },

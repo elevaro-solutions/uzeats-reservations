@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import type { Dayjs } from 'dayjs';
 import { Button, DatePicker, Input, Select, Tag } from 'antd';
 import { EnvironmentFilled, SearchOutlined } from '@ant-design/icons';
-import { CUISINES, PLATFORM_TIMEZONE, isPastCalendarDay } from '@reservations/shared';
+import { PLATFORM_TIMEZONE, isPastCalendarDay } from '@reservations/shared';
 import { colors, radii, shadows, typography } from '@reservations/ui';
 import {
   AddressAutocomplete,
@@ -15,7 +15,6 @@ type DiscoverySearchPanelProps = {
   variant?: 'hero' | 'map';
   actionsSlot?: ReactNode;
   query: string;
-  cuisine?: string;
   locationInput: string;
   usingDeviceLocation: boolean;
   partySize: number;
@@ -23,7 +22,6 @@ type DiscoverySearchPanelProps = {
   geoLoading: boolean;
   datePresets: Array<{ label: string; value: Dayjs }>;
   onQueryChange: (value: string) => void;
-  onCuisineChange: (value: string | undefined) => void;
   onLocationInputChange: (value: string) => void;
   onSelectLocation: (location: LocationSelection) => void;
   onUseMyLocation: () => void;
@@ -39,7 +37,6 @@ export function DiscoverySearchPanel({
   variant = 'hero',
   actionsSlot,
   query,
-  cuisine,
   locationInput,
   usingDeviceLocation,
   partySize,
@@ -47,7 +44,6 @@ export function DiscoverySearchPanel({
   geoLoading,
   datePresets,
   onQueryChange,
-  onCuisineChange,
   onLocationInputChange,
   onSelectLocation,
   onUseMyLocation,
@@ -71,13 +67,6 @@ export function DiscoverySearchPanel({
       role="search"
       style={variant === 'hero' ? { animationDelay: '180ms' } : undefined}
     >
-      {isMap ? (
-        <div className="rt-search-panel__map-bar">
-          <span className="rt-search-panel__map-title">Search &amp; book</span>
-          {actionsSlot ? <div className="rt-search-panel__map-actions">{actionsSlot}</div> : null}
-        </div>
-      ) : null}
-
       <div className="rt-search-panel__fields">
       <div className="rt-search-field rt-sf-what">
         <span className="rt-search-label">Search</span>
@@ -93,21 +82,6 @@ export function DiscoverySearchPanel({
             onClearCategory();
           }}
           onPressEnter={onSearch}
-        />
-      </div>
-      <span className="rt-search-divider" aria-hidden />
-      <div className="rt-search-field rt-sf-cuisine">
-        <span className="rt-search-label">Cuisine</span>
-        <Select
-          size="large"
-          variant="borderless"
-          allowClear
-          placeholder="Any cuisine"
-          value={cuisine}
-          onChange={(value) => {
-            onCuisineChange(value);
-          }}
-          options={CUISINES.map((c) => ({ value: c, label: c }))}
         />
       </div>
       <span className="rt-search-divider" aria-hidden />
@@ -180,18 +154,21 @@ export function DiscoverySearchPanel({
           onClick={onSearch}
           style={{
             height: 'auto',
-            minHeight: variant === 'map' ? 48 : 52,
+            minHeight: isMap ? 42 : 52,
             borderRadius: radii.lg,
             fontWeight: typography.fontWeight.semibold,
-            paddingInline: variant === 'map' ? 20 : 26,
+            paddingInline: isMap ? 18 : 26,
             background: colors.brand[600],
-            boxShadow: shadows.brand,
+            boxShadow: isMap ? 'none' : shadows.brand,
           }}
         >
           Find a table
         </Button>
       </div>
       </div>
+      {isMap && actionsSlot ? (
+        <div className="rt-search-panel__map-actions">{actionsSlot}</div>
+      ) : null}
     </div>
   );
 }

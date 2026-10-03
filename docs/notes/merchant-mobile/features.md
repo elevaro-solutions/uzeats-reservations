@@ -69,6 +69,18 @@ See also dated entries under `docs/notes/features.md` → `## merchant-mobile (p
 - Reservation detail had the same bug: it scanned `restaurantReservations(activeRestaurantId)` so “View reservation” for another venue showed not found. Now uses `partnerReservation(id)` (access-checked by reservation’s restaurant) and syncs venue; staff notification payloads include `restaurantId`.
 - Why it matters: Mirror Partner Hub’s venue switch when seeding a conversation; don’t assume the inbox lists every message the partner can open — and don’t switch silently.
 
+## [2026-10-03] Waitlist Live / History segment
+- Waitlist screen segments Live (`waiting`+`notified`, all dates) vs History (terminal statuses for restaurant-local today). Seat now creates a walk-in reservation server-side.
+- Why it matters: Don’t filter the live queue to “today” only — online diners join future dates.
+
+## [2026-10-03] Waitlist walk-in guest search
+- Add walk-in sheet uses `searchWaitlistGuests` (2+ chars: name/email/phone) and can set `dinerId` + prefill name/phone. Editing name/phone clears the link chip. Guest-book hits rank first; other platform diners still appear.
+- Why it matters: Guest-book-only search looked empty when the diner had an account but no prior visit at that venue.
+
+## [2026-10-03] Waitlist edit entry
+- More-actions sheet includes Edit for waiting/notified; reuses AddWalkInSheet in edit mode → `updateWaitlistEntry`. `WaitlistAction` is `status` | `edit`.
+- Why it matters: Don’t treat Edit as a fake status transition.
+
 ## [2026-09-21] Waitlist/Floor toast copy is outcome-oriented
 
 - Waitlist Notify/Seat/Remove use `waitlistActionToastCopy` (e.g. `Guest notified`, `Removed from waitlist`) instead of status nouns like `Marked cancelled`. Floor Complete/No-show/Cancel maps API statuses to human labels so `no_show` never appears raw. Message send errors use the shared `Please try again` fallback.

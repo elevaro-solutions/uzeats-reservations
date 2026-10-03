@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Select, Typography } from 'antd';
 import {
   AMENITIES,
+  CUISINES,
   DIETARY_TAGS,
   DINING_STYLES,
   DISCOVERY_OCCASIONS,
@@ -59,6 +60,9 @@ type MapFiltersSidebarProps = {
   onTopRatedChange: (enabled: boolean) => void;
   onAccessibleChange: (enabled: boolean) => void;
   onClearAll: () => void;
+  /** Omit `onCuisineChange` to hide the section (e.g. cuisine landing pages with a fixed preset). */
+  cuisine?: string;
+  onCuisineChange?: (cuisine: string | undefined) => void;
   variant?: 'sidebar' | 'drawer';
   activeFilterCount?: number;
 };
@@ -126,6 +130,8 @@ export function MapFiltersSidebar({
   onTopRatedChange,
   onAccessibleChange,
   onClearAll,
+  cuisine,
+  onCuisineChange,
   variant = 'sidebar',
   activeFilterCount: activeFilterCountProp,
 }: MapFiltersSidebarProps) {
@@ -167,6 +173,23 @@ export function MapFiltersSidebar({
             }))}
           />
         </FilterSection>
+
+        {onCuisineChange ? (
+          <FilterSection title="Cuisine">
+            <Select
+              {...selectContainerProps}
+              allowClear
+              showSearch
+              size="middle"
+              className="rt-map-filters__select"
+              popupMatchSelectWidth={false}
+              placeholder="Any cuisine"
+              value={cuisine}
+              onChange={(value) => onCuisineChange(value)}
+              options={CUISINES.map((c) => ({ value: c, label: c }))}
+            />
+          </FilterSection>
+        ) : null}
 
         <FilterSection title="Occasion">
           <FilterMultiSelect

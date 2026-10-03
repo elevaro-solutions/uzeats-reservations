@@ -313,6 +313,10 @@ export const REQUEST_PASSWORD_RESET = gql`
     requestPasswordReset(email: $email, app: $app) {
       success
       message
+      attemptsUsed
+      attemptsRemaining
+      maxAttempts
+      supportEmail
     }
   }
 `;

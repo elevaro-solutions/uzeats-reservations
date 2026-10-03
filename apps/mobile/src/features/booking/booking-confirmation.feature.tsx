@@ -50,6 +50,7 @@ type MyReservationResult = {
   myReservation: {
     id: string;
     status: string;
+    requiresManualApproval?: boolean | null;
     slotStart: string;
     slotEnd?: string | null;
     partySize: number;
@@ -203,6 +204,9 @@ export function BookingConfirmationFeature() {
     .join(", ");
   const tableName = reservation.tables?.[0]?.name ?? null;
   const iconColor = theme.colors.textSecondary;
+  const awaitingApproval =
+    reservation.status === "pending" &&
+    reservation.requiresManualApproval === true;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -214,22 +218,42 @@ export function BookingConfirmationFeature() {
         showsVerticalScrollIndicator={false}
       >
         <Flex alignItems="center" gap={1} style={styles.hero}>
-          <View style={styles.successHalo}>
-            <View style={styles.successIcon}>
-              <CheckIcon
-                size={32}
-                color={theme.colors.white}
-                strokeWidth={2.5}
-              />
+          <View
+            style={[styles.successHalo, awaitingApproval && styles.pendingHalo]}
+          >
+            <View
+              style={[styles.successIcon, awaitingApproval && styles.pendingIcon]}
+            >
+              {awaitingApproval ? (
+                <ClockIcon
+                  size={32}
+                  color={theme.colors.white}
+                  strokeWidth={2.5}
+                />
+              ) : (
+                <CheckIcon
+                  size={32}
+                  color={theme.colors.white}
+                  strokeWidth={2.5}
+                />
+              )}
             </View>
           </View>
           <Typography weight="bold" size="text-xl" align="center">
-            Reservation confirmed
+            {awaitingApproval ? "Request sent" : "Reservation confirmed"}
           </Typography>
           <Typography size="text-sm" color="secondary" align="center">
             Ref {shortReservationRef(reservation.id)}
           </Typography>
         </Flex>
+
+        {awaitingApproval ? (
+          <InlineAlert
+            tone="warning"
+            title={`Awaiting approval from ${restaurant?.name ?? "the restaurant"}`}
+            message="Your table isn't confirmed yet. The restaurant will review your request, and we'll notify you as soon as it's approved or declined."
+          />
+        ) : null}
 
         <View style={styles.card}>
           <Flex direction="row" gap={1.5} alignItems="center">
@@ -360,6 +384,12 @@ const styles = StyleSheet.create(({ space, radius, colors, shadows }) => ({
     backgroundColor: colors.success,
     alignItems: "center",
     justifyContent: "center",
+  },
+  pendingHalo: {
+    backgroundColor: colors.warningSubtle,
+  },
+  pendingIcon: {
+    backgroundColor: colors.warning,
   },
   card: {
     padding: space(2),

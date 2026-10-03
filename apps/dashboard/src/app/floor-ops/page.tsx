@@ -26,6 +26,7 @@ import {
   FLOOR_PLAN_OPS,
   REFUND_RESERVATION_DEPOSIT,
   SEAT_RESERVATION_AT_TABLE,
+  PENDING_BADGE_REFETCH,
   UPDATE_RESERVATION_STATUS,
   UPDATE_TABLE_POSITIONS,
 } from '@/lib/graphql';
@@ -434,7 +435,7 @@ export default function FloorOpsPage() {
   });
   const initialLoading = loading && !data;
   const [seatAtTable, { loading: seating }] = useMutation(SEAT_RESERVATION_AT_TABLE);
-  const [updateStatus, { loading: updatingStatus }] = useMutation(UPDATE_RESERVATION_STATUS);
+  const [updateStatus, { loading: updatingStatus }] = useMutation(UPDATE_RESERVATION_STATUS, PENDING_BADGE_REFETCH);
   const [refundDeposit, { loading: refunding }] = useMutation(REFUND_RESERVATION_DEPOSIT);
   const [updatePositions] = useMutation(UPDATE_TABLE_POSITIONS);
   const [cancelTarget, setCancelTarget] = useState<{

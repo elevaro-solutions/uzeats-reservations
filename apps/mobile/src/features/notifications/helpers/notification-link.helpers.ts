@@ -22,7 +22,7 @@ export type NotificationLink = {
 
 /**
  * Shared deep-link order for push taps and inbox CTAs:
- * url → reservationId → restaurantId.
+ * url → reservationId → waitlist → restaurantId.
  */
 export function resolveNotificationLinkFromData(
   data: Record<string, unknown>,
@@ -40,8 +40,23 @@ export function resolveNotificationLinkFromData(
     };
   }
 
+  const waitlistId = asString(data.waitlistId);
+  if (waitlistId) {
+    return {
+      href: "/waitlist",
+      label: "View waitlist",
+    };
+  }
+
   const restaurantId = asString(data.restaurantId);
   if (restaurantId) {
+    const slot = asString(data.slot);
+    if (slot) {
+      return {
+        href: `/restaurant/${restaurantId}/book?slot=${encodeURIComponent(slot)}`,
+        label: "Book now",
+      };
+    }
     return {
       href: `/restaurant/${restaurantId}`,
       label: "View restaurant",

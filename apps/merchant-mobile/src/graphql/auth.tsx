@@ -38,9 +38,14 @@ type AuthContextValue = {
   /** Tokens exist but Me could not load (usually offline). Not signed out. */
   sessionOffline: boolean;
   login: (email: string, password: string) => Promise<void>;
-  requestPasswordReset: (
-    email: string,
-  ) => Promise<{ success: boolean; message: string }>;
+  requestPasswordReset: (email: string) => Promise<{
+    success: boolean;
+    message: string;
+    attemptsUsed: number;
+    attemptsRemaining: number;
+    maxAttempts: number;
+    supportEmail: string;
+  }>;
   logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
 };
@@ -223,7 +228,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data } = await requestPasswordResetMutation({
         variables: { email, app: "dashboard" },
       });
-      return data.requestPasswordReset as { success: boolean; message: string };
+      return data.requestPasswordReset as {
+        success: boolean;
+        message: string;
+        attemptsUsed: number;
+        attemptsRemaining: number;
+        maxAttempts: number;
+        supportEmail: string;
+      };
     },
     [requestPasswordResetMutation],
   );

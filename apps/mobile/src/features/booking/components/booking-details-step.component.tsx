@@ -55,6 +55,7 @@ export type BookingDetailsStepProps = {
   onGiftCardCodeChange: (value: string) => void;
   onRedeemPointsChange: (value: number) => void;
   onRedeemRestaurantPointsChange: (value: number) => void;
+  approvalNotice?: { title: string; message: string } | null;
 };
 
 export function BookingDetailsStep({
@@ -95,12 +96,23 @@ export function BookingDetailsStep({
   onGiftCardCodeChange,
   onRedeemPointsChange,
   onRedeemRestaurantPointsChange,
+  approvalNotice,
 }: BookingDetailsStepProps) {
   const showAddons =
     packages.length > 0 || experiences.length > 0 || privateSpaces.length > 0;
 
   return (
     <Flex gap={4} style={styles.stepContent}>
+      {approvalNotice ? (
+        <BookingSection>
+          <InlineAlert
+            tone="warning"
+            title={approvalNotice.title}
+            message={approvalNotice.message}
+          />
+        </BookingSection>
+      ) : null}
+
       {allowGuestTableSelection ? (
         <BookingSection title="Your table">
           <BookingTablePicker

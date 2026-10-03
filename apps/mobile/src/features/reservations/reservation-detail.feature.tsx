@@ -7,7 +7,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { toast } from "sonner-native";
 
 import { ChevronLeftIcon, MoreVerticalIcon } from "@/assets";
-import { Button, Empty, Flex, IconButton, Typography } from "@/components";
+import {
+  Button,
+  Empty,
+  Flex,
+  IconButton,
+  InlineAlert,
+  Typography,
+} from "@/components";
 import {
   MY_RESERVATIONS,
   SAVE_RESTAURANT,
@@ -47,6 +54,7 @@ import {
 import { addReservationToCalendar } from "./helpers/reservation-calendar.helpers";
 import {
   canEditReservation,
+  displayReservationStatus,
   formatReservationWhen,
   needsDepositPayment,
 } from "./helpers/reservation-display.helpers";
@@ -466,6 +474,14 @@ export function ReservationDetailFeature() {
               reservation.restaurant?.id ? goToRestaurant : undefined
             }
           />
+
+          {displayReservationStatus(reservation) === "awaiting_approval" ? (
+            <InlineAlert
+              tone="warning"
+              title="Awaiting restaurant approval"
+              message={`${reservation.restaurant?.name ?? "The restaurant"} is reviewing your request. Your table isn't confirmed yet — we'll notify you as soon as it's approved or declined.`}
+            />
+          ) : null}
 
           <ReservationDetailRows
             reservation={reservation}

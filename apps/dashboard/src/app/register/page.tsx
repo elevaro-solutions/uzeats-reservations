@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery, useLazyQuery } from '@/lib/apollo-hooks';
@@ -20,10 +20,21 @@ import {
   Spin,
   Alert,
 } from 'antd';
-import { ArrowRightOutlined, ImportOutlined } from '@ant-design/icons';
+import { ArrowRightOutlined, EditOutlined, ImportOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { CUISINES } from '@reservations/shared';
-import { AddressAutocomplete, PhoneInput, PlanPrice, colors, formatPhoneDisplay, toE164Us, typography, usPhoneRules, type BillingPeriod } from '@reservations/ui';
+import {
+  AddressAutocomplete,
+  PhoneInput,
+  PlanPrice,
+  colors,
+  formatPhoneDisplay,
+  loadGoogleMaps,
+  toE164Us,
+  typography,
+  usPhoneRules,
+  type BillingPeriod,
+} from '@reservations/ui';
 import {
   formatPlanDollars,
   getAnnualSavingsPercentFromSettings,
@@ -149,7 +160,12 @@ function RegisterForm() {
   const [pendingSignup, setPendingSignup] = useState<PendingSignup | null>(null);
   const [addressDetailsOpen, setAddressDetailsOpen] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const lastGeocodedAddressRef = useRef('');
   const { data: plansData } = useQuery(PLANS);
+  const watchLine1 = Form.useWatch('line1', form);
+  const watchCity = Form.useWatch('city', form);
+  const watchState = Form.useWatch('state', form);
+  const watchZip = Form.useWatch('zip', form);
 
   const annualBilling: AnnualBillingSettings = useMemo(
     () =>
@@ -238,9 +254,43 @@ function RegisterForm() {
 
   useEffect(() => {
     if (!authLoading && user && !pendingSignup) {
-      router.replace(user.needsEmailVerification ? '/verify-email' : '/');
+      router.replace(user.needsEmailVerification ? '/verify-email' : '/overview');
     }
   }, [authLoading, user, router, pendingSignup]);
+
+  // Geocode manually entered addresses so lat/lng aren't stuck on the NYC defaults.
+  useEffect(() => {
+    if (!addressDetailsOpen || step !== 2) return;
+
+    const line1 = String(watchLine1 ?? '').trim();
+    const city = String(watchCity ?? '').trim();
+    const state = String(watchState ?? '').trim().toUpperCase();
+    const zip = String(watchZip ?? '').trim();
+    if (!line1 || !city || !state || !zip) return;
+
+    const normalizedAddress = `${line1}, ${city}, ${state} ${zip}`;
+    if (normalizedAddress === lastGeocodedAddressRef.current) return;
+
+    const timer = setTimeout(() => {
+      void (async () => {
+        const maps = await loadGoogleMaps();
+        if (!maps?.Geocoder) return;
+        const geocoder = new maps.Geocoder();
+        geocoder.geocode({ address: normalizedAddress }, (results, status) => {
+          if (status !== 'OK') return;
+          const location = results?.[0]?.geometry?.location;
+          if (!location) return;
+          lastGeocodedAddressRef.current = normalizedAddress;
+          form.setFieldsValue({
+            lat: Number(location.lat().toFixed(6)),
+            lng: Number(location.lng().toFixed(6)),
+          });
+        });
+      })();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [addressDetailsOpen, step, watchLine1, watchCity, watchState, watchZip, form]);
 
   if (authLoading || (user && !pendingSignup)) {
     return (
@@ -270,7 +320,7 @@ function RegisterForm() {
         }
       } else if (step === 2) {
         if (!addressDetailsOpen) {
-          message.warning('Search and select an address to continue.');
+          message.warning('Search for an address, or enter one manually.');
           return;
         }
         setCheckingName(true);
@@ -464,7 +514,7 @@ function RegisterForm() {
     message.success(
       `${restaurantName} submitted — ${planInfo.name}${planInfo.trialDays > 0 ? ' trial started' : ' selected'}`,
     );
-    router.push('/');
+    router.push('/overview');
   };
 
   const handleRegisterImport = (data: ImportedRestaurantData) => {
@@ -815,7 +865,20 @@ function RegisterForm() {
               <Form.Item
                 label="Address search"
                 tooltip="Search Google Places to fill street, city, state, ZIP, and map coordinates."
-                style={{ marginBottom: addressDetailsOpen ? 16 : 24 }}
+                style={{ marginBottom: addressDetailsOpen ? 16 : 8 }}
+                extra={
+                  !addressDetailsOpen ? (
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<EditOutlined />}
+                      onClick={() => setAddressDetailsOpen(true)}
+                      style={{ paddingInline: 0, height: 'auto', marginTop: 4 }}
+                    >
+                      Enter address manually
+                    </Button>
+                  ) : null
+                }
               >
                 <AddressAutocomplete
                   placeholder="Start typing an address"
@@ -823,6 +886,15 @@ function RegisterForm() {
                   inputProps={{ size: 'large', style: { width: '100%' } }}
                   onSelect={(selection) => {
                     form.setFieldsValue(addressSelectionToFields(selection));
+                    if (selection.line1 || selection.city || selection.state || selection.zip) {
+                      lastGeocodedAddressRef.current = [
+                        selection.line1,
+                        selection.city,
+                        `${selection.state ?? ''} ${selection.zip ?? ''}`.trim(),
+                      ]
+                        .filter(Boolean)
+                        .join(', ');
+                    }
                     setAddressDetailsOpen(true);
                   }}
                 />

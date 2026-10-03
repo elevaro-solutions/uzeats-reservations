@@ -1,4 +1,5 @@
 export { User } from './User.js';
+export { PasswordResetAttempt } from './PasswordResetAttempt.js';
 export { Restaurant } from './Restaurant.js';
 export { Table } from './Table.js';
 export { Shift, Blackout } from './Shift.js';

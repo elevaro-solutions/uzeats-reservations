@@ -10,10 +10,12 @@ export type WaitlistActionTone = "primary" | "error" | "secondary";
 
 export type WaitlistAction = {
   label: string;
-  status: WaitlistStatus;
   tone?: WaitlistActionTone;
   kind: "primary" | "secondary";
-};
+} & (
+  | { action: "status"; status: WaitlistStatus }
+  | { action: "edit" }
+);
 
 export type WaitlistStatusThemeColors = {
   amber3: string;
@@ -70,8 +72,11 @@ export type WaitlistActionToastCopy = {
 
 /** Outcome-oriented toast copy keyed by the action's target status. */
 export function waitlistActionToastCopy(
-  action: Pick<WaitlistAction, "status">,
+  action: WaitlistAction,
 ): WaitlistActionToastCopy {
+  if (action.action === "edit") {
+    return { success: "Waitlist updated", error: "Couldn't update waitlist" };
+  }
   switch (action.status) {
     case "notified":
       return {
@@ -145,14 +150,46 @@ export function nextWaitlistActions(status: string): WaitlistAction[] {
   switch (status) {
     case "waiting":
       return [
-        { label: "Notify", status: "notified", tone: "primary", kind: "primary" },
-        { label: "Seat", status: "seated", tone: "secondary", kind: "secondary" },
-        { label: "Remove", status: "cancelled", tone: "error", kind: "secondary" },
+        {
+          label: "Notify",
+          action: "status",
+          status: "notified",
+          tone: "primary",
+          kind: "primary",
+        },
+        { label: "Edit", action: "edit", tone: "secondary", kind: "secondary" },
+        {
+          label: "Seat",
+          action: "status",
+          status: "seated",
+          tone: "secondary",
+          kind: "secondary",
+        },
+        {
+          label: "Remove",
+          action: "status",
+          status: "cancelled",
+          tone: "error",
+          kind: "secondary",
+        },
       ];
     case "notified":
       return [
-        { label: "Seat", status: "seated", tone: "primary", kind: "primary" },
-        { label: "Remove", status: "cancelled", tone: "error", kind: "secondary" },
+        {
+          label: "Seat",
+          action: "status",
+          status: "seated",
+          tone: "primary",
+          kind: "primary",
+        },
+        { label: "Edit", action: "edit", tone: "secondary", kind: "secondary" },
+        {
+          label: "Remove",
+          action: "status",
+          status: "cancelled",
+          tone: "error",
+          kind: "secondary",
+        },
       ];
     default:
       return [];
@@ -198,6 +235,9 @@ export type WaitlistEntryMetricSource = {
   position?: number | null;
   estimatedWaitMinutes?: number | null;
   quotedWaitMinutes?: number | null;
+  waitingMinutes?: number | null;
+  isOverdue?: boolean | null;
+  createdAt?: string | null;
 };
 
 /** Prefer estimated wait; fall back to quoted. */
@@ -225,10 +265,19 @@ export function waitMinutesLabel(
 }
 
 /**
- * Leading metric block: queue # when waiting + position, else wait minutes,
- * else party size.
+ * Leading metric block: elapsed wait when active, else queue # / ETA / party.
  */
 export function waitlistMetric(entry: WaitlistEntryMetricSource): WaitlistMetric {
+  if (
+    (entry.status === "waiting" || entry.status === "notified") &&
+    entry.waitingMinutes != null
+  ) {
+    return {
+      primary: String(entry.waitingMinutes),
+      secondary: entry.isOverdue ? "overdue" : "min wait",
+    };
+  }
+
   if (entry.status === "waiting" && entry.position != null) {
     return { primary: `#${entry.position}`, secondary: "queue" };
   }

@@ -204,6 +204,8 @@ export const tableInputSchema = z.object({
   posY: z.number().min(0).max(500).optional(),
   width: z.number().min(1).max(24).optional(),
   height: z.number().min(1).max(24).optional(),
+  shape: z.enum(['rect', 'round']).optional(),
+  rotation: z.number().min(0).max(360).optional(),
 });
 
 export const shiftInputSchema = z.object({
@@ -822,13 +824,53 @@ export const promotionInputSchema = z.object({
   active: z.boolean().optional(),
 });
 
-export const inHouseWaitlistInputSchema = z.object({
-  restaurantId: z.string().min(1),
-  guestName: z.string().min(1).max(120),
-  guestPhone: z.string().min(7).max(20).optional(),
-  partySize: z.number().int().min(1).max(50),
-  quotedWaitMinutes: z.number().int().min(0).max(480).optional(),
-});
+export const inHouseWaitlistInputSchema = z
+  .object({
+    restaurantId: z.string().min(1),
+    /** Link a known diner account (from guest book / prior visits). */
+    dinerId: z.string().min(1).optional(),
+    guestName: z.string().min(1).max(120).optional(),
+    guestPhone: z.string().min(7).max(20).optional(),
+    partySize: z.number().int().min(1).max(50),
+    quotedWaitMinutes: z.number().int().min(0).max(480).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (!value.dinerId && !value.guestName?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Guest name is required",
+        path: ["guestName"],
+      });
+    }
+  });
+
+/** Partner edit of an active waitlist entry (waiting / notified). */
+export const updateWaitlistEntryInputSchema = z
+  .object({
+    id: z.string().min(1),
+    /** Pass null to unlink a diner account. */
+    dinerId: z.string().min(1).nullish(),
+    guestName: z.string().min(1).max(120).optional(),
+    /** Empty string clears the phone. */
+    guestPhone: z.union([z.string().min(7).max(20), z.literal("")]).optional(),
+    partySize: z.number().int().min(1).max(50).optional(),
+    /** Null clears the quoted wait. */
+    quotedWaitMinutes: z.number().int().min(0).max(480).nullish(),
+  })
+  .superRefine((value, ctx) => {
+    const hasField =
+      value.dinerId !== undefined ||
+      value.guestName !== undefined ||
+      value.guestPhone !== undefined ||
+      value.partySize !== undefined ||
+      value.quotedWaitMinutes !== undefined;
+    if (!hasField) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide at least one field to update",
+      });
+    }
+  });
 
 export const createBlackoutInputSchema = z.object({
   restaurantId: z.string().min(1),
@@ -840,6 +882,7 @@ export const createBlackoutInputSchema = z.object({
 export type AccessRuleInput = z.infer<typeof accessRuleInputSchema>;
 export type PromotionInput = z.infer<typeof promotionInputSchema>;
 export type InHouseWaitlistInput = z.infer<typeof inHouseWaitlistInputSchema>;
+export type UpdateWaitlistEntryInput = z.infer<typeof updateWaitlistEntryInputSchema>;
 export type CreateBlackoutInput = z.infer<typeof createBlackoutInputSchema>;
 
 export {
