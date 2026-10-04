@@ -1,5 +1,11 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-04] Manage collapse must force-render form fields
+- Ant Design Collapse does not mount inactive panel children unless `forceRender` is set. `ManageDetailGroups` accordion (admin Manage modal, public-profile tab) only mounted Listing/Discovery, so `validateFields()` omitted address, lat/lng, FAQ, and press.
+- The mutation then sent null coordinates and an address missing `line1`/`city`/`state`/`zip`. Production GraphQL masks each variable error as "Internal server error", which is why the toast repeats it.
+- Save also merges `getFieldsValue(true)` so values written by `setFieldsValue` before a panel mounts are not dropped.
+- Why it matters: Don’t remove `forceRender` on that collapse. A closed section is still part of the restaurant payload.
+
 ## [2026-10-03] Floor plan area backgrounds are per floor area
 - `floorPlanAreaAppearances[]` (draft + published) stores per-area `backgroundColor` / `backgroundUrl`. Restaurant-level `floorPlanBackgroundColor` / `Url` remain legacy fallbacks when an area has no entry.
 - `/floor-plan/settings` picks a floor area first; Save below the form drafts that state. Layout editor and Live floor resolve via `resolveFloorAreaAppearance(area, …)`.
@@ -59,7 +65,7 @@
 
 ## [2026-10-03] Partner overview is `/overview`, not `/`
 - Owner/manager landing is `partnerLandingPath` → `/overview`. Root `/` only redirects (login / role bounce). Hosts still cannot open overview (`canAccessPartnerPath` blocks `/` and `/overview`).
-- Summary stat cards are links; multi-location **All locations today** uses client table pagination (page size 10+). Recent alerts open a right Drawer (mark read + “View related” via `notificationHref` in `lib/notificationLinks.ts`, shared with the header bell).
+- Summary stat cards are links; multi-location **All locations today** uses client table pagination (page size 10+). Recent alerts preview the latest 3 (`ALERTS_PREVIEW_LIMIT`); Show more opens a modal of the fetched list (up to 20). Each alert still opens a right Drawer (mark read + “View related” via `notificationHref` in `lib/notificationLinks.ts`, shared with the header bell).
 - Why it matters: Don’t put overview UI back on `app/page.tsx`, and keep notification deep-links in one helper so the drawer and the bell stay aligned.
 
 ## [2026-10-03] Admin reservations: deletes leave stale cached pages

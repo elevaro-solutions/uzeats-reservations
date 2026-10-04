@@ -548,7 +548,9 @@ export function AdminManageRestaurant({
   const onSave = async () => {
     if (!restaurant || !dirty) return;
     try {
-      const values = await form.validateFields();
+      const validated = await form.validateFields();
+      // Closed collapse panels used to omit stored fields from validateFields.
+      const values = { ...form.getFieldsValue(true), ...validated };
       const result = await updateRestaurant({
         variables: {
           id: restaurant.id,

@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.75.4] — 2026-10-04
+
+### Changed
+
+- Partner Hub overview Recent alerts shows the latest 3 messages, with Show more opening the rest
+
+### Fixed
+
+- Admin restaurant Manage: saving from the Details tab no longer fails with a repeated internal server error — collapsed sections (address, contact, FAQ, and the rest) stay in the form so their values are submitted
+
+### Docs
+
+- Partner Hub overview alerts + admin manage Details save notes (`docs/notes/dashboard.md`)
+
 ## [0.75.3] — 2026-10-04
 
 ### Fixed

@@ -183,6 +183,8 @@ export default function OverviewPage() {
 
   const overview = overviewData?.myOwnerOverview;
   const notifications: AppNotification[] = notifData?.myNotifications?.items ?? [];
+  const previewNotifications = notifications.slice(0, ALERTS_PREVIEW_LIMIT);
+  const hasMoreAlerts = notifications.length > ALERTS_PREVIEW_LIMIT;
   const subscription = subData?.mySubscription;
   const activeRestaurant = restaurants.find((r: { id: string }) => r.id === activeRestaurantId);
   const canAdd = Boolean(user && canCreateRestaurant(user.role));
@@ -196,6 +198,7 @@ export default function OverviewPage() {
   };
 
   const openAlert = async (item: AppNotification) => {
+    setAlertsModalOpen(false);
     setSelectedAlert(item);
     if (!item.readAt) {
       try {
@@ -234,6 +237,27 @@ export default function OverviewPage() {
     ];
   };
 
+  const renderAlertItem = (item: AppNotification) => (
+    <List.Item
+      key={item.id}
+      style={{ cursor: 'pointer', paddingInline: 0 }}
+      onClick={() => void openAlert(item)}
+      actions={[<RightOutlined key="open" style={{ color: colors.neutral[400] }} />]}
+    >
+      <Space orientation="vertical" size={0} style={{ width: '100%', minWidth: 0 }}>
+        <Text strong style={{ opacity: item.readAt ? 0.75 : 1 }}>
+          {item.title}
+        </Text>
+        <Text type="secondary" ellipsis>
+          {item.body}
+        </Text>
+        <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+          {formatRelativeTime(item.createdAt)}
+        </Text>
+      </Space>
+    </List.Item>
+  );
+
   const alertsCard = (
     <Card
       id="recent-alerts"
@@ -250,30 +274,14 @@ export default function OverviewPage() {
       {notifications.length === 0 ? (
         <Text type="secondary">No recent notifications.</Text>
       ) : (
-        <List
-          size="small"
-          dataSource={notifications}
-          renderItem={(item) => (
-            <List.Item
-              key={item.id}
-              style={{ cursor: 'pointer', paddingInline: 0 }}
-              onClick={() => void openAlert(item)}
-              actions={[<RightOutlined key="open" style={{ color: colors.neutral[400] }} />]}
-            >
-              <Space orientation="vertical" size={0} style={{ width: '100%', minWidth: 0 }}>
-                <Text strong style={{ opacity: item.readAt ? 0.75 : 1 }}>
-                  {item.title}
-                </Text>
-                <Text type="secondary" ellipsis>
-                  {item.body}
-                </Text>
-                <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
-                  {formatRelativeTime(item.createdAt)}
-                </Text>
-              </Space>
-            </List.Item>
-          )}
-        />
+        <Space orientation="vertical" size={spacing.sm} style={{ width: '100%' }}>
+          <List size="small" dataSource={previewNotifications} renderItem={renderAlertItem} />
+          {hasMoreAlerts ? (
+            <Button type="link" style={{ paddingInline: 0 }} onClick={() => setAlertsModalOpen(true)}>
+              Show more
+            </Button>
+          ) : null}
+        </Space>
       )}
     </Card>
   );
@@ -632,6 +640,17 @@ export default function OverviewPage() {
           ))}
         </Row>
       </Space>
+
+      <Modal
+        title="Recent alerts"
+        open={alertsModalOpen}
+        onCancel={() => setAlertsModalOpen(false)}
+        footer={null}
+        width={480}
+        styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
+      >
+        <List size="small" dataSource={notifications} renderItem={renderAlertItem} />
+      </Modal>
 
       <Drawer
         title={selectedAlert?.title ?? 'Alert'}

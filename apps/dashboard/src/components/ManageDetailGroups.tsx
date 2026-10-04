@@ -46,6 +46,9 @@ export function ManageDetailGroups({
         items={groups.map((group) => ({
           key: group.key,
           label: collapseGroupLabel(group.label, group.hint),
+          // Closed panels must stay mounted. Otherwise Form.Items never register
+          // and save drops address, coordinates, FAQ, and the rest.
+          forceRender: true,
           children: group.children,
         }))}
       />
