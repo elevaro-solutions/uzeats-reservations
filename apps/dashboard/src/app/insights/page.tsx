@@ -30,7 +30,7 @@ export default function InsightsHubPage() {
     <div>
       <PageHeader
         title="Insights"
-        subtitle="Analytics and reports for covers, status mix, and exports"
+        subtitle="Analytics, no-show fees, and reports for covers, status mix, and exports"
       />
       <HubLinkCards links={links} colProps={{ xs: 24, sm: 12, lg: 12 }} />
     </div>

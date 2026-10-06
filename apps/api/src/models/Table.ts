@@ -23,6 +23,14 @@ const tableSchema = new Schema(
     photoUrl: { type: String },
     /** When true, bookings assigned to this table need staff confirmation. */
     requiresManualApproval: { type: Boolean, default: false },
+    /**
+     * Backing inventory for a PrivateDiningSpace. Excluded from regular
+     * availability unless that private room is selected.
+     */
+    privateDiningOnly: { type: Boolean, default: false },
+    /** When true with a positive amount, overrides the restaurant's per-guest deposit. */
+    depositRequired: { type: Boolean, default: false },
+    depositAmountCents: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true },
 );

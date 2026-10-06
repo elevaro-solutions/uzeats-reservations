@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Button, Checkbox, Divider, Form, Input, Tabs, message, type FormInstance } from 'antd';
+import { Alert, Button, Checkbox, Divider, Form, Input, Tabs, message, type FormInstance } from 'antd';
 import {
   LockOutlined,
   MailOutlined,
@@ -41,10 +41,12 @@ function LoginContent() {
   const search = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [authBanner, setAuthBanner] = useState<string | null>(null);
   const [loginForm] = Form.useForm();
   const [registerForm] = Form.useForm();
   const [updatePrefs] = useMutation(UPDATE_NOTIFICATION_PREFERENCES);
   const preferRegisterTab = search.get('tab') === 'register' || search.get('smsOptIn') === '1';
+  const [activeTab, setActiveTab] = useState(preferRegisterTab ? 'register' : 'login');
   const prefillPhone = search.get('phone') ?? undefined;
   const prefillSmsOptIn = search.get('smsOptIn') === '1';
 
@@ -64,13 +66,16 @@ function LoginContent() {
 
   const handleGoogleSuccess = async (idToken: string) => {
     setGoogleLoading(true);
+    setAuthBanner(null);
     try {
       const signedIn = await loginWithGoogle(idToken);
       if (signedIn.role !== 'diner') return;
       message.success('Signed in with Google');
       goNext(signedIn);
     } catch (err) {
-      message.error(err instanceof Error ? err.message : 'Google sign-in failed');
+      const msg = getGraphQLErrorMessage(err, 'Google sign-in failed');
+      setAuthBanner(msg);
+      setActiveTab('login');
     } finally {
       setGoogleLoading(false);
     }
@@ -80,6 +85,17 @@ function LoginContent() {
     <div component="LoginContent" style={{ display: 'contents' }}><AuthLayout heading="Welcome back" subheading="Sign in to manage your reservations">
       <GoogleSignInButton onSuccess={handleGoogleSuccess} loading={googleLoading} />
 
+      {authBanner ? (
+        <Alert
+          type="error"
+          showIcon
+          closable
+          onClose={() => setAuthBanner(null)}
+          message={authBanner}
+          style={{ marginTop: 16 }}
+        />
+      ) : null}
+
       <Divider style={{ margin: '20px 0', color: colors.textTertiary, fontSize: typography.fontSize.sm }}>
         or continue with email
       </Divider>
@@ -88,7 +104,11 @@ function LoginContent() {
         centered
         size="large"
         style={{ marginBottom: 4 }}
-        defaultActiveKey={preferRegisterTab ? 'register' : 'login'}
+        activeKey={activeTab}
+        onChange={(key) => {
+          setActiveTab(key);
+          setAuthBanner(null);
+        }}
         items={[
           {
             key: 'login',
@@ -100,6 +120,7 @@ function LoginContent() {
                 requiredMark={false}
                 onFinish={async (values) => {
                   setLoading(true);
+                  setAuthBanner(null);
                   try {
                     const signedIn = await login(values.email, values.password);
                     if (signedIn.role !== 'diner') return;
@@ -107,9 +128,8 @@ function LoginContent() {
                     goNext(signedIn);
                   } catch (err) {
                     if (!applyFieldErrors(loginForm, err)) {
-                      message.error(
-                        err instanceof Error ? err.message : 'Login failed',
-                      );
+                      const msg = getGraphQLErrorMessage(err, 'Login failed');
+                      setAuthBanner(msg);
                     }
                   } finally {
                     setLoading(false);

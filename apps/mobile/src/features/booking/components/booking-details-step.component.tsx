@@ -1,7 +1,7 @@
 import type { LoyaltyProgram, Occasion } from "@reservations/shared";
 import { StyleSheet } from "react-native-unistyles";
 
-import { Flex, InlineAlert } from "@/components";
+import { Flex, InlineAlert, PhoneField } from "@/components";
 
 import type { DepositBreakdown } from "../helpers/booking-pricing.helpers";
 import type {
@@ -56,6 +56,9 @@ export type BookingDetailsStepProps = {
   onRedeemPointsChange: (value: number) => void;
   onRedeemRestaurantPointsChange: (value: number) => void;
   approvalNotice?: { title: string; message: string } | null;
+  profilePhone?: string;
+  profilePhoneError?: string | null;
+  onProfilePhoneChange?: (value: string) => void;
 };
 
 export function BookingDetailsStep({
@@ -97,6 +100,9 @@ export function BookingDetailsStep({
   onRedeemPointsChange,
   onRedeemRestaurantPointsChange,
   approvalNotice,
+  profilePhone,
+  profilePhoneError,
+  onProfilePhoneChange,
 }: BookingDetailsStepProps) {
   const showAddons =
     packages.length > 0 || experiences.length > 0 || privateSpaces.length > 0;
@@ -109,6 +115,21 @@ export function BookingDetailsStep({
             tone="warning"
             title={approvalNotice.title}
             message={approvalNotice.message}
+          />
+        </BookingSection>
+      ) : null}
+
+      {onProfilePhoneChange ? (
+        <BookingSection title="Your phone">
+          <PhoneField
+            required
+            value={profilePhone ?? ""}
+            onChangeText={onProfilePhoneChange}
+            error={Boolean(profilePhoneError)}
+            helperText={
+              profilePhoneError ??
+              "Required to complete this reservation. We'll save it as your profile phone number."
+            }
           />
         </BookingSection>
       ) : null}

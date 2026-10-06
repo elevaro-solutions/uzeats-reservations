@@ -9,6 +9,7 @@ import {
   formatReservationDate,
   formatReservationTime,
   needsDepositPayment,
+  paymentDueCue,
 } from "../helpers/reservation-display.helpers";
 import { ReservationStatusPill } from "./reservation-status-pill.component";
 
@@ -20,6 +21,8 @@ export type ReservationListCardItem = {
   partySize: number;
   depositAmountCents?: number | null;
   depositStatus?: string | null;
+  noShowFeeCents?: number | null;
+  cardGuaranteeStatus?: string | null;
   requiresManualApproval?: boolean | null;
   restaurant?: {
     id?: string;
@@ -93,6 +96,7 @@ export function ReservationListCard({ item, onPress }: ReservationListCardProps)
               slotEnd={item.slotEnd}
               depositStatus={item.depositStatus}
               depositAmountCents={item.depositAmountCents}
+              cardGuaranteeStatus={item.cardGuaranteeStatus}
               requiresManualApproval={item.requiresManualApproval}
             />
           </Flex>
@@ -127,8 +131,7 @@ export function ReservationListCard({ item, onPress }: ReservationListCardProps)
           {depositDue ? (
             <View style={styles.depositCue}>
               <Typography size="text-xs" weight="medium" color="warning">
-                Deposit due · $
-                {((item.depositAmountCents ?? 0) / 100).toFixed(2)}
+                {paymentDueCue(item)}
               </Typography>
             </View>
           ) : null}

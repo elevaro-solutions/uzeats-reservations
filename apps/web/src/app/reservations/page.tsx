@@ -37,6 +37,7 @@ import {
   PLATFORM_TIMEZONE,
   buildRestaurantBookingPath,
   buildReservationCancellationReason,
+  dinerCancelChargeWarning,
 } from '@reservations/shared';
 import {
   MY_RESERVATIONS,
@@ -55,6 +56,7 @@ import {
   isReservationPast,
   isReservationUpcoming,
   needsDepositPayment,
+  bookingPaymentCopy,
   type ReservationListSegment,
 } from '@/lib/reservationDisplay';
 
@@ -89,7 +91,16 @@ export default function ReservationsPage() {
   });
   const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
   const [reviewFor, setReviewFor] = useState<ReviewTarget | null>(null);
-  const [cancelFor, setCancelFor] = useState<{ id: string; name: string } | null>(null);
+  const [cancelFor, setCancelFor] = useState<{
+    id: string;
+    name: string;
+    status: string;
+    slotStart: string;
+    noShowFeeCents?: number | null;
+    cardGuaranteeStatus?: string | null;
+    depositAmountCents?: number | null;
+    depositStatus?: string | null;
+  } | null>(null);
   const [editFor, setEditFor] = useState<any | null>(null);
   const [cancelReasonPreset, setCancelReasonPreset] = useState<string | undefined>();
   const [cancelReasonDetails, setCancelReasonDetails] = useState('');
@@ -133,6 +144,7 @@ export default function ReservationsPage() {
     setCancelReasonPreset(undefined);
     setCancelReasonDetails('');
   };
+  const cancelChargeWarning = cancelFor ? dinerCancelChargeWarning(cancelFor) : null;
 
   const confirmCancel = async () => {
     if (!cancelFor) return;
@@ -173,8 +185,8 @@ export default function ReservationsPage() {
       description: 'Completed and cancelled bookings will show up here.',
     },
     deposit: {
-      title: 'No deposits due',
-      description: 'When a restaurant requires a deposit, it will appear in this list.',
+      title: 'Nothing due',
+      description: 'Bookings that need a payment or a card on file appear here.',
     },
   };
 
@@ -239,7 +251,7 @@ export default function ReservationsPage() {
               options={[
                 { label: `Upcoming (${upcomingCount})`, value: 'upcoming' },
                 ...(depositCount > 0
-                  ? [{ label: `Deposit (${depositCount})`, value: 'deposit' as const }]
+                  ? [{ label: `Action needed (${depositCount})`, value: 'deposit' as const }]
                   : []),
                 { label: `Past (${pastCount})`, value: 'past' },
               ]}
@@ -342,6 +354,12 @@ export default function ReservationsPage() {
                                       setCancelFor({
                                         id: r.id,
                                         name: r.restaurant?.name ?? 'this restaurant',
+                                        status: r.status,
+                                        slotStart: r.slotStart,
+                                        noShowFeeCents: r.noShowFeeCents,
+                                        cardGuaranteeStatus: r.cardGuaranteeStatus,
+                                        depositAmountCents: r.depositAmountCents,
+                                        depositStatus: r.depositStatus,
                                       }),
                                   },
                                 ] satisfies MenuProps['items'],
@@ -384,7 +402,7 @@ export default function ReservationsPage() {
 
                     {needsPayment ? (
                       <div className="rt-reservation-list-card__deposit">
-                        Deposit due · ${((r.depositAmountCents ?? 0) / 100).toFixed(2)}
+                        {bookingPaymentCopy(r).title}
                       </div>
                     ) : null}
 
@@ -404,7 +422,7 @@ export default function ReservationsPage() {
                             icon={<CreditCardOutlined />}
                             onClick={() => router.push(`/reservations/${r.id}`)}
                           >
-                            Pay deposit
+                            {bookingPaymentCopy(r).action}
                           </Button>
                         )}
                         {reviewable && (
@@ -471,6 +489,9 @@ export default function ReservationsPage() {
           <Text>
             Cancel your reservation at <Text strong>{cancelFor?.name}</Text>? This cannot be undone.
           </Text>
+          {cancelChargeWarning ? (
+            <Alert type="warning" showIcon message={cancelChargeWarning} />
+          ) : null}
           <div>
             <Text style={{ display: 'block', marginBottom: 6 }}>
               Reason <Text type="danger">*</Text>

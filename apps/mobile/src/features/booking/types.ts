@@ -12,6 +12,8 @@ export type BookableTable = {
   floorArea?: string | null;
   photoUrl?: string | null;
   requiresManualApproval?: boolean | null;
+  depositRequired?: boolean | null;
+  depositAmountCents?: number | null;
 };
 
 export type BookablePackage = {
@@ -85,6 +87,7 @@ export type RestaurantBookingInfo = {
   reviewCount?: number | null;
   depositRequired?: boolean | null;
   depositAmountCents: number;
+  depositPolicy?: string | null;
   loyaltyEnabled?: boolean | null;
   loyaltyPointsPerVisit?: number | null;
   loyaltyMinRedeemPoints?: number | null;

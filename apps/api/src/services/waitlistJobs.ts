@@ -5,6 +5,7 @@ import {
   expireStaleNotifiedWaitlistEntries,
   notifyOverdueWaitlistEntries,
 } from './waitlist.js';
+import { expireAbandonedIncompleteBookings } from './reservations.js';
 
 const connection = { url: env.REDIS_URL };
 
@@ -51,6 +52,12 @@ export function startWaitlistWorker() {
     { repeat: { pattern: '* * * * *' }, jobId: 'waitlist-notify-overdue' },
   );
 
+  void waitlistQueue.add(
+    'expire-card-holds',
+    {},
+    { repeat: { pattern: '* * * * *' }, jobId: 'booking-expire-card-holds' },
+  );
+
   new Worker(
     'waitlist',
     async (job) => {
@@ -58,6 +65,11 @@ export function startWaitlistWorker() {
         await runWaitlistExpiryJob();
       } else if (job.name === 'notify-overdue') {
         await runWaitlistOverdueJob();
+      } else if (job.name === 'expire-card-holds') {
+        const result = await expireAbandonedIncompleteBookings();
+        if (result.expired > 0) {
+          logger.info(result, 'incomplete card-hold bookings expired');
+        }
       }
     },
     { connection },

@@ -38,7 +38,13 @@ import {
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { EmptyState, PageHeader, colors, radii, spacing } from '@reservations/ui';
-import { findAreaName, TableFormFields } from '@/components/TableFormFields';
+import {
+  findAreaName,
+  TableFormFields,
+  tableDepositFormValues,
+  tableDepositInput,
+  type TableDepositFormValues,
+} from '@/components/TableFormFields';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { useUrlTab } from '@/lib/useUrlTab';
@@ -75,6 +81,8 @@ type FloorTable = {
   shape?: string;
   photoUrl?: string | null;
   requiresManualApproval?: boolean;
+  depositRequired?: boolean;
+  depositAmountCents?: number;
 };
 
 type FloorShift = {
@@ -175,6 +183,8 @@ function FloorPageContent() {
       combinable: false,
       active: true,
       requiresManualApproval: false,
+      depositRequired: false,
+      depositAmount: null,
       photoUrl: [],
     });
     tableDirty.clearDirty();
@@ -192,6 +202,7 @@ function FloorPageContent() {
       combinable: table.combinable ?? false,
       active: table.active ?? true,
       requiresManualApproval: table.requiresManualApproval ?? false,
+      ...tableDepositFormValues(table),
       photoUrl: table.photoUrl ? [table.photoUrl] : [],
     });
     tableDirty.clearDirty();
@@ -250,7 +261,7 @@ function FloorPageContent() {
     active?: boolean;
     requiresManualApproval?: boolean;
     photoUrl?: string[];
-  }) => {
+  } & TableDepositFormValues) => {
     if (!activeRestaurantId || !tableDirty.dirty) return;
     const input = {
       name: values.name.trim(),
@@ -261,6 +272,7 @@ function FloorPageContent() {
       combinable: values.combinable ?? false,
       active: values.active ?? true,
       requiresManualApproval: values.requiresManualApproval ?? false,
+      ...tableDepositInput(values),
       photoUrl: values.photoUrl?.[0] ?? null,
     };
 

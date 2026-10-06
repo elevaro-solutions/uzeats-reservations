@@ -29,7 +29,7 @@ export default function AdminBillingHubPage() {
     <div>
       <PageHeader
         title="Billing"
-        subtitle="Invoices, revenue, plans, loyalty, churn, and data exports"
+        subtitle="Invoices, no-show fees, revenue, plans, loyalty, churn, and data exports"
       />
       <HubLinkCards links={links} />
     </div>

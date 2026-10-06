@@ -216,7 +216,8 @@ async function main() {
         const event = await constructStripeEvent(req.body as Buffer, signature);
         if (
           event.type === "payment_intent.succeeded" ||
-          event.type === "payment_intent.amount_capturable_updated"
+          event.type === "payment_intent.amount_capturable_updated" ||
+          event.type === "setup_intent.succeeded"
         ) {
           const intent = event.data.object as { id: string };
           await confirmDeposit(intent.id);

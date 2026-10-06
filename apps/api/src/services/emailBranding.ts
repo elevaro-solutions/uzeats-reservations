@@ -70,14 +70,54 @@ export function emailDivider() {
   return `<hr style="border:none;border-top:1px solid ${EMAIL_BRAND.border};margin:28px 0;" />`;
 }
 
-export function emailButton(href: string, label: string) {
-  return `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:16px 0;">
+function emailButtonCell(href: string, label: string, variant: 'primary' | 'outline') {
+  const outline = variant === 'outline';
+  const background = outline ? EMAIL_BRAND.surface : EMAIL_BRAND.brand;
+  const color = outline ? EMAIL_BRAND.brand : EMAIL_BRAND.textInverse;
+  const border = outline ? `border:2px solid ${EMAIL_BRAND.brand};` : '';
+  return `<table role="presentation" cellspacing="0" cellpadding="0">
   <tr>
-    <td style="border-radius:10px;background:${EMAIL_BRAND.brand};">
-      <a href="${escapeHtml(href)}" style="display:inline-block;padding:14px 28px;color:${EMAIL_BRAND.textInverse};text-decoration:none;font-weight:600;font-size:16px;line-height:1;border-radius:10px;mso-padding-alt:0;">${escapeHtml(label)}</a>
+    <td style="border-radius:10px;background:${background};${border}">
+      <a href="${escapeHtml(href)}" style="display:inline-block;padding:14px 28px;color:${color};text-decoration:none;font-weight:600;font-size:16px;line-height:1;border-radius:10px;mso-padding-alt:0;">${escapeHtml(label)}</a>
     </td>
   </tr>
 </table>`;
+}
+
+/** Add any action buttons whose URL is not already in the HTML, plus a copy-paste link. */
+export function appendEmailButtonsIfMissing(
+  html: string,
+  buttons: Array<{ href: string; label: string }>,
+  fallbackHref?: string,
+) {
+  const missing = buttons.filter((button) => button.href && !html.includes(button.href));
+  const parts = [html];
+  for (const button of missing) parts.push(emailButton(button.href, button.label));
+  if (fallbackHref && !html.includes(fallbackHref)) parts.push(emailLinkFallback(fallbackHref));
+  return parts.join('');
+}
+
+export function emailButton(href: string, label: string) {
+  return `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:16px 0;">
+  <tr>
+    <td>${emailButtonCell(href, label, 'primary')}</td>
+  </tr>
+</table>`;
+}
+
+/** Stacked action buttons. Outline buttons sit under the primary action. */
+export function emailButtons(
+  buttons: Array<{ href: string; label: string; variant?: 'primary' | 'outline' }>,
+) {
+  const rows = buttons
+    .map((button, index) => {
+      const gap = index === 0 ? '' : 'padding-top:12px;';
+      return `<tr>
+    <td style="${gap}">${emailButtonCell(button.href, button.label, button.variant ?? 'primary')}</td>
+  </tr>`;
+    })
+    .join('');
+  return `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:16px 0;">${rows}</table>`;
 }
 
 export function emailDetailBox(rows: Array<{ label: string; value: string }>) {

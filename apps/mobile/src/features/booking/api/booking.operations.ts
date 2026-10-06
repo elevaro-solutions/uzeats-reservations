@@ -5,8 +5,14 @@ export const BOOKING_AVAILABILITY = gql`
     $restaurantId: ID!
     $date: String!
     $partySize: Int!
+    $privateDiningSpaceId: ID
   ) {
-    availability(restaurantId: $restaurantId, date: $date, partySize: $partySize) {
+    availability(
+      restaurantId: $restaurantId
+      date: $date
+      partySize: $partySize
+      privateDiningSpaceId: $privateDiningSpaceId
+    ) {
       time
       available
       remainingTables
@@ -19,11 +25,13 @@ export const BOOKABLE_TABLES = gql`
     $restaurantId: ID!
     $slotStart: DateTime!
     $partySize: Int!
+    $privateDiningSpaceId: ID
   ) {
     bookableTables(
       restaurantId: $restaurantId
       slotStart: $slotStart
       partySize: $partySize
+      privateDiningSpaceId: $privateDiningSpaceId
     ) {
       id
       name
@@ -32,6 +40,8 @@ export const BOOKABLE_TABLES = gql`
       floorArea
       photoUrl
       requiresManualApproval
+      depositRequired
+      depositAmountCents
     }
   }
 `;
@@ -48,6 +58,8 @@ export const CREATE_RESERVATION = gql`
         partySize
         depositAmountCents
         depositStatus
+        noShowFeeCents
+        cardGuaranteeStatus
         restaurant {
           id
           name
@@ -79,6 +91,12 @@ export const CONFIRM_DEPOSIT = gql`
       status
       depositStatus
     }
+  }
+`;
+
+export const ABANDON_INCOMPLETE_BOOKING = gql`
+  mutation AbandonIncompleteBooking($id: ID!) {
+    abandonIncompleteBooking(id: $id)
   }
 `;
 
@@ -272,6 +290,7 @@ export const BOOKING_RESTAURANT = gql`
       reviewCount
       depositRequired
       depositAmountCents
+      depositPolicy
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
@@ -324,6 +343,8 @@ export const MY_RESERVATION = gql`
       guestNotes
       depositAmountCents
       depositStatus
+      noShowFeeCents
+      cardGuaranteeStatus
       clientSecret
       loyaltyPointsEarned
       hasReview

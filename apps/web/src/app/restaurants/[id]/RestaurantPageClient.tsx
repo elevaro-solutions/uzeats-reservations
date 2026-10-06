@@ -28,7 +28,17 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { CheckCircleFilled, EnvironmentOutlined, StarFilled } from '@ant-design/icons';
 import { PostVisitModal } from '@/components/PostVisitModal';
 import { canLeaveReview } from '@/lib/reservationDisplay';
-import { SlotPicker, priceRangeLabel, colors, radii, pickRestaurantPhoto } from '@reservations/ui';
+import {
+  SlotPicker,
+  priceRangeLabel,
+  colors,
+  radii,
+  pickRestaurantPhoto,
+  PhoneInput,
+  formatPhoneDisplay,
+  isValidUsPhone,
+  toE164Us,
+} from '@reservations/ui';
 import type { RestaurantSeoData } from '@/lib/restaurantSeoFetch';
 import { useIsMobileRestaurantLayout } from '@/lib/useIsMobileRestaurantLayout';
 import {
@@ -53,6 +63,8 @@ import {
   timezoneFromAddress,
   zonedWallClockToUtc,
   previewBookingManualApproval,
+  resolveBookingCharges,
+  resolveDepositPolicy,
   preferredWindowFromSlot,
   DEFAULT_REVIEW_SORT,
   RESTAURANT_REVIEWS_PREVIEW_LIMIT,
@@ -70,6 +82,7 @@ import {
   AVAILABILITY,
   CREATE_RESERVATION,
   CONFIRM_DEPOSIT,
+  ABANDON_INCOMPLETE_BOOKING,
   MY_RESERVATIONS,
   JOIN_WAITLIST,
   BOOKABLE_TABLES,
@@ -85,7 +98,12 @@ import {
   BEST_PROMOTION,
   VALIDATE_GIFT_CARD,
 } from '@/lib/graphql';
-import { getGraphQLErrorMessage, getValidationIssues, toFieldErrors } from '@/lib/errors';
+import {
+  getGraphQLErrorMessage,
+  getGraphQLFieldErrors,
+  getValidationIssues,
+  toFieldErrors,
+} from '@/lib/errors';
 import { isSlotStillAvailable } from '@/lib/bookingSlots';
 import {
   DEFAULT_PARTY,
@@ -154,7 +172,9 @@ export default function RestaurantPageClient({
   const isObjectId = isMongoObjectId(slugOrId);
   const search = useSearchParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, refreshMe } = useAuth();
+  const needsProfilePhone = Boolean(user) && !user?.phone?.trim();
+  const [bookingPhone, setBookingPhone] = useState('');
 
   const { data } = useQuery(RESTAURANT_DETAIL, {
     variables: isObjectId ? { id: slugOrId } : { slug: slugOrId },
@@ -285,6 +305,7 @@ export default function RestaurantPageClient({
     clientSecret: string;
     reservationId: string;
     amountCents: number;
+    noShowFeeCents: number;
     paymentIntentId: string;
     tableInfo?: {
       tableName?: string;
@@ -319,6 +340,7 @@ export default function RestaurantPageClient({
       restaurantId: restaurantId!,
       date: date.format('YYYY-MM-DD'),
       partySize,
+      privateDiningSpaceId: selectedPrivateSpaceId || undefined,
     },
     skip: !restaurantId,
     fetchPolicy: 'network-only',
@@ -328,8 +350,10 @@ export default function RestaurantPageClient({
       restaurantId: restaurantId!,
       slotStart: selectedSlot!,
       partySize,
+      privateDiningSpaceId: selectedPrivateSpaceId || undefined,
     },
     skip: !restaurantId || !selectedSlot,
+    fetchPolicy: 'network-only',
   });
   const bookableTables = (bookableData as any)?.bookableTables ?? [];
   const { data: reviewsData, refetch: refetchReviews } = useQuery(RESTAURANT_REVIEWS, {
@@ -389,11 +413,11 @@ export default function RestaurantPageClient({
   });
   const { data: loyaltyProgramData } = useQuery(LOYALTY_PROGRAM);
 
-  const [createReservation, { loading: booking }] = useMutation(CREATE_RESERVATION, {
+  const [createReservation, { loading: booking }] = useMutation(CREATE_RESERVATION);
+  const [confirmDeposit] = useMutation(CONFIRM_DEPOSIT, {
     refetchQueries: [{ query: MY_RESERVATIONS }],
-    awaitRefetchQueries: true,
   });
-  const [confirmDeposit] = useMutation(CONFIRM_DEPOSIT);
+  const [abandonIncompleteBooking] = useMutation(ABANDON_INCOMPLETE_BOOKING);
   const [joinWaitlist, { loading: waitlisting }] = useMutation(JOIN_WAITLIST);
   const [reactToReview] = useMutation(REACT_TO_REVIEW);
 
@@ -533,12 +557,15 @@ export default function RestaurantPageClient({
     }
   }, [search]);
 
-  const tableDepositCents =
-    restaurant?.depositRequired && restaurant.depositAmountCents > 0
-      ? restaurant.depositAmountCents * partySize
-      : 0;
-  const grossDepositCents =
-    tableDepositCents + packagePriceCents + privateSpacePriceCents + experiencePriceCents;
+  const selectedTable = bookableTables.find((t: { id: string }) => t.id === selectedTableId);
+  const addOnsCents = packagePriceCents + privateSpacePriceCents + experiencePriceCents;
+  const bookingCharges = restaurant
+    ? resolveBookingCharges({ restaurant, table: selectedTable, partySize, addOnsCents })
+    : null;
+  const depositIsPrepaid = bookingCharges?.policy === 'prepaid';
+  const prepaidTableDepositCents = depositIsPrepaid ? bookingCharges.tableDepositCents : 0;
+  const noShowFeeCents = bookingCharges?.noShowFeeCents ?? 0;
+  const grossDepositCents = bookingCharges?.prepaidGrossCents ?? addOnsCents;
   const program = (loyaltyProgramData as any)?.loyaltyProgram ?? defaultLoyaltyProgram();
   const minRedeem = program.minRedeemPoints;
   const redeemProgress = loyaltyRedeemProgress(user?.loyaltyPoints ?? 0, minRedeem);
@@ -604,7 +631,6 @@ export default function RestaurantPageClient({
     0,
     depositAfterPromo - (giftValidation?.valid ? giftValidation.discountCents : 0),
   );
-  const selectedTable = bookableTables.find((t: { id: string }) => t.id === selectedTableId);
   const approvalPreview = previewBookingManualApproval({
     restaurant: {
       enabled: restaurant?.manualApprovalEnabled === true,
@@ -623,6 +649,7 @@ export default function RestaurantPageClient({
     candidateTableFlags: selectedSlot
       ? bookableTables.map((t: { requiresManualApproval?: boolean }) => t.requiresManualApproval)
       : null,
+    allowGuestTableSelection: restaurant?.allowGuestTableSelection === true,
   });
   const availableCount = slots.filter((s: any) => s.available).length;
   const promotions = (promotionsData as any)?.promotions?.items ?? [];
@@ -751,6 +778,14 @@ export default function RestaurantPageClient({
       setSelectedSlot(null);
       return;
     }
+    if (needsProfilePhone && !isValidUsPhone(bookingPhone)) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        phone: 'Enter a valid US number, e.g. (212) 555-1234',
+      }));
+      message.warning('Enter your phone number to complete the reservation');
+      return;
+    }
     setConfirmError(null);
     setConfirmOpen(true);
   };
@@ -780,10 +815,14 @@ export default function RestaurantPageClient({
             ...(selectedPackageId ? { packageId: selectedPackageId } : {}),
             ...(selectedPrivateSpaceId ? { privateDiningSpaceId: selectedPrivateSpaceId } : {}),
             ...(selectedExperienceId ? { experienceId: selectedExperienceId } : {}),
+            ...(needsProfilePhone ? { phone: toE164Us(bookingPhone) } : {}),
             ...getBookingAttributionForSubmit(),
           },
         },
       });
+      if (needsProfilePhone) {
+        void refreshMe();
+      }
       const payload = (result as any)?.createReservation;
       const bookedTable = payload?.reservation?.tables?.[0];
       const restaurantPhotos = payload?.reservation?.restaurant?.photos as string[] | undefined;
@@ -808,6 +847,7 @@ export default function RestaurantPageClient({
           clientSecret: cs,
           reservationId: payload.reservation.id,
           amountCents: payload.reservation.depositAmountCents ?? 0,
+          noShowFeeCents: payload.reservation.noShowFeeCents ?? 0,
           paymentIntentId: cs.split('_secret')[0] ?? '',
           tableInfo: successInfo,
         } as any);
@@ -827,9 +867,17 @@ export default function RestaurantPageClient({
       router.push('/reservations');
     } catch (err) {
       const issues = getValidationIssues(err);
-      if (issues.length > 0) {
-        setFieldErrors(toFieldErrors(issues));
-        setValidationSummary(issues.map((i) => i.message));
+      const apiFieldErrors = getGraphQLFieldErrors(err);
+      if (needsProfilePhone && !apiFieldErrors.phone) {
+        void refreshMe();
+      }
+      if (issues.length > 0 || apiFieldErrors.phone) {
+        setFieldErrors({ ...toFieldErrors(issues), ...apiFieldErrors });
+        setValidationSummary(
+          issues.length > 0
+            ? issues.map((i) => i.message)
+            : [apiFieldErrors.phone].filter((text): text is string => Boolean(text)),
+        );
         setConfirmOpen(false);
         setConfirmError(null);
         message.error('Please fix the highlighted fields and try again.');
@@ -865,6 +913,18 @@ export default function RestaurantPageClient({
     resetBookingForm();
     message.success('Deposit authorized — reservation confirmed!');
     router.push('/reservations');
+  };
+
+  const handleDepositCancel = async () => {
+    const reservationId = depositInfo?.reservationId;
+    setDepositInfo(null);
+    if (reservationId) {
+      try {
+        await abandonIncompleteBooking({ variables: { id: reservationId } });
+      } catch {
+        // expire job will release the table if this fails
+      }
+    }
   };
 
   const waitlist = async () => {
@@ -972,7 +1032,8 @@ export default function RestaurantPageClient({
           <RestaurantHoursMeta shifts={restaurant.shifts ?? []} timeZone={timeZone} />
           {restaurant.depositRequired && (
             <Tag color="gold" style={{ marginTop: 8 }}>
-              Deposit ${(restaurant.depositAmountCents / 100).toFixed(2)} per guest
+              {resolveDepositPolicy(restaurant.depositPolicy) === 'prepaid' ? 'Deposit' : 'Card required · no-show fee'}{' '}
+              ${(restaurant.depositAmountCents / 100).toFixed(2)} per guest
             </Tag>
           )}
           <div className="rt-restaurant-profile__bookmarks">
@@ -1118,6 +1179,7 @@ export default function RestaurantPageClient({
                 termsAndConditions={restaurant.termsAndConditions}
                 depositRequired={restaurant.depositRequired}
                 depositAmountCents={restaurant.depositAmountCents}
+                depositPolicy={restaurant.depositPolicy}
               />
 
               <RestaurantFaqSection items={restaurantFaq} />
@@ -1243,6 +1305,17 @@ export default function RestaurantPageClient({
                                 Needs approval
                               </Tag>
                             ) : null}
+                            {t.depositRequired && t.depositAmountCents > 0 ? (
+                              <Tag
+                                style={{
+                                  marginTop: 6,
+                                  marginInlineStart: t.requiresManualApproval ? 4 : 0,
+                                  marginInlineEnd: 0,
+                                }}
+                              >
+                                {depositIsPrepaid ? 'Deposit' : 'No-show fee'} ${(t.depositAmountCents / 100).toFixed(2)} / guest
+                              </Tag>
+                            ) : null}
                           </Card>
                         </Col>
                       );
@@ -1356,7 +1429,11 @@ export default function RestaurantPageClient({
                     <Tag.CheckableTag
                       checked={!selectedPrivateSpaceId}
                       onChange={(checked) => {
-                        if (checked) setSelectedPrivateSpaceId(null);
+                        if (checked) {
+                          setSelectedPrivateSpaceId(null);
+                          setSelectedSlot(null);
+                          setSelectedTableId(null);
+                        }
                       }}
                     >
                       No private room
@@ -1368,7 +1445,11 @@ export default function RestaurantPageClient({
                           key={space.id}
                           size="small"
                           hoverable
-                          onClick={() => setSelectedPrivateSpaceId(selected ? null : space.id)}
+                          onClick={() => {
+                            setSelectedPrivateSpaceId(selected ? null : space.id);
+                            setSelectedSlot(null);
+                            setSelectedTableId(null);
+                          }}
                           style={{
                             borderColor: selected ? colors.brand[500] : undefined,
                             background: selected ? colors.brand[50] : undefined,
@@ -1464,6 +1545,26 @@ export default function RestaurantPageClient({
                       );
                     })}
                   </Space>
+                </Form.Item>
+              )}
+
+              {needsProfilePhone && (
+                <Form.Item
+                  label="Phone number"
+                  required
+                  validateStatus={fieldErrors.phone ? 'error' : undefined}
+                  help={fieldErrors.phone}
+                  extra="Required to complete this reservation. We'll save it as your profile phone number."
+                >
+                  <PhoneInput
+                    size="large"
+                    value={bookingPhone}
+                    status={fieldErrors.phone ? 'error' : undefined}
+                    onChange={(value) => {
+                      setBookingPhone(value);
+                      clearFieldError('phone');
+                    }}
+                  />
                 </Form.Item>
               )}
 
@@ -1713,6 +1814,7 @@ export default function RestaurantPageClient({
                 {buildCancellationPolicySummary({
                   depositRequired: restaurant.depositRequired,
                   depositAmountCents: restaurant.depositAmountCents,
+                  depositPolicy: restaurant.depositPolicy,
                 })}
               </Text>
             </Form>
@@ -1775,7 +1877,7 @@ export default function RestaurantPageClient({
           return true;
         })}
         selectedPackageId={selectedPackageId}
-        depositCents={tableDepositCents}
+        depositCents={prepaidTableDepositCents}
         onDateChange={(next) => updateBooking({ date: next, selectedSlot: null })}
         onPartySizeChange={(next) => updateBooking({ partySize: next, selectedSlot: null })}
         onSlotChange={(slot) => updateBooking({ selectedSlot: slot })}
@@ -1811,6 +1913,7 @@ export default function RestaurantPageClient({
         termsAndConditions={restaurant.termsAndConditions}
         depositRequired={restaurant.depositRequired}
         depositAmountCents={restaurant.depositAmountCents}
+        depositPolicy={restaurant.depositPolicy}
         approvalPreview={approvalPreview}
         error={confirmError}
         details={{
@@ -1822,10 +1925,16 @@ export default function RestaurantPageClient({
             ? [user.firstName, user.lastName].filter(Boolean).join(' ') || undefined
             : undefined,
           guestEmail: user?.email ?? undefined,
+          guestPhone: needsProfilePhone
+            ? formatPhoneDisplay(bookingPhone) || undefined
+            : user?.phone
+              ? formatPhoneDisplay(user.phone)
+              : undefined,
           notes: notes || undefined,
           tableName: selectedTable?.name,
           tableFloorArea: selectedTable?.floorArea,
           depositCents: finalDepositCents,
+          noShowFeeCents: noShowFeeCents || undefined,
           packageTitle: selectedPackage?.title,
           packagePriceCents: packagePriceCents || undefined,
           privateDiningSpaceName: selectedPrivateSpace?.name,
@@ -1971,8 +2080,9 @@ export default function RestaurantPageClient({
           <DepositPayment
             clientSecret={depositInfo.clientSecret}
             amount={depositInfo.amountCents}
+            noShowFeeCents={depositInfo.noShowFeeCents}
             onSuccess={handleDepositSuccess}
-            onCancel={() => setDepositInfo(null)}
+            onCancel={() => void handleDepositCancel()}
           />
         )}
       </Modal>

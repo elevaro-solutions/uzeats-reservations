@@ -9,7 +9,7 @@ import {
   TagOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
-import { buildRestaurantBookingUrl } from '@reservations/shared';
+import { buildRestaurantBookingUrl, resolveDepositPolicy } from '@reservations/shared';
 import {
   StatCard,
   formatPhoneDisplay,
@@ -167,7 +167,9 @@ export function AdminRestaurantOverviewPanel({
   const ownerPhone = owner?.phone ? formatPhoneDisplay(owner.phone) || owner.phone : null;
 
   const depositValue = restaurant.depositRequired
-    ? money(restaurant.depositAmountCents)
+    ? `${money(restaurant.depositAmountCents)} / guest · ${
+        resolveDepositPolicy(restaurant.depositPolicy) === 'prepaid' ? 'prepaid' : 'card guarantee'
+      }`
     : 'Not required';
   const loyaltyValue = restaurant.loyaltyEnabled
     ? `${restaurant.loyaltyPointsPerVisit ?? 0} pts / visit`

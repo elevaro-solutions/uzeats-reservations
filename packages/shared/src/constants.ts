@@ -514,6 +514,10 @@ export const NOTIFICATION_TYPE_TO_EVENT: Record<string, NotificationEvent> = {
   reservation_reminder: "reservationUpdates",
   reservation_pending_approval: "reservationUpdates",
   deposit_refunded: "reservationUpdates",
+  no_show_fee_charged: "reservationUpdates",
+  no_show_fee_refunded: "reservationUpdates",
+  /** Restaurant alert when a no-show / late-cancel fee is declined. */
+  no_show_fee_failed: "newReservation",
   new_review: "newReview",
   review_reply: "reviewReply",
   survey_invitation: "surveyInvitation",

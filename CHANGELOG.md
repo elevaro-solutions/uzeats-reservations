@@ -6,6 +6,55 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.76.0] — 2026-10-06
+
+### Added
+
+- Diners can update their photo, name, email, phone, home address, and password from Profile. Web and mobile show an Edit button on the photo and info card, which opens the editor. Changing email or password asks for the current password when the account has one. A new email must be verified again when signup verification is on
+- Google-linked diners can switch to email sign-in from Profile. That unlinks Google after a password is set (or already exists), then the email field becomes editable
+- Diners can explicitly link Google from Profile after using email/password. Continue with Google no longer auto-links an existing email account; it asks them to sign in with email and password first
+- Diner email signup requires a phone number. Mobile signup now collects it; the API rejects registration without one. Google sign-in still does not collect a phone
+- Booking asks for a phone when the diner profile has none (typical after Google sign-in) and saves that number as the profile phone
+- Tables have an optional Require deposit toggle with a per-guest deposit price (floor plan details panel, Add/Edit table forms, admin restaurant Tables tab). When on, that table's price replaces the restaurant default; when off, the restaurant-level deposit setting applies. Diner web and mobile table pickers show the table deposit, and the booking total uses it when that table is chosen
+- Restaurants choose a deposit policy (Booking policies → Deposit policy). Card guarantee is the default (OpenTable / Resy style): the diner saves a card at booking and nothing is charged. The per-guest amount is charged only for a no-show or a diner cancellation less than 24 hours ahead. Prepaid charges the amount at booking, applies it to the bill, and refunds it in full if the diner cancels 24+ hours ahead or the restaurant cancels
+- Partner and admin reservation details show the no-show fee and its status (card on file, charged, failed, refunded), with Charge / Retry no-show fee and Refund fee actions. Marking a no-show from the details page warns that the saved card will be charged
+- Diners are notified when a no-show / late-cancellation fee is charged or refunded; restaurants are notified when a fee charge is declined
+- Partner Hub → Insights → No-show fees and Admin → Billing → No-show fees list collected card-guarantee fees with totals (collected, refunded, failed, pending) and a per-row actions menu (view, manage, charge/retry, refund)
+
+### Changed
+
+- Reservation emails are editable in Admin → Templates, and each one includes a button to the reservation. That covers confirmation (also Add to Google Calendar), request received, updated, reminder, running late, cancelled, deposit refunded, no-show fee charged, and fee refunded. I'm running late opens the reservation and notifies the restaurant, including after sign-in
+- Restaurant profile deposit settings are labelled as the restaurant-wide default that individual tables can override
+- Booking deposits are no longer an authorization hold that expires after ~7 days. Card-guarantee bookings save the card (Stripe SetupIntent) and charge the fee off-session; prepaid bookings charge immediately. Existing held deposits are still captured on no-show and released on completion or cancellation
+- Packages, private dining, and experience prices are always charged at booking. Loyalty points, promo codes, and gift cards discount only the amount charged at booking, not the no-show fee
+- Web and mobile booking, payment, reservation detail, and billing screens say "Add card" / "Save card" for card-guarantee bookings and "Pay now" for prepaid ones, and show the no-show fee separately from what is due now. Restaurant terms, FAQ, and cancellation copy follow the restaurant's policy
+- A reservation that needs a saved card or a prepayment is not listed as booked until the diner finishes the Stripe form. Cancel (or leaving the form) releases the table; unfinished holds expire after 20 minutes
+- The automatic no-show job marks bookings but never charges the fee; staff charge it from the reservation details
+- Site header account avatar shows the diner's profile photo and updates after they save a new one
+- Google-linked diner profiles keep email locked (managed by Google) until they switch to email sign-in, and still allow adding or changing a password
+- Profile address uses one Street address field with suggestions that fill city, state, and ZIP
+- Profile password fields show live requirements (length, upper, lower, number) while typing
+- Profile editor groups email and password under Sign-in; Switch to email sign-in shows a compact banner and password fields without duplicate labels
+- Profile editor sections use a simple brand-green left border and title rule; Sign-in and Address collapse by default with a one-line summary (Contact stays open)
+- Web profile shows the diner's phone number
+
+### Fixed
+
+- Private dining bookings show time slots again. Selecting a private room uses dedicated room inventory (auto-created floor table matching the room’s guest range) instead of requiring a regular table that seats the whole party
+- Hold-table / pay-now card form hides Cancel and Save card (or Pay now) until Stripe’s Payment Element has finished loading
+- Diner reservations list orders upcoming (and action-needed) bookings soonest first; past stays most recent first
+- Creating a reservation no longer hangs while booking emails rewrite every template and wait on SendGrid. The mutation returns as soon as the booking (and card step) is saved; reminder jobs and mail run in the background, and SendGrid/Stripe calls time out instead of waiting forever
+- Profile street autocomplete keeps the street line (not the full place label) after you pick a suggestion
+- Site header account pill lines up with the notification control; name and photo stay vertically centered inside the pill
+- Booking no longer warns that restaurant approval is required when a normal table will be auto-assigned and the reservation confirms immediately
+- Floor plan details: saving table fields (capacity, name, toggles) no longer clears the selection and shows “Click a table to edit”
+- Floor plan / table forms: min guests cannot be greater than max guests (UI clamps + shared schema refine)
+- API build: `PrivateDiningSpaceDocument` includes `mongoose.Document` so `space.save()` typechecks; password-reset delivery test mocks cast to satisfy Mongoose Query return types
+
+### Docs
+
+- Notes for deposit policy / no-show fees, diner profile edit, phone-required signup, and private dining inventory (`docs/notes/api.md`, `dashboard.md`, `web.md`, `features*.md`)
+
 ## [0.75.4] — 2026-10-04
 
 ### Changed
@@ -594,7 +643,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `createElevaroTelegramLink` is limited to restaurant staff/owners/admins with venue access (not diners).
 - Elevaro action webhook rejects Accept/Reject for non-owners when Messenger preference is off.
 
-
 ## [0.59.0] — 2026-09-22
 
 ### Added
@@ -665,7 +713,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Staff: Live floor vs Table layout; public profile photo/copy changes wait for admin approval
 - Admins: platform-wide Reservations queue and Profile requests
 - API env: empty `apps/api/.env` placeholders inherit from the repo root `.env`
-
 
 ## [0.57.0] — 2026-09-21
 
@@ -809,6 +856,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Mobile booking time chips and favorite control use ≥44pt tap targets; slot chips expose accessibility labels
 - Mobile Privacy Policy discloses optional write-only calendar access
 - Mobile iOS `ITSAppUsesNonExemptEncryption: false` for App Store export compliance
+
 ## [0.52.1] — 2026-09-17
 
 ### Changed

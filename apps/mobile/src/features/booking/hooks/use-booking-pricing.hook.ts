@@ -188,6 +188,7 @@ export function useBookingPricing(
     promoDiscountCents: 0,
     giftDiscountCents: 0,
     dueCents: 0,
+    noShowFeeCents: 0,
   };
 
   const depositBreakdown = pricingInput

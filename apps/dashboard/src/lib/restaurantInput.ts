@@ -1,4 +1,4 @@
-import type { RestaurantInput } from '@reservations/shared';
+import { resolveDepositPolicy, type RestaurantInput } from '@reservations/shared';
 
 type RestaurantBase = {
   name: string;
@@ -21,6 +21,7 @@ type RestaurantBase = {
   logoUrl?: string | null;
   depositRequired: boolean;
   depositAmountCents: number;
+  depositPolicy?: string | null;
   loyaltyEnabled: boolean;
   loyaltyPointsPerVisit: number;
   loyaltyMinRedeemPoints: number;
@@ -90,6 +91,7 @@ export function buildRestaurantInput(
     logoUrl: logoUrl !== undefined ? logoUrl ?? null : base.logoUrl ?? null,
     depositRequired: base.depositRequired,
     depositAmountCents: base.depositAmountCents,
+    depositPolicy: base.depositPolicy ? resolveDepositPolicy(base.depositPolicy) : undefined,
     loyaltyEnabled: base.loyaltyEnabled,
     loyaltyPointsPerVisit: base.loyaltyPointsPerVisit,
     loyaltyMinRedeemPoints: base.loyaltyMinRedeemPoints,

@@ -1,5 +1,15 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-06] No-show fees report reuses reservation fee mutations
+- Partner `/fees` (Insights) and Admin `/admin/fees` (Billing) share `NoShowFeeChargesReport`. Rows are reservations with fee activity; charge/retry/refund come from `buildNoShowFeeActionItems` + shared mutations so the table does not call hooks per row.
+- API: `restaurantNoShowFeeCharges` / `adminNoShowFeeCharges` return items + `NoShowFeeChargeSummary`. Date range filters `noShowFeeChargedAt` (venue TZ for a single restaurant, platform TZ otherwise).
+- Why it matters: Billing & invoices only lists prepaid deposits (`depositAmountCents > 0`). Card-guarantee collected fees live on this report, not the invoice list.
+
+## [2026-10-04] Floor plan load effect must ignore Apollo cache writes
+- `/floor-plan` hydrates from `FLOOR_PLAN_TABLES`. `updateTable` / `createTable` / `deleteTable` rewrite that query’s cache, so a `useEffect([data])` full reset looked like “blur/click outside cleared the selection.”
+- Skip rehydrate when `loadedRestaurantIdRef` already matches, unless `forceHydrateRef` is set (Publish → refetch) or `activeRestaurantId` changes (clears the loaded id).
+- Why it matters: Don’t clear `selectedIds` / local snapshot on every meta save. Details blur after editing capacity was the common repro.
+
 ## [2026-10-04] Manage collapse must force-render form fields
 - Ant Design Collapse does not mount inactive panel children unless `forceRender` is set. `ManageDetailGroups` accordion (admin Manage modal, public-profile tab) only mounted Listing/Discovery, so `validateFields()` omitted address, lat/lng, FAQ, and press.
 - The mutation then sent null coordinates and an address missing `line1`/`city`/`state`/`zip`. Production GraphQL masks each variable error as "Internal server error", which is why the toast repeats it.
@@ -411,3 +421,8 @@
 - Ant Design 6 `Layout` with `has-sider` is `flex-direction: row` and sets direct child `.ant-layout` to `width: 0`. Superseded by [2026-10-03] Mobile nav: one sider — no portaled Drawer; overlay the same `Sider`.
 - Partner `/notifications` also skipped the default `.rt-dash-content` `max-width: 1200px` (`margin: 0 auto`) so the page fills the column after the primary nav instead of looking like a second sidebar gap.
 - Why it matters: An empty strip next to the sidebar is usually a Layout child or centered max-width, not a second Menu.
+
+## [2026-10-05] Table deposit fields are optional in tableInputSchema
+- `depositRequired` / `depositAmountCents` have no zod defaults because `updateTable` does `Object.assign(existing, parsed)`. Callers that omit them (CSV import, admin minimal form) keep the saved override instead of resetting it.
+- Table forms hold `depositAmount` in dollars. Convert with `tableDepositFormValues` / `tableDepositInput` from `TableFormFields`.
+- Why it matters: Fields with defaults (`requiresManualApproval`) are reset by any update that omits them. The admin Tables tab form does this for manual approval today.

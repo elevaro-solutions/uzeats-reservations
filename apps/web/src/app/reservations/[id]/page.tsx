@@ -28,6 +28,7 @@ import {
   buildRestaurantBookingPath,
   RESERVATION_CANCELLATION_REASONS,
   buildReservationCancellationReason,
+  dinerCancelChargeWarning,
   OCCASION_LABELS,
   PLATFORM_TIMEZONE,
   type Occasion,
@@ -48,6 +49,9 @@ import {
   canLeaveReview,
   displayReservationStatus,
   formatDepositStatusLabel,
+  formatNoShowFeeLabel,
+  bookingPaymentCopy,
+  needsDepositPayment,
   formatReservationDate,
   formatReservationReference,
   formatReservationTime,
@@ -135,7 +139,13 @@ export default function ReservationDetailPage() {
   }
 
   if (!user) {
-    router.replace(`/login?next=/reservations/${reservationId}`);
+    const nextParams = new URLSearchParams();
+    if (searchParams.get('runningLate') === '1') nextParams.set('runningLate', '1');
+    const nextQuery = nextParams.toString();
+    const nextPath = nextQuery
+      ? `/reservations/${reservationId}?${nextQuery}`
+      : `/reservations/${reservationId}`;
+    router.replace(`/login?next=${encodeURIComponent(nextPath)}`);
     return null;
   }
 
@@ -200,6 +210,8 @@ export default function ReservationDetailPage() {
     guestNotes?: string;
     depositAmountCents: number;
     depositStatus: string;
+    noShowFeeCents?: number | null;
+    cardGuaranteeStatus?: string | null;
     clientSecret?: string | null;
     loyaltyPointsEarned: number;
     hasReview?: boolean;
@@ -230,11 +242,13 @@ export default function ReservationDetailPage() {
     }>;
   };
 
-  const needsPayment =
-    r.depositStatus === 'requires_payment' && r.depositAmountCents > 0 && !!r.clientSecret;
+  const needsPayment = needsDepositPayment(r) && !!r.clientSecret;
+  const paymentCopy = bookingPaymentCopy(r);
+  const noShowFeeLabel = formatNoShowFeeLabel(r);
   const upcoming = isReservationUpcoming(r);
   const past = isReservationPast(r);
   const reviewable = canLeaveReview(r);
+  const cancelChargeWarning = dinerCancelChargeWarning(r);
   const canManage = upcoming && (r.status === 'confirmed' || r.status === 'pending');
   const restaurantPath = buildRestaurantBookingPath(r.restaurant?.slug, r.restaurant?.id);
   const bookAgainHref = r.partySize
@@ -256,7 +270,10 @@ export default function ReservationDetailPage() {
     ? [table.name, table.floorArea].filter(Boolean).join(' · ')
     : null;
   const showExtras =
-    Boolean(tableLabel) || r.depositAmountCents > 0 || r.loyaltyPointsEarned > 0;
+    Boolean(tableLabel) ||
+    r.depositAmountCents > 0 ||
+    Boolean(noShowFeeLabel) ||
+    r.loyaltyPointsEarned > 0;
 
   const confirmCancel = async () => {
     if (!cancelReasonPreset) {
@@ -291,7 +308,7 @@ export default function ReservationDetailPage() {
     if (paymentIntentId) {
       await confirmDeposit({ variables: { paymentIntentId } });
     }
-    message.success('Deposit authorized — reservation confirmed');
+    message.success('Reservation confirmed');
     setPayOpen(false);
     refetch();
   };
@@ -367,7 +384,7 @@ export default function ReservationDetailPage() {
       onClick: () => router.push(restaurantPath),
     });
   }
-  if (r.depositAmountCents > 0) {
+  if (r.depositAmountCents > 0 || r.cardGuaranteeStatus === 'charged') {
     moreItems.push({
       key: 'billing',
       icon: <CreditCardOutlined />,
@@ -401,10 +418,8 @@ export default function ReservationDetailPage() {
   }
 
   const primaryLabel =
-    primary === 'pay_deposit' && needsPayment
-      ? `Pay deposit · $${(r.depositAmountCents / 100).toFixed(2)}`
-      : primary === 'pay_deposit'
-        ? 'Pay deposit'
+    primary === 'pay_deposit'
+      ? paymentCopy.action
         : primary === 'leave_review'
           ? 'Leave a review'
           : primary === 'book_again'
@@ -448,8 +463,8 @@ export default function ReservationDetailPage() {
             type="warning"
             showIcon
             className="rt-reservation-detail__alert"
-            message="Deposit required to hold your table"
-            description={`Authorize a $${(r.depositAmountCents / 100).toFixed(2)} deposit to confirm this reservation. The hold is only captured if you no-show.`}
+            message={paymentCopy.title}
+            description={paymentCopy.body}
           />
         )}
 
@@ -613,6 +628,14 @@ export default function ReservationDetailPage() {
                   label="Deposit"
                   value={`$${(r.depositAmountCents / 100).toFixed(2)} · ${formatDepositStatusLabel(r.depositStatus)}`}
                   icon={<CreditCardOutlined />}
+                  last={!noShowFeeLabel && r.loyaltyPointsEarned <= 0}
+                />
+              ) : null}
+              {noShowFeeLabel ? (
+                <DetailRow
+                  label="No-show fee"
+                  value={noShowFeeLabel}
+                  icon={<CreditCardOutlined />}
                   last={r.loyaltyPointsEarned <= 0}
                 />
               ) : null}
@@ -653,7 +676,7 @@ export default function ReservationDetailPage() {
             )}
             {needsPayment && upcoming && (
               <Button type="primary" icon={<CreditCardOutlined />} onClick={() => setPayOpen(true)}>
-                Pay deposit
+                {paymentCopy.action}
               </Button>
             )}
             {reviewable && (
@@ -684,7 +707,7 @@ export default function ReservationDetailPage() {
       ) : null}
 
       <Modal
-        title="Authorize deposit"
+        title={paymentCopy.title}
         open={payOpen}
         onCancel={() => setPayOpen(false)}
         footer={null}
@@ -695,6 +718,7 @@ export default function ReservationDetailPage() {
           <DepositPayment
             clientSecret={r.clientSecret}
             amount={r.depositAmountCents}
+            noShowFeeCents={r.noShowFeeCents ?? 0}
             onSuccess={handleDepositSuccess}
             onCancel={() => setPayOpen(false)}
           />
@@ -735,6 +759,9 @@ export default function ReservationDetailPage() {
             Cancel your reservation at <Text strong>{r.restaurant?.name}</Text>? This cannot be
             undone.
           </Text>
+          {cancelChargeWarning ? (
+            <Alert type="warning" showIcon message={cancelChargeWarning} />
+          ) : null}
           <div>
             <Text style={{ display: 'block', marginBottom: 6 }}>
               Reason <Text type="danger">*</Text>

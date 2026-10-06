@@ -15,6 +15,7 @@ import {
   updateReviewInputSchema,
   reviewReactionSchema,
   notificationPreferencesSchema,
+  updateMyProfileSchema,
   searchRestaurantsSchema,
   discoveryIndexInputSchema,
   searchSuggestionsInputSchema,
@@ -90,6 +91,8 @@ import {
   registerWithEmail,
   loginWithEmail,
   loginWithGoogle,
+  linkGoogle,
+  attachDinerProfilePhone,
   requestPhoneOtp,
   verifyPhoneOtp,
   refreshTokens,
@@ -101,6 +104,7 @@ import {
   verifyEmailCode,
   resendVerificationEmail,
   userNeedsEmailVerification,
+  updateMyProfile,
 } from "../services/auth.js";
 import {
   acceptManagerInvite,
@@ -123,6 +127,7 @@ import {
   buildAdminRestaurantFilter,
   buildOwnerRestaurantFilter,
 } from "../services/restaurantFilters.js";
+import { listNoShowFeeCharges } from "../services/noShowFeeCharges.js";
 import { buildOwnerOverview } from "../services/ownerOverview.js";
 import {
   applyGeoToFilter,
@@ -172,11 +177,15 @@ import {
   deleteReservation,
   updateReservationStatus,
   confirmDepositPayment,
+  abandonIncompleteBooking,
   refundReservationDeposit,
+  chargeReservationNoShowFee,
+  refundReservationNoShowFee,
   seatReservationAtTable,
   isReservationReviewable,
   reportRunningLate as reportRunningLateService,
 } from "../services/reservations.js";
+import { excludeIncompleteBookingPayment } from "../services/bookingPayments.js";
 import { paginateQuery, normalizePagination } from "../lib/pagination.js";
 import {
   getLoyaltyHistory,
@@ -258,6 +267,7 @@ import {
   createDepositIntent,
   isStubPaymentIntent,
   retrievePaymentIntentClientSecret,
+  retrieveSetupIntentClientSecret,
   assertPaymentIntentAuthorized,
   getOpenSubscriptionPayment,
 } from "../services/stripe.js";
@@ -496,6 +506,10 @@ export const resolvers = {
       email?: string | null;
       emailVerified?: boolean | null;
     }) => userNeedsEmailVerification(u),
+    hasPassword: (u: { hasPassword?: boolean; passwordHash?: string | null }) =>
+      typeof u.hasPassword === "boolean" ? u.hasPassword : Boolean(u.passwordHash),
+    hasGoogle: (u: { hasGoogle?: boolean; googleId?: string | null }) =>
+      typeof u.hasGoogle === "boolean" ? u.hasGoogle : Boolean(u.googleId),
   },
 
   SubscriptionType: {
@@ -600,6 +614,7 @@ export const resolvers = {
         id: string;
         dinerId: string;
         depositStatus: string;
+        cardGuaranteeStatus?: string;
         clientSecret?: string | null;
       },
       _: unknown,
@@ -607,16 +622,22 @@ export const resolvers = {
     ) => {
       if (r.clientSecret) return r.clientSecret;
       if (!ctx.user || r.dinerId !== ctx.user._id.toString()) return null;
-      if (r.depositStatus !== "requires_payment") return null;
-      const doc = await Reservation.findById(r.id).select(
-        "stripePaymentIntentId depositStatus",
-      );
       if (
-        !doc?.stripePaymentIntentId ||
-        doc.depositStatus !== "requires_payment"
+        r.depositStatus !== "requires_payment" &&
+        r.cardGuaranteeStatus !== "requires_card"
       )
         return null;
-      return retrievePaymentIntentClientSecret(doc.stripePaymentIntentId);
+      const doc = await Reservation.findById(r.id).select(
+        "stripePaymentIntentId stripeSetupIntentId depositStatus cardGuaranteeStatus",
+      );
+      if (!doc) return null;
+      if (doc.stripePaymentIntentId && doc.depositStatus === "requires_payment") {
+        return retrievePaymentIntentClientSecret(doc.stripePaymentIntentId);
+      }
+      if (doc.stripeSetupIntentId && doc.cardGuaranteeStatus === "requires_card") {
+        return retrieveSetupIntentClientSecret(doc.stripeSetupIntentId);
+      }
+      return null;
     },
   },
 
@@ -1031,12 +1052,22 @@ export const resolvers = {
 
     availability: async (
       _: unknown,
-      args: { restaurantId: string; date: string; partySize: number },
+      args: {
+        restaurantId: string;
+        date: string;
+        partySize: number;
+        privateDiningSpaceId?: string | null;
+      },
     ) => getAvailability(args),
 
     bookableTables: async (
       _: unknown,
-      args: { restaurantId: string; slotStart: Date; partySize: number },
+      args: {
+        restaurantId: string;
+        slotStart: Date;
+        partySize: number;
+        privateDiningSpaceId?: string | null;
+      },
     ) => {
       const slotStart =
         args.slotStart instanceof Date
@@ -1044,11 +1075,24 @@ export const resolvers = {
           : new Date(args.slotStart);
       const turn = await getTurnTimeMinutes(args.restaurantId, slotStart);
       const slotEnd = new Date(slotStart.getTime() + turn * 60_000);
+      let tableIds: string[] | undefined;
+      if (args.privateDiningSpaceId) {
+        const { resolvePrivateDiningTableIds } = await import(
+          "../services/privateDining.js"
+        );
+        const ids = await resolvePrivateDiningTableIds(
+          args.restaurantId,
+          args.privateDiningSpaceId,
+        );
+        if (!ids || ids.length === 0) return [];
+        tableIds = ids.map(String);
+      }
       const tables = await getBookableTables({
         restaurantId: args.restaurantId,
         partySize: args.partySize,
         slotStart,
         slotEnd,
+        tableIds,
       });
       return tables.map(mapTable);
     },
@@ -1087,7 +1131,10 @@ export const resolvers = {
 
     myReservations: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       const user = requireAuth(ctx);
-      const items = await Reservation.find({ dinerId: user._id }).sort({
+      const items = await Reservation.find({
+        dinerId: user._id,
+        ...excludeIncompleteBookingPayment,
+      }).sort({
         slotStart: -1,
       });
       const reviews = await Review.find({
@@ -1164,6 +1211,7 @@ export const resolvers = {
       }
 
       if (args.status) filter.status = args.status;
+      Object.assign(filter, excludeIncompleteBookingPayment);
 
       const period = isReservationDatePeriod(args.period) ? args.period : undefined;
       const slotStart = resolveReservationSlotStartFilter(
@@ -1205,6 +1253,51 @@ export const resolvers = {
         return null;
       }
       return mapReservation(reservation);
+    },
+
+    restaurantNoShowFeeCharges: async (
+      _: unknown,
+      args: {
+        restaurantId?: string;
+        feeStatus?: string | null;
+        reason?: string | null;
+        startDate?: string | null;
+        endDate?: string | null;
+        search?: string | null;
+        limit?: number;
+        offset?: number;
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      if (args.restaurantId) {
+        await assertRestaurantAccess(
+          user._id.toString(),
+          args.restaurantId,
+          user.role,
+        );
+        return listNoShowFeeCharges({
+          restaurantId: args.restaurantId,
+          feeStatus: args.feeStatus,
+          reason: args.reason,
+          startDate: args.startDate,
+          endDate: args.endDate,
+          search: args.search,
+          limit: args.limit,
+          offset: args.offset,
+        });
+      }
+      const owned = await Restaurant.find(buildOwnerRestaurantFilter(user)).select("_id");
+      return listNoShowFeeCharges({
+        restaurantIds: owned.map((r) => r._id),
+        feeStatus: args.feeStatus,
+        reason: args.reason,
+        startDate: args.startDate,
+        endDate: args.endDate,
+        search: args.search,
+        limit: args.limit,
+        offset: args.offset,
+      });
     },
 
     /** Merchant-mobile alias of restaurantReservation (deep links / venue sync). */
@@ -1409,6 +1502,7 @@ export const resolvers = {
         restaurantId: args.restaurantId,
         status: "pending",
         slotStart: { $gte: new Date() },
+        ...excludeIncompleteBookingPayment,
       });
     },
 
@@ -3370,6 +3464,19 @@ export const resolvers = {
       };
     },
 
+    linkGoogle: async (
+      _: unknown,
+      args: { idToken: string },
+      ctx: GraphQLContext,
+    ) => {
+      const actor = requireAuth(ctx);
+      if (ctx.impersonator) {
+        throw new ForbiddenError("End impersonation before editing this account");
+      }
+      const updated = await linkGoogle(actor._id.toString(), args.idToken);
+      return mapUser(updated);
+    },
+
     requestPhoneOtp: async (_: unknown, args: { phone: string }) =>
       requestPhoneOtp(args.phone),
 
@@ -3428,6 +3535,20 @@ export const resolvers = {
         }
       }
       return true;
+    },
+
+    updateMyProfile: async (
+      _: unknown,
+      args: { input: unknown },
+      ctx: GraphQLContext,
+    ) => {
+      const actor = requireAuth(ctx);
+      if (ctx.impersonator) {
+        throw new ForbiddenError("End impersonation before editing this account");
+      }
+      const input = updateMyProfileSchema.parse(args.input);
+      const updated = await updateMyProfile(actor._id.toString(), input);
+      return mapUser(updated);
     },
 
     endImpersonation: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
@@ -3998,6 +4119,7 @@ export const resolvers = {
         rawInput.slotStart = rawInput.slotStart.toISOString();
       }
       const input = reservationInputSchema.parse(rawInput);
+      await attachDinerProfilePhone(user._id.toString(), input.phone);
       const result = await createReservation({
         dinerId: user._id.toString(),
         restaurantId: input.restaurantId,
@@ -4099,6 +4221,19 @@ export const resolvers = {
       return mapReservation(reservation);
     },
 
+    abandonIncompleteBooking: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await abandonIncompleteBooking({
+        reservationId: args.id,
+        dinerId: user._id.toString(),
+      });
+      return true;
+    },
+
     updateReservation: async (
       _: unknown,
       args: { id: string; input: unknown },
@@ -4176,6 +4311,47 @@ export const resolvers = {
           depositStatus: reservation.depositStatus,
           depositRefundedCents: reservation.depositRefundedCents,
         },
+      });
+      return mapReservation(reservation);
+    },
+
+    chargeReservationNoShowFee: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const reservation = await chargeReservationNoShowFee(args.id, user._id.toString());
+      await logAudit({
+        actorId: user._id.toString(),
+        action: "chargeReservationNoShowFee",
+        resource: "Reservation",
+        resourceId: args.id,
+        details: {
+          noShowFeeCents: reservation.noShowFeeCents,
+          cardGuaranteeStatus: reservation.cardGuaranteeStatus,
+        },
+      });
+      return mapReservation(reservation);
+    },
+
+    refundReservationNoShowFee: async (
+      _: unknown,
+      args: { id: string; reason?: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const reservation = await refundReservationNoShowFee(
+        args.id,
+        user._id.toString(),
+        args.reason,
+      );
+      await logAudit({
+        actorId: user._id.toString(),
+        action: "refundReservationNoShowFee",
+        resource: "Reservation",
+        resourceId: args.id,
+        details: { reason: args.reason, noShowFeeCents: reservation.noShowFeeCents },
       });
       return mapReservation(reservation);
     },
@@ -5831,6 +6007,10 @@ export const resolvers = {
         ...args.input,
         restaurantId: args.restaurantId,
       });
+      const { ensurePrivateDiningBackingTables } = await import(
+        "../services/privateDining.js"
+      );
+      await ensurePrivateDiningBackingTables(doc);
       return mapPrivateDiningSpace(doc);
     },
 
@@ -5849,6 +6029,10 @@ export const resolvers = {
       );
       Object.assign(existing, args.input);
       await existing.save();
+      const { ensurePrivateDiningBackingTables } = await import(
+        "../services/privateDining.js"
+      );
+      await ensurePrivateDiningBackingTables(existing);
       return mapPrivateDiningSpace(existing);
     },
 

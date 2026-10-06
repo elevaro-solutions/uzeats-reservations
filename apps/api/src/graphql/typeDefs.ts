@@ -241,6 +241,7 @@ export const typeDefs = `#graphql
     id: ID!
     email: String
     phone: String
+    avatarUrl: String
     firstName: String!
     lastName: String!
     role: UserRole!
@@ -253,6 +254,11 @@ export const typeDefs = `#graphql
     emailVerified: Boolean!
     needsEmailVerification: Boolean!
     phoneVerified: Boolean!
+    """True when this account can sign in with a password."""
+    hasPassword: Boolean!
+    """True when this account is linked to Google sign-in."""
+    hasGoogle: Boolean!
+    address: Address
     telegramChatId: String
     notificationPreferences: NotificationPreferences!
     restaurantIds: [ID!]!
@@ -295,6 +301,8 @@ export const typeDefs = `#graphql
     ownerId: ID!
     depositRequired: Boolean!
     depositAmountCents: Int!
+    """card_guarantee: per-guest amount is a no-show / late-cancel fee on a saved card. prepaid: charged at booking."""
+    depositPolicy: String!
     averageRating: Float!
     reviewCount: Int!
     featured: Boolean!
@@ -482,6 +490,10 @@ export const typeDefs = `#graphql
     combineGroupId: String
     photoUrl: String
     requiresManualApproval: Boolean!
+    """When true with a positive amount, overrides the restaurant per-guest deposit."""
+    depositRequired: Boolean!
+    """Per-guest deposit for this table in cents (used only when depositRequired)."""
+    depositAmountCents: Int!
   }
 
   type Shift {
@@ -534,6 +546,14 @@ export const typeDefs = `#graphql
     """Cents still refundable (depositAmountCents − depositRefundedCents)."""
     depositRefundableCents: Int!
     depositStatus: String!
+    """Fee charged to the saved card only on no-show or late cancellation."""
+    noShowFeeCents: Int!
+    """none | requires_card | card_saved | released | charged | failed | refunded"""
+    cardGuaranteeStatus: String!
+    noShowFeeReason: String
+    noShowFeeChargedAt: DateTime
+    noShowFeeError: String
+    """Secret for the booking card step: PaymentIntent (pi_…) to pay now, or SetupIntent (seti_…) to save a card."""
     clientSecret: String
     loyaltyPointsEarned: Int!
     loyaltyPointsRedeemed: Int!
@@ -1006,6 +1026,26 @@ export const typeDefs = `#graphql
   type ReservationConnection {
     items: [Reservation!]!
     total: Int!
+  }
+
+  """Aggregates for collected card-guarantee / no-show fees."""
+  type NoShowFeeChargeSummary {
+    chargedCount: Int!
+    chargedCents: Int!
+    refundedCount: Int!
+    refundedCents: Int!
+    failedCount: Int!
+    failedCents: Int!
+    pendingCount: Int!
+    pendingCents: Int!
+    """Currently collected (charged, not yet refunded)."""
+    netCollectedCents: Int!
+  }
+
+  type NoShowFeeChargeConnection {
+    items: [Reservation!]!
+    total: Int!
+    summary: NoShowFeeChargeSummary!
   }
 
   type WaitlistConnection {
@@ -1968,6 +2008,8 @@ export const typeDefs = `#graphql
     amenities: [String!]!
     active: Boolean!
     requiresManualApproval: Boolean!
+    """Floor-plan tables that inventory this room."""
+    tableIds: [ID!]!
     createdAt: DateTime!
   }
 
@@ -2124,7 +2166,7 @@ export const typeDefs = `#graphql
     password: String!
     firstName: String!
     lastName: String!
-    phone: String
+    phone: String!
     referralCode: String
   }
 
@@ -2163,6 +2205,25 @@ export const typeDefs = `#graphql
     password: String!
   }
 
+  input UpdateMyProfileInput {
+    firstName: String
+    lastName: String
+    """Empty string removes the photo. Omit to leave it unchanged."""
+    avatarUrl: String
+    email: String
+    """Empty string clears the phone. Omit to leave it unchanged."""
+    phone: String
+    address: AddressInput
+    clearAddress: Boolean
+    currentPassword: String
+    newPassword: String
+    """
+    Unlink Google sign-in. Requires an existing password or newPassword in the
+    same request. After unlink, the profile email can be changed.
+    """
+    unlinkGoogle: Boolean
+  }
+
   input PhoneOtpVerifyInput {
     phone: String!
     code: String!
@@ -2198,6 +2259,8 @@ export const typeDefs = `#graphql
     logoUrl: String
     depositRequired: Boolean
     depositAmountCents: Int
+    """card_guarantee (no-show fee on a saved card) or prepaid (charged at booking)."""
+    depositPolicy: String
     loyaltyEnabled: Boolean
     loyaltyPointsPerVisit: Int
     loyaltyMinRedeemPoints: Int
@@ -2291,6 +2354,8 @@ export const typeDefs = `#graphql
     combineGroupId: String
     photoUrl: String
     requiresManualApproval: Boolean
+    depositRequired: Boolean
+    depositAmountCents: Int
   }
 
   input TablePositionInput {
@@ -2382,6 +2447,8 @@ export const typeDefs = `#graphql
     landingPath: String
     originUrl: String
     referrer: String
+    """Required when the diner has no profile phone. Saved as their profile phone."""
+    phone: String
   }
 
   input OwnerGuestInput {
@@ -2628,6 +2695,7 @@ export const typeDefs = `#graphql
     amenities: [String!]
     active: Boolean
     requiresManualApproval: Boolean
+    tableIds: [ID!]
   }
 
   input PrivateDiningInquiryInput {
@@ -2993,8 +3061,8 @@ export const typeDefs = `#graphql
     searchSuggestions(input: SearchSuggestionsInput!): [SearchSuggestion!]!
     trendingSearches(input: TrendingSearchesInput!): [TrendingSearchTerm!]!
     myRecentSearches(limit: Int): [RecentSearchEntry!]!
-    availability(restaurantId: ID!, date: String!, partySize: Int!): [AvailabilitySlot!]!
-    bookableTables(restaurantId: ID!, slotStart: DateTime!, partySize: Int!): [Table!]!
+    availability(restaurantId: ID!, date: String!, partySize: Int!, privateDiningSpaceId: ID): [AvailabilitySlot!]!
+    bookableTables(restaurantId: ID!, slotStart: DateTime!, partySize: Int!, privateDiningSpaceId: ID): [Table!]!
     floorPlanOps(restaurantId: ID!, date: String): FloorPlanOpsPayload!
     myReservations: [Reservation!]!
     myReservation(id: ID!): Reservation
@@ -3012,6 +3080,17 @@ export const typeDefs = `#graphql
       offset: Int
     ): ReservationConnection!
     restaurantReservation(id: ID!): Reservation
+    """Collected card-guarantee / no-show fees for a partner venue (or all owned venues)."""
+    restaurantNoShowFeeCharges(
+      restaurantId: ID
+      feeStatus: String
+      reason: String
+      startDate: String
+      endDate: String
+      search: String
+      limit: Int
+      offset: Int
+    ): NoShowFeeChargeConnection!
     """Partner ops alias of restaurantReservation (merchant mobile deep links)."""
     partnerReservation(id: ID!): Reservation
     myWaitlist: [WaitlistEntry!]!
@@ -3103,6 +3182,17 @@ export const typeDefs = `#graphql
       limit: Int
       offset: Int
     ): ReservationConnection!
+    """Platform-wide collected card-guarantee / no-show fees (admin billing report)."""
+    adminNoShowFeeCharges(
+      restaurantId: ID
+      feeStatus: String
+      reason: String
+      startDate: String
+      endDate: String
+      search: String
+      limit: Int
+      offset: Int
+    ): NoShowFeeChargeConnection!
     adminUserRestaurants(userId: ID!): [Restaurant!]!
     adminInvoices(status: InvoiceStatus, search: String, restaurantId: ID, limit: Int, offset: Int): InvoiceConnection!
     adminInvoice(id: ID!): Invoice!
@@ -3250,10 +3340,14 @@ export const typeDefs = `#graphql
     registerRestaurantPartner(input: RegisterRestaurantPartnerInput!): PartnerRegisterPayload!
     login(input: LoginInput!): AuthPayload!
     loginWithGoogle(idToken: String!): AuthPayload!
+    """Link Google sign-in to the signed-in email/password account. Google email must match the profile email."""
+    linkGoogle(idToken: String!): User!
     requestPhoneOtp(phone: String!): MessagePayload!
     verifyPhoneOtp(input: PhoneOtpVerifyInput!): AuthPayload!
     refreshToken(refreshToken: String): AuthPayload!
     logout(refreshToken: String): Boolean!
+    """Update the signed-in account's email, phone, address, or password."""
+    updateMyProfile(input: UpdateMyProfileInput!): User!
     requestPasswordReset(email: String!, app: String): PasswordResetRequestPayload!
     resetPassword(token: String!, newPassword: String!): MessagePayload!
     verifyEmail(code: String!): MessagePayload!
@@ -3300,7 +3394,12 @@ export const typeDefs = `#graphql
 
     createReservation(input: ReservationInput!): CreateReservationPayload!
     createOwnerReservation(input: OwnerReservationInput!): Reservation!
+    """Accepts the PaymentIntent or SetupIntent id from the booking card step."""
     confirmDepositPayment(paymentIntentId: String!): Reservation!
+    """Discard a booking that never finished the card form so the table is released."""
+    abandonIncompleteBooking(id: ID!): Boolean!
+    chargeReservationNoShowFee(id: ID!): Reservation!
+    refundReservationNoShowFee(id: ID!, reason: String): Reservation!
     updateReservation(id: ID!, input: UpdateReservationInput!): Reservation!
     updateReservationStatus(id: ID!, status: ReservationStatus!, reason: String): Reservation!
     """Partner or admin: release an authorized deposit hold or refund a captured deposit. Optional amountCents for partial refund of captured deposits."""

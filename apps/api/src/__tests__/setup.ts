@@ -9,7 +9,10 @@ process.env.JWT_ACCESS_EXPIRES = '15m';
 process.env.JWT_REFRESH_EXPIRES = '7d';
 process.env.CORS_ORIGINS = 'http://localhost:3000';
 process.env.REDIS_URL = 'redis://localhost:6379';
+// Tests use stub intents; per-mode keys from a local .env would hit real Stripe.
 process.env.STRIPE_SECRET_KEY = '';
+process.env.STRIPE_SECRET_KEY_TEST = '';
+process.env.STRIPE_SECRET_KEY_LIVE = '';
 process.env.STRIPE_WEBHOOK_SECRET = '';
 process.env.TELEGRAM_BOT_TOKEN = 'test-telegram-token';
 process.env.AUTH_DEV_OTP = 'true';

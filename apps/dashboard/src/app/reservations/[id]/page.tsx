@@ -42,6 +42,7 @@ import { restaurantHref } from '@/lib/restaurants';
 import {
   canRefundDeposit,
   formatDepositStatus,
+  formatNoShowFee,
   formatOccasion,
   formatSource,
   formatUsd,
@@ -52,6 +53,7 @@ import { attributionMetaChips } from '@/lib/reservationAttribution';
 import { CancelReservationModal } from '@/components/CancelReservationModal';
 import { RefundDepositModal } from '@/components/RefundDepositModal';
 import { ReservationMetaChip } from '@/components/ReservationMetaChip';
+import { useNoShowFeeActions } from '@/lib/useNoShowFeeActions';
 
 const { Text, Title } = Typography;
 
@@ -77,6 +79,10 @@ type ReservationDetail = {
   depositRefundedCents?: number | null;
   depositRefundableCents?: number | null;
   depositStatus?: string | null;
+  noShowFeeCents?: number | null;
+  cardGuaranteeStatus?: string | null;
+  noShowFeeReason?: string | null;
+  noShowFeeError?: string | null;
   experienceTitle?: string | null;
   experiencePriceCents?: number | null;
   experienceTicketQty?: number | null;
@@ -143,6 +149,7 @@ function ReservationDetailPageContent() {
   const [refundOpen, setRefundOpen] = useState(false);
 
   const reservation = (data?.restaurantReservation ?? null) as ReservationDetail | null;
+  const noShowFeeItems = useNoShowFeeActions(reservation, () => refetch());
 
   useEffect(() => {
     if (!authLoading && !user) router.replace(`/login?next=/reservations/${reservationId}`);
@@ -193,6 +200,21 @@ function ReservationDetailPageContent() {
         message.success('Reservation deleted');
         router.push(listHref);
       },
+    });
+  };
+
+  const handleNoShow = () => {
+    if (!reservation) return;
+    if (reservation.cardGuaranteeStatus !== 'card_saved' || !reservation.noShowFeeCents) {
+      void runStatusUpdate('no_show');
+      return;
+    }
+    Modal.confirm({
+      title: 'Mark as no-show?',
+      content: `The guest's saved card will be charged the ${formatUsd(reservation.noShowFeeCents)} no-show fee.`,
+      okText: 'Mark no-show',
+      okButtonProps: { danger: true },
+      onOk: () => runStatusUpdate('no_show', undefined, 'Marked no-show — fee charged'),
     });
   };
 
@@ -258,7 +280,7 @@ function ReservationDetailPageContent() {
       icon: <UserDeleteOutlined />,
       label: 'No-show',
       disabled: updatingStatus,
-      onClick: () => runStatusUpdate('no_show'),
+      onClick: handleNoShow,
     });
   }
   if (['pending', 'confirmed'].includes(reservation.status)) {
@@ -281,6 +303,7 @@ function ReservationDetailPageContent() {
       onClick: handleRefundDeposit,
     });
   }
+  moreItems.push(...noShowFeeItems);
   moreItems.push(
     { type: 'divider' },
     {
@@ -348,6 +371,9 @@ function ReservationDetailPageContent() {
             .filter(Boolean)
             .join(' · '),
         }
+      : null,
+    formatNoShowFee(reservation)
+      ? { label: 'No-show fee', value: formatNoShowFee(reservation)! }
       : null,
   ].filter(Boolean) as { label: string; value: string }[];
 
@@ -474,6 +500,9 @@ function ReservationDetailPageContent() {
                     .filter(Boolean)
                     .join(' · ')}
                 />
+              ) : null}
+              {formatNoShowFee(reservation) ? (
+                <ReservationMetaChip label="No-show fee" value={formatNoShowFee(reservation)!} />
               ) : null}
             </div>
           </div>

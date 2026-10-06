@@ -83,7 +83,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - **Restaurant inquiries** — contact restaurants directly from the detail page
 - Google Places address autocomplete and device near-me (falls back to curated US cities)
 - Concurrent-safe booking via atomic table slot claims (no replica set required); optional **manual approval** for online bookings (party-size and per-resource rules), with clear guest-facing “request / awaiting approval” copy on web and diner mobile
-- Deposits via Stripe PaymentIntents (manual capture; stubbed without keys); partners/admins can release holds or refund captured deposits (partial refunds supported) with a required reason
+- Deposits / card guarantee via Stripe: restaurants pick **card guarantee** (save card, charge no-show / late-cancel fee) or **prepaid** (charge at booking); optional per-table deposit overrides; partner/admin no-show fee reports and charge/refund actions (stubbed without keys)
 - **Restaurant packages** — occasion/party-sized add-ons partners manage in the dashboard and diners select at booking
 - Waitlist + auto-notify on cancellation (convert/expire holds, seat walk-ins, overdue host alerts, partner edit + guest search, diner mobile My waitlist); **favorite availability alerts** when a near-term table opens
 - Platform + per-restaurant loyalty (tiers, referrals, expiry) with gift cards and promotion codes; super admins edit platform point packages and diner tiers on **Loyalty**

@@ -10,6 +10,7 @@ type Props = {
   termsAndConditions?: string | null;
   depositRequired?: boolean;
   depositAmountCents?: number;
+  depositPolicy?: string | null;
 };
 
 export function RestaurantTermsSection({
@@ -17,12 +18,14 @@ export function RestaurantTermsSection({
   termsAndConditions,
   depositRequired,
   depositAmountCents,
+  depositPolicy,
 }: Props) {
   const text = resolveRestaurantTerms({
     name,
     termsAndConditions,
     depositRequired,
     depositAmountCents,
+    depositPolicy,
   });
 
   const paragraphs = text.split(/\n\s*\n/).filter(Boolean);

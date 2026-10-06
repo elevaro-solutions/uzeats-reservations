@@ -71,6 +71,7 @@ import {
 import {
   canRefundDeposit,
   formatDepositStatus,
+  formatNoShowFee,
   formatOccasion,
   formatSource,
   formatUsd,
@@ -82,6 +83,7 @@ import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useFormDirty } from '@/lib/useFormDirty';
 import { CancelReservationModal } from '@/components/CancelReservationModal';
 import { RefundDepositModal } from '@/components/RefundDepositModal';
+import { useNoShowFeeActions } from '@/lib/useNoShowFeeActions';
 import { ReservationMetaChip } from '@/components/ReservationMetaChip';
 
 const { Text, Title } = Typography;
@@ -115,6 +117,10 @@ type ReservationDetail = {
   depositRefundedCents?: number | null;
   depositRefundableCents?: number | null;
   depositStatus?: string | null;
+  noShowFeeCents?: number | null;
+  cardGuaranteeStatus?: string | null;
+  noShowFeeReason?: string | null;
+  noShowFeeError?: string | null;
   experienceTitle?: string | null;
   experiencePriceCents?: number | null;
   experienceTicketQty?: number | null;
@@ -192,6 +198,7 @@ function AdminReservationDetailContent() {
   const openedEditForId = useRef<string | null>(null);
 
   const reservation = (data?.restaurantReservation ?? null) as ReservationDetail | null;
+  const noShowFeeItems = useNoShowFeeActions(reservation, () => refetch());
 
   const { data: slotsData } = useQuery(AVAILABILITY, {
     skip: !editOpen || !reservation?.restaurantId || !editDate || !editPartySize,
@@ -376,6 +383,7 @@ function AdminReservationDetailContent() {
       onClick: handleRefundDeposit,
     });
   }
+  moreItems.push(...noShowFeeItems);
   if (moreItems.length > 0) {
     moreItems.push({ type: 'divider' });
   }
@@ -443,6 +451,9 @@ function AdminReservationDetailContent() {
             .filter(Boolean)
             .join(' · '),
         }
+      : null,
+    formatNoShowFee(reservation)
+      ? { label: 'No-show fee', value: formatNoShowFee(reservation)! }
       : null,
   ].filter(Boolean) as { label: string; value: string }[];
 
@@ -568,6 +579,9 @@ function AdminReservationDetailContent() {
                   .filter(Boolean)
                   .join(' · ')}
               />
+            ) : null}
+            {formatNoShowFee(reservation) ? (
+              <ReservationMetaChip label="No-show fee" value={formatNoShowFee(reservation)!} />
             ) : null}
           </div>
         </div>

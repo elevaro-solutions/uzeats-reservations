@@ -42,6 +42,12 @@ export const SAMPLE_EMAIL_TEMPLATE_VARS: Record<string, string> = {
   period: 'Sep 2026',
   invoiceUrl: 'https://dashboard.tablevera.online/invoices/INV-1042',
   code: '123456',
+  reservationUrl: 'https://tablevera.online/reservations/preview',
+  lateUrl: 'https://tablevera.online/reservations/preview?runningLate=1',
+  calendarUrl: 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=Dinner',
+  note: '.',
+  feeLabel: 'no-show',
+  feeTitle: 'No-show fee charged',
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -91,8 +97,13 @@ export async function listEmailTemplates() {
 }
 
 export async function getEmailTemplate(key: string) {
-  await ensureDefaultEmailTemplates();
-  const doc = await EmailTemplate.findOne({ key });
+  // Booking/notify paths must not rewrite every template on each send — that is
+  // dozens of replica-set writes and can stall createReservation for a minute.
+  let doc = await EmailTemplate.findOne({ key });
+  if (!doc) {
+    await ensureDefaultEmailTemplates();
+    doc = await EmailTemplate.findOne({ key });
+  }
   if (!doc) throw new Error(`Email template not found: ${key}`);
   return doc;
 }

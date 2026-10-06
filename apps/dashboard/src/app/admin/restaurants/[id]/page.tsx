@@ -68,6 +68,12 @@ import {
   UPDATE_SHIFT,
   UPDATE_TABLE,
 } from '@/lib/graphql';
+import { depositAmountWhenRequiredRule } from '@/lib/restaurantFormTooltips';
+import {
+  tableDepositFormValues,
+  tableDepositInput,
+  tableFormTips,
+} from '@/components/TableFormFields';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useUrlTab } from '@/lib/useUrlTab';
 import { getPublicWebUrl } from '@/lib/webUrl';
@@ -157,6 +163,7 @@ function AdminRestaurantDetailContent() {
   const [tableModalOpen, setTableModalOpen] = useState(false);
   const [editingTable, setEditingTable] = useState<any>(null);
   const [tableForm] = Form.useForm();
+  const tableDepositRequired = Form.useWatch('depositRequired', tableForm);
 
   // Shifts tab state
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
@@ -217,12 +224,13 @@ function AdminRestaurantDetailContent() {
 
   const handleTableSubmit = async () => {
     try {
-      const values = await tableForm.validateFields();
+      const { depositRequired, depositAmount, ...rest } = await tableForm.validateFields();
+      const input = { ...rest, ...tableDepositInput({ depositRequired, depositAmount }) };
       if (editingTable) {
-        await updateTable({ variables: { id: editingTable.id, input: values } });
+        await updateTable({ variables: { id: editingTable.id, input } });
         message.success('Table updated');
       } else {
-        await createTable({ variables: { restaurantId: restaurant!.id, input: values } });
+        await createTable({ variables: { restaurantId: restaurant!.id, input } });
         message.success('Table created');
       }
       setTableModalOpen(false);
@@ -537,7 +545,10 @@ function AdminRestaurantDetailContent() {
                                           icon={<EditOutlined />}
                                           onClick={() => {
                                             setEditingTable(record);
-                                            tableForm.setFieldsValue(record);
+                                            tableForm.setFieldsValue({
+                                              ...record,
+                                              ...tableDepositFormValues(record),
+                                            });
                                             setTableModalOpen(true);
                                           }}
                                         >
@@ -592,6 +603,31 @@ function AdminRestaurantDetailContent() {
                                 </Form.Item>
                                 <Form.Item name="active" label="Active" valuePropName="checked">
                                   <Switch />
+                                </Form.Item>
+                                <Form.Item
+                                  name="depositRequired"
+                                  label="Require deposit"
+                                  tooltip={tableFormTips.depositRequired}
+                                  valuePropName="checked"
+                                >
+                                  <Switch />
+                                </Form.Item>
+                                <Form.Item
+                                  name="depositAmount"
+                                  label="Deposit per guest (USD)"
+                                  tooltip={tableFormTips.depositAmount}
+                                  dependencies={['depositRequired']}
+                                  rules={[depositAmountWhenRequiredRule]}
+                                >
+                                  <InputNumber
+                                    min={0}
+                                    max={10_000}
+                                    precision={2}
+                                    prefix="$"
+                                    disabled={!tableDepositRequired}
+                                    placeholder="Uses restaurant default"
+                                    style={{ width: '100%' }}
+                                  />
                                 </Form.Item>
                               </Form>
                             </Modal>

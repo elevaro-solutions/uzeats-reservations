@@ -1,5 +1,32 @@
 # Auth — Learnings & Observations
 
+## [2026-10-05] Google login does not auto-link email/password accounts
+- `loginWithGoogle` creates a new Google diner or signs in when `googleId` already matches. If the Google email matches an existing account **without** `googleId`, it returns `ConflictError` (`field: email`) and does not set `googleId`. Signed-in diners re-attach Google via `linkGoogle(idToken)`; Google email must match the profile email and be verified. Profile editors expose “Link Google” when `hasGoogle` is false.
+- Why it matters: After Switch to email (or any email/password account), Continue with Google must not silently re-bind. Explicit link from Profile is the supported path.
+
+## [2026-10-05] Switch to email sign-in (unlink Google)
+- `updateMyProfile.unlinkGoogle` clears `googleId`. Requires an existing `passwordHash` or `newPassword` in the same request so the diner is not locked out. After unlink, email edits are allowed. Clients expose “Switch to email sign-in” / “Keep Google sign-in” on the profile editor.
+- Why it matters: Do not unlink Google without a password path. Re-login with Google after unlink does not auto-relink (see entry above); use `linkGoogle` from Profile.
+
+## [2026-10-05] Google-linked profiles lock email
+- `User.hasGoogle` is true when `googleId` is set. `updateMyProfile` rejects email changes while Google is linked (`ValidationError` / `field: email`) unless `unlinkGoogle` is also sent. Clients disable the email field until the diner chooses Switch to email sign-in. Explicit `linkGoogle` onto an existing email account requires Google `email_verified` and a matching profile email.
+- Why it matters: Continue with Google stays the identity while linked. Do not let the profile email diverge while `googleId` remains.
+
+## [2026-10-05] Profile street field uses address autocomplete
+- Web profile Street address is `AddressAutocomplete` bound to `line1`. After a suggestion is chosen, the shared helper writes the street line (not the full formatted place) back into the input, then fills city / state / ZIP.
+- Why it matters: A separate “Find address” + “Street” pair was confusing; one street field is enough when selection corrects the value.
+
+## [2026-10-04] Diners edit their own account
+- `updateMyProfile` updates the signed-in user's photo (`avatarUrl`), name, email, phone, address, and password. Web and mobile open that editor from an Edit button on the profile photo and info card. Email or password changes require `currentPassword` when `passwordHash` is set. Google-linked accounts cannot change email (see 2026-10-05). A wrong current password is `ValidationError` (`field: currentPassword`), not `UNAUTHENTICATED`, so clients do not refresh the session.
+- A new email sets `emailVerified` false and sends a verification code only when signup verification is required. A new or cleared phone sets `phoneVerified` false. Empty `phone` unsets it; `clearAddress` unsets the home address. Duplicate email/phone reuse the register conflict messages.
+- Password change does not clear `refreshTokens` (the emailed reset flow does), so the diner stays signed in. Impersonation cannot call this mutation.
+- Why it matters: Web profile and mobile Personal info are the diner self-serve path. Do not route those edits through guest CRM (`updateGuestProfile`).
+
+## [2026-10-04] Diner email signup requires a phone
+- `registerSchema.phone` and GraphQL `RegisterInput.phone` are required. Google sign-in still creates a diner with no phone.
+- Duplicate phones return `ConflictError` with `extensions.field = phone` (same pattern as duplicate email).
+- Why it matters: Email signup must send E.164 (`+1…`). Test helper `registerUser` fills a unique phone when callers omit one.
+
 ## [2026-10-03] Forgot-password: 3 emails/hour then contact support
 - `requestPasswordReset` returns `PasswordResetRequestPayload` with `attemptsUsed` / `attemptsRemaining` / `maxAttempts` / `supportEmail`. Counts are stored in `PasswordResetAttempt` (1h window, max 3) for any email (including unknown) so enumeration stays flat.
 - Clients show Resend while remaining > 0; at 0 they show mailto support (platform Support contacts email).

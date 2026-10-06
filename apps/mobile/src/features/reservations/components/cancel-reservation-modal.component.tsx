@@ -6,6 +6,7 @@ import {
   Button,
   Chip,
   Flex,
+  InlineAlert,
   Input,
 } from "@/components";
 import { RESERVATION_CANCELLATION_REASONS } from "@reservations/shared";
@@ -19,6 +20,7 @@ export type CancelReservationModalProps = {
   onDetailsChange: (value: string) => void;
   onConfirm: () => void;
   loading: boolean;
+  chargeWarning?: string | null;
 };
 
 export function CancelReservationModal({
@@ -30,6 +32,7 @@ export function CancelReservationModal({
   onDetailsChange,
   onConfirm,
   loading,
+  chargeWarning,
 }: CancelReservationModalProps) {
   const detailsRequired = cancelReason === "Other";
   const canConfirm =
@@ -75,6 +78,9 @@ export function CancelReservationModal({
         </Flex>
       }
     >
+      {chargeWarning ? (
+        <InlineAlert tone="warning" message={chargeWarning} />
+      ) : null}
       <Flex direction="row" gap={1} flexWrap="wrap" alignItems="flex-start">
         {RESERVATION_CANCELLATION_REASONS.map((reason) => (
           <Chip

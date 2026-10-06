@@ -49,14 +49,17 @@ export function bookingRequiresManualApproval(input: {
 
 /**
  * `required` = booking will definitely wait for restaurant confirmation;
- * `possible` = depends on which table smart-assign picks.
+ * `possible` = diner can still pick a table that needs approval;
+ * `none` = auto-confirm path (or selected table/resources do not need approval).
  */
 export type BookingApprovalPreview = 'required' | 'possible' | 'none';
 
 /**
- * Pre-booking guess of `bookingRequiresManualApproval` for diner UIs. When no
- * table is picked, the server assigns one from `candidateTableFlags`, so
- * approval is only certain if every candidate opts in.
+ * Pre-booking guess of `bookingRequiresManualApproval` for diner UIs.
+ *
+ * Auto-assign prefers tables that do not require approval, so mixed candidates
+ * are `none` unless the diner can choose tables (`allowGuestTableSelection`),
+ * in which case mixed candidates are `possible`.
  */
 export function previewBookingManualApproval(input: {
   restaurant: ManualApprovalSettings;
@@ -64,6 +67,8 @@ export function previewBookingManualApproval(input: {
   resourceRequiresApproval?: Array<boolean | null | undefined>;
   selectedTableRequiresApproval?: boolean | null;
   candidateTableFlags?: Array<boolean | null | undefined> | null;
+  /** When true, mixed candidate tables can still become `possible`. */
+  allowGuestTableSelection?: boolean | null;
 }): BookingApprovalPreview {
   if (
     bookingRequiresManualApproval({
@@ -80,6 +85,10 @@ export function previewBookingManualApproval(input: {
   if (input.selectedTableRequiresApproval != null) return 'none';
   const candidates = input.candidateTableFlags ?? [];
   if (candidates.length === 0) return 'none';
-  if (candidates.every(Boolean)) return 'required';
-  return candidates.some(Boolean) ? 'possible' : 'none';
+  const anyNeedsApproval = candidates.some(Boolean);
+  const anyAutoConfirm = candidates.some((flag) => !flag);
+  if (!anyNeedsApproval) return 'none';
+  if (!anyAutoConfirm) return 'required';
+  // Mixed candidates: auto-assign prefers auto-confirm tables.
+  return input.allowGuestTableSelection ? 'possible' : 'none';
 }

@@ -85,6 +85,11 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## notifications
 
+### [2026-10-06] Reminder email late button survives sign-in
+- Closer reminder emails link I'm running late to `/reservations/:id?runningLate=1`. The detail page already calls `reportRunningLate` when that query is present.
+- Signed-out guests are sent to `/login?next=` with the query kept, so the report still runs after sign-in.
+- Why it matters: Dropping `runningLate` on the login redirect made the email button open the reservation and never notify the restaurant.
+
 ### [2026-10-01] Closer reminders ask "running late?"
 - Offsets: `REMINDER_OFFSETS_MINUTES = [1440, 120, 30]` (24h / 2h / 30m). Reminders with lead ≤ `REMINDER_LATE_CHECK_MAX_MINUTES` (120) send Expo/web push with `categoryId: reservation_reminder_late` (Yes/No).
 - Yes → `reportRunningLate` → diner `Message` ("I'm running late.") + `notifyRestaurantManagers` (`new_message`, title "Guest running late"). No → dismiss.
@@ -158,6 +163,10 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 - Why it matters: Profile and auth agreement share the legal feature routes.
 
 ## reservations
+
+### [2026-10-06] List segments re-sort by slot
+- `filterReservationsBySegment` sorts upcoming soonest-first; past/cancelled/all most-recent-first. API `myReservations` is still `slotStart: -1`.
+- Why it matters: Upcoming used to show the latest same-day booking first.
 
 ### [2026-09-27] Web diner slot labels use restaurant IANA zone
 - Web `formatReservationDate` / `Time` / `When` take `timeZone` (default `PLATFORM_TIMEZONE`) and format via shared helpers; list/detail/billing/messages/survey pass `restaurant.timezone` from `MY_RESERVATIONS` / `MY_RESERVATION` / `RESERVATION_FOR_SURVEY`.

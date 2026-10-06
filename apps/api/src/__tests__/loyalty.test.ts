@@ -159,6 +159,7 @@ describe('Loyalty Phase 1 (E2E)', () => {
     await Restaurant.findByIdAndUpdate(restaurantId, {
       depositRequired: true,
       depositAmountCents: 2000,
+      depositPolicy: 'prepaid',
     });
 
     await graphqlRequest(
@@ -492,6 +493,7 @@ describe('Restaurant loyalty (E2E)', () => {
     await Restaurant.findByIdAndUpdate(restaurantId, {
       depositRequired: true,
       depositAmountCents: 2500,
+      depositPolicy: 'prepaid',
       loyaltyEnabled: true,
       loyaltyPointsPerVisit: 75,
       loyaltyMinRedeemPoints: 200,

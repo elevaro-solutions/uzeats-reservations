@@ -60,8 +60,9 @@ BullMQ `reminders` queue schedules guest alerts at **24h**, **2h**, and **30 min
 
 - Preference event: `reservationUpdates`
 - Closer reminders (≤2h) attach Expo/web-push category `reservation_reminder_late` with **Yes / No** ("Are you running late?")
-- **Yes** → GraphQL `reportRunningLate` → reservation message thread + manager notify
-- **No** → dismiss
+- Email copy lives in Admin → Templates: `booking_reminder` (24h, **View reservation** + link) and `booking_reminder_late` (2h / 30 min, **I'm running late** / **I'm on time** + link). I'm running late opens `/reservations/:id?runningLate=1`
+- **Yes** (push or the email button) → GraphQL `reportRunningLate` → reservation message thread + manager notify
+- **No** → dismiss (email: open the reservation)
 - Slot time edits cancel and reschedule pending jobs (including legacy `reminder-*-24h` / `2h` ids)
 
 ## In-app inbox

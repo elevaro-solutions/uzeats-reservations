@@ -33,6 +33,7 @@ export interface RestaurantInfo {
   reviewCount: number;
   depositRequired: boolean;
   depositAmountCents: number;
+  depositPolicy?: string | null;
   loyaltyEnabled: boolean;
   loyaltyPointsPerVisit: number;
   widgetTheme: WidgetTheme;
@@ -80,6 +81,7 @@ const RESTAURANT_FIELDS = `
   reviewCount
   depositRequired
   depositAmountCents
+  depositPolicy
   loyaltyEnabled
   loyaltyPointsPerVisit
   widgetTheme { primaryColor buttonText showReviews }

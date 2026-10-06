@@ -46,11 +46,21 @@ export function graphqlRequest(
   return req;
 }
 
+let testPhoneSeq = 0;
+
+/** Unique E.164 so diner signup tests satisfy the required phone field. */
+function nextTestPhone() {
+  testPhoneSeq += 1;
+  return `+1${String(5550000000 + testPhoneSeq)}`;
+}
+
 export async function registerUser(
   agent: request.Agent,
   input: { email: string; password: string; firstName: string; lastName: string; phone?: string },
 ) {
-  const res = await graphqlRequest(agent, REGISTER_MUTATION, { input });
+  const res = await graphqlRequest(agent, REGISTER_MUTATION, {
+    input: { ...input, phone: input.phone ?? nextTestPhone() },
+  });
   const data = res.body.data?.register;
   return data as { accessToken: string; refreshToken: string; user: { id: string; role: string } };
 }

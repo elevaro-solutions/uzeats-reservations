@@ -58,6 +58,13 @@ export type AddressAutocompleteProps = {
 const DEFAULT_DEBOUNCE_MS = 280;
 const MIN_QUERY_LENGTH = 2;
 
+function streetFromSelection(selection: AddressSelection, fallback: string) {
+  const street = selection.line1?.trim();
+  if (street) return street;
+  const first = selection.label.split(',')[0]?.trim();
+  return first || fallback;
+}
+
 /** Re-renders when the Google Places availability changes (e.g. bad key detected). */
 export function useGooglePlacesAvailability() {
   return useSyncExternalStore(
@@ -175,30 +182,33 @@ export function AddressAutocomplete({
 
   const handleSelect = useCallback(
     async (selected: string, option: DefaultOptionType) => {
-      if (!onSelect) return;
-
       const fallbackSelection = (option as AddressFallbackOption).selection;
       if (fallbackSelection) {
-        onSelect(fallbackSelection);
+        // Prefer street line over the full formatted label for form fields.
+        setQuery(streetFromSelection(fallbackSelection, selected));
+        onSelect?.(fallbackSelection);
         return;
       }
 
       const placeId = (option as DefaultOptionType & { placeId?: string }).placeId;
       if (placeId) {
         const resolved = await resolveAddress(placeId);
-        onSelect(resolved ?? { label: selected, placeId });
+        const selection = resolved ?? { label: selected, placeId };
+        setQuery(streetFromSelection(selection, selected));
+        onSelect?.(selection);
         return;
       }
 
-      onSelect({ label: selected });
+      onSelect?.({ label: selected });
     },
-    [onSelect],
+    [onSelect, setQuery],
   );
 
   const effectivePlaceholder = useGoogle ? placeholder : (fallbackPlaceholder ?? placeholder);
+  const inputSize = inputProps?.size ?? 'large';
   const inputEl = (
     <Input
-      size="large"
+      size={inputSize}
       disabled={disabled}
       placeholder={effectivePlaceholder}
       autoComplete="off"
@@ -232,6 +242,7 @@ export function AddressAutocomplete({
         value={query}
         onChange={setQuery}
         disabled={disabled}
+        size={inputSize}
         options={useGoogle ? googleOptions : fallbackOptions}
         popupMatchSelectWidth={popupMatchSelectWidth ?? true}
         // Modal / overflow parents (e.g. Add restaurant) clip inline dropdowns.

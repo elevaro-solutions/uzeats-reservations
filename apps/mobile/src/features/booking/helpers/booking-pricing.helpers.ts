@@ -2,6 +2,7 @@ import {
   LOYALTY,
   pointsToDiscountCents,
   RESTAURANT_LOYALTY,
+  resolveBookingCharges,
   restaurantPointsToDiscountCents,
 } from "@reservations/shared";
 
@@ -30,11 +31,28 @@ type PricingInput = {
   giftValidation?: PromotionValidation | null;
 };
 
+function bookingCharges(input: PricingInput) {
+  return resolveBookingCharges({
+    restaurant: input.restaurant,
+    table: input.selectedTable,
+    partySize: input.partySize,
+  });
+}
+
+/** Table deposit charged at booking (`prepaid` policy only). */
+function computeBaseDepositCents(input: PricingInput): number {
+  const charges = bookingCharges(input);
+  return charges.policy === "prepaid" ? charges.tableDepositCents : 0;
+}
+
+/** Card-guarantee fee: saved card, charged only on no-show / late cancel. */
+export function computeNoShowFeeCents(input: PricingInput): number {
+  return bookingCharges(input).noShowFeeCents;
+}
+
 export function computeGrossDepositCents(input: PricingInput): number {
-  const { restaurant, partySize } = input;
-  const baseDeposit = restaurant.depositRequired
-    ? restaurant.depositAmountCents * partySize
-    : 0;
+  const { partySize } = input;
+  const baseDeposit = computeBaseDepositCents(input);
 
   const packagePrice = input.selectedPackage
     ? input.selectedPackage.pricePerGuest
@@ -95,13 +113,11 @@ export type DepositBreakdown = {
   promoDiscountCents: number;
   giftDiscountCents: number;
   dueCents: number;
+  noShowFeeCents: number;
 };
 
 export function computeDepositBreakdown(input: PricingInput): DepositBreakdown {
-  const { restaurant, partySize } = input;
-  const baseDepositCents = restaurant.depositRequired
-    ? restaurant.depositAmountCents * partySize
-    : 0;
+  const baseDepositCents = computeBaseDepositCents(input);
 
   const grossCents = computeGrossDepositCents(input);
   const addOnsCents = Math.max(0, grossCents - baseDepositCents);
@@ -158,6 +174,7 @@ export function computeDepositBreakdown(input: PricingInput): DepositBreakdown {
     promoDiscountCents,
     giftDiscountCents,
     dueCents: Math.max(0, remaining),
+    noShowFeeCents: computeNoShowFeeCents(input),
   };
 }
 

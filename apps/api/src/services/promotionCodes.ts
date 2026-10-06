@@ -146,3 +146,7 @@ export async function resolvePromotionForBooking(input: {
 export async function recordPromotionRedemption(promotionId: string) {
   await Promotion.findByIdAndUpdate(promotionId, { $inc: { redemptions: 1 } });
 }
+
+export async function unrecordPromotionRedemption(promotionId: string) {
+  await Promotion.findByIdAndUpdate(promotionId, { $inc: { redemptions: -1 } });
+}

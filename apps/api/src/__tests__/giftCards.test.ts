@@ -79,6 +79,7 @@ describe('Gift cards at booking', () => {
     await Restaurant.findByIdAndUpdate(restaurantId, {
       depositRequired: true,
       depositAmountCents: 2000,
+      depositPolicy: 'prepaid',
     });
 
     const issueRes = await graphqlRequest(

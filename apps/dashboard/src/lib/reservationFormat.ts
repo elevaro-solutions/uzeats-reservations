@@ -82,6 +82,49 @@ export function canRefundDeposit(r: {
   return remaining > 0;
 }
 
+export type NoShowFeeFields = {
+  status?: string | null;
+  noShowFeeCents?: number | null;
+  cardGuaranteeStatus?: string | null;
+  noShowFeeReason?: string | null;
+  noShowFeeError?: string | null;
+};
+
+const CARD_GUARANTEE_LABELS: Record<string, string> = {
+  requires_card: 'Card not saved',
+  card_saved: 'Card on file',
+  released: 'Released',
+  charged: 'Charged',
+  failed: 'Charge failed',
+  refunded: 'Refunded',
+};
+
+/** e.g. "$50.00 · Charged (late cancel)" — null when the booking has no fee. */
+export function formatNoShowFee(r: NoShowFeeFields) {
+  const amount = formatUsd(r.noShowFeeCents);
+  if (!amount) return null;
+  const status = r.cardGuaranteeStatus ?? 'none';
+  let label = CARD_GUARANTEE_LABELS[status] ?? null;
+  if ((status === 'charged' || status === 'refunded') && r.noShowFeeReason) {
+    label = `${label} (${r.noShowFeeReason === 'late_cancel' ? 'late cancel' : 'no-show'})`;
+  }
+  if (status === 'failed' && r.noShowFeeError) label = `${label}: ${r.noShowFeeError}`;
+  return [amount, label].filter(Boolean).join(' · ');
+}
+
+/** Staff can (re)try the fee on a no-show while the card is still on file. */
+export function canChargeNoShowFee(r: NoShowFeeFields) {
+  return (
+    r.status === 'no_show' &&
+    (r.noShowFeeCents ?? 0) > 0 &&
+    (r.cardGuaranteeStatus === 'card_saved' || r.cardGuaranteeStatus === 'failed')
+  );
+}
+
+export function canRefundNoShowFee(r: NoShowFeeFields) {
+  return r.cardGuaranteeStatus === 'charged';
+}
+
 export function depositRefundableCents(r: {
   depositAmountCents?: number | null;
   depositRefundedCents?: number | null;

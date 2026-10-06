@@ -23,6 +23,10 @@ router.get('/reservations', async (req: PosAuthRequest, res) => {
       restaurantId,
       slotStart: { $gte: range.$gte, $lt: range.$lt },
       status: { $in: ['pending', 'confirmed', 'seated', 'completed', 'no_show'] },
+      $nor: [
+        { status: 'pending', depositStatus: 'requires_payment' },
+        { status: 'pending', cardGuaranteeStatus: 'requires_card' },
+      ],
     }).sort({ slotStart: 1 });
 
     const items = await Promise.all(

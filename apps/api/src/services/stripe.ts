@@ -1,7 +1,9 @@
 import Stripe from 'stripe';
 import { env } from '../config/env.js';
 import { PlatformConfig } from '../models/PlatformConfig.js';
+import { User } from '../models/User.js';
 import { AppError, ValidationError } from '../lib/errors.js';
+import { logger } from '../lib/logger.js';
 
 export type StripeMode = 'test' | 'live';
 
@@ -143,7 +145,7 @@ async function getStripe() {
   if (!secret) return null;
   let client = clients.get(mode);
   if (!client) {
-    client = new Stripe(secret);
+    client = new Stripe(secret, { timeout: 20_000, maxNetworkRetries: 1 });
     clients.set(mode, client);
   }
   return client;
@@ -175,6 +177,182 @@ export async function createDepositIntent(input: {
     automatic_payment_methods: { enabled: true },
   });
   return { ...intent, isStub: false as const };
+}
+
+/** Stripe customer for a diner's saved booking card in the active mode (created on first use). */
+export async function ensureDinerStripeCustomer(dinerId: string): Promise<string> {
+  const mode = await refreshActiveMode();
+  const client = await getStripe();
+  if (!client) return `cus_dev_${dinerId}`;
+  const user = await User.findById(dinerId).select('email firstName lastName stripeCustomerIds');
+  if (!user) throw new ValidationError('Diner not found');
+  const existing = user.stripeCustomerIds?.[mode];
+  if (existing) return existing;
+  const customer = await client.customers.create({
+    email: user.email ?? undefined,
+    name: [user.firstName, user.lastName].filter(Boolean).join(' '),
+    metadata: { dinerId },
+  });
+  await User.updateOne({ _id: dinerId }, { $set: { [`stripeCustomerIds.${mode}`]: customer.id } });
+  return customer.id;
+}
+
+/**
+ * Charge-now booking payment (prepaid deposit / add-ons). When the booking also
+ * carries a no-show fee, the same card is saved for a later off-session charge.
+ */
+export async function createPrepaymentIntent(input: {
+  amountCents: number;
+  metadata: Record<string, string>;
+  customerId?: string;
+  saveCardForOffSession?: boolean;
+}) {
+  const client = await getStripe();
+  if (!client) {
+    if (env.NODE_ENV === 'production') {
+      throw new PaymentUnavailableError();
+    }
+    const id = `pi_dev_${Date.now()}`;
+    return { id, client_secret: `${id}_secret_dev`, isStub: true as const };
+  }
+  const intent = await client.paymentIntents.create({
+    amount: input.amountCents,
+    currency: env.STRIPE_CURRENCY,
+    metadata: input.metadata,
+    customer: input.customerId,
+    setup_future_usage: input.saveCardForOffSession ? 'off_session' : undefined,
+    automatic_payment_methods: { enabled: true },
+  });
+  return { ...intent, isStub: false as const };
+}
+
+/** Saves a card for a no-show fee without charging or holding anything. */
+export async function createCardGuaranteeSetupIntent(input: {
+  customerId: string;
+  metadata: Record<string, string>;
+}) {
+  const client = await getStripe();
+  if (!client) {
+    if (env.NODE_ENV === 'production') {
+      throw new PaymentUnavailableError();
+    }
+    const id = `seti_dev_${Date.now()}`;
+    return { id, client_secret: `${id}_secret_dev`, isStub: true as const };
+  }
+  const intent = await client.setupIntents.create({
+    customer: input.customerId,
+    usage: 'off_session',
+    metadata: input.metadata,
+    automatic_payment_methods: { enabled: true },
+  });
+  return { ...intent, isStub: false as const };
+}
+
+export function isSetupIntentId(intentId: string) {
+  return intentId.startsWith('seti_');
+}
+
+export type BookingIntentState = {
+  kind: 'payment' | 'setup';
+  /** `succeeded` = paid or card saved; `requires_capture` = legacy authorization hold. */
+  status: string;
+  paymentMethodId: string | null;
+};
+
+/** Current Stripe state of a booking PaymentIntent or SetupIntent (stubs read as succeeded). */
+export async function describeBookingIntent(intentId: string): Promise<BookingIntentState> {
+  const kind = isSetupIntentId(intentId) ? 'setup' : 'payment';
+  if (intentId.startsWith('pi_dev_') || intentId.startsWith('seti_dev_')) {
+    if (env.NODE_ENV === 'production') throw new ValidationError('Invalid payment intent');
+    return { kind, status: 'succeeded', paymentMethodId: 'pm_dev' };
+  }
+  const client = await getStripe();
+  if (!client) throw new PaymentUnavailableError();
+  const intent =
+    kind === 'setup'
+      ? await client.setupIntents.retrieve(intentId)
+      : await client.paymentIntents.retrieve(intentId);
+  const pm = intent.payment_method;
+  return {
+    kind,
+    status: intent.status,
+    paymentMethodId: typeof pm === 'string' ? pm : pm?.id ?? null,
+  };
+}
+
+/** Drop an unused booking SetupIntent / PaymentIntent when the diner abandons the card form. */
+export async function cancelBookingIntent(intentId: string) {
+  if (intentId.startsWith('pi_dev_') || intentId.startsWith('seti_dev_')) return;
+  const client = await getStripe();
+  if (!client) return;
+  try {
+    if (isSetupIntentId(intentId)) {
+      await client.setupIntents.cancel(intentId);
+    } else {
+      await client.paymentIntents.cancel(intentId);
+    }
+  } catch (err) {
+    logger.warn({ err, intentId }, '[stripe] cancel booking intent failed');
+  }
+}
+
+export async function retrieveSetupIntentClientSecret(setupIntentId: string) {
+  if (setupIntentId.startsWith('seti_dev_')) return `${setupIntentId}_secret_dev`;
+  const client = await getStripe();
+  if (!client) return null;
+  const intent = await client.setupIntents.retrieve(setupIntentId);
+  return intent.client_secret ?? null;
+}
+
+export type OffSessionChargeResult =
+  | { ok: true; paymentIntentId: string }
+  | { ok: false; error: string; paymentIntentId?: string };
+
+/**
+ * Charge a saved card without the diner present (no-show / late-cancel fee).
+ * Never throws for card problems — declines and SCA requirements come back as `ok: false`.
+ */
+export async function chargeOffSessionFee(input: {
+  customerId: string;
+  paymentMethodId: string;
+  amountCents: number;
+  metadata: Record<string, string>;
+  idempotencyKey: string;
+}): Promise<OffSessionChargeResult> {
+  const client = await getStripe();
+  if (!client || input.customerId.startsWith('cus_dev_') || input.paymentMethodId === 'pm_dev') {
+    return { ok: true, paymentIntentId: `pi_dev_fee_${Date.now()}` };
+  }
+  try {
+    const intent = await client.paymentIntents.create(
+      {
+        amount: input.amountCents,
+        currency: env.STRIPE_CURRENCY,
+        customer: input.customerId,
+        payment_method: input.paymentMethodId,
+        off_session: true,
+        confirm: true,
+        metadata: input.metadata,
+      },
+      { idempotencyKey: input.idempotencyKey },
+    );
+    if (intent.status === 'succeeded') return { ok: true, paymentIntentId: intent.id };
+    return {
+      ok: false,
+      error: `Charge not completed (status: ${intent.status})`,
+      paymentIntentId: intent.id,
+    };
+  } catch (err) {
+    if (err instanceof Stripe.errors.StripeError) {
+      const raw = err.raw as { payment_intent?: { id?: string } } | undefined;
+      return {
+        ok: false,
+        error: err.message || 'Card was declined',
+        paymentIntentId: raw?.payment_intent?.id,
+      };
+    }
+    throw err;
+  }
 }
 
 /** One-off invoice payment (automatic capture). */
@@ -637,9 +815,9 @@ export async function constructStripeEvent(rawBody: Buffer, signature: string) {
   const client =
     (await getStripe()) ??
     (secretForMode('test')
-      ? new Stripe(secretForMode('test'))
+      ? new Stripe(secretForMode('test'), { timeout: 20_000, maxNetworkRetries: 1 })
       : secretForMode('live')
-        ? new Stripe(secretForMode('live'))
+        ? new Stripe(secretForMode('live'), { timeout: 20_000, maxNetworkRetries: 1 })
         : null);
   if (!client) {
     throw new Error('Stripe webhook not configured');

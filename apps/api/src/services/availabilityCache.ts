@@ -13,16 +13,19 @@ export function availabilityCacheKey(
   restaurantId: string,
   date: string,
   partySize: number,
+  privateDiningSpaceId?: string | null,
 ): string {
-  return `${KEY_PREFIX}${restaurantId}:${date}:${partySize}`;
+  const space = privateDiningSpaceId?.trim() || '-';
+  return `${KEY_PREFIX}${restaurantId}:${date}:${partySize}:${space}`;
 }
 
 export async function getCachedAvailability(
   restaurantId: string,
   date: string,
   partySize: number,
+  privateDiningSpaceId?: string | null,
 ): Promise<AvailabilitySlot[] | null> {
-  const key = availabilityCacheKey(restaurantId, date, partySize);
+  const key = availabilityCacheKey(restaurantId, date, partySize, privateDiningSpaceId);
 
   if (env.NODE_ENV === 'test') {
     const entry = memoryStore.get(key);
@@ -50,8 +53,14 @@ export async function setCachedAvailability(
   date: string,
   partySize: number,
   slots: AvailabilitySlot[],
+  privateDiningSpaceId?: string | null,
 ): Promise<void> {
-  const key = availabilityCacheKey(restaurantId, date, partySize);
+  const key = availabilityCacheKey(
+    restaurantId,
+    date,
+    partySize,
+    privateDiningSpaceId,
+  );
   const expiresAt = Date.now() + AVAILABILITY_CACHE_TTL_SEC * 1000;
 
   if (env.NODE_ENV === 'test') {

@@ -1,11 +1,13 @@
-import { View } from "react-native";
+import { Image, View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
+import { browserMediaUrl } from "@reservations/shared";
 
 import { Typography } from "../typography";
 
 export type UserAvatarProps = {
   firstName?: string;
   lastName?: string;
+  avatarUrl?: string | null;
   size?: "sm" | "md" | "lg";
   variant?: "primary" | "subtle";
 };
@@ -19,20 +21,26 @@ function initials(firstName?: string, lastName?: string) {
 export function UserAvatar({
   firstName,
   lastName,
+  avatarUrl,
   size = "md",
   variant = "primary",
 }: UserAvatarProps) {
   styles.useVariants({ size, variant });
+  const photo = avatarUrl ? browserMediaUrl(avatarUrl) : "";
 
   return (
     <View style={styles.avatar}>
-      <Typography
-        weight="semibold"
-        color={variant === "subtle" ? "textPrimary" : "inverse"}
-        size={size === "lg" ? "text-lg" : size === "sm" ? "text-xs" : "text-sm"}
-      >
-        {initials(firstName, lastName)}
-      </Typography>
+      {photo ? (
+        <Image source={{ uri: photo }} style={styles.photo} />
+      ) : (
+        <Typography
+          weight="semibold"
+          color={variant === "subtle" ? "textPrimary" : "inverse"}
+          size={size === "lg" ? "text-lg" : size === "sm" ? "text-xs" : "text-sm"}
+        >
+          {initials(firstName, lastName)}
+        </Typography>
+      )}
     </View>
   );
 }
@@ -41,6 +49,7 @@ const styles = StyleSheet.create(({ radius, colors }) => ({
   avatar: {
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
     borderRadius: radius.full,
     variants: {
       variant: {
@@ -53,5 +62,9 @@ const styles = StyleSheet.create(({ radius, colors }) => ({
         lg: { width: 56, height: 56 },
       },
     },
+  },
+  photo: {
+    width: "100%",
+    height: "100%",
   },
 }));

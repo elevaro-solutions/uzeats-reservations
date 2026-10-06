@@ -147,19 +147,31 @@ export async function getAvailabilityForRestaurants(params: {
   partySize: number;
   /** Injectable clock for tests; defaults to real now. */
   now?: Date;
+  /**
+   * When set, only these tables are considered (private-dining inventory).
+   * Otherwise privateDiningOnly tables are excluded from regular booking.
+   */
+  tableIds?: string[];
+  privateDiningSpaceId?: string | null;
 }): Promise<Map<string, AvailabilitySlot[]>> {
   const result = new Map<string, AvailabilitySlot[]>();
   const uniqueIds = [...new Set(params.restaurantIds.filter(Boolean))];
   for (const id of uniqueIds) result.set(id, []);
   if (uniqueIds.length === 0) return result;
 
+  const spaceKey = params.privateDiningSpaceId ?? null;
   // Skip Redis when tests inject `now` so clock-based assertions stay deterministic.
   const useCache = params.now == null;
   const uncachedIds: string[] = [];
   if (useCache) {
     await Promise.all(
       uniqueIds.map(async (id) => {
-        const cached = await getCachedAvailability(id, params.date, params.partySize);
+        const cached = await getCachedAvailability(
+          id,
+          params.date,
+          params.partySize,
+          spaceKey,
+        );
         if (cached) result.set(id, cached);
         else uncachedIds.push(id);
       }),
@@ -185,6 +197,21 @@ export async function getAvailabilityForRestaurants(params: {
 
   const approvedIds = restaurants.map((r) => r._id);
 
+  const tableFilter: Record<string, unknown> = {
+    restaurantId: { $in: approvedIds },
+    active: true,
+    minCapacity: { $lte: params.partySize },
+    maxCapacity: { $gte: params.partySize },
+  };
+  if (params.tableIds && params.tableIds.length > 0) {
+    const ids = params.tableIds
+      .map(toObjectId)
+      .filter((id): id is mongoose.Types.ObjectId => id != null);
+    tableFilter._id = { $in: ids };
+  } else {
+    tableFilter.privateDiningOnly = { $ne: true };
+  }
+
   const [blackouts, allShifts, tables, reservations] = await Promise.all([
     Blackout.find({
       restaurantId: { $in: approvedIds },
@@ -194,12 +221,7 @@ export async function getAvailabilityForRestaurants(params: {
       restaurantId: { $in: approvedIds },
       active: true,
     }).lean() as Promise<LeanShift[]>,
-    Table.find({
-      restaurantId: { $in: approvedIds },
-      active: true,
-      minCapacity: { $lte: params.partySize },
-      maxCapacity: { $gte: params.partySize },
-    }).lean() as Promise<LeanTable[]>,
+    Table.find(tableFilter).lean() as Promise<LeanTable[]>,
     // Wide UTC window covering all US timezones for the calendar date.
     Reservation.find({
       restaurantId: { $in: approvedIds },
@@ -322,7 +344,13 @@ export async function getAvailabilityForRestaurants(params: {
     });
     result.set(id, slots);
     if (useCache) {
-      void setCachedAvailability(id, params.date, params.partySize, slots);
+      void setCachedAvailability(
+        id,
+        params.date,
+        params.partySize,
+        slots,
+        spaceKey,
+      );
     }
   }
 
@@ -335,12 +363,26 @@ export async function getAvailability(params: {
   partySize: number;
   /** Injectable clock for tests; defaults to real now. */
   now?: Date;
+  privateDiningSpaceId?: string | null;
 }): Promise<AvailabilitySlot[]> {
+  let tableIds: string[] | undefined;
+  if (params.privateDiningSpaceId) {
+    const { resolvePrivateDiningTableIds } = await import('./privateDining.js');
+    const ids = await resolvePrivateDiningTableIds(
+      params.restaurantId,
+      params.privateDiningSpaceId,
+    );
+    if (!ids || ids.length === 0) return [];
+    tableIds = ids.map(String);
+  }
+
   const map = await getAvailabilityForRestaurants({
     restaurantIds: [params.restaurantId],
     date: params.date,
     partySize: params.partySize,
     now: params.now,
+    tableIds,
+    privateDiningSpaceId: params.privateDiningSpaceId,
   });
   return map.get(params.restaurantId) ?? [];
 }
@@ -350,13 +392,22 @@ export async function findAvailableTable(params: {
   partySize: number;
   slotStart: Date;
   slotEnd: Date;
+  /** Restrict to these tables (private dining). */
+  tableIds?: string[];
 }) {
-  const tables = await Table.find({
+  const tableFilter: Record<string, unknown> = {
     restaurantId: params.restaurantId,
     active: true,
     minCapacity: { $lte: params.partySize },
     maxCapacity: { $gte: params.partySize },
-  });
+  };
+  if (params.tableIds && params.tableIds.length > 0) {
+    tableFilter._id = { $in: params.tableIds };
+  } else {
+    tableFilter.privateDiningOnly = { $ne: true };
+  }
+
+  const tables = await Table.find(tableFilter);
 
   const existing = await Reservation.find({
     restaurantId: params.restaurantId,
@@ -371,6 +422,7 @@ export async function findAvailableTable(params: {
     slotEnd: params.slotEnd,
   });
 
+  let fallback: (typeof tables)[number] | null = null;
   for (const table of tables) {
     if (claimedIds.has(String(table._id))) continue;
     const conflict = existing.some(
@@ -378,9 +430,12 @@ export async function findAvailableTable(params: {
         r.tableIds.some((id) => id.equals(table._id)) &&
         overlaps(params.slotStart, params.slotEnd, r.slotStart, r.slotEnd),
     );
-    if (!conflict) return table;
+    if (conflict) continue;
+    // Prefer auto-confirm tables; keep first approval-only table as fallback.
+    if (table.requiresManualApproval !== true) return table;
+    if (!fallback) fallback = table;
   }
-  return null;
+  return fallback;
 }
 
 type TurnTimeShift = {

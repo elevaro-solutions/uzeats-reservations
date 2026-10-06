@@ -3,6 +3,8 @@ function digitsOnly(value: string): string {
   return value.replace(/\D/g, "");
 }
 
+const US_PHONE_DIGIT_LENGTH = 10;
+
 /**
  * Normalize to the 10-digit US national number.
  * Accepts E.164 (+1…), leading country code 1, or bare national digits.
@@ -16,12 +18,32 @@ function toUsNationalDigits(value: string): string {
 }
 
 /** Format as `(212) 555-1234`. */
-function formatUsPhoneNational(value: string): string {
+export function formatUsPhoneNational(value: string): string {
   const digits = toUsNationalDigits(value);
   if (digits.length === 0) return "";
   if (digits.length <= 3) return `(${digits}`;
   if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+/** Convert a US phone input to E.164 (`+12125551234`), or '' when incomplete. */
+export function toE164Us(value: string | null | undefined): string {
+  if (!value?.trim()) return "";
+  const digits = toUsNationalDigits(value);
+  if (digits.length !== US_PHONE_DIGIT_LENGTH) return "";
+  return `+1${digits}`;
+}
+
+export function isValidUsPhone(value: string | null | undefined): boolean {
+  if (!value?.trim()) return false;
+  return toUsNationalDigits(value).length === US_PHONE_DIGIT_LENGTH;
+}
+
+/** Value stored while typing: E.164 when complete, otherwise national digits. */
+export function phoneInputValue(text: string): string {
+  const national = toUsNationalDigits(text);
+  if (!national) return "";
+  return toE164Us(national) || national;
 }
 
 /** Human-readable display, e.g. `+1 (212) 555-1234`. Falls back to raw value. */

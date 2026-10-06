@@ -1,3 +1,4 @@
+import { resolveDepositPolicy } from '@reservations/shared';
 import { buildCancellationPolicy } from '@/lib/restaurantTerms';
 
 export type RestaurantFaqSource = {
@@ -7,6 +8,7 @@ export type RestaurantFaqSource = {
   website?: string | null;
   depositRequired?: boolean;
   depositAmountCents?: number;
+  depositPolicy?: string | null;
   dietaryTags?: string[];
   openingHoursLines?: string[];
   address: {
@@ -53,7 +55,10 @@ export function buildRestaurantFaq(
       ? [
           {
             question: `Is a deposit required at ${restaurant.name}?`,
-            answer: `Yes, a deposit of $${((restaurant.depositAmountCents ?? 0) / 100).toFixed(2)} per guest is required when booking. The deposit is applied toward your final bill.`,
+            answer:
+              resolveDepositPolicy(restaurant.depositPolicy) === 'prepaid'
+                ? `Yes, a deposit of $${((restaurant.depositAmountCents ?? 0) / 100).toFixed(2)} per guest is required when booking. The deposit is applied toward your final bill.`
+                : `${restaurant.name} asks for a card to hold your booking, but nothing is charged when you book. A $${((restaurant.depositAmountCents ?? 0) / 100).toFixed(2)} per guest fee applies only to no-shows and late cancellations.`,
           },
         ]
       : []),
@@ -62,6 +67,7 @@ export function buildRestaurantFaq(
       answer: buildCancellationPolicy({
         depositRequired: restaurant.depositRequired,
         depositAmountCents: restaurant.depositAmountCents,
+        depositPolicy: restaurant.depositPolicy,
       }),
     },
     ...(restaurant.dietaryTags?.length

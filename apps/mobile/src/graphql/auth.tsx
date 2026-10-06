@@ -29,10 +29,24 @@ import {
   TokenRefreshError,
 } from "./token-refresh.helpers";
 
+export type DinerAddress = {
+  line1: string;
+  line2?: string | null;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+};
+
 export type MobileUser = {
   id: string;
   email?: string | null;
   phone?: string | null;
+  avatarUrl?: string | null;
+  hasPassword?: boolean;
+  hasGoogle?: boolean;
+  needsEmailVerification?: boolean;
+  address?: DinerAddress | null;
   firstName: string;
   lastName: string;
   role: "diner" | "restaurant_owner" | "manager" | "admin";
@@ -53,7 +67,7 @@ type RegisterInput = {
   password: string;
   firstName: string;
   lastName: string;
-  phone?: string;
+  phone: string;
   referralCode?: string;
 };
 
@@ -117,8 +131,9 @@ async function signOutGoogleBestEffort() {
 
 const ME_QUERY = `query Me {
   me {
-    id email phone firstName lastName role loyaltyPoints
+    id email phone avatarUrl hasPassword hasGoogle needsEmailVerification firstName lastName role loyaltyPoints
     loyaltyCompletedVisits loyaltyTier loyaltyTierName referralCode
+    address { line1 line2 city state zip country }
   }
 }`;
 

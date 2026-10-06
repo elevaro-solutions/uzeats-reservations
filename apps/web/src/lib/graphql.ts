@@ -82,6 +82,7 @@ export const RESTAURANT_DETAIL = gql`
       isFavorite
       depositRequired
       depositAmountCents
+      depositPolicy
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
@@ -122,8 +123,18 @@ export const RESTAURANT_DETAIL = gql`
 `;
 
 export const AVAILABILITY = gql`
-  query Availability($restaurantId: ID!, $date: String!, $partySize: Int!) {
-    availability(restaurantId: $restaurantId, date: $date, partySize: $partySize) {
+  query Availability(
+    $restaurantId: ID!
+    $date: String!
+    $partySize: Int!
+    $privateDiningSpaceId: ID
+  ) {
+    availability(
+      restaurantId: $restaurantId
+      date: $date
+      partySize: $partySize
+      privateDiningSpaceId: $privateDiningSpaceId
+    ) {
       time
       available
       remainingTables
@@ -132,8 +143,18 @@ export const AVAILABILITY = gql`
 `;
 
 export const BOOKABLE_TABLES = gql`
-  query BookableTables($restaurantId: ID!, $slotStart: DateTime!, $partySize: Int!) {
-    bookableTables(restaurantId: $restaurantId, slotStart: $slotStart, partySize: $partySize) {
+  query BookableTables(
+    $restaurantId: ID!
+    $slotStart: DateTime!
+    $partySize: Int!
+    $privateDiningSpaceId: ID
+  ) {
+    bookableTables(
+      restaurantId: $restaurantId
+      slotStart: $slotStart
+      partySize: $partySize
+      privateDiningSpaceId: $privateDiningSpaceId
+    ) {
       id
       name
       minCapacity
@@ -141,6 +162,8 @@ export const BOOKABLE_TABLES = gql`
       floorArea
       photoUrl
       requiresManualApproval
+      depositRequired
+      depositAmountCents
     }
   }
 `;
@@ -157,6 +180,8 @@ export const CREATE_RESERVATION = gql`
         partySize
         depositAmountCents
         depositStatus
+        noShowFeeCents
+        cardGuaranteeStatus
         restaurant {
           name
           photos
@@ -179,6 +204,12 @@ export const CONFIRM_DEPOSIT = gql`
       status
       depositStatus
     }
+  }
+`;
+
+export const ABANDON_INCOMPLETE_BOOKING = gql`
+  mutation AbandonIncompleteBooking($id: ID!) {
+    abandonIncompleteBooking(id: $id)
   }
 `;
 
@@ -207,6 +238,8 @@ export const MY_RESERVATIONS = gql`
       guestNotes
       depositAmountCents
       depositStatus
+      noShowFeeCents
+      cardGuaranteeStatus
       loyaltyPointsEarned
       hasReview
       packageTitle
@@ -246,6 +279,8 @@ export const MY_RESERVATION = gql`
       guestNotes
       depositAmountCents
       depositStatus
+      noShowFeeCents
+      cardGuaranteeStatus
       clientSecret
       loyaltyPointsEarned
       hasReview

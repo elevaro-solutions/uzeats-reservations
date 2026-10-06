@@ -30,15 +30,33 @@ const reservationSchema = new Schema(
     experienceTitle: { type: String },
     experiencePriceCents: { type: Number, default: 0 },
     experienceTicketQty: { type: Number, default: 0 },
+    /** Amount charged at booking (prepaid deposit + add-ons, after discounts). */
     depositAmountCents: { type: Number, default: 0 },
     /** Cumulative cents refunded against a captured deposit (0 until first refund). */
     depositRefundedCents: { type: Number, default: 0 },
-    stripePaymentIntentId: { type: String },
+    stripePaymentIntentId: { type: String, index: true, sparse: true },
+    /** `authorized` = legacy manual-capture hold; new prepayments go straight to `captured`. */
     depositStatus: {
       type: String,
       enum: ['none', 'requires_payment', 'authorized', 'captured', 'refunded', 'failed'],
       default: 'none',
     },
+
+    /** No-show / late-cancel fee guaranteed by a saved card; charged off-session only when it applies. */
+    noShowFeeCents: { type: Number, default: 0 },
+    cardGuaranteeStatus: {
+      type: String,
+      enum: ['none', 'requires_card', 'card_saved', 'released', 'charged', 'failed', 'refunded'],
+      default: 'none',
+    },
+    stripeCustomerId: { type: String },
+    stripeSetupIntentId: { type: String, index: true, sparse: true },
+    stripePaymentMethodId: { type: String },
+    noShowFeePaymentIntentId: { type: String, index: true, sparse: true },
+    noShowFeeChargedAt: { type: Date },
+    noShowFeeReason: { type: String, enum: ['no_show', 'late_cancel'] },
+    /** Stripe decline / authentication message when the off-session charge fails. */
+    noShowFeeError: { type: String },
     /** True when this booking stays pending until restaurant staff confirms. */
     requiresManualApproval: { type: Boolean, default: false },
 

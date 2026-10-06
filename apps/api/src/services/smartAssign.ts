@@ -19,13 +19,22 @@ export async function smartAssignTable(input: {
   slotStart: Date;
   slotEnd: Date;
   dinerId?: string;
+  /** Restrict to these tables (private dining). */
+  tableIds?: string[];
 }): Promise<(TableDocument & { _id: mongoose.Types.ObjectId }) | null> {
-  const tables = await Table.find({
+  const tableFilter: Record<string, unknown> = {
     restaurantId: input.restaurantId,
     active: true,
     minCapacity: { $lte: input.partySize },
     maxCapacity: { $gte: input.partySize },
-  });
+  };
+  if (input.tableIds && input.tableIds.length > 0) {
+    tableFilter._id = { $in: input.tableIds };
+  } else {
+    tableFilter.privateDiningOnly = { $ne: true };
+  }
+
+  const tables = await Table.find(tableFilter);
 
   if (tables.length === 0) return null;
 
@@ -98,6 +107,12 @@ export async function smartAssignTable(input: {
 
     // Combinable bonus: prefer non-combinable (single) tables (0-15 points)
     score += table.combinable ? 0 : 15;
+
+    // Prefer tables that auto-confirm so diners aren't sent into approval
+    // when a normal table still fits. Preview UX assumes this preference.
+    if (table.requiresManualApproval !== true) {
+      score += 25;
+    }
 
     scored.push({ table: table as any, score });
   }

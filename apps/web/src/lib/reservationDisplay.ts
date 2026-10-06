@@ -16,6 +16,8 @@ export type ReservationTimingFields = {
   slotEnd?: string | null;
   depositStatus?: string | null;
   depositAmountCents?: number | null;
+  noShowFeeCents?: number | null;
+  cardGuaranteeStatus?: string | null;
   requiresManualApproval?: boolean | null;
 };
 
@@ -45,11 +47,48 @@ export function isReservationUpcoming(r: ReservationTimingFields): boolean {
 }
 
 export function needsDepositPayment(r: ReservationTimingFields): boolean {
-  return (
-    isReservationUpcoming(r) &&
-    r.depositStatus === 'requires_payment' &&
-    (r.depositAmountCents ?? 0) > 0
-  );
+  if (!isReservationUpcoming(r)) return false;
+  const prepaymentDue = r.depositStatus === 'requires_payment' && (r.depositAmountCents ?? 0) > 0;
+  return prepaymentDue || r.cardGuaranteeStatus === 'requires_card';
+}
+
+function usd(cents: number) {
+  return `${(cents / 100).toFixed(2)}`;
+}
+
+/** Copy for the "finish booking" step: pay a prepayment and/or save a card for the no-show fee. */
+export function bookingPaymentCopy(r: ReservationTimingFields) {
+  const due = r.depositStatus === 'requires_payment' ? (r.depositAmountCents ?? 0) : 0;
+  const fee = r.noShowFeeCents ?? 0;
+  if (due > 0) {
+    return {
+      action: `Pay ${usd(due)}`,
+      title: 'Payment required to hold your table',
+      body: `Pay ${usd(due)} to confirm this reservation. It's applied to your bill and refunded if you cancel in time.`,
+    };
+  }
+  return {
+    action: 'Add card',
+    title: 'Card required to hold your table',
+    body: `Add a card to confirm this reservation. Nothing is charged now; a ${usd(fee)} fee applies only to a no-show or late cancellation.`,
+  };
+}
+
+const CARD_GUARANTEE_LABELS: Record<string, string> = {
+  requires_card: 'Card needed',
+  card_saved: 'Card on file · not charged',
+  released: 'Not charged',
+  charged: 'Charged',
+  failed: 'Charge failed',
+  refunded: 'Refunded',
+};
+
+/** e.g. "$50.00 · Card on file · not charged" — null when the booking has no fee. */
+export function formatNoShowFeeLabel(r: ReservationTimingFields): string | null {
+  const fee = r.noShowFeeCents ?? 0;
+  if (fee <= 0) return null;
+  const status = CARD_GUARANTEE_LABELS[r.cardGuaranteeStatus ?? ''];
+  return [usd(fee), status].filter(Boolean).join(' · ');
 }
 
 /** Past visits can be reviewed even if managers never flipped status to completed. */
@@ -70,17 +109,30 @@ export function canLeaveReview(r: {
   return false;
 }
 
+function slotStartMs(r: ReservationTimingFields): number {
+  const t = new Date(r.slotStart).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+function bySlotStartAsc(a: ReservationTimingFields, b: ReservationTimingFields): number {
+  return slotStartMs(a) - slotStartMs(b);
+}
+
+function bySlotStartDesc(a: ReservationTimingFields, b: ReservationTimingFields): number {
+  return slotStartMs(b) - slotStartMs(a);
+}
+
 export function filterReservationsBySegment<T extends ReservationTimingFields>(
   reservations: T[],
   segment: ReservationListSegment,
 ): T[] {
   switch (segment) {
     case 'upcoming':
-      return reservations.filter(isReservationUpcoming);
+      return reservations.filter(isReservationUpcoming).sort(bySlotStartAsc);
     case 'past':
-      return reservations.filter(isReservationPast);
+      return reservations.filter(isReservationPast).sort(bySlotStartDesc);
     case 'deposit':
-      return reservations.filter(needsDepositPayment);
+      return reservations.filter(needsDepositPayment).sort(bySlotStartAsc);
     default:
       return reservations;
   }

@@ -193,7 +193,8 @@ export async function awardDepositPoints(input: {
   depositAmountCents: number;
   depositStatus: string;
 }) {
-  if (input.depositStatus !== 'authorized' || input.depositAmountCents <= 0) return 0;
+  const paid = input.depositStatus === 'captured' || input.depositStatus === 'authorized';
+  if (!paid || input.depositAmountCents <= 0) return 0;
 
   const program = await getLoyaltyProgram();
   const points = depositPointsFromCents(

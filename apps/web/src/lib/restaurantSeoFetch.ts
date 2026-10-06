@@ -30,6 +30,7 @@ export type RestaurantSeoData = {
   reviewCount: number;
   depositRequired: boolean;
   depositAmountCents: number;
+  depositPolicy?: string | null;
   dietaryTags: string[];
   amenities: string[];
   meals: string[];
@@ -135,6 +136,7 @@ const RESTAURANT_PAGE_QUERY = `
       isFavorite
       depositRequired
       depositAmountCents
+      depositPolicy
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints

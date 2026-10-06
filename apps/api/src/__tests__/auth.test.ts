@@ -2,7 +2,15 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 import mongoose from 'mongoose';
 import request from 'supertest';
 import { createTestApp, graphqlRequest, registerUser, loginUser } from './helpers.js';
-import { hashOpaqueToken, hashPassword } from '../services/auth.js';
+import {
+  attachDinerProfilePhone,
+  completeGoogleSignIn,
+  hashOpaqueToken,
+  hashPassword,
+  issueTokens,
+  linkGoogleAccount,
+  updateMyProfile,
+} from '../services/auth.js';
 import { User } from '../models/User.js';
 import crypto from 'node:crypto';
 
@@ -52,12 +60,33 @@ describe('Authentication (E2E)', () => {
             password: 'SecurePass123!',
             firstName: 'Second',
             lastName: 'User',
+            phone: '+15555550999',
           },
         },
       );
 
       expect(res.body.errors).toBeDefined();
       expect(res.body.errors[0].message).toMatch(/already registered/i);
+    });
+
+    it('should fail registration without a phone number', async () => {
+      const res = await graphqlRequest(
+        agent,
+        `mutation Register($input: RegisterInput!) {
+          register(input: $input) { accessToken user { id } }
+        }`,
+        {
+          input: {
+            email: 'nophone@test.com',
+            password: 'SecurePass123!',
+            firstName: 'No',
+            lastName: 'Phone',
+          },
+        },
+      );
+
+      expect(res.body.errors).toBeDefined();
+      expect(res.body.data?.register).toBeFalsy();
     });
   });
 
@@ -421,6 +450,421 @@ describe('Authentication (E2E)', () => {
 
       expect(res.body.errors).toBeDefined();
       expect(res.body.errors[0].message).toMatch(/google sign-in/i);
+    });
+  });
+
+  describe('Profile phone on booking', () => {
+    it('saves a phone onto a diner who signed up without one', async () => {
+      const diner = await User.create({
+        email: 'google-book@test.com',
+        googleId: 'google-book-1',
+        firstName: 'Google',
+        lastName: 'Booker',
+        role: 'diner',
+        emailVerified: true,
+      });
+
+      await expect(
+        attachDinerProfilePhone(diner._id.toString()),
+      ).rejects.toThrow(/phone number is required/i);
+
+      await attachDinerProfilePhone(diner._id.toString(), '+15555550123');
+      const saved = await User.findById(diner._id);
+      expect(saved?.phone).toBe('+15555550123');
+
+      await attachDinerProfilePhone(diner._id.toString(), '+15555550987');
+      const unchanged = await User.findById(diner._id);
+      expect(unchanged?.phone).toBe('+15555550123');
+    });
+
+    it('rejects a phone already used by another account', async () => {
+      await User.create({
+        email: 'phone-owner@test.com',
+        phone: '+15555550444',
+        firstName: 'Owner',
+        lastName: 'Phone',
+        role: 'diner',
+        emailVerified: true,
+      });
+      const diner = await User.create({
+        email: 'phone-needed@test.com',
+        googleId: 'google-book-2',
+        firstName: 'Needs',
+        lastName: 'Phone',
+        role: 'diner',
+        emailVerified: true,
+      });
+
+      await expect(
+        attachDinerProfilePhone(diner._id.toString(), '+15555550444'),
+      ).rejects.toThrow(/already used/i);
+    });
+  });
+
+  describe('Update my profile', () => {
+    const UPDATE_MY_PROFILE = `
+      mutation UpdateMyProfile($input: UpdateMyProfileInput!) {
+        updateMyProfile(input: $input) {
+          id
+          email
+          phone
+          emailVerified
+          hasPassword
+          hasGoogle
+          address { line1 line2 city state zip country }
+        }
+      }
+    `;
+
+    it('updates email, phone, and address when the current password is correct', async () => {
+      const registered = await registerUser(agent, {
+        email: 'profile-edit@test.com',
+        password: 'Password123!',
+        firstName: 'Pat',
+        lastName: 'Diner',
+      });
+
+      const res = await graphqlRequest(
+        agent,
+        UPDATE_MY_PROFILE,
+        {
+          input: {
+            email: 'profile-edit-new@test.com',
+            phone: '+19995550101',
+            address: {
+              line1: '1 Main St',
+              line2: 'Apt 2',
+              city: 'Austin',
+              state: 'tx',
+              zip: '78701',
+            },
+            currentPassword: 'Password123!',
+          },
+        },
+        registered.accessToken,
+      );
+
+      expect(res.body.errors).toBeUndefined();
+      const profile = res.body.data.updateMyProfile;
+      expect(profile.email).toBe('profile-edit-new@test.com');
+      expect(profile.phone).toBe('+19995550101');
+      expect(profile.emailVerified).toBe(false);
+      expect(profile.hasPassword).toBe(true);
+      expect(profile.address).toMatchObject({
+        line1: '1 Main St',
+        line2: 'Apt 2',
+        city: 'Austin',
+        state: 'TX',
+        zip: '78701',
+        country: 'US',
+      });
+    });
+
+    it('rejects a wrong current password as a field error', async () => {
+      const registered = await registerUser(agent, {
+        email: 'profile-password@test.com',
+        password: 'Password123!',
+        firstName: 'Pat',
+        lastName: 'Diner',
+      });
+
+      const res = await graphqlRequest(
+        agent,
+        UPDATE_MY_PROFILE,
+        {
+          input: {
+            email: 'profile-password-new@test.com',
+            currentPassword: 'WrongPass1!',
+          },
+        },
+        registered.accessToken,
+      );
+
+      expect(res.body.errors?.[0]?.message).toMatch(/current password is incorrect/i);
+      expect(res.body.errors[0].extensions?.code).not.toBe('UNAUTHENTICATED');
+
+      const user = await User.findOne({ email: 'profile-password@test.com' });
+      await expect(
+        updateMyProfile(user!._id.toString(), {
+          email: 'profile-password-new@test.com',
+          currentPassword: 'WrongPass1!',
+        }),
+      ).rejects.toMatchObject({
+        code: 'VALIDATION_ERROR',
+        details: { field: 'currentPassword' },
+      });
+
+      const unchanged = await graphqlRequest(
+        agent,
+        `query Me { me { email } }`,
+        undefined,
+        registered.accessToken,
+      );
+      expect(unchanged.body.data.me.email).toBe('profile-password@test.com');
+    });
+
+    it('changes the password and signs in with the new one', async () => {
+      await registerUser(agent, {
+        email: 'profile-reset@test.com',
+        password: 'Password123!',
+        firstName: 'Pat',
+        lastName: 'Diner',
+      });
+      const loggedIn = await loginUser(agent, 'profile-reset@test.com', 'Password123!');
+
+      const res = await graphqlRequest(
+        agent,
+        UPDATE_MY_PROFILE,
+        {
+          input: {
+            currentPassword: 'Password123!',
+            newPassword: 'NewPassword1!',
+          },
+        },
+        loggedIn.accessToken,
+      );
+      expect(res.body.errors).toBeUndefined();
+
+      const oldLogin = await graphqlRequest(agent, `
+        mutation Login($input: LoginInput!) {
+          login(input: $input) { accessToken }
+        }
+      `, { input: { email: 'profile-reset@test.com', password: 'Password123!' } });
+      expect(oldLogin.body.errors).toBeDefined();
+
+      const next = await loginUser(agent, 'profile-reset@test.com', 'NewPassword1!');
+      expect(next.accessToken).toBeTruthy();
+    });
+
+    it('rejects an email or phone already used by another account', async () => {
+      await registerUser(agent, {
+        email: 'profile-taken@test.com',
+        password: 'Password123!',
+        firstName: 'Taken',
+        lastName: 'User',
+        phone: '+19995550102',
+      });
+      const registered = await registerUser(agent, {
+        email: 'profile-free@test.com',
+        password: 'Password123!',
+        firstName: 'Free',
+        lastName: 'User',
+      });
+
+      const emailRes = await graphqlRequest(
+        agent,
+        UPDATE_MY_PROFILE,
+        {
+          input: {
+            email: 'profile-taken@test.com',
+            currentPassword: 'Password123!',
+          },
+        },
+        registered.accessToken,
+      );
+      expect(emailRes.body.errors?.[0]?.message).toMatch(/already registered/i);
+      const freeUser = await User.findOne({ email: 'profile-free@test.com' });
+      await expect(
+        updateMyProfile(freeUser!._id.toString(), {
+          email: 'profile-taken@test.com',
+          currentPassword: 'Password123!',
+        }),
+      ).rejects.toMatchObject({
+        code: 'CONFLICT',
+        details: { field: 'email' },
+      });
+
+      const phoneRes = await graphqlRequest(
+        agent,
+        UPDATE_MY_PROFILE,
+        { input: { phone: '+19995550102' } },
+        registered.accessToken,
+      );
+      expect(phoneRes.body.errors?.[0]?.message).toMatch(/already used/i);
+      await expect(
+        updateMyProfile(freeUser!._id.toString(), { phone: '+19995550102' }),
+      ).rejects.toMatchObject({
+        code: 'CONFLICT',
+        details: { field: 'phone' },
+      });
+    });
+
+    it('lets a passwordless Google account set a password and clear phone and address', async () => {
+      const diner = await User.create({
+        email: 'profile-google@test.com',
+        googleId: 'google-profile-1',
+        phone: '+19995550103',
+        firstName: 'Google',
+        lastName: 'Diner',
+        role: 'diner',
+        emailVerified: true,
+        address: {
+          line1: '9 Old Rd',
+          city: 'Austin',
+          state: 'TX',
+          zip: '78702',
+          country: 'US',
+        },
+      });
+      const { accessToken } = await issueTokens(diner);
+
+      const blockedEmail = await graphqlRequest(
+        agent,
+        UPDATE_MY_PROFILE,
+        { input: { email: 'profile-google-new@test.com' } },
+        accessToken,
+      );
+      expect(blockedEmail.body.errors?.[0]?.message).toMatch(/google sign-in is linked/i);
+      expect(blockedEmail.body.errors?.[0]?.extensions?.code).not.toBe('UNAUTHENTICATED');
+      await expect(
+        updateMyProfile(diner._id.toString(), { email: 'profile-google-new@test.com' }),
+      ).rejects.toMatchObject({
+        code: 'VALIDATION_ERROR',
+        details: { field: 'email' },
+      });
+
+      const saved = await graphqlRequest(
+        agent,
+        UPDATE_MY_PROFILE,
+        {
+          input: {
+            newPassword: 'NewPassword1!',
+            address: {
+              line1: '9 Old Rd',
+              city: 'Austin',
+              state: 'TX',
+              zip: '78702',
+            },
+          },
+        },
+        accessToken,
+      );
+      expect(saved.body.errors).toBeUndefined();
+      expect(saved.body.data.updateMyProfile.hasPassword).toBe(true);
+      expect(saved.body.data.updateMyProfile.hasGoogle).toBe(true);
+      expect(saved.body.data.updateMyProfile.email).toBe('profile-google@test.com');
+
+      const cleared = await graphqlRequest(
+        agent,
+        UPDATE_MY_PROFILE,
+        { input: { phone: '', clearAddress: true } },
+        accessToken,
+      );
+      expect(cleared.body.errors).toBeUndefined();
+      expect(cleared.body.data.updateMyProfile.phone).toBeNull();
+      expect(cleared.body.data.updateMyProfile.address).toBeNull();
+
+      const stored = await User.findById(diner._id);
+      expect(stored?.phone).toBeFalsy();
+      expect(stored?.address?.line1).toBeFalsy();
+      expect(stored?.passwordHash).toBeTruthy();
+      expect(stored?.email).toBe('profile-google@test.com');
+    });
+
+    it('unlinks Google after a password exists and then allows email changes', async () => {
+      const diner = await User.create({
+        email: 'profile-unlink@test.com',
+        googleId: 'google-unlink-1',
+        firstName: 'Google',
+        lastName: 'Unlink',
+        role: 'diner',
+        emailVerified: true,
+      });
+      const { accessToken } = await issueTokens(diner);
+
+      await expect(
+        updateMyProfile(diner._id.toString(), { unlinkGoogle: true }),
+      ).rejects.toMatchObject({
+        code: 'VALIDATION_ERROR',
+        details: { field: 'newPassword' },
+      });
+
+      const unlinked = await graphqlRequest(
+        agent,
+        UPDATE_MY_PROFILE,
+        {
+          input: {
+            newPassword: 'EmailPass1!',
+            unlinkGoogle: true,
+            email: 'profile-unlinked@test.com',
+          },
+        },
+        accessToken,
+      );
+      expect(unlinked.body.errors).toBeUndefined();
+      expect(unlinked.body.data.updateMyProfile.hasGoogle).toBe(false);
+      expect(unlinked.body.data.updateMyProfile.hasPassword).toBe(true);
+      expect(unlinked.body.data.updateMyProfile.email).toBe('profile-unlinked@test.com');
+
+      const stored = await User.findById(diner._id);
+      expect(stored?.googleId).toBeFalsy();
+      expect(stored?.passwordHash).toBeTruthy();
+      expect(stored?.email).toBe('profile-unlinked@test.com');
+    });
+
+    it('does not auto-relink Google on sign-in after unlink; linkGoogle requires matching email', async () => {
+      const diner = await User.create({
+        email: 'profile-relink@test.com',
+        passwordHash: await hashPassword('EmailPass1!'),
+        firstName: 'Relink',
+        lastName: 'User',
+        role: 'diner',
+        emailVerified: true,
+      });
+
+      await expect(
+        completeGoogleSignIn({
+          sub: 'google-relink-1',
+          email: 'profile-relink@test.com',
+          email_verified: true,
+          given_name: 'Relink',
+          family_name: 'User',
+        }),
+      ).rejects.toMatchObject({
+        code: 'CONFLICT',
+        details: { field: 'email' },
+      });
+
+      await expect(
+        linkGoogleAccount(diner._id.toString(), {
+          sub: 'google-relink-1',
+          email: 'other@test.com',
+          email_verified: true,
+        }),
+      ).rejects.toMatchObject({
+        code: 'VALIDATION_ERROR',
+        details: { field: 'email' },
+      });
+
+      await expect(
+        linkGoogleAccount(diner._id.toString(), {
+          sub: 'google-relink-1',
+          email: 'profile-relink@test.com',
+          email_verified: false,
+        }),
+      ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+
+      const linked = await linkGoogleAccount(diner._id.toString(), {
+        sub: 'google-relink-1',
+        email: 'profile-relink@test.com',
+        email_verified: true,
+      });
+      expect(linked.googleId).toBe('google-relink-1');
+
+      const signedIn = await completeGoogleSignIn({
+        sub: 'google-relink-1',
+        email: 'profile-relink@test.com',
+        email_verified: true,
+      });
+      expect(signedIn.user._id.toString()).toBe(diner._id.toString());
+      expect(signedIn.accessToken).toBeTruthy();
+    });
+
+    it('requires authentication', async () => {
+      const res = await graphqlRequest(agent, UPDATE_MY_PROFILE, {
+        input: { phone: '+19995550109' },
+      });
+      expect(res.body.errors?.[0]?.message).toMatch(/authentication required/i);
     });
   });
 });

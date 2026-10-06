@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, View } from "react-native";
 import {
   KeyboardAwareScrollView,
@@ -23,6 +23,11 @@ import {
 } from "@/features/notifications";
 import { useAuth } from "@/graphql";
 import { tomorrowIsoDate } from "@/lib/helpers/date-time.helpers";
+import {
+  formatPhoneDisplay,
+  isValidUsPhone,
+  toE164Us,
+} from "@/lib/helpers/phone.helpers";
 import { useAppStore } from "@/store";
 import { previewBookingManualApproval } from "@reservations/shared";
 
@@ -53,7 +58,12 @@ export function BookingFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refreshMe } = useAuth();
+  const needsProfilePhone = Boolean(user) && !user?.phone?.trim();
+  const [profilePhone, setProfilePhone] = useState("");
+  const [profilePhoneError, setProfilePhoneError] = useState<string | null>(
+    null,
+  );
   const discovery = useAppStore((s) => s.discovery);
   const setDiscovery = useAppStore((s) => s.setDiscovery);
 
@@ -92,6 +102,7 @@ export function BookingFeature() {
     hasOccasionGatedPackages,
     experiences,
     privateSpaces,
+    privateDiningSpaceId,
     restaurantLoyaltyBalance,
     maxBookablePartySize,
     partyTooLarge,
@@ -103,9 +114,25 @@ export function BookingFeature() {
     partySize: form.partySize,
     occasion: form.occasion,
     selectedSlot: form.selectedSlot,
+    selectedPrivateSpaceId: form.selectedPrivateSpaceId,
     step: form.step,
     userId: user?.id,
   });
+
+  useEffect(() => {
+    if (
+      privateDiningSpaceId &&
+      !form.selectedPrivateSpaceId &&
+      privateSpaces.some((s) => s.id === privateDiningSpaceId)
+    ) {
+      form.setSelectedPrivateSpaceId(privateDiningSpaceId);
+    }
+  }, [
+    privateDiningSpaceId,
+    privateSpaces,
+    form.selectedPrivateSpaceId,
+    form.setSelectedPrivateSpaceId,
+  ]);
 
   useBookingSelectionSync({
     availabilityLoading,
@@ -152,6 +179,7 @@ export function BookingFeature() {
       ? selectedTable.requiresManualApproval === true
       : undefined,
     candidateTableFlags: tables.map((t) => t.requiresManualApproval),
+    allowGuestTableSelection: restaurant?.allowGuestTableSelection === true,
   });
   const approvalNotice = restaurant
     ? bookingApprovalNotice(approvalPreview, restaurant.name)
@@ -248,6 +276,9 @@ export function BookingFeature() {
     selectedPrivateSpaceId: form.selectedPrivateSpaceId,
     selectedExperienceId: form.selectedExperienceId,
     termsAccepted: form.termsAccepted,
+    profilePhone: needsProfilePhone ? toE164Us(profilePhone) : undefined,
+    onProfilePhoneError: setProfilePhoneError,
+    refreshProfile: refreshMe,
     slots,
     refetchAvailability,
     persistDraft,
@@ -484,6 +515,16 @@ export function BookingFeature() {
             onRedeemPointsChange={form.setRedeemPoints}
             onRedeemRestaurantPointsChange={form.setRedeemRestaurantPoints}
             approvalNotice={approvalNotice}
+            profilePhone={needsProfilePhone ? profilePhone : undefined}
+            profilePhoneError={profilePhoneError}
+            onProfilePhoneChange={
+              needsProfilePhone
+                ? (value) => {
+                    setProfilePhone(value);
+                    setProfilePhoneError(null);
+                  }
+                : undefined
+            }
           />
         )}
       </KeyboardAwareScrollView>
@@ -513,14 +554,26 @@ export function BookingFeature() {
                 justifyContent="space-between"
               >
                 <Typography size="text-sm" color="secondary">
-                  Hold amount
+                  Due now
                 </Typography>
                 <Typography size="text-md" weight="bold">
                   {formatCents(finalDepositCents)}
                 </Typography>
               </Flex>
             ) : null}
-            <Button fullWidth size="xl" onPress={openConfirm}>
+            <Button
+              fullWidth
+              size="xl"
+              onPress={() => {
+                if (needsProfilePhone && !isValidUsPhone(profilePhone)) {
+                  setProfilePhoneError(
+                    "Enter a valid US number, e.g. (212) 555-1234",
+                  );
+                  return;
+                }
+                openConfirm();
+              }}
+            >
               Review booking
             </Button>
           </Flex>
@@ -538,8 +591,14 @@ export function BookingFeature() {
         partySize={form.partySize}
         occasion={form.occasion}
         notes={form.notes}
+        phone={
+          needsProfilePhone && isValidUsPhone(profilePhone)
+            ? formatPhoneDisplay(profilePhone)
+            : undefined
+        }
         tableName={selectedTable?.name}
         depositCents={finalDepositCents}
+        noShowFeeCents={depositBreakdown.noShowFeeCents}
         termsAccepted={form.termsAccepted}
         onTermsAcceptedChange={form.setTermsAccepted}
         errorMessage={submitError}

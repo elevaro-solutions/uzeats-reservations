@@ -28,6 +28,27 @@ export function refId(value: unknown): string {
   return asString === '[object Object]' ? '' : asString;
 }
 
+function mapDinerAddress(address: {
+  line1?: string | null;
+  line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+  country?: string | null;
+  neighborhood?: string | null;
+} | null | undefined) {
+  if (!address?.line1 || !address.city || !address.state || !address.zip) return null;
+  return {
+    line1: address.line1,
+    line2: address.line2 ?? null,
+    city: address.city,
+    state: address.state,
+    zip: address.zip,
+    country: address.country || 'US',
+    neighborhood: address.neighborhood ?? null,
+  };
+}
+
 export function mapUser(u: any) {
   const visits = u.loyaltyCompletedVisits ?? 0;
   const tier = resolveLoyaltyTier(visits, peekLoyaltyProgram().tiers);
@@ -35,6 +56,10 @@ export function mapUser(u: any) {
     id: id(u),
     email: u.email ?? null,
     phone: u.phone ?? null,
+    avatarUrl: u.avatarUrl ?? null,
+    address: mapDinerAddress(u.address),
+    hasPassword: Boolean(u.hasPassword ?? u.passwordHash),
+    hasGoogle: Boolean(u.hasGoogle ?? u.googleId),
     firstName: u.firstName,
     lastName: u.lastName ?? '',
     role: u.role,
@@ -75,6 +100,7 @@ export function mapRestaurant(r: any) {
     ownerId: r.ownerId.toString(),
     depositRequired: r.depositRequired,
     depositAmountCents: r.depositAmountCents,
+    depositPolicy: r.depositPolicy ?? 'card_guarantee',
     averageRating: r.averageRating ?? 0,
     reviewCount: r.reviewCount ?? 0,
     featured: r.featured ?? false,
@@ -221,6 +247,8 @@ export function mapTable(t: any) {
     combineGroupId: t.combineGroupId ?? null,
     photoUrl: t.photoUrl ?? null,
     requiresManualApproval: t.requiresManualApproval === true,
+    depositRequired: t.depositRequired === true,
+    depositAmountCents: t.depositAmountCents ?? 0,
   };
 }
 
@@ -258,6 +286,11 @@ export function mapReservation(r: any, clientSecret?: string | null) {
       (r.depositAmountCents ?? 0) - (r.depositRefundedCents ?? 0),
     ),
     depositStatus: r.depositStatus,
+    noShowFeeCents: r.noShowFeeCents ?? 0,
+    cardGuaranteeStatus: r.cardGuaranteeStatus ?? 'none',
+    noShowFeeReason: r.noShowFeeReason ?? null,
+    noShowFeeChargedAt: r.noShowFeeChargedAt ?? null,
+    noShowFeeError: r.noShowFeeError ?? null,
     clientSecret: clientSecret ?? null,
     loyaltyPointsEarned: r.loyaltyPointsEarned,
     loyaltyPointsRedeemed: r.loyaltyPointsRedeemed,
@@ -598,6 +631,7 @@ export function mapPrivateDiningSpace(s: any) {
     amenities: s.amenities ?? [],
     active: s.active,
     requiresManualApproval: s.requiresManualApproval === true,
+    tableIds: (s.tableIds ?? []).map((id: { toString(): string }) => id.toString()),
     createdAt: s.createdAt,
   };
 }

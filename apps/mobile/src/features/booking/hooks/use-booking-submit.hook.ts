@@ -9,11 +9,12 @@ import { useLoyaltyProgram } from "@/lib/use-loyalty-program";
 import {
   getGraphQLErrorCode,
   getGraphQLErrorMessage,
+  getGraphQLFieldErrors,
   getValidationIssues,
   toFieldErrors,
 } from "@/lib/graphql-errors";
 
-import { CONFIRM_DEPOSIT, CREATE_RESERVATION } from "../api/booking.operations";
+import { CONFIRM_DEPOSIT, CREATE_RESERVATION, ABANDON_INCOMPLETE_BOOKING } from "../api/booking.operations";
 import { clearBookingDraft } from "../helpers/booking-draft.helpers";
 import { isSlotStillAvailable } from "../helpers/booking-validation.helpers";
 import type { AvailabilitySlot, RestaurantBookingInfo } from "../types";
@@ -32,6 +33,7 @@ type CreateReservationPayload = {
       partySize: number;
       depositAmountCents?: number | null;
       depositStatus?: string | null;
+      cardGuaranteeStatus?: string | null;
     } | null;
   };
 };
@@ -55,6 +57,10 @@ export type UseBookingSubmitParams = {
   selectedPrivateSpaceId: string | null;
   selectedExperienceId: string | null;
   termsAccepted: boolean;
+  /** E.164 phone collected when the signed-in diner has none on their profile. */
+  profilePhone?: string;
+  onProfilePhoneError?: (message: string) => void;
+  refreshProfile?: () => Promise<void>;
   slots: AvailabilitySlot[];
   refetchAvailability: () => Promise<{
     data?: { availability?: AvailabilitySlot[] } | null;
@@ -95,6 +101,9 @@ export function useBookingSubmit(
     selectedPrivateSpaceId,
     selectedExperienceId,
     termsAccepted,
+    profilePhone,
+    onProfilePhoneError,
+    refreshProfile,
     slots,
     refetchAvailability,
     persistDraft,
@@ -111,7 +120,10 @@ export function useBookingSubmit(
 
   const [createReservation, { loading: creating }] =
     useMutation<CreateReservationPayload>(CREATE_RESERVATION);
-  const [confirmDeposit] = useMutation(CONFIRM_DEPOSIT);
+  const [confirmDeposit] = useMutation(CONFIRM_DEPOSIT, {
+    refetchQueries: [{ query: MY_RESERVATIONS }],
+  });
+  const [abandonIncompleteBooking] = useMutation(ABANDON_INCOMPLETE_BOOKING);
 
   const openConfirm = useCallback(() => {
     if (!user) {
@@ -199,10 +211,14 @@ export function useBookingSubmit(
             ...(selectedExperienceId
               ? { experienceId: selectedExperienceId }
               : {}),
+            ...(profilePhone ? { phone: profilePhone } : {}),
           },
         },
-        refetchQueries: [{ query: MY_RESERVATIONS }],
       });
+
+      if (profilePhone) {
+        await refreshProfile?.().catch(() => undefined);
+      }
 
       const payload = result?.createReservation;
       const reservation = payload?.reservation;
@@ -220,16 +236,18 @@ export function useBookingSubmit(
           merchantName: restaurant.name,
         });
         if (!payment.paid) {
-          // Keep draft so the diner can resume details if they leave pay-later.
+          try {
+            await abandonIncompleteBooking({
+              variables: { id: reservation.id },
+            });
+          } catch {
+            // expire job will release the table if this fails
+          }
           setSubmitError(
             payment.error ??
-              "Payment was not completed. You can pay from your reservations.",
+              "Card was not saved. Your table is not reserved until you complete this step.",
           );
           setConfirmOpen(false);
-          router.push({
-            pathname: "/reservations/[id]",
-            params: { id: reservation.id },
-          });
           return;
         }
 
@@ -240,17 +258,20 @@ export function useBookingSubmit(
           // webhook may reconcile
         }
       } else if (
-        depositAmountCents > 0 &&
-        depositStatus === "requires_payment"
+        (depositAmountCents > 0 && depositStatus === "requires_payment") ||
+        reservation.cardGuaranteeStatus === "requires_card"
       ) {
+        try {
+          await abandonIncompleteBooking({
+            variables: { id: reservation.id },
+          });
+        } catch {
+          // expire job will release the table if this fails
+        }
         setSubmitError(
-          "Payment could not be started. You can pay from your reservations.",
+          "Payment could not be started. Try booking again.",
         );
         setConfirmOpen(false);
-        router.push({
-          pathname: "/reservations/[id]",
-          params: { id: reservation.id },
-        });
         return;
       }
 
@@ -261,11 +282,21 @@ export function useBookingSubmit(
         params: { reservationId: reservation.id },
       });
     } catch (err) {
+      const fieldErrors = getGraphQLFieldErrors(err);
+      if (fieldErrors.phone) {
+        onProfilePhoneError?.(fieldErrors.phone);
+        setConfirmOpen(false);
+        setSubmitError(fieldErrors.phone);
+        return;
+      }
+      if (profilePhone) {
+        void refreshProfile?.();
+      }
       const issues = getValidationIssues(err);
       if (issues.length > 0) {
-        const fieldErrors = toFieldErrors(issues);
+        const issueErrors = toFieldErrors(issues);
         setSubmitError(
-          Object.values(fieldErrors)[0] ??
+          Object.values(issueErrors)[0] ??
             "Please fix the highlighted fields and try again.",
         );
         return;
@@ -301,6 +332,9 @@ export function useBookingSubmit(
     selectedPackageId,
     selectedPrivateSpaceId,
     selectedExperienceId,
+    profilePhone,
+    onProfilePhoneError,
+    refreshProfile,
     clearError,
     payDeposit,
     confirmDeposit,

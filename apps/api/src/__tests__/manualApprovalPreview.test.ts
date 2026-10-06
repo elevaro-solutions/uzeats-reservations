@@ -58,11 +58,31 @@ describe('previewBookingManualApproval', () => {
     expect(
       previewBookingManualApproval({ restaurant: off, partySize: 2, candidateTableFlags: [true, true] }),
     ).toBe('required');
+    // Auto-assign prefers non-approval tables, so mixed candidates are none.
     expect(
       previewBookingManualApproval({ restaurant: off, partySize: 2, candidateTableFlags: [true, false] }),
-    ).toBe('possible');
+    ).toBe('none');
     expect(
       previewBookingManualApproval({ restaurant: off, partySize: 2, candidateTableFlags: [] }),
+    ).toBe('none');
+  });
+
+  it('keeps possible only when guests can pick among mixed tables', () => {
+    expect(
+      previewBookingManualApproval({
+        restaurant: off,
+        partySize: 2,
+        candidateTableFlags: [true, false],
+        allowGuestTableSelection: true,
+      }),
+    ).toBe('possible');
+    expect(
+      previewBookingManualApproval({
+        restaurant: off,
+        partySize: 2,
+        candidateTableFlags: [true, false],
+        allowGuestTableSelection: false,
+      }),
     ).toBe('none');
   });
 });

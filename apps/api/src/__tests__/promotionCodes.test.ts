@@ -78,6 +78,7 @@ describe('Promotion codes at booking', () => {
     await Restaurant.findByIdAndUpdate(restaurantId, {
       depositRequired: true,
       depositAmountCents: 2000,
+      depositPolicy: 'prepaid',
     });
 
     await Promotion.create({

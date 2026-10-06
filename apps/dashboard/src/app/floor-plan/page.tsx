@@ -96,7 +96,12 @@ import {
   PUBLISH_FLOOR_PLAN,
 } from '@/lib/graphql';
 import PhotoUpload from '@/components/PhotoUpload';
-import { findAreaName, TableFormFields } from '@/components/TableFormFields';
+import {
+  findAreaName,
+  TableFormFields,
+  tableDepositInput,
+  type TableDepositFormValues,
+} from '@/components/TableFormFields';
 import {
   DEFAULT_CELL_SIZE,
   FLOOR_GRID_COLS,
@@ -193,14 +198,18 @@ type Interaction = MoveInteraction | ResizeInteraction | RotateInteraction | Mar
 
 function tableInputFrom(t: FloorTable, overrides: Partial<FloorTable> = {}) {
   const next = { ...t, ...overrides };
+  const minCapacity = Math.min(next.minCapacity, next.maxCapacity);
+  const maxCapacity = Math.max(next.minCapacity, next.maxCapacity);
   return {
     name: next.name,
-    minCapacity: next.minCapacity,
-    maxCapacity: next.maxCapacity,
+    minCapacity,
+    maxCapacity,
     floorArea: next.floorArea,
     combinable: next.combinable,
     active: next.active,
     requiresManualApproval: next.requiresManualApproval ?? false,
+    depositRequired: next.depositRequired ?? false,
+    depositAmountCents: next.depositAmountCents ?? 0,
     photoUrl: next.photoUrl ?? null,
     shape: next.shape,
     rotation: next.rotation ?? 0,
@@ -369,11 +378,20 @@ function TableDetailsPanel({
             <InputNumber
               size="small"
               min={1}
-              max={50}
+              max={selected.maxCapacity}
               value={selected.minCapacity}
               style={{ width: '100%' }}
-              onChange={(v) => v && onUpdate({ minCapacity: v })}
-              onBlur={() => void onSaveMeta({ minCapacity: selected.minCapacity })}
+              onChange={(v) => {
+                if (v == null) return;
+                const minCapacity = Math.min(Math.max(1, v), selected.maxCapacity);
+                onUpdate({ minCapacity });
+              }}
+              onBlur={() =>
+                void onSaveMeta({
+                  minCapacity: selected.minCapacity,
+                  maxCapacity: selected.maxCapacity,
+                })
+              }
             />
           </div>
           <div>
@@ -382,12 +400,21 @@ function TableDetailsPanel({
             </FieldLabel>
             <InputNumber
               size="small"
-              min={1}
+              min={selected.minCapacity}
               max={50}
               value={selected.maxCapacity}
               style={{ width: '100%' }}
-              onChange={(v) => v && onUpdate({ maxCapacity: v })}
-              onBlur={() => void onSaveMeta({ maxCapacity: selected.maxCapacity })}
+              onChange={(v) => {
+                if (v == null) return;
+                const maxCapacity = Math.max(Math.min(50, v), selected.minCapacity);
+                onUpdate({ maxCapacity });
+              }}
+              onBlur={() =>
+                void onSaveMeta({
+                  minCapacity: selected.minCapacity,
+                  maxCapacity: selected.maxCapacity,
+                })
+              }
             />
           </div>
         </div>
@@ -513,6 +540,43 @@ function TableDetailsPanel({
             void onSaveMeta({ requiresManualApproval });
           }}
         />
+        <SwitchRow
+          label="Require deposit"
+          tip="Charge a per-guest deposit for this table instead of the restaurant default. When off, the restaurant deposit setting applies."
+          checked={Boolean(selected.depositRequired)}
+          onChange={(depositRequired) => {
+            onUpdate({ depositRequired });
+            void onSaveMeta({ depositRequired });
+          }}
+        />
+        {selected.depositRequired ? (
+          <div style={{ padding: '2px 0 6px' }}>
+            <FieldLabel tip="Deposit charged per guest when this table is booked, in USD">
+              Deposit per guest (USD)
+            </FieldLabel>
+            <InputNumber
+              size="small"
+              min={0}
+              max={10_000}
+              precision={2}
+              prefix="$"
+              value={selected.depositAmountCents ? selected.depositAmountCents / 100 : null}
+              placeholder="0.00"
+              style={{ width: '100%' }}
+              onChange={(v) =>
+                onUpdate({ depositAmountCents: Math.round((Number(v) || 0) * 100) })
+              }
+              onBlur={() =>
+                void onSaveMeta({ depositAmountCents: selected.depositAmountCents ?? 0 })
+              }
+            />
+            {!(selected.depositAmountCents && selected.depositAmountCents > 0) ? (
+              <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+                Uses the restaurant default until a price is set.
+              </Text>
+            ) : null}
+          </div>
+        ) : null}
         {selected.combineGroupId && (
           <Tag color="purple" style={{ marginTop: 4 }}>
             Linked group · {selected.combineGroupId.slice(0, 8)}
@@ -619,6 +683,10 @@ export default function FloorPlanPage() {
   const interactionRef = useRef<Interaction | null>(null);
   const cellSizeRef = useRef(DEFAULT_CELL_SIZE);
   const dragCommittedRef = useRef(false);
+  /** Restaurant id whose snapshot is currently loaded into the editor. */
+  const loadedRestaurantIdRef = useRef<string | null>(null);
+  /** When true, the next FLOOR_PLAN_TABLES `data` update fully rehydrates the editor. */
+  const forceHydrateRef = useRef(false);
 
   snapshotRef.current = snapshot;
   const areaFilterRef = useRef(areaFilter);
@@ -673,11 +741,25 @@ export default function FloorPlanPage() {
 
   useEffect(() => {
     setCustomFloorAreas([]);
+    loadedRestaurantIdRef.current = null;
+    forceHydrateRef.current = false;
   }, [activeRestaurantId]);
 
   useEffect(() => {
     const restaurant = data?.restaurant;
     if (!restaurant) return;
+
+    // updateTable / createTable / deleteTable rewrite the Apollo cache for this query.
+    // Rehydrating on every cache write clears selection and wipes unsaved layout edits
+    // (blur after changing min/max looked like "click outside deselected the table").
+    if (
+      loadedRestaurantIdRef.current === restaurant.id &&
+      !forceHydrateRef.current
+    ) {
+      return;
+    }
+    forceHydrateRef.current = false;
+
     const liveTables = mapLoadedTables(restaurant.tables ?? []);
     const draft = restaurant.floorPlanDraft;
     const tables = draft?.positions?.length
@@ -723,6 +805,7 @@ export default function FloorPlanPage() {
       areaAppearances,
       scale,
     };
+    loadedRestaurantIdRef.current = restaurant.id;
     historyRef.current.reset(cloneSnapshot(next));
     setSnapshot(next);
     setSelectedIds([]);
@@ -1283,6 +1366,7 @@ export default function FloorPlanPage() {
       historyRef.current.reset(cloneSnapshot(snapshotRef.current));
       syncHistoryFlags();
       message.success('Layout published');
+      forceHydrateRef.current = true;
       await refetch();
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Failed to publish layout');
@@ -1611,6 +1695,8 @@ export default function FloorPlanPage() {
       combinable: false,
       active: true,
       requiresManualApproval: false,
+      depositRequired: false,
+      depositAmount: null,
       photoUrl: [],
     });
     setTableModalOpen(true);
@@ -1626,7 +1712,7 @@ export default function FloorPlanPage() {
     active?: boolean;
     requiresManualApproval?: boolean;
     photoUrl?: string[];
-  }) => {
+  } & TableDepositFormValues) => {
     if (!activeRestaurantId) return;
     const floorArea = values.floorArea?.trim() || 'Main';
     const shape = normalizeTableShape(values.shape);
@@ -1646,6 +1732,7 @@ export default function FloorPlanPage() {
       combinable: values.combinable ?? false,
       active: values.active ?? true,
       requiresManualApproval: values.requiresManualApproval ?? false,
+      ...tableDepositInput(values),
       photoUrl: values.photoUrl?.[0] ?? null,
       posX: preferred.posX,
       posY: preferred.posY,
@@ -1677,6 +1764,8 @@ export default function FloorPlanPage() {
         combineGroupId: created.combineGroupId ?? null,
         photoUrl: input.photoUrl,
         requiresManualApproval: input.requiresManualApproval,
+        depositRequired: input.depositRequired,
+        depositAmountCents: input.depositAmountCents,
       };
       commitSnapshot({
         ...snapshotRef.current,

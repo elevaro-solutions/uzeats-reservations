@@ -11,6 +11,7 @@ export type ReservationStatusPillProps = {
   slotEnd?: string | null;
   depositStatus?: string | null;
   depositAmountCents?: number | null;
+  cardGuaranteeStatus?: string | null;
   requiresManualApproval?: boolean | null;
 };
 
@@ -41,6 +42,7 @@ export function ReservationStatusPill({
   slotEnd,
   depositStatus,
   depositAmountCents,
+  cardGuaranteeStatus,
   requiresManualApproval,
 }: ReservationStatusPillProps) {
   const display = displayReservationStatus({
@@ -49,6 +51,7 @@ export function ReservationStatusPill({
     slotEnd,
     depositStatus,
     depositAmountCents,
+    cardGuaranteeStatus,
     requiresManualApproval,
   });
 

@@ -12,6 +12,8 @@ const privateDiningSpaceSchema = new Schema(
     photoUrl: { type: String },
     amenities: [{ type: String }],
     active: { type: Boolean, default: true },
+    /** Floor-plan tables that inventory this room (auto-created when empty). */
+    tableIds: [{ type: Schema.Types.ObjectId, ref: 'Table' }],
     /** When true, bookings for this space need staff confirmation. */
     requiresManualApproval: { type: Boolean, default: false },
   },
@@ -20,9 +22,10 @@ const privateDiningSpaceSchema = new Schema(
 
 privateDiningSpaceSchema.index({ restaurantId: 1, active: 1 });
 
-export type PrivateDiningSpaceDocument = InferSchemaType<typeof privateDiningSpaceSchema> & {
-  _id: mongoose.Types.ObjectId;
-};
+export type PrivateDiningSpaceDocument = InferSchemaType<typeof privateDiningSpaceSchema> &
+  mongoose.Document & {
+    _id: mongoose.Types.ObjectId;
+  };
 
 export const PrivateDiningSpace: Model<PrivateDiningSpaceDocument> =
   mongoose.models.PrivateDiningSpace ??
@@ -56,9 +59,10 @@ const privateDiningInquirySchema = new Schema(
 privateDiningInquirySchema.index({ restaurantId: 1, status: 1 });
 privateDiningInquirySchema.index({ dinerId: 1 });
 
-export type PrivateDiningInquiryDocument = InferSchemaType<typeof privateDiningInquirySchema> & {
-  _id: mongoose.Types.ObjectId;
-};
+export type PrivateDiningInquiryDocument = InferSchemaType<typeof privateDiningInquirySchema> &
+  mongoose.Document & {
+    _id: mongoose.Types.ObjectId;
+  };
 
 export const PrivateDiningInquiry: Model<PrivateDiningInquiryDocument> =
   mongoose.models.PrivateDiningInquiry ??

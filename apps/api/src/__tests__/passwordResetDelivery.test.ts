@@ -62,15 +62,15 @@ describe('password reset request limits', () => {
 
   it(`allows ${MAX_PASSWORD_RESET_REQUESTS} requests then asks the user to contact support`, async () => {
     let count = 0;
-    vi.spyOn(PasswordResetAttempt, 'findOne').mockImplementation(async () => {
+    vi.spyOn(PasswordResetAttempt, 'findOne').mockImplementation((async () => {
       if (count === 0) return null;
       return {
         email: 'limit@test.com',
         count,
         windowStartedAt: new Date(),
       } as any;
-    });
-    vi.spyOn(PasswordResetAttempt, 'findOneAndUpdate').mockImplementation(async (_filter, update) => {
+    }) as any);
+    vi.spyOn(PasswordResetAttempt, 'findOneAndUpdate').mockImplementation((async (_filter: unknown, update: unknown) => {
       if (update && typeof update === 'object' && '$set' in update) {
         count = 1;
         return { email: 'limit@test.com', count: 1, windowStartedAt: new Date() } as any;
@@ -80,7 +80,7 @@ describe('password reset request limits', () => {
         return { email: 'limit@test.com', count, windowStartedAt: new Date() } as any;
       }
       return null;
-    });
+    }) as any);
 
     const first = await requestPasswordReset('limit@test.com', 'web');
     expect(first.attemptsUsed).toBe(1);

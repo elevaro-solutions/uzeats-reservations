@@ -22,7 +22,7 @@ import { Restaurant } from '../models/Restaurant.js';
 import { Table } from '../models/Table.js';
 import { mapNotificationPreferences } from '../lib/notificationPreferences.js';
 import { releaseTableSlotClaims } from './tableSlotClaims.js';
-import { captureDeposit } from './stripe.js';
+import { captureLegacyHold } from './bookingPayments.js';
 import { sendTelegramNotification } from './telegram.js';
 import {
   emailButton,
@@ -247,6 +247,7 @@ async function sendViaSendGrid(
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) {
     const errText = await res.text();
@@ -348,6 +349,10 @@ export async function notifyUser(
     title: string;
     body: string;
     htmlBody?: string;
+    /** Email subject. Push, SMS, and the inbox keep `title`. */
+    emailSubject?: string;
+    /** Plain-text email body. Push, SMS, and the inbox keep `body`. */
+    emailText?: string;
     attachments?: Array<{
       filename: string;
       contentBase64: string;
@@ -423,7 +428,7 @@ export async function notifyUser(
       if (channel === 'in_app') {
         // Inbox item only — no external delivery.
       } else if (channel === 'email' && user.email) {
-        await sendEmail(user.email, payload.title, payload.body, {
+        await sendEmail(user.email, payload.emailSubject ?? payload.title, payload.emailText ?? payload.body, {
           htmlBody: payload.htmlBody,
           attachments: payload.attachments,
         });
@@ -658,21 +663,36 @@ export function startNotificationWorkers() {
 
         const reservation = await Reservation.findById(reservationId);
         if (!reservation || !['confirmed', 'pending'].includes(reservation.status)) return;
-        const restaurant = await Restaurant.findById(reservation.restaurantId);
+        const [restaurant, diner] = await Promise.all([
+          Restaurant.findById(reservation.restaurantId),
+          User.findById(reservation.dinerId).select('firstName'),
+        ]);
         const when = formatDateTimeInTimeZone(
           reservation.slotStart,
           restaurantTimeZone(restaurant ?? {}),
         );
         const lead = formatReminderLead(minutes);
         const askLate = minutes <= REMINDER_LATE_CHECK_MAX_MINUTES;
+        const { renderReservationReminderEmail } = await import('./reminderEmail.js');
+        const reminderEmail = await renderReservationReminderEmail({
+          firstName: diner?.firstName,
+          restaurantName: restaurant?.name ?? 'Restaurant',
+          when,
+          partySize: reservation.partySize,
+          reservationId,
+          askLate,
+        });
         await notifyUser(
           reservation.dinerId.toString(),
           {
             type: 'reservation_reminder',
             title: `Reservation in ${lead}`,
+            emailSubject: reminderEmail.subject,
             body: askLate
               ? `Reminder: ${restaurant?.name ?? 'Restaurant'} at ${when}. Are you running late?`
               : `Reminder: ${restaurant?.name ?? 'Restaurant'} at ${when}`,
+            htmlBody: reminderEmail.htmlBody,
+            emailText: reminderEmail.emailText,
             data: {
               reservationId,
               minutes,
@@ -691,10 +711,9 @@ export function startNotificationWorkers() {
         const reservation = await Reservation.findById(reservationId);
         if (reservation?.status === 'confirmed') {
           reservation.status = 'no_show';
-          if (reservation.stripePaymentIntentId && reservation.depositStatus === 'authorized') {
-            await captureDeposit(reservation.stripePaymentIntentId);
-            reservation.depositStatus = 'captured';
-          }
+          // Card-guarantee fees are left for staff to charge: an unclosed booking is
+          // often a host who never marked the party seated, not a real no-show.
+          await captureLegacyHold(reservation);
           await reservation.save();
           await releaseTableSlotClaims(reservation._id);
         }

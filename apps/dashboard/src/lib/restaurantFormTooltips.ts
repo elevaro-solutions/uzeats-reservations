@@ -26,8 +26,12 @@ export const restaurantFieldTooltips = {
   priceRange: 'Approximate price level from $ (inexpensive) to $$$$ (fine dining).',
   lat: 'Latitude in decimal degrees (−90 to 90). Used for map search. Example: 40.7128.',
   lng: 'Longitude in decimal degrees (−180 to 180). Used for map search. Example: −74.006.',
-  depositRequired: 'When on, guests must pay a per-guest deposit to hold the reservation.',
-  depositAmountCents: 'Deposit charged per guest, in USD (e.g. 25.00 = $25.00).',
+  depositRequired:
+    'Restaurant-wide default. When on, guests must leave a card (card guarantee) or pay upfront (prepaid) to hold the reservation. Individual tables can set their own amount on the floor plan.',
+  depositAmountCents:
+    'Default amount per guest, in USD (e.g. 25.00 = $25.00). Tables with their own deposit use that amount instead.',
+  depositPolicy:
+    'Card guarantee (recommended, OpenTable/Resy style): the card is saved and nothing is charged; the amount is charged only for a no-show or a cancellation within 24 hours. Prepaid: charged at booking, applied to the bill, refunded if the guest cancels 24+ hours ahead.',
   loyaltyEnabled:
     'Run a loyalty program for this restaurant. Guests earn points per completed visit and can redeem against deposits.',
   loyaltyPointsPerVisit: 'Points awarded when a guest completes a visit at your restaurant.',

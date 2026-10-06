@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Checkbox, Descriptions, Modal, Typography, type DescriptionsProps } from 'antd';
-import type { BookingApprovalPreview } from '@reservations/shared';
+import { noShowFeePolicyText, prepaymentPolicyText, type BookingApprovalPreview } from '@reservations/shared';
 import { resolveRestaurantTerms } from '@/lib/restaurantTerms';
 
 const { Text, Paragraph, Link } = Typography;
@@ -14,10 +14,14 @@ export type ReservationConfirmDetails = {
   occasionLabel: string;
   guestName?: string;
   guestEmail?: string;
+  guestPhone?: string;
   notes?: string;
   tableName?: string;
   tableFloorArea?: string;
+  /** Charged at booking (after discounts). */
   depositCents: number;
+  /** Card guarantee: charged only on no-show / late cancel. */
+  noShowFeeCents?: number;
   packageTitle?: string;
   packagePriceCents?: number;
   privateDiningSpaceName?: string;
@@ -38,6 +42,7 @@ type Props = {
   termsAndConditions?: string | null;
   depositRequired?: boolean;
   depositAmountCents?: number;
+  depositPolicy?: string | null;
   approvalPreview?: BookingApprovalPreview;
   details: ReservationConfirmDetails;
   /** Shown inside the modal so booking failures stay visible over the confirm UI */
@@ -62,6 +67,7 @@ export function ReservationConfirmModal({
   termsAndConditions,
   depositRequired,
   depositAmountCents,
+  depositPolicy,
   approvalPreview = 'none',
   details,
   error,
@@ -86,6 +92,7 @@ export function ReservationConfirmModal({
     termsAndConditions,
     depositRequired,
     depositAmountCents,
+    depositPolicy,
   });
   const termsParagraphs = termsText.split(/\n\s*\n/).filter(Boolean);
 
@@ -137,6 +144,9 @@ export function ReservationConfirmModal({
   if (details.guestEmail) {
     items.push({ key: 'email', label: 'Email', children: details.guestEmail });
   }
+  if (details.guestPhone) {
+    items.push({ key: 'phone', label: 'Phone', children: details.guestPhone });
+  }
   if (details.tableName) {
     items.push({
       key: 'table',
@@ -152,8 +162,29 @@ export function ReservationConfirmModal({
   if (details.depositCents > 0) {
     items.push({
       key: 'deposit',
-      label: 'Deposit due',
-      children: <Text strong>{formatUsd(details.depositCents)}</Text>,
+      label: 'Due now',
+      children: (
+        <>
+          <Text strong>{formatUsd(details.depositCents)}</Text>
+          <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+            {prepaymentPolicyText()}
+          </Text>
+        </>
+      ),
+    });
+  }
+  if (details.noShowFeeCents && details.noShowFeeCents > 0) {
+    items.push({
+      key: 'no-show-fee',
+      label: 'Card guarantee',
+      children: (
+        <>
+          <Text strong>{formatUsd(details.noShowFeeCents)} no-show fee</Text>
+          <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+            {noShowFeePolicyText(details.noShowFeeCents)}
+          </Text>
+        </>
+      ),
     });
   }
   if (details.promoDiscountCents && details.promoDiscountCents > 0) {

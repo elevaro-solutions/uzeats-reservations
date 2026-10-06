@@ -18,6 +18,7 @@ import {
 } from "../helpers/booking-validation.helpers";
 import {
   getMaxBookablePartySize,
+  inferPrivateDiningSpaceIdForParty,
   isPartyTooLarge,
 } from "../helpers/max-bookable-party-size.helpers";
 import {
@@ -51,6 +52,7 @@ export type UseBookingDataParams = {
   partySize: number;
   occasion?: string;
   selectedSlot: string | null;
+  selectedPrivateSpaceId?: string | null;
   step: BookingStep;
   userId: string | undefined;
 };
@@ -61,6 +63,7 @@ export function useBookingData({
   partySize,
   occasion = "none",
   selectedSlot,
+  selectedPrivateSpaceId = null,
   step,
   userId,
 }: UseBookingDataParams) {
@@ -79,12 +82,36 @@ export function useBookingData({
   const restaurant = restaurantData?.restaurant;
   const minAdvanceHours = restaurant?.bookingWindow?.minAdvanceHours ?? 0;
 
+  const { data: privateSpacesData } = useQuery<{
+    privateDiningSpaces: PrivateDiningSpace[];
+  }>(PRIVATE_DINING_SPACES, {
+    variables: { restaurantId },
+    skip: !restaurantId,
+  });
+
+  const allPrivateSpaces = privateSpacesData?.privateDiningSpaces ?? [];
+  const privateDiningSpaceId = useMemo(
+    () =>
+      inferPrivateDiningSpaceIdForParty(
+        partySize,
+        restaurant?.tables,
+        allPrivateSpaces,
+        selectedPrivateSpaceId,
+      ),
+    [partySize, restaurant?.tables, allPrivateSpaces, selectedPrivateSpaceId],
+  );
+
   const {
     data: availabilityData,
     loading: availabilityLoading,
     refetch: refetchAvailability,
   } = useQuery<{ availability: AvailabilitySlot[] }>(BOOKING_AVAILABILITY, {
-    variables: { restaurantId, date, partySize },
+    variables: {
+      restaurantId,
+      date,
+      partySize,
+      privateDiningSpaceId: privateDiningSpaceId || undefined,
+    },
     skip: !restaurantId || !restaurant?.reservationsVisible || restaurant?.reservationsEnabled === false,
     fetchPolicy: "cache-and-network",
   });
@@ -103,6 +130,7 @@ export function useBookingData({
       restaurantId,
       slotStart: selectedSlot,
       partySize,
+      privateDiningSpaceId: privateDiningSpaceId || undefined,
     },
     skip: !restaurantId || !selectedSlot || step !== "details",
     fetchPolicy: "no-cache",
@@ -119,13 +147,6 @@ export function useBookingData({
     experiences: { items: BookableExperience[] };
   }>(EXPERIENCES, {
     variables: { restaurantId, upcoming: true, limit: 20 },
-    skip: !restaurantId || step !== "details",
-  });
-
-  const { data: privateSpacesData } = useQuery<{
-    privateDiningSpaces: PrivateDiningSpace[];
-  }>(PRIVATE_DINING_SPACES, {
-    variables: { restaurantId },
     skip: !restaurantId || step !== "details",
   });
 
@@ -188,8 +209,8 @@ export function useBookingData({
     restaurantLoyaltyData?.myRestaurantLoyaltyBalance ?? 0;
 
   const maxBookablePartySize = useMemo(
-    () => getMaxBookablePartySize(restaurant?.tables),
-    [restaurant?.tables],
+    () => getMaxBookablePartySize(restaurant?.tables, allPrivateSpaces),
+    [restaurant?.tables, allPrivateSpaces],
   );
   const partyTooLarge = isPartyTooLarge(partySize, maxBookablePartySize);
 
@@ -217,6 +238,7 @@ export function useBookingData({
     hasOccasionGatedPackages,
     experiences,
     privateSpaces,
+    privateDiningSpaceId,
     restaurantLoyaltyBalance,
     maxBookablePartySize,
     partyTooLarge,

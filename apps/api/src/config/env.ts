@@ -17,6 +17,8 @@ if (fs.existsSync(apiEnvPath)) {
   const local = dotenv.parse(fs.readFileSync(apiEnvPath));
   for (const [key, value] of Object.entries(local)) {
     if (value === '') continue;
+    // Vitest setup blanks secrets (e.g. Stripe) on purpose; a dev .env must not re-enable them.
+    if (process.env.NODE_ENV === 'test' && key in process.env) continue;
     process.env[key] = value;
   }
 }

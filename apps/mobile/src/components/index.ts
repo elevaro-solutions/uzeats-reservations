@@ -3,6 +3,8 @@ export { Typography } from "./typography";
 export { Button } from "./button";
 export { IconButton } from "./icon-button";
 export { Input } from "./input";
+export { PhoneField } from "./phone-field";
+export type { PhoneFieldProps } from "./phone-field";
 export { Chip } from "./chip";
 export { SegmentedControl } from "./segmented-control";
 export type {

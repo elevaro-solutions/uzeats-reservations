@@ -41,14 +41,74 @@ export const passwordSchema = z
   .regex(/[A-Z]/, "Password must include an uppercase letter")
   .regex(/\d/, "Password must include a number");
 
-export const phoneSchema = z.string().regex(/^\+?[1-9]\d{7,14}$/);
+export const phoneSchema = z
+  .string()
+  .regex(/^\+?[1-9]\d{7,14}$/, "Enter a valid phone number");
+
+function blankToUndefined(value: unknown) {
+  if (typeof value === "string" && value.trim() === "") return undefined;
+  return value;
+}
+
+/** Home address a diner can store on their account. US street address. */
+export const dinerAddressSchema = z.object({
+  line1: z.string().trim().min(1, "Enter a street address").max(120),
+  line2: z.preprocess(
+    blankToUndefined,
+    z.string().trim().max(120).optional(),
+  ),
+  city: z.string().trim().min(1, "Enter a city").max(80),
+  state: z
+    .string()
+    .trim()
+    .regex(/^[a-z]{2}$/i, "Use a 2-letter state code")
+    .transform((value) => value.toUpperCase()),
+  zip: z
+    .string()
+    .trim()
+    .regex(/^\d{5}(-\d{4})?$/, "Enter a 5-digit ZIP code"),
+  country: z.preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() ? value : "US",
+    z
+      .string()
+      .trim()
+      .regex(/^[a-z]{2}$/i, "Use a 2-letter country code")
+      .transform((value) => value.toUpperCase()),
+  ),
+});
+
+export const updateMyProfileSchema = z.object({
+  firstName: z.string().trim().min(1, "Enter your first name").max(80).nullish(),
+  lastName: z.string().trim().min(1, "Enter your last name").max(80).nullish(),
+  /** Empty string removes the photo. Omit the field to leave it unchanged. */
+  avatarUrl: z.union([z.string().url(), z.literal("")]).nullish(),
+  email: emailSchema.nullish(),
+  /** Empty string clears the phone. Omit the field to leave it unchanged. */
+  phone: z.union([phoneSchema, z.literal("")]).nullish(),
+  address: dinerAddressSchema.nullish(),
+  clearAddress: z.boolean().nullish(),
+  currentPassword: z.preprocess(
+    blankToUndefined,
+    z.string().min(1).max(128).nullish(),
+  ),
+  newPassword: z.preprocess(blankToUndefined, passwordSchema.nullish()),
+  /**
+   * Unlink Google sign-in. Requires an existing password or `newPassword` in
+   * the same request so the diner is not locked out.
+   */
+  unlinkGoogle: z.boolean().nullish(),
+});
+
+export type UpdateMyProfileInput = z.infer<typeof updateMyProfileSchema>;
+export type DinerAddress = z.infer<typeof dinerAddressSchema>;
 
 export const registerSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
   firstName: z.string().min(1).max(80),
   lastName: z.string().min(1).max(80),
-  phone: phoneSchema.optional(),
+  phone: phoneSchema,
   referralCode: z.string().min(4).max(20).optional(),
 });
 
@@ -151,6 +211,8 @@ export const restaurantInputSchema = z.object({
     .transform((v) => (v === "" ? null : v)),
   depositRequired: z.boolean().default(false),
   depositAmountCents: z.number().int().min(0).default(0),
+  // No default: partial updates must not flip an existing restaurant's policy.
+  depositPolicy: z.enum(["card_guarantee", "prepaid"]).optional(),
   loyaltyEnabled: z.boolean().default(false),
   loyaltyPointsPerVisit: z.number().int().min(0).default(50),
   loyaltyMinRedeemPoints: z.number().int().min(0).default(200),
@@ -271,24 +333,32 @@ export const floorPlanSaveInputSchema = z.object({
   scale: floorPlanScaleSchema.nullable().optional(),
 });
 
-export const tableInputSchema = z.object({
-  name: z.string().min(1).max(40),
-  minCapacity: z.number().int().min(1).max(50),
-  maxCapacity: z.number().int().min(1).max(50),
-  floorArea: z.string().max(60).default("Main"),
-  combinable: z.boolean().default(false),
-  active: z.boolean().default(true),
-  photoUrl: z.string().url().optional().nullable(),
-  requiresManualApproval: z.boolean().optional().default(false),
-  // No defaults: `updateTable` reuses this schema and must not reset the layout.
-  posX: z.number().min(0).max(500).optional(),
-  posY: z.number().min(0).max(500).optional(),
-  width: z.number().min(1).max(24).optional(),
-  height: z.number().min(1).max(24).optional(),
-  shape: tableShapeSchema.optional(),
-  rotation: z.number().min(0).max(360).optional(),
-  combineGroupId: z.string().min(1).max(80).nullable().optional(),
-});
+export const tableInputSchema = z
+  .object({
+    name: z.string().min(1).max(40),
+    minCapacity: z.number().int().min(1).max(50),
+    maxCapacity: z.number().int().min(1).max(50),
+    floorArea: z.string().max(60).default("Main"),
+    combinable: z.boolean().default(false),
+    active: z.boolean().default(true),
+    photoUrl: z.string().url().optional().nullable(),
+    requiresManualApproval: z.boolean().optional().default(false),
+    // No defaults: `updateTable` reuses this schema and must not reset the layout
+    // or the per-table deposit override.
+    depositRequired: z.boolean().optional(),
+    depositAmountCents: z.number().int().min(0).max(1_000_000).optional(),
+    posX: z.number().min(0).max(500).optional(),
+    posY: z.number().min(0).max(500).optional(),
+    width: z.number().min(1).max(24).optional(),
+    height: z.number().min(1).max(24).optional(),
+    shape: tableShapeSchema.optional(),
+    rotation: z.number().min(0).max(360).optional(),
+    combineGroupId: z.string().min(1).max(80).nullable().optional(),
+  })
+  .refine((data) => data.minCapacity <= data.maxCapacity, {
+    message: "Min guests cannot be greater than max guests",
+    path: ["minCapacity"],
+  });
 
 export const shiftInputSchema = z.object({
   name: z.string().min(1).max(60),
@@ -339,6 +409,8 @@ export const reservationInputSchema = z.object({
   landingPath: optionalAttributionString(500),
   originUrl: optionalAttributionString(1000),
   referrer: optionalAttributionString(1000),
+  /** Saved onto the diner profile when they have no phone yet (Google sign-in). */
+  phone: phoneSchema.optional(),
 });
 
 export const restaurantPackageInputSchema = z.object({

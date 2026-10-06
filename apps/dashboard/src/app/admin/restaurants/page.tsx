@@ -79,7 +79,8 @@ import {
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { isPlatformAdmin, isSuperAdmin } from '@/lib/roles';
 import { getPublicWebUrl } from '@/lib/webUrl';
-import { buildRestaurantBookingUrl } from '@reservations/shared';
+import { buildRestaurantBookingUrl, resolveDepositPolicy } from '@reservations/shared';
+import { DepositPolicyField } from '@/components/DepositPolicyField';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { useUrlListFilters } from '@/lib/useUrlListFilters';
 import { buildMenuSectionsFromImport } from '@/lib/importedMenu';
@@ -483,6 +484,7 @@ function AdminRestaurantsContent() {
     logoUrl: logoUrl ?? null,
     depositRequired: Boolean(values.depositRequired),
     depositAmountCents: Math.round((Number(values.depositAmountCents) || 0) * 100),
+    depositPolicy: resolveDepositPolicy(values.depositPolicy as string | undefined),
     loyaltyEnabled: Boolean(values.loyaltyEnabled),
     loyaltyPointsPerVisit: Number(values.loyaltyPointsPerVisit) || 50,
     loyaltyMinRedeemPoints: Number(values.loyaltyMinRedeemPoints) || 200,
@@ -538,6 +540,7 @@ function AdminRestaurantsContent() {
         'lng',
         'depositRequired',
         'depositAmountCents',
+        'depositPolicy',
         'loyaltyEnabled',
         'loyaltyPointsPerVisit',
         'loyaltyMinRedeemPoints',
@@ -1339,6 +1342,9 @@ function AdminRestaurantsContent() {
                 >
                   <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
                 </Form.Item>
+                </Col>
+                <Col span={24}>
+                  <DepositPolicyField />
                 </Col>
                 <Col span={12}>
                   <Form.Item

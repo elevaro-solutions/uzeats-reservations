@@ -6,6 +6,7 @@ import {
   RESTAURANT_LOYALTY,
   PLATFORM_TIMEZONE,
   depositPointsFromCents,
+  resolveBookingCharges,
   buildRestaurantBookingPath,
   formatTimeInTimeZone,
   todayIsoInTimeZone,
@@ -363,10 +364,10 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
     body.append(promoField);
 
     if (state.restaurant) {
-      const depositCents =
-        state.restaurant.depositRequired && state.restaurant.depositAmountCents > 0
-          ? state.restaurant.depositAmountCents * state.partySize
-          : 0;
+      const depositCents = resolveBookingCharges({
+        restaurant: state.restaurant,
+        partySize: state.partySize,
+      }).prepaidGrossCents;
       const depositPts = depositPointsFromCents(depositCents);
       const earnParts = [`${LOYALTY.POINTS_PER_COMPLETED_VISIT} pts on visit completion`];
       if (depositPts > 0) earnParts.push(`${depositPts} pts on deposit`);

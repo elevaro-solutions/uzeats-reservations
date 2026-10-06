@@ -4,6 +4,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { CheckIcon } from "@/assets";
 import { Flex, RemoteImage, Typography } from "@/components";
 
+import { formatCents } from "../helpers/booking-pricing.helpers";
 import type { BookableTable } from "../types";
 
 export type BookingTablePickerProps = {
@@ -73,6 +74,11 @@ export function BookingTablePicker({
                   {table.requiresManualApproval ? (
                     <Typography size="text-xs" weight="medium" color="warning">
                       Needs restaurant approval
+                    </Typography>
+                  ) : null}
+                  {table.depositRequired && (table.depositAmountCents ?? 0) > 0 ? (
+                    <Typography size="text-xs" color="secondary">
+                      Deposit {formatCents(table.depositAmountCents ?? 0)} per guest
                     </Typography>
                   ) : null}
                 </Flex>

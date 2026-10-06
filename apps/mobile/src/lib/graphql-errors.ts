@@ -89,6 +89,7 @@ export function getGraphQLFieldErrors(error: unknown): Record<string, string> {
 
   if (!field) {
     if (/email already registered/i.test(message)) field = "email";
+    else if (/account already exists with this email/i.test(message)) field = "email";
     else if (/invalid referral code/i.test(message)) field = "referralCode";
     else if (/invalid credentials/i.test(message)) field = "password";
     else if (/uses google sign-in/i.test(message)) field = "email";

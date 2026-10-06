@@ -40,6 +40,8 @@ const restaurantSchema = new Schema(
     ownerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     depositRequired: { type: Boolean, default: false },
     depositAmountCents: { type: Number, default: 0 },
+    /** `card_guarantee`: deposit is a no-show fee on a saved card. `prepaid`: charged at booking. */
+    depositPolicy: { type: String, enum: ['card_guarantee', 'prepaid'], default: 'card_guarantee' },
     averageRating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
     useSmartAssign: { type: Boolean, default: true },

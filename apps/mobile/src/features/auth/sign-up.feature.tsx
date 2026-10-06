@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { StyleSheet } from "react-native-unistyles";
 
-import { Button, Flex, InlineAlert, Input, Typography } from "@/components";
+import { Button, Flex, InlineAlert, Input, PhoneField, Typography } from "@/components";
 import { useAuth } from "@/graphql";
 
 import { AuthScreen } from "./components/auth-screen.component";
@@ -40,6 +40,7 @@ export function SignUpFeature() {
     defaultValues: {
       fullName: "",
       email: "",
+      phone: "",
       password: "",
       agreedToTerms: false,
     },
@@ -65,7 +66,7 @@ export function SignUpFeature() {
   return (
     <AuthScreen
       title="Create your account"
-      subtitle="Provide your name, email, and password to get started with Tablevera."
+      subtitle="Provide your name, email, phone, and password to get started with Tablevera."
       footer={
         <Typography align="center" size="text-sm" color="secondary">
           Already have an account?{" "}
@@ -82,15 +83,18 @@ export function SignUpFeature() {
       }
     >
       <GoogleSignInButton
-        onError={setFormError}
+        onError={(message) => {
+          setFormError(message);
+          if (/account already exists with this email/i.test(message)) {
+            setError("email", { type: "server", message });
+          }
+        }}
         onSuccess={async (idToken) => {
           setFormError(null);
           await loginWithGoogle(idToken);
           finish();
         }}
       />
-
-      <OrDivider />
 
       {formError ? (
         <InlineAlert
@@ -99,6 +103,8 @@ export function SignUpFeature() {
           onDismiss={() => setFormError(null)}
         />
       ) : null}
+
+      <OrDivider />
 
       <Flex gap={2}>
         <Controller
@@ -138,6 +144,24 @@ export function SignUpFeature() {
               textContentType="emailAddress"
               error={Boolean(errors.email)}
               helperText={errors.email?.message}
+            />
+          )}
+        />
+
+        <Controller
+          control={control}
+          name="phone"
+          render={({ field: { onChange, onBlur, value } }) => (
+            <PhoneField
+              required
+              value={value}
+              onBlur={onBlur}
+              onChangeText={onChange}
+              error={Boolean(errors.phone)}
+              helperText={
+                errors.phone?.message ??
+                "Saved on your profile and used for reservation updates."
+              }
             />
           )}
         />

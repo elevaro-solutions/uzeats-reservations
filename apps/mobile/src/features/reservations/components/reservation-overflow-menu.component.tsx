@@ -35,6 +35,7 @@ export type ReservationOverflowMenuProps = {
   slotEnd?: string | null;
   depositStatus?: string | null;
   depositAmountCents?: number | null;
+  cardGuaranteeStatus?: string | null;
   requiresManualApproval?: boolean | null;
 };
 
@@ -78,6 +79,7 @@ export function ReservationOverflowMenu({
   slotEnd,
   depositStatus,
   depositAmountCents,
+  cardGuaranteeStatus,
   requiresManualApproval,
 }: ReservationOverflowMenuProps) {
   const { theme } = useUnistyles();
@@ -122,6 +124,7 @@ export function ReservationOverflowMenu({
               slotEnd={slotEnd}
               depositStatus={depositStatus}
               depositAmountCents={depositAmountCents}
+              cardGuaranteeStatus={cardGuaranteeStatus}
               requiresManualApproval={requiresManualApproval}
             />
           </Flex>

@@ -126,13 +126,22 @@ export async function getBookableTables(params: {
   partySize: number;
   slotStart: Date;
   slotEnd: Date;
+  /** Restrict to these tables (private dining). */
+  tableIds?: string[];
 }) {
-  const tables = await Table.find({
+  const tableFilter: Record<string, unknown> = {
     restaurantId: params.restaurantId,
     active: true,
     minCapacity: { $lte: params.partySize },
     maxCapacity: { $gte: params.partySize },
-  }).sort({ name: 1 });
+  };
+  if (params.tableIds && params.tableIds.length > 0) {
+    tableFilter._id = { $in: params.tableIds };
+  } else {
+    tableFilter.privateDiningOnly = { $ne: true };
+  }
+
+  const tables = await Table.find(tableFilter).sort({ name: 1 });
 
   const existing = await Reservation.find({
     restaurantId: params.restaurantId,

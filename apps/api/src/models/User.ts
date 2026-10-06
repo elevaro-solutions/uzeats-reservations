@@ -36,11 +36,25 @@ const notificationPreferencesSchema = new Schema(
   { _id: false },
 );
 
+const dinerAddressSchema = new Schema(
+  {
+    line1: { type: String, trim: true },
+    line2: { type: String, trim: true },
+    city: { type: String, trim: true },
+    state: { type: String, trim: true },
+    zip: { type: String, trim: true },
+    country: { type: String, trim: true, default: 'US' },
+  },
+  { _id: false },
+);
+
 const userSchema = new Schema(
   {
     email: { type: String, sparse: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String },
     phone: { type: String, sparse: true, unique: true },
+    avatarUrl: { type: String, trim: true },
+    address: { type: dinerAddressSchema },
     firstName: { type: String, required: true, trim: true },
     lastName: { type: String, trim: true },
     role: {
@@ -81,6 +95,11 @@ const userSchema = new Schema(
     passwordResetExpires: { type: Date },
     emailVerificationToken: { type: String },
     emailVerificationExpires: { type: Date },
+    /** Diner Stripe customers for saved booking cards, one per Stripe mode (ids differ between test and live). */
+    stripeCustomerIds: {
+      test: { type: String },
+      live: { type: String },
+    },
   },
   { timestamps: true },
 );

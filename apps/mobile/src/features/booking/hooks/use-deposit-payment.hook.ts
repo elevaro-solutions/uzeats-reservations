@@ -13,11 +13,18 @@ export function extractPaymentIntentId(clientSecret: string): string {
   return idx > 0 ? clientSecret.slice(0, idx) : clientSecret;
 }
 
-/** True when the API returned a local/dev stub PaymentIntent secret. */
+/** True when the API returned a local/dev stub PaymentIntent / SetupIntent secret. */
 export function isStubClientSecret(clientSecret: string): boolean {
   return (
-    clientSecret.startsWith("pi_stub_") || clientSecret.startsWith("pi_dev_")
+    clientSecret.startsWith("pi_stub_") ||
+    clientSecret.startsWith("pi_dev_") ||
+    clientSecret.startsWith("seti_dev_")
   );
+}
+
+/** Card-guarantee bookings return a SetupIntent: save the card, charge nothing. */
+export function isSetupClientSecret(clientSecret: string): boolean {
+  return clientSecret.startsWith("seti_");
 }
 
 export type PayDepositResult = {
@@ -63,8 +70,11 @@ export function useDepositPayment(): UseDepositPaymentResult {
 
       setPaying(true);
       try {
+        const intentSecret = isSetupClientSecret(clientSecret)
+          ? { setupIntentClientSecret: clientSecret }
+          : { paymentIntentClientSecret: clientSecret };
         const { error: initError } = await initPaymentSheet({
-          paymentIntentClientSecret: clientSecret,
+          ...intentSecret,
           merchantDisplayName: merchantName,
           allowsDelayedPaymentMethods: false,
           returnURL: "tablevera://stripe-redirect",

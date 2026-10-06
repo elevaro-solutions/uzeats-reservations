@@ -203,6 +203,8 @@ export const MY_RESERVATIONS = gql`
       guestNotes
       depositAmountCents
       depositStatus
+      noShowFeeCents
+      cardGuaranteeStatus
       loyaltyPointsEarned
       hasReview
       packageTitle
@@ -251,6 +253,10 @@ export const LOGIN = gql`
         id
         email
         phone
+        avatarUrl
+        hasPassword
+        hasGoogle
+        address { line1 line2 city state zip country }
         firstName
         lastName
         role
@@ -273,6 +279,10 @@ export const REGISTER = gql`
         id
         email
         phone
+        avatarUrl
+        hasPassword
+        hasGoogle
+        address { line1 line2 city state zip country }
         firstName
         lastName
         role
@@ -295,6 +305,10 @@ export const LOGIN_WITH_GOOGLE = gql`
         id
         email
         phone
+        avatarUrl
+        hasPassword
+        hasGoogle
+        address { line1 line2 city state zip country }
         firstName
         lastName
         role
@@ -333,6 +347,10 @@ export const ME = gql`
       id
       email
       phone
+      avatarUrl
+      hasPassword
+      hasGoogle
+      address { line1 line2 city state zip country }
       firstName
       lastName
       role

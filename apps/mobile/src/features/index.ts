@@ -5,7 +5,7 @@ export {
   EditReservationFeature,
 } from "./reservations";
 export { ReservationMessagesFeature } from "./messages";
-export { ProfileFeature } from "./profile";
+export { ProfileFeature, EditProfileFeature } from "./profile";
 export { FavoritesFeature } from "./favorites";
 export { HelpCenterFeature } from "./help-center";
 export { LegalFeature } from "./legal";

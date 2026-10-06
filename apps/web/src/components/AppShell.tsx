@@ -34,6 +34,12 @@ import {
 } from '@ant-design/icons';
 import { TableveraBrand, colors, layout, radii, typography } from '@reservations/ui';
 import {
+  browserMediaUrl,
+  buildRestaurantBookingPath,
+  isoDateInTimeZone,
+  PLATFORM_TIMEZONE,
+} from '@reservations/shared';
+import {
   COMPANY_ADDRESS_DISPLAY,
   COMPANY_PHONE,
   COMPANY_PHONE_DISPLAY,
@@ -43,7 +49,6 @@ import { useAuth } from '@/lib/auth';
 import { MY_NOTIFICATIONS, MARK_NOTIFICATIONS_READ, MARK_ALL_NOTIFICATIONS_READ } from '@/lib/graphql';
 import { skipPollWhenHidden } from '@/lib/pollVisibility';
 import { getDashboardUrl } from '@/lib/urls';
-import { buildRestaurantBookingPath, isoDateInTimeZone, PLATFORM_TIMEZONE } from '@reservations/shared';
 import { CookieConsent, openCookieSettings } from '@/components/CookieConsent';
 import { BookingAttributionCapture } from '@/components/BookingAttributionCapture';
 
@@ -328,13 +333,36 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           key: 'user',
           disabled: true,
           label: (
-            <div style={{ lineHeight: 1.3, maxWidth: 220 }}>
-              <Text strong style={{ display: 'block' }}>
-                {user.firstName} {user.lastName}
-              </Text>
-              <Text type="secondary" style={{ fontSize: 12, textTransform: 'capitalize' }}>
-                {roleLabel(user.role)}
-              </Text>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                lineHeight: 1.3,
+                maxWidth: 240,
+              }}
+            >
+              <Avatar
+                size={36}
+                src={user.avatarUrl ? browserMediaUrl(user.avatarUrl) : undefined}
+                style={{
+                  background: colors.brand[100],
+                  color: colors.brand[700],
+                  fontWeight: 600,
+                  flexShrink: 0,
+                }}
+                icon={!user.avatarUrl && !user.firstName ? <UserOutlined /> : undefined}
+              >
+                {!user.avatarUrl ? user.firstName?.[0]?.toUpperCase() : null}
+              </Avatar>
+              <div style={{ minWidth: 0 }}>
+                <Text strong style={{ display: 'block' }}>
+                  {user.firstName} {user.lastName}
+                </Text>
+                <Text type="secondary" style={{ fontSize: 12, textTransform: 'capitalize' }}>
+                  {roleLabel(user.role)}
+                </Text>
+              </div>
             </div>
           ),
         },
@@ -578,7 +606,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           items={navItems}
         />
 
-        <Space size={8} className="rt-site-header__actions">
+        <Space size={8} align="center" className="rt-site-header__actions">
           {authLoading ? (
             <div style={{ width: 120, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
               <Spin size="small" />
@@ -648,24 +676,29 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                   className="rt-site-header__account"
                 >
                   <Avatar
-                    size={32}
+                    size={30}
+                    src={user.avatarUrl ? browserMediaUrl(user.avatarUrl) : undefined}
                     style={{
                       background: 'rgba(255, 255, 255, 0.14)',
                       color: '#fff',
                       fontWeight: 600,
                       border: '1px solid rgba(255, 255, 255, 0.18)',
                     }}
-                    icon={!user.firstName ? <UserOutlined /> : undefined}
+                    icon={!user.avatarUrl && !user.firstName ? <UserOutlined /> : undefined}
                   >
-                    {user.firstName?.[0]?.toUpperCase()}
+                    {!user.avatarUrl ? user.firstName?.[0]?.toUpperCase() : null}
                   </Avatar>
-                  <div style={{ lineHeight: 1.25, textAlign: 'left' }} className="rt-header-user">
-                    <Text strong className="rt-site-header__account-name" style={{ display: 'block', fontSize: typography.fontSize.sm }}>
+                  <div className="rt-header-user">
+                    <Text
+                      strong
+                      className="rt-site-header__account-name"
+                      style={{ display: 'block', fontSize: typography.fontSize.sm }}
+                    >
                       {user.firstName}
                     </Text>
                     <Text
                       className="rt-site-header__account-role"
-                      style={{ fontSize: typography.fontSize.xs, textTransform: 'capitalize' }}
+                      style={{ display: 'block', fontSize: typography.fontSize.xs, textTransform: 'capitalize' }}
                     >
                       {roleLabel(user.role)}
                     </Text>

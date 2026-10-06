@@ -1,6 +1,8 @@
 import { emailSchema, loginSchema, passwordSchema } from "@reservations/shared";
 import { z } from "zod";
 
+import { isValidUsPhone, toE164Us } from "@/lib/helpers/phone.helpers";
+
 import { splitFullName } from "./split-full-name.helpers";
 
 export { loginSchema };
@@ -19,6 +21,13 @@ export const signUpSchema = z.object({
       message: "Enter your first and last name",
     }),
   email: emailSchema,
+  phone: z
+    .string()
+    .trim()
+    .min(1, "Enter your phone number")
+    .refine((value) => isValidUsPhone(value), {
+      message: "Enter a valid US number, e.g. (212) 555-1234",
+    }),
   password: passwordSchema,
   agreedToTerms: z
     .boolean()
@@ -38,5 +47,6 @@ export function toRegisterInput(values: SignUpFormValues) {
     password: values.password,
     firstName,
     lastName,
+    phone: toE164Us(values.phone),
   };
 }

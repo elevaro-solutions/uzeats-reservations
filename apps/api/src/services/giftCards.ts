@@ -80,6 +80,11 @@ export async function resolveGiftCardDiscount(input: {
   return { giftCard: card, discountCents };
 }
 
+export async function restoreGiftCardBalance(giftCardId: string, amountCents: number) {
+  if (amountCents <= 0) return;
+  await GiftCard.findByIdAndUpdate(giftCardId, { $inc: { balanceCents: amountCents } });
+}
+
 export async function redeemGiftCardBalance(giftCardId: string, amountCents: number) {
   const updated = await GiftCard.findOneAndUpdate(
     { _id: giftCardId, balanceCents: { $gte: amountCents } },

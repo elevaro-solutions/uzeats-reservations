@@ -548,8 +548,17 @@ html {
 }
 
 .rt-site-header__actions {
+  display: inline-flex !important;
+  align-items: center !important;
   flex-shrink: 0;
   margin-left: auto;
+  line-height: 1;
+}
+
+.rt-site-header__actions > * {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
 }
 
 .rt-site-header__cta-short {
@@ -801,10 +810,29 @@ html {
   background: rgba(255, 255, 255, 0.08);
   cursor: pointer;
   font-family: inherit;
-  height: 42px;
+  height: 40px;
+  box-sizing: border-box;
+  line-height: 1.2;
+  vertical-align: middle;
   transition:
     background 0.2s ease,
     border-color 0.2s ease;
+}
+
+.rt-site-header__account .ant-avatar {
+  flex-shrink: 0;
+  /* Avoid inherited header line-height shifting the photo */
+  line-height: 1 !important;
+}
+
+.rt-site-header__account .rt-header-user {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  min-width: 0;
+  line-height: 1.2;
+  text-align: left;
 }
 
 .rt-site-header__account:hover {
@@ -814,10 +842,14 @@ html {
 
 .rt-site-header__account-name {
   color: #fff !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
 }
 
 .rt-site-header__account-role {
   color: rgba(255, 255, 255, 0.55) !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
 }
 
 .rt-site-content {

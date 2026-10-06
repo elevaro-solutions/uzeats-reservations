@@ -27,7 +27,7 @@ import {
 } from "@/lib/graphql-errors";
 import { useAppStore } from "@/store";
 import { AddReviewSheet } from "@/features/restaurant-profile/components/add-review-sheet.component";
-import { buildReservationCancellationReason, PLATFORM_TIMEZONE } from "@reservations/shared";
+import { buildReservationCancellationReason, dinerCancelChargeWarning, PLATFORM_TIMEZONE } from "@reservations/shared";
 
 import {
   CONFIRM_DEPOSIT,
@@ -57,6 +57,7 @@ import {
   displayReservationStatus,
   formatReservationWhen,
   needsDepositPayment,
+  paymentDueActionLabel,
 } from "./helpers/reservation-display.helpers";
 
 type MyReservationQuery = {
@@ -70,6 +71,8 @@ type MyReservationQuery = {
     guestNotes?: string | null;
     depositAmountCents?: number | null;
     depositStatus?: string | null;
+    noShowFeeCents?: number | null;
+    cardGuaranteeStatus?: string | null;
     requiresManualApproval?: boolean | null;
     clientSecret?: string | null;
     loyaltyPointsEarned?: number | null;
@@ -205,7 +208,7 @@ export function ReservationDetailFeature() {
     if (!reservation?.clientSecret) {
       toast.error("Payment unavailable", {
         description:
-          "Deposit payment is not ready yet. Try again in a moment.",
+          "Payment is not ready yet. Try again in a moment.",
       });
       return;
     }
@@ -508,7 +511,7 @@ export function ReservationDetailFeature() {
             onPress={() => handlePrimary(primary)}
           >
             {primary === "pay_deposit" && depositDue
-              ? `${primaryCtaLabel(primary)} · $${((reservation.depositAmountCents ?? 0) / 100).toFixed(2)}`
+              ? paymentDueActionLabel(reservation)
               : primaryCtaLabel(primary)}
           </Button>
         </View>
@@ -527,6 +530,7 @@ export function ReservationDetailFeature() {
         slotEnd={reservation.slotEnd}
         depositStatus={reservation.depositStatus}
         depositAmountCents={reservation.depositAmountCents}
+        cardGuaranteeStatus={reservation.cardGuaranteeStatus}
         requiresManualApproval={reservation.requiresManualApproval}
       />
 
@@ -540,6 +544,8 @@ export function ReservationDetailFeature() {
         status={reservation.status}
         depositAmountCents={reservation.depositAmountCents ?? 0}
         depositStatus={reservation.depositStatus ?? "none"}
+        noShowFeeCents={reservation.noShowFeeCents ?? 0}
+        cardGuaranteeStatus={reservation.cardGuaranteeStatus}
         paying={paying}
         onPayDeposit={() => void onPayDeposit()}
       />
@@ -553,6 +559,7 @@ export function ReservationDetailFeature() {
         onDetailsChange={setCancelDetails}
         onConfirm={() => void onCancel()}
         loading={cancelling}
+        chargeWarning={dinerCancelChargeWarning(reservation)}
       />
 
       <AddReviewSheet

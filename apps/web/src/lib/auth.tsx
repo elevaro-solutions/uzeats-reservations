@@ -8,6 +8,11 @@ import { getDashboardUrl } from '@/lib/urls';
 const USER_FIELDS = `
   id
   email
+  phone
+  avatarUrl
+  hasPassword
+  hasGoogle
+  address { line1 line2 city state zip country }
   firstName
   lastName
   role
@@ -64,10 +69,23 @@ const END_IMPERSONATION = gql`
   }
 `;
 
+export type DinerAddress = {
+  line1: string;
+  line2?: string | null;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+};
+
 export type AuthUser = {
   id: string;
   email?: string | null;
   phone?: string | null;
+  avatarUrl?: string | null;
+  hasPassword?: boolean;
+  hasGoogle?: boolean;
+  address?: DinerAddress | null;
   firstName: string;
   lastName: string;
   role: string;
@@ -113,7 +131,7 @@ type AuthContextValue = {
     password: string;
     firstName: string;
     lastName: string;
-    phone?: string;
+    phone: string;
     referralCode?: string;
   }) => Promise<AuthUser>;
   logout: () => void | Promise<void>;
@@ -149,7 +167,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             session {
               isImpersonating
               user {
-                id email phone firstName lastName role emailVerified needsEmailVerification loyaltyPoints
+                id email phone avatarUrl hasPassword hasGoogle
+                address { line1 line2 city state zip country }
+                firstName lastName role emailVerified needsEmailVerification loyaltyPoints
                 loyaltyCompletedVisits loyaltyTier loyaltyTierName
                 loyaltyPointsExpireAt referralCode telegramChatId
                 notificationPreferences {
@@ -210,7 +230,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     password: string;
     firstName: string;
     lastName: string;
-    phone?: string;
+    phone: string;
     referralCode?: string;
   }) => {
     const result = await registerMutation({ variables: { input } });

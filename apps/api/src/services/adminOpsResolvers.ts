@@ -29,6 +29,7 @@ import { createRestaurantSubscription } from './restaurantSubscription.js';
 import { logAudit } from './audit.js';
 import { recomputePublicReviewStats } from './reviewStats.js';
 import { adjustPoints } from './loyalty.js';
+import { listNoShowFeeCharges } from './noShowFeeCharges.js';
 import {
   assignUserToRestaurants,
   adminCreateOwnerUser,
@@ -334,6 +335,33 @@ export const adminOpsQuery = {
   ) => {
     requireAdmin(ctx);
     return listAdminReservations(args);
+  },
+
+  adminNoShowFeeCharges: async (
+    _: unknown,
+    args: {
+      restaurantId?: string;
+      feeStatus?: string | null;
+      reason?: string | null;
+      startDate?: string | null;
+      endDate?: string | null;
+      search?: string | null;
+      limit?: number;
+      offset?: number;
+    },
+    ctx: GraphQLContext,
+  ) => {
+    requireAdmin(ctx);
+    return listNoShowFeeCharges({
+      restaurantId: args.restaurantId,
+      feeStatus: args.feeStatus,
+      reason: args.reason,
+      startDate: args.startDate,
+      endDate: args.endDate,
+      search: args.search,
+      limit: args.limit,
+      offset: args.offset,
+    });
   },
 };
 

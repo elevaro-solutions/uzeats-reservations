@@ -1,5 +1,30 @@
 # API — Learnings & Observations
 
+## [2026-10-06] Private dining availability needs `privateDiningSpaceId`
+- Regular `availability(partySize)` ignores private-room inventory (`privateDiningOnly` tables). Pass `privateDiningSpaceId` so the API ensures a backing table and returns slots for that room’s guest range.
+- Why it matters: Selecting Private room on the diner form without this arg showed “No available times” whenever min guests exceeded every normal table.
+
+## [2026-10-06] No-show fee charge list is reservation-scoped
+- `listNoShowFeeCharges` (`noShowFeeCharges.ts`) matches bookings with `noShowFeeCents > 0` and card-guarantee activity (`charged` / `refunded` / `failed`, or no-show still `card_saved` = pending). Summary aggregates ignore the feeStatus filter so cards stay global for the scope.
+- Date range uses `noShowFeeChargedAt` (not slotStart). Combining search `$or` with activity `$or` must go through `$and` or Mongo overwrites one clause. Scope `restaurantId` as ObjectId — `find` casts strings, aggregate `$match` does not, so summary cards would stay at zero.
+- Why it matters: Partner and admin fee reports (`restaurantNoShowFeeCharges` / `adminNoShowFeeCharges`) depend on this; do not reuse `restaurantReservations` slot-date periods for “when the fee was collected.”
+
+## [2026-10-06] createReservation must not await SendGrid / template sync
+- Party-of-6 at Diyor Choyxona 30 auto-assigns table DC3-4 (table deposit) → card-guarantee SetupIntent, then after pay `confirmDeposit` used to `await` `booking_pending` render + SendGrid. `getEmailTemplate` called `ensureDefaultEmailTemplates()` (two writes per built-in template) on every send, so the GraphQL mutation stayed open until Mongo + SendGrid finished — looks hung in the browser with no `[graphql] request` log until `res.finish`.
+- Fix: look up the template first; only seed defaults if missing. Fire-and-forget reminder/email after the booking is saved. SendGrid `AbortSignal.timeout(15s)`; Stripe SDK `timeout: 20s`.
+- Why it matters: Diners with a real email (not `*.local`) and a SendGrid key hit this on every booking confirmation/request mail. Retrying the same diner/restaurant/slot then hits the duplicate-reservation guard.
+
+## [2026-10-06] Booking emails are templates with a reservation button
+- Diner booking mail is `booking_confirmation`, `booking_pending`, `booking_updated`, `booking_reminder`, `booking_reminder_late`, `booking_cancelled`, `deposit_refunded`, `no_show_fee_charged`, and `no_show_fee_refunded`. Each default body includes `{{reservationUrl}}` (confirmation also has `{{calendarUrl}}`).
+- `appendEmailButtonsIfMissing` adds the button only when the saved HTML does not already contain that URL, so an older customized template still gets a link and a current one is not doubled.
+- Why it matters: Admin → Templates is the source. Restart the API so `ensureDefaultEmailTemplates` inserts new keys. A template an admin already saved is left as-is.
+
+## [2026-10-06] Reminder emails come from templates
+- 24h uses `booking_reminder`. Closer reminders (≤2h) use `booking_reminder_late` (I'm running late → `/reservations/:id?runningLate=1`, I'm on time → the reservation page). Both include `{{reservationUrl}}`.
+- The worker still sends the short one-liner on push, SMS, and the inbox. Email subject/body come from the template (`emailSubject` / `emailText` / `htmlBody`). If the saved template cannot be loaded, the built-in default is sent.
+- Uncustomized templates (`updatedById` unset) are overwritten on API boot. An admin edit sticks.
+- Why it matters: `notifyUser` `title` and `body` are shared across channels. Don't put the template subject on the push notification.
+
 ## [2026-10-03] Waitlist partner edit
 - `updateWaitlistEntry` edits waiting|notified entries (name/phone/party/quoted wait/`dinerId`; null unlinks). Reuses `resolveWalkInGuestFields`; duplicate active diner on the same date is rejected.
 - Why it matters: Status transitions alone couldn’t fix a wrong party size or quote after add.
@@ -246,3 +271,8 @@
 - Magnific stock download uses the same helper with Freepik/Magnific hosts.
 - Why it matters: Do not call `fetch(url)` for partner-supplied URLs without hop checks. Wildcard CloudFront is only safe if the final URL is re-allowlisted.
 
+
+## [2026-10-05] Tests must not see Stripe keys from `apps/api/.env`
+- `config/env.ts` lets non-empty `apps/api/.env` values override `process.env`. That re-enabled `STRIPE_SECRET_KEY_TEST`/`_LIVE` after `__tests__/setup.ts` blanked them, so the suite created real Stripe test-mode intents. Bookings then stayed `pending` instead of using the `pi_dev_` / `seti_dev_` stubs.
+- Under `NODE_ENV=test` the loader now skips keys already set in `process.env`, and setup blanks all three Stripe secret keys.
+- Why it matters: Blank any new per-mode secret in `setup.ts` too, or a local `.env` will make tests depend on network and account state.

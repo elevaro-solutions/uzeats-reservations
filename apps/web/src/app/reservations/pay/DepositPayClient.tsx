@@ -8,7 +8,9 @@ import { Button, Card, Space, Spin, Typography, message, Result } from 'antd';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CalendarOutlined } from '@ant-design/icons';
 import { PageHeader, colors, radii, shadows } from '@reservations/ui';
+import { prepaymentPolicyText } from '@reservations/shared';
 import { CONFIRM_DEPOSIT, STRIPE_CLIENT_CONFIG } from '@/lib/graphql';
+import { isCardSetupSecret } from '@/components/DepositPayment';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -18,34 +20,37 @@ function DepositForm({
   reservationId,
   paymentIntentId,
   amountCents,
+  saveCardOnly,
 }: {
   reservationId: string;
   paymentIntentId: string;
   amountCents: number;
+  saveCardOnly: boolean;
 }) {
   const stripe = useStripe();
   const elements = useElements();
   const router = useRouter();
   const [confirmDeposit] = useMutation(CONFIRM_DEPOSIT);
   const [loading, setLoading] = useState(false);
+  const [elementReady, setElementReady] = useState(false);
+  const [elementFailed, setElementFailed] = useState(false);
 
   const onPay = async () => {
     if (!stripe || !elements) return;
     setLoading(true);
     try {
-      const result = await stripe.confirmPayment({
-        elements,
-        redirect: 'if_required',
-        confirmParams: {
-          return_url: `${window.location.origin}/reservations?paid=${reservationId}`,
-        },
-      });
+      const confirmParams = {
+        return_url: `${window.location.origin}/reservations?paid=${reservationId}`,
+      };
+      const result = saveCardOnly
+        ? await stripe.confirmSetup({ elements, redirect: 'if_required', confirmParams })
+        : await stripe.confirmPayment({ elements, redirect: 'if_required', confirmParams });
       if (result.error) {
         message.error(result.error.message ?? 'Payment failed');
         return;
       }
       await confirmDeposit({ variables: { paymentIntentId } });
-      message.success('Deposit authorized — reservation confirmed');
+      message.success(saveCardOnly ? 'Card saved — reservation confirmed' : 'Payment received — reservation confirmed');
       router.push('/reservations');
     } catch (err) {
       message.error(err instanceof Error ? err.message : 'Payment failed');
@@ -56,13 +61,35 @@ function DepositForm({
 
   return (
     <div component="DepositForm" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
-      <Text>
-        Deposit due: <Text strong>${(amountCents / 100).toFixed(2)}</Text>
-      </Text>
-      <PaymentElement />
-      <Button type="primary" size="large" block loading={loading} onClick={onPay}>
-        Authorize deposit
-      </Button>
+      {!saveCardOnly ? (
+        <Text>
+          Due now: <Text strong>${(amountCents / 100).toFixed(2)}</Text>
+        </Text>
+      ) : null}
+      <PaymentElement
+        onReady={() => setElementReady(true)}
+        onLoadError={(event) => {
+          setElementFailed(true);
+          setElementReady(true);
+          message.error(event.error.message ?? 'Could not load the card form. Please try again.');
+        }}
+      />
+      {elementReady ? (
+        <Button
+          type="primary"
+          size="large"
+          block
+          loading={loading}
+          disabled={!stripe || !elements || elementFailed}
+          onClick={onPay}
+        >
+          {saveCardOnly ? 'Save card' : 'Pay now'}
+        </Button>
+      ) : (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
+          <Spin />
+        </div>
+      )}
     </Space></div>
   );
 }
@@ -74,6 +101,7 @@ export default function DepositPayPage() {
   const reservationId = search.get('reservationId') ?? '';
   const amountCents = Number(search.get('amount') ?? 0);
   const paymentIntentId = clientSecret.split('_secret')[0] ?? '';
+  const saveCardOnly = isCardSetupSecret(clientSecret);
   const { data: stripeConfig, loading: stripeLoading } = useQuery(STRIPE_CLIENT_CONFIG);
   const publishableKey =
     (stripeConfig as { stripeClientConfig?: { publishableKey?: string | null } } | undefined)
@@ -148,16 +176,18 @@ export default function DepositPayPage() {
 
   return (
     <div component="DepositPayPage" style={{ display: 'contents' }}><Card style={{ maxWidth: 520, margin: '40px auto' }}>
-      <Title level={3}>Complete your deposit</Title>
+      <Title level={3}>{saveCardOnly ? 'Hold your table with a card' : 'Complete your payment'}</Title>
       <Paragraph type="secondary">
-        Your table is held pending deposit authorization. The charge is only captured if you
-        no-show.
+        {saveCardOnly
+          ? 'Your card is saved securely with Stripe and is only charged for a no-show or late cancellation.'
+          : prepaymentPolicyText()}
       </Paragraph>
       <Elements stripe={stripePromise} options={{ clientSecret }}>
         <DepositForm
           reservationId={reservationId}
           paymentIntentId={paymentIntentId}
           amountCents={amountCents}
+          saveCardOnly={saveCardOnly}
         />
       </Elements>
     </Card></div>

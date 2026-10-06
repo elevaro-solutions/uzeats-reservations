@@ -19,6 +19,8 @@ export type ReservationTimingFields = {
   slotEnd?: string | null;
   depositStatus?: string | null;
   depositAmountCents?: number | null;
+  noShowFeeCents?: number | null;
+  cardGuaranteeStatus?: string | null;
   requiresManualApproval?: boolean | null;
 };
 
@@ -50,12 +52,43 @@ export function isReservationCancelled(r: { status: string }): boolean {
   return r.status === "cancelled";
 }
 
+/** Prepayment still due, or a card guarantee still needs a saved card. */
 export function needsDepositPayment(r: ReservationTimingFields): boolean {
-  return (
-    isReservationUpcoming(r) &&
-    r.depositStatus === "requires_payment" &&
-    (r.depositAmountCents ?? 0) > 0
-  );
+  if (!isReservationUpcoming(r)) return false;
+  const prepaymentDue =
+    r.depositStatus === "requires_payment" && (r.depositAmountCents ?? 0) > 0;
+  return prepaymentDue || r.cardGuaranteeStatus === "requires_card";
+}
+
+function prepaymentDueCents(r: ReservationTimingFields): number {
+  return r.depositStatus === "requires_payment" ? (r.depositAmountCents ?? 0) : 0;
+}
+
+/** CTA for finishing a booking: "Pay $50.00" or "Add card". */
+export function paymentDueActionLabel(r: ReservationTimingFields): string {
+  const due = prepaymentDueCents(r);
+  return due > 0 ? `Pay ${formatCentsAsDollars(due)}` : "Add card";
+}
+
+/** Short list cue, e.g. "Payment due · $50.00" / "Card needed to hold table". */
+export function paymentDueCue(r: ReservationTimingFields): string {
+  const due = prepaymentDueCents(r);
+  return due > 0
+    ? `Payment due · ${formatCentsAsDollars(due)}`
+    : "Card needed to hold table";
+}
+
+const CARD_GUARANTEE_LABELS: Record<string, string> = {
+  requires_card: "Card needed",
+  card_saved: "Card on file · not charged",
+  released: "Not charged",
+  charged: "Charged",
+  failed: "Charge failed",
+  refunded: "Refunded",
+};
+
+export function formatCardGuaranteeLabel(status?: string | null): string {
+  return CARD_GUARANTEE_LABELS[status ?? ""] ?? "None";
 }
 
 export function canEditReservation(r: ReservationTimingFields): boolean {
@@ -84,22 +117,35 @@ export function canLeaveReview(r: {
   return false;
 }
 
+function slotStartMs(r: ReservationTimingFields): number {
+  const t = new Date(r.slotStart).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+function bySlotStartAsc(a: ReservationTimingFields, b: ReservationTimingFields): number {
+  return slotStartMs(a) - slotStartMs(b);
+}
+
+function bySlotStartDesc(a: ReservationTimingFields, b: ReservationTimingFields): number {
+  return slotStartMs(b) - slotStartMs(a);
+}
+
 export function filterReservationsBySegment<T extends ReservationTimingFields>(
   reservations: T[],
   segment: ReservationListSegment,
 ): T[] {
   switch (segment) {
     case "upcoming":
-      return reservations.filter(isReservationUpcoming);
+      return reservations.filter(isReservationUpcoming).sort(bySlotStartAsc);
     case "past":
-      return reservations.filter(
-        (r) => isReservationPast(r) && !isReservationCancelled(r),
-      );
+      return reservations
+        .filter((r) => isReservationPast(r) && !isReservationCancelled(r))
+        .sort(bySlotStartDesc);
     case "cancelled":
-      return reservations.filter(isReservationCancelled);
+      return reservations.filter(isReservationCancelled).sort(bySlotStartDesc);
     case "all":
     default:
-      return reservations;
+      return [...reservations].sort(bySlotStartDesc);
   }
 }
 
@@ -149,7 +195,7 @@ export function formatReservationTime(
 
 export function statusLabel(status: string): string {
   if (status === "no_show") return "No show";
-  if (status === "deposit_due") return "Deposit due";
+  if (status === "deposit_due") return "Action needed";
   if (status === "awaiting_approval") return "Awaiting approval";
   return status.replace(/_/g, " ");
 }

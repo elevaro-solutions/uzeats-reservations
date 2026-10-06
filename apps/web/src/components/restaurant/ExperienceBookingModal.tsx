@@ -67,6 +67,7 @@ type RestaurantInfo = {
   location?: { lat: number; lng: number } | null;
   depositRequired?: boolean;
   depositAmountCents?: number;
+  depositPolicy?: string | null;
   termsAndConditions?: string | null;
 };
 
@@ -181,6 +182,7 @@ export function ExperienceBookingModal({
   const cancellation = buildCancellationPolicy({
     depositRequired: restaurant.depositRequired,
     depositAmountCents: restaurant.depositAmountCents,
+    depositPolicy: restaurant.depositPolicy,
   });
   const detailsStep = step === 'details';
 

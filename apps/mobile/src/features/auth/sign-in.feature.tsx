@@ -48,7 +48,11 @@ export function SignInFeature() {
       await login(values.email, values.password);
       finish();
     } catch (err) {
-      if (!applyAuthFieldErrors(err, setError)) {
+      if (
+        !applyAuthFieldErrors(err, (name, error) => {
+          if (name === "email" || name === "password") setError(name, error);
+        })
+      ) {
         setFormError(getAuthErrorMessage(err, "Sign in failed"));
       }
     } finally {
@@ -76,15 +80,18 @@ export function SignInFeature() {
       }
     >
       <GoogleSignInButton
-        onError={setFormError}
+        onError={(message) => {
+          setFormError(message);
+          if (/account already exists with this email/i.test(message)) {
+            setError("email", { type: "server", message });
+          }
+        }}
         onSuccess={async (idToken) => {
           setFormError(null);
           await loginWithGoogle(idToken);
           finish();
         }}
       />
-
-      <OrDivider />
 
       {formError ? (
         <InlineAlert
@@ -93,6 +100,8 @@ export function SignInFeature() {
           onDismiss={() => setFormError(null)}
         />
       ) : null}
+
+      <OrDivider />
 
       <Flex gap={2}>
         <Controller

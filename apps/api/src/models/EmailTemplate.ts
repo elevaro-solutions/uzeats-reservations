@@ -1,6 +1,8 @@
 import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
 import {
+  EMAIL_BRAND,
   emailButton,
+  emailButtons,
   emailDetailBox,
   emailGreeting,
   emailLinkFallback,
@@ -19,8 +21,14 @@ const emailTemplateSchema = new Schema(
         'password_reset',
         'email_verification',
         'booking_confirmation',
+        'booking_pending',
+        'booking_updated',
         'booking_reminder',
+        'booking_reminder_late',
         'booking_cancelled',
+        'deposit_refunded',
+        'no_show_fee_charged',
+        'no_show_fee_refunded',
         'waitlist_available',
         'staff_invite',
         'restaurant_approved',
@@ -86,27 +94,90 @@ export const DEFAULT_EMAIL_TEMPLATES = [
       emailGreeting('{{firstName}}'),
       emailParagraph('Great news — your reservation is confirmed. We look forward to seeing you. Add it to your calendar so you do not miss it.'),
       '{{detailBox}}',
-      emailMuted('Need to make changes? Visit your reservations in the Tablevera app. A calendar file is attached to this email.'),
+      emailButton('{{calendarUrl}}', 'Add to Google Calendar'),
+      emailButton('{{reservationUrl}}', 'View reservation'),
+      emailLinkFallback('{{reservationUrl}}'),
+      emailMuted('A calendar file is attached to this email.'),
     ].join(''),
     bodyText:
-      'Hi {{firstName}},\n\nYour reservation at {{restaurantName}} on {{date}} for {{partySize}} is confirmed.\n\nGuest: {{guestName}}\nOccasion: {{occasion}}\nSpecial requests: {{guestNotes}}\nAddress: {{address}}\n\nAdd this visit to your calendar from the attached .ics file, or open your reservations in Tablevera.',
+      'Hi {{firstName}},\n\nYour reservation at {{restaurantName}} on {{date}} for {{partySize}} is confirmed.\n\nGuest: {{guestName}}\nOccasion: {{occasion}}\nSpecial requests: {{guestNotes}}\nAddress: {{address}}\n\nAdd to Google Calendar: {{calendarUrl}}\nView reservation: {{reservationUrl}}\n\nA calendar file is attached to this email.',
+  },
+  {
+    key: 'booking_pending',
+    name: 'Booking request',
+    subject: 'Request sent to {{restaurantName}}',
+    description: 'Sent when a reservation is waiting for the restaurant to confirm.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('Your reservation request at <strong>{{restaurantName}}</strong> for {{partySize}} on {{date}} was received.'),
+      emailParagraph('The restaurant will confirm shortly. You\'ll get another message when it\'s approved.'),
+      emailButton('{{reservationUrl}}', 'View request'),
+      emailLinkFallback('{{reservationUrl}}'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\nYour reservation request at {{restaurantName}} for {{partySize}} on {{date}} was received. The restaurant will confirm shortly.\n\nView request: {{reservationUrl}}',
+  },
+  {
+    key: 'booking_updated',
+    name: 'Booking updated',
+    subject: 'Reservation updated — {{restaurantName}}',
+    description: 'Sent when a diner\'s reservation is changed.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('Your reservation at <strong>{{restaurantName}}</strong> was updated.'),
+      emailDetailBox([
+        { label: 'Restaurant', value: '{{restaurantName}}' },
+        { label: 'Date & time', value: '{{date}}' },
+        { label: 'Party size', value: '{{partySize}}' },
+      ]),
+      emailButton('{{reservationUrl}}', 'View reservation'),
+      emailLinkFallback('{{reservationUrl}}'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\nYour reservation at {{restaurantName}} was updated.\n\nDate & time: {{date}}\nParty size: {{partySize}}\n\nView reservation: {{reservationUrl}}',
   },
   {
     key: 'booking_reminder',
     name: 'Booking reminder',
-    subject: 'Reminder: {{restaurantName}} tomorrow',
-    description: 'Pre-visit reminder.',
+    subject: 'Reminder: {{restaurantName}}',
+    description: 'Sent 24 hours before the reservation, with a link to the booking.',
     bodyHtml: [
       emailGreeting('{{firstName}}'),
-      emailParagraph('Just a friendly reminder about your upcoming reservation.'),
+      emailParagraph('Just a reminder about your upcoming reservation at <strong>{{restaurantName}}</strong>.'),
       emailDetailBox([
         { label: 'Restaurant', value: '{{restaurantName}}' },
         { label: 'Date & time', value: '{{date}}' },
+        { label: 'Party size', value: '{{partySize}}' },
       ]),
-      emailMuted('We hope you have a wonderful dining experience.'),
+      emailButton('{{reservationUrl}}', 'View reservation'),
+      emailLinkFallback('{{reservationUrl}}'),
     ].join(''),
     bodyText:
-      'Hi {{firstName}},\n\nReminder: you have a reservation at {{restaurantName}} on {{date}}.',
+      'Hi {{firstName}},\n\nJust a reminder about your upcoming reservation at {{restaurantName}}.\n\nRestaurant: {{restaurantName}}\nDate & time: {{date}}\nParty size: {{partySize}}\n\nView reservation: {{reservationUrl}}\n\nReservation: {{reservationUrl}}',
+  },
+  {
+    key: 'booking_reminder_late',
+    name: 'Running late reminder',
+    subject: 'Are you running late for {{restaurantName}}?',
+    description: 'Sent 2 hours and 30 minutes before the reservation, with running-late actions and a booking link.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('Your reservation at <strong>{{restaurantName}}</strong> is coming up. Are you running late?'),
+      emailDetailBox([
+        { label: 'Restaurant', value: '{{restaurantName}}' },
+        { label: 'Date & time', value: '{{date}}' },
+        { label: 'Party size', value: '{{partySize}}' },
+      ]),
+      emailButtons([
+        { href: '{{lateUrl}}', label: "I'm running late" },
+        { href: '{{reservationUrl}}', label: "I'm on time", variant: 'outline' },
+      ]),
+      emailMuted(
+        `If the buttons do not work, copy these links:<br />I'm running late: <a href="{{lateUrl}}" style="color:${EMAIL_BRAND.brand};word-break:break-all;overflow-wrap:anywhere;display:inline-block;max-width:100%;">{{lateUrl}}</a><br />Reservation: <a href="{{reservationUrl}}" style="color:${EMAIL_BRAND.brand};word-break:break-all;overflow-wrap:anywhere;display:inline-block;max-width:100%;">{{reservationUrl}}</a>`,
+      ),
+    ].join(''),
+    bodyText:
+      "Hi {{firstName}},\n\nYour reservation at {{restaurantName}} is coming up. Are you running late?\n\nRestaurant: {{restaurantName}}\nDate & time: {{date}}\nParty size: {{partySize}}\n\nI'm running late: {{lateUrl}}\nI'm on time: {{reservationUrl}}\n\nReservation: {{reservationUrl}}",
   },
   {
     key: 'booking_cancelled',
@@ -122,10 +193,54 @@ export const DEFAULT_EMAIL_TEMPLATES = [
         { label: 'Reason', value: '{{reason}}' },
       ]),
       '{{messageSection}}',
+      emailButton('{{reservationUrl}}', 'View reservation'),
+      emailLinkFallback('{{reservationUrl}}'),
       emailMuted('If you didn\'t request this cancellation or have questions, please contact the restaurant directly.'),
     ].join(''),
     bodyText:
-      'Hi {{firstName}},\n\nYour reservation at {{restaurantName}} on {{date}} was cancelled.\n\nReason: {{reason}}{{messageText}}',
+      'Hi {{firstName}},\n\nYour reservation at {{restaurantName}} on {{date}} was cancelled.\n\nReason: {{reason}}{{messageText}}\n\nView reservation: {{reservationUrl}}',
+  },
+  {
+    key: 'deposit_refunded',
+    name: 'Deposit refunded',
+    subject: 'Deposit refunded — {{restaurantName}}',
+    description: 'Sent when a booking deposit is refunded.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('Your <strong>{{amount}}</strong> deposit for <strong>{{restaurantName}}</strong> was refunded{{note}}'),
+      emailButton('{{reservationUrl}}', 'View reservation'),
+      emailLinkFallback('{{reservationUrl}}'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\nYour {{amount}} deposit for {{restaurantName}} was refunded{{note}}\n\nView reservation: {{reservationUrl}}',
+  },
+  {
+    key: 'no_show_fee_charged',
+    name: 'No-show fee charged',
+    subject: '{{feeTitle}}',
+    description: 'Sent when a no-show or late-cancellation fee is charged to the saved card.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('A <strong>{{amount}}</strong> {{feeLabel}} fee for <strong>{{restaurantName}}</strong> was charged to your saved card, per the restaurant\'s policy.'),
+      emailButton('{{reservationUrl}}', 'View reservation'),
+      emailLinkFallback('{{reservationUrl}}'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\nA {{amount}} {{feeLabel}} fee for {{restaurantName}} was charged to your saved card, per the restaurant\'s policy.\n\nView reservation: {{reservationUrl}}',
+  },
+  {
+    key: 'no_show_fee_refunded',
+    name: 'Fee refunded',
+    subject: 'Fee refunded — {{restaurantName}}',
+    description: 'Sent when a charged no-show or late-cancellation fee is refunded.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('<strong>{{restaurantName}}</strong> refunded your <strong>{{amount}}</strong> fee{{note}}'),
+      emailButton('{{reservationUrl}}', 'View reservation'),
+      emailLinkFallback('{{reservationUrl}}'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\n{{restaurantName}} refunded your {{amount}} fee{{note}}\n\nView reservation: {{reservationUrl}}',
   },
   {
     key: 'waitlist_available',

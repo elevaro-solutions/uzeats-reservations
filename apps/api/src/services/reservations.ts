@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 import {
-  CANCELLATION_REFUND_HOURS,
   resolveRedeemPoints,
   RESTAURANT_LOYALTY,
   resolveRestaurantRedeemPoints,
@@ -9,6 +8,9 @@ import {
   isoDateInTimeZone,
   restaurantTimeZone,
   bookingRequiresManualApproval,
+  resolveBookingCharges,
+  BOOKING_CARD_HOLD_MINUTES,
+  isLateCancellation,
   splitReservationCancellationReason,
   OCCASION_LABELS,
   resolveDinerReservationSource,
@@ -25,11 +27,23 @@ import { Message } from '../models/Message.js';
 import { findAvailableTable, getTurnTimeMinutes } from './availability.js';
 import { smartAssignTable } from './smartAssign.js';
 import {
-  createDepositIntent,
   refundDeposit,
-  captureDeposit,
-  assertPaymentIntentAuthorized,
+  createPrepaymentIntent,
+  createCardGuaranteeSetupIntent,
+  describeBookingIntent,
+  ensureDinerStripeCustomer,
+  cancelBookingIntent,
+  isSetupIntentId,
+  type BookingIntentState,
 } from './stripe.js';
+import {
+  captureLegacyHold,
+  chargeNoShowFee,
+  isIncompleteBookingPayment,
+  notifyNoShowFeeOutcome,
+  releaseCardGuarantee,
+  releaseLegacyHold,
+} from './bookingPayments.js';
 import { earnPoints, redeemPoints, refundRedeemedPoints, awardDepositPoints, awardFirstBookingBonus, awardCompletedVisitPoints, reverseDepositPoints } from './loyalty.js';
 import { getLoyaltyProgram } from './loyaltyProgram.js';
 import {
@@ -46,9 +60,8 @@ import {
 import { renderEmailTemplate } from './emailTemplates.js';
 import {
   EMAIL_BRAND,
-  emailButton,
+  appendEmailButtonsIfMissing,
   emailDetailBox,
-  emailLinkFallback,
   emailParagraph,
   escapeHtml,
 } from './emailBranding.js';
@@ -60,8 +73,9 @@ import { updateGuestProfileAfterVisit, sendSurveyInvitation } from './guests.js'
 import {
   resolvePromotionForBooking,
   recordPromotionRedemption,
+  unrecordPromotionRedemption,
 } from './promotionCodes.js';
-import { redeemGiftCardBalance, resolveGiftCardDiscount } from './giftCards.js';
+import { redeemGiftCardBalance, resolveGiftCardDiscount, restoreGiftCardBalance } from './giftCards.js';
 import { BoostCampaign } from '../models/Marketing.js';
 import { claimTableSlots, releaseTableSlotClaims } from './tableSlotClaims.js';
 import { getBookableTables } from './floorPlanOps.js';
@@ -217,6 +231,7 @@ async function notifyDinerBookingConfirmed(input: {
     });
   }
 
+  const calendarUrl = googleCalendarUrl(event);
   const rendered = await renderEmailTemplate('booking_confirmation', {
     firstName: diner?.firstName || 'there',
     guestName: guestName || diner?.firstName || 'Guest',
@@ -227,13 +242,17 @@ async function notifyDinerBookingConfirmed(input: {
     guestNotes: guestNotes || 'None',
     address: location || '—',
     detailBox: emailDetailBox(detailRows),
+    reservationUrl,
+    calendarUrl,
   });
-  const htmlBody = [
+  const htmlBody = appendEmailButtonsIfMissing(
     rendered.bodyHtml,
-    emailButton(googleCalendarUrl(event), 'Add to Google Calendar'),
-    emailButton(reservationUrl, 'View reservation'),
-    emailLinkFallback(reservationUrl),
-  ].join('');
+    [
+      { href: calendarUrl, label: 'Add to Google Calendar' },
+      { href: reservationUrl, label: 'View reservation' },
+    ],
+    reservationUrl,
+  );
 
   await notifyUser(
     input.dinerId,
@@ -276,12 +295,13 @@ async function notifyDinerBookingCancelled(input: {
     reason: reasonLabel,
     messageSection,
     messageText,
+    reservationUrl,
   });
-  const htmlBody = [
+  const htmlBody = appendEmailButtonsIfMissing(
     rendered.bodyHtml,
-    emailButton(reservationUrl, 'View reservation'),
-    emailLinkFallback(reservationUrl),
-  ].join('');
+    [{ href: reservationUrl, label: 'View reservation' }],
+    reservationUrl,
+  );
   const body =
     rendered.bodyText ||
     `Your reservation at ${input.restaurantName} on ${when} was cancelled.${
@@ -314,20 +334,28 @@ async function notifyDinerBookingPendingApproval(input: {
   partySize: number;
   restaurant?: Parameters<typeof restaurantTimeZone>[0] | null;
 }) {
+  const diner = await User.findById(input.dinerId).select('firstName');
   const when = formatReservationWhen(input.slotStart, input.restaurant);
   const reservationUrl = `${publicWebBaseUrl()}/reservations/${input.reservationId}`;
+  const partySizeLabel = formatPartySizeForEmail(input.partySize);
+  const rendered = await renderEmailTemplate('booking_pending', {
+    firstName: diner?.firstName || 'there',
+    restaurantName: input.restaurantName,
+    date: when,
+    partySize: partySizeLabel,
+    reservationUrl,
+  });
   await notifyUser(
     input.dinerId,
     {
       type: 'reservation_pending_approval',
-      title: `Request sent to ${input.restaurantName}`,
-      body: `Your party of ${input.partySize} on ${when} is awaiting restaurant confirmation.`,
-      htmlBody: [
-        `<p>Your reservation request at <strong>${input.restaurantName}</strong> for a party of ${input.partySize} on ${when} was received.</p>`,
-        `<p>The restaurant will confirm shortly. You'll get another message when it's approved.</p>`,
-        emailButton(reservationUrl, 'View request'),
-        emailLinkFallback(reservationUrl),
-      ].join(''),
+      title: rendered.subject,
+      body: rendered.bodyText || `Your party of ${input.partySize} on ${when} is awaiting restaurant confirmation.`,
+      htmlBody: appendEmailButtonsIfMissing(
+        rendered.bodyHtml,
+        [{ href: reservationUrl, label: 'View request' }],
+        reservationUrl,
+      ),
       data: { reservationId: input.reservationId },
     },
     { smsRestaurantId: input.restaurantId },
@@ -406,6 +434,8 @@ async function resolveTable(input: {
   dinerId?: string;
   tableId?: string;
   useSmartAssign?: boolean;
+  /** Restrict auto-assign to these tables (private dining). */
+  tableIds?: string[];
 }) {
   if (input.tableId) {
     const table = await Table.findOne({
@@ -417,11 +447,19 @@ async function resolveTable(input: {
     if (table.minCapacity > input.partySize || table.maxCapacity < input.partySize) {
       throw new ValidationError('Table capacity does not fit this party size');
     }
+    if (
+      input.tableIds &&
+      input.tableIds.length > 0 &&
+      !input.tableIds.some((id) => table._id.equals(id))
+    ) {
+      throw new ValidationError('Selected table is not part of this private room');
+    }
     const bookable = await getBookableTables({
       restaurantId: input.restaurantId,
       partySize: input.partySize,
       slotStart: input.slotStart,
       slotEnd: input.slotEnd,
+      tableIds: input.tableIds,
     });
     if (!bookable.some((t) => t._id.equals(table._id))) {
       throw new ConflictError('Selected table is not available for this time');
@@ -436,6 +474,7 @@ async function resolveTable(input: {
       slotStart: input.slotStart,
       slotEnd: input.slotEnd,
       dinerId: input.dinerId,
+      tableIds: input.tableIds,
     });
   }
 
@@ -444,6 +483,7 @@ async function resolveTable(input: {
     partySize: input.partySize,
     slotStart: input.slotStart,
     slotEnd: input.slotEnd,
+    tableIds: input.tableIds,
   });
 }
 
@@ -532,6 +572,7 @@ export async function createReservation(input: {
   let privateDiningPriceCents = 0;
   let privateDiningSpaceId: string | undefined;
   let privateDiningRequiresManualApproval = false;
+  let privateDiningTableIds: string[] | undefined;
   if (input.privateDiningSpaceId) {
     const space = await PrivateDiningSpace.findById(input.privateDiningSpaceId);
     if (!space || space.restaurantId.toString() !== input.restaurantId || !space.active) {
@@ -543,6 +584,9 @@ export async function createReservation(input: {
     if (input.partySize > space.maxGuests) {
       throw new ValidationError(`This private room allows at most ${space.maxGuests} guests`);
     }
+    const { ensurePrivateDiningBackingTables } = await import('./privateDining.js');
+    const backing = await ensurePrivateDiningBackingTables(space);
+    privateDiningTableIds = backing.map(String);
     privateDiningSpaceId = space._id.toString();
     privateDiningSpaceName = space.name;
     privateDiningPriceCents = space.rentalFeeCents ?? 0;
@@ -610,6 +654,7 @@ export async function createReservation(input: {
     dinerId: input.dinerId,
     tableId: input.tableId,
     useSmartAssign: restaurant.useSmartAssign !== false,
+    tableIds: privateDiningTableIds,
   });
   if (!table) throw new ConflictError('No tables available for this time');
 
@@ -630,12 +675,12 @@ export async function createReservation(input: {
 
   const priorReservations = await Reservation.countDocuments({ dinerId: input.dinerId });
 
-  const tableDepositCents =
-    restaurant.depositRequired && restaurant.depositAmountCents > 0
-      ? restaurant.depositAmountCents * input.partySize
-      : 0;
-  const grossDepositCents =
-    tableDepositCents + packagePriceCents + privateDiningPriceCents + experiencePriceCents;
+  const { prepaidGrossCents: grossDepositCents, noShowFeeCents } = resolveBookingCharges({
+    restaurant,
+    table,
+    partySize: input.partySize,
+    addOnsCents: packagePriceCents + privateDiningPriceCents + experiencePriceCents,
+  });
 
   let pointsToRedeem = 0;
   let restaurantPointsToRedeem = 0;
@@ -707,29 +752,44 @@ export async function createReservation(input: {
     depositAmountCents -= giftCardDiscountCents;
   }
 
-  let depositStatus: 'none' | 'requires_payment' | 'authorized' = 'none';
+  let depositStatus: 'none' | 'requires_payment' | 'captured' = 'none';
+  let cardGuaranteeStatus: 'none' | 'requires_card' | 'card_saved' = 'none';
   let stripePaymentIntentId: string | undefined;
+  let stripeSetupIntentId: string | undefined;
+  let stripeCustomerId: string | undefined;
+  let stripePaymentMethodId: string | undefined;
   let clientSecret: string | undefined;
   let requiresPayment = false;
 
+  const intentMetadata = { restaurantId: input.restaurantId, dinerId: input.dinerId };
+  if (noShowFeeCents > 0) {
+    stripeCustomerId = await ensureDinerStripeCustomer(input.dinerId);
+  }
+
+  // One card step: a prepayment also saves the card for the fee; otherwise a SetupIntent only saves it.
   if (depositAmountCents > 0) {
-    const intent = await createDepositIntent({
+    const intent = await createPrepaymentIntent({
       amountCents: depositAmountCents,
-      metadata: {
-        restaurantId: input.restaurantId,
-        dinerId: input.dinerId,
-      },
+      metadata: intentMetadata,
+      customerId: stripeCustomerId,
+      saveCardForOffSession: noShowFeeCents > 0,
     });
     stripePaymentIntentId = intent.id;
     clientSecret = intent.client_secret ?? undefined;
-
-    if (intent.isStub) {
-      depositStatus = 'authorized';
-    } else {
-      depositStatus = 'requires_payment';
-      requiresPayment = true;
-    }
+    depositStatus = intent.isStub ? 'captured' : 'requires_payment';
+    if (noShowFeeCents > 0) cardGuaranteeStatus = intent.isStub ? 'card_saved' : 'requires_card';
+    requiresPayment = !intent.isStub;
+  } else if (noShowFeeCents > 0 && stripeCustomerId) {
+    const intent = await createCardGuaranteeSetupIntent({
+      customerId: stripeCustomerId,
+      metadata: intentMetadata,
+    });
+    stripeSetupIntentId = intent.id;
+    clientSecret = intent.client_secret ?? undefined;
+    cardGuaranteeStatus = intent.isStub ? 'card_saved' : 'requires_card';
+    requiresPayment = !intent.isStub;
   }
+  if (cardGuaranteeStatus === 'card_saved') stripePaymentMethodId = 'pm_dev';
 
   const reservation = await Reservation.create({
     restaurantId: input.restaurantId,
@@ -768,6 +828,11 @@ export async function createReservation(input: {
     depositAmountCents,
     stripePaymentIntentId,
     depositStatus,
+    noShowFeeCents: cardGuaranteeStatus === 'none' ? 0 : noShowFeeCents,
+    cardGuaranteeStatus,
+    stripeCustomerId,
+    stripeSetupIntentId,
+    stripePaymentMethodId,
     loyaltyPointsRedeemed: pointsToRedeem,
     restaurantLoyaltyPointsRedeemed: restaurantPointsToRedeem,
     promotionId,
@@ -824,7 +889,7 @@ export async function createReservation(input: {
     }
   };
 
-  if (depositStatus === 'authorized') {
+  if (depositStatus === 'captured') {
     await softFail('deposit points', () =>
       awardDepositPoints({
         dinerId: input.dinerId,
@@ -835,89 +900,212 @@ export async function createReservation(input: {
     );
   }
 
-  if (priorReservations === 0) {
-    await softFail('first booking bonus', () => awardFirstBookingBonus(input.dinerId));
-  }
-
-  await softFail('waitlist convert', () =>
-    markWaitlistBookedForReservation({
-      dinerId: input.dinerId,
-      restaurantId: input.restaurantId,
-      slotStart: input.slotStart,
-      reservationId,
-    }),
-  );
-
-  if (reservation.status === 'confirmed') {
-    await softFail('reminder scheduling', () => scheduleReservationReminders(reservationId));
-    await softFail('diner confirmation', () =>
-      notifyDinerBookingConfirmed({
+  // Card-hold / prepaid bookings are not placed until the diner finishes Stripe.
+  if (!requiresPayment) {
+    if (priorReservations === 0) {
+      await softFail('first booking bonus', () => awardFirstBookingBonus(input.dinerId));
+    }
+    await softFail('waitlist convert', () =>
+      markWaitlistBookedForReservation({
         dinerId: input.dinerId,
         restaurantId: input.restaurantId,
-        reservationId,
-        restaurantName: restaurant.name,
         slotStart: input.slotStart,
-        slotEnd: reservation.slotEnd,
-        partySize: input.partySize,
-        guestNotes: reservation.guestNotes,
-        restaurant,
-        address: restaurant.address,
-      }),
-    );
-    await softFail('manager notification', () =>
-      notifyRestaurantManagers(input.restaurantId, {
-        type: 'new_reservation',
-        title: 'New reservation',
-        body: `Party of ${input.partySize} at ${formatReservationWhen(input.slotStart, restaurant)} — ${restaurant.name}`,
-        data: { reservationId },
-      }),
-    );
-  } else if (needsManualApproval && !requiresPayment) {
-    await softFail('diner pending-approval notice', () =>
-      notifyDinerBookingPendingApproval({
-        dinerId: input.dinerId,
-        restaurantId: input.restaurantId,
         reservationId,
-        restaurantName: restaurant.name,
-        slotStart: input.slotStart,
-        partySize: input.partySize,
-        restaurant,
-      }),
-    );
-    await softFail('restaurant approval notice', () =>
-      notifyRestaurantBookingNeedsApproval({
-        restaurantId: input.restaurantId,
-        reservationId,
-        restaurantName: restaurant.name,
-        slotStart: input.slotStart,
-        partySize: input.partySize,
-        restaurant,
       }),
     );
   }
+
+  // Redis / SendGrid must not keep the GraphQL mutation open. The booking is
+  // already saved; the client needs clientSecret immediately for the card step.
+  void (async () => {
+    if (reservation.status === 'confirmed') {
+      await softFail('reminder scheduling', () => scheduleReservationReminders(reservationId));
+      await softFail('diner confirmation', () =>
+        notifyDinerBookingConfirmed({
+          dinerId: input.dinerId,
+          restaurantId: input.restaurantId,
+          reservationId,
+          restaurantName: restaurant.name,
+          slotStart: input.slotStart,
+          slotEnd: reservation.slotEnd,
+          partySize: input.partySize,
+          guestNotes: reservation.guestNotes,
+          restaurant,
+          address: restaurant.address,
+        }),
+      );
+      await softFail('manager notification', () =>
+        notifyRestaurantManagers(input.restaurantId, {
+          type: 'new_reservation',
+          title: 'New reservation',
+          body: `Party of ${input.partySize} at ${formatReservationWhen(input.slotStart, restaurant)} — ${restaurant.name}`,
+          data: { reservationId },
+        }),
+      );
+    } else if (needsManualApproval && !requiresPayment) {
+      await softFail('diner pending-approval notice', () =>
+        notifyDinerBookingPendingApproval({
+          dinerId: input.dinerId,
+          restaurantId: input.restaurantId,
+          reservationId,
+          restaurantName: restaurant.name,
+          slotStart: input.slotStart,
+          partySize: input.partySize,
+          restaurant,
+        }),
+      );
+      await softFail('restaurant approval notice', () =>
+        notifyRestaurantBookingNeedsApproval({
+          restaurantId: input.restaurantId,
+          reservationId,
+          restaurantName: restaurant.name,
+          slotStart: input.slotStart,
+          partySize: input.partySize,
+          restaurant,
+        }),
+      );
+    }
+  })();
 
   return { reservation, clientSecret: requiresPayment ? clientSecret : null };
 }
 
-/** Confirm deposit after Stripe PaymentElement succeeds (or stub confirm). */
+function findReservationByBookingIntent(intentId: string) {
+  return isSetupIntentId(intentId)
+    ? Reservation.findOne({ stripeSetupIntentId: intentId })
+    : Reservation.findOne({ stripePaymentIntentId: intentId });
+}
+
+function bookingPaymentSettled(reservation: {
+  depositStatus?: string | null;
+  cardGuaranteeStatus?: string | null;
+}) {
+  return (
+    reservation.depositStatus !== 'requires_payment' &&
+    reservation.cardGuaranteeStatus !== 'requires_card'
+  );
+}
+
+function isIntentComplete(status: string) {
+  // `requires_capture` only occurs for legacy manual-capture deposits.
+  return status === 'succeeded' || status === 'requires_capture';
+}
+
+/**
+ * Confirm the booking card step after Stripe succeeds (or stub confirm).
+ * Accepts a PaymentIntent id (prepayment) or SetupIntent id (card guarantee).
+ */
 export async function confirmDepositPayment(input: {
   paymentIntentId: string;
   dinerId: string;
 }) {
-  const reservation = await Reservation.findOne({
-    stripePaymentIntentId: input.paymentIntentId,
-  });
+  const reservation = await findReservationByBookingIntent(input.paymentIntentId);
   if (!reservation) throw new NotFoundError('Reservation for payment');
   if (!reservation.dinerId.equals(input.dinerId)) throw new ForbiddenError();
+  if (bookingPaymentSettled(reservation)) return reservation;
 
-  if (reservation.depositStatus === 'authorized') {
+  const state = await describeBookingIntent(input.paymentIntentId);
+  if (!isIntentComplete(state.status)) {
+    throw new ValidationError(`Payment not completed (status: ${state.status})`);
+  }
+  return (await confirmDeposit(input.paymentIntentId, state)) ?? reservation;
+}
+
+async function rollbackIncompleteBooking(reservation: InstanceType<typeof Reservation>) {
+  const reservationId = reservation._id.toString();
+  if (reservation.experienceId && reservation.experienceTicketQty > 0) {
+    await releaseExperienceTickets(
+      reservation.experienceId.toString(),
+      reservation.experienceTicketQty,
+    );
+  }
+  if (reservation.loyaltyPointsRedeemed > 0) {
+    await refundRedeemedPoints(
+      reservation.dinerId.toString(),
+      reservation.loyaltyPointsRedeemed,
+      reservationId,
+    );
+  }
+  if (reservation.restaurantLoyaltyPointsRedeemed > 0) {
+    await refundRestaurantRedeemedPoints({
+      restaurantId: reservation.restaurantId.toString(),
+      dinerId: reservation.dinerId.toString(),
+      points: reservation.restaurantLoyaltyPointsRedeemed,
+      reservationId,
+    });
+  }
+  if (reservation.promotionId) {
+    await unrecordPromotionRedemption(reservation.promotionId.toString());
+  }
+  if (reservation.giftCardId && reservation.giftCardDiscountCents > 0) {
+    await restoreGiftCardBalance(
+      reservation.giftCardId.toString(),
+      reservation.giftCardDiscountCents,
+    );
+  }
+  await releaseTableSlotClaims(reservation._id);
+  const intentId = reservation.stripeSetupIntentId || reservation.stripePaymentIntentId;
+  if (intentId) {
+    await cancelBookingIntent(intentId);
+  }
+  await Reservation.deleteOne({ _id: reservation._id });
+}
+
+/**
+ * Discard a booking that never finished the Stripe card form so it is not a placed reservation.
+ * If Stripe already succeeded, confirm instead of deleting.
+ */
+export async function abandonIncompleteBooking(input: {
+  reservationId: string;
+  dinerId?: string;
+}) {
+  const reservation = await Reservation.findById(input.reservationId);
+  if (!reservation) throw new NotFoundError('Reservation');
+  if (input.dinerId && !reservation.dinerId.equals(input.dinerId)) throw new ForbiddenError();
+  if (!isIncompleteBookingPayment(reservation)) {
     return reservation;
   }
 
-  // Client confirm is only allowed after Stripe has authorized/captured the intent.
-  await assertPaymentIntentAuthorized(input.paymentIntentId);
+  const intentId = reservation.stripeSetupIntentId || reservation.stripePaymentIntentId;
+  if (intentId) {
+    try {
+      const state = await describeBookingIntent(intentId);
+      if (isIntentComplete(state.status)) {
+        return (await confirmDeposit(intentId, state)) ?? reservation;
+      }
+    } catch (err) {
+      logger.warn(
+        { err, reservationId: reservation._id },
+        '[reservations] could not read booking intent; discarding incomplete hold',
+      );
+    }
+  }
 
-  return confirmDeposit(input.paymentIntentId);
+  await rollbackIncompleteBooking(reservation);
+  return null;
+}
+
+/** Drop card-hold bookings the diner never finished, so the table is not held forever. */
+export async function expireAbandonedIncompleteBookings(now = new Date()) {
+  const cutoff = new Date(now.getTime() - BOOKING_CARD_HOLD_MINUTES * 60_000);
+  const stale = await Reservation.find({
+    status: 'pending',
+    createdAt: { $lt: cutoff },
+    $or: [
+      { depositStatus: 'requires_payment' },
+      { cardGuaranteeStatus: 'requires_card' },
+    ],
+  }).select('_id');
+  let expired = 0;
+  for (const row of stale) {
+    try {
+      await abandonIncompleteBooking({ reservationId: row._id.toString() });
+      expired += 1;
+    } catch (err) {
+      logger.error({ err, reservationId: row._id }, '[reservations] expire incomplete booking failed');
+    }
+  }
+  return { expired };
 }
 
 export async function updateReservationStatus(
@@ -965,10 +1153,13 @@ export async function updateReservationStatus(
     throw new ValidationError(`Cannot transition from ${reservation.status} to ${status}`);
   }
 
+  const previousStatus = reservation.status;
   reservation.status = status as typeof reservation.status;
+  let feeOutcome: Awaited<ReturnType<typeof chargeNoShowFee>> = 'skipped';
 
   if (status === 'seated') {
     reservation.seatedAt = new Date();
+    releaseCardGuarantee(reservation);
   }
 
   if (status === 'cancelled') {
@@ -980,15 +1171,28 @@ export async function updateReservationStatus(
         reservation.experienceTicketQty,
       );
     }
-    const hoursUntil =
-      (reservation.slotStart.getTime() - Date.now()) / (1000 * 60 * 60);
-    if (
-      reservation.stripePaymentIntentId &&
-      reservation.depositStatus === 'authorized' &&
-      hoursUntil >= CANCELLATION_REFUND_HOURS
-    ) {
-      await refundDeposit(reservation.stripePaymentIntentId);
-      reservation.depositStatus = 'refunded';
+    // Restaurant-side cancels and on-time diner cancels are free; a diner cancelling a
+    // confirmed booking inside the window forfeits prepayment and pays the guaranteed fee.
+    const lateDinerCancel =
+      isDiner &&
+      !isStaff &&
+      previousStatus === 'confirmed' &&
+      isLateCancellation(reservation.slotStart);
+    if (lateDinerCancel) {
+      feeOutcome = await chargeNoShowFee(reservation, 'late_cancel');
+    } else {
+      if (reservation.stripePaymentIntentId && reservation.depositStatus === 'authorized') {
+        await refundDeposit(reservation.stripePaymentIntentId);
+        reservation.depositStatus = 'refunded';
+      } else if (reservation.stripePaymentIntentId && reservation.depositStatus === 'captured') {
+        const remaining = reservation.depositAmountCents - (reservation.depositRefundedCents ?? 0);
+        if (remaining > 0) {
+          await refundDeposit(reservation.stripePaymentIntentId, remaining);
+        }
+        reservation.depositStatus = 'refunded';
+        reservation.depositRefundedCents = reservation.depositAmountCents;
+      }
+      releaseCardGuarantee(reservation);
     }
     if (reservation.loyaltyPointsRedeemed > 0) {
       await refundRedeemedPoints(
@@ -1011,9 +1215,18 @@ export async function updateReservationStatus(
     );
   }
 
-  if (status === 'no_show' && reservation.stripePaymentIntentId) {
-    await captureDeposit(reservation.stripePaymentIntentId);
-    reservation.depositStatus = 'captured';
+  if (status === 'no_show') {
+    await captureLegacyHold(reservation);
+    feeOutcome = await chargeNoShowFee(reservation, 'no_show');
+  }
+
+  if (status === 'completed') {
+    releaseCardGuarantee(reservation);
+    try {
+      await releaseLegacyHold(reservation);
+    } catch (err) {
+      logger.error({ err, reservationId }, '[reservations] legacy hold release on complete failed');
+    }
   }
 
   if (status === 'completed' && reservation.dinerId) {
@@ -1048,6 +1261,8 @@ export async function updateReservationStatus(
   }
 
   await reservation.save();
+
+  await notifyNoShowFeeOutcome(reservation, feeOutcome, restaurant?.name ?? 'the restaurant');
 
   if (status === 'cancelled' || status === 'completed' || status === 'no_show') {
     try {
@@ -1253,12 +1468,28 @@ async function recordCoverFee(reservation: any) {
   }
 }
 
-export async function confirmDeposit(paymentIntentId: string) {
-  const reservation = await Reservation.findOne({ stripePaymentIntentId: paymentIntentId });
+/** Idempotent: called by the client confirm mutation and by Stripe webhooks. */
+export async function confirmDeposit(intentId: string, known?: BookingIntentState) {
+  const reservation = await findReservationByBookingIntent(intentId);
   if (!reservation) return null;
+  if (bookingPaymentSettled(reservation)) return reservation;
+  const state = known ?? (await describeBookingIntent(intentId));
+  if (!isIntentComplete(state.status)) return reservation;
+
   const wasPending = reservation.status === 'pending';
   const needsManualApproval = reservation.requiresManualApproval === true;
-  reservation.depositStatus = 'authorized';
+  if (state.kind === 'payment' && reservation.depositStatus === 'requires_payment') {
+    reservation.depositStatus = state.status === 'requires_capture' ? 'authorized' : 'captured';
+  }
+  if (reservation.cardGuaranteeStatus === 'requires_card') {
+    if (state.paymentMethodId) {
+      reservation.stripePaymentMethodId = state.paymentMethodId;
+      reservation.cardGuaranteeStatus = 'card_saved';
+    } else {
+      logger.warn({ intentId }, '[reservations] booking intent has no payment method; fee not guaranteed');
+      reservation.cardGuaranteeStatus = 'released';
+    }
+  }
   if (!needsManualApproval) {
     reservation.status = 'confirmed';
   }
@@ -1270,52 +1501,66 @@ export async function confirmDeposit(paymentIntentId: string) {
     depositStatus: reservation.depositStatus,
   });
 
-  if (wasPending && !needsManualApproval) {
-    await scheduleReservationReminders(reservation._id.toString());
-    const restaurant = await Restaurant.findById(reservation.restaurantId);
-    await notifyDinerBookingConfirmed({
-      dinerId: reservation.dinerId.toString(),
-      restaurantId: reservation.restaurantId.toString(),
-      reservationId: reservation._id.toString(),
-      restaurantName: restaurant?.name ?? 'the restaurant',
-      slotStart: reservation.slotStart,
-      slotEnd: reservation.slotEnd,
-      partySize: reservation.partySize,
-      guestNotes: reservation.guestNotes,
-      restaurant,
-      address: restaurant?.address,
-    });
-    await notifyRestaurantManagers(reservation.restaurantId.toString(), {
-      type: 'new_reservation',
-      title: 'New reservation',
-      body: `Party of ${reservation.partySize} at ${formatReservationWhen(reservation.slotStart, restaurant)}${
-        restaurant ? ` — ${restaurant.name}` : ''
-      }`,
-      data: {
+  const reservationId = reservation._id.toString();
+  void (async () => {
+    try {
+      await awardFirstBookingBonus(reservation.dinerId.toString());
+      await markWaitlistBookedForReservation({
+        dinerId: reservation.dinerId.toString(),
         restaurantId: reservation.restaurantId.toString(),
-        reservationId: reservation._id.toString(),
-      },
-    });
-  } else if (wasPending && needsManualApproval) {
-    const restaurant = await Restaurant.findById(reservation.restaurantId);
-    await notifyDinerBookingPendingApproval({
-      dinerId: reservation.dinerId.toString(),
-      restaurantId: reservation.restaurantId.toString(),
-      reservationId: reservation._id.toString(),
-      restaurantName: restaurant?.name ?? 'the restaurant',
-      slotStart: reservation.slotStart,
-      partySize: reservation.partySize,
-      restaurant,
-    });
-    await notifyRestaurantBookingNeedsApproval({
-      restaurantId: reservation.restaurantId.toString(),
-      reservationId: reservation._id.toString(),
-      restaurantName: restaurant?.name ?? 'the restaurant',
-      slotStart: reservation.slotStart,
-      partySize: reservation.partySize,
-      restaurant,
-    });
-  }
+        slotStart: reservation.slotStart,
+        reservationId,
+      });
+      if (wasPending && !needsManualApproval) {
+        await scheduleReservationReminders(reservationId);
+        const restaurant = await Restaurant.findById(reservation.restaurantId);
+        await notifyDinerBookingConfirmed({
+          dinerId: reservation.dinerId.toString(),
+          restaurantId: reservation.restaurantId.toString(),
+          reservationId,
+          restaurantName: restaurant?.name ?? 'the restaurant',
+          slotStart: reservation.slotStart,
+          slotEnd: reservation.slotEnd,
+          partySize: reservation.partySize,
+          guestNotes: reservation.guestNotes,
+          restaurant,
+          address: restaurant?.address,
+        });
+        await notifyRestaurantManagers(reservation.restaurantId.toString(), {
+          type: 'new_reservation',
+          title: 'New reservation',
+          body: `Party of ${reservation.partySize} at ${formatReservationWhen(reservation.slotStart, restaurant)}${
+            restaurant ? ` — ${restaurant.name}` : ''
+          }`,
+          data: {
+            restaurantId: reservation.restaurantId.toString(),
+            reservationId,
+          },
+        });
+      } else if (wasPending && needsManualApproval) {
+        const restaurant = await Restaurant.findById(reservation.restaurantId);
+        await notifyDinerBookingPendingApproval({
+          dinerId: reservation.dinerId.toString(),
+          restaurantId: reservation.restaurantId.toString(),
+          reservationId,
+          restaurantName: restaurant?.name ?? 'the restaurant',
+          slotStart: reservation.slotStart,
+          partySize: reservation.partySize,
+          restaurant,
+        });
+        await notifyRestaurantBookingNeedsApproval({
+          restaurantId: reservation.restaurantId.toString(),
+          reservationId,
+          restaurantName: restaurant?.name ?? 'the restaurant',
+          slotStart: reservation.slotStart,
+          partySize: reservation.partySize,
+          restaurant,
+        });
+      }
+    } catch (err) {
+      logger.error({ err, reservationId }, '[reservations] notify after card confirm failed');
+    }
+  })();
 
   return reservation;
 }
@@ -1528,6 +1773,12 @@ export async function updateReservationDetails(
     }
 
     reservation.tableIds = [table._id] as typeof reservation.tableIds;
+    if (reservation.noShowFeeCents > 0 && partySize !== reservation.partySize) {
+      // The fee is per guest; keep the booked per-guest rate when the party changes.
+      reservation.noShowFeeCents = Math.round(
+        (reservation.noShowFeeCents / reservation.partySize) * partySize,
+      );
+    }
     reservation.partySize = partySize;
     reservation.slotStart = slotStart;
     reservation.slotEnd = slotEnd;
@@ -1560,12 +1811,26 @@ export async function updateReservationDetails(
       },
     });
   } else {
+    const diner = await User.findById(reservation.dinerId).select('firstName');
+    const reservationUrl = `${publicWebBaseUrl()}/reservations/${reservation._id.toString()}`;
+    const rendered = await renderEmailTemplate('booking_updated', {
+      firstName: diner?.firstName || 'there',
+      restaurantName,
+      date: when,
+      partySize: formatPartySizeForEmail(reservation.partySize),
+      reservationUrl,
+    });
     await notifyUser(
       reservation.dinerId.toString(),
       {
         type: 'reservation_updated',
-        title: 'Reservation updated',
-        body: `Your reservation at ${restaurantName} was updated.`,
+        title: rendered.subject,
+        body: rendered.bodyText || `Your reservation at ${restaurantName} was updated.`,
+        htmlBody: appendEmailButtonsIfMissing(
+          rendered.bodyHtml,
+          [{ href: reservationUrl, label: 'View reservation' }],
+          reservationUrl,
+        ),
         data: { reservationId: reservation._id.toString() },
       },
       { smsRestaurantId: reservation.restaurantId.toString() },
@@ -1786,7 +2051,14 @@ export async function syncDepositRefundedFromStripe(
   const reservation = await Reservation.findOne({
     stripePaymentIntentId: paymentIntentId,
   });
-  if (!reservation) return null;
+  if (!reservation) {
+    const feeReservation = await Reservation.findOne({ noShowFeePaymentIntentId: paymentIntentId });
+    if (feeReservation?.cardGuaranteeStatus === 'charged' && amountRefundedCents != null) {
+      feeReservation.cardGuaranteeStatus = 'refunded';
+      await feeReservation.save();
+    }
+    return feeReservation;
+  }
   if (reservation.depositStatus === 'refunded') return reservation;
   if (
     reservation.depositStatus !== 'authorized' &&
@@ -1873,17 +2145,107 @@ async function applyDepositRefund(
       !fullyRefunded && reservation.depositAmountCents > opts.refundCents
         ? ` (partial; $${(nextRefunded / 100).toFixed(2)} of $${(reservation.depositAmountCents / 100).toFixed(2)} refunded total)`
         : '';
-    const body = opts.reason?.trim()
-      ? `Your ${amountLabel} deposit for ${restaurantName} was refunded${partialNote}. ${opts.reason.trim()}`
-      : `Your ${amountLabel} deposit for ${restaurantName} was refunded${partialNote}.`;
+    const reasonBit = opts.reason?.trim() ? ` ${opts.reason.trim()}` : '';
+    const note = `${partialNote}.${reasonBit}`;
+    const diner = await User.findById(reservation.dinerId).select('firstName');
+    const reservationUrl = `${publicWebBaseUrl()}/reservations/${reservation._id.toString()}`;
+    const rendered = await renderEmailTemplate('deposit_refunded', {
+      firstName: diner?.firstName || 'there',
+      restaurantName,
+      amount: amountLabel,
+      note,
+      reservationUrl,
+    });
     await notifyUser(reservation.dinerId.toString(), {
       type: 'deposit_refunded',
-      title: fullyRefunded ? 'Deposit refunded' : 'Partial deposit refund',
-      body,
+      title: fullyRefunded ? rendered.subject || 'Deposit refunded' : 'Partial deposit refund',
+      body: rendered.bodyText,
+      htmlBody: appendEmailButtonsIfMissing(
+        rendered.bodyHtml,
+        [{ href: reservationUrl, label: 'View reservation' }],
+        reservationUrl,
+      ),
       data: { reservationId: reservation._id.toString() },
     }).catch(() => undefined);
   }
 
+  return reservation;
+}
+
+async function loadReservationForStaff(reservationId: string, actorId: string) {
+  const reservation = await Reservation.findById(reservationId);
+  if (!reservation) throw new NotFoundError('Reservation');
+  const restaurant = await Restaurant.findById(reservation.restaurantId);
+  const user = await User.findById(actorId);
+  const isOwner =
+    restaurant &&
+    (restaurant.ownerId.equals(actorId) ||
+      user?.restaurantIds?.some((id) => id.equals(restaurant._id)));
+  const isAdmin = user ? isPlatformAdmin(user.role) : false;
+  if (!isOwner && !isAdmin) throw new ForbiddenError();
+  return { reservation, restaurant };
+}
+
+/**
+ * Staff charge of the card-guarantee fee on a no-show. Used when the automatic
+ * no-show job flagged the booking (it never charges) or to retry a declined card.
+ */
+export async function chargeReservationNoShowFee(reservationId: string, actorId: string) {
+  const { reservation, restaurant } = await loadReservationForStaff(reservationId, actorId);
+  if (reservation.status !== 'no_show') {
+    throw new ValidationError('Only no-show reservations can be charged the no-show fee');
+  }
+  if (reservation.cardGuaranteeStatus === 'failed') {
+    reservation.cardGuaranteeStatus = 'card_saved';
+  }
+  if (reservation.cardGuaranteeStatus !== 'card_saved') {
+    throw new ValidationError('This reservation has no saved card to charge');
+  }
+  const outcome = await chargeNoShowFee(reservation, 'no_show', `staff-${Date.now()}`);
+  await reservation.save();
+  await notifyNoShowFeeOutcome(reservation, outcome, restaurant?.name ?? 'the restaurant');
+  if (outcome === 'failed') {
+    throw new ValidationError(`Card was declined: ${reservation.noShowFeeError ?? 'unknown error'}`);
+  }
+  return reservation;
+}
+
+/** Staff waiver of a fee that was already charged (full refund). */
+export async function refundReservationNoShowFee(
+  reservationId: string,
+  actorId: string,
+  reason?: string,
+) {
+  const { reservation, restaurant } = await loadReservationForStaff(reservationId, actorId);
+  if (reservation.cardGuaranteeStatus !== 'charged' || !reservation.noShowFeePaymentIntentId) {
+    throw new ValidationError('No charged no-show fee to refund');
+  }
+  await refundDeposit(reservation.noShowFeePaymentIntentId);
+  reservation.cardGuaranteeStatus = 'refunded';
+  await reservation.save();
+  const amount = `$${(reservation.noShowFeeCents / 100).toFixed(2)}`;
+  const note = reason?.trim() ? `. ${reason.trim()}` : '.';
+  const diner = await User.findById(reservation.dinerId).select('firstName');
+  const restaurantName = restaurant?.name ?? 'The restaurant';
+  const reservationUrl = `${publicWebBaseUrl()}/reservations/${reservation._id.toString()}`;
+  const rendered = await renderEmailTemplate('no_show_fee_refunded', {
+    firstName: diner?.firstName || 'there',
+    restaurantName,
+    amount,
+    note,
+    reservationUrl,
+  });
+  await notifyUser(reservation.dinerId.toString(), {
+    type: 'no_show_fee_refunded',
+    title: rendered.subject,
+    body: rendered.bodyText,
+    htmlBody: appendEmailButtonsIfMissing(
+      rendered.bodyHtml,
+      [{ href: reservationUrl, label: 'View reservation' }],
+      reservationUrl,
+    ),
+    data: { reservationId: reservation._id.toString() },
+  }).catch(() => undefined);
   return reservation;
 }
 

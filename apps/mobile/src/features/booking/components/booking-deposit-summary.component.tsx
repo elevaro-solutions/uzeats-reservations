@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { noShowFeePolicyText, prepaymentPolicyText } from "@reservations/shared";
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
@@ -17,14 +18,17 @@ export type BookingDepositSummaryProps = {
 export function BookingDepositSummary({
   breakdown,
 }: BookingDepositSummaryProps) {
-  if (breakdown.grossCents <= 0) return null;
+  const hasPrepayment = breakdown.grossCents > 0;
+  const hasNoShowFee = breakdown.noShowFeeCents > 0;
+  if (!hasPrepayment && !hasNoShowFee) return null;
 
-  const rows: Array<{ label: string; value: string; emphasize?: boolean }> = [
-    {
-      label: "Base deposit",
+  const rows: Array<{ label: string; value: string; emphasize?: boolean }> = [];
+  if (breakdown.baseDepositCents > 0) {
+    rows.push({
+      label: "Deposit",
       value: formatCents(breakdown.baseDepositCents),
-    },
-  ];
+    });
+  }
 
   if (breakdown.addOnsCents > 0) {
     rows.push({
@@ -51,14 +55,22 @@ export function BookingDepositSummary({
     });
   }
 
-  rows.push({
-    label: "Hold amount",
-    value: formatCents(breakdown.dueCents),
-    emphasize: true,
-  });
+  if (hasPrepayment) {
+    rows.push({
+      label: "Due now",
+      value: formatCents(breakdown.dueCents),
+      emphasize: true,
+    });
+  }
+  if (hasNoShowFee) {
+    rows.push({
+      label: "No-show fee (not charged now)",
+      value: formatCents(breakdown.noShowFeeCents),
+    });
+  }
 
   return (
-    <BookingSection title="Deposit summary">
+    <BookingSection title={hasPrepayment ? "Payment summary" : "Card guarantee"}>
       <View style={styles.card}>
         {rows.map((row, index) => (
           <Fragment key={row.label}>
@@ -71,9 +83,16 @@ export function BookingDepositSummary({
           </Fragment>
         ))}
       </View>
-      <Typography size="text-xs" color="secondary">
-        Card hold — only captured if you no-show or cancel late.
-      </Typography>
+      {hasPrepayment ? (
+        <Typography size="text-xs" color="secondary">
+          {prepaymentPolicyText()}
+        </Typography>
+      ) : null}
+      {hasNoShowFee ? (
+        <Typography size="text-xs" color="secondary">
+          {noShowFeePolicyText(breakdown.noShowFeeCents)}
+        </Typography>
+      ) : null}
     </BookingSection>
   );
 }

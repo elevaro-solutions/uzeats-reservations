@@ -9,14 +9,20 @@ import {
   InlineAlert,
   Typography,
 } from "@/components";
-import { PLATFORM_TIMEZONE } from "@reservations/shared";
+import {
+  noShowFeePolicyText,
+  PLATFORM_TIMEZONE,
+  prepaymentPolicyText,
+} from "@reservations/shared";
 
 import {
   depositStatusTone,
+  formatCardGuaranteeLabel,
   formatCentsAsDollars,
   formatDepositStatusLabel,
   formatReservationDate,
   needsDepositPayment,
+  paymentDueActionLabel,
 } from "../helpers/reservation-display.helpers";
 
 import { StatusTonePill } from "./status-tone-pill.component";
@@ -28,6 +34,8 @@ export type ReservationBillingSheetProps = {
   slotStart: string;
   depositAmountCents: number;
   depositStatus: string;
+  noShowFeeCents?: number;
+  cardGuaranteeStatus?: string | null;
   status: string;
   slotEnd?: string | null;
   timeZone?: string | null;
@@ -42,22 +50,28 @@ export function ReservationBillingSheet({
   slotStart,
   depositAmountCents,
   depositStatus,
+  noShowFeeCents = 0,
+  cardGuaranteeStatus,
   status,
   slotEnd,
   timeZone,
   paying = false,
   onPayDeposit,
 }: ReservationBillingSheetProps) {
-  const canPay = needsDepositPayment({
+  const timing = {
     status,
     slotStart,
     slotEnd,
     depositStatus,
     depositAmountCents,
-  });
-
-  const showHoldAlert =
-    depositStatus === "requires_payment" || depositStatus === "authorized";
+    noShowFeeCents,
+    cardGuaranteeStatus,
+  };
+  const canPay = needsDepositPayment(timing);
+  const hasPrepayment = depositAmountCents > 0;
+  const showGuaranteeNote =
+    noShowFeeCents > 0 &&
+    (cardGuaranteeStatus === "requires_card" || cardGuaranteeStatus === "card_saved");
   const visitTimeZone = timeZone ?? PLATFORM_TIMEZONE;
 
   return (
@@ -65,7 +79,7 @@ export function ReservationBillingSheet({
       visible={visible}
       onClose={onClose}
       title="Billing"
-      description="Deposit summary for this reservation."
+      description="Payments for this reservation."
       headerBorder
       loading={paying}
       accessibilityLabel="Close billing"
@@ -77,21 +91,31 @@ export function ReservationBillingSheet({
             loading={paying}
             onPress={onPayDeposit}
           >
-            Pay deposit
+            {paymentDueActionLabel(timing)}
           </Button>
         ) : undefined
       }
     >
       <Flex alignItems="center" gap={1} style={styles.hero}>
         <Typography size="display-xs" weight="bold">
-          {formatCentsAsDollars(depositAmountCents)}
+          {formatCentsAsDollars(hasPrepayment ? depositAmountCents : noShowFeeCents)}
         </Typography>
         <Typography size="text-sm" color="secondary">
-          Deposit hold
+          {hasPrepayment ? "Paid at booking" : "No-show fee"}
         </Typography>
         <StatusTonePill
-          label={formatDepositStatusLabel(depositStatus)}
-          tone={depositStatusTone(depositStatus)}
+          label={
+            hasPrepayment
+              ? formatDepositStatusLabel(depositStatus)
+              : formatCardGuaranteeLabel(cardGuaranteeStatus)
+          }
+          tone={
+            hasPrepayment
+              ? depositStatusTone(depositStatus)
+              : cardGuaranteeStatus === "charged" || cardGuaranteeStatus === "failed"
+                ? "warning"
+                : "muted"
+          }
         />
       </Flex>
 
@@ -101,18 +125,25 @@ export function ReservationBillingSheet({
             {restaurantName ?? "Restaurant"}
           </Typography>
         </SummaryRow>
-        <SummaryRow label="Visit" last>
+        <SummaryRow label="Visit" last={!(hasPrepayment && noShowFeeCents > 0)}>
           <Typography size="text-sm" weight="medium" style={styles.valueText}>
             {formatReservationDate(slotStart, visitTimeZone)}
           </Typography>
         </SummaryRow>
+        {hasPrepayment && noShowFeeCents > 0 ? (
+          <SummaryRow label="No-show fee" last>
+            <Typography size="text-sm" weight="medium" style={styles.valueText}>
+              {`${formatCentsAsDollars(noShowFeeCents)} · ${formatCardGuaranteeLabel(cardGuaranteeStatus)}`}
+            </Typography>
+          </SummaryRow>
+        ) : null}
       </View>
 
-      {showHoldAlert ? (
-        <InlineAlert
-          tone="info"
-          message="Card hold — only captured if you no-show or cancel late."
-        />
+      {depositStatus === "requires_payment" ? (
+        <InlineAlert tone="info" message={prepaymentPolicyText()} />
+      ) : null}
+      {showGuaranteeNote ? (
+        <InlineAlert tone="info" message={noShowFeePolicyText(noShowFeeCents)} />
       ) : null}
     </BottomSheet>
   );

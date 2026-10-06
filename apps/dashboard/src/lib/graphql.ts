@@ -99,12 +99,13 @@ export const MY_RESTAURANTS = gql`
       }
       depositRequired
       depositAmountCents
+      depositPolicy
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
       tables {
         id name minCapacity maxCapacity floorArea active combinable photoUrl
-        shape requiresManualApproval
+        shape requiresManualApproval depositRequired depositAmountCents
       }
       shifts {
         id name daysOfWeek startTime endTime slotIntervalMinutes turnTimeMinutes active
@@ -240,6 +241,11 @@ export const RESTAURANT_RESERVATIONS = gql`
         depositRefundedCents
         depositRefundableCents
         depositStatus
+        noShowFeeCents
+        cardGuaranteeStatus
+        noShowFeeReason
+        noShowFeeChargedAt
+        noShowFeeError
         experienceTitle
         experiencePriceCents
         experienceTicketQty
@@ -281,6 +287,11 @@ export const RESTAURANT_RESERVATION = gql`
       depositRefundedCents
       depositRefundableCents
       depositStatus
+      noShowFeeCents
+      cardGuaranteeStatus
+      noShowFeeReason
+      noShowFeeChargedAt
+      noShowFeeError
       experienceTitle
       experiencePriceCents
       experienceTicketQty
@@ -351,7 +362,28 @@ export const REFUND_RESERVATION_DEPOSIT = gql`
       depositRefundedCents
       depositRefundableCents
       depositStatus
+      noShowFeeCents
+      cardGuaranteeStatus
+      noShowFeeReason
+      noShowFeeChargedAt
+      noShowFeeError
     }
+  }
+`;
+
+const NO_SHOW_FEE_FIELDS = `
+  id status noShowFeeCents cardGuaranteeStatus noShowFeeReason noShowFeeChargedAt noShowFeeError
+`;
+
+export const CHARGE_RESERVATION_NO_SHOW_FEE = gql`
+  mutation ChargeReservationNoShowFee($id: ID!) {
+    chargeReservationNoShowFee(id: $id) { ${NO_SHOW_FEE_FIELDS} }
+  }
+`;
+
+export const REFUND_RESERVATION_NO_SHOW_FEE = gql`
+  mutation RefundReservationNoShowFee($id: ID!, $reason: String) {
+    refundReservationNoShowFee(id: $id, reason: $reason) { ${NO_SHOW_FEE_FIELDS} }
   }
 `;
 
@@ -372,6 +404,7 @@ export const CREATE_TABLE = gql`
     createTable(restaurantId: $restaurantId, input: $input) {
       id name minCapacity maxCapacity floorArea active combinable
       posX posY width height shape rotation combineGroupId photoUrl requiresManualApproval
+      depositRequired depositAmountCents
     }
   }
 `;
@@ -550,6 +583,7 @@ const ADMIN_RESTAURANT_FIELDS = `
   featuredUntil
   depositRequired
   depositAmountCents
+  depositPolicy
   loyaltyEnabled
   loyaltyPointsPerVisit
   loyaltyMinRedeemPoints
@@ -606,6 +640,7 @@ export const ADMIN_RESTAURANT = gql`
       ${ADMIN_RESTAURANT_FIELDS}
       tables {
         id name minCapacity maxCapacity floorArea active combinable photoUrl
+        requiresManualApproval depositRequired depositAmountCents
       }
       shifts {
         id name daysOfWeek startTime endTime slotIntervalMinutes turnTimeMinutes active
@@ -705,6 +740,7 @@ export const ADMIN_UPDATE_RESTAURANT = gql`
       featuredUntil
       depositRequired
       depositAmountCents
+      depositPolicy
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
@@ -911,6 +947,11 @@ export const ADMIN_RESERVATIONS = gql`
         depositRefundedCents
         depositRefundableCents
         depositStatus
+        noShowFeeCents
+        cardGuaranteeStatus
+        noShowFeeReason
+        noShowFeeChargedAt
+        noShowFeeError
         experienceTitle
         packageTitle
         privateDiningSpaceName
@@ -923,6 +964,103 @@ export const ADMIN_RESERVATIONS = gql`
           location { lat lng }
         }
         tables { id name floorArea }
+      }
+    }
+  }
+`;
+
+const NO_SHOW_FEE_CHARGE_FIELDS = `
+  id
+  restaurantId
+  dinerId
+  partySize
+  slotStart
+  status
+  noShowFeeCents
+  cardGuaranteeStatus
+  noShowFeeReason
+  noShowFeeChargedAt
+  noShowFeeError
+  diner { id firstName lastName phone email }
+  restaurant { id name }
+  tables { id name }
+`;
+
+export const RESTAURANT_NO_SHOW_FEE_CHARGES = gql`
+  query RestaurantNoShowFeeCharges(
+    $restaurantId: ID
+    $feeStatus: String
+    $reason: String
+    $startDate: String
+    $endDate: String
+    $search: String
+    $limit: Int
+    $offset: Int
+  ) {
+    restaurantNoShowFeeCharges(
+      restaurantId: $restaurantId
+      feeStatus: $feeStatus
+      reason: $reason
+      startDate: $startDate
+      endDate: $endDate
+      search: $search
+      limit: $limit
+      offset: $offset
+    ) {
+      total
+      summary {
+        chargedCount
+        chargedCents
+        refundedCount
+        refundedCents
+        failedCount
+        failedCents
+        pendingCount
+        pendingCents
+        netCollectedCents
+      }
+      items {
+        ${NO_SHOW_FEE_CHARGE_FIELDS}
+      }
+    }
+  }
+`;
+
+export const ADMIN_NO_SHOW_FEE_CHARGES = gql`
+  query AdminNoShowFeeCharges(
+    $restaurantId: ID
+    $feeStatus: String
+    $reason: String
+    $startDate: String
+    $endDate: String
+    $search: String
+    $limit: Int
+    $offset: Int
+  ) {
+    adminNoShowFeeCharges(
+      restaurantId: $restaurantId
+      feeStatus: $feeStatus
+      reason: $reason
+      startDate: $startDate
+      endDate: $endDate
+      search: $search
+      limit: $limit
+      offset: $offset
+    ) {
+      total
+      summary {
+        chargedCount
+        chargedCents
+        refundedCount
+        refundedCents
+        failedCount
+        failedCents
+        pendingCount
+        pendingCents
+        netCollectedCents
+      }
+      items {
+        ${NO_SHOW_FEE_CHARGE_FIELDS}
       }
     }
   }
@@ -2785,6 +2923,7 @@ export const RESTAURANT_PROFILE = gql`
       }
       depositRequired
       depositAmountCents
+      depositPolicy
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
@@ -2839,6 +2978,7 @@ export const UPDATE_RESTAURANT = gql`
       }
       depositRequired
       depositAmountCents
+      depositPolicy
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
@@ -2895,7 +3035,7 @@ export const UPDATE_TABLE = gql`
     updateTable(id: $id, input: $input) {
       id name minCapacity maxCapacity floorArea active combinable
       requiresManualApproval shape rotation combineGroupId photoUrl
-      posX posY width height
+      posX posY width height depositRequired depositAmountCents
     }
   }
 `;
@@ -3967,6 +4107,7 @@ export const PUBLISH_FLOOR_PLAN = gql`
       tables {
         id name minCapacity maxCapacity floorArea active combinable
         posX posY width height shape rotation combineGroupId photoUrl requiresManualApproval
+        depositRequired depositAmountCents
       }
     }
   }
@@ -3996,6 +4137,7 @@ export const FLOOR_PLAN_TABLES = gql`
       tables {
         id name minCapacity maxCapacity floorArea active combinable
         posX posY width height shape rotation combineGroupId photoUrl requiresManualApproval
+        depositRequired depositAmountCents
       }
     }
   }

@@ -32,7 +32,9 @@ import {
   ShopOutlined,
 } from '@ant-design/icons';
 import { AddressAutocomplete, PageHeader, PhoneInput, colors, radii, spacing, usPhoneRules } from '@reservations/ui';
+import { resolveDepositPolicy } from '@reservations/shared';
 import { BookingSharePanel } from '@/components/BookingSharePanel';
+import { DepositPolicyField } from '@/components/DepositPolicyField';
 import CuisineSelect from '@/components/CuisineSelect';
 import { ManageDetailGroups, type ManageDetailGroup } from '@/components/ManageDetailGroups';
 import { WidgetThemeEditor } from '@/components/WidgetThemeEditor';
@@ -131,6 +133,7 @@ export default function RestaurantProfilePage() {
       depositAmountCents: restaurant.depositAmountCents
         ? restaurant.depositAmountCents / 100
         : undefined,
+      depositPolicy: resolveDepositPolicy(restaurant.depositPolicy),
       loyaltyEnabled: restaurant.loyaltyEnabled ?? false,
       loyaltyPointsPerVisit: restaurant.loyaltyPointsPerVisit ?? 50,
       loyaltyMinRedeemPoints: restaurant.loyaltyMinRedeemPoints ?? 200,
@@ -176,6 +179,7 @@ export default function RestaurantProfilePage() {
               location: { lng: values.lng, lat: values.lat },
               depositRequired: values.depositRequired ?? false,
               depositAmountCents: Math.round((Number(values.depositAmountCents) || 0) * 100),
+              depositPolicy: resolveDepositPolicy(values.depositPolicy),
               loyaltyEnabled: values.loyaltyEnabled ?? false,
               loyaltyPointsPerVisit: values.loyaltyPointsPerVisit ?? 50,
               loyaltyMinRedeemPoints: values.loyaltyMinRedeemPoints ?? 200,
@@ -570,6 +574,9 @@ export default function RestaurantProfilePage() {
             >
               <InputNumber min={0} precision={2} step={0.01} style={{ width: '100%' }} prefix="$" />
             </Form.Item>
+          </Col>
+          <Col xs={24}>
+            <DepositPolicyField />
           </Col>
           <Col xs={24} sm={12}>
             <Form.Item

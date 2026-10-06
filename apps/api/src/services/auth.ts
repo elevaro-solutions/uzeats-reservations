@@ -2,7 +2,12 @@ import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
-import type { JwtPayload, UserRole } from '@reservations/shared';
+import {
+  phoneSchema,
+  type JwtPayload,
+  type UpdateMyProfileInput,
+  type UserRole,
+} from '@reservations/shared';
 import { env } from '../config/env.js';
 import { User } from '../models/User.js';
 import { PasswordResetAttempt } from '../models/PasswordResetAttempt.js';
@@ -125,11 +130,18 @@ export async function registerWithEmail(input: {
   password: string;
   firstName: string;
   lastName: string;
-  phone?: string;
+  phone: string;
   referralCode?: string;
 }) {
   const existing = await User.findOne({ email: input.email.toLowerCase() });
   if (existing) throw new ConflictError('Email already registered', { field: 'email' });
+
+  const phoneTaken = await User.findOne({ phone: input.phone });
+  if (phoneTaken) {
+    throw new ConflictError('This phone number is already used by another account', {
+      field: 'phone',
+    });
+  }
 
   const config = await getPlatformConfig();
   if (config.allowPublicRegistration === false) {
@@ -190,7 +202,15 @@ export async function loginWithEmail(email: string, password: string) {
   return { user, ...tokens };
 }
 
-export async function loginWithGoogle(idToken: string) {
+export type GoogleIdPayload = {
+  sub: string;
+  email: string;
+  email_verified?: boolean;
+  given_name?: string;
+  family_name?: string;
+};
+
+async function verifyGoogleIdToken(idToken: string): Promise<GoogleIdPayload> {
   if (!googleClient || !env.GOOGLE_CLIENT_ID) {
     throw new Error('Google OAuth is not configured');
   }
@@ -210,13 +230,29 @@ export async function loginWithGoogle(idToken: string) {
     throw new AuthenticationError('Invalid Google token');
   }
 
+  return {
+    sub: payload.sub,
+    email: payload.email,
+    email_verified: payload.email_verified,
+    given_name: payload.given_name,
+    family_name: payload.family_name,
+  };
+}
+
+/**
+ * Sign-in / sign-up via Google. Existing email/password accounts are not
+ * auto-linked — callers must use {@link linkGoogleAccount} while signed in.
+ * Exported for tests that supply a verified payload without OAuth.
+ */
+export async function completeGoogleSignIn(payload: GoogleIdPayload) {
+  const email = payload.email.toLowerCase();
   let user = await User.findOne({
-    $or: [{ googleId: payload.sub }, { email: payload.email.toLowerCase() }],
+    $or: [{ googleId: payload.sub }, { email }],
   });
 
   if (!user) {
     user = await User.create({
-      email: payload.email.toLowerCase(),
+      email,
       googleId: payload.sub,
       firstName: payload.given_name ?? 'Guest',
       lastName: payload.family_name ?? '',
@@ -225,12 +261,222 @@ export async function loginWithGoogle(idToken: string) {
       referralCode: await generateUniqueReferralCode(payload.given_name ?? 'Guest'),
     });
   } else if (!user.googleId) {
-    user.googleId = payload.sub;
-    await user.save();
+    throw new ConflictError(
+      'An account already exists with this email. Sign in with email and password, then link Google from your profile.',
+      { field: 'email' },
+    );
   }
 
   const tokens = await issueTokens(user);
   return { user, ...tokens };
+}
+
+export async function loginWithGoogle(idToken: string) {
+  const payload = await verifyGoogleIdToken(idToken);
+  return completeGoogleSignIn(payload);
+}
+
+/**
+ * Explicitly link Google to the signed-in account. Google email must match the
+ * profile email and be verified. Exported for tests with a verified payload.
+ */
+export async function linkGoogleAccount(userId: string, payload: GoogleIdPayload) {
+  const user = await User.findById(userId);
+  if (!user) throw new AuthenticationError('Authentication required');
+
+  if (!(payload.email_verified ?? false)) {
+    throw new ValidationError('Google email is not verified');
+  }
+
+  const googleEmail = payload.email.toLowerCase();
+  const profileEmail = (user.email ?? '').toLowerCase();
+  if (!profileEmail || googleEmail !== profileEmail) {
+    throw new ValidationError(
+      'Google account email must match your profile email',
+      { field: 'email' },
+    );
+  }
+
+  if (user.googleId) {
+    if (user.googleId === payload.sub) return user;
+    throw new ValidationError('Google sign-in is already linked to this account');
+  }
+
+  const taken = await User.exists({ googleId: payload.sub, _id: { $ne: user._id } });
+  if (taken) {
+    throw new ConflictError('This Google account is already linked to another user');
+  }
+
+  user.googleId = payload.sub;
+  if (!user.emailVerified) user.emailVerified = true;
+  await user.save();
+  return user;
+}
+
+export async function linkGoogle(userId: string, idToken: string) {
+  const payload = await verifyGoogleIdToken(idToken);
+  return linkGoogleAccount(userId, payload);
+}
+
+/**
+ * Google (and other) diners can sign up without a phone. The first reservation
+ * must supply one, and that number becomes the profile phone. Existing profile
+ * phones are left unchanged.
+ */
+export async function attachDinerProfilePhone(
+  dinerId: string,
+  phone?: string | null,
+) {
+  const diner = await User.findById(dinerId).select('phone');
+  if (!diner) throw new ValidationError('Account not found');
+  if (diner.phone?.trim()) return;
+
+  const trimmed = phone?.trim() ?? '';
+  if (!trimmed) {
+    throw new ValidationError(
+      'A phone number is required to complete your reservation',
+      { field: 'phone' },
+    );
+  }
+
+  const parsed = phoneSchema.safeParse(trimmed);
+  if (!parsed.success) {
+    throw new ValidationError('Enter a valid phone number', { field: 'phone' });
+  }
+
+  const taken = await User.exists({
+    phone: parsed.data,
+    _id: { $ne: diner._id },
+  });
+  if (taken) {
+    throw new ValidationError('This phone number is already used by another account', {
+      field: 'phone',
+    });
+  }
+
+  diner.phone = parsed.data;
+  await diner.save();
+}
+
+/**
+ * Signed-in account edits. Email and password changes require the current
+ * password when the account already has one. Google-linked accounts keep their
+ * Google email locked until `unlinkGoogle` (requires a password so the diner
+ * is not locked out). Does not revoke refresh tokens (unlike the emailed reset
+ * flow) so the diner stays signed in on this device.
+ */
+export async function updateMyProfile(userId: string, input: UpdateMyProfileInput) {
+  const user = await User.findById(userId);
+  if (!user) throw new AuthenticationError('Authentication required');
+
+  const nextEmail = input.email?.trim().toLowerCase() || null;
+  const emailChanged = Boolean(nextEmail && nextEmail !== (user.email ?? '').toLowerCase());
+  const nextPassword = input.newPassword || null;
+  const willUnlinkGoogle = Boolean(input.unlinkGoogle);
+
+  if (willUnlinkGoogle) {
+    if (!user.googleId) {
+      throw new ValidationError('Google sign-in is not linked to this account');
+    }
+    if (!user.passwordHash && !nextPassword) {
+      throw new ValidationError('Add a password before switching to email sign-in', {
+        field: 'newPassword',
+      });
+    }
+  }
+
+  if (emailChanged && user.googleId && !willUnlinkGoogle) {
+    throw new ValidationError(
+      'Email cannot be changed while Google sign-in is linked',
+      { field: 'email' },
+    );
+  }
+
+  if ((emailChanged || nextPassword) && user.passwordHash) {
+    if (!input.currentPassword) {
+      throw new ValidationError('Enter your current password', { field: 'currentPassword' });
+    }
+    const matches = await verifyPassword(input.currentPassword, user.passwordHash);
+    if (!matches) {
+      throw new ValidationError('Current password is incorrect', { field: 'currentPassword' });
+    }
+  }
+
+  if (nextPassword) {
+    user.passwordHash = await hashPassword(nextPassword);
+  }
+
+  if (willUnlinkGoogle) {
+    user.set('googleId', undefined);
+  }
+
+  if (emailChanged && nextEmail) {
+    const taken = await User.exists({ email: nextEmail, _id: { $ne: user._id } });
+    if (taken) throw new ConflictError('Email already registered', { field: 'email' });
+    user.email = nextEmail;
+    user.emailVerified = false;
+  }
+
+  if (input.firstName && input.firstName !== user.firstName) {
+    user.firstName = input.firstName;
+  }
+  if (input.lastName && input.lastName !== (user.lastName ?? '')) {
+    user.lastName = input.lastName;
+  }
+  if (input.avatarUrl !== undefined && input.avatarUrl !== null) {
+    const nextAvatar = input.avatarUrl || undefined;
+    if (nextAvatar !== (user.avatarUrl ?? undefined)) {
+      if (nextAvatar) user.avatarUrl = nextAvatar;
+      else user.set('avatarUrl', undefined);
+    }
+  }
+
+  if (input.phone !== undefined && input.phone !== null) {
+    const nextPhone = input.phone || undefined;
+    if (nextPhone !== (user.phone ?? undefined)) {
+      if (nextPhone) {
+        const taken = await User.exists({ phone: nextPhone, _id: { $ne: user._id } });
+        if (taken) {
+          throw new ConflictError('This phone number is already used by another account', {
+            field: 'phone',
+          });
+        }
+        user.phone = nextPhone;
+      } else {
+        user.set('phone', undefined);
+      }
+      user.phoneVerified = false;
+    }
+  }
+
+  if (input.address) {
+    user.address = {
+      line1: input.address.line1,
+      line2: input.address.line2,
+      city: input.address.city,
+      state: input.address.state,
+      zip: input.address.zip,
+      country: input.address.country,
+    };
+  } else if (input.clearAddress) {
+    user.set('address', undefined);
+  }
+
+  await user.save();
+
+  if (emailChanged) {
+    const config = await getPlatformConfig();
+    if (resolveRequireSignupEmailVerification(config.requireSignupEmailVerification)) {
+      await sendSignupVerificationEmail(user).catch((err) => {
+        logger.warn(
+          { err, userId: user._id.toString() },
+          '[auth] profile email verification failed',
+        );
+      });
+    }
+  }
+
+  return user;
 }
 
 const otpStore = new Map<string, { code: string; expiresAt: number }>();

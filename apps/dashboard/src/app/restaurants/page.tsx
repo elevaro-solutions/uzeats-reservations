@@ -41,6 +41,7 @@ import {
   UnorderedListOutlined,
 } from '@ant-design/icons';
 import {
+  DEPOSIT_POLICY_LABELS,
   RESTAURANT_STATUSES,
   formatPlanDollars,
   getAnnualSavingsPercentFromSettings,
@@ -48,8 +49,10 @@ import {
   getPlanPriceDisplay,
   normalizeAnnualBillingSettings,
   planForBillingPeriod,
+  resolveDepositPolicy,
   type AnnualBillingSettings,
 } from '@reservations/shared';
+import { DepositPolicyField } from '@/components/DepositPolicyField';
 import {
   AddressAutocomplete,
   EmptyState,
@@ -525,6 +528,7 @@ export default function MyRestaurantsPage() {
         'description',
         'depositRequired',
         'depositAmountCents',
+        'depositPolicy',
         'loyaltyEnabled',
         'loyaltyPointsPerVisit',
         'loyaltyMinRedeemPoints',
@@ -560,6 +564,7 @@ export default function MyRestaurantsPage() {
             location: { lng: values.lng, lat: values.lat },
             depositRequired: Boolean(values.depositRequired),
             depositAmountCents: Math.round((Number(values.depositAmountCents) || 0) * 100),
+            depositPolicy: resolveDepositPolicy(values.depositPolicy),
             loyaltyEnabled: Boolean(values.loyaltyEnabled),
             loyaltyPointsPerVisit: Number(values.loyaltyPointsPerVisit) || 50,
             loyaltyMinRedeemPoints: Number(values.loyaltyMinRedeemPoints) || 200,
@@ -1084,6 +1089,11 @@ export default function MyRestaurantsPage() {
                   />
                 </Form.Item>
               </Col>
+              {depositRequired ? (
+                <Col span={24}>
+                  <DepositPolicyField />
+                </Col>
+              ) : null}
               <Col span={12}>
                 <Form.Item
                   name="loyaltyEnabled"
@@ -1267,7 +1277,7 @@ export default function MyRestaurantsPage() {
                         <Text>
                           <Text type="secondary">Deposit: </Text>
                           {values.depositRequired
-                            ? `$${Number(values.depositAmountCents || 0).toFixed(2)}`
+                            ? `${Number(values.depositAmountCents || 0).toFixed(2)} per guest · ${DEPOSIT_POLICY_LABELS[resolveDepositPolicy(values.depositPolicy)]}`
                             : 'Not required'}
                         </Text>
                         {menuItemCount > 0 ? (

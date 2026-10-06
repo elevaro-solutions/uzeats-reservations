@@ -85,6 +85,13 @@ export default function RootLayout() {
                 }}
               />
               <Stack.Screen
+                name="edit-profile"
+                options={{
+                  headerShown: false,
+                  presentation: "modal",
+                }}
+              />
+              <Stack.Screen
                 name="help"
                 options={{
                   headerShown: false,

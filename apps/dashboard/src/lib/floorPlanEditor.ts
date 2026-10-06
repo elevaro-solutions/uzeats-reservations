@@ -29,6 +29,8 @@ export type FloorTable = {
   combineGroupId?: string | null;
   photoUrl?: string | null;
   requiresManualApproval?: boolean;
+  depositRequired?: boolean;
+  depositAmountCents?: number;
 };
 
 export type FloorFixture = {
@@ -113,6 +115,8 @@ export function mapLoadedTables(
     combineGroupId: t.combineGroupId ?? null,
     photoUrl: t.photoUrl ?? null,
     requiresManualApproval: Boolean(t.requiresManualApproval),
+    depositRequired: Boolean(t.depositRequired),
+    depositAmountCents: t.depositAmountCents ?? 0,
   }));
 }
 

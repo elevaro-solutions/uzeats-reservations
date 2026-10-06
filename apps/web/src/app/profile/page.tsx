@@ -8,15 +8,17 @@ import {
   BellOutlined,
   CheckCircleFilled,
   HeartOutlined,
+  EditOutlined,
   MailOutlined,
   TrophyOutlined,
 } from '@ant-design/icons';
-import { PageHeader, colors, radii, shadows } from '@reservations/ui';
-import { defaultLoyaltyProgram, loyaltyRedeemProgress, resolveLoyaltyTier, buildRestaurantBookingPath } from '@reservations/shared';
+import { PageHeader, colors, radii, shadows, formatPhoneDisplay } from '@reservations/ui';
+import { browserMediaUrl, defaultLoyaltyProgram, loyaltyRedeemProgress, resolveLoyaltyTier, buildRestaurantBookingPath } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { UPDATE_NOTIFICATION_PREFERENCES, LOYALTY_PROGRAM } from '@/lib/graphql';
+import { formatDinerAddress, ProfileAccountModal } from '@/components/profile/ProfileAccountCard';
 
 const { Title, Text } = Typography;
 
@@ -105,6 +107,7 @@ export default function ProfilePage() {
   const [pushPref, setPushPref] = useState(false);
   const [availabilityAlerts, setAvailabilityAlerts] = useState(true);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const pushEnabled = pushPref || Boolean(pushSubscription);
 
   useEffect(() => {
@@ -296,7 +299,7 @@ export default function ProfilePage() {
     <div component="ProfilePage" style={{ display: 'contents' }}><Space orientation="vertical" size={20} style={{ width: '100%', maxWidth: 720 }}>
       <PageHeader
         title="Profile"
-        subtitle="Manage notifications and loyalty rewards"
+        subtitle="Manage your account, notifications, and loyalty rewards"
       />
 
       <Card
@@ -313,6 +316,7 @@ export default function ProfilePage() {
               width: 56,
               height: 56,
               borderRadius: '50%',
+              overflow: 'hidden',
               background: colors.brand[100],
               color: colors.brand[700],
               display: 'flex',
@@ -323,14 +327,35 @@ export default function ProfilePage() {
               flexShrink: 0,
             }}
           >
-            {user?.firstName?.[0]?.toUpperCase()}
+            {user?.avatarUrl ? (
+              <img
+                src={browserMediaUrl(user.avatarUrl)}
+                alt=""
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              user?.firstName?.[0]?.toUpperCase()
+            )}
           </div>
           <div style={{ flex: 1, minWidth: 160 }}>
             <Title level={4} style={{ margin: 0 }}>
               {user?.firstName} {user?.lastName}
             </Title>
             <Text type="secondary">{user?.email}</Text>
+            {user?.phone ? (
+              <Text type="secondary" style={{ display: 'block' }}>
+                {formatPhoneDisplay(user.phone)}
+              </Text>
+            ) : null}
+            {user?.address?.line1 ? (
+              <Text type="secondary" style={{ display: 'block' }}>
+                {formatDinerAddress(user.address)}
+              </Text>
+            ) : null}
           </div>
+          <Button icon={<EditOutlined />} onClick={() => setAccountOpen(true)}>
+            Edit
+          </Button>
           <div
             style={{
               display: 'flex',
@@ -391,6 +416,13 @@ export default function ProfilePage() {
           )}
         </div>
       </Card>
+
+      <ProfileAccountModal
+        open={accountOpen}
+        user={user}
+        onClose={() => setAccountOpen(false)}
+        onSaved={refreshMe}
+      />
 
       {(restaurantBalances.length > 0 || restaurantHistory.length > 0) && (
         <Card

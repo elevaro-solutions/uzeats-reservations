@@ -120,7 +120,8 @@ export default function AdminTemplatesPage() {
           </Col>
           <Col xs={24} md={16}>
             <Card
-              title={activeKey}
+              title={activeTemplate?.name ?? 'Template'}
+              styles={{ title: { whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip' } }}
               loading={loading}
               extra={
                 <Space wrap>

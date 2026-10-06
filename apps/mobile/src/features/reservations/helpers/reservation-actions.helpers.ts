@@ -81,7 +81,7 @@ export function resolveOverflowActions(
   if (canLeaveReview(r) && primary !== "leave_review") {
     actions.push({ id: "leave_review", label: "Leave review" });
   }
-  if ((r.depositAmountCents ?? 0) > 0) {
+  if ((r.depositAmountCents ?? 0) > 0 || (r.noShowFeeCents ?? 0) > 0) {
     actions.push({ id: "billing", label: "Billing" });
   }
   if (canCancelReservation(r)) {

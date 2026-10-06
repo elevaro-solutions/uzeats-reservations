@@ -19,6 +19,7 @@ import {
   TABLE_SHAPE_SELECT_OPTIONS,
   buildTableShapeSelectOptions,
 } from '@/components/TableShapeGlyph';
+import { depositAmountWhenRequiredRule } from '@/lib/restaurantFormTooltips';
 import { useTableShapes } from '@/lib/useTableShapes';
 
 /** Static fallback — prefer `useTableShapes` / live catalog in forms. */
@@ -33,8 +34,37 @@ export const tableFormTips = {
   combinable: 'Allow joining this table with nearby combinable tables for larger parties.',
   active: 'Inactive tables are hidden from diner booking and floor assignment.',
   requiresManualApproval: 'Bookings assigned to this table stay pending until staff confirms.',
+  depositRequired:
+    'Charge a per-guest deposit for this table instead of the restaurant default. When off, the restaurant deposit setting applies.',
+  depositAmount: 'Deposit charged per guest for this table, in USD (e.g. 25.00 = $25.00).',
   photoUrl: 'Optional photo shown on the diner restaurant page.',
 } as const;
+
+/** Table form values hold the deposit in dollars; the API stores cents. */
+export type TableDepositFormValues = {
+  depositRequired?: boolean;
+  depositAmount?: number | null;
+};
+
+export function tableDepositFormValues(table: {
+  depositRequired?: boolean | null;
+  depositAmountCents?: number | null;
+}): TableDepositFormValues {
+  return {
+    depositRequired: table.depositRequired ?? false,
+    depositAmount: table.depositAmountCents ? table.depositAmountCents / 100 : null,
+  };
+}
+
+export function tableDepositInput(values: TableDepositFormValues) {
+  const depositRequired = values.depositRequired ?? false;
+  return {
+    depositRequired,
+    depositAmountCents: depositRequired
+      ? Math.round((Number(values.depositAmount) || 0) * 100)
+      : 0,
+  };
+}
 
 function normalizeAreaName(value: string) {
   return value.trim().replace(/\s+/g, ' ');
@@ -140,6 +170,8 @@ export function TableFormFields({
   onAddArea,
   showShape = true,
 }: TableFormFieldsProps) {
+  const form = Form.useFormInstance();
+  const depositRequired = Form.useWatch('depositRequired', form);
   const { shapes } = useTableShapes();
   const shapeOptions = useMemo(
     () => (shapes.length ? buildTableShapeSelectOptions(shapes) : TABLE_SHAPE_OPTIONS),
@@ -164,7 +196,19 @@ export function TableFormFields({
             name="minCapacity"
             label="Min guests"
             tooltip={tableFormTips.minCapacity}
-            rules={[{ required: true, message: 'Enter min guests' }]}
+            dependencies={['maxCapacity']}
+            rules={[
+              { required: true, message: 'Enter min guests' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  const max = getFieldValue('maxCapacity');
+                  if (value != null && max != null && value > max) {
+                    return Promise.reject(new Error('Min cannot be greater than max'));
+                  }
+                  return Promise.resolve();
+                },
+              }),
+            ]}
             style={{ marginBottom: 12 }}
           >
             <InputNumber min={1} max={50} style={{ width: '100%' }} />
@@ -182,7 +226,7 @@ export function TableFormFields({
                 validator(_, value) {
                   const min = getFieldValue('minCapacity');
                   if (value != null && min != null && value < min) {
-                    return Promise.reject(new Error('Max must be at least min'));
+                    return Promise.reject(new Error('Max cannot be less than min'));
                   }
                   return Promise.resolve();
                 },
@@ -252,6 +296,40 @@ export function TableFormFields({
             style={{ marginBottom: 12 }}
           >
             <Switch />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={12}>
+        <Col xs={24} sm={8}>
+          <Form.Item
+            name="depositRequired"
+            label="Require deposit"
+            tooltip={tableFormTips.depositRequired}
+            valuePropName="checked"
+            style={{ marginBottom: 12 }}
+          >
+            <Switch />
+          </Form.Item>
+        </Col>
+        <Col xs={24} sm={16}>
+          <Form.Item
+            name="depositAmount"
+            label="Deposit per guest (USD)"
+            tooltip={tableFormTips.depositAmount}
+            dependencies={['depositRequired']}
+            rules={[depositAmountWhenRequiredRule]}
+            style={{ marginBottom: 12 }}
+          >
+            <InputNumber
+              min={0}
+              max={10_000}
+              precision={2}
+              prefix="$"
+              disabled={!depositRequired}
+              placeholder="Uses restaurant default"
+              style={{ width: '100%' }}
+            />
           </Form.Item>
         </Col>
       </Row>

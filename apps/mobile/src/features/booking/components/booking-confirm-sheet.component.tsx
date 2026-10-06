@@ -10,7 +10,7 @@ import {
   InlineAlert,
   Typography,
 } from "@/components";
-import { OCCASION_LABELS, PLATFORM_TIMEZONE, type Occasion } from "@reservations/shared";
+import { OCCASION_LABELS, PLATFORM_TIMEZONE, type Occasion, noShowFeePolicyText, prepaymentPolicyText } from "@reservations/shared";
 
 import { formatCents } from "../helpers/booking-pricing.helpers";
 import { formatGuestCount } from "../helpers/format-guest-count.helpers";
@@ -29,8 +29,12 @@ export type BookingConfirmSheetProps = {
   partySize: number;
   occasion: Occasion;
   notes?: string;
+  phone?: string;
   tableName?: string | null;
+  /** Charged at booking. */
   depositCents: number;
+  /** Card guarantee — saved card, charged only on no-show / late cancel. */
+  noShowFeeCents?: number;
   termsAccepted: boolean;
   onTermsAcceptedChange: (value: boolean) => void;
   errorMessage?: string | null;
@@ -49,8 +53,10 @@ export function BookingConfirmSheet({
   partySize,
   occasion,
   notes = "",
+  phone,
   tableName,
   depositCents,
+  noShowFeeCents = 0,
   termsAccepted,
   onTermsAcceptedChange,
   errorMessage,
@@ -92,8 +98,10 @@ export function BookingConfirmSheet({
           onPress={handleConfirm}
         >
           {depositCents > 0
-            ? "Confirm & authorize deposit"
-            : approvalRequired
+            ? "Confirm & pay"
+            : noShowFeeCents > 0
+              ? "Confirm & add card"
+              : approvalRequired
               ? "Send request"
               : "Confirm reservation"}
         </Button>
@@ -122,6 +130,16 @@ export function BookingConfirmSheet({
                   </Typography>
                 ),
               },
+              phone
+                ? {
+                    label: "Phone",
+                    content: (
+                      <Typography weight="medium" style={styles.valueText}>
+                        {phone}
+                      </Typography>
+                    ),
+                  }
+                : null,
               {
                 label: "Date",
                 content: (
@@ -168,10 +186,20 @@ export function BookingConfirmSheet({
                 : null,
               depositCents > 0
                 ? {
-                    label: "Deposit hold",
+                    label: "Due now",
                     content: (
                       <Typography weight="medium" style={styles.valueText}>
                         {formatCents(depositCents)}
+                      </Typography>
+                    ),
+                  }
+                : null,
+              noShowFeeCents > 0
+                ? {
+                    label: "No-show fee",
+                    content: (
+                      <Typography weight="medium" style={styles.valueText}>
+                        {formatCents(noShowFeeCents)}
                       </Typography>
                     ),
                   }
@@ -211,8 +239,11 @@ export function BookingConfirmSheet({
       {depositCents > 0 ? (
         <InlineAlert
           tone="info"
-          message={`Next: authorize ${formatCents(depositCents)} on your card via Stripe. This is a hold, not a charge unless you no-show or cancel late.`}
+          message={`Next: pay ${formatCents(depositCents)} via Stripe. ${prepaymentPolicyText()}`}
         />
+      ) : null}
+      {noShowFeeCents > 0 ? (
+        <InlineAlert tone="info" message={noShowFeePolicyText(noShowFeeCents)} />
       ) : null}
 
       <Pressable

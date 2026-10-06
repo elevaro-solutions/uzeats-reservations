@@ -91,7 +91,7 @@ const PACKAGE_FIELDS: Array<{
   {
     name: 'pointsPerDollarDeposit',
     label: 'Points per $1 deposit',
-    tip: 'Awarded when a deposit hold is authorized.',
+    tip: 'Awarded when a booking prepayment is paid.',
     min: 0,
     suffix: 'pts',
   },

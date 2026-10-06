@@ -1,5 +1,27 @@
 # Booking — Learnings & Observations
 
+## [2026-10-06] Private dining needs its own table inventory
+- `PrivateDiningSpace` is an add-on (fee + guest bounds), not floor inventory. Availability / `resolveTable` only look at `Table` rows by party size, so a room advertised as 12–20 with max floor table ≤10 returned zero slots.
+- Fix: spaces get `tableIds`; `ensurePrivateDiningBackingTables` auto-creates a `privateDiningOnly` table matching min/max guests. Availability / bookableTables / assign accept `privateDiningSpaceId` and use those tables only. Regular availability excludes `privateDiningOnly` tables.
+- Why it matters: “Book this room” / selecting Private room bumped party size into a range no open table could seat.
+
+## [2026-10-06] Card-hold bookings are not placed until Stripe succeeds
+- `createReservation` still claims the table and returns a SetupIntent/PaymentIntent so two diners cannot take the same seat while one is on the card form. The row stays `pending` + `requires_card` / `requires_payment` and is omitted from `myReservations` and `restaurantReservations`.
+- Cancel (or a failed PaymentSheet) calls `abandonIncompleteBooking`, which rolls back points/promo/gift/tickets, releases slot claims, cancels the Stripe intent, and deletes the row. A 20-minute job (`BOOKING_CARD_HOLD_MINUTES`) does the same if they close the tab.
+- If Stripe already succeeded, abandon confirms instead of deleting. Waitlist convert and first-booking bonus wait until confirm.
+- Why it matters: Cancel on "Save card" used to leave a pending reservation in My reservations and on the floor.
+
+## [2026-10-06] Booking mail must not block create / card-confirm
+- `createReservation` and `confirmDeposit` used to wait for reminder Redis jobs and SendGrid (and `getEmailTemplate` used to rewrite every default template first). The HTTP request stayed pending; retries hit the same-slot duplicate guard.
+- Reminders and diner/restaurant mail now run after the mutation returns. Template lookup is a single `findOne` unless the key is missing.
+- Why it matters: A diner Gmail + SendGrid key on a party that needs approval or a card step looked like a hung Confirm button.
+
+## [2026-10-04] Missing profile phone is collected on the booking
+- Diner `createReservation` calls `attachDinerProfilePhone` before the booking is saved. If `User.phone` is empty, `input.phone` is required and written onto the profile. An existing profile phone is not replaced.
+- Missing or duplicate phones are `ValidationError` with `field: phone` (not `ConflictError`) so the booking client does not treat them as a taken slot.
+- Partner and owner booking paths do not go through this check.
+- Why it matters: Google diners have no phone until their first reservation. Web and mobile only show the field when `user.phone` is empty, then `refreshMe` so profile shows it.
+
 ## [2026-09-30] createReservation side effects run after the booking is saved
 - `Reservation.create` + slot claim happen first; points awards, reminders, and notifications run afterwards. Any throw there returned `INTERNAL_SERVER_ERROR` with the reservation already persisted, and the retry hit the duplicate guard ("You already have a reservation…").
 - Trigger seen in prod: `awardFirstBookingBonus` (only when `priorReservations === 0`, i.e. right after signup) used `session.withTransaction`, which standalone Dokku Mongo rejects. Now uses `withOptionalTransaction`, and every post-save step is wrapped in `softFail` (logged, not thrown).
@@ -134,8 +156,32 @@
 - Wrap the icon in a 14×20 well (`justifyContent: center`) so it centers on the first line while multi-line addresses still top-align.
 - Why it matters: Don’t swap to `alignItems: center` alone if address can wrap — center against the whole block drifts the pin.
 
+## [2026-10-04] Approval preview matches auto-assign preference
+- Auto-assign (`smartAssign` / `findAvailableTable`) prefers tables with `requiresManualApproval !== true`. Mixed candidate tables therefore auto-confirm.
+- `previewBookingManualApproval` mirrors that: mixed candidates are `none` unless `allowGuestTableSelection` is on (then `possible`). Still `required` when every candidate needs approval, or when restaurant/add-on/selected-table rules match.
+- Why it matters: Guests were warned "needs restaurant approval" then got an immediate confirmation when a normal table was assigned.
+
 ## [2026-10-03] Guest-facing manual-approval preview
-- `previewBookingManualApproval` (`@reservations/shared`) mirrors the server's `bookingRequiresManualApproval` before submit. It returns `required`, `possible`, or `none`. When no table is picked, the server smart-assigns from the same `bookableTables` candidates, so the result is only `required` if every candidate opts in, and `possible` if some do.
+- `previewBookingManualApproval` (`@reservations/shared`) mirrors the server's `bookingRequiresManualApproval` before submit. It returns `required`, `possible`, or `none`.
 - Diner mobile now fetches `bookableTables` on the details step even when guest table selection is off, because the preview needs the candidate tables.
 - After booking, rely on `reservation.requiresManualApproval`, not the preview. Deposit bookings also sit in `pending`, so check the flag rather than the status alone.
 - Why it matters: If you change approval rules in `createReservation`, update the shared preview too, or guests will see the wrong notice.
+
+## [2026-10-05] Table deposit overrides restaurant default
+- `resolveTableDepositCents` (`@reservations/shared`) is the single rule: table `depositRequired` + `depositAmountCents > 0` wins; otherwise restaurant `depositRequired`/`depositAmountCents`; both are per guest × party size. A table toggle that's on with $0 falls back to the restaurant default rather than making the table free.
+- A table deposit applies even when the restaurant default is off. There is no "exempt this table" state.
+- The deposit depends on the assigned table, so with auto-assign the client preview shows the restaurant default and the server may charge a table price. Only a diner-picked table previews exactly. The widget (`packages/widget`) always previews the restaurant default.
+- Why it matters: If you add deposit inputs to `createReservation`, keep the shared helper, web `RestaurantPageClient`, and mobile `booking-pricing.helpers` in sync.
+
+## [2026-10-05] Deposit policy: card guarantee vs prepaid
+- `resolveBookingCharges` (`@reservations/shared`) splits a booking into `prepaidGrossCents` (add-ons, plus the table deposit when `prepaid`) and `noShowFeeCents` (the table deposit when `card_guarantee`, the default). Loyalty, promo, and gift-card discounts only reduce `prepaidGrossCents`.
+- One Stripe step per booking. With a prepayment it uses a PaymentIntent, adding `setup_future_usage: 'off_session'` when a fee also exists. With only a fee it uses a SetupIntent. Clients tell them apart by the client secret prefix (`seti_` means save the card: `confirmSetup`, or PaymentSheet `setupIntentClientSecret`). `confirmDepositPayment(paymentIntentId)` accepts either id.
+- `cardGuaranteeStatus` is separate from `depositStatus`. A booking can have both, for example a prepaid package plus a no-show fee. `depositStatus: 'authorized'` now only means a legacy manual-capture hold.
+- The fee is charged off-session, with idempotency key `booking-fee-<id>-<attempt>`, when staff mark a no-show or when the diner cancels a confirmed booking less than `LATE_CANCELLATION_HOURS` (24) ahead. A restaurant cancel never charges. The auto no-show job never charges either; staff use `chargeReservationNoShowFee`. Staff retries need a fresh attempt key because Stripe replays a failed request with the same key.
+- A late diner cancel on a prepaid booking keeps the prepayment; every other cancel refunds it.
+- Why it matters: To add a new prepaid add-on, pass it through `addOnsCents`. Don't add it to the table deposit, or it becomes a no-show fee under card guarantee.
+
+## [2026-10-06] Collected no-show fees report
+- Partner Insights `/fees` and Admin Billing `/admin/fees` list fee activity via `restaurantNoShowFeeCharges` / `adminNoShowFeeCharges`. Summary cards: collected, refunded, failed, pending charge.
+- Row actions: view/manage reservation, charge or retry fee, refund. Not the same as Billing invoices (prepaid deposits only).
+- Why it matters: Staff looking for “where did the $X no-show fee go?” should open this report, not Billing & invoices.

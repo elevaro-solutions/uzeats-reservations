@@ -12,6 +12,7 @@ import {
   GlobeIcon,
   HeartIcon,
   LockIcon,
+  PencilIcon,
   LogOutIcon,
   ReceiptTextIcon,
   SlidersHorizontalIcon,
@@ -223,6 +224,7 @@ export function ProfileFeature() {
               size="lg"
               firstName={user.firstName}
               lastName={user.lastName}
+              avatarUrl={user.avatarUrl}
             />
             <Flex gap={0.25} style={styles.flexGrow}>
               <Typography weight="semibold" size="text-lg" numberOfLines={1}>
@@ -238,7 +240,22 @@ export function ProfileFeature() {
                   {formatPhoneDisplay(user.phone)}
                 </Typography>
               ) : null}
+              {user.address?.line1 ? (
+                <Typography size="text-sm" color="secondary" numberOfLines={1}>
+                  {[user.address.line1, user.address.city, user.address.state]
+                    .filter(Boolean)
+                    .join(", ")}
+                </Typography>
+              ) : null}
             </Flex>
+            <Button
+              size="sm"
+              color="secondary"
+              variant="outlined"
+              onPress={() => router.push("/edit-profile")}
+            >
+              Edit
+            </Button>
           </Flex>
         </View>
 
@@ -250,6 +267,18 @@ export function ProfileFeature() {
           referralBonusPoints={program.referralBonusPoints}
           tiers={program.tiers}
         />
+
+        <ProfileSection label="Account">
+          <ProfileMenuGroup
+            items={[
+              {
+                title: "Personal info",
+                icon: <PencilIcon size={20} color={iconColor} />,
+                onPress: () => router.push("/edit-profile"),
+              },
+            ]}
+          />
+        </ProfileSection>
 
         <ProfileSection label="Shortcuts">
           <ProfileMenuGroup

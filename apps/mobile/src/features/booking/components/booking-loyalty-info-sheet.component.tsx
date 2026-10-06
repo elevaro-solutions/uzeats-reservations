@@ -38,7 +38,7 @@ export function BookingLoyaltyInfoSheet({
         },
         {
           value: `${program?.pointsPerDollarDeposit ?? LOYALTY.POINTS_PER_DOLLAR_DEPOSIT} pt`,
-          detail: "per $1 deposit authorized",
+          detail: "per $1 paid at booking",
         },
         {
           value: `${program?.pointsPerReview ?? LOYALTY.POINTS_PER_REVIEW} pts`,
@@ -62,14 +62,14 @@ export function BookingLoyaltyInfoSheet({
   const redeemItems: RuleItem[] = [
     {
       value: `${redeemPerDollar} pts`,
-      detail: "= $1 off your deposit hold",
+      detail: "= $1 off what you pay at booking",
     },
     {
       value: `${minRedeem.toLocaleString("en-US")} pts`,
       detail: "minimum to redeem",
     },
     {
-      detail: "Applied on this booking before you authorize the deposit",
+      detail: "Applied on this booking before you pay",
     },
   ];
 
@@ -103,9 +103,8 @@ export function BookingLoyaltyInfoSheet({
           On this booking
         </Typography>
         <Typography size="text-sm" color="secondary">
-          Choose an amount on the card to reduce the deposit due. The remainder
-          is authorized as a card hold — only captured if you no-show or cancel
-          late.
+          Choose an amount on the card to reduce what you pay now. Points
+          don't apply to a no-show fee.
         </Typography>
       </View>
     </BottomSheet>

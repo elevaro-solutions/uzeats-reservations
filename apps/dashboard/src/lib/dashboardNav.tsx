@@ -200,6 +200,11 @@ export const PARTNER_PAGES: DashboardPage[] = [
     description: 'Downloadable reservation and guest reports',
     parentSiderHref: '/insights',
   }),
+  page('/fees', 'No-show fees', 'Insights', 'partner', <DollarOutlined />, {
+    keywords: ['card guarantee', 'late cancel', 'refund', 'collected'],
+    description: 'Collected card-guarantee fees with charge and refund actions',
+    parentSiderHref: '/insights',
+  }),
   page('/onboarding', 'Get started', 'Account', 'partner', <CompassOutlined />, {
     keywords: ['setup', 'checklist'],
     when: 'onboarding',
@@ -311,6 +316,11 @@ export const ADMIN_PAGES: DashboardPage[] = [
   page('/admin/invoices', 'Invoices', 'Billing', 'admin', <FileDoneOutlined />, {
     keywords: ['billing'],
     description: 'Partner invoices and payment status',
+    parentSiderHref: '/admin/billing',
+  }),
+  page('/admin/fees', 'No-show fees', 'Billing', 'admin', <DollarOutlined />, {
+    keywords: ['card guarantee', 'late cancel', 'refund', 'collected', 'payout'],
+    description: 'All collected no-show and late-cancel fees across restaurants',
     parentSiderHref: '/admin/billing',
   }),
   page('/admin/revenue', 'Revenue', 'Billing', 'admin', <FundOutlined />, {

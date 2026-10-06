@@ -27,6 +27,7 @@ import { IconPropsType } from "@/types";
 import {
   formatCentsAsDollars,
   formatDepositStatusLabel,
+  formatCardGuaranteeLabel,
   formatReservationDate,
   formatReservationReference,
   formatReservationTime,
@@ -46,6 +47,8 @@ export type ReservationDetailRowsReservation = {
   packagePriceCents?: number | null;
   depositAmountCents?: number | null;
   depositStatus?: string | null;
+  noShowFeeCents?: number | null;
+  cardGuaranteeStatus?: string | null;
   requiresManualApproval?: boolean | null;
   loyaltyPointsEarned?: number | null;
   restaurant?: {
@@ -168,7 +171,9 @@ export function ReservationDetailRows({
 
   const depositCents = reservation.depositAmountCents ?? 0;
   const loyalty = reservation.loyaltyPointsEarned ?? 0;
-  const showSecondary = Boolean(tableLabel) || depositCents > 0 || loyalty > 0;
+  const noShowFeeCents = reservation.noShowFeeCents ?? 0;
+  const showSecondary =
+    Boolean(tableLabel) || depositCents > 0 || noShowFeeCents > 0 || loyalty > 0;
   const timeZone = reservation.restaurant?.timezone ?? PLATFORM_TIMEZONE;
 
   const visitRows: DetailRowItem[] = [
@@ -268,6 +273,7 @@ export function ReservationDetailRows({
                     slotEnd={reservation.slotEnd}
                     depositStatus={reservation.depositStatus}
                     depositAmountCents={reservation.depositAmountCents}
+                    cardGuaranteeStatus={reservation.cardGuaranteeStatus}
                     requiresManualApproval={reservation.requiresManualApproval}
                   />
                 </View>
@@ -335,6 +341,14 @@ export function ReservationDetailRows({
                 <DetailRow
                   label="Deposit"
                   value={`${formatCentsAsDollars(depositCents)} · ${formatDepositStatusLabel(reservation.depositStatus ?? "none")}`}
+                  icon={<HandCoinsIcon size={18} color={iconColor} />}
+                  last={noShowFeeCents <= 0 && loyalty <= 0}
+                />
+              ) : null}
+              {noShowFeeCents > 0 ? (
+                <DetailRow
+                  label="No-show fee"
+                  value={`${formatCentsAsDollars(noShowFeeCents)} · ${formatCardGuaranteeLabel(reservation.cardGuaranteeStatus)}`}
                   icon={<HandCoinsIcon size={18} color={iconColor} />}
                   last={loyalty <= 0}
                 />

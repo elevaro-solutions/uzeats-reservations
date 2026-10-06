@@ -1,5 +1,14 @@
 # Web — Learnings & Observations
 
+## [2026-10-06] Stripe Payment Element ready before card actions
+- `DepositPayment` and `/reservations/pay` wait for Payment Element `onReady` before showing Cancel / Save card / Pay now. `stripe` + `elements` existing is not enough — the iframe can still be loading.
+- `onLoadError` still reveals Cancel (and disables Save/Pay) so a failed Stripe load is not a trap.
+- Why it matters: Clicking Save card before the Element is mounted returns a Stripe error or no-ops.
+
+## [2026-10-06] My reservations list is client-sorted, not API order
+- `myReservations` returns `slotStart: -1` (latest first). Upcoming / action-needed tabs re-sort soonest-first; Past stays most-recent-first.
+- Why it matters: Same-day bookings looked reverse-chronological on Upcoming.
+
 ## [2026-10-03] Discovery map needs Maps hosts in CSP script-src
 - Prod showed "Map unavailable" even with `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` baked in. The Maps loader `<script>` was present but `performance` reported `responseStatus: 0` and `window.google.maps` stayed undefined — CSP blocked `https://maps.googleapis.com`.
 - `securityHeaders({ maps: true })` only opened `frame-src` for embed iframes; it did not allow the JS API. Fix: when `maps` is true, also add `maps.googleapis.com` and `maps.gstatic.com` to `script-src`.
@@ -67,7 +76,8 @@
 ## [2026-09-24] Profile section tabs are inventory-aware
 - `RestaurantSectionNav` only shows **Experiences** when upcoming published experiences exist, and **Private dining** when active spaces exist (`?section=experiences|private-dining`).
 - Private dining cards live in `RestaurantPrivateDiningSection`; **Book this room** clamps party size into the room’s min/max, selects the space, and scrolls to `#booking-form`.
-- Why it matters: Don’t hardcode those tabs — empty restaurants must not show dead anchors.
+- Availability / bookable-tables queries pass `privateDiningSpaceId` when a room is selected so the API uses that room’s backing table inventory.
+- Why it matters: Don’t hardcode those tabs — empty restaurants must not show dead anchors. Large private rooms will show no times if the space id is omitted from availability.
 
 ## [2026-09-24] Hero search field contrast
 - Stacked ≤940px fields used `--color-bg` (`#f7f5f2`) on a white card + tertiary labels — washed out.

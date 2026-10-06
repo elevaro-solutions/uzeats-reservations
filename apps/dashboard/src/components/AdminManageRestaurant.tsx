@@ -67,7 +67,12 @@ import {
 import { isPlatformAdmin } from '@/lib/roles';
 import { accountDetailPath } from '@/lib/adminAccounts';
 import { getPublicWebUrl } from '@/lib/webUrl';
-import { buildRestaurantBookingUrl, normalizeRestaurantSlug } from '@reservations/shared';
+import {
+  buildRestaurantBookingUrl,
+  normalizeRestaurantSlug,
+  resolveDepositPolicy,
+} from '@reservations/shared';
+import { DepositPolicyField } from '@/components/DepositPolicyField';
 
 const { Text } = Typography;
 
@@ -123,6 +128,7 @@ export type AdminRestaurantRecord = {
   featuredUntil?: string | null;
   depositRequired?: boolean;
   depositAmountCents?: number;
+  depositPolicy?: string | null;
   loyaltyEnabled?: boolean;
   loyaltyPointsPerVisit?: number;
   loyaltyMinRedeemPoints?: number;
@@ -357,6 +363,7 @@ function buildRestaurantInput(values: Record<string, unknown>, photoList: string
     logoUrl: logoUrl ?? null,
     depositRequired: Boolean(values.depositRequired),
     depositAmountCents: Math.round((Number(values.depositAmountCents) || 0) * 100),
+    depositPolicy: resolveDepositPolicy(values.depositPolicy as string | undefined),
     loyaltyEnabled: Boolean(values.loyaltyEnabled),
     loyaltyPointsPerVisit: Number(values.loyaltyPointsPerVisit) || 50,
     loyaltyMinRedeemPoints: Number(values.loyaltyMinRedeemPoints) || 200,
@@ -505,6 +512,7 @@ export function AdminManageRestaurant({
       depositAmountCents: restaurant.depositAmountCents
         ? restaurant.depositAmountCents / 100
         : undefined,
+      depositPolicy: resolveDepositPolicy(restaurant.depositPolicy),
       loyaltyEnabled: Boolean(restaurant.loyaltyEnabled),
       loyaltyPointsPerVisit: restaurant.loyaltyPointsPerVisit ?? 50,
       loyaltyMinRedeemPoints: restaurant.loyaltyMinRedeemPoints ?? 200,
@@ -948,6 +956,9 @@ export function AdminManageRestaurant({
             >
               <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
             </Form.Item>
+          </Col>
+          <Col xs={24}>
+            <DepositPolicyField />
           </Col>
           <Col xs={24} sm={12}>
             <Form.Item
