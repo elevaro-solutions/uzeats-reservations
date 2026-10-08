@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@apollo/client";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshControl, ScrollView, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -37,6 +37,15 @@ import {
   extractPaymentIntentId,
   useDepositPayment,
 } from "../booking/hooks/use-deposit-payment.hook";
+import {
+  hasDismissedRunningLatePrompt,
+  isTruthyFlag,
+  isWithinLateCheckWindow,
+} from "../notifications/helpers/reminder-late.helpers";
+import {
+  hasReportedRunningLate,
+  reportRunningLateAndOpenThread,
+} from "../notifications/helpers/report-running-late.helpers";
 import { CancelReservationModal } from "./components/cancel-reservation-modal.component";
 import { ReservationBillingSheet } from "./components/reservation-billing-sheet.component";
 import { ReservationDetailRows } from "./components/reservation-detail-rows.component";
@@ -107,7 +116,14 @@ type MyReservationQuery = {
 };
 
 export function ReservationDetailFeature() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{
+    id: string;
+    runningLate?: string;
+  }>();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+  const runningLateParam = Array.isArray(params.runningLate)
+    ? params.runningLate[0]
+    : params.runningLate;
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
@@ -122,6 +138,8 @@ export function ReservationDetailFeature() {
   const [cancelDetails, setCancelDetails] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const lateQueryHandledRef = useRef(false);
+  const lateRedirectRef = useRef(false);
 
   const { paying, payDeposit } = useDepositPayment();
 
@@ -135,6 +153,32 @@ export function ReservationDetailFeature() {
   );
 
   const reservation = data?.myReservation;
+  const wantsRunningLate = isTruthyFlag(runningLateParam);
+
+  useEffect(() => {
+    if (!user || !id || !wantsRunningLate) return;
+    if (lateQueryHandledRef.current) return;
+    lateQueryHandledRef.current = true;
+    void reportRunningLateAndOpenThread(id);
+  }, [user, id, wantsRunningLate]);
+
+  useEffect(() => {
+    if (!reservation || !id || wantsRunningLate) return;
+    if (lateRedirectRef.current) return;
+    if (hasReportedRunningLate(id) || hasDismissedRunningLatePrompt(id)) {
+      return;
+    }
+    if (
+      reservation.status !== "pending" &&
+      reservation.status !== "confirmed"
+    ) {
+      return;
+    }
+    if (!isWithinLateCheckWindow(reservation.slotStart)) return;
+    lateRedirectRef.current = true;
+    router.replace(`/reservations/${id}/running-late` as never);
+  }, [reservation, id, wantsRunningLate, router]);
+
   const [updateStatus] = useMutation(UPDATE_RESERVATION_STATUS);
   const [confirmDeposit] = useMutation(CONFIRM_DEPOSIT);
   const [saveRestaurant] = useMutation(SAVE_RESTAURANT);
@@ -398,7 +442,11 @@ export function ReservationDetailFeature() {
               onPress={() =>
                 router.push({
                   pathname: "/sign-in",
-                  params: { next: id ? `/reservations/${id}` : "/reservations" },
+                  params: {
+                    next: id
+                      ? `/reservations/${id}${wantsRunningLate ? "?runningLate=1" : ""}`
+                      : "/reservations",
+                  },
                 })
               }
             >

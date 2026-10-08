@@ -12,6 +12,8 @@ import { StripeProvider } from "@stripe/stripe-react-native";
 import * as SecureStore from "expo-secure-store";
 import { ReactNode } from "react";
 
+import { unregisterCurrentDevicePushTokenBestEffort } from "@/features/notifications/helpers/push-token.helpers";
+
 import { AuthProvider, clearStoredTokens, notifySessionInvalidated } from "./auth";
 import { API_URL } from "./config";
 import {
@@ -114,6 +116,7 @@ const errorLink = onError(({ graphQLErrors, operation, forward }) => {
           subscriber.error(error);
           return;
         }
+        await unregisterCurrentDevicePushTokenBestEffort();
         await clearStoredTokens();
         notifySessionInvalidated();
         subscriber.error(authError);

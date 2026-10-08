@@ -346,6 +346,7 @@ import {
   notifyUser,
   notifyRestaurantManagers,
 } from "../services/notifications.js";
+import { claimPushToken, releasePushToken } from "../services/pushTokens.js";
 import { getFeatures, requireFeature } from "../services/plans.js";
 import { getManagerSeatsUsage } from "../services/managerSeats.js";
 import { normalizeManagerSeats, sanitizePlanHighlights } from "../config/plans.js";
@@ -5512,12 +5513,15 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      await User.findByIdAndUpdate(user._id, {
-        $pull: { pushTokens: { token: args.token } },
-      });
-      await User.findByIdAndUpdate(user._id, {
-        $push: { pushTokens: { token: args.token, platform: args.platform } },
-      });
+      await claimPushToken(user._id.toString(), args.token, args.platform);
+      return true;
+    },
+
+    unregisterPushToken: async (
+      _: unknown,
+      args: { token: string },
+    ) => {
+      await releasePushToken(args.token);
       return true;
     },
 

@@ -11,6 +11,7 @@ import {
   ClockIcon,
   GlobeIcon,
   HeartIcon,
+  KeyIcon,
   LockIcon,
   PencilIcon,
   LogOutIcon,
@@ -18,12 +19,12 @@ import {
   SlidersHorizontalIcon,
   UserIcon,
 } from "@/assets";
-import { Button, Empty, Flex, Typography, UserAvatar } from "@/components";
+import { Button, Empty, Flex, Typography } from "@/components";
 import { useAuth } from "@/graphql";
-import { formatPhoneDisplay } from "@/lib/helpers/phone.helpers";
 import { useLoyaltyProgram } from "@/lib/use-loyalty-program";
 import { IconPropsType } from "@/types";
 
+import { ProfileIdentityCard } from "./components/profile-identity-card.component";
 import { ProfileLoyaltyCard } from "./components/profile-loyalty-card.component";
 import { ProfileMenuRow } from "./components/profile-menu-row.component";
 import { ProfileSkeleton } from "./components/profile-skeleton.component";
@@ -200,8 +201,6 @@ export function ProfileFeature() {
     );
   }
 
-  const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
-
   return (
     <>
       <ScrollView
@@ -218,46 +217,14 @@ export function ProfileFeature() {
           Profile
         </Typography>
 
-        <View style={styles.identityCard}>
-          <Flex direction="row" alignItems="center" gap={1.5}>
-            <UserAvatar
-              size="lg"
-              firstName={user.firstName}
-              lastName={user.lastName}
-              avatarUrl={user.avatarUrl}
-            />
-            <Flex gap={0.25} style={styles.flexGrow}>
-              <Typography weight="semibold" size="text-lg" numberOfLines={1}>
-                {fullName}
-              </Typography>
-              {user.email ? (
-                <Typography size="text-sm" color="secondary" numberOfLines={1}>
-                  {user.email}
-                </Typography>
-              ) : null}
-              {user.phone ? (
-                <Typography size="text-sm" color="secondary" numberOfLines={1}>
-                  {formatPhoneDisplay(user.phone)}
-                </Typography>
-              ) : null}
-              {user.address?.line1 ? (
-                <Typography size="text-sm" color="secondary" numberOfLines={1}>
-                  {[user.address.line1, user.address.city, user.address.state]
-                    .filter(Boolean)
-                    .join(", ")}
-                </Typography>
-              ) : null}
-            </Flex>
-            <Button
-              size="sm"
-              color="secondary"
-              variant="outlined"
-              onPress={() => router.push("/edit-profile")}
-            >
-              Edit
-            </Button>
-          </Flex>
-        </View>
+        <ProfileIdentityCard
+          firstName={user.firstName}
+          lastName={user.lastName}
+          email={user.email}
+          avatarUrl={user.avatarUrl}
+          address={user.address}
+          onEdit={() => router.push("/edit-profile")}
+        />
 
         <ProfileLoyaltyCard
           tierName={user.loyaltyTierName}
@@ -275,6 +242,11 @@ export function ProfileFeature() {
                 title: "Personal info",
                 icon: <PencilIcon size={20} color={iconColor} />,
                 onPress: () => router.push("/edit-profile"),
+              },
+              {
+                title: user.hasPassword === false ? "Add a password" : "Change password",
+                icon: <KeyIcon size={20} color={iconColor} />,
+                onPress: () => router.push("/change-password"),
               },
             ]}
           />
@@ -371,17 +343,6 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   content: {
     paddingHorizontal: space(2),
     gap: space(2),
-  },
-  identityCard: {
-    padding: space(2),
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.slate3,
-    backgroundColor: colors.background,
-  },
-  flexGrow: {
-    flex: 1,
-    minWidth: 0,
   },
   sectionLabel: {
     paddingHorizontal: space(0.5),

@@ -1,23 +1,19 @@
-import { useMemo, useState, type ReactNode } from "react";
-import { Alert, Image, Pressable, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Alert, Pressable, ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@apollo/client";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import {
+  KeyboardAwareScrollView,
+  KeyboardStickyView,
+} from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { toast } from "sonner-native";
 
-import {
-  ChevronDownIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  EyeIcon,
-  EyeOffIcon,
-  UserIcon,
-} from "@/assets";
+import { ChevronLeftIcon, UserIcon } from "@/assets";
 import {
   Button,
   Empty,
@@ -31,12 +27,16 @@ import {
 import { useAuth, type MobileUser } from "@/graphql";
 import { uploadFile } from "@/graphql/upload";
 import { getGraphQLErrorMessage, getGraphQLFieldErrors } from "@/lib/graphql-errors";
-import { browserMediaUrl } from "@reservations/shared";
 
 import { GoogleSignInButton } from "@/features/auth/components/google-sign-in-button.component";
 
 import { LINK_GOOGLE } from "./api/link-google.operations";
 import { UPDATE_MY_PROFILE } from "./api/update-profile.operations";
+import { EditProfilePhoto } from "./components/edit-profile-photo.component";
+import { EditProfileSection } from "./components/edit-profile-section.component";
+import { EditProfileSkeleton } from "./components/edit-profile-skeleton.component";
+import { PasswordRequirements } from "./components/password-requirements.component";
+import { SecretField } from "./components/secret-field.component";
 import {
   buildEditProfileSchema,
   toUpdateProfileInput,
@@ -62,152 +62,13 @@ function isProfileField(name: string): name is (typeof PROFILE_FIELDS)[number] {
   return (PROFILE_FIELDS as readonly string[]).includes(name);
 }
 
-const PASSWORD_CHECKS = [
-  { id: "length", label: "At least 8 characters", test: (value: string) => value.length >= 8 },
-  { id: "lower", label: "One lowercase letter", test: (value: string) => /[a-z]/.test(value) },
-  { id: "upper", label: "One uppercase letter", test: (value: string) => /[A-Z]/.test(value) },
-  { id: "number", label: "One number", test: (value: string) => /\d/.test(value) },
-] as const;
-
-function PasswordRequirements({ value }: { value: string }) {
-  return (
-    <View style={{ gap: 4, marginTop: 4 }}>
-      {PASSWORD_CHECKS.map((check) => {
-        const ok = check.test(value);
-        return (
-          <Typography key={check.id} size="text-xs" color={ok ? "success" : "muted"}>
-            {ok ? "✓" : "○"} {check.label}
-          </Typography>
-        );
-      })}
-    </View>
-  );
-}
-
-function FormSection({
-  title,
-  collapsible,
-  open = true,
-  onOpenChange,
-  summary,
-  children,
-}: {
-  title: string;
-  collapsible?: boolean;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  summary?: string;
-  children: ReactNode;
-}) {
-  const { theme } = useUnistyles();
-  const expanded = collapsible ? open : true;
-
-  const titleBlock = (
-    <View style={styles.sectionHeaderText}>
-      <Typography size="text-xs" weight="semibold" color="muted" style={{ letterSpacing: 0.8 }}>
-        {title.toUpperCase()}
-      </Typography>
-      <View style={styles.sectionRule} />
-    </View>
-  );
-
-  return (
-    <View style={styles.formSection}>
-      {collapsible ? (
-        <Pressable
-          onPress={() => onOpenChange?.(!expanded)}
-          accessibilityRole="button"
-          accessibilityState={{ expanded }}
-          style={styles.sectionHeaderBtn}
-        >
-          {titleBlock}
-          {expanded ? (
-            <ChevronDownIcon size={18} color={theme.colors.textMuted} />
-          ) : (
-            <ChevronRightIcon size={18} color={theme.colors.textMuted} />
-          )}
-        </Pressable>
-      ) : (
-        titleBlock
-      )}
-      {collapsible && !expanded && summary ? (
-        <Typography size="text-sm" color="secondary" numberOfLines={1}>
-          {summary}
-        </Typography>
-      ) : null}
-      <View style={{ display: expanded ? "flex" : "none", gap: theme.space(2) }}>{children}</View>
-    </View>
-  );
-}
-
-function SecretField({
-  label,
-  value,
-  onChangeText,
-  onBlur,
-  error,
-  helperText,
-  placeholder,
-  autoComplete,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (value: string) => void;
-  onBlur: () => void;
-  error?: string;
-  helperText?: string;
-  placeholder: string;
-  autoComplete: "current-password" | "new-password" | "password";
-}) {
-  const [visible, setVisible] = useState(false);
-  const { theme } = useUnistyles();
-
-  return (
-    <Input
-      label={label}
-      value={value}
-      onBlur={onBlur}
-      onChangeText={onChangeText}
-      placeholder={placeholder}
-      secureTextEntry={!visible}
-      autoCapitalize="none"
-      autoComplete={autoComplete}
-      textContentType="password"
-      error={Boolean(error)}
-      helperText={error ?? helperText}
-      suffix={
-        <Pressable
-          hitSlop={8}
-          onPress={() => setVisible((current) => !current)}
-          accessibilityRole="button"
-          accessibilityLabel={visible ? "Hide password" : "Show password"}
-        >
-          {visible ? (
-            <EyeOffIcon size={20} color={theme.colors.textMuted} />
-          ) : (
-            <EyeIcon size={20} color={theme.colors.textMuted} />
-          )}
-        </Pressable>
-      }
-    />
-  );
-}
-
 function EditProfileForm({ user }: { user: MobileUser }) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
   const [switchToEmail, setSwitchToEmail] = useState(false);
-  const [passwordOpen, setPasswordOpen] = useState(false);
-  const [signInOpen, setSignInOpen] = useState(false);
-  const [addressOpen, setAddressOpen] = useState(false);
   const googleLinked = Boolean(user.hasGoogle);
   const emailLocked = googleLinked && !switchToEmail;
-  const signInSummary = [user.email, user.hasGoogle ? "Google linked" : null]
-    .filter(Boolean)
-    .join(" · ");
-  const addressSummary = user.address?.line1
-    ? [user.address.line1, user.address.city, user.address.state].filter(Boolean).join(", ")
-    : "No address saved";
   const schema = useMemo(
     () => buildEditProfileSchema(user, { switchToEmail }),
     [user, switchToEmail],
@@ -280,14 +141,35 @@ function EditProfileForm({ user }: { user: MobileUser }) {
       confirmPassword: "",
     },
   });
-  const newPasswordValue = useWatch({ control, name: "newPassword" }) ?? "";
+  const watched = useWatch({ control });
+  const formValues: EditProfileFormValues = {
+    firstName: watched.firstName ?? "",
+    lastName: watched.lastName ?? "",
+    email: watched.email ?? "",
+    phone: watched.phone ?? "",
+    line1: watched.line1 ?? "",
+    line2: watched.line2 ?? "",
+    city: watched.city ?? "",
+    state: watched.state ?? "",
+    zip: watched.zip ?? "",
+    currentPassword: watched.currentPassword ?? "",
+    newPassword: watched.newPassword ?? "",
+    confirmPassword: watched.confirmPassword ?? "",
+  };
+  const firstNameValue = formValues.firstName;
+  const lastNameValue = formValues.lastName;
+  const newPasswordValue = formValues.newPassword;
+  const creatingPasswordForUnlink = switchToEmail && user.hasPassword === false;
+  const emailDirty =
+    (!googleLinked || switchToEmail) &&
+    formValues.email.trim().toLowerCase() !== (user.email ?? "").toLowerCase();
+  const needsCurrentPassword = user.hasPassword !== false && emailDirty;
+  const canSave =
+    Object.keys(toUpdateProfileInput(formValues, user, avatarUrl, { switchToEmail })).length > 0;
 
   const onSubmit = handleSubmit(async (values) => {
     const input = toUpdateProfileInput(values, user, avatarUrl, { switchToEmail });
-    if (Object.keys(input).length === 0) {
-      toast("No changes to save");
-      return;
-    }
+    if (Object.keys(input).length === 0) return;
 
     setFormError(null);
     setSaving(true);
@@ -325,401 +207,351 @@ function EditProfileForm({ user }: { user: MobileUser }) {
     }
   });
 
+  function cancelSwitchToEmail() {
+    setSwitchToEmail(false);
+    setValue("email", user.email ?? "");
+    setValue("newPassword", "");
+    setValue("confirmPassword", "");
+    setValue("currentPassword", "");
+  }
+
   return (
-    <Flex gap={2}>
-      {formError ? (
-        <InlineAlert
-          tone="error"
-          message={formError}
-          onDismiss={() => setFormError(null)}
-        />
-      ) : null}
+    <View style={styles.formRoot}>
+      <KeyboardAwareScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={theme.space(14)}
+        showsVerticalScrollIndicator={false}
+      >
+        {formError ? (
+          <InlineAlert
+            tone="error"
+            message={formError}
+            onDismiss={() => setFormError(null)}
+          />
+        ) : null}
 
-      <Flex direction="row" alignItems="center" gap={1.5}>
-        <View style={styles.photo}>
-          {avatarUrl ? (
-            <Image source={{ uri: browserMediaUrl(avatarUrl) }} style={styles.photoImage} />
-          ) : (
-            <Typography weight="semibold" color="inverse" size="text-lg">
-              {user.firstName?.[0]?.toUpperCase()}
-            </Typography>
-          )}
-        </View>
-        <Flex gap={1} style={styles.flexGrow}>
-          <Button
-            size="sm"
-            color="secondary"
-            variant="outlined"
-            loading={uploadingPhoto}
-            onPress={() => void pickPhoto()}
-          >
-            {avatarUrl ? "Change photo" : "Add photo"}
-          </Button>
-          {avatarUrl ? (
-            <Button size="sm" color="secondary" variant="outlined" onPress={() => setAvatarUrl("")}>
-              Remove photo
-            </Button>
+        <EditProfilePhoto
+          firstName={firstNameValue}
+          lastName={lastNameValue}
+          avatarUrl={avatarUrl}
+          uploading={uploadingPhoto}
+          onChangePhoto={() => void pickPhoto()}
+          onRemovePhoto={() => setAvatarUrl("")}
+        />
+
+        <EditProfileSection
+          title="Your details"
+          description="Name and phone restaurants will see."
+        >
+          <Controller
+            control={control}
+            name="firstName"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Input
+                label="First name"
+                required
+                value={value}
+                onBlur={onBlur}
+                onChangeText={onChange}
+                autoComplete="given-name"
+                error={Boolean(errors.firstName)}
+                helperText={errors.firstName?.message}
+              />
+            )}
+          />
+          <Controller
+            control={control}
+            name="lastName"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Input
+                label="Last name"
+                required
+                value={value}
+                onBlur={onBlur}
+                onChangeText={onChange}
+                autoComplete="family-name"
+                error={Boolean(errors.lastName)}
+                helperText={errors.lastName?.message}
+              />
+            )}
+          />
+          <Controller
+            control={control}
+            name="phone"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <PhoneField
+                value={value}
+                onBlur={onBlur}
+                onChangeText={onChange}
+                error={Boolean(errors.phone)}
+                helperText={errors.phone?.message}
+              />
+            )}
+          />
+        </EditProfileSection>
+
+        <EditProfileSection
+          title="Sign-in"
+          description="Email and how you log in."
+        >
+          <Controller
+            control={control}
+            name="email"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Input
+                label="Email"
+                required
+                value={value}
+                onBlur={onBlur}
+                onChangeText={onChange}
+                placeholder="you@example.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                textContentType="emailAddress"
+                disabled={emailLocked}
+                error={Boolean(errors.email)}
+                helperText={
+                  errors.email?.message ??
+                  (googleLinked && !switchToEmail ? "Managed by Google sign-in." : undefined)
+                }
+              />
+            )}
+          />
+
+          {googleLinked && !switchToEmail ? (
+            <View style={styles.authCard}>
+              <Flex gap={0.5}>
+                <Typography size="text-sm" weight="semibold">
+                  Google linked
+                </Typography>
+                <Typography size="text-sm" color="secondary">
+                  You can sign in with Google or switch to email.
+                </Typography>
+              </Flex>
+              <Pressable
+                onPress={() => {
+                  setSwitchToEmail(true);
+                }}
+                accessibilityRole="button"
+                hitSlop={8}
+              >
+                <Typography size="text-sm" color="primary">
+                  Switch to email sign-in
+                </Typography>
+              </Pressable>
+            </View>
           ) : null}
-        </Flex>
-      </Flex>
 
-      <FormSection title="Contact">
-        <Controller
-          control={control}
-          name="firstName"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <Input
-              label="First name"
-              required
-              value={value}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              autoComplete="given-name"
-              error={Boolean(errors.firstName)}
-              helperText={errors.firstName?.message}
-            />
-          )}
-        />
-        <Controller
-          control={control}
-          name="lastName"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <Input
-              label="Last name"
-              required
-              value={value}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              autoComplete="family-name"
-              error={Boolean(errors.lastName)}
-              helperText={errors.lastName?.message}
-            />
-          )}
-        />
-        <Controller
-          control={control}
-          name="phone"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <PhoneField
-              value={value}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              error={Boolean(errors.phone)}
-              helperText={errors.phone?.message}
-            />
-          )}
-        />
-      </FormSection>
+          {!googleLinked ? (
+            <View style={styles.authCard}>
+              <Typography size="text-sm" color="secondary">
+                Link Google to sign in with either method. Use the same Google email as your
+                profile.
+              </Typography>
+              <GoogleSignInButton
+                label="Link Google"
+                onError={(message) => setFormError(message)}
+                onSuccess={async (idToken) => {
+                  if (linkingGoogle) return;
+                  setFormError(null);
+                  setLinkingGoogle(true);
+                  try {
+                    await linkGoogleMutation({ variables: { idToken } });
+                    await refreshMe();
+                    toast.success("Google sign-in linked");
+                  } catch (err) {
+                    setFormError(getGraphQLErrorMessage(err, "Could not link Google"));
+                  } finally {
+                    setLinkingGoogle(false);
+                  }
+                }}
+              />
+            </View>
+          ) : null}
 
-      <FormSection
-        title="Sign-in"
-        collapsible
-        open={signInOpen}
-        onOpenChange={setSignInOpen}
-        summary={signInSummary}
-      >
-      <Controller
-        control={control}
-        name="email"
-        render={({ field: { onChange, onBlur, value } }) => (
-          <Input
-            label="Email"
-            required
-            value={value}
-            onBlur={onBlur}
-            onChangeText={onChange}
-            placeholder="you@example.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="email"
-            textContentType="emailAddress"
-            disabled={emailLocked}
-            error={Boolean(errors.email)}
-            helperText={
-              errors.email?.message ??
-              (googleLinked && !switchToEmail ? "Managed by Google sign-in." : undefined)
-            }
-          />
-        )}
-      />
-      {googleLinked && !switchToEmail ? (
-        <Pressable
-          onPress={() => {
-            setSignInOpen(true);
-            setSwitchToEmail(true);
-            setPasswordOpen(true);
-          }}
-          accessibilityRole="button"
-          hitSlop={8}
-        >
-          <Typography size="text-sm" color="primary">
-            Switch to email sign-in
-          </Typography>
-        </Pressable>
-      ) : null}
-
-      {!googleLinked ? (
-        <Flex gap={1}>
-          <Typography size="text-sm" color="secondary">
-            Link Google to sign in with either method. Use the same Google email as your
-            profile.
-          </Typography>
-          <GoogleSignInButton
-            label="Link Google"
-            onError={(message) => setFormError(message)}
-            onSuccess={async (idToken) => {
-              if (linkingGoogle) return;
-              setFormError(null);
-              setLinkingGoogle(true);
-              try {
-                await linkGoogleMutation({ variables: { idToken } });
-                await refreshMe();
-                toast.success("Google sign-in linked");
-              } catch (err) {
-                setFormError(getGraphQLErrorMessage(err, "Could not link Google"));
-              } finally {
-                setLinkingGoogle(false);
+          {googleLinked && switchToEmail ? (
+            <InlineAlert
+              tone="info"
+              title="Switching to email sign-in"
+              message={
+                creatingPasswordForUnlink
+                  ? "Create a password, then save to unlink Google."
+                  : "Save to unlink Google. Your current password stays the same."
               }
-            }}
-          />
-        </Flex>
-      ) : null}
+              actionLabel="Cancel"
+              onAction={cancelSwitchToEmail}
+            />
+          ) : null}
 
-      {googleLinked && switchToEmail ? (
-        <Flex
-          direction="row"
-          alignItems="flex-start"
-          justifyContent="space-between"
-          gap={1.5}
-          style={styles.switchBanner}
+          {needsCurrentPassword ? (
+            <Controller
+              control={control}
+              name="currentPassword"
+              render={({ field: { onChange, onBlur, value } }) => (
+                <SecretField
+                  label="Current password"
+                  value={value}
+                  onBlur={onBlur}
+                  onChangeText={onChange}
+                  placeholder="Required to change your email"
+                  autoComplete="current-password"
+                  error={errors.currentPassword?.message}
+                />
+              )}
+            />
+          ) : null}
+
+          {creatingPasswordForUnlink ? (
+            <>
+              <Controller
+                control={control}
+                name="newPassword"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <SecretField
+                    label="Create password"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholder="Enter a password"
+                    autoComplete="new-password"
+                    error={errors.newPassword?.message}
+                  />
+                )}
+              />
+              <PasswordRequirements value={newPasswordValue} />
+              <Controller
+                control={control}
+                name="confirmPassword"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <SecretField
+                    label="Confirm password"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholder="Re-enter password"
+                    autoComplete="new-password"
+                    error={errors.confirmPassword?.message}
+                  />
+                )}
+              />
+            </>
+          ) : null}
+        </EditProfileSection>
+
+        <EditProfileSection
+          title="Address"
+          description="Optional. Shown on your profile when set."
         >
-          <Flex flex={1} gap={0.5}>
-            <Typography size="text-sm" weight="semibold">
-              Switching to email sign-in
-            </Typography>
-            <Typography size="text-xs" color="secondary">
-              {user.hasPassword === false
-                ? "Create a password, then save to unlink Google."
-                : "Save to unlink Google. Your current password stays unless you change it below."}
-            </Typography>
-          </Flex>
-          <Pressable
-            onPress={() => {
-              setSwitchToEmail(false);
-              setValue("email", user.email ?? "");
-              setValue("newPassword", "");
-              setValue("confirmPassword", "");
-              setValue("currentPassword", "");
-              setPasswordOpen(false);
-            }}
-            accessibilityRole="button"
-            hitSlop={8}
-          >
-            <Typography size="text-sm" color="primary">
-              Cancel
-            </Typography>
-          </Pressable>
-        </Flex>
-      ) : null}
-
-      {!switchToEmail ? (
-        <Flex direction="row" alignItems="center" justifyContent="space-between" gap={1.5}>
-          <Typography size="text-sm" weight="medium">
-            Password
-          </Typography>
-          <Pressable
-            onPress={() => {
-              setPasswordOpen((current) => {
-                if (current) {
-                  setValue("newPassword", "");
-                  setValue("confirmPassword", "");
-                  setValue("currentPassword", "");
-                }
-                return !current;
-              });
-            }}
-            accessibilityRole="button"
-            hitSlop={8}
-          >
-            <Typography size="text-sm" color="primary">
-              {passwordOpen
-                ? "Keep current password"
-                : user.hasPassword === false
-                  ? "Add a password"
-                  : "Change password"}
-            </Typography>
-          </Pressable>
-        </Flex>
-      ) : null}
-      {user.hasPassword === false && !passwordOpen && !switchToEmail ? (
-        <Typography size="text-sm" color="secondary">
-          Add a password to also sign in with email.
-        </Typography>
-      ) : null}
-      {passwordOpen && user.hasPassword !== false && Boolean(newPasswordValue.trim()) ? (
-        <Controller
-          control={control}
-          name="currentPassword"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <SecretField
-              label="Current password"
-              value={value}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              placeholder="Required to change your password"
-              autoComplete="current-password"
-              error={errors.currentPassword?.message}
-            />
-          )}
-        />
-      ) : null}
-      {passwordOpen ? (
-        <>
           <Controller
             control={control}
-            name="newPassword"
+            name="line1"
             render={({ field: { onChange, onBlur, value } }) => (
-              <SecretField
-                label={
-                  user.hasPassword === false
-                    ? "Create password"
-                    : switchToEmail
-                      ? "New password (optional)"
-                      : "New password"
-                }
+              <Input
+                label="Street address"
                 value={value}
                 onBlur={onBlur}
                 onChangeText={onChange}
-                placeholder={
-                  user.hasPassword === false
-                    ? "Enter a password"
-                    : switchToEmail
-                      ? "Leave blank to keep your password"
-                      : "Enter a new password"
-                }
-                autoComplete="new-password"
-                error={errors.newPassword?.message}
+                placeholder="123 Main St"
+                autoComplete="street-address"
+                error={Boolean(errors.line1)}
+                helperText={errors.line1?.message}
               />
             )}
           />
-          <PasswordRequirements value={newPasswordValue} />
           <Controller
             control={control}
-            name="confirmPassword"
+            name="line2"
             render={({ field: { onChange, onBlur, value } }) => (
-              <SecretField
-                label="Confirm password"
+              <Input
+                label="Apt, suite"
                 value={value}
                 onBlur={onBlur}
                 onChangeText={onChange}
-                placeholder="Re-enter password"
-                autoComplete="new-password"
-                error={errors.confirmPassword?.message}
+                placeholder="Optional"
+                error={Boolean(errors.line2)}
+                helperText={errors.line2?.message}
               />
             )}
           />
-        </>
-      ) : null}
-      </FormSection>
-
-      <FormSection
-        title="Address"
-        collapsible
-        open={addressOpen}
-        onOpenChange={setAddressOpen}
-        summary={addressSummary}
-      >
-        <Controller
-          control={control}
-          name="line1"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <Input
-              label="Street address"
-              value={value}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              placeholder="123 Main St"
-              autoComplete="street-address"
-              error={Boolean(errors.line1)}
-              helperText={errors.line1?.message}
-            />
-          )}
-        />
-        <Controller
-          control={control}
-          name="line2"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <Input
-              label="Apt, suite"
-              value={value}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              placeholder="Optional"
-              error={Boolean(errors.line2)}
-              helperText={errors.line2?.message}
-            />
-          )}
-        />
-        <Controller
-          control={control}
-          name="city"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <Input
-              label="City"
-              value={value}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              placeholder="Austin"
-              error={Boolean(errors.city)}
-              helperText={errors.city?.message}
-            />
-          )}
-        />
-        <Flex direction="row" gap={1.5}>
-          <Flex flex={1}>
-            <Controller
-              control={control}
-              name="state"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <Input
-                  label="State"
-                  value={value}
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  placeholder="TX"
-                  autoCapitalize="characters"
-                  maxLength={2}
-                  error={Boolean(errors.state)}
-                  helperText={errors.state?.message}
-                />
-              )}
-            />
+          <Controller
+            control={control}
+            name="city"
+            render={({ field: { onChange, onBlur, value } }) => (
+              <Input
+                label="City"
+                value={value}
+                onBlur={onBlur}
+                onChangeText={onChange}
+                placeholder="Austin"
+                error={Boolean(errors.city)}
+                helperText={errors.city?.message}
+              />
+            )}
+          />
+          <Flex direction="row" gap={1.5}>
+            <Flex flex={1}>
+              <Controller
+                control={control}
+                name="state"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Input
+                    label="State"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholder="TX"
+                    autoCapitalize="characters"
+                    maxLength={2}
+                    error={Boolean(errors.state)}
+                    helperText={errors.state?.message}
+                  />
+                )}
+              />
+            </Flex>
+            <Flex flex={1}>
+              <Controller
+                control={control}
+                name="zip"
+                render={({ field: { onChange, onBlur, value } }) => (
+                  <Input
+                    label="ZIP"
+                    value={value}
+                    onBlur={onBlur}
+                    onChangeText={onChange}
+                    placeholder="78701"
+                    keyboardType="number-pad"
+                    error={Boolean(errors.zip)}
+                    helperText={errors.zip?.message}
+                  />
+                )}
+              />
+            </Flex>
           </Flex>
-          <Flex flex={1}>
-            <Controller
-              control={control}
-              name="zip"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <Input
-                  label="ZIP"
-                  value={value}
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  placeholder="78701"
-                  keyboardType="number-pad"
-                  error={Boolean(errors.zip)}
-                  helperText={errors.zip?.message}
-                />
-              )}
-            />
-          </Flex>
-        </Flex>
-      </FormSection>
+        </EditProfileSection>
+      </KeyboardAwareScrollView>
 
-      <Button fullWidth loading={saving} onPress={() => void onSubmit()}>
-        Save account
-      </Button>
-    </Flex>
+      <KeyboardStickyView>
+        <View
+          style={[
+            styles.footer,
+            { paddingBottom: Math.max(insets.bottom, theme.space(2)) },
+          ]}
+        >
+          <Button
+            fullWidth
+            size="xl"
+            loading={saving}
+            disabled={!canSave || saving}
+            onPress={() => void onSubmit()}
+          >
+            Save changes
+          </Button>
+        </View>
+      </KeyboardStickyView>
+    </View>
   );
 }
 
@@ -741,25 +573,33 @@ export function EditProfileFeature() {
           style={styles.chromeBtn}
         />
         <Typography weight="semibold" size="text-lg" style={styles.topTitle}>
-          Profile photo and info
+          Personal info
         </Typography>
         <View style={styles.sideSlot} />
       </Flex>
 
-      <KeyboardAwareScrollView
-        contentContainerStyle={[
-          styles.content,
-          { paddingBottom: Math.max(insets.bottom, theme.space(2)) + theme.space(2) },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        bottomOffset={theme.space(4)}
-      >
-        {loading ? null : user ? (
-          <EditProfileForm user={user} />
-        ) : (
+      {loading ? (
+        <ScrollView
+          contentContainerStyle={{
+            paddingBottom: Math.max(insets.bottom, theme.space(2)) + theme.space(2),
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          <EditProfileSkeleton />
+        </ScrollView>
+      ) : user ? (
+        <EditProfileForm user={user} />
+      ) : (
+        <ScrollView
+          contentContainerStyle={[
+            styles.emptyContent,
+            { paddingBottom: Math.max(insets.bottom, theme.space(2)) + theme.space(2) },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
           <Empty
             title="Sign in to edit your account"
-            description="Update your email, phone, address, and password."
+            description="Update your email, phone, and address."
             icon={<UserIcon size={48} color={theme.colors.textMuted} />}
           >
             <Button
@@ -771,24 +611,28 @@ export function EditProfileFeature() {
               Sign in
             </Button>
           </Empty>
-        )}
-      </KeyboardAwareScrollView>
+        </ScrollView>
+      )}
     </View>
   );
 }
 
-const styles = StyleSheet.create(({ space, colors }) => ({
+const styles = StyleSheet.create(({ space, colors, radius, shadows }) => ({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
   },
+  formRoot: {
+    flex: 1,
+  },
   topBar: {
     paddingHorizontal: space(2),
-    paddingBottom: space(1),
-    minHeight: space(6),
+    paddingBottom: space(1.5),
   },
   chromeBtn: {
-    zIndex: 1,
+    width: space(5),
+    height: space(5),
+    borderRadius: radius.full,
   },
   topTitle: {
     flex: 1,
@@ -796,61 +640,35 @@ const styles = StyleSheet.create(({ space, colors }) => ({
   },
   sideSlot: {
     width: space(5),
+    height: space(5),
   },
-  photo: {
-    width: space(9),
-    height: space(9),
-    borderRadius: space(9),
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.primary,
-  },
-  photoImage: {
-    width: "100%",
-    height: "100%",
-  },
-  flexGrow: {
+  scrollView: {
     flex: 1,
   },
   content: {
     paddingHorizontal: space(2),
     paddingTop: space(1),
-    gap: space(2),
+    paddingBottom: space(2),
+    gap: space(4),
   },
-  switchBanner: {
-    paddingHorizontal: space(1.5),
-    paddingVertical: space(1.25),
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.primary3,
-    backgroundColor: colors.primary1,
+  emptyContent: {
+    paddingHorizontal: space(2),
+    paddingTop: space(2),
   },
-  formSection: {
-    gap: space(1.25),
-    paddingVertical: space(1.5),
-    paddingHorizontal: space(1.5),
-    paddingLeft: space(1.75),
-    borderRadius: 12,
+  authCard: {
+    gap: space(1.5),
+    padding: space(2),
+    borderRadius: radius.lg,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderLeftWidth: 1,
-    borderLeftColor: "rgb(227, 223, 216)",
+    borderColor: colors.slate3,
     backgroundColor: colors.background,
   },
-  sectionHeaderBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: space(1.5),
-  },
-  sectionHeaderText: {
-    flex: 1,
-    gap: space(0.75),
-  },
-  sectionRule: {
-    height: 2,
-    width: 40,
-    backgroundColor: colors.primary,
+  footer: {
+    paddingHorizontal: space(2),
+    paddingTop: space(2),
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
+    ...shadows.stickyFooter,
   },
 }));

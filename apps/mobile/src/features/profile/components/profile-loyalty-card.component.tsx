@@ -128,9 +128,10 @@ export function ProfileLoyaltyCard({
           direction="row"
           alignItems="center"
           justifyContent="space-between"
+          gap={1.5}
           style={styles.referral}
         >
-          <Flex gap={0.25} style={styles.copy}>
+          <Flex flex={1} flexShrink={1} gap={0.25} style={styles.referralCopy}>
             <Typography size="text-xs" color="muted">
               Referral code
             </Typography>
@@ -205,9 +206,14 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
     borderTopWidth: 1,
     borderTopColor: colors.slate3,
   },
+  referralCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
   shareLink: {
     flexDirection: "row",
     alignItems: "center",
+    flexShrink: 0,
     gap: space(0.5),
   },
 }));

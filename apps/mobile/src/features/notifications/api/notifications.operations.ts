@@ -36,6 +36,12 @@ export const REGISTER_PUSH_TOKEN = gql`
   }
 `;
 
+export const UNREGISTER_PUSH_TOKEN = gql`
+  mutation UnregisterPushToken($token: String!) {
+    unregisterPushToken(token: $token)
+  }
+`;
+
 export const REPORT_RUNNING_LATE = gql`
   mutation ReportRunningLate($reservationId: ID!, $etaMinutes: Int) {
     reportRunningLate(reservationId: $reservationId, etaMinutes: $etaMinutes) {

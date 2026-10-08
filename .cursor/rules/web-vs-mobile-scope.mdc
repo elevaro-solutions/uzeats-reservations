@@ -1,0 +1,39 @@
+---
+description: Do not port web/dashboard features into the Tablevera mobile apps unless explicitly asked
+alwaysApply: true
+---
+
+# Web vs mobile scope
+
+This repo is a monorepo. A request to ship a feature in a **web** app is **not**
+a request to implement it in the mobile apps.
+
+## Default
+
+When asked to add, ship, or change a feature in:
+
+- `apps/web` (diner web)
+- `apps/dashboard` (partner/admin web)
+
+Do **not** also implement it in:
+
+- `apps/mobile` (diner Expo)
+- `apps/merchant-mobile` (partner Expo)
+
+Do not copy screens, components, navigation, copy, or UX from web into the
+mobile apps. Mobile has a separate UI system; porting web UI produces poor
+mobile UX.
+
+## Exceptions
+
+Touch a mobile app only when the user **explicitly** names it (`apps/mobile`,
+`apps/merchant-mobile`, diner app, merchant app, Expo, or "mobile").
+
+API (`apps/api`) and shared packages may still change if the web feature needs
+them. That is not permission to add mobile client UI.
+
+## Examples
+
+- "Ship this on the website" / "add this to the web app" → `apps/web` only
+- "Add this in Partner Hub / dashboard" → `apps/dashboard` only
+- "Also add it to the diner app" → then `apps/mobile` is in scope

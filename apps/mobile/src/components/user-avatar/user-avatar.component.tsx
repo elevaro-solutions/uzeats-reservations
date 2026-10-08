@@ -8,7 +8,7 @@ export type UserAvatarProps = {
   firstName?: string;
   lastName?: string;
   avatarUrl?: string | null;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   variant?: "primary" | "subtle";
 };
 
@@ -36,7 +36,13 @@ export function UserAvatar({
         <Typography
           weight="semibold"
           color={variant === "subtle" ? "textPrimary" : "inverse"}
-          size={size === "lg" ? "text-lg" : size === "sm" ? "text-xs" : "text-sm"}
+          size={
+            size === "xl" || size === "lg"
+              ? "text-lg"
+              : size === "sm"
+                ? "text-xs"
+                : "text-sm"
+          }
         >
           {initials(firstName, lastName)}
         </Typography>
@@ -45,7 +51,7 @@ export function UserAvatar({
   );
 }
 
-const styles = StyleSheet.create(({ radius, colors }) => ({
+const styles = StyleSheet.create(({ radius, colors, space }) => ({
   avatar: {
     alignItems: "center",
     justifyContent: "center",
@@ -60,6 +66,7 @@ const styles = StyleSheet.create(({ radius, colors }) => ({
         sm: { width: 32, height: 32 },
         md: { width: 40, height: 40 },
         lg: { width: 56, height: 56 },
+        xl: { width: space(10), height: space(10) },
       },
     },
   },

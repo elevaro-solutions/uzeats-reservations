@@ -15,6 +15,7 @@ import {
   configureGoogleSignIn,
   isGoogleSignInConfigured,
 } from "@/features/auth/helpers/google-sign-in.helpers";
+import { unregisterCurrentDevicePushTokenBestEffort } from "@/features/notifications/helpers/push-token.helpers";
 
 import { API_URL } from "./config";
 import {
@@ -310,6 +311,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    await unregisterCurrentDevicePushTokenBestEffort();
+
     const storedRefresh = await SecureStore.getItemAsync("refreshToken");
 
     try {

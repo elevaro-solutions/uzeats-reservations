@@ -85,6 +85,23 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 ## notifications
 
+### [2026-10-08] Running-late prompt is a full screen
+- Closer reminders (inbox tap, push body, opening a pending/confirmed reservation within 2h) go to `/reservations/:id/running-late`, not a sheet or inline card. OS Yes/No on the push is unchanged.
+- No / back dismisses for the session (`dismissRunningLatePrompt`) then `replace`s to reservation detail so the prompt does not loop. Yes `replace`s to messages after `reportRunningLate`.
+- `?runningLate=1` still auto-reports on reservation detail (email already chose Yes).
+- Why it matters: Auto-opening the prompt from detail must `replace` and honor dismiss; `push` to messages would leave the prompt on the back stack.
+
+### [2026-10-08] Cold-start Yes must run once (id dedupe)
+- Closer reminder push Yes used to skip `getLastNotificationResponse` on cold start so the action would not double-fire. If the process was dead, `reportRunningLate` never ran.
+- Observer now handles last response and the live listener through the same path, keyed by `notification.request.identifier`. Yes still posts once; No still dismisses.
+- Inbox, the running-late screen, and `?runningLate=1` share `reportRunningLateAndOpenThread` (toast + messages). Session `reported` set blocks a second "I'm running late." post.
+- Why it matters: Don't skip Yes on kill-start; don't rely on Expo firing both last-response and the listener exactly once.
+
+### [2026-10-08] Sign-out must unregister the device push token
+- Logout only revoked refresh tokens; `User.pushTokens` stayed, so `notifyUser` kept sending Expo pushes to a signed-out phone.
+- `unregisterPushToken(token)` `$pull`s that token from every user (no auth — token possession is the credential). Diner and merchant `logout()` and forced session invalidation call it before clearing SecureStore. `registerPushToken` now claims the token globally so a shared device maps to one account.
+- Why it matters: Don't treat logout as enough to stop pushes; don't wipe all of a user's tokens on one-device sign-out.
+
 ### [2026-10-06] Reminder email late button survives sign-in
 - Closer reminder emails link I'm running late to `/reservations/:id?runningLate=1`. The detail page already calls `reportRunningLate` when that query is present.
 - Signed-out guests are sent to `/login?next=` with the query kept, so the report still runs after sign-in.
@@ -93,7 +110,7 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 ### [2026-10-01] Closer reminders ask "running late?"
 - Offsets: `REMINDER_OFFSETS_MINUTES = [1440, 120, 30]` (24h / 2h / 30m). Reminders with lead ≤ `REMINDER_LATE_CHECK_MAX_MINUTES` (120) send Expo/web push with `categoryId: reservation_reminder_late` (Yes/No).
 - Yes → `reportRunningLate` → diner `Message` ("I'm running late.") + `notifyRestaurantManagers` (`new_message`, title "Guest running late"). No → dismiss.
-- Diner mobile registers the category in `useNotificationObserver`; cold-start must not re-fire Yes (only default body taps deep-link). Slot edits call `scheduleReservationReminders` after canceling old jobs (including legacy `*h` ids).
+- Diner mobile registers the category in `useNotificationObserver`. Cold-start Yes is handled once via notification identifier dedupe (see 2026-10-08). Slot edits call `scheduleReservationReminders` after canceling old jobs (including legacy `*h` ids).
 - Why it matters: Don't put late-check buttons on the 24h reminder; don't route diner Yes/No through Elevaro (merchant-only).
 
 ### [2026-09-26] Soft push prime after booking/waitlist; bootstrap never OS-prompts
@@ -145,6 +162,18 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 - Why it matters: Don’t wire Profile “Notifications” to push settings; don’t assume array-shaped `myNotifications` after the connection change.
 
 ## profile
+
+### [2026-10-08] Password is a Profile action
+- Account menu has **Change password** (or **Add a password** when `hasPassword` is false) → `/change-password`. Personal info no longer has the password toggle. Email changes still ask for the current password on the editor; Google unlink without a password still creates one there.
+- Why it matters: Password was buried in Personal info Sign-in and duplicated Privacy’s security feel.
+
+### [2026-10-08] Personal info restyled to match Help/Profile
+- Edit screen dropped bordered accordion cards (uppercase label + green rule). Layout is Help-style `EditProfileSection` titles, centered `UserAvatar` xl with a camera badge, and a booking-style sticky **Save changes** footer (`KeyboardStickyView`). Sign-in/Address stay expanded. Save is disabled until `toUpdateProfileInput` has a patch.
+- Why it matters: Nested boxes and collapsed email/address made Personal info feel unlike the rest of diner mobile.
+
+### [2026-10-08] Identity card pencil; Personal info is a screen
+- Mobile Profile identity lives in `ProfileIdentityCard`: pencil `IconButton` (not an Edit label), name/email on the header, address as a labeled row when set. Phone is not shown on the card (it lives on Personal info). `/edit-profile` uses card presentation (same as Help/Favorites) with title “Personal info”. Account → Personal info row still opens the same screen. Loyalty referral Share uses `flexShrink: 0` so the bonus caption wraps instead of clipping the button.
+- Why it matters: The editor was already a full-screen layout; modal presentation made it a sheet. The card Edit button crowded name/email.
 
 ### [2026-10-01] Referral bonus pts shown to diners
 - Web `/profile` and mobile `ProfileLoyaltyCard` render `loyaltyProgram.referralBonusPoints` beside the referral code (and include it in the mobile Share message). Admin `/admin/loyalty` Referrals tab already showed the bonus.

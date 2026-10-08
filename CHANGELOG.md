@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.77.0] — 2026-10-08
+
+### Added
+
+- Diner mobile closer reservation reminders (2h / 30 min) open a full-screen **Are you running late?** prompt (inbox, push body tap, and opening the reservation within two hours). **Yes** (red) notifies the restaurant on the message thread; **No** (green) dismisses. A toast confirms the restaurant was notified.
+
+### Changed
+
+- Diner mobile Profile identity card uses a pencil icon instead of an Edit button. Personal info opens as a full screen (not a modal)
+- Diner mobile Personal info matches Help/Profile chrome: centered photo, open sections instead of accordion cards, and a sticky **Save changes** bar
+- Diner mobile **Change password** / **Add a password** lives under Profile → Account, not on Personal info
+
+### Fixed
+
+- Diner mobile Profile loyalty card: Share stays fully visible beside the referral code instead of clipping when the bonus caption wraps
+- Diner and merchant mobile: sign-out (and forced session invalidation) unregisters this device's Expo push token so reservation and staff alerts stop arriving after logout
+
 ## [0.76.0] — 2026-10-06
 
 ### Added

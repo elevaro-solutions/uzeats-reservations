@@ -3,9 +3,10 @@ export {
   ReservationsFeature,
   ReservationDetailFeature,
   EditReservationFeature,
+  RunningLateFeature,
 } from "./reservations";
 export { ReservationMessagesFeature } from "./messages";
-export { ProfileFeature, EditProfileFeature } from "./profile";
+export { ProfileFeature, EditProfileFeature, ChangePasswordFeature } from "./profile";
 export { FavoritesFeature } from "./favorites";
 export { HelpCenterFeature } from "./help-center";
 export { LegalFeature } from "./legal";

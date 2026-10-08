@@ -43,6 +43,7 @@ Never hardcode role string comparisons scattered across files — centralize in 
 - **Ant Design 6** — use `@reservations/ui` tokens for colors/spacing
 - **Apollo Client 4** — hooks from `@/lib/apollo-hooks` in dashboard
 - **Imports** — `@/` alias maps to `src/` in each app
+- **Do not port to mobile** — shipping a web/dashboard feature does not include `apps/mobile` or `apps/merchant-mobile`. Those apps have a separate UI system; copying web UI/UX into them is out of scope unless the user names a mobile app explicitly.
 
 ## Styling
 

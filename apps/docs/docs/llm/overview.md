@@ -24,6 +24,7 @@ This section provides **structured context for AI coding agents** (Cursor, Copil
 ## Hard rules for agents
 
 - **Minimize scope** — smallest correct diff; don't refactor unrelated code
+- **Do not port web features to mobile** — a request to ship something in `apps/web` or `apps/dashboard` is not permission to implement it in `apps/mobile` or `apps/merchant-mobile`. Touch a mobile app only when it is named explicitly. API/shared changes for the web feature are fine; copied mobile UI is not.
 - **No secrets in commits** — never commit `.env`, keys, or credentials
 - **Match role guards** — use helpers from `@reservations/shared`, don't invent new role strings
 - **Service layer** — put business logic in `apps/api/src/services/`, keep resolvers thin

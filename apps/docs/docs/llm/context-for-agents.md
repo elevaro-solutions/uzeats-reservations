@@ -39,6 +39,7 @@ pnpm --filter @reservations/shared build && pnpm seed && pnpm dev
 
 **Rules:**
 - Smallest correct diff; no drive-by refactors
+- Do not implement the same feature in `apps/mobile` or `apps/merchant-mobile` when asked to ship it in `apps/web` or `apps/dashboard`. Mobile is in scope only when named explicitly.
 - No commits or secrets unless user asks
 - Match existing naming, imports, and Ant Design + token usage
 - Stub external services when env vars missing (see existing services)

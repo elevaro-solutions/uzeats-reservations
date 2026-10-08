@@ -3575,6 +3575,7 @@ export const typeDefs = `#graphql
     cancelPendingPlanChange(restaurantId: ID!): SubscriptionType!
 
     registerPushToken(token: String!, platform: String!): Boolean!
+    unregisterPushToken(token: String!): Boolean!
     linkTelegram(chatId: String!): Boolean!
     createElevaroTelegramLink: ElevaroTelegramLink!
     updateNotificationPreferences(

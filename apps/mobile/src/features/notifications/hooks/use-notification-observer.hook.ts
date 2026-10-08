@@ -2,15 +2,17 @@ import { router } from "expo-router";
 import * as Notifications from "expo-notifications";
 import { useEffect } from "react";
 
-import { apolloClient } from "@/graphql";
-
-import { REPORT_RUNNING_LATE } from "../api/notifications.operations";
 import { resolveNotificationLinkFromData } from "../helpers/notification-link.helpers";
 import {
   ensureReminderNotificationCategory,
   REMINDER_ACTION_RUNNING_LATE_NO,
   REMINDER_ACTION_RUNNING_LATE_YES,
 } from "../helpers/reminder-actions.helpers";
+import {
+  isAskRunningLate,
+  reservationIdFromData,
+} from "../helpers/reminder-late.helpers";
+import { reportRunningLateAndOpenThread } from "../helpers/report-running-late.helpers";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -20,6 +22,8 @@ Notifications.setNotificationHandler({
     shouldShowList: true,
   }),
 });
+
+const handledResponseIds = new Set<string>();
 
 function notificationData(
   notification: Notifications.Notification,
@@ -31,42 +35,38 @@ function notificationData(
   return {};
 }
 
+function responseKey(response: Notifications.NotificationResponse): string {
+  const id = response.notification.request.identifier;
+  if (id) return id;
+  const data = notificationData(response.notification);
+  const reservationId = reservationIdFromData(data) ?? "";
+  return `${response.actionIdentifier}:${reservationId}:${String(response.notification.date)}`;
+}
+
 function redirectFromNotification(notification: Notifications.Notification) {
-  const link = resolveNotificationLinkFromData(notificationData(notification));
+  const data = notificationData(notification);
+  const reservationId = reservationIdFromData(data);
+  if (isAskRunningLate(data) && reservationId) {
+    router.push(`/reservations/${reservationId}/running-late` as never);
+    return;
+  }
+  const link = resolveNotificationLinkFromData(data);
   if (link) {
     router.push(link.href as never);
   }
 }
 
-async function handleRunningLateYes(reservationId: string) {
-  try {
-    await apolloClient.mutate({
-      mutation: REPORT_RUNNING_LATE,
-      variables: { reservationId },
-    });
-  } catch (err) {
-    console.warn("[push] reportRunningLate failed", err);
-  }
-  router.push(`/reservations/${reservationId}/messages` as never);
-}
-
 /**
  * Shows foreground banners and deep-links when the user taps a notification.
- * Handles Yes/No actions on closer reservation reminders.
+ * Handles Yes/No actions on closer reservation reminders, including cold start.
  */
 export function useNotificationObserver() {
   useEffect(() => {
     void ensureReminderNotificationCategory();
 
     const last = Notifications.getLastNotificationResponse();
-    if (last?.notification) {
-      // Cold start: only deep-link from a body tap. Do not re-fire Yes/No —
-      // those already ran when the user pressed the action button.
-      if (
-        last.actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER
-      ) {
-        redirectFromNotification(last.notification);
-      }
+    if (last) {
+      void handleNotificationResponse(last);
     }
 
     const subscription =
@@ -83,13 +83,16 @@ export function useNotificationObserver() {
 async function handleNotificationResponse(
   response: Notifications.NotificationResponse,
 ) {
+  const key = responseKey(response);
+  if (handledResponseIds.has(key)) return;
+  handledResponseIds.add(key);
+
   const action = response.actionIdentifier;
   const data = notificationData(response.notification);
-  const reservationId =
-    typeof data.reservationId === "string" ? data.reservationId : null;
+  const reservationId = reservationIdFromData(data);
 
   if (action === REMINDER_ACTION_RUNNING_LATE_YES && reservationId) {
-    await handleRunningLateYes(reservationId);
+    await reportRunningLateAndOpenThread(reservationId);
     return;
   }
 

@@ -35,3 +35,9 @@ export const REGISTER_PUSH_TOKEN = gql`
     registerPushToken(token: $token, platform: $platform)
   }
 `;
+
+export const UNREGISTER_PUSH_TOKEN = gql`
+  mutation UnregisterPushToken($token: String!) {
+    unregisterPushToken(token: $token)
+  }
+`;

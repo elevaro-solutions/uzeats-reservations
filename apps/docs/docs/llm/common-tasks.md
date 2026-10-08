@@ -33,6 +33,7 @@ Step-by-step recipes for frequent development tasks.
 2. Add SEO metadata via layout or `generateMetadata`
 3. Use existing components from `apps/web/src/components/`
 4. Consider mobile responsiveness (most diners on phone)
+5. Do **not** also add the page to `apps/mobile` unless the user asked for the diner Expo app explicitly
 
 ## Change shared types
 

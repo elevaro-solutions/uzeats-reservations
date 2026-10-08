@@ -11,6 +11,8 @@ import {
   useState,
 } from "react";
 
+import { unregisterCurrentDevicePushTokenBestEffort } from "@/features/notifications/helpers/push-token.helpers";
+
 import { API_URL } from "./config";
 import { LOGIN, LOGOUT, REQUEST_PASSWORD_RESET } from "./operations";
 import {
@@ -241,6 +243,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    await unregisterCurrentDevicePushTokenBestEffort();
+
     const storedRefresh = await SecureStore.getItemAsync("refreshToken");
 
     try {

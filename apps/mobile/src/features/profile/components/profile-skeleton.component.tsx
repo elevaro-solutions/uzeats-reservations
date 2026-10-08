@@ -46,12 +46,13 @@ export function ProfileSkeleton() {
       <Skeleton width={120} height={28} />
 
       <View style={styles.card}>
-        <Flex direction="row" alignItems="center" gap={1.5}>
+        <Flex direction="row" alignItems="flex-start" gap={1.5} style={styles.cardBody}>
           <Skeleton width={56} height={56} radius="full" />
           <Flex gap={1} style={styles.grow}>
             <Skeleton width="60%" height={18} />
             <Skeleton width="80%" height={14} />
           </Flex>
+          <Skeleton width={36} height={36} radius="md" />
         </Flex>
       </View>
 
@@ -107,9 +108,9 @@ export function ProfileSkeleton() {
         </Flex>
       </View>
 
-      <MenuSectionSkeleton rows={3} />
-      <MenuSectionSkeleton rows={1} />
-      <MenuSectionSkeleton rows={3} />
+      <MenuSectionSkeleton rows={2} />
+      <MenuSectionSkeleton rows={4} />
+      <MenuSectionSkeleton rows={5} />
       <MenuGroupSkeleton rows={1} />
     </>
   );
@@ -117,11 +118,14 @@ export function ProfileSkeleton() {
 
 const styles = StyleSheet.create(({ space, colors, radius }) => ({
   card: {
-    padding: space(2),
     borderRadius: radius.lg,
     borderWidth: 1,
     borderColor: colors.slate3,
     backgroundColor: colors.background,
+    overflow: "hidden",
+  },
+  cardBody: {
+    padding: space(2.5),
   },
   loyaltyCard: {
     borderRadius: radius.lg,

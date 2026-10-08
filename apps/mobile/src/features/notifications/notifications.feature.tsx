@@ -27,6 +27,10 @@ import { NotificationDetailSheet } from "./components/notification-detail-sheet.
 import { NotificationListCard } from "./components/notification-list-card.component";
 import type { NotificationLink } from "./helpers/notification-link.helpers";
 import type { AppNotification } from "./helpers/notification.types";
+import {
+  notificationAsksRunningLate,
+  runningLateReservationId,
+} from "./helpers/reminder-late.helpers";
 import { useInfiniteNotifications } from "./hooks/use-infinite-notifications.hook";
 
 export function NotificationsFeature() {
@@ -75,20 +79,28 @@ export function NotificationsFeature() {
       const next = notification.readAt
         ? notification
         : { ...notification, readAt: new Date().toISOString() };
-      setSelected(next);
-      if (notification.readAt) return;
 
-      markItemsRead([notification.id]);
-      try {
-        await markRead({ variables: { ids: [notification.id] } });
-      } catch (err) {
-        toast.error("Couldn't mark as read", {
-          description: getGraphQLErrorMessage(err, "Please try again"),
-        });
-        void refresh();
+      if (!notification.readAt) {
+        markItemsRead([notification.id]);
+        try {
+          await markRead({ variables: { ids: [notification.id] } });
+        } catch (err) {
+          toast.error("Couldn't mark as read", {
+            description: getGraphQLErrorMessage(err, "Please try again"),
+          });
+          void refresh();
+        }
       }
+
+      const lateId = runningLateReservationId(notification);
+      if (notificationAsksRunningLate(notification) && lateId) {
+        router.push(`/reservations/${lateId}/running-late` as never);
+        return;
+      }
+
+      setSelected(next);
     },
-    [markItemsRead, markRead, refresh],
+    [markItemsRead, markRead, refresh, router],
   );
 
   const handleMarkAll = useCallback(async () => {

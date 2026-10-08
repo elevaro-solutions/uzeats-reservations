@@ -88,7 +88,14 @@ export default function RootLayout() {
                 name="edit-profile"
                 options={{
                   headerShown: false,
-                  presentation: "modal",
+                  presentation: "card",
+                }}
+              />
+              <Stack.Screen
+                name="change-password"
+                options={{
+                  headerShown: false,
+                  presentation: "card",
                 }}
               />
               <Stack.Screen
@@ -133,6 +140,10 @@ export default function RootLayout() {
               />
               <Stack.Screen
                 name="reservations/[id]/edit"
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="reservations/[id]/running-late"
                 options={{ headerShown: false }}
               />
               <Stack.Screen

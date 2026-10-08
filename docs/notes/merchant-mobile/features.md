@@ -2,6 +2,11 @@
 
 See also dated entries under `docs/notes/features.md` → `## merchant-mobile (partner app)` and `## merchant-more`.
 
+## [2026-10-08] Sign-out unregisters Expo token (same as diner)
+
+- Merchant logout and refresh-token rejection call `unregisterCurrentDevicePushTokenBestEffort` via a silent getter — never the OS permission dialog. See `docs/notes/features.md` → notifications.
+- Why it matters: Staff alerts fan out per user via `notifyRestaurantManagers`; a signed-out manager still got venue pushes while the token remained on their User document.
+
 ## [2026-10-03] Floor ops: spatial plan uses layout coords
 
 - Floor Plan mode renders `posX`/`posY`/`width`/`height`/`rotation` from `floorPlanOps` (Cards mode keeps the capacity grid). Empty venues still prompt Partner Hub setup.
