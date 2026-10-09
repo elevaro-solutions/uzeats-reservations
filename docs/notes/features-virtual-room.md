@@ -2,6 +2,21 @@
 
 Experimental add-on: billing (monthly + per-guest fees) and an external photogrammetry provider (KIRI Engine), so it lives in its own file.
 
+## [2026-10-09] Selection attempt counter is engagement, not bookings
+- `VirtualRoom.selectionAttemptCount` increments via public `recordVirtualRoomSelectionAttempt` when a diner opens the 3D picker **after** choosing a time (explore-only opens do not count). Client dedupes with `sessionStorage` (`vr-selection-attempt:<restaurantId>`) like blog reads.
+- Gate matches the public scene: published room + active add-on. Exposed on `VirtualRoomAddon` / `VirtualRoomEditor` for Partner Hub and Admin Package.
+- Why it matters: Counts “tried 3D table pick” interest, not completed `tableSelectionSource: virtual_3d` reservations.
+
+## [2026-10-09] Admin trial comps are per-restaurant, not platform price
+- `adminSetVirtualRoomAddon` sets `addons.virtualRoom3d.trialPriceCents` / `trialEndsAt` / `trialDurationMonths` and optional `priceOverrideCents`. `syncVirtualRoomBilledMonths` and partner enable use `resolveVirtualRoomMonthPrice` (trial → override → platform).
+- Saving also calls `ensurePeriodInvoiceForRestaurant` so the current UTC month invoice exists immediately (subscription plan lines + 3D trial/add-on line) and can email the owner.
+- Why it matters: Setting global `virtualRoomPricing.monthlyPriceCents` to $0 comps everyone; admin trials are restaurant-scoped.
+
+## [2026-10-09] Invoice pay saves preferred PM for auto-charge
+- `startInvoicePayment` attaches the PI to `Subscription.stripeCustomerId` with `setup_future_usage=off_session`. `confirmInvoicePayment` stores `preferredPaymentMethodId` and keeps `autoChargeInvoices` on.
+- Daily `generateDuePeriodInvoices` emails new unpaid invoices once (`emailSentAt`) then `autoChargeDueInvoices` off-session charges due invoices that have a preferred/default card.
+- Why it matters: Internal period invoices (covers + 3D) are not Stripe Subscription invoices; without this path nothing auto-billed them.
+
 ## [2026-10-09] Optional 3D pick must not fight auto-assign copy
 - With `allowGuestTableSelection: false`, list pick is hidden but 3D pick is still the revenue path. Showing “Choose your table in 3D” next to a firm “assigned automatically” alert contradicted itself and discouraged the fee-generating action.
 - Fix: keep the strong CTA; replace the alert with muted “Optional — skip…” under the button (`selectionOptional`); only keep the auto-assign Alert when there is no virtual room at all.

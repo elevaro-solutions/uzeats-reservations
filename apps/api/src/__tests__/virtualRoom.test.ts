@@ -9,20 +9,24 @@ import { Table } from '../models/Table.js';
 import { User } from '../models/User.js';
 import { getPlatformConfig } from '../services/platformConfig.js';
 import {
+  ensurePeriodInvoiceForRestaurant,
   generateInvoicesForPeriod,
   refreshPeriodInvoiceForRestaurant,
   utcBillingPeriod,
 } from '../services/invoices.js';
 import {
+  adminSetVirtualRoomAddon,
   canSelectTableIn3d,
   getPublicVirtualRoom,
   getVirtualRoomAddonStatus,
   getVirtualRoomOpsScene,
   publishVirtualRoom,
   recordVirtualRoomGuestFee,
+  recordVirtualRoomSelectionAttempt,
   setVirtualRoomAddon,
   syncVirtualRoomBilledMonths,
 } from '../services/virtualRoom.js';
+import { VirtualRoom } from '../models/VirtualRoom.js';
 
 async function setPlatformFlag(enabled: boolean) {
   await getPlatformConfig();
@@ -80,6 +84,52 @@ describe('virtual 3D room add-on', () => {
     const status = await getVirtualRoomAddonStatus(restaurant._id.toString());
     expect(status.eligible).toBe(false);
     expect(status.ineligibleReason).toMatch(/floor plans/i);
+  });
+
+  it('admin can enable a free multi-month trial and generate the period invoice', async () => {
+    await setPlatformFlag(true);
+    const { restaurant } = await seedRestaurant();
+    const restaurantId = restaurant._id.toString();
+    const now = new Date('2026-08-03T10:00:00Z');
+
+    const status = await adminSetVirtualRoomAddon(
+      {
+        restaurantId,
+        enabled: true,
+        trialPriceCents: 0,
+        trialMonths: 3,
+        priceOverrideCents: 4000,
+      },
+      now,
+    );
+    expect(status).toMatchObject({
+      active: true,
+      onTrial: true,
+      trialPriceCents: 0,
+      trialDurationMonths: 3,
+      effectiveMonthlyPriceCents: 0,
+      priceOverrideCents: 4000,
+    });
+    expect(status.trialEndsAt).toEqual(new Date('2026-11-03T10:00:00.000Z'));
+
+    const invoice = await ensurePeriodInvoiceForRestaurant(restaurantId, '2026-08', {
+      emailOwner: false,
+    });
+    expect(invoice!.lines.some((l) => l.description.includes('trial (free)') && l.amountCents === 0)).toBe(
+      true,
+    );
+
+    await syncVirtualRoomBilledMonths(new Date('2026-09-01T00:00:00Z'));
+    await syncVirtualRoomBilledMonths(new Date('2026-12-01T00:00:00Z'));
+    const sub = await Subscription.findOne({ restaurantId: restaurant._id }).lean();
+    const months = (sub as any).addons.virtualRoom3d.billedMonths;
+    expect(months).toEqual(
+      expect.arrayContaining([
+        { period: '2026-08', priceCents: 0 },
+        { period: '2026-09', priceCents: 0 },
+        { period: '2026-12', priceCents: 4000 },
+      ]),
+    );
   });
 
   it('bills the monthly price and 3D guest fees on the period invoice', async () => {
@@ -221,6 +271,44 @@ describe('virtual 3D room add-on', () => {
     await setVirtualRoomAddon(restaurantId, false);
     expect(await getPublicVirtualRoom(restaurantId)).toBeNull();
     expect(await canSelectTableIn3d(restaurantId)).toBe(false);
+  });
+
+  it('counts diner 3D table-selection attempts only when published and active', async () => {
+    await setPlatformFlag(true);
+    const { restaurant } = await seedRestaurant();
+    const restaurantId = restaurant._id.toString();
+
+    expect(await recordVirtualRoomSelectionAttempt(restaurantId)).toBeNull();
+    expect(await recordVirtualRoomSelectionAttempt('not-an-id')).toBeNull();
+
+    await setVirtualRoomAddon(restaurantId, true);
+    await Table.create({
+      restaurantId: restaurant._id,
+      name: 'T1',
+      minCapacity: 1,
+      maxCapacity: 4,
+      posX: 2,
+      posY: 3,
+      width: 2,
+      height: 2,
+      floorArea: 'Main',
+    });
+    // Add-on on but not published yet.
+    expect(await recordVirtualRoomSelectionAttempt(restaurantId)).toBeNull();
+
+    await publishVirtualRoom(restaurantId, true);
+    const first = await recordVirtualRoomSelectionAttempt(restaurantId);
+    expect(first?.selectionAttemptCount).toBe(1);
+    const second = await recordVirtualRoomSelectionAttempt(restaurantId);
+    expect(second?.selectionAttemptCount).toBe(2);
+    expect((await getVirtualRoomAddonStatus(restaurantId)).selectionAttemptCount).toBe(2);
+
+    const room = await VirtualRoom.findOne({ restaurantId }).lean();
+    expect(room?.selectionAttemptCount).toBe(2);
+
+    await setVirtualRoomAddon(restaurantId, false);
+    expect(await recordVirtualRoomSelectionAttempt(restaurantId)).toBeNull();
+    expect((await VirtualRoom.findOne({ restaurantId }).lean())?.selectionAttemptCount).toBe(2);
   });
 
   it('skips restaurant invoice fees when the platform bills the diner', async () => {

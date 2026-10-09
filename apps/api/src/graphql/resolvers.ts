@@ -360,6 +360,10 @@ import { getManagerSeatsUsage } from "../services/managerSeats.js";
 import { normalizeManagerSeats, sanitizePlanHighlights } from "../config/plans.js";
 import { executeCampaign, scheduleCampaign } from "../services/campaigns.js";
 import {
+  askGuestForReview,
+  cancelReviewRequestEmail,
+} from "../services/reviewRequest.js";
+import {
   buildPreShiftReport,
   buildRevenueForecast,
   buildCustomReport,
@@ -389,11 +393,13 @@ import {
 } from "../services/platformConfig.js";
 import {
   addVirtualRoomMedia,
+  adminSetVirtualRoomAddon,
   getPublicVirtualRoom,
   getVirtualRoomAddonStatus,
   getVirtualRoomEditor,
   getVirtualRoomOpsScene,
   publishVirtualRoom,
+  recordVirtualRoomSelectionAttempt,
   removeVirtualRoomMedia,
   setVirtualRoomAddon,
   updateVirtualRoom,
@@ -405,6 +411,7 @@ import {
   countOpenInvoices,
   createManualInvoice,
   ensureInvoicePayLink,
+  ensurePeriodInvoiceForRestaurant,
   exportInvoicePdf,
   exportInvoicePdfByToken,
   generateInvoicesForPeriod,
@@ -456,6 +463,10 @@ function mapSubscription(sub: any, opts?: { includeStripeIds?: boolean }) {
     stripeSubscriptionId: opts?.includeStripeIds
       ? (sub.stripeSubscriptionId ?? null)
       : null,
+    preferredPaymentMethodId: opts?.includeStripeIds
+      ? (sub.preferredPaymentMethodId ?? null)
+      : null,
+    autoChargeInvoices: sub.autoChargeInvoices !== false,
     currentPeriodStart: sub.currentPeriodStart ?? null,
     currentPeriodEnd: sub.currentPeriodEnd ?? null,
     trialEndsAt: sub.trialEndsAt ?? null,
@@ -2220,13 +2231,26 @@ export const resolvers = {
           await sub.save();
         }
       }
-      const mapped = mapSubscription(sub, { includeStripeIds: true });
       let amountDueCents = sub.amountDueCents ?? 0;
       if (sub.stripeSubscriptionId) {
         const open = await getOpenSubscriptionPayment(sub.stripeSubscriptionId);
+        if (open.missing) {
+          // Orphan after Stripe sandbox ↔ live switch (or deleted in Dashboard).
+          // Clear linkage so Billing shows plan picker and Start trial can recreate.
+          sub.set("stripeSubscriptionId", undefined);
+          sub.set("stripeCustomerId", undefined);
+          sub.set("preferredPaymentMethodId", undefined);
+          if (sub.status !== "cancelled") {
+            sub.status = "cancelled";
+            sub.cancelledAt = new Date();
+          }
+          await sub.save();
+          return null;
+        }
         if (open.amountDueCents > amountDueCents)
           amountDueCents = open.amountDueCents;
       }
+      const mapped = mapSubscription(sub, { includeStripeIds: true });
       return { ...mapped, amountDueCents };
     },
 
@@ -4595,6 +4619,7 @@ export const resolvers = {
         photos: input.photos ?? [],
       });
 
+      void cancelReviewRequestEmail(reservation._id.toString());
       await recomputePublicReviewStats(reservation.restaurantId);
 
       try {
@@ -6274,6 +6299,23 @@ export const resolvers = {
       return mapGuestProfile(doc);
     },
 
+    askGuestReview: async (
+      _: unknown,
+      args: { restaurantId: string; dinerId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      return askGuestForReview({
+        restaurantId: args.restaurantId,
+        dinerId: args.dinerId,
+      });
+    },
+
     exportRestaurantGuests: async (
       _: unknown,
       args: {
@@ -7720,6 +7762,66 @@ export const resolvers = {
       return status;
     },
 
+    adminSetVirtualRoomAddon: async (
+      _: unknown,
+      args: {
+        input: {
+          restaurantId: string;
+          enabled: boolean;
+          trialPriceCents?: number | null;
+          trialMonths?: number | null;
+          priceOverrideCents?: number | null;
+          clearTrial?: boolean | null;
+          generateInvoice?: boolean | null;
+          emailOwner?: boolean | null;
+        };
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireAdmin(ctx);
+      const input = args.input;
+      const addon = await adminSetVirtualRoomAddon({
+        restaurantId: input.restaurantId,
+        enabled: input.enabled,
+        trialPriceCents: input.trialPriceCents,
+        trialMonths: input.trialMonths,
+        priceOverrideCents: input.priceOverrideCents,
+        clearTrial: input.clearTrial,
+      });
+
+      let invoice = null;
+      const shouldGenerate = input.generateInvoice !== false;
+      if (shouldGenerate) {
+        invoice = await ensurePeriodInvoiceForRestaurant(input.restaurantId, undefined, {
+          emailOwner: input.emailOwner !== false,
+        }).catch((err) => {
+          logger.warn(
+            { err, restaurantId: input.restaurantId },
+            "[virtualRoom] admin invoice generate failed",
+          );
+          return null;
+        });
+      }
+
+      await logAudit({
+        actorId: admin._id.toString(),
+        action: "adminSetVirtualRoomAddon",
+        resource: "Restaurant",
+        resourceId: input.restaurantId,
+        details: {
+          enabled: input.enabled,
+          trialPriceCents: input.trialPriceCents ?? null,
+          trialMonths: input.trialMonths ?? null,
+          priceOverrideCents: input.priceOverrideCents ?? null,
+          trialEndsAt: addon.trialEndsAt,
+          invoiceId: invoice?.id ?? null,
+          invoiceNumber: invoice?.number ?? null,
+        },
+      });
+
+      return { addon, invoice };
+    },
+
     updateVirtualRoom: async (
       _: unknown,
       args: { restaurantId: string; input: unknown },
@@ -7785,6 +7887,12 @@ export const resolvers = {
       });
       return getVirtualRoomEditor(args.restaurantId);
     },
+
+    recordVirtualRoomSelectionAttempt: async (
+      _: unknown,
+      args: { restaurantId: string },
+    ) => recordVirtualRoomSelectionAttempt(args.restaurantId),
+
     ...adminOpsMutation,
   },
 };

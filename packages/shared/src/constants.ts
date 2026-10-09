@@ -422,6 +422,15 @@ export const REMINDER_ACTION_RUNNING_LATE_NO = "RUNNING_LATE_NO";
 export const REMINDER_HOURS = [24, 2] as const;
 export const CANCELLATION_REFUND_HOURS = 24;
 
+/**
+ * Post-visit review-request email timing (hospitality industry standard):
+ * mid-morning the day after the visit, at least this many hours after `slotEnd`.
+ * 10 AM local maximizes open rates while the meal is still fresh.
+ */
+export const REVIEW_REQUEST_MIN_HOURS_AFTER_VISIT = 12;
+/** Restaurant-local wall-clock hour (24h) for scheduled review-request emails. */
+export const REVIEW_REQUEST_PREFERRED_LOCAL_HOUR = 10;
+
 /** Predefined reasons diners can pick when cancelling a reservation. */
 export const RESERVATION_CANCELLATION_REASONS = [
   "Change of plans",
@@ -521,6 +530,8 @@ export const NOTIFICATION_TYPE_TO_EVENT: Record<string, NotificationEvent> = {
   new_review: "newReview",
   review_reply: "reviewReply",
   survey_invitation: "surveyInvitation",
+  /** Post-visit ask-for-review (same channel prefs as survey invites). */
+  review_request: "surveyInvitation",
   points_earned: "loyaltyUpdates",
   points_redeemed: "loyaltyUpdates",
   points_refunded: "loyaltyUpdates",

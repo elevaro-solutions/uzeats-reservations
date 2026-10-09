@@ -1,11 +1,15 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useMutation } from '@apollo/client/react';
 import { Button, Modal, Space, Spin, Tag, Typography } from 'antd';
 import { ExpandOutlined } from '@ant-design/icons';
 import { VIRTUAL_ROOM_OVERALL_VIEW } from '@reservations/shared';
 import type { VirtualRoomSceneData } from '@reservations/ui/virtual-room';
+import { RECORD_VIRTUAL_ROOM_SELECTION_ATTEMPT } from '@/lib/graphql';
+
+const SELECTION_ATTEMPT_KEY = 'vr-selection-attempt:';
 
 const VirtualRoomViewer = dynamic(
   () => import('@reservations/ui/virtual-room').then((m) => m.VirtualRoomViewer),
@@ -35,6 +39,7 @@ function formatUsd(cents: number) {
 }
 
 export function VirtualRoomTablePicker({
+  restaurantId,
   scene,
   slotSelected,
   bookableTables,
@@ -51,6 +56,7 @@ export function VirtualRoomTablePicker({
   /** Fee for the currently selected 3D table (diner-paid only). */
   selectedDinerFeeCents = 0,
 }: {
+  restaurantId: string;
   scene: VirtualRoomSceneData;
   /** Without a time slot the room is explore-only. */
   slotSelected: boolean;
@@ -68,6 +74,28 @@ export function VirtualRoomTablePicker({
   const [pending, setPending] = useState<string | null>(selectedTableId);
   /** Off by default — floating name chips crowd multi-area rooms. */
   const [showTableLabels, setShowTableLabels] = useState(false);
+  const [recordSelectionAttempt] = useMutation(RECORD_VIRTUAL_ROOM_SELECTION_ATTEMPT);
+  const recordedAttempt = useRef(false);
+
+  const recordAttemptIfSelecting = () => {
+    if (!slotSelected || recordedAttempt.current || !restaurantId) return;
+
+    const key = `${SELECTION_ATTEMPT_KEY}${restaurantId}`;
+    try {
+      if (sessionStorage.getItem(key)) {
+        recordedAttempt.current = true;
+        return;
+      }
+      sessionStorage.setItem(key, '1');
+    } catch {
+      // Private mode / blocked storage — fall through; ref still dedupes this mount.
+    }
+
+    recordedAttempt.current = true;
+    void recordSelectionAttempt({ variables: { restaurantId } }).catch(() => {
+      // Best-effort analytics; ignore network errors.
+    });
+  };
 
   useEffect(() => {
     if (open) setPending(selectedTableId);
@@ -117,7 +145,14 @@ export function VirtualRoomTablePicker({
 
   return (
     <>
-      <Button icon={<ExpandOutlined />} block={block} onClick={() => setOpen(true)}>
+      <Button
+        icon={<ExpandOutlined />}
+        block={block}
+        onClick={() => {
+          setOpen(true);
+          recordAttemptIfSelecting();
+        }}
+      >
         {buttonLabel}
       </Button>
       {showOptionalHint ? (

@@ -1,5 +1,13 @@
 # Web — Learnings & Observations
 
+## [2026-10-09] 3D table pick attempts fire from the CTA
+- `VirtualRoomTablePicker` calls `recordVirtualRoomSelectionAttempt` when the diner opens the modal **with a time selected**. Explore-only opens skip. Deduped via `sessionStorage` `vr-selection-attempt:<restaurantId>` (same pattern as blog reads).
+- Why it matters: Counts interest in the paid selection path, not mere room exploration.
+
+## [2026-10-09] Review email deep-link opens PostVisitModal
+- `/reservations/:id?review=1` opens the leave-review modal when `canLeaveReview` is true. Login `next=` keeps the `review` query (same pattern as `runningLate`).
+- Why it matters: Ask-for-review emails must land on the form, not a dead reservation page.
+
 ## [2026-10-09] Confirm modal keeps money out of the details list
 - `ReservationConfirmModal` shows date/time/party as a summary strip; guest/table/notes stay in a light detail list. Package/room/experience prices, 3D fee, discounts, Due now, and card guarantee live in a separate charges card. Full terms stay behind Collapse so the agree checkbox stays above the fold.
 - Why it matters: Mixing fee policy paragraphs into bordered Descriptions made the modal feel like one long spreadsheet and pushed Confirm below the viewport.

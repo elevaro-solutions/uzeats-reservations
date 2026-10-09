@@ -89,6 +89,11 @@ See [features-virtual-room.md](./features-virtual-room.md) (experimental add-on 
 
 ## notifications
 
+### [2026-10-09] Review-request email is morning-after, campaigns-only
+- Auto-send uses the `reminders` queue (`review-request`), not the campaigns queue. Gated by platform `campaigns` + plan `emailCampaigns`. Prefers 10:00 restaurant-local ≥12h after `slotEnd`.
+- Email prefs reuse `surveyInvitation`. Deep link `/reservations/:id?review=1` opens PostVisitModal when the visit is still reviewable.
+- Why it matters: Don’t treat this as a marketing Campaign document; don’t send immediately on Complete (that path is surveys).
+
 ### [2026-10-08] Running-late prompt is a full screen
 - Closer reminders (inbox tap, push body, opening a pending/confirmed reservation within 2h) go to `/reservations/:id/running-late`, not a sheet or inline card. OS Yes/No on the push is unchanged.
 - No / back dismisses for the session (`dismissRunningLatePrompt`) then `replace`s to reservation detail so the prompt does not loop. Yes `replace`s to messages after `reportRunningLate`.

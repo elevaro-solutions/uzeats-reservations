@@ -54,6 +54,7 @@ import { AdminRestaurantInvoicesPanel } from '@/components/AdminRestaurantInvoic
 import { AdminRestaurantMenuPanel } from '@/components/AdminRestaurantMenuPanel';
 import { AdminRestaurantOverviewPanel } from '@/components/AdminRestaurantOverviewPanel';
 import { AdminRestaurantPackagePanel } from '@/components/AdminRestaurantPackagePanel';
+import { AdminRestaurantVirtualRoomPanel } from '@/components/AdminRestaurantVirtualRoomPanel';
 import { AdminRestaurantReservationsPanel } from '@/components/AdminRestaurantReservationsPanel';
 import { AdminRestaurantReviewsPanel } from '@/components/AdminRestaurantReviewsPanel';
 import { AdminRestaurantTeamPanel } from '@/components/AdminRestaurantTeamPanel';
@@ -391,13 +392,16 @@ function AdminRestaurantDetailContent() {
                 key: 'package',
                 label: 'Package',
                 children: (
-                  <AdminRestaurantPackagePanel
-                    restaurant={restaurant}
-                    onSaved={(updated) => {
-                      setRestaurantOverride({ ...restaurant, ...updated });
-                      void refresh();
-                    }}
-                  />
+                  <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+                    <AdminRestaurantPackagePanel
+                      restaurant={restaurant}
+                      onSaved={(updated) => {
+                        setRestaurantOverride({ ...restaurant, ...updated });
+                        void refresh();
+                      }}
+                    />
+                    <AdminRestaurantVirtualRoomPanel restaurantId={restaurant.id} />
+                  </Space>
                 ),
               },
               {

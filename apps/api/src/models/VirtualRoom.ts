@@ -71,6 +71,11 @@ const virtualRoomSchema = new Schema(
     /** Diners only see the room when published and the add-on is active. */
     published: { type: Boolean, default: false },
     publishedAt: { type: Date },
+    /**
+     * How many times diners opened the 3D table picker after choosing a time
+     * (best-effort engagement metric; client dedupes per tab session).
+     */
+    selectionAttemptCount: { type: Number, default: 0, min: 0 },
     media: { type: [mediaSchema], default: [] },
     areaSettings: { type: [areaSettingsSchema], default: [] },
     /** How areas are arranged in the overall 3D view (stack / side-by-side / custom offsets). */

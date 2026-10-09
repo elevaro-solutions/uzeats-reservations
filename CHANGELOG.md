@@ -4,6 +4,30 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.78.0] — 2026-10-09
+
+### Added
+
+- After a visit is marked completed, restaurants with email campaigns (Pro + platform campaigns flag) schedule an ask-for-review email for ~10:00 AM restaurant-local on the first morning at least 12 hours after the visit ends. The email pitches loyalty points for leaving a review and links to the reservation with `?review=1`. Editable as **Ask for review** (`review_request`) under Admin → Email templates
+- Partner Hub → Guests: More actions menu with **Ask for review** (campaigns required) and clearer loyalty points in the table and guest drawer
+- Virtual 3D table-selection attempt counter per restaurant. Opening “Choose your table in 3D” after picking a time records one attempt per browser tab session. Shown on Partner Hub → Virtual 3D room and Admin → Restaurants → Package
+- Admin → Restaurants → Package: enable Virtual 3D for a restaurant with a free or custom-price trial (months or 1 year), optional ongoing price override, and immediate generation of that month’s subscription invoice
+- Paying a platform invoice saves the owner’s card as the preferred payment method and turns on auto-charge for upcoming due invoices (daily billing job)
+- New and refreshed unpaid period invoices (and unpaid manual invoices) are emailed to the restaurant owner with the PDF and pay link when SendGrid is configured
+
+### Changed
+
+- Virtual 3D monthly billing respects admin trial rates and per-restaurant price overrides when locking `billedMonths`
+- Invoice checkout PaymentIntents are created on the restaurant’s Stripe customer with `setup_future_usage` so the card can be reused
+
+### Fixed
+
+- Partner Billing no longer errors with `No such subscription` after a Stripe sandbox ↔ live mode switch; orphaned subscription IDs are cleared and Start trial can create a new subscription under the active mode
+
+### Docs
+
+- Ask-for-review timing, Virtual 3D admin trials / attempt counters, and invoice preferred-payment notes (`docs/notes/api.md`, `dashboard.md`, `web.md`, `features-virtual-room.md`, `features.md`)
+
 ## [0.77.0] — 2026-10-09
 
 ### Added

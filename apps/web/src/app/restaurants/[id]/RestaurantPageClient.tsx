@@ -1415,9 +1415,10 @@ export default function RestaurantPageClient({
                 )}
               </div>
             )}
-            {showVirtualRoom && (
+            {showVirtualRoom && restaurantId && (
               <div style={{ marginTop: 10 }}>
                 <VirtualRoomTablePicker
+                  restaurantId={restaurantId}
                   scene={virtualRoomScene}
                   slotSelected={Boolean(selectedSlot)}
                   bookableTables={selectedSlot ? bookableTables : []}

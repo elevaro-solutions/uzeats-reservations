@@ -882,6 +882,8 @@ export const typeDefs = `#graphql
     status: SubscriptionStatus!
     stripeCustomerId: String
     stripeSubscriptionId: String
+    preferredPaymentMethodId: String
+    autoChargeInvoices: Boolean!
     currentPeriodStart: DateTime
     currentPeriodEnd: DateTime
     trialEndsAt: DateTime
@@ -1267,6 +1269,8 @@ export const typeDefs = `#graphql
     serviceIds: [ID!]!
     payToken: String
     payUrl: String
+    emailSentAt: DateTime
+    emailSentTo: String
     createdAt: DateTime!
     updatedAt: DateTime!
   }
@@ -1280,6 +1284,7 @@ export const typeDefs = `#graphql
     created: Int!
     updated: Int!
     skipped: Int!
+    emailed: Int!
     period: String!
   }
 
@@ -1659,10 +1664,42 @@ export const typeDefs = `#graphql
     active: Boolean!
     ineligibleReason: String
     enabledAt: DateTime
+    """Platform default monthly price."""
     monthlyPriceCents: Int!
+    """Price that applies right now (trial, override, or platform default)."""
+    effectiveMonthlyPriceCents: Int!
     perGuestFeeCents: Int!
     selectionFeeMode: VirtualRoomSelectionFeeMode!
     selectionFeePayer: VirtualRoomSelectionFeePayer!
+    trialPriceCents: Int
+    trialEndsAt: DateTime
+    trialDurationMonths: Int
+    onTrial: Boolean!
+    priceOverrideCents: Int
+    """Diners who opened Choose your table in 3D after picking a time (lifetime)."""
+    selectionAttemptCount: Int!
+  }
+
+  input AdminVirtualRoomAddonInput {
+    restaurantId: ID!
+    enabled: Boolean!
+    """Trial monthly price in cents. 0 = free. Defaults to 0 when trialMonths is set."""
+    trialPriceCents: Int
+    """Trial length in months (1–36). Use 12 for a year."""
+    trialMonths: Int
+    """Ongoing monthly price after the trial (cents). Omit to use the platform default."""
+    priceOverrideCents: Int
+    """Clear trial / price override when disabling or re-enabling without a trial."""
+    clearTrial: Boolean
+    """Generate/refresh the current period subscription invoice (default true)."""
+    generateInvoice: Boolean
+    """Email the invoice to the restaurant owner (default true when an unpaid balance exists)."""
+    emailOwner: Boolean
+  }
+
+  type AdminVirtualRoomAddonResult {
+    addon: VirtualRoomAddon!
+    invoice: Invoice
   }
 
   type VirtualRoomPoint {
@@ -1828,6 +1865,8 @@ export const typeDefs = `#graphql
     modelTransform: VirtualRoomModelTransform!
     """A photogrammetry provider key is set on the API."""
     providerConfigured: Boolean!
+    """Diners who opened Choose your table in 3D after picking a time (lifetime)."""
+    selectionAttemptCount: Int!
     addon: VirtualRoomAddon!
     selectionFee: VirtualRoomSelectionFeeSettings!
     media: [VirtualRoomMedia!]!
@@ -2410,6 +2449,13 @@ export const typeDefs = `#graphql
     customFields: String
     createdAt: DateTime!
     updatedAt: DateTime!
+  }
+
+  type AskGuestReviewResult {
+    sent: Boolean!
+    reservationId: ID!
+    pointsForReview: Int!
+    message: String!
   }
 
   type Campaign {
@@ -3979,6 +4025,7 @@ export const typeDefs = `#graphql
     updateGuestProfile(restaurantId: ID!, dinerId: ID!, input: GuestProfileInput!): GuestProfile!
     addGuestTag(restaurantId: ID!, dinerId: ID!, tag: String!): GuestProfile!
     removeGuestTag(restaurantId: ID!, dinerId: ID!, tag: String!): GuestProfile!
+    askGuestReview(restaurantId: ID!, dinerId: ID!): AskGuestReviewResult!
     exportRestaurantGuests(
       restaurantId: ID!
       tag: String
@@ -4112,11 +4159,19 @@ export const typeDefs = `#graphql
 
     """Owner-only. Billed monthly while on, plus a per-guest fee on 3D table picks."""
     setVirtualRoomAddon(restaurantId: ID!, enabled: Boolean!): VirtualRoomAddon!
+    """Admin: enable/disable Virtual 3D with optional free/custom-price trial and generate the period invoice."""
+    adminSetVirtualRoomAddon(input: AdminVirtualRoomAddonInput!): AdminVirtualRoomAddonResult!
     updateVirtualRoom(restaurantId: ID!, input: VirtualRoomInput!): VirtualRoomEditor!
     addVirtualRoomMedia(restaurantId: ID!, input: VirtualRoomMediaInput!): VirtualRoomEditor!
     removeVirtualRoomMedia(restaurantId: ID!, mediaId: ID!): VirtualRoomEditor!
     publishVirtualRoom(restaurantId: ID!, published: Boolean!): VirtualRoomEditor!
     """Send capture video/photos to photogrammetry. Requires KIRI_ENGINE_API_KEY on the API."""
     generateVirtualRoomModel(restaurantId: ID!): VirtualRoomEditor!
+    """
+    Public. Increments the 3D table-selection attempt counter when a diner opens
+    the picker after choosing a time. No-ops (returns null) unless the room is
+    published and the add-on is active.
+    """
+    recordVirtualRoomSelectionAttempt(restaurantId: ID!): VirtualRoomAddon
   }
 `;

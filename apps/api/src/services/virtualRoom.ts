@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import mongoose from 'mongoose';
 import {
   DEFAULT_VIRTUAL_ROOM_AREA_PLACEMENT,
   DEFAULT_VIRTUAL_ROOM_MODEL_TRANSFORM,
@@ -33,9 +34,19 @@ import { isReconstructionProviderConfigured } from './virtualRoomReconstruction.
 
 const ADDON = 'virtualRoom3d' as const;
 const INACTIVE_SUBSCRIPTION_STATUSES = new Set(['cancelled', 'paused']);
+const MAX_TRIAL_MONTHS = 36;
 
 function utcPeriod(date = new Date()) {
   return date.toISOString().slice(0, 7);
+}
+
+function addUtcMonths(date: Date, months: number) {
+  const next = new Date(date.getTime());
+  const day = next.getUTCDate();
+  next.setUTCMonth(next.getUTCMonth() + months);
+  // Clamp end-of-month overflow (e.g. Jan 31 + 1 month).
+  if (next.getUTCDate() < day) next.setUTCDate(0);
+  return next;
 }
 
 type BilledMonth = { period: string; priceCents: number };
@@ -44,6 +55,10 @@ type AddonState = {
   enabled: boolean;
   enabledAt: Date | null;
   disabledAt: Date | null;
+  trialPriceCents: number | null;
+  trialEndsAt: Date | null;
+  trialDurationMonths: number | null;
+  priceOverrideCents: number | null;
   billedMonths: BilledMonth[];
 };
 
@@ -54,10 +69,45 @@ function readAddon(sub: unknown): AddonState {
     enabled: Boolean(raw?.enabled),
     enabledAt: raw?.enabledAt ?? null,
     disabledAt: raw?.disabledAt ?? null,
+    trialPriceCents:
+      typeof raw?.trialPriceCents === 'number' && Number.isFinite(raw.trialPriceCents)
+        ? Math.max(0, Math.round(raw.trialPriceCents))
+        : null,
+    trialEndsAt: raw?.trialEndsAt ? new Date(raw.trialEndsAt) : null,
+    trialDurationMonths:
+      typeof raw?.trialDurationMonths === 'number' && Number.isFinite(raw.trialDurationMonths)
+        ? Math.round(raw.trialDurationMonths)
+        : null,
+    priceOverrideCents:
+      typeof raw?.priceOverrideCents === 'number' && Number.isFinite(raw.priceOverrideCents)
+        ? Math.max(0, Math.round(raw.priceOverrideCents))
+        : null,
     billedMonths: Array.isArray(raw?.billedMonths)
       ? raw.billedMonths.map((m) => ({ period: m.period, priceCents: m.priceCents }))
       : [],
   };
+}
+
+/** Price for a newly billed month: trial rate while trial is active, else override or platform. */
+export function resolveVirtualRoomMonthPrice(
+  addon: Pick<AddonState, 'trialPriceCents' | 'trialEndsAt' | 'priceOverrideCents'>,
+  platformMonthlyPriceCents: number,
+  now = new Date(),
+) {
+  if (addon.trialEndsAt && addon.trialEndsAt > now) {
+    return addon.trialPriceCents ?? 0;
+  }
+  if (addon.priceOverrideCents != null) return addon.priceOverrideCents;
+  return platformMonthlyPriceCents;
+}
+
+function upsertBilledMonth(addon: AddonState, period: string, priceCents: number) {
+  const existing = addon.billedMonths.find((m) => m.period === period);
+  if (existing) {
+    existing.priceCents = priceCents;
+  } else {
+    addon.billedMonths.push({ period, priceCents });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -65,10 +115,11 @@ function readAddon(sub: unknown): AddonState {
 // ---------------------------------------------------------------------------
 
 export async function getVirtualRoomAddonStatus(restaurantId: string) {
-  const [platformEnabled, pricing, sub] = await Promise.all([
+  const [platformEnabled, pricing, sub, room] = await Promise.all([
     isFeatureEnabled('virtualRoom3d'),
     getVirtualRoomPricing(),
     Subscription.findOne({ restaurantId }),
+    VirtualRoom.findOne({ restaurantId }).select('selectionAttemptCount').lean(),
   ]);
   const addon = readAddon(sub);
 
@@ -84,6 +135,14 @@ export async function getVirtualRoomAddonStatus(restaurantId: string) {
     }
   }
 
+  const now = new Date();
+  const onTrial = Boolean(addon.trialEndsAt && addon.trialEndsAt > now);
+  const effectiveMonthlyPriceCents = resolveVirtualRoomMonthPrice(
+    addon,
+    pricing.monthlyPriceCents,
+    now,
+  );
+
   return {
     restaurantId,
     platformEnabled,
@@ -93,9 +152,17 @@ export async function getVirtualRoomAddonStatus(restaurantId: string) {
     ineligibleReason,
     enabledAt: addon.enabledAt,
     monthlyPriceCents: pricing.monthlyPriceCents,
+    effectiveMonthlyPriceCents,
     perGuestFeeCents: pricing.perGuestFeeCents,
     selectionFeeMode: pricing.selectionFeeMode,
     selectionFeePayer: pricing.selectionFeePayer,
+    trialPriceCents: addon.trialPriceCents,
+    trialEndsAt: addon.trialEndsAt,
+    trialDurationMonths: addon.trialDurationMonths,
+    onTrial,
+    priceOverrideCents: addon.priceOverrideCents,
+    selectionAttemptCount:
+      typeof room?.selectionAttemptCount === 'number' ? room.selectionAttemptCount : 0,
   };
 }
 
@@ -112,15 +179,122 @@ export async function setVirtualRoomAddon(restaurantId: string, enabled: boolean
     const status = await getVirtualRoomAddonStatus(restaurantId);
     if (!status.eligible) throw new ValidationError(status.ineligibleReason ?? 'Not available');
     const period = utcPeriod(now);
-    if (!addon.billedMonths.some((m) => m.period === period)) {
-      addon.billedMonths.push({ period, priceCents: status.monthlyPriceCents });
-    }
+    const priceCents = resolveVirtualRoomMonthPrice(addon, status.monthlyPriceCents, now);
+    upsertBilledMonth(addon, period, priceCents);
     addon.enabled = true;
     addon.enabledAt = now;
     addon.disabledAt = null;
   } else if (!enabled && addon.enabled) {
     addon.enabled = false;
     addon.disabledAt = now;
+  }
+
+  sub.set('addons.virtualRoom3d', addon);
+  await sub.save();
+  return getVirtualRoomAddonStatus(restaurantId);
+}
+
+export type AdminVirtualRoomAddonInput = {
+  restaurantId: string;
+  enabled: boolean;
+  /** Trial monthly price in cents (0 = free). Required when trialMonths is set while enabling. */
+  trialPriceCents?: number | null;
+  /**
+   * Length of the admin trial in months (1–36). Use 12 for a year.
+   * Omit to enable at the ongoing price with no trial.
+   */
+  trialMonths?: number | null;
+  /** Ongoing monthly price after trial (cents). Omit to use the platform default. */
+  priceOverrideCents?: number | null;
+  /** Clear a previous trial / price override when disabling or re-enabling without one. */
+  clearTrial?: boolean | null;
+};
+
+/**
+ * Admin enable/disable for Virtual 3D with optional free/custom-price trial.
+ * Seeds the current billed month and leaves period invoice generation to the caller.
+ */
+export async function adminSetVirtualRoomAddon(
+  input: AdminVirtualRoomAddonInput,
+  now = new Date(),
+) {
+  const restaurantId = input.restaurantId;
+  const sub = await Subscription.findOne({ restaurantId });
+  if (!sub) throw new ValidationError('No subscription found');
+
+  const addon = readAddon(sub);
+  const pricing = await getVirtualRoomPricing();
+
+  if (!input.enabled) {
+    if (addon.enabled) {
+      addon.enabled = false;
+      addon.disabledAt = now;
+    }
+    if (input.clearTrial) {
+      addon.trialPriceCents = null;
+      addon.trialEndsAt = null;
+      addon.trialDurationMonths = null;
+      addon.priceOverrideCents = null;
+    }
+    sub.set('addons.virtualRoom3d', addon);
+    await sub.save();
+    return getVirtualRoomAddonStatus(restaurantId);
+  }
+
+  const status = await getVirtualRoomAddonStatus(restaurantId);
+  // Admins may enable while the partner would be ineligible only if the platform flag is on
+  // and a subscription exists — still require floor plans so billing stays consistent.
+  if (!status.platformEnabled) {
+    throw new ValidationError(
+      'Turn on Virtual 3D rooms in Platform config → Experimental features first.',
+    );
+  }
+  if (status.ineligibleReason && !status.eligible) {
+    throw new ValidationError(status.ineligibleReason);
+  }
+
+  const trialMonths =
+    input.trialMonths != null ? Math.round(Number(input.trialMonths)) : null;
+  if (trialMonths != null) {
+    if (!Number.isFinite(trialMonths) || trialMonths < 1 || trialMonths > MAX_TRIAL_MONTHS) {
+      throw new ValidationError(`trialMonths must be between 1 and ${MAX_TRIAL_MONTHS}`);
+    }
+    const trialPrice =
+      input.trialPriceCents != null
+        ? Math.max(0, Math.round(Number(input.trialPriceCents)))
+        : 0;
+    if (!Number.isFinite(trialPrice)) {
+      throw new ValidationError('trialPriceCents must be a non-negative number');
+    }
+    addon.trialPriceCents = trialPrice;
+    addon.trialDurationMonths = trialMonths;
+    addon.trialEndsAt = addUtcMonths(now, trialMonths);
+  } else if (input.clearTrial) {
+    addon.trialPriceCents = null;
+    addon.trialEndsAt = null;
+    addon.trialDurationMonths = null;
+  }
+
+  if (input.priceOverrideCents !== undefined) {
+    if (input.priceOverrideCents == null) {
+      addon.priceOverrideCents = null;
+    } else {
+      const override = Math.round(Number(input.priceOverrideCents));
+      if (!Number.isFinite(override) || override < 0) {
+        throw new ValidationError('priceOverrideCents must be a non-negative number');
+      }
+      addon.priceOverrideCents = override;
+    }
+  }
+
+  const period = utcPeriod(now);
+  const priceCents = resolveVirtualRoomMonthPrice(addon, pricing.monthlyPriceCents, now);
+  upsertBilledMonth(addon, period, priceCents);
+
+  if (!addon.enabled) {
+    addon.enabled = true;
+    addon.enabledAt = now;
+    addon.disabledAt = null;
   }
 
   sub.set('addons.virtualRoom3d', addon);
@@ -141,14 +315,16 @@ export async function syncVirtualRoomBilledMonths(now = new Date()) {
     'addons.virtualRoom3d.enabled': true,
     status: { $nin: [...INACTIVE_SUBSCRIPTION_STATUSES] },
     'addons.virtualRoom3d.billedMonths.period': { $ne: period },
-  }).select('_id restaurantId');
+  });
   let billed = 0;
   for (const sub of due) {
     const features = await getFeatures(String(sub.restaurantId));
     if (!features.floorPlans) continue;
+    const addon = readAddon(sub);
+    const priceCents = resolveVirtualRoomMonthPrice(addon, monthlyPriceCents, now);
     const res = await Subscription.updateOne(
       { _id: sub._id, 'addons.virtualRoom3d.billedMonths.period': { $ne: period } },
-      { $push: { 'addons.virtualRoom3d.billedMonths': { period, priceCents: monthlyPriceCents } } },
+      { $push: { 'addons.virtualRoom3d.billedMonths': { period, priceCents } } },
     );
     billed += res.modifiedCount;
   }
@@ -167,10 +343,19 @@ export async function buildVirtualRoomInvoiceLines(
   period: string,
 ): Promise<InvoiceLine[]> {
   const lines: InvoiceLine[] = [];
-  const month = readAddon(sub).billedMonths.find((m) => m.period === period);
+  const addon = readAddon(sub);
+  const month = addon.billedMonths.find((m) => m.period === period);
   if (month) {
+    const periodStart = new Date(`${period}-01T00:00:00.000Z`);
+    const onTrial = Boolean(addon.trialEndsAt && addon.trialEndsAt > periodStart);
+    const label =
+      month.priceCents === 0
+        ? `Virtual 3D room trial (free) - ${period}`
+        : onTrial
+          ? `Virtual 3D room trial - ${period}`
+          : `Virtual 3D room add-on (experimental) - ${period}`;
     lines.push({
-      description: `Virtual 3D room add-on (experimental) - ${period}`,
+      description: label,
       quantity: 1,
       unitAmountCents: month.priceCents,
       amountCents: month.priceCents,
@@ -604,6 +789,22 @@ export async function canSelectTableIn3d(restaurantId: string) {
   return isVirtualRoomAddonActive(restaurantId);
 }
 
+/**
+ * Atomically increment diner 3D table-selection attempts.
+ * Only counts when the room is published and the add-on is active (same gate as the public scene).
+ */
+export async function recordVirtualRoomSelectionAttempt(restaurantId: string) {
+  if (!mongoose.isValidObjectId(restaurantId)) return null;
+  if (!(await isVirtualRoomAddonActive(restaurantId))) return null;
+  const room = await VirtualRoom.findOneAndUpdate(
+    { restaurantId, published: true },
+    { $inc: { selectionAttemptCount: 1 } },
+    { new: true },
+  );
+  if (!room) return null;
+  return getVirtualRoomAddonStatus(restaurantId);
+}
+
 // ---------------------------------------------------------------------------
 // Partner editor
 // ---------------------------------------------------------------------------
@@ -645,6 +846,8 @@ export async function getVirtualRoomEditor(restaurantId: string) {
     areaLayoutMode: roomAreaLayoutMode(room),
     modelTransform: modelTransform(room),
     providerConfigured: isReconstructionProviderConfigured(),
+    selectionAttemptCount:
+      typeof room.selectionAttemptCount === 'number' ? room.selectionAttemptCount : 0,
     addon,
     selectionFee: {
       enabled: restaurant?.virtualRoomSelectionFeeEnabled !== false,

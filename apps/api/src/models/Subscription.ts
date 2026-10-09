@@ -19,6 +19,10 @@ const subscriptionSchema = new Schema(
     },
     stripeCustomerId: { type: String },
     stripeSubscriptionId: { type: String },
+    /** Preferred card for platform invoices (Stripe PaymentMethod id). */
+    preferredPaymentMethodId: { type: String },
+    /** When true and a preferred/default card exists, unpaid period invoices are auto-charged. */
+    autoChargeInvoices: { type: Boolean, default: true },
     currentPeriodStart: { type: Date },
     currentPeriodEnd: { type: Date },
     trialEndsAt: { type: Date },
@@ -63,6 +67,15 @@ const subscriptionSchema = new Schema(
         enabled: { type: Boolean, default: false },
         enabledAt: { type: Date },
         disabledAt: { type: Date },
+        /**
+         * Admin-granted trial: billed at `trialPriceCents` (0 = free) until `trialEndsAt`.
+         * After the trial, uses `priceOverrideCents` when set, else platform monthly price.
+         */
+        trialPriceCents: { type: Number },
+        trialEndsAt: { type: Date },
+        trialDurationMonths: { type: Number },
+        /** Optional per-restaurant monthly price after trial (cents). */
+        priceOverrideCents: { type: Number },
         /** UTC months the add-on was on at any point, with the monthly price locked in for that month. */
         billedMonths: {
           type: [

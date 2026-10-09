@@ -1045,3 +1045,12 @@ export const RECORD_BLOG_POST_READ = gql`
     }
   }
 `;
+
+export const RECORD_VIRTUAL_ROOM_SELECTION_ATTEMPT = gql`
+  mutation RecordVirtualRoomSelectionAttempt($restaurantId: ID!) {
+    recordVirtualRoomSelectionAttempt(restaurantId: $restaurantId) {
+      restaurantId
+      selectionAttemptCount
+    }
+  }
+`;

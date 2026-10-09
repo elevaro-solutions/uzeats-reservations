@@ -130,6 +130,15 @@ export default function ReservationDetailPage() {
       });
   }, [user, reservationId, searchParams, reportRunningLate, router]);
 
+  useEffect(() => {
+    if (!user || !reservationId) return;
+    if (searchParams.get('review') !== '1') return;
+    const reservation = (data as { myReservation?: Parameters<typeof canLeaveReview>[0] } | undefined)
+      ?.myReservation;
+    if (!reservation || !canLeaveReview(reservation)) return;
+    setReviewOpen(true);
+  }, [user, reservationId, searchParams, data]);
+
   if (authLoading) {
     return (
       <div className="rt-reservation-detail" style={{ textAlign: 'center', padding: 80 }}>
@@ -141,6 +150,7 @@ export default function ReservationDetailPage() {
   if (!user) {
     const nextParams = new URLSearchParams();
     if (searchParams.get('runningLate') === '1') nextParams.set('runningLate', '1');
+    if (searchParams.get('review') === '1') nextParams.set('review', '1');
     const nextQuery = nextParams.toString();
     const nextPath = nextQuery
       ? `/reservations/${reservationId}?${nextQuery}`

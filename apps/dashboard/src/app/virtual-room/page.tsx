@@ -112,6 +112,7 @@ type Editor = {
   useReconstructedModel: boolean;
   areaLayoutMode: 'stack' | 'adjacent' | 'custom';
   providerConfigured: boolean;
+  selectionAttemptCount?: number;
   modelTransform: Transform;
   addon: {
     platformEnabled: boolean;
@@ -121,6 +122,7 @@ type Editor = {
     perGuestFeeCents: number;
     selectionFeeMode: 'per_guest' | 'per_table';
     selectionFeePayer?: 'restaurant' | 'diner' | 'combined' | 'diner_share';
+    selectionAttemptCount?: number;
   };
   selectionFee: SelectionFee;
   media: Media[];
@@ -568,6 +570,11 @@ export default function VirtualRoomPage() {
               <Text strong>{editor.published ? 'Live on booking page' : 'Hidden from guests'}</Text>
               <Text type="secondary">·</Text>
               <Text type="secondary">{feePayerHint}</Text>
+              <Text type="secondary">·</Text>
+              <Text type="secondary">
+                {(editor.selectionAttemptCount ?? editor.addon.selectionAttemptCount ?? 0).toLocaleString()}{' '}
+                guests tried 3D table pick
+              </Text>
             </Space>
             <Space size={8}>
               {canEditLayout ? (

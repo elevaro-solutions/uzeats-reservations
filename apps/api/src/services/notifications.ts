@@ -718,6 +718,12 @@ export function startNotificationWorkers() {
           await releaseTableSlotClaims(reservation._id);
         }
       }
+
+      if (job.name === 'review-request') {
+        const { reservationId } = job.data as { reservationId: string };
+        const { sendReviewRequestEmail } = await import('./reviewRequest.js');
+        await sendReviewRequestEmail(reservationId);
+      }
     },
     { connection },
   );

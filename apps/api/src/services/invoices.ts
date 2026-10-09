@@ -29,11 +29,15 @@ import {
   markVirtualRoomFeesCharged,
   syncVirtualRoomBilledMonths,
 } from './virtualRoom.js';
+import { logger } from '../lib/logger.js';
 import {
   assertPaymentIntentSucceeded,
   createInvoicePaymentIntent as createStripeInvoicePaymentIntent,
+  createStripeCustomer,
   isStubPaymentIntent,
+  resolveCustomerDefaultPaymentMethodId,
   retrievePaymentIntentClientSecret,
+  saveInvoicePaymentMethodAsPreferred,
 } from './stripe.js';
 import { User } from '../models/User.js';
 
@@ -179,9 +183,57 @@ export function mapInvoice(doc: any, restaurantName?: string) {
     serviceIds: (doc.serviceIds ?? []).map((id: any) => id.toString()),
     payToken,
     payUrl: payToken ? invoicePayUrl(payToken) : null,
+    emailSentAt: doc.emailSentAt ?? null,
+    emailSentTo: doc.emailSentTo ?? null,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
+}
+
+async function ensureSubscriptionStripeCustomer(sub: {
+  _id: unknown;
+  restaurantId: unknown;
+  stripeCustomerId?: string | null;
+}) {
+  if (sub.stripeCustomerId) return sub.stripeCustomerId;
+  const restaurant = await Restaurant.findById(sub.restaurantId).select('name ownerId');
+  if (!restaurant) return null;
+  const owner = restaurant.ownerId
+    ? await User.findById(restaurant.ownerId).select('email')
+    : null;
+  const customer = await createStripeCustomer({
+    email: owner?.email ?? undefined,
+    name: restaurant.name,
+    metadata: { restaurantId: String(sub.restaurantId) },
+  });
+  await Subscription.updateOne(
+    { _id: sub._id },
+    { $set: { stripeCustomerId: customer.id } },
+  );
+  return customer.id;
+}
+
+/** Email unpaid invoices to the owner once (skips if already emailed or email is not configured). */
+export async function maybeEmailInvoiceToOwner(
+  invoiceId: string,
+  options?: { force?: boolean },
+): Promise<{ sent: boolean; to?: string; skipped?: string }> {
+  if (!isEmailDeliveryConfigured()) {
+    return { sent: false, skipped: 'email_not_configured' };
+  }
+  const doc = await Invoice.findById(invoiceId);
+  if (!doc) return { sent: false, skipped: 'not_found' };
+  if (doc.status === 'canceled') return { sent: false, skipped: 'canceled' };
+  if (doc.totalCents <= 0) return { sent: false, skipped: 'zero_balance' };
+  if (doc.emailSentAt && !options?.force) return { sent: false, skipped: 'already_sent' };
+
+  try {
+    const result = await sendInvoiceEmail(doc._id.toString());
+    return { sent: true, to: result.to };
+  } catch (err) {
+    logger.warn({ err, invoiceId }, 'invoice owner email failed');
+    return { sent: false, skipped: 'send_failed' };
+  }
 }
 
 function parseDueDate(value: Date | string) {
@@ -416,7 +468,11 @@ export async function createManualInvoice(input: {
     if (!existing.payToken) existing.payToken = newPayToken();
     existing.stripePaymentIntentId = undefined;
     await existing.save();
-    return mapInvoice(existing, restaurant.name);
+    const replaced = mapInvoice(existing, restaurant.name);
+    if (!markPaid && replaced.totalCents > 0) {
+      await maybeEmailInvoiceToOwner(replaced.id, { force: true });
+    }
+    return replaced;
   }
 
   if (existing && forceCreate && !replaceExisting) {
@@ -458,7 +514,11 @@ export async function createManualInvoice(input: {
     payToken,
   });
 
-  return mapInvoice(doc, restaurant.name);
+  const mapped = mapInvoice(doc, restaurant.name);
+  if (!markPaid && mapped.totalCents > 0) {
+    await maybeEmailInvoiceToOwner(mapped.id);
+  }
+  return mapped;
 }
 
 async function buildPeriodInvoiceLines(
@@ -575,6 +635,7 @@ export async function generateInvoicesForPeriod(period: string) {
   let created = 0;
   let updated = 0;
   let skipped = 0;
+  let emailed = 0;
 
   for (const sub of subs) {
     const { lines, subtotalCents } = await buildPeriodInvoiceLines(sub, period, dueDate);
@@ -591,9 +652,14 @@ export async function generateInvoicesForPeriod(period: string) {
         skipped += 1;
         continue;
       }
+      const wasUnsent = !existing.emailSentAt;
       await applyPeriodInvoiceLines(existing, { lines, subtotalCents, dueDate, nextStatus, paidAt });
       await markCoverFeesCharged(sub.restaurantId, period);
       updated += 1;
+      if (wasUnsent && nextStatus !== 'paid' && subtotalCents > 0) {
+        const mail = await maybeEmailInvoiceToOwner(existing._id.toString());
+        if (mail.sent) emailed += 1;
+      }
       continue;
     }
 
@@ -601,7 +667,7 @@ export async function generateInvoicesForPeriod(period: string) {
     const number = `${prefix}-${period.replace('-', '')}-${seq}`;
 
     try {
-      await Invoice.create({
+      const doc = await Invoice.create({
         number,
         restaurantId: sub.restaurantId,
         subscriptionId: sub._id,
@@ -617,6 +683,10 @@ export async function generateInvoicesForPeriod(period: string) {
       });
       await markCoverFeesCharged(sub.restaurantId, period);
       created += 1;
+      if (nextStatus !== 'paid' && subtotalCents > 0) {
+        const mail = await maybeEmailInvoiceToOwner(doc._id.toString());
+        if (mail.sent) emailed += 1;
+      }
     } catch (err) {
       if (isDuplicateKeyError(err)) {
         skipped += 1;
@@ -626,7 +696,7 @@ export async function generateInvoicesForPeriod(period: string) {
     }
   }
 
-  return { created, updated, skipped, period };
+  return { created, updated, skipped, emailed, period };
 }
 
 /** Current + previous calendar months (UTC). Idempotent; refreshes unpaid auto invoices. */
@@ -637,7 +707,65 @@ export async function generateDuePeriodInvoices(now = new Date()) {
   const previousResult = await generateInvoicesForPeriod(previous);
   const currentResult =
     current === previous ? previousResult : await generateInvoicesForPeriod(current);
-  return { previous: previousResult, current: currentResult };
+  const charged = await autoChargeDueInvoices(now);
+  return { previous: previousResult, current: currentResult, autoCharge: charged };
+}
+
+/**
+ * Ensure a period invoice exists (or is refreshed) for one restaurant — used after admin
+ * enables Virtual 3D so a subscription plan invoice is generated immediately.
+ */
+export async function ensurePeriodInvoiceForRestaurant(
+  restaurantId: string,
+  period = utcBillingPeriod(),
+  options?: { emailOwner?: boolean },
+) {
+  const sub = await Subscription.findOne({
+    restaurantId,
+    status: { $in: ['trialing', 'active', 'past_due'] },
+  });
+  if (!sub) return null;
+
+  const { dueDate } = periodBounds(period);
+  const config = await getPlatformConfig();
+  const prefix = config.invoicePrefix || 'INV';
+  const currency = config.currency || 'usd';
+  const { lines, subtotalCents } = await buildPeriodInvoiceLines(sub, period, dueDate);
+  const nextStatus = subtotalCents === 0 ? 'paid' : invoiceStatusForDueDate(dueDate);
+  const paidAt = nextStatus === 'paid' ? new Date() : undefined;
+
+  let existing = await Invoice.findOne({ restaurantId, billingPeriod: period });
+  if (existing) {
+    if (isRefreshableAutoInvoice(existing)) {
+      await applyPeriodInvoiceLines(existing, { lines, subtotalCents, dueDate, nextStatus, paidAt });
+      await markCoverFeesCharged(sub.restaurantId, period);
+    }
+  } else {
+    const countForPeriod = await Invoice.countDocuments({ billingPeriod: period });
+    const seq = String(countForPeriod + 1).padStart(4, '0');
+    existing = await Invoice.create({
+      number: `${prefix}-${period.replace('-', '')}-${seq}`,
+      restaurantId,
+      subscriptionId: sub._id,
+      status: nextStatus,
+      billingPeriod: period,
+      currency,
+      subtotalCents,
+      totalCents: subtotalCents,
+      lines,
+      dueDate,
+      paidAt,
+      payToken: newPayToken(),
+    });
+    await markCoverFeesCharged(sub.restaurantId, period);
+  }
+
+  const restaurant = await Restaurant.findById(restaurantId).select('name');
+  const mapped = mapInvoice(existing, restaurant?.name);
+  if (options?.emailOwner !== false && mapped.status !== 'paid' && mapped.totalCents > 0) {
+    await maybeEmailInvoiceToOwner(mapped.id);
+  }
+  return mapped;
 }
 
 export async function listInvoices(input: {
@@ -914,6 +1042,10 @@ export async function sendInvoiceEmail(
     ],
   });
 
+  doc.emailSentAt = new Date();
+  doc.emailSentTo = to;
+  await doc.save();
+
   return {
     sent: true,
     to,
@@ -947,14 +1079,19 @@ export async function startInvoicePayment(token: string) {
     doc.stripePaymentIntentId = undefined;
   }
 
+  const sub = await Subscription.findOne({ restaurantId: doc.restaurantId });
+  const customerId = sub ? await ensureSubscriptionStripeCustomer(sub) : null;
+
   const intent = await createStripeInvoicePaymentIntent({
     amountCents: doc.totalCents,
     currency: doc.currency || 'usd',
+    customerId,
     metadata: {
       invoiceId: doc._id.toString(),
       invoiceNumber: doc.number,
       restaurantId: doc.restaurantId.toString(),
       payToken: token,
+      savePaymentMethod: customerId ? '1' : '0',
     },
   });
 
@@ -969,6 +1106,31 @@ export async function startInvoicePayment(token: string) {
     alreadyPaid: false,
     isStub: Boolean(intent.isStub) || isStubPaymentIntent(intent.id),
   };
+}
+
+async function persistPreferredPaymentMethodFromInvoice(input: {
+  restaurantId: unknown;
+  paymentIntentId: string;
+}) {
+  const sub = await Subscription.findOne({ restaurantId: input.restaurantId });
+  if (!sub) return;
+  const customerId = await ensureSubscriptionStripeCustomer(sub);
+  if (!customerId) return;
+
+  const paymentMethodId = await saveInvoicePaymentMethodAsPreferred({
+    customerId,
+    paymentIntentId: input.paymentIntentId,
+    subscriptionId: sub.stripeSubscriptionId,
+  });
+  if (!paymentMethodId) return;
+
+  sub.preferredPaymentMethodId = paymentMethodId;
+  sub.autoChargeInvoices = true;
+  if (sub.status === 'past_due') {
+    sub.status = 'active';
+    sub.amountDueCents = 0;
+  }
+  await sub.save();
 }
 
 export async function confirmInvoicePayment(token: string, paymentIntentId: string) {
@@ -989,7 +1151,20 @@ export async function confirmInvoicePayment(token: string, paymentIntentId: stri
   doc.paidAt = new Date();
   doc.canceledAt = undefined;
   doc.stripePaymentIntentId = paymentIntentId;
+  doc.autoChargeError = undefined;
   await doc.save();
+
+  try {
+    await persistPreferredPaymentMethodFromInvoice({
+      restaurantId: doc.restaurantId,
+      paymentIntentId,
+    });
+  } catch (err) {
+    logger.warn(
+      { err, invoiceId: doc._id.toString() },
+      'failed to save preferred payment method after invoice pay',
+    );
+  }
 
   await Subscription.updateOne(
     { restaurantId: doc.restaurantId, status: 'past_due' },
@@ -998,6 +1173,102 @@ export async function confirmInvoicePayment(token: string, paymentIntentId: stri
 
   const restaurant = await Restaurant.findById(doc.restaurantId).select('name');
   return mapInvoice(doc, restaurant?.name);
+}
+
+/** Auto-charge unpaid due invoices using the restaurant's preferred / default card. */
+export async function autoChargeDueInvoices(now = new Date()) {
+  const due = await Invoice.find({
+    status: { $in: ['pending', 'overdue', 'upcoming'] },
+    totalCents: { $gt: 0 },
+    dueDate: { $lte: now },
+  }).limit(200);
+
+  let attempted = 0;
+  let charged = 0;
+  let failed = 0;
+  let skipped = 0;
+
+  for (const doc of due) {
+    const sub = await Subscription.findOne({
+      restaurantId: doc.restaurantId,
+      status: { $in: ['trialing', 'active', 'past_due'] },
+      autoChargeInvoices: { $ne: false },
+    });
+    if (!sub) {
+      skipped += 1;
+      continue;
+    }
+
+    const customerId = await ensureSubscriptionStripeCustomer(sub);
+    if (!customerId) {
+      skipped += 1;
+      continue;
+    }
+
+    let paymentMethodId = sub.preferredPaymentMethodId ?? null;
+    if (!paymentMethodId) {
+      paymentMethodId = await resolveCustomerDefaultPaymentMethodId(customerId);
+    }
+    if (!paymentMethodId) {
+      skipped += 1;
+      continue;
+    }
+
+    attempted += 1;
+    doc.autoChargeAttemptedAt = new Date();
+    try {
+      const intent = await createStripeInvoicePaymentIntent({
+        amountCents: doc.totalCents,
+        currency: doc.currency || 'usd',
+        customerId,
+        paymentMethodId,
+        offSession: true,
+        metadata: {
+          invoiceId: doc._id.toString(),
+          invoiceNumber: doc.number,
+          restaurantId: doc.restaurantId.toString(),
+          autoCharge: '1',
+        },
+      });
+
+      if (intent.status !== 'succeeded' && !isStubPaymentIntent(intent.id)) {
+        throw new Error(`PaymentIntent status ${intent.status}`);
+      }
+
+      doc.status = 'paid';
+      doc.paidAt = new Date();
+      doc.canceledAt = undefined;
+      doc.stripePaymentIntentId = intent.id;
+      doc.autoChargeError = undefined;
+      await doc.save();
+
+      if (!sub.preferredPaymentMethodId) {
+        sub.preferredPaymentMethodId = paymentMethodId;
+        await sub.save();
+      }
+      await Subscription.updateOne(
+        { restaurantId: doc.restaurantId, status: 'past_due' },
+        { $set: { amountDueCents: 0, status: 'active' } },
+      );
+      charged += 1;
+    } catch (err) {
+      failed += 1;
+      const message = err instanceof Error ? err.message : 'Auto-charge failed';
+      doc.autoChargeError = message.slice(0, 500);
+      if (doc.status === 'upcoming') doc.status = 'pending';
+      await doc.save();
+      await Subscription.updateOne(
+        { restaurantId: doc.restaurantId, status: { $in: ['trialing', 'active'] } },
+        { $set: { status: 'past_due', amountDueCents: doc.totalCents } },
+      );
+      logger.warn(
+        { err, invoiceId: doc._id.toString(), restaurantId: String(doc.restaurantId) },
+        'invoice auto-charge failed',
+      );
+    }
+  }
+
+  return { attempted, charged, failed, skipped };
 }
 
 /** Re-fetch client secret for an existing invoice payment intent (e.g. page refresh). */
@@ -1015,8 +1286,18 @@ export async function resumeInvoicePayment(token: string) {
     };
   }
 
+  const sub = await Subscription.findOne({ restaurantId: doc.restaurantId }).select(
+    'preferredPaymentMethodId stripeCustomerId',
+  );
+  // Recreate when we still need to capture a preferred card (legacy PIs had no customer).
+  const needsSaveableIntent = Boolean(sub && !sub.preferredPaymentMethodId);
+
   // Never resume stub intents into Stripe Elements — recreate instead.
-  if (doc.stripePaymentIntentId && !isStubPaymentIntent(doc.stripePaymentIntentId)) {
+  if (
+    !needsSaveableIntent &&
+    doc.stripePaymentIntentId &&
+    !isStubPaymentIntent(doc.stripePaymentIntentId)
+  ) {
     const clientSecret = await retrievePaymentIntentClientSecret(doc.stripePaymentIntentId);
     if (clientSecret) {
       const restaurant = await Restaurant.findById(doc.restaurantId).select('name');
@@ -1028,6 +1309,11 @@ export async function resumeInvoicePayment(token: string) {
         isStub: false,
       };
     }
+  }
+
+  if (needsSaveableIntent && doc.stripePaymentIntentId) {
+    doc.stripePaymentIntentId = undefined;
+    await doc.save();
   }
 
   return startInvoicePayment(token);

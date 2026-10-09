@@ -1,5 +1,14 @@
 # API — Learnings & Observations
 
+## [2026-10-09] Virtual 3D selectionAttemptCount
+- `VirtualRoom.selectionAttemptCount` + public mutation `recordVirtualRoomSelectionAttempt`. `$inc` only when published + add-on active (same gate as `getPublicVirtualRoom`). Returns updated `VirtualRoomAddon` or null.
+- Why it matters: Unauthenticated best-effort analytics; invalid ids / unpublished / inactive are silent no-ops.
+
+## [2026-10-09] Post-visit review-request email (campaigns-gated)
+- On `completed`, `scheduleReviewRequestEmail` enqueues BullMQ `reminders` job `review-request` when platform `featureFlags.campaigns` and plan `emailCampaigns` are on. Timing: 10:00 local, first morning ≥12h after `slotEnd` (`computeReviewRequestSendAt`).
+- Worker calls `sendReviewRequestEmail` (skips if already reviewed / not reviewable / campaigns off). Template key `review_request`. Manual path: `askGuestReview` sends immediately for the guest’s latest unreviewed visit.
+- Why it matters: Don’t fire with survey invites on complete — surveys are immediate; reviews wait for morning-after open rates.
+
 ## [2026-10-09] Cancel / no-show period hierarchy
 - Fields: `PlatformConfig.cancellationPeriodHours` (default 24), optional overrides on Restaurant / Table / Experience / PrivateDiningSpace, snapshot on Reservation.
 - Resolve with `resolveCancellationPeriodHours([experience, privateDining, table, restaurant, platform])`. `Restaurant.effectiveCancellationPeriodHours` field resolver merges restaurant + platform for diner UI.
@@ -112,6 +121,11 @@
 - `createReview` soft-fails `awardReviewPoints` (log only) so a points failure cannot 500 after the Review row is already inserted — same pattern as complete-status loyalty awards.
 - Plain `throw new Error("Already reviewed")` was masked as `INTERNAL_SERVER_ERROR` in production `formatError`; createReview now uses `ConflictError` / `NotFoundError` / `ValidationError`.
 - Why it matters: First createReview attempt wrote the review then crashed on points; retry looked like a mysterious 500 (`Already reviewed`).
+
+## [2026-10-09] Orphan Stripe subscription IDs after mode switch
+- `mySubscription` used to call `getOpenSubscriptionPayment` and surface `resource_missing` (`No such subscription: 'sub_…'`) when Mongo still pointed at a `sub_` from the other Stripe mode. GraphQL nulled the field, Billing showed the plan picker, then `createSubscription` hit `Subscription already exists`.
+- Fix: `getOpenSubscriptionPayment` returns `{ missing: true }` on `resource_missing`; `mySubscription` clears `stripeSubscriptionId` / customer / preferred PM, marks cancelled, returns null. `createRestaurantSubscription` replaces cancelled or Stripe-missing locals instead of Conflict. `cancelStripeSubscription` treats missing as already cancelled.
+- Why it matters: Admin sandbox ↔ live flips leave unusable `sub_` / `cus_` ids; partners must be able to Start trial again under the active mode.
 
 ## [2026-09-29] Stripe sandbox ↔ production mode
 - `PlatformConfig.stripeMode` is `test` | `live` (unset → test outside production NODE_ENV, live in production). Super-admin only on `updatePlatformConfig`.

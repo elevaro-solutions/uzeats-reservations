@@ -8,6 +8,7 @@ import {
   Card,
   Descriptions,
   Drawer,
+  Dropdown,
   Form,
   Input,
   Select,
@@ -18,17 +19,25 @@ import {
   Typography,
   message,
 } from 'antd';
-import { CrownOutlined, MessageOutlined } from '@ant-design/icons';
+import type { MenuProps } from 'antd';
+import {
+  CrownOutlined,
+  MessageOutlined,
+  MoreOutlined,
+  StarOutlined,
+} from '@ant-design/icons';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS,
+  MY_SUBSCRIPTION,
   RESTAURANT_GUESTS,
   UPDATE_GUEST_PROFILE,
   ADD_GUEST_TAG,
   REMOVE_GUEST_TAG,
   EXPORT_RESTAURANT_GUESTS,
+  ASK_GUEST_REVIEW,
 } from '@/lib/graphql';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { useFormDirty } from '@/lib/useFormDirty';
@@ -53,6 +62,7 @@ function GuestsPageContent() {
   const [vipFilter, setVipFilter] = useState<string>();
   const [selected, setSelected] = useState<any>(null);
   const [newTag, setNewTag] = useState('');
+  const [askingReviewFor, setAskingReviewFor] = useState<string | null>(null);
   const [form] = Form.useForm();
   const { dirty, clearDirty, onValuesChange } = useFormDirty();
   const { limit, offset, setPagination, tablePagination } = useUrlPagination({
@@ -62,6 +72,11 @@ function GuestsPageContent() {
   const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
+  const { data: subData } = useQuery(MY_SUBSCRIPTION, {
+    skip: !activeRestaurantId,
+    variables: { restaurantId: activeRestaurantId },
+  });
+  const campaignsEnabled = Boolean(subData?.mySubscription?.features?.emailCampaigns);
   const { data, loading, refetch } = useQuery(RESTAURANT_GUESTS, {
     skip: !activeRestaurantId,
     variables: {
@@ -76,6 +91,7 @@ function GuestsPageContent() {
   const [addTag] = useMutation(ADD_GUEST_TAG);
   const [removeTag] = useMutation(REMOVE_GUEST_TAG);
   const [exportGuests, { loading: exporting }] = useMutation(EXPORT_RESTAURANT_GUESTS);
+  const [askGuestReview] = useMutation(ASK_GUEST_REVIEW);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -134,6 +150,43 @@ function GuestsPageContent() {
     setSelected({ ...selected, tags: (selected.tags ?? []).filter((t: string) => t !== tag) });
     refetch();
   };
+
+  const handleAskReview = async (guest: { dinerId: string }) => {
+    if (!activeRestaurantId) return;
+    if (!campaignsEnabled) {
+      message.warning('Ask for review requires the email campaigns feature (Pro plan).');
+      return;
+    }
+    setAskingReviewFor(guest.dinerId);
+    try {
+      const res = await askGuestReview({
+        variables: { restaurantId: activeRestaurantId, dinerId: guest.dinerId },
+      });
+      const payload = res.data?.askGuestReview;
+      message.success(payload?.message ?? 'Review request sent');
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Failed to ask for review');
+    } finally {
+      setAskingReviewFor(null);
+    }
+  };
+
+  const guestActionItems = (guest: any): MenuProps['items'] => [
+    {
+      key: 'message',
+      icon: <MessageOutlined />,
+      label: <Link href={`/messages?dinerId=${guest.dinerId}`}>Message</Link>,
+    },
+    {
+      key: 'ask-review',
+      icon: <StarOutlined />,
+      label: campaignsEnabled
+        ? 'Ask for review'
+        : 'Ask for review (needs campaigns)',
+      disabled: !campaignsEnabled || askingReviewFor === guest.dinerId,
+      onClick: () => void handleAskReview(guest),
+    },
+  ];
 
   const onExportGuests = async (format: ListExportFormat) => {
     if (!activeRestaurantId) return;
@@ -254,7 +307,15 @@ function GuestsPageContent() {
               ),
             },
             { title: 'Visits', dataIndex: 'totalVisits' },
-            { title: 'Loyalty pts', dataIndex: 'loyaltyPoints', render: (v: number) => v ?? 0 },
+            {
+              title: 'Loyalty pts',
+              dataIndex: 'loyaltyPoints',
+              render: (v: number) => (
+                <Text strong style={{ color: '#b8860b' }}>
+                  {v ?? 0}
+                </Text>
+              ),
+            },
             {
               title: 'Total spend',
               dataIndex: 'totalSpendCents',
@@ -264,6 +325,29 @@ function GuestsPageContent() {
               title: 'Last visit',
               dataIndex: 'lastVisitDate',
               render: (v: string) => (v ? new Date(v).toLocaleDateString('en-US') : '—'),
+            },
+            {
+              title: '',
+              key: 'actions',
+              width: 56,
+              align: 'right' as const,
+              render: (_: unknown, r: any) => (
+                <div onClick={(e) => e.stopPropagation()}>
+                  <Dropdown
+                    menu={{ items: guestActionItems(r) }}
+                    trigger={['click']}
+                    placement="bottomRight"
+                  >
+                    <Button
+                      size="small"
+                      type="text"
+                      icon={<MoreOutlined />}
+                      aria-label="More actions"
+                      loading={askingReviewFor === r.dinerId}
+                    />
+                  </Dropdown>
+                </div>
+              ),
             },
           ]}
         />
@@ -280,9 +364,15 @@ function GuestsPageContent() {
         onClose={() => setSelected(null)}
         extra={
           <Space>
-            <Link href={`/messages?dinerId=${selected?.dinerId}`}>
-              <Button icon={<MessageOutlined />}>Message</Button>
-            </Link>
+            <Dropdown
+              menu={{ items: selected ? guestActionItems(selected) : [] }}
+              trigger={['click']}
+              placement="bottomRight"
+            >
+              <Button icon={<MoreOutlined />} aria-label="More actions">
+                More
+              </Button>
+            </Dropdown>
             <Button type="primary" loading={saving} disabled={!dirty} onClick={handleSave}>
               Save
             </Button>
@@ -291,9 +381,14 @@ function GuestsPageContent() {
       >
         {selected && (
           <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-            <Space size={24}>
+            <Space size={24} wrap>
               <Statistic title="Visits" value={selected.totalVisits} />
-              <Statistic title="Loyalty pts" value={selected.loyaltyPoints ?? 0} />
+              <Statistic
+                title="Loyalty pts"
+                value={selected.loyaltyPoints ?? 0}
+                valueStyle={{ color: '#b8860b' }}
+                prefix={<StarOutlined />}
+              />
               <Statistic
                 title="Total spend"
                 value={(selected.totalSpendCents ?? 0) / 100}

@@ -85,6 +85,7 @@ import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 import { checkAccessRules } from './accessRules.js';
 import { updateGuestProfileAfterVisit, sendSurveyInvitation } from './guests.js';
+import { scheduleReviewRequestEmail } from './reviewRequest.js';
 import {
   resolvePromotionForBooking,
   recordPromotionRedemption,
@@ -1488,6 +1489,7 @@ export async function updateReservationStatus(
       logger.error({ err, reservationId }, '[reservations] guest profile update on complete failed');
     }
     await sendSurveyInvitation(reservation);
+    await scheduleReviewRequestEmail(reservation._id.toString());
   }
 
   return reservation;

@@ -1,5 +1,13 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-09] Virtual 3D selection attempt count
+- Partner `/virtual-room` toolbar shows lifetime “guests tried 3D table pick”. Admin restaurant Package panel shows the same `selectionAttemptCount` from `virtualRoomAddon`.
+- Why it matters: Engagement metric for the experimental add-on; not billed and not the same as completed `virtual_3d` bookings.
+
+## [2026-10-09] Guests More actions → Ask for review
+- `/guests` row and drawer More menus call `askGuestReview`. UI gates on `mySubscription.features.emailCampaigns`; API also checks platform `campaigns`. Toast includes `pointsForReview`. Loyalty pts stay visible in the table + drawer statistic.
+- Why it matters: Manual ask is immediate; auto emails only schedule after Complete when campaigns are enabled.
+
 ## [2026-10-09] Cancel / no-show window editors
 - Platform default: Admin → Config → Booking policies (`cancellationPeriodHours`, 1–720). Restaurant override: Booking policies on profile / create / admin manage (empty = inherit platform). Table / experience / private dining forms have the same optional hours field.
 - Why it matters: Empty means inherit — do not send `0` or omit vs null inconsistently; clients send `null` to clear an override.

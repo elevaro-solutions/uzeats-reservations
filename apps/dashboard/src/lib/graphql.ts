@@ -3458,6 +3458,17 @@ export const REMOVE_GUEST_TAG = gql`
   }
 `;
 
+export const ASK_GUEST_REVIEW = gql`
+  mutation AskGuestReview($restaurantId: ID!, $dinerId: ID!) {
+    askGuestReview(restaurantId: $restaurantId, dinerId: $dinerId) {
+      sent
+      reservationId
+      pointsForReview
+      message
+    }
+  }
+`;
+
 // ---- Messaging ----
 
 export const CONVERSATIONS = gql`
@@ -4382,7 +4393,9 @@ export const SET_PREMIUM_SMS_ADDON = gql`
 
 const VIRTUAL_ROOM_ADDON_FIELDS = `
   restaurantId platformEnabled enabled eligible active ineligibleReason enabledAt
-  monthlyPriceCents perGuestFeeCents selectionFeeMode selectionFeePayer
+  monthlyPriceCents effectiveMonthlyPriceCents perGuestFeeCents selectionFeeMode selectionFeePayer
+  trialPriceCents trialEndsAt trialDurationMonths onTrial priceOverrideCents
+  selectionAttemptCount
 `;
 
 const VIRTUAL_ROOM_SCENE_FIELDS = `
@@ -4403,6 +4416,7 @@ const VIRTUAL_ROOM_SCENE_FIELDS = `
 
 const VIRTUAL_ROOM_EDITOR_FIELDS = `
   restaurantId published publishedAt useReconstructedModel areaLayoutMode providerConfigured
+  selectionAttemptCount
   modelTransform { scale rotationDeg offsetXM offsetZM }
   addon { ${VIRTUAL_ROOM_ADDON_FIELDS} }
   selectionFee { enabled mode feeCents applyTo }
@@ -4433,6 +4447,17 @@ export const SET_VIRTUAL_ROOM_ADDON = gql`
   mutation SetVirtualRoomAddon($restaurantId: ID!, $enabled: Boolean!) {
     setVirtualRoomAddon(restaurantId: $restaurantId, enabled: $enabled) {
       ${VIRTUAL_ROOM_ADDON_FIELDS}
+    }
+  }
+`;
+
+export const ADMIN_SET_VIRTUAL_ROOM_ADDON = gql`
+  mutation AdminSetVirtualRoomAddon($input: AdminVirtualRoomAddonInput!) {
+    adminSetVirtualRoomAddon(input: $input) {
+      addon { ${VIRTUAL_ROOM_ADDON_FIELDS} }
+      invoice {
+        id number status billingPeriod totalCents payUrl emailSentAt emailSentTo
+      }
     }
   }
 `;

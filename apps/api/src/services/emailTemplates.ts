@@ -44,6 +44,8 @@ export const SAMPLE_EMAIL_TEMPLATE_VARS: Record<string, string> = {
   code: '123456',
   reservationUrl: 'https://tablevera.online/reservations/preview',
   lateUrl: 'https://tablevera.online/reservations/preview?runningLate=1',
+  reviewUrl: 'https://tablevera.online/reservations/preview?review=1',
+  points: '25',
   calendarUrl: 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=Dinner',
   note: '.',
   feeLabel: 'no-show',

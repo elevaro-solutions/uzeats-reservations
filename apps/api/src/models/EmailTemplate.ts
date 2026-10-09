@@ -25,6 +25,7 @@ const emailTemplateSchema = new Schema(
         'booking_updated',
         'booking_reminder',
         'booking_reminder_late',
+        'review_request',
         'booking_cancelled',
         'deposit_refunded',
         'no_show_fee_charged',
@@ -178,6 +179,29 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     ].join(''),
     bodyText:
       "Hi {{firstName}},\n\nYour reservation at {{restaurantName}} is coming up. Are you running late?\n\nRestaurant: {{restaurantName}}\nDate & time: {{date}}\nParty size: {{partySize}}\n\nI'm running late: {{lateUrl}}\nI'm on time: {{reservationUrl}}\n\nReservation: {{reservationUrl}}",
+  },
+  {
+    key: 'review_request',
+    name: 'Ask for review',
+    subject: 'How was {{restaurantName}}? Earn {{points}} loyalty points',
+    description:
+      'Scheduled ~next morning after a completed visit (campaigns / Pro). Asks the diner to leave a review for loyalty points.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph(
+        'Thanks for dining at <strong>{{restaurantName}}</strong>. We\'d love to hear how it went — leave a quick review and earn <strong>{{points}} loyalty points</strong>.',
+      ),
+      emailDetailBox([
+        { label: 'Restaurant', value: '{{restaurantName}}' },
+        { label: 'Your visit', value: '{{date}}' },
+        { label: 'Points for a review', value: '{{points}}' },
+      ]),
+      emailButton('{{reviewUrl}}', 'Leave a review'),
+      emailLinkFallback('{{reviewUrl}}'),
+      emailMuted('It only takes a minute. Your feedback helps other diners and the restaurant.'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\nThanks for dining at {{restaurantName}}. Leave a quick review and earn {{points}} loyalty points.\n\nYour visit: {{date}}\n\nLeave a review: {{reviewUrl}}',
   },
   {
     key: 'booking_cancelled',

@@ -3,12 +3,21 @@ import { getEffectivePlan } from './platformConfig.js';
 import {
   createStripeCustomer,
   createStripeSubscription,
+  stripeSubscriptionExists,
   type StripeSubscriptionPayment,
 } from './stripe.js';
 import { logAudit } from './audit.js';
 import { ConflictError, ValidationError } from '../lib/errors.js';
+import { logger } from '../lib/logger.js';
 
 export type CreatedRestaurantSubscription = SubscriptionDocument & StripeSubscriptionPayment;
+
+async function existingBlocksCreate(existing: SubscriptionDocument): Promise<boolean> {
+  if (existing.status === 'cancelled') return false;
+  const stripeId = existing.stripeSubscriptionId;
+  if (!stripeId || String(stripeId).startsWith('sub_dev_')) return false;
+  return stripeSubscriptionExists(stripeId);
+}
 
 export async function createRestaurantSubscription(input: {
   restaurantId: string;
@@ -23,7 +32,20 @@ export async function createRestaurantSubscription(input: {
   const planKey = planDef.key;
 
   const existing = await Subscription.findOne({ restaurantId: input.restaurantId });
-  if (existing) throw new ConflictError('Subscription already exists for this restaurant');
+  if (existing && (await existingBlocksCreate(existing))) {
+    throw new ConflictError('Subscription already exists for this restaurant');
+  }
+
+  if (existing) {
+    logger.info(
+      {
+        restaurantId: input.restaurantId,
+        previousStatus: existing.status,
+        previousStripeSubscriptionId: existing.stripeSubscriptionId,
+      },
+      'Replacing local subscription with no live Stripe subscription (cancelled or mode-switch orphan)',
+    );
+  }
 
   const customer = await createStripeCustomer({
     email: input.customerEmail,
@@ -42,10 +64,10 @@ export async function createRestaurantSubscription(input: {
     collectPaymentMethod,
   });
 
-  const sub = await Subscription.create({
+  const fields = {
     restaurantId: input.restaurantId,
     plan: planKey,
-    status: planDef.trialDays ? 'trialing' : 'active',
+    status: planDef.trialDays ? ('trialing' as const) : ('active' as const),
     stripeCustomerId: customer.id,
     stripeSubscriptionId: stripeSub.id,
     currentPeriodStart: stripeSub.current_period_start
@@ -55,11 +77,26 @@ export async function createRestaurantSubscription(input: {
       ? new Date(stripeSub.current_period_end * 1000)
       : new Date(Date.now() + 30 * 86_400_000),
     trialEndsAt: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : undefined,
+    amountDueCents: 0,
     monthlyPriceCents: planDef.monthlyPriceCents,
     networkCoverFeeCents: planDef.networkCoverFeeCents,
     websiteCoverFeeCents: planDef.websiteCoverFeeCents,
     features: { ...planDef.features },
-  });
+  };
+
+  let sub: SubscriptionDocument;
+  if (existing) {
+    Object.assign(existing, fields);
+    existing.set('preferredPaymentMethodId', undefined);
+    existing.set('cancelledAt', undefined);
+    existing.set('pendingPlan', undefined);
+    existing.set('pendingPlanEffectiveAt', undefined);
+    existing.set('lastPaidPlanChangeAt', undefined);
+    if (!stripeSub.trial_end) existing.set('trialEndsAt', undefined);
+    sub = await existing.save();
+  } else {
+    sub = await Subscription.create(fields);
+  }
 
   if (input.actorId) {
     await logAudit({
@@ -67,7 +104,7 @@ export async function createRestaurantSubscription(input: {
       action: 'createSubscription',
       resource: 'Subscription',
       resourceId: sub._id.toString(),
-      details: { plan: planKey, restaurantId: input.restaurantId },
+      details: { plan: planKey, restaurantId: input.restaurantId, replaced: Boolean(existing) },
     });
   }
 

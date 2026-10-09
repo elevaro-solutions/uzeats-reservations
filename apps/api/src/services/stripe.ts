@@ -355,11 +355,15 @@ export async function chargeOffSessionFee(input: {
   }
 }
 
-/** One-off invoice payment (automatic capture). */
+/** One-off invoice payment (automatic capture). Saves the card when a Stripe customer is provided. */
 export async function createInvoicePaymentIntent(input: {
   amountCents: number;
   currency?: string;
   metadata: Record<string, string>;
+  customerId?: string | null;
+  /** When set with customerId, confirms immediately for auto-charge. */
+  paymentMethodId?: string | null;
+  offSession?: boolean;
 }) {
   const client = await getStripe();
   if (!client) {
@@ -370,18 +374,96 @@ export async function createInvoicePaymentIntent(input: {
     return {
       id,
       client_secret: `${id}_secret_dev`,
-      status: 'requires_payment_method',
+      status: input.offSession ? 'succeeded' : 'requires_payment_method',
+      payment_method: input.paymentMethodId ?? `pm_dev_${Date.now()}`,
       isStub: true as const,
     };
   }
+
+  const customerId =
+    input.customerId && !input.customerId.startsWith('cus_dev_') ? input.customerId : undefined;
+  const paymentMethodId =
+    input.paymentMethodId && !input.paymentMethodId.startsWith('pm_dev_')
+      ? input.paymentMethodId
+      : undefined;
 
   const intent = await client.paymentIntents.create({
     amount: input.amountCents,
     currency: (input.currency || env.STRIPE_CURRENCY).toLowerCase(),
     metadata: input.metadata,
-    automatic_payment_methods: { enabled: true },
+    ...(customerId ? { customer: customerId } : {}),
+    ...(paymentMethodId ? { payment_method: paymentMethodId } : {}),
+    ...(customerId && !input.offSession
+      ? { setup_future_usage: 'off_session' as const }
+      : {}),
+    ...(input.offSession && paymentMethodId
+      ? { confirm: true, off_session: true }
+      : { automatic_payment_methods: { enabled: true } }),
   });
   return { ...intent, isStub: false as const };
+}
+
+/** Persist the card used on a PaymentIntent as the customer's default / preferred method. */
+export async function saveInvoicePaymentMethodAsPreferred(input: {
+  customerId: string;
+  paymentIntentId: string;
+  subscriptionId?: string | null;
+}): Promise<string | null> {
+  if (
+    !input.customerId ||
+    input.customerId.startsWith('cus_dev_') ||
+    isStubPaymentIntent(input.paymentIntentId)
+  ) {
+    return input.paymentIntentId.startsWith('pi_dev_') ? `pm_dev_preferred` : null;
+  }
+  const client = await getStripe();
+  if (!client) return null;
+
+  const intent = await client.paymentIntents.retrieve(input.paymentIntentId);
+  const paymentMethodId =
+    typeof intent.payment_method === 'string'
+      ? intent.payment_method
+      : intent.payment_method?.id ?? null;
+  if (!paymentMethodId) {
+    await attachLatestCardAsDefault(input.customerId, input.subscriptionId ?? undefined);
+    const cards = await client.paymentMethods.list({
+      customer: input.customerId,
+      type: 'card',
+      limit: 1,
+    });
+    return cards.data[0]?.id ?? null;
+  }
+
+  try {
+    await client.paymentMethods.attach(paymentMethodId, { customer: input.customerId });
+  } catch (err) {
+    // Already attached is fine.
+    if (!(err instanceof Stripe.errors.StripeInvalidRequestError)) throw err;
+  }
+  await client.customers.update(input.customerId, {
+    invoice_settings: { default_payment_method: paymentMethodId },
+  });
+  if (input.subscriptionId && !input.subscriptionId.startsWith('sub_dev_')) {
+    await client.subscriptions.update(input.subscriptionId, {
+      default_payment_method: paymentMethodId,
+    });
+  }
+  return paymentMethodId;
+}
+
+export async function resolveCustomerDefaultPaymentMethodId(
+  customerId: string,
+): Promise<string | null> {
+  if (!customerId || customerId.startsWith('cus_dev_')) return null;
+  const client = await getStripe();
+  if (!client) return null;
+  const customer = await client.customers.retrieve(customerId);
+  if (customer.deleted) return null;
+  const defaultPm = customer.invoice_settings?.default_payment_method;
+  if (typeof defaultPm === 'string') return defaultPm;
+  if (defaultPm && typeof defaultPm === 'object' && 'id' in defaultPm) return defaultPm.id;
+  const cards = await client.paymentMethods.list({ customer: customerId, type: 'card', limit: 1 });
+  return cards.data[0]?.id ?? null;
 }
 
 export function isStubPaymentIntent(paymentIntentId: string) {
@@ -605,12 +687,44 @@ export async function createStripeSubscription(input: {
   return { ...subscription, isStub: false as const, ...payment };
 }
 
+/** True when Stripe has no object for this id (deleted, or created under the other test/live mode). */
+export function isStripeResourceMissing(err: unknown): boolean {
+  return (
+    err instanceof Stripe.errors.StripeInvalidRequestError && err.code === 'resource_missing'
+  );
+}
+
 export async function cancelStripeSubscription(subscriptionId: string) {
   const client = await getStripe();
   if (!client || subscriptionId.startsWith('sub_dev_')) {
     return { id: subscriptionId, status: 'cancelled' };
   }
-  return client.subscriptions.cancel(subscriptionId);
+  try {
+    return await client.subscriptions.cancel(subscriptionId);
+  } catch (err) {
+    if (isStripeResourceMissing(err)) {
+      logger.warn(
+        { subscriptionId, stripeMode: getActiveStripeMode() },
+        'Stripe subscription already missing on cancel (mode switch or deleted)',
+      );
+      return { id: subscriptionId, status: 'cancelled' };
+    }
+    throw err;
+  }
+}
+
+/** False when the id is absent from the active Stripe mode (common after sandbox ↔ live switch). */
+export async function stripeSubscriptionExists(subscriptionId: string): Promise<boolean> {
+  if (!subscriptionId || subscriptionId.startsWith('sub_dev_')) return false;
+  const client = await getStripe();
+  if (!client) return false;
+  try {
+    await client.subscriptions.retrieve(subscriptionId);
+    return true;
+  } catch (err) {
+    if (isStripeResourceMissing(err)) return false;
+    throw err;
+  }
 }
 
 function isMissingPaymentMethodError(err: unknown) {
@@ -783,21 +897,39 @@ export async function getOpenSubscriptionPayment(subscriptionId: string): Promis
   amountDueCents: number;
   clientSecret: string | null;
   paymentMode: 'payment' | 'setup' | null;
+  /** Stripe has no subscription for this id under the active mode. */
+  missing?: boolean;
 }> {
   const client = await getStripe();
   if (!client || subscriptionId.startsWith('sub_dev_')) {
     return { amountDueCents: 0, clientSecret: null, paymentMode: null };
   }
-  const sub = await client.subscriptions.retrieve(subscriptionId, {
-    expand: ['latest_invoice.payment_intent', 'pending_setup_intent'],
-  });
-  const invoice = sub.latest_invoice;
-  const amountDueCents =
-    invoice && typeof invoice === 'object' && invoice.status === 'open'
-      ? invoice.amount_due ?? 0
-      : 0;
-  const payment = extractSubscriptionPayment(sub);
-  return { amountDueCents, ...payment };
+  try {
+    const sub = await client.subscriptions.retrieve(subscriptionId, {
+      expand: ['latest_invoice.payment_intent', 'pending_setup_intent'],
+    });
+    const invoice = sub.latest_invoice;
+    const amountDueCents =
+      invoice && typeof invoice === 'object' && invoice.status === 'open'
+        ? invoice.amount_due ?? 0
+        : 0;
+    const payment = extractSubscriptionPayment(sub);
+    return { amountDueCents, ...payment };
+  } catch (err) {
+    if (isStripeResourceMissing(err)) {
+      logger.warn(
+        { subscriptionId, stripeMode: getActiveStripeMode() },
+        'Stripe subscription missing when loading open payment (mode switch or deleted)',
+      );
+      return {
+        amountDueCents: 0,
+        clientSecret: null,
+        paymentMode: null,
+        missing: true,
+      };
+    }
+    throw err;
+  }
 }
 
 export async function constructStripeEvent(rawBody: Buffer, signature: string) {

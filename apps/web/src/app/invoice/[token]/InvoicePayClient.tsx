@@ -98,6 +98,9 @@ function InvoicePayForm({
       <Button type="primary" size="large" block loading={loading} onClick={onPay}>
         Pay invoice
       </Button>
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        Your card is saved as the preferred payment method for future invoices.
+      </Text>
     </Space>
   );
 }
