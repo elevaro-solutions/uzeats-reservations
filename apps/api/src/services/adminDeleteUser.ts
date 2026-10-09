@@ -3,6 +3,7 @@ import type mongoose from 'mongoose';
 import { env } from '../config/env.js';
 import {
   AccessRule,
+  AddonFee,
   Blackout,
   BoostCampaign,
   Campaign,
@@ -32,6 +33,7 @@ import {
   TableSlotClaim,
   Ticket,
   User,
+  VirtualRoom,
   WaitlistEntry,
 } from '../models/index.js';
 import { EmailTemplate } from '../models/EmailTemplate.js';
@@ -199,6 +201,8 @@ async function deleteRestaurantCascade(restaurantIds: mongoose.Types.ObjectId[])
   await bump(counts, 'subscriptions', await Subscription.deleteMany({ restaurantId: { $in: ids } }));
   await bump(counts, 'invoices', await Invoice.deleteMany({ restaurantId: { $in: ids } }));
   await bump(counts, 'coverFees', await CoverFee.deleteMany({ restaurantId: { $in: ids } }));
+  await bump(counts, 'addonFees', await AddonFee.deleteMany({ restaurantId: { $in: ids } }));
+  await bump(counts, 'virtualRooms', await VirtualRoom.deleteMany({ restaurantId: { $in: ids } }));
   await bump(counts, 'surveyResponses', await SurveyResponse.deleteMany({ restaurantId: { $in: ids } }));
   await bump(counts, 'surveyConfigs', await SurveyConfig.deleteMany({ restaurantId: { $in: ids } }));
   await bump(

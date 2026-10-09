@@ -506,6 +506,11 @@ export function BookingFeature() {
             restaurantMinRedeem={restaurantMinRedeem}
             platformProgram={platformProgram}
             depositBreakdown={depositBreakdown}
+            cancellationPeriodHours={
+              restaurant.effectiveCancellationPeriodHours ??
+              restaurant.cancellationPeriodHours ??
+              null
+            }
             promoMessage={activePromo?.message}
             promoValid={activePromo?.valid ?? undefined}
             giftMessage={giftValidation?.message}
@@ -599,6 +604,11 @@ export function BookingFeature() {
         tableName={selectedTable?.name}
         depositCents={finalDepositCents}
         noShowFeeCents={depositBreakdown.noShowFeeCents}
+        cancellationPeriodHours={
+          restaurant?.effectiveCancellationPeriodHours ??
+          restaurant?.cancellationPeriodHours ??
+          null
+        }
         termsAccepted={form.termsAccepted}
         onTermsAcceptedChange={form.setTermsAccepted}
         errorMessage={submitError}

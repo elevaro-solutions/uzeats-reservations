@@ -27,12 +27,14 @@ export function isCardSetupSecret(clientSecret: string) {
 function PaymentForm({
   amount,
   noShowFeeCents,
+  cancellationPeriodHours,
   saveCardOnly,
   onSuccess,
   onCancel,
 }: {
   amount: number;
   noShowFeeCents: number;
+  cancellationPeriodHours?: number | null;
   saveCardOnly: boolean;
   onSuccess: () => void;
   onCancel: () => void;
@@ -76,7 +78,9 @@ function PaymentForm({
         </Text>
       ) : null}
       {noShowFeeCents > 0 ? (
-        <Text type="secondary">{noShowFeePolicyText(noShowFeeCents)}</Text>
+        <Text type="secondary">
+          {noShowFeePolicyText(noShowFeeCents, cancellationPeriodHours)}
+        </Text>
       ) : null}
 
       <PaymentElement
@@ -119,6 +123,7 @@ export default function DepositPayment({
   clientSecret,
   amount,
   noShowFeeCents = 0,
+  cancellationPeriodHours,
   onSuccess,
   onCancel,
 }: {
@@ -126,6 +131,7 @@ export default function DepositPayment({
   /** Charged now; ignored for card-guarantee SetupIntents. */
   amount: number;
   noShowFeeCents?: number;
+  cancellationPeriodHours?: number | null;
   onSuccess: () => void;
   onCancel: () => void;
 }) {
@@ -183,7 +189,7 @@ export default function DepositPayment({
       <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
         {saveCardOnly
           ? 'Your card is saved securely with Stripe and is not charged today.'
-          : prepaymentPolicyText()}
+          : prepaymentPolicyText(cancellationPeriodHours)}
       </Text>
       <Elements
         stripe={stripePromise}
@@ -198,6 +204,7 @@ export default function DepositPayment({
         <PaymentForm
           amount={amount}
           noShowFeeCents={noShowFeeCents}
+          cancellationPeriodHours={cancellationPeriodHours}
           saveCardOnly={saveCardOnly}
           onSuccess={onSuccess}
           onCancel={onCancel}

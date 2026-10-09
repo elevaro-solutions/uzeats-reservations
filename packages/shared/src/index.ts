@@ -25,3 +25,4 @@ export * from './tableDeposit.js';
 export * from './floorPlacement.js';
 export * from './floorPlan.js';
 export * from './waitlist.js';
+export * from './virtualRoom.js';

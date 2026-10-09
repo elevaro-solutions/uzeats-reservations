@@ -69,6 +69,7 @@ import {
 } from '@/lib/graphql';
 import { SignupPaymentForm, type SignupPaymentMode } from '@/components/SignupPaymentForm';
 import { PartnerInvoiceDetail } from '@/components/PartnerInvoiceDetail';
+import { VirtualRoomAddonCard } from '@/components/VirtualRoomAddonCard';
 
 const { Text, Paragraph } = Typography;
 
@@ -1279,6 +1280,13 @@ export default function BillingPage() {
                 )}
               </div>
             </Card>
+            ) : null}
+
+            {activeRestaurantId ? (
+              <VirtualRoomAddonCard
+                restaurantId={activeRestaurantId}
+                canEditBilling={canEditBilling}
+              />
             ) : null}
 
             <Card title="Included features">

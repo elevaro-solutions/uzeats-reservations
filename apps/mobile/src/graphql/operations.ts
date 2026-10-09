@@ -180,6 +180,7 @@ export const BOOK = gql`
     createReservation(input: $input) {
       reservation {
         id
+        confirmationNumber
         status
         slotStart
         depositAmountCents
@@ -193,6 +194,7 @@ export const MY_RESERVATIONS = gql`
   query MyReservations {
     myReservations {
       id
+      confirmationNumber
       createdAt
       status
       requiresManualApproval
@@ -204,6 +206,7 @@ export const MY_RESERVATIONS = gql`
       depositAmountCents
       depositStatus
       noShowFeeCents
+      cancellationPeriodHours
       cardGuaranteeStatus
       loyaltyPointsEarned
       hasReview

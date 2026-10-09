@@ -303,6 +303,10 @@ export const typeDefs = `#graphql
     depositAmountCents: Int!
     """card_guarantee: per-guest amount is a no-show / late-cancel fee on a saved card. prepaid: charged at booking."""
     depositPolicy: String!
+    """Hours before slot start when free cancel ends. Null inherits the platform default."""
+    cancellationPeriodHours: Int
+    """Resolved cancel / no-show window (restaurant → platform → 24)."""
+    effectiveCancellationPeriodHours: Int!
     averageRating: Float!
     reviewCount: Int!
     featured: Boolean!
@@ -310,6 +314,14 @@ export const typeDefs = `#graphql
     spendAlertThresholdCents: Int!
     useSmartAssign: Boolean!
     allowGuestTableSelection: Boolean!
+    """When false, 3D table picks never add the selection fee to the restaurant invoice."""
+    virtualRoomSelectionFeeEnabled: Boolean!
+    """Override platform fee mode; null inherits platform (per_guest | per_table)."""
+    virtualRoomSelectionFeeMode: VirtualRoomSelectionFeeMode
+    """Override platform unit fee in cents; null inherits platform."""
+    virtualRoomSelectionFeeCents: Int
+    """all = every 3D pick; selected = only tables with virtualRoomSelectionFeeEnabled."""
+    virtualRoomSelectionFeeApplyTo: VirtualRoomSelectionFeeApplyTo!
     reservationsEnabled: Boolean!
     reservationsVisible: Boolean!
     """When true, online bookings may stay pending until staff confirms (default off)."""
@@ -494,6 +506,14 @@ export const typeDefs = `#graphql
     depositRequired: Boolean!
     """Per-guest deposit for this table in cents (used only when depositRequired)."""
     depositAmountCents: Int!
+    """Hours before slot start when free cancel ends. Null inherits restaurant/platform."""
+    cancellationPeriodHours: Int
+    """When false, guests cannot pick this table in 3D. Default true."""
+    virtualRoomSelectable: Boolean!
+    """When restaurant fee applyTo is selected, only these tables incur the 3D selection fee."""
+    virtualRoomSelectionFeeEnabled: Boolean!
+    """Per-table unit fee override in cents; null inherits area/restaurant/platform."""
+    virtualRoomSelectionFeeCents: Int
   }
 
   type Shift {
@@ -526,6 +546,8 @@ export const typeDefs = `#graphql
 
   type Reservation {
     id: ID!
+    """Guest-facing 6-digit confirmation (legacy bookings fall back to an id-derived code)."""
+    confirmationNumber: String!
     restaurantId: ID!
     restaurant: Restaurant
     dinerId: ID!
@@ -548,6 +570,8 @@ export const typeDefs = `#graphql
     depositStatus: String!
     """Fee charged to the saved card only on no-show or late cancellation."""
     noShowFeeCents: Int!
+    """Hours before slot start when free cancel ended for this booking (snapshot at create)."""
+    cancellationPeriodHours: Int!
     """none | requires_card | card_saved | released | charged | failed | refunded"""
     cardGuaranteeStatus: String!
     noShowFeeReason: String
@@ -564,6 +588,8 @@ export const typeDefs = `#graphql
     giftCardId: ID
     giftCardDiscountCents: Int!
     source: ReservationSource!
+    """How the guest chose their table. Null when auto-assigned or booked by staff."""
+    tableSelectionSource: TableSelectionSource
     """UTM / traffic source (e.g. google, widget) — marketing attribution, not billing."""
     utmSource: String
     utmMedium: String
@@ -1421,6 +1447,8 @@ export const typeDefs = `#graphql
     widget: Boolean!
     """Premium SMS / guest SMS product (not auth OTP)."""
     sms: Boolean!
+    """Experimental paid add-on: virtual 3D room + table selection. Off by default."""
+    virtualRoom3d: Boolean!
   }
 
   input PlatformFeatureFlagsInput {
@@ -1434,6 +1462,52 @@ export const typeDefs = `#graphql
     campaigns: Boolean
     widget: Boolean
     sms: Boolean
+    virtualRoom3d: Boolean
+  }
+
+  enum VirtualRoomSelectionFeeMode {
+    per_guest
+    per_table
+  }
+
+  enum VirtualRoomSelectionFeeApplyTo {
+    all
+    selected
+  }
+
+  enum VirtualRoomAreaLayoutMode {
+    stack
+    adjacent
+    custom
+  }
+
+  enum VirtualRoomSelectionFeePayer {
+    """Platform fee on the restaurant invoice when the visit completes."""
+    restaurant
+    """Resolved fee charged to the diner at booking."""
+    diner
+    """Diner pays platform fee + restaurant fee at booking."""
+    combined
+    """Diner pays restaurant fee; platform fee is invoiced to the restaurant (cut)."""
+    diner_share
+  }
+
+  type VirtualRoomPricing {
+    """Charged to the restaurant for each month the add-on is on."""
+    monthlyPriceCents: Int!
+    """Unit fee in cents (default $2). Applied per guest or per table based on selectionFeeMode."""
+    perGuestFeeCents: Int!
+    """How the unit fee is counted on 3D table-selection bookings."""
+    selectionFeeMode: VirtualRoomSelectionFeeMode!
+    """Who pays / how platform and restaurant fees are split (see VirtualRoomSelectionFeePayer)."""
+    selectionFeePayer: VirtualRoomSelectionFeePayer!
+  }
+
+  input VirtualRoomPricingInput {
+    monthlyPriceCents: Int
+    perGuestFeeCents: Int
+    selectionFeeMode: VirtualRoomSelectionFeeMode
+    selectionFeePayer: VirtualRoomSelectionFeePayer
   }
 
   enum AnnualBillingScope {
@@ -1507,11 +1581,14 @@ export const typeDefs = `#graphql
     requireSignupEmailVerification: Boolean!
     invoicePrefix: String!
     currency: String!
+    """Platform default hours before slot start when free cancellation ends (default 24)."""
+    cancellationPeriodHours: Int!
     """Active Stripe environment: sandbox (test) or production (live). Super-admin switchable."""
     stripeMode: StripeMode!
     stripeSandboxConfigured: Boolean!
     stripeProductionConfigured: Boolean!
     featureFlags: PlatformFeatureFlags!
+    virtualRoomPricing: VirtualRoomPricing!
     annualBilling: AnnualBillingSettings!
     updatedAt: DateTime!
   }
@@ -1538,10 +1615,261 @@ export const typeDefs = `#graphql
     requireSignupEmailVerification: Boolean
     invoicePrefix: String
     currency: String
+    """Platform default cancel / no-show window in hours (1–720). Default 24."""
+    cancellationPeriodHours: Int
     """Super-admin only. Switches API Stripe calls between sandbox and production keys."""
     stripeMode: StripeMode
     featureFlags: PlatformFeatureFlagsInput
+    virtualRoomPricing: VirtualRoomPricingInput
     annualBilling: AnnualBillingSettingsInput
+  }
+
+  enum TableSelectionSource {
+    list
+    virtual_3d
+  }
+
+  enum VirtualRoomMediaKind {
+    photo
+    video
+  }
+
+  enum VirtualRoomMediaRole {
+    panorama
+    wall
+    capture
+  }
+
+  enum VirtualRoomReconstructionStatus {
+    idle
+    queued
+    processing
+    ready
+    failed
+  }
+
+  type VirtualRoomAddon {
+    restaurantId: ID!
+    """Platform admins turned the experimental feature on."""
+    platformEnabled: Boolean!
+    """Owner switched the add-on on (may still be inactive if no longer eligible)."""
+    enabled: Boolean!
+    eligible: Boolean!
+    """Enabled and eligible — diners can see the published room."""
+    active: Boolean!
+    ineligibleReason: String
+    enabledAt: DateTime
+    monthlyPriceCents: Int!
+    perGuestFeeCents: Int!
+    selectionFeeMode: VirtualRoomSelectionFeeMode!
+    selectionFeePayer: VirtualRoomSelectionFeePayer!
+  }
+
+  type VirtualRoomPoint {
+    x: Float!
+    y: Float!
+  }
+
+  type VirtualRoomBounds {
+    minX: Float!
+    minY: Float!
+    maxX: Float!
+    maxY: Float!
+  }
+
+  type VirtualRoomTable {
+    id: ID!
+    name: String!
+    shape: String!
+    posX: Float!
+    posY: Float!
+    width: Float!
+    height: Float!
+    rotation: Float!
+    minCapacity: Int!
+    maxCapacity: Int!
+    photoUrl: String
+    virtualRoomSelectable: Boolean!
+    virtualRoomSelectionFeeEnabled: Boolean!
+    virtualRoomSelectionFeeCents: Int
+  }
+
+  type VirtualRoomFixture {
+    id: ID!
+    name: String!
+    kind: String!
+    posX: Float!
+    posY: Float!
+    width: Float!
+    height: Float!
+    rotation: Float!
+  }
+
+  type VirtualRoomPolygon {
+    id: ID!
+    name: String!
+    points: [VirtualRoomPoint!]!
+  }
+
+  type VirtualRoomArea {
+    name: String!
+    wallHeightM: Float!
+    wallColor: String
+    floorColor: String
+    """Floor-plan underlay image, drawn onto the 3D floor."""
+    floorImageUrl: String
+    """360° equirectangular photo shown around the room."""
+    panoramaUrl: String
+    wallPhotoUrls: [String!]!
+    """World-space meters: sideways offset in the overall multi-area view."""
+    offsetXM: Float!
+    """World-space meters: vertical stack (upper floors)."""
+    offsetYM: Float!
+    """World-space meters: depth offset in the overall multi-area view."""
+    offsetZM: Float!
+    """When false, guests cannot pick tables in this area from 3D."""
+    guestSelectable: Boolean!
+    """When false, 3D picks in this area do not add the selection fee."""
+    selectionFeeCharged: Boolean!
+    """Per-area unit fee override in cents; null inherits restaurant/platform."""
+    selectionFeeCents: Int
+    """Grid-unit extent of tables, fixtures, and room outlines."""
+    bounds: VirtualRoomBounds!
+    tables: [VirtualRoomTable!]!
+    fixtures: [VirtualRoomFixture!]!
+    rooms: [VirtualRoomPolygon!]!
+  }
+
+  type VirtualRoomModelTransform {
+    scale: Float!
+    rotationDeg: Float!
+    offsetXM: Float!
+    offsetZM: Float!
+  }
+
+  type VirtualRoomScene {
+    restaurantId: ID!
+    unit: String!
+    unitsPerCell: Float!
+    """Real-world meters per floor-plan grid cell."""
+    metersPerCell: Float!
+    """How floor areas are arranged in the overall 3D view."""
+    areaLayoutMode: VirtualRoomAreaLayoutMode!
+    """Photogrammetry GLB, when a scan finished and the partner kept it on."""
+    modelUrl: String
+    modelTransform: VirtualRoomModelTransform!
+    areas: [VirtualRoomArea!]!
+    """Platform setting: who pays / how platform vs restaurant fees split."""
+    selectionFeePayer: VirtualRoomSelectionFeePayer!
+    """Restaurant has 3D selection fees on (default true)."""
+    selectionFeeEnabled: Boolean!
+    """Resolved restaurant or platform fee mode."""
+    selectionFeeMode: VirtualRoomSelectionFeeMode!
+    """Resolved restaurant or platform unit fee in cents (diner / restaurant modes)."""
+    selectionFeeUnitCents: Int!
+    """Platform unit fee in cents (always from platform config)."""
+    platformSelectionFeeUnitCents: Int!
+    """Restaurant override unit fee in cents; null when none is set."""
+    restaurantSelectionFeeUnitCents: Int
+    """Restaurant apply-to: all 3D picks or only marked tables."""
+    selectionFeeApplyTo: VirtualRoomSelectionFeeApplyTo!
+  }
+
+  type VirtualRoomMedia {
+    id: ID!
+    kind: VirtualRoomMediaKind!
+    role: VirtualRoomMediaRole!
+    url: String!
+    floorArea: String
+    caption: String
+    createdAt: DateTime
+  }
+
+  type VirtualRoomAreaSettings {
+    floorArea: String!
+    wallHeightM: Float
+    panoramaMediaId: ID
+    wallColor: String
+    floorColor: String
+    offsetXM: Float
+    offsetYM: Float
+    offsetZM: Float
+    guestSelectable: Boolean
+    selectionFeeCharged: Boolean
+    selectionFeeCents: Int
+  }
+
+  type VirtualRoomReconstruction {
+    status: VirtualRoomReconstructionStatus!
+    provider: String
+    sourceKind: VirtualRoomMediaKind
+    sourceCount: Int
+    modelUrl: String
+    error: String
+    requestedAt: DateTime
+    completedAt: DateTime
+  }
+
+  type VirtualRoomSelectionFeeSettings {
+    enabled: Boolean!
+    """Null inherits the platform selectionFeeMode."""
+    mode: VirtualRoomSelectionFeeMode
+    """Null inherits the platform unit fee."""
+    feeCents: Int
+    applyTo: VirtualRoomSelectionFeeApplyTo!
+  }
+
+  type VirtualRoomEditor {
+    restaurantId: ID!
+    published: Boolean!
+    publishedAt: DateTime
+    useReconstructedModel: Boolean!
+    areaLayoutMode: VirtualRoomAreaLayoutMode!
+    modelTransform: VirtualRoomModelTransform!
+    """A photogrammetry provider key is set on the API."""
+    providerConfigured: Boolean!
+    addon: VirtualRoomAddon!
+    selectionFee: VirtualRoomSelectionFeeSettings!
+    media: [VirtualRoomMedia!]!
+    areaSettings: [VirtualRoomAreaSettings!]!
+    reconstruction: VirtualRoomReconstruction!
+    scene: VirtualRoomScene!
+  }
+
+  input VirtualRoomMediaInput {
+    kind: VirtualRoomMediaKind!
+    role: VirtualRoomMediaRole!
+    url: String!
+    floorArea: String
+    caption: String
+  }
+
+  input VirtualRoomAreaSettingsInput {
+    floorArea: String!
+    wallHeightM: Float
+    panoramaMediaId: ID
+    wallColor: String
+    floorColor: String
+    offsetXM: Float
+    offsetYM: Float
+    offsetZM: Float
+    guestSelectable: Boolean
+    selectionFeeCharged: Boolean
+    selectionFeeCents: Int
+  }
+
+  input VirtualRoomModelTransformInput {
+    scale: Float!
+    rotationDeg: Float!
+    offsetXM: Float!
+    offsetZM: Float!
+  }
+
+  input VirtualRoomInput {
+    areaSettings: [VirtualRoomAreaSettingsInput!]
+    areaLayoutMode: VirtualRoomAreaLayoutMode
+    useReconstructedModel: Boolean
+    modelTransform: VirtualRoomModelTransformInput
   }
 
   type AdminDeleteUserCodePayload {
@@ -1805,6 +2133,7 @@ export const typeDefs = `#graphql
     faq: [BlogPostFaqItem!]!
     authorId: ID
     author: User
+    readCount: Int!
     createdAt: DateTime!
     updatedAt: DateTime!
   }
@@ -1812,6 +2141,12 @@ export const typeDefs = `#graphql
   type BlogPostConnection {
     items: [BlogPost!]!
     total: Int!
+  }
+
+  type BlogReadStats {
+    totalReads: Int!
+    publishedCount: Int!
+    articleCount: Int!
   }
 
   input BlogPostInput {
@@ -1977,6 +2312,8 @@ export const typeDefs = `#graphql
     includes: [String!]!
     tags: [String!]!
     requiresManualApproval: Boolean!
+    """Hours before slot start when free cancel ends. Null inherits restaurant/platform."""
+    cancellationPeriodHours: Int
     createdAt: DateTime!
   }
 
@@ -2008,6 +2345,8 @@ export const typeDefs = `#graphql
     amenities: [String!]!
     active: Boolean!
     requiresManualApproval: Boolean!
+    """Hours before slot start when free cancel ends. Null inherits restaurant/platform."""
+    cancellationPeriodHours: Int
     """Floor-plan tables that inventory this room."""
     tableIds: [ID!]!
     createdAt: DateTime!
@@ -2261,6 +2600,8 @@ export const typeDefs = `#graphql
     depositAmountCents: Int
     """card_guarantee (no-show fee on a saved card) or prepaid (charged at booking)."""
     depositPolicy: String
+    """Hours before slot start when free cancel ends. Null inherits platform default."""
+    cancellationPeriodHours: Int
     loyaltyEnabled: Boolean
     loyaltyPointsPerVisit: Int
     loyaltyMinRedeemPoints: Int
@@ -2356,6 +2697,11 @@ export const typeDefs = `#graphql
     requiresManualApproval: Boolean
     depositRequired: Boolean
     depositAmountCents: Int
+    """Hours before slot start when free cancel ends. Null inherits restaurant/platform."""
+    cancellationPeriodHours: Int
+    virtualRoomSelectable: Boolean
+    virtualRoomSelectionFeeEnabled: Boolean
+    virtualRoomSelectionFeeCents: Int
   }
 
   input TablePositionInput {
@@ -2436,6 +2782,8 @@ export const typeDefs = `#graphql
     giftCardCode: String
     source: ReservationSource
     tableId: ID
+    """virtual_3d when tableId was picked in the 3D room (billed per guest to the restaurant)."""
+    tableSelectionSource: TableSelectionSource
     packageId: ID
     privateDiningSpaceId: ID
     experienceId: ID
@@ -2668,6 +3016,8 @@ export const typeDefs = `#graphql
     includes: [String!]
     tags: [String!]
     requiresManualApproval: Boolean
+    """Hours before slot start when free cancel ends. Null inherits restaurant/platform."""
+    cancellationPeriodHours: Int
   }
 
   input RestaurantPackageInput {
@@ -2695,6 +3045,8 @@ export const typeDefs = `#graphql
     amenities: [String!]
     active: Boolean
     requiresManualApproval: Boolean
+    """Hours before slot start when free cancel ends. Null inherits restaurant/platform."""
+    cancellationPeriodHours: Int
     tableIds: [ID!]
   }
 
@@ -3063,6 +3415,15 @@ export const typeDefs = `#graphql
     myRecentSearches(limit: Int): [RecentSearchEntry!]!
     availability(restaurantId: ID!, date: String!, partySize: Int!, privateDiningSpaceId: ID): [AvailabilitySlot!]!
     bookableTables(restaurantId: ID!, slotStart: DateTime!, partySize: Int!, privateDiningSpaceId: ID): [Table!]!
+    """Published 3D room for diners. Null when the experimental add-on is off or unpublished."""
+    virtualRoom(restaurantId: ID!): VirtualRoomScene
+    """
+    3D scene for Live floor ops. Same geometry as the partner editor preview, but readable
+    by hosts/managers without requiring the Virtual 3D room add-on.
+    """
+    virtualRoomOpsScene(restaurantId: ID!): VirtualRoomScene!
+    virtualRoomAddon(restaurantId: ID!): VirtualRoomAddon!
+    virtualRoomEditor(restaurantId: ID!): VirtualRoomEditor!
     floorPlanOps(restaurantId: ID!, date: String): FloorPlanOpsPayload!
     myReservations: [Reservation!]!
     myReservation(id: ID!): Reservation
@@ -3076,9 +3437,12 @@ export const typeDefs = `#graphql
       endDate: String
       period: ReservationDatePeriod
       status: ReservationStatus
+      """Guest name/email/phone or 6-digit confirmation number."""
+      search: String
       limit: Int
       offset: Int
     ): ReservationConnection!
+    """Look up by Mongo id or 6-digit confirmation number (scoped to accessible restaurants)."""
     restaurantReservation(id: ID!): Reservation
     """Collected card-guarantee / no-show fees for a partner venue (or all owned venues)."""
     restaurantNoShowFeeCharges(
@@ -3229,6 +3593,8 @@ export const typeDefs = `#graphql
       offset: Int
     ): BlogPostConnection!
     adminBlogPost(id: ID!): BlogPost
+    adminTopBlogPosts(limit: Int): [BlogPost!]!
+    adminBlogReadStats: BlogReadStats!
     blogPosts(tag: String, limit: Int, offset: Int): BlogPostConnection!
     blogPost(slug: String!): BlogPost
     adminDiscoveryTaxonomies(
@@ -3551,6 +3917,7 @@ export const typeDefs = `#graphql
     updateBlogPost(id: ID!, input: BlogPostInput!): BlogPost!
     deleteBlogPost(id: ID!): Boolean!
     publishBlogPost(id: ID!): BlogPost!
+    recordBlogPostRead(slug: String!): BlogPost
     createDiscoveryTaxonomy(input: DiscoveryTaxonomyInput!): DiscoveryTaxonomyItem!
     updateDiscoveryTaxonomy(id: ID!, input: DiscoveryTaxonomyInput!): DiscoveryTaxonomyItem!
     deleteDiscoveryTaxonomy(id: ID!): Boolean!
@@ -3723,6 +4090,10 @@ export const typeDefs = `#graphql
       spendAlertThresholdCents: Int
       useSmartAssign: Boolean
       allowGuestTableSelection: Boolean
+      virtualRoomSelectionFeeEnabled: Boolean
+      virtualRoomSelectionFeeMode: VirtualRoomSelectionFeeMode
+      virtualRoomSelectionFeeCents: Int
+      virtualRoomSelectionFeeApplyTo: VirtualRoomSelectionFeeApplyTo
       reservationsEnabled: Boolean
       reservationsVisible: Boolean
       posEnabled: Boolean
@@ -3738,5 +4109,14 @@ export const typeDefs = `#graphql
     updateWaitlistStatus(id: ID!, status: WaitlistStatus!, tableId: ID): WaitlistEntry!
 
     setPremiumSmsAddon(restaurantId: ID!, enabled: Boolean!): SubscriptionType!
+
+    """Owner-only. Billed monthly while on, plus a per-guest fee on 3D table picks."""
+    setVirtualRoomAddon(restaurantId: ID!, enabled: Boolean!): VirtualRoomAddon!
+    updateVirtualRoom(restaurantId: ID!, input: VirtualRoomInput!): VirtualRoomEditor!
+    addVirtualRoomMedia(restaurantId: ID!, input: VirtualRoomMediaInput!): VirtualRoomEditor!
+    removeVirtualRoomMedia(restaurantId: ID!, mediaId: ID!): VirtualRoomEditor!
+    publishVirtualRoom(restaurantId: ID!, published: Boolean!): VirtualRoomEditor!
+    """Send capture video/photos to photogrammetry. Requires KIRI_ENGINE_API_KEY on the API."""
+    generateVirtualRoomModel(restaurantId: ID!): VirtualRoomEditor!
   }
 `;

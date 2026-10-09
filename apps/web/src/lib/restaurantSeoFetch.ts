@@ -31,6 +31,8 @@ export type RestaurantSeoData = {
   depositRequired: boolean;
   depositAmountCents: number;
   depositPolicy?: string | null;
+  cancellationPeriodHours?: number | null;
+  effectiveCancellationPeriodHours?: number | null;
   dietaryTags: string[];
   amenities: string[];
   meals: string[];
@@ -137,6 +139,8 @@ const RESTAURANT_PAGE_QUERY = `
       depositRequired
       depositAmountCents
       depositPolicy
+      cancellationPeriodHours
+      effectiveCancellationPeriodHours
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints

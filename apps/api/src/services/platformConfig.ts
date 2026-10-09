@@ -2,6 +2,9 @@ import type { UserRole } from '@reservations/shared';
 import {
   resolvePlanPricing,
   normalizeAnnualBillingSettings,
+  resolveCancellationPeriodHours,
+  VIRTUAL_ROOM_DEFAULT_MONTHLY_PRICE_CENTS,
+  VIRTUAL_ROOM_DEFAULT_PER_GUEST_FEE_CENTS,
   type AnnualBillingSettings,
   type PlanDiscountType,
 } from '@reservations/shared';
@@ -88,6 +91,7 @@ function buildDefaults() {
     requireSignupEmailVerification: defaultRequireSignupEmailVerification(),
     invoicePrefix: 'INV',
     currency: 'usd',
+    cancellationPeriodHours: 24,
     featureFlags: {
       waitlist: true,
       deposits: true,
@@ -99,6 +103,7 @@ function buildDefaults() {
       campaigns: true,
       widget: true,
       sms: true,
+      virtualRoom3d: false,
     },
     annualBilling: {
       enabled: true,
@@ -209,7 +214,13 @@ export function uniquePlanKey(name: string, existingKeys: Set<string>): string {
 export async function getPlatformConfig(): Promise<PlatformConfigDocument> {
   let doc = await PlatformConfig.findOne({ key: 'default' });
   if (!doc) {
-    doc = await PlatformConfig.create({ key: 'default', ...buildDefaults() });
+    try {
+      doc = await PlatformConfig.create({ key: 'default', ...buildDefaults() });
+    } catch (err) {
+      if ((err as { code?: number })?.code !== 11000) throw err;
+      doc = await PlatformConfig.findOne({ key: 'default' });
+      if (!doc) throw err;
+    }
   }
   return doc;
 }
@@ -394,6 +405,58 @@ export async function getAnnualBillingSettings(): Promise<AnnualBillingSettings>
   return mapAnnualBillingSettings(config);
 }
 
+export type VirtualRoomPricing = {
+  monthlyPriceCents: number;
+  /** Unit fee in cents; applied per guest or per table based on selectionFeeMode. */
+  perGuestFeeCents: number;
+  selectionFeeMode: 'per_guest' | 'per_table';
+  /**
+   * restaurant | diner | combined (diner pays both) |
+   * diner_share (diner pays restaurant fee; platform cut invoiced to restaurant).
+   */
+  selectionFeePayer: 'restaurant' | 'diner' | 'combined' | 'diner_share';
+};
+
+function priceOrDefault(value: unknown, fallback: number) {
+  const n = typeof value === 'number' ? value : Number.NaN;
+  return Number.isFinite(n) && n >= 0 ? Math.round(n) : fallback;
+}
+
+function mapSelectionFeePayer(
+  value: unknown,
+): VirtualRoomPricing['selectionFeePayer'] {
+  if (value === 'diner' || value === 'combined' || value === 'diner_share') return value;
+  return 'restaurant';
+}
+
+export function mapVirtualRoomPricing(doc: PlatformConfigDocument): VirtualRoomPricing {
+  const raw = (doc as { virtualRoomPricing?: Partial<VirtualRoomPricing> }).virtualRoomPricing;
+  const mode = raw?.selectionFeeMode === 'per_table' ? 'per_table' : 'per_guest';
+  return {
+    monthlyPriceCents: priceOrDefault(raw?.monthlyPriceCents, VIRTUAL_ROOM_DEFAULT_MONTHLY_PRICE_CENTS),
+    perGuestFeeCents: priceOrDefault(raw?.perGuestFeeCents, VIRTUAL_ROOM_DEFAULT_PER_GUEST_FEE_CENTS),
+    selectionFeeMode: mode,
+    selectionFeePayer: mapSelectionFeePayer(raw?.selectionFeePayer),
+  };
+}
+
+export function applyVirtualRoomPricing(
+  doc: PlatformConfigDocument,
+  input: Partial<VirtualRoomPricing>,
+) {
+  const current = mapVirtualRoomPricing(doc);
+  (doc as { virtualRoomPricing?: VirtualRoomPricing }).virtualRoomPricing = {
+    monthlyPriceCents: input.monthlyPriceCents ?? current.monthlyPriceCents,
+    perGuestFeeCents: input.perGuestFeeCents ?? current.perGuestFeeCents,
+    selectionFeeMode: input.selectionFeeMode ?? current.selectionFeeMode,
+    selectionFeePayer: input.selectionFeePayer ?? current.selectionFeePayer,
+  };
+  doc.markModified('virtualRoomPricing');
+}
+export async function getVirtualRoomPricing(): Promise<VirtualRoomPricing> {
+  return mapVirtualRoomPricing(await getPlatformConfig());
+}
+
 export function resolveRequireSignupEmailVerification(
   value: boolean | null | undefined,
 ): boolean {
@@ -422,6 +485,9 @@ export function mapPlatformConfig(doc: PlatformConfigDocument) {
     ),
     invoicePrefix: doc.invoicePrefix ?? DEFAULTS.invoicePrefix,
     currency: doc.currency ?? DEFAULTS.currency,
+    cancellationPeriodHours: resolveCancellationPeriodHours([
+      (doc as { cancellationPeriodHours?: number | null }).cancellationPeriodHours,
+    ]),
     stripeMode,
     stripeSandboxConfigured: isStripeModeConfigured('test'),
     stripeProductionConfigured: isStripeModeConfigured('live'),
@@ -436,7 +502,9 @@ export function mapPlatformConfig(doc: PlatformConfigDocument) {
       campaigns: flags.campaigns !== false,
       widget: flags.widget !== false,
       sms: flags.sms !== false,
+      virtualRoom3d: flags.virtualRoom3d === true,
     },
+    virtualRoomPricing: mapVirtualRoomPricing(doc),
     annualBilling: mapAnnualBillingSettings(doc),
     updatedAt: (doc as any).updatedAt ?? new Date(),
   };

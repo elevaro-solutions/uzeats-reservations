@@ -4247,6 +4247,26 @@ body:has(.fr-page) .ant-layout {
   margin-bottom: 12px !important;
 }
 
+.rt-restaurant-booking-card__discounts {
+  margin-bottom: 4px;
+}
+
+.rt-restaurant-booking-card__discounts > .ant-collapse-item > .ant-collapse-header {
+  padding-inline: 0 !important;
+  padding-block: 4px !important;
+  align-items: center !important;
+}
+
+.rt-restaurant-booking-card__discounts .ant-collapse-content-box {
+  padding-inline: 0 !important;
+  padding-block: 8px 4px !important;
+}
+
+.rt-restaurant-booking-card .ant-form-item-extra {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
 .rt-restaurant-booking-card .ant-form-item-label > label {
   font-size: 13px !important;
   height: auto !important;
@@ -5124,6 +5144,10 @@ body:has(.fr-page) .ant-layout {
   }
 }
 
+.rt-reservation-confirm-modal .ant-modal-body {
+  padding-top: 12px;
+}
+
 .rt-reservation-confirm-modal__footer {
   display: flex;
   flex-direction: column;
@@ -5136,6 +5160,14 @@ body:has(.fr-page) .ant-layout {
   justify-content: flex-end;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.rt-reservation-confirm-modal__actions .ant-btn-primary {
+  min-width: 11.5rem;
+}
+
+.rt-reservation-confirm-modal__approval {
+  margin-bottom: 14px;
 }
 
 .rt-reservation-confirm-modal__error {
@@ -5180,10 +5212,189 @@ body:has(.fr-page) .ant-layout {
   color: #a8071a;
 }
 
-.rt-reservation-confirm-terms__body {
-  max-height: 160px;
-  overflow-y: auto;
+.rt-reservation-confirm-summary {
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--color-brand-50);
+  border: 1px solid var(--color-brand-100);
+  margin-bottom: 14px;
+}
+
+.rt-reservation-confirm-summary__restaurant {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--color-brand-700);
+  margin-bottom: 4px;
+}
+
+.rt-reservation-confirm-summary__visit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 6px;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.35;
+  color: var(--color-text);
+}
+
+.rt-reservation-confirm-summary__dot {
+  color: var(--color-text-tertiary);
+  font-weight: 500;
+}
+
+.rt-reservation-confirm-details {
+  margin: 0 0 14px;
+  padding: 0;
+}
+
+.rt-reservation-confirm-details__row {
+  display: grid;
+  grid-template-columns: minmax(7.5rem, 32%) 1fr;
+  gap: 8px 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.rt-reservation-confirm-details__row:first-child {
+  padding-top: 2px;
+}
+
+.rt-reservation-confirm-details__row:last-child {
+  border-bottom: none;
+  padding-bottom: 2px;
+}
+
+.rt-reservation-confirm-details__row dt {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+}
+
+.rt-reservation-confirm-details__row dd {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1.45;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+
+.rt-reservation-confirm-charges {
+  margin-bottom: 14px;
   padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: #fff;
+}
+
+.rt-reservation-confirm-charges__lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rt-reservation-confirm-charges__line,
+.rt-reservation-confirm-charges__total,
+.rt-reservation-confirm-charges__guarantee {
+  padding: 8px 0;
+}
+
+.rt-reservation-confirm-charges__line + .rt-reservation-confirm-charges__line {
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.rt-reservation-confirm-charges__line-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-text);
+}
+
+.rt-reservation-confirm-charges__amount {
+  flex-shrink: 0;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.rt-reservation-confirm-charges__hint {
+  display: block !important;
+  margin-top: 2px !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+}
+
+.rt-reservation-confirm-charges__line--discount .rt-reservation-confirm-charges__amount,
+.rt-reservation-confirm-charges__line--discount .rt-reservation-confirm-charges__line-main {
+  color: var(--color-brand-600);
+}
+
+.rt-reservation-confirm-charges__line--muted .rt-reservation-confirm-charges__line-main,
+.rt-reservation-confirm-charges__line--muted .rt-reservation-confirm-charges__amount {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.rt-reservation-confirm-charges__total {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.rt-reservation-confirm-charges__total .rt-reservation-confirm-charges__line-main {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.rt-reservation-confirm-charges__total .rt-reservation-confirm-charges__amount {
+  font-size: 15px;
+  color: var(--color-brand-700);
+}
+
+.rt-reservation-confirm-charges__guarantee {
+  margin-top: 2px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--color-border);
+}
+
+.rt-reservation-confirm-charges__guarantee .rt-reservation-confirm-charges__amount {
+  font-weight: 600;
+}
+
+.rt-reservation-confirm-terms {
+  margin-top: 2px;
+}
+
+.rt-reservation-confirm-terms__collapse.ant-collapse {
+  background: transparent;
+}
+
+.rt-reservation-confirm-terms__collapse .ant-collapse-item {
+  border: none !important;
+}
+
+.rt-reservation-confirm-terms__collapse .ant-collapse-header {
+  padding: 4px 0 !important;
+  align-items: center !important;
+  color: var(--color-text) !important;
+  font-weight: 650 !important;
+  font-size: 13px !important;
+}
+
+.rt-reservation-confirm-terms__collapse .ant-collapse-content-box {
+  padding: 6px 0 10px !important;
+}
+
+.rt-reservation-confirm-terms__body {
+  max-height: 140px;
+  overflow-y: auto;
+  padding: 10px 12px;
   border-radius: var(--radius-md);
   background: var(--color-bg);
   border: 1px solid var(--color-border-subtle);
@@ -5200,6 +5411,31 @@ body:has(.fr-page) .ant-layout {
 
 .rt-reservation-confirm-terms__body .ant-typography:last-child {
   margin-bottom: 0 !important;
+}
+
+.rt-reservation-confirm-terms__agree.ant-checkbox-wrapper {
+  align-items: flex-start;
+  margin-top: 4px;
+  width: 100%;
+}
+
+.rt-reservation-confirm-terms__agree .ant-checkbox {
+  margin-top: 3px;
+}
+
+@media (max-width: 520px) {
+  .rt-reservation-confirm-details__row {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .rt-reservation-confirm-modal__actions {
+    flex-direction: column-reverse;
+  }
+
+  .rt-reservation-confirm-modal__actions .ant-btn {
+    width: 100%;
+  }
 }
 
 .rt-restaurant-map iframe {

@@ -64,6 +64,7 @@ export function mapBlogPost(doc: any, author?: any) {
     })),
     authorId: doc.authorId ? doc.authorId.toString() : null,
     author: author ? mapUser(author) : null,
+    readCount: typeof doc.readCount === 'number' ? doc.readCount : 0,
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
@@ -217,6 +218,52 @@ export async function publishBlogPost(id: string) {
   await doc.save();
   const author = doc.authorId ? await User.findById(doc.authorId) : null;
   return mapBlogPost(doc, author);
+}
+
+/** Atomically increment reads for a published article. Returns null if not found/published. */
+export async function recordBlogPostRead(slug: string) {
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized) return null;
+  const doc = await BlogPost.findOneAndUpdate(
+    { slug: normalized, status: 'published' },
+    { $inc: { readCount: 1 } },
+    { new: true },
+  );
+  if (!doc) return null;
+  return mapBlogPost(doc);
+}
+
+export async function listTopBlogPosts(args?: { limit?: number | null }) {
+  const limit = Math.min(Math.max(args?.limit ?? 10, 1), 50);
+  const docs = await BlogPost.find({ status: 'published' })
+    .sort({ readCount: -1, publishedAt: -1 })
+    .limit(limit)
+    .lean();
+  return attachAuthors(docs.map((doc) => mapBlogPost(doc)));
+}
+
+export async function getBlogReadStats() {
+  const [agg] = await BlogPost.aggregate<{
+    totalReads: number;
+    publishedCount: number;
+    articleCount: number;
+  }>([
+    {
+      $group: {
+        _id: null,
+        totalReads: { $sum: { $ifNull: ['$readCount', 0] } },
+        publishedCount: {
+          $sum: { $cond: [{ $eq: ['$status', 'published'] }, 1, 0] },
+        },
+        articleCount: { $sum: 1 },
+      },
+    },
+  ]);
+  return {
+    totalReads: agg?.totalReads ?? 0,
+    publishedCount: agg?.publishedCount ?? 0,
+    articleCount: agg?.articleCount ?? 0,
+  };
 }
 
 export type { BlogPostDocument };

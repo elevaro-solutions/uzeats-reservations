@@ -1,4 +1,7 @@
-import { CANCELLATION_REFUND_HOURS } from "@reservations/shared";
+import {
+  CANCELLATION_REFUND_HOURS,
+  formatCancellationPeriodLabel,
+} from "@reservations/shared";
 
 type CancellationParams = {
   depositRequired?: boolean;
@@ -9,11 +12,7 @@ type CancellationParams = {
 export function formatCancellationLeadTime(
   hours = CANCELLATION_REFUND_HOURS,
 ): string {
-  if (hours % 24 === 0) {
-    const days = hours / 24;
-    return days === 1 ? "24 hours" : `${days} days`;
-  }
-  return `${hours} hours`;
+  return formatCancellationPeriodLabel(hours);
 }
 
 export function buildCancellationPolicy({

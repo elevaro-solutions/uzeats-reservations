@@ -21,6 +21,49 @@ export const DEPOSIT_POLICY_LABELS: Record<DepositPolicy, string> = {
 /** Diners who cancel within this many hours of the booking pay the no-show fee / lose prepayment. */
 export const LATE_CANCELLATION_HOURS = CANCELLATION_REFUND_HOURS;
 
+/** Hard cap for configurable cancel / no-show windows (30 days). */
+export const MAX_CANCELLATION_PERIOD_HOURS = 720;
+
+/**
+ * Normalize an optional override. Null/empty/invalid → inherit parent.
+ * Positive integers are clamped to {@link MAX_CANCELLATION_PERIOD_HOURS}.
+ */
+export function normalizeCancellationPeriodHours(
+  value: number | string | null | undefined,
+): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Math.round(Number(value));
+  if (!Number.isFinite(n) || n < 1) return null;
+  return Math.min(n, MAX_CANCELLATION_PERIOD_HOURS);
+}
+
+/**
+ * Resolve the cancel / no-show window from most-specific → least-specific layers.
+ * Pass overrides in order: experience, private dining, table, restaurant, platform.
+ * Falls back to {@link CANCELLATION_REFUND_HOURS} (24).
+ */
+export function resolveCancellationPeriodHours(
+  layers: Array<number | null | undefined> = [],
+): number {
+  for (const layer of layers) {
+    const hours = normalizeCancellationPeriodHours(layer);
+    if (hours != null) return hours;
+  }
+  return CANCELLATION_REFUND_HOURS;
+}
+
+/** Human-readable lead time (“24 hours”, “2 days”, “36 hours”). */
+export function formatCancellationPeriodLabel(
+  hours: number | null | undefined = CANCELLATION_REFUND_HOURS,
+): string {
+  const h = resolveCancellationPeriodHours([hours]);
+  if (h % 24 === 0) {
+    const days = h / 24;
+    return days === 1 ? '24 hours' : `${days} days`;
+  }
+  return `${h} hours`;
+}
+
 /** Unpaid card-hold / prepaid bookings occupy a table this long, then they are discarded. */
 export const BOOKING_CARD_HOLD_MINUTES = 20;
 
@@ -91,21 +134,33 @@ export function resolveBookingCharges(input: {
 }
 
 /** True when cancelling now forfeits prepayment and triggers the no-show fee. */
-export function isLateCancellation(slotStart: Date | string, now: Date = new Date()): boolean {
+export function isLateCancellation(
+  slotStart: Date | string,
+  now: Date = new Date(),
+  periodHours: number | null | undefined = LATE_CANCELLATION_HOURS,
+): boolean {
   const start = typeof slotStart === 'string' ? new Date(slotStart) : slotStart;
+  const hours = resolveCancellationPeriodHours([periodHours]);
   const hoursUntil = (start.getTime() - now.getTime()) / 3_600_000;
-  return hoursUntil < LATE_CANCELLATION_HOURS;
+  return hoursUntil < hours;
 }
 
 /** Diner-facing one-liner for a no-show fee. */
-export function noShowFeePolicyText(noShowFeeCents: number): string {
+export function noShowFeePolicyText(
+  noShowFeeCents: number,
+  periodHours: number | null | undefined = LATE_CANCELLATION_HOURS,
+): string {
   const amount = `$${(noShowFeeCents / 100).toFixed(2)}`;
-  return `Your card is saved, not charged. A ${amount} fee applies only if you don't show up or cancel less than ${LATE_CANCELLATION_HOURS} hours before your reservation.`;
+  const lead = formatCancellationPeriodLabel(periodHours);
+  return `Your card is saved, not charged. A ${amount} fee applies only if you don't show up or cancel less than ${lead} before your reservation.`;
 }
 
 /** Diner-facing one-liner for a prepayment. */
-export function prepaymentPolicyText(): string {
-  return `Charged now and applied to your bill. Fully refunded if you cancel at least ${LATE_CANCELLATION_HOURS} hours ahead.`;
+export function prepaymentPolicyText(
+  periodHours: number | null | undefined = LATE_CANCELLATION_HOURS,
+): string {
+  const lead = formatCancellationPeriodLabel(periodHours);
+  return `Charged now and applied to your bill. Fully refunded if you cancel at least ${lead} ahead.`;
 }
 
 function usd(cents: number) {
@@ -120,6 +175,8 @@ export type DinerCancelChargeInput = {
   depositAmountCents?: number | null;
   depositStatus?: string | null;
   depositRefundedCents?: number | null;
+  /** Snapshot from booking; unset legacy rows use the 24h default. */
+  cancellationPeriodHours?: number | null;
 };
 
 export type DinerCancelChargePreview = {
@@ -130,13 +187,15 @@ export type DinerCancelChargePreview = {
 
 /**
  * What a diner would pay / forfeit if they cancel now.
- * Matches API: only confirmed bookings inside the 24h window are charged.
+ * Matches API: only confirmed bookings inside the configured window are charged.
  */
 export function dinerCancelChargePreview(
   r: DinerCancelChargeInput,
   now: Date = new Date(),
 ): DinerCancelChargePreview {
-  const late = r.status === 'confirmed' && isLateCancellation(r.slotStart, now);
+  const late =
+    r.status === 'confirmed' &&
+    isLateCancellation(r.slotStart, now, r.cancellationPeriodHours);
   const noShowFeeCents =
     late && r.cardGuaranteeStatus === 'card_saved' && (r.noShowFeeCents ?? 0) > 0
       ? Math.round(r.noShowFeeCents ?? 0)
@@ -158,10 +217,11 @@ export function dinerCancelChargeWarning(
   now: Date = new Date(),
 ): string | null {
   const preview = dinerCancelChargePreview(r, now);
+  const lead = formatCancellationPeriodLabel(r.cancellationPeriodHours);
   const parts: string[] = [];
   if (preview.noShowFeeCents > 0) {
     parts.push(
-      `Your saved card will be charged a ${usd(preview.noShowFeeCents)} late-cancellation fee because you are cancelling less than ${LATE_CANCELLATION_HOURS} hours before your reservation.`,
+      `Your saved card will be charged a ${usd(preview.noShowFeeCents)} late-cancellation fee because you are cancelling less than ${lead} before your reservation.`,
     );
   }
   if (preview.prepaidForfeitCents > 0) {

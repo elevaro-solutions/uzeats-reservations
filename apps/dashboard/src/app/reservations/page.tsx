@@ -34,6 +34,7 @@ import {
   MoreOutlined,
   PlusOutlined,
   RollbackOutlined,
+  SearchOutlined,
   UserDeleteOutlined,
 } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -72,6 +73,7 @@ import {
   UPDATE_RESERVATION_STATUS,
 } from '@/lib/graphql';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
+import { useUrlListFilters } from '@/lib/useUrlListFilters';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import {
   canRefundDeposit,
@@ -153,6 +155,7 @@ function parseListDate(value: string | null | undefined, fallback: string) {
 
 type ReservationRow = {
   id: string;
+  confirmationNumber?: string | null;
   restaurantId?: string;
   status: string;
   partySize: number;
@@ -250,6 +253,7 @@ function ReservationsPageContent() {
   const { limit, offset, tablePagination } = useUrlPagination({
     defaultPageSize: 20,
   });
+  const { search, searchQuery, setSearch } = useUrlListFilters({ search: 'q' });
 
   const createPartySize = Form.useWatch('partySize', createForm) ?? 2;
   const createDate = Form.useWatch('date', createForm);
@@ -370,6 +374,7 @@ function ReservationsPageContent() {
       endDate: queryEndDate,
       period: queryPeriod,
       status: statusFilter,
+      search: searchQuery || undefined,
       limit,
       offset,
     },
@@ -857,6 +862,15 @@ function ReservationsPageContent() {
               replaceListParams({ status: value });
             }}
           />
+          <Input
+            allowClear
+            prefix={<SearchOutlined />}
+            placeholder="Guest, phone, or confirmation #"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ width: 280 }}
+            aria-label="Search reservations"
+          />
           <ExportMenu
             formats={['xlsx', 'pdf', 'json']}
             loading={exporting}
@@ -923,7 +937,13 @@ function ReservationsPageContent() {
               ellipsis: true,
               render: (_: unknown, r) => guestName(r),
             },
-            { title: 'Party', dataIndex: 'partySize', width: '10%' },
+            {
+              title: 'Conf #',
+              dataIndex: 'confirmationNumber',
+              width: '10%',
+              render: (v: string | null | undefined) => v || '—',
+            },
+            { title: 'Party', dataIndex: 'partySize', width: '8%' },
             {
               title: 'Table',
               width: '12%',
@@ -934,7 +954,7 @@ function ReservationsPageContent() {
             {
               title: 'Status',
               dataIndex: 'status',
-              width: '14%',
+              width: '12%',
               render: (s: string) => <StatusTag status={s} />,
             },
             {

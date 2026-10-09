@@ -58,9 +58,10 @@ Actions: approve (dismiss), hide, warn user, suspend account.
 
 **Admin → Blog** publishes articles with:
 
-- Title, slug, body (MDX-friendly)
+- Title, slug, body (rich text / HTML)
 - SEO metadata (description, OG image)
 - Publish/draft status
+- Read counts and a top-articles dashboard (one read per diner browser tab session)
 
 Published posts appear on the diner web app for organic traffic.
 

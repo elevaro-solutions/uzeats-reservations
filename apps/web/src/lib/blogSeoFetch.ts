@@ -15,6 +15,7 @@ export type BlogPostSeo = {
   tags: string[];
   faq: Array<{ question: string; answer: string }>;
   author?: { firstName?: string | null; lastName?: string | null } | null;
+  readCount: number;
   updatedAt?: string | null;
 };
 
@@ -32,6 +33,7 @@ const POST_SELECTION = `
   tags
   faq { question answer }
   author { firstName lastName }
+  readCount
   updatedAt
 `;
 

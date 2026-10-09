@@ -16,6 +16,7 @@ export const RESTAURANT_RESERVATIONS = gql`
       total
       items {
         id
+        confirmationNumber
         partySize
         slotStart
         status
@@ -37,6 +38,7 @@ export const PARTNER_RESERVATION = gql`
   query PartnerReservation($id: ID!) {
     partnerReservation(id: $id) {
       id
+      confirmationNumber
       restaurantId
       partySize
       slotStart

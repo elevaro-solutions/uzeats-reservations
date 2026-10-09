@@ -1,5 +1,26 @@
 # API — Learnings & Observations
 
+## [2026-10-09] Cancel / no-show period hierarchy
+- Fields: `PlatformConfig.cancellationPeriodHours` (default 24), optional overrides on Restaurant / Table / Experience / PrivateDiningSpace, snapshot on Reservation.
+- Resolve with `resolveCancellationPeriodHours([experience, privateDining, table, restaurant, platform])`. `Restaurant.effectiveCancellationPeriodHours` field resolver merges restaurant + platform for diner UI.
+- Diner late-cancel in `updateReservationStatus` uses the reservation snapshot, not live config.
+- Why it matters: Changing platform/restaurant hours must not reopen or close an already-booked cancel window.
+
+## [2026-10-09] Reservation confirmationNumber is a stored 6-digit code
+- New bookings get `confirmationNumber` (`100000`–`999999`, unique sparse index) via `generateReservationConfirmationNumber`. GraphQL `Reservation.confirmationNumber` falls back to the old last-8 ObjectId slice for legacy rows.
+- Partner/admin list `search` matches confirmation # (exact 6 digits skips date-period filters). `restaurantReservation(id)` accepts Mongo id or confirmation #.
+- Why it matters: Don’t derive guest-facing refs from `_id` in new UI; URLs stay `/reservations/:mongoId`.
+
+## [2026-10-09] `virtualRoomOpsScene` for Live floor
+- Read-only scene for `/floor-ops` 3D: `assertRestaurantAccess` (hosts OK), `VirtualRoom.findOne` + `buildVirtualRoomScene` — no upsert, no add-on gate.
+- Why it matters: `virtualRoomEditor` requires manager+ and creates a room doc; ops must not.
+
+## [2026-10-08] GraphQL “not responding” = API hung before `listen` (Mongo write concern)
+- Symptom: web/dashboard up, `localhost:4000/graphql` connection refused. `tsx watch` process idle in the event loop; Mongo/Redis sockets open; never logs `[api] GraphQL ready`.
+- Cause: Docker `rs0` single-node replica set stuck waiting on write concern (`waitForWriteConcernDurationMillis` growing on `create` / `updateMany`). Seen after wall-clock jumped backward so `lastDurableWallTime` was ahead of host time — ~100+ ops piled up and boot never passed `migrateStaffRoleToManager` / model index creates.
+- Fix: `docker restart reservations-mongo-1`, then restart/touch the API so tsx reloads. Confirm with `POST /graphql { __typename }` and `/health`.
+- Why it matters: Looks like a GraphQL/schema bug; it’s infra. Check `currentOp` for write-concern waits before digging into resolvers.
+
 ## [2026-10-06] Private dining availability needs `privateDiningSpaceId`
 - Regular `availability(partySize)` ignores private-room inventory (`privateDiningOnly` tables). Pass `privateDiningSpaceId` so the API ensures a backing table and returns slots for that room’s guest range.
 - Why it matters: Selecting Private room on the diner form without this arg showed “No available times” whenever min guests exceeded every normal table.
@@ -8,6 +29,11 @@
 - `listNoShowFeeCharges` (`noShowFeeCharges.ts`) matches bookings with `noShowFeeCents > 0` and card-guarantee activity (`charged` / `refunded` / `failed`, or no-show still `card_saved` = pending). Summary aggregates ignore the feeStatus filter so cards stay global for the scope.
 - Date range uses `noShowFeeChargedAt` (not slotStart). Combining search `$or` with activity `$or` must go through `$and` or Mongo overwrites one clause. Scope `restaurantId` as ObjectId — `find` casts strings, aggregate `$match` does not, so summary cards would stay at zero.
 - Why it matters: Partner and admin fee reports (`restaurantNoShowFeeCharges` / `adminNoShowFeeCharges`) depend on this; do not reuse `restaurantReservations` slot-date periods for “when the fee was collected.”
+
+## [2026-10-09] Reservation confirmationNumber is a stored 6-digit code
+- New bookings get `confirmationNumber` (`100000`–`999999`, unique sparse index) via `generateReservationConfirmationNumber`. GraphQL `Reservation.confirmationNumber` falls back to the old last-8 ObjectId slice for legacy rows.
+- Partner/admin list `search` matches confirmation # (exact 6 digits skips date-period filters). `restaurantReservation(id)` accepts Mongo id or confirmation #.
+- Why it matters: Don’t derive guest-facing refs from `_id` in new UI; URLs stay `/reservations/:mongoId`.
 
 ## [2026-10-06] createReservation must not await SendGrid / template sync
 - Party-of-6 at Diyor Choyxona 30 auto-assigns table DC3-4 (table deposit) → card-guarantee SetupIntent, then after pay `confirmDeposit` used to `await` `booking_pending` render + SendGrid. `getEmailTemplate` called `ensureDefaultEmailTemplates()` (two writes per built-in template) on every send, so the GraphQL mutation stayed open until Mongo + SendGrid finished — looks hung in the browser with no `[graphql] request` log until `res.finish`.
@@ -276,3 +302,12 @@
 - `config/env.ts` lets non-empty `apps/api/.env` values override `process.env`. That re-enabled `STRIPE_SECRET_KEY_TEST`/`_LIVE` after `__tests__/setup.ts` blanked them, so the suite created real Stripe test-mode intents. Bookings then stayed `pending` instead of using the `pi_dev_` / `seti_dev_` stubs.
 - Under `NODE_ENV=test` the loader now skips keys already set in `process.env`, and setup blanks all three Stripe secret keys.
 - Why it matters: Blank any new per-mode secret in `setup.ts` too, or a local `.env` will make tests depend on network and account state.
+
+## [2026-10-09] Blog `readCount` is atomic and published-only
+- `BlogPost.readCount` defaults to 0. Public `recordBlogPostRead(slug)` uses `findOneAndUpdate` + `$inc` with `status: 'published'` (draft/archived/missing → null). Admin `adminTopBlogPosts` sorts published posts by `readCount` desc; `adminBlogReadStats` sums all posts.
+- Why it matters: Never trust client-sent counts. Keep increments atomic so concurrent readers do not race.
+
+## [2026-10-07] `/api/uploads/video` must mount before `/api/uploads`
+- `videoUploadsRouter` (250 MB, MP4/MOV/WebM) is registered ahead of `uploadsRouter` in `index.ts`. The `/api/uploads` mount's 10 MB `express.raw` parser would otherwise reject videos first.
+- `getPlatformConfig` races on a fresh DB (parallel first requests both `create`). It now catches 11000 and re-reads.
+- Why it matters: Keep the more specific upload route first. Any new singleton "find or create" needs the same duplicate-key fallback.

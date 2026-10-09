@@ -57,6 +57,25 @@ const subscriptionSchema = new Schema(
       // Premium SMS purchased as a $25/mo add-on on Core
       premiumSmsAddon: { type: Boolean, default: false },
     },
+    /** Paid add-ons kept outside `features`, which plan changes overwrite. */
+    addons: {
+      virtualRoom3d: {
+        enabled: { type: Boolean, default: false },
+        enabledAt: { type: Date },
+        disabledAt: { type: Date },
+        /** UTC months the add-on was on at any point, with the monthly price locked in for that month. */
+        billedMonths: {
+          type: [
+            {
+              _id: false,
+              period: { type: String, required: true },
+              priceCents: { type: Number, required: true },
+            },
+          ],
+          default: [],
+        },
+      },
+    },
   },
   { timestamps: true },
 );

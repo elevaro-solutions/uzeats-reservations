@@ -9,6 +9,7 @@ import {
   Button,
   Card,
   Col,
+  Collapse,
   DatePicker,
   Descriptions,
   Form,
@@ -25,8 +26,15 @@ import {
   Spin,
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
-import { CheckCircleFilled, EnvironmentOutlined, StarFilled } from '@ant-design/icons';
+import {
+  CheckCircleFilled,
+  EnvironmentOutlined,
+  GiftOutlined,
+  StarFilled,
+  TagOutlined,
+} from '@ant-design/icons';
 import { PostVisitModal } from '@/components/PostVisitModal';
+import { VirtualRoomTablePicker } from '@/components/VirtualRoomTablePicker';
 import { canLeaveReview } from '@/lib/reservationDisplay';
 import {
   SlotPicker,
@@ -65,6 +73,8 @@ import {
   previewBookingManualApproval,
   resolveBookingCharges,
   resolveDepositPolicy,
+  resolveVirtualRoomSelectionFee,
+  dinerVirtualRoomSelectionFeeTotalCents,
   preferredWindowFromSlot,
   DEFAULT_REVIEW_SORT,
   RESTAURANT_REVIEWS_PREVIEW_LIMIT,
@@ -86,6 +96,7 @@ import {
   MY_RESERVATIONS,
   JOIN_WAITLIST,
   BOOKABLE_TABLES,
+  VIRTUAL_ROOM,
   RESTAURANT_REVIEWS,
   REACT_TO_REVIEW,
   PROMOTIONS,
@@ -206,6 +217,7 @@ export default function RestaurantPageClient({
   const [partySize, setPartySize] = useState(bookingFromUrl.partySize);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(bookingFromUrl.selectedSlot);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
+  const [tableSelectionSource, setTableSelectionSource] = useState<'list' | 'virtual_3d'>('list');
   const [bookingSuccess, setBookingSuccess] = useState<{
     tableName?: string;
     photoUrl?: string | null;
@@ -226,6 +238,7 @@ export default function RestaurantPageClient({
   const [redeemRestaurantPoints, setRedeemRestaurantPoints] = useState<number>(0);
   const [promoCode, setPromoCode] = useState(bookingFromUrl.promoCode);
   const [giftCardCode, setGiftCardCode] = useState('');
+  const [discountCodesOpen, setDiscountCodesOpen] = useState(() => Boolean(bookingFromUrl.promoCode));
   const [messageOpen, setMessageOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewSort, setReviewSort] = useState<ReviewSort>(DEFAULT_REVIEW_SORT);
@@ -306,6 +319,7 @@ export default function RestaurantPageClient({
     reservationId: string;
     amountCents: number;
     noShowFeeCents: number;
+    cancellationPeriodHours?: number | null;
     paymentIntentId: string;
     tableInfo?: {
       tableName?: string;
@@ -356,6 +370,12 @@ export default function RestaurantPageClient({
     fetchPolicy: 'network-only',
   });
   const bookableTables = (bookableData as any)?.bookableTables ?? [];
+  const { data: virtualRoomData } = useQuery(VIRTUAL_ROOM, {
+    variables: { restaurantId: restaurantId! },
+    skip: !restaurantId,
+  });
+  const virtualRoomScene = (virtualRoomData as any)?.virtualRoom ?? null;
+  const showVirtualRoom = Boolean(virtualRoomScene) && !selectedPrivateSpaceId;
   const { data: reviewsData, refetch: refetchReviews } = useQuery(RESTAURANT_REVIEWS, {
     variables: {
       restaurantId: restaurantId!,
@@ -558,7 +578,65 @@ export default function RestaurantPageClient({
   }, [search]);
 
   const selectedTable = bookableTables.find((t: { id: string }) => t.id === selectedTableId);
-  const addOnsCents = packagePriceCents + privateSpacePriceCents + experiencePriceCents;
+  const dinerVirtualRoomFeeByTableId = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!virtualRoomScene) return map;
+    const platformUnit =
+      virtualRoomScene.platformSelectionFeeUnitCents ??
+      virtualRoomScene.selectionFeeUnitCents ??
+      0;
+    const platform = {
+      perGuestFeeCents: platformUnit,
+      selectionFeeMode: virtualRoomScene.selectionFeeMode,
+    };
+    const restaurant = {
+      virtualRoomSelectionFeeEnabled: virtualRoomScene.selectionFeeEnabled !== false,
+      virtualRoomSelectionFeeMode: virtualRoomScene.selectionFeeMode,
+      virtualRoomSelectionFeeCents: virtualRoomScene.restaurantSelectionFeeUnitCents ?? null,
+      virtualRoomSelectionFeeApplyTo: virtualRoomScene.selectionFeeApplyTo,
+    };
+    const bookableIds = new Set(bookableTables.map((t: { id: string }) => t.id));
+    for (const area of virtualRoomScene.areas) {
+      if (area.guestSelectable === false) continue;
+      for (const table of area.tables ?? []) {
+        if (!bookableIds.has(table.id)) continue;
+        if (table.virtualRoomSelectable === false) continue;
+        const fee = resolveVirtualRoomSelectionFee({
+          platform,
+          restaurant,
+          area: {
+            selectionFeeCharged: area.selectionFeeCharged,
+            selectionFeeCents: area.selectionFeeCents,
+          },
+          table: {
+            virtualRoomSelectionFeeEnabled: table.virtualRoomSelectionFeeEnabled,
+            virtualRoomSelectionFeeCents: table.virtualRoomSelectionFeeCents,
+          },
+        });
+        const total = dinerVirtualRoomSelectionFeeTotalCents({
+          payer: virtualRoomScene.selectionFeePayer,
+          partySize,
+          fee,
+        });
+        if (total > 0) map.set(table.id, total);
+      }
+    }
+    return map;
+  }, [virtualRoomScene, bookableTables, partySize]);
+  const dinerVirtualRoomFeePreviewLabel = useMemo(() => {
+    const amounts = [...dinerVirtualRoomFeeByTableId.values()];
+    if (amounts.length === 0) return null;
+    const min = Math.min(...amounts);
+    const max = Math.max(...amounts);
+    const fmt = `$${(min / 100).toFixed(2)}`;
+    return min !== max ? `from ${fmt}` : fmt;
+  }, [dinerVirtualRoomFeeByTableId]);
+  const dinerVirtualRoomSelectionFeeCents =
+    tableSelectionSource === 'virtual_3d' && selectedTableId
+      ? (dinerVirtualRoomFeeByTableId.get(selectedTableId) ?? 0)
+      : 0;
+  const addOnsCents =
+    packagePriceCents + privateSpacePriceCents + experiencePriceCents + dinerVirtualRoomSelectionFeeCents;
   const bookingCharges = restaurant
     ? resolveBookingCharges({ restaurant, table: selectedTable, partySize, addOnsCents })
     : null;
@@ -691,9 +769,13 @@ export default function RestaurantPageClient({
     setNotes(draft.notes);
     setPromoCode(draft.promoCode);
     setGiftCardCode(draft.giftCardCode);
+    if (draft.promoCode || draft.giftCardCode) setDiscountCodesOpen(true);
     setRedeemPoints(draft.redeemPoints);
     setRedeemRestaurantPoints(draft.redeemRestaurantPoints);
-    if (draft.selectedTableId) setSelectedTableId(draft.selectedTableId);
+    if (draft.selectedTableId) {
+      setSelectedTableId(draft.selectedTableId);
+      setTableSelectionSource(draft.tableSelectionSource === 'virtual_3d' ? 'virtual_3d' : 'list');
+    }
     prevSlotPartyRef.current = { slot: draft.selectedSlot, party: draft.partySize };
     syncBookingToUrl({
       date: dayjs(draft.date),
@@ -742,6 +824,7 @@ export default function RestaurantPageClient({
       partySize,
       selectedSlot,
       selectedTableId,
+      tableSelectionSource: selectedTableId ? tableSelectionSource : null,
       occasion,
       notes,
       promoCode,
@@ -811,7 +894,7 @@ export default function RestaurantPageClient({
               : {}),
             ...(promoCode.trim() ? { promoCode: promoCode.trim().toUpperCase() } : {}),
             ...(giftCardCode.trim() ? { giftCardCode: giftCardCode.trim().toUpperCase() } : {}),
-            ...(selectedTableId ? { tableId: selectedTableId } : {}),
+            ...(selectedTableId ? { tableId: selectedTableId, tableSelectionSource } : {}),
             ...(selectedPackageId ? { packageId: selectedPackageId } : {}),
             ...(selectedPrivateSpaceId ? { privateDiningSpaceId: selectedPrivateSpaceId } : {}),
             ...(selectedExperienceId ? { experienceId: selectedExperienceId } : {}),
@@ -848,6 +931,11 @@ export default function RestaurantPageClient({
           reservationId: payload.reservation.id,
           amountCents: payload.reservation.depositAmountCents ?? 0,
           noShowFeeCents: payload.reservation.noShowFeeCents ?? 0,
+          cancellationPeriodHours:
+            payload.reservation.cancellationPeriodHours ??
+            restaurant?.effectiveCancellationPeriodHours ??
+            restaurant?.cancellationPeriodHours ??
+            null,
           paymentIntentId: cs.split('_secret')[0] ?? '',
           tableInfo: successInfo,
         } as any);
@@ -1280,7 +1368,10 @@ export default function RestaurantPageClient({
                           <Card
                             hoverable
                             size="small"
-                            onClick={() => setSelectedTableId(t.id)}
+                            onClick={() => {
+                              setSelectedTableId(t.id);
+                              setTableSelectionSource('list');
+                            }}
                             style={{
                               borderColor: selected ? colors.brand[600] : undefined,
                               borderWidth: selected ? 2 : 1,
@@ -1324,7 +1415,43 @@ export default function RestaurantPageClient({
                 )}
               </div>
             )}
-            {selectedSlot && !restaurant?.allowGuestTableSelection && (
+            {showVirtualRoom && (
+              <div style={{ marginTop: 10 }}>
+                <VirtualRoomTablePicker
+                  scene={virtualRoomScene}
+                  slotSelected={Boolean(selectedSlot)}
+                  bookableTables={selectedSlot ? bookableTables : []}
+                  bookableLoading={bookableLoading}
+                  selectedTableId={selectedTableId}
+                  selectionOptional={!restaurant?.allowGuestTableSelection}
+                  dinerFeePreviewLabel={dinerVirtualRoomFeePreviewLabel}
+                  dinerFeeCentsForTable={(id) => dinerVirtualRoomFeeByTableId.get(id) ?? 0}
+                  selectedDinerFeeCents={dinerVirtualRoomSelectionFeeCents}
+                  onSelectTable={(id) => {
+                    setSelectedTableId(id);
+                    setTableSelectionSource('virtual_3d');
+                  }}
+                  block
+                />
+                {selectedSlot && selectedTable && !restaurant?.allowGuestTableSelection ? (
+                  <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <Text>
+                      Table <strong>{selectedTable.name}</strong>
+                      {selectedTable.floorArea ? ` · ${selectedTable.floorArea}` : ''}
+                      {dinerVirtualRoomSelectionFeeCents > 0
+                        ? ` · 3D selection $${(dinerVirtualRoomSelectionFeeCents / 100).toFixed(2)}`
+                        : ''}
+                    </Text>
+                    <Button size="small" type="link" onClick={() => setSelectedTableId(null)}>
+                      Clear
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            )}
+            {selectedSlot &&
+              !restaurant?.allowGuestTableSelection &&
+              !showVirtualRoom && (
               <Alert
                 type="info"
                 showIcon
@@ -1572,9 +1699,14 @@ export default function RestaurantPageClient({
                 label="Special requests"
                 validateStatus={fieldErrors.guestNotes ? 'error' : undefined}
                 help={fieldErrors.guestNotes}
+                extra={
+                  showVirtualRoom && selectedSlot
+                    ? 'For a specific table, use Choose your table in 3D above.'
+                    : undefined
+                }
               >
                 <Input.TextArea
-                  rows={3}
+                  autoSize={{ minRows: 2, maxRows: 4 }}
                   value={notes}
                   onChange={(e) => {
                     setNotes(e.target.value);
@@ -1583,7 +1715,11 @@ export default function RestaurantPageClient({
                   maxLength={500}
                   showCount
                   status={fieldErrors.guestNotes ? 'error' : undefined}
-                  placeholder="Allergies, seating preferences, celebration details..."
+                  placeholder={
+                    showVirtualRoom
+                      ? 'Allergies, celebration details, accessibility needs…'
+                      : 'Allergies, seating preferences, celebration details…'
+                  }
                 />
               </Form.Item>
               {user && redeemProgress.canRedeem && grossDepositCents > 0 && (
@@ -1692,74 +1828,115 @@ export default function RestaurantPageClient({
                 </Form.Item>
               )}
 
-              {grossDepositCents > 0 && (
-                <Form.Item label="Promotion code">
-                  <Input
-                    placeholder="Enter code"
-                    value={promoCode}
-                    onChange={(e) => {
-                      updateBooking({ promoCode: e.target.value.toUpperCase() });
-                      clearFieldError('promoCode');
-                    }}
-                    style={{ maxWidth: 220 }}
+              {grossDepositCents > 0 &&
+                !promoCode.trim() &&
+                selectedSlot &&
+                bestPromotion?.valid && (
+                  <Alert
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 4 }}
+                    message={`Auto-applied: ${bestPromotion.promotion?.title ?? 'Promotion'} — $${(bestPromotion.discountCents / 100).toFixed(2)} off deposit`}
                   />
-                  {promoCode.trim() && selectedSlot && promoValidation && (
-                    promoValidation.valid ? (
-                      <Alert
-                        type="success"
-                        showIcon
-                        style={{ marginTop: 10 }}
-                        message={`${promoValidation.promotion?.title ?? 'Promotion'}: $${(promoValidation.discountCents / 100).toFixed(2)} off deposit`}
-                      />
-                    ) : (
-                      <Alert
-                        type="warning"
-                        showIcon
-                        style={{ marginTop: 10 }}
-                        message={promoValidation.message ?? 'Invalid code'}
-                      />
-                    )
-                  )}
-                  {!promoCode.trim() && selectedSlot && bestPromotion?.valid && (
-                    <Alert
-                      type="info"
-                      showIcon
-                      style={{ marginTop: 10 }}
-                      message={`Auto-applied: ${bestPromotion.promotion?.title ?? 'Promotion'} — $${(bestPromotion.discountCents / 100).toFixed(2)} off deposit`}
-                    />
-                  )}
-                </Form.Item>
-              )}
+                )}
 
-              {depositAfterPromo > 0 && (
-                <Form.Item label="Gift card">
-                  <Input
-                    placeholder="GV-XXXX-XXXX"
-                    value={giftCardCode}
-                    onChange={(e) => {
-                      setGiftCardCode(e.target.value.toUpperCase());
-                      clearFieldError('giftCardCode');
-                    }}
-                    style={{ maxWidth: 220 }}
-                  />
-                  {giftCardCode.trim() && giftValidation && (
-                    giftValidation.valid ? (
-                      <Alert
-                        type="success"
-                        showIcon
-                        style={{ marginTop: 10 }}
-                        message={`Gift card: $${(giftValidation.discountCents / 100).toFixed(2)} off deposit`}
-                      />
-                    ) : (
-                      <Alert
-                        type="warning"
-                        showIcon
-                        style={{ marginTop: 10 }}
-                        message={giftValidation.message ?? 'Invalid gift card'}
-                      />
-                    )
-                  )}
-                </Form.Item>
+              {(grossDepositCents > 0 || depositAfterPromo > 0) && (
+                <Collapse
+                  ghost
+                  size="small"
+                  className="rt-restaurant-booking-card__discounts"
+                  activeKey={discountCodesOpen ? ['codes'] : []}
+                  onChange={(keys) => {
+                    const open = Array.isArray(keys)
+                      ? keys.includes('codes')
+                      : keys === 'codes';
+                    setDiscountCodesOpen(open);
+                  }}
+                  items={[
+                    {
+                      key: 'codes',
+                      label: (
+                        <Text type="secondary" style={{ fontSize: 13 }}>
+                          <TagOutlined style={{ marginInlineEnd: 6 }} />
+                          Have a promo or gift card?
+                        </Text>
+                      ),
+                      children: (
+                        <Row gutter={[10, 0]}>
+                          {grossDepositCents > 0 && (
+                            <Col xs={24} sm={depositAfterPromo > 0 ? 12 : 24}>
+                              <Form.Item
+                                label="Promotion code"
+                                style={{ marginBottom: depositAfterPromo > 0 ? 8 : 0 }}
+                              >
+                                <Input
+                                  prefix={<TagOutlined style={{ color: colors.neutral[400] }} />}
+                                  placeholder="CODE"
+                                  value={promoCode}
+                                  onChange={(e) => {
+                                    updateBooking({ promoCode: e.target.value.toUpperCase() });
+                                    clearFieldError('promoCode');
+                                  }}
+                                  allowClear
+                                />
+                                {promoCode.trim() && selectedSlot && promoValidation ? (
+                                  promoValidation.valid ? (
+                                    <Alert
+                                      type="success"
+                                      showIcon
+                                      style={{ marginTop: 8 }}
+                                      message={`${promoValidation.promotion?.title ?? 'Promotion'}: $${(promoValidation.discountCents / 100).toFixed(2)} off deposit`}
+                                    />
+                                  ) : (
+                                    <Alert
+                                      type="warning"
+                                      showIcon
+                                      style={{ marginTop: 8 }}
+                                      message={promoValidation.message ?? 'Invalid code'}
+                                    />
+                                  )
+                                ) : null}
+                              </Form.Item>
+                            </Col>
+                          )}
+                          {depositAfterPromo > 0 && (
+                            <Col xs={24} sm={grossDepositCents > 0 ? 12 : 24}>
+                              <Form.Item label="Gift card" style={{ marginBottom: 0 }}>
+                                <Input
+                                  prefix={<GiftOutlined style={{ color: colors.neutral[400] }} />}
+                                  placeholder="GV-XXXX-XXXX"
+                                  value={giftCardCode}
+                                  onChange={(e) => {
+                                    setGiftCardCode(e.target.value.toUpperCase());
+                                    clearFieldError('giftCardCode');
+                                  }}
+                                  allowClear
+                                />
+                                {giftCardCode.trim() && giftValidation ? (
+                                  giftValidation.valid ? (
+                                    <Alert
+                                      type="success"
+                                      showIcon
+                                      style={{ marginTop: 8 }}
+                                      message={`Gift card: $${(giftValidation.discountCents / 100).toFixed(2)} off deposit`}
+                                    />
+                                  ) : (
+                                    <Alert
+                                      type="warning"
+                                      showIcon
+                                      style={{ marginTop: 8 }}
+                                      message={giftValidation.message ?? 'Invalid gift card'}
+                                    />
+                                  )
+                                ) : null}
+                              </Form.Item>
+                            </Col>
+                          )}
+                        </Row>
+                      ),
+                    },
+                  ]}
+                />
               )}
 
               {validationSummary.length > 0 && (
@@ -1815,6 +1992,10 @@ export default function RestaurantPageClient({
                   depositRequired: restaurant.depositRequired,
                   depositAmountCents: restaurant.depositAmountCents,
                   depositPolicy: restaurant.depositPolicy,
+                  refundHours:
+                    restaurant.effectiveCancellationPeriodHours ??
+                    restaurant.cancellationPeriodHours ??
+                    undefined,
                 })}
               </Text>
             </Form>
@@ -1935,6 +2116,11 @@ export default function RestaurantPageClient({
           tableFloorArea: selectedTable?.floorArea,
           depositCents: finalDepositCents,
           noShowFeeCents: noShowFeeCents || undefined,
+          cancellationPeriodHours:
+            restaurant.effectiveCancellationPeriodHours ??
+            restaurant.cancellationPeriodHours ??
+            undefined,
+          virtualRoomSelectionFeeCents: dinerVirtualRoomSelectionFeeCents || undefined,
           packageTitle: selectedPackage?.title,
           packagePriceCents: packagePriceCents || undefined,
           privateDiningSpaceName: selectedPrivateSpace?.name,
@@ -2081,6 +2267,7 @@ export default function RestaurantPageClient({
             clientSecret={depositInfo.clientSecret}
             amount={depositInfo.amountCents}
             noShowFeeCents={depositInfo.noShowFeeCents}
+            cancellationPeriodHours={depositInfo.cancellationPeriodHours}
             onSuccess={handleDepositSuccess}
             onCancel={() => void handleDepositCancel()}
           />

@@ -9,12 +9,13 @@ import { EmptyState, PageHeader, colors, radii, shadows, typography } from '@res
 import { PLATFORM_TIMEZONE } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { MY_RESERVATIONS } from '@/lib/graphql';
-import { formatReservationWhen } from '@/lib/reservationDisplay';
+import { formatReservationReference, formatReservationWhen } from '@/lib/reservationDisplay';
 
 const { Text } = Typography;
 
 type BillingReservation = {
   id: string;
+  confirmationNumber?: string | null;
   createdAt: string;
   slotStart: string;
   partySize: number;
@@ -226,7 +227,11 @@ export default function BillingPage() {
                         </Tag>
                       </Space>
                       <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
-                        Reservation #{reservation.id.slice(-8).toUpperCase()}
+                        Reservation #
+                        {formatReservationReference(
+                          reservation.id,
+                          reservation.confirmationNumber,
+                        )}
                       </Text>
                       <Text type="secondary" style={{ display: 'block', marginTop: 6 }}>
                         <CalendarOutlined style={{ marginRight: 6 }} />

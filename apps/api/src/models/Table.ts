@@ -31,6 +31,17 @@ const tableSchema = new Schema(
     /** When true with a positive amount, overrides the restaurant's per-guest deposit. */
     depositRequired: { type: Boolean, default: false },
     depositAmountCents: { type: Number, default: 0, min: 0 },
+    /** Hours before slot start when free cancel ends. Null inherits restaurant/platform. */
+    cancellationPeriodHours: { type: Number, min: 1, max: 720, default: null },
+    /** When false, guests cannot pick this table in the 3D room. Default true. */
+    virtualRoomSelectable: { type: Boolean, default: true },
+    /**
+     * When the restaurant's 3D fee applyTo is `selected`, only tables with this
+     * flag incur the fee. When applyTo is `all`, set false to opt out.
+     */
+    virtualRoomSelectionFeeEnabled: { type: Boolean, default: false },
+    /** Per-table unit fee override in cents; unset inherits area/restaurant/platform. */
+    virtualRoomSelectionFeeCents: { type: Number, min: 0 },
   },
   { timestamps: true },
 );

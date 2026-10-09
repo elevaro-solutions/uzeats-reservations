@@ -42,6 +42,11 @@ const reservationSchema = new Schema(
       default: 'none',
     },
 
+    /**
+     * Hours before slot start when free cancel ended for this booking
+     * (snapshot of experience → private dining → table → restaurant → platform → 24).
+     */
+    cancellationPeriodHours: { type: Number, default: 24, min: 1, max: 720 },
     /** No-show / late-cancel fee guaranteed by a saved card; charged off-session only when it applies. */
     noShowFeeCents: { type: Number, default: 0 },
     cardGuaranteeStatus: {
@@ -88,7 +93,33 @@ const reservationSchema = new Schema(
     totalSpendCents: { type: Number, default: 0 },
     // Boost campaign attribution (network covers while a boost is active)
     boostCampaignId: { type: Schema.Types.ObjectId, ref: 'BoostCampaign' },
+    /** Unset = auto-assigned or staff-booked. */
+    tableSelectionSource: { type: String, enum: ['list', 'virtual_3d'] },
+    /**
+     * Unit 3D selection fee locked in at booking.
+     * - restaurant / diner: resolved unit (platform → restaurant → area → table)
+     * - combined / diner_share: platform unit (restaurant unit in virtualRoomRestaurantFeeCents)
+     * Restaurant / diner_share: billed on completion. Diner / combined: in deposit at booking.
+     */
+    virtualRoomGuestFeeCents: { type: Number, default: 0 },
+    /**
+     * Restaurant-set unit fee snapshot for combined / diner_share payers.
+     * Unset for restaurant / diner modes (folded into virtualRoomGuestFeeCents).
+     */
+    virtualRoomRestaurantFeeCents: { type: Number, default: 0 },
+    virtualRoomSelectionFeeMode: {
+      type: String,
+      enum: ['per_guest', 'per_table'],
+      default: 'per_guest',
+    },
+    virtualRoomSelectionFeePayer: {
+      type: String,
+      enum: ['restaurant', 'diner', 'combined', 'diner_share'],
+      default: 'restaurant',
+    },
     seatedAt: { type: Date },
+    /** Guest-facing 6-digit confirmation; unique when set (sparse for legacy rows). */
+    confirmationNumber: { type: String, sparse: true, unique: true },
   },
   { timestamps: true },
 );

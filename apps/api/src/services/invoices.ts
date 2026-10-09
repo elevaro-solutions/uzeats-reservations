@@ -25,6 +25,11 @@ import {
 } from './platformConfig.js';
 import { getPlatformServicesByIds } from './platformServices.js';
 import {
+  buildVirtualRoomInvoiceLines,
+  markVirtualRoomFeesCharged,
+  syncVirtualRoomBilledMonths,
+} from './virtualRoom.js';
+import {
   assertPaymentIntentSucceeded,
   createInvoicePaymentIntent as createStripeInvoicePaymentIntent,
   isStubPaymentIntent,
@@ -494,6 +499,7 @@ async function buildPeriodInvoiceLines(
     status: { $in: ['pending', 'charged'] },
   });
   lines.push(...buildCoverFeeLines(coverFees));
+  lines.push(...(await buildVirtualRoomInvoiceLines(sub, period)));
 
   const subtotalCents = lines.reduce((sum, line) => sum + line.amountCents, 0);
   return { lines, subtotalCents };
@@ -509,6 +515,51 @@ async function markCoverFeesCharged(restaurantId: unknown, period: string) {
     },
     { $set: { status: 'charged' } },
   );
+  await markVirtualRoomFeesCharged(restaurantId, period);
+}
+
+async function applyPeriodInvoiceLines(
+  existing: InstanceType<typeof Invoice>,
+  input: {
+    lines: PeriodInvoiceLine[];
+    subtotalCents: number;
+    dueDate: Date;
+    nextStatus: 'paid' | ReturnType<typeof invoiceStatusForDueDate>;
+    paidAt?: Date;
+  },
+) {
+  existing.set('lines', input.lines);
+  existing.subtotalCents = input.subtotalCents;
+  existing.totalCents = input.subtotalCents;
+  existing.dueDate = input.dueDate;
+  existing.status = input.nextStatus;
+  if (input.paidAt && !existing.paidAt) existing.paidAt = input.paidAt;
+  if (!existing.payToken) existing.payToken = newPayToken();
+  await existing.save();
+}
+
+/** Re-price this restaurant's unpaid auto invoice now instead of waiting for the daily job. */
+export async function refreshPeriodInvoiceForRestaurant(
+  restaurantId: string,
+  period = utcBillingPeriod(),
+) {
+  const [sub, existing] = await Promise.all([
+    Subscription.findOne({ restaurantId, status: { $in: ['trialing', 'active', 'past_due'] } }),
+    Invoice.findOne({ restaurantId, billingPeriod: period }),
+  ]);
+  if (!sub || !existing || !isRefreshableAutoInvoice(existing)) return false;
+  const { dueDate } = periodBounds(period);
+  const { lines, subtotalCents } = await buildPeriodInvoiceLines(sub, period, dueDate);
+  const nextStatus = subtotalCents === 0 ? 'paid' : invoiceStatusForDueDate(dueDate);
+  await applyPeriodInvoiceLines(existing, {
+    lines,
+    subtotalCents,
+    dueDate,
+    nextStatus,
+    paidAt: nextStatus === 'paid' ? new Date() : undefined,
+  });
+  await markCoverFeesCharged(sub.restaurantId, period);
+  return true;
 }
 
 export async function generateInvoicesForPeriod(period: string) {
@@ -540,14 +591,7 @@ export async function generateInvoicesForPeriod(period: string) {
         skipped += 1;
         continue;
       }
-      existing.set('lines', lines);
-      existing.subtotalCents = subtotalCents;
-      existing.totalCents = subtotalCents;
-      existing.dueDate = dueDate;
-      existing.status = nextStatus;
-      if (paidAt && !existing.paidAt) existing.paidAt = paidAt;
-      if (!existing.payToken) existing.payToken = newPayToken();
-      await existing.save();
+      await applyPeriodInvoiceLines(existing, { lines, subtotalCents, dueDate, nextStatus, paidAt });
       await markCoverFeesCharged(sub.restaurantId, period);
       updated += 1;
       continue;
@@ -587,6 +631,7 @@ export async function generateInvoicesForPeriod(period: string) {
 
 /** Current + previous calendar months (UTC). Idempotent; refreshes unpaid auto invoices. */
 export async function generateDuePeriodInvoices(now = new Date()) {
+  await syncVirtualRoomBilledMonths(now);
   const current = utcBillingPeriod(now);
   const previous = previousUtcBillingPeriod(now);
   const previousResult = await generateInvoicesForPeriod(previous);

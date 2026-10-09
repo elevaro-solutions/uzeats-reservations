@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -17,6 +17,10 @@ export const ALLOWED_UPLOAD_CONTENT_TYPES = new Set([
   'image/svg+xml',
 ]);
 
+export const ALLOWED_VIDEO_CONTENT_TYPES = new Set(['video/mp4', 'video/quicktime', 'video/webm']);
+
+export const GLB_CONTENT_TYPE = 'model/gltf-binary';
+
 const EXT_BY_TYPE: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/jpg': 'jpg',
@@ -24,6 +28,10 @@ const EXT_BY_TYPE: Record<string, string> = {
   'image/webp': 'webp',
   'image/gif': 'gif',
   'image/svg+xml': 'svg',
+  'video/mp4': 'mp4',
+  'video/quicktime': 'mov',
+  'video/webm': 'webm',
+  [GLB_CONTENT_TYPE]: 'glb',
 };
 
 /** Local fallback when DO Spaces credentials are missing (dev). */
@@ -66,6 +74,30 @@ export function sniffAllowedImageContentType(body: Buffer): string | null {
     return 'image/webp';
   }
   return null;
+}
+
+export function assertAllowedVideoContentType(contentType: string) {
+  const normalized = contentType.split(';')[0]?.trim().toLowerCase() ?? '';
+  if (!ALLOWED_VIDEO_CONTENT_TYPES.has(normalized)) {
+    throw new Error('Unsupported video type. Allowed: MP4, MOV, WebM');
+  }
+  return normalized;
+}
+
+/** MP4/MOV share the ISO-BMFF `ftyp` box; WebM starts with the EBML magic. */
+export function sniffVideoContentType(body: Buffer): string | null {
+  if (body.length < 12) return null;
+  if (body.toString('ascii', 4, 8) === 'ftyp') {
+    return body.toString('ascii', 8, 12) === 'qt  ' ? 'video/quicktime' : 'video/mp4';
+  }
+  if (body[0] === 0x1a && body[1] === 0x45 && body[2] === 0xdf && body[3] === 0xa3) {
+    return 'video/webm';
+  }
+  return null;
+}
+
+export function isGlb(body: Buffer) {
+  return body.length >= 12 && body.toString('ascii', 0, 4) === 'glTF';
 }
 
 /** Detect SVG from UTF-8 text (optional XML prologue). Not a raster sniff. */
@@ -167,20 +199,34 @@ export async function uploadObject(input: {
     contentType = 'image/svg+xml';
   }
 
+  return storeObject({
+    key: input.key,
+    contentType,
+    body,
+    // Discourage treating SVG as an active document when opened directly.
+    contentDisposition: sniffedSvg ? 'inline' : undefined,
+  });
+}
+
+async function storeObject(input: {
+  key: string;
+  contentType: string;
+  body: Buffer;
+  contentDisposition?: string;
+}) {
   const client = getClient();
   if (!client) {
-    return saveLocalObject({ key: input.key, body });
+    return saveLocalObject({ key: input.key, body: input.body });
   }
 
   await client.send(
     new PutObjectCommand({
       Bucket: env.DO_SPACES_BUCKET,
       Key: input.key,
-      ContentType: contentType,
+      ContentType: input.contentType,
       ACL: 'public-read',
-      Body: body,
-      // Discourage treating SVG as an active document when opened directly.
-      ContentDisposition: sniffedSvg ? 'inline' : undefined,
+      Body: input.body,
+      ContentDisposition: input.contentDisposition,
     }),
   );
 
@@ -188,6 +234,61 @@ export async function uploadObject(input: {
     publicUrl: publicUrlForKey(input.key),
     key: input.key,
   };
+}
+
+export async function uploadVideoObject(input: { filename: string; body: Buffer }) {
+  const contentType = sniffVideoContentType(input.body);
+  if (!contentType) throw new Error('Unsupported video type. Allowed: MP4, MOV, WebM');
+  return storeObject({
+    key: buildUploadKey(input.filename, contentType),
+    contentType,
+    body: input.body,
+  });
+}
+
+/** Server-generated 3D models (e.g. photogrammetry output). */
+export async function uploadModelObject(input: { filename: string; body: Buffer }) {
+  if (!isGlb(input.body)) throw new Error('Model is not a binary glTF (.glb) file');
+  return storeObject({
+    key: buildUploadKey(input.filename, GLB_CONTENT_TYPE),
+    contentType: GLB_CONTENT_TYPE,
+    body: input.body,
+  });
+}
+
+/** True when `url` was produced by our upload endpoints (Spaces CDN/bucket or local fallback). */
+export function isOwnUploadUrl(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.pathname.startsWith('/api/uploads/local/')) return true;
+  const bases = [env.DO_SPACES_CDN, `${env.DO_SPACES_ENDPOINT}/${env.DO_SPACES_BUCKET}`]
+    .filter(Boolean)
+    .map((base) => base.replace(/\/$/, ''));
+  if (bases.some((base) => url.startsWith(`${base}/uploads/`))) return true;
+  // Virtual-hosted bucket URLs: https://<bucket>.<region>.digitaloceanspaces.com/uploads/...
+  return (
+    parsed.protocol === 'https:' &&
+    parsed.hostname.startsWith(`${env.DO_SPACES_BUCKET}.`) &&
+    parsed.hostname.endsWith('.digitaloceanspaces.com') &&
+    parsed.pathname.startsWith('/uploads/')
+  );
+}
+
+/** Bytes for one of our uploads. Local-fallback files are read from disk. */
+export async function readOwnUpload(url: string): Promise<Buffer> {
+  if (!isOwnUploadUrl(url)) throw new Error('Not an uploaded file');
+  const parsed = new URL(url);
+  if (parsed.pathname.startsWith('/api/uploads/local/')) {
+    const filename = path.basename(decodeURIComponent(parsed.pathname.replace('/api/uploads/local/', '')));
+    return readFile(path.join(LOCAL_UPLOAD_DIR, filename));
+  }
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Could not download ${url} (${res.status})`);
+  return Buffer.from(await res.arrayBuffer());
 }
 
 export async function createUploadUrl(input: {

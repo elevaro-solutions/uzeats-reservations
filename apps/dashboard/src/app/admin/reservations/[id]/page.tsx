@@ -98,6 +98,7 @@ const EDITABLE_STATUSES = new Set(['pending', 'confirmed', 'seated']);
 type ReservationDetail = {
   id: string;
   restaurantId: string;
+  confirmationNumber?: string | null;
   status: string;
   partySize: number;
   slotStart: string;
@@ -554,6 +555,12 @@ function AdminReservationDetailContent() {
           </div>
 
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 22 }}>
+            {reservation.confirmationNumber ? (
+              <ReservationMetaChip
+                label="Confirmation"
+                value={reservation.confirmationNumber}
+              />
+            ) : null}
             <ReservationMetaChip label="Guests" value={String(reservation.partySize)} />
             <ReservationMetaChip label="Table" value={tableLabel} />
             <ReservationMetaChip label="Source" value={source ?? '—'} />

@@ -83,6 +83,8 @@ export const RESTAURANT_DETAIL = gql`
       depositRequired
       depositAmountCents
       depositPolicy
+      cancellationPeriodHours
+      effectiveCancellationPeriodHours
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
@@ -168,12 +170,43 @@ export const BOOKABLE_TABLES = gql`
   }
 `;
 
+export const VIRTUAL_ROOM = gql`
+  query VirtualRoom($restaurantId: ID!) {
+    virtualRoom(restaurantId: $restaurantId) {
+      restaurantId
+      metersPerCell
+      areaLayoutMode
+      modelUrl
+      modelTransform { scale rotationDeg offsetXM offsetZM }
+      selectionFeePayer
+      selectionFeeEnabled
+      selectionFeeMode
+      selectionFeeUnitCents
+      platformSelectionFeeUnitCents
+      restaurantSelectionFeeUnitCents
+      selectionFeeApplyTo
+      areas {
+        name wallHeightM wallColor floorColor floorImageUrl panoramaUrl wallPhotoUrls
+        offsetXM offsetYM offsetZM guestSelectable selectionFeeCharged selectionFeeCents
+        bounds { minX minY maxX maxY }
+        tables {
+          id name shape posX posY width height rotation minCapacity maxCapacity photoUrl
+          virtualRoomSelectable virtualRoomSelectionFeeEnabled virtualRoomSelectionFeeCents
+        }
+        fixtures { id name kind posX posY width height rotation }
+        rooms { id name points { x y } }
+      }
+    }
+  }
+`;
+
 export const CREATE_RESERVATION = gql`
   mutation CreateReservation($input: ReservationInput!) {
     createReservation(input: $input) {
       clientSecret
       reservation {
         id
+        confirmationNumber
         status
         requiresManualApproval
         slotStart
@@ -181,6 +214,7 @@ export const CREATE_RESERVATION = gql`
         depositAmountCents
         depositStatus
         noShowFeeCents
+        cancellationPeriodHours
         cardGuaranteeStatus
         restaurant {
           name
@@ -228,6 +262,7 @@ export const MY_RESERVATIONS = gql`
   query MyReservations {
     myReservations {
       id
+      confirmationNumber
       createdAt
       status
       requiresManualApproval
@@ -239,6 +274,7 @@ export const MY_RESERVATIONS = gql`
       depositAmountCents
       depositStatus
       noShowFeeCents
+      cancellationPeriodHours
       cardGuaranteeStatus
       loyaltyPointsEarned
       hasReview
@@ -270,6 +306,7 @@ export const MY_RESERVATION = gql`
   query MyReservation($id: ID!) {
     myReservation(id: $id) {
       id
+      confirmationNumber
       status
       requiresManualApproval
       slotStart
@@ -280,6 +317,7 @@ export const MY_RESERVATION = gql`
       depositAmountCents
       depositStatus
       noShowFeeCents
+      cancellationPeriodHours
       cardGuaranteeStatus
       clientSecret
       loyaltyPointsEarned
@@ -994,6 +1032,16 @@ export const EXPORT_INVOICE_PDF_BY_TOKEN = gql`
       content
       mimeType
       encoding
+    }
+  }
+`;
+
+export const RECORD_BLOG_POST_READ = gql`
+  mutation RecordBlogPostRead($slug: String!) {
+    recordBlogPostRead(slug: $slug) {
+      id
+      slug
+      readCount
     }
   }
 `;

@@ -1,4 +1,5 @@
 import { mapNotificationPreferences } from '../lib/notificationPreferences.js';
+import { resolveReservationConfirmationNumber } from '../lib/reservationConfirmationNumber.js';
 import {
   isActiveWaitlistWaitStatus,
   isWaitlistWaitOverdue,
@@ -101,6 +102,10 @@ export function mapRestaurant(r: any) {
     depositRequired: r.depositRequired,
     depositAmountCents: r.depositAmountCents,
     depositPolicy: r.depositPolicy ?? 'card_guarantee',
+    cancellationPeriodHours:
+      typeof r.cancellationPeriodHours === 'number' && r.cancellationPeriodHours >= 1
+        ? Math.round(r.cancellationPeriodHours)
+        : null,
     averageRating: r.averageRating ?? 0,
     reviewCount: r.reviewCount ?? 0,
     featured: r.featured ?? false,
@@ -108,6 +113,15 @@ export function mapRestaurant(r: any) {
     spendAlertThresholdCents: r.spendAlertThresholdCents ?? 0,
     useSmartAssign: r.useSmartAssign !== false,
     allowGuestTableSelection: r.allowGuestTableSelection ?? false,
+    virtualRoomSelectionFeeEnabled: r.virtualRoomSelectionFeeEnabled !== false,
+    virtualRoomSelectionFeeMode:
+      r.virtualRoomSelectionFeeMode === 'per_table' || r.virtualRoomSelectionFeeMode === 'per_guest'
+        ? r.virtualRoomSelectionFeeMode
+        : null,
+    virtualRoomSelectionFeeCents:
+      typeof r.virtualRoomSelectionFeeCents === 'number' ? r.virtualRoomSelectionFeeCents : null,
+    virtualRoomSelectionFeeApplyTo:
+      r.virtualRoomSelectionFeeApplyTo === 'selected' ? 'selected' : 'all',
     reservationsEnabled: r.reservationsEnabled !== false,
     reservationsVisible: r.reservationsVisible !== false,
     manualApprovalEnabled: r.manualApprovalEnabled === true,
@@ -249,6 +263,14 @@ export function mapTable(t: any) {
     requiresManualApproval: t.requiresManualApproval === true,
     depositRequired: t.depositRequired === true,
     depositAmountCents: t.depositAmountCents ?? 0,
+    cancellationPeriodHours:
+      typeof t.cancellationPeriodHours === 'number' && t.cancellationPeriodHours >= 1
+        ? Math.round(t.cancellationPeriodHours)
+        : null,
+    virtualRoomSelectable: t.virtualRoomSelectable !== false,
+    virtualRoomSelectionFeeEnabled: t.virtualRoomSelectionFeeEnabled === true,
+    virtualRoomSelectionFeeCents:
+      typeof t.virtualRoomSelectionFeeCents === 'number' ? t.virtualRoomSelectionFeeCents : null,
   };
 }
 
@@ -267,8 +289,13 @@ export function mapShift(s: any) {
 }
 
 export function mapReservation(r: any, clientSecret?: string | null) {
+  const reservationId = id(r);
   return {
-    id: id(r),
+    id: reservationId,
+    confirmationNumber: resolveReservationConfirmationNumber(
+      r.confirmationNumber,
+      reservationId,
+    ),
     restaurantId: refId(r.restaurantId),
     dinerId: refId(r.dinerId),
     tableIds: (r.tableIds ?? []).map((x: unknown) => refId(x)),
@@ -287,6 +314,10 @@ export function mapReservation(r: any, clientSecret?: string | null) {
     ),
     depositStatus: r.depositStatus,
     noShowFeeCents: r.noShowFeeCents ?? 0,
+    cancellationPeriodHours:
+      typeof r.cancellationPeriodHours === 'number' && r.cancellationPeriodHours >= 1
+        ? Math.round(r.cancellationPeriodHours)
+        : 24,
     cardGuaranteeStatus: r.cardGuaranteeStatus ?? 'none',
     noShowFeeReason: r.noShowFeeReason ?? null,
     noShowFeeChargedAt: r.noShowFeeChargedAt ?? null,
@@ -301,6 +332,7 @@ export function mapReservation(r: any, clientSecret?: string | null) {
     giftCardId: r.giftCardId ? refId(r.giftCardId) : null,
     giftCardDiscountCents: r.giftCardDiscountCents ?? 0,
     source: r.source ?? 'network',
+    tableSelectionSource: r.tableSelectionSource ?? null,
     utmSource: r.utmSource ?? null,
     utmMedium: r.utmMedium ?? null,
     utmCampaign: r.utmCampaign ?? null,
@@ -579,6 +611,10 @@ export function mapExperience(e: any) {
     includes: e.includes ?? [],
     tags: e.tags ?? [],
     requiresManualApproval: e.requiresManualApproval === true,
+    cancellationPeriodHours:
+      typeof e.cancellationPeriodHours === 'number' && e.cancellationPeriodHours >= 1
+        ? Math.round(e.cancellationPeriodHours)
+        : null,
     createdAt: e.createdAt,
   };
 }
@@ -631,6 +667,10 @@ export function mapPrivateDiningSpace(s: any) {
     amenities: s.amenities ?? [],
     active: s.active,
     requiresManualApproval: s.requiresManualApproval === true,
+    cancellationPeriodHours:
+      typeof s.cancellationPeriodHours === 'number' && s.cancellationPeriodHours >= 1
+        ? Math.round(s.cancellationPeriodHours)
+        : null,
     tableIds: (s.tableIds ?? []).map((id: { toString(): string }) => id.toString()),
     createdAt: s.createdAt,
   };

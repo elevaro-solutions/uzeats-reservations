@@ -268,8 +268,13 @@ export function formatVisitAddress(address?: {
   return locality || null;
 }
 
-/** Short guest-facing reference from Mongo/ObjectId-style ids. */
-export function formatReservationReference(id: string): string {
+/** Guest-facing confirmation: stored 6-digit code, or legacy id slice. */
+export function formatReservationReference(
+  id: string,
+  confirmationNumber?: string | null,
+): string {
+  const trimmed = confirmationNumber?.trim();
+  if (trimmed && /^\d{6}$/.test(trimmed)) return trimmed;
   const cleaned = id.replace(/[^a-zA-Z0-9]/g, "");
   const slice = cleaned.slice(-8).toUpperCase();
   return slice || id.toUpperCase();

@@ -45,6 +45,8 @@ import {
   isReviewSort,
   type ReviewReportReason,
   type ReviewSort,
+  virtualRoomPricingInputSchema,
+  resolveCancellationPeriodHours,
 } from "@reservations/shared";
 import {
   isReservationDatePeriod,
@@ -82,6 +84,7 @@ import {
 import {
   getBlogPostBySlug,
   listPublishedBlogPosts,
+  recordBlogPostRead,
 } from "../services/blogPosts.js";
 import {
   getDiscoveryTaxonomyBySlug,
@@ -187,6 +190,11 @@ import {
 } from "../services/reservations.js";
 import { excludeIncompleteBookingPayment } from "../services/bookingPayments.js";
 import { paginateQuery, normalizePagination } from "../lib/pagination.js";
+import {
+  buildReservationSearchOr,
+  EMPTY_RESERVATION_SEARCH_ID,
+  isReservationConfirmationLookup,
+} from "../lib/reservationListSearch.js";
 import {
   getLoyaltyHistory,
   awardReviewPoints,
@@ -376,8 +384,21 @@ import {
   toPlainPlanOverride,
   uniquePlanKey,
   applyStripeModeToConfig,
+  applyVirtualRoomPricing,
   getStripeClientConfig,
 } from "../services/platformConfig.js";
+import {
+  addVirtualRoomMedia,
+  getPublicVirtualRoom,
+  getVirtualRoomAddonStatus,
+  getVirtualRoomEditor,
+  getVirtualRoomOpsScene,
+  publishVirtualRoom,
+  removeVirtualRoomMedia,
+  setVirtualRoomAddon,
+  updateVirtualRoom,
+} from "../services/virtualRoom.js";
+import { startReconstruction } from "../services/virtualRoomReconstruction.js";
 import { getDeveloperInfo } from "../services/developerInfo.js";
 import {
   confirmInvoicePayment,
@@ -387,6 +408,7 @@ import {
   exportInvoicePdf,
   exportInvoicePdfByToken,
   generateInvoicesForPeriod,
+  refreshPeriodInvoiceForRestaurant,
   getInvoiceById,
   getInvoiceByPayToken,
   getPlatformRevenueReport,
@@ -475,6 +497,16 @@ function assertCanManageBilling(role: string) {
   if (!canManageBilling(role)) {
     throw new ForbiddenError("Only the restaurant owner can manage billing");
   }
+}
+
+/** Owners, managers, and platform admins with venue access. Hosts are FOH-only. */
+async function requireVirtualRoomManager(ctx: GraphQLContext, restaurantId: string) {
+  const user = requireAuth(ctx);
+  if (user.role === "host" || user.role === "diner") {
+    throw new ForbiddenError("Only restaurant managers can manage the 3D room");
+  }
+  await assertRestaurantAccess(user._id.toString(), restaurantId, user.role);
+  return user;
 }
 
 /** Mongo sort for public `restaurantReviews`. Rating ties break on newest. */
@@ -583,6 +615,15 @@ export const resolvers = {
       address?: { state?: string; zip?: string; country?: string };
       location?: { lat?: number; lng?: number; coordinates?: number[] };
     }) => restaurantTimeZone(r),
+    effectiveCancellationPeriodHours: async (r: {
+      cancellationPeriodHours?: number | null;
+    }) => {
+      const platform = mapPlatformConfig(await getPlatformConfig());
+      return resolveCancellationPeriodHours([
+        r.cancellationPeriodHours,
+        platform.cancellationPeriodHours,
+      ]);
+    },
   },
 
   Reservation: {
@@ -1098,6 +1139,41 @@ export const resolvers = {
       return tables.map(mapTable);
     },
 
+    virtualRoom: async (_: unknown, args: { restaurantId: string }) =>
+      getPublicVirtualRoom(args.restaurantId),
+
+    virtualRoomOpsScene: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      return getVirtualRoomOpsScene(args.restaurantId);
+    },
+
+    virtualRoomAddon: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      await requireVirtualRoomManager(ctx, args.restaurantId);
+      return getVirtualRoomAddonStatus(args.restaurantId);
+    },
+
+    virtualRoomEditor: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      await requireVirtualRoomManager(ctx, args.restaurantId);
+      return getVirtualRoomEditor(args.restaurantId);
+    },
+
     floorPlanOps: async (
       _: unknown,
       args: { restaurantId: string; date?: string },
@@ -1186,6 +1262,7 @@ export const resolvers = {
         endDate?: string;
         period?: ReservationDatePeriod;
         status?: string;
+        search?: string;
         limit?: number;
         offset?: number;
       },
@@ -1214,17 +1291,31 @@ export const resolvers = {
       if (args.status) filter.status = args.status;
       Object.assign(filter, excludeIncompleteBookingPayment);
 
+      const q = args.search?.trim() ?? "";
+      const confirmationLookup = isReservationConfirmationLookup(q);
+
       const period = isReservationDatePeriod(args.period) ? args.period : undefined;
-      const slotStart = resolveReservationSlotStartFilter(
-        {
-          period: args.period,
-          date: args.date,
-          startDate: args.startDate,
-          endDate: args.endDate,
-        },
-        timeZone,
-      );
-      if (slotStart) filter.slotStart = slotStart;
+      // Exact confirmation # lookup ignores date period so hosts can find any booking quickly.
+      if (!confirmationLookup) {
+        const slotStart = resolveReservationSlotStartFilter(
+          {
+            period: args.period,
+            date: args.date,
+            startDate: args.startDate,
+            endDate: args.endDate,
+          },
+          timeZone,
+        );
+        if (slotStart) filter.slotStart = slotStart;
+      }
+
+      if (q) {
+        const or = await buildReservationSearchOr(q, {
+          includeRestaurantName: false,
+        });
+        if (!or?.length) filter._id = EMPTY_RESERVATION_SEARCH_ID;
+        else filter.$or = or;
+      }
 
       const newestFirst = period === "past" || period === "all";
       return paginateQuery(Reservation, filter, {
@@ -1242,7 +1333,10 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      const reservation = await Reservation.findById(args.id);
+      const key = args.id.trim();
+      const reservation = isReservationConfirmationLookup(key)
+        ? await Reservation.findOne({ confirmationNumber: key })
+        : await Reservation.findById(key);
       if (!reservation) return null;
       try {
         await assertRestaurantAccess(
@@ -1308,7 +1402,10 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
-      const reservation = await Reservation.findById(args.id);
+      const key = args.id.trim();
+      const reservation = isReservationConfirmationLookup(key)
+        ? await Reservation.findOne({ confirmationNumber: key })
+        : await Reservation.findById(key);
       if (!reservation) return null;
       try {
         await assertRestaurantAccess(
@@ -3617,6 +3714,9 @@ export const resolvers = {
     submitContactForm: async (_: unknown, args: { input: unknown }) =>
       submitContactForm(args.input),
 
+    recordBlogPostRead: async (_: unknown, args: { slug: string }) =>
+      recordBlogPostRead(args.slug),
+
     createOwnerSupportTicket: async (
       _: unknown,
       args: {
@@ -4134,6 +4234,7 @@ export const resolvers = {
         giftCardCode: input.giftCardCode,
         source: input.source,
         tableId: input.tableId,
+        tableSelectionSource: input.tableSelectionSource,
         packageId: input.packageId,
         privateDiningSpaceId: input.privateDiningSpaceId,
         experienceId: input.experienceId,
@@ -5035,6 +5136,12 @@ export const resolvers = {
           (doc as any)[key] = args.input[key];
         }
       }
+      if (args.input.cancellationPeriodHours !== undefined) {
+        const hours = resolveCancellationPeriodHours([
+          args.input.cancellationPeriodHours as number | null,
+        ]);
+        (doc as any).cancellationPeriodHours = hours;
+      }
       if (args.input.requireSignupEmailVerification !== undefined) {
         requireSuperAdmin(ctx);
         (doc as any).requireSignupEmailVerification = Boolean(
@@ -5052,6 +5159,15 @@ export const resolvers = {
         await applyPlatformConfigFeatureFlags(
           doc,
           args.input.featureFlags as Record<string, boolean | undefined>,
+        );
+      }
+      if (
+        args.input.virtualRoomPricing &&
+        typeof args.input.virtualRoomPricing === "object"
+      ) {
+        applyVirtualRoomPricing(
+          doc,
+          virtualRoomPricingInputSchema.parse(args.input.virtualRoomPricing),
         );
       }
       if (
@@ -7268,6 +7384,10 @@ export const resolvers = {
         spendAlertThresholdCents?: number;
         useSmartAssign?: boolean;
         allowGuestTableSelection?: boolean;
+        virtualRoomSelectionFeeEnabled?: boolean;
+        virtualRoomSelectionFeeMode?: 'per_guest' | 'per_table' | null;
+        virtualRoomSelectionFeeCents?: number | null;
+        virtualRoomSelectionFeeApplyTo?: 'all' | 'selected';
         reservationsEnabled?: boolean;
         reservationsVisible?: boolean;
         posEnabled?: boolean;
@@ -7306,6 +7426,41 @@ export const resolvers = {
         update.useSmartAssign = args.useSmartAssign;
       if (args.allowGuestTableSelection != null) {
         update.allowGuestTableSelection = args.allowGuestTableSelection;
+      }
+      if (args.virtualRoomSelectionFeeEnabled != null) {
+        update.virtualRoomSelectionFeeEnabled = args.virtualRoomSelectionFeeEnabled;
+      }
+      if (args.virtualRoomSelectionFeeMode !== undefined) {
+        if (
+          args.virtualRoomSelectionFeeMode != null &&
+          args.virtualRoomSelectionFeeMode !== 'per_guest' &&
+          args.virtualRoomSelectionFeeMode !== 'per_table'
+        ) {
+          throw new ValidationError('virtualRoomSelectionFeeMode must be per_guest or per_table');
+        }
+        update.virtualRoomSelectionFeeMode = args.virtualRoomSelectionFeeMode;
+      }
+      if (args.virtualRoomSelectionFeeCents !== undefined) {
+        if (
+          args.virtualRoomSelectionFeeCents != null &&
+          (!Number.isFinite(args.virtualRoomSelectionFeeCents) ||
+            args.virtualRoomSelectionFeeCents < 0)
+        ) {
+          throw new ValidationError('Selection fee must be a non-negative amount');
+        }
+        update.virtualRoomSelectionFeeCents =
+          args.virtualRoomSelectionFeeCents == null
+            ? null
+            : Math.round(args.virtualRoomSelectionFeeCents);
+      }
+      if (args.virtualRoomSelectionFeeApplyTo != null) {
+        if (
+          args.virtualRoomSelectionFeeApplyTo !== 'all' &&
+          args.virtualRoomSelectionFeeApplyTo !== 'selected'
+        ) {
+          throw new ValidationError('virtualRoomSelectionFeeApplyTo must be all or selected');
+        }
+        update.virtualRoomSelectionFeeApplyTo = args.virtualRoomSelectionFeeApplyTo;
       }
       if (args.reservationsEnabled != null)
         update.reservationsEnabled = args.reservationsEnabled;
@@ -7536,6 +7691,99 @@ export const resolvers = {
         details: { enabled: args.enabled },
       });
       return mapSubscription(sub, { includeStripeIds: true });
+    },
+
+    // ---- Virtual 3D room (experimental add-on) ----
+
+    setVirtualRoomAddon: async (
+      _: unknown,
+      args: { restaurantId: string; enabled: boolean },
+      ctx: GraphQLContext,
+    ) => {
+      const user = await requireVirtualRoomManager(ctx, args.restaurantId);
+      assertCanManageBilling(user.role);
+      const status = await setVirtualRoomAddon(args.restaurantId, args.enabled);
+      await refreshPeriodInvoiceForRestaurant(args.restaurantId).catch((err) =>
+        logger.warn({ err, restaurantId: args.restaurantId }, "[virtualRoom] invoice refresh failed"),
+      );
+      await logAudit({
+        actorId: user._id.toString(),
+        action: "setVirtualRoomAddon",
+        resource: "Restaurant",
+        resourceId: args.restaurantId,
+        details: {
+          enabled: args.enabled,
+          monthlyPriceCents: status.monthlyPriceCents,
+          perGuestFeeCents: status.perGuestFeeCents,
+        },
+      });
+      return status;
+    },
+
+    updateVirtualRoom: async (
+      _: unknown,
+      args: { restaurantId: string; input: unknown },
+      ctx: GraphQLContext,
+    ) => {
+      await requireVirtualRoomManager(ctx, args.restaurantId);
+      return updateVirtualRoom(args.restaurantId, args.input);
+    },
+
+    addVirtualRoomMedia: async (
+      _: unknown,
+      args: { restaurantId: string; input: unknown },
+      ctx: GraphQLContext,
+    ) => {
+      await requireVirtualRoomManager(ctx, args.restaurantId);
+      return addVirtualRoomMedia(args.restaurantId, args.input);
+    },
+
+    removeVirtualRoomMedia: async (
+      _: unknown,
+      args: { restaurantId: string; mediaId: string },
+      ctx: GraphQLContext,
+    ) => {
+      await requireVirtualRoomManager(ctx, args.restaurantId);
+      return removeVirtualRoomMedia(args.restaurantId, args.mediaId);
+    },
+
+    publishVirtualRoom: async (
+      _: unknown,
+      args: { restaurantId: string; published: boolean },
+      ctx: GraphQLContext,
+    ) => {
+      const user = await requireVirtualRoomManager(ctx, args.restaurantId);
+      const editor = await publishVirtualRoom(args.restaurantId, args.published);
+      await logAudit({
+        actorId: user._id.toString(),
+        action: "publishVirtualRoom",
+        resource: "Restaurant",
+        resourceId: args.restaurantId,
+        details: { published: args.published },
+      });
+      return editor;
+    },
+
+    generateVirtualRoomModel: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = await requireVirtualRoomManager(ctx, args.restaurantId);
+      const status = await getVirtualRoomAddonStatus(args.restaurantId);
+      if (!status.active) {
+        throw new ValidationError(
+          status.ineligibleReason ?? "Turn on the Virtual 3D room add-on in Billing first.",
+        );
+      }
+      await startReconstruction(args.restaurantId);
+      await logAudit({
+        actorId: user._id.toString(),
+        action: "generateVirtualRoomModel",
+        resource: "Restaurant",
+        resourceId: args.restaurantId,
+      });
+      return getVirtualRoomEditor(args.restaurantId);
     },
     ...adminOpsMutation,
   },

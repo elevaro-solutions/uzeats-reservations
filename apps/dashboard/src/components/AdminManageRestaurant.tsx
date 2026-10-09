@@ -129,6 +129,7 @@ export type AdminRestaurantRecord = {
   depositRequired?: boolean;
   depositAmountCents?: number;
   depositPolicy?: string | null;
+  cancellationPeriodHours?: number | null;
   loyaltyEnabled?: boolean;
   loyaltyPointsPerVisit?: number;
   loyaltyMinRedeemPoints?: number;
@@ -364,6 +365,11 @@ function buildRestaurantInput(values: Record<string, unknown>, photoList: string
     depositRequired: Boolean(values.depositRequired),
     depositAmountCents: Math.round((Number(values.depositAmountCents) || 0) * 100),
     depositPolicy: resolveDepositPolicy(values.depositPolicy as string | undefined),
+    cancellationPeriodHours:
+      values.cancellationPeriodHours == null ||
+      !(Number(values.cancellationPeriodHours) >= 1)
+        ? null
+        : Math.round(Number(values.cancellationPeriodHours)),
     loyaltyEnabled: Boolean(values.loyaltyEnabled),
     loyaltyPointsPerVisit: Number(values.loyaltyPointsPerVisit) || 50,
     loyaltyMinRedeemPoints: Number(values.loyaltyMinRedeemPoints) || 200,
@@ -513,6 +519,7 @@ export function AdminManageRestaurant({
         ? restaurant.depositAmountCents / 100
         : undefined,
       depositPolicy: resolveDepositPolicy(restaurant.depositPolicy),
+      cancellationPeriodHours: restaurant.cancellationPeriodHours ?? null,
       loyaltyEnabled: Boolean(restaurant.loyaltyEnabled),
       loyaltyPointsPerVisit: restaurant.loyaltyPointsPerVisit ?? 50,
       loyaltyMinRedeemPoints: restaurant.loyaltyMinRedeemPoints ?? 200,
@@ -959,6 +966,16 @@ export function AdminManageRestaurant({
           </Col>
           <Col xs={24}>
             <DepositPolicyField />
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item
+              name="cancellationPeriodHours"
+              label="Cancel / no-show window (hours)"
+              tooltip={tips.cancellationPeriodHours}
+              extra="Leave empty to use the platform default (usually 24 hours)."
+            >
+              <InputNumber min={1} max={720} precision={0} style={{ width: '100%' }} placeholder="Platform default" />
+            </Form.Item>
           </Col>
           <Col xs={24} sm={12}>
             <Form.Item

@@ -134,6 +134,7 @@ import {
 import { useTableShapes } from '@/lib/useTableShapes';
 import {
   FIXTURE_DEFAULTS,
+  fixtureAddTip,
   applyDraftPositions,
   cloneSnapshot,
   duplicateTableLayout,
@@ -210,6 +211,9 @@ function tableInputFrom(t: FloorTable, overrides: Partial<FloorTable> = {}) {
     requiresManualApproval: next.requiresManualApproval ?? false,
     depositRequired: next.depositRequired ?? false,
     depositAmountCents: next.depositAmountCents ?? 0,
+    virtualRoomSelectable: next.virtualRoomSelectable !== false,
+    virtualRoomSelectionFeeEnabled: next.virtualRoomSelectionFeeEnabled ?? false,
+    virtualRoomSelectionFeeCents: next.virtualRoomSelectionFeeCents ?? null,
     photoUrl: next.photoUrl ?? null,
     shape: next.shape,
     rotation: next.rotation ?? 0,
@@ -549,6 +553,53 @@ function TableDetailsPanel({
             void onSaveMeta({ depositRequired });
           }}
         />
+        <SwitchRow
+          label="Selectable in 3D"
+          tip="When on (default), guests can pick this table in the 3D room. Turn off to keep it visible but not bookable from 3D."
+          checked={selected.virtualRoomSelectable !== false}
+          onChange={(virtualRoomSelectable) => {
+            onUpdate({ virtualRoomSelectable });
+            void onSaveMeta({ virtualRoomSelectable });
+          }}
+        />
+        <SwitchRow
+          label="3D selection fee"
+          tip="When Virtual 3D fee apply-to is “Selected tables”, only marked tables add the fee to your invoice. When apply-to is “All”, every 3D pick is charged (use the area or restaurant toggle to turn fees off)."
+          checked={Boolean(selected.virtualRoomSelectionFeeEnabled)}
+          onChange={(virtualRoomSelectionFeeEnabled) => {
+            onUpdate({ virtualRoomSelectionFeeEnabled });
+            void onSaveMeta({ virtualRoomSelectionFeeEnabled });
+          }}
+        />
+        <div style={{ padding: '2px 0 6px' }}>
+          <FieldLabel tip="Optional per-table 3D selection fee in USD. Leave empty to inherit the area / restaurant / platform fee.">
+            3D fee override (USD)
+          </FieldLabel>
+          <InputNumber
+            size="small"
+            min={0}
+            max={10_000}
+            precision={2}
+            prefix="$"
+            value={
+              selected.virtualRoomSelectionFeeCents != null
+                ? selected.virtualRoomSelectionFeeCents / 100
+                : null
+            }
+            placeholder="Inherit"
+            style={{ width: '100%' }}
+            onChange={(v) =>
+              onUpdate({
+                virtualRoomSelectionFeeCents: v == null ? null : Math.round((Number(v) || 0) * 100),
+              })
+            }
+            onBlur={() =>
+              void onSaveMeta({
+                virtualRoomSelectionFeeCents: selected.virtualRoomSelectionFeeCents ?? null,
+              })
+            }
+          />
+        </div>
         {selected.depositRequired ? (
           <div style={{ padding: '2px 0 6px' }}>
             <FieldLabel tip="Deposit charged per guest when this table is booked, in USD">
@@ -1766,6 +1817,9 @@ export default function FloorPlanPage() {
         requiresManualApproval: input.requiresManualApproval,
         depositRequired: input.depositRequired,
         depositAmountCents: input.depositAmountCents,
+        virtualRoomSelectable: true,
+        virtualRoomSelectionFeeEnabled: false,
+        virtualRoomSelectionFeeCents: null,
       };
       commitSnapshot({
         ...snapshotRef.current,
@@ -1878,15 +1932,12 @@ export default function FloorPlanPage() {
       icon: <BuildOutlined />,
       label: tipLabel(
         'Add fixture',
-        'Place a non-bookable object (bar, wall, host stand, etc.) to orient the floor',
+        'Place a non-bookable object. A wall, door, or window placed along the edge shows up that way in the 3D room',
       ),
       disabled: !activeRestaurantId,
       children: FLOOR_FIXTURE_KINDS.map((kind) => ({
         key: `fixture-${kind}`,
-        label: tipLabel(
-          FLOOR_FIXTURE_LABELS[kind],
-          `Add a ${FLOOR_FIXTURE_LABELS[kind].toLowerCase()} fixture to the canvas`,
-        ),
+        label: tipLabel(FLOOR_FIXTURE_LABELS[kind], fixtureAddTip(kind)),
         onClick: () => addFixture(kind),
       })),
     },
@@ -2355,8 +2406,10 @@ export default function FloorPlanPage() {
                             f.kind === 'wall'
                               ? colors.neutral[400]
                               : f.kind === 'door'
-                                ? colors.neutral[200]
-                                : 'rgba(120, 113, 108, 0.35)',
+                                ? '#e6d3bf'
+                                : f.kind === 'window'
+                                  ? '#d7ebf5'
+                                  : 'rgba(120, 113, 108, 0.35)',
                           border: isSelected
                             ? `2px solid ${colors.brand[600]}`
                             : `1px dashed ${colors.neutral[500]}`,

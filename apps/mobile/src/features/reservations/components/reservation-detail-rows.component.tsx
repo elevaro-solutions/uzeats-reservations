@@ -37,6 +37,7 @@ import { ReservationStatusPill } from "./reservation-status-pill.component";
 
 export type ReservationDetailRowsReservation = {
   id: string;
+  confirmationNumber?: string | null;
   status: string;
   slotStart: string;
   slotEnd?: string | null;
@@ -219,7 +220,10 @@ export function ReservationDetailRows({
   visitRows.push({
     key: "confirmation",
     label: "Confirmation",
-    value: formatReservationReference(reservation.id),
+    value: formatReservationReference(
+      reservation.id,
+      reservation.confirmationNumber,
+    ),
     icon: <CheckIcon size={18} color={iconColor} />,
   });
   if (reservation.guestNotes?.trim()) {

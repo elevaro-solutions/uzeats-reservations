@@ -8,6 +8,10 @@ See [features-auth.md](./features-auth.md) (auth / compliance).
 
 See [features-booking.md](./features-booking.md) (payments / Stripe).
 
+## virtual-room
+
+See [features-virtual-room.md](./features-virtual-room.md) (experimental add-on billing / KIRI Engine). API, dashboard, and web only — not in the mobile apps yet.
+
 ## demo
 
 ### [2026-09-14] Dev component kit, not product UI

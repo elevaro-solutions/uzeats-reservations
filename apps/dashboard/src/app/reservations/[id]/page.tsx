@@ -59,6 +59,7 @@ const { Text, Title } = Typography;
 
 type ReservationDetail = {
   id: string;
+  confirmationNumber?: string | null;
   restaurantId: string;
   status: string;
   partySize: number;
@@ -475,6 +476,12 @@ function ReservationDetailPageContent() {
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 22 }}>
+              {reservation.confirmationNumber ? (
+                <ReservationMetaChip
+                  label="Confirmation"
+                  value={reservation.confirmationNumber}
+                />
+              ) : null}
               <ReservationMetaChip label="Guests" value={String(reservation.partySize)} />
               <ReservationMetaChip label="Table" value={tableLabel} />
               <ReservationMetaChip label="Source" value={source ?? '—'} />

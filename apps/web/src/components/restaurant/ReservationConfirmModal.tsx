@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Button, Checkbox, Descriptions, Modal, Typography, type DescriptionsProps } from 'antd';
+import { Alert, Button, Checkbox, Collapse, Modal, Typography } from 'antd';
 import { noShowFeePolicyText, prepaymentPolicyText, type BookingApprovalPreview } from '@reservations/shared';
 import { resolveRestaurantTerms } from '@/lib/restaurantTerms';
 
@@ -22,6 +22,10 @@ export type ReservationConfirmDetails = {
   depositCents: number;
   /** Card guarantee: charged only on no-show / late cancel. */
   noShowFeeCents?: number;
+  /** Resolved cancel / no-show window in hours for this booking. */
+  cancellationPeriodHours?: number;
+  /** 3D table selection fee charged to the diner at booking (platform payer = diner). */
+  virtualRoomSelectionFeeCents?: number;
   packageTitle?: string;
   packagePriceCents?: number;
   privateDiningSpaceName?: string;
@@ -52,12 +56,144 @@ type Props = {
   onViewTerms?: () => void;
 };
 
+type DetailRow = { key: string; label: string; value: string };
+type ChargeLine = { key: string; label: string; amountLabel: string; hint?: string; tone?: 'muted' | 'discount' };
+
 function formatUsd(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
 export function formatOccasion(value: string) {
   return value === 'none' ? 'None' : value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function buildDetailRows(details: ReservationConfirmDetails): DetailRow[] {
+  const rows: DetailRow[] = [];
+
+  // Priced add-ons are listed in the charges card; only show unpriced ones here.
+  if (details.packageTitle && !(details.packagePriceCents && details.packagePriceCents > 0)) {
+    rows.push({
+      key: 'package',
+      label: 'Package',
+      value: details.packageTitle,
+    });
+  }
+  if (
+    details.privateDiningSpaceName &&
+    !(details.privateDiningPriceCents && details.privateDiningPriceCents > 0)
+  ) {
+    rows.push({
+      key: 'private-room',
+      label: 'Private room',
+      value: details.privateDiningSpaceName,
+    });
+  }
+  if (
+    details.experienceTitle &&
+    !(details.experiencePriceCents && details.experiencePriceCents > 0)
+  ) {
+    rows.push({
+      key: 'experience',
+      label: 'Experience',
+      value: details.experienceTitle,
+    });
+  }
+  if (details.occasionLabel && details.occasionLabel !== 'None') {
+    rows.push({ key: 'occasion', label: 'Occasion', value: details.occasionLabel });
+  }
+  if (details.guestName) {
+    rows.push({ key: 'guest', label: 'Name', value: details.guestName });
+  }
+  if (details.guestEmail) {
+    rows.push({ key: 'email', label: 'Email', value: details.guestEmail });
+  }
+  if (details.guestPhone) {
+    rows.push({ key: 'phone', label: 'Phone', value: details.guestPhone });
+  }
+  if (details.tableName) {
+    rows.push({
+      key: 'table',
+      label: 'Table',
+      value: details.tableFloorArea
+        ? `${details.tableName} · ${details.tableFloorArea}`
+        : details.tableName,
+    });
+  }
+  if (details.notes?.trim()) {
+    rows.push({ key: 'notes', label: 'Special requests', value: details.notes.trim() });
+  }
+
+  return rows;
+}
+
+function buildChargeLines(details: ReservationConfirmDetails, restaurantName: string): ChargeLine[] {
+  const lines: ChargeLine[] = [];
+
+  if (details.packagePriceCents && details.packagePriceCents > 0) {
+    lines.push({
+      key: 'package',
+      label: details.packageTitle ? `Package · ${details.packageTitle}` : 'Package',
+      amountLabel: formatUsd(details.packagePriceCents),
+    });
+  }
+  if (details.privateDiningPriceCents && details.privateDiningPriceCents > 0) {
+    lines.push({
+      key: 'private-room',
+      label: details.privateDiningSpaceName
+        ? `Private room · ${details.privateDiningSpaceName}`
+        : 'Private room',
+      amountLabel: formatUsd(details.privateDiningPriceCents),
+    });
+  }
+  if (details.experiencePriceCents && details.experiencePriceCents > 0) {
+    lines.push({
+      key: 'experience',
+      label: details.experienceTitle ? `Experience · ${details.experienceTitle}` : 'Experience',
+      amountLabel: formatUsd(details.experiencePriceCents),
+    });
+  }
+  if (details.virtualRoomSelectionFeeCents && details.virtualRoomSelectionFeeCents > 0) {
+    lines.push({
+      key: 'virtual-room-fee',
+      label: '3D table selection',
+      amountLabel: formatUsd(details.virtualRoomSelectionFeeCents),
+      hint: 'Charged now for picking your table in 3D.',
+    });
+  }
+  if (details.promoDiscountCents && details.promoDiscountCents > 0) {
+    lines.push({
+      key: 'promo',
+      label: details.promoTitle ?? 'Promotion',
+      amountLabel: `−${formatUsd(details.promoDiscountCents)}`,
+      tone: 'discount',
+    });
+  }
+  if (details.giftCardDiscountCents && details.giftCardDiscountCents > 0) {
+    lines.push({
+      key: 'gift',
+      label: 'Gift card',
+      amountLabel: `−${formatUsd(details.giftCardDiscountCents)}`,
+      tone: 'discount',
+    });
+  }
+  if (details.loyaltyPointsRedeemed && details.loyaltyPointsRedeemed > 0) {
+    lines.push({
+      key: 'loyalty',
+      label: 'Loyalty points',
+      amountLabel: `${details.loyaltyPointsRedeemed} pts`,
+      tone: 'muted',
+    });
+  }
+  if (details.restaurantPointsRedeemed && details.restaurantPointsRedeemed > 0) {
+    lines.push({
+      key: 'restaurant-loyalty',
+      label: `${restaurantName} points`,
+      amountLabel: `${details.restaurantPointsRedeemed} pts`,
+      tone: 'muted',
+    });
+  }
+
+  return lines;
 }
 
 export function ReservationConfirmModal({
@@ -95,135 +231,26 @@ export function ReservationConfirmModal({
     depositPolicy,
   });
   const termsParagraphs = termsText.split(/\n\s*\n/).filter(Boolean);
-
-  const items: NonNullable<DescriptionsProps['items']> = [
-    { key: 'restaurant', label: 'Restaurant', children: restaurantName },
-    { key: 'date', label: 'Date', children: details.dateLabel },
-    { key: 'time', label: 'Time', children: details.timeLabel },
-    {
-      key: 'party',
-      label: 'Party size',
-      children: `${details.partySize} ${details.partySize === 1 ? 'guest' : 'guests'}`,
-    },
-    { key: 'occasion', label: 'Occasion', children: details.occasionLabel },
-  ];
-
-  if (details.packageTitle) {
-    items.push({
-      key: 'package',
-      label: 'Package',
-      children: details.packagePriceCents
-        ? `${details.packageTitle} (+${formatUsd(details.packagePriceCents)})`
-        : details.packageTitle,
-    });
-  }
-
-  if (details.privateDiningSpaceName) {
-    items.push({
-      key: 'private-room',
-      label: 'Private room',
-      children: details.privateDiningPriceCents
-        ? `${details.privateDiningSpaceName} (+${formatUsd(details.privateDiningPriceCents)})`
-        : details.privateDiningSpaceName,
-    });
-  }
-
-  if (details.experienceTitle) {
-    items.push({
-      key: 'experience',
-      label: 'Experience',
-      children: details.experiencePriceCents
-        ? `${details.experienceTitle} (+${formatUsd(details.experiencePriceCents)})`
-        : details.experienceTitle,
-    });
-  }
-
-  if (details.guestName) {
-    items.push({ key: 'guest', label: 'Name', children: details.guestName });
-  }
-  if (details.guestEmail) {
-    items.push({ key: 'email', label: 'Email', children: details.guestEmail });
-  }
-  if (details.guestPhone) {
-    items.push({ key: 'phone', label: 'Phone', children: details.guestPhone });
-  }
-  if (details.tableName) {
-    items.push({
-      key: 'table',
-      label: 'Table',
-      children: details.tableFloorArea
-        ? `${details.tableName} · ${details.tableFloorArea}`
-        : details.tableName,
-    });
-  }
-  if (details.notes?.trim()) {
-    items.push({ key: 'notes', label: 'Special requests', children: details.notes.trim() });
-  }
-  if (details.depositCents > 0) {
-    items.push({
-      key: 'deposit',
-      label: 'Due now',
-      children: (
-        <>
-          <Text strong>{formatUsd(details.depositCents)}</Text>
-          <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
-            {prepaymentPolicyText()}
-          </Text>
-        </>
-      ),
-    });
-  }
-  if (details.noShowFeeCents && details.noShowFeeCents > 0) {
-    items.push({
-      key: 'no-show-fee',
-      label: 'Card guarantee',
-      children: (
-        <>
-          <Text strong>{formatUsd(details.noShowFeeCents)} no-show fee</Text>
-          <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
-            {noShowFeePolicyText(details.noShowFeeCents)}
-          </Text>
-        </>
-      ),
-    });
-  }
-  if (details.promoDiscountCents && details.promoDiscountCents > 0) {
-    items.push({
-      key: 'promo',
-      label: 'Promotion',
-      children: `${details.promoTitle ?? 'Promotion'} (−${formatUsd(details.promoDiscountCents)})`,
-    });
-  }
-  if (details.giftCardDiscountCents && details.giftCardDiscountCents > 0) {
-    items.push({
-      key: 'gift',
-      label: 'Gift card',
-      children: `−${formatUsd(details.giftCardDiscountCents)}`,
-    });
-  }
-  if (details.loyaltyPointsRedeemed && details.loyaltyPointsRedeemed > 0) {
-    items.push({
-      key: 'loyalty',
-      label: 'Loyalty points',
-      children: `${details.loyaltyPointsRedeemed} pts redeemed`,
-    });
-  }
-  if (details.restaurantPointsRedeemed && details.restaurantPointsRedeemed > 0) {
-    items.push({
-      key: 'restaurant-loyalty',
-      label: `${restaurantName} points`,
-      children: `${details.restaurantPointsRedeemed} pts redeemed`,
-    });
-  }
+  const detailRows = buildDetailRows(details);
+  const chargeLines = buildChargeLines(details, restaurantName);
+  const hasDueNow = details.depositCents > 0;
+  const hasNoShow = !!(details.noShowFeeCents && details.noShowFeeCents > 0);
+  const hasCharges = chargeLines.length > 0 || hasDueNow || hasNoShow;
+  const partyLabel = `${details.partySize} ${details.partySize === 1 ? 'guest' : 'guests'}`;
+  const confirmLabel = approvalPreview === 'required' ? 'Send request' : 'Confirm reservation';
 
   return (
     <Modal
       title="Confirm your reservation"
       open={open}
       onCancel={onClose}
-      width={560}
+      width={520}
       destroyOnClose
-      className={error ? 'rt-reservation-confirm-modal rt-reservation-confirm-modal--error' : 'rt-reservation-confirm-modal'}
+      className={
+        error
+          ? 'rt-reservation-confirm-modal rt-reservation-confirm-modal--error'
+          : 'rt-reservation-confirm-modal'
+      }
       footer={
         <div className="rt-reservation-confirm-modal__footer">
           {error ? (
@@ -247,7 +274,7 @@ export function ReservationConfirmModal({
               disabled={!acceptedTerms}
               onClick={onConfirm}
             >
-              {approvalPreview === 'required' ? 'Send request' : 'Confirm reservation'}
+              {confirmLabel}
             </Button>
           </div>
         </div>
@@ -257,7 +284,7 @@ export function ReservationConfirmModal({
         <Alert
           type="warning"
           showIcon
-          style={{ marginBottom: 16 }}
+          className="rt-reservation-confirm-modal__approval"
           message={
             approvalPreview === 'required'
               ? 'Requires restaurant approval'
@@ -270,51 +297,135 @@ export function ReservationConfirmModal({
           }
         />
       ) : null}
-      <Descriptions
-        column={1}
-        size="small"
-        bordered
-        items={items}
-        style={{ marginBottom: 16 }}
-      />
 
-      <div className="rt-reservation-confirm-terms">
-        <Text strong style={{ display: 'block', marginBottom: 8 }}>
-          Terms &amp; conditions
-        </Text>
-        <div className="rt-reservation-confirm-terms__body">
-          {termsParagraphs.map((paragraph, index) => (
-            <Paragraph key={index} style={{ marginBottom: 8 }}>
-              {paragraph}
-            </Paragraph>
-          ))}
+      <div className="rt-reservation-confirm-summary">
+        <Text className="rt-reservation-confirm-summary__restaurant">{restaurantName}</Text>
+        <div className="rt-reservation-confirm-summary__visit">
+          <span>{details.dateLabel}</span>
+          <span className="rt-reservation-confirm-summary__dot" aria-hidden>
+            ·
+          </span>
+          <span>{details.timeLabel}</span>
+          <span className="rt-reservation-confirm-summary__dot" aria-hidden>
+            ·
+          </span>
+          <span>{partyLabel}</span>
         </div>
       </div>
 
-      <Checkbox
-        checked={acceptedTerms}
-        onChange={(e) => setAcceptedTerms(e.target.checked)}
-        style={{ marginTop: 12, alignItems: 'flex-start' }}
-      >
-        <span>
-          I agree to {restaurantName}&apos;s terms and conditions
-          {onViewTerms ? (
-            <>
-              {' '}
-              (
-              <Link
-                onClick={(e) => {
-                  e.preventDefault();
-                  onViewTerms();
-                }}
-              >
-                view on page
-              </Link>
-              )
-            </>
+      {detailRows.length > 0 ? (
+        <dl className="rt-reservation-confirm-details">
+          {detailRows.map((row) => (
+            <div key={row.key} className="rt-reservation-confirm-details__row">
+              <dt>{row.label}</dt>
+              <dd>{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+
+      {hasCharges ? (
+        <section className="rt-reservation-confirm-charges" aria-label="Charges">
+          {chargeLines.length > 0 ? (
+            <ul className="rt-reservation-confirm-charges__lines">
+              {chargeLines.map((line) => (
+                <li
+                  key={line.key}
+                  className={
+                    line.tone
+                      ? `rt-reservation-confirm-charges__line rt-reservation-confirm-charges__line--${line.tone}`
+                      : 'rt-reservation-confirm-charges__line'
+                  }
+                >
+                  <div className="rt-reservation-confirm-charges__line-main">
+                    <span>{line.label}</span>
+                    <span className="rt-reservation-confirm-charges__amount">{line.amountLabel}</span>
+                  </div>
+                  {line.hint ? (
+                    <Text type="secondary" className="rt-reservation-confirm-charges__hint">
+                      {line.hint}
+                    </Text>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
           ) : null}
-        </span>
-      </Checkbox>
+
+          {hasDueNow ? (
+            <div className="rt-reservation-confirm-charges__total">
+              <div className="rt-reservation-confirm-charges__line-main">
+                <span>Due now</span>
+                <span className="rt-reservation-confirm-charges__amount">
+                  {formatUsd(details.depositCents)}
+                </span>
+              </div>
+              <Text type="secondary" className="rt-reservation-confirm-charges__hint">
+                {prepaymentPolicyText(details.cancellationPeriodHours)}
+              </Text>
+            </div>
+          ) : null}
+
+          {hasNoShow ? (
+            <div className="rt-reservation-confirm-charges__guarantee">
+              <div className="rt-reservation-confirm-charges__line-main">
+                <span>Card guarantee</span>
+                <span className="rt-reservation-confirm-charges__amount">
+                  {formatUsd(details.noShowFeeCents!)} no-show fee
+                </span>
+              </div>
+              <Text type="secondary" className="rt-reservation-confirm-charges__hint">
+                {noShowFeePolicyText(details.noShowFeeCents!, details.cancellationPeriodHours)}
+              </Text>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      <div className="rt-reservation-confirm-terms">
+        <Collapse
+          ghost
+          size="small"
+          className="rt-reservation-confirm-terms__collapse"
+          items={[
+            {
+              key: 'terms',
+              label: 'Terms & conditions',
+              children: (
+                <div className="rt-reservation-confirm-terms__body">
+                  {termsParagraphs.map((paragraph, index) => (
+                    <Paragraph key={index}>{paragraph}</Paragraph>
+                  ))}
+                </div>
+              ),
+            },
+          ]}
+        />
+
+        <Checkbox
+          checked={acceptedTerms}
+          onChange={(e) => setAcceptedTerms(e.target.checked)}
+          className="rt-reservation-confirm-terms__agree"
+        >
+          <span>
+            I agree to {restaurantName}&apos;s terms and conditions
+            {onViewTerms ? (
+              <>
+                {' '}
+                (
+                <Link
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onViewTerms();
+                  }}
+                >
+                  view on page
+                </Link>
+                )
+              </>
+            ) : null}
+          </span>
+        </Checkbox>
+      </div>
     </Modal>
   );
 }

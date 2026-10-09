@@ -20,8 +20,25 @@ export async function uploadFile(
   filename: string,
   options?: { onProgress?: (percent: number) => void },
 ): Promise<UploadResult> {
+  return postUpload(uploadsUrl(), file, filename, options);
+}
+
+/** MP4 / MOV / WebM walkthroughs for 3D room scans (max 250 MB). */
+export async function uploadVideo(
+  file: Blob,
+  filename: string,
+  options?: { onProgress?: (percent: number) => void },
+): Promise<UploadResult> {
+  return postUpload(`${uploadsUrl()}/video`, file, filename, options);
+}
+
+function postUpload(
+  url: string,
+  file: Blob,
+  filename: string,
+  options?: { onProgress?: (percent: number) => void },
+): Promise<UploadResult> {
   const contentType = file.type || 'application/octet-stream';
-  const url = uploadsUrl();
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();

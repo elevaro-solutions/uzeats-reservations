@@ -201,6 +201,7 @@ export default function ReservationDetailPage() {
 
   const r = reservation as {
     id: string;
+    confirmationNumber?: string | null;
     status: string;
     requiresManualApproval?: boolean;
     slotStart: string;
@@ -211,6 +212,7 @@ export default function ReservationDetailPage() {
     depositAmountCents: number;
     depositStatus: string;
     noShowFeeCents?: number | null;
+    cancellationPeriodHours?: number | null;
     cardGuaranteeStatus?: string | null;
     clientSecret?: string | null;
     loyaltyPointsEarned: number;
@@ -576,7 +578,7 @@ export default function ReservationDetailPage() {
             ) : null}
             <DetailRow
               label="Confirmation"
-              value={formatReservationReference(r.id)}
+              value={formatReservationReference(r.id, r.confirmationNumber)}
               icon={<CheckOutlined />}
               last={!r.guestNotes}
             />
@@ -719,6 +721,7 @@ export default function ReservationDetailPage() {
             clientSecret={r.clientSecret}
             amount={r.depositAmountCents}
             noShowFeeCents={r.noShowFeeCents ?? 0}
+            cancellationPeriodHours={r.cancellationPeriodHours}
             onSuccess={handleDepositSuccess}
             onCancel={() => setPayOpen(false)}
           />

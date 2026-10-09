@@ -7,6 +7,7 @@ export type BookingDraft = {
   selectedSlot: string | null;
   selectedTableId: string | null;
   /** Optional — older drafts omit these */
+  tableSelectionSource?: 'list' | 'virtual_3d' | null;
   selectedPackageId?: string | null;
   selectedExperienceId?: string | null;
   selectedPrivateSpaceId?: string | null;

@@ -81,6 +81,7 @@ const SOURCE_OPTIONS = [
 
 type ReservationRow = {
   id: string;
+  confirmationNumber?: string | null;
   restaurantId: string;
   dinerId: string;
   status: string;
@@ -391,7 +392,7 @@ function AdminReservationsContent() {
           <Input
             allowClear
             prefix={<SearchOutlined />}
-            placeholder="Search guest, email, phone, or restaurant"
+            placeholder="Guest, email, phone, restaurant, or confirmation #"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ width: 320 }}
@@ -521,6 +522,12 @@ function AdminReservationsContent() {
                     </Link>
                   );
                 },
+              },
+              {
+                title: 'Conf #',
+                dataIndex: 'confirmationNumber',
+                width: 100,
+                render: (v: string | null | undefined) => v || '—',
               },
               {
                 title: 'Guest',

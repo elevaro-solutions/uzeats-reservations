@@ -42,7 +42,7 @@ const EXPERIENCES = gql`
     experiences(restaurantId: $restaurantId, limit: $limit, offset: $offset) {
       total
       items {
-        id title type date endDate startTime endTime minGuests maxGuests ticketPriceCents ticketsSold status description photoUrl requiresManualApproval
+        id title type date endDate startTime endTime minGuests maxGuests ticketPriceCents ticketsSold status description photoUrl requiresManualApproval cancellationPeriodHours
       }
     }
   }
@@ -169,6 +169,10 @@ function ExperiencesPageContent() {
         includes: values.includes?.split('\n').filter(Boolean) ?? [],
         tags: values.tags?.split(',').map((t: string) => t.trim()).filter(Boolean) ?? [],
         requiresManualApproval: values.requiresManualApproval ?? false,
+        cancellationPeriodHours:
+          values.cancellationPeriodHours == null || !(Number(values.cancellationPeriodHours) >= 1)
+            ? null
+            : Math.round(Number(values.cancellationPeriodHours)),
       };
 
       if (editingId) {
@@ -217,6 +221,7 @@ function ExperiencesPageContent() {
     ticketPriceCents: number;
     photoUrl?: string;
     requiresManualApproval?: boolean;
+    cancellationPeriodHours?: number | null;
     includes?: string[];
     tags?: string[];
   }) => {
@@ -236,6 +241,7 @@ function ExperiencesPageContent() {
       includes: record.includes?.join('\n'),
       tags: record.tags?.join(', '),
       requiresManualApproval: record.requiresManualApproval ?? false,
+      cancellationPeriodHours: record.cancellationPeriodHours ?? null,
     });
     setModalOpen(true);
     clearDirty();
@@ -520,9 +526,17 @@ function ExperiencesPageContent() {
             label="Require manual approval"
             valuePropName="checked"
             extra="Bookings stay pending until staff confirms"
-            style={{ marginBottom: 0 }}
+            style={{ marginBottom: 12 }}
           >
             <Switch />
+          </Form.Item>
+          <Form.Item
+            name="cancellationPeriodHours"
+            label="Cancel / no-show window (hours)"
+            extra="Leave empty to use the restaurant or platform default."
+            style={{ marginBottom: 0 }}
+          >
+            <InputNumber min={1} max={720} precision={0} style={{ width: '100%' }} placeholder="Restaurant / platform default" />
           </Form.Item>
         </Form>
       </Modal>

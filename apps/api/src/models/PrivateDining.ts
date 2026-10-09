@@ -16,6 +16,8 @@ const privateDiningSpaceSchema = new Schema(
     tableIds: [{ type: Schema.Types.ObjectId, ref: 'Table' }],
     /** When true, bookings for this space need staff confirmation. */
     requiresManualApproval: { type: Boolean, default: false },
+    /** Hours before slot start when free cancel ends. Null inherits restaurant/platform. */
+    cancellationPeriodHours: { type: Number, min: 1, max: 720, default: null },
   },
   { timestamps: true },
 );

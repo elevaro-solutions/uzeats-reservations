@@ -1,5 +1,6 @@
 import {
   AccessRule,
+  AddonFee,
   AuditLog,
   Blackout,
   BoostCampaign,
@@ -30,6 +31,7 @@ import {
   TableSlotClaim,
   Ticket,
   User,
+  VirtualRoom,
   WaitlistEntry,
 } from '../models/index.js';
 
@@ -72,6 +74,8 @@ export async function clearSeedData(): Promise<ClearSeedDataResult> {
   await bump(counts, 'subscriptions', await Subscription.deleteMany({}));
   await bump(counts, 'invoices', await Invoice.deleteMany({}));
   await bump(counts, 'coverFees', await CoverFee.deleteMany({}));
+  await bump(counts, 'addonFees', await AddonFee.deleteMany({}));
+  await bump(counts, 'virtualRooms', await VirtualRoom.deleteMany({}));
   await bump(counts, 'surveyResponses', await SurveyResponse.deleteMany({}));
   await bump(counts, 'surveyConfigs', await SurveyConfig.deleteMany({}));
   await bump(counts, 'privateDiningInquiries', await PrivateDiningInquiry.deleteMany({}));

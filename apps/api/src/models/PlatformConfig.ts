@@ -82,6 +82,11 @@ const platformConfigSchema = new Schema(
     invoicePrefix: { type: String, default: 'INV' },
     currency: { type: String, default: 'usd' },
     /**
+     * Platform default hours before slot start when free cancellation ends
+     * (no-show / late-cancel fee window). Restaurants and resources may override.
+     */
+    cancellationPeriodHours: { type: Number, default: 24, min: 1, max: 720 },
+    /**
      * Which Stripe account the API uses: sandbox (`test`) or production (`live`).
      * Unset → test outside production NODE_ENV, live in production.
      */
@@ -98,6 +103,25 @@ const platformConfigSchema = new Schema(
       widget: { type: Boolean, default: true },
       /** Premium SMS / guest SMS product (not auth OTP). */
       sms: { type: Boolean, default: true },
+      /** Experimental paid add-on: 3D room + table selection. Off until a platform admin opts in. */
+      virtualRoom3d: { type: Boolean, default: false },
+    },
+    /** Unset fields fall back to the shared VIRTUAL_ROOM_DEFAULT_* prices. */
+    virtualRoomPricing: {
+      monthlyPriceCents: { type: Number, min: 0 },
+      /** Unit fee (per guest or per table — see selectionFeeMode). Default $2. */
+      perGuestFeeCents: { type: Number, min: 0 },
+      selectionFeeMode: { type: String, enum: ['per_guest', 'per_table'], default: 'per_guest' },
+      /**
+       * restaurant = invoice on completion; diner = charged at booking;
+       * combined = diner pays platform + restaurant fees; diner_share = diner pays
+       * restaurant fee and platform fee is invoiced to the restaurant.
+       */
+      selectionFeePayer: {
+        type: String,
+        enum: ['restaurant', 'diner', 'combined', 'diner_share'],
+        default: 'restaurant',
+      },
     },
     planOverrides: {
       type: Map,

@@ -13,10 +13,12 @@ import { BookingSection } from "./booking-section.component";
 
 export type BookingDepositSummaryProps = {
   breakdown: DepositBreakdown;
+  cancellationPeriodHours?: number | null;
 };
 
 export function BookingDepositSummary({
   breakdown,
+  cancellationPeriodHours,
 }: BookingDepositSummaryProps) {
   const hasPrepayment = breakdown.grossCents > 0;
   const hasNoShowFee = breakdown.noShowFeeCents > 0;
@@ -85,12 +87,12 @@ export function BookingDepositSummary({
       </View>
       {hasPrepayment ? (
         <Typography size="text-xs" color="secondary">
-          {prepaymentPolicyText()}
+          {prepaymentPolicyText(cancellationPeriodHours)}
         </Typography>
       ) : null}
       {hasNoShowFee ? (
         <Typography size="text-xs" color="secondary">
-          {noShowFeePolicyText(breakdown.noShowFeeCents)}
+          {noShowFeePolicyText(breakdown.noShowFeeCents, cancellationPeriodHours)}
         </Typography>
       ) : null}
     </BookingSection>

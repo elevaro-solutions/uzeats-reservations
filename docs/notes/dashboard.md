@@ -1,5 +1,24 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-09] Cancel / no-show window editors
+- Platform default: Admin → Config → Booking policies (`cancellationPeriodHours`, 1–720). Restaurant override: Booking policies on profile / create / admin manage (empty = inherit platform). Table / experience / private dining forms have the same optional hours field.
+- Why it matters: Empty means inherit — do not send `0` or omit vs null inconsistently; clients send `null` to clear an override.
+
+## [2026-10-09] Reservation confirmation # search
+- Partner `/reservations` and Admin `/admin/reservations` search accepts a 6-digit confirmation number (`q`). Exact matches ignore the date-period filter so staff can find past bookings while “Upcoming” is selected.
+- List/detail show `confirmationNumber` from GraphQL (not a client-side id slice).
+- Why it matters: Guest emails quote the 6-digit code; hosts should paste it into search, not dig through Mongo ids.
+
+
+## [2026-10-09] Admin blog shows top articles by reads
+- `/admin/blog` puts the article list on the left and read stats + top-10 articles on the right (`xl` breakpoint; stacked on smaller screens). Counts come from diner `recordBlogPostRead` (not editable in the CMS form).
+- Why it matters: Refresh both list and top queries after create/update/publish/delete so the dashboard stays consistent.
+
+## [2026-10-09] Live floor view modes
+- `/floor-ops` persists `list` | `plan` | `3d` in `rt-floor-ops-view` (default `plan`). List = status table; Floor plan = 2D canvases; 3D = `VirtualRoomViewer` via `virtualRoomOpsScene` with `tableColors` / `opsSelectMode` / status legend. Right rail: add-on pitch + `VirtualRoomAddonCard` (managers) + Arriving.
+- Status for 3D is not a websocket: poll every 10s + optimistic local status on seat/complete/cancel. Clone ops rows on hydrate and key colors off `id:status` so Apollo array reuse cannot leave 3D stuck on green.
+- Why it matters: Hosts can open 3D ops without Billing access. Guest-selectable policy is ignored in ops so every table opens the drawer.
+
 ## [2026-10-06] No-show fees report reuses reservation fee mutations
 - Partner `/fees` (Insights) and Admin `/admin/fees` (Billing) share `NoShowFeeChargesReport`. Rows are reservations with fee activity; charge/retry/refund come from `buildNoShowFeeActionItems` + shared mutations so the table does not call hooks per row.
 - API: `restaurantNoShowFeeCharges` / `adminNoShowFeeCharges` return items + `NoShowFeeChargeSummary`. Date range filters `noShowFeeChargedAt` (venue TZ for a single restaurant, platform TZ otherwise).
@@ -426,3 +445,8 @@
 - `depositRequired` / `depositAmountCents` have no zod defaults because `updateTable` does `Object.assign(existing, parsed)`. Callers that omit them (CSV import, admin minimal form) keep the saved override instead of resetting it.
 - Table forms hold `depositAmount` in dollars. Convert with `tableDepositFormValues` / `tableDepositInput` from `TableFormFields`.
 - Why it matters: Fields with defaults (`requiresManualApproval`) are reset by any update that omits them. The admin Tables tab form does this for manual approval today.
+
+## [2026-10-07] Virtual room editor writes mutation results with `writeQuery`
+- `VirtualRoomEditor` has no `id`, so Apollo can't normalize it and mutation results don't update the `virtualRoomEditor` query on their own. The editor page writes each result back with `client.writeQuery`.
+- Antd `ColorPicker` needs `disabledAlpha`; otherwise it can emit 8-digit hex, which fails the shared `#RRGGBB` schema.
+- Why it matters: New editor mutations must return the full `VIRTUAL_ROOM_EDITOR_FIELDS` and go through the same write helper, or the preview goes stale.

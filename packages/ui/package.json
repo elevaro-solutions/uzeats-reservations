@@ -9,7 +9,8 @@
     ".": "./src/index.ts",
     "./theme": "./src/theme.ts",
     "./tokens": "./src/tokens.ts",
-    "./palettes": "./src/palettes.ts"
+    "./palettes": "./src/palettes.ts",
+    "./virtual-room": "./src/VirtualRoomViewer.tsx"
   },
   "peerDependencies": {
     "@ant-design/icons": ">=5.0.0",
@@ -18,12 +19,14 @@
     "react-dom": "^19.0.0"
   },
   "dependencies": {
-    "@reservations/shared": "workspace:*"
+    "@reservations/shared": "workspace:*",
+    "three": "^0.180.0"
   },
   "devDependencies": {
     "@ant-design/icons": "^6.0.0",
     "@reservations/shared": "workspace:*",
     "@types/react": "^19.1.8",
+    "@types/three": "^0.180.0",
     "antd": "^5.26.2",
     "react": "^19.0.0",
     "typescript": "^5.8.3"

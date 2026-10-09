@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import {
@@ -8,16 +10,29 @@ import {
   Card,
   Drawer,
   Empty,
+  Segmented,
   Select,
+  Skeleton,
   Slider,
   Space,
+  Table,
   Tag,
   Tooltip,
   Typography,
   message,
 } from 'antd';
-import { EditOutlined, ReloadOutlined, RollbackOutlined, RotateRightOutlined } from '@ant-design/icons';
+import type { ColumnsType } from 'antd/es/table';
+import {
+  AppstoreOutlined,
+  EditOutlined,
+  ExperimentOutlined,
+  ReloadOutlined,
+  RollbackOutlined,
+  RotateRightOutlined,
+  UnorderedListOutlined,
+} from '@ant-design/icons';
 import { colors } from '@reservations/ui';
+import type { VirtualRoomSceneData } from '@reservations/ui/virtual-room';
 import {
   formatTimeInTimeZone,
   formatUsDateTime,
@@ -26,6 +41,7 @@ import {
   type FloorPlanAreaAppearance,
 } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
+import { canManageBilling, isHostRole } from '@/lib/roles';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   MY_RESTAURANTS,
@@ -35,16 +51,17 @@ import {
   PENDING_BADGE_REFETCH,
   UPDATE_RESERVATION_STATUS,
   UPDATE_TABLE_POSITIONS,
+  VIRTUAL_ROOM_OPS_SCENE,
 } from '@/lib/graphql';
 import { CancelReservationModal } from '@/components/CancelReservationModal';
 import { RefundDepositModal } from '@/components/RefundDepositModal';
+import { VirtualRoomAddonCard } from '@/components/VirtualRoomAddonCard';
 import {
   canRefundDeposit,
   formatDepositStatus,
   formatUsd,
   guestName as formatGuestName,
 } from '@/lib/reservationFormat';
-
 import {
   DEFAULT_CELL_SIZE,
   MAX_CELL_SIZE,
@@ -68,7 +85,12 @@ import {
 import { useTableShapes } from '@/lib/useTableShapes';
 import { skipPollWhenHidden } from '@/lib/pollVisibility';
 
-const { Title, Text } = Typography;
+const VirtualRoomViewer = dynamic(
+  () => import('@reservations/ui/virtual-room').then((m) => m.VirtualRoomViewer),
+  { ssr: false, loading: () => <Skeleton.Node active style={{ width: '100%', height: 560 }} /> },
+);
+
+const { Title, Text, Paragraph } = Typography;
 
 const STATUS_COLORS: Record<string, string> = {
   free: '#2e9e5b',
@@ -76,6 +98,22 @@ const STATUS_COLORS: Record<string, string> = {
   seated: '#cf1322',
   turning: '#fa8c16',
 };
+
+const OPS_3D_STATUS_LEGEND = Object.entries(STATUS_COLORS).map(([status, color]) => ({
+  color,
+  label: status.charAt(0).toUpperCase() + status.slice(1),
+}));
+
+type FloorOpsViewMode = 'list' | 'plan' | '3d';
+
+const FLOOR_OPS_VIEW_STORAGE_KEY = 'rt-floor-ops-view';
+
+function readFloorOpsViewMode(): FloorOpsViewMode {
+  if (typeof window === 'undefined') return 'plan';
+  const stored = localStorage.getItem(FLOOR_OPS_VIEW_STORAGE_KEY);
+  if (stored === 'list' || stored === 'plan' || stored === '3d') return stored;
+  return 'plan';
+}
 
 type TableState = {
   status: string;
@@ -554,9 +592,126 @@ function FloorAreaCanvas({
   );
 }
 
+function FloorTablesList({
+  areaPlans,
+  selectedTableId,
+  timeZone,
+  onSelect,
+  onDropOnTable,
+}: {
+  areaPlans: [string, TableState[]][];
+  selectedTableId?: string | null;
+  timeZone: string;
+  onSelect: (state: TableState) => void;
+  onDropOnTable: (tableId: string) => void;
+}) {
+  const columns: ColumnsType<TableState> = [
+    {
+      title: 'Table',
+      key: 'name',
+      render: (_, state) => <Text strong>{state.table.name}</Text>,
+    },
+    {
+      title: 'Seats',
+      key: 'capacity',
+      width: 90,
+      render: (_, state) => `${state.table.minCapacity}–${state.table.maxCapacity}`,
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      width: 110,
+      render: (_, state) => (
+        <Tag color={STATUS_COLORS[state.status]} style={{ textTransform: 'capitalize', margin: 0 }}>
+          {state.status}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Guest',
+      key: 'guest',
+      ellipsis: true,
+      render: (_, state) =>
+        state.reservation ? (
+          <span>
+            {guestName(state.reservation)}
+            <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+              Party {state.reservation.partySize}
+              {state.reservation.slotStart
+                ? ` · ${formatTimeInTimeZone(state.reservation.slotStart, timeZone)}`
+                : ''}
+            </Text>
+          </span>
+        ) : (
+          <Text type="secondary">—</Text>
+        ),
+    },
+    {
+      title: 'Turn',
+      key: 'turn',
+      width: 80,
+      render: (_, state) =>
+        state.turnMinutesRemaining != null && state.status !== 'free' ? (
+          formatTimer(state.turnMinutesRemaining)
+        ) : (
+          <Text type="secondary">—</Text>
+        ),
+    },
+  ];
+
+  return (
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+      {areaPlans.map(([area, states]) => {
+        const busy = states.filter((s) => s.status !== 'free').length;
+        return (
+          <Card
+            key={area}
+            title={area}
+            extra={
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {busy} busy · {states.length} tables
+              </Text>
+            }
+            styles={{ body: { padding: 0 } }}
+          >
+            <Table<TableState>
+              size="small"
+              rowKey={(row) => row.table.id}
+              pagination={false}
+              columns={columns}
+              dataSource={states}
+              onRow={(state) => ({
+                onClick: () => onSelect(state),
+                onDragOver: (e) => {
+                  e.preventDefault();
+                  e.currentTarget.style.background = colors.brand[50];
+                },
+                onDragLeave: (e) => {
+                  e.currentTarget.style.background = '';
+                },
+                onDrop: (e) => {
+                  e.preventDefault();
+                  e.currentTarget.style.background = '';
+                  onDropOnTable(state.table.id);
+                },
+                style: {
+                  cursor: 'pointer',
+                  background:
+                    state.table.id === selectedTableId ? colors.brand[50] : undefined,
+                },
+              })}
+            />
+          </Card>
+        );
+      })}
+    </Space>
+  );
+}
+
 export default function FloorOpsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const [viewMode, setViewMode] = useState<FloorOpsViewMode>(() => readFloorOpsViewMode());
   const [selectedState, setSelectedState] = useState<TableState | null>(null);
   const [dragReservationId, setDragReservationId] = useState<string | null>(null);
   const [gridCellSize, setGridCellSize] = useState<number | null>(DEFAULT_CELL_SIZE);
@@ -585,11 +740,23 @@ export default function FloorOpsPage() {
   const { data, loading, refetch } = useQuery(FLOOR_PLAN_OPS, {
     skip: !activeRestaurantId,
     variables: { restaurantId: activeRestaurantId },
-    pollInterval: 30_000,
+    // Ops status (incl. 3D colors) — 10s like merchant mobile; own actions also optimistically update.
+    pollInterval: 10_000,
     notifyOnNetworkStatusChange: false,
     skipPollAttempt: skipPollWhenHidden,
     onError: (err: Error) => message.error(err.message),
   });
+  const {
+    data: sceneData,
+    loading: sceneLoading,
+    refetch: refetchScene,
+  } = useQuery(VIRTUAL_ROOM_OPS_SCENE, {
+    skip: !activeRestaurantId || viewMode !== '3d',
+    variables: { restaurantId: activeRestaurantId },
+    fetchPolicy: 'cache-and-network',
+    onError: (err: Error) => message.error(err.message),
+  });
+  const opsScene = sceneData?.virtualRoomOpsScene as VirtualRoomSceneData | undefined;
   const initialLoading = loading && !data;
   const [seatAtTable, { loading: seating }] = useMutation(SEAT_RESERVATION_AT_TABLE);
   const [updateStatus, { loading: updatingStatus }] = useMutation(UPDATE_RESERVATION_STATUS, PENDING_BADGE_REFETCH);
@@ -619,9 +786,15 @@ export default function FloorOpsPage() {
   useEffect(() => {
     const next = data?.floorPlanOps as FloorOpsData | undefined;
     if (!next) return;
+    // Clone rows so status changes always get a new `tables` reference (Apollo can
+    // reuse the array identity after refetch, which would skip color memos).
     const normalized: FloorOpsData = {
-      tables: next.tables ?? [],
-      unassigned: next.unassigned ?? [],
+      tables: (next.tables ?? []).map((row) => ({
+        ...row,
+        table: { ...row.table },
+        reservation: row.reservation ? { ...row.reservation } : null,
+      })),
+      unassigned: [...(next.unassigned ?? [])],
       backgroundUrl: next.backgroundUrl ?? null,
       backgroundColor: next.backgroundColor ?? null,
       areaAppearances: Array.isArray(next.areaAppearances) ? next.areaAppearances : [],
@@ -635,6 +808,35 @@ export default function FloorOpsPage() {
 
   const tableStates = ops.tables;
   const unassigned = ops.unassigned;
+  const tableStatusKey = tableStates.map((s) => `${s.table.id}:${s.status}`).join('|');
+  const tableStateById = useMemo(() => {
+    const map = new Map<string, TableState>();
+    for (const state of tableStates) map.set(state.table.id, state);
+    return map;
+  }, [tableStates]);
+  const opsTableColors = useMemo(() => {
+    const colorsById: Record<string, string> = {};
+    for (const state of tableStates) {
+      colorsById[state.table.id] = STATUS_COLORS[state.status] ?? STATUS_COLORS.free;
+    }
+    return colorsById;
+  }, [tableStatusKey, tableStates]);
+  const opsTableHoverDetails = useMemo(() => {
+    const details: Record<string, string> = {};
+    for (const state of tableStates) {
+      const statusLabel = state.status.charAt(0).toUpperCase() + state.status.slice(1);
+      if (state.reservation) {
+        const turn =
+          state.turnMinutesRemaining != null && state.status !== 'free'
+            ? ` · ${formatTimer(state.turnMinutesRemaining)} left`
+            : '';
+        details[state.table.id] = `${statusLabel} · ${guestName(state.reservation)}${turn}`;
+      } else {
+        details[state.table.id] = statusLabel;
+      }
+    }
+    return details;
+  }, [tableStatusKey, tableStates]);
 
   const areaPlans = useMemo(() => {
     const grouped = new Map<string, TableState[]>();
@@ -654,28 +856,87 @@ export default function FloorOpsPage() {
     });
   }, [tableStates]);
 
+  const applyLocalTableStatus = useCallback(
+    (tableId: string, status: string, reservation: TableState['reservation'] = null) => {
+      setOps((prev) => {
+        const tables = prev.tables.map((row) =>
+          row.table.id === tableId
+            ? {
+                ...row,
+                status,
+                reservation,
+                seatedMinutes: status === 'seated' || status === 'turning' ? 0 : null,
+                turnMinutesRemaining:
+                  status === 'seated' || status === 'turning'
+                    ? (row.turnMinutesRemaining ?? 90)
+                    : null,
+              }
+            : row,
+        );
+        const next = { ...prev, tables };
+        opsSnapshotRef.current = '';
+        return next;
+      });
+    },
+    [],
+  );
+
   const handleSeatAtTable = useCallback(
     async (reservationId: string, tableId: string) => {
       try {
+        const seated =
+          tableStateById.get(tableId)?.reservation?.id === reservationId
+            ? tableStateById.get(tableId)?.reservation
+            : unassigned.find((r) => r.id === reservationId) ??
+              tableStateById.get(tableId)?.reservation ??
+              null;
+        const optimisticReservation = seated
+          ? { ...seated, status: 'seated' }
+          : ({
+              id: reservationId,
+              partySize: 0,
+              slotStart: new Date().toISOString(),
+              slotEnd: new Date().toISOString(),
+              status: 'seated',
+            } as NonNullable<TableState['reservation']>);
+        applyLocalTableStatus(tableId, 'seated', optimisticReservation);
         await seatAtTable({ variables: { reservationId, tableId } });
         message.success('Guest seated');
-        refetch();
+        opsSnapshotRef.current = '';
+        await refetch();
         setSelectedState(null);
       } catch (err: unknown) {
+        opsSnapshotRef.current = '';
+        await refetch();
         message.error(err instanceof Error ? err.message : 'Failed to seat guest');
       }
     },
-    [seatAtTable, refetch],
+    [applyLocalTableStatus, refetch, seatAtTable, tableStateById, unassigned],
   );
 
   const handleStatusChange = async (id: string, status: string, reason?: string) => {
     try {
+      if (status === 'completed' || status === 'cancelled' || status === 'no_show') {
+        const tableId = tableStates.find((s) => s.reservation?.id === id)?.table.id;
+        if (tableId) applyLocalTableStatus(tableId, 'free', null);
+      } else if (status === 'seated') {
+        const row = tableStates.find((s) => s.reservation?.id === id);
+        if (row) {
+          applyLocalTableStatus(row.table.id, 'seated', {
+            ...row.reservation!,
+            status: 'seated',
+          });
+        }
+      }
       await updateStatus({ variables: { id, status, reason } });
       message.success(`Reservation ${status}`);
-      refetch();
+      opsSnapshotRef.current = '';
+      await refetch();
       setSelectedState(null);
       return true;
     } catch (err: unknown) {
+      opsSnapshotRef.current = '';
+      await refetch();
       message.error(err instanceof Error ? err.message : 'Failed to update');
       return false;
     }
@@ -750,6 +1011,59 @@ export default function FloorOpsPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [handleRotateTable, selectedState]);
 
+  const canEditBilling = Boolean(user && canManageBilling(user.role));
+  const showAddonRail = Boolean(user && !isHostRole(user.role));
+
+  const setFloorOpsViewMode = (next: FloorOpsViewMode) => {
+    setViewMode(next);
+    localStorage.setItem(FLOOR_OPS_VIEW_STORAGE_KEY, next);
+  };
+
+  const arrivingPanel = (
+    <Card
+      title={`Arriving (${unassigned.length})`}
+      style={{ width: '100%', position: 'sticky', top: 16 }}
+      styles={{ body: { maxHeight: 480, overflow: 'auto' } }}
+    >
+      {unassigned.length === 0 ? (
+        <Text type="secondary">No unassigned arrivals</Text>
+      ) : (
+        <Space orientation="vertical" style={{ width: '100%' }} size={8}>
+          {unassigned.map((r: any) => (
+            <div
+              key={r.id}
+              draggable={viewMode !== '3d'}
+              onDragStart={() => setDragReservationId(r.id)}
+              onDragEnd={() => setDragReservationId(null)}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: `1px solid ${colors.neutral[200]}`,
+                background: dragReservationId === r.id ? colors.brand[50] : '#fff',
+                cursor: viewMode === '3d' ? 'default' : 'grab',
+              }}
+            >
+              <Text strong>
+                {`${r.diner?.firstName ?? ''} ${r.diner?.lastName ?? ''}`.trim() || 'Guest'}
+              </Text>
+              <div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Party {r.partySize} · {formatTimeInTimeZone(r.slotStart, timeZone)}
+                </Text>
+              </div>
+              <Tag style={{ marginTop: 4 }}>{r.status}</Tag>
+            </div>
+          ))}
+        </Space>
+      )}
+      <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 12 }}>
+        {viewMode === '3d'
+          ? 'Open a table in 3D, then seat an arriving guest from the table drawer'
+          : 'Drag a guest onto a table to seat them'}
+      </Text>
+    </Card>
+  );
+
   return (
     <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
@@ -758,29 +1072,43 @@ export default function FloorOpsPage() {
         </Title>
         <Space wrap>
           <Select style={{ width: '100%', maxWidth: 220 }} {...restaurantSelectProps} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 180 }}>
-            <Text type="secondary" style={{ whiteSpace: 'nowrap' }}>
-              Grid size
-            </Text>
-            <Slider
-              min={MIN_CELL_SIZE}
-              max={MAX_CELL_SIZE}
-              value={gridCellSize ?? DEFAULT_CELL_SIZE}
-              onChange={(value) => setGridCellSize(value)}
-              style={{ width: 120, margin: 0 }}
-              tooltip={{ formatter: (value) => `${value}px` }}
-            />
-            <Button size="small" disabled={gridCellSize == null} onClick={() => setGridCellSize(null)}>
-              Fit
-            </Button>
-          </div>
+          <Segmented<FloorOpsViewMode>
+            value={viewMode}
+            onChange={setFloorOpsViewMode}
+            options={[
+              { label: 'List', value: 'list', icon: <UnorderedListOutlined /> },
+              { label: 'Floor plan', value: 'plan', icon: <AppstoreOutlined /> },
+              { label: '3D', value: '3d', icon: <ExperimentOutlined /> },
+            ]}
+          />
+          {viewMode === 'plan' ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 180 }}>
+              <Text type="secondary" style={{ whiteSpace: 'nowrap' }}>
+                Grid size
+              </Text>
+              <Slider
+                min={MIN_CELL_SIZE}
+                max={MAX_CELL_SIZE}
+                value={gridCellSize ?? DEFAULT_CELL_SIZE}
+                onChange={(value) => setGridCellSize(value)}
+                style={{ width: 120, margin: 0 }}
+                tooltip={{ formatter: (value) => `${value}px` }}
+              />
+              <Button size="small" disabled={gridCellSize == null} onClick={() => setGridCellSize(null)}>
+                Fit
+              </Button>
+            </div>
+          ) : null}
           <Button
             icon={<ReloadOutlined />}
-            loading={initialLoading || manualRefreshing}
+            loading={initialLoading || manualRefreshing || (viewMode === '3d' && sceneLoading)}
             onClick={async () => {
               setManualRefreshing(true);
               try {
-                await refetch();
+                await Promise.all([
+                  refetch(),
+                  viewMode === '3d' ? refetchScene() : Promise.resolve(),
+                ]);
               } finally {
                 setManualRefreshing(false);
               }
@@ -791,99 +1119,157 @@ export default function FloorOpsPage() {
         </Space>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {Object.entries(STATUS_COLORS).map(([status, color]) => (
-          <Space key={status} size={4}>
-            <span style={{ width: 12, height: 12, borderRadius: 4, background: color, display: 'inline-block' }} />
-            <Text type="secondary" style={{ textTransform: 'capitalize' }}>
-              {status}
-            </Text>
-          </Space>
-        ))}
-      </div>
-
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <div style={{ flex: '1 1 520px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {initialLoading ? (
-            <Card loading />
-          ) : areaPlans.length === 0 ? (
-            <Card>
-              <Empty description="No tables configured. Add tables in Tables & shifts." />
-            </Card>
-          ) : (
-            areaPlans.map(([area, states]) => {
-              const appearance = resolveFloorAreaAppearance(area, ops.areaAppearances, {
-                backgroundColor: ops.backgroundColor,
-                backgroundUrl: ops.backgroundUrl,
-              });
-              return (
-                <FloorAreaCanvas
-                  key={area}
-                  title={area}
-                  states={states}
-                  fixtures={ops.floorFixtures}
-                  backgroundUrl={appearance.backgroundUrl}
-                  backgroundColor={appearance.backgroundColor}
-                  cellSize={gridCellSize}
-                  selectedTableId={selectedState?.table.id}
-                  dragReservationId={dragReservationId}
-                  onSelect={setSelectedState}
-                  onDropOnTable={onDropOnTable}
-                  onRotateChange={applyTableRotation}
-                  onRotateCommit={(tableId, rotation) => void handleRotateTable(tableId, rotation)}
-                  onEdit={() => {
-                    const params = new URLSearchParams();
-                    if (activeRestaurantId) params.set('restaurant', activeRestaurantId);
-                    params.set('area', area);
-                    router.push(`/floor-plan?${params.toString()}`);
-                  }}
-                />
-              );
-            })
-          )}
-        </div>
-
-        <Card
-          title={`Arriving (${unassigned.length})`}
-          style={{ flex: '1 1 260px', minWidth: 0, maxWidth: '100%', position: 'sticky', top: 16 }}
-          styles={{ body: { maxHeight: 480, overflow: 'auto' } }}
-        >
-          {unassigned.length === 0 ? (
-            <Text type="secondary">No unassigned arrivals</Text>
-          ) : (
-            <Space orientation="vertical" style={{ width: '100%' }} size={8}>
-              {unassigned.map((r: any) => (
-                <div
-                  key={r.id}
-                  draggable
-                  onDragStart={() => setDragReservationId(r.id)}
-                  onDragEnd={() => setDragReservationId(null)}
-                  style={{
-                    padding: '10px 12px',
-                    borderRadius: 8,
-                    border: `1px solid ${colors.neutral[200]}`,
-                    background: dragReservationId === r.id ? colors.brand[50] : '#fff',
-                    cursor: 'grab',
-                  }}
-                >
-                  <Text strong>
-                    {`${r.diner?.firstName ?? ''} ${r.diner?.lastName ?? ''}`.trim() || 'Guest'}
-                  </Text>
-                  <div>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      Party {r.partySize} · {formatTimeInTimeZone(r.slotStart, timeZone)}
-                    </Text>
-                  </div>
-                  <Tag style={{ marginTop: 4 }}>{r.status}</Tag>
-                </div>
-              ))}
+      {viewMode !== '3d' ? (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {Object.entries(STATUS_COLORS).map(([status, color]) => (
+            <Space key={status} size={4}>
+              <span style={{ width: 12, height: 12, borderRadius: 4, background: color, display: 'inline-block' }} />
+              <Text type="secondary" style={{ textTransform: 'capitalize' }}>
+                {status}
+              </Text>
             </Space>
-          )}
-          <Text type="secondary" style={{ display: 'block', marginTop: 12, fontSize: 12 }}>
-            Drag a guest onto a table to seat them
-          </Text>
-        </Card>
-      </div>
+          ))}
+        </div>
+      ) : null}
+
+      {viewMode === '3d' ? (
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <Card
+            title="Live 3D"
+            style={{ flex: '1 1 560px', minWidth: 0 }}
+            extra={
+              showAddonRail ? (
+                <Link href="/virtual-room">
+                  <Button size="small" icon={<EditOutlined />}>
+                    Edit layout
+                  </Button>
+                </Link>
+              ) : null
+            }
+            styles={{ body: { padding: 12 } }}
+          >
+            {sceneLoading && !opsScene ? (
+              <Skeleton.Node active style={{ width: '100%', height: 560 }} />
+            ) : !opsScene || opsScene.areas.length === 0 ? (
+              <Empty
+                description={
+                  <span>
+                    No 3D room yet. Publish a{' '}
+                    <Link href="/floor-plan">table layout</Link> first
+                    {showAddonRail ? (
+                      <>
+                        , then open the <Link href="/virtual-room">Virtual 3D room</Link> editor
+                      </>
+                    ) : null}
+                    .
+                  </span>
+                }
+              />
+            ) : (
+              <VirtualRoomViewer
+                scene={opsScene}
+                tableColors={opsTableColors}
+                tableHoverDetails={opsTableHoverDetails}
+                statusLegend={OPS_3D_STATUS_LEGEND}
+                opsSelectMode
+                selectedTableId={selectedState?.table.id}
+                onSelectTable={(tableId) => {
+                  const state = tableStateById.get(tableId);
+                  if (state) setSelectedState(state);
+                }}
+                height="min(70vh, 720px)"
+              />
+            )}
+            <Paragraph type="secondary" style={{ margin: '8px 0 0', fontSize: 12 }}>
+              Tables are colored by live status. Click a table to seat, complete, or cancel.
+              Drag to orbit · scroll zoom · right-drag pan.
+            </Paragraph>
+          </Card>
+
+          <div
+            style={{
+              flex: '0 1 340px',
+              minWidth: 280,
+              maxWidth: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16,
+            }}
+          >
+            {showAddonRail ? (
+              <>
+                <Card size="small">
+                  <Text strong>Let guests pick their table in 3D</Text>
+                  <Paragraph type="secondary" style={{ margin: '4px 0 0' }}>
+                    Diners explore your dining room and choose the exact table they want before
+                    they book — a clearer choice that helps convert browsers into reservations.
+                  </Paragraph>
+                </Card>
+                {activeRestaurantId ? (
+                  <VirtualRoomAddonCard
+                    restaurantId={activeRestaurantId}
+                    canEditBilling={canEditBilling}
+                    showWhenUnavailable
+                  />
+                ) : null}
+              </>
+            ) : null}
+            {arrivingPanel}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <div style={{ flex: '1 1 520px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {initialLoading ? (
+              <Card loading />
+            ) : areaPlans.length === 0 ? (
+              <Card>
+                <Empty description="No tables configured. Add tables in Tables & shifts." />
+              </Card>
+            ) : viewMode === 'list' ? (
+              <FloorTablesList
+                areaPlans={areaPlans}
+                selectedTableId={selectedState?.table.id}
+                timeZone={timeZone}
+                onSelect={setSelectedState}
+                onDropOnTable={onDropOnTable}
+              />
+            ) : (
+              areaPlans.map(([area, states]) => {
+                const appearance = resolveFloorAreaAppearance(area, ops.areaAppearances, {
+                  backgroundColor: ops.backgroundColor,
+                  backgroundUrl: ops.backgroundUrl,
+                });
+                return (
+                  <FloorAreaCanvas
+                    key={area}
+                    title={area}
+                    states={states}
+                    fixtures={ops.floorFixtures}
+                    backgroundUrl={appearance.backgroundUrl}
+                    backgroundColor={appearance.backgroundColor}
+                    cellSize={gridCellSize}
+                    selectedTableId={selectedState?.table.id}
+                    dragReservationId={dragReservationId}
+                    onSelect={setSelectedState}
+                    onDropOnTable={onDropOnTable}
+                    onRotateChange={applyTableRotation}
+                    onRotateCommit={(tableId, rotation) => void handleRotateTable(tableId, rotation)}
+                    onEdit={() => {
+                      const params = new URLSearchParams();
+                      if (activeRestaurantId) params.set('restaurant', activeRestaurantId);
+                      params.set('area', area);
+                      router.push(`/floor-plan?${params.toString()}`);
+                    }}
+                  />
+                );
+              })
+            )}
+          </div>
+
+          <div style={{ flex: '1 1 260px', minWidth: 0, maxWidth: '100%' }}>{arrivingPanel}</div>
+        </div>
+      )}
 
       <Drawer
         title={selectedState ? `Table ${selectedState.table.name}` : 'Table'}

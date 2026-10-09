@@ -47,6 +47,7 @@ export type BookingDetailsStepProps = {
   restaurantMinRedeem: number;
   platformProgram?: LoyaltyProgram | null;
   depositBreakdown: DepositBreakdown;
+  cancellationPeriodHours?: number | null;
   promoMessage?: string | null;
   promoValid?: boolean;
   giftMessage?: string | null;
@@ -91,6 +92,7 @@ export function BookingDetailsStep({
   restaurantMinRedeem,
   platformProgram,
   depositBreakdown,
+  cancellationPeriodHours,
   promoMessage,
   promoValid,
   giftMessage,
@@ -203,7 +205,10 @@ export function BookingDetailsStep({
         onRedeemRestaurantPointsChange={onRedeemRestaurantPointsChange}
       />
 
-      <BookingDepositSummary breakdown={depositBreakdown} />
+      <BookingDepositSummary
+        breakdown={depositBreakdown}
+        cancellationPeriodHours={cancellationPeriodHours}
+      />
     </Flex>
   );
 }

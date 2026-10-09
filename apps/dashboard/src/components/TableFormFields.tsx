@@ -37,6 +37,8 @@ export const tableFormTips = {
   depositRequired:
     'Charge a per-guest deposit for this table instead of the restaurant default. When off, the restaurant deposit setting applies.',
   depositAmount: 'Deposit charged per guest for this table, in USD (e.g. 25.00 = $25.00).',
+  cancellationPeriodHours:
+    'Hours before the reservation when free cancellation ends for bookings on this table. Leave empty to use the restaurant or platform default.',
   photoUrl: 'Optional photo shown on the diner restaurant page.',
 } as const;
 
@@ -44,15 +46,18 @@ export const tableFormTips = {
 export type TableDepositFormValues = {
   depositRequired?: boolean;
   depositAmount?: number | null;
+  cancellationPeriodHours?: number | null;
 };
 
 export function tableDepositFormValues(table: {
   depositRequired?: boolean | null;
   depositAmountCents?: number | null;
+  cancellationPeriodHours?: number | null;
 }): TableDepositFormValues {
   return {
     depositRequired: table.depositRequired ?? false,
     depositAmount: table.depositAmountCents ? table.depositAmountCents / 100 : null,
+    cancellationPeriodHours: table.cancellationPeriodHours ?? null,
   };
 }
 
@@ -63,6 +68,10 @@ export function tableDepositInput(values: TableDepositFormValues) {
     depositAmountCents: depositRequired
       ? Math.round((Number(values.depositAmount) || 0) * 100)
       : 0,
+    cancellationPeriodHours:
+      values.cancellationPeriodHours == null || !(Number(values.cancellationPeriodHours) >= 1)
+        ? null
+        : Math.round(Number(values.cancellationPeriodHours)),
   };
 }
 
@@ -333,6 +342,21 @@ export function TableFormFields({
           </Form.Item>
         </Col>
       </Row>
+
+      <Form.Item
+        name="cancellationPeriodHours"
+        label="Cancel / no-show window (hours)"
+        tooltip={tableFormTips.cancellationPeriodHours}
+        style={{ marginBottom: 12 }}
+      >
+        <InputNumber
+          min={1}
+          max={720}
+          precision={0}
+          placeholder="Restaurant / platform default"
+          style={{ width: '100%' }}
+        />
+      </Form.Item>
 
       <Form.Item
         name="photoUrl"

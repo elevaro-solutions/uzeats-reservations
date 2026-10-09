@@ -1,5 +1,13 @@
 # Web — Learnings & Observations
 
+## [2026-10-09] Confirm modal keeps money out of the details list
+- `ReservationConfirmModal` shows date/time/party as a summary strip; guest/table/notes stay in a light detail list. Package/room/experience prices, 3D fee, discounts, Due now, and card guarantee live in a separate charges card. Full terms stay behind Collapse so the agree checkbox stays above the fold.
+- Why it matters: Mixing fee policy paragraphs into bordered Descriptions made the modal feel like one long spreadsheet and pushed Confirm below the viewport.
+
+## [2026-10-09] Blog reads are client-recorded once per tab session
+- `BlogReadTracker` on `/blog/[slug]` calls `recordBlogPostRead` after mount. `sessionStorage` key `blog-read:<slug>` prevents refresh double-counts in the same tab. Server/ISR render never increments (crawlers without JS stay out of the count).
+- Why it matters: Do not `$inc` inside the article RSC/query — cached HTML and bots would inflate reads.
+
 ## [2026-10-06] Stripe Payment Element ready before card actions
 - `DepositPayment` and `/reservations/pay` wait for Payment Element `onReady` before showing Cancel / Save card / Pay now. `stripe` + `elements` existing is not enough — the iframe can still be loading.
 - `onLoadError` still reveals Cancel (and disables Save/Pay) so a failed Stripe load is not a trap.
@@ -162,3 +170,14 @@
 - Antd large `Input`/`Select`/`DatePicker`/`AutoComplete` each render at different heights in `DiscoverySearchPanel`, and a `min-height` on the inner `.ant-input`/`.ant-select-content` stacks on top of the wrapper's 11–12px padding (58px controls). The panel pins wrappers to `height: 36px` (30px in `--map`) with zero block padding so labels line up.
 - Why it matters: Add new search fields as `.rt-search-field` children so they pick up the `.rt-search-panel .rt-search-field` height rules, or the pill grows and labels misalign.
 
+
+## [2026-10-07] Media CSP covers the uploads CDN
+- three.js `GLTFLoader`/`TextureLoader` use `fetch`/XHR, so scan models and wall photos need `connect-src`, not just `img-src`. `securityHeaders.mjs` adds `*.digitaloceanspaces.com` + `NEXT_PUBLIC_MEDIA_CDN_URL` to `connect-src` and a `media-src` for `<video>`. Local uploads go through `browserMediaUrl` (same-origin rewrite).
+- `VirtualRoomViewer` must be loaded with `next/dynamic` + `ssr: false` (WebGL / `window`).
+- Why it matters: A CDN on a new host needs `NEXT_PUBLIC_MEDIA_CDN_URL` or the 3D room silently falls back to plain walls.
+
+## [2026-10-09] Booking card: 3D CTA vs auto-assign
+- When Virtual Room is shown and guest list selection is off, do not render the auto-assign Alert — `VirtualRoomTablePicker` with `selectionOptional` owns the fallback copy as secondary text under the CTA.
+- Diner-paid fees: pass `dinerFeePreviewLabel` / `dinerFeeCentsForTable` / `selectedDinerFeeCents` from the page (built via `dinerVirtualRoomSelectionFeeTotalCents`). Hide when restaurant pays.
+- Special requests: drop “seating preferences” from the placeholder when Virtual Room is on; point diners to the 3D CTA instead. Promo/gift inputs live in a collapsed “Have a promo or gift card?” panel so the card stays short; auto-applied promos stay visible above.
+- Why it matters: Competing messages undercut the paid 3D table-selection path.

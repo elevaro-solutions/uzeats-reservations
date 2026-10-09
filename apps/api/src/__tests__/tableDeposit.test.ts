@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   resolveDepositPerGuestCents,
   resolveTableDepositCents,
+  resolveCancellationPeriodHours,
   dinerCancelChargePreview,
   dinerCancelChargeWarning,
+  isLateCancellation,
 } from '@reservations/shared';
 
 const restaurantOn = { depositRequired: true, depositAmountCents: 2500 };
@@ -67,6 +69,19 @@ describe('resolveTableDepositCents', () => {
   });
 });
 
+describe('resolveCancellationPeriodHours', () => {
+  it('defaults to 24 when nothing is set', () => {
+    expect(resolveCancellationPeriodHours([])).toBe(24);
+    expect(resolveCancellationPeriodHours([null, undefined])).toBe(24);
+  });
+
+  it('uses the most specific override first', () => {
+    expect(resolveCancellationPeriodHours([48, 12, 24])).toBe(48);
+    expect(resolveCancellationPeriodHours([null, 12, 24])).toBe(12);
+    expect(resolveCancellationPeriodHours([null, null, 36])).toBe(36);
+  });
+});
+
 describe('dinerCancelChargePreview', () => {
   const start = new Date(Date.now() + 2 * 3_600_000);
 
@@ -79,6 +94,29 @@ describe('dinerCancelChargePreview', () => {
         cardGuaranteeStatus: 'card_saved',
       }),
     ).toEqual({ late: true, noShowFeeCents: 5000, prepaidForfeitCents: 0 });
+  });
+
+  it('respects a longer cancellation period', () => {
+    const in30h = new Date(Date.now() + 30 * 3_600_000);
+    expect(isLateCancellation(in30h, new Date(), 48)).toBe(true);
+    expect(
+      dinerCancelChargePreview({
+        status: 'confirmed',
+        slotStart: in30h,
+        noShowFeeCents: 5000,
+        cardGuaranteeStatus: 'card_saved',
+        cancellationPeriodHours: 48,
+      }),
+    ).toEqual({ late: true, noShowFeeCents: 5000, prepaidForfeitCents: 0 });
+    expect(
+      dinerCancelChargePreview({
+        status: 'confirmed',
+        slotStart: in30h,
+        noShowFeeCents: 5000,
+        cardGuaranteeStatus: 'card_saved',
+        cancellationPeriodHours: 24,
+      }),
+    ).toEqual({ late: false, noShowFeeCents: 0, prepaidForfeitCents: 0 });
   });
 
   it('does not charge when the booking is still outside the window', () => {

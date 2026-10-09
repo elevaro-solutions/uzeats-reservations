@@ -31,7 +31,9 @@ export const restaurantFieldTooltips = {
   depositAmountCents:
     'Default amount per guest, in USD (e.g. 25.00 = $25.00). Tables with their own deposit use that amount instead.',
   depositPolicy:
-    'Card guarantee (recommended, OpenTable/Resy style): the card is saved and nothing is charged; the amount is charged only for a no-show or a cancellation within 24 hours. Prepaid: charged at booking, applied to the bill, refunded if the guest cancels 24+ hours ahead.',
+    'Card guarantee (recommended, OpenTable/Resy style): the card is saved and nothing is charged; the amount is charged only for a no-show or a late cancellation inside the cancel window below. Prepaid: charged at booking, applied to the bill, refunded if the guest cancels outside that window.',
+  cancellationPeriodHours:
+    'Hours before the reservation when free cancellation ends. Late cancels and no-shows may forfeit a prepaid deposit or trigger the card-guarantee fee. Leave empty to use the platform default (usually 24). Tables, experiences, and private rooms can override this.',
   loyaltyEnabled:
     'Run a loyalty program for this restaurant. Guests earn points per completed visit and can redeem against deposits.',
   loyaltyPointsPerVisit: 'Points awarded when a guest completes a visit at your restaurant.',

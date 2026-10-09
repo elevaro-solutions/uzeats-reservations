@@ -29,6 +29,7 @@ import {
   DISCOVERY_OCCASIONS,
   MEALS,
 } from "./discovery.js";
+import { TABLE_SELECTION_SOURCES } from "./virtualRoom.js";
 
 export const emailSchema = z.string().email().toLowerCase();
 
@@ -213,6 +214,11 @@ export const restaurantInputSchema = z.object({
   depositAmountCents: z.number().int().min(0).default(0),
   // No default: partial updates must not flip an existing restaurant's policy.
   depositPolicy: z.enum(["card_guarantee", "prepaid"]).optional(),
+  /**
+   * Hours before slot start when free cancel ends. Null inherits platform default (24).
+   * Max 720 (30 days).
+   */
+  cancellationPeriodHours: z.number().int().min(1).max(720).nullable().optional(),
   loyaltyEnabled: z.boolean().default(false),
   loyaltyPointsPerVisit: z.number().int().min(0).default(50),
   loyaltyMinRedeemPoints: z.number().int().min(0).default(200),
@@ -265,6 +271,7 @@ export const floorFixtureKindSchema = z.enum([
   'kitchen',
   'wall',
   'door',
+  'window',
   'plant',
   'other',
 ]);
@@ -276,8 +283,8 @@ export const floorFixtureSchema = z.object({
   floorArea: z.string().max(60).default('Main'),
   posX: z.number().min(0).max(500),
   posY: z.number().min(0).max(500),
-  width: z.number().min(0.5).max(48),
-  height: z.number().min(0.5).max(48),
+  width: z.number().min(0.25).max(48),
+  height: z.number().min(0.25).max(48),
   rotation: z.number().min(0).max(360).default(0),
 });
 
@@ -347,6 +354,17 @@ export const tableInputSchema = z
     // or the per-table deposit override.
     depositRequired: z.boolean().optional(),
     depositAmountCents: z.number().int().min(0).max(1_000_000).optional(),
+    /** Hours before slot start when free cancel ends. Null inherits restaurant/platform. */
+    cancellationPeriodHours: z.number().int().min(1).max(720).nullable().optional(),
+    /** When false, guests cannot pick this table in 3D. Default true. */
+    virtualRoomSelectable: z.boolean().optional(),
+    /**
+     * When restaurant fee applyTo is `selected`, only tables with this on incur the fee.
+     * When applyTo is `all`, set false to opt this table out.
+     */
+    virtualRoomSelectionFeeEnabled: z.boolean().optional(),
+    /** Per-table unit fee override in cents; null inherits area/restaurant/platform. */
+    virtualRoomSelectionFeeCents: z.number().int().min(0).max(1_000_000).optional().nullable(),
     posX: z.number().min(0).max(500).optional(),
     posY: z.number().min(0).max(500).optional(),
     width: z.number().min(1).max(24).optional(),
@@ -398,6 +416,8 @@ export const reservationInputSchema = z.object({
   /** Billing channel; diner clients may omit — resolved from UTMs when possible. */
   source: z.enum(["network", "website", "widget"]).optional(),
   tableId: z.string().min(1).optional(),
+  /** `virtual_3d` when the diner picked `tableId` in the 3D room view. */
+  tableSelectionSource: z.enum(TABLE_SELECTION_SOURCES).optional(),
   packageId: z.string().min(1).optional(),
   privateDiningSpaceId: z.string().min(1).optional(),
   experienceId: z.string().min(1).optional(),

@@ -16,6 +16,7 @@ import {
   DashboardOutlined,
   DollarOutlined,
   DownloadOutlined,
+  ExperimentOutlined,
   FileDoneOutlined,
   FileTextOutlined,
   FlagOutlined,
@@ -125,6 +126,11 @@ export const PARTNER_PAGES: DashboardPage[] = [
   page('/floor-plan/settings', 'Area settings', 'Service', 'partner', <SettingOutlined />, {
     keywords: ['background', 'color', 'scale', 'feet', 'meters', 'underlay'],
     description: 'Canvas color, background image, and real-world scale',
+    parentSiderHref: '/settings',
+  }),
+  page('/virtual-room', 'Virtual 3D room', 'Service', 'partner', <ExperimentOutlined />, {
+    keywords: ['3d', 'virtual tour', '360', 'panorama', 'scan', 'video', 'table selection'],
+    description: 'Experimental: 3D dining room built from your floor plan, photos, and video',
     parentSiderHref: '/settings',
   }),
   page('/floor', 'Tables & shifts', 'Service', 'partner', <TableOutlined />, {
@@ -368,8 +374,8 @@ export const ADMIN_PAGES: DashboardPage[] = [
     parentSiderHref: '/admin/platform',
   }),
   page('/admin/blog', 'Blog', 'Platform', 'admin', <FileTextOutlined />, {
-    keywords: ['posts', 'cms'],
-    description: 'Public blog posts and CMS',
+    keywords: ['posts', 'cms', 'reads', 'top articles'],
+    description: 'Public blog posts, CMS, and top articles by reads',
     parentSiderHref: '/admin/platform',
   }),
   page('/admin/docs-access', 'Docs access', 'Platform', 'admin', <BookOutlined />, {

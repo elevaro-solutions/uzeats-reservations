@@ -10,6 +10,7 @@ import { reservationOccasionLabel } from "./reservation-occasion.helpers";
 
 export type ReservationRow = {
   id: string;
+  confirmationNumber?: string | null;
   restaurantId: string;
   partySize: number;
   slotStart: string;
@@ -97,6 +98,13 @@ export function buildBookingRows(
   reservation: ReservationRow,
 ): ReservationDetailRow[] {
   const rows: ReservationDetailRow[] = [];
+  if (reservation.confirmationNumber) {
+    rows.push({
+      key: "confirmation",
+      label: "Confirmation",
+      value: reservation.confirmationNumber,
+    });
+  }
   if (reservation.source) {
     rows.push({
       key: "source",

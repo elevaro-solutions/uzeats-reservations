@@ -11,20 +11,35 @@ import {
   resolveBookingCharges,
   BOOKING_CARD_HOLD_MINUTES,
   isLateCancellation,
+  resolveCancellationPeriodHours,
   splitReservationCancellationReason,
   OCCASION_LABELS,
   resolveDinerReservationSource,
+  resolveVirtualRoomSelectionFee,
+  isVirtualRoomTableSelectable,
+  VIRTUAL_ROOM_DEFAULT_SELECTION_FEE_MODE,
+  VIRTUAL_ROOM_DEFAULT_SELECTION_FEE_PAYER,
+  dinerVirtualRoomSelectionFeeTotalCents,
   type Occasion,
+  type VirtualRoomSelectionFeeMode,
+  type VirtualRoomSelectionFeePayer,
 } from '@reservations/shared';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../lib/errors.js';
+import {
+  generateReservationConfirmationNumber,
+  resolveReservationConfirmationNumber,
+} from '../lib/reservationConfirmationNumber.js';
 import { Reservation } from '../models/Reservation.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { Table } from '../models/Table.js';
+import { VirtualRoom } from '../models/VirtualRoom.js';
 import { User } from '../models/User.js';
 import { Subscription } from '../models/Subscription.js';
 import { CoverFee } from '../models/CoverFee.js';
 import { Message } from '../models/Message.js';
 import { findAvailableTable, getTurnTimeMinutes } from './availability.js';
+import { canSelectTableIn3d, recordVirtualRoomGuestFee } from './virtualRoom.js';
+import { getPlatformConfig, getVirtualRoomPricing, mapPlatformConfig } from './platformConfig.js';
 import { smartAssignTable } from './smartAssign.js';
 import {
   refundDeposit,
@@ -191,6 +206,13 @@ async function notifyDinerBookingConfirmed(input: {
     { label: 'Date & time', value: when },
     { label: 'Party size', value: partySizeLabel },
     { label: 'Occasion', value: occasion },
+    {
+      label: 'Confirmation',
+      value: resolveReservationConfirmationNumber(
+        reservation?.confirmationNumber,
+        input.reservationId,
+      ),
+    },
   );
   if (tableName) detailRows.push({ label: 'Table', value: tableName });
   if (reservation?.packageTitle) {
@@ -500,6 +522,7 @@ export async function createReservation(input: {
   giftCardCode?: string;
   source?: string;
   tableId?: string;
+  tableSelectionSource?: 'list' | 'virtual_3d';
   packageId?: string;
   privateDiningSpaceId?: string;
   experienceId?: string;
@@ -525,7 +548,12 @@ export async function createReservation(input: {
     throw new ValidationError('That time is no longer available — pick a future slot');
   }
 
-  if (input.tableId && !restaurant.allowGuestTableSelection) {
+  // A live 3D room implies guest table selection, even when the list picker is off.
+  const selectedIn3d =
+    Boolean(input.tableId) &&
+    input.tableSelectionSource === 'virtual_3d' &&
+    (await canSelectTableIn3d(input.restaurantId));
+  if (input.tableId && !restaurant.allowGuestTableSelection && !selectedIn3d) {
     throw new ValidationError('Table selection is not enabled for this restaurant');
   }
 
@@ -573,6 +601,7 @@ export async function createReservation(input: {
   let privateDiningSpaceId: string | undefined;
   let privateDiningRequiresManualApproval = false;
   let privateDiningTableIds: string[] | undefined;
+  let privateDiningCancellationPeriodHours: number | null = null;
   if (input.privateDiningSpaceId) {
     const space = await PrivateDiningSpace.findById(input.privateDiningSpaceId);
     if (!space || space.restaurantId.toString() !== input.restaurantId || !space.active) {
@@ -591,6 +620,11 @@ export async function createReservation(input: {
     privateDiningSpaceName = space.name;
     privateDiningPriceCents = space.rentalFeeCents ?? 0;
     privateDiningRequiresManualApproval = space.requiresManualApproval === true;
+    privateDiningCancellationPeriodHours =
+      typeof (space as { cancellationPeriodHours?: number | null }).cancellationPeriodHours ===
+        'number'
+        ? (space as { cancellationPeriodHours?: number | null }).cancellationPeriodHours ?? null
+        : null;
   }
 
   let experienceTitle: string | undefined;
@@ -598,6 +632,7 @@ export async function createReservation(input: {
   let experienceId: string | undefined;
   let experienceTicketQty = 0;
   let experienceRequiresManualApproval = false;
+  let experienceCancellationPeriodHours: number | null = null;
   if (input.experienceId) {
     const exp = await Experience.findById(input.experienceId);
     if (!exp || exp.restaurantId.toString() !== input.restaurantId) {
@@ -629,6 +664,11 @@ export async function createReservation(input: {
     experienceTicketQty = input.partySize;
     experiencePriceCents = exp.ticketPriceCents * input.partySize;
     experienceRequiresManualApproval = exp.requiresManualApproval === true;
+    experienceCancellationPeriodHours =
+      typeof (exp as { cancellationPeriodHours?: number | null }).cancellationPeriodHours ===
+        'number'
+        ? (exp as { cancellationPeriodHours?: number | null }).cancellationPeriodHours ?? null
+        : null;
   }
 
   const turn = await getTurnTimeMinutes(input.restaurantId, input.slotStart);
@@ -658,6 +698,88 @@ export async function createReservation(input: {
   });
   if (!table) throw new ConflictError('No tables available for this time');
 
+  let virtualRoomGuestFeeCents = 0;
+  let virtualRoomRestaurantFeeCents = 0;
+  let virtualRoomSelectionFeeMode: VirtualRoomSelectionFeeMode =
+    VIRTUAL_ROOM_DEFAULT_SELECTION_FEE_MODE;
+  let virtualRoomSelectionFeePayer: VirtualRoomSelectionFeePayer =
+    VIRTUAL_ROOM_DEFAULT_SELECTION_FEE_PAYER;
+  let dinerVirtualRoomSelectionFeeCents = 0;
+  if (selectedIn3d) {
+    const pricing = await getVirtualRoomPricing();
+    virtualRoomSelectionFeePayer = pricing.selectionFeePayer;
+    const areaName = (table.floorArea || 'Main').trim() || 'Main';
+    const room = await VirtualRoom.findOne({ restaurantId: input.restaurantId }).select(
+      'areaSettings',
+    );
+    const areaSetting = ((room?.areaSettings ?? []) as Array<{
+      floorArea?: string;
+      guestSelectable?: boolean;
+      selectionFeeCharged?: boolean;
+      selectionFeeCents?: number;
+    }>).find(
+      (s) => (s.floorArea || 'Main').trim().toLowerCase() === areaName.toLowerCase(),
+    );
+    if (
+      !isVirtualRoomTableSelectable({
+        area: { guestSelectable: areaSetting?.guestSelectable },
+        table: {
+          virtualRoomSelectable: (table as { virtualRoomSelectable?: boolean })
+            .virtualRoomSelectable,
+        },
+      })
+    ) {
+      throw new ValidationError('That table cannot be selected in the 3D room');
+    }
+    const fee = resolveVirtualRoomSelectionFee({
+      platform: pricing,
+      restaurant: {
+        virtualRoomSelectionFeeEnabled: restaurant.virtualRoomSelectionFeeEnabled,
+        virtualRoomSelectionFeeMode: restaurant.virtualRoomSelectionFeeMode as
+          | VirtualRoomSelectionFeeMode
+          | null
+          | undefined,
+        virtualRoomSelectionFeeCents: restaurant.virtualRoomSelectionFeeCents,
+        virtualRoomSelectionFeeApplyTo: restaurant.virtualRoomSelectionFeeApplyTo as
+          | 'all'
+          | 'selected'
+          | null
+          | undefined,
+      },
+      area: {
+        selectionFeeCharged: areaSetting?.selectionFeeCharged,
+        selectionFeeCents: areaSetting?.selectionFeeCents,
+      },
+      table: {
+        virtualRoomSelectionFeeEnabled: (table as { virtualRoomSelectionFeeEnabled?: boolean })
+          .virtualRoomSelectionFeeEnabled,
+        virtualRoomSelectionFeeCents:
+          typeof (table as { virtualRoomSelectionFeeCents?: number }).virtualRoomSelectionFeeCents ===
+          'number'
+            ? (table as { virtualRoomSelectionFeeCents?: number }).virtualRoomSelectionFeeCents
+            : null,
+      },
+    });
+    if (fee) {
+      virtualRoomSelectionFeeMode = fee.mode;
+      if (
+        virtualRoomSelectionFeePayer === 'combined' ||
+        virtualRoomSelectionFeePayer === 'diner_share'
+      ) {
+        // Snapshot platform + restaurant units separately for split billing.
+        virtualRoomGuestFeeCents = fee.platformUnitFeeCents;
+        virtualRoomRestaurantFeeCents = fee.restaurantUnitFeeCents ?? 0;
+      } else {
+        virtualRoomGuestFeeCents = fee.unitFeeCents;
+      }
+      dinerVirtualRoomSelectionFeeCents = dinerVirtualRoomSelectionFeeTotalCents({
+        payer: virtualRoomSelectionFeePayer,
+        partySize: input.partySize,
+        fee,
+      });
+    }
+  }
+
   const needsManualApproval = bookingRequiresManualApproval({
     restaurant: {
       enabled: restaurant.manualApprovalEnabled === true,
@@ -679,8 +801,21 @@ export async function createReservation(input: {
     restaurant,
     table,
     partySize: input.partySize,
-    addOnsCents: packagePriceCents + privateDiningPriceCents + experiencePriceCents,
+    addOnsCents:
+      packagePriceCents +
+      privateDiningPriceCents +
+      experiencePriceCents +
+      dinerVirtualRoomSelectionFeeCents,
   });
+
+  const platformConfig = mapPlatformConfig(await getPlatformConfig());
+  const cancellationPeriodHours = resolveCancellationPeriodHours([
+    experienceCancellationPeriodHours,
+    privateDiningCancellationPeriodHours,
+    (table as { cancellationPeriodHours?: number | null }).cancellationPeriodHours,
+    (restaurant as { cancellationPeriodHours?: number | null }).cancellationPeriodHours,
+    platformConfig.cancellationPeriodHours,
+  ]);
 
   let pointsToRedeem = 0;
   let restaurantPointsToRedeem = 0;
@@ -791,6 +926,7 @@ export async function createReservation(input: {
   }
   if (cardGuaranteeStatus === 'card_saved') stripePaymentMethodId = 'pm_dev';
 
+  const confirmationNumber = await generateReservationConfirmationNumber();
   const reservation = await Reservation.create({
     restaurantId: input.restaurantId,
     dinerId: input.dinerId,
@@ -829,16 +965,23 @@ export async function createReservation(input: {
     stripePaymentIntentId,
     depositStatus,
     noShowFeeCents: cardGuaranteeStatus === 'none' ? 0 : noShowFeeCents,
+    cancellationPeriodHours,
     cardGuaranteeStatus,
     stripeCustomerId,
     stripeSetupIntentId,
     stripePaymentMethodId,
     loyaltyPointsRedeemed: pointsToRedeem,
     restaurantLoyaltyPointsRedeemed: restaurantPointsToRedeem,
+    confirmationNumber,
     promotionId,
     promoDiscountCents,
     giftCardId,
     giftCardDiscountCents,
+    tableSelectionSource: input.tableId ? (selectedIn3d ? 'virtual_3d' : 'list') : undefined,
+    virtualRoomGuestFeeCents,
+    virtualRoomRestaurantFeeCents,
+    virtualRoomSelectionFeeMode,
+    virtualRoomSelectionFeePayer,
   });
 
   try {
@@ -1177,7 +1320,11 @@ export async function updateReservationStatus(
       isDiner &&
       !isStaff &&
       previousStatus === 'confirmed' &&
-      isLateCancellation(reservation.slotStart);
+      isLateCancellation(
+        reservation.slotStart,
+        new Date(),
+        (reservation as { cancellationPeriodHours?: number | null }).cancellationPeriodHours,
+      );
     if (lateDinerCancel) {
       feeOutcome = await chargeNoShowFee(reservation, 'late_cancel');
     } else {
@@ -1257,6 +1404,7 @@ export async function updateReservationStatus(
     }
 
     await recordCoverFee(reservation);
+    await recordVirtualRoomGuestFee(reservation);
     await attributeBoostCampaign(reservation);
   }
 
@@ -1615,6 +1763,7 @@ export async function createOwnerReservation(input: {
   const status =
     input.seatImmediately || source === 'walkin' ? 'seated' : 'confirmed';
 
+  const confirmationNumber = await generateReservationConfirmationNumber();
   const reservation = await Reservation.create({
     restaurantId: input.restaurantId,
     dinerId,
@@ -1629,6 +1778,7 @@ export async function createOwnerReservation(input: {
     depositAmountCents: 0,
     depositStatus: 'none',
     seatedAt: status === 'seated' ? new Date() : undefined,
+    confirmationNumber,
   });
 
   try {

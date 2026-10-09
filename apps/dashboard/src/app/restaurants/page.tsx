@@ -529,6 +529,7 @@ export default function MyRestaurantsPage() {
         'depositRequired',
         'depositAmountCents',
         'depositPolicy',
+        'cancellationPeriodHours',
         'loyaltyEnabled',
         'loyaltyPointsPerVisit',
         'loyaltyMinRedeemPoints',
@@ -565,6 +566,11 @@ export default function MyRestaurantsPage() {
             depositRequired: Boolean(values.depositRequired),
             depositAmountCents: Math.round((Number(values.depositAmountCents) || 0) * 100),
             depositPolicy: resolveDepositPolicy(values.depositPolicy),
+            cancellationPeriodHours:
+              values.cancellationPeriodHours == null ||
+              !(Number(values.cancellationPeriodHours) >= 1)
+                ? null
+                : Math.round(Number(values.cancellationPeriodHours)),
             loyaltyEnabled: Boolean(values.loyaltyEnabled),
             loyaltyPointsPerVisit: Number(values.loyaltyPointsPerVisit) || 50,
             loyaltyMinRedeemPoints: Number(values.loyaltyMinRedeemPoints) || 200,
@@ -1094,6 +1100,21 @@ export default function MyRestaurantsPage() {
                   <DepositPolicyField />
                 </Col>
               ) : null}
+              <Col span={12}>
+                <Form.Item
+                  name="cancellationPeriodHours"
+                  label="Cancel / no-show window (hours)"
+                  tooltip={tips.cancellationPeriodHours}
+                >
+                  <InputNumber
+                    min={1}
+                    max={720}
+                    precision={0}
+                    style={{ width: '100%' }}
+                    placeholder="Platform default (24)"
+                  />
+                </Form.Item>
+              </Col>
               <Col span={12}>
                 <Form.Item
                   name="loyaltyEnabled"

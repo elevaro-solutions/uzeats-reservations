@@ -28,6 +28,7 @@ import { startCampaignWorker } from "./services/campaigns.js";
 import { startLoyaltyWorker } from "./services/loyaltyExpiry.js";
 import { startBillingWorker } from "./services/billingJobs.js";
 import { startWaitlistWorker } from "./services/waitlistJobs.js";
+import { startVirtualRoomWorker } from "./services/virtualRoomReconstruction.js";
 import {
   handleTelegramWebhook,
   startTelegramBot,
@@ -36,7 +37,7 @@ import { logger } from "./lib/logger.js";
 import { AppError, formatMongooseError } from "./lib/errors.js";
 import { posRouter } from "./routes/pos.js";
 import { partnerRouter } from "./routes/partner.js";
-import { uploadsRouter } from "./routes/uploads.js";
+import { uploadsRouter, videoUploadsRouter } from "./routes/uploads.js";
 import { importRestaurantRouter } from "./routes/importRestaurant.js";
 import { discoveryMagnificRouter } from "./routes/discoveryMagnific.js";
 import { LOCAL_UPLOAD_DIR } from "./services/spaces.js";
@@ -48,6 +49,10 @@ const LOCAL_UPLOAD_CONTENT_TYPES: Record<string, string> = {
   ".png": "image/png",
   ".webp": "image/webp",
   ".gif": "image/gif",
+  ".mp4": "video/mp4",
+  ".mov": "video/quicktime",
+  ".webm": "video/webm",
+  ".glb": "model/gltf-binary",
 };
 
 const startedAt = Date.now();
@@ -63,6 +68,7 @@ async function main() {
   startLoyaltyWorker();
   startBillingWorker();
   startWaitlistWorker();
+  startVirtualRoomWorker();
 
   const app = express();
 
@@ -321,11 +327,16 @@ async function main() {
       const filePath = path.join(LOCAL_UPLOAD_DIR, filename);
       await access(filePath);
       const ext = path.extname(filename).toLowerCase();
-      res.setHeader(
-        "Content-Type",
-        LOCAL_UPLOAD_CONTENT_TYPES[ext] ?? "application/octet-stream",
-      );
+      const contentType = LOCAL_UPLOAD_CONTENT_TYPES[ext] ?? "application/octet-stream";
+      res.setHeader("Content-Type", contentType);
       res.setHeader("Cache-Control", "public, max-age=86400");
+      // WebGL textures / GLB fetches from the dashboard and diner web are cross-origin.
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      if (contentType.startsWith("video/")) {
+        // Safari will not play video without byte-range support.
+        res.sendFile(filePath);
+        return;
+      }
       createReadStream(filePath).pipe(res);
     } catch (err) {
       if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
@@ -335,6 +346,15 @@ async function main() {
       next(err);
     }
   });
+
+  // Must be mounted before `/api/uploads`, whose 10 MB raw parser would reject videos first.
+  app.use(
+    "/api/uploads/video",
+    uploadLimiter,
+    cors({ origin: corsOrigins, credentials: true }),
+    express.raw({ type: () => true, limit: "250mb" }),
+    videoUploadsRouter,
+  );
 
   app.use(
     "/api/uploads",

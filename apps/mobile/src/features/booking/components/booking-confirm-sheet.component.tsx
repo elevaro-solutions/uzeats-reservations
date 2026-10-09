@@ -35,6 +35,8 @@ export type BookingConfirmSheetProps = {
   depositCents: number;
   /** Card guarantee — saved card, charged only on no-show / late cancel. */
   noShowFeeCents?: number;
+  /** Resolved cancel / no-show window in hours for this booking. */
+  cancellationPeriodHours?: number | null;
   termsAccepted: boolean;
   onTermsAcceptedChange: (value: boolean) => void;
   errorMessage?: string | null;
@@ -57,6 +59,7 @@ export function BookingConfirmSheet({
   tableName,
   depositCents,
   noShowFeeCents = 0,
+  cancellationPeriodHours,
   termsAccepted,
   onTermsAcceptedChange,
   errorMessage,
@@ -239,11 +242,14 @@ export function BookingConfirmSheet({
       {depositCents > 0 ? (
         <InlineAlert
           tone="info"
-          message={`Next: pay ${formatCents(depositCents)} via Stripe. ${prepaymentPolicyText()}`}
+          message={`Next: pay ${formatCents(depositCents)} via Stripe. ${prepaymentPolicyText(cancellationPeriodHours)}`}
         />
       ) : null}
       {noShowFeeCents > 0 ? (
-        <InlineAlert tone="info" message={noShowFeePolicyText(noShowFeeCents)} />
+        <InlineAlert
+          tone="info"
+          message={noShowFeePolicyText(noShowFeeCents, cancellationPeriodHours)}
+        />
       ) : null}
 
       <Pressable

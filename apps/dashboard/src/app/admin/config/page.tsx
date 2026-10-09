@@ -9,6 +9,7 @@ import {
   Col,
   Form,
   Input,
+  InputNumber,
   Modal,
   Row,
   Segmented,
@@ -58,6 +59,11 @@ const CONFIG_SECTIONS = [
     description: 'Defaults for invoices and subscription charges, plus the Stripe environment.',
   },
   {
+    key: 'booking',
+    label: 'Booking policies',
+    description: 'Platform defaults for deposits, cancellations, and no-shows.',
+  },
+  {
     key: 'registration',
     label: 'Registration & access',
     description: 'Control who can sign up and whether the platform is in maintenance.',
@@ -71,6 +77,12 @@ const CONFIG_SECTIONS = [
     key: 'features',
     label: 'Feature kill switches',
     description: 'Turn platform capabilities off globally without a deploy.',
+  },
+  {
+    key: 'experimental',
+    label: 'Experimental features',
+    description:
+      'Paid beta add-ons. Partners opt in from Billing once a feature is available here.',
   },
   {
     key: 'danger',
@@ -125,7 +137,18 @@ export default function AdminConfigPage() {
 
   useEffect(() => {
     if (!data?.platformConfig) return;
-    form.setFieldsValue(data.platformConfig);
+    const pricing = data.platformConfig.virtualRoomPricing;
+    form.setFieldsValue({
+      ...data.platformConfig,
+      virtualRoomPricingDollars: pricing
+        ? {
+            monthly: pricing.monthlyPriceCents / 100,
+            perGuest: pricing.perGuestFeeCents / 100,
+            selectionFeeMode: pricing.selectionFeeMode ?? 'per_guest',
+            selectionFeePayer: pricing.selectionFeePayer ?? 'restaurant',
+          }
+        : undefined,
+    });
     clearDirty();
   }, [data, form, clearDirty]);
 
@@ -138,6 +161,14 @@ export default function AdminConfigPage() {
   if (!ready) return null;
 
   const saveConfig = async (values: Record<string, unknown>) => {
+    const vrPricing = values.virtualRoomPricingDollars as
+      | {
+          monthly?: number | null;
+          perGuest?: number | null;
+          selectionFeeMode?: 'per_guest' | 'per_table' | null;
+          selectionFeePayer?: 'restaurant' | 'diner' | 'combined' | 'diner_share' | null;
+        }
+      | undefined;
     await updateConfig({
       variables: {
         input: {
@@ -157,10 +188,24 @@ export default function AdminConfigPage() {
             : {}),
           invoicePrefix: values.invoicePrefix,
           currency: values.currency,
+          cancellationPeriodHours:
+            values.cancellationPeriodHours == null
+              ? 24
+              : Math.round(Number(values.cancellationPeriodHours)),
           ...(canEditStripeMode && values.stripeMode !== savedStripeMode
             ? { stripeMode: values.stripeMode }
             : {}),
           featureFlags: values.featureFlags,
+          ...(vrPricing && vrPricing.monthly != null && vrPricing.perGuest != null
+            ? {
+                virtualRoomPricing: {
+                  monthlyPriceCents: Math.round(vrPricing.monthly * 100),
+                  perGuestFeeCents: Math.round(vrPricing.perGuest * 100),
+                  selectionFeeMode: vrPricing.selectionFeeMode ?? 'per_guest',
+                  selectionFeePayer: vrPricing.selectionFeePayer ?? 'restaurant',
+                },
+              }
+            : {}),
         },
       },
     });
@@ -333,6 +378,19 @@ export default function AdminConfigPage() {
             </div>
           </Space>
         );
+      case 'booking':
+        return (
+          <>
+            <Form.Item
+              name="cancellationPeriodHours"
+              label="Cancel / no-show window (hours)"
+              rules={[{ required: true, type: 'number', min: 1, max: 720 }]}
+              extra="Platform default for when free cancellation ends. Restaurants, tables, experiences, and private dining rooms can override. Late cancels and no-shows may forfeit a prepaid deposit or trigger the card-guarantee fee."
+            >
+              <InputNumber min={1} max={720} precision={0} style={{ width: 160 }} />
+            </Form.Item>
+          </>
+        );
       case 'registration':
         return (
           <>
@@ -396,6 +454,92 @@ export default function AdminConfigPage() {
               </Col>
             ))}
           </Row>
+        );
+      case 'experimental':
+        return (
+          <Space orientation="vertical" size={8} style={{ width: '100%' }}>
+            <Space size={8} align="center">
+              <Text strong>Virtual 3D room &amp; table selection</Text>
+              <Tag color="purple">Experimental</Tag>
+            </Space>
+            <Paragraph type="secondary" style={{ marginBottom: 8 }}>
+              Partners build a 3D version of their dining room from the floor plan plus photos
+              and video, and diners can pick their table in 3D. Restaurants pay a monthly add-on
+              while it&apos;s on. The table-selection fee can be billed to the restaurant
+              (invoice on completed visits) or to the diner (charged at booking). Turning this
+              off hides the add-on and every published 3D room immediately.
+            </Paragraph>
+            <Form.Item
+              name={['featureFlags', 'virtualRoom3d']}
+              label="Available to partners"
+              valuePropName="checked"
+            >
+              <Switch />
+            </Form.Item>
+            <Row gutter={16}>
+              <Col xs={24} sm={12}>
+                <Form.Item
+                  name={['virtualRoomPricingDollars', 'monthly']}
+                  label="Monthly add-on price"
+                  rules={[{ required: true, message: 'Enter a monthly price' }]}
+                  extra="Locked in for each month when it is billed. Default $50."
+                >
+                  <InputNumber prefix="$" min={0} max={10000} step={5} precision={2} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item
+                  name={['virtualRoomPricingDollars', 'perGuest']}
+                  label="3D table selection fee"
+                  rules={[{ required: true, message: 'Enter a selection fee' }]}
+                  extra="Unit fee for a 3D table pick. Default $2. Who pays is set below."
+                >
+                  <InputNumber prefix="$" min={0} max={10000} step={0.5} precision={2} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item
+                  name={['virtualRoomPricingDollars', 'selectionFeeMode']}
+                  label="Fee counted as"
+                  rules={[{ required: true, message: 'Pick how the fee is counted' }]}
+                  extra="Per guest multiplies by party size. Per table charges once per booking."
+                >
+                  <Select
+                    options={[
+                      { value: 'per_guest', label: 'Per guest' },
+                      { value: 'per_table', label: 'Per table pick' },
+                    ]}
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item
+                  name={['virtualRoomPricingDollars', 'selectionFeePayer']}
+                  label="Who pays the selection fee"
+                  rules={[{ required: true, message: 'Pick who pays' }]}
+                  extra="Restaurant: invoice on completion. Diner: resolved fee at booking. Combined: diner pays platform fee + restaurant fee. Diner + cut: diner pays the restaurant fee; platform fee is invoiced to the restaurant."
+                >
+                  <Select
+                    options={[
+                      { value: 'restaurant', label: 'Restaurant (invoice)' },
+                      { value: 'diner', label: 'Diner (at booking)' },
+                      { value: 'combined', label: 'Combined (platform + restaurant)' },
+                      {
+                        value: 'diner_share',
+                        label: 'Diner pays restaurant fee (platform cut)',
+                      },
+                    ]}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Alert
+              type="info"
+              showIcon
+              message="Photo/video → 3D scans"
+              description="Set KIRI_ENGINE_API_KEY in the API env to let partners turn a walkthrough video or 20+ photos into a 3D scan. Without it, partners only see floor-plan + photo rooms; super admins still see the 3D scan tab."
+            />
+          </Space>
         );
       case 'danger':
         return (

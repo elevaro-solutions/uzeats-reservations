@@ -16,6 +16,20 @@ function localUploadImgOrigins() {
   return [...origins].join(' ');
 }
 
+/** 3D room GLB models are fetched (connect-src), not loaded as images. */
+function mediaFetchOrigins() {
+  const origins = ['https://*.digitaloceanspaces.com'];
+  const cdn = process.env.NEXT_PUBLIC_MEDIA_CDN_URL;
+  if (cdn) {
+    try {
+      origins.push(new URL(cdn).origin);
+    } catch {
+      /* ignore malformed */
+    }
+  }
+  return origins;
+}
+
 /** Browser CSP. Next/Antd/Stripe still need unsafe-inline; sanitizer is the XSS gate. */
 export function contentSecurityPolicy({ maps } = { maps: false }) {
   const scripts = [
@@ -31,6 +45,7 @@ export function contentSecurityPolicy({ maps } = { maps: false }) {
     'https://api.stripe.com',
     'https://accounts.google.com',
     'https://maps.googleapis.com',
+    ...mediaFetchOrigins(),
   ];
   const frames = [
     'https://js.stripe.com',
@@ -50,6 +65,7 @@ export function contentSecurityPolicy({ maps } = { maps: false }) {
     `script-src ${scripts.join(' ')}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob: https: ${localUploadImgOrigins()}`,
+    `media-src 'self' blob: https: ${localUploadImgOrigins()}`,
     "font-src 'self' data:",
     `connect-src ${connect.join(' ')}`,
     `frame-src ${frames.join(' ')}`,

@@ -42,10 +42,30 @@ const restaurantSchema = new Schema(
     depositAmountCents: { type: Number, default: 0 },
     /** `card_guarantee`: deposit is a no-show fee on a saved card. `prepaid`: charged at booking. */
     depositPolicy: { type: String, enum: ['card_guarantee', 'prepaid'], default: 'card_guarantee' },
+    /**
+     * Hours before slot start when free cancel ends. Null inherits platform default (24).
+     * Tables / experiences / private dining may override further.
+     */
+    cancellationPeriodHours: { type: Number, min: 1, max: 720, default: null },
     averageRating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
     useSmartAssign: { type: Boolean, default: true },
     allowGuestTableSelection: { type: Boolean, default: false },
+    /**
+     * 3D table-selection fee billed to this restaurant on completed bookings.
+     * Null/defaults inherit platform config ($2, per_guest, apply to all tables).
+     */
+    virtualRoomSelectionFeeEnabled: { type: Boolean, default: true },
+    virtualRoomSelectionFeeMode: {
+      type: String,
+      enum: ['per_guest', 'per_table'],
+    },
+    virtualRoomSelectionFeeCents: { type: Number, min: 0 },
+    virtualRoomSelectionFeeApplyTo: {
+      type: String,
+      enum: ['all', 'selected'],
+      default: 'all',
+    },
     reservationsEnabled: { type: Boolean, default: true },
     reservationsVisible: { type: Boolean, default: true },
     /** When true, online bookings may stay pending until staff confirms. */
@@ -123,7 +143,7 @@ const restaurantSchema = new Schema(
         name: { type: String, required: true },
         kind: {
           type: String,
-          enum: ['bar', 'host_stand', 'kitchen', 'wall', 'door', 'plant', 'other'],
+          enum: ['bar', 'host_stand', 'kitchen', 'wall', 'door', 'window', 'plant', 'other'],
           required: true,
         },
         floorArea: { type: String, default: 'Main' },

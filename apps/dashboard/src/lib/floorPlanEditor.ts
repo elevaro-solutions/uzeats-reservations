@@ -31,6 +31,12 @@ export type FloorTable = {
   requiresManualApproval?: boolean;
   depositRequired?: boolean;
   depositAmountCents?: number;
+  /** When false, guests cannot pick this table in 3D. Default true. */
+  virtualRoomSelectable?: boolean;
+  /** When restaurant 3D fee applyTo is selected, only these tables incur the fee. */
+  virtualRoomSelectionFeeEnabled?: boolean;
+  /** Per-table unit fee override in cents. */
+  virtualRoomSelectionFeeCents?: number | null;
 };
 
 export type FloorFixture = {
@@ -117,6 +123,10 @@ export function mapLoadedTables(
     requiresManualApproval: Boolean(t.requiresManualApproval),
     depositRequired: Boolean(t.depositRequired),
     depositAmountCents: t.depositAmountCents ?? 0,
+    virtualRoomSelectable: t.virtualRoomSelectable !== false,
+    virtualRoomSelectionFeeEnabled: Boolean(t.virtualRoomSelectionFeeEnabled),
+    virtualRoomSelectionFeeCents:
+      typeof t.virtualRoomSelectionFeeCents === 'number' ? t.virtualRoomSelectionFeeCents : null,
   }));
 }
 
@@ -262,9 +272,17 @@ export const FIXTURE_DEFAULTS: Record<
   kitchen: { width: 4, height: 2, name: 'Kitchen' },
   wall: { width: 6, height: 0.5, name: 'Wall' },
   door: { width: 1.5, height: 0.5, name: 'Door' },
+  window: { width: 3, height: 0.4, name: 'Window' },
   plant: { width: 1, height: 1, name: 'Plant' },
   other: { width: 2, height: 2, name: 'Fixture' },
 };
+
+export function fixtureAddTip(kind: FloorFixtureKind): string {
+  if (kind === 'window') return 'Place it along a wall. Guests see a window in the 3D room';
+  if (kind === 'door') return 'Place it along a wall. Guests see a doorway in the 3D room';
+  if (kind === 'wall') return 'A divider guests see as an interior wall in the 3D room';
+  return `Add a ${FIXTURE_DEFAULTS[kind].name.toLowerCase()} to the floor`;
+}
 
 export function roomPathD(points: Array<{ x: number; y: number }>, cellSize: number): string {
   if (points.length === 0) return '';

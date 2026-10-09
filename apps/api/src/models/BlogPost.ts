@@ -27,12 +27,14 @@ const blogPostSchema = new Schema(
     seoDescription: { type: String, default: '' },
     tags: [{ type: String, trim: true, lowercase: true }],
     faq: { type: [blogFaqItemSchema], default: [] },
+    readCount: { type: Number, default: 0, min: 0 },
   },
   { timestamps: true },
 );
 
 blogPostSchema.index({ status: 1, publishedAt: -1 });
 blogPostSchema.index({ tags: 1, status: 1 });
+blogPostSchema.index({ status: 1, readCount: -1 });
 blogPostSchema.index({ title: 'text', excerpt: 'text', seoTitle: 'text', seoDescription: 'text' });
 
 export type BlogPostDocument = InferSchemaType<typeof blogPostSchema> & {

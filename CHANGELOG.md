@@ -4,7 +4,51 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.77.0] — 2026-10-09
+
+### Added
+
+- Configurable cancel / no-show window (hours before the reservation when free cancellation ends). Platform default is 24 hours (Admin → Platform config → Booking policies). Restaurants, tables, experiences, and private dining rooms can override. The resolved window is stored on each booking and used for late-cancel fees, prepaid forfeiture, and diner-facing policy copy
+- Guest-facing reservation confirmation is a memorable 6-digit number (e.g. `482917`) stored on each booking. Shown on diner web/mobile confirmation screens, booking emails, Partner Hub and Admin reservation lists/detail, and merchant mobile detail. Admins, owners, managers, and hosts can search Partner Hub / Admin reservations by that number (exact 6-digit lookup ignores the date period filter). `restaurantReservation` / `partnerReservation` also accept the confirmation number as the id
+- Blog articles track read counts. Opening a published post on the diner site records one read per browser tab session. Admin → Blog shows the article list on the left and total reads plus top articles by reads on the right, with a Reads column in the list
+- Experimental Virtual 3D room add-on. Admin → Platform config → Experimental features turns it on platform-wide (off by default) and sets the prices: $50/month per restaurant and a $2 table-selection fee by default (per guest or per table pick)
+- Partner Hub → Billing has a Virtual 3D room card (Core plan or higher) to enable or disable the add-on. Enabling it adds "Virtual 3D room add-on (experimental)" to that month's invoice right away. Each month is billed at the price in effect when it was first billed. Disabling stops billing from the next month, and billing pauses while the plan does not include floor plans
+- Partner Hub → Settings → Virtual 3D room editor: a live 3D preview built from the published table layout, a "Show to guests" switch, 360° background photos and wall photos per area, wall/floor colors and ceiling height per area, and a walkthrough video plus scan photos upload
+- Overall 3D layout: with multiple floor areas, partners can stack floors (1st / 2nd) or place wings side by side (hall, private, entrance), then drag floors in the Overall preview to mix levels and side placement (Shift+drag moves a floor up/down). Dragging keeps a draft until Save layout (or Discard). Guests open on the overall view and can switch into a single area. Stacked campuses stay framed; right-drag pans including up/down
+- 3D table-selection fee: platform sets the unit amount (default $2) and whether it is per guest or per table; restaurants can override amount/mode, turn charging off, or limit it to marked tables; each floor area and each table can set selectable + fee charge/override. Selectable tables show a pointer cursor and clicking them selects the table for the booking
+- Generate 3D scan turns the walkthrough video (or 20–100 scan photos) into a photo-real 3D model via KIRI Engine when `KIRI_ENGINE_API_KEY` is set. Partners can align the scan with sliders and switch between the scan and the generated room
+- Diner restaurant page shows "Explore the dining room in 3D" (before a time is picked) and "Choose your table in 3D" (after). Free tables are green and selectable; picking one sets the table for the booking even when the restaurant hides list-based table choice
+- Bookings where the diner picked the table in 3D add a "3D table selection …" line to the restaurant's monthly invoice once the visit is completed ($2 × party size by default; or a flat per-table fee). No-shows and cancellations are not charged
+- `POST /api/uploads/video` accepts MP4, MOV, and WebM walkthrough videos up to 250 MB
+- Floor plans can add a Window. In the 3D room, a door or window placed along a wall becomes an opening, and a wall fixture becomes an interior divider
+
+### Changed
+
+- Confirm reservation modal: visit summary (date · time · party) at the top, lighter detail rows, charges in their own card (line items, Due now, card guarantee), and terms collapsed behind a disclosure instead of a tall scroll box
+- Diner booking: when Virtual 3D room is available and list table pick is off, the conflicting “assigned automatically” alert is gone. The 3D CTA stays primary (“Choose your table in 3D” / “Change table in 3D”), with quiet “Optional — skip and we’ll assign a table…” helper text underneath
+- Diner-paid 3D table selection shows the fee on the booking card and in the 3D picker (preview before pick, exact amount after). Restaurant-paid fees stay hidden from diners
+- Booking card notes/discounts: special-requests copy steers seating to 3D when available; promo and gift card sit behind a compact “Have a promo or gift card?” disclosure (side by side when both apply), with auto-applied promos still shown above
+- Live floor (`/floor-ops`) has List, Floor plan (default), and 3D view options. 3D shows the Virtual Room viewer with live free/reserved/seated/turning colors, click-to-manage tables, and the add-on pitch card in the right rail. Hosts can view the 3D ops scene without the add-on
+- Guest 3D room picker hides floating table name chips by default; a Names control toggles them back on. Hover still shows name and seats
+- Virtual 3D room editor: multi-area floor drag and layout controls stay view-only until Edit layout; Done editing exits after save or discard
+- Virtual 3D room editor uses a full-width preview with a compact publish toolbar and tabbed settings (Layout, Area look, Selection fee, Photos & video, 3D scan) instead of two tall columns of cards
+- When `KIRI_ENGINE_API_KEY` is unset, Partner Hub hides walkthrough video / scan-photo uploads and the 3D scan tab for restaurant owners; super admins still see them (with a not-configured warning)
+- Platform config → Experimental features: 3D table-selection fee payer options — restaurant (invoice on completion, default), diner (resolved fee at booking), combined (diner pays platform fee + restaurant fee at booking), or diner pays restaurant fee with platform cut invoiced to the restaurant. Confirm reservation shows a 3D selection line when the diner pays any amount
+- Dashboard and web CSP allow media fetches and `<video>` playback from the uploads CDN (`connect-src`, new `media-src`)
+- Saved booking drafts remember whether the table was picked in 3D
+
+### Fixed
+
+- Shared package build no longer emits broken JS from a missing brace in `virtualRoomSelectionFeeInvoicedToRestaurant` (Next failed to load `@reservations/shared`)
+- Live floor 3D table colors update as soon as you seat or clear a table (they could stay green after a status change). Status also refreshes every 10 seconds while the page is open
+- Rotating a table no longer makes it cut through the 3D room wall. Walls move out to fit the turned table and its chairs
+- Saving a floor plan with a window no longer fails validation. Windows are thinner than half a grid cell, which the old size rule rejected
+- Opening several admin pages at once on a fresh database could fail with a duplicate-key error while creating the platform config
+- API production build excludes `__tests__` so NodeNext `tsc` no longer fails on test-only imports; web/dashboard typechecks include confirmation number and cancellation-period fields used by booking/deposit UI
+
+### Docs
+
+- Virtual 3D room, confirmation numbers, cancel/no-show window, and blog reads notes (`docs/notes/features-virtual-room.md`, `api.md`, `dashboard.md`, `web.md`, `features*.md`)
 
 ## [0.77.0] — 2026-10-08
 

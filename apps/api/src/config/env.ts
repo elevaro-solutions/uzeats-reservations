@@ -81,6 +81,9 @@ const envSchema = z.object({
   ELEVARO_NOTIFIER_HMAC_SECRET: z.string().optional().default(''),
   GEMINI_API_KEY: z.string().optional().default(''),
   GEMINI_MODEL: z.string().optional().default('gemini-3.5-flash-lite'),
+  /** Optional photogrammetry for the virtual 3D room; floor-plan rendering works without it. */
+  KIRI_ENGINE_API_KEY: z.string().optional().default(''),
+  KIRI_ENGINE_API_URL: z.string().optional().default('https://api.kiriengine.app/api'),
 });
 
 const parsed = envSchema.parse(process.env);

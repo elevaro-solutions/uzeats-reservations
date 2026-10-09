@@ -22,6 +22,7 @@ type RestaurantBase = {
   depositRequired: boolean;
   depositAmountCents: number;
   depositPolicy?: string | null;
+  cancellationPeriodHours?: number | null;
   loyaltyEnabled: boolean;
   loyaltyPointsPerVisit: number;
   loyaltyMinRedeemPoints: number;
@@ -92,6 +93,12 @@ export function buildRestaurantInput(
     depositRequired: base.depositRequired,
     depositAmountCents: base.depositAmountCents,
     depositPolicy: base.depositPolicy ? resolveDepositPolicy(base.depositPolicy) : undefined,
+    cancellationPeriodHours:
+      base.cancellationPeriodHours === undefined
+        ? undefined
+        : base.cancellationPeriodHours == null || !(base.cancellationPeriodHours >= 1)
+          ? null
+          : Math.round(base.cancellationPeriodHours),
     loyaltyEnabled: base.loyaltyEnabled,
     loyaltyPointsPerVisit: base.loyaltyPointsPerVisit,
     loyaltyMinRedeemPoints: base.loyaltyMinRedeemPoints,

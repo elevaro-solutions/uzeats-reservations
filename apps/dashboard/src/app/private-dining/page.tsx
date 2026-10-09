@@ -36,7 +36,7 @@ const { TextArea } = Input;
 const PRIVATE_DINING_SPACES = gql`
   query PrivateDiningSpaces($restaurantId: ID!) {
     privateDiningSpaces(restaurantId: $restaurantId) {
-      id name description minGuests maxGuests rentalFeeCents minimumSpendCents photoUrl amenities active requiresManualApproval
+      id name description minGuests maxGuests rentalFeeCents minimumSpendCents photoUrl amenities active requiresManualApproval cancellationPeriodHours
     }
   }
 `;
@@ -141,6 +141,10 @@ function PrivateDiningPageContent() {
         amenities: values.amenities?.split(',').map((a: string) => a.trim()).filter(Boolean) ?? [],
         active: true,
         requiresManualApproval: values.requiresManualApproval ?? false,
+        cancellationPeriodHours:
+          values.cancellationPeriodHours == null || !(Number(values.cancellationPeriodHours) >= 1)
+            ? null
+            : Math.round(Number(values.cancellationPeriodHours)),
       };
 
       if (editingSpaceId) {
@@ -200,6 +204,7 @@ function PrivateDiningPageContent() {
       photoUrl: record.photoUrl,
       amenities: record.amenities?.join(', '),
       requiresManualApproval: record.requiresManualApproval ?? false,
+      cancellationPeriodHours: record.cancellationPeriodHours ?? null,
     });
     spaceDirty.clearDirty();
     setSpaceModalOpen(true);
@@ -420,6 +425,13 @@ function PrivateDiningPageContent() {
             extra="Bookings for this space stay pending until staff confirms"
           >
             <Switch />
+          </Form.Item>
+          <Form.Item
+            name="cancellationPeriodHours"
+            label="Cancel / no-show window (hours)"
+            extra="Leave empty to use the restaurant or platform default."
+          >
+            <InputNumber min={1} max={720} precision={0} style={{ width: '100%' }} placeholder="Restaurant / platform default" />
           </Form.Item>
         </Form>
       </Modal>

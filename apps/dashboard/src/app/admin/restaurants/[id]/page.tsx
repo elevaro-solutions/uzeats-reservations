@@ -224,8 +224,12 @@ function AdminRestaurantDetailContent() {
 
   const handleTableSubmit = async () => {
     try {
-      const { depositRequired, depositAmount, ...rest } = await tableForm.validateFields();
-      const input = { ...rest, ...tableDepositInput({ depositRequired, depositAmount }) };
+      const { depositRequired, depositAmount, cancellationPeriodHours, ...rest } =
+        await tableForm.validateFields();
+      const input = {
+        ...rest,
+        ...tableDepositInput({ depositRequired, depositAmount, cancellationPeriodHours }),
+      };
       if (editingTable) {
         await updateTable({ variables: { id: editingTable.id, input } });
         message.success('Table updated');

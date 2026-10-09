@@ -1,5 +1,10 @@
 # Booking — Learnings & Observations
 
+## [2026-10-09] Cancel / no-show window is layered and snapshotted
+- `cancellationPeriodHours` resolves experience → private dining → table → restaurant → platform → 24. Stored on `Reservation` at create so later config changes do not rewrite an existing booking’s fee window.
+- Shared helpers: `resolveCancellationPeriodHours`, `isLateCancellation(slot, now, hours)`, policy text / diner cancel warnings take the hours arg. Legacy rows without a snapshot still use 24.
+- Why it matters: Don’t hardcode 24 in UI copy or cancel fee checks; use the booking snapshot or `Restaurant.effectiveCancellationPeriodHours`.
+
 ## [2026-10-06] Private dining needs its own table inventory
 - `PrivateDiningSpace` is an add-on (fee + guest bounds), not floor inventory. Availability / `resolveTable` only look at `Table` rows by party size, so a room advertised as 12–20 with max floor table ≤10 returned zero slots.
 - Fix: spaces get `tableIds`; `ensurePrivateDiningBackingTables` auto-creates a `privateDiningOnly` table matching min/max guests. Availability / bookableTables / assign accept `privateDiningSpaceId` and use those tables only. Regular availability excludes `privateDiningOnly` tables.

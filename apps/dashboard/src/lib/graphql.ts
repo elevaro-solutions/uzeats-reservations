@@ -100,12 +100,14 @@ export const MY_RESTAURANTS = gql`
       depositRequired
       depositAmountCents
       depositPolicy
+      cancellationPeriodHours
+      effectiveCancellationPeriodHours
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
       tables {
         id name minCapacity maxCapacity floorArea active combinable photoUrl
-        shape requiresManualApproval depositRequired depositAmountCents
+        shape requiresManualApproval depositRequired depositAmountCents cancellationPeriodHours
       }
       shifts {
         id name daysOfWeek startTime endTime slotIntervalMinutes turnTimeMinutes active
@@ -204,6 +206,7 @@ export const RESTAURANT_RESERVATIONS = gql`
     $endDate: String
     $period: ReservationDatePeriod
     $status: ReservationStatus
+    $search: String
     $limit: Int
     $offset: Int
   ) {
@@ -214,12 +217,14 @@ export const RESTAURANT_RESERVATIONS = gql`
       endDate: $endDate
       period: $period
       status: $status
+      search: $search
       limit: $limit
       offset: $offset
     ) {
       total
       items {
         id
+        confirmationNumber
         restaurantId
         partySize
         slotStart
@@ -242,6 +247,7 @@ export const RESTAURANT_RESERVATIONS = gql`
         depositRefundableCents
         depositStatus
         noShowFeeCents
+        cancellationPeriodHours
         cardGuaranteeStatus
         noShowFeeReason
         noShowFeeChargedAt
@@ -266,6 +272,7 @@ export const RESTAURANT_RESERVATION = gql`
   query RestaurantReservation($id: ID!) {
     restaurantReservation(id: $id) {
       id
+      confirmationNumber
       restaurantId
       partySize
       slotStart
@@ -288,6 +295,7 @@ export const RESTAURANT_RESERVATION = gql`
       depositRefundableCents
       depositStatus
       noShowFeeCents
+      cancellationPeriodHours
       cardGuaranteeStatus
       noShowFeeReason
       noShowFeeChargedAt
@@ -363,6 +371,7 @@ export const REFUND_RESERVATION_DEPOSIT = gql`
       depositRefundableCents
       depositStatus
       noShowFeeCents
+      cancellationPeriodHours
       cardGuaranteeStatus
       noShowFeeReason
       noShowFeeChargedAt
@@ -404,7 +413,7 @@ export const CREATE_TABLE = gql`
     createTable(restaurantId: $restaurantId, input: $input) {
       id name minCapacity maxCapacity floorArea active combinable
       posX posY width height shape rotation combineGroupId photoUrl requiresManualApproval
-      depositRequired depositAmountCents
+      depositRequired depositAmountCents cancellationPeriodHours
     }
   }
 `;
@@ -584,6 +593,8 @@ const ADMIN_RESTAURANT_FIELDS = `
   depositRequired
   depositAmountCents
   depositPolicy
+      cancellationPeriodHours
+      effectiveCancellationPeriodHours
   loyaltyEnabled
   loyaltyPointsPerVisit
   loyaltyMinRedeemPoints
@@ -640,7 +651,7 @@ export const ADMIN_RESTAURANT = gql`
       ${ADMIN_RESTAURANT_FIELDS}
       tables {
         id name minCapacity maxCapacity floorArea active combinable photoUrl
-        requiresManualApproval depositRequired depositAmountCents
+        requiresManualApproval depositRequired depositAmountCents cancellationPeriodHours
       }
       shifts {
         id name daysOfWeek startTime endTime slotIntervalMinutes turnTimeMinutes active
@@ -741,6 +752,8 @@ export const ADMIN_UPDATE_RESTAURANT = gql`
       depositRequired
       depositAmountCents
       depositPolicy
+      cancellationPeriodHours
+      effectiveCancellationPeriodHours
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
@@ -927,6 +940,7 @@ export const ADMIN_RESERVATIONS = gql`
       total
       items {
         id
+        confirmationNumber
         restaurantId
         dinerId
         partySize
@@ -948,6 +962,7 @@ export const ADMIN_RESERVATIONS = gql`
         depositRefundableCents
         depositStatus
         noShowFeeCents
+        cancellationPeriodHours
         cardGuaranteeStatus
         noShowFeeReason
         noShowFeeChargedAt
@@ -977,6 +992,7 @@ const NO_SHOW_FEE_CHARGE_FIELDS = `
   slotStart
   status
   noShowFeeCents
+  cancellationPeriodHours
   cardGuaranteeStatus
   noShowFeeReason
   noShowFeeChargedAt
@@ -1748,9 +1764,29 @@ export const ADMIN_BLOG_POSTS = gql`
         faq { question answer }
         authorId
         author { id firstName lastName }
+        readCount
         createdAt
         updatedAt
       }
+    }
+  }
+`;
+
+export const ADMIN_TOP_BLOG_POSTS = gql`
+  query AdminTopBlogPosts($limit: Int) {
+    adminTopBlogPosts(limit: $limit) {
+      id
+      title
+      slug
+      status
+      readCount
+      publishedAt
+      updatedAt
+    }
+    adminBlogReadStats {
+      totalReads
+      publishedCount
+      articleCount
     }
   }
 `;
@@ -1772,6 +1808,7 @@ export const CREATE_BLOG_POST = gql`
       faq { question answer }
       authorId
       author { id firstName lastName }
+      readCount
       createdAt
       updatedAt
     }
@@ -1795,6 +1832,7 @@ export const UPDATE_BLOG_POST = gql`
       faq { question answer }
       authorId
       author { id firstName lastName }
+      readCount
       createdAt
       updatedAt
     }
@@ -1815,11 +1853,11 @@ export const PUBLISH_BLOG_POST = gql`
       slug
       status
       publishedAt
+      readCount
       updatedAt
     }
   }
 `;
-
 const DISCOVERY_TAXONOMY_FIELDS = `
   id
   kind
@@ -2661,13 +2699,15 @@ export const PLATFORM_CONFIG = gql`
       requireSignupEmailVerification
       invoicePrefix
       currency
+      cancellationPeriodHours
       stripeMode
       stripeSandboxConfigured
       stripeProductionConfigured
       featureFlags {
         waitlist deposits partnerRegistration publicRegistration
-        messaging reviews experiences campaigns widget sms
+        messaging reviews experiences campaigns widget sms virtualRoom3d
       }
+      virtualRoomPricing { monthlyPriceCents perGuestFeeCents selectionFeeMode selectionFeePayer }
       annualBilling {
         enabled
         scope
@@ -2697,13 +2737,15 @@ export const UPDATE_PLATFORM_CONFIG = gql`
       requireSignupEmailVerification
       invoicePrefix
       currency
+      cancellationPeriodHours
       stripeMode
       stripeSandboxConfigured
       stripeProductionConfigured
       featureFlags {
         waitlist deposits partnerRegistration publicRegistration
-        messaging reviews experiences campaigns widget sms
+        messaging reviews experiences campaigns widget sms virtualRoom3d
       }
+      virtualRoomPricing { monthlyPriceCents perGuestFeeCents selectionFeeMode selectionFeePayer }
       annualBilling {
         enabled
         scope
@@ -2741,6 +2783,7 @@ export const PLATFORM_FEATURE_FLAGS = gql`
       campaigns
       widget
       sms
+      virtualRoom3d
     }
   }
 `;
@@ -2924,6 +2967,8 @@ export const RESTAURANT_PROFILE = gql`
       depositRequired
       depositAmountCents
       depositPolicy
+      cancellationPeriodHours
+      effectiveCancellationPeriodHours
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
@@ -2979,6 +3024,8 @@ export const UPDATE_RESTAURANT = gql`
       depositRequired
       depositAmountCents
       depositPolicy
+      cancellationPeriodHours
+      effectiveCancellationPeriodHours
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
@@ -3035,7 +3082,8 @@ export const UPDATE_TABLE = gql`
     updateTable(id: $id, input: $input) {
       id name minCapacity maxCapacity floorArea active combinable
       requiresManualApproval shape rotation combineGroupId photoUrl
-      posX posY width height depositRequired depositAmountCents
+      posX posY width height depositRequired depositAmountCents cancellationPeriodHours
+      virtualRoomSelectable virtualRoomSelectionFeeEnabled virtualRoomSelectionFeeCents
     }
   }
 `;
@@ -4020,6 +4068,10 @@ export const UPDATE_RESTAURANT_SETTINGS = gql`
     $spendAlertThresholdCents: Int
     $useSmartAssign: Boolean
     $allowGuestTableSelection: Boolean
+    $virtualRoomSelectionFeeEnabled: Boolean
+    $virtualRoomSelectionFeeMode: VirtualRoomSelectionFeeMode
+    $virtualRoomSelectionFeeCents: Int
+    $virtualRoomSelectionFeeApplyTo: VirtualRoomSelectionFeeApplyTo
     $reservationsEnabled: Boolean
     $reservationsVisible: Boolean
     $posEnabled: Boolean
@@ -4033,6 +4085,10 @@ export const UPDATE_RESTAURANT_SETTINGS = gql`
       spendAlertThresholdCents: $spendAlertThresholdCents
       useSmartAssign: $useSmartAssign
       allowGuestTableSelection: $allowGuestTableSelection
+      virtualRoomSelectionFeeEnabled: $virtualRoomSelectionFeeEnabled
+      virtualRoomSelectionFeeMode: $virtualRoomSelectionFeeMode
+      virtualRoomSelectionFeeCents: $virtualRoomSelectionFeeCents
+      virtualRoomSelectionFeeApplyTo: $virtualRoomSelectionFeeApplyTo
       reservationsEnabled: $reservationsEnabled
       reservationsVisible: $reservationsVisible
       posEnabled: $posEnabled
@@ -4041,7 +4097,10 @@ export const UPDATE_RESTAURANT_SETTINGS = gql`
       manualApprovalPartySize: $manualApprovalPartySize
       widgetTheme: $widgetTheme
     ) {
-      id spendAlertThresholdCents useSmartAssign allowGuestTableSelection reservationsEnabled reservationsVisible posEnabled
+      id spendAlertThresholdCents useSmartAssign allowGuestTableSelection
+      virtualRoomSelectionFeeEnabled virtualRoomSelectionFeeMode
+      virtualRoomSelectionFeeCents virtualRoomSelectionFeeApplyTo
+      reservationsEnabled reservationsVisible posEnabled
       manualApprovalEnabled manualApprovalPartySizeOp manualApprovalPartySize
       widgetTheme { primaryColor buttonText showReviews }
     }
@@ -4107,7 +4166,8 @@ export const PUBLISH_FLOOR_PLAN = gql`
       tables {
         id name minCapacity maxCapacity floorArea active combinable
         posX posY width height shape rotation combineGroupId photoUrl requiresManualApproval
-        depositRequired depositAmountCents
+        depositRequired depositAmountCents cancellationPeriodHours
+        virtualRoomSelectable virtualRoomSelectionFeeEnabled virtualRoomSelectionFeeCents
       }
     }
   }
@@ -4137,7 +4197,8 @@ export const FLOOR_PLAN_TABLES = gql`
       tables {
         id name minCapacity maxCapacity floorArea active combinable
         posX posY width height shape rotation combineGroupId photoUrl requiresManualApproval
-        depositRequired depositAmountCents
+        depositRequired depositAmountCents cancellationPeriodHours
+        virtualRoomSelectable virtualRoomSelectionFeeEnabled virtualRoomSelectionFeeCents
       }
     }
   }
@@ -4314,6 +4375,105 @@ export const SET_PREMIUM_SMS_ADDON = gql`
       id plan
       features { premiumSms premiumSmsAddon }
     }
+  }
+`;
+
+// ---- Virtual 3D room (experimental add-on) ----
+
+const VIRTUAL_ROOM_ADDON_FIELDS = `
+  restaurantId platformEnabled enabled eligible active ineligibleReason enabledAt
+  monthlyPriceCents perGuestFeeCents selectionFeeMode selectionFeePayer
+`;
+
+const VIRTUAL_ROOM_SCENE_FIELDS = `
+  restaurantId unit unitsPerCell metersPerCell areaLayoutMode modelUrl
+  modelTransform { scale rotationDeg offsetXM offsetZM }
+  areas {
+    name wallHeightM wallColor floorColor floorImageUrl panoramaUrl wallPhotoUrls
+    offsetXM offsetYM offsetZM guestSelectable selectionFeeCharged selectionFeeCents
+    bounds { minX minY maxX maxY }
+    tables {
+      id name shape posX posY width height rotation minCapacity maxCapacity photoUrl
+      virtualRoomSelectable virtualRoomSelectionFeeEnabled virtualRoomSelectionFeeCents
+    }
+    fixtures { id name kind posX posY width height rotation }
+    rooms { id name points { x y } }
+  }
+`;
+
+const VIRTUAL_ROOM_EDITOR_FIELDS = `
+  restaurantId published publishedAt useReconstructedModel areaLayoutMode providerConfigured
+  modelTransform { scale rotationDeg offsetXM offsetZM }
+  addon { ${VIRTUAL_ROOM_ADDON_FIELDS} }
+  selectionFee { enabled mode feeCents applyTo }
+  media { id kind role url floorArea caption createdAt }
+  areaSettings {
+    floorArea wallHeightM panoramaMediaId wallColor floorColor
+    offsetXM offsetYM offsetZM guestSelectable selectionFeeCharged selectionFeeCents
+  }
+  reconstruction {
+    status provider sourceKind sourceCount modelUrl error requestedAt completedAt
+  }
+  scene { ${VIRTUAL_ROOM_SCENE_FIELDS} }
+`;
+
+export const VIRTUAL_ROOM_ADDON = gql`
+  query VirtualRoomAddon($restaurantId: ID!) {
+    virtualRoomAddon(restaurantId: $restaurantId) { ${VIRTUAL_ROOM_ADDON_FIELDS} }
+  }
+`;
+
+export const VIRTUAL_ROOM_OPS_SCENE = gql`
+  query VirtualRoomOpsScene($restaurantId: ID!) {
+    virtualRoomOpsScene(restaurantId: $restaurantId) { ${VIRTUAL_ROOM_SCENE_FIELDS} }
+  }
+`;
+
+export const SET_VIRTUAL_ROOM_ADDON = gql`
+  mutation SetVirtualRoomAddon($restaurantId: ID!, $enabled: Boolean!) {
+    setVirtualRoomAddon(restaurantId: $restaurantId, enabled: $enabled) {
+      ${VIRTUAL_ROOM_ADDON_FIELDS}
+    }
+  }
+`;
+
+export const VIRTUAL_ROOM_EDITOR = gql`
+  query VirtualRoomEditor($restaurantId: ID!) {
+    virtualRoomEditor(restaurantId: $restaurantId) { ${VIRTUAL_ROOM_EDITOR_FIELDS} }
+  }
+`;
+
+export const UPDATE_VIRTUAL_ROOM = gql`
+  mutation UpdateVirtualRoom($restaurantId: ID!, $input: VirtualRoomInput!) {
+    updateVirtualRoom(restaurantId: $restaurantId, input: $input) { ${VIRTUAL_ROOM_EDITOR_FIELDS} }
+  }
+`;
+
+export const ADD_VIRTUAL_ROOM_MEDIA = gql`
+  mutation AddVirtualRoomMedia($restaurantId: ID!, $input: VirtualRoomMediaInput!) {
+    addVirtualRoomMedia(restaurantId: $restaurantId, input: $input) { ${VIRTUAL_ROOM_EDITOR_FIELDS} }
+  }
+`;
+
+export const REMOVE_VIRTUAL_ROOM_MEDIA = gql`
+  mutation RemoveVirtualRoomMedia($restaurantId: ID!, $mediaId: ID!) {
+    removeVirtualRoomMedia(restaurantId: $restaurantId, mediaId: $mediaId) {
+      ${VIRTUAL_ROOM_EDITOR_FIELDS}
+    }
+  }
+`;
+
+export const PUBLISH_VIRTUAL_ROOM = gql`
+  mutation PublishVirtualRoom($restaurantId: ID!, $published: Boolean!) {
+    publishVirtualRoom(restaurantId: $restaurantId, published: $published) {
+      ${VIRTUAL_ROOM_EDITOR_FIELDS}
+    }
+  }
+`;
+
+export const GENERATE_VIRTUAL_ROOM_MODEL = gql`
+  mutation GenerateVirtualRoomModel($restaurantId: ID!) {
+    generateVirtualRoomModel(restaurantId: $restaurantId) { ${VIRTUAL_ROOM_EDITOR_FIELDS} }
   }
 `;
 

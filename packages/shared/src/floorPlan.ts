@@ -70,6 +70,7 @@ export const FLOOR_FIXTURE_KINDS = [
   'kitchen',
   'wall',
   'door',
+  'window',
   'plant',
   'other',
 ] as const;
@@ -82,6 +83,7 @@ export const FLOOR_FIXTURE_LABELS: Record<FloorFixtureKind, string> = {
   kitchen: 'Kitchen',
   wall: 'Wall',
   door: 'Door',
+  window: 'Window',
   plant: 'Plant',
   other: 'Fixture',
 };

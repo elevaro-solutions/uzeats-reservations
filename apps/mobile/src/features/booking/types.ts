@@ -88,6 +88,8 @@ export type RestaurantBookingInfo = {
   depositRequired?: boolean | null;
   depositAmountCents: number;
   depositPolicy?: string | null;
+  cancellationPeriodHours?: number | null;
+  effectiveCancellationPeriodHours?: number | null;
   loyaltyEnabled?: boolean | null;
   loyaltyPointsPerVisit?: number | null;
   loyaltyMinRedeemPoints?: number | null;

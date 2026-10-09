@@ -49,6 +49,7 @@ function firstSearchParam(
 type MyReservationResult = {
   myReservation: {
     id: string;
+    confirmationNumber?: string | null;
     status: string;
     requiresManualApproval?: boolean | null;
     slotStart: string;
@@ -243,7 +244,7 @@ export function BookingConfirmationFeature() {
             {awaitingApproval ? "Request sent" : "Reservation confirmed"}
           </Typography>
           <Typography size="text-sm" color="secondary" align="center">
-            Ref {shortReservationRef(reservation.id)}
+            Ref {shortReservationRef(reservation.id, reservation.confirmationNumber)}
           </Typography>
         </Flex>
 

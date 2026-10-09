@@ -130,6 +130,7 @@ export default function RestaurantProfilePage() {
       lat: restaurant.location?.lat,
       lng: restaurant.location?.lng,
       depositRequired: restaurant.depositRequired,
+      cancellationPeriodHours: restaurant.cancellationPeriodHours ?? null,
       depositAmountCents: restaurant.depositAmountCents
         ? restaurant.depositAmountCents / 100
         : undefined,
@@ -180,6 +181,11 @@ export default function RestaurantProfilePage() {
               depositRequired: values.depositRequired ?? false,
               depositAmountCents: Math.round((Number(values.depositAmountCents) || 0) * 100),
               depositPolicy: resolveDepositPolicy(values.depositPolicy),
+              cancellationPeriodHours:
+                values.cancellationPeriodHours == null ||
+                !(Number(values.cancellationPeriodHours) >= 1)
+                  ? null
+                  : Math.round(Number(values.cancellationPeriodHours)),
               loyaltyEnabled: values.loyaltyEnabled ?? false,
               loyaltyPointsPerVisit: values.loyaltyPointsPerVisit ?? 50,
               loyaltyMinRedeemPoints: values.loyaltyMinRedeemPoints ?? 200,
@@ -577,6 +583,16 @@ export default function RestaurantProfilePage() {
           </Col>
           <Col xs={24}>
             <DepositPolicyField />
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item
+              name="cancellationPeriodHours"
+              label="Cancel / no-show window (hours)"
+              tooltip={tips.cancellationPeriodHours}
+              extra="Leave empty to use the platform default (usually 24 hours)."
+            >
+              <InputNumber min={1} max={720} precision={0} style={{ width: '100%' }} placeholder="Platform default" />
+            </Form.Item>
           </Col>
           <Col xs={24} sm={12}>
             <Form.Item

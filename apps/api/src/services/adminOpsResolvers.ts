@@ -65,7 +65,9 @@ import {
   createBlogPost,
   deleteBlogPost,
   getBlogPostById,
+  getBlogReadStats,
   listAdminBlogPosts,
+  listTopBlogPosts,
   publishBlogPost,
   updateBlogPost,
 } from './blogPosts.js';
@@ -225,6 +227,20 @@ export const adminOpsQuery = {
   adminBlogPost: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
     requireAdmin(ctx);
     return getBlogPostById(args.id);
+  },
+
+  adminTopBlogPosts: async (
+    _: unknown,
+    args: { limit?: number | null },
+    ctx: GraphQLContext,
+  ) => {
+    requireAdmin(ctx);
+    return listTopBlogPosts({ limit: args.limit });
+  },
+
+  adminBlogReadStats: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+    requireAdmin(ctx);
+    return getBlogReadStats();
   },
 
   adminDiscoveryTaxonomies: async (

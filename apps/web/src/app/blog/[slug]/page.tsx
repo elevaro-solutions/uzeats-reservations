@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { BlogReadTracker } from '@/components/BlogReadTracker';
 import { fetchBlogPostBySlug, fetchPublishedBlogPosts } from '@/lib/blogSeoFetch';
 import { sanitizeBlogHtml } from '@reservations/shared';
 import {
@@ -9,6 +10,11 @@ import {
   breadcrumbJsonLd,
   faqJsonLd,
 } from '@/lib/seo';
+
+function formatReadCount(count: number) {
+  if (count <= 0) return null;
+  return count === 1 ? '1 read' : `${count.toLocaleString('en-US')} reads`;
+}
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -106,8 +112,11 @@ export default async function BlogArticlePage({ params }: Props) {
 
   const faqLd = post.faq?.length ? faqJsonLd(post.faq) : null;
 
+  const reads = formatReadCount(post.readCount ?? 0);
+
   return (
     <article className="blog-page blog-article">
+      <BlogReadTracker slug={post.slug} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleLd) }} />
       {faqLd ? (
@@ -129,6 +138,12 @@ export default async function BlogArticlePage({ params }: Props) {
           {published ? <time dateTime={post.publishedAt ?? undefined}>{published}</time> : null}
           {published ? <span aria-hidden>·</span> : null}
           <span>{name}</span>
+          {reads ? (
+            <>
+              <span aria-hidden>·</span>
+              <span>{reads}</span>
+            </>
+          ) : null}
         </p>
         {post.excerpt ? <p className="blog-hero__lede">{post.excerpt}</p> : null}
       </header>

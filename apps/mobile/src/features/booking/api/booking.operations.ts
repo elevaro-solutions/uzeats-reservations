@@ -52,6 +52,7 @@ export const CREATE_RESERVATION = gql`
       clientSecret
       reservation {
         id
+        confirmationNumber
         status
         requiresManualApproval
         slotStart
@@ -59,6 +60,7 @@ export const CREATE_RESERVATION = gql`
         depositAmountCents
         depositStatus
         noShowFeeCents
+        cancellationPeriodHours
         cardGuaranteeStatus
         restaurant {
           id
@@ -291,6 +293,8 @@ export const BOOKING_RESTAURANT = gql`
       depositRequired
       depositAmountCents
       depositPolicy
+      cancellationPeriodHours
+      effectiveCancellationPeriodHours
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
@@ -334,6 +338,7 @@ export const MY_RESERVATION = gql`
   query MyReservation($id: ID!) {
     myReservation(id: $id) {
       id
+      confirmationNumber
       status
       requiresManualApproval
       slotStart
@@ -344,6 +349,7 @@ export const MY_RESERVATION = gql`
       depositAmountCents
       depositStatus
       noShowFeeCents
+      cancellationPeriodHours
       cardGuaranteeStatus
       clientSecret
       loyaltyPointsEarned

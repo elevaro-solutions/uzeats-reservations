@@ -226,6 +226,11 @@ export function buildDateRange(startIso: string, count: number): string[] {
   return dates;
 }
 
-export function shortReservationRef(id: string): string {
+export function shortReservationRef(
+  id: string,
+  confirmationNumber?: string | null,
+): string {
+  const trimmed = confirmationNumber?.trim();
+  if (trimmed && /^\d{6}$/.test(trimmed)) return trimmed;
   return id.slice(-8).toUpperCase();
 }
