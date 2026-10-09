@@ -4,6 +4,17 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.79.1] — 2026-10-10
+
+### Fixed
+
+- Password resets for `@tablevera.local` proxy login accounts (e.g. `owner@tablevera.local`) are emailed to the platform Support contacts address (`supportEmail`), same as `@tablevera.online`
+- Proxy password-reset delivery falls back to `support.uzeats@gmail.com` when Support contacts is a non-deliverable address (e.g. `support@reservations.local`) instead of failing silently
+
+### Docs
+
+- Proxy password-reset delivery notes for `@tablevera.local` and support-email fallback (`docs/notes/features-auth.md`)
+
 ## [0.79.0] — 2026-10-09
 
 ### Added

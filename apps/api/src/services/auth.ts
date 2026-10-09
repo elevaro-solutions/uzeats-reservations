@@ -11,7 +11,12 @@ import {
 import { env } from '../config/env.js';
 import { User } from '../models/User.js';
 import { PasswordResetAttempt } from '../models/PasswordResetAttempt.js';
-import { notifyUser, isEmailDeliveryConfigured, sendEmail } from './notifications.js';
+import {
+  notifyUser,
+  isEmailDeliveryConfigured,
+  isNonDeliverableEmail,
+  sendEmail,
+} from './notifications.js';
 import { renderEmailTemplate } from './emailTemplates.js';
 import { emailNotice } from './emailBranding.js';
 import {
@@ -29,8 +34,11 @@ import {
 } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 
-/** Platform-owned mailboxes are not reliably deliverable; route resets to Support contacts. */
-const PLATFORM_OWNED_EMAIL_DOMAIN = '@tablevera.online';
+/**
+ * Proxy / platform-owned login domains — not real user inboxes.
+ * Password resets for these addresses go to Support contacts (`supportEmail`).
+ */
+const PLATFORM_OWNED_EMAIL_DOMAINS = ['@tablevera.online', '@tablevera.local'] as const;
 /** Super-admin inbox when Support contacts still points at a platform-owned address. */
 const SUPER_ADMIN_SUPPORT_INBOX = 'support.uzeats@gmail.com';
 /** Max forgot-password emails per address within the rolling window. */
@@ -799,15 +807,25 @@ async function createPasswordResetToken(userId: string, app: 'web' | 'dashboard'
   return { token, resetUrl: `${passwordResetBaseUrl(app)}/reset-password?token=${token}` };
 }
 
-/** True for platform-owned addresses (e.g. seed / ops accounts on @tablevera.online). */
+/** True for proxy login addresses (e.g. seed / ops on @tablevera.online or @tablevera.local). */
 export function isPlatformOwnedEmail(email: string) {
-  return email.trim().toLowerCase().endsWith(PLATFORM_OWNED_EMAIL_DOMAIN);
+  const normalized = email.trim().toLowerCase();
+  return PLATFORM_OWNED_EMAIL_DOMAINS.some((domain) => normalized.endsWith(domain));
+}
+
+/** True when Support contacts can actually receive mail (not proxy / .local / .test). */
+export function isDeliverableSupportEmail(email: string) {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return false;
+  if (isPlatformOwnedEmail(normalized) || isNonDeliverableEmail(normalized)) return false;
+  return true;
 }
 
 /**
  * Where to deliver a password-reset email.
- * @tablevera.online accounts redirect to Support contacts (`supportEmail`),
- * falling back to the super-admin inbox when that contact is also platform-owned.
+ * Proxy accounts (`@tablevera.online`, `@tablevera.local`) redirect to Support contacts
+ * (`supportEmail`), falling back to the super-admin inbox when that contact is also
+ * undeliverable (proxy domain or `.local` / `.test`).
  */
 export async function resolvePasswordResetDeliveryEmail(accountEmail: string): Promise<string> {
   const normalized = accountEmail.trim().toLowerCase();
@@ -815,7 +833,7 @@ export async function resolvePasswordResetDeliveryEmail(accountEmail: string): P
 
   const config = mapPlatformConfig(await getPlatformConfig());
   const supportEmail = (config.supportEmail || '').trim().toLowerCase();
-  if (supportEmail && !isPlatformOwnedEmail(supportEmail)) {
+  if (isDeliverableSupportEmail(supportEmail)) {
     return supportEmail;
   }
   return SUPER_ADMIN_SUPPORT_INBOX;
@@ -881,7 +899,7 @@ async function sendPasswordResetEmail(
 async function resolveSupportContactEmail() {
   const config = mapPlatformConfig(await getPlatformConfig());
   const supportEmail = (config.supportEmail || '').trim().toLowerCase();
-  if (supportEmail && !isPlatformOwnedEmail(supportEmail)) {
+  if (isDeliverableSupportEmail(supportEmail)) {
     return supportEmail;
   }
   return SUPER_ADMIN_SUPPORT_INBOX;
@@ -962,11 +980,18 @@ export async function requestPasswordReset(
     };
   }
 
-  const user = await User.findOne({ email: normalized });
+  const user = await User.findOne({ email: { $in: demoEmailCandidates(normalized) } });
   if (user?.email) {
     const resetApp = app ?? passwordResetAppForRole(user.role);
     const { resetUrl } = await createPasswordResetToken(user._id.toString(), resetApp);
-    await sendPasswordResetEmail(user, resetUrl);
+    try {
+      await sendPasswordResetEmail(user, resetUrl);
+    } catch (err) {
+      logger.error(
+        { err, accountEmail: user.email },
+        '[auth] password reset email failed',
+      );
+    }
   }
 
   const remainingHint =

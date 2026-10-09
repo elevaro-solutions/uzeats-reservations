@@ -14,9 +14,11 @@ describe('password reset delivery routing', () => {
     vi.restoreAllMocks();
   });
 
-  it('detects platform-owned @tablevera.online addresses', () => {
+  it('detects proxy login @tablevera.online and @tablevera.local addresses', () => {
     expect(isPlatformOwnedEmail('owner@tablevera.online')).toBe(true);
     expect(isPlatformOwnedEmail('Owner@Tablevera.Online')).toBe(true);
+    expect(isPlatformOwnedEmail('admin@tablevera.local')).toBe(true);
+    expect(isPlatformOwnedEmail('Owner@Tablevera.Local')).toBe(true);
     expect(isPlatformOwnedEmail('owner@example.com')).toBe(false);
     expect(isPlatformOwnedEmail('support.uzeats@gmail.com')).toBe(false);
   });
@@ -38,6 +40,17 @@ describe('password reset delivery routing', () => {
     ).resolves.toBe('support.uzeats@gmail.com');
   });
 
+  it('routes @tablevera.local proxy resets to Support contacts supportEmail', async () => {
+    vi.spyOn(platformConfig, 'getPlatformConfig').mockResolvedValue({} as any);
+    vi.spyOn(platformConfig, 'mapPlatformConfig').mockReturnValue({
+      supportEmail: 'support.uzeats@gmail.com',
+    } as any);
+
+    await expect(
+      resolvePasswordResetDeliveryEmail('owner@tablevera.local'),
+    ).resolves.toBe('support.uzeats@gmail.com');
+  });
+
   it('falls back to the super-admin inbox when Support contacts is also platform-owned', async () => {
     vi.spyOn(platformConfig, 'getPlatformConfig').mockResolvedValue({} as any);
     vi.spyOn(platformConfig, 'mapPlatformConfig').mockReturnValue({
@@ -46,6 +59,20 @@ describe('password reset delivery routing', () => {
 
     await expect(
       resolvePasswordResetDeliveryEmail('ops@tablevera.online'),
+    ).resolves.toBe('support.uzeats@gmail.com');
+    await expect(
+      resolvePasswordResetDeliveryEmail('a@tablevera.local'),
+    ).resolves.toBe('support.uzeats@gmail.com');
+  });
+
+  it('falls back when Support contacts is a non-deliverable .local address', async () => {
+    vi.spyOn(platformConfig, 'getPlatformConfig').mockResolvedValue({} as any);
+    vi.spyOn(platformConfig, 'mapPlatformConfig').mockReturnValue({
+      supportEmail: 'support@reservations.local',
+    } as any);
+
+    await expect(
+      resolvePasswordResetDeliveryEmail('owner@tablevera.local'),
     ).resolves.toBe('support.uzeats@gmail.com');
   });
 });

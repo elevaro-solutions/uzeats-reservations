@@ -255,6 +255,17 @@ async function sendViaSendGrid(
   }
 }
 
+/** Seed / lab addresses SendGrid must never receive. */
+export function isNonDeliverableEmail(email: string) {
+  const normalized = email.trim().toLowerCase();
+  return (
+    normalized.endsWith('.local') ||
+    normalized.endsWith('.test') ||
+    normalized.endsWith('@example.com') ||
+    normalized.endsWith('@test.com')
+  );
+}
+
 export async function sendEmail(
   to: string,
   title: string,
@@ -270,12 +281,7 @@ export async function sendEmail(
 ) {
   const normalizedTo = to.trim().toLowerCase();
   // Avoid SendGrid blocks / reputation hits from seed and non-routable addresses.
-  if (
-    normalizedTo.endsWith('.local') ||
-    normalizedTo.endsWith('.test') ||
-    normalizedTo.endsWith('@example.com') ||
-    normalizedTo.endsWith('@test.com')
-  ) {
+  if (isNonDeliverableEmail(normalizedTo)) {
     throw new Error(`Refusing to send email to non-deliverable address: ${to}`);
   }
 
