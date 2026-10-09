@@ -122,6 +122,7 @@ const FEATURE_LABELS: Record<string, string> = {
   promotions: 'Promotion & offer management',
   featuredPlacement: 'Featured placement',
   boostCampaigns: 'Boost campaigns',
+  threeDView: '3D view',
 };
 
 const PLAN_BLURBS: Record<string, string> = {

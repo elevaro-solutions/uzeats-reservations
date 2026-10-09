@@ -22,6 +22,7 @@ export const FEATURE_KEYS = [
   'promotions',
   'featuredPlacement',
   'boostCampaigns',
+  'threeDView',
 ] as const;
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
@@ -175,4 +176,5 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   promotions: 'Promotion & offer management',
   featuredPlacement: 'Featured placement',
   boostCampaigns: 'Boost campaigns',
+  threeDView: '3D view',
 };

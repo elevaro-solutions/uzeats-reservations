@@ -872,6 +872,7 @@ export const typeDefs = `#graphql
     promotions: Boolean!
     featuredPlacement: Boolean!
     boostCampaigns: Boolean!
+    threeDView: Boolean!
     premiumSmsAddon: Boolean
   }
 
@@ -2005,6 +2006,7 @@ export const typeDefs = `#graphql
     promotions: Boolean
     featuredPlacement: Boolean
     boostCampaigns: Boolean
+    threeDView: Boolean
   }
 
   type PasswordResetLinkPayload {
@@ -4132,6 +4134,12 @@ export const typeDefs = `#graphql
     saveFloorPlanDraft(restaurantId: ID!, input: FloorPlanSaveInput!): Restaurant!
     """Apply layout to live tables/fixtures and clear the draft."""
     publishFloorPlan(restaurantId: ID!, input: FloorPlanSaveInput!): Restaurant!
+    """Create a named floor area (empty appearance) so it can be configured before tables exist."""
+    ensureFloorArea(restaurantId: ID!, name: String!): Restaurant!
+    """Rename a floor area across tables, layout meta, draft, and Virtual Room settings."""
+    renameFloorArea(restaurantId: ID!, from: String!, to: String!): Restaurant!
+    """Delete an empty floor area (no tables/fixtures/rooms). Main cannot be deleted."""
+    deleteFloorArea(restaurantId: ID!, name: String!): Restaurant!
     updateRestaurantSettings(
       restaurantId: ID!
       spendAlertThresholdCents: Int

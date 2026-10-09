@@ -75,7 +75,7 @@ export function tableDepositInput(values: TableDepositFormValues) {
   };
 }
 
-function normalizeAreaName(value: string) {
+export function normalizeAreaName(value: string) {
   return value.trim().replace(/\s+/g, ' ');
 }
 
@@ -91,7 +91,7 @@ type FloorAreaSelectProps = {
   onAddArea?: (value: string) => void;
 };
 
-function FloorAreaSelect({ value, onChange, areas, onAddArea }: FloorAreaSelectProps) {
+export function FloorAreaSelect({ value, onChange, areas, onAddArea }: FloorAreaSelectProps) {
   const [draft, setDraft] = useState('');
 
   const options = useMemo(() => {

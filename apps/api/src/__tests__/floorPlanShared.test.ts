@@ -2,8 +2,12 @@ import { describe, expect, it } from 'vitest';
 import {
   HistoryStack,
   findOverlappingIds,
+  normalizeFloorAreaName,
   normalizeTableShape,
+  removeFloorAreaAppearance,
+  renameFloorAreaAppearance,
   resolveFloorAreaAppearance,
+  sameFloorArea,
   snapWithAlignmentGuides,
   upsertFloorAreaAppearance,
 } from '@reservations/shared';
@@ -65,5 +69,25 @@ describe('floorPlan shared helpers', () => {
       { floorArea: 'main', backgroundColor: '#000', backgroundUrl: null },
     );
     expect(next).toEqual([{ floorArea: 'main', backgroundColor: '#000', backgroundUrl: null }]);
+  });
+
+  it('normalizes and compares floor area names', () => {
+    expect(normalizeFloorAreaName('  Patio  dining ')).toBe('Patio dining');
+    expect(sameFloorArea('Patio', 'patio')).toBe(true);
+    expect(sameFloorArea('Patio', 'Main')).toBe(false);
+  });
+
+  it('renames and removes area appearances', () => {
+    const list = [
+      { floorArea: 'Main', backgroundColor: '#fff', backgroundUrl: null },
+      { floorArea: 'Patio', backgroundColor: '#e4efe8', backgroundUrl: 'https://x/y.jpg' },
+    ];
+    expect(renameFloorAreaAppearance(list, 'patio', 'Garden')).toEqual([
+      { floorArea: 'Main', backgroundColor: '#fff', backgroundUrl: null },
+      { floorArea: 'Garden', backgroundColor: '#e4efe8', backgroundUrl: 'https://x/y.jpg' },
+    ]);
+    expect(removeFloorAreaAppearance(list, 'PATIO')).toEqual([
+      { floorArea: 'Main', backgroundColor: '#fff', backgroundUrl: null },
+    ]);
   });
 });

@@ -298,7 +298,10 @@ export function getDeletedPlanKeys(doc: PlatformConfigDocument): Set<string> {
   );
 }
 
-/** Catalog shown on pricing, signup, and admin package lists. */
+/**
+ * Catalog after soft-delete. Pricing-hidden plans (`visibleOnPricing: false`) stay here;
+ * the `plans` GraphQL resolver strips them for non-admins so partners/public never see them.
+ */
 export function visiblePlans(
   plans: EffectivePlan[],
   deletedKeys: Set<string>,

@@ -109,6 +109,11 @@ export const MY_RESTAURANTS = gql`
         id name minCapacity maxCapacity floorArea active combinable photoUrl
         shape requiresManualApproval depositRequired depositAmountCents cancellationPeriodHours
       }
+      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl }
+      floorPlanDraft {
+        updatedAt
+        areaAppearances { floorArea backgroundColor backgroundUrl }
+      }
       shifts {
         id name daysOfWeek startTime endTime slotIntervalMinutes turnTimeMinutes active
       }
@@ -2876,6 +2881,7 @@ export const ADMIN_PLANS = gql`
         promotions
         featuredPlacement
         boostCampaigns
+        threeDView
       }
     }
   }
@@ -4180,6 +4186,52 @@ export const PUBLISH_FLOOR_PLAN = gql`
         depositRequired depositAmountCents cancellationPeriodHours
         virtualRoomSelectable virtualRoomSelectionFeeEnabled virtualRoomSelectionFeeCents
       }
+    }
+  }
+`;
+
+export const ENSURE_FLOOR_AREA = gql`
+  mutation EnsureFloorArea($restaurantId: ID!, $name: String!) {
+    ensureFloorArea(restaurantId: $restaurantId, name: $name) {
+      id
+      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl }
+      floorPlanDraft {
+        updatedAt
+        areaAppearances { floorArea backgroundColor backgroundUrl }
+      }
+      tables { id floorArea }
+    }
+  }
+`;
+
+export const RENAME_FLOOR_AREA = gql`
+  mutation RenameFloorArea($restaurantId: ID!, $from: String!, $to: String!) {
+    renameFloorArea(restaurantId: $restaurantId, from: $from, to: $to) {
+      id
+      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl }
+      floorPlanDraft {
+        updatedAt
+        areaAppearances { floorArea backgroundColor backgroundUrl }
+        fixtures { id floorArea }
+        rooms { id floorArea }
+      }
+      floorFixtures { id floorArea }
+      floorRooms { id floorArea }
+      tables { id floorArea }
+    }
+  }
+`;
+
+export const DELETE_FLOOR_AREA = gql`
+  mutation DeleteFloorArea($restaurantId: ID!, $name: String!) {
+    deleteFloorArea(restaurantId: $restaurantId, name: $name) {
+      id
+      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl }
+      floorPlanDraft {
+        updatedAt
+        areaAppearances { floorArea backgroundColor backgroundUrl }
+      }
+      tables { id floorArea }
     }
   }
 `;

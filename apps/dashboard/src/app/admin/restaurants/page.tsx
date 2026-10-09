@@ -229,6 +229,7 @@ type PlanInfo = {
   monthlyPriceCents?: number;
   trialDays?: number;
   annualFreeMonths?: number;
+  visibleOnPricing?: boolean | null;
 };
 
 type RestaurantRecord = AdminRestaurantRecord;

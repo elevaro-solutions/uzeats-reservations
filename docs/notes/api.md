@@ -1,5 +1,9 @@
 # API — Learnings & Observations
 
+## [2026-10-09] `plans` hides pricing-hidden rows from non-admins
+- `getEffectivePlans` still includes `visibleOnPricing: false`. The `plans` resolver returns the full list only for `isPlatformAdmin`; everyone else gets `visibleOnPricing !== false` (then SMS kill-switch gating).
+- Why it matters: Client filters alone could leak private packages into partner/register payloads.
+
 ## [2026-10-09] Virtual 3D selectionAttemptCount
 - `VirtualRoom.selectionAttemptCount` + public mutation `recordVirtualRoomSelectionAttempt`. `$inc` only when published + add-on active (same gate as `getPublicVirtualRoom`). Returns updated `VirtualRoomAddon` or null.
 - Why it matters: Unauthenticated best-effort analytics; invalid ids / unpublished / inactive are silent no-ops.
@@ -19,6 +23,10 @@
 - New bookings get `confirmationNumber` (`100000`–`999999`, unique sparse index) via `generateReservationConfirmationNumber`. GraphQL `Reservation.confirmationNumber` falls back to the old last-8 ObjectId slice for legacy rows.
 - Partner/admin list `search` matches confirmation # (exact 6 digits skips date-period filters). `restaurantReservation(id)` accepts Mongo id or confirmation #.
 - Why it matters: Don’t derive guest-facing refs from `_id` in new UI; URLs stay `/reservations/:mongoId`.
+
+## [2026-10-09] Floor area CRUD mutations
+- `ensureFloorArea` / `renameFloorArea` / `deleteFloorArea` on Restaurant (partner access). Ensure upserts published (+ draft if present) `floorPlanAreaAppearances`. Rename updates tables, fixtures, rooms, draft, and Virtual Room `areaSettings` / media `floorArea`. Delete refuses Main, areas with tables, or fixtures/rooms still in that area.
+- Why it matters: Area names are free-form strings on tables — rename must cascade or layout/3D settings drift.
 
 ## [2026-10-09] `virtualRoomOpsScene` for Live floor
 - Read-only scene for `/floor-ops` 3D: `assertRestaurantAccess` (hosts OK), `VirtualRoom.findOne` + `buildVirtualRoomScene` — no upsert, no add-on gate.

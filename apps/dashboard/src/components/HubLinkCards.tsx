@@ -14,6 +14,8 @@ export type HubLink = {
   title: string;
   description: string;
   icon: ReactNode;
+  /** Optional tag next to the title (e.g. Experimental). */
+  badge?: ReactNode;
 };
 
 type HubLinkCardsProps = {
@@ -85,15 +87,27 @@ export function HubLinkCards({
                       marginBottom: 4,
                     }}
                   >
-                    <Text strong style={{ fontSize: 14 }}>
-                      {tool.title}
-                    </Text>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        minWidth: 0,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <Text strong style={{ fontSize: 14 }}>
+                        {tool.title}
+                      </Text>
+                      {tool.badge}
+                    </div>
                     <ArrowRightOutlined
                       className="rt-settings-link-arrow"
                       style={{
                         fontSize: 12,
                         color: colors.textTertiary,
                         transition: 'color 0.2s ease, transform 0.2s ease',
+                        flexShrink: 0,
                       }}
                     />
                   </div>

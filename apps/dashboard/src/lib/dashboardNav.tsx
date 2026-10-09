@@ -68,6 +68,8 @@ export type DashboardPage = {
    * Sider highlights this parent href while the child route is active.
    */
   parentSiderHref?: string;
+  /** Hub card section label (Settings / similar hubs). Independent of sider `group`. */
+  hubSection?: string;
 };
 
 function page(
@@ -81,6 +83,7 @@ function page(
     when?: 'onboarding' | 'super_admin';
     description?: string;
     parentSiderHref?: string;
+    hubSection?: string;
   },
 ): DashboardPage {
   return {
@@ -93,6 +96,7 @@ function page(
     when: opts?.when,
     description: opts?.description,
     parentSiderHref: opts?.parentSiderHref,
+    hubSection: opts?.hubSection,
   };
 }
 
@@ -117,26 +121,31 @@ export const PARTNER_PAGES: DashboardPage[] = [
     keywords: ['name', 'address', 'contact', 'deposit', 'loyalty', 'logo', 'photos'],
     description: 'Name, location, contact, deposits, loyalty, media, and public URL',
     parentSiderHref: '/settings',
+    hubSection: 'Restaurant',
   }),
   page('/floor-plan', 'Table layout', 'Service', 'partner', <LayoutOutlined />, {
     keywords: ['floor plan', 'layout', 'canvas', 'map'],
     description: 'Drag tables on the floor canvas for each area',
     parentSiderHref: '/settings',
+    hubSection: 'Floor and layout',
   }),
   page('/floor-plan/settings', 'Area settings', 'Service', 'partner', <SettingOutlined />, {
-    keywords: ['background', 'color', 'scale', 'feet', 'meters', 'underlay'],
-    description: 'Canvas color, background image, and real-world scale',
+    keywords: ['background', 'color', 'scale', 'feet', 'meters', 'underlay', 'rename area'],
+    description: 'Add or rename floor areas; canvas color, image, and scale',
     parentSiderHref: '/settings',
+    hubSection: 'Floor and layout',
   }),
   page('/virtual-room', 'Virtual 3D room', 'Service', 'partner', <ExperimentOutlined />, {
     keywords: ['3d', 'virtual tour', '360', 'panorama', 'scan', 'video', 'table selection'],
     description: 'Experimental: 3D dining room built from your floor plan, photos, and video',
     parentSiderHref: '/settings',
+    hubSection: 'Floor and layout',
   }),
   page('/floor', 'Tables & shifts', 'Service', 'partner', <TableOutlined />, {
-    keywords: ['areas', 'capacity', 'schedule'],
-    description: 'Areas, table capacity, and shift schedules',
+    keywords: ['areas', 'capacity', 'schedule', 'floor area'],
+    description: 'Tables, floor areas, and shift schedules',
     parentSiderHref: '/settings',
+    hubSection: 'Floor and layout',
   }),
   page('/guests', 'Guests', 'Guests', 'partner', <ContactsOutlined />, {
     keywords: ['crm', 'diners', 'vip'],
@@ -222,6 +231,7 @@ export const PARTNER_PAGES: DashboardPage[] = [
     keywords: ['managers', 'manager', 'host', 'invite', 'seats'],
     description: 'Invite managers and hosts within your package seat limit',
     parentSiderHref: '/settings',
+    hubSection: 'Team and access',
   }),
   page('/billing', 'Billing', 'Account', 'partner', <DollarOutlined />, {
     keywords: ['subscription', 'plan', 'invoice'],
@@ -240,36 +250,43 @@ export const PARTNER_PAGES: DashboardPage[] = [
     keywords: ['dishes', 'food', 'dietary'],
     description: 'Sections, dishes, dietary tags, and photos',
     parentSiderHref: '/settings',
+    hubSection: 'Restaurant',
   }),
   page('/blackouts', 'Blackouts', 'Settings', 'partner', <StopOutlined />, {
     keywords: ['closed', 'holidays', 'block'],
     description: 'Block dates or hours when you are closed',
     parentSiderHref: '/settings',
+    hubSection: 'Booking',
   }),
   page('/access-rules', 'Access rules', 'Settings', 'partner', <LockOutlined />, {
     keywords: ['party size', 'lead time', 'limits'],
     description: 'Party size, lead time, and booking limits',
     parentSiderHref: '/settings',
+    hubSection: 'Booking',
   }),
   page('/surveys', 'Surveys', 'Settings', 'partner', <FormOutlined />, {
     keywords: ['feedback', 'questions'],
     description: 'Post-dining feedback questions and results',
     parentSiderHref: '/settings',
+    hubSection: 'Booking',
   }),
   page('/groups', 'Groups', 'Settings', 'partner', <ClusterOutlined />, {
     keywords: ['multi-location', 'chain'],
     description: 'Multi-location restaurant groups',
     parentSiderHref: '/settings',
+    hubSection: 'Restaurant',
   }),
   page('/integrations', 'Integrations', 'Settings', 'partner', <ApiOutlined />, {
     keywords: ['api', 'pos', 'keys'],
     description: 'API keys, POS, and embed partners',
     parentSiderHref: '/settings',
+    hubSection: 'Team and access',
   }),
   page('/notifications', 'Notifications', 'Settings', 'partner', <BellOutlined />, {
     keywords: ['alerts', 'email', 'sms'],
     description: 'Per-user alert matrix by feature and channel',
     parentSiderHref: '/settings',
+    hubSection: 'Team and access',
   }),
 ];
 

@@ -329,6 +329,42 @@ export const floorPlanAreaAppearanceSchema = z.object({
   backgroundUrl: z.string().max(1000).nullable().optional(),
 });
 
+/** Create or keep a named floor area (persisted via areaAppearances). */
+export const ensureFloorAreaInputSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(60)
+    .transform((v) => v.replace(/\s+/g, ' ')),
+});
+
+/** Rename a floor area across tables, fixtures, rooms, and appearances. */
+export const renameFloorAreaInputSchema = z.object({
+  from: z
+    .string()
+    .trim()
+    .min(1)
+    .max(60)
+    .transform((v) => v.replace(/\s+/g, ' ')),
+  to: z
+    .string()
+    .trim()
+    .min(1)
+    .max(60)
+    .transform((v) => v.replace(/\s+/g, ' ')),
+});
+
+/** Remove an empty floor area (no tables assigned). */
+export const deleteFloorAreaInputSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(60)
+    .transform((v) => v.replace(/\s+/g, ' ')),
+});
+
 export const floorPlanSaveInputSchema = z.object({
   backgroundUrl: z.string().max(1000).nullable().optional(),
   backgroundColor: floorPlanBackgroundColorSchema,

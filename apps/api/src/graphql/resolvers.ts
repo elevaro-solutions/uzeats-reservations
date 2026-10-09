@@ -6,6 +6,9 @@ import {
   restaurantInputSchema,
   tableInputSchema,
   floorPlanSaveInputSchema,
+  ensureFloorAreaInputSchema,
+  renameFloorAreaInputSchema,
+  deleteFloorAreaInputSchema,
   shiftInputSchema,
   reservationInputSchema,
   ownerReservationInputSchema,
@@ -2294,11 +2297,12 @@ export const resolvers = {
 
     plans: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       const plans = await getEffectivePlans();
-      // Admins edit raw package features; partners/public hide SMS when kill switch is off.
+      // Platform admins get the full catalog (incl. visibleOnPricing: false) for assign/create/edit.
       if (ctx.user && isPlatformAdmin(ctx.user.role)) return plans;
+      const publicPlans = plans.filter((plan) => plan.visibleOnPricing !== false);
       const smsEnabled = await isFeatureEnabled("sms");
-      if (smsEnabled) return plans;
-      return plans.map((plan) => gatePlanSmsForClients(plan, false));
+      if (smsEnabled) return publicPlans;
+      return publicPlans.map((plan) => gatePlanSmsForClients(plan, false));
     },
 
     managerInviteByToken: async (_: unknown, args: { token: string }) => {
@@ -7415,6 +7419,81 @@ export const resolvers = {
           fixtureCount: input.fixtures?.length ?? null,
           positionCount: input.positions?.length ?? null,
         },
+      });
+      return mapRestaurant(doc);
+    },
+
+    ensureFloorArea: async (
+      _: unknown,
+      args: { restaurantId: string; name: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      const { name } = ensureFloorAreaInputSchema.parse({ name: args.name });
+      const { ensureFloorAreaDoc } = await import("../services/floorAreas.js");
+      const doc = await ensureFloorAreaDoc(args.restaurantId, name);
+      await logAudit({
+        actorId: user._id.toString(),
+        action: "ensureFloorArea",
+        resource: "Restaurant",
+        resourceId: args.restaurantId,
+        details: { name },
+      });
+      return mapRestaurant(doc);
+    },
+
+    renameFloorArea: async (
+      _: unknown,
+      args: { restaurantId: string; from: string; to: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      const { from, to } = renameFloorAreaInputSchema.parse({
+        from: args.from,
+        to: args.to,
+      });
+      const { renameFloorAreaDoc } = await import("../services/floorAreas.js");
+      const doc = await renameFloorAreaDoc(args.restaurantId, from, to);
+      await logAudit({
+        actorId: user._id.toString(),
+        action: "renameFloorArea",
+        resource: "Restaurant",
+        resourceId: args.restaurantId,
+        details: { from, to },
+      });
+      return mapRestaurant(doc);
+    },
+
+    deleteFloorArea: async (
+      _: unknown,
+      args: { restaurantId: string; name: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      const { name } = deleteFloorAreaInputSchema.parse({ name: args.name });
+      const { deleteFloorAreaDoc } = await import("../services/floorAreas.js");
+      const doc = await deleteFloorAreaDoc(args.restaurantId, name);
+      await logAudit({
+        actorId: user._id.toString(),
+        action: "deleteFloorArea",
+        resource: "Restaurant",
+        resourceId: args.restaurantId,
+        details: { name },
       });
       return mapRestaurant(doc);
     },

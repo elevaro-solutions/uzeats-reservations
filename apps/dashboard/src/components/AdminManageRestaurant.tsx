@@ -184,6 +184,7 @@ type PlanInfo = {
   monthlyPriceCents?: number;
   trialDays?: number;
   annualFreeMonths?: number;
+  visibleOnPricing?: boolean | null;
 };
 
 type TeamMember = {
@@ -205,6 +206,7 @@ export function PlanSelector({
 }) {
   const [billing, setBilling] = useState<'monthly' | 'annual'>('monthly');
 
+  // Admins may assign pricing-hidden packages; only drop the internal `free` key.
   const visiblePlans = plans.filter((p) => p.key !== 'free');
 
   const annualMonthlyPrice = (monthly: number, freeMonths: number) => {
@@ -219,6 +221,9 @@ export function PlanSelector({
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(
       cents / 100,
     );
+
+  const planOptionSuffix = (plan: PlanInfo) =>
+    plan.visibleOnPricing === false ? ' · Hidden' : '';
 
   const activePlan = visiblePlans.find((p) => p.key === value);
   const trialDays = activePlan?.trialDays ?? 0;
@@ -276,12 +281,17 @@ export function PlanSelector({
               const freeMonths = plan.annualFreeMonths ?? 2;
               const effectiveMonthly = billing === 'annual' ? annualMonthlyPrice(monthly, freeMonths) : monthly;
               const effectiveAnnual = annualTotalPrice(monthly, freeMonths);
+              const price =
+                billing === 'annual'
+                  ? monthly === 0
+                    ? 'Free'
+                    : `${fmt(effectiveAnnual)}/year`
+                  : monthly === 0
+                    ? 'Free'
+                    : `${fmt(effectiveMonthly)}/mo`;
               return {
                 value: plan.key,
-                label:
-                  billing === 'annual'
-                    ? `${plan.name} — ${monthly === 0 ? 'Free' : `${fmt(effectiveAnnual)}/year`}`
-                    : `${plan.name} — ${monthly === 0 ? 'Free' : `${fmt(effectiveMonthly)}/mo`}`,
+                label: `${plan.name} — ${price}${planOptionSuffix(plan)}`,
               };
             }),
           ]}
@@ -300,6 +310,11 @@ export function PlanSelector({
           <Space orientation="vertical" size={4}>
             <Text strong style={{ fontSize: 16 }}>
               {activePlan.name}
+              {activePlan.visibleOnPricing === false ? (
+                <Text type="secondary" style={{ fontSize: 13, fontWeight: 400, marginLeft: 8 }}>
+                  Hidden from public pricing
+                </Text>
+              ) : null}
             </Text>
             <div>
               {billing === 'annual' && regularAnnualPriceCents > selectedAnnualPriceCents ? (

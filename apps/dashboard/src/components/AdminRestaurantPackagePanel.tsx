@@ -20,6 +20,7 @@ type PlanInfo = {
   monthlyPriceCents?: number;
   trialDays?: number;
   annualFreeMonths?: number;
+  visibleOnPricing?: boolean | null;
 };
 
 function money(cents?: number | null) {

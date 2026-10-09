@@ -21,6 +21,17 @@ describe('plan catalog', () => {
     expect(all.find((plan) => plan.key === 'basic')?.features).toEqual(PLANS.basic.features);
   });
 
+  it('keeps pricing-hidden packages in the catalog (admins assign; GraphQL strips for non-admins)', () => {
+    const all = assemblePlans({
+      launch: { name: 'Launch', monthlyPriceCents: 7900, visibleOnPricing: false },
+    });
+    const catalog = visiblePlans(all, new Set());
+    expect(catalog.find((plan) => plan.key === 'launch')).toMatchObject({
+      name: 'Launch',
+      visibleOnPricing: false,
+    });
+  });
+
   it('applies a saved package order and appends unknown keys', () => {
     const plans = assemblePlans({
       launch: { name: 'Launch', monthlyPriceCents: 7900 },

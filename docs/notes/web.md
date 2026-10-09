@@ -55,7 +55,7 @@
 - Why it matters: A missing array and an empty array are different — empty means a super admin cleared Includes.
 
 ## [2026-09-28] Public pricing visibility is `visibleOnPricing` only
-- `/pricing` cards include every plan with `visibleOnPricing !== false`, including custom keys. The compare grid still uses the static Basic/Core/Pro matrix for those three keys when they are visible.
+- `/pricing` cards include every plan with `visibleOnPricing !== false`, including custom keys. The compare grid still uses the static Basic/Core/Pro matrix for those three keys when they are visible. As of 2026-10-09 the `plans` API also omits hidden rows for non-admins, so the client filter is defense in depth.
 - Why it matters: Filtering `!isCustom && isStandardPlanKey` made a new package flash (API list) and then vanish. The admin switch is the only public-catalog gate.
 
 ## [2026-09-28] My reviews can delete

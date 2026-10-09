@@ -21,8 +21,10 @@ import {
   ArrowLeftOutlined,
   CloudUploadOutlined,
   DeleteOutlined,
+  EditOutlined,
   LayoutOutlined,
   PictureOutlined,
+  PlusOutlined,
   SaveOutlined,
 } from '@ant-design/icons';
 import {
@@ -36,11 +38,14 @@ import {
   type FloorPlanScale,
 } from '@reservations/shared';
 import { PageHeader, colors, spacing } from '@reservations/ui';
+import { FloorAreaManageModal } from '@/components/FloorAreaManageModal';
 import { useAuth } from '@/lib/auth';
 import {
+  ENSURE_FLOOR_AREA,
   FLOOR_PLAN_TABLES,
   MY_RESTAURANTS,
   PUBLISH_FLOOR_PLAN,
+  RENAME_FLOOR_AREA,
   SAVE_FLOOR_PLAN_DRAFT,
 } from '@/lib/graphql';
 import {
@@ -78,6 +83,7 @@ export default function FloorPlanAreaSettingsPage() {
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const [bgUploading, setBgUploading] = useState(false);
   const [selectedArea, setSelectedArea] = useState('Main');
+  const [areaModal, setAreaModal] = useState<'add' | 'edit' | null>(null);
   const [settings, setSettings] = useState<SettingsState>({
     areaAppearances: [],
     backgroundUrl: null,
@@ -101,6 +107,8 @@ export default function FloorPlanAreaSettingsPage() {
 
   const [saveDraftMutation, { loading: savingDraft }] = useMutation(SAVE_FLOOR_PLAN_DRAFT);
   const [publishMutation, { loading: publishing }] = useMutation(PUBLISH_FLOOR_PLAN);
+  const [ensureFloorArea, { loading: ensuringArea }] = useMutation(ENSURE_FLOOR_AREA);
+  const [renameFloorArea, { loading: renamingArea }] = useMutation(RENAME_FLOOR_AREA);
 
   useEffect(() => {
     const restaurant = data?.restaurant;
@@ -163,8 +171,13 @@ export default function FloorPlanAreaSettingsPage() {
         ...areaAppearances.map((a: FloorPlanAreaAppearance) => a.floorArea),
       ]),
     );
-    const preferred = areaFromUrl && areas.includes(areaFromUrl) ? areaFromUrl : areas[0] || 'Main';
-    setSelectedArea(preferred);
+    setSelectedArea((prev) => {
+      if (areaFromUrl && areas.includes(areaFromUrl)) return areaFromUrl;
+      if (prev && areas.some((a) => a.toLowerCase() === prev.toLowerCase())) {
+        return areas.find((a) => a.toLowerCase() === prev.toLowerCase()) || prev;
+      }
+      return areas[0] || 'Main';
+    });
   }, [data, areaFromUrl]);
 
   const floorAreaOptions = useMemo(() => {
@@ -283,6 +296,52 @@ export default function FloorPlanAreaSettingsPage() {
     }
   };
 
+  const handleAreaSubmit = async (name: string) => {
+    if (!activeRestaurantId) return;
+    const from = selectedArea;
+    try {
+      if (areaModal === 'edit') {
+        if (name.toLowerCase() === from.toLowerCase() && name === from) {
+          setAreaModal(null);
+          return;
+        }
+        await renameFloorArea({
+          variables: { restaurantId: activeRestaurantId, from, to: name },
+        });
+        const renameLocal = (list: FloorPlanAreaAppearance[]) =>
+          list.map((a) =>
+            (a.floorArea || 'Main').toLowerCase() === from.toLowerCase()
+              ? { ...a, floorArea: name }
+              : a,
+          );
+        setSelectedArea(name);
+        setSettings((prev) => ({ ...prev, areaAppearances: renameLocal(prev.areaAppearances) }));
+        setBaseline((prev) =>
+          prev ? { ...prev, areaAppearances: renameLocal(prev.areaAppearances) } : prev,
+        );
+        message.success(`Renamed to ${name}`);
+      } else {
+        await ensureFloorArea({
+          variables: { restaurantId: activeRestaurantId, name },
+        });
+        setSettings((prev) => ({
+          ...prev,
+          areaAppearances: upsertFloorAreaAppearance(prev.areaAppearances, {
+            floorArea: name,
+            backgroundColor: null,
+            backgroundUrl: null,
+          }),
+        }));
+        setSelectedArea(name);
+        message.success(`Added ${name}`);
+      }
+      setAreaModal(null);
+      await refetch();
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Failed to update area');
+    }
+  };
+
   const restaurantName =
     restaurants.find((r: { id: string; name: string }) => r.id === activeRestaurantId)?.name ||
     'Restaurant';
@@ -336,16 +395,32 @@ export default function FloorPlanAreaSettingsPage() {
           <Form layout="vertical" style={{ maxWidth: 520 }}>
             <Form.Item
               label="Floor area"
-              extra="Background color and image apply only to the selected area."
+              extra="Background color and image apply only to the selected area. Add or rename areas here or under Tables & shifts → Areas."
             >
-              <Select
-                value={selectedArea}
-                style={{ width: '100%', maxWidth: 280 }}
-                options={floorAreaOptions.map((area) => ({ value: area, label: area }))}
-                onChange={(area: string) => setSelectedArea(area)}
-                showSearch
-                optionFilterProp="label"
-              />
+              <Space wrap>
+                <Select
+                  value={selectedArea}
+                  style={{ width: '100%', minWidth: 200, maxWidth: 280 }}
+                  options={floorAreaOptions.map((area) => ({ value: area, label: area }))}
+                  onChange={(area: string) => setSelectedArea(area)}
+                  showSearch
+                  optionFilterProp="label"
+                />
+                <Button
+                  icon={<PlusOutlined />}
+                  onClick={() => setAreaModal('add')}
+                  disabled={!activeRestaurantId}
+                >
+                  Add area
+                </Button>
+                <Button
+                  icon={<EditOutlined />}
+                  onClick={() => setAreaModal('edit')}
+                  disabled={!activeRestaurantId || !selectedArea}
+                >
+                  Rename
+                </Button>
+              </Space>
             </Form.Item>
 
             <Form.Item
@@ -479,6 +554,16 @@ export default function FloorPlanAreaSettingsPage() {
             </Form.Item>
           </Form>
         </Card>
+
+        <FloorAreaManageModal
+          open={areaModal != null}
+          mode={areaModal === 'edit' ? 'edit' : 'add'}
+          initialName={selectedArea}
+          existingAreas={floorAreaOptions}
+          confirmLoading={ensuringArea || renamingArea}
+          onCancel={() => setAreaModal(null)}
+          onSubmit={handleAreaSubmit}
+        />
 
         <Card title="Real-world scale">
           <Form layout="vertical" style={{ maxWidth: 420 }}>

@@ -1,5 +1,19 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-09] Floor area add / rename / delete
+- `/floor` has an Areas tab (with Tables and Shifts). `/floor-plan/settings` can Add area or Rename the selected area. Both call `ensureFloorArea` / `renameFloorArea` / `deleteFloorArea`.
+- Adding persists an empty `floorPlanAreaAppearances` entry so the area shows before any table uses it. Rename cascades tables + layout meta + Virtual Room. Delete is blocked for Main, areas with tables, or areas with fixtures/rooms.
+- Why it matters: Don’t treat areas as session-only customFloorAreas; empty areas must survive reload via appearances.
+
+## [2026-10-09] Settings hub sections + filter
+- `/settings` stays a thin `HubLinkCards` hub. Children use `hubSection` (Restaurant / Floor and layout / Booking / Team and access) for card grouping; sider still uses `group`. Local filter matches label, description, and keywords. Virtual 3D room gets an Experimental badge; strip the “Experimental:” prefix from the card description.
+- Why it matters: Don’t put profile forms back on `/settings`. New settings tools need `parentSiderHref: '/settings'` + `hubSection` + `description`.
+
+## [2026-10-09] Hidden packages stay assignable for admins
+- `visibleOnPricing: false` packages still appear in admin `PlanSelector` (create/edit restaurant, package tab) and invoice package pickers, with a “· Hidden” suffix. Public `/pricing`, register, partner add-location, and Billing omit them.
+- API `plans` returns pricing-hidden rows only for `isPlatformAdmin`; non-admins get the filtered list.
+- Why it matters: Hiding a package from marketing must not block ops from assigning a private/custom deal.
+
 ## [2026-10-09] Virtual 3D selection attempt count
 - Partner `/virtual-room` toolbar shows lifetime “guests tried 3D table pick”. Admin restaurant Package panel shows the same `selectionAttemptCount` from `virtualRoomAddon`.
 - Why it matters: Engagement metric for the experimental add-on; not billed and not the same as completed `virtual_3d` bookings.
@@ -187,6 +201,10 @@
 - When on, web `/verify-email` and Partner Hub `/verify-email` gate unverified sessions after signup/login. Users enter a 6-digit code; local-dev shows the code when SendGrid is unset.
 - Why it matters: Same pattern as Includes on pricing — regular admins must not flip a security default by accident on a shared Save.
 
+## [2026-10-09] Pricing Features includes free 3D view toggle
+- `/admin/pricing` package Features has `threeDView` ("3D view") — included free with the package when on. Separate from Experimental Virtual 3D room add-on pricing on `/admin/config`.
+- Why it matters: Package feature flags live under `features`; Virtual 3D billing stays on `addons.virtualRoom3d`.
+
 ## [2026-09-29] Includes editor and description generator are super-admin
 - `/admin/pricing` shows Includes (add/remove lines) and Generate description only for `super_admin`. Saves from other admins omit `highlights` so they don’t wipe the list.
 - Generate writes the description field and marks the form dirty; it does not save by itself.
@@ -207,6 +225,7 @@
 
 ## [2026-09-28] Visible packages include custom keys
 - Billing plan changes, partner “add location”, and admin package assignment no longer drop `isCustom` plans. Public/partner pickers still hide `visibleOnPricing === false`. Admin assignment lists every non-`free` package so a hidden package can still be assigned.
+- Superseded in part by [2026-10-09] Hidden packages stay assignable for admins (API now strips hidden plans for non-admins; admin pickers label them).
 - Why it matters: The pricing switch only updates `visibleOnPricing`. An `isCustom` filter made that switch look broken.
 
 ## [2026-09-28] Pricing package delete

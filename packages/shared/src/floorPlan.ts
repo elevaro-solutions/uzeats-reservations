@@ -370,6 +370,22 @@ export const FLOOR_PLAN_BACKGROUND_COLOR_PRESETS = [
   { label: 'White', color: '#ffffff' },
 ] as const;
 
+/** Trim + collapse whitespace for floor area labels (Main, Patio, …). */
+export function normalizeFloorAreaName(value: string | null | undefined): string {
+  return (value ?? '').trim().replace(/\s+/g, ' ');
+}
+
+/** Case-insensitive floor area equality after normalize. */
+export function sameFloorArea(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean {
+  const left = normalizeFloorAreaName(a).toLowerCase();
+  const right = normalizeFloorAreaName(b).toLowerCase();
+  if (!left && !right) return true;
+  return Boolean(left) && left === right;
+}
+
 /** Per-floor-area canvas underlay (color / image). */
 export type FloorPlanAreaAppearance = {
   floorArea: string;
@@ -389,9 +405,8 @@ export function resolveFloorAreaAppearance(
     backgroundUrl?: string | null;
   } = {},
 ): { backgroundColor: string | null; backgroundUrl: string | null } {
-  const key = (floorArea || 'Main').trim().toLowerCase();
-  const match = (appearances ?? []).find(
-    (a) => (a.floorArea || 'Main').trim().toLowerCase() === key,
+  const match = (appearances ?? []).find((a) =>
+    sameFloorArea(a.floorArea || 'Main', floorArea || 'Main'),
   );
   if (!match) {
     return {
@@ -416,9 +431,9 @@ export function upsertFloorAreaAppearance(
   appearances: FloorPlanAreaAppearance[] | null | undefined,
   next: FloorPlanAreaAppearance,
 ): FloorPlanAreaAppearance[] {
-  const floorArea = (next.floorArea || 'Main').trim() || 'Main';
+  const floorArea = normalizeFloorAreaName(next.floorArea) || 'Main';
   const rest = (appearances ?? []).filter(
-    (a) => (a.floorArea || 'Main').trim().toLowerCase() !== floorArea.toLowerCase(),
+    (a) => !sameFloorArea(a.floorArea || 'Main', floorArea),
   );
   return [
     ...rest,
@@ -428,6 +443,32 @@ export function upsertFloorAreaAppearance(
       backgroundUrl: next.backgroundUrl ?? null,
     },
   ];
+}
+
+/** Rename one appearance entry (preserves color/url). No-op if missing. */
+export function renameFloorAreaAppearance(
+  appearances: FloorPlanAreaAppearance[] | null | undefined,
+  from: string,
+  to: string,
+): FloorPlanAreaAppearance[] {
+  const nextName = normalizeFloorAreaName(to) || 'Main';
+  return (appearances ?? []).map((a) =>
+    sameFloorArea(a.floorArea, from)
+      ? {
+          floorArea: nextName,
+          backgroundColor: a.backgroundColor ?? null,
+          backgroundUrl: a.backgroundUrl ?? null,
+        }
+      : { ...a },
+  );
+}
+
+/** Drop appearance entries for an area (case-insensitive). */
+export function removeFloorAreaAppearance(
+  appearances: FloorPlanAreaAppearance[] | null | undefined,
+  floorArea: string,
+): FloorPlanAreaAppearance[] {
+  return (appearances ?? []).filter((a) => !sameFloorArea(a.floorArea, floorArea));
 }
 
 export type FloorRoomPoint = { x: number; y: number };

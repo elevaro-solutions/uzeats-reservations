@@ -4,6 +4,24 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.79.0] — 2026-10-09
+
+### Added
+
+- Admin → Pricing package Features: **3D view** toggle (included free with the package; separate from the paid Virtual 3D room add-on)
+- Partner Hub → Tables & shifts: **Areas** tab to add, rename, and delete floor areas
+- Partner Hub → Area settings: **Add area** and **Rename** for the selected floor area
+- GraphQL `ensureFloorArea` / `renameFloorArea` / `deleteFloorArea` (rename cascades to tables, fixtures, rooms, draft appearances, and Virtual Room settings)
+
+### Changed
+
+- Partner Hub → Settings: tools are grouped into Restaurant / Floor and layout / Booking / Team and access sections, with a local filter and an Experimental badge on Virtual 3D room
+- Packages marked **Hidden** on Admin → Pricing stay available to platform admins when creating/editing restaurants, assigning packages, and creating invoices (labeled “Hidden” in those pickers). Partners and the public no longer receive them from the `plans` API.
+
+### Docs
+
+- Floor area CRUD, package 3D view feature flag, Settings hub grouping, and hidden-plan admin pickers (`docs/notes/api.md`, `dashboard.md`, `features-virtual-room.md`, `web.md`)
+
 ## [0.78.0] — 2026-10-09
 
 ### Added

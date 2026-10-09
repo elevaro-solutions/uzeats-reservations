@@ -87,6 +87,11 @@ const FEATURE_TOGGLES = [
     label: 'Boost campaigns',
     tooltip: 'Paid boost campaigns to increase visibility for slower nights.',
   },
+  {
+    key: 'threeDView',
+    label: '3D view',
+    tooltip: 'Included free with the package — Live floor 3D view for hosts (no Virtual 3D add-on charge).',
+  },
 ];
 
 const FIELD_TIPS = {
@@ -96,7 +101,7 @@ const FIELD_TIPS = {
   generateDescription:
     'Drafts the short description from the package name, includes, features, and manager accounts. You can edit it before saving.',
   visibleOnPricing:
-    'When on, this package appears as a card on the public /pricing page and in partner registration.',
+    'When on, this package appears as a card on the public /pricing page and in partner registration. When off (Hidden), partners and the public cannot select it — platform admins can still assign it when creating or editing restaurants, assigning packages, and creating invoices.',
   monthlyPrice: 'Recurring monthly subscription price charged after any trial ends.',
   listPrice:
     'Original list price shown with strikethrough when a discount is active (e.g. before 50% off or 1st month free).',

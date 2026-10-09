@@ -2,6 +2,11 @@
 
 Experimental add-on: billing (monthly + per-guest fees) and an external photogrammetry provider (KIRI Engine), so it lives in its own file.
 
+## [2026-10-09] Plan feature `threeDView` ≠ Virtual 3D add-on
+- Admin → Pricing Features has a free package toggle `threeDView` ("3D view"). That is a plan entitlement (included when on), not `addons.virtualRoom3d`.
+- Guest 3D table pick / editor / monthly add-on billing still use `featureFlags.virtualRoom3d` + `addons.virtualRoom3d` and require `floorPlans`.
+- Why it matters: Do not treat enabling `threeDView` on a package as enabling the paid Virtual 3D product.
+
 ## [2026-10-09] Selection attempt counter is engagement, not bookings
 - `VirtualRoom.selectionAttemptCount` increments via public `recordVirtualRoomSelectionAttempt` when a diner opens the 3D picker **after** choosing a time (explore-only opens do not count). Client dedupes with `sessionStorage` (`vr-selection-attempt:<restaurantId>`) like blog reads.
 - Gate matches the public scene: published room + active add-on. Exposed on `VirtualRoomAddon` / `VirtualRoomEditor` for Partner Hub and Admin Package.

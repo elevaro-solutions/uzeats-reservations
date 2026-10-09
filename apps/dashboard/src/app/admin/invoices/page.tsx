@@ -295,6 +295,7 @@ function AdminInvoicesContent() {
           key: string;
           name: string;
           monthlyPriceCents: number;
+          visibleOnPricing?: boolean | null;
         }) => {
           const priced = planForBillingPeriod(p, cycle, {
             annualBilling,
@@ -307,9 +308,10 @@ function AdminInvoicesContent() {
               : isAnnual
                 ? `${money(display.primaryCents)}/yr`
                 : `${money(display.primaryCents)}/mo`;
+          const hiddenSuffix = p.visibleOnPricing === false ? ' · Hidden' : '';
           return {
             value: p.key,
-            label: `${p.name} — ${priceLabel}`,
+            label: `${p.name} — ${priceLabel}${hiddenSuffix}`,
           };
         },
       ),

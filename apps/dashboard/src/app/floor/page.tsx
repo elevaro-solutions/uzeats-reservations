@@ -38,6 +38,7 @@ import {
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { EmptyState, PageHeader, colors, radii, spacing } from '@reservations/ui';
+import { FloorAreaManageModal } from '@/components/FloorAreaManageModal';
 import {
   findAreaName,
   TableFormFields,
@@ -57,11 +58,14 @@ import {
   DELETE_SHIFT,
   UPDATE_TABLE,
   UPDATE_SHIFT,
+  ENSURE_FLOOR_AREA,
+  RENAME_FLOOR_AREA,
+  DELETE_FLOOR_AREA,
 } from '@/lib/graphql';
 
 const { Text } = Typography;
 
-const FLOOR_TABS = ['tables', 'shifts'] as const;
+const FLOOR_TABS = ['tables', 'areas', 'shifts'] as const;
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 const DAY_OPTIONS = DAYS.map((label, value) => ({ label, value }));
 const FLOOR_AREA_PRESETS = ['Main', 'Patio', 'Private', 'Bar', 'Rooftop', 'Window'];
@@ -136,11 +140,16 @@ function FloorPageContent() {
   const [deleteShift] = useMutation(DELETE_SHIFT);
   const [updateTable, { loading: updatingTable }] = useMutation(UPDATE_TABLE);
   const [updateShift, { loading: updatingShift }] = useMutation(UPDATE_SHIFT);
+  const [ensureFloorArea, { loading: ensuringArea }] = useMutation(ENSURE_FLOOR_AREA);
+  const [renameFloorArea, { loading: renamingArea }] = useMutation(RENAME_FLOOR_AREA);
+  const [deleteFloorAreaMut] = useMutation(DELETE_FLOOR_AREA);
 
   const [tableModalOpen, setTableModalOpen] = useState(false);
   const [shiftModalOpen, setShiftModalOpen] = useState(false);
+  const [areaModal, setAreaModal] = useState<'add' | 'edit' | null>(null);
   const [editingTable, setEditingTable] = useState<FloorTable | null>(null);
   const [editingShift, setEditingShift] = useState<FloorShift | null>(null);
+  const [editingArea, setEditingArea] = useState<string | null>(null);
   const [tableForm] = Form.useForm();
   const [shiftForm] = Form.useForm();
   const tableDirty = useFormDirty();
@@ -158,19 +167,59 @@ function FloorPageContent() {
   const restaurant = restaurants.find((r: { id: string }) => r.id === activeRestaurantId);
   const tables: FloorTable[] = restaurant?.tables ?? [];
   const shifts: FloorShift[] = restaurant?.shifts ?? [];
+  const appearanceAreas: string[] = useMemo(() => {
+    const published =
+      (restaurant?.floorPlanAreaAppearances as Array<{ floorArea?: string }> | undefined) ?? [];
+    const draft =
+      (restaurant?.floorPlanDraft?.areaAppearances as Array<{ floorArea?: string }> | undefined) ??
+      [];
+    return [...published, ...draft]
+      .map((a) => a.floorArea)
+      .filter((area): area is string => Boolean(area));
+  }, [restaurant]);
 
   const floorAreas = useMemo(() => {
     const fromTables = tables.map((t) => t.floorArea).filter((area): area is string => Boolean(area));
     const seen = new Set<string>();
     const names: string[] = [];
-    for (const area of [...FLOOR_AREA_PRESETS, ...fromTables, ...customFloorAreas]) {
+    for (const area of [
+      ...FLOOR_AREA_PRESETS,
+      ...fromTables,
+      ...appearanceAreas,
+      ...customFloorAreas,
+    ]) {
       const key = area.toLowerCase();
       if (!area || seen.has(key)) continue;
       seen.add(key);
       names.push(area);
     }
     return names;
-  }, [customFloorAreas, tables]);
+  }, [appearanceAreas, customFloorAreas, tables]);
+
+  /** Areas that exist on tables or saved appearances (excludes unused presets). */
+  const managedAreas = useMemo(() => {
+    const fromTables = tables.map((t) => t.floorArea).filter((area): area is string => Boolean(area));
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const area of [...fromTables, ...appearanceAreas, ...customFloorAreas, 'Main']) {
+      const key = (area || '').toLowerCase();
+      if (!area || seen.has(key)) continue;
+      seen.add(key);
+      names.push(area);
+    }
+    return names.sort((a, b) => a.localeCompare(b));
+  }, [appearanceAreas, customFloorAreas, tables]);
+
+  const areaRows = useMemo(
+    () =>
+      managedAreas.map((name) => ({
+        name,
+        tableCount: tables.filter(
+          (t) => (t.floorArea || 'Main').toLowerCase() === name.toLowerCase(),
+        ).length,
+      })),
+    [managedAreas, tables],
+  );
 
   const openAddTable = () => {
     setEditingTable(null);
@@ -355,6 +404,53 @@ function FloorPageContent() {
     }
   };
 
+  const openAddArea = () => {
+    setEditingArea(null);
+    setAreaModal('add');
+  };
+
+  const openEditArea = (name: string) => {
+    setEditingArea(name);
+    setAreaModal('edit');
+  };
+
+  const handleAreaSubmit = async (name: string) => {
+    if (!activeRestaurantId) return;
+    try {
+      if (areaModal === 'edit' && editingArea) {
+        await renameFloorArea({
+          variables: { restaurantId: activeRestaurantId, from: editingArea, to: name },
+        });
+        message.success(`Renamed to ${name}`);
+      } else {
+        await ensureFloorArea({
+          variables: { restaurantId: activeRestaurantId, name },
+        });
+        setCustomFloorAreas((prev) => (findAreaName(name, prev) ? prev : [...prev, name]));
+        message.success(`Added ${name}`);
+      }
+      setAreaModal(null);
+      setEditingArea(null);
+      await refetch();
+    } catch (err: unknown) {
+      message.error(mutationError(err, 'Failed to update area'));
+    }
+  };
+
+  const handleDeleteArea = async (name: string) => {
+    if (!activeRestaurantId) return;
+    try {
+      await deleteFloorAreaMut({
+        variables: { restaurantId: activeRestaurantId, name },
+      });
+      setCustomFloorAreas((prev) => prev.filter((a) => a.toLowerCase() !== name.toLowerCase()));
+      message.success(`Removed ${name}`);
+      await refetch();
+    } catch (err: unknown) {
+      message.error(mutationError(err, 'Failed to delete area'));
+    }
+  };
+
   const addDisabled = !activeRestaurantId;
 
   return (
@@ -362,7 +458,7 @@ function FloorPageContent() {
       <Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
         <PageHeader
           title="Tables & shifts"
-          subtitle="Seating and service windows used for availability, the floor plan, and diner booking"
+          subtitle="Floor areas, seating, and service windows for availability, the floor plan, and diner booking"
         />
 
         <Card styles={{ body: { paddingTop: 8 } }} style={{ borderRadius: radii.lg }}>
@@ -378,6 +474,15 @@ function FloorPageContent() {
                   disabled={addDisabled}
                 >
                   Add table
+                </Button>
+              ) : tab === 'areas' ? (
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={openAddArea}
+                  disabled={addDisabled}
+                >
+                  Add area
                 </Button>
               ) : (
                 <Button
@@ -498,6 +603,107 @@ function FloorPageContent() {
                       ]}
                     />
                   ),
+              },
+              {
+                key: 'areas',
+                label: `Areas${areaRows.length ? ` (${areaRows.length})` : ''}`,
+                children: restaurantsLoading ? (
+                  <div style={{ display: 'grid', placeItems: 'center', minHeight: 240 }}>
+                    <Spin />
+                  </div>
+                ) : areaRows.length === 0 ? (
+                  <EmptyState
+                    icon={<TableOutlined />}
+                    title="No floor areas yet"
+                    description="Add areas like Main, Patio, or Private dining, then assign tables to them."
+                    action={
+                      <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={openAddArea}
+                        disabled={addDisabled}
+                      >
+                        Add area
+                      </Button>
+                    }
+                  />
+                ) : (
+                  <Table
+                    size="middle"
+                    rowKey="name"
+                    pagination={false}
+                    dataSource={areaRows}
+                    columns={[
+                      {
+                        title: 'Area',
+                        dataIndex: 'name',
+                        render: (name: string) => <Text strong>{name}</Text>,
+                      },
+                      {
+                        title: 'Tables',
+                        dataIndex: 'tableCount',
+                        width: 120,
+                        render: (count: number) =>
+                          count ? (
+                            <Tag color="blue">{count}</Tag>
+                          ) : (
+                            <Text type="secondary">None</Text>
+                          ),
+                      },
+                      {
+                        title: '',
+                        key: 'actions',
+                        align: 'right',
+                        width: 96,
+                        render: (_: unknown, row: { name: string; tableCount: number }) => (
+                          <Space>
+                            <Tooltip title="Rename">
+                              <Button
+                                size="small"
+                                type="text"
+                                icon={<EditOutlined />}
+                                onClick={() => openEditArea(row.name)}
+                              />
+                            </Tooltip>
+                            <Popconfirm
+                              title={`Delete “${row.name}”?`}
+                              description={
+                                row.tableCount > 0
+                                  ? 'Move or delete tables in this area first.'
+                                  : 'Removes this area from Area settings. Main cannot be deleted.'
+                              }
+                              okText="Delete"
+                              okButtonProps={{
+                                danger: true,
+                                disabled: row.name.toLowerCase() === 'main' || row.tableCount > 0,
+                              }}
+                              disabled={row.name.toLowerCase() === 'main' || row.tableCount > 0}
+                              onConfirm={() => void handleDeleteArea(row.name)}
+                            >
+                              <Tooltip
+                                title={
+                                  row.name.toLowerCase() === 'main'
+                                    ? 'Main cannot be deleted'
+                                    : row.tableCount > 0
+                                      ? 'Move tables first'
+                                      : 'Delete'
+                                }
+                              >
+                                <Button
+                                  size="small"
+                                  type="text"
+                                  danger
+                                  icon={<DeleteOutlined />}
+                                  disabled={row.name.toLowerCase() === 'main' || row.tableCount > 0}
+                                />
+                              </Tooltip>
+                            </Popconfirm>
+                          </Space>
+                        ),
+                      },
+                    ]}
+                  />
+                ),
               },
               {
                 key: 'shifts',
@@ -672,6 +878,19 @@ function FloorPageContent() {
           />
         </Form>
       </Modal>
+
+      <FloorAreaManageModal
+        open={areaModal != null}
+        mode={areaModal === 'edit' ? 'edit' : 'add'}
+        initialName={editingArea ?? undefined}
+        existingAreas={managedAreas}
+        confirmLoading={ensuringArea || renamingArea}
+        onCancel={() => {
+          setAreaModal(null);
+          setEditingArea(null);
+        }}
+        onSubmit={handleAreaSubmit}
+      />
 
       <Modal
         title={editingShift ? 'Edit shift' : 'Add shift'}

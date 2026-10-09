@@ -58,6 +58,7 @@ const subscriptionSchema = new Schema(
       promotions: { type: Boolean, default: false },
       featuredPlacement: { type: Boolean, default: false },
       boostCampaigns: { type: Boolean, default: false },
+      threeDView: { type: Boolean, default: false },
       // Premium SMS purchased as a $25/mo add-on on Core
       premiumSmsAddon: { type: Boolean, default: false },
     },
