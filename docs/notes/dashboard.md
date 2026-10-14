@@ -1,5 +1,10 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-14] Billing Danger zone — delete restaurant
+- Partner `/billing` (owners only): Danger zone deletes the active venue via `deleteMyRestaurant`. Confirm by typing the restaurant name.
+- Button disabled when `restaurantOpenInvoiceCount > 0`, `amountDueCents > 0`, or subscription `past_due`. On success: refetch `myRestaurants`, switch to another venue or `/onboarding`.
+- Why it matters: Not the same as Cancel subscription; venue wipe is permanent and debt-blocked on the server too.
+
 ## [2026-10-14] Restaurant profile Booking policies UX
 - `/restaurant-profile?section=policies` groups Deposits / Cancellation & no-shows / Holidays / Loyalty / Booking approval. Holiday opt-out/in use `DEFAULT_PLATFORM_HOLIDAYS` name options (majors vs optional), not free-tag keys. Tooltips live in `restaurantFormTooltips`.
 - Why it matters: Partners should not need to know keys like `christmas_day`; Closures & hours is the approval surface.

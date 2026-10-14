@@ -3418,6 +3418,16 @@ export const CANCEL_SUBSCRIPTION = gql`
   }
 `;
 
+export const DELETE_MY_RESTAURANT = gql`
+  mutation DeleteMyRestaurant($restaurantId: ID!) {
+    deleteMyRestaurant(restaurantId: $restaurantId) {
+      success
+      message
+      deletedRestaurantId
+    }
+  }
+`;
+
 export const CHANGE_PLAN = gql`
   mutation ChangePlan($restaurantId: ID!, $plan: String!) {
     changePlan(restaurantId: $restaurantId, plan: $plan) {

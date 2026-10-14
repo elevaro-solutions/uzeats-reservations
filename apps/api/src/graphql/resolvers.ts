@@ -294,6 +294,7 @@ import {
 } from "../services/stripe.js";
 import { logAudit } from "../services/audit.js";
 import { createRestaurantSubscription } from "../services/restaurantSubscription.js";
+import { deleteMyRestaurant as deleteMyRestaurantService } from "../services/deleteMyRestaurant.js";
 import { adminAssignRestaurantPackage as assignRestaurantPackageAsAdmin } from "../services/adminAssignPackage.js";
 import {
   setRestaurantStatuses,
@@ -5789,6 +5790,24 @@ export const resolvers = {
       });
 
       return mapSubscription(sub, { includeStripeIds: true });
+    },
+
+    deleteMyRestaurant: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      assertCanManageBilling(user.role);
+      return deleteMyRestaurantService({
+        restaurantId: args.restaurantId,
+        actorId: user._id.toString(),
+      });
     },
 
     changePlan: async (

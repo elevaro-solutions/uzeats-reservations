@@ -1,5 +1,10 @@
 # API — Learnings & Observations
 
+## [2026-10-14] Partner `deleteMyRestaurant` blocked by platform debt
+- Mutation `deleteMyRestaurant(restaurantId)` is owner-only (`Restaurant.ownerId` + `canManageBilling`). Reuses `deleteRestaurantCascade` (same wipe as admin). Owner `User` login is kept; `restaurantIds` is pulled.
+- Debt gate (`assertRestaurantClearOfPlatformDebt`): any open invoice (`upcoming|pending|overdue` with `totalCents > 0`), or sub `past_due`, or `amountDueCents > 0` (including live Stripe open invoice). Super-admin `adminDeleteRestaurant` stays ungated.
+- Why it matters: Partners cannot erase venues that still owe the platform; cancel Stripe first when clear, then cascade.
+
 ## [2026-10-09] `plans` hides pricing-hidden rows from non-admins
 - `getEffectivePlans` still includes `visibleOnPricing: false`. The `plans` resolver returns the full list only for `isPlatformAdmin`; everyone else gets `visibleOnPricing !== false` (then SMS kill-switch gating).
 - Why it matters: Client filters alone could leak private packages into partner/register payloads.

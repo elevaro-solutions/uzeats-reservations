@@ -4,6 +4,12 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.82.0] — 2026-10-14
+
+### Added
+
+- Partner Hub → Billing: owners can permanently delete their restaurant venue (Danger zone). Blocked while any unpaid platform invoices or subscription balance remain; owner login is kept
+
 ## [0.81.0] — 2026-10-14
 
 ### Added

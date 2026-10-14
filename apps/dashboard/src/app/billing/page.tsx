@@ -11,6 +11,7 @@ import {
   Col,
   Drawer,
   Dropdown,
+  Input,
   Modal,
   Row,
   Select,
@@ -59,6 +60,7 @@ import {
   RESTAURANT_INVOICES,
   CREATE_SUBSCRIPTION,
   CANCEL_SUBSCRIPTION,
+  DELETE_MY_RESTAURANT,
   CHANGE_PLAN,
   PREVIEW_PLAN_CHANGE,
   CANCEL_PENDING_PLAN_CHANGE,
@@ -66,6 +68,7 @@ import {
   PLAN_CHANGE_PAYMENT,
   CONFIRM_PLAN_CHANGE_PAYMENT,
   PLATFORM_FEATURE_FLAGS,
+  RESTAURANT_OPEN_INVOICE_COUNT,
 } from '@/lib/graphql';
 import { SignupPaymentForm, type SignupPaymentMode } from '@/components/SignupPaymentForm';
 import { PartnerInvoiceDetail } from '@/components/PartnerInvoiceDetail';
@@ -450,12 +453,17 @@ export default function BillingPage() {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [expandedPlans, setExpandedPlans] = useState<Record<string, boolean>>({});
 
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData, refetch: refetchRestaurants } = useQuery(MY_RESTAURANTS, {
+    skip: !user,
+  });
   const restaurants = restData?.myRestaurants ?? [];
-  const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
+  const { activeRestaurantId, setRestaurantId, restaurantSelectProps } =
+    usePartnerRestaurant(restaurants);
   const activeRestaurant = restaurants.find(
-    (r: { id: string }) => r.id === activeRestaurantId,
-  );
+    (r: { id: string; name?: string }) => r.id === activeRestaurantId,
+  ) as { id: string; name?: string } | undefined;
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState('');
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
@@ -476,9 +484,16 @@ export default function BillingPage() {
     variables: { restaurantId: activeRestaurantId, limit: 24, offset: 0 },
     skip: !activeRestaurantId,
   });
+  const { data: openInvoiceCountData } = useQuery(RESTAURANT_OPEN_INVOICE_COUNT, {
+    variables: { restaurantId: activeRestaurantId },
+    skip: !activeRestaurantId,
+  });
 
   const [createSubscription, { loading: creating }] = useMutation(CREATE_SUBSCRIPTION);
   const [cancelSubscription, { loading: cancelling }] = useMutation(CANCEL_SUBSCRIPTION);
+  const [deleteMyRestaurant, { loading: deletingRestaurant }] = useMutation(
+    DELETE_MY_RESTAURANT,
+  );
   const [changePlan, { loading: changing }] = useMutation(CHANGE_PLAN);
   const [cancelPendingPlan, { loading: cancellingPending }] = useMutation(CANCEL_PENDING_PLAN_CHANGE);
   const [previewPlanChange] = useLazyQuery(PREVIEW_PLAN_CHANGE);
@@ -560,6 +575,40 @@ export default function BillingPage() {
         refetchSub();
       },
     });
+  };
+
+  const openDeleteRestaurant = () => {
+    setDeleteConfirmName('');
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteRestaurant = async () => {
+    if (!activeRestaurantId || !deleteNameMatches || hasPlatformDebt) return;
+    try {
+      const deletedId = activeRestaurantId;
+      const res = await deleteMyRestaurant({ variables: { restaurantId: deletedId } });
+      if (!res.data?.deleteMyRestaurant?.success) {
+        message.error(res.data?.deleteMyRestaurant?.message ?? 'Could not delete restaurant');
+        return;
+      }
+      setDeleteConfirmOpen(false);
+      message.success('Restaurant deleted');
+      const refreshed = await refetchRestaurants();
+      const remaining = (refreshed.data?.myRestaurants ?? []) as { id: string }[];
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('activeRestaurantId');
+        if (saved === deletedId) localStorage.removeItem('activeRestaurantId');
+      }
+      if (remaining.length > 0) {
+        setRestaurantId(remaining[0].id);
+        router.replace('/billing');
+      } else {
+        router.replace('/onboarding');
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Could not delete restaurant';
+      message.error(msg);
+    }
   };
 
   const handleChangePlan = async (plan: string) => {
@@ -730,6 +779,15 @@ export default function BillingPage() {
   const smsAddonEnabled = Boolean(subscription?.features?.premiumSmsAddon);
   const canEditBilling = Boolean(user && canManageBilling(user.role));
   const amountDueNow = Number(subscription?.amountDueCents ?? 0);
+  const openInvoiceCount = Number(openInvoiceCountData?.restaurantOpenInvoiceCount ?? 0);
+  const hasPlatformDebt =
+    openInvoiceCount > 0 ||
+    amountDueNow > 0 ||
+    subscription?.status === 'past_due';
+  const venueName = (activeRestaurant?.name ?? '').trim();
+  const deleteNameMatches =
+    Boolean(venueName) &&
+    deleteConfirmName.trim().toLowerCase() === venueName.toLowerCase();
   const isTrialing = subscription?.status === 'trialing' && amountDueNow <= 0;
   const isFreePlan = Boolean(subscription && subscription.monthlyPriceCents === 0 && amountDueNow <= 0);
   const upgradedThisPeriod = Boolean(
@@ -1434,6 +1492,68 @@ export default function BillingPage() {
           </>
         )}
 
+        {canEditBilling && activeRestaurantId ? (
+          <Card
+            title="Danger zone"
+            styles={{
+              header: { color: colors.error },
+            }}
+          >
+            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              {hasPlatformDebt ? (
+                <Alert
+                  type="warning"
+                  showIcon
+                  message="Outstanding platform balance"
+                  description={
+                    <>
+                      Pay all open invoices and any subscription balance before deleting this
+                      restaurant.
+                      {openInvoiceCount > 0 ? (
+                        <>
+                          {' '}
+                          You have {openInvoiceCount} unpaid invoice
+                          {openInvoiceCount === 1 ? '' : 's'}
+                          {amountDueNow > 0
+                            ? ` and ${formatCents(amountDueNow)} due on the subscription`
+                            : ''}
+                          .
+                        </>
+                      ) : amountDueNow > 0 ? (
+                        <> Subscription balance due: {formatCents(amountDueNow)}.</>
+                      ) : null}
+                    </>
+                  }
+                />
+              ) : null}
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 16,
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <div style={{ maxWidth: 480 }}>
+                  <Text strong>Delete this restaurant</Text>
+                  <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                    Permanently removes this venue, bookings, menus, floor plans, and billing
+                    history. Your login stays. This cannot be undone.
+                  </Paragraph>
+                </div>
+                <Button
+                  danger
+                  disabled={hasPlatformDebt}
+                  onClick={openDeleteRestaurant}
+                >
+                  Delete restaurant
+                </Button>
+              </div>
+            </Space>
+          </Card>
+        ) : null}
+
         <Modal
           title="Complete your upgrade"
           open={Boolean(upgradePayment)}
@@ -1459,6 +1579,36 @@ export default function BillingPage() {
               }}
             />
           ) : null}
+        </Modal>
+
+        <Modal
+          title="Delete restaurant permanently?"
+          open={deleteConfirmOpen}
+          okText="Delete restaurant"
+          okButtonProps={{
+            danger: true,
+            disabled: !deleteNameMatches || hasPlatformDebt,
+            loading: deletingRestaurant,
+          }}
+          onOk={() => void handleDeleteRestaurant()}
+          onCancel={() => {
+            setDeleteConfirmOpen(false);
+            setDeleteConfirmName('');
+          }}
+          destroyOnHidden
+        >
+          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <Paragraph style={{ marginBottom: 0 }}>
+              This permanently deletes <Text strong>{venueName || 'this restaurant'}</Text> and
+              all related records. Type the restaurant name to confirm.
+            </Paragraph>
+            <Input
+              placeholder={venueName || 'Restaurant name'}
+              value={deleteConfirmName}
+              onChange={(e) => setDeleteConfirmName(e.target.value)}
+              autoFocus
+            />
+          </Space>
         </Modal>
       </Space>
     </div>

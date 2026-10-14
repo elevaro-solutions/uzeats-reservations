@@ -166,7 +166,8 @@ async function consumeDeleteCode(adminId: string, userId: string, code: string |
   }
 }
 
-async function deleteRestaurantCascade(restaurantIds: mongoose.Types.ObjectId[]) {
+/** Hard-delete restaurants and all related venue records (shared by admin + partner delete). */
+export async function deleteRestaurantCascade(restaurantIds: mongoose.Types.ObjectId[]) {
   const counts: Record<string, number> = {};
   if (restaurantIds.length === 0) return counts;
 

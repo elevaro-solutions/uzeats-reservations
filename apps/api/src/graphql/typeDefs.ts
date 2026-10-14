@@ -2065,6 +2065,13 @@ export const typeDefs = `#graphql
     deletedRestaurantId: ID!
   }
 
+  """Partner self-service venue wipe (owner only; blocked while any platform debt remains)."""
+  type DeleteMyRestaurantPayload {
+    success: Boolean!
+    message: String!
+    deletedRestaurantId: ID!
+  }
+
   input PlanPackageInput {
     key: String!
     name: String
@@ -3998,6 +4005,12 @@ export const typeDefs = `#graphql
     requestAdminDeleteUserCode(userId: ID!): AdminDeleteUserCodePayload!
     adminDeleteUser(userId: ID!, code: String): AdminDeleteUserPayload!
     adminDeleteRestaurant(id: ID!): AdminDeleteRestaurantPayload!
+    """
+    Permanently delete the caller's restaurant venue and related records.
+    Blocked while any unpaid platform invoices or subscription balance remain.
+    Owner login is kept.
+    """
+    deleteMyRestaurant(restaurantId: ID!): DeleteMyRestaurantPayload!
     clearSeedData: ClearSeedDataPayload!
     adminCreateRestaurant(
       input: RestaurantInput!
