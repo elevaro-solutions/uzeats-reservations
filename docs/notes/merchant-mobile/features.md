@@ -2,6 +2,12 @@
 
 See also dated entries under `docs/notes/features.md` → `## merchant-mobile (partner app)` and `## merchant-more`.
 
+## [2026-10-12] Floor plan is furniture on a room, not a CAD grid
+
+- Plan mode crops to table bounds, sizes cells to the screen width (32–56px), and renders tabletops + chairs with the same status palette as Cards. Labels stay upright when a table is rotated. Partner Hub keeps the editor grid; ops should scan like Cards.
+- The Plan / Cards switcher is a compact `SegmentedControl` in the Tables toolbar, not two filled/outlined buttons.
+- Why it matters: A 28px boxed canvas with overflowing labels looked like a prototype and fought the Cards furniture language.
+
 ## [2026-10-08] Sign-out unregisters Expo token (same as diner)
 
 - Merchant logout and refresh-token rejection call `unregisterCurrentDevicePushTokenBestEffort` via a silent getter — never the OS permission dialog. See `docs/notes/features.md` → notifications.

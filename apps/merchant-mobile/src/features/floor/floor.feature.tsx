@@ -20,6 +20,7 @@ import {
   FloorAreaPicker,
 } from "./components/floor-area-picker.component";
 import { FloorArrivingSection } from "./components/floor-arriving-section.component";
+import { FloorLayoutToolbar } from "./components/floor-layout-toolbar.component";
 import {
   FloorAreaPickerSkeleton,
   FloorSkeleton,
@@ -29,7 +30,11 @@ import { FloorTableSheet } from "./components/floor-table-sheet.component";
 import { FloorTablesGrid } from "./components/floor-tables-grid.component";
 import { FloorTablesSpatial } from "./components/floor-tables-spatial.component";
 import { parseFloorTableStatus } from "./helpers/floor-status.helpers";
-import type { FloorOpsQuery, FloorTableState } from "./helpers/floor.types";
+import type {
+  FloorLayoutMode,
+  FloorOpsQuery,
+  FloorTableState,
+} from "./helpers/floor.types";
 import { useFloorOpsActions } from "./helpers/use-floor-ops-actions.hook";
 
 export function FloorFeature() {
@@ -50,7 +55,7 @@ export function FloorFeature() {
     string | null
   >(null);
   const [areaFilter, setAreaFilter] = useState(FLOOR_AREA_ALL);
-  const [layoutMode, setLayoutMode] = useState<"plan" | "cards">("plan");
+  const [layoutMode, setLayoutMode] = useState<FloorLayoutMode>("plan");
 
   const { data, loading, error, refetch } = useQuery<FloorOpsQuery>(
     FLOOR_PLAN_OPS,
@@ -210,22 +215,11 @@ export function FloorFeature() {
             timeZone={timeZone}
             onSelect={setSelectedUnassignedId}
           />
-          <Flex direction="row" gap={1}>
-            <Button
-              size="sm"
-              variant={layoutMode === "plan" ? "filled" : "outlined"}
-              onPress={() => setLayoutMode("plan")}
-            >
-              Plan
-            </Button>
-            <Button
-              size="sm"
-              variant={layoutMode === "cards" ? "filled" : "outlined"}
-              onPress={() => setLayoutMode("cards")}
-            >
-              Cards
-            </Button>
-          </Flex>
+          <FloorLayoutToolbar
+            tableCount={visibleTables.length}
+            layoutMode={layoutMode}
+            onLayoutModeChange={setLayoutMode}
+          />
           {layoutMode === "plan" ? (
             <FloorTablesSpatial
               tables={tables}

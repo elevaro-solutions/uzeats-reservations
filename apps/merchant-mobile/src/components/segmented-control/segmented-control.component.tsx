@@ -22,10 +22,13 @@ export type SegmentedControlOption<T extends string> = {
   label: string;
 };
 
+export type SegmentedControlSize = "md" | "sm";
+
 export type SegmentedControlProps<T extends string> = {
   options: SegmentedControlOption<T>[];
   value: T;
   onChange: (value: T) => void;
+  size?: SegmentedControlSize;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -50,8 +53,10 @@ export function SegmentedControl<T extends string>({
   options,
   value,
   onChange,
+  size = "md",
   style,
 }: SegmentedControlProps<T>) {
+  styles.useVariants({ size });
   const count = options.length;
   const selectedIndex = Math.max(
     0,
@@ -134,6 +139,7 @@ export function SegmentedControl<T extends string>({
             <Segment
               label={option.label}
               selected={option.value === value}
+              size={size}
             />
           </GestureDetector>
         ))}
@@ -145,9 +151,11 @@ export function SegmentedControl<T extends string>({
 type SegmentProps = {
   label: string;
   selected: boolean;
+  size: SegmentedControlSize;
 };
 
-const Segment = memo(function Segment({ label, selected }: SegmentProps) {
+const Segment = memo(function Segment({ label, selected, size }: SegmentProps) {
+  styles.useVariants({ size });
   return (
     <View
       accessible
@@ -158,7 +166,7 @@ const Segment = memo(function Segment({ label, selected }: SegmentProps) {
     >
       <Typography
         weight={selected ? "semibold" : "medium"}
-        size="text-sm"
+        size={size === "sm" ? "text-xs" : "text-sm"}
         color={selected ? "textPrimary" : "muted"}
         numberOfLines={1}
         style={styles.label}
@@ -177,6 +185,15 @@ const styles = StyleSheet.create(({ space, colors, radius, shadows }) => ({
     borderWidth: 1,
     borderColor: colors.slate3,
     overflow: "visible",
+    variants: {
+      size: {
+        md: {},
+        sm: {
+          padding: space(0.375),
+          borderRadius: radius.md,
+        },
+      },
+    },
   },
   row: {
     position: "relative",
@@ -194,6 +211,14 @@ const styles = StyleSheet.create(({ space, colors, radius, shadows }) => ({
     borderWidth: 1,
     borderColor: colors.slate3,
     ...shadows.soft,
+    variants: {
+      size: {
+        md: {},
+        sm: {
+          borderRadius: radius.sm,
+        },
+      },
+    },
   },
   segment: {
     flex: 1,
@@ -203,6 +228,16 @@ const styles = StyleSheet.create(({ space, colors, radius, shadows }) => ({
     paddingVertical: space(1),
     paddingHorizontal: space(1),
     zIndex: 1,
+    variants: {
+      size: {
+        md: {},
+        sm: {
+          minHeight: 32,
+          paddingVertical: space(0.5),
+          paddingHorizontal: space(0.75),
+        },
+      },
+    },
   },
   label: {
     textAlign: "center",

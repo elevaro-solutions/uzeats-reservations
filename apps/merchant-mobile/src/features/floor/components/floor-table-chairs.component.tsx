@@ -5,17 +5,30 @@ export type FloorTableChairsProps = {
   count: number;
   axis: "horizontal" | "vertical";
   color: string;
+  length?: number;
+  thickness?: number;
+  gap?: number;
 };
 
 export function FloorTableChairs({
   count,
   axis,
   color,
+  length,
+  thickness,
+  gap,
 }: FloorTableChairsProps) {
   if (count <= 0) return null;
+  const chair =
+    axis === "horizontal"
+      ? { width: length ?? 26, height: thickness ?? 9 }
+      : { width: thickness ?? 9, height: length ?? 26 };
   return (
     <View
-      style={axis === "horizontal" ? styles.chairRow : styles.chairCol}
+      style={[
+        axis === "horizontal" ? styles.chairRow : styles.chairCol,
+        gap != null ? { gap } : null,
+      ]}
       pointerEvents="none"
     >
       {Array.from({ length: count }, (_, i) => (
@@ -23,6 +36,7 @@ export function FloorTableChairs({
           key={`${axis}-${i}`}
           style={[
             axis === "horizontal" ? styles.chairH : styles.chairV,
+            chair,
             { backgroundColor: color },
           ]}
         />

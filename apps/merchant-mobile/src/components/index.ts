@@ -10,6 +10,7 @@ export { SegmentedControl } from "./segmented-control";
 export type {
   SegmentedControlOption,
   SegmentedControlProps,
+  SegmentedControlSize,
 } from "./segmented-control";
 export { BottomSheet } from "./bottom-sheet";
 export type { BottomSheetProps } from "./bottom-sheet";

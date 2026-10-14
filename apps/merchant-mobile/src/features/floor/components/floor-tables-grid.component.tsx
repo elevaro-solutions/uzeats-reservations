@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 
-import { Empty, Flex, Typography } from "@/components";
+import { Empty, Flex } from "@/components";
 import { guestDisplayName } from "@/lib/helpers";
 
 import type { FloorTableState } from "../helpers/floor.types";
@@ -24,11 +24,6 @@ export function FloorTablesGrid({
 }: FloorTablesGridProps) {
   return (
     <Flex gap={1.5}>
-      <Typography weight="semibold" size="text-lg">
-        Tables
-        {visibleTables.length > 0 ? ` · ${visibleTables.length}` : ""}
-      </Typography>
-
       {visibleTables.length === 0 ? (
         <Empty
           title="No tables"

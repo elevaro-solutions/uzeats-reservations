@@ -1,5 +1,7 @@
 import type { FloorTableStatus } from "./floor-status.helpers";
 
+export type FloorLayoutMode = "plan" | "cards";
+
 export type FloorTableState = {
   status: FloorTableStatus;
   seatedMinutes?: number | null;

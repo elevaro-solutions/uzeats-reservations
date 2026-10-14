@@ -4,6 +4,16 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.80.0] — 2026-10-14
+
+### Changed
+
+- Merchant Floor: Plan / Cards is a compact segmented control next to the Tables heading. Plan view draws furniture on a room canvas (status-tinted tabletops and chairs, fitted to the published layout) instead of a cramped box grid.
+
+### Docs
+
+- App Store / Play listing kit under `docs/store-listings.md` with generated diner and partner icons and feature graphics (`docs/store/`)
+
 ## [0.79.1] — 2026-10-10
 
 ### Fixed
