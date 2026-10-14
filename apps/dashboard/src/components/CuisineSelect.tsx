@@ -3,11 +3,11 @@
 import { useMemo, useState } from 'react';
 import { Button, Divider, Input, Select, Space } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { CUISINES } from '@reservations/shared';
+import { CUISINES, MAX_RESTAURANT_CUISINES } from '@reservations/shared';
 
 type CuisineSelectProps = {
-  value?: string;
-  onChange?: (value: string) => void;
+  value?: string[];
+  onChange?: (value: string[]) => void;
   size?: 'small' | 'middle' | 'large';
   placeholder?: string;
 };
@@ -24,38 +24,41 @@ export default function CuisineSelect({
   value,
   onChange,
   size,
-  placeholder = 'Select or add cuisine',
+  placeholder = 'Select one or more cuisines',
 }: CuisineSelectProps) {
   const [customCuisines, setCustomCuisines] = useState<string[]>([]);
   const [draft, setDraft] = useState('');
+  const selected = value ?? [];
 
   const options = useMemo(() => {
     const seen = new Set<string>();
     const items: { value: string; label: string }[] = [];
-    for (const cuisine of [...CUISINES, ...customCuisines]) {
+    for (const cuisine of [...CUISINES, ...customCuisines, ...selected]) {
       if (seen.has(cuisine)) continue;
       seen.add(cuisine);
       items.push({ value: cuisine, label: cuisine });
     }
-    if (value && !seen.has(value)) {
-      items.unshift({ value, label: value });
-    }
     return items.sort((a, b) => a.label.localeCompare(b.label));
-  }, [customCuisines, value]);
+  }, [customCuisines, selected]);
 
   const addCustomCuisine = () => {
     const normalized = titleCase(draft);
     if (!normalized || normalized.length < 2) return;
     setCustomCuisines((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]));
-    onChange?.(normalized);
+    if (!selected.includes(normalized) && selected.length < MAX_RESTAURANT_CUISINES) {
+      onChange?.([...selected, normalized]);
+    }
     setDraft('');
   };
 
   return (
     <Select
+      mode="multiple"
       size={size}
       showSearch
-      value={value}
+      allowClear
+      maxCount={MAX_RESTAURANT_CUISINES}
+      value={selected}
       onChange={onChange}
       options={options}
       placeholder={placeholder}
@@ -81,7 +84,11 @@ export default function CuisineSelect({
               type="text"
               icon={<PlusOutlined />}
               onClick={addCustomCuisine}
-              disabled={!draft.trim() || draft.trim().length < 2}
+              disabled={
+                !draft.trim() ||
+                draft.trim().length < 2 ||
+                selected.length >= MAX_RESTAURANT_CUISINES
+              }
               block
             >
               Add &ldquo;{draft.trim() ? titleCase(draft) : '…'}&rdquo;

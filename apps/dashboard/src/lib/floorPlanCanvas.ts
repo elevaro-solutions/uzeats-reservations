@@ -349,3 +349,26 @@ export const RESIZE_HANDLES: Array<{
   { id: 'sw', cursor: 'nesw-resize', style: { bottom: -5, left: -5 } },
   { id: 'w', cursor: 'ew-resize', style: { top: '50%', left: -5, transform: 'translateY(-50%)' } },
 ];
+
+/**
+ * Sit above the box (not inside it) so short walls/tables still show a usable rotate control.
+ */
+export const floorPlanRotateHandleStyle: CSSProperties = {
+  position: 'absolute',
+  top: -28,
+  left: '50%',
+  transform: 'translateX(-50%)',
+  width: 22,
+  height: 22,
+  borderRadius: 11,
+  border: '2px solid #fff',
+  background: '#0b3d2e',
+  color: '#fff',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'grab',
+  zIndex: 3,
+  padding: 0,
+  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+};

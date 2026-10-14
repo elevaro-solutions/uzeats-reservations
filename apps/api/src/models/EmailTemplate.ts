@@ -27,6 +27,8 @@ const emailTemplateSchema = new Schema(
         'booking_reminder_late',
         'review_request',
         'booking_cancelled',
+        'booking_no_show',
+        'booking_completed',
         'deposit_refunded',
         'no_show_fee_charged',
         'no_show_fee_refunded',
@@ -223,6 +225,49 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     ].join(''),
     bodyText:
       'Hi {{firstName}},\n\nYour reservation at {{restaurantName}} on {{date}} was cancelled.\n\nReason: {{reason}}{{messageText}}\n\nView reservation: {{reservationUrl}}',
+  },
+  {
+    key: 'booking_no_show',
+    name: 'No-show follow-up',
+    subject: 'We missed you at {{restaurantName}}',
+    description: 'Sent when staff marks a reservation as no-show (and after auto no-show when enabled).',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph(
+        'We noticed you weren\'t able to make your reservation at <strong>{{restaurantName}}</strong>. We hope everything is alright — we\'d love to welcome you another time.',
+      ),
+      emailDetailBox([
+        { label: 'Restaurant', value: '{{restaurantName}}' },
+        { label: 'Date & time', value: '{{date}}' },
+        { label: 'Party size', value: '{{partySize}}' },
+      ]),
+      emailButton('{{reservationUrl}}', 'View reservation'),
+      emailLinkFallback('{{reservationUrl}}'),
+      emailMuted('If this was a mistake, please contact the restaurant so they can help.'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\nWe noticed you weren’t able to make your reservation at {{restaurantName}} on {{date}} (party of {{partySize}}).\n\nView reservation: {{reservationUrl}}',
+  },
+  {
+    key: 'booking_completed',
+    name: 'Visit thank-you',
+    subject: 'Thanks for dining at {{restaurantName}}',
+    description: 'Sent when staff marks a reservation as completed (thank-you follow-up).',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph(
+        'Thank you for dining at <strong>{{restaurantName}}</strong>. We hope you had a wonderful time and look forward to seeing you again.',
+      ),
+      emailDetailBox([
+        { label: 'Restaurant', value: '{{restaurantName}}' },
+        { label: 'Your visit', value: '{{date}}' },
+        { label: 'Party size', value: '{{partySize}}' },
+      ]),
+      emailButton('{{reservationUrl}}', 'View reservation'),
+      emailLinkFallback('{{reservationUrl}}'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\nThank you for dining at {{restaurantName}} on {{date}} (party of {{partySize}}).\n\nView reservation: {{reservationUrl}}',
   },
   {
     key: 'deposit_refunded',

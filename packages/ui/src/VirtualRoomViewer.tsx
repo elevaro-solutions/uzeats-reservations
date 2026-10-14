@@ -5,11 +5,18 @@ import { Button, Segmented, Space, Typography } from 'antd';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { VIRTUAL_ROOM_OVERALL_VIEW, browserMediaUrl } from '@reservations/shared';
+import {
+  VIRTUAL_ROOM_DEFAULT_TEXTURE_ROTATION_DEG,
+  VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_TILE_M,
+  VIRTUAL_ROOM_OVERALL_VIEW,
+  browserMediaUrl,
+} from '@reservations/shared';
 import { colors } from './tokens';
 import {
   SEAT_CLEARANCE_M,
+  aabbOfOutlines,
   fitRoomToFurniture,
+  fixtureIdsOnOutlines,
   openingsForOutline,
   rotatedRectCorners,
   type XZ,
@@ -61,6 +68,18 @@ export type VirtualRoomAreaData = {
   floorImageUrl?: string | null;
   panoramaUrl?: string | null;
   wallPhotoUrls: string[];
+  /** `stretch` fills each wall; `tile` repeats as a pattern. Default stretch. */
+  wallPhotoFit?: 'stretch' | 'tile' | null;
+  /** Meters per tile when wallPhotoFit is `tile`. Default 1. */
+  wallPhotoTileM?: number | null;
+  /** Clockwise UV rotation of wall photos (0–360). */
+  wallPhotoRotationDeg?: number | null;
+  /** Clockwise UV rotation of the floor underlay image (0–360). */
+  floorImageRotationDeg?: number | null;
+  /** Optional room width in meters; null derives from the floor plan. */
+  roomWidthM?: number | null;
+  /** Optional room depth in meters; null derives from the floor plan. */
+  roomDepthM?: number | null;
   /** World-space meters for overall multi-area placement. */
   offsetXM?: number;
   offsetYM?: number;
@@ -555,6 +574,34 @@ function buildFixture(f: VirtualRoomFixtureData, m: number, wallHeight: number, 
   return group;
 }
 
+/** Apply stretch/tile wrap and optional clockwise UV rotation around the texture center. */
+function orientTexture(
+  tex: THREE.Texture,
+  opts: { fit?: 'stretch' | 'tile'; rotationDeg?: number | null },
+) {
+  if (opts.fit === 'tile') {
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+  } else {
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+  }
+  const deg =
+    typeof opts.rotationDeg === 'number' && Number.isFinite(opts.rotationDeg)
+      ? ((opts.rotationDeg % 360) + 360) % 360
+      : VIRTUAL_ROOM_DEFAULT_TEXTURE_ROTATION_DEG;
+  if (deg !== 0) {
+    tex.center.set(0.5, 0.5);
+    tex.rotation = THREE.MathUtils.degToRad(deg);
+  } else {
+    tex.center.set(0, 0);
+    tex.rotation = 0;
+  }
+  // Only mark for GPU upload once the image exists — calling needsUpdate on an
+  // unloaded TextureLoader result spams WebGLRenderer warnings and can skip draws.
+  if (tex.image) tex.needsUpdate = true;
+}
+
 function addWallSpan(
   parent: THREE.Group,
   origin: XZ,
@@ -562,11 +609,25 @@ function addWallSpan(
   angle: number,
   span: { s0: number; s1: number; y0: number; y1: number },
   material: THREE.Material,
+  /** When set, UVs scale so 1 UV unit = this many meters (RepeatWrapping tiles the photo). */
+  tileSizeM?: number | null,
 ) {
   const width = span.s1 - span.s0;
   const height = span.y1 - span.y0;
   if (width < 0.04 || height < 0.04) return;
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material);
+  const geo = new THREE.PlaneGeometry(width, height);
+  if (tileSizeM && tileSizeM > 0) {
+    const uScale = width / tileSizeM;
+    const vScale = height / tileSizeM;
+    const uvs = geo.attributes.uv;
+    if (uvs) {
+      for (let i = 0; i < uvs.count; i++) {
+        uvs.setXY(i, uvs.getX(i) * uScale, uvs.getY(i) * vScale);
+      }
+      uvs.needsUpdate = true;
+    }
+  }
+  const mesh = new THREE.Mesh(geo, material);
   const mid = span.s0 + width / 2;
   mesh.position.set(origin.x + dir.x * mid, span.y0 + height / 2, origin.z + dir.z * mid);
   mesh.rotation.y = angle;
@@ -582,6 +643,8 @@ function buildWalls(
   photos: THREE.Texture[],
   fixtures: VirtualRoomFixtureData[],
   m: number,
+  wallPhotoFit: 'stretch' | 'tile' = 'stretch',
+  wallPhotoTileM: number = VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_TILE_M,
 ) {
   const group = new THREE.Group();
   const usedIds = new Set<string>();
@@ -642,7 +705,8 @@ function buildWalls(
       group.add(portal);
     }
     if (len - cursor > 0.02) spans.push({ s0: cursor, s1: len, y0: 0, y1: height });
-    for (const span of spans) addWallSpan(group, a, dir, angle, span, mat);
+    const tileSize = wallPhotoFit === 'tile' ? wallPhotoTileM : null;
+    for (const span of spans) addWallSpan(group, a, dir, angle, span, mat, tileSize);
   });
   return { group, usedIds };
 }
@@ -1038,12 +1102,19 @@ export function VirtualRoomViewer({
     const root = new THREE.Group();
     const loader = new THREE.TextureLoader();
     loader.setCrossOrigin('anonymous');
-    const loadTexture = (url: string, onLoad?: (t: THREE.Texture) => void) => {
+    const loadTexture = (
+      url: string,
+      onLoad?: (t: THREE.Texture) => void,
+      orient?: { fit?: 'stretch' | 'tile'; rotationDeg?: number | null },
+    ) => {
       const tex = loader.load(resolveUrl(url), (t) => {
         if (cancelled) return;
+        if (orient) orientTexture(t, orient);
+        else t.needsUpdate = true;
         onLoad?.(t);
       });
       tex.colorSpace = THREE.SRGBColorSpace;
+      if (orient) orientTexture(tex, orient);
       return tex;
     };
 
@@ -1063,10 +1134,6 @@ export function VirtualRoomViewer({
     for (const current of visibleAreas) {
       const group = new THREE.Group();
       const pad = 1;
-      let minX = (current.bounds.minX - pad) * m;
-      let minZ = (current.bounds.minY - pad) * m;
-      let maxX = (current.bounds.maxX + pad) * m;
-      let maxZ = (current.bounds.maxY + pad) * m;
       const markersOnly = Boolean(modelUrl) && areas[0]?.name === current.name && !isOverall;
 
       const roomItems = [
@@ -1100,6 +1167,68 @@ export function VirtualRoomViewer({
       const drawnOutlines: XZ[][] = current.rooms
         .filter((r) => r.points.length >= 3)
         .map((r) => r.points.map((p) => ({ x: p.x * m, z: p.y * m })));
+
+      // Floor/walls follow drawn rooms. Doors, windows, and plants sit on or
+      // outside those edges and must not inflate the slab past the walls.
+      const outlineBox = aabbOfOutlines(drawnOutlines);
+      let minX: number;
+      let minZ: number;
+      let maxX: number;
+      let maxZ: number;
+      if (outlineBox) {
+        minX = outlineBox.minX;
+        minZ = outlineBox.minZ;
+        maxX = outlineBox.maxX;
+        maxZ = outlineBox.maxZ;
+      } else {
+        const structural = [
+          ...current.tables.map((t) => ({
+            x: t.posX,
+            y: t.posY,
+            w: t.width,
+            h: t.height,
+          })),
+          ...current.fixtures
+            .filter((f) => f.kind !== 'door' && f.kind !== 'window' && f.kind !== 'plant')
+            .map((f) => ({
+              x: f.posX,
+              y: f.posY,
+              w: f.width,
+              h: f.height,
+            })),
+        ];
+        if (structural.length) {
+          minX = (Math.min(...structural.map((r) => r.x)) - pad) * m;
+          minZ = (Math.min(...structural.map((r) => r.y)) - pad) * m;
+          maxX = (Math.max(...structural.map((r) => r.x + r.w)) + pad) * m;
+          maxZ = (Math.max(...structural.map((r) => r.y + r.h)) + pad) * m;
+        } else {
+          minX = (current.bounds.minX - pad) * m;
+          minZ = (current.bounds.minY - pad) * m;
+          maxX = (current.bounds.maxX + pad) * m;
+          maxZ = (current.bounds.maxY + pad) * m;
+        }
+        // Size overrides only apply when there is no drawn room outline.
+        const overrideW =
+          typeof current.roomWidthM === 'number' && current.roomWidthM > 0
+            ? current.roomWidthM
+            : null;
+        const overrideD =
+          typeof current.roomDepthM === 'number' && current.roomDepthM > 0
+            ? current.roomDepthM
+            : null;
+        if (overrideW != null || overrideD != null) {
+          const cx0 = (minX + maxX) / 2;
+          const cz0 = (minZ + maxZ) / 2;
+          const halfW = (overrideW ?? maxX - minX) / 2;
+          const halfD = (overrideD ?? maxZ - minZ) / 2;
+          minX = cx0 - halfW;
+          maxX = cx0 + halfW;
+          minZ = cz0 - halfD;
+          maxZ = cz0 + halfD;
+        }
+      }
+
       const fitted = markersOnly
         ? null
         : fitRoomToFurniture({ minX, minZ, maxX, maxZ, outlines: drawnOutlines, items: roomItems });
@@ -1115,41 +1244,112 @@ export function VirtualRoomViewer({
       const cz = (minZ + maxZ) / 2;
       group.position.set(-cx, 0, -cz);
 
+      // Camera framing still includes furniture that sits outside the walls.
+      let extentMinX = minX;
+      let extentMinZ = minZ;
+      let extentMaxX = maxX;
+      let extentMaxZ = maxZ;
+      for (const item of roomItems) {
+        for (const p of item.corners) {
+          extentMinX = Math.min(extentMinX, p.x);
+          extentMinZ = Math.min(extentMinZ, p.z);
+          extentMaxX = Math.max(extentMaxX, p.x);
+          extentMaxZ = Math.max(extentMaxZ, p.z);
+        }
+      }
+
       const wallColor = current.wallColor || DEFAULT_WALL;
       const usedOpeningIds = new Set<string>();
       const wallHeight = current.wallHeightM || 3;
+      const outlines = fitted?.outlines.length
+        ? fitted.outlines
+        : [
+            [
+              { x: minX, z: minZ },
+              { x: maxX, z: minZ },
+              { x: maxX, z: maxZ },
+              { x: minX, z: maxZ },
+            ],
+          ];
 
       if (!markersOnly) {
+        const floorMap = current.floorImageUrl
+          ? loadTexture(current.floorImageUrl, undefined, {
+              rotationDeg: current.floorImageRotationDeg,
+            })
+          : null;
         const floorMat = new THREE.MeshStandardMaterial({
-          color: current.floorImageUrl ? '#ffffff' : current.floorColor || DEFAULT_FLOOR,
+          color: floorMap ? '#ffffff' : current.floorColor || DEFAULT_FLOOR,
           roughness: 0.95,
-          map: current.floorImageUrl ? loadTexture(current.floorImageUrl) : null,
+          map: floorMap,
         });
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(w, d), floorMat);
-        floor.rotation.x = -Math.PI / 2;
-        floor.position.set(cx, 0, cz);
-        floor.receiveShadow = true;
-        floor.userData.areaDrag = true;
-        group.add(floor);
-        dragTargets.push(floor);
+        // One slab per room outline so the floor matches the walls (not a padded AABB).
+        if (drawnOutlines.length > 0) {
+          for (const outline of outlines) {
+            if (outline.length < 3) continue;
+            const shape = new THREE.Shape();
+            // Shape is XY; rotate -X so shape Y maps to world +Z (see y = -z).
+            shape.moveTo(outline[0]!.x, -outline[0]!.z);
+            for (let i = 1; i < outline.length; i += 1) {
+              shape.lineTo(outline[i]!.x, -outline[i]!.z);
+            }
+            shape.closePath();
+            const floor = new THREE.Mesh(new THREE.ShapeGeometry(shape), floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            floor.userData.areaDrag = true;
+            group.add(floor);
+            dragTargets.push(floor);
+          }
+        } else {
+          const floor = new THREE.Mesh(new THREE.PlaneGeometry(w, d), floorMat);
+          floor.rotation.x = -Math.PI / 2;
+          floor.position.set(cx, 0, cz);
+          floor.receiveShadow = true;
+          floor.userData.areaDrag = true;
+          group.add(floor);
+          dragTargets.push(floor);
+        }
 
         if (!singlePanorama || isOverall) {
-          const photos = current.wallPhotoUrls.slice(0, 8).map((u) => loadTexture(u));
-          const outlines = fitted?.outlines.length
-            ? fitted.outlines
-            : [
-                [
-                  { x: minX, z: minZ },
-                  { x: maxX, z: minZ },
-                  { x: maxX, z: maxZ },
-                  { x: minX, z: maxZ },
-                ],
-              ];
+          const wallPhotoFit = current.wallPhotoFit === 'tile' ? 'tile' : 'stretch';
+          const wallPhotoTileM =
+            typeof current.wallPhotoTileM === 'number' && current.wallPhotoTileM > 0
+              ? current.wallPhotoTileM
+              : VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_TILE_M;
+          const photos = current.wallPhotoUrls.slice(0, 8).map((u) =>
+            loadTexture(u, undefined, {
+              fit: wallPhotoFit,
+              rotationDeg: current.wallPhotoRotationDeg,
+            }),
+          );
           for (const outline of outlines) {
-            const built = buildWalls(outline, wallHeight, wallColor, photos, current.fixtures, m);
+            const built = buildWalls(
+              outline,
+              wallHeight,
+              wallColor,
+              photos,
+              current.fixtures,
+              m,
+              wallPhotoFit,
+              wallPhotoTileM,
+            );
             built.usedIds.forEach((id) => usedOpeningIds.add(id));
             group.add(built.group);
           }
+          // Wall fixtures redrawn on a room edge duplicate the outline wall — skip them.
+          fixtureIdsOnOutlines(
+            outlines,
+            current.fixtures
+              .filter((f) => f.kind === 'wall')
+              .map((f) => ({
+                id: f.id,
+                center: { x: (f.posX + f.width / 2) * m, z: (f.posY + f.height / 2) * m },
+                halfW: Math.max(0.2, f.width * m) / 2,
+                halfD: Math.max(0.15, f.height * m) / 2,
+                rotationDeg: f.rotation || 0,
+              })),
+          ).forEach((id) => usedOpeningIds.add(id));
         }
       } else {
         const shadowFloor = new THREE.Mesh(
@@ -1229,12 +1429,12 @@ export function VirtualRoomViewer({
       root.add(wrapper);
       wrappers.set(current.name, wrapper);
 
-      worldMinX = Math.min(worldMinX, ox - w / 2);
-      worldMaxX = Math.max(worldMaxX, ox + w / 2);
+      worldMinX = Math.min(worldMinX, ox + (extentMinX - cx));
+      worldMaxX = Math.max(worldMaxX, ox + (extentMaxX - cx));
       worldMinY = Math.min(worldMinY, oy);
       worldMaxY = Math.max(worldMaxY, oy + wallHeight);
-      worldMinZ = Math.min(worldMinZ, oz - d / 2);
-      worldMaxZ = Math.max(worldMaxZ, oz + d / 2);
+      worldMinZ = Math.min(worldMinZ, oz + (extentMinZ - cz));
+      worldMaxZ = Math.max(worldMaxZ, oz + (extentMaxZ - cz));
     }
 
     const spanW = Math.max(2, worldMaxX - worldMinX);

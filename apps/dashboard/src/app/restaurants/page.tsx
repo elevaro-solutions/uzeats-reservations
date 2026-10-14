@@ -144,7 +144,7 @@ function clearCreateDraft() {
 
 const DETAILS_STEP_FIELDS = [
   'name',
-  'cuisine',
+  'cuisines',
   'priceRange',
   'phone',
   'website',
@@ -548,7 +548,8 @@ export default function MyRestaurantsPage() {
           input: {
             name: values.name,
             description: values.description || undefined,
-            cuisine: values.cuisine,
+            cuisines: values.cuisines,
+            cuisine: Array.isArray(values.cuisines) ? values.cuisines[0] : undefined,
             priceRange: values.priceRange,
             phone: values.phone || undefined,
             website: values.website || undefined,
@@ -923,9 +924,16 @@ export default function MyRestaurantsPage() {
               </Col>
               <Col xs={24} sm={12}>
                 <Form.Item
-                  name="cuisine"
+                  name="cuisines"
                   label="Cuisine / category"
-                  rules={[{ required: true, message: 'Select or add a cuisine' }]}
+                  rules={[
+                    {
+                      validator: async (_, value) => {
+                        if (Array.isArray(value) && value.length > 0) return;
+                        throw new Error('Select or add at least one cuisine');
+                      },
+                    },
+                  ]}
                   tooltip={tips.cuisine}
                 >
                   <CuisineSelect />
@@ -1258,7 +1266,9 @@ export default function MyRestaurantsPage() {
                         </Text>
                         <Text>
                           <Text type="secondary">Cuisine: </Text>
-                          {values.cuisine || '—'}
+                          {Array.isArray(values.cuisines) && values.cuisines.length
+                            ? values.cuisines.join(', ')
+                            : '—'}
                         </Text>
                         <Text>
                           <Text type="secondary">Price range: </Text>

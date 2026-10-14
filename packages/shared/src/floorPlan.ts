@@ -386,12 +386,79 @@ export function sameFloorArea(
   return Boolean(left) && left === right;
 }
 
-/** Per-floor-area canvas underlay (color / image). */
+/** How the floor-plan underlay image maps onto the canvas (independent of grid cell size). */
+export const FLOOR_PLAN_BACKGROUND_FITS = ['cover', 'contain', 'stretch', 'tile'] as const;
+export type FloorPlanBackgroundFit = (typeof FLOOR_PLAN_BACKGROUND_FITS)[number];
+export const FLOOR_PLAN_DEFAULT_BACKGROUND_FIT: FloorPlanBackgroundFit = 'cover';
+export const FLOOR_PLAN_DEFAULT_BACKGROUND_SCALE = 1;
+export const FLOOR_PLAN_MIN_BACKGROUND_SCALE = 0.25;
+export const FLOOR_PLAN_MAX_BACKGROUND_SCALE = 4;
+export const FLOOR_PLAN_DEFAULT_BACKGROUND_ROTATION_DEG = 0;
+
+/** Per-floor-area canvas underlay (color / image / free transform). */
 export type FloorPlanAreaAppearance = {
   floorArea: string;
   backgroundColor?: string | null;
   backgroundUrl?: string | null;
+  /** cover | contain | stretch | tile — default cover. */
+  backgroundFit?: FloorPlanBackgroundFit | null;
+  /** Zoom multiplier for the underlay (0.25–4). Default 1. */
+  backgroundScale?: number | null;
+  /** Clockwise rotation of the underlay image in degrees (0–360). */
+  backgroundRotationDeg?: number | null;
 };
+
+export type ResolvedFloorAreaAppearance = {
+  backgroundColor: string | null;
+  backgroundUrl: string | null;
+  backgroundFit: FloorPlanBackgroundFit;
+  backgroundScale: number;
+  backgroundRotationDeg: number;
+};
+
+function resolveBackgroundFit(raw: string | null | undefined): FloorPlanBackgroundFit {
+  return (FLOOR_PLAN_BACKGROUND_FITS as readonly string[]).includes(raw || '')
+    ? (raw as FloorPlanBackgroundFit)
+    : FLOOR_PLAN_DEFAULT_BACKGROUND_FIT;
+}
+
+function resolveBackgroundScale(raw: number | null | undefined): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) {
+    return FLOOR_PLAN_DEFAULT_BACKGROUND_SCALE;
+  }
+  return Math.min(
+    FLOOR_PLAN_MAX_BACKGROUND_SCALE,
+    Math.max(FLOOR_PLAN_MIN_BACKGROUND_SCALE, raw),
+  );
+}
+
+function resolveBackgroundRotationDeg(raw: number | null | undefined): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+    return FLOOR_PLAN_DEFAULT_BACKGROUND_ROTATION_DEG;
+  }
+  return ((raw % 360) + 360) % 360;
+}
+
+function appearanceTransform(
+  source: {
+    backgroundFit?: FloorPlanBackgroundFit | null;
+    backgroundScale?: number | null;
+    backgroundRotationDeg?: number | null;
+  } | null | undefined,
+  fallback: {
+    backgroundFit?: FloorPlanBackgroundFit | null;
+    backgroundScale?: number | null;
+    backgroundRotationDeg?: number | null;
+  } = {},
+) {
+  return {
+    backgroundFit: resolveBackgroundFit(source?.backgroundFit ?? fallback.backgroundFit),
+    backgroundScale: resolveBackgroundScale(source?.backgroundScale ?? fallback.backgroundScale),
+    backgroundRotationDeg: resolveBackgroundRotationDeg(
+      source?.backgroundRotationDeg ?? fallback.backgroundRotationDeg,
+    ),
+  };
+}
 
 /**
  * Resolve canvas underlay for one floor area.
@@ -403,8 +470,11 @@ export function resolveFloorAreaAppearance(
   fallback: {
     backgroundColor?: string | null;
     backgroundUrl?: string | null;
+    backgroundFit?: FloorPlanBackgroundFit | null;
+    backgroundScale?: number | null;
+    backgroundRotationDeg?: number | null;
   } = {},
-): { backgroundColor: string | null; backgroundUrl: string | null } {
+): ResolvedFloorAreaAppearance {
   const match = (appearances ?? []).find((a) =>
     sameFloorArea(a.floorArea || 'Main', floorArea || 'Main'),
   );
@@ -412,6 +482,7 @@ export function resolveFloorAreaAppearance(
     return {
       backgroundColor: fallback.backgroundColor ?? null,
       backgroundUrl: fallback.backgroundUrl ?? null,
+      ...appearanceTransform(null, fallback),
     };
   }
   return {
@@ -423,6 +494,7 @@ export function resolveFloorAreaAppearance(
       match.backgroundUrl !== undefined
         ? match.backgroundUrl
         : (fallback.backgroundUrl ?? null),
+    ...appearanceTransform(match, fallback),
   };
 }
 
@@ -441,6 +513,10 @@ export function upsertFloorAreaAppearance(
       floorArea,
       backgroundColor: next.backgroundColor ?? null,
       backgroundUrl: next.backgroundUrl ?? null,
+      backgroundFit: next.backgroundFit ?? FLOOR_PLAN_DEFAULT_BACKGROUND_FIT,
+      backgroundScale: next.backgroundScale ?? FLOOR_PLAN_DEFAULT_BACKGROUND_SCALE,
+      backgroundRotationDeg:
+        next.backgroundRotationDeg ?? FLOOR_PLAN_DEFAULT_BACKGROUND_ROTATION_DEG,
     },
   ];
 }
@@ -458,6 +534,10 @@ export function renameFloorAreaAppearance(
           floorArea: nextName,
           backgroundColor: a.backgroundColor ?? null,
           backgroundUrl: a.backgroundUrl ?? null,
+          backgroundFit: a.backgroundFit ?? FLOOR_PLAN_DEFAULT_BACKGROUND_FIT,
+          backgroundScale: a.backgroundScale ?? FLOOR_PLAN_DEFAULT_BACKGROUND_SCALE,
+          backgroundRotationDeg:
+            a.backgroundRotationDeg ?? FLOOR_PLAN_DEFAULT_BACKGROUND_ROTATION_DEG,
         }
       : { ...a },
   );

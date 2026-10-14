@@ -5,7 +5,10 @@ import {
   LOYALTY,
   RESTAURANT_LOYALTY,
   PLATFORM_TIMEZONE,
+  MAX_BOOKABLE_PARTY_SIZE,
+  clampToAcceptedPartySize,
   depositPointsFromCents,
+  resolveAcceptedPartySize,
   resolveBookingCharges,
   buildRestaurantBookingPath,
   formatTimeInTimeZone,
@@ -149,6 +152,10 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
         state.partySize,
       );
       state.restaurant = boot.restaurant;
+      state.partySize = clampToAcceptedPartySize(state.partySize, {
+        minPartySize: boot.restaurant.minPartySize,
+        maxPartySize: boot.restaurant.maxPartySize,
+      });
       const tz = venueTimeZone(state.restaurant);
       const venueToday = todayISO(tz);
       if (state.date < venueToday) {
@@ -276,14 +283,18 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
     row.append(dateField);
 
     // Party size field
+    const partyBounds = resolveAcceptedPartySize({
+      minPartySize: state.restaurant?.minPartySize,
+      maxPartySize: state.restaurant?.maxPartySize,
+    });
     const partyField = h('div', { className: 'rt-field' });
     partyField.append(h('label', { className: 'rt-label' }, ['Party size']));
     const stepper = h('div', { className: 'rt-stepper' });
 
     const minusBtn = h('button', { className: 'rt-stepper-btn', type: 'button' }, ['\u2212']);
-    if (state.partySize <= 1) minusBtn.setAttribute('disabled', '');
+    if (state.partySize <= partyBounds.min) minusBtn.setAttribute('disabled', '');
     minusBtn.addEventListener('click', () => {
-      if (state.partySize > 1) {
+      if (state.partySize > partyBounds.min) {
         state.partySize--;
         loadSlots();
       }
@@ -294,9 +305,9 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
     ]);
 
     const plusBtn = h('button', { className: 'rt-stepper-btn', type: 'button' }, ['+']);
-    if (state.partySize >= 20) plusBtn.setAttribute('disabled', '');
+    if (state.partySize >= partyBounds.max) plusBtn.setAttribute('disabled', '');
     plusBtn.addEventListener('click', () => {
-      if (state.partySize < 20) {
+      if (state.partySize < partyBounds.max) {
         state.partySize++;
         loadSlots();
       }
@@ -304,6 +315,23 @@ export function createInlineWidget(root: HTMLElement, config: WidgetConfig): voi
 
     stepper.append(minusBtn, sizeLabel, plusBtn);
     partyField.append(stepper);
+    if (partyBounds.max < MAX_BOOKABLE_PARTY_SIZE) {
+      const largeParty = h('div', { className: 'rt-hint' }, []);
+      const phone = state.restaurant?.phone?.trim();
+      if (phone) {
+        const link = h('a', { href: `tel:${phone}` }, [
+          `Large party (${partyBounds.max + 1}+)? Call the restaurant`,
+        ]);
+        largeParty.append(link);
+      } else {
+        largeParty.append(
+          document.createTextNode(
+            `Large party (${partyBounds.max + 1}+)? Contact the restaurant to book.`,
+          ),
+        );
+      }
+      partyField.append(largeParty);
+    }
     row.append(partyField);
 
     body.append(row);

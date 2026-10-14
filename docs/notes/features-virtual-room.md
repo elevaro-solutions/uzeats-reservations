@@ -2,6 +2,20 @@
 
 Experimental add-on: billing (monthly + per-guest fees) and an external photogrammetry provider (KIRI Engine), so it lives in its own file.
 
+## [2026-10-14] Drawn rooms own the 3D floor footprint
+- Floor slabs and wall planes follow fitted `floorRooms` polygons. `fitRoomToFurniture` no longer expands the floor AABB with exterior doors/windows/plants (or a manual `roomWidthM`/`roomDepthM` rect) past those outlines — that used to leave a slab sticking out while walls stayed on the drawn plan.
+- Without room polygons, structural bounds exclude openings/décor; size overrides still recenter that auto rect. Wall fixtures on an outline edge are skipped (outline already is the wall).
+- Why it matters: Partners drawing rooms expect 3D walls flush with the floor they drew, not padded around perimeter windows.
+
+## [2026-10-14] Free texture rotation + optional room size
+- `wallPhotoRotationDeg` / `floorImageRotationDeg` are free 0–360° (table-style), not cardined steps. Viewer: `texture.center = (0.5, 0.5)` + `texture.rotation`.
+- Optional `roomWidthM` / `roomDepthM` (2–100 m, null = auto). When set **and no room polygons are drawn**, the procedural room is recentered on structural floor-plan bounds at that size, then still expanded by `fitRoomToFurniture` so chairs/tables never clip walls. Drawn `floorRooms` always win over the size override.
+- Why it matters: Pattern orientation needs fine control; some layouts need a larger empty dining room than the furniture AABB implies.
+
+## [2026-10-14] Wall photos: stretch vs tile
+- Area settings `wallPhotoFit` (`stretch` | `tile`, default stretch) and `wallPhotoTileM` (0.25–4 m, default 1). Stretch keeps UV 0–1 per wall span (legacy). Tile sets `RepeatWrapping` and scales UVs by span size / tile meters so a small pattern repeats without stretching, including across door/window cut spans that share one material.
+- Why it matters: Wallpaper / brick / panel swatches look wrong when stretched across a long wall; partners need a pattern mode without uploading a full-wall photo.
+
 ## [2026-10-09] Plan feature `threeDView` ≠ Virtual 3D add-on
 - Admin → Pricing Features has a free package toggle `threeDView` ("3D view"). That is a plan entitlement (included when on), not `addons.virtualRoom3d`.
 - Guest 3D table pick / editor / monthly add-on billing still use `featureFlags.virtualRoom3d` + `addons.virtualRoom3d` and require `floorPlans`.

@@ -98,6 +98,9 @@ export function mapLoadedAreaAppearances(
       floorArea: a.floorArea || 'Main',
       backgroundColor: a.backgroundColor ?? null,
       backgroundUrl: a.backgroundUrl ?? null,
+      backgroundFit: a.backgroundFit ?? null,
+      backgroundScale: a.backgroundScale ?? null,
+      backgroundRotationDeg: a.backgroundRotationDeg ?? null,
     }));
 }
 
@@ -231,6 +234,9 @@ export function toSaveInput(snapshot: FloorPlanSnapshot) {
       floorArea: a.floorArea,
       backgroundColor: a.backgroundColor ?? null,
       backgroundUrl: a.backgroundUrl ?? null,
+      backgroundFit: a.backgroundFit ?? null,
+      backgroundScale: a.backgroundScale ?? null,
+      backgroundRotationDeg: a.backgroundRotationDeg ?? null,
     })),
     scale: snapshot.scale,
     fixtures: snapshot.fixtures.map((f) => ({

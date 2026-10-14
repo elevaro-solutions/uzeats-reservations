@@ -4,7 +4,11 @@ import type { ReactNode } from 'react';
 import type { Dayjs } from 'dayjs';
 import { Button, DatePicker, Input, Select, Tag } from 'antd';
 import { EnvironmentFilled, SearchOutlined } from '@ant-design/icons';
-import { PLATFORM_TIMEZONE, isPastCalendarDay } from '@reservations/shared';
+import {
+  PLATFORM_TIMEZONE,
+  discoveryPartySizeSelectOptions,
+  isPastCalendarDay,
+} from '@reservations/shared';
 import { colors, radii, shadows, typography } from '@reservations/ui';
 import {
   AddressAutocomplete,
@@ -139,10 +143,7 @@ export function DiscoverySearchPanel({
           variant="borderless"
           value={partySize}
           onChange={(v) => onPartySizeChange(v ?? 2)}
-          options={Array.from({ length: 20 }, (_, i) => ({
-            value: i + 1,
-            label: `${i + 1} ${i === 0 ? 'guest' : 'guests'}`,
-          }))}
+          options={discoveryPartySizeSelectOptions()}
         />
       </div>
       <div className="rt-search-submit">

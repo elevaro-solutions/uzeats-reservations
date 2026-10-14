@@ -20,9 +20,9 @@ import {
   Spin,
   Alert,
 } from 'antd';
-import { ArrowRightOutlined, EditOutlined, ImportOutlined } from '@ant-design/icons';
+import { ArrowRightOutlined, EditOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { CUISINES } from '@reservations/shared';
+import CuisineSelect from '@/components/CuisineSelect';
 import {
   AddressAutocomplete,
   PhoneInput,
@@ -55,8 +55,6 @@ import {
   priceRangeOptions,
   restaurantFieldTooltips as tips,
 } from '@/lib/restaurantFormTooltips';
-import ImportRestaurantModal, { type ImportedRestaurantData } from '@/components/ImportRestaurantModal';
-import { applyRestaurantImportToForm } from '@/lib/applyRestaurantImport';
 
 const { Text } = Typography;
 
@@ -159,7 +157,6 @@ function RegisterForm() {
   const [checkingName, setCheckingName] = useState(false);
   const [pendingSignup, setPendingSignup] = useState<PendingSignup | null>(null);
   const [addressDetailsOpen, setAddressDetailsOpen] = useState(false);
-  const [showImport, setShowImport] = useState(false);
   const lastGeocodedAddressRef = useRef('');
   const { data: plansData } = useQuery(PLANS);
   const watchLine1 = Form.useWatch('line1', form);
@@ -327,7 +324,7 @@ function RegisterForm() {
         try {
           await form.validateFields([
             'name',
-            'cuisine',
+            'cuisines',
             'description',
             'phone',
             'website',
@@ -362,7 +359,7 @@ function RegisterForm() {
         'password',
         'confirmPassword',
         'name',
-        'cuisine',
+        'cuisines',
         'description',
         'phone',
         'website',
@@ -393,7 +390,8 @@ function RegisterForm() {
             restaurant: {
               name: str(values.name),
               description: str(values.description),
-              cuisine: values.cuisine,
+              cuisines: values.cuisines,
+              cuisine: Array.isArray(values.cuisines) ? values.cuisines[0] : undefined,
               priceRange: values.priceRange,
               phone: toE164Us(str(values.phone)),
               website,
@@ -451,7 +449,7 @@ function RegisterForm() {
         } else if (
           [
             'name',
-            'cuisine',
+            'cuisines',
             'description',
             'phone',
             'website',
@@ -515,15 +513,6 @@ function RegisterForm() {
       `${restaurantName} submitted — ${planInfo.name}${planInfo.trialDays > 0 ? ' trial started' : ' selected'}`,
     );
     router.push('/overview');
-  };
-
-  const handleRegisterImport = (data: ImportedRestaurantData) => {
-    applyRestaurantImportToForm(form, data);
-    if (data.address?.line1 || data.address?.city || data.address?.state || data.address?.zip) {
-      setAddressDetailsOpen(true);
-    }
-    setStep(2);
-    message.success(`Imported "${data.name ?? 'restaurant'}" — confirm your address, then continue.`);
   };
 
   return (
@@ -751,11 +740,6 @@ function RegisterForm() {
         </div>
 
         <div style={{ display: step === 2 ? 'block' : 'none' }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-            <Button icon={<ImportOutlined />} onClick={() => setShowImport(true)}>
-              Import from DoorDash / Uber Eats
-            </Button>
-          </div>
           <Row gutter={16}>
             <Col span={24}>
               <Form.Item
@@ -792,16 +776,19 @@ function RegisterForm() {
             </Col>
             <Col xs={24} sm={12}>
               <Form.Item
-                name="cuisine"
+                name="cuisines"
                 label="Cuisine"
                 tooltip={tips.cuisine}
-                rules={[{ required: true, message: 'Required' }]}
+                rules={[
+                  {
+                    validator: async (_, value) => {
+                      if (Array.isArray(value) && value.length > 0) return;
+                      throw new Error('Required');
+                    },
+                  },
+                ]}
               >
-                <Select
-                  size="large"
-                  showSearch
-                  options={CUISINES.map((c) => ({ value: c, label: c }))}
-                />
+                <CuisineSelect size="large" />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>
@@ -997,7 +984,10 @@ function RegisterForm() {
                 .filter(Boolean)
                 .join(', ')}
             />
-            <ConfirmRow label="Cuisine" value={form.getFieldValue('cuisine')} />
+            <ConfirmRow
+              label="Cuisine"
+              value={(form.getFieldValue('cuisines') as string[] | undefined)?.join(', ')}
+            />
             <ConfirmRow label="Phone" value={formatPhoneDisplay(form.getFieldValue('phone'))} />
             <Text type="secondary" style={{ fontSize: typography.fontSize.sm, marginTop: 4 }}>
               Your listing will be pending approval.
@@ -1081,11 +1071,6 @@ function RegisterForm() {
           Sign in
         </Link>
       </p>
-      <ImportRestaurantModal
-        open={showImport}
-        onClose={() => setShowImport(false)}
-        onImport={handleRegisterImport}
-      />
     </AuthLayout></div>
   );
 }

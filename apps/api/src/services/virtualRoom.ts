@@ -6,7 +6,16 @@ import {
   VIRTUAL_ROOM_DEFAULT_AREA_LAYOUT_MODE,
   VIRTUAL_ROOM_DEFAULT_SELECTION_FEE_MODE,
   VIRTUAL_ROOM_DEFAULT_WALL_HEIGHT_M,
+  VIRTUAL_ROOM_DEFAULT_TEXTURE_ROTATION_DEG,
+  VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_FIT,
+  VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_TILE_M,
   VIRTUAL_ROOM_MAX_MEDIA,
+  VIRTUAL_ROOM_MAX_ROOM_SIZE_M,
+  VIRTUAL_ROOM_MAX_TEXTURE_ROTATION_DEG,
+  VIRTUAL_ROOM_MAX_WALL_PHOTO_TILE_M,
+  VIRTUAL_ROOM_MIN_ROOM_SIZE_M,
+  VIRTUAL_ROOM_MIN_TEXTURE_ROTATION_DEG,
+  VIRTUAL_ROOM_MIN_WALL_PHOTO_TILE_M,
   metersPerGridCell,
   resolveFloorAreaAppearance,
   resolveVirtualRoomSelectionFeePayer,
@@ -19,6 +28,7 @@ import {
   type VirtualRoomAreaLayoutMode,
   type VirtualRoomSelectionFeeMode,
   type VirtualRoomSelectionFeePayer,
+  type VirtualRoomWallPhotoFit,
 } from '@reservations/shared';
 import { AddonFee } from '../models/AddonFee.js';
 import { Restaurant } from '../models/Restaurant.js';
@@ -472,6 +482,12 @@ type AreaSettings = {
   panoramaMediaId?: string | null;
   wallColor?: string | null;
   floorColor?: string | null;
+  wallPhotoFit?: VirtualRoomWallPhotoFit | null;
+  wallPhotoTileM?: number | null;
+  wallPhotoRotationDeg?: number | null;
+  floorImageRotationDeg?: number | null;
+  roomWidthM?: number | null;
+  roomDepthM?: number | null;
   offsetXM?: number | null;
   offsetYM?: number | null;
   offsetZM?: number | null;
@@ -479,6 +495,37 @@ type AreaSettings = {
   selectionFeeCharged?: boolean | null;
   selectionFeeCents?: number | null;
 };
+
+function resolveWallPhotoFit(raw: string | null | undefined): VirtualRoomWallPhotoFit {
+  return raw === 'tile' ? 'tile' : VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_FIT;
+}
+
+function resolveWallPhotoTileM(raw: number | null | undefined): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+    return VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_TILE_M;
+  }
+  return Math.min(
+    VIRTUAL_ROOM_MAX_WALL_PHOTO_TILE_M,
+    Math.max(VIRTUAL_ROOM_MIN_WALL_PHOTO_TILE_M, raw),
+  );
+}
+
+function resolveTextureRotationDeg(raw: number | null | undefined): number {
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+    return VIRTUAL_ROOM_DEFAULT_TEXTURE_ROTATION_DEG;
+  }
+  const wrapped = ((raw % 360) + 360) % 360;
+  return Math.min(
+    VIRTUAL_ROOM_MAX_TEXTURE_ROTATION_DEG,
+    Math.max(VIRTUAL_ROOM_MIN_TEXTURE_ROTATION_DEG, wrapped),
+  );
+}
+
+/** Optional room size; null clears / inherits auto size from the floor plan. */
+function resolveOptionalRoomSizeM(raw: number | null | undefined): number | null {
+  if (raw == null || typeof raw !== 'number' || !Number.isFinite(raw)) return null;
+  return Math.min(VIRTUAL_ROOM_MAX_ROOM_SIZE_M, Math.max(VIRTUAL_ROOM_MIN_ROOM_SIZE_M, raw));
+}
 
 function areaKey(name: string | null | undefined) {
   return (name || 'Main').trim().toLowerCase();
@@ -507,6 +554,12 @@ function roomAreaSettings(room: VirtualRoomDocument | null): AreaSettings[] {
     panoramaMediaId: s.panoramaMediaId ?? null,
     wallColor: s.wallColor ?? null,
     floorColor: s.floorColor ?? null,
+    wallPhotoFit: resolveWallPhotoFit(s.wallPhotoFit),
+    wallPhotoTileM: resolveWallPhotoTileM(s.wallPhotoTileM),
+    wallPhotoRotationDeg: resolveTextureRotationDeg(s.wallPhotoRotationDeg),
+    floorImageRotationDeg: resolveTextureRotationDeg(s.floorImageRotationDeg),
+    roomWidthM: resolveOptionalRoomSizeM(s.roomWidthM),
+    roomDepthM: resolveOptionalRoomSizeM(s.roomDepthM),
     offsetXM: s.offsetXM ?? 0,
     offsetYM: s.offsetYM ?? 0,
     offsetZM: s.offsetZM ?? 0,
@@ -644,6 +697,12 @@ export async function buildVirtualRoomScene(restaurantId: string, room: VirtualR
       floorImageUrl: appearance.backgroundUrl ?? null,
       panoramaUrl: panorama?.url ?? null,
       wallPhotoUrls: scoped.filter((m) => m.role === 'wall' && m.kind === 'photo').map((m) => m.url),
+      wallPhotoFit: resolveWallPhotoFit(setting?.wallPhotoFit),
+      wallPhotoTileM: resolveWallPhotoTileM(setting?.wallPhotoTileM),
+      wallPhotoRotationDeg: resolveTextureRotationDeg(setting?.wallPhotoRotationDeg),
+      floorImageRotationDeg: resolveTextureRotationDeg(setting?.floorImageRotationDeg),
+      roomWidthM: resolveOptionalRoomSizeM(setting?.roomWidthM),
+      roomDepthM: resolveOptionalRoomSizeM(setting?.roomDepthM),
       bounds,
       setting,
       tables: areaTables.map((t) => ({
@@ -903,6 +962,30 @@ export async function updateVirtualRoom(restaurantId: string, rawInput: unknown)
         panoramaMediaId: s.panoramaMediaId ?? null,
         wallColor: s.wallColor ?? null,
         floorColor: s.floorColor ?? null,
+        wallPhotoFit: resolveWallPhotoFit(
+          s.wallPhotoFit ?? prev?.wallPhotoFit ?? VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_FIT,
+        ),
+        wallPhotoTileM: resolveWallPhotoTileM(
+          s.wallPhotoTileM ?? prev?.wallPhotoTileM ?? VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_TILE_M,
+        ),
+        wallPhotoRotationDeg: resolveTextureRotationDeg(
+          s.wallPhotoRotationDeg ??
+            prev?.wallPhotoRotationDeg ??
+            VIRTUAL_ROOM_DEFAULT_TEXTURE_ROTATION_DEG,
+        ),
+        floorImageRotationDeg: resolveTextureRotationDeg(
+          s.floorImageRotationDeg ??
+            prev?.floorImageRotationDeg ??
+            VIRTUAL_ROOM_DEFAULT_TEXTURE_ROTATION_DEG,
+        ),
+        roomWidthM:
+          s.roomWidthM !== undefined
+            ? resolveOptionalRoomSizeM(s.roomWidthM)
+            : (prev?.roomWidthM ?? null),
+        roomDepthM:
+          s.roomDepthM !== undefined
+            ? resolveOptionalRoomSizeM(s.roomDepthM)
+            : (prev?.roomDepthM ?? null),
         offsetXM: s.offsetXM ?? prev?.offsetXM ?? 0,
         offsetYM: s.offsetYM ?? prev?.offsetYM ?? 0,
         offsetZM: s.offsetZM ?? prev?.offsetZM ?? 0,

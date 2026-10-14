@@ -1,5 +1,27 @@
 # Booking — Learnings & Observations
 
+## [2026-10-14] No-show marking is layered; manual path charges fees
+- Resolve order: table → floor-area setting → restaurant → platform → `manual_only`. Platform default is manual-only so hosts mark no-show and `chargeNoShowFee` runs on that status update.
+- BullMQ `no-show-check` no-ops when effective mode is `manual_only`. Auto mode still marks at `slotEnd` without charging the card-guarantee fee.
+- Follow-up templates `booking_no_show` / `booking_completed` fire on staff status changes (and auto no-show when enabled).
+- Why it matters: Don’t assume the reminder job always marks or charges; check `resolveNoShowMarkingForReservation`.
+
+## [2026-10-14] Holidays + date schedule overrides drive availability
+- Platform holiday catalog (majors `defaultEnabled`) marks days for restaurant review. Default product behavior: **stay open** (`requireHolidayApproval` defaults true) and queue a pending `DateScheduleOverride` until an owner/manager approves closing. Auto-close only when a restaurant sets `requireHolidayApproval: false`.
+- `dateScheduleOverrides` ensures upcoming major-holiday pending rows for this year + next.
+- Approved overrides: `closed` or `custom_hours` (replace weekly shifts for that date). Legacy `Blackout` still blocks slots.
+- Why it matters: Availability is shifts − blackouts − approved overrides — majors do not silently close the book.
+
+## [2026-10-14] Holiday default: open + manual approval per major
+- Restaurant `requireHolidayApproval` defaults **true** (unset treated as true in mapper/availability). Admin Holidays toggles which majors enter the approval queue, not auto-close.
+- Why it matters: Partners must explicitly approve closing Thanksgiving/Christmas/etc. on Closures & hours.
+
+## [2026-10-14] Accepted online party size is restaurant-level (not table-derived)
+- `Restaurant.minPartySize` / `maxPartySize` are optional. Unset → defaults **1–20** (`DEFAULT_*` in `@reservations/shared` `partySize.ts`). Hard ceiling **50**.
+- Diner Guests select / widget stepper use `resolveAcceptedPartySize` + `partySizeSelectOptions`. When max &lt; 50, a **Large party** option opens contact (phone / website / message) instead of inventing bookable sizes.
+- Table `minCapacity`/`maxCapacity` still filter which tables fit; they do not define the dropdown range. Access-rule party limits remain time-scoped exceptions on top.
+- Why it matters: Matching OpenTable-style accepted party sizes without encoding floor-plan noise into the picker.
+
 ## [2026-10-09] Cancel / no-show window is layered and snapshotted
 - `cancellationPeriodHours` resolves experience → private dining → table → restaurant → platform → 24. Stored on `Reservation` at create so later config changes do not rewrite an existing booking’s fee window.
 - Shared helpers: `resolveCancellationPeriodHours`, `isLateCancellation(slot, now, hours)`, policy text / diner cancel warnings take the hours arg. Legacy rows without a snapshot still use 24.

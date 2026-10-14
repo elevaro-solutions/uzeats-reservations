@@ -1,9 +1,14 @@
-import { resolveDepositPolicy, type RestaurantInput } from '@reservations/shared';
+import {
+  normalizeRestaurantCuisines,
+  resolveDepositPolicy,
+  type RestaurantInput,
+} from '@reservations/shared';
 
 type RestaurantBase = {
   name: string;
   description?: string | null;
   cuisine: string;
+  cuisines?: string[];
   priceRange: number;
   address: {
     line1: string;
@@ -72,10 +77,15 @@ export function buildRestaurantInput(
   photos?: string[],
   logoUrl?: string | null,
 ): RestaurantInput {
+  const normalizedCuisines = normalizeRestaurantCuisines({
+    cuisine: base.cuisine,
+    cuisines: base.cuisines,
+  });
   return {
     name: base.name,
     description: profile?.description ?? base.description ?? undefined,
-    cuisine: base.cuisine,
+    cuisine: normalizedCuisines.cuisine,
+    cuisines: normalizedCuisines.cuisines,
     priceRange: base.priceRange as RestaurantInput['priceRange'],
     address: {
       line1: base.address.line1,

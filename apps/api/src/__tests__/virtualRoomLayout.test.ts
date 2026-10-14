@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   SEAT_CLEARANCE_M,
+  aabbOfOutlines,
   expandOutline,
   fitRoomToFurniture,
+  fixtureIdsOnOutlines,
   openingsForOutline,
   pointInPolygon,
   rectOutline,
@@ -89,5 +91,47 @@ describe('virtual room layout', () => {
     expect(edges[0]?.[0]?.along).toBeCloseTo(5, 0);
     expect(edges[3]?.map((o: { id: string }) => o.id)).toEqual(['window']);
     expect(edges.flat().some((o: { id: string }) => o.id === 'mid')).toBe(false);
+  });
+
+  it('keeps the floor extent on the wall outlines, not exterior décor', () => {
+    const room = rectOutline(0, 0, 10, 8);
+    const fitted = fitRoomToFurniture({
+      minX: -2,
+      minZ: -2,
+      maxX: 14,
+      maxZ: 12,
+      outlines: [room],
+      items: [
+        {
+          id: 'outside-plant',
+          center: { x: 12, z: 4 },
+          corners: [
+            { x: 11.5, z: 3.5 },
+            { x: 12.5, z: 3.5 },
+            { x: 12.5, z: 4.5 },
+            { x: 11.5, z: 4.5 },
+          ],
+        },
+      ],
+    });
+    expect(fitted.minX).toBeCloseTo(0);
+    expect(fitted.minZ).toBeCloseTo(0);
+    expect(fitted.maxX).toBeCloseTo(10);
+    expect(fitted.maxZ).toBeCloseTo(8);
+    expect(aabbOfOutlines(fitted.outlines)).toEqual({
+      minX: 0,
+      minZ: 0,
+      maxX: 10,
+      maxZ: 8,
+    });
+  });
+
+  it('skips wall fixtures redrawn on a room outline edge', () => {
+    const room = rectOutline(0, 0, 10, 8);
+    const onEdge = fixtureIdsOnOutlines([room], [
+      { id: 'edge-wall', center: { x: 5, z: 0.1 }, halfW: 2, halfD: 0.15, rotationDeg: 0 },
+      { id: 'inner-wall', center: { x: 5, z: 4 }, halfW: 0.15, halfD: 2, rotationDeg: 0 },
+    ]);
+    expect([...onEdge]).toEqual(['edge-wall']);
   });
 });

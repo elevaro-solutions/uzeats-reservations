@@ -8,6 +8,8 @@ import {
   isoDateInTimeZone,
   restaurantTimeZone,
   bookingRequiresManualApproval,
+  isAcceptedPartySize,
+  resolveAcceptedPartySize,
   resolveBookingCharges,
   BOOKING_CARD_HOLD_MINUTES,
   isLateCancellation,
@@ -543,6 +545,21 @@ export async function createReservation(input: {
 
   if (restaurant.reservationsEnabled === false) {
     throw new ValidationError('This restaurant is not accepting online reservations');
+  }
+
+  if (
+    !isAcceptedPartySize(input.partySize, {
+      minPartySize: restaurant.minPartySize,
+      maxPartySize: restaurant.maxPartySize,
+    })
+  ) {
+    const { min, max } = resolveAcceptedPartySize({
+      minPartySize: restaurant.minPartySize,
+      maxPartySize: restaurant.maxPartySize,
+    });
+    throw new ValidationError(
+      `This restaurant accepts online parties of ${min}–${max} guests. Contact the restaurant for larger parties.`,
+    );
   }
 
   if (input.slotStart.getTime() <= Date.now()) {
@@ -1482,6 +1499,15 @@ export async function updateReservationStatus(
     await notifyFavoriteDinersOnCancellation(reservation);
   }
 
+  if (status === 'no_show') {
+    try {
+      const { sendNoShowFollowUpEmail } = await import('./followUpEmail.js');
+      await sendNoShowFollowUpEmail(reservation);
+    } catch (err) {
+      logger.error({ err, reservationId }, '[reservations] no-show follow-up email failed');
+    }
+  }
+
   if (status === 'completed') {
     try {
       await updateGuestProfileAfterVisit(reservation);
@@ -1490,6 +1516,12 @@ export async function updateReservationStatus(
     }
     await sendSurveyInvitation(reservation);
     await scheduleReviewRequestEmail(reservation._id.toString());
+    try {
+      const { sendCompletedFollowUpEmail } = await import('./followUpEmail.js');
+      await sendCompletedFollowUpEmail(reservation);
+    } catch (err) {
+      logger.error({ err, reservationId }, '[reservations] completed follow-up email failed');
+    }
   }
 
   return reservation;

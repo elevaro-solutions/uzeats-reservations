@@ -14,6 +14,9 @@ type AppearanceRow = {
   floorArea?: string | null;
   backgroundColor?: string | null;
   backgroundUrl?: string | null;
+  backgroundFit?: FloorPlanAreaAppearance['backgroundFit'];
+  backgroundScale?: number | null;
+  backgroundRotationDeg?: number | null;
 };
 
 type FixtureRow = {
@@ -43,6 +46,9 @@ function asAppearances(raw: unknown): FloorPlanAreaAppearance[] {
       floorArea: normalizeFloorAreaName(a.floorArea) || 'Main',
       backgroundColor: a.backgroundColor ?? null,
       backgroundUrl: a.backgroundUrl ?? null,
+      backgroundFit: a.backgroundFit ?? null,
+      backgroundScale: a.backgroundScale ?? null,
+      backgroundRotationDeg: a.backgroundRotationDeg ?? null,
     }));
 }
 

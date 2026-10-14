@@ -1,5 +1,10 @@
 # Web — Learnings & Observations
 
+## [2026-10-14] Discovery card ratings must not use antd Rate
+- Ant Design `Rate` is a `ul`/`li` with overlapping half-star layers. Before `@ant-design/cssinjs` injects, list items stack as blocks and both halves show → ~10 vertical stars and blown-up card height on slow networks.
+- Display-only surfaces use shared `StarRating` (inline flex + `StarFilled` clips). Interactive Rate (reviews, surveys) keeps a critical CSS guard in `globals.css` for `ul.ant-rate`.
+- Why it matters: Home card grid paints restaurant data before Rate styles arrive; FOUC is user-visible layout, not just styling.
+
 ## [2026-10-09] 3D table pick attempts fire from the CTA
 - `VirtualRoomTablePicker` calls `recordVirtualRoomSelectionAttempt` when the diner opens the modal **with a time selected**. Explore-only opens skip. Deduped via `sessionStorage` `vr-selection-attempt:<restaurantId>` (same pattern as blog reads).
 - Why it matters: Counts interest in the paid selection path, not mere room exploration.

@@ -40,11 +40,19 @@ function buildCategoryOrClause(
   const ids = matched.map((c) => c.id);
   const or: Record<string, unknown>[] = [{ categoryIds: { $in: ids } }];
   for (const category of matched) {
-    if (category.cuisine) or.push({ cuisine: category.cuisine });
+    if (category.cuisine) {
+      or.push({ cuisine: category.cuisine });
+      or.push({ cuisines: category.cuisine });
+    }
     if (category.query) {
       const pattern = new RegExp(escapeRegex(category.query), 'i');
       or.push({
-        $or: [{ name: pattern }, { cuisine: pattern }, { description: pattern }],
+        $or: [
+          { name: pattern },
+          { cuisine: pattern },
+          { cuisines: pattern },
+          { description: pattern },
+        ],
       });
     }
   }
@@ -68,6 +76,7 @@ export async function buildDiscoverySearchFilter(
         filter.$or = [
           { name: pattern },
           { cuisine: pattern },
+          { cuisines: pattern },
           { description: pattern },
           { 'address.city': pattern },
           { 'address.neighborhood': pattern },
@@ -81,8 +90,11 @@ export async function buildDiscoverySearchFilter(
     ...(input.cuisine ? [input.cuisine] : []),
   ];
   const uniqueCuisines = [...new Set(cuisineValues)];
-  if (uniqueCuisines.length === 1) filter.cuisine = uniqueCuisines[0];
-  else if (uniqueCuisines.length > 1) filter.cuisine = { $in: uniqueCuisines };
+  if (uniqueCuisines.length > 0) {
+    appendAndClause(filter, {
+      $or: [{ cuisines: { $in: uniqueCuisines } }, { cuisine: { $in: uniqueCuisines } }],
+    });
+  }
 
   if (input.priceRange) filter.priceRange = input.priceRange;
   if (input.city) filter['address.city'] = new RegExp(`^${escapeRegex(input.city)}$`, 'i');
@@ -128,6 +140,7 @@ export function demoteTextSearchToRegex(filter: Record<string, unknown>): void {
     $or: [
       { name: pattern },
       { cuisine: pattern },
+      { cuisines: pattern },
       { description: pattern },
       { 'address.city': pattern },
       { 'address.neighborhood': pattern },

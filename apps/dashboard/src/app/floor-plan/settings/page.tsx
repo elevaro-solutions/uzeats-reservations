@@ -10,7 +10,9 @@ import {
   ColorPicker,
   Form,
   InputNumber,
+  Segmented,
   Select,
+  Slider,
   Space,
   Typography,
   Upload,
@@ -31,10 +33,17 @@ import {
   DEFAULT_FLOOR_PLAN_BACKGROUND_COLOR,
   DEFAULT_FLOOR_PLAN_SCALE,
   FLOOR_PLAN_BACKGROUND_COLOR_PRESETS,
+  FLOOR_PLAN_BACKGROUND_FITS,
+  FLOOR_PLAN_DEFAULT_BACKGROUND_FIT,
+  FLOOR_PLAN_DEFAULT_BACKGROUND_ROTATION_DEG,
+  FLOOR_PLAN_DEFAULT_BACKGROUND_SCALE,
+  FLOOR_PLAN_MAX_BACKGROUND_SCALE,
+  FLOOR_PLAN_MIN_BACKGROUND_SCALE,
   resolveFloorAreaAppearance,
   upsertFloorAreaAppearance,
   type FloorFixtureKind,
   type FloorPlanAreaAppearance,
+  type FloorPlanBackgroundFit,
   type FloorPlanScale,
 } from '@reservations/shared';
 import { PageHeader, colors, spacing } from '@reservations/ui';
@@ -225,6 +234,9 @@ export default function FloorPlanAreaSettingsPage() {
   const patchSelectedAppearance = (patch: {
     backgroundColor?: string | null;
     backgroundUrl?: string | null;
+    backgroundFit?: FloorPlanBackgroundFit | null;
+    backgroundScale?: number | null;
+    backgroundRotationDeg?: number | null;
   }) => {
     setSettings((prev) => {
       const key = selectedArea.trim().toLowerCase();
@@ -248,6 +260,18 @@ export default function FloorPlanAreaSettingsPage() {
             patch.backgroundUrl !== undefined
               ? patch.backgroundUrl
               : (existing?.backgroundUrl ?? null),
+          backgroundFit:
+            patch.backgroundFit !== undefined
+              ? patch.backgroundFit
+              : (existing?.backgroundFit ?? resolved.backgroundFit),
+          backgroundScale:
+            patch.backgroundScale !== undefined
+              ? patch.backgroundScale
+              : (existing?.backgroundScale ?? resolved.backgroundScale),
+          backgroundRotationDeg:
+            patch.backgroundRotationDeg !== undefined
+              ? patch.backgroundRotationDeg
+              : (existing?.backgroundRotationDeg ?? resolved.backgroundRotationDeg),
         }),
       };
     });
@@ -530,6 +554,54 @@ export default function FloorPlanAreaSettingsPage() {
                 </Space>
               </Space>
             </Form.Item>
+
+            {selectedAppearance.backgroundUrl ? (
+              <>
+                <Form.Item
+                  label="Image fit"
+                  extra="Independent of the grid — scale and rotate the underlay freely."
+                >
+                  <Segmented
+                    block
+                    value={selectedAppearance.backgroundFit ?? FLOOR_PLAN_DEFAULT_BACKGROUND_FIT}
+                    onChange={(v) =>
+                      patchSelectedAppearance({ backgroundFit: v as FloorPlanBackgroundFit })
+                    }
+                    options={FLOOR_PLAN_BACKGROUND_FITS.map((fit) => ({
+                      value: fit,
+                      label: fit === 'tile' ? 'Tile' : fit[0]!.toUpperCase() + fit.slice(1),
+                    }))}
+                  />
+                </Form.Item>
+                <Form.Item
+                  label={`Image scale (${(selectedAppearance.backgroundScale ?? FLOOR_PLAN_DEFAULT_BACKGROUND_SCALE).toFixed(2)}×)`}
+                >
+                  <Slider
+                    min={FLOOR_PLAN_MIN_BACKGROUND_SCALE}
+                    max={FLOOR_PLAN_MAX_BACKGROUND_SCALE}
+                    step={0.05}
+                    value={selectedAppearance.backgroundScale ?? FLOOR_PLAN_DEFAULT_BACKGROUND_SCALE}
+                    onChange={(backgroundScale) => patchSelectedAppearance({ backgroundScale })}
+                  />
+                </Form.Item>
+                <Form.Item
+                  label={`Image rotation (${Math.round(selectedAppearance.backgroundRotationDeg ?? FLOOR_PLAN_DEFAULT_BACKGROUND_ROTATION_DEG)}°)`}
+                >
+                  <Slider
+                    min={0}
+                    max={360}
+                    step={1}
+                    value={
+                      selectedAppearance.backgroundRotationDeg ??
+                      FLOOR_PLAN_DEFAULT_BACKGROUND_ROTATION_DEG
+                    }
+                    onChange={(backgroundRotationDeg) =>
+                      patchSelectedAppearance({ backgroundRotationDeg })
+                    }
+                  />
+                </Form.Item>
+              </>
+            ) : null}
 
             <Form.Item style={{ marginBottom: 0 }}>
               <Space wrap>

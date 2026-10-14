@@ -106,7 +106,35 @@ export function rectOutline(minX: number, minZ: number, maxX: number, maxZ: numb
   ];
 }
 
-/** Grow walls (and the floor extent) so rotated tables and their chairs stay inside. */
+/** Axis-aligned bounds of one or more outlines. */
+export function aabbOfOutlines(outlines: XZ[][]): {
+  minX: number;
+  minZ: number;
+  maxX: number;
+  maxZ: number;
+} | null {
+  let minX = Infinity;
+  let minZ = Infinity;
+  let maxX = -Infinity;
+  let maxZ = -Infinity;
+  let any = false;
+  for (const outline of outlines) {
+    for (const p of outline) {
+      any = true;
+      minX = Math.min(minX, p.x);
+      minZ = Math.min(minZ, p.z);
+      maxX = Math.max(maxX, p.x);
+      maxZ = Math.max(maxZ, p.z);
+    }
+  }
+  return any ? { minX, minZ, maxX, maxZ } : null;
+}
+
+/**
+ * Grow walls so rotated tables and their chairs stay inside.
+ * Floor extent follows the fitted wall outlines only — doors, windows, and
+ * plants drawn outside the plan must not stretch the floor past the walls.
+ */
 export function fitRoomToFurniture(args: {
   minX: number;
   minZ: number;
@@ -123,25 +151,63 @@ export function fitRoomToFurniture(args: {
     },
   );
 
-  let { minX, minZ, maxX, maxZ } = args;
-  const include = (p: XZ) => {
-    minX = Math.min(minX, p.x);
-    minZ = Math.min(minZ, p.z);
-    maxX = Math.max(maxX, p.x);
-    maxZ = Math.max(maxZ, p.z);
-  };
-  for (const outline of outlines) outline.forEach(include);
-  for (const item of args.items) item.corners.forEach(include);
-
-  return { minX, minZ, maxX, maxZ, outlines };
+  const box = aabbOfOutlines(outlines);
+  if (!box) {
+    return { minX: args.minX, minZ: args.minZ, maxX: args.maxX, maxZ: args.maxZ, outlines };
+  }
+  return { ...box, outlines };
 }
 
 /**
  * A door or window drawn along the edge of the floor plan snaps to the 3D wall.
- * The wall sits outside the layout (padding plus chair clearance), so the snap
- * reach has to cover that gap.
+ * Drawn room outlines already are the walls; snap reach covers fixtures drawn
+ * just outside the line (and any leftover pad when there is no outline).
  */
 export const OPENING_SNAP_M = 1.75;
+
+export type EdgeAlignedFixture = {
+  id: string;
+  center: XZ;
+  halfW: number;
+  halfD: number;
+  rotationDeg: number;
+};
+
+/**
+ * Fixtures whose long axis lies on a room outline edge. Wall fixtures there are
+ * redundant with the outline wall; doors/windows become openings instead.
+ */
+export function fixtureIdsOnOutlines(
+  outlines: XZ[][],
+  fixtures: EdgeAlignedFixture[],
+  snapM = OPENING_SNAP_M,
+): Set<string> {
+  const used = new Set<string>();
+  for (const outline of outlines) {
+    for (let i = 0; i < outline.length; i += 1) {
+      const a = outline[i]!;
+      const b = outline[(i + 1) % outline.length]!;
+      const len = Math.hypot(b.x - a.x, b.z - a.z);
+      if (len < 0.3) continue;
+      const dir = { x: (b.x - a.x) / len, z: (b.z - a.z) / len };
+      for (const fixture of fixtures) {
+        if (used.has(fixture.id)) continue;
+        const axes = fixtureAxes(fixture.rotationDeg);
+        const long = fixture.halfW >= fixture.halfD ? axes.x : axes.z;
+        if (Math.abs(dot2(long, dir)) < 0.7) continue;
+        const rel = { x: fixture.center.x - a.x, z: fixture.center.z - a.z };
+        const t = dot2(rel, dir);
+        const perp = Math.hypot(rel.x - dir.x * t, rel.z - dir.z * t);
+        if (perp > snapM) continue;
+        const halfAlong =
+          fixture.halfW * Math.abs(dot2(axes.x, dir)) + fixture.halfD * Math.abs(dot2(axes.z, dir));
+        if (t + halfAlong < -0.1 || t - halfAlong > len + 0.1) continue;
+        used.add(fixture.id);
+      }
+    }
+  }
+  return used;
+}
 
 export type OpeningFixture = {
   id: string;

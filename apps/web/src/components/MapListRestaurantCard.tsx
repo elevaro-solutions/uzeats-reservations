@@ -2,10 +2,16 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { Rate, Typography } from 'antd';
+import { Typography } from 'antd';
 import { EnvironmentOutlined } from '@ant-design/icons';
 import { formatTimeInTimeZone, timezoneFromAddress } from '@reservations/shared';
-import { priceRangeLabel, typography, pickRestaurantPhoto, restaurantPhotoCandidates } from '@reservations/ui';
+import {
+  priceRangeLabel,
+  typography,
+  pickRestaurantPhoto,
+  restaurantPhotoCandidates,
+  StarRating,
+} from '@reservations/ui';
 import { canUseNextImage } from '@/lib/canUseNextImage';
 import type { MapRestaurant } from './RestaurantDiscoveryMap';
 
@@ -86,7 +92,7 @@ export function MapListRestaurantCard({
 
         {reviewCount > 0 && (
           <div className="rt-map-list-card__rating">
-            <Rate disabled allowHalf value={rating} style={{ fontSize: 12 }} />
+            <StarRating value={rating} size={12} />
             <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
               {rating.toFixed(1)} ({reviewCount.toLocaleString('en-US')})
             </Text>

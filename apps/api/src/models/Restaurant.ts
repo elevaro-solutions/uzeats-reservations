@@ -20,6 +20,8 @@ const restaurantSchema = new Schema(
     previousSlugs: [{ type: String, index: true }],
     description: { type: String, default: '' },
     cuisine: { type: String, required: true, index: true },
+    /** All cuisine labels; `cuisine` stays the primary (first) for legacy consumers. */
+    cuisines: [{ type: String, index: true }],
     priceRange: { type: Number, required: true, min: 1, max: 4 },
     address: { type: addressSchema, required: true },
     location: {
@@ -47,10 +49,50 @@ const restaurantSchema = new Schema(
      * Tables / experiences / private dining may override further.
      */
     cancellationPeriodHours: { type: Number, min: 1, max: 720, default: null },
+    /**
+     * No-show marking mode. Null inherits platform.
+     * `manual_only`: staff marks no-show (triggers fee charge). `auto`: job at slot end.
+     */
+    noShowMarkingMode: {
+      type: String,
+      enum: ['auto', 'manual_only'],
+      default: null,
+    },
+    /** Per-floor-area ops overrides (no-show marking, etc.). */
+    floorAreaSettings: [
+      {
+        floorArea: { type: String, required: true },
+        noShowMarkingMode: {
+          type: String,
+          enum: ['auto', 'manual_only'],
+        },
+      },
+    ],
+    /** When true (default), inherit platform holidays with defaultEnabled. */
+    applyPlatformHolidays: { type: Boolean, default: true },
+    /** Platform holiday keys this venue skips. */
+    holidayOptOutKeys: [{ type: String }],
+    /** Platform holiday keys this venue opts into even when not defaultEnabled. */
+    holidayOptInKeys: [{ type: String }],
+    /**
+     * When true (default), major platform holidays stay open until an owner/manager
+     * approves a pending closed override. Set false to auto-close majors.
+     */
+    requireHolidayApproval: { type: Boolean, default: true },
     averageRating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
     useSmartAssign: { type: Boolean, default: true },
     allowGuestTableSelection: { type: Boolean, default: false },
+    /**
+     * Accepted online party size (min). Null inherits platform default (1).
+     * Access rules / packages / tables may still tighten further.
+     */
+    minPartySize: { type: Number, min: 1, max: 999, default: null },
+    /**
+     * Accepted online party size (max). Null inherits platform default (20).
+     * Guests above max see Large party CTA. Soft ceiling 999.
+     */
+    maxPartySize: { type: Number, min: 1, max: 999, default: null },
     /**
      * 3D table-selection fee billed to this restaurant on completed bookings.
      * Null/defaults inherit platform config ($2, per_guest, apply to all tables).
@@ -134,6 +176,12 @@ const restaurantSchema = new Schema(
         floorArea: { type: String, required: true },
         backgroundColor: { type: String },
         backgroundUrl: { type: String },
+        backgroundFit: {
+          type: String,
+          enum: ['cover', 'contain', 'stretch', 'tile'],
+        },
+        backgroundScale: { type: Number },
+        backgroundRotationDeg: { type: Number },
       },
     ],
     /** Non-bookable venue objects (bar, walls, host stand, …). */

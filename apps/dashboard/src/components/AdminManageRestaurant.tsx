@@ -71,6 +71,7 @@ import {
   buildRestaurantBookingUrl,
   normalizeRestaurantSlug,
   resolveDepositPolicy,
+  restaurantCuisinesForForm,
 } from '@reservations/shared';
 import { DepositPolicyField } from '@/components/DepositPolicyField';
 
@@ -116,6 +117,7 @@ export type AdminRestaurantRecord = {
   slug?: string;
   status: string;
   cuisine: string;
+  cuisines?: string[] | null;
   description?: string | null;
   priceRange: number;
   phone?: string | null;
@@ -368,10 +370,14 @@ export function PlanSelector({
 }
 
 function buildRestaurantInput(values: Record<string, unknown>, photoList: string[], logoUrl?: string | null) {
+  const cuisines = Array.isArray(values.cuisines)
+    ? (values.cuisines as string[])
+    : undefined;
   return {
     name: values.name,
     description: values.description || undefined,
-    cuisine: values.cuisine,
+    cuisines,
+    cuisine: cuisines?.[0] ?? (typeof values.cuisine === 'string' ? values.cuisine : undefined),
     priceRange: values.priceRange,
     phone: values.phone || undefined,
     website: values.website || undefined,
@@ -524,7 +530,7 @@ export function AdminManageRestaurant({
       name: restaurant.name,
       slug: restaurant.slug ?? '',
       description: restaurant.description ?? '',
-      cuisine: restaurant.cuisine,
+      cuisines: restaurantCuisinesForForm(restaurant),
       priceRange: restaurant.priceRange,
       phone: restaurant.phone ?? '',
       website: restaurant.website ?? '',
@@ -731,7 +737,19 @@ export function AdminManageRestaurant({
             </Form.Item>
           </Col>
           <Col xs={24} sm={12}>
-            <Form.Item name="cuisine" label="Cuisine" rules={[{ required: true }]} tooltip={tips.cuisine}>
+            <Form.Item
+              name="cuisines"
+              label="Cuisine"
+              rules={[
+                {
+                  validator: async (_, value) => {
+                    if (Array.isArray(value) && value.length > 0) return;
+                    throw new Error('Select at least one cuisine');
+                  },
+                },
+              ]}
+              tooltip={tips.cuisine}
+            >
               <CuisineSelect />
             </Form.Item>
           </Col>

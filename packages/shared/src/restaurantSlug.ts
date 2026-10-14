@@ -38,3 +38,29 @@ export function isValidRestaurantSlug(slug: string): boolean {
     !isReservedRestaurantSlug(slug)
   );
 }
+
+export type RestaurantSlugAddressParts = {
+  city?: string | null;
+  neighborhood?: string | null;
+  state?: string | null;
+  line1?: string | null;
+};
+
+/**
+ * Uber Eats–style location slug: `{name}-{neighborhood|city}-{state?}`.
+ * Falls back to name-only when address parts are missing.
+ */
+export function buildLocationRestaurantSlugBase(
+  name: string,
+  address?: RestaurantSlugAddressParts | null,
+): string {
+  const namePart = normalizeRestaurantSlug(name);
+  const neighborhood = normalizeRestaurantSlug(address?.neighborhood ?? '');
+  const city = normalizeRestaurantSlug(address?.city ?? '');
+  const state = normalizeRestaurantSlug(address?.state ?? '');
+  const locationPart = neighborhood || city;
+  const parts = [namePart, locationPart, state && locationPart !== state ? state : '']
+    .filter(Boolean)
+    .join('-');
+  return normalizeRestaurantSlug(parts || namePart || 'restaurant');
+}

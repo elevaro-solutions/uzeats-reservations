@@ -97,6 +97,68 @@ a {
   }
 }
 
+/* First-time restaurant profile: draw attention to DoorDash / Uber Eats import */
+@keyframes rt-import-coach-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(var(--color-brand-rgb), 0.35),
+      0 0 0 0 rgba(var(--color-brand-rgb), 0.12);
+  }
+  55% {
+    box-shadow:
+      0 0 0 6px rgba(var(--color-brand-rgb), 0.12),
+      0 0 0 14px rgba(var(--color-brand-rgb), 0);
+  }
+}
+
+@keyframes rt-import-coach-tip {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rt-import-coach {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.rt-import-coach__btn.ant-btn {
+  animation: rt-import-coach-pulse 1.8s ease-out infinite;
+  border-color: var(--color-brand-500) !important;
+  color: var(--color-brand-600) !important;
+  background: var(--color-brand-50) !important;
+}
+
+.rt-import-coach__tip {
+  margin: 0;
+  max-width: 220px;
+  text-align: right;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--color-text-secondary);
+  animation: rt-import-coach-tip 0.35s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rt-import-coach__btn.ant-btn {
+    animation: none;
+    box-shadow: 0 0 0 3px rgba(var(--color-brand-rgb), 0.2);
+  }
+
+  .rt-import-coach__tip {
+    animation: none;
+  }
+}
+
 /* Partner hub sidebar */
 .rt-dash-sider .ant-menu-item-group-title {
   padding: 16px 12px 6px !important;
@@ -240,6 +302,16 @@ a {
 .rt-settings-link:hover .rt-settings-link-arrow {
   color: var(--color-brand) !important;
   transform: translateX(2px);
+}
+
+.rt-settings-link-pin {
+  opacity: 0.55;
+  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.rt-settings-link-wrap:hover .rt-settings-link-pin,
+.rt-settings-link-pin[aria-pressed='true'] {
+  opacity: 1;
 }
 
 /* Partner auth header — business marketing links */

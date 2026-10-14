@@ -252,9 +252,9 @@ export const PARTNER_PAGES: DashboardPage[] = [
     parentSiderHref: '/settings',
     hubSection: 'Restaurant',
   }),
-  page('/blackouts', 'Blackouts', 'Settings', 'partner', <StopOutlined />, {
-    keywords: ['closed', 'holidays', 'block'],
-    description: 'Block dates or hours when you are closed',
+  page('/blackouts', 'Closures & hours', 'Settings', 'partner', <StopOutlined />, {
+    keywords: ['blackout', 'holiday', 'special hours', 'closed', 'block'],
+    description: 'Block dates, holidays, or set custom open hours',
     parentSiderHref: '/settings',
     hubSection: 'Booking',
   }),
@@ -400,6 +400,10 @@ export const ADMIN_PAGES: DashboardPage[] = [
     description: 'Who can open partner documentation',
     parentSiderHref: '/admin/platform',
   }),
+  page('/admin/engagement', 'Engagement email', 'Platform', 'admin', <MailOutlined />, {
+    description: 'Send one-off diner engagement emails from the platform.',
+    keywords: ['email', 'marketing', 'engagement', 'campaign'],
+  }),
   page('/admin/templates', 'Email templates', 'Platform', 'admin', <MailOutlined />, {
     keywords: ['transactional'],
     description: 'Transactional email copy and layouts',
@@ -493,24 +497,35 @@ export function hubChildPages(
   );
 }
 
+function siderPagesWithPins(
+  allPages: DashboardPage[],
+  opts: { showOnboarding?: boolean; isSuperAdmin?: boolean; role?: string },
+  pinnedHrefs: readonly string[] = [],
+): DashboardPage[] {
+  const pinned = new Set(pinnedHrefs);
+  const selected = filterPagesForUser(
+    allPages.filter((p) => !p.parentSiderHref || pinned.has(p.href)),
+    opts,
+  );
+  const allowed = new Set(selected.map((p) => p.href));
+  // Keep catalog order so pinned hub children land in their declared menu groups.
+  return allPages.filter((p) => allowed.has(p.href));
+}
+
 export function partnerSiderPages(opts: {
   showOnboarding?: boolean;
   role?: string;
+  pinnedHrefs?: readonly string[];
 }): DashboardPage[] {
-  return filterPagesForUser(
-    PARTNER_PAGES.filter((p) => !p.parentSiderHref),
-    opts,
-  );
+  return siderPagesWithPins(PARTNER_PAGES, opts, opts.pinnedHrefs);
 }
 
 export function adminSiderPages(opts: {
   isSuperAdmin?: boolean;
   showOnboarding?: boolean;
+  pinnedHrefs?: readonly string[];
 }): DashboardPage[] {
-  return filterPagesForUser(
-    ADMIN_PAGES.filter((p) => !p.parentSiderHref),
-    opts,
-  );
+  return siderPagesWithPins(ADMIN_PAGES, opts, opts.pinnedHrefs);
 }
 
 export function groupPagesForMenu(pages: DashboardPage[]) {
@@ -526,20 +541,30 @@ export function groupPagesForMenu(pages: DashboardPage[]) {
   return order.map((label) => ({ label, children: byGroup.get(label)! }));
 }
 
+function siderKeyForParentOrSelf(
+  page: DashboardPage | undefined,
+  pinned: ReadonlySet<string>,
+): string | undefined {
+  if (!page) return undefined;
+  if (page.parentSiderHref && !pinned.has(page.href)) return page.parentSiderHref;
+  return page.href;
+}
+
 /** Resolve which sider key should stay selected for the current path. */
 export function siderKeyForPathname(
   pathname: string,
   audience: DashboardAudience,
+  pinnedHrefs: readonly string[] = [],
 ): string {
   const pages = audience === 'admin' ? ADMIN_PAGES : PARTNER_PAGES;
+  const pinned = new Set(pinnedHrefs);
 
   if (audience === 'admin') {
     if (pathname === '/admin' || pathname === '/admin/') return '/admin';
     const segments = pathname.split('/').filter(Boolean);
     const base = segments.length >= 2 ? `/${segments[0]}/${segments[1]}` : pathname;
     const match = pages.find((p) => p.href === base);
-    if (match?.parentSiderHref) return match.parentSiderHref;
-    return base;
+    return siderKeyForParentOrSelf(match, pinned) ?? base;
   }
 
   if (pathname === '/reservations' || pathname.startsWith('/reservations/')) {
@@ -547,14 +572,11 @@ export function siderKeyForPathname(
   }
 
   const exact = pages.find((p) => p.href === pathname);
-  if (exact?.parentSiderHref) return exact.parentSiderHref;
-  if (exact) return exact.href;
+  const exactKey = siderKeyForParentOrSelf(exact, pinned);
+  if (exactKey) return exactKey;
 
   const prefixMatch = pages
     .filter((p) => pathname === p.href || pathname.startsWith(`${p.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0];
-  if (prefixMatch?.parentSiderHref) return prefixMatch.parentSiderHref;
-  if (prefixMatch) return prefixMatch.href;
-
-  return pathname;
+  return siderKeyForParentOrSelf(prefixMatch, pinned) ?? pathname;
 }

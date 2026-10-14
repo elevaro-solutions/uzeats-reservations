@@ -5,6 +5,7 @@ import {
   VIRTUAL_ROOM_MEDIA_KINDS,
   VIRTUAL_ROOM_MEDIA_ROLES,
   VIRTUAL_ROOM_RECONSTRUCTION_STATUSES,
+  VIRTUAL_ROOM_WALL_PHOTO_FITS,
 } from '@reservations/shared';
 
 const mediaSchema = new Schema(
@@ -28,6 +29,18 @@ const areaSettingsSchema = new Schema(
     panoramaMediaId: { type: String },
     wallColor: { type: String },
     floorColor: { type: String },
+    /** `stretch` fills each wall; `tile` repeats the photo as a pattern. */
+    wallPhotoFit: { type: String, enum: VIRTUAL_ROOM_WALL_PHOTO_FITS },
+    /** Meters per tile when wallPhotoFit is `tile`. */
+    wallPhotoTileM: { type: Number },
+    /** Clockwise UV rotation of wall photos (degrees, 0–360). */
+    wallPhotoRotationDeg: { type: Number },
+    /** Clockwise UV rotation of the floor underlay image (degrees, 0–360). */
+    floorImageRotationDeg: { type: Number },
+    /** Optional procedural room width in meters; unset = from floor plan. */
+    roomWidthM: { type: Number },
+    /** Optional procedural room depth in meters; unset = from floor plan. */
+    roomDepthM: { type: Number },
     /** World-space meters for overall multi-area view (X sideways, Y stack, Z depth). */
     offsetXM: { type: Number, default: 0 },
     offsetYM: { type: Number, default: 0 },

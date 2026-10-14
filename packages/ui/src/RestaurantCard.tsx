@@ -2,12 +2,13 @@
 
 import type { ReactNode, CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { Card, Rate, Typography } from 'antd';
+import { Card, Typography } from 'antd';
 import { EnvironmentOutlined, FireFilled, StarFilled } from '@ant-design/icons';
 import { formatTimeInTimeZone, PLATFORM_TIMEZONE } from '@reservations/shared';
 import { priceRangeLabel } from './theme';
 import { colors, radii, shadows, typography } from './tokens';
 import { DEFAULT_RESTAURANT_PHOTO, restaurantPhotoCandidates } from './restaurantPhoto';
+import { StarRating } from './StarRating';
 
 const { Text } = Typography;
 
@@ -211,8 +212,16 @@ export function RestaurantCard({
       )}
 
       {reviewCount > 0 && (
-        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Rate disabled allowHalf value={rating} style={{ fontSize: 13 }} />
+        <div
+          style={{
+            marginTop: 8,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            minHeight: 16,
+          }}
+        >
+          <StarRating value={rating} size={13} />
           <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
             {rating.toFixed(1)} ({reviewCount})
           </Text>

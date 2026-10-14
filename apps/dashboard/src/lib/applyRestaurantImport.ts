@@ -21,7 +21,7 @@ export type ImportedRestaurantData = {
 export function restaurantImportFormValues(data: ImportedRestaurantData) {
   return {
     name: data.name,
-    cuisine: data.cuisine,
+    cuisines: data.cuisine ? [data.cuisine] : undefined,
     priceRange: data.priceRange,
     description: data.description,
     phone: data.phone,
@@ -41,7 +41,12 @@ export function applyRestaurantImportToForm(
   const next = restaurantImportFormValues(data);
   form.setFieldsValue({
     name: next.name ?? currentValues?.name ?? form.getFieldValue('name'),
-    cuisine: next.cuisine ?? currentValues?.cuisine ?? form.getFieldValue('cuisine'),
+    cuisines:
+      next.cuisines ??
+      currentValues?.cuisines ??
+      form.getFieldValue('cuisines') ??
+      // Legacy single-select forms
+      (form.getFieldValue('cuisine') ? [form.getFieldValue('cuisine')] : undefined),
     priceRange: next.priceRange ?? currentValues?.priceRange ?? form.getFieldValue('priceRange'),
     description: next.description ?? currentValues?.description ?? form.getFieldValue('description'),
     phone: next.phone ?? currentValues?.phone ?? form.getFieldValue('phone'),

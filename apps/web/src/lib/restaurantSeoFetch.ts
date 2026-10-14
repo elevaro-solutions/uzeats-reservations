@@ -16,6 +16,7 @@ export type RestaurantSeoData = {
   slug: string;
   description?: string | null;
   cuisine: string;
+  cuisines?: string[];
   priceRange: number;
   phone?: string | null;
   website?: string | null;
@@ -52,6 +53,8 @@ export type RestaurantSeoData = {
   loyaltyPointsPerVisit?: number;
   loyaltyMinRedeemPoints?: number;
   allowGuestTableSelection?: boolean;
+  minPartySize?: number | null;
+  maxPartySize?: number | null;
   reservationsEnabled?: boolean;
   reservationsVisible?: boolean;
   manualApprovalEnabled?: boolean;
@@ -94,6 +97,7 @@ const RESTAURANT_PAGE_QUERY = `
       slug
       description
       cuisine
+      cuisines
       priceRange
       address {
         line1
@@ -145,6 +149,8 @@ const RESTAURANT_PAGE_QUERY = `
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
       allowGuestTableSelection
+      minPartySize
+      maxPartySize
       reservationsEnabled
       reservationsVisible
       manualApprovalEnabled

@@ -78,6 +78,11 @@ import {
   preferredWindowFromSlot,
   DEFAULT_REVIEW_SORT,
   RESTAURANT_REVIEWS_PREVIEW_LIMIT,
+  LARGE_PARTY_SELECT_VALUE,
+  MAX_BOOKABLE_PARTY_SIZE,
+  clampToAcceptedPartySize,
+  partySizeSelectOptions,
+  resolveAcceptedPartySize,
   type ReviewSort,
 } from '@reservations/shared';
 import {
@@ -244,6 +249,7 @@ export default function RestaurantPageClient({
   const [reviewSort, setReviewSort] = useState<ReviewSort>(DEFAULT_REVIEW_SORT);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [largePartyOpen, setLargePartyOpen] = useState(false);
   const isMobileLayout = useIsMobileRestaurantLayout();
   const [bookSheetHighlight, setBookSheetHighlight] = useState(false);
   const draftRestoredRef = useRef(false);
@@ -731,6 +737,31 @@ export default function RestaurantPageClient({
   });
   const availableCount = slots.filter((s: any) => s.available).length;
   const promotions = (promotionsData as any)?.promotions?.items ?? [];
+  const acceptedPartySize = useMemo(
+    () =>
+      resolveAcceptedPartySize({
+        minPartySize: restaurant?.minPartySize,
+        maxPartySize: restaurant?.maxPartySize,
+      }),
+    [restaurant?.minPartySize, restaurant?.maxPartySize],
+  );
+  const guestSizeOptions = useMemo(
+    () =>
+      partySizeSelectOptions({
+        minPartySize: restaurant?.minPartySize,
+        maxPartySize: restaurant?.maxPartySize,
+      }),
+    [restaurant?.minPartySize, restaurant?.maxPartySize],
+  );
+
+  useEffect(() => {
+    if (!restaurant) return;
+    const next = clampToAcceptedPartySize(partySize, {
+      minPartySize: restaurant.minPartySize,
+      maxPartySize: restaurant.maxPartySize,
+    });
+    if (next !== partySize) updateBooking({ partySize: next });
+  }, [restaurant?.minPartySize, restaurant?.maxPartySize, restaurant, partySize, updateBooking]);
 
   useEffect(() => {
     // Don't wipe selection while loading or when the list is empty (brief Apollo
@@ -1095,7 +1126,11 @@ export default function RestaurantPageClient({
                 )}
                 <Text>{priceRangeLabel(restaurant.priceRange)}</Text>
                 <Text type="secondary">·</Text>
-                <Tag>{restaurant.cuisine}</Tag>
+                {(restaurant.cuisines?.length ? restaurant.cuisines : [restaurant.cuisine])
+                  .filter(Boolean)
+                  .map((cuisine: string) => (
+                    <Tag key={cuisine}>{cuisine}</Tag>
+                  ))}
                 {restaurant.address.neighborhood && (
                   <>
                     <Text type="secondary">·</Text>
@@ -1331,17 +1366,27 @@ export default function RestaurantPageClient({
                 }}
                 onChange={(d) => d && updateBooking({ date: d })}
               />
-              <Select
+              <Select<number | typeof LARGE_PARTY_SELECT_VALUE>
                 size="small"
                 value={partySize}
-                onChange={(v) => updateBooking({ partySize: v ?? 2 })}
-                style={{ width: 124 }}
-                options={Array.from({ length: 20 }, (_, i) => ({
-                  value: i + 1,
-                  label: `${i + 1} ${i === 0 ? 'guest' : 'guests'}`,
-                }))}
+                onChange={(v) => {
+                  if (v === LARGE_PARTY_SELECT_VALUE) {
+                    setLargePartyOpen(true);
+                    return;
+                  }
+                  updateBooking({
+                    partySize: typeof v === 'number' ? v : acceptedPartySize.min,
+                  });
+                }}
+                style={{ width: 148 }}
+                options={guestSizeOptions}
               />
             </Space>
+            {acceptedPartySize.max < MAX_BOOKABLE_PARTY_SIZE ? (
+              <Text type="secondary" style={{ display: 'block', marginTop: 4, fontSize: 12 }}>
+                Parties of {acceptedPartySize.max + 1}+ — choose Large party to contact the restaurant.
+              </Text>
+            ) : null}
             <SlotPicker
               slots={slots}
               selected={selectedSlot}
@@ -2149,6 +2194,42 @@ export default function RestaurantPageClient({
           document.getElementById('terms')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }}
       />
+
+      <Modal
+        open={largePartyOpen}
+        title="Large party"
+        onCancel={() => setLargePartyOpen(false)}
+        footer={null}
+        centered
+      >
+        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Text type="secondary">
+            Online booking is available for parties of {acceptedPartySize.min}–
+            {acceptedPartySize.max}. For larger groups, contact {restaurant?.name ?? 'the restaurant'}{' '}
+            directly.
+          </Text>
+          {restaurant?.phone ? (
+            <Button type="primary" size="large" href={`tel:${restaurant.phone}`} block>
+              Call {restaurant.phone}
+            </Button>
+          ) : null}
+          {restaurant?.website ? (
+            <Button size="large" href={restaurant.website} target="_blank" rel="noopener noreferrer" block>
+              Visit website
+            </Button>
+          ) : null}
+          <Button
+            size="large"
+            block
+            onClick={() => {
+              setLargePartyOpen(false);
+              setMessageOpen(true);
+            }}
+          >
+            Send a message
+          </Button>
+        </Space>
+      </Modal>
 
       <Modal
         open={!!bookingSuccess}

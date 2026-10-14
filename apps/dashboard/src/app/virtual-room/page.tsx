@@ -15,6 +15,7 @@ import {
   Popconfirm,
   Progress,
   Row,
+  Segmented,
   Select,
   Skeleton,
   Slider,
@@ -40,15 +41,25 @@ import {
 } from '@ant-design/icons';
 import {
   DEFAULT_VIRTUAL_ROOM_MODEL_TRANSFORM,
+  VIRTUAL_ROOM_DEFAULT_TEXTURE_ROTATION_DEG,
   VIRTUAL_ROOM_DEFAULT_WALL_HEIGHT_M,
+  VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_FIT,
+  VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_TILE_M,
   VIRTUAL_ROOM_MAX_CAPTURE_PHOTOS,
+  VIRTUAL_ROOM_MAX_ROOM_SIZE_M,
+  VIRTUAL_ROOM_MAX_TEXTURE_ROTATION_DEG,
   VIRTUAL_ROOM_MAX_WALL_HEIGHT_M,
+  VIRTUAL_ROOM_MAX_WALL_PHOTO_TILE_M,
   VIRTUAL_ROOM_MEDIA_ROLE_LABELS,
   VIRTUAL_ROOM_MIN_CAPTURE_PHOTOS,
+  VIRTUAL_ROOM_MIN_ROOM_SIZE_M,
+  VIRTUAL_ROOM_MIN_TEXTURE_ROTATION_DEG,
   VIRTUAL_ROOM_MIN_WALL_HEIGHT_M,
+  VIRTUAL_ROOM_MIN_WALL_PHOTO_TILE_M,
   VIRTUAL_ROOM_OVERALL_VIEW,
   VIRTUAL_ROOM_VIDEO_MAX_BYTES,
   browserMediaUrl,
+  type VirtualRoomWallPhotoFit,
 } from '@reservations/shared';
 import { EmptyState, PageHeader, spacing } from '@reservations/ui';
 import type { VirtualRoomSceneData } from '@reservations/ui/virtual-room';
@@ -92,6 +103,12 @@ type AreaSettings = {
   panoramaMediaId?: string | null;
   wallColor?: string | null;
   floorColor?: string | null;
+  wallPhotoFit?: VirtualRoomWallPhotoFit | null;
+  wallPhotoTileM?: number | null;
+  wallPhotoRotationDeg?: number | null;
+  floorImageRotationDeg?: number | null;
+  roomWidthM?: number | null;
+  roomDepthM?: number | null;
   offsetXM?: number | null;
   offsetYM?: number | null;
   offsetZM?: number | null;
@@ -219,6 +236,22 @@ export default function VirtualRoomPage() {
       panoramaMediaId: saved?.panoramaMediaId ?? null,
       wallColor: saved?.wallColor ?? null,
       floorColor: saved?.floorColor ?? null,
+      wallPhotoFit:
+        saved?.wallPhotoFit ?? sceneArea?.wallPhotoFit ?? VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_FIT,
+      wallPhotoTileM:
+        saved?.wallPhotoTileM ??
+        sceneArea?.wallPhotoTileM ??
+        VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_TILE_M,
+      wallPhotoRotationDeg:
+        saved?.wallPhotoRotationDeg ??
+        sceneArea?.wallPhotoRotationDeg ??
+        VIRTUAL_ROOM_DEFAULT_TEXTURE_ROTATION_DEG,
+      floorImageRotationDeg:
+        saved?.floorImageRotationDeg ??
+        sceneArea?.floorImageRotationDeg ??
+        VIRTUAL_ROOM_DEFAULT_TEXTURE_ROTATION_DEG,
+      roomWidthM: saved?.roomWidthM ?? sceneArea?.roomWidthM ?? null,
+      roomDepthM: saved?.roomDepthM ?? sceneArea?.roomDepthM ?? null,
       offsetXM: saved?.offsetXM ?? sceneArea?.offsetXM ?? 0,
       offsetYM: saved?.offsetYM ?? sceneArea?.offsetYM ?? 0,
       offsetZM: saved?.offsetZM ?? sceneArea?.offsetZM ?? 0,
@@ -237,18 +270,43 @@ export default function VirtualRoomPage() {
 
   const previewScene = useMemo<VirtualRoomSceneData | null>(() => {
     if (!editor) return null;
-    const areas = placementDraft
-      ? editor.scene.areas.map((area) => {
-          const draft = placementDraft.find((p) => sameArea(p.floorArea, area.name));
-          if (!draft) return area;
-          return {
-            ...area,
+    const areas = editor.scene.areas.map((area) => {
+      let next = area;
+      if (placementDraft) {
+        const draft = placementDraft.find((p) => sameArea(p.floorArea, area.name));
+        if (draft) {
+          next = {
+            ...next,
             offsetXM: draft.offsetXM,
             offsetYM: draft.offsetYM,
             offsetZM: draft.offsetZM,
           };
-        })
-      : editor.scene.areas;
+        }
+      }
+      if (areaDraft && sameArea(areaDraft.floorArea, area.name)) {
+        next = {
+          ...next,
+          wallHeightM: areaDraft.wallHeightM ?? next.wallHeightM,
+          wallColor: areaDraft.wallColor ?? next.wallColor,
+          floorColor: areaDraft.floorColor ?? next.floorColor,
+          wallPhotoFit: areaDraft.wallPhotoFit ?? next.wallPhotoFit,
+          wallPhotoTileM: areaDraft.wallPhotoTileM ?? next.wallPhotoTileM,
+          wallPhotoRotationDeg: areaDraft.wallPhotoRotationDeg ?? next.wallPhotoRotationDeg,
+          floorImageRotationDeg: areaDraft.floorImageRotationDeg ?? next.floorImageRotationDeg,
+          roomWidthM:
+            areaDraft.roomWidthM !== undefined ? areaDraft.roomWidthM : next.roomWidthM,
+          roomDepthM:
+            areaDraft.roomDepthM !== undefined ? areaDraft.roomDepthM : next.roomDepthM,
+          guestSelectable: areaDraft.guestSelectable ?? next.guestSelectable,
+          selectionFeeCharged: areaDraft.selectionFeeCharged ?? next.selectionFeeCharged,
+          selectionFeeCents:
+            areaDraft.selectionFeeCents !== undefined
+              ? areaDraft.selectionFeeCents
+              : next.selectionFeeCents,
+        };
+      }
+      return next;
+    });
     return {
       ...editor.scene,
       areas,
@@ -256,7 +314,7 @@ export default function VirtualRoomPage() {
       modelUrl: readyModelUrl,
       modelTransform: transform,
     };
-  }, [editor, readyModelUrl, transform, placementDraft]);
+  }, [editor, readyModelUrl, transform, placementDraft, areaDraft]);
 
   const placementDirty = Boolean(placementDraft);
   const canEditLayout = Boolean(editor?.addon.active && areaNames.length > 1);
@@ -923,6 +981,126 @@ export default function VirtualRoomPage() {
                             setAreaDraft({ ...areaForm, floorColor: c.toHexString() })
                           }
                           onClear={() => setAreaDraft({ ...areaForm, floorColor: null })}
+                        />
+                      </Col>
+                      <Col xs={24} sm={12} md={8}>
+                        <Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>
+                          Wall photos
+                        </Text>
+                        <Segmented
+                          block
+                          value={areaForm.wallPhotoFit ?? VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_FIT}
+                          onChange={(v) =>
+                            setAreaDraft({
+                              ...areaForm,
+                              wallPhotoFit: v as VirtualRoomWallPhotoFit,
+                            })
+                          }
+                          options={[
+                            { value: 'stretch', label: 'Stretch' },
+                            { value: 'tile', label: 'Tile / pattern' },
+                          ]}
+                        />
+                      </Col>
+                      {(areaForm.wallPhotoFit ?? VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_FIT) ===
+                      'tile' ? (
+                        <Col xs={24} sm={12} md={8}>
+                          <Text type="secondary">Tile size (m)</Text>
+                          <InputNumber
+                            style={{ width: '100%' }}
+                            min={VIRTUAL_ROOM_MIN_WALL_PHOTO_TILE_M}
+                            max={VIRTUAL_ROOM_MAX_WALL_PHOTO_TILE_M}
+                            step={0.25}
+                            value={
+                              areaForm.wallPhotoTileM ?? VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_TILE_M
+                            }
+                            onChange={(v) =>
+                              setAreaDraft({
+                                ...areaForm,
+                                wallPhotoTileM: v ?? VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_TILE_M,
+                              })
+                            }
+                          />
+                        </Col>
+                      ) : null}
+                      <Col xs={24} sm={12} md={8}>
+                        <Text type="secondary">
+                          Wall photo rotation (
+                          {Math.round(
+                            areaForm.wallPhotoRotationDeg ??
+                              VIRTUAL_ROOM_DEFAULT_TEXTURE_ROTATION_DEG,
+                          )}
+                          °)
+                        </Text>
+                        <Slider
+                          min={VIRTUAL_ROOM_MIN_TEXTURE_ROTATION_DEG}
+                          max={VIRTUAL_ROOM_MAX_TEXTURE_ROTATION_DEG}
+                          step={1}
+                          value={
+                            areaForm.wallPhotoRotationDeg ??
+                            VIRTUAL_ROOM_DEFAULT_TEXTURE_ROTATION_DEG
+                          }
+                          onChange={(wallPhotoRotationDeg) =>
+                            setAreaDraft({ ...areaForm, wallPhotoRotationDeg })
+                          }
+                        />
+                      </Col>
+                      <Col xs={24} sm={12} md={8}>
+                        <Text type="secondary">
+                          Floor image rotation (
+                          {Math.round(
+                            areaForm.floorImageRotationDeg ??
+                              VIRTUAL_ROOM_DEFAULT_TEXTURE_ROTATION_DEG,
+                          )}
+                          °)
+                        </Text>
+                        <Slider
+                          min={VIRTUAL_ROOM_MIN_TEXTURE_ROTATION_DEG}
+                          max={VIRTUAL_ROOM_MAX_TEXTURE_ROTATION_DEG}
+                          step={1}
+                          value={
+                            areaForm.floorImageRotationDeg ??
+                            VIRTUAL_ROOM_DEFAULT_TEXTURE_ROTATION_DEG
+                          }
+                          onChange={(floorImageRotationDeg) =>
+                            setAreaDraft({ ...areaForm, floorImageRotationDeg })
+                          }
+                        />
+                      </Col>
+                      <Col xs={24} sm={12} md={8}>
+                        <Text type="secondary">Room width (m, optional)</Text>
+                        <InputNumber
+                          style={{ width: '100%' }}
+                          min={VIRTUAL_ROOM_MIN_ROOM_SIZE_M}
+                          max={VIRTUAL_ROOM_MAX_ROOM_SIZE_M}
+                          step={0.5}
+                          precision={2}
+                          placeholder="From floor plan"
+                          value={areaForm.roomWidthM ?? null}
+                          onChange={(v) =>
+                            setAreaDraft({
+                              ...areaForm,
+                              roomWidthM: v == null ? null : Number(v),
+                            })
+                          }
+                        />
+                      </Col>
+                      <Col xs={24} sm={12} md={8}>
+                        <Text type="secondary">Room depth (m, optional)</Text>
+                        <InputNumber
+                          style={{ width: '100%' }}
+                          min={VIRTUAL_ROOM_MIN_ROOM_SIZE_M}
+                          max={VIRTUAL_ROOM_MAX_ROOM_SIZE_M}
+                          step={0.5}
+                          precision={2}
+                          placeholder="From floor plan"
+                          value={areaForm.roomDepthM ?? null}
+                          onChange={(v) =>
+                            setAreaDraft({
+                              ...areaForm,
+                              roomDepthM: v == null ? null : Number(v),
+                            })
+                          }
                         />
                       </Col>
                     </Row>

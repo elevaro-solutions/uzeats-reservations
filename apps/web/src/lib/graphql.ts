@@ -38,6 +38,7 @@ export const RESTAURANT_DETAIL = gql`
       slug
       description
       cuisine
+      cuisines
       priceRange
       address {
         line1
@@ -89,6 +90,8 @@ export const RESTAURANT_DETAIL = gql`
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
       allowGuestTableSelection
+      minPartySize
+      maxPartySize
       reservationsEnabled
       reservationsVisible
       manualApprovalEnabled
@@ -187,6 +190,8 @@ export const VIRTUAL_ROOM = gql`
       selectionFeeApplyTo
       areas {
         name wallHeightM wallColor floorColor floorImageUrl panoramaUrl wallPhotoUrls
+        wallPhotoFit wallPhotoTileM wallPhotoRotationDeg floorImageRotationDeg
+        roomWidthM roomDepthM
         offsetXM offsetYM offsetZM guestSelectable selectionFeeCharged selectionFeeCents
         bounds { minX minY maxX maxY }
         tables {

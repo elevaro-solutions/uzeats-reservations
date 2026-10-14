@@ -53,6 +53,64 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/*
+ * Ant Design Rate FOUC guard: Rate is a ul/li with half-star layers.
+ * Before cssinjs injects, list items stack vertically (~10 visible stars)
+ * and inflate card height on slow networks. Discovery cards use StarRating
+ * instead; this keeps interactive Rate (reviews, surveys) stable.
+ */
+ul.ant-rate {
+  display: inline-block;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 20px;
+  line-height: 1;
+  vertical-align: middle;
+  color: var(--color-rating);
+}
+
+ul.ant-rate > li.ant-rate-star {
+  position: relative;
+  display: inline-block;
+  color: inherit;
+  cursor: pointer;
+}
+
+ul.ant-rate > li.ant-rate-star:not(:last-child) {
+  margin-inline-end: 8px;
+}
+
+ul.ant-rate > li.ant-rate-star .ant-rate-star-first,
+ul.ant-rate > li.ant-rate-star .ant-rate-star-second {
+  color: var(--color-border);
+  user-select: none;
+}
+
+ul.ant-rate > li.ant-rate-star .ant-rate-star-first {
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+  width: 50%;
+  height: 100%;
+  overflow: hidden;
+  opacity: 0;
+}
+
+ul.ant-rate > li.ant-rate-star-half .ant-rate-star-first,
+ul.ant-rate > li.ant-rate-star-half .ant-rate-star-second {
+  opacity: 1;
+}
+
+ul.ant-rate > li.ant-rate-star-half .ant-rate-star-first,
+ul.ant-rate > li.ant-rate-star-full .ant-rate-star-second {
+  color: inherit;
+}
+
+ul.ant-rate.ant-rate-disabled > li.ant-rate-star {
+  cursor: default;
+}
+
 /* Full-bleed hero uses 100vw breakout; prevent scrollbar-width overflow.
    `clip` does not create a scroll container the way `hidden` does, so
    sticky descendants and portaled dropdowns are not clipped. */
@@ -1912,6 +1970,7 @@ html.rt-map-view .rt-site-footer {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 16px;
 }
 
 .rt-map-list-card__meta {

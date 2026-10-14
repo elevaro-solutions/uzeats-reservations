@@ -22,6 +22,8 @@ import {
   RESTAURANT_SLUG_MAX_LENGTH,
   RESTAURANT_SLUG_MIN_LENGTH,
 } from "./restaurantSlug.js";
+import { MAX_RESTAURANT_CUISINES, normalizeRestaurantCuisines } from "./restaurantCuisines.js";
+import { MAX_PARTY_SIZE_SETTING } from "./partySize.js";
 import {
   AMENITIES,
   DIETARY_TAGS,
@@ -173,15 +175,16 @@ export const restaurantFeaturedInItemSchema = z.object({
     .transform((v) => (v === "" || v == null ? undefined : v)),
 });
 
-export const restaurantInputSchema = z.object({
+const cuisineLabelSchema = z.string().min(2).max(60).trim();
+
+/** Plain object shape so callers can `.extend()` before cuisine normalize. */
+export const restaurantInputObjectSchema = z.object({
   name: z.string().min(1).max(120),
   description: z.string().max(2000).optional(),
-  cuisine: z
-    .string()
-    .min(2)
-    .max(60)
-    .trim()
-    .refine((v) => v.length > 0, "Cuisine is required"),
+  /** Legacy primary cuisine. Prefer `cuisines`; kept for older clients. */
+  cuisine: cuisineLabelSchema.optional(),
+  /** One or more cuisine labels (first is primary). */
+  cuisines: z.array(cuisineLabelSchema).max(MAX_RESTAURANT_CUISINES).optional(),
   priceRange: z.number().int().min(1).max(4) as z.ZodType<
     (typeof PRICE_RANGES)[number]
   >,
@@ -219,6 +222,19 @@ export const restaurantInputSchema = z.object({
    * Max 720 (30 days).
    */
   cancellationPeriodHours: z.number().int().min(1).max(720).nullable().optional(),
+  noShowMarkingMode: z.enum(['auto', 'manual_only']).nullable().optional(),
+  floorAreaSettings: z
+    .array(
+      z.object({
+        floorArea: z.string().min(1).max(60),
+        noShowMarkingMode: z.enum(['auto', 'manual_only']).nullable().optional(),
+      }),
+    )
+    .optional(),
+  applyPlatformHolidays: z.boolean().optional(),
+  holidayOptOutKeys: z.array(z.string().min(1).max(80)).optional(),
+  holidayOptInKeys: z.array(z.string().min(1).max(80)).optional(),
+  requireHolidayApproval: z.boolean().optional(),
   loyaltyEnabled: z.boolean().default(false),
   loyaltyPointsPerVisit: z.number().int().min(0).default(50),
   loyaltyMinRedeemPoints: z.number().int().min(0).default(200),
@@ -239,6 +255,26 @@ export const restaurantInputSchema = z.object({
   termsAndConditions: z.string().max(8000).optional(),
 });
 
+function withNormalizedRestaurantCuisines<T extends z.ZodTypeAny>(schema: T) {
+  return schema
+    .superRefine((val, ctx) => {
+      if (!normalizeRestaurantCuisines(val as { cuisine?: string; cuisines?: string[] }).cuisine) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Cuisine is required",
+          path: ["cuisines"],
+        });
+      }
+    })
+    .transform((val): z.infer<T> & { cuisine: string; cuisines: string[] } => {
+      const base = val as z.infer<T> & { cuisine?: string; cuisines?: string[] };
+      const normalized = normalizeRestaurantCuisines(base);
+      return { ...base, cuisine: normalized.cuisine, cuisines: normalized.cuisines };
+    });
+}
+
+export const restaurantInputSchema = withNormalizedRestaurantCuisines(restaurantInputObjectSchema);
+
 export const restaurantInquiryInputSchema = z.object({
   restaurantId: z.string().min(1),
   message: z.string().min(1).max(2000),
@@ -251,10 +287,12 @@ export const registerRestaurantPartnerSchema = z.object({
   account: registerSchema.extend({
     phone: phoneSchema,
   }),
-  restaurant: restaurantInputSchema.extend({
-    phone: phoneSchema,
-    description: z.string().min(1).max(2000),
-  }),
+  restaurant: withNormalizedRestaurantCuisines(
+    restaurantInputObjectSchema.extend({
+      phone: phoneSchema,
+      description: z.string().min(1).max(2000),
+    }),
+  ),
   plan: z.string().min(1).max(40),
 });
 
@@ -323,10 +361,15 @@ export const floorPlanBackgroundColorSchema = z
   .nullable()
   .optional();
 
+export const floorPlanBackgroundFitSchema = z.enum(['cover', 'contain', 'stretch', 'tile']);
+
 export const floorPlanAreaAppearanceSchema = z.object({
   floorArea: z.string().min(1).max(60),
   backgroundColor: floorPlanBackgroundColorSchema,
   backgroundUrl: z.string().max(1000).nullable().optional(),
+  backgroundFit: floorPlanBackgroundFitSchema.optional().nullable(),
+  backgroundScale: z.number().min(0.25).max(4).optional().nullable(),
+  backgroundRotationDeg: z.number().min(0).max(360).optional().nullable(),
 });
 
 /** Create or keep a named floor area (persisted via areaAppearances). */
@@ -392,6 +435,8 @@ export const tableInputSchema = z
     depositAmountCents: z.number().int().min(0).max(1_000_000).optional(),
     /** Hours before slot start when free cancel ends. Null inherits restaurant/platform. */
     cancellationPeriodHours: z.number().int().min(1).max(720).nullable().optional(),
+    /** No-show marking. Null inherits floor area → restaurant → platform. */
+    noShowMarkingMode: z.enum(['auto', 'manual_only']).nullable().optional(),
     /** When false, guests cannot pick this table in 3D. Default true. */
     virtualRoomSelectable: z.boolean().optional(),
     /**
@@ -441,7 +486,7 @@ export const reservationAttributionInputSchema = z.object({
 
 export const reservationInputSchema = z.object({
   restaurantId: z.string().min(1),
-  partySize: z.number().int().min(1).max(50),
+  partySize: z.number().int().min(1).max(MAX_PARTY_SIZE_SETTING),
   slotStart: z.string().datetime(),
   occasion: z.enum(OCCASIONS).default("none"),
   guestNotes: z.string().max(500).optional(),
@@ -489,8 +534,8 @@ export const restaurantPackageInputSchema = z.object({
     )
     .optional()
     .default([]),
-  minPartySize: z.number().int().min(1).max(50).optional().nullable(),
-  maxPartySize: z.number().int().min(1).max(50).optional().nullable(),
+  minPartySize: z.number().int().min(1).max(999).optional().nullable(),
+  maxPartySize: z.number().int().min(1).max(999).optional().nullable(),
   active: z.boolean().optional().default(true),
   requiresManualApproval: z.boolean().optional().default(false),
 });
@@ -504,7 +549,7 @@ export const ownerGuestInputSchema = z.object({
 
 export const ownerReservationInputSchema = z.object({
   restaurantId: z.string().min(1),
-  partySize: z.number().int().min(1).max(50),
+  partySize: z.number().int().min(1).max(MAX_PARTY_SIZE_SETTING),
   slotStart: z.string().datetime(),
   occasion: z.enum(OCCASIONS).default("none"),
   guestNotes: z.string().max(500).optional(),
@@ -515,7 +560,7 @@ export const ownerReservationInputSchema = z.object({
 });
 
 export const updateReservationInputSchema = z.object({
-  partySize: z.number().int().min(1).max(50).optional(),
+  partySize: z.number().int().min(1).max(MAX_PARTY_SIZE_SETTING).optional(),
   slotStart: z.string().datetime().optional(),
   occasion: z.enum(OCCASIONS).optional(),
   guestNotes: z.string().max(500).optional(),
@@ -524,7 +569,7 @@ export const updateReservationInputSchema = z.object({
 
 export const waitlistInputSchema = z.object({
   restaurantId: z.string().min(1),
-  partySize: z.number().int().min(1).max(50),
+  partySize: z.number().int().min(1).max(MAX_PARTY_SIZE_SETTING),
   preferredDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   preferredTimeStart: z
     .string()
@@ -976,7 +1021,7 @@ export type RequestRestaurantSlugInput = z.infer<
   typeof requestRestaurantSlugInputSchema
 >;
 
-export const restaurantProfileChangeSchema = restaurantInputSchema.pick({
+export const restaurantProfileChangeSchema = restaurantInputObjectSchema.pick({
   description: true,
   neighborhood: true,
   categoryIds: true,
@@ -1018,8 +1063,8 @@ export const accessRuleInputSchema = z.object({
   endDate: dateStringSchema.optional(),
   startTime: timeStringSchema.optional(),
   endTime: timeStringSchema.optional(),
-  minPartySize: z.number().int().min(1).max(50).optional(),
-  maxPartySize: z.number().int().min(1).max(50).optional(),
+  minPartySize: z.number().int().min(1).max(999).optional(),
+  maxPartySize: z.number().int().min(1).max(999).optional(),
   maxCoversPerSlot: z.number().int().min(0).optional(),
   minAdvanceHours: z.number().int().min(0).optional(),
   maxAdvanceDays: z.number().int().min(0).optional(),
@@ -1046,7 +1091,7 @@ export const inHouseWaitlistInputSchema = z
     dinerId: z.string().min(1).optional(),
     guestName: z.string().min(1).max(120).optional(),
     guestPhone: z.string().min(7).max(20).optional(),
-    partySize: z.number().int().min(1).max(50),
+    partySize: z.number().int().min(1).max(MAX_PARTY_SIZE_SETTING),
     quotedWaitMinutes: z.number().int().min(0).max(480).optional(),
   })
   .superRefine((value, ctx) => {
@@ -1068,7 +1113,7 @@ export const updateWaitlistEntryInputSchema = z
     guestName: z.string().min(1).max(120).optional(),
     /** Empty string clears the phone. */
     guestPhone: z.union([z.string().min(7).max(20), z.literal("")]).optional(),
-    partySize: z.number().int().min(1).max(50).optional(),
+    partySize: z.number().int().min(1).max(MAX_PARTY_SIZE_SETTING).optional(),
     /** Null clears the quoted wait. */
     quotedWaitMinutes: z.number().int().min(0).max(480).nullish(),
   })

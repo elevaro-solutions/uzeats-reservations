@@ -1,13 +1,16 @@
-import type { RestaurantInput } from '@reservations/shared';
+import { normalizeRestaurantCuisines, type RestaurantInput } from '@reservations/shared';
 
 /** Map validated RestaurantInput to Mongoose document fields. */
 export function restaurantInputToDb(input: RestaurantInput) {
   if (input.depositRequired && !(input.depositAmountCents > 0)) {
     throw new Error('Deposit amount must be greater than 0 when a deposit is required');
   }
-  const { neighborhood, location, address, logoUrl, ...rest } = input;
+  const { neighborhood, location, address, logoUrl, cuisine, cuisines, ...rest } = input;
+  const normalized = normalizeRestaurantCuisines({ cuisine, cuisines });
   return {
     ...rest,
+    cuisine: normalized.cuisine,
+    cuisines: normalized.cuisines,
     ...(logoUrl !== undefined ? { logoUrl } : {}),
     address: {
       ...address,

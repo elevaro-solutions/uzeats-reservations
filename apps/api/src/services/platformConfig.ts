@@ -3,11 +3,33 @@ import {
   resolvePlanPricing,
   normalizeAnnualBillingSettings,
   resolveCancellationPeriodHours,
+  DEFAULT_NO_SHOW_MARKING_MODE,
+  DEFAULT_PLATFORM_HOLIDAYS,
+  isNoShowMarkingMode,
   VIRTUAL_ROOM_DEFAULT_MONTHLY_PRICE_CENTS,
   VIRTUAL_ROOM_DEFAULT_PER_GUEST_FEE_CENTS,
   type AnnualBillingSettings,
+  type NoShowMarkingMode,
   type PlanDiscountType,
+  type PlatformHolidayDef,
 } from '@reservations/shared';
+
+function normalizePlatformHolidaysForConfig(raw: unknown): PlatformHolidayDef[] {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return DEFAULT_PLATFORM_HOLIDAYS.map((h) => ({ ...h }));
+  }
+  return raw
+    .filter((h): h is Record<string, unknown> => Boolean(h) && typeof h === 'object')
+    .map((h) => ({
+      key: String(h.key ?? '').trim(),
+      name: String(h.name ?? '').trim() || String(h.key ?? ''),
+      dateRule: typeof h.dateRule === 'string' ? h.dateRule : undefined,
+      recurring: h.recurring !== false,
+      defaultEnabled: h.defaultEnabled === true,
+      floating: h.floating as PlatformHolidayDef['floating'],
+    }))
+    .filter((h) => h.key.length > 0);
+}
 import { env } from '../config/env.js';
 import {
   DEFAULT_MANAGER_SEATS,
@@ -92,6 +114,8 @@ function buildDefaults() {
     invoicePrefix: 'INV',
     currency: 'usd',
     cancellationPeriodHours: 24,
+    noShowMarkingMode: DEFAULT_NO_SHOW_MARKING_MODE as NoShowMarkingMode,
+    holidays: [] as PlatformHolidayDef[],
     featureFlags: {
       waitlist: true,
       deposits: true,
@@ -491,6 +515,12 @@ export function mapPlatformConfig(doc: PlatformConfigDocument) {
     cancellationPeriodHours: resolveCancellationPeriodHours([
       (doc as { cancellationPeriodHours?: number | null }).cancellationPeriodHours,
     ]),
+    noShowMarkingMode: isNoShowMarkingMode(
+      (doc as { noShowMarkingMode?: unknown }).noShowMarkingMode,
+    )
+      ? ((doc as { noShowMarkingMode: NoShowMarkingMode }).noShowMarkingMode)
+      : DEFAULT_NO_SHOW_MARKING_MODE,
+    holidays: normalizePlatformHolidaysForConfig((doc as { holidays?: unknown }).holidays),
     stripeMode,
     stripeSandboxConfigured: isStripeModeConfigured('test'),
     stripeProductionConfigured: isStripeModeConfigured('live'),

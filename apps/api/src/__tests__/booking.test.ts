@@ -742,6 +742,71 @@ describe('Booking Flow (E2E)', () => {
     );
   });
 
+  it('should reject party sizes outside restaurant accepted online range', async () => {
+    const settingsRes = await graphqlRequest(
+      agent,
+      `mutation UpdateSettings(
+        $restaurantId: ID!
+        $minPartySize: Int
+        $maxPartySize: Int
+      ) {
+        updateRestaurantSettings(
+          restaurantId: $restaurantId
+          minPartySize: $minPartySize
+          maxPartySize: $maxPartySize
+        ) {
+          id
+          minPartySize
+          maxPartySize
+        }
+      }`,
+      { restaurantId, minPartySize: 2, maxPartySize: 4 },
+      ownerToken,
+    );
+    expect(settingsRes.body.errors).toBeUndefined();
+    expect(settingsRes.body.data.updateRestaurantSettings.minPartySize).toBe(2);
+    expect(settingsRes.body.data.updateRestaurantSettings.maxPartySize).toBe(4);
+
+    const slotDay = new Date();
+    slotDay.setDate(slotDay.getDate() + 16);
+    slotDay.setHours(17, 0, 0, 0);
+
+    const tooBig = await graphqlRequest(
+      agent,
+      `mutation CreateReservation($input: ReservationInput!) {
+        createReservation(input: $input) {
+          reservation { id }
+        }
+      }`,
+      {
+        input: {
+          restaurantId,
+          partySize: 8,
+          slotStart: slotDay.toISOString(),
+        },
+      },
+      dinerToken,
+    );
+    expect(tooBig.body.errors?.[0]?.message).toMatch(/accepts online parties of 2–4/i);
+
+    await graphqlRequest(
+      agent,
+      `mutation UpdateSettings(
+        $restaurantId: ID!
+        $minPartySize: Int
+        $maxPartySize: Int
+      ) {
+        updateRestaurantSettings(
+          restaurantId: $restaurantId
+          minPartySize: $minPartySize
+          maxPartySize: $maxPartySize
+        ) { id minPartySize maxPartySize }
+      }`,
+      { restaurantId, minPartySize: null, maxPartySize: null },
+      ownerToken,
+    );
+  });
+
   it('should have earned loyalty points', async () => {
     const res = await graphqlRequest(
       agent,

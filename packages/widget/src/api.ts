@@ -36,6 +36,10 @@ export interface RestaurantInfo {
   depositPolicy?: string | null;
   loyaltyEnabled: boolean;
   loyaltyPointsPerVisit: number;
+  minPartySize?: number | null;
+  maxPartySize?: number | null;
+  phone?: string | null;
+  website?: string | null;
   widgetTheme: WidgetTheme;
 }
 
@@ -84,6 +88,10 @@ const RESTAURANT_FIELDS = `
   depositPolicy
   loyaltyEnabled
   loyaltyPointsPerVisit
+  minPartySize
+  maxPartySize
+  phone
+  website
   widgetTheme { primaryColor buttonText showReviews }
 `;
 

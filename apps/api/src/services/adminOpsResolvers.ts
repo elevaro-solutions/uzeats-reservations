@@ -744,7 +744,12 @@ export const adminOpsMutation = {
     const status = args.status ?? 'approved';
     const doc = await Restaurant.create({
       ...restaurantInputToDb(input),
-      slug: slugify(input.name),
+      slug: slugify(input.name, {
+        ...input.address,
+        neighborhood:
+          input.neighborhood ??
+          (input.address as { neighborhood?: string }).neighborhood,
+      }),
       ownerId: owner._id,
       status,
     });

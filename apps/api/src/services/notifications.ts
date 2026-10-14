@@ -716,12 +716,26 @@ export function startNotificationWorkers() {
         const { reservationId } = job.data as { reservationId: string };
         const reservation = await Reservation.findById(reservationId);
         if (reservation?.status === 'confirmed') {
+          const { resolveNoShowMarkingForReservation } = await import('./noShowMarking.js');
+          const mode = await resolveNoShowMarkingForReservation({
+            restaurantId: reservation.restaurantId.toString(),
+            tableId: reservation.tableIds?.[0]?.toString() ?? null,
+          });
+          // manual_only: host/manager marks no-show (and fee charges on that path).
+          if (mode === 'manual_only') return;
+
           reservation.status = 'no_show';
           // Card-guarantee fees are left for staff to charge: an unclosed booking is
           // often a host who never marked the party seated, not a real no-show.
           await captureLegacyHold(reservation);
           await reservation.save();
           await releaseTableSlotClaims(reservation._id);
+          try {
+            const { sendNoShowFollowUpEmail } = await import('./followUpEmail.js');
+            await sendNoShowFollowUpEmail(reservation);
+          } catch (err) {
+            logger.error({ err, reservationId }, '[reminders] no-show follow-up email failed');
+          }
         }
       }
 

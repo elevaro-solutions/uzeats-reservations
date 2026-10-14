@@ -47,17 +47,20 @@ export type TableDepositFormValues = {
   depositRequired?: boolean;
   depositAmount?: number | null;
   cancellationPeriodHours?: number | null;
+  noShowMarkingMode?: 'auto' | 'manual_only' | null;
 };
 
 export function tableDepositFormValues(table: {
   depositRequired?: boolean | null;
   depositAmountCents?: number | null;
   cancellationPeriodHours?: number | null;
+  noShowMarkingMode?: 'auto' | 'manual_only' | null;
 }): TableDepositFormValues {
   return {
     depositRequired: table.depositRequired ?? false,
     depositAmount: table.depositAmountCents ? table.depositAmountCents / 100 : null,
     cancellationPeriodHours: table.cancellationPeriodHours ?? null,
+    noShowMarkingMode: table.noShowMarkingMode ?? null,
   };
 }
 
@@ -72,6 +75,7 @@ export function tableDepositInput(values: TableDepositFormValues) {
       values.cancellationPeriodHours == null || !(Number(values.cancellationPeriodHours) >= 1)
         ? null
         : Math.round(Number(values.cancellationPeriodHours)),
+    noShowMarkingMode: values.noShowMarkingMode ?? null,
   };
 }
 
@@ -355,6 +359,22 @@ export function TableFormFields({
           precision={0}
           placeholder="Restaurant / platform default"
           style={{ width: '100%' }}
+        />
+      </Form.Item>
+
+      <Form.Item
+        name="noShowMarkingMode"
+        label="No-show marking"
+        style={{ marginBottom: 12 }}
+        extra="Override floor area / restaurant / platform for this table."
+      >
+        <Select
+          allowClear
+          placeholder="Inherit"
+          options={[
+            { value: 'manual_only', label: 'Manual only (host + auto-charge)' },
+            { value: 'auto', label: 'Auto mark at slot end' },
+          ]}
         />
       </Form.Item>
 

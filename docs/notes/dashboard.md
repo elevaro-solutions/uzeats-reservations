@@ -1,5 +1,14 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-14] Restaurant profile Booking policies UX
+- `/restaurant-profile?section=policies` groups Deposits / Cancellation & no-shows / Holidays / Loyalty / Booking approval. Holiday opt-out/in use `DEFAULT_PLATFORM_HOLIDAYS` name options (majors vs optional), not free-tag keys. Tooltips live in `restaurantFormTooltips`.
+- Why it matters: Partners should not need to know keys like `christmas_day`; Closures & hours is the approval surface.
+
+## [2026-10-14] Hub card pin → sidebar
+- `HubLinkCards` pin toggles `rt-pinned-nav:{userId}:{partner|admin}` in localStorage. `partnerSiderPages` / `adminSiderPages` merge pinned `parentSiderHref` pages into the sider using catalog order (so they land in their `group`).
+- `siderKeyForPathname` highlights the pinned child’s href when pinned; otherwise still selects the parent hub.
+- Why it matters: Hub tools stay out of the daily sidebar until pinned; do not hardcode hub children into the sider catalog.
+
 ## [2026-10-09] Floor area add / rename / delete
 - `/floor` has an Areas tab (with Tables and Shifts). `/floor-plan/settings` can Add area or Rename the selected area. Both call `ensureFloorArea` / `renameFloorArea` / `deleteFloorArea`.
 - Adding persists an empty `floorPlanAreaAppearances` entry so the area shows before any table uses it. Rename cascades tables + layout meta + Virtual Room. Delete is blocked for Main, areas with tables, or areas with fixtures/rooms.
@@ -56,6 +65,11 @@
 - The mutation then sent null coordinates and an address missing `line1`/`city`/`state`/`zip`. Production GraphQL masks each variable error as "Internal server error", which is why the toast repeats it.
 - Save also merges `getFieldsValue(true)` so values written by `setFieldsValue` before a panel mounts are not dropped.
 - Why it matters: Don’t remove `forceRender` on that collapse. A closed section is still part of the restaurant payload.
+
+## [2026-10-14] Fixture rotate + free underlay transform
+- Walls/doors/fixtures get the same drag-rotate handle as tables; handle is anchored above the box (`top: -28`) so short walls and 1-cell-tall tables stay usable. Fixture details also expose a 0–360° slider.
+- Area underlay adds `backgroundFit` / `backgroundScale` / `backgroundRotationDeg`. Canvas renders image as a separate layer under the grid (not CSS `cover` locked to the grid). Tile mode sizes patterns from `cellSize * 4 * scale` px — scale is free, not one-cell.
+- Why it matters: Thin wall fixtures had no rotate UI; underlays previously always covered the full grid.
 
 ## [2026-10-03] Floor plan area backgrounds are per floor area
 - `floorPlanAreaAppearances[]` (draft + published) stores per-area `backgroundColor` / `backgroundUrl`. Restaurant-level `floorPlanBackgroundColor` / `Url` remain legacy fallbacks when an area has no entry.
@@ -124,6 +138,12 @@
 - Deleting the last rows of the final page left `?page=N` past the end. antd `Table` silently clamps its displayed `current`, so the pager and the URL `offset` disagree. The page now redirects to the last valid page once `total` loads.
 - The API sorted by `slotStart` alone. Many bookings share a slot, so skip/limit order was not deterministic and rows repeated or went missing between pages. `_id` is now the tiebreaker.
 - Why it matters: Any offset-paginated admin list with deletes needs all three: cache invalidation, page clamping, and a unique sort key.
+
+## [2026-10-14] Setup guide: no-show, holidays, engagement
+- Partner guide adds optional **Configure no-show & holidays** (`/restaurant-profile?section=policies`) and **Set holiday closures & special hours** (`/blackouts`).
+- Platform guide adds **Set no-show marking default** (`/admin/config?section=booking`), **Review platform holidays** (`/admin/config?section=holidays`), and **Send a platform engagement email** (`/admin/engagement`). Templates step copy mentions no-show / thank-you follow-ups.
+- Holiday product default: majors stay **open** until Approve on Closures & hours; admin Holidays toggles which days enter that queue.
+- Why it matters: New ops config is discoverable from the floating setup guide without requiring a separate onboarding doc.
 
 ## [2026-10-03] Setup guide: one model, two surfaces, client-only skips
 - `lib/onboarding.ts` builds the grouped guide (`buildPartnerSetupGuide` / `buildPlatformSetupGuide`). `DashShell` renders the floating `SetupGuidePanel`; `/onboarding` and `/admin/setup` render `SetupChecklist` from the same model. Hosts get no guide, managers get no Payments/Team sections, and only `admin` / `super_admin` get the platform guide.
@@ -472,6 +492,19 @@
 - `depositRequired` / `depositAmountCents` have no zod defaults because `updateTable` does `Object.assign(existing, parsed)`. Callers that omit them (CSV import, admin minimal form) keep the saved override instead of resetting it.
 - Table forms hold `depositAmount` in dollars. Convert with `tableDepositFormValues` / `tableDepositInput` from `TableFormFields`.
 - Why it matters: Fields with defaults (`requiresManualApproval`) are reset by any update that omits them. The admin Tables tab form does this for manual approval today.
+
+## [2026-10-14] Import coachmark on first-time restaurant profile
+- `/restaurant-profile` pulses the DoorDash / Uber Eats import button while listing setup is sparse (description under 10 chars or no photos), until the owner opens import or `localStorage` `tv_import_coach_seen_{restaurantId}` is set.
+- Why it matters: Setup guide “Describe your restaurant” lands here; highlight the fastest path without blocking the form.
+
+## [2026-10-14] Restaurant cuisines are multi-select
+- Forms use `cuisines: string[]` (max 8). API keeps primary `cuisine` = first entry for discovery cards / legacy clients. Search matches either field.
+- Why it matters: Don’t bind CuisineSelect to a string again — it is `mode="multiple"`.
+
+## [2026-10-14] DoorDash / Uber Eats import is post-login only
+- `POST /api/import-restaurant` requires an authenticated partner/admin (`canImportRestaurant`). Public `/register` had the Import button and hit “Authentication required”.
+- Keep import on Partner Hub Restaurants / Restaurant profile / Overview empty state and Admin → Restaurants — not on signup.
+- Why it matters: Don’t re-add import to register without either a public parse endpoint or a post-account-creation step.
 
 ## [2026-10-07] Virtual room editor writes mutation results with `writeQuery`
 - `VirtualRoomEditor` has no `id`, so Apollo can't normalize it and mutation results don't update the `virtualRoomEditor` query on their own. The editor page writes each result back with `client.writeQuery`.

@@ -59,6 +59,8 @@ export const EMAIL_TEMPLATE_VARIABLES: Record<string, string[]> = {
     'messageText',
     'reservationUrl',
   ],
+  booking_no_show: ['firstName', 'restaurantName', 'date', 'partySize', 'reservationUrl'],
+  booking_completed: ['firstName', 'restaurantName', 'date', 'partySize', 'reservationUrl'],
   deposit_refunded: ['firstName', 'restaurantName', 'amount', 'note', 'reservationUrl'],
   no_show_fee_charged: ['firstName', 'restaurantName', 'amount', 'feeLabel', 'feeTitle', 'reservationUrl'],
   no_show_fee_refunded: ['firstName', 'restaurantName', 'amount', 'note', 'reservationUrl'],

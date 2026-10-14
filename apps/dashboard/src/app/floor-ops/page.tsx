@@ -40,6 +40,7 @@ import {
   restaurantTimeZone,
   type FloorPlanAreaAppearance,
 } from '@reservations/shared';
+import { FloorPlanUnderlay } from '@/components/FloorPlanUnderlay';
 import { useAuth } from '@/lib/auth';
 import { canManageBilling, isHostRole } from '@/lib/roles';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
@@ -70,6 +71,7 @@ import {
   areaGridBounds,
   cellSizeForWidth,
   floorGridLineColor,
+  floorPlanRotateHandleStyle,
   normalizeRotation,
   pointerAngleDeg,
   resolveFloorBackgroundColor,
@@ -201,6 +203,9 @@ function FloorAreaCanvas({
   fixtures,
   backgroundUrl,
   backgroundColor,
+  backgroundFit,
+  backgroundScale,
+  backgroundRotationDeg,
   cellSize: forcedCellSize,
   selectedTableId,
   dragReservationId,
@@ -215,6 +220,9 @@ function FloorAreaCanvas({
   fixtures: FloorFixtureView[];
   backgroundUrl: string | null;
   backgroundColor: string | null;
+  backgroundFit?: FloorPlanAreaAppearance['backgroundFit'];
+  backgroundScale?: number | null;
+  backgroundRotationDeg?: number | null;
   cellSize: number | null;
   selectedTableId?: string | null;
   dragReservationId: string | null;
@@ -367,17 +375,29 @@ function FloorAreaCanvas({
             minHeight: '100%',
             overflow: 'visible',
             backgroundColor: canvasBg,
-            backgroundImage: (() => {
-              const grid = `linear-gradient(to right, ${gridLine} 1px, transparent 1px), linear-gradient(to bottom, ${gridLine} 1px, transparent 1px)`;
-              return backgroundUrl ? `${grid}, url(${backgroundUrl})` : grid;
-            })(),
-            backgroundSize: backgroundUrl
-              ? `${cellSize}px ${cellSize}px, ${cellSize}px ${cellSize}px, cover`
-              : `${cellSize}px ${cellSize}px`,
-            backgroundPosition: '0 0, 0 0, center',
-            backgroundRepeat: 'repeat, repeat, no-repeat',
           }}
         >
+          {backgroundUrl ? (
+            <FloorPlanUnderlay
+              url={backgroundUrl}
+              fit={backgroundFit}
+              scale={backgroundScale}
+              rotationDeg={backgroundRotationDeg}
+              cellSize={cellSize}
+            />
+          ) : null}
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 0,
+              pointerEvents: 'none',
+              backgroundImage: `linear-gradient(to right, ${gridLine} 1px, transparent 1px), linear-gradient(to bottom, ${gridLine} 1px, transparent 1px)`,
+              backgroundSize: `${cellSize}px ${cellSize}px`,
+              backgroundRepeat: 'repeat',
+            }}
+          />
           {areaFixtures.map((f) => (
             <div
               key={f.id}
@@ -559,21 +579,9 @@ function FloorAreaCanvas({
                       };
                     }}
                     style={{
-                      position: 'absolute',
-                      top: 4,
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      width: 20,
-                      height: 20,
-                      borderRadius: 10,
+                      ...floorPlanRotateHandleStyle,
+                      background: 'rgba(0,0,0,0.45)',
                       border: 'none',
-                      background: 'rgba(0,0,0,0.4)',
-                      color: '#fff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'grab',
-                      padding: 0,
                       zIndex: 6,
                     }}
                   >
@@ -1248,6 +1256,9 @@ export default function FloorOpsPage() {
                     fixtures={ops.floorFixtures}
                     backgroundUrl={appearance.backgroundUrl}
                     backgroundColor={appearance.backgroundColor}
+                    backgroundFit={appearance.backgroundFit}
+                    backgroundScale={appearance.backgroundScale}
+                    backgroundRotationDeg={appearance.backgroundRotationDeg}
                     cellSize={gridCellSize}
                     selectedTableId={selectedState?.table.id}
                     dragReservationId={dragReservationId}

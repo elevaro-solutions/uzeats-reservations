@@ -1,4 +1,7 @@
-import type { RegisterRestaurantPartnerInput } from '@reservations/shared';
+import {
+  normalizeRestaurantCuisines,
+  type RegisterRestaurantPartnerInput,
+} from '@reservations/shared';
 import { ConflictError, ForbiddenError, ValidationError } from '../lib/errors.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { User } from '../models/User.js';
@@ -98,10 +101,12 @@ export async function registerRestaurantPartner(input: RegisterRestaurantPartner
 
   let restaurant;
   try {
+    const cuisines = normalizeRestaurantCuisines(input.restaurant);
     restaurant = await Restaurant.create({
       name: input.restaurant.name,
       description: input.restaurant.description,
-      cuisine: input.restaurant.cuisine,
+      cuisine: cuisines.cuisine,
+      cuisines: cuisines.cuisines,
       priceRange: input.restaurant.priceRange,
       address: {
         ...input.restaurant.address,

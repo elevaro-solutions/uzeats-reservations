@@ -96,6 +96,7 @@ import {
   PUBLISH_FLOOR_PLAN,
 } from '@/lib/graphql';
 import PhotoUpload from '@/components/PhotoUpload';
+import { FloorPlanUnderlay } from '@/components/FloorPlanUnderlay';
 import {
   findAreaName,
   TableFormFields,
@@ -109,6 +110,7 @@ import {
   MAX_CELL_SIZE,
   MIN_CELL_SIZE,
   RESIZE_HANDLES,
+  floorPlanRotateHandleStyle,
   applyFreeRotation,
   applyResize,
   cellSizeForWidth,
@@ -927,13 +929,8 @@ export default function FloorPlanPage() {
     [rooms, areaFilter],
   );
   const canvasAppearance = useMemo(() => {
-    if (!areaFilter) {
-      return {
-        backgroundColor: snapshot.backgroundColor,
-        backgroundUrl: snapshot.backgroundUrl,
-      };
-    }
-    return resolveFloorAreaAppearance(areaFilter, snapshot.areaAppearances, {
+    // Overall (no area filter) still uses restaurant-level color/url via the same resolver defaults.
+    return resolveFloorAreaAppearance(areaFilter || 'Main', snapshot.areaAppearances, {
       backgroundColor: snapshot.backgroundColor,
       backgroundUrl: snapshot.backgroundUrl,
     });
@@ -2216,19 +2213,8 @@ export default function FloorPlanPage() {
                   minWidth: '100%',
                   minHeight: '100%',
                   backgroundColor: resolveFloorBackgroundColor(canvasAppearance.backgroundColor),
-                  backgroundImage: (() => {
-                    const line = floorGridLineColor(canvasAppearance.backgroundColor);
-                    const grid = `linear-gradient(to right, ${line} 1px, transparent 1px), linear-gradient(to bottom, ${line} 1px, transparent 1px)`;
-                    return canvasAppearance.backgroundUrl
-                      ? `${grid}, url(${canvasAppearance.backgroundUrl})`
-                      : grid;
-                  })(),
-                  backgroundSize: canvasAppearance.backgroundUrl
-                    ? `${cellSize}px ${cellSize}px, ${cellSize}px ${cellSize}px, cover`
-                    : `${cellSize}px ${cellSize}px`,
-                  backgroundPosition: '0 0, 0 0, center',
-                  backgroundRepeat: 'repeat, repeat, no-repeat',
                   touchAction: 'none',
+                  overflow: 'visible',
                 }}
                 onMouseDown={(e) => {
                   if (drawRoomMode) {
@@ -2257,6 +2243,30 @@ export default function FloorPlanPage() {
                   };
                 }}
               >
+                {canvasAppearance.backgroundUrl ? (
+                  <FloorPlanUnderlay
+                    url={canvasAppearance.backgroundUrl}
+                    fit={canvasAppearance.backgroundFit}
+                    scale={canvasAppearance.backgroundScale}
+                    rotationDeg={canvasAppearance.backgroundRotationDeg}
+                    cellSize={cellSize}
+                  />
+                ) : null}
+                <div
+                  aria-hidden
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    zIndex: 0,
+                    pointerEvents: 'none',
+                    backgroundImage: (() => {
+                      const line = floorGridLineColor(canvasAppearance.backgroundColor);
+                      return `linear-gradient(to right, ${line} 1px, transparent 1px), linear-gradient(to bottom, ${line} 1px, transparent 1px)`;
+                    })(),
+                    backgroundSize: `${cellSize}px ${cellSize}px`,
+                    backgroundRepeat: 'repeat',
+                  }}
+                />
                 <svg
                   width={canvasCols * cellSize}
                   height={canvasRows * cellSize}
@@ -2374,7 +2384,8 @@ export default function FloorPlanPage() {
                         boxSizing: 'border-box',
                         transform: `rotate(${f.rotation ?? 0}deg)`,
                         transformOrigin: 'center center',
-                        zIndex: 1,
+                        zIndex: isSelected ? 4 : 1,
+                        overflow: 'visible',
                       }}
                     >
                       <div
@@ -2426,6 +2437,25 @@ export default function FloorPlanPage() {
                       >
                         {f.name || FLOOR_FIXTURE_LABELS[f.kind]}
                       </div>
+                      {isSelected ? (
+                        <button
+                          type="button"
+                          aria-label={`Rotate ${f.name || FLOOR_FIXTURE_LABELS[f.kind]}`}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            startRotate(e.clientX, e.clientY, f, 'fixture');
+                          }}
+                          onTouchStart={(e) => {
+                            e.stopPropagation();
+                            const touch = e.touches[0];
+                            if (touch) startRotate(touch.clientX, touch.clientY, f, 'fixture');
+                          }}
+                          style={floorPlanRotateHandleStyle}
+                        >
+                          <RotateRightOutlined style={{ fontSize: 12 }} />
+                        </button>
+                      ) : null}
                       {isSelected &&
                         RESIZE_HANDLES.map((h) => (
                           <div
@@ -2584,25 +2614,7 @@ export default function FloorPlanPage() {
                             const touch = e.touches[0];
                             if (touch) startRotate(touch.clientX, touch.clientY, t, 'table');
                           }}
-                          style={{
-                            position: 'absolute',
-                            top: 6,
-                            left: '50%',
-                            transform: 'translateX(-50%)',
-                            width: 22,
-                            height: 22,
-                            borderRadius: 11,
-                            border: '2px solid #fff',
-                            background: colors.brand[600],
-                            color: '#fff',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'grab',
-                            zIndex: 3,
-                            padding: 0,
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                          }}
+                          style={floorPlanRotateHandleStyle}
                         >
                           <RotateRightOutlined style={{ fontSize: 12 }} />
                         </button>
@@ -2739,6 +2751,27 @@ export default function FloorPlanPage() {
                       )
                     }
                   />
+                </div>
+                <div>
+                  <Text strong>Rotation</Text>
+                  <Slider
+                    style={{ marginTop: 8 }}
+                    min={0}
+                    max={360}
+                    step={1}
+                    value={selectedFixture.rotation ?? 0}
+                    onChange={(rotation) =>
+                      patchFixtures((prev) =>
+                        prev.map((f) =>
+                          f.id === selectedFixture.id ? { ...f, rotation } : f,
+                        ),
+                      )
+                    }
+                  />
+                  <Text type="secondary" style={{ fontSize: 11 }}>
+                    {Math.round(selectedFixture.rotation ?? 0)}° — drag the handle above the
+                    fixture, or use this slider
+                  </Text>
                 </div>
                 <Text type="secondary" style={{ fontSize: 12 }}>
                   Fixtures are not bookable — they help staff orient on the floor.

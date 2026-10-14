@@ -87,6 +87,34 @@ const platformConfigSchema = new Schema(
      */
     cancellationPeriodHours: { type: Number, default: 24, min: 1, max: 720 },
     /**
+     * How no-shows are marked after the seating window ends.
+     * `manual_only` (default): host/manager marks no-show → fee auto-charges.
+     * `auto`: job marks no-show at slot end (does not charge card-guarantee fee).
+     * Restaurant / floor area / table may override.
+     */
+    noShowMarkingMode: {
+      type: String,
+      enum: ['auto', 'manual_only'],
+      default: 'manual_only',
+    },
+    /**
+     * Platform holiday catalog. Empty → built-in major holidays from shared defaults.
+     */
+    holidays: [
+      {
+        key: { type: String, required: true },
+        name: { type: String, required: true },
+        dateRule: { type: String },
+        recurring: { type: Boolean, default: true },
+        defaultEnabled: { type: Boolean, default: true },
+        floating: {
+          type: String,
+          enum: ['thanksgiving_us', 'memorial_day_us', 'labor_day_us', 'mlk_day_us'],
+        },
+        oneOffDate: { type: String },
+      },
+    ],
+    /**
      * Which Stripe account the API uses: sandbox (`test`) or production (`live`).
      * Unset → test outside production NODE_ENV, live in production.
      */

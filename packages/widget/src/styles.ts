@@ -116,6 +116,23 @@ export const STYLES = /* css */ `
     margin-bottom: 6px;
   }
 
+  .rt-hint {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--rt-text-secondary);
+    line-height: 1.4;
+  }
+
+  .rt-hint a {
+    color: var(--rt-brand);
+    text-decoration: none;
+    font-weight: 500;
+  }
+
+  .rt-hint a:hover {
+    text-decoration: underline;
+  }
+
   .rt-row {
     display: flex;
     gap: 10px;

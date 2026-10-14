@@ -78,6 +78,7 @@ export const MY_RESTAURANTS = gql`
       name
       status
       cuisine
+      cuisines
       description
       priceRange
       photos
@@ -102,17 +103,24 @@ export const MY_RESTAURANTS = gql`
       depositPolicy
       cancellationPeriodHours
       effectiveCancellationPeriodHours
+      noShowMarkingMode
+      applyPlatformHolidays
+      holidayOptOutKeys
+      holidayOptInKeys
+      requireHolidayApproval
+      floorAreaSettings { floorArea noShowMarkingMode }
       loyaltyEnabled
       loyaltyPointsPerVisit
       loyaltyMinRedeemPoints
       tables {
         id name minCapacity maxCapacity floorArea active combinable photoUrl
         shape requiresManualApproval depositRequired depositAmountCents cancellationPeriodHours
+        noShowMarkingMode
       }
-      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl }
+      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl backgroundFit backgroundScale backgroundRotationDeg }
       floorPlanDraft {
         updatedAt
-        areaAppearances { floorArea backgroundColor backgroundUrl }
+        areaAppearances { floorArea backgroundColor backgroundUrl backgroundFit backgroundScale backgroundRotationDeg }
       }
       shifts {
         id name daysOfWeek startTime endTime slotIntervalMinutes turnTimeMinutes active
@@ -585,6 +593,7 @@ const ADMIN_RESTAURANT_FIELDS = `
   slug
   status
   cuisine
+  cuisines
   description
   priceRange
   phone
@@ -744,6 +753,7 @@ export const ADMIN_UPDATE_RESTAURANT = gql`
       slug
       status
       cuisine
+      cuisines
       description
       priceRange
         phone
@@ -2705,6 +2715,10 @@ export const PLATFORM_CONFIG = gql`
       invoicePrefix
       currency
       cancellationPeriodHours
+      noShowMarkingMode
+      holidays {
+        key name dateRule recurring defaultEnabled floating oneOffDate
+      }
       stripeMode
       stripeSandboxConfigured
       stripeProductionConfigured
@@ -2743,6 +2757,10 @@ export const UPDATE_PLATFORM_CONFIG = gql`
       invoicePrefix
       currency
       cancellationPeriodHours
+      noShowMarkingMode
+      holidays {
+        key name dateRule recurring defaultEnabled floating oneOffDate
+      }
       stripeMode
       stripeSandboxConfigured
       stripeProductionConfigured
@@ -2760,6 +2778,86 @@ export const UPDATE_PLATFORM_CONFIG = gql`
         discountPercent
       }
       updatedAt
+    }
+  }
+`;
+
+export const PLATFORM_HOLIDAYS = gql`
+  query PlatformHolidays {
+    platformHolidays {
+      key name dateRule recurring defaultEnabled floating oneOffDate
+    }
+  }
+`;
+
+export const DATE_SCHEDULE_OVERRIDES = gql`
+  query DateScheduleOverrides($restaurantId: ID!, $status: String) {
+    dateScheduleOverrides(restaurantId: $restaurantId, status: $status) {
+      id restaurantId date mode startTime endTime reason source holidayKey status
+      requestedById reviewedById reviewedAt createdAt updatedAt
+    }
+  }
+`;
+
+export const UPSERT_DATE_SCHEDULE_OVERRIDE = gql`
+  mutation UpsertDateScheduleOverride(
+    $restaurantId: ID!
+    $date: String!
+    $mode: String!
+    $startTime: String
+    $endTime: String
+    $reason: String
+    $status: String
+    $holidayKey: String
+  ) {
+    upsertDateScheduleOverride(
+      restaurantId: $restaurantId
+      date: $date
+      mode: $mode
+      startTime: $startTime
+      endTime: $endTime
+      reason: $reason
+      status: $status
+      holidayKey: $holidayKey
+    ) {
+      id date mode startTime endTime reason status source holidayKey
+    }
+  }
+`;
+
+export const REVIEW_DATE_SCHEDULE_OVERRIDE = gql`
+  mutation ReviewDateScheduleOverride($id: ID!, $status: String!) {
+    reviewDateScheduleOverride(id: $id, status: $status) {
+      id status reviewedAt
+    }
+  }
+`;
+
+export const DELETE_DATE_SCHEDULE_OVERRIDE = gql`
+  mutation DeleteDateScheduleOverride($id: ID!) {
+    deleteDateScheduleOverride(id: $id)
+  }
+`;
+
+export const SEND_PLATFORM_ENGAGEMENT_EMAIL = gql`
+  mutation SendPlatformEngagementEmail(
+    $subject: String!
+    $bodyHtml: String!
+    $bodyText: String
+    $restaurantId: ID
+    $reservationStatuses: [String!]
+    $limit: Int
+  ) {
+    sendPlatformEngagementEmail(
+      subject: $subject
+      bodyHtml: $bodyHtml
+      bodyText: $bodyText
+      restaurantId: $restaurantId
+      reservationStatuses: $reservationStatuses
+      limit: $limit
+    ) {
+      sent
+      recipientCount
     }
   }
 `;
@@ -3008,6 +3106,7 @@ export const UPDATE_RESTAURANT = gql`
       name
       status
       cuisine
+      cuisines
       description
       priceRange
       photos
@@ -4072,7 +4171,9 @@ export const GENERATE_POS_API_KEY = gql`
 export const RESTAURANT_SETTINGS = gql`
   query RestaurantSettings($id: ID) {
     restaurant(id: $id) {
-      id name featured featuredUntil spendAlertThresholdCents useSmartAssign allowGuestTableSelection reservationsEnabled reservationsVisible posEnabled
+      id name featured featuredUntil spendAlertThresholdCents useSmartAssign allowGuestTableSelection
+      minPartySize maxPartySize
+      reservationsEnabled reservationsVisible posEnabled
       manualApprovalEnabled manualApprovalPartySizeOp manualApprovalPartySize
       widgetTheme { primaryColor buttonText showReviews }
     }
@@ -4085,6 +4186,8 @@ export const UPDATE_RESTAURANT_SETTINGS = gql`
     $spendAlertThresholdCents: Int
     $useSmartAssign: Boolean
     $allowGuestTableSelection: Boolean
+    $minPartySize: Int
+    $maxPartySize: Int
     $virtualRoomSelectionFeeEnabled: Boolean
     $virtualRoomSelectionFeeMode: VirtualRoomSelectionFeeMode
     $virtualRoomSelectionFeeCents: Int
@@ -4102,6 +4205,8 @@ export const UPDATE_RESTAURANT_SETTINGS = gql`
       spendAlertThresholdCents: $spendAlertThresholdCents
       useSmartAssign: $useSmartAssign
       allowGuestTableSelection: $allowGuestTableSelection
+      minPartySize: $minPartySize
+      maxPartySize: $maxPartySize
       virtualRoomSelectionFeeEnabled: $virtualRoomSelectionFeeEnabled
       virtualRoomSelectionFeeMode: $virtualRoomSelectionFeeMode
       virtualRoomSelectionFeeCents: $virtualRoomSelectionFeeCents
@@ -4115,6 +4220,7 @@ export const UPDATE_RESTAURANT_SETTINGS = gql`
       widgetTheme: $widgetTheme
     ) {
       id spendAlertThresholdCents useSmartAssign allowGuestTableSelection
+      minPartySize maxPartySize
       virtualRoomSelectionFeeEnabled virtualRoomSelectionFeeMode
       virtualRoomSelectionFeeCents virtualRoomSelectionFeeApplyTo
       reservationsEnabled reservationsVisible posEnabled
@@ -4140,7 +4246,7 @@ export const SAVE_FLOOR_PLAN_DRAFT = gql`
       id
       floorPlanBackgroundUrl
       floorPlanBackgroundColor
-      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl }
+      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl backgroundFit backgroundScale backgroundRotationDeg }
       floorPlanPublishedAt
       floorPlanScale { unit unitsPerCell }
       floorFixtures { id name kind floorArea posX posY width height rotation }
@@ -4149,7 +4255,7 @@ export const SAVE_FLOOR_PLAN_DRAFT = gql`
         updatedAt
         backgroundUrl
         backgroundColor
-        areaAppearances { floorArea backgroundColor backgroundUrl }
+        areaAppearances { floorArea backgroundColor backgroundUrl backgroundFit backgroundScale backgroundRotationDeg }
         scale { unit unitsPerCell }
         fixtures { id name kind floorArea posX posY width height rotation }
         rooms { id name floorArea points { x y } }
@@ -4165,7 +4271,7 @@ export const PUBLISH_FLOOR_PLAN = gql`
       id
       floorPlanBackgroundUrl
       floorPlanBackgroundColor
-      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl }
+      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl backgroundFit backgroundScale backgroundRotationDeg }
       floorPlanPublishedAt
       floorPlanScale { unit unitsPerCell }
       floorFixtures { id name kind floorArea posX posY width height rotation }
@@ -4174,7 +4280,7 @@ export const PUBLISH_FLOOR_PLAN = gql`
         updatedAt
         backgroundUrl
         backgroundColor
-        areaAppearances { floorArea backgroundColor backgroundUrl }
+        areaAppearances { floorArea backgroundColor backgroundUrl backgroundFit backgroundScale backgroundRotationDeg }
         scale { unit unitsPerCell }
         fixtures { id name kind floorArea posX posY width height rotation }
         rooms { id name floorArea points { x y } }
@@ -4194,10 +4300,10 @@ export const ENSURE_FLOOR_AREA = gql`
   mutation EnsureFloorArea($restaurantId: ID!, $name: String!) {
     ensureFloorArea(restaurantId: $restaurantId, name: $name) {
       id
-      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl }
+      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl backgroundFit backgroundScale backgroundRotationDeg }
       floorPlanDraft {
         updatedAt
-        areaAppearances { floorArea backgroundColor backgroundUrl }
+        areaAppearances { floorArea backgroundColor backgroundUrl backgroundFit backgroundScale backgroundRotationDeg }
       }
       tables { id floorArea }
     }
@@ -4208,10 +4314,10 @@ export const RENAME_FLOOR_AREA = gql`
   mutation RenameFloorArea($restaurantId: ID!, $from: String!, $to: String!) {
     renameFloorArea(restaurantId: $restaurantId, from: $from, to: $to) {
       id
-      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl }
+      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl backgroundFit backgroundScale backgroundRotationDeg }
       floorPlanDraft {
         updatedAt
-        areaAppearances { floorArea backgroundColor backgroundUrl }
+        areaAppearances { floorArea backgroundColor backgroundUrl backgroundFit backgroundScale backgroundRotationDeg }
         fixtures { id floorArea }
         rooms { id floorArea }
       }
@@ -4226,10 +4332,10 @@ export const DELETE_FLOOR_AREA = gql`
   mutation DeleteFloorArea($restaurantId: ID!, $name: String!) {
     deleteFloorArea(restaurantId: $restaurantId, name: $name) {
       id
-      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl }
+      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl backgroundFit backgroundScale backgroundRotationDeg }
       floorPlanDraft {
         updatedAt
-        areaAppearances { floorArea backgroundColor backgroundUrl }
+        areaAppearances { floorArea backgroundColor backgroundUrl backgroundFit backgroundScale backgroundRotationDeg }
       }
       tables { id floorArea }
     }
@@ -4242,7 +4348,7 @@ export const FLOOR_PLAN_TABLES = gql`
       id name
       floorPlanBackgroundUrl
       floorPlanBackgroundColor
-      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl }
+      floorPlanAreaAppearances { floorArea backgroundColor backgroundUrl backgroundFit backgroundScale backgroundRotationDeg }
       floorPlanPublishedAt
       floorPlanScale { unit unitsPerCell }
       floorFixtures { id name kind floorArea posX posY width height rotation }
@@ -4251,7 +4357,7 @@ export const FLOOR_PLAN_TABLES = gql`
         updatedAt
         backgroundUrl
         backgroundColor
-        areaAppearances { floorArea backgroundColor backgroundUrl }
+        areaAppearances { floorArea backgroundColor backgroundUrl backgroundFit backgroundScale backgroundRotationDeg }
         scale { unit unitsPerCell }
         fixtures { id name kind floorArea posX posY width height rotation }
         rooms { id name floorArea points { x y } }
@@ -4273,7 +4379,7 @@ export const FLOOR_PLAN_OPS = gql`
       date
       backgroundUrl
       backgroundColor
-      areaAppearances { floorArea backgroundColor backgroundUrl }
+      areaAppearances { floorArea backgroundColor backgroundUrl backgroundFit backgroundScale backgroundRotationDeg }
       floorPlanScale { unit unitsPerCell }
       floorFixtures { id name kind floorArea posX posY width height rotation }
       tables {
@@ -4455,6 +4561,8 @@ const VIRTUAL_ROOM_SCENE_FIELDS = `
   modelTransform { scale rotationDeg offsetXM offsetZM }
   areas {
     name wallHeightM wallColor floorColor floorImageUrl panoramaUrl wallPhotoUrls
+    wallPhotoFit wallPhotoTileM wallPhotoRotationDeg floorImageRotationDeg
+    roomWidthM roomDepthM
     offsetXM offsetYM offsetZM guestSelectable selectionFeeCharged selectionFeeCents
     bounds { minX minY maxX maxY }
     tables {
@@ -4475,6 +4583,8 @@ const VIRTUAL_ROOM_EDITOR_FIELDS = `
   media { id kind role url floorArea caption createdAt }
   areaSettings {
     floorArea wallHeightM panoramaMediaId wallColor floorColor
+    wallPhotoFit wallPhotoTileM wallPhotoRotationDeg floorImageRotationDeg
+    roomWidthM roomDepthM
     offsetXM offsetYM offsetZM guestSelectable selectionFeeCharged selectionFeeCents
   }
   reconstruction {

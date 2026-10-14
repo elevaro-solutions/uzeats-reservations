@@ -1,6 +1,7 @@
 import { mapNotificationPreferences } from '../lib/notificationPreferences.js';
 import { resolveReservationConfirmationNumber } from '../lib/reservationConfirmationNumber.js';
 import {
+  buildLocationRestaurantSlugBase,
   isActiveWaitlistWaitStatus,
   isWaitlistWaitOverdue,
   resolveLoyaltyTier,
@@ -80,12 +81,19 @@ export function mapUser(u: any) {
 }
 
 export function mapRestaurant(r: any) {
+  const cuisineList =
+    Array.isArray(r.cuisines) && r.cuisines.length > 0
+      ? r.cuisines.map((c: unknown) => String(c).trim()).filter(Boolean)
+      : r.cuisine
+        ? [String(r.cuisine)]
+        : [];
   return {
     id: id(r),
     name: r.name,
     slug: r.slug,
     description: r.description,
-    cuisine: r.cuisine,
+    cuisine: cuisineList[0] || r.cuisine || '',
+    cuisines: cuisineList,
     priceRange: r.priceRange,
     address: r.address,
     location: {
@@ -106,6 +114,27 @@ export function mapRestaurant(r: any) {
       typeof r.cancellationPeriodHours === 'number' && r.cancellationPeriodHours >= 1
         ? Math.round(r.cancellationPeriodHours)
         : null,
+    noShowMarkingMode:
+      r.noShowMarkingMode === 'auto' || r.noShowMarkingMode === 'manual_only'
+        ? r.noShowMarkingMode
+        : null,
+    floorAreaSettings: Array.isArray(r.floorAreaSettings)
+      ? r.floorAreaSettings
+          .filter((s: { floorArea?: string }) => s?.floorArea)
+          .map((s: { floorArea: string; noShowMarkingMode?: string | null }) => ({
+            floorArea: String(s.floorArea).trim() || 'Main',
+            noShowMarkingMode:
+              s.noShowMarkingMode === 'auto' || s.noShowMarkingMode === 'manual_only'
+                ? s.noShowMarkingMode
+                : null,
+          }))
+      : [],
+    applyPlatformHolidays: r.applyPlatformHolidays !== false,
+    holidayOptOutKeys: Array.isArray(r.holidayOptOutKeys)
+      ? r.holidayOptOutKeys.map(String)
+      : [],
+    holidayOptInKeys: Array.isArray(r.holidayOptInKeys) ? r.holidayOptInKeys.map(String) : [],
+    requireHolidayApproval: r.requireHolidayApproval !== false,
     averageRating: r.averageRating ?? 0,
     reviewCount: r.reviewCount ?? 0,
     featured: r.featured ?? false,
@@ -113,6 +142,10 @@ export function mapRestaurant(r: any) {
     spendAlertThresholdCents: r.spendAlertThresholdCents ?? 0,
     useSmartAssign: r.useSmartAssign !== false,
     allowGuestTableSelection: r.allowGuestTableSelection ?? false,
+    minPartySize:
+      typeof r.minPartySize === 'number' && r.minPartySize >= 1 ? r.minPartySize : null,
+    maxPartySize:
+      typeof r.maxPartySize === 'number' && r.maxPartySize >= 1 ? r.maxPartySize : null,
     virtualRoomSelectionFeeEnabled: r.virtualRoomSelectionFeeEnabled !== false,
     virtualRoomSelectionFeeMode:
       r.virtualRoomSelectionFeeMode === 'per_table' || r.virtualRoomSelectionFeeMode === 'per_guest'
@@ -266,6 +299,10 @@ export function mapTable(t: any) {
     cancellationPeriodHours:
       typeof t.cancellationPeriodHours === 'number' && t.cancellationPeriodHours >= 1
         ? Math.round(t.cancellationPeriodHours)
+        : null,
+    noShowMarkingMode:
+      t.noShowMarkingMode === 'auto' || t.noShowMarkingMode === 'manual_only'
+        ? t.noShowMarkingMode
         : null,
     virtualRoomSelectable: t.virtualRoomSelectable !== false,
     virtualRoomSelectionFeeEnabled: t.virtualRoomSelectionFeeEnabled === true,
@@ -793,9 +830,15 @@ export function mapMenu(menu: any, restaurantId: string) {
   };
 }
 
-export function slugify(name: string) {
-  return `${name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')}-${Date.now().toString(36)}`;
+export function slugify(
+  name: string,
+  address?: {
+    city?: string | null;
+    neighborhood?: string | null;
+    state?: string | null;
+    line1?: string | null;
+  } | null,
+) {
+  const base = buildLocationRestaurantSlugBase(name, address);
+  return `${base}-${Date.now().toString(36)}`;
 }

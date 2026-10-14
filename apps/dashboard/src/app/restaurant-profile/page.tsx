@@ -32,7 +32,15 @@ import {
   ShopOutlined,
 } from '@ant-design/icons';
 import { AddressAutocomplete, PageHeader, PhoneInput, colors, radii, spacing, usPhoneRules } from '@reservations/ui';
-import { resolveDepositPolicy } from '@reservations/shared';
+import {
+  DEFAULT_MAX_PARTY_SIZE,
+  DEFAULT_MIN_PARTY_SIZE,
+  DEFAULT_PLATFORM_HOLIDAYS,
+  MAX_PARTY_SIZE_SETTING,
+  platformHolidaySelectOptions,
+  resolveDepositPolicy,
+  restaurantCuisinesForForm,
+} from '@reservations/shared';
 import { BookingSharePanel } from '@/components/BookingSharePanel';
 import { DepositPolicyField } from '@/components/DepositPolicyField';
 import CuisineSelect from '@/components/CuisineSelect';
@@ -43,6 +51,7 @@ import { useAuth } from '@/lib/auth';
 import { addressSelectionToFields } from '@/lib/address';
 import {
   MY_RESTAURANTS,
+  PLATFORM_HOLIDAYS,
   UPDATE_RESTAURANT,
   RESTAURANT_SETTINGS,
   UPDATE_RESTAURANT_SETTINGS,
@@ -64,6 +73,8 @@ import { uploadImportedMenuImageToSpaces } from '@/lib/importMenuImages';
 
 const { Text } = Typography;
 
+const fallbackHolidayOptions = platformHolidaySelectOptions(DEFAULT_PLATFORM_HOLIDAYS);
+
 const PROFILE_SECTIONS = [
   'listing',
   'photos',
@@ -77,6 +88,20 @@ const PROFILE_SECTIONS = [
 
 type ProfileSection = (typeof PROFILE_SECTIONS)[number];
 
+function importCoachStorageKey(restaurantId: string) {
+  return `tv_import_coach_seen_${restaurantId}`;
+}
+
+/** True while listing setup is still sparse (same signals as setup-guide listing tasks). */
+function isFirstTimeListingConfig(restaurant: {
+  description?: string | null;
+  photos?: string[] | null;
+}): boolean {
+  const descriptionLen = restaurant.description?.trim().length ?? 0;
+  const photoCount = restaurant.photos?.length ?? 0;
+  return descriptionLen < 10 || photoCount === 0;
+}
+
 export default function RestaurantProfilePage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -84,6 +109,7 @@ export default function RestaurantProfilePage() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [importCoachDismissed, setImportCoachDismissed] = useState(true);
   const { dirty, markDirty, clearDirty, onValuesChange } = useFormDirty();
   const [section, setSection] = useUrlTab({
     param: 'section',
@@ -102,11 +128,27 @@ export default function RestaurantProfilePage() {
     skip: !restaurantId,
     variables: { id: restaurantId },
   });
+  const { data: holidaysData } = useQuery(PLATFORM_HOLIDAYS, { skip: !user });
+  const holidaySelectOptions = useMemo(() => {
+    const fromApi = holidaysData?.platformHolidays;
+    if (Array.isArray(fromApi) && fromApi.length > 0) {
+      return platformHolidaySelectOptions(fromApi);
+    }
+    return fallbackHolidayOptions;
+  }, [holidaysData]);
   const [updateSettings, { loading: savingSettings }] = useMutation(UPDATE_RESTAURANT_SETTINGS);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
+
+  useEffect(() => {
+    if (!restaurantId || typeof window === 'undefined') {
+      setImportCoachDismissed(true);
+      return;
+    }
+    setImportCoachDismissed(localStorage.getItem(importCoachStorageKey(restaurantId)) === '1');
+  }, [restaurantId]);
 
   const restaurant = (data?.myRestaurants ?? []).find(
     (r: { id: string }) => r.id === restaurantId,
@@ -114,12 +156,26 @@ export default function RestaurantProfilePage() {
   const settings = settingsData?.restaurant;
   const settingsLoading = Boolean(restaurantId) && settingsData === undefined;
 
+  const showImportCoach =
+    restaurant != null && !importCoachDismissed && isFirstTimeListingConfig(restaurant);
+
+  const dismissImportCoach = () => {
+    if (!restaurantId || importCoachDismissed) return;
+    localStorage.setItem(importCoachStorageKey(restaurantId), '1');
+    setImportCoachDismissed(true);
+  };
+
+  const openImport = () => {
+    dismissImportCoach();
+    setShowImport(true);
+  };
+
   useEffect(() => {
     if (!restaurant || settingsLoading) return;
     form.setFieldsValue({
       name: restaurant.name,
       description: restaurant.description ?? '',
-      cuisine: restaurant.cuisine,
+      cuisines: restaurantCuisinesForForm(restaurant),
       priceRange: restaurant.priceRange,
       line1: restaurant.address?.line1,
       line2: restaurant.address?.line2 ?? '',
@@ -131,6 +187,11 @@ export default function RestaurantProfilePage() {
       lng: restaurant.location?.lng,
       depositRequired: restaurant.depositRequired,
       cancellationPeriodHours: restaurant.cancellationPeriodHours ?? null,
+      noShowMarkingMode: restaurant.noShowMarkingMode ?? null,
+      applyPlatformHolidays: restaurant.applyPlatformHolidays !== false,
+      requireHolidayApproval: restaurant.requireHolidayApproval !== false,
+      holidayOptOutKeys: restaurant.holidayOptOutKeys ?? [],
+      holidayOptInKeys: restaurant.holidayOptInKeys ?? [],
       depositAmountCents: restaurant.depositAmountCents
         ? restaurant.depositAmountCents / 100
         : undefined,
@@ -143,6 +204,8 @@ export default function RestaurantProfilePage() {
       menuUrl: restaurant.menuUrl ?? '',
       useSmartAssign: settings?.useSmartAssign ?? false,
       allowGuestTableSelection: settings?.allowGuestTableSelection ?? false,
+      minPartySize: settings?.minPartySize ?? undefined,
+      maxPartySize: settings?.maxPartySize ?? undefined,
       reservationsEnabled: settings?.reservationsEnabled ?? true,
       reservationsVisible: settings?.reservationsVisible ?? true,
       posEnabled: settings?.posEnabled ?? false,
@@ -167,7 +230,8 @@ export default function RestaurantProfilePage() {
             input: {
               name: values.name,
               description: values.description || undefined,
-              cuisine: values.cuisine,
+              cuisines: values.cuisines,
+              cuisine: Array.isArray(values.cuisines) ? values.cuisines[0] : undefined,
               priceRange: values.priceRange,
               address: {
                 line1: values.line1,
@@ -186,6 +250,11 @@ export default function RestaurantProfilePage() {
                 !(Number(values.cancellationPeriodHours) >= 1)
                   ? null
                   : Math.round(Number(values.cancellationPeriodHours)),
+              noShowMarkingMode: values.noShowMarkingMode ?? null,
+              applyPlatformHolidays: values.applyPlatformHolidays !== false,
+              requireHolidayApproval: values.requireHolidayApproval !== false,
+              holidayOptOutKeys: values.holidayOptOutKeys ?? [],
+              holidayOptInKeys: values.holidayOptInKeys ?? [],
               loyaltyEnabled: values.loyaltyEnabled ?? false,
               loyaltyPointsPerVisit: values.loyaltyPointsPerVisit ?? 50,
               loyaltyMinRedeemPoints: values.loyaltyMinRedeemPoints ?? 200,
@@ -203,6 +272,8 @@ export default function RestaurantProfilePage() {
             spendAlertThresholdCents: Math.round((values.spendAlertDollars ?? 0) * 100),
             useSmartAssign: values.useSmartAssign ?? false,
             allowGuestTableSelection: values.allowGuestTableSelection ?? false,
+            minPartySize: values.minPartySize ?? null,
+            maxPartySize: values.maxPartySize ?? null,
             reservationsEnabled: values.reservationsEnabled ?? true,
             reservationsVisible: values.reservationsVisible ?? true,
             posEnabled: values.posEnabled ?? false,
@@ -232,6 +303,7 @@ export default function RestaurantProfilePage() {
   };
 
   const handleOwnerImport = (data: ImportedRestaurantData) => {
+    dismissImportCoach();
     applyRestaurantImportToForm(form, data);
     markDirty();
     setSection('address');
@@ -320,10 +392,17 @@ export default function RestaurantProfilePage() {
           </Col>
           <Col xs={24} sm={12}>
             <Form.Item
-              name="cuisine"
+              name="cuisines"
               label="Cuisine"
               tooltip={tips.cuisine}
-              rules={[{ required: true, message: 'Cuisine is required' }]}
+              rules={[
+                {
+                  validator: async (_, value) => {
+                    if (Array.isArray(value) && value.length > 0) return;
+                    throw new Error('Select at least one cuisine');
+                  },
+                },
+              ]}
             >
               <CuisineSelect />
             </Form.Item>
@@ -553,138 +632,291 @@ export default function RestaurantProfilePage() {
     {
       key: 'policies',
       label: 'Booking policies',
-      hint: 'Deposit and loyalty rules applied when diners book.',
+      hint: 'Deposits, cancellation, no-shows, holidays, loyalty, and booking approval.',
       icon: <SafetyCertificateOutlined />,
       children: (
-        <Row gutter={16}>
-          <Col xs={24} sm={12}>
-            <Form.Item
-              name="depositRequired"
-              label="Deposit required"
-              valuePropName="checked"
-              tooltip={tips.depositRequired}
-            >
-              <Switch />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Form.Item
-              name="depositAmountCents"
-              label="Deposit amount (USD)"
-              tooltip={tips.depositAmountCents}
-              dependencies={['depositRequired']}
-              rules={[
-                { type: 'number', min: 0, message: 'Must be 0 or greater' },
-                depositAmountWhenRequiredRule,
-              ]}
-            >
-              <InputNumber min={0} precision={2} step={0.01} style={{ width: '100%' }} prefix="$" />
-            </Form.Item>
-          </Col>
-          <Col xs={24}>
-            <DepositPolicyField />
-          </Col>
-          <Col xs={24} sm={12}>
-            <Form.Item
-              name="cancellationPeriodHours"
-              label="Cancel / no-show window (hours)"
-              tooltip={tips.cancellationPeriodHours}
-              extra="Leave empty to use the platform default (usually 24 hours)."
-            >
-              <InputNumber min={1} max={720} precision={0} style={{ width: '100%' }} placeholder="Platform default" />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Form.Item
-              name="loyaltyEnabled"
-              label="Loyalty program"
-              valuePropName="checked"
-              tooltip={tips.loyaltyEnabled}
-            >
-              <Switch />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Form.Item
-              name="loyaltyPointsPerVisit"
-              label="Points per visit"
-              tooltip={tips.loyaltyPointsPerVisit}
-              rules={[{ type: 'number', min: 0, message: 'Must be 0 or greater' }]}
-            >
-              <InputNumber min={0} precision={0} style={{ width: '100%' }} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Form.Item
-              name="loyaltyMinRedeemPoints"
-              label="Min redeem points"
-              tooltip={tips.loyaltyMinRedeemPoints}
-              rules={[{ type: 'number', min: 0, message: 'Must be 0 or greater' }]}
-            >
-              <InputNumber min={0} precision={0} style={{ width: '100%' }} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={12}>
-            <Form.Item
-              name="manualApprovalEnabled"
-              label="Require manual approval"
-              valuePropName="checked"
-              tooltip={tips.manualApprovalEnabled}
-            >
-              <Switch />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={12}>
+        <Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
+          <div>
+            <h4 className="rt-form-section-title">Deposits</h4>
+            <p className="rt-form-section-desc">
+              Card hold or prepaid amount guests leave when booking online.
+            </p>
+            <Row gutter={16}>
+              <Col xs={24} sm={12}>
+                <Form.Item
+                  name="depositRequired"
+                  label="Deposit required"
+                  valuePropName="checked"
+                  tooltip={tips.depositRequired}
+                >
+                  <Switch checkedChildren="On" unCheckedChildren="Off" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item
+                  name="depositAmountCents"
+                  label="Deposit amount (USD)"
+                  tooltip={tips.depositAmountCents}
+                  dependencies={['depositRequired']}
+                  rules={[
+                    { type: 'number', min: 0, message: 'Must be 0 or greater' },
+                    depositAmountWhenRequiredRule,
+                  ]}
+                >
+                  <InputNumber
+                    min={0}
+                    precision={2}
+                    step={0.01}
+                    style={{ width: '100%' }}
+                    prefix="$"
+                    placeholder="e.g. 25.00"
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <DepositPolicyField />
+              </Col>
+            </Row>
+          </div>
+
+          <div>
+            <h4 className="rt-form-section-title">Cancellation & no-shows</h4>
+            <p className="rt-form-section-desc">
+              When free cancellation ends, and how no-shows are marked for fees.
+            </p>
+            <Row gutter={16}>
+              <Col xs={24} sm={12}>
+                <Form.Item
+                  name="cancellationPeriodHours"
+                  label="Free cancellation window (hours)"
+                  tooltip={tips.cancellationPeriodHours}
+                  extra="Empty = platform default (usually 24 hours)."
+                >
+                  <InputNumber
+                    min={1}
+                    max={720}
+                    precision={0}
+                    style={{ width: '100%' }}
+                    placeholder="Platform default"
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item
+                  name="noShowMarkingMode"
+                  label="No-show marking"
+                  tooltip={tips.noShowMarkingMode}
+                  extra="Empty = inherit platform default."
+                >
+                  <Select
+                    allowClear
+                    placeholder="Inherit platform default"
+                    options={[
+                      {
+                        value: 'manual_only',
+                        label: 'Manual only (host/manager + auto-charge)',
+                      },
+                      {
+                        value: 'auto',
+                        label: 'Auto mark at slot end (no fee charge)',
+                      },
+                    ]}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+          </div>
+
+          <div>
+            <h4 className="rt-form-section-title">Holidays</h4>
+            <p className="rt-form-section-desc">
+              How platform holidays appear for this venue. Approve closing on{' '}
+              <Link href="/blackouts">Closures & hours</Link>.
+            </p>
             <Form.Item
               noStyle
               shouldUpdate={(prev, next) =>
-                prev.manualApprovalEnabled !== next.manualApprovalEnabled
+                prev.applyPlatformHolidays !== next.applyPlatformHolidays
               }
             >
-              {({ getFieldValue }) =>
-                getFieldValue('manualApprovalEnabled') ? (
-                  <Form.Item
-                    label="Approve when party size"
-                    tooltip={tips.manualApprovalPartySize}
-                    extra="Leave empty to require approval for all online bookings"
-                  >
-                    <Space.Compact block>
-                      <Form.Item name="manualApprovalPartySizeOp" noStyle initialValue="gte">
-                        <Select
-                          style={{ width: 72 }}
-                          options={[
-                            { value: 'gte', label: '≥' },
-                            { value: 'gt', label: '>' },
-                          ]}
-                        />
-                      </Form.Item>
+              {({ getFieldValue }) => {
+                const holidaysOn = getFieldValue('applyPlatformHolidays') !== false;
+                return (
+                  <Row gutter={16}>
+                    <Col xs={24} sm={12}>
                       <Form.Item
-                        name="manualApprovalPartySize"
-                        noStyle
-                        rules={[
-                          {
-                            type: 'number',
-                            min: 1,
-                            max: 50,
-                            message: 'Enter 1–50 or leave empty',
-                          },
-                        ]}
+                        name="applyPlatformHolidays"
+                        label="Use platform holidays"
+                        valuePropName="checked"
+                        tooltip={tips.applyPlatformHolidays}
                       >
-                        <InputNumber
-                          min={1}
-                          max={50}
-                          precision={0}
-                          style={{ width: '100%' }}
-                          placeholder="All parties"
+                        <Switch checkedChildren="On" unCheckedChildren="Off" />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} sm={12}>
+                      <Form.Item
+                        name="requireHolidayApproval"
+                        label="Require approval before closing"
+                        valuePropName="checked"
+                        tooltip={tips.requireHolidayApproval}
+                      >
+                        <Switch
+                          checkedChildren="On"
+                          unCheckedChildren="Off"
+                          disabled={!holidaysOn}
                         />
                       </Form.Item>
-                    </Space.Compact>
-                  </Form.Item>
-                ) : null
-              }
+                    </Col>
+                    <Col xs={24} sm={12}>
+                      <Form.Item
+                        name="holidayOptOutKeys"
+                        label="Always stay open on"
+                        tooltip={tips.holidayOptOutKeys}
+                        extra="Skip the closing queue for these holidays (shown as Name (key))."
+                      >
+                        <Select
+                          mode="multiple"
+                          allowClear
+                          showSearch
+                          disabled={!holidaysOn}
+                          options={holidaySelectOptions}
+                          placeholder="e.g. Thanksgiving (thanksgiving)"
+                          optionFilterProp="label"
+                        />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} sm={12}>
+                      <Form.Item
+                        name="holidayOptInKeys"
+                        label="Also review these holidays"
+                        tooltip={tips.holidayOptInKeys}
+                        extra="Add holidays that are off by default (e.g. juneteenth, christmas_eve)."
+                      >
+                        <Select
+                          mode="multiple"
+                          allowClear
+                          showSearch
+                          disabled={!holidaysOn}
+                          options={holidaySelectOptions}
+                          placeholder="e.g. Juneteenth (juneteenth)"
+                          optionFilterProp="label"
+                        />
+                      </Form.Item>
+                    </Col>
+                  </Row>
+                );
+              }}
             </Form.Item>
-          </Col>
-        </Row>
+          </div>
+
+          <div>
+            <h4 className="rt-form-section-title">Loyalty</h4>
+            <p className="rt-form-section-desc">
+              Points guests earn per completed visit and the minimum they can redeem.
+            </p>
+            <Row gutter={16}>
+              <Col xs={24} sm={8}>
+                <Form.Item
+                  name="loyaltyEnabled"
+                  label="Loyalty program"
+                  valuePropName="checked"
+                  tooltip={tips.loyaltyEnabled}
+                >
+                  <Switch checkedChildren="On" unCheckedChildren="Off" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={8}>
+                <Form.Item
+                  name="loyaltyPointsPerVisit"
+                  label="Points per visit"
+                  tooltip={tips.loyaltyPointsPerVisit}
+                  rules={[{ type: 'number', min: 0, message: 'Must be 0 or greater' }]}
+                >
+                  <InputNumber min={0} precision={0} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={8}>
+                <Form.Item
+                  name="loyaltyMinRedeemPoints"
+                  label="Minimum points to redeem"
+                  tooltip={tips.loyaltyMinRedeemPoints}
+                  rules={[{ type: 'number', min: 0, message: 'Must be 0 or greater' }]}
+                >
+                  <InputNumber min={0} precision={0} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+            </Row>
+          </div>
+
+          <div>
+            <h4 className="rt-form-section-title">Booking approval</h4>
+            <p className="rt-form-section-desc">
+              Hold matching online bookings as pending until a host confirms them.
+            </p>
+            <Row gutter={16}>
+              <Col xs={24} sm={12}>
+                <Form.Item
+                  name="manualApprovalEnabled"
+                  label="Require manual approval"
+                  valuePropName="checked"
+                  tooltip={tips.manualApprovalEnabled}
+                >
+                  <Switch checkedChildren="On" unCheckedChildren="Off" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item
+                  noStyle
+                  shouldUpdate={(prev, next) =>
+                    prev.manualApprovalEnabled !== next.manualApprovalEnabled
+                  }
+                >
+                  {({ getFieldValue }) =>
+                    getFieldValue('manualApprovalEnabled') ? (
+                      <Form.Item
+                        label="Require approval when party size"
+                        tooltip={tips.manualApprovalPartySize}
+                        extra="Leave empty to require approval for every online booking."
+                      >
+                        <Space.Compact block>
+                          <Form.Item name="manualApprovalPartySizeOp" noStyle initialValue="gte">
+                            <Select
+                              style={{ width: 72 }}
+                              options={[
+                                { value: 'gte', label: '≥' },
+                                { value: 'gt', label: '>' },
+                              ]}
+                            />
+                          </Form.Item>
+                          <Form.Item
+                            name="manualApprovalPartySize"
+                            noStyle
+                            rules={[
+                              {
+                                type: 'number',
+                                min: 1,
+                                max: 50,
+                                message: 'Enter 1–50 or leave empty',
+                              },
+                            ]}
+                          >
+                            <InputNumber
+                              min={1}
+                              max={50}
+                              precision={0}
+                              style={{ width: '100%' }}
+                              placeholder="All parties"
+                            />
+                          </Form.Item>
+                        </Space.Compact>
+                      </Form.Item>
+                    ) : null
+                  }
+                </Form.Item>
+              </Col>
+            </Row>
+          </div>
+        </Space>
       ),
     },
     {
@@ -722,6 +954,60 @@ export default function RestaurantProfilePage() {
               valuePropName="checked"
             >
               <Switch />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Form.Item
+              name="minPartySize"
+              label="Min party size (online)"
+              tooltip={tips.minPartySize}
+              dependencies={['maxPartySize']}
+              rules={[
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    const max = getFieldValue('maxPartySize');
+                    if (value != null && max != null && value > max) {
+                      return Promise.reject(new Error('Min cannot be greater than max'));
+                    }
+                    return Promise.resolve();
+                  },
+                }),
+              ]}
+              extra={`Empty = default ${DEFAULT_MIN_PARTY_SIZE}`}
+            >
+              <InputNumber
+                min={1}
+                max={MAX_PARTY_SIZE_SETTING}
+                style={{ width: '100%' }}
+                placeholder={String(DEFAULT_MIN_PARTY_SIZE)}
+              />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Form.Item
+              name="maxPartySize"
+              label="Max party size (online)"
+              tooltip={tips.maxPartySize}
+              dependencies={['minPartySize']}
+              rules={[
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    const min = getFieldValue('minPartySize');
+                    if (value != null && min != null && value < min) {
+                      return Promise.reject(new Error('Max cannot be less than min'));
+                    }
+                    return Promise.resolve();
+                  },
+                }),
+              ]}
+              extra={`Empty = default ${DEFAULT_MAX_PARTY_SIZE} · Large party CTA above this`}
+            >
+              <InputNumber
+                min={1}
+                max={MAX_PARTY_SIZE_SETTING}
+                style={{ width: '100%' }}
+                placeholder={String(DEFAULT_MAX_PARTY_SIZE)}
+              />
             </Form.Item>
           </Col>
           <Col xs={24} sm={8}>
@@ -816,10 +1102,21 @@ export default function RestaurantProfilePage() {
           title="Restaurant profile"
           subtitle="Name, location, contact, deposits, loyalty, media, booking widget, and public URL"
           extra={
-            <Space wrap>
-              <Button icon={<ImportOutlined />} onClick={() => setShowImport(true)}>
-                Import from DoorDash / Uber Eats
-              </Button>
+            <Space wrap align="start">
+              <div className={showImportCoach ? 'rt-import-coach' : undefined}>
+                <Button
+                  className={showImportCoach ? 'rt-import-coach__btn' : undefined}
+                  icon={<ImportOutlined />}
+                  onClick={openImport}
+                >
+                  Import from DoorDash / Uber Eats
+                </Button>
+                {showImportCoach ? (
+                  <p className="rt-import-coach__tip">
+                    First time here? Import your listing from DoorDash or Uber Eats to fill this in.
+                  </p>
+                ) : null}
+              </div>
               <Select
                 style={{ width: 260 }}
                 value={restaurantId}

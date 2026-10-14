@@ -7,6 +7,7 @@ import {
   type AvailabilitySlot,
 } from '@reservations/shared';
 import { Blackout, Shift } from '../models/Shift.js';
+import { DateScheduleOverride } from '../models/DateScheduleOverride.js';
 import { Table } from '../models/Table.js';
 import { Reservation } from '../models/Reservation.js';
 import { Restaurant } from '../models/Restaurant.js';
@@ -16,6 +17,8 @@ import {
   getCachedAvailability,
   setCachedAvailability,
 } from './availabilityCache.js';
+import { holidayAppliesToRestaurant } from '@reservations/shared';
+import { holidayDateForYear, listPlatformHolidays } from './holidays.js';
 
 function overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
   return aStart < bEnd && bStart < aEnd;
@@ -31,6 +34,19 @@ type LeanRestaurant = {
   status: string;
   address?: { state?: string; zip?: string; country?: string };
   location?: { coordinates?: number[] };
+  applyPlatformHolidays?: boolean | null;
+  holidayOptOutKeys?: string[] | null;
+  holidayOptInKeys?: string[] | null;
+  requireHolidayApproval?: boolean | null;
+};
+
+type LeanScheduleOverride = {
+  restaurantId: mongoose.Types.ObjectId;
+  date: string;
+  mode: 'closed' | 'custom_hours';
+  startTime?: string | null;
+  endTime?: string | null;
+  status: string;
 };
 
 type LeanBlackout = {
@@ -212,30 +228,42 @@ export async function getAvailabilityForRestaurants(params: {
     tableFilter.privateDiningOnly = { $ne: true };
   }
 
-  const [blackouts, allShifts, tables, reservations] = await Promise.all([
-    Blackout.find({
-      restaurantId: { $in: approvedIds },
-      date: params.date,
-    }).lean() as Promise<LeanBlackout[]>,
-    Shift.find({
-      restaurantId: { $in: approvedIds },
-      active: true,
-    }).lean() as Promise<LeanShift[]>,
-    Table.find(tableFilter).lean() as Promise<LeanTable[]>,
-    // Wide UTC window covering all US timezones for the calendar date.
-    Reservation.find({
-      restaurantId: { $in: approvedIds },
-      status: { $in: ['pending', 'confirmed', 'seated'] },
-      slotStart: {
-        $lt: zonedWallClockToUtc(params.date, '23:59', 'Pacific/Kiritimati'),
-      },
-      slotEnd: {
-        $gt: zonedWallClockToUtc(params.date, '00:00', 'Pacific/Pago_Pago'),
-      },
-    })
-      .select('restaurantId tableIds slotStart slotEnd')
-      .lean() as Promise<LeanReservation[]>,
-  ]);
+  const year = Number(params.date.slice(0, 4));
+  const [blackouts, allShifts, tables, reservations, scheduleOverrides, platformHolidays] =
+    await Promise.all([
+      Blackout.find({
+        restaurantId: { $in: approvedIds },
+        date: params.date,
+      }).lean() as Promise<LeanBlackout[]>,
+      Shift.find({
+        restaurantId: { $in: approvedIds },
+        active: true,
+      }).lean() as Promise<LeanShift[]>,
+      Table.find(tableFilter).lean() as Promise<LeanTable[]>,
+      // Wide UTC window covering all US timezones for the calendar date.
+      Reservation.find({
+        restaurantId: { $in: approvedIds },
+        status: { $in: ['pending', 'confirmed', 'seated'] },
+        slotStart: {
+          $lt: zonedWallClockToUtc(params.date, '23:59', 'Pacific/Kiritimati'),
+        },
+        slotEnd: {
+          $gt: zonedWallClockToUtc(params.date, '00:00', 'Pacific/Pago_Pago'),
+        },
+      })
+        .select('restaurantId tableIds slotStart slotEnd')
+        .lean() as Promise<LeanReservation[]>,
+      DateScheduleOverride.find({
+        restaurantId: { $in: approvedIds },
+        date: params.date,
+        status: 'approved',
+      }).lean() as Promise<LeanScheduleOverride[]>,
+      listPlatformHolidays(),
+    ]);
+
+  const holidayKeysForDate = Number.isFinite(year)
+    ? platformHolidays.filter((h) => holidayDateForYear(h, year) === params.date)
+    : [];
 
   let minDayStart = Number.POSITIVE_INFINITY;
   let maxDayEnd = Number.NEGATIVE_INFINITY;
@@ -325,18 +353,55 @@ export async function getAvailabilityForRestaurants(params: {
     set.add(claim.slotKey);
   }
 
+  const overridesByRestaurant = new Map<string, LeanScheduleOverride>();
+  for (const o of scheduleOverrides) {
+    overridesByRestaurant.set(String(o.restaurantId), o);
+  }
+
   for (const restaurant of restaurants) {
     const id = String(restaurant._id);
     const bounds = dayBounds.get(id)!;
-    const restaurantShifts = (shiftsByRestaurant.get(id) ?? []).filter((s) =>
+    const override = overridesByRestaurant.get(id);
+    let restaurantShifts = (shiftsByRestaurant.get(id) ?? []).filter((s) =>
       (s.daysOfWeek ?? []).includes(bounds.dayOfWeek),
     );
+    let blackoutsForDay = blackoutsByRestaurant.get(id) ?? [];
+
+    if (override?.mode === 'closed') {
+      blackoutsForDay = [{ restaurantId: restaurant._id, allDay: true }, ...blackoutsForDay];
+    } else if (override?.mode === 'custom_hours' && override.startTime && override.endTime) {
+      restaurantShifts = [
+        {
+          restaurantId: restaurant._id,
+          daysOfWeek: [bounds.dayOfWeek],
+          startTime: override.startTime,
+          endTime: override.endTime,
+          slotIntervalMinutes: restaurantShifts[0]?.slotIntervalMinutes ?? 15,
+          turnTimeMinutes: restaurantShifts[0]?.turnTimeMinutes ?? 90,
+        },
+      ];
+    } else if (!override && holidayKeysForDate.length > 0) {
+      const closes = holidayKeysForDate.some((holiday) =>
+        holidayAppliesToRestaurant({
+          holiday,
+          applyPlatformHolidays: restaurant.applyPlatformHolidays,
+          holidayOptOutKeys: restaurant.holidayOptOutKeys,
+          holidayOptInKeys: restaurant.holidayOptInKeys,
+        }),
+      );
+      // Default: stay open until an approved override. Auto-close only when the
+      // restaurant explicitly turns requireHolidayApproval off.
+      if (closes && restaurant.requireHolidayApproval === false) {
+        blackoutsForDay = [{ restaurantId: restaurant._id, allDay: true }, ...blackoutsForDay];
+      }
+    }
+
     const slots = computeSlotsForRestaurant({
       restaurant,
       date: params.date,
       partySize: params.partySize,
       now,
-      blackouts: blackoutsByRestaurant.get(id) ?? [],
+      blackouts: blackoutsForDay,
       shifts: restaurantShifts,
       tables: tablesByRestaurant.get(id) ?? [],
       reservations: reservationsByRestaurant.get(id) ?? [],

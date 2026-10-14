@@ -33,6 +33,12 @@ const tableSchema = new Schema(
     depositAmountCents: { type: Number, default: 0, min: 0 },
     /** Hours before slot start when free cancel ends. Null inherits restaurant/platform. */
     cancellationPeriodHours: { type: Number, min: 1, max: 720, default: null },
+    /** No-show marking. Null inherits floor area → restaurant → platform. */
+    noShowMarkingMode: {
+      type: String,
+      enum: ['auto', 'manual_only'],
+      default: null,
+    },
     /** When false, guests cannot pick this table in the 3D room. Default true. */
     virtualRoomSelectable: { type: Boolean, default: true },
     /**

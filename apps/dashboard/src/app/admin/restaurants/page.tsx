@@ -460,7 +460,7 @@ function AdminRestaurantsContent() {
         }
         await createForm.validateFields(['ownerMode', ...ownerFieldsForMode(mode), 'plan', 'status']);
       } else if (createStep === 1) {
-        await createForm.validateFields(['name', 'cuisine', 'priceRange', 'phone', 'website']);
+        await createForm.validateFields(['name', 'cuisines', 'priceRange', 'phone', 'website']);
       } else if (createStep === 2) {
         await createForm.validateFields(['line1', 'city', 'state', 'zip', 'lat', 'lng']);
       }
@@ -477,7 +477,8 @@ function AdminRestaurantsContent() {
   const buildRestaurantInput = (values: Record<string, unknown>, photoList: string[]) => ({
     name: values.name,
     description: values.description || undefined,
-    cuisine: values.cuisine,
+    cuisines: values.cuisines,
+    cuisine: Array.isArray(values.cuisines) ? values.cuisines[0] : undefined,
     priceRange: values.priceRange,
     phone: values.phone || undefined,
     website: values.website || undefined,
@@ -1178,9 +1179,16 @@ function AdminRestaurantsContent() {
                 </Col>
                 <Col xs={24} sm={12}>
                   <Form.Item
-                    name="cuisine"
+                    name="cuisines"
                     label="Cuisine / category"
-                    rules={[{ required: true, message: 'Select or add a cuisine' }]}
+                    rules={[
+                      {
+                        validator: async (_, value) => {
+                          if (Array.isArray(value) && value.length > 0) return;
+                          throw new Error('Select or add at least one cuisine');
+                        },
+                      },
+                    ]}
                     tooltip={tips.cuisine}
                   >
                     <CuisineSelect />

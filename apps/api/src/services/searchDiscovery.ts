@@ -178,7 +178,32 @@ export async function getDiscoveryIndex(
     ]),
     Restaurant.aggregate([
       { $match: approved },
-      { $group: { _id: '$cuisine', count: { $sum: 1 } } },
+      {
+        $project: {
+          labels: {
+            $setUnion: [
+              {
+                $cond: [
+                  { $gt: [{ $size: { $ifNull: ['$cuisines', []] } }, 0] },
+                  '$cuisines',
+                  [],
+                ],
+              },
+              {
+                $cond: [
+                  {
+                    $and: [{ $ne: ['$cuisine', null] }, { $ne: ['$cuisine', ''] }],
+                  },
+                  ['$cuisine'],
+                  [],
+                ],
+              },
+            ],
+          },
+        },
+      },
+      { $unwind: '$labels' },
+      { $group: { _id: '$labels', count: { $sum: 1 } } },
       { $match: { count: { $gte: 1 } } },
       { $sort: { count: -1 } },
     ]),

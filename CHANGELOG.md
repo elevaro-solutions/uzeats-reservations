@@ -4,6 +4,46 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.81.0] — 2026-10-14
+
+### Added
+
+- Partner Hub and Admin hub cards: **pin to sidebar** so settings/grow/insights (and admin billing/platform) tools appear under their menu sections; pins persist per user
+- Platform / restaurant / floor-area / table **no-show marking mode** (`manual_only` default): hosts mark no-shows and card-guarantee fees auto-charge; auto mode still marks at slot end without charging
+- Follow-up emails for **no-show** and **completed** visits (`booking_no_show`, `booking_completed` templates)
+- Admin **Engagement email** (`/admin/engagement`) to send one-off diner outreach from the platform
+- Platform **holiday catalog** (majors on by default): venues **stay open** until an owner/manager **approves closing** each major holiday (opt out or switch to auto-close per restaurant)
+- Holiday pickers show every catalog key (`christmas_day`, `thanksgiving`, …) as **Name (key)** on Restaurant profile and Closures & hours
+- Closures & hours **Mode** includes **Require staff / manual approval before closing**, plus an optional holiday dropdown that fills the date
+- **Date schedule overrides**: close a day or set custom open hours; pending holiday approvals on Closures & hours
+- New restaurants get **location-based URL slugs** (`name-city-state`, Uber Eats–style) by default
+- Setup guide steps for no-show defaults, holidays, follow-up templates, engagement email, and partner holiday/no-show config
+- Partner Hub → Restaurant profile: **Min / max party size (online)** — accepted party sizes for the diner Guests picker (empty = defaults 1–20; settings up to 999)
+- Restaurant booking form and embed widget: Guests options follow restaurant accepted party sizes, with a **Large party** CTA to call / message when above max
+- Discovery Guests picker supports parties up to **50**
+- Virtual 3D room area look: wall photos can **Stretch** to fill each wall or **Tile / pattern** as a repeatable texture, with optional tile size in meters
+- Virtual 3D room area look: free **Wall photo** and **Floor image** rotation (0–360°, slider), plus optional **Room width / depth** overrides in meters (empty = size from floor plan)
+- Restaurant cuisine is now multi-select (up to 8); API stores `cuisines[]` with primary `cuisine` for legacy clients
+- Partner Hub → Restaurant profile: animated Import coachmark on first-time listing setup (dismisses after open/import or once description + photos exist)
+
+### Changed
+
+- Partner Hub → Restaurant profile → Booking policies: clearer section groups, human-readable labels, and info tooltips (deposits, cancellation/no-shows, holidays, loyalty, approval); holiday opt-in/out use named holiday pickers instead of raw keys
+- Online max party size setting is no longer capped at 50 (soft ceiling 999) so banquet-sized listings can accept larger online parties
+- `createReservation` rejects party sizes outside the restaurant’s accepted online min/max (defaults 1–20 when unset)
+- Floor plan: rotate handle on **walls and other fixtures** (same free drag-rotate as tables); handle sits above short boxes so thin walls and small tables stay rotatable
+- Floor plan area settings: underlay **fit** (cover / contain / stretch / tile), free **scale**, and **rotation** — image size is no longer locked to grid `cover`
+
+### Fixed
+
+- Partner signup Business step no longer offers DoorDash / Uber Eats import (API requires a signed-in partner/admin session; use import after login from Restaurants or Restaurant profile)
+- Home / discovery restaurant cards: star ratings no longer stack vertically into a tall column while Ant Design CSS loads on slow networks
+- Virtual 3D view: floors and walls now follow drawn room outlines instead of a padded bounding box around doors, windows, and plants (stops the slab from sticking out past the walls)
+
+### Docs
+
+- Holidays / schedule overrides, no-show marking, party-size limits, multi-cuisine, Virtual Room wall textures, and hub pin-to-sidebar notes (`docs/notes/dashboard.md`, `features-booking.md`, `features-virtual-room.md`, `web.md`)
+
 ## [0.80.0] — 2026-10-14
 
 ### Changed

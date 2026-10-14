@@ -280,12 +280,30 @@ export const typeDefs = `#graphql
     lat: Float!
   }
 
+  enum NoShowMarkingMode {
+    auto
+    manual_only
+  }
+
+  type FloorAreaSetting {
+    floorArea: String!
+    noShowMarkingMode: NoShowMarkingMode
+  }
+
+  input FloorAreaSettingInput {
+    floorArea: String!
+    noShowMarkingMode: NoShowMarkingMode
+  }
+
   type Restaurant {
     id: ID!
     name: String!
     slug: String!
     description: String
+    """Primary cuisine (first of cuisines). Kept for legacy clients."""
     cuisine: String!
+    """All cuisine labels for this venue (first is primary)."""
+    cuisines: [String!]!
     priceRange: Int!
     address: Address!
     location: GeoPoint!
@@ -307,6 +325,16 @@ export const typeDefs = `#graphql
     cancellationPeriodHours: Int
     """Resolved cancel / no-show window (restaurant → platform → 24)."""
     effectiveCancellationPeriodHours: Int!
+    """No-show marking: auto | manual_only. Null inherits platform."""
+    noShowMarkingMode: NoShowMarkingMode
+    """Per-floor-area ops overrides."""
+    floorAreaSettings: [FloorAreaSetting!]!
+    """When true, inherit platform holidays with defaultEnabled."""
+    applyPlatformHolidays: Boolean!
+    holidayOptOutKeys: [String!]!
+    holidayOptInKeys: [String!]!
+    """When true (default), major holidays stay open until owner/manager approves closing."""
+    requireHolidayApproval: Boolean!
     averageRating: Float!
     reviewCount: Int!
     featured: Boolean!
@@ -314,6 +342,10 @@ export const typeDefs = `#graphql
     spendAlertThresholdCents: Int!
     useSmartAssign: Boolean!
     allowGuestTableSelection: Boolean!
+    """Accepted online party size minimum. Null inherits platform default (1)."""
+    minPartySize: Int
+    """Accepted online party size maximum. Null inherits platform default (20). Soft ceiling 999."""
+    maxPartySize: Int
     """When false, 3D table picks never add the selection fee to the restaurant invoice."""
     virtualRoomSelectionFeeEnabled: Boolean!
     """Override platform fee mode; null inherits platform (per_guest | per_table)."""
@@ -466,10 +498,21 @@ export const typeDefs = `#graphql
     combineGroupId: String
   }
 
+  """How the floor-plan underlay image maps onto the canvas."""
+  enum FloorPlanBackgroundFit {
+    cover
+    contain
+    stretch
+    tile
+  }
+
   type FloorPlanAreaAppearance {
     floorArea: String!
     backgroundColor: String
     backgroundUrl: String
+    backgroundFit: FloorPlanBackgroundFit
+    backgroundScale: Float
+    backgroundRotationDeg: Float
   }
 
   type FloorPlanDraft {
@@ -508,6 +551,8 @@ export const typeDefs = `#graphql
     depositAmountCents: Int!
     """Hours before slot start when free cancel ends. Null inherits restaurant/platform."""
     cancellationPeriodHours: Int
+    """No-show marking override. Null inherits floor area → restaurant → platform."""
+    noShowMarkingMode: NoShowMarkingMode
     """When false, guests cannot pick this table in 3D. Default true."""
     virtualRoomSelectable: Boolean!
     """When restaurant fee applyTo is selected, only these tables incur the 3D selection fee."""
@@ -1487,6 +1532,14 @@ export const typeDefs = `#graphql
     custom
   }
 
+  """How wall photos map onto wall planes."""
+  enum VirtualRoomWallPhotoFit {
+    """One image fills each wall (default)."""
+    stretch
+    """Image repeats as a pattern at wallPhotoTileM meters per tile."""
+    tile
+  }
+
   enum VirtualRoomSelectionFeePayer {
     """Platform fee on the restaurant invoice when the visit completes."""
     restaurant
@@ -1573,6 +1626,49 @@ export const typeDefs = `#graphql
     requiredMissingCount: Int!
   }
 
+  type PlatformHoliday {
+    key: String!
+    name: String!
+    dateRule: String
+    recurring: Boolean!
+    defaultEnabled: Boolean!
+    floating: String
+    oneOffDate: String
+  }
+
+  input PlatformHolidayInput {
+    key: String!
+    name: String!
+    dateRule: String
+    recurring: Boolean
+    defaultEnabled: Boolean
+    floating: String
+    oneOffDate: String
+  }
+
+  type DateScheduleOverride {
+    id: ID!
+    restaurantId: ID!
+    date: String!
+    mode: String!
+    startTime: String
+    endTime: String
+    reason: String
+    source: String!
+    holidayKey: String
+    status: String!
+    requestedById: ID
+    reviewedById: ID
+    reviewedAt: DateTime
+    createdAt: DateTime
+    updatedAt: DateTime
+  }
+
+  type PlatformEngagementSendResult {
+    sent: Int!
+    recipientCount: Int!
+  }
+
   type PlatformConfig {
     id: ID!
     supportEmail: String!
@@ -1589,6 +1685,10 @@ export const typeDefs = `#graphql
     currency: String!
     """Platform default hours before slot start when free cancellation ends (default 24)."""
     cancellationPeriodHours: Int!
+    """How no-shows are marked after the seating window. Restaurant/area/table may override."""
+    noShowMarkingMode: NoShowMarkingMode!
+    """Holiday catalog (empty config falls back to built-in majors)."""
+    holidays: [PlatformHoliday!]!
     """Active Stripe environment: sandbox (test) or production (live). Super-admin switchable."""
     stripeMode: StripeMode!
     stripeSandboxConfigured: Boolean!
@@ -1623,6 +1723,10 @@ export const typeDefs = `#graphql
     currency: String
     """Platform default cancel / no-show window in hours (1–720). Default 24."""
     cancellationPeriodHours: Int
+    """Platform default no-show marking mode."""
+    noShowMarkingMode: NoShowMarkingMode
+    """Replace the platform holiday catalog (pass [] to reset to built-in majors)."""
+    holidays: [PlatformHolidayInput!]
     """Super-admin only. Switches API Stripe calls between sandbox and production keys."""
     stripeMode: StripeMode
     featureFlags: PlatformFeatureFlagsInput
@@ -1759,6 +1863,18 @@ export const typeDefs = `#graphql
     """360° equirectangular photo shown around the room."""
     panoramaUrl: String
     wallPhotoUrls: [String!]!
+    """How wall photos map onto walls: stretch to fill, or tile as a pattern."""
+    wallPhotoFit: VirtualRoomWallPhotoFit!
+    """Meters per wall-photo tile when wallPhotoFit is tile."""
+    wallPhotoTileM: Float!
+    """Clockwise UV rotation of wall photos in degrees (0–360)."""
+    wallPhotoRotationDeg: Float!
+    """Clockwise UV rotation of the floor underlay image in degrees (0–360)."""
+    floorImageRotationDeg: Float!
+    """Optional room width in meters; null derives size from the floor plan."""
+    roomWidthM: Float
+    """Optional room depth in meters; null derives size from the floor plan."""
+    roomDepthM: Float
     """World-space meters: sideways offset in the overall multi-area view."""
     offsetXM: Float!
     """World-space meters: vertical stack (upper floors)."""
@@ -1829,6 +1945,12 @@ export const typeDefs = `#graphql
     panoramaMediaId: ID
     wallColor: String
     floorColor: String
+    wallPhotoFit: VirtualRoomWallPhotoFit
+    wallPhotoTileM: Float
+    wallPhotoRotationDeg: Float
+    floorImageRotationDeg: Float
+    roomWidthM: Float
+    roomDepthM: Float
     offsetXM: Float
     offsetYM: Float
     offsetZM: Float
@@ -1890,6 +2012,12 @@ export const typeDefs = `#graphql
     panoramaMediaId: ID
     wallColor: String
     floorColor: String
+    wallPhotoFit: VirtualRoomWallPhotoFit
+    wallPhotoTileM: Float
+    wallPhotoRotationDeg: Float
+    floorImageRotationDeg: Float
+    roomWidthM: Float
+    roomDepthM: Float
     offsetXM: Float
     offsetYM: Float
     offsetZM: Float
@@ -2636,7 +2764,9 @@ export const typeDefs = `#graphql
   input RestaurantInput {
     name: String!
     description: String
-    cuisine: String!
+    """Legacy primary cuisine. Prefer cuisines; first entry becomes primary."""
+    cuisine: String
+    cuisines: [String!]
     priceRange: Int!
     address: AddressInput!
     location: LocationInput!
@@ -2650,6 +2780,13 @@ export const typeDefs = `#graphql
     depositPolicy: String
     """Hours before slot start when free cancel ends. Null inherits platform default."""
     cancellationPeriodHours: Int
+    """No-show marking: auto | manual_only. Null inherits platform."""
+    noShowMarkingMode: NoShowMarkingMode
+    floorAreaSettings: [FloorAreaSettingInput!]
+    applyPlatformHolidays: Boolean
+    holidayOptOutKeys: [String!]
+    holidayOptInKeys: [String!]
+    requireHolidayApproval: Boolean
     loyaltyEnabled: Boolean
     loyaltyPointsPerVisit: Int
     loyaltyMinRedeemPoints: Int
@@ -2679,7 +2816,9 @@ export const typeDefs = `#graphql
   input PartnerRestaurantInput {
     name: String!
     description: String!
-    cuisine: String!
+    """Legacy primary cuisine. Prefer cuisines; first entry becomes primary."""
+    cuisine: String
+    cuisines: [String!]
     priceRange: Int!
     address: AddressInput!
     location: LocationInput!
@@ -2747,6 +2886,7 @@ export const typeDefs = `#graphql
     depositAmountCents: Int
     """Hours before slot start when free cancel ends. Null inherits restaurant/platform."""
     cancellationPeriodHours: Int
+    noShowMarkingMode: NoShowMarkingMode
     virtualRoomSelectable: Boolean
     virtualRoomSelectionFeeEnabled: Boolean
     virtualRoomSelectionFeeCents: Int
@@ -2796,6 +2936,9 @@ export const typeDefs = `#graphql
     floorArea: String!
     backgroundColor: String
     backgroundUrl: String
+    backgroundFit: FloorPlanBackgroundFit
+    backgroundScale: Float
+    backgroundRotationDeg: Float
   }
 
   input FloorPlanSaveInput {
@@ -3708,6 +3851,8 @@ export const typeDefs = `#graphql
 
     accessRules(restaurantId: ID!): [AccessRule!]!
     blackouts(restaurantId: ID!): [Blackout!]!
+    dateScheduleOverrides(restaurantId: ID!, status: String): [DateScheduleOverride!]!
+    platformHolidays: [PlatformHoliday!]!
     promotions(restaurantId: ID!, activeOnly: Boolean, limit: Int, offset: Int): PromotionConnection!
     promotionStats(restaurantId: ID!, days: Int): PromotionStats!
     bestPromotion(restaurantId: ID!, slotStart: DateTime!, depositCents: Int!): PromotionValidation!
@@ -3805,6 +3950,26 @@ export const typeDefs = `#graphql
     deleteShift(id: ID!): Boolean!
     createBlackout(restaurantId: ID!, date: String!, reason: String, allDay: Boolean): Blackout!
     deleteBlackout(id: ID!): Boolean!
+    upsertDateScheduleOverride(
+      restaurantId: ID!
+      date: String!
+      mode: String!
+      startTime: String
+      endTime: String
+      reason: String
+      status: String
+      holidayKey: String
+    ): DateScheduleOverride!
+    reviewDateScheduleOverride(id: ID!, status: String!): DateScheduleOverride!
+    deleteDateScheduleOverride(id: ID!): Boolean!
+    sendPlatformEngagementEmail(
+      subject: String!
+      bodyHtml: String!
+      bodyText: String
+      restaurantId: ID
+      reservationStatuses: [String!]
+      limit: Int
+    ): PlatformEngagementSendResult!
 
     createReservation(input: ReservationInput!): CreateReservationPayload!
     createOwnerReservation(input: OwnerReservationInput!): Reservation!
@@ -4145,6 +4310,8 @@ export const typeDefs = `#graphql
       spendAlertThresholdCents: Int
       useSmartAssign: Boolean
       allowGuestTableSelection: Boolean
+      minPartySize: Int
+      maxPartySize: Int
       virtualRoomSelectionFeeEnabled: Boolean
       virtualRoomSelectionFeeMode: VirtualRoomSelectionFeeMode
       virtualRoomSelectionFeeCents: Int

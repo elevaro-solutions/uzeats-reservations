@@ -68,6 +68,29 @@ export const VIRTUAL_ROOM_MEDIA_ROLE_LABELS: Record<VirtualRoomMediaRole, string
   capture: '3D scan capture',
 };
 
+/**
+ * How wall photos map onto wall planes:
+ * - `stretch` — one image fills each wall (default; existing behavior)
+ * - `tile` — image repeats as a pattern at `wallPhotoTileM` meters per tile
+ */
+export const VIRTUAL_ROOM_WALL_PHOTO_FITS = ['stretch', 'tile'] as const;
+export type VirtualRoomWallPhotoFit = (typeof VIRTUAL_ROOM_WALL_PHOTO_FITS)[number];
+export const VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_FIT: VirtualRoomWallPhotoFit = 'stretch';
+/** Default world-space size of one wall photo tile when fit is `tile` (meters). */
+export const VIRTUAL_ROOM_DEFAULT_WALL_PHOTO_TILE_M = 1;
+/** Free meter size — not tied to floor-plan grid cells. */
+export const VIRTUAL_ROOM_MIN_WALL_PHOTO_TILE_M = 0.1;
+export const VIRTUAL_ROOM_MAX_WALL_PHOTO_TILE_M = 20;
+
+/** Free UV rotation for wall / floor photo textures (degrees, clockwise on the surface). */
+export const VIRTUAL_ROOM_DEFAULT_TEXTURE_ROTATION_DEG = 0;
+export const VIRTUAL_ROOM_MIN_TEXTURE_ROTATION_DEG = 0;
+export const VIRTUAL_ROOM_MAX_TEXTURE_ROTATION_DEG = 360;
+
+/** Optional procedural room footprint override (meters). Null = derive from floor plan. */
+export const VIRTUAL_ROOM_MIN_ROOM_SIZE_M = 2;
+export const VIRTUAL_ROOM_MAX_ROOM_SIZE_M = 100;
+
 export const VIRTUAL_ROOM_RECONSTRUCTION_STATUSES = [
   'idle',
   'queued',
@@ -339,6 +362,41 @@ export const virtualRoomAreaSettingsInputSchema = z.object({
   panoramaMediaId: z.string().max(64).optional().nullable(),
   wallColor: hexColor,
   floorColor: hexColor,
+  wallPhotoFit: z.enum(VIRTUAL_ROOM_WALL_PHOTO_FITS).optional().nullable(),
+  wallPhotoTileM: z
+    .number()
+    .min(VIRTUAL_ROOM_MIN_WALL_PHOTO_TILE_M)
+    .max(VIRTUAL_ROOM_MAX_WALL_PHOTO_TILE_M)
+    .optional()
+    .nullable(),
+  /** Clockwise UV rotation of wall photos in degrees (0–360, like table rotation). */
+  wallPhotoRotationDeg: z
+    .number()
+    .min(VIRTUAL_ROOM_MIN_TEXTURE_ROTATION_DEG)
+    .max(VIRTUAL_ROOM_MAX_TEXTURE_ROTATION_DEG)
+    .optional()
+    .nullable(),
+  /** Clockwise UV rotation of the floor underlay image in degrees (0–360). */
+  floorImageRotationDeg: z
+    .number()
+    .min(VIRTUAL_ROOM_MIN_TEXTURE_ROTATION_DEG)
+    .max(VIRTUAL_ROOM_MAX_TEXTURE_ROTATION_DEG)
+    .optional()
+    .nullable(),
+  /** Optional room width in meters; null keeps the size derived from the floor plan. */
+  roomWidthM: z
+    .number()
+    .min(VIRTUAL_ROOM_MIN_ROOM_SIZE_M)
+    .max(VIRTUAL_ROOM_MAX_ROOM_SIZE_M)
+    .optional()
+    .nullable(),
+  /** Optional room depth in meters; null keeps the size derived from the floor plan. */
+  roomDepthM: z
+    .number()
+    .min(VIRTUAL_ROOM_MIN_ROOM_SIZE_M)
+    .max(VIRTUAL_ROOM_MAX_ROOM_SIZE_M)
+    .optional()
+    .nullable(),
   /** World-space meters: sideways (X), vertical stack (Y), depth (Z). */
   offsetXM: areaOffset,
   offsetYM: areaOffset,

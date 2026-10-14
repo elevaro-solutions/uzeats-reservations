@@ -64,6 +64,12 @@ const CONFIG_SECTIONS = [
     description: 'Platform defaults for deposits, cancellations, and no-shows.',
   },
   {
+    key: 'holidays',
+    label: 'Holidays',
+    description:
+      'Major holidays for restaurant review — venues stay open until an owner approves closing.',
+  },
+  {
     key: 'registration',
     label: 'Registration & access',
     description: 'Control who can sign up and whether the platform is in maintenance.',
@@ -192,6 +198,20 @@ export default function AdminConfigPage() {
             values.cancellationPeriodHours == null
               ? 24
               : Math.round(Number(values.cancellationPeriodHours)),
+          noShowMarkingMode: values.noShowMarkingMode ?? 'manual_only',
+          ...(Array.isArray(values.holidays)
+            ? {
+                holidays: (values.holidays as Array<Record<string, unknown>>).map((h) => ({
+                  key: h.key,
+                  name: h.name,
+                  dateRule: h.dateRule ?? null,
+                  recurring: h.recurring !== false,
+                  defaultEnabled: h.defaultEnabled === true,
+                  floating: h.floating ?? null,
+                  oneOffDate: h.oneOffDate ?? null,
+                })),
+              }
+            : {}),
           ...(canEditStripeMode && values.stripeMode !== savedStripeMode
             ? { stripeMode: values.stripeMode }
             : {}),
@@ -389,6 +409,73 @@ export default function AdminConfigPage() {
             >
               <InputNumber min={1} max={720} precision={0} style={{ width: 160 }} />
             </Form.Item>
+            <Form.Item
+              name="noShowMarkingMode"
+              label="No-show marking"
+              rules={[{ required: true }]}
+              extra="Manual only (recommended): hosts/managers mark no-show and the card-guarantee fee charges automatically. Auto: system marks no-show at slot end without charging. Restaurants, floor areas, and tables can override."
+            >
+              <Select
+                style={{ maxWidth: 320 }}
+                options={[
+                  { value: 'manual_only', label: 'Manual only (host/manager + auto-charge)' },
+                  { value: 'auto', label: 'Auto mark at slot end (no fee charge)' },
+                ]}
+              />
+            </Form.Item>
+          </>
+        );
+      case 'holidays':
+        return (
+          <>
+            <Paragraph type="secondary" style={{ marginTop: 0 }}>
+              Major holidays stay <strong>open</strong> until a restaurant owner/manager approves
+              closing (default). Toggle which holidays appear in each venue&apos;s approval queue.
+              Partners can opt out or switch to auto-close in Restaurant profile → Booking policies.
+            </Paragraph>
+            <Form.List name="holidays">
+              {(fields) => (
+                <Space orientation="vertical" size={12} style={{ width: '100%' }}>
+                  {fields.map((field) => (
+                    <Card key={field.key} size="small">
+                      <Row gutter={12} align="middle">
+                        <Col xs={24} sm={10}>
+                          <Form.Item name={[field.name, 'name']} label="Holiday" style={{ marginBottom: 0 }}>
+                            <Input disabled />
+                          </Form.Item>
+                          <Form.Item name={[field.name, 'key']} hidden>
+                            <Input />
+                          </Form.Item>
+                          <Form.Item name={[field.name, 'dateRule']} hidden>
+                            <Input />
+                          </Form.Item>
+                          <Form.Item name={[field.name, 'floating']} hidden>
+                            <Input />
+                          </Form.Item>
+                          <Form.Item name={[field.name, 'oneOffDate']} hidden>
+                            <Input />
+                          </Form.Item>
+                          <Form.Item name={[field.name, 'recurring']} hidden valuePropName="checked">
+                            <Switch />
+                          </Form.Item>
+                        </Col>
+                        <Col xs={24} sm={14}>
+                          <Form.Item
+                            name={[field.name, 'defaultEnabled']}
+                            label="Major holiday (approval queue)"
+                            valuePropName="checked"
+                            style={{ marginBottom: 0 }}
+                            extra="On = venues review this day. Stays open until they approve closing."
+                          >
+                            <Switch />
+                          </Form.Item>
+                        </Col>
+                      </Row>
+                    </Card>
+                  ))}
+                </Space>
+              )}
+            </Form.List>
           </>
         );
       case 'registration':

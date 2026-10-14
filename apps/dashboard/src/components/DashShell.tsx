@@ -69,6 +69,7 @@ import {
   partnerSiderPages,
   siderKeyForPathname,
 } from '@/lib/dashboardNav';
+import { usePinnedNav } from '@/lib/usePinnedNav';
 import {
   DashboardSearch,
   DashboardSearchTrigger,
@@ -122,6 +123,8 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   // Impersonation must follow the *target* role — diner impersonation is not Partner Hub.
   const isPartner = Boolean(user) && PARTNER_ROLES.has(user!.role);
   const isAuthShellRoute = AUTH_SHELL_PATHS.some((p) => pathname.startsWith(p));
+  const navAudience = isAdmin || pathname.startsWith('/admin') ? 'admin' : 'partner';
+  const { pinnedHrefs } = usePinnedNav(user?.id, navAudience);
   const [restaurantId, setRestaurantId] = useState<string>();
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -259,8 +262,12 @@ export function DashShell({ children }: { children: React.ReactNode }) {
 
   const selectedKey = useMemo(() => {
     if (pathname === '/edit' || pathname.startsWith('/edit/')) return '/settings';
-    return siderKeyForPathname(pathname, pathname.startsWith('/admin') ? 'admin' : 'partner');
-  }, [pathname]);
+    return siderKeyForPathname(
+      pathname,
+      pathname.startsWith('/admin') ? 'admin' : 'partner',
+      pinnedHrefs,
+    );
+  }, [pathname, pinnedHrefs]);
 
   const restaurants = restaurantsData?.myRestaurants ?? [];
   const restaurantIds = restaurants.map((r: { id: string }) => r.id);
@@ -317,10 +324,15 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       '/admin/billing': openInvoicesAdmin,
     };
     const pages = isAdmin
-      ? adminSiderPages({ isSuperAdmin: isSuperAdminUser, showOnboarding })
+      ? adminSiderPages({
+          isSuperAdmin: isSuperAdminUser,
+          showOnboarding,
+          pinnedHrefs,
+        })
       : partnerSiderPages({
           showOnboarding,
           role: user?.role,
+          pinnedHrefs,
         });
     return groupPagesForMenu(pages).map((group) => ({
       type: 'group' as const,
@@ -342,6 +354,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     pendingModerationItems,
     openInvoicesAdmin,
     user?.role,
+    pinnedHrefs,
   ]);
 
   const switchRestaurant = useCallback(

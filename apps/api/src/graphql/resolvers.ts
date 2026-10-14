@@ -50,7 +50,17 @@ import {
   type ReviewSort,
   virtualRoomPricingInputSchema,
   resolveCancellationPeriodHours,
+  isNoShowMarkingMode,
+  DEFAULT_NO_SHOW_MARKING_MODE,
 } from "@reservations/shared";
+import {
+  ensureUpcomingHolidayApprovals,
+  listPlatformHolidays,
+  mapDateScheduleOverride,
+  normalizePlatformHolidays,
+} from "../services/holidays.js";
+import { DateScheduleOverride } from "../models/DateScheduleOverride.js";
+import { sendPlatformEngagementEmail } from "../services/platformEngagement.js";
 import {
   isReservationDatePeriod,
   PLATFORM_RESERVATION_LIST_TIMEZONE,
@@ -1888,7 +1898,32 @@ export const resolvers = {
           { $sort: { _id: 1 } },
         ]),
         Restaurant.aggregate<{ _id: string }>([
-          { $group: { _id: "$cuisine" } },
+          {
+            $project: {
+              labels: {
+                $setUnion: [
+                  {
+                    $cond: [
+                      { $gt: [{ $size: { $ifNull: ["$cuisines", []] } }, 0] },
+                      "$cuisines",
+                      [],
+                    ],
+                  },
+                  {
+                    $cond: [
+                      {
+                        $and: [{ $ne: ["$cuisine", null] }, { $ne: ["$cuisine", ""] }],
+                      },
+                      ["$cuisine"],
+                      [],
+                    ],
+                  },
+                ],
+              },
+            },
+          },
+          { $unwind: "$labels" },
+          { $group: { _id: "$labels" } },
           { $match: { _id: { $nin: [null, ""] } } },
           { $sort: { _id: 1 } },
         ]),
@@ -3246,6 +3281,30 @@ export const resolvers = {
       }));
     },
 
+    dateScheduleOverrides: async (
+      _: unknown,
+      args: { restaurantId: string; status?: string | null },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      // Queue pending major-holiday closes (stay open until approved).
+      await ensureUpcomingHolidayApprovals(args.restaurantId);
+      const filter: Record<string, unknown> = { restaurantId: args.restaurantId };
+      if (args.status) filter.status = args.status;
+      const items = await DateScheduleOverride.find(filter).sort({ date: 1 });
+      return items.map(mapDateScheduleOverride);
+    },
+
+    platformHolidays: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      requireAuth(ctx);
+      return listPlatformHolidays();
+    },
+
     promotions: async (
       _: unknown,
       args: {
@@ -3950,7 +4009,10 @@ export const resolvers = {
       const input = restaurantInputSchema.parse(args.input);
       const doc = await Restaurant.create({
         ...restaurantInputToDb(input),
-        slug: slugify(input.name),
+        slug: slugify(input.name, {
+          ...input.address,
+          neighborhood: input.neighborhood ?? (input.address as { neighborhood?: string }).neighborhood,
+        }),
         ownerId: user._id,
         status: "pending",
       });
@@ -4218,6 +4280,133 @@ export const resolvers = {
         startTime: doc.startTime,
         endTime: doc.endTime,
       };
+    },
+
+    upsertDateScheduleOverride: async (
+      _: unknown,
+      args: {
+        restaurantId: string;
+        date: string;
+        mode: string;
+        startTime?: string | null;
+        endTime?: string | null;
+        reason?: string | null;
+        status?: string | null;
+        holidayKey?: string | null;
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      if (args.mode !== 'closed' && args.mode !== 'custom_hours') {
+        throw new Error('mode must be closed or custom_hours');
+      }
+      if (args.mode === 'custom_hours' && (!args.startTime || !args.endTime)) {
+        throw new Error('custom_hours requires startTime and endTime');
+      }
+      const status =
+        args.status === 'pending' || args.status === 'rejected'
+          ? args.status
+          : 'approved';
+      const holidayKey = args.holidayKey?.trim() || null;
+      const doc = await DateScheduleOverride.findOneAndUpdate(
+        { restaurantId: args.restaurantId, date: args.date },
+        {
+          $set: {
+            mode: args.mode,
+            startTime: args.startTime ?? null,
+            endTime: args.endTime ?? null,
+            reason: args.reason ?? null,
+            source: holidayKey ? 'platform_holiday' : 'manual',
+            holidayKey,
+            status,
+            ...(status === 'approved'
+              ? {
+                  reviewedById: user._id,
+                  reviewedAt: new Date(),
+                }
+              : {
+                  requestedById: user._id,
+                }),
+          },
+          $setOnInsert: {
+            restaurantId: args.restaurantId,
+            date: args.date,
+          },
+        },
+        { upsert: true, new: true },
+      );
+      return mapDateScheduleOverride(doc!);
+    },
+
+    reviewDateScheduleOverride: async (
+      _: unknown,
+      args: { id: string; status: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      if (args.status !== 'approved' && args.status !== 'rejected') {
+        throw new Error('status must be approved or rejected');
+      }
+      const existing = await DateScheduleOverride.findById(args.id);
+      if (!existing) throw new Error('Schedule override not found');
+      await assertRestaurantAccess(
+        user._id.toString(),
+        existing.restaurantId.toString(),
+        user.role,
+      );
+      existing.status = args.status;
+      existing.reviewedById = user._id as typeof existing.reviewedById;
+      existing.reviewedAt = new Date();
+      await existing.save();
+      return mapDateScheduleOverride(existing);
+    },
+
+    deleteDateScheduleOverride: async (
+      _: unknown,
+      args: { id: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const existing = await DateScheduleOverride.findById(args.id);
+      if (!existing) return false;
+      await assertRestaurantAccess(
+        user._id.toString(),
+        existing.restaurantId.toString(),
+        user.role,
+      );
+      await existing.deleteOne();
+      return true;
+    },
+
+    sendPlatformEngagementEmail: async (
+      _: unknown,
+      args: {
+        subject: string;
+        bodyHtml: string;
+        bodyText?: string | null;
+        restaurantId?: string | null;
+        reservationStatuses?: string[] | null;
+        limit?: number | null;
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireAdmin(ctx);
+      return sendPlatformEngagementEmail({
+        subject: args.subject,
+        bodyHtml: args.bodyHtml,
+        bodyText: args.bodyText,
+        audience: {
+          restaurantId: args.restaurantId,
+          reservationStatuses: args.reservationStatuses,
+          limit: args.limit,
+        },
+        actorId: admin._id.toString(),
+      });
     },
 
     deleteBlackout: async (
@@ -5170,6 +5359,18 @@ export const resolvers = {
           args.input.cancellationPeriodHours as number | null,
         ]);
         (doc as any).cancellationPeriodHours = hours;
+      }
+      if (args.input.noShowMarkingMode !== undefined) {
+        const mode = args.input.noShowMarkingMode;
+        if (mode != null && !isNoShowMarkingMode(mode)) {
+          throw new Error('Invalid noShowMarkingMode');
+        }
+        (doc as any).noShowMarkingMode = mode ?? DEFAULT_NO_SHOW_MARKING_MODE;
+      }
+      if (args.input.holidays !== undefined) {
+        const holidays = normalizePlatformHolidays(args.input.holidays);
+        (doc as any).holidays = holidays;
+        doc.markModified('holidays');
       }
       if (args.input.requireSignupEmailVerification !== undefined) {
         requireSuperAdmin(ctx);
@@ -7505,6 +7706,8 @@ export const resolvers = {
         spendAlertThresholdCents?: number;
         useSmartAssign?: boolean;
         allowGuestTableSelection?: boolean;
+        minPartySize?: number | null;
+        maxPartySize?: number | null;
         virtualRoomSelectionFeeEnabled?: boolean;
         virtualRoomSelectionFeeMode?: 'per_guest' | 'per_table' | null;
         virtualRoomSelectionFeeCents?: number | null;
@@ -7547,6 +7750,35 @@ export const resolvers = {
         update.useSmartAssign = args.useSmartAssign;
       if (args.allowGuestTableSelection != null) {
         update.allowGuestTableSelection = args.allowGuestTableSelection;
+      }
+      const parsePartyBound = (label: string, value: number | null | undefined) => {
+        if (value === undefined) return undefined;
+        if (value == null) return null;
+        if (!Number.isInteger(value) || value < 1 || value > 999) {
+          throw new ValidationError(`${label} must be an integer from 1 to 999`);
+        }
+        return value;
+      };
+      if (args.minPartySize !== undefined) {
+        update.minPartySize = parsePartyBound('minPartySize', args.minPartySize);
+      }
+      if (args.maxPartySize !== undefined) {
+        update.maxPartySize = parsePartyBound('maxPartySize', args.maxPartySize);
+      }
+      if (args.minPartySize !== undefined || args.maxPartySize !== undefined) {
+        const current = await Restaurant.findById(args.restaurantId).select('minPartySize maxPartySize');
+        if (!current) throw new Error('Restaurant not found');
+        const nextMin =
+          args.minPartySize !== undefined
+            ? (update.minPartySize as number | null)
+            : (current.minPartySize ?? null);
+        const nextMax =
+          args.maxPartySize !== undefined
+            ? (update.maxPartySize as number | null)
+            : (current.maxPartySize ?? null);
+        if (nextMin != null && nextMax != null && nextMin > nextMax) {
+          throw new ValidationError('minPartySize cannot exceed maxPartySize');
+        }
       }
       if (args.virtualRoomSelectionFeeEnabled != null) {
         update.virtualRoomSelectionFeeEnabled = args.virtualRoomSelectionFeeEnabled;
