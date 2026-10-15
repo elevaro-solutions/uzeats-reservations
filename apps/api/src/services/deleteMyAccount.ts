@@ -170,16 +170,16 @@ export async function deleteMyAccount(actorId: string) {
   user.loyaltyPointsExpireAt = undefined;
   user.referralCode = undefined;
   user.referredByUserId = undefined;
-  user.pushTokens = [];
+  user.set('pushTokens', []);
   user.telegramChatId = undefined;
-  user.refreshTokens = [];
+  user.set('refreshTokens', []);
   user.refreshTokenGrace = undefined;
   user.passwordResetToken = undefined;
   user.passwordResetExpires = undefined;
   user.emailVerificationToken = undefined;
   user.emailVerificationExpires = undefined;
   user.stripeCustomerIds = undefined;
-  user.restaurantIds = [];
+  user.set('restaurantIds', []);
   user.deletedAt = new Date();
   await user.save();
 
