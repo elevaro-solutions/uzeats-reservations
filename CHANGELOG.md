@@ -4,6 +4,12 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.83.0] — 2026-10-15
+
+### Added
+
+- Diner web Profile → Danger zone: delete account. Cancels upcoming bookings, removes personal details, and leaves past visits (including no-shows) as anonymous “Guest” for restaurants. Blocked while seated, unpaid no-show fees, or open payment holds remain
+
 ## [0.82.0] — 2026-10-14
 
 ### Added

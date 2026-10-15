@@ -197,7 +197,9 @@ export async function registerWithEmail(input: {
 
 export async function loginWithEmail(email: string, password: string) {
   const user = await User.findOne({ email: { $in: demoEmailCandidates(email) } });
-  if (!user) throw new AuthenticationError('Invalid credentials', { field: 'password' });
+  if (!user || user.deletedAt) {
+    throw new AuthenticationError('Invalid credentials', { field: 'password' });
+  }
   if (!user.passwordHash) {
     throw new AuthenticationError(
       user.googleId ? 'This account uses Google sign-in' : 'Invalid credentials',

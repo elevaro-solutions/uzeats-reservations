@@ -1,5 +1,9 @@
 # Auth — Learnings & Observations
 
+## [2026-10-15] Diner self-delete tombstones the User row
+- `deleteMyAccount` sets `User.deletedAt` and clears credentials/PII. JWT context and email login treat deleted users as unauthenticated.
+- Why it matters: Reservation `dinerId` FKs stay valid for restaurant history without exposing identity.
+
 ## [2026-10-05] Google login does not auto-link email/password accounts
 - `loginWithGoogle` creates a new Google diner or signs in when `googleId` already matches. If the Google email matches an existing account **without** `googleId`, it returns `ConflictError` (`field: email`) and does not set `googleId`. Signed-in diners re-attach Google via `linkGoogle(idToken)`; Google email must match the profile email and be verified. Profile editors expose “Link Google” when `hasGoogle` is false.
 - Why it matters: After Switch to email (or any email/password account), Continue with Google must not silently re-bind. Explicit link from Profile is the supported path.

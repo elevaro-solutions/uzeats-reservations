@@ -3,7 +3,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useQuery, useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
-import { Button, Card, List, Space, Spin, Switch, Tag, Typography, message } from 'antd';
+import {
+  Alert,
+  Button,
+  Card,
+  Input,
+  List,
+  Modal,
+  Space,
+  Spin,
+  Switch,
+  Tag,
+  Typography,
+  message,
+} from 'antd';
 import {
   BellOutlined,
   CheckCircleFilled,
@@ -17,10 +30,10 @@ import { browserMediaUrl, defaultLoyaltyProgram, loyaltyRedeemProgress, resolveL
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { UPDATE_NOTIFICATION_PREFERENCES, LOYALTY_PROGRAM } from '@/lib/graphql';
+import { UPDATE_NOTIFICATION_PREFERENCES, LOYALTY_PROGRAM, DELETE_MY_ACCOUNT } from '@/lib/graphql';
 import { formatDinerAddress, ProfileAccountModal } from '@/components/profile/ProfileAccountCard';
 
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 
 const MY_LOYALTY = gql`
   query MyLoyalty {
@@ -94,10 +107,13 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 export default function ProfilePage() {
-  const { user, loading: authLoading, refreshMe } = useAuth();
+  const { user, loading: authLoading, refreshMe, logout } = useAuth();
   const router = useRouter();
   const { data } = useQuery(MY_LOYALTY, { skip: !user });
   const { data: restaurantLoyaltyData } = useQuery(MY_RESTAURANT_LOYALTY, { skip: !user });
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState('');
+  const [deleteMyAccount, { loading: deletingAccount }] = useMutation(DELETE_MY_ACCOUNT);
   const { data: loyaltyProgramData } = useQuery(LOYALTY_PROGRAM);
   const [registerPush] = useMutation(REGISTER_PUSH);
   const [updatePrefs] = useMutation(UPDATE_NOTIFICATION_PREFERENCES);
@@ -591,6 +607,86 @@ export default function ProfilePage() {
           </div>
         ))}
       </Card>
+
+      <Card
+        title="Danger zone"
+        styles={{ header: { color: colors.error } }}
+        style={{
+          borderRadius: radii.lg,
+          border: `1px solid ${colors.bordersubtle}`,
+          boxShadow: shadows.sm,
+        }}
+      >
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+          <div>
+            <Text strong>Delete account</Text>
+            <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+              Permanently removes your login and personal details. Past bookings stay for the
+              restaurant as anonymous “Guest” visits (including no-shows), without your name or
+              contact info. Upcoming reservations are cancelled. You cannot undo this.
+            </Paragraph>
+          </div>
+          <Button
+            danger
+            onClick={() => {
+              setDeleteConfirm('');
+              setDeleteOpen(true);
+            }}
+          >
+            Delete account
+          </Button>
+        </Space>
+      </Card>
+
+      <Modal
+        title="Delete your account permanently?"
+        open={deleteOpen}
+        okText="Delete account"
+        okButtonProps={{
+          danger: true,
+          disabled: deleteConfirm.trim().toUpperCase() !== 'DELETE',
+          loading: deletingAccount,
+        }}
+        onOk={async () => {
+          try {
+            const res = await deleteMyAccount();
+            const payload = (
+              res.data as { deleteMyAccount?: { success?: boolean; message?: string } } | undefined
+            )?.deleteMyAccount;
+            if (!payload?.success) {
+              message.error(payload?.message ?? 'Could not delete account');
+              return;
+            }
+            message.success('Account deleted');
+            setDeleteOpen(false);
+            await logout();
+          } catch (err) {
+            message.error(err instanceof Error ? err.message : 'Could not delete account');
+          }
+        }}
+        onCancel={() => {
+          setDeleteOpen(false);
+          setDeleteConfirm('');
+        }}
+        destroyOnHidden
+      >
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+          <Alert
+            type="warning"
+            showIcon
+            message="Settle unpaid no-show fees and finish any seated visit first."
+          />
+          <Paragraph style={{ marginBottom: 0 }}>
+            Type <Text strong>DELETE</Text> to confirm.
+          </Paragraph>
+          <Input
+            placeholder="DELETE"
+            value={deleteConfirm}
+            onChange={(e) => setDeleteConfirm(e.target.value)}
+            autoFocus
+          />
+        </Space>
+      </Modal>
     </Space></div>
   );
 }

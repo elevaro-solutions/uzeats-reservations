@@ -1,5 +1,10 @@
 # Web — Learnings & Observations
 
+## [2026-10-15] Profile Danger zone — delete diner account
+- `/profile` Danger zone calls `deleteMyAccount`; confirm by typing `DELETE`, then `logout`.
+- Copy explains restaurants keep anonymous “Guest” history (incl. no-shows) without name/contact.
+- Why it matters: In-app deletion path; privacy page email request is no longer the only option.
+
 ## [2026-10-14] Discovery card ratings must not use antd Rate
 - Ant Design `Rate` is a `ul`/`li` with overlapping half-star layers. Before `@ant-design/cssinjs` injects, list items stack as blocks and both halves show → ~10 vertical stars and blown-up card height on slow networks.
 - Display-only surfaces use shared `StarRating` (inline flex + `StarFilled` clips). Interactive Rate (reviews, surveys) keeps a critical CSS guard in `globals.css` for `ul.ant-rate`.

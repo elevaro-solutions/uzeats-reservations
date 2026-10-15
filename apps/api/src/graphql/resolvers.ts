@@ -295,6 +295,7 @@ import {
 import { logAudit } from "../services/audit.js";
 import { createRestaurantSubscription } from "../services/restaurantSubscription.js";
 import { deleteMyRestaurant as deleteMyRestaurantService } from "../services/deleteMyRestaurant.js";
+import { deleteMyAccount as deleteMyAccountService } from "../services/deleteMyAccount.js";
 import { adminAssignRestaurantPackage as assignRestaurantPackageAsAdmin } from "../services/adminAssignPackage.js";
 import {
   setRestaurantStatuses,
@@ -5808,6 +5809,19 @@ export const resolvers = {
         restaurantId: args.restaurantId,
         actorId: user._id.toString(),
       });
+    },
+
+    deleteMyAccount: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      const user = requireAuth(ctx);
+      if (ctx.impersonator) {
+        throw new ForbiddenError(
+          'Exit impersonation before deleting a diner account',
+        );
+      }
+      const result = await deleteMyAccountService(user._id.toString());
+      const app = resolveBrowserAuthApp(ctx.req);
+      if (app) clearAuthCookies(ctx.res, app);
+      return result;
     },
 
     changePlan: async (

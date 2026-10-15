@@ -100,6 +100,8 @@ const userSchema = new Schema(
       test: { type: String },
       live: { type: String },
     },
+    /** Set when the diner self-deletes; tombstone row kept for reservation FKs without PII. */
+    deletedAt: { type: Date, index: true },
   },
   { timestamps: true },
 );

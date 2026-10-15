@@ -43,11 +43,12 @@ export async function createContext({
   }
   try {
     const payload = verifyAccessToken(token);
-    const user = await User.findById(payload.sub);
+    const userDoc = await User.findById(payload.sub);
+    const user = userDoc?.deletedAt ? null : userDoc;
     let impersonator: UserDocument | null = null;
     if (payload.impersonatorId) {
       impersonator = await User.findById(payload.impersonatorId);
-      if (!impersonator || !isPlatformAdmin(impersonator.role)) {
+      if (!impersonator || !isPlatformAdmin(impersonator.role) || impersonator.deletedAt) {
         return {
           user: null,
           impersonator: null,

@@ -2072,6 +2072,13 @@ export const typeDefs = `#graphql
     deletedRestaurantId: ID!
   }
 
+  """Diner self-service account wipe (anonymizes restaurant-visible history; keeps booking rows)."""
+  type DeleteMyAccountPayload {
+    success: Boolean!
+    message: String!
+    deletedUserId: ID!
+  }
+
   input PlanPackageInput {
     key: String!
     name: String
@@ -4011,6 +4018,13 @@ export const typeDefs = `#graphql
     Owner login is kept.
     """
     deleteMyRestaurant(restaurantId: ID!): DeleteMyRestaurantPayload!
+    """
+    Permanently delete the signed-in diner account. Cancels upcoming bookings without
+    late fees, anonymizes waitlist/inquiry PII, removes guest CRM profiles, and
+    tombstones the user so restaurants see "Guest" instead of the former identity.
+    Blocked while seated, unpaid no-show fees, or open payment holds remain.
+    """
+    deleteMyAccount: DeleteMyAccountPayload!
     clearSeedData: ClearSeedDataPayload!
     adminCreateRestaurant(
       input: RestaurantInput!

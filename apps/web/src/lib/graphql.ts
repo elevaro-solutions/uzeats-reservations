@@ -1059,3 +1059,13 @@ export const RECORD_VIRTUAL_ROOM_SELECTION_ATTEMPT = gql`
     }
   }
 `;
+
+export const DELETE_MY_ACCOUNT = gql`
+  mutation DeleteMyAccount {
+    deleteMyAccount {
+      success
+      message
+      deletedUserId
+    }
+  }
+`;

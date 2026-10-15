@@ -1,5 +1,11 @@
 # API — Learnings & Observations
 
+## [2026-10-15] Diner `deleteMyAccount` anonymizes restaurant-visible history
+- Mutation `deleteMyAccount` (diner role only, no impersonation). Cancels `pending`/`confirmed` without late fees; retains `no_show`/`completed` rows with empty `guestNotes`.
+- Tombstones `User` (`firstName=Guest`, clears email/phone/auth, sets `deletedAt`). Deletes `GuestProfile` so Guests CRM loses the person. Scrubs waitlist name/phone and inquiry sender fields.
+- Blocks: seated visit, unpaid no-show/late fee (`failed`/`card_saved` with fee), open deposit/card hold, owned restaurants.
+- Why it matters: Restaurants keep ops history but see “Guest”, not the former diner identity.
+
 ## [2026-10-14] Partner `deleteMyRestaurant` blocked by platform debt
 - Mutation `deleteMyRestaurant(restaurantId)` is owner-only (`Restaurant.ownerId` + `canManageBilling`). Reuses `deleteRestaurantCascade` (same wipe as admin). Owner `User` login is kept; `restaurantIds` is pulled.
 - Debt gate (`assertRestaurantClearOfPlatformDebt`): any open invoice (`upcoming|pending|overdue` with `totalCents > 0`), or sub `past_due`, or `amountDueCents > 0` (including live Stripe open invoice). Super-admin `adminDeleteRestaurant` stays ungated.
