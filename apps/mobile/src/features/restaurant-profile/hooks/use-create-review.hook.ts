@@ -6,6 +6,7 @@ import { REVIEW_MAX_PHOTOS } from "@reservations/shared";
 
 import { CREATE_REVIEW, MY_RESERVATIONS } from "@/graphql";
 import { uploadFile } from "@/graphql/upload";
+import { ensurePhotoLibraryAccess } from "@/lib/helpers";
 
 import type { MyReservationsQueryData } from "../types";
 
@@ -65,14 +66,10 @@ export function useCreateReview({
       return;
     }
 
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert(
-        "Photos permission needed",
-        "Allow photo access to attach images to your review.",
-      );
-      return;
-    }
+    const allowed = await ensurePhotoLibraryAccess(
+      "Allow photo access to attach images to your review.",
+    );
+    if (!allowed) return;
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],

@@ -13,4 +13,5 @@ export {
   DISTANCE_PRESETS_KM,
   TIME_PRESETS,
 } from "./date-time.helpers";
+export { ensurePhotoLibraryAccess } from "./photo-library-access.helpers";
 export { renderIcon } from "./render-icon.helper";

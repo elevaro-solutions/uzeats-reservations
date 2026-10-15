@@ -170,7 +170,7 @@ Suggested path
 
 Payments: Stripe PaymentSheet for restaurant deposits and card guarantees. Apple Pay merchant ID merchant.com.tablevera.app. No In-App Purchases.
 
-Sign-in: email/password and Google. Location, photos, calendar, and push are optional and requested only when the diner uses that feature.
+Sign-in: email/password and Google. Location, calendar, and push are optional and requested only when the diner uses that feature. On Android, profile/review photos use the system photo picker (no READ_MEDIA_IMAGES). On iOS, Photos access is requested only when picking an image.
 
 Please do not use @tablevera.local seed accounts — they are not on production.
 ```
@@ -291,7 +291,7 @@ In-app diner: Profile → Privacy Policy. Partner app has no in-app policy scree
 | Phone | Yes | Yes | No | Account, booking, SMS if opted in |
 | Password | Yes (hashed) | Yes | No | Auth |
 | Physical address | Optional | Yes | No | Profile |
-| Photos | Optional | Yes | No | Review attachments |
+| Photos | Optional | Yes | No | Profile photo + review attachments (system picker on Android; no READ_MEDIA_*) |
 | Precise location | Optional, when in use | Yes | No | Nearby restaurants. No background location. |
 | Coarse location | Optional / IP | Yes | No | Nearby + security |
 | User content (reviews, messages, requests) | Yes | Yes | No | Bookings and reviews |

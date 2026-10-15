@@ -4,6 +4,12 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.83.1] — 2026-10-15
+
+### Fixed
+
+- Diner Android build no longer declares `READ_MEDIA_IMAGES` / `READ_MEDIA_VIDEO`. Profile and review photo picks use the system photo picker (Play Photo and Video Permissions policy). App version **1.0.1** / `versionCode` **2**.
+
 ## [0.83.0] — 2026-10-15
 
 ### Added

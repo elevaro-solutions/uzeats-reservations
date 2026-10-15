@@ -172,6 +172,10 @@ See [features-virtual-room.md](./features-virtual-room.md) (experimental add-on 
 
 ## profile
 
+### [2026-10-15] Android photo pick uses system picker (no READ_MEDIA_*)
+- Profile avatar and review attachments call `ensurePhotoLibraryAccess` then `launchImageLibraryAsync`. On Android that skips `requestMediaLibraryPermissionsAsync` so Play does not see broad gallery access; Expo’s `PickVisualMedia` path is enough. `app.config.js` removes `READ_MEDIA_IMAGES` and blocks `READ_MEDIA_IMAGES` / `READ_MEDIA_VIDEO` / `READ_MEDIA_VISUAL_USER_SELECTED`. iOS still prompts for Photos.
+- Why it matters: Declaring `READ_MEDIA_IMAGES` for one-off picks fails Google’s Photo and Video Permissions policy even with a written justification.
+
 ### [2026-10-08] Password is a Profile action
 - Account menu has **Change password** (or **Add a password** when `hasPassword` is false) → `/change-password`. Personal info no longer has the password toggle. Email changes still ask for the current password on the editor; Google unlink without a password still creates one there.
 - Why it matters: Password was buried in Personal info Sign-in and duplicated Privacy’s security feel.

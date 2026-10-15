@@ -12,7 +12,7 @@ function iosUrlSchemeFromClientId(clientId) {
 const config = {
   name: "Tablevera",
   slug: "tablevera",
-  version: "1.0.0",
+  version: "1.0.1",
   orientation: "portrait",
   icon: "./assets/android-app-icon/android-icon-foreground.png",
   scheme: "tablevera",
@@ -25,12 +25,13 @@ const config = {
       NSLocationWhenInUseUsageDescription:
         "Tablevera uses your location to show restaurants near you.",
       NSPhotoLibraryUsageDescription:
-        "Tablevera lets you attach photos to your restaurant reviews.",
+        "Tablevera lets you choose a profile photo or attach photos to restaurant reviews.",
       // Standard HTTPS / TLS only — no non-exempt encryption algorithms.
       ITSAppUsesNonExemptEncryption: false,
     },
   },
   android: {
+    versionCode: 2,
     adaptiveIcon: {
       foregroundImage: "./assets/android-app-icon/android-icon-foreground.png",
       monochromeImage: "./assets/android-app-icon/android-icon-monochrome.png",
@@ -38,10 +39,13 @@ const config = {
     },
     package: "uz.alitech.tablevera",
     googleServicesFile: "./google-services.json",
-    permissions: [
-      "ACCESS_COARSE_LOCATION",
-      "ACCESS_FINE_LOCATION",
-      "READ_MEDIA_IMAGES",
+    permissions: ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"],
+    // Play Photo and Video Permissions policy: pick via system photo picker only.
+    // Do not declare READ_MEDIA_* — Expo Image Picker uses PickVisualMedia on API 33+.
+    blockedPermissions: [
+      "android.permission.READ_MEDIA_IMAGES",
+      "android.permission.READ_MEDIA_VIDEO",
+      "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
     ],
   },
   plugins: [
@@ -52,7 +56,10 @@ const config = {
       "expo-image-picker",
       {
         photosPermission:
-          "Tablevera lets you attach photos to your restaurant reviews.",
+          "Tablevera lets you choose a profile photo or attach photos to restaurant reviews.",
+        // Library pick only — no camera / mic.
+        cameraPermission: false,
+        microphonePermission: false,
       },
     ],
     [

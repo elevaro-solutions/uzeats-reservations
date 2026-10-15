@@ -27,6 +27,7 @@ import {
 import { useAuth, type MobileUser } from "@/graphql";
 import { uploadFile } from "@/graphql/upload";
 import { getGraphQLErrorMessage, getGraphQLFieldErrors } from "@/lib/graphql-errors";
+import { ensurePhotoLibraryAccess } from "@/lib/helpers";
 
 import { GoogleSignInButton } from "@/features/auth/components/google-sign-in-button.component";
 
@@ -83,11 +84,10 @@ function EditProfileForm({ user }: { user: MobileUser }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   async function pickPhoto() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Photos permission needed", "Allow photo access to update your profile photo.");
-      return;
-    }
+    const allowed = await ensurePhotoLibraryAccess(
+      "Allow photo access to update your profile photo.",
+    );
+    if (!allowed) return;
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsMultipleSelection: false,
