@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - API TypeScript build: invoice PDF export accepts optional `billingPeriod` (unblocks Dokku deploy of v0.85.0)
+- Dashboard Admin Invoices: recent-transactions Amount column typing no longer collapses the table row type (unblocks Dokku dashboard build)
 
 ## [0.85.0] — 2026-10-16
 

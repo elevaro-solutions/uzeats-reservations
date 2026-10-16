@@ -242,7 +242,8 @@ function InvoiceInsights({
             {
               title: 'Amount',
               dataIndex: 'totalCents',
-              render: (v: number, row: { currency: string }) => money(v, row.currency),
+              render: (v: number, row: InvoiceInsightsData['recentTransactions'][number]) =>
+                money(v, row.currency),
             },
             {
               title: 'Paid',
