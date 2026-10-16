@@ -79,7 +79,7 @@ import {
   DEFAULT_REVIEW_SORT,
   RESTAURANT_REVIEWS_PREVIEW_LIMIT,
   LARGE_PARTY_SELECT_VALUE,
-  MAX_BOOKABLE_PARTY_SIZE,
+  MAX_PARTY_SIZE_SETTING,
   clampToAcceptedPartySize,
   partySizeSelectOptions,
   resolveAcceptedPartySize,
@@ -95,6 +95,7 @@ import { useAuth } from '@/lib/auth';
 import {
   RESTAURANT_DETAIL,
   AVAILABILITY,
+  CREATE_LARGE_PARTY_REQUEST,
   CREATE_RESERVATION,
   CONFIRM_DEPOSIT,
   ABANDON_INCOMPLETE_BOOKING,
@@ -178,6 +179,27 @@ const DepositPayment = dynamic(() => import('@/components/DepositPayment'), {
 
 const { Title, Paragraph, Text } = Typography;
 
+const LARGE_PARTY_TIME_OPTIONS = Array.from({ length: 34 }, (_, index) => {
+  const total = 7 * 60 + index * 30;
+  const hour = Math.floor(total / 60);
+  const minute = total % 60;
+  const value = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  const suffix = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  return {
+    value,
+    label: `${hour12}:${String(minute).padStart(2, '0')} ${suffix}`,
+  };
+});
+
+function largePartyTimeLabel(hm: string) {
+  return LARGE_PARTY_TIME_OPTIONS.find((option) => option.value === hm)?.label ?? hm;
+}
+
+function largePartyDraftKey(restaurantId: string) {
+  return `large-party-request:${restaurantId}`;
+}
+
 export default function RestaurantPageClient({
   initialRestaurant = null,
 }: {
@@ -232,7 +254,18 @@ export default function RestaurantPageClient({
     partySize: number;
     occasionLabel: string;
     awaitingApproval?: boolean;
+    largeParty?: boolean;
+    confirmationNumber?: string;
+    phoneLabel?: string;
   } | null>(null);
+  const [largePartyDate, setLargePartyDate] = useState<Dayjs | null>(null);
+  const [largePartyFrom, setLargePartyFrom] = useState('17:00');
+  const [largePartyTo, setLargePartyTo] = useState('20:00');
+  const [largePartyGuests, setLargePartyGuests] = useState<number | null>(null);
+  const [largePartyOccasion, setLargePartyOccasion] = useState('none');
+  const [largePartyMessage, setLargePartyMessage] = useState('');
+  const [largePartyPhone, setLargePartyPhone] = useState('');
+  const [largePartyError, setLargePartyError] = useState<string | null>(null);
   const [occasion, setOccasion] = useState('none');
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [selectedPrivateSpaceId, setSelectedPrivateSpaceId] = useState<string | null>(null);
@@ -440,6 +473,9 @@ export default function RestaurantPageClient({
   const { data: loyaltyProgramData } = useQuery(LOYALTY_PROGRAM);
 
   const [createReservation, { loading: booking }] = useMutation(CREATE_RESERVATION);
+  const [createLargePartyRequest, { loading: largePartySubmitting }] = useMutation(
+    CREATE_LARGE_PARTY_REQUEST,
+  );
   const [confirmDeposit] = useMutation(CONFIRM_DEPOSIT, {
     refetchQueries: [{ query: MY_RESERVATIONS }],
   });
@@ -847,6 +883,33 @@ export default function RestaurantPageClient({
     scrollToBooking();
   }, [showResumeBanner, scrollToBooking]);
 
+  useEffect(() => {
+    if (!restaurantId || !user) return;
+    const raw = sessionStorage.getItem(largePartyDraftKey(restaurantId));
+    if (!raw) return;
+    sessionStorage.removeItem(largePartyDraftKey(restaurantId));
+    try {
+      const draft = JSON.parse(raw) as {
+        date?: string;
+        timeFrom?: string;
+        timeTo?: string;
+        guests?: number;
+        occasion?: string;
+        message?: string;
+      };
+      if (draft.date) setLargePartyDate(dayjs(draft.date));
+      if (draft.timeFrom) setLargePartyFrom(draft.timeFrom);
+      if (draft.timeTo) setLargePartyTo(draft.timeTo);
+      if (typeof draft.guests === 'number') setLargePartyGuests(draft.guests);
+      if (draft.occasion) setLargePartyOccasion(draft.occasion);
+      if (draft.message) setLargePartyMessage(draft.message);
+      setLargePartyError(null);
+      setLargePartyOpen(true);
+    } catch {
+      // Ignore a corrupt draft and let the diner start again.
+    }
+  }, [restaurantId, user]);
+
   const redirectToLoginForBooking = () => {
     if (!restaurantId) return;
     const draft = {
@@ -875,6 +938,101 @@ export default function RestaurantPageClient({
       delete next[field];
       return next;
     });
+  };
+
+  const openLargeParty = () => {
+    setLargePartyDate(date);
+    setLargePartyFrom('17:00');
+    setLargePartyTo('20:00');
+    setLargePartyGuests(acceptedPartySize.max + 1);
+    setLargePartyOccasion(occasion);
+    setLargePartyMessage('');
+    setLargePartyPhone(bookingPhone);
+    setLargePartyError(null);
+    setLargePartyOpen(true);
+  };
+
+  const submitLargeParty = async () => {
+    if (!restaurantId || largePartySubmitting) return;
+    const minGuests = acceptedPartySize.max + 1;
+    const guests = largePartyGuests ?? 0;
+    if (!largePartyDate) {
+      setLargePartyError('Choose a date');
+      return;
+    }
+    if (largePartyTo <= largePartyFrom) {
+      setLargePartyError('End time must be after the start time');
+      return;
+    }
+    if (!Number.isInteger(guests) || guests < minGuests || guests > MAX_PARTY_SIZE_SETTING) {
+      setLargePartyError(`Enter an approximate party size of ${minGuests} or more`);
+      return;
+    }
+    const note = largePartyMessage.trim();
+    if (!note) {
+      setLargePartyError('Add a short message for the restaurant');
+      return;
+    }
+    if (!user) {
+      sessionStorage.setItem(
+        largePartyDraftKey(restaurantId),
+        JSON.stringify({
+          date: largePartyDate.format('YYYY-MM-DD'),
+          timeFrom: largePartyFrom,
+          timeTo: largePartyTo,
+          guests,
+          occasion: largePartyOccasion,
+          message: note,
+        }),
+      );
+      message.info('Please sign in to request a large party');
+      redirectToLoginForBooking();
+      return;
+    }
+    if (needsProfilePhone && !isValidUsPhone(largePartyPhone)) {
+      setLargePartyError('Enter a valid US number, e.g. (212) 555-1234');
+      return;
+    }
+    setLargePartyError(null);
+    try {
+      const phoneLabel = needsProfilePhone
+        ? formatPhoneDisplay(largePartyPhone)
+        : user.phone
+          ? formatPhoneDisplay(user.phone)
+          : undefined;
+      const { data: result } = await createLargePartyRequest({
+        variables: {
+          input: {
+            restaurantId,
+            date: largePartyDate.format('YYYY-MM-DD'),
+            timeFrom: largePartyFrom,
+            timeTo: largePartyTo,
+            partySize: guests,
+            occasion: largePartyOccasion,
+            message: note,
+            ...(needsProfilePhone ? { phone: toE164Us(largePartyPhone) } : {}),
+          },
+        },
+      });
+      if (needsProfilePhone) {
+        void refreshMe();
+      }
+      const booked = (result as { createLargePartyRequest?: { confirmationNumber?: string } })
+        ?.createLargePartyRequest;
+      setLargePartyOpen(false);
+      setBookingSuccess({
+        dateLabel: formatBookingDateLabel(largePartyDate),
+        timeLabel: `${largePartyTimeLabel(largePartyFrom)} – ${largePartyTimeLabel(largePartyTo)}`,
+        partySize: guests,
+        occasionLabel: formatOccasion(largePartyOccasion),
+        awaitingApproval: true,
+        largeParty: true,
+        confirmationNumber: booked?.confirmationNumber,
+        phoneLabel: phoneLabel || undefined,
+      });
+    } catch (err) {
+      setLargePartyError(getGraphQLErrorMessage(err, 'Could not send your large party request'));
+    }
   };
 
   const book = () => {
@@ -1371,7 +1529,7 @@ export default function RestaurantPageClient({
                 value={partySize}
                 onChange={(v) => {
                   if (v === LARGE_PARTY_SELECT_VALUE) {
-                    setLargePartyOpen(true);
+                    openLargeParty();
                     return;
                   }
                   updateBooking({
@@ -1382,9 +1540,9 @@ export default function RestaurantPageClient({
                 options={guestSizeOptions}
               />
             </Space>
-            {acceptedPartySize.max < MAX_BOOKABLE_PARTY_SIZE ? (
+            {acceptedPartySize.max < MAX_PARTY_SIZE_SETTING ? (
               <Text type="secondary" style={{ display: 'block', marginTop: 4, fontSize: 12 }}>
-                Parties of {acceptedPartySize.max + 1}+ — choose Large party to contact the restaurant.
+                Parties of {acceptedPartySize.max + 1}+ — choose Large party to request a time. The restaurant will contact you.
               </Text>
             ) : null}
             <SlotPicker
@@ -2197,43 +2355,139 @@ export default function RestaurantPageClient({
 
       <Modal
         open={largePartyOpen}
-        title="Large party"
-        onCancel={() => setLargePartyOpen(false)}
-        footer={null}
+        title="Large party request"
+        onCancel={() => {
+          if (largePartySubmitting) return;
+          setLargePartyOpen(false);
+        }}
+        onOk={() => {
+          void submitLargeParty();
+        }}
+        okText="Send request"
+        cancelText="Cancel"
+        confirmLoading={largePartySubmitting}
+        okButtonProps={{ size: 'large' }}
+        cancelButtonProps={{ size: 'large', disabled: largePartySubmitting }}
         centered
+        width={520}
       >
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Space direction="vertical" size={12} style={{ width: '100%' }}>
           <Text type="secondary">
-            Online booking is available for parties of {acceptedPartySize.min}–
-            {acceptedPartySize.max}. For larger groups, contact {restaurant?.name ?? 'the restaurant'}{' '}
-            directly.
+            Online tables are for parties of {acceptedPartySize.min}–{acceptedPartySize.max}. Tell{' '}
+            {restaurant?.name ?? 'the restaurant'} when you’d like to come and about how many guests.
+            A manager or staff member will contact you to confirm.
           </Text>
-          {restaurant?.phone ? (
-            <Button type="primary" size="large" href={`tel:${restaurant.phone}`} block>
-              Call {restaurant.phone}
-            </Button>
-          ) : null}
-          {restaurant?.website ? (
-            <Button size="large" href={restaurant.website} target="_blank" rel="noopener noreferrer" block>
-              Visit website
-            </Button>
-          ) : null}
-          <Button
-            size="large"
-            block
-            onClick={() => {
-              setLargePartyOpen(false);
-              setMessageOpen(true);
-            }}
-          >
-            Send a message
-          </Button>
+          {largePartyError ? <Alert type="error" showIcon message={largePartyError} /> : null}
+          <Form layout="vertical" size="middle" requiredMark>
+            <Form.Item label="Date" required style={{ marginBottom: 12 }}>
+              <DatePicker
+                value={largePartyDate}
+                allowClear={false}
+                style={{ width: '100%' }}
+                disabledDate={(d) => {
+                  const iso = d.format('YYYY-MM-DD');
+                  if (isPastCalendarDay(iso, timeZone)) return true;
+                  const maxDays = restaurant?.bookingWindow?.maxAdvanceDays;
+                  if (typeof maxDays === 'number' && maxDays > 0) {
+                    const max = addCalendarDays(todayIsoInTimeZone(timeZone), maxDays);
+                    return iso > max;
+                  }
+                  return false;
+                }}
+                onChange={(d) => d && setLargePartyDate(d)}
+              />
+            </Form.Item>
+            <Space size={12} style={{ width: '100%', display: 'flex' }} align="start">
+              <Form.Item label="From" required style={{ flex: 1, marginBottom: 12 }}>
+                <Select
+                  value={largePartyFrom}
+                  options={LARGE_PARTY_TIME_OPTIONS}
+                  onChange={setLargePartyFrom}
+                />
+              </Form.Item>
+              <Form.Item label="To" required style={{ flex: 1, marginBottom: 12 }}>
+                <Select
+                  value={largePartyTo}
+                  options={LARGE_PARTY_TIME_OPTIONS}
+                  onChange={setLargePartyTo}
+                />
+              </Form.Item>
+            </Space>
+            <Form.Item
+              label="Approximate guests"
+              required
+              style={{ marginBottom: 12 }}
+              extra={`Groups of ${acceptedPartySize.max + 1} or more`}
+            >
+              <InputNumber
+                min={acceptedPartySize.max + 1}
+                max={MAX_PARTY_SIZE_SETTING}
+                value={largePartyGuests ?? undefined}
+                style={{ width: '100%' }}
+                onChange={(value) => setLargePartyGuests(typeof value === 'number' ? value : null)}
+              />
+            </Form.Item>
+            <Form.Item label="Occasion" style={{ marginBottom: 12 }}>
+              <Space size={[8, 8]} wrap>
+                <Tag.CheckableTag
+                  checked={largePartyOccasion === 'none'}
+                  onChange={() => setLargePartyOccasion('none')}
+                >
+                  None
+                </Tag.CheckableTag>
+                {BOOKABLE_OCCASIONS.map((o) => (
+                  <Tag.CheckableTag
+                    key={o}
+                    checked={largePartyOccasion === o}
+                    onChange={(checked) => setLargePartyOccasion(checked ? o : 'none')}
+                  >
+                    {OCCASION_LABELS[o]}
+                  </Tag.CheckableTag>
+                ))}
+              </Space>
+            </Form.Item>
+            <Form.Item label="Message" required style={{ marginBottom: 12 }}>
+              <Input.TextArea
+                value={largePartyMessage}
+                maxLength={500}
+                autoSize={{ minRows: 3, maxRows: 5 }}
+                placeholder="Share the occasion, seating needs, or anything the restaurant should know."
+                onChange={(e) => setLargePartyMessage(e.target.value)}
+              />
+            </Form.Item>
+            {needsProfilePhone ? (
+              <Form.Item
+                label="Phone number"
+                required
+                style={{ marginBottom: 0 }}
+                extra="We'll use this number so the restaurant can confirm, and save it on your profile."
+              >
+                <PhoneInput
+                  size="large"
+                  value={largePartyPhone}
+                  onChange={setLargePartyPhone}
+                />
+              </Form.Item>
+            ) : user?.phone ? (
+              <Form.Item label="Phone number" style={{ marginBottom: 0 }}>
+                <Text>{formatPhoneDisplay(user.phone)}</Text>
+                <br />
+                <Text type="secondary">The restaurant will use this number to confirm.</Text>
+              </Form.Item>
+            ) : null}
+          </Form>
         </Space>
       </Modal>
 
       <Modal
         open={!!bookingSuccess}
-        title={bookingSuccess?.awaitingApproval ? 'Request sent' : 'Reservation confirmed'}
+        title={
+          bookingSuccess?.largeParty
+            ? 'Large party request sent'
+            : bookingSuccess?.awaitingApproval
+              ? 'Request sent'
+              : 'Reservation confirmed'
+        }
         onOk={() => {
           router.push('/reservations');
         }}
@@ -2261,7 +2515,14 @@ export default function RestaurantPageClient({
             style={{ width: '100%' }}
             styles={{ item: { width: '100%' } }}
           >
-            {bookingSuccess.awaitingApproval ? (
+            {bookingSuccess.largeParty ? (
+              <Alert
+                type="info"
+                showIcon
+                message="The restaurant will contact you"
+                description={`A manager or staff member at ${restaurant.name} will contact you about this reservation. You can also check the status anytime in your profile.`}
+              />
+            ) : bookingSuccess.awaitingApproval ? (
               <Alert
                 type="warning"
                 showIcon
@@ -2269,6 +2530,7 @@ export default function RestaurantPageClient({
                 description="Your table isn't confirmed yet. The restaurant will review your request, and we'll notify you as soon as it's approved or declined. You can track its status on your reservations page."
               />
             ) : null}
+            {bookingSuccess.largeParty ? null : (
             <Space size={8} align="center">
               <CheckCircleFilled style={{ color: '#1f7a63' }} />
               <Text strong style={{ fontSize: 15 }}>
@@ -2276,6 +2538,7 @@ export default function RestaurantPageClient({
                 {bookingSuccess.floorArea ? ` · ${bookingSuccess.floorArea}` : ''}
               </Text>
             </Space>
+            )}
             {bookingSuccess.awaitingApproval ? null : (
               <Text type="secondary">
                 We sent your confirmation details and booking status to your reservations page.
@@ -2290,12 +2553,26 @@ export default function RestaurantPageClient({
                 { key: 'time', label: 'Time', children: bookingSuccessTimeLabel },
                 {
                   key: 'guests',
-                  label: 'Guests',
-                  children: `${bookingSuccessPartySize} ${
-                    bookingSuccessPartySize === 1 ? 'guest' : 'guests'
-                  }`,
+                  label: bookingSuccess.largeParty ? 'Approximate guests' : 'Guests',
+                  children: bookingSuccess.largeParty
+                    ? `About ${bookingSuccessPartySize}`
+                    : `${bookingSuccessPartySize} ${
+                        bookingSuccessPartySize === 1 ? 'guest' : 'guests'
+                      }`,
                 },
                 { key: 'occasion', label: 'Occasion', children: bookingSuccessOccasionLabel },
+                ...(bookingSuccess.largeParty && bookingSuccess.phoneLabel
+                  ? [{ key: 'phone', label: 'Phone', children: bookingSuccess.phoneLabel }]
+                  : []),
+                ...(bookingSuccess.largeParty && bookingSuccess.confirmationNumber
+                  ? [
+                      {
+                        key: 'confirmation',
+                        label: 'Request',
+                        children: bookingSuccess.confirmationNumber,
+                      },
+                    ]
+                  : []),
               ]}
             />
             {bookingSuccess.photoUrl ? (

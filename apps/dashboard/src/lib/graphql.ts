@@ -243,6 +243,7 @@ export const RESTAURANT_RESERVATIONS = gql`
         slotStart
         slotEnd
         status
+        largePartyRequest
         occasion
         guestNotes
         source
@@ -291,6 +292,7 @@ export const RESTAURANT_RESERVATION = gql`
       slotStart
       slotEnd
       status
+      largePartyRequest
       occasion
       guestNotes
       source
@@ -2803,6 +2805,7 @@ export const UPSERT_DATE_SCHEDULE_OVERRIDE = gql`
   mutation UpsertDateScheduleOverride(
     $restaurantId: ID!
     $date: String!
+    $endDate: String
     $mode: String!
     $startTime: String
     $endTime: String
@@ -2813,6 +2816,7 @@ export const UPSERT_DATE_SCHEDULE_OVERRIDE = gql`
     upsertDateScheduleOverride(
       restaurantId: $restaurantId
       date: $date
+      endDate: $endDate
       mode: $mode
       startTime: $startTime
       endTime: $endTime
@@ -3158,8 +3162,20 @@ export const UPDATE_RESTAURANT = gql`
 `;
 
 export const CREATE_BLACKOUT = gql`
-  mutation CreateBlackout($restaurantId: ID!, $date: String!, $reason: String, $allDay: Boolean) {
-    createBlackout(restaurantId: $restaurantId, date: $date, reason: $reason, allDay: $allDay) {
+  mutation CreateBlackout(
+    $restaurantId: ID!
+    $date: String!
+    $endDate: String
+    $reason: String
+    $allDay: Boolean
+  ) {
+    createBlackout(
+      restaurantId: $restaurantId
+      date: $date
+      endDate: $endDate
+      reason: $reason
+      allDay: $allDay
+    ) {
       id date reason allDay
     }
   }
@@ -3211,6 +3227,7 @@ export const MY_SUBSCRIPTION = gql`
       currentPeriodEnd
       trialEndsAt
       cancelledAt
+      cancelAtPeriodEnd
       pendingPlan
       pendingPlanEffectiveAt
       lastPaidPlanChangeAt
@@ -3219,7 +3236,7 @@ export const MY_SUBSCRIPTION = gql`
       websiteCoverFeeCents
       amountDueCents
       features {
-        floorPlans smartAssign waitlist premiumSms premiumSmsAddon
+        floorPlans smartAssign waitlist premiumSms premiumSmsAddon threeDView
         guestProfiles360 emailCampaigns customWidget analytics dedicatedSupport
       }
       createdAt
@@ -3359,6 +3376,8 @@ export const CREATE_SUBSCRIPTION = gql`
   mutation CreateSubscription($restaurantId: ID!, $plan: String!) {
     createSubscription(restaurantId: $restaurantId, plan: $plan) {
       id plan status monthlyPriceCents
+      clientSecret
+      paymentMode
     }
   }
 `;
@@ -3411,9 +3430,17 @@ export const REGISTER_RESTAURANT_PARTNER = gql`
 `;
 
 export const CANCEL_SUBSCRIPTION = gql`
-  mutation CancelSubscription($restaurantId: ID!) {
-    cancelSubscription(restaurantId: $restaurantId) {
-      id status cancelledAt
+  mutation CancelSubscription($restaurantId: ID!, $immediate: Boolean) {
+    cancelSubscription(restaurantId: $restaurantId, immediate: $immediate) {
+      id status cancelledAt cancelAtPeriodEnd currentPeriodEnd
+    }
+  }
+`;
+
+export const REACTIVATE_SUBSCRIPTION = gql`
+  mutation ReactivateSubscription($restaurantId: ID!) {
+    reactivateSubscription(restaurantId: $restaurantId) {
+      id status cancelAtPeriodEnd currentPeriodEnd
     }
   }
 `;
@@ -3429,8 +3456,8 @@ export const DELETE_MY_RESTAURANT = gql`
 `;
 
 export const CHANGE_PLAN = gql`
-  mutation ChangePlan($restaurantId: ID!, $plan: String!) {
-    changePlan(restaurantId: $restaurantId, plan: $plan) {
+  mutation ChangePlan($restaurantId: ID!, $plan: String!, $immediate: Boolean) {
+    changePlan(restaurantId: $restaurantId, plan: $plan, immediate: $immediate) {
       clientSecret
       paymentMode
       amountDueCents
@@ -3444,6 +3471,7 @@ export const CHANGE_PLAN = gql`
         amountDueCents
         pendingPlan
         pendingPlanEffectiveAt
+        cancelAtPeriodEnd
       }
     }
   }
@@ -4560,7 +4588,7 @@ export const SET_PREMIUM_SMS_ADDON = gql`
 // ---- Virtual 3D room (experimental add-on) ----
 
 const VIRTUAL_ROOM_ADDON_FIELDS = `
-  restaurantId platformEnabled enabled eligible active ineligibleReason enabledAt
+  restaurantId platformEnabled enabled included requiresPayment eligible active ineligibleReason enabledAt
   monthlyPriceCents effectiveMonthlyPriceCents perGuestFeeCents selectionFeeMode selectionFeePayer
   trialPriceCents trialEndsAt trialDurationMonths onTrial priceOverrideCents
   selectionAttemptCount
@@ -4618,6 +4646,27 @@ export const VIRTUAL_ROOM_OPS_SCENE = gql`
 export const SET_VIRTUAL_ROOM_ADDON = gql`
   mutation SetVirtualRoomAddon($restaurantId: ID!, $enabled: Boolean!) {
     setVirtualRoomAddon(restaurantId: $restaurantId, enabled: $enabled) {
+      ${VIRTUAL_ROOM_ADDON_FIELDS}
+    }
+  }
+`;
+
+export const START_VIRTUAL_ROOM_ADDON_PAYMENT = gql`
+  mutation StartVirtualRoomAddonPayment($restaurantId: ID!) {
+    startVirtualRoomAddonPayment(restaurantId: $restaurantId) {
+      paid
+      amountDueCents
+      clientSecret
+      paymentMode
+      paymentIntentId
+      addon { ${VIRTUAL_ROOM_ADDON_FIELDS} }
+    }
+  }
+`;
+
+export const CONFIRM_VIRTUAL_ROOM_ADDON_PAYMENT = gql`
+  mutation ConfirmVirtualRoomAddonPayment($restaurantId: ID!, $paymentIntentId: String!) {
+    confirmVirtualRoomAddonPayment(restaurantId: $restaurantId, paymentIntentId: $paymentIntentId) {
       ${VIRTUAL_ROOM_ADDON_FIELDS}
     }
   }

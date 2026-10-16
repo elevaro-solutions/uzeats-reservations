@@ -68,7 +68,16 @@ describe('floorPlan shared helpers', () => {
       [{ floorArea: 'Main', backgroundColor: '#fff', backgroundUrl: null }],
       { floorArea: 'main', backgroundColor: '#000', backgroundUrl: null },
     );
-    expect(next).toEqual([{ floorArea: 'main', backgroundColor: '#000', backgroundUrl: null }]);
+    expect(next).toEqual([
+      {
+        floorArea: 'main',
+        backgroundColor: '#000',
+        backgroundUrl: null,
+        backgroundFit: 'cover',
+        backgroundScale: 1,
+        backgroundRotationDeg: 0,
+      },
+    ]);
   });
 
   it('normalizes and compares floor area names', () => {
@@ -84,7 +93,14 @@ describe('floorPlan shared helpers', () => {
     ];
     expect(renameFloorAreaAppearance(list, 'patio', 'Garden')).toEqual([
       { floorArea: 'Main', backgroundColor: '#fff', backgroundUrl: null },
-      { floorArea: 'Garden', backgroundColor: '#e4efe8', backgroundUrl: 'https://x/y.jpg' },
+      {
+        floorArea: 'Garden',
+        backgroundColor: '#e4efe8',
+        backgroundUrl: 'https://x/y.jpg',
+        backgroundFit: 'cover',
+        backgroundScale: 1,
+        backgroundRotationDeg: 0,
+      },
     ]);
     expect(removeFloorAreaAppearance(list, 'PATIO')).toEqual([
       { floorArea: 'Main', backgroundColor: '#fff', backgroundUrl: null },

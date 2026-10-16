@@ -155,6 +155,7 @@ export async function handleStripeSubscriptionEvent(eventType: string, subscript
   current_period_end?: number;
   trial_end?: number | null;
   canceled_at?: number | null;
+  cancel_at_period_end?: boolean | null;
   metadata?: Record<string, string>;
 }) {
   const sub = await Subscription.findOne({ stripeSubscriptionId: subscription.id });
@@ -184,8 +185,16 @@ export async function handleStripeSubscriptionEvent(eventType: string, subscript
   if (subscription.trial_end) {
     sub.trialEndsAt = new Date(subscription.trial_end * 1000);
   }
+  if (typeof subscription.cancel_at_period_end === 'boolean') {
+    // Once Stripe has fully canceled, the soft-cancel flag is done.
+    sub.cancelAtPeriodEnd =
+      subscription.status === 'canceled' ? false : subscription.cancel_at_period_end;
+  }
   if (subscription.canceled_at) {
     sub.cancelledAt = new Date(subscription.canceled_at * 1000);
+  }
+  if (subscription.status === 'canceled') {
+    sub.cancelAtPeriodEnd = false;
   }
   await sub.save();
   await applyPendingPlanChangeIfDue(sub);

@@ -18,8 +18,8 @@ import { logger } from '../lib/logger.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { User } from '../models/User.js';
 import { WaitlistEntry, type WaitlistDocument } from '../models/Waitlist.js';
-import { hasPremiumSms } from './plans.js';
 import { notifyRestaurantManagers, notifyUser, sendSms } from './notifications.js';
+import { consumeSmsCredit, refundSmsCredit } from './smsBilling.js';
 import { partySizeMatches, timeWindowMatches } from './waitlistEta.js';
 
 export function assertPartnerWaitlistTransition(from: string, to: string) {
@@ -37,8 +37,13 @@ async function sendWaitlistGuestSms(
   body: string,
 ) {
   if (!guestPhone) return;
-  if (!(await hasPremiumSms(restaurantId))) return;
-  await sendSms(guestPhone, body);
+  if (!(await consumeSmsCredit(restaurantId))) return;
+  try {
+    await sendSms(guestPhone, body);
+  } catch (err) {
+    await refundSmsCredit(restaurantId, 'Refund after failed waitlist SMS');
+    throw err;
+  }
 }
 
 /**

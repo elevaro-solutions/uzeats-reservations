@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import mongoose from 'mongoose';
 import request from 'supertest';
-import { createTestApp, graphqlRequest } from './helpers.js';
+import { createTestApp, ensurePublicListing, graphqlRequest } from './helpers.js';
 import { User } from '../models/User.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { RestaurantSlugRequest } from '../models/RestaurantSlugRequest.js';
@@ -112,6 +112,7 @@ describe('Restaurant slug updates', () => {
       status: 'approved',
     });
     restaurantId = restaurant._id.toString();
+    await ensurePublicListing(restaurantId);
     await User.findByIdAndUpdate(owner._id, { $addToSet: { restaurantIds: restaurant._id } });
     await User.findByIdAndUpdate(staff._id, { $addToSet: { restaurantIds: restaurant._id } });
 

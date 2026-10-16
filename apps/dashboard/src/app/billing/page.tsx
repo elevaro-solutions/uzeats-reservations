@@ -33,6 +33,7 @@ import {
   DownOutlined,
   ExclamationCircleOutlined,
   GlobalOutlined,
+  MinusOutlined,
   PhoneOutlined,
   RightOutlined,
   SwapOutlined,
@@ -61,6 +62,7 @@ import {
   CREATE_SUBSCRIPTION,
   CANCEL_SUBSCRIPTION,
   DELETE_MY_RESTAURANT,
+  REACTIVATE_SUBSCRIPTION,
   CHANGE_PLAN,
   PREVIEW_PLAN_CHANGE,
   CANCEL_PENDING_PLAN_CHANGE,
@@ -129,6 +131,7 @@ const FEATURE_LABELS: Record<string, string> = {
 };
 
 const PLAN_BLURBS: Record<string, string> = {
+  base: 'Stay listed with no monthly fee. A higher cover fee applies to each seated guest.',
   basic: 'Essential reservation management to get started with online bookings.',
   core: 'Best-in-class table management to maximize seatings and streamline operations.',
   pro: 'Our most comprehensive plan with relationship management and data tools.',
@@ -373,6 +376,196 @@ type PartnerInvoice = {
 
 const INVOICE_LIST_PREVIEW = 3;
 const PLAN_FEATURE_PREVIEW = 6;
+const FEATURE_DELTA_PREVIEW = 8;
+
+type PlanChangeDraft = {
+  plan: string;
+  planName: string;
+  currentPlanName: string;
+  isUpgrade: boolean;
+  effective: string;
+  proratedChargeCents: number;
+  currentMonthlyPriceCents: number;
+  nextMonthlyPriceCents: number;
+  currentNetworkCoverFeeCents: number;
+  nextNetworkCoverFeeCents: number;
+  currentWebsiteCoverFeeCents: number;
+  nextWebsiteCoverFeeCents: number;
+  featuresGained: string[];
+  featuresLost: string[];
+  clearsCancel: boolean;
+  showWebsiteCover: boolean;
+};
+
+function PlanPriceTile({
+  eyebrow,
+  name,
+  monthlyCents,
+  networkCents,
+  websiteCents,
+  emphasize,
+}: {
+  eyebrow: string;
+  name: string;
+  monthlyCents: number;
+  networkCents: number;
+  websiteCents: number | null;
+  emphasize?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        flex: 1,
+        minWidth: 0,
+        padding: '12px 14px',
+        borderRadius: radii.md,
+        background: emphasize ? colors.neutral[0] : colors.neutral[50],
+        border: `1px solid ${emphasize ? colors.brand[200] : colors.bordersubtle}`,
+      }}
+    >
+      <Text
+        type="secondary"
+        style={{
+          display: 'block',
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: '0.04em',
+          textTransform: 'uppercase',
+        }}
+      >
+        {eyebrow}
+      </Text>
+      <Text strong style={{ display: 'block', marginTop: 4 }}>
+        {name}
+      </Text>
+      <div
+        style={{
+          marginTop: 6,
+          fontSize: 22,
+          fontWeight: 700,
+          lineHeight: 1.15,
+          letterSpacing: '-0.02em',
+          fontVariantNumeric: 'tabular-nums',
+          color: emphasize ? colors.brand[700] : colors.textPrimary,
+        }}
+      >
+        {formatCents(monthlyCents)}
+        <span style={{ fontSize: 13, fontWeight: 500, color: colors.textSecondary }}>/mo</span>
+      </div>
+      <Text type="secondary" style={{ display: 'block', marginTop: 6, fontSize: 12 }}>
+        Network cover {formatCents(networkCents)}
+      </Text>
+      {websiteCents != null ? (
+        <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+          Website cover {websiteCents === 0 ? 'Free' : formatCents(websiteCents)}
+        </Text>
+      ) : null}
+    </div>
+  );
+}
+
+function FeatureDeltaList({
+  title,
+  items,
+  tone,
+}: {
+  title: string;
+  items: string[];
+  tone: 'gain' | 'lose';
+}) {
+  const [expanded, setExpanded] = useState(false);
+  if (items.length === 0) return null;
+  const visible = expanded ? items : items.slice(0, FEATURE_DELTA_PREVIEW);
+  const iconColor = tone === 'gain' ? colors.success : colors.error;
+  const Icon = tone === 'gain' ? CheckOutlined : MinusOutlined;
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <Text strong>{title}</Text>
+        <Tag color={tone === 'gain' ? 'success' : 'error'} style={{ marginInlineEnd: 0 }}>
+          {items.length}
+        </Tag>
+      </div>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          columnGap: 16,
+          rowGap: 6,
+          maxHeight: expanded ? 220 : undefined,
+          overflowY: expanded ? 'auto' : undefined,
+        }}
+      >
+        {visible.map((label, index) => (
+          <div key={`${label}-${index}`} style={{ display: 'flex', gap: 8, minWidth: 0 }}>
+            <Icon style={{ color: iconColor, marginTop: 4, fontSize: 12, flexShrink: 0 }} />
+            <Text style={{ fontSize: 13, lineHeight: 1.45 }}>{label}</Text>
+          </div>
+        ))}
+      </div>
+      {items.length > FEATURE_DELTA_PREVIEW ? (
+        <Button
+          type="link"
+          size="small"
+          style={{ paddingInline: 0, marginTop: 4 }}
+          onClick={() => setExpanded((open) => !open)}
+        >
+          {expanded ? 'Show less' : `Show all ${items.length}`}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function TimingOption({
+  selected,
+  title,
+  detail,
+  badge,
+  tone,
+  onSelect,
+}: {
+  selected: boolean;
+  title: string;
+  detail: string;
+  badge?: string;
+  tone: 'safe' | 'now';
+  onSelect: () => void;
+}) {
+  const activeBorder = tone === 'now' ? colors.warning : colors.brand[400];
+  const activeBg = tone === 'now' ? colors.warningBg : colors.brand[50];
+  const rail = tone === 'now' ? colors.warning : colors.brand[600];
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onSelect}
+      style={{
+        width: '100%',
+        textAlign: 'left',
+        padding: '12px 14px',
+        borderRadius: radii.md,
+        border: `1px solid ${selected ? activeBorder : colors.border}`,
+        background: selected ? activeBg : colors.neutral[0],
+        boxShadow: selected ? `inset 3px 0 0 ${rail}` : undefined,
+        cursor: 'pointer',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <Text strong>{title}</Text>
+        {badge ? (
+          <Tag color="green" style={{ marginInlineEnd: 0 }}>
+            {badge}
+          </Tag>
+        ) : null}
+      </div>
+      <Text type="secondary" style={{ display: 'block', marginTop: 2, fontSize: 13, lineHeight: 1.45 }}>
+        {detail}
+      </Text>
+    </button>
+  );
+}
 
 function InvoiceListRow({
   invoice,
@@ -494,6 +687,7 @@ export default function BillingPage() {
   const [deleteMyRestaurant, { loading: deletingRestaurant }] = useMutation(
     DELETE_MY_RESTAURANT,
   );
+  const [reactivateSubscription, { loading: reactivating }] = useMutation(REACTIVATE_SUBSCRIPTION);
   const [changePlan, { loading: changing }] = useMutation(CHANGE_PLAN);
   const [cancelPendingPlan, { loading: cancellingPending }] = useMutation(CANCEL_PENDING_PLAN_CHANGE);
   const [previewPlanChange] = useLazyQuery(PREVIEW_PLAN_CHANGE);
@@ -507,6 +701,8 @@ export default function BillingPage() {
     monthlyLabel: string;
     amountDueCents: number;
   } | null>(null);
+  const [planChange, setPlanChange] = useState<PlanChangeDraft | null>(null);
+  const [planChangeTiming, setPlanChangeTiming] = useState<'period_end' | 'now'>('period_end');
 
   const subscription = subData?.mySubscription;
   const plans = useMemo(
@@ -558,20 +754,83 @@ export default function BillingPage() {
 
   const handleSubscribe = async (plan: string) => {
     if (!activeRestaurantId) return;
-    await createSubscription({ variables: { restaurantId: activeRestaurantId, plan } });
-    refetchSub();
+    try {
+      const { data } = await createSubscription({
+        variables: { restaurantId: activeRestaurantId, plan },
+      });
+      const payload = data?.createSubscription;
+      await refetchSub();
+      const target = plans.find((p) => p.key === plan);
+      if (payload?.clientSecret) {
+        setUpgradePayment({
+          clientSecret: payload.clientSecret,
+          paymentMode: payload.paymentMode === 'setup' ? 'setup' : 'payment',
+          planName: target?.name ?? plan,
+          monthlyLabel: formatCents(payload.monthlyPriceCents ?? target?.monthlyPriceCents ?? 0),
+          amountDueCents: 0,
+        });
+        return;
+      }
+      message.success(
+        target?.trialDays
+          ? `${target.name} started with a ${target.trialDays}-day trial`
+          : `Subscribed to ${target?.name ?? plan}`,
+      );
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Could not start subscription');
+    }
   };
 
   const handleCancel = () => {
-    Modal.confirm({
-      title: 'Cancel subscription?',
-      content:
-        'Your restaurant will lose access to platform features at the end of the current billing period.',
-      okText: 'Yes, cancel',
+    const paidThrough = subscription?.currentPeriodEnd
+      ? dayjs(subscription.currentPeriodEnd).format('MMM D, YYYY')
+      : 'the end of this billing period';
+    const planName =
+      currentPlanMeta?.name ??
+      String(subscription?.plan ?? 'your current plan').replace(/^./, (s: string) => s.toUpperCase());
+    const basePlan = plans.find((p) => p.key === 'base');
+    const baseName = basePlan?.name ?? 'Base';
+    const baseMonthly = formatCents(basePlan?.monthlyPriceCents ?? 0);
+    const baseCover = formatCents(basePlan?.networkCoverFeeCents ?? 350);
+    const modal = Modal.confirm({
+      title: 'Cancel at the end of this period?',
+      width: 520,
+      content: (
+        <div>
+          <Paragraph>
+            You keep {planName} and your public listing through {paidThrough} (already paid). It will
+            not renew after that. You can resume before then.
+          </Paragraph>
+          <Paragraph>
+            After {paidThrough} this location becomes inactive. It is removed from public search and
+            diners cannot book it until you choose a plan again.
+          </Paragraph>
+          <Paragraph type="secondary">
+            To stay listed with no monthly fee, switch to {baseName} ({baseMonthly}/mo, {baseCover}{' '}
+            cover fee) instead of cancelling.
+          </Paragraph>
+          {subscription?.plan !== 'base' ? (
+            <Button
+              onClick={() => {
+                modal.destroy();
+                void handleChangePlan('base');
+              }}
+            >
+              Switch to {baseName}
+            </Button>
+          ) : null}
+        </div>
+      ),
+      okText: 'Cancel at period end',
       okButtonProps: { danger: true },
       onOk: async () => {
         if (!activeRestaurantId) return;
-        await cancelSubscription({ variables: { restaurantId: activeRestaurantId } });
+        await cancelSubscription({
+          variables: { restaurantId: activeRestaurantId, immediate: false },
+        });
+        message.success(
+          `Cancellation scheduled. You stay listed through ${paidThrough}. After that this location is inactive and hidden from the public.`,
+        );
         refetchSub();
       },
     });
@@ -611,6 +870,61 @@ export default function BillingPage() {
     }
   };
 
+  const handleCancelImmediately = () => {
+    const basePlan = plans.find((p) => p.key === 'base');
+    const baseName = basePlan?.name ?? 'Base';
+    const baseCover = formatCents(basePlan?.networkCoverFeeCents ?? 350);
+    const modal = Modal.confirm({
+      title: 'Cancel immediately?',
+      width: 520,
+      content: (
+        <div>
+          <Paragraph>
+            This location becomes inactive right away. It is removed from public search and diners
+            cannot book it until you choose a plan again.
+          </Paragraph>
+          <Paragraph>
+            The current period is not refunded. {baseName} keeps you listed at $0/mo with a {baseCover}{' '}
+            cover fee.
+          </Paragraph>
+          {subscription?.plan !== 'base' ? (
+            <Button
+              onClick={() => {
+                modal.destroy();
+                void handleChangePlan('base');
+              }}
+            >
+              Switch to {baseName}
+            </Button>
+          ) : null}
+        </div>
+      ),
+      okText: 'Cancel now',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        if (!activeRestaurantId) return;
+        await cancelSubscription({
+          variables: { restaurantId: activeRestaurantId, immediate: true },
+        });
+        message.success(
+          'Subscription cancelled. This location is inactive and hidden from the public until you choose a plan.',
+        );
+        refetchSub();
+      },
+    });
+  };
+
+  const handleResume = async () => {
+    if (!activeRestaurantId) return;
+    try {
+      await reactivateSubscription({ variables: { restaurantId: activeRestaurantId } });
+      message.success('Subscription will renew again');
+      refetchSub();
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Could not resume subscription');
+    }
+  };
+
   const handleChangePlan = async (plan: string) => {
     if (!activeRestaurantId) return;
     try {
@@ -632,70 +946,62 @@ export default function BillingPage() {
       }
 
       const target = plans.find((p) => p.key === plan);
-      const title = preview.immediate
-        ? `Upgrade to ${target?.name ?? plan}?`
-        : `Schedule downgrade to ${target?.name ?? plan}?`;
+      const isUpgrade = preview.direction === 'upgrade' || preview.immediate;
       const effective = preview.effectiveAt
         ? dayjs(preview.effectiveAt).format('MMM D, YYYY')
         : 'the next billing date';
-
-      Modal.confirm({
-        title,
-        width: 520,
-        okText: preview.immediate ? 'Upgrade now' : 'Schedule downgrade',
-        content: (
-          <div>
-            <Paragraph>
-              {preview.immediate
-                ? `This takes effect immediately. You will be charged a prorated amount today: ${formatCents(preview.proratedChargeCents)}.`
-                : `You keep your current plan, features, and cover fees until ${effective}. Then the new price and cover fees apply.`}
-            </Paragraph>
-            <Paragraph type="secondary" style={{ marginBottom: 8 }}>
-              {formatCents(preview.currentMonthlyPriceCents)}/mo → {formatCents(preview.nextMonthlyPriceCents)}/mo
-              {preview.currentNetworkCoverFeeCents !== preview.nextNetworkCoverFeeCents
-                ? ` · Network cover ${formatCents(preview.currentNetworkCoverFeeCents)} → ${formatCents(preview.nextNetworkCoverFeeCents)}`
-                : ''}
-            </Paragraph>
-            {preview.featuresGained.length > 0 ? (
-              <Paragraph>
-                <Text strong>You will gain: </Text>
-                {preview.featuresGained.join(', ')}
-              </Paragraph>
-            ) : null}
-            {preview.featuresLost.length > 0 ? (
-              <Paragraph>
-                <Text strong>You will lose: </Text>
-                {preview.featuresLost.join(', ')}
-              </Paragraph>
-            ) : null}
-          </div>
-        ),
-        onOk: async () => {
-          try {
-            const { data: changeData } = await changePlan({
-              variables: { restaurantId: activeRestaurantId, plan },
-            });
-            const payload = changeData?.changePlan;
-            refetchSub();
-            if (payload?.clientSecret) {
-              setUpgradePayment({
-                clientSecret: payload.clientSecret,
-                paymentMode: payload.paymentMode === 'setup' ? 'setup' : 'payment',
-                planName: target?.name ?? plan,
-                monthlyLabel: formatCents(preview.nextMonthlyPriceCents),
-                amountDueCents: payload.amountDueCents || preview.proratedChargeCents,
-              });
-              return;
-            }
-            message.success(
-              preview.immediate ? 'Plan upgraded' : `Downgrade scheduled for ${effective}`,
-            );
-          } catch (err: unknown) {
-            message.error(err instanceof Error ? err.message : 'Could not change plan');
-            throw err;
-          }
-        },
+      setPlanChangeTiming('period_end');
+      setPlanChange({
+        plan,
+        planName: target?.name ?? plan,
+        currentPlanName:
+          currentPlanMeta?.name ??
+          String(subscription?.plan ?? plan).replace(/^./, (s: string) => s.toUpperCase()),
+        isUpgrade,
+        effective,
+        proratedChargeCents: preview.proratedChargeCents ?? 0,
+        currentMonthlyPriceCents: preview.currentMonthlyPriceCents ?? 0,
+        nextMonthlyPriceCents: preview.nextMonthlyPriceCents ?? 0,
+        currentNetworkCoverFeeCents: preview.currentNetworkCoverFeeCents ?? 0,
+        nextNetworkCoverFeeCents: preview.nextNetworkCoverFeeCents ?? 0,
+        currentWebsiteCoverFeeCents: preview.currentWebsiteCoverFeeCents ?? 0,
+        nextWebsiteCoverFeeCents: preview.nextWebsiteCoverFeeCents ?? 0,
+        featuresGained: preview.featuresGained ?? [],
+        featuresLost: preview.featuresLost ?? [],
+        clearsCancel: Boolean(subscription?.cancelAtPeriodEnd),
+        showWebsiteCover:
+          preview.currentWebsiteCoverFeeCents !== preview.nextWebsiteCoverFeeCents,
       });
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Could not change plan');
+    }
+  };
+
+  const confirmPlanChange = async () => {
+    if (!activeRestaurantId || !planChange) return;
+    const immediate = planChange.isUpgrade || planChangeTiming === 'now';
+    try {
+      const { data: changeData } = await changePlan({
+        variables: { restaurantId: activeRestaurantId, plan: planChange.plan, immediate },
+      });
+      const payload = changeData?.changePlan;
+      setPlanChange(null);
+      refetchSub();
+      if (payload?.clientSecret) {
+        setUpgradePayment({
+          clientSecret: payload.clientSecret,
+          paymentMode: payload.paymentMode === 'setup' ? 'setup' : 'payment',
+          planName: planChange.planName,
+          monthlyLabel: formatCents(planChange.nextMonthlyPriceCents),
+          amountDueCents: payload.amountDueCents || planChange.proratedChargeCents,
+        });
+        return;
+      }
+      message.success(
+        immediate
+          ? `${planChange.planName} starts now`
+          : `Downgrade scheduled for ${planChange.effective}`,
+      );
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Could not change plan');
     }
@@ -788,6 +1094,9 @@ export default function BillingPage() {
   const deleteNameMatches =
     Boolean(venueName) &&
     deleteConfirmName.trim().toLowerCase() === venueName.toLowerCase();
+  const isCancelled = subscription?.status === 'cancelled';
+  const cancelAtPeriodEnd = Boolean(subscription?.cancelAtPeriodEnd) && !isCancelled;
+  const showActiveSubscription = Boolean(subscription && !isCancelled);
   const isTrialing = subscription?.status === 'trialing' && amountDueNow <= 0;
   const isFreePlan = Boolean(subscription && subscription.monthlyPriceCents === 0 && amountDueNow <= 0);
   const upgradedThisPeriod = Boolean(
@@ -813,6 +1122,8 @@ export default function BillingPage() {
       planStory = 'This location is on a free plan — there is no recurring subscription charge.';
     } else if (amountDueNow > 0) {
       planStory = `${formatCents(amountDueNow)} is due now for a prorated upgrade. After that, renewals are ${monthlyPriceLabel}/mo.`;
+    } else if (cancelAtPeriodEnd && subscription.currentPeriodEnd) {
+      planStory = `Cancels on ${dayjs(subscription.currentPeriodEnd).format('MMM D, YYYY')}. You keep ${planDisplayName} until then. Resume to renew, or upgrade to start a new plan right away.`;
     } else if (subscription.pendingPlan && pendingPlanName) {
       const when = subscription.pendingPlanEffectiveAt
         ? dayjs(subscription.pendingPlanEffectiveAt).format('MMM D, YYYY')
@@ -885,7 +1196,7 @@ export default function BillingPage() {
           <div style={{ display: 'grid', placeItems: 'center', minHeight: 240 }}>
             <Spin size="large" />
           </div>
-        ) : subscription ? (
+        ) : showActiveSubscription ? (
           <>
             <Row gutter={[16, 16]}>
               <Col xs={24} sm={8} style={{ display: 'flex' }}>
@@ -1031,14 +1342,25 @@ export default function BillingPage() {
                         </Button>
                       </Dropdown>
                     ) : null}
+                    {cancelAtPeriodEnd ? (
+                      <Button onClick={() => void handleResume()} loading={reactivating}>
+                        Resume subscription
+                      </Button>
+                    ) : null}
                     {subscription.pendingPlan ? (
                       <Button onClick={handleCancelPending} loading={cancellingPending}>
                         Keep current plan
                       </Button>
                     ) : null}
-                    <Button danger type="text" onClick={handleCancel} loading={cancelling}>
-                      Cancel subscription
-                    </Button>
+                    {cancelAtPeriodEnd ? (
+                      <Button danger type="text" onClick={handleCancelImmediately} loading={cancelling}>
+                        Cancel now
+                      </Button>
+                    ) : (
+                      <Button danger type="text" onClick={handleCancel} loading={cancelling}>
+                        Cancel subscription
+                      </Button>
+                    )}
                   </Space>
                 ) : !canEditBilling ? (
                   <Text type="secondary" style={{ maxWidth: 260 }}>
@@ -1052,7 +1374,7 @@ export default function BillingPage() {
                   type={
                     amountDueNow > 0 || subscription.status === 'past_due'
                       ? 'warning'
-                      : subscription.pendingPlan
+                      : subscription.pendingPlan || cancelAtPeriodEnd
                         ? 'info'
                         : 'success'
                   }
@@ -1330,7 +1652,12 @@ export default function BillingPage() {
                 ) : (
                   <Switch
                     checked={smsAddonEnabled}
-                    disabled={!canEditBilling || subscription.plan === 'basic'}
+                    disabled={
+                      !canEditBilling ||
+                      subscription.plan === 'basic' ||
+                      subscription.status === 'cancelled' ||
+                      subscription.status === 'paused'
+                    }
                     loading={togglingSms}
                     onChange={(checked) => void handleTogglePremiumSms(checked)}
                     checkedChildren="On"
@@ -1338,6 +1665,11 @@ export default function BillingPage() {
                   />
                 )}
               </div>
+              {subscription.status === 'cancelled' || subscription.status === 'paused' ? (
+                <Paragraph type="secondary" style={{ margin: '8px 0 0' }}>
+                  SMS sending requires an active subscription. Re-subscribe to enable Premium SMS.
+                </Paragraph>
+              ) : null}
             </Card>
             ) : null}
 
@@ -1367,11 +1699,21 @@ export default function BillingPage() {
           </>
         ) : (
           <>
-            <EmptyState
-              icon={<ExclamationCircleOutlined />}
-              title="No active subscription"
-              description="Choose a plan to start accepting reservations through the Tablevera network and unlock premium features."
-            />
+            {isCancelled ? (
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginBottom: 8 }}
+                message="Subscription cancelled"
+                description={`Your previous ${planDisplayName} plan has ended. This location is inactive and hidden from public search and booking until you choose a plan below. Re-subscribing replaces the cancelled subscription.`}
+              />
+            ) : (
+              <EmptyState
+                icon={<ExclamationCircleOutlined />}
+                title="No active subscription"
+                description="Choose a plan to be listed publicly and accept reservations. Base is $0/mo with a higher cover fee."
+              />
+            )}
 
             <Row gutter={[16, 16]}>
               {plans.map((plan) => {
@@ -1384,7 +1726,7 @@ export default function BillingPage() {
                   ([key]) => smsEnabled || (key !== 'premiumSms' && key !== 'premiumSmsAddon'),
                 );
                 return (
-                  <Col key={plan.key} xs={24} md={8}>
+                  <Col key={plan.key} xs={24} md={12} xl={6}>
                     <Card
                       style={{
                         height: '100%',
@@ -1553,6 +1895,119 @@ export default function BillingPage() {
             </Space>
           </Card>
         ) : null}
+
+        <Modal
+          title={
+            planChange
+              ? planChange.isUpgrade
+                ? `Upgrade to ${planChange.planName}`
+                : `Switch to ${planChange.planName}`
+              : 'Change plan'
+          }
+          open={Boolean(planChange)}
+          width={560}
+          destroyOnHidden
+          onCancel={() => setPlanChange(null)}
+          okText={
+            !planChange
+              ? 'Confirm'
+              : planChange.isUpgrade
+                ? 'Upgrade now'
+                : planChangeTiming === 'now'
+                  ? `Start ${planChange.planName} now`
+                  : `Switch on ${planChange.effective}`
+          }
+          okButtonProps={{
+            danger: Boolean(planChange && !planChange.isUpgrade && planChangeTiming === 'now'),
+            loading: changing,
+          }}
+          onOk={() => void confirmPlanChange()}
+          cancelText="Cancel"
+        >
+          {planChange ? (
+            <Space orientation="vertical" size={16} style={{ width: '100%', marginTop: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'stretch', gap: 10 }}>
+                <PlanPriceTile
+                  eyebrow="Current"
+                  name={planChange.currentPlanName}
+                  monthlyCents={planChange.currentMonthlyPriceCents}
+                  networkCents={planChange.currentNetworkCoverFeeCents}
+                  websiteCents={
+                    planChange.showWebsiteCover ? planChange.currentWebsiteCoverFeeCents : null
+                  }
+                />
+                <span
+                  aria-hidden
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    color: colors.neutral[400],
+                    flexShrink: 0,
+                  }}
+                >
+                  <RightOutlined />
+                </span>
+                <PlanPriceTile
+                  eyebrow="New plan"
+                  name={planChange.planName}
+                  monthlyCents={planChange.nextMonthlyPriceCents}
+                  networkCents={planChange.nextNetworkCoverFeeCents}
+                  websiteCents={
+                    planChange.showWebsiteCover ? planChange.nextWebsiteCoverFeeCents : null
+                  }
+                  emphasize
+                />
+              </div>
+
+              {planChange.isUpgrade ? (
+                <Alert
+                  type="info"
+                  showIcon
+                  message={`Charged ${formatCents(planChange.proratedChargeCents)} today`}
+                  description={
+                    planChange.clearsCancel
+                      ? `Prorated for the rest of this period, then ${formatCents(planChange.nextMonthlyPriceCents)}/mo. This also clears the scheduled cancellation.`
+                      : `Prorated for the rest of this period, then ${formatCents(planChange.nextMonthlyPriceCents)}/mo.`
+                  }
+                />
+              ) : (
+                <div role="radiogroup" aria-label="When should this plan start">
+                  <Text strong style={{ display: 'block', marginBottom: 8 }}>
+                    When should this start?
+                  </Text>
+                  <Space orientation="vertical" size={8} style={{ width: '100%' }}>
+                    <TimingOption
+                      tone="safe"
+                      selected={planChangeTiming === 'period_end'}
+                      badge="Recommended"
+                      title={`Keep ${planChange.currentPlanName} until ${planChange.effective}`}
+                      detail={`Then ${planChange.planName} starts. Nothing is charged today.`}
+                      onSelect={() => setPlanChangeTiming('period_end')}
+                    />
+                    <TimingOption
+                      tone="now"
+                      selected={planChangeTiming === 'now'}
+                      title={`Start ${planChange.planName} right away`}
+                      detail="Features change today. The current period is not refunded."
+                      onSelect={() => setPlanChangeTiming('now')}
+                    />
+                  </Space>
+                </div>
+              )}
+
+              <FeatureDeltaList title="You will gain" items={planChange.featuresGained} tone="gain" />
+              <FeatureDeltaList
+                title={
+                  planChange.isUpgrade || planChangeTiming === 'now'
+                    ? 'Lost today'
+                    : `Lost after ${planChange.effective}`
+                }
+                items={planChange.featuresLost}
+                tone="lose"
+              />
+            </Space>
+          ) : null}
+        </Modal>
 
         <Modal
           title="Complete your upgrade"

@@ -4,7 +4,7 @@ import request from 'supertest';
 import { Restaurant } from '../models/Restaurant.js';
 import { User } from '../models/User.js';
 import { Promotion } from '../models/Marketing.js';
-import { createTestApp, graphqlRequest, registerUser } from './helpers.js';
+import { createTestApp, ensurePublicListing, graphqlRequest, registerUser } from './helpers.js';
 
 describe('Promotion codes at booking', () => {
   let agent: request.Agent;
@@ -74,6 +74,7 @@ describe('Promotion codes at booking', () => {
       { id: restaurantId, status: 'approved' },
       adminToken,
     );
+    await ensurePublicListing(restaurantId);
 
     await Restaurant.findByIdAndUpdate(restaurantId, {
       depositRequired: true,

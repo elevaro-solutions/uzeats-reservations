@@ -4,9 +4,14 @@ import {
   RESTAURANT_LOYALTY,
   resolveRestaurantRedeemPoints,
   isPlatformAdmin,
+  addCalendarDays,
   formatDateTimeInTimeZone,
+  formatTimeInTimeZone,
   isoDateInTimeZone,
+  MAX_PARTY_SIZE_SETTING,
   restaurantTimeZone,
+  todayIsoInTimeZone,
+  zonedWallClockToUtc,
   bookingRequiresManualApproval,
   isAcceptedPartySize,
   resolveAcceptedPartySize,
@@ -33,6 +38,7 @@ import {
 } from '../lib/reservationConfirmationNumber.js';
 import { Reservation } from '../models/Reservation.js';
 import { Restaurant } from '../models/Restaurant.js';
+import { restaurantIsPubliclyListed } from './publicListing.js';
 import { Table } from '../models/Table.js';
 import { VirtualRoom } from '../models/VirtualRoom.js';
 import { User } from '../models/User.js';
@@ -85,7 +91,7 @@ import {
 import { buildIcsAttachment, googleCalendarUrl } from './calendarInvite.js';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
-import { checkAccessRules } from './accessRules.js';
+import { checkAccessRules, getBookingWindow } from './accessRules.js';
 import { updateGuestProfileAfterVisit, sendSurveyInvitation } from './guests.js';
 import { scheduleReviewRequestEmail } from './reviewRequest.js';
 import {
@@ -356,7 +362,9 @@ async function notifyDinerBookingPendingApproval(input: {
   reservationId: string;
   restaurantName: string;
   slotStart: Date;
+  slotEnd?: Date;
   partySize: number;
+  largeParty?: boolean;
   restaurant?: Parameters<typeof restaurantTimeZone>[0] | null;
 }) {
   const diner = await User.findById(input.dinerId).select('firstName');
@@ -370,14 +378,20 @@ async function notifyDinerBookingPendingApproval(input: {
     partySize: partySizeLabel,
     reservationUrl,
   });
+  const largePartyBody = input.largeParty
+    ? `Your large-party request for about ${input.partySize} guests${largePartyWindowLabel(input.slotStart, input.slotEnd, input.restaurant)} on ${when} was sent to ${input.restaurantName}. A manager or staff member will contact you. You can also check the status in your profile.`
+    : null;
   await notifyUser(
     input.dinerId,
     {
       type: 'reservation_pending_approval',
-      title: rendered.subject,
-      body: rendered.bodyText || `Your party of ${input.partySize} on ${when} is awaiting restaurant confirmation.`,
+      title: input.largeParty ? 'Large party request sent' : rendered.subject,
+      body:
+        largePartyBody ||
+        rendered.bodyText ||
+        `Your party of ${input.partySize} on ${when} is awaiting restaurant confirmation.`,
       htmlBody: appendEmailButtonsIfMissing(
-        rendered.bodyHtml,
+        largePartyBody ? emailParagraph(escapeHtml(largePartyBody)) : rendered.bodyHtml,
         [{ href: reservationUrl, label: 'View request' }],
         reservationUrl,
       ),
@@ -387,18 +401,36 @@ async function notifyDinerBookingPendingApproval(input: {
   );
 }
 
+function largePartyWindowLabel(
+  slotStart: Date,
+  slotEnd: Date | undefined,
+  restaurant?: Parameters<typeof restaurantTimeZone>[0] | null,
+) {
+  if (!slotEnd) return '';
+  const tz = restaurantTimeZone(restaurant ?? {});
+  const from = formatTimeInTimeZone(slotStart, tz);
+  const to = formatTimeInTimeZone(slotEnd, tz);
+  if (!from || !to) return '';
+  return ` (${from}–${to})`;
+}
+
 async function notifyRestaurantBookingNeedsApproval(input: {
   restaurantId: string;
   reservationId: string;
   restaurantName: string;
   slotStart: Date;
+  slotEnd?: Date;
   partySize: number;
+  largeParty?: boolean;
   restaurant?: Parameters<typeof restaurantTimeZone>[0] | null;
 }) {
+  const when = formatReservationWhen(input.slotStart, input.restaurant);
   await notifyRestaurantManagers(input.restaurantId, {
     type: 'reservation_needs_approval',
-    title: 'Reservation needs approval',
-    body: `Party of ${input.partySize} at ${formatReservationWhen(input.slotStart, input.restaurant)} — ${input.restaurantName}`,
+    title: input.largeParty ? 'Large party request' : 'Reservation needs approval',
+    body: input.largeParty
+      ? `Large party request: about ${input.partySize} guests${largePartyWindowLabel(input.slotStart, input.slotEnd, input.restaurant)} at ${when} — ${input.restaurantName}. Contact the guest to confirm.`
+      : `Party of ${input.partySize} at ${when} — ${input.restaurantName}`,
     data: { reservationId: input.reservationId },
   });
 }
@@ -540,6 +572,9 @@ export async function createReservation(input: {
 }) {
   const restaurant = await Restaurant.findById(input.restaurantId);
   if (!restaurant || restaurant.status !== 'approved') {
+    throw new ValidationError('Restaurant not available');
+  }
+  if (!(await restaurantIsPubliclyListed(input.restaurantId))) {
     throw new ValidationError('Restaurant not available');
   }
 
@@ -1129,6 +1164,137 @@ export async function createReservation(input: {
   })();
 
   return { reservation, clientSecret: requiresPayment ? clientSecret : null };
+}
+
+export async function createLargePartyRequest(input: {
+  dinerId: string;
+  restaurantId: string;
+  date: string;
+  timeFrom: string;
+  timeTo: string;
+  partySize: number;
+  occasion?: string;
+  message: string;
+}) {
+  const restaurant = await Restaurant.findById(input.restaurantId);
+  if (!restaurant || restaurant.status !== 'approved') {
+    throw new ValidationError('Restaurant not available');
+  }
+  if (!(await restaurantIsPubliclyListed(input.restaurantId))) {
+    throw new ValidationError('Restaurant not available');
+  }
+  if (restaurant.reservationsEnabled === false) {
+    throw new ValidationError('This restaurant is not accepting online reservations');
+  }
+
+  const bounds = resolveAcceptedPartySize({
+    minPartySize: restaurant.minPartySize,
+    maxPartySize: restaurant.maxPartySize,
+  });
+  if (input.partySize <= bounds.max) {
+    throw new ValidationError(
+      `Parties of ${bounds.min}–${bounds.max} can book a table online. Large party requests are for groups of ${bounds.max + 1} or more.`,
+    );
+  }
+  if (input.partySize > MAX_PARTY_SIZE_SETTING) {
+    throw new ValidationError(`Party size cannot exceed ${MAX_PARTY_SIZE_SETTING}`);
+  }
+
+  const tz = restaurantTimeZone(restaurant);
+  const today = todayIsoInTimeZone(tz);
+  if (input.date < today) {
+    throw new ValidationError('Choose a future date');
+  }
+  const window = await getBookingWindow(input.restaurantId);
+  const maxDate = addCalendarDays(today, window.maxAdvanceDays);
+  if (input.date > maxDate) {
+    throw new ValidationError(`Requests are open up to ${window.maxAdvanceDays} days ahead`);
+  }
+
+  const slotStart = zonedWallClockToUtc(input.date, input.timeFrom, tz);
+  const slotEnd = zonedWallClockToUtc(input.date, input.timeTo, tz);
+  if (slotEnd.getTime() <= slotStart.getTime()) {
+    throw new ValidationError('End time must be after the start time');
+  }
+  if (slotStart.getTime() <= Date.now()) {
+    throw new ValidationError('Choose a time that has not already passed');
+  }
+  const minLeadMs = window.minAdvanceHours * 60 * 60 * 1000;
+  if (minLeadMs > 0 && slotStart.getTime() < Date.now() + minLeadMs) {
+    throw new ValidationError(`Requests must be at least ${window.minAdvanceHours} hours ahead`);
+  }
+
+  const duplicate = await Reservation.findOne({
+    dinerId: input.dinerId,
+    restaurantId: input.restaurantId,
+    slotStart,
+    status: { $in: ['pending', 'confirmed', 'seated'] },
+  }).select('_id');
+  if (duplicate) {
+    throw new ConflictError('You already have a reservation at this restaurant for that time');
+  }
+
+  const platform = mapPlatformConfig(await getPlatformConfig());
+  const cancellationPeriodHours = resolveCancellationPeriodHours([
+    restaurant.cancellationPeriodHours,
+    platform.cancellationPeriodHours,
+  ]);
+  const confirmationNumber = await generateReservationConfirmationNumber();
+  const reservation = await Reservation.create({
+    restaurantId: input.restaurantId,
+    dinerId: input.dinerId,
+    tableIds: [],
+    partySize: input.partySize,
+    slotStart,
+    slotEnd,
+    status: 'pending',
+    requiresManualApproval: true,
+    largePartyRequest: true,
+    occasion: input.occasion ?? 'none',
+    guestNotes: input.message.trim(),
+    source: 'network',
+    cancellationPeriodHours,
+    confirmationNumber,
+    depositAmountCents: 0,
+    depositStatus: 'none',
+    noShowFeeCents: 0,
+    cardGuaranteeStatus: 'none',
+  });
+
+  const reservationId = reservation._id.toString();
+  void (async () => {
+    try {
+      await notifyDinerBookingPendingApproval({
+        dinerId: input.dinerId,
+        restaurantId: input.restaurantId,
+        reservationId,
+        restaurantName: restaurant.name,
+        slotStart,
+        slotEnd,
+        partySize: input.partySize,
+        largeParty: true,
+        restaurant,
+      });
+    } catch (err) {
+      logger.error({ err, reservationId }, '[reservations] large-party diner notice failed');
+    }
+    try {
+      await notifyRestaurantBookingNeedsApproval({
+        restaurantId: input.restaurantId,
+        reservationId,
+        restaurantName: restaurant.name,
+        slotStart,
+        slotEnd,
+        partySize: input.partySize,
+        largeParty: true,
+        restaurant,
+      });
+    } catch (err) {
+      logger.error({ err, reservationId }, '[reservations] large-party restaurant notice failed');
+    }
+  })();
+
+  return reservation;
 }
 
 function findReservationByBookingIntent(intentId: string) {
@@ -1901,7 +2067,19 @@ export async function updateReservationDetails(
     slotStart.getTime() !== reservation.slotStart.getTime() ||
     Boolean(requestedTableId);
 
-  if (timeOrPartyChanged) {
+  if (reservation.largePartyRequest && timeOrPartyChanged) {
+    if (slotStart.getTime() <= Date.now()) {
+      throw new ValidationError('Pick a future time');
+    }
+    const durationMs = Math.max(
+      reservation.slotEnd.getTime() - reservation.slotStart.getTime(),
+      30 * 60_000,
+    );
+    reservation.partySize = partySize;
+    reservation.slotStart = slotStart;
+    reservation.slotEnd = new Date(slotStart.getTime() + durationMs);
+    reservation.tableIds = [] as typeof reservation.tableIds;
+  } else if (timeOrPartyChanged) {
     const accessViolation = await checkAccessRules({
       restaurantId: reservation.restaurantId.toString(),
       partySize,
@@ -1975,10 +2153,14 @@ export async function updateReservationDetails(
 
   await reservation.save();
 
-  if (
+  const timesChanged =
     reservation.slotStart.getTime() !== originalSlotStartMs ||
-    reservation.slotEnd.getTime() !== originalSlotEndMs
-  ) {
+    reservation.slotEnd.getTime() !== originalSlotEndMs;
+  const skipLargePartyReminders =
+    reservation.largePartyRequest === true &&
+    reservation.status !== 'confirmed' &&
+    reservation.status !== 'seated';
+  if (timesChanged && !skipLargePartyReminders) {
     await scheduleReservationReminders(reservation._id.toString());
   }
 

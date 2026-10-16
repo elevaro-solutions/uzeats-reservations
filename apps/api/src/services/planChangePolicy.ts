@@ -83,19 +83,23 @@ export function evaluatePlanChange(input: {
   fromPlan: PlanSnapshot;
   toPlan: PlanSnapshot;
   now?: Date;
+  /** Apply downgrade immediately (upgrades are always immediate). */
+  forceImmediate?: boolean;
 }): PlanChangeDecision {
   const now = input.now ?? new Date();
   const sub = input.subscription;
   const direction = planDirection(input.fromPlan.monthlyPriceCents, input.toPlan.monthlyPriceCents);
   const diff = featureDiff(input.fromPlan.features, input.toPlan.features);
+  const immediate =
+    direction === 'upgrade' || Boolean(input.forceImmediate && direction === 'downgrade');
   const base: PlanChangeDecision = {
     fromPlan: input.fromPlan.key,
     toPlan: input.toPlan.key,
     direction,
     allowed: false,
     blockedReason: null,
-    immediate: direction === 'upgrade',
-    effectiveAt: direction === 'upgrade' ? now : (sub.currentPeriodEnd ?? null),
+    immediate,
+    effectiveAt: immediate ? now : (sub.currentPeriodEnd ?? null),
     proratedChargeCents:
       direction === 'upgrade'
         ? estimateUpgradeProrationCents({

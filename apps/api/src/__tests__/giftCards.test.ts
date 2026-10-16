@@ -4,7 +4,7 @@ import request from 'supertest';
 import { Restaurant } from '../models/Restaurant.js';
 import { User } from '../models/User.js';
 import { GiftCard } from '../models/GiftCard.js';
-import { createTestApp, graphqlRequest, registerUser } from './helpers.js';
+import { createTestApp, ensurePublicListing, graphqlRequest, registerUser } from './helpers.js';
 
 describe('Gift cards at booking', () => {
   let agent: request.Agent;
@@ -75,6 +75,7 @@ describe('Gift cards at booking', () => {
       { id: restaurantId, status: 'approved' },
       adminToken,
     );
+    await ensurePublicListing(restaurantId);
 
     await Restaurant.findByIdAndUpdate(restaurantId, {
       depositRequired: true,

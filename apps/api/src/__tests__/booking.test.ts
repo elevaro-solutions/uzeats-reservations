@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import mongoose from 'mongoose';
 import request from 'supertest';
 import { User } from '../models/User.js';
-import { createTestApp, graphqlRequest, registerUser } from './helpers.js';
+import { createTestApp, ensurePublicListing, graphqlRequest, registerUser } from './helpers.js';
 
 describe('Booking Flow (E2E)', () => {
   let agent: request.Agent;
@@ -117,6 +117,7 @@ describe('Booking Flow (E2E)', () => {
 
     expect(res.body.errors).toBeUndefined();
     expect(res.body.data.setRestaurantStatus.status).toBe('approved');
+    await ensurePublicListing(restaurantId);
   });
 
   it('should create tables for the restaurant', async () => {
@@ -803,6 +804,99 @@ describe('Booking Flow (E2E)', () => {
         ) { id minPartySize maxPartySize }
       }`,
       { restaurantId, minPartySize: null, maxPartySize: null },
+      ownerToken,
+    );
+  });
+
+  it('should accept a large party request without holding a table', async () => {
+    const settingsRes = await graphqlRequest(
+      agent,
+      `mutation UpdateSettings(
+        $restaurantId: ID!
+        $maxPartySize: Int
+      ) {
+        updateRestaurantSettings(
+          restaurantId: $restaurantId
+          maxPartySize: $maxPartySize
+        ) { id maxPartySize }
+      }`,
+      { restaurantId, maxPartySize: 4 },
+      ownerToken,
+    );
+    expect(settingsRes.body.errors).toBeUndefined();
+
+    const day = new Date();
+    day.setDate(day.getDate() + 21);
+    const date = day.toISOString().split('T')[0];
+
+    const tooSmall = await graphqlRequest(
+      agent,
+      `mutation LargeParty($input: LargePartyRequestInput!) {
+        createLargePartyRequest(input: $input) { id }
+      }`,
+      {
+        input: {
+          restaurantId,
+          date,
+          timeFrom: '18:00',
+          timeTo: '20:00',
+          partySize: 3,
+          message: 'Weeknight dinner',
+        },
+      },
+      dinerToken,
+    );
+    expect(tooSmall.body.errors?.[0]?.message).toMatch(/groups of 5 or more/i);
+
+    const request = await graphqlRequest(
+      agent,
+      `mutation LargeParty($input: LargePartyRequestInput!) {
+        createLargePartyRequest(input: $input) {
+          id
+          status
+          largePartyRequest
+          requiresManualApproval
+          partySize
+          guestNotes
+          occasion
+          tableIds
+        }
+      }`,
+      {
+        input: {
+          restaurantId,
+          date,
+          timeFrom: '18:00',
+          timeTo: '21:00',
+          partySize: 12,
+          occasion: 'birthday',
+          message: 'Birthday dinner for the team',
+        },
+      },
+      dinerToken,
+    );
+    expect(request.body.errors).toBeUndefined();
+    const created = request.body.data.createLargePartyRequest;
+    expect(created.status).toBe('pending');
+    expect(created.largePartyRequest).toBe(true);
+    expect(created.requiresManualApproval).toBe(true);
+    expect(created.partySize).toBe(12);
+    expect(created.guestNotes).toBe('Birthday dinner for the team');
+    expect(created.occasion).toBe('birthday');
+    expect(created.tableIds).toEqual([]);
+
+    await graphqlRequest(
+      agent,
+      `mutation UpdateSettings(
+        $restaurantId: ID!
+        $maxPartySize: Int
+      ) {
+        updateRestaurantSettings(
+          restaurantId: $restaurantId
+          maxPartySize: $maxPartySize
+        ) { id maxPartySize }
+      }`,
+      { restaurantId, maxPartySize: null },
       ownerToken,
     );
   });

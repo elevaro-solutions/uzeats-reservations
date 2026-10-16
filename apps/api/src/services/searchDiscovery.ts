@@ -11,6 +11,7 @@ import {
 import { Restaurant } from '../models/Restaurant.js';
 import { SearchEvent } from '../models/SearchEvent.js';
 import { UserSearchHistory } from '../models/UserSearchHistory.js';
+import { publiclyListedRestaurantIds } from './publicListing.js';
 
 const RECENT_SEARCH_CAP = 20;
 const TRENDING_WINDOW_DAYS = 30;
@@ -131,10 +132,15 @@ async function aggregateArrayField(
   return mapArrayFieldRows(rows, slugFn);
 }
 
+async function approvedAndListed(input?: DiscoveryIndexInput | SearchSuggestionsInput | null) {
+  const listedIds = await publiclyListedRestaurantIds();
+  return { ...buildApprovedScopeMatch(input), _id: { $in: listedIds } };
+}
+
 export async function getDiscoveryIndex(
   input?: DiscoveryIndexInput | null,
 ): Promise<DiscoveryIndexResult> {
-  const approved = buildApprovedScopeMatch(input);
+  const approved = await approvedAndListed(input);
 
   const [
     cityRows,
@@ -301,7 +307,7 @@ function formatAddressLine(address?: {
 export async function searchRestaurantSuggestions(
   input: SearchSuggestionsInput,
 ): Promise<SearchSuggestionResult[]> {
-  const filter = buildApprovedScopeMatch(input);
+  const filter = await approvedAndListed(input);
   const q = input.query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   if (q) {
     const pattern = new RegExp(q, 'i');

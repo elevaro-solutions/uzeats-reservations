@@ -214,6 +214,7 @@ export default function ReservationDetailPage() {
     confirmationNumber?: string | null;
     status: string;
     requiresManualApproval?: boolean;
+    largePartyRequest?: boolean;
     slotStart: string;
     slotEnd?: string;
     partySize: number;
@@ -480,7 +481,17 @@ export default function ReservationDetailPage() {
           />
         )}
 
-        {displayReservationStatus(r) === 'awaiting_approval' && (
+        {r.largePartyRequest && r.status === 'pending' && (
+          <Alert
+            type="info"
+            showIcon
+            className="rt-reservation-detail__alert"
+            message="The restaurant will contact you"
+            description={`A manager or staff member at ${r.restaurant?.name ?? 'the restaurant'} will contact you about this large party request. You can check the status here in your profile.`}
+          />
+        )}
+
+        {displayReservationStatus(r) === 'awaiting_approval' && !r.largePartyRequest && (
           <Alert
             type="warning"
             showIcon
@@ -565,8 +576,12 @@ export default function ReservationDetailPage() {
               icon={<ClockCircleOutlined />}
             />
             <DetailRow
-              label="Party"
-              value={`${r.partySize} guest${r.partySize === 1 ? '' : 's'}`}
+              label={r.largePartyRequest ? 'Approximate guests' : 'Party'}
+              value={
+                r.largePartyRequest
+                  ? `About ${r.partySize} guests`
+                  : `${r.partySize} guest${r.partySize === 1 ? '' : 's'}`
+              }
               icon={<TeamOutlined />}
             />
             {occasionLabel ? (

@@ -205,6 +205,23 @@ export const VIRTUAL_ROOM = gql`
   }
 `;
 
+export const CREATE_LARGE_PARTY_REQUEST = gql`
+  mutation CreateLargePartyRequest($input: LargePartyRequestInput!) {
+    createLargePartyRequest(input: $input) {
+      id
+      confirmationNumber
+      status
+      largePartyRequest
+      requiresManualApproval
+      slotStart
+      slotEnd
+      partySize
+      occasion
+      guestNotes
+    }
+  }
+`;
+
 export const CREATE_RESERVATION = gql`
   mutation CreateReservation($input: ReservationInput!) {
     createReservation(input: $input) {
@@ -271,6 +288,7 @@ export const MY_RESERVATIONS = gql`
       createdAt
       status
       requiresManualApproval
+      largePartyRequest
       slotStart
       slotEnd
       partySize
@@ -314,6 +332,7 @@ export const MY_RESERVATION = gql`
       confirmationNumber
       status
       requiresManualApproval
+      largePartyRequest
       slotStart
       slotEnd
       partySize

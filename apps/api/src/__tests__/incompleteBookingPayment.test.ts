@@ -4,7 +4,7 @@ import request from 'supertest';
 import { Restaurant } from '../models/Restaurant.js';
 import { Reservation } from '../models/Reservation.js';
 import { User } from '../models/User.js';
-import { createTestApp, graphqlRequest, registerUser } from './helpers.js';
+import { createTestApp, ensurePublicListing, graphqlRequest, registerUser } from './helpers.js';
 import { expireAbandonedIncompleteBookings } from '../services/reservations.js';
 import { BOOKING_CARD_HOLD_MINUTES } from '@reservations/shared';
 
@@ -78,6 +78,7 @@ describe('Incomplete card-hold bookings are not placed', () => {
       depositAmountCents: 2500,
       depositPolicy: 'card_guarantee',
     });
+    await ensurePublicListing(restaurantId);
 
     await graphqlRequest(
       agent,

@@ -8,10 +8,13 @@ import {
   isNoShowMarkingMode,
   VIRTUAL_ROOM_DEFAULT_MONTHLY_PRICE_CENTS,
   VIRTUAL_ROOM_DEFAULT_PER_GUEST_FEE_CENTS,
+  normalizeSmsBillingConfig,
   type AnnualBillingSettings,
   type NoShowMarkingMode,
   type PlanDiscountType,
   type PlatformHolidayDef,
+  type SmsBillingConfig,
+  type SmsBillingInput,
 } from '@reservations/shared';
 
 function normalizePlatformHolidaysForConfig(raw: unknown): PlatformHolidayDef[] {
@@ -484,6 +487,27 @@ export async function getVirtualRoomPricing(): Promise<VirtualRoomPricing> {
   return mapVirtualRoomPricing(await getPlatformConfig());
 }
 
+export function mapSmsBilling(doc: PlatformConfigDocument): SmsBillingConfig {
+  return normalizeSmsBillingConfig((doc as { smsBilling?: unknown }).smsBilling);
+}
+
+export function applySmsBilling(doc: PlatformConfigDocument, input: SmsBillingInput) {
+  const current = mapSmsBilling(doc);
+  const next = normalizeSmsBillingConfig({
+    packages: input.packages ?? current.packages,
+    perMessage: {
+      ...current.perMessage,
+      ...(input.perMessage ?? {}),
+    },
+  });
+  (doc as { smsBilling?: SmsBillingConfig }).smsBilling = next;
+  doc.markModified('smsBilling');
+}
+
+export async function getSmsBillingConfigFromPlatform(): Promise<SmsBillingConfig> {
+  return mapSmsBilling(await getPlatformConfig());
+}
+
 export function resolveRequireSignupEmailVerification(
   value: boolean | null | undefined,
 ): boolean {
@@ -538,6 +562,7 @@ export function mapPlatformConfig(doc: PlatformConfigDocument) {
       virtualRoom3d: flags.virtualRoom3d === true,
     },
     virtualRoomPricing: mapVirtualRoomPricing(doc),
+    smsBilling: mapSmsBilling(doc),
     annualBilling: mapAnnualBillingSettings(doc),
     updatedAt: (doc as any).updatedAt ?? new Date(),
   };

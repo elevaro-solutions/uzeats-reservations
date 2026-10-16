@@ -1,5 +1,40 @@
 # API — Learnings & Observations
 
+## [2026-10-16] No active plan hides the public listing; Base is $0
+- Public search, suggestions, discovery counts, bookmarks, `restaurant` for non-staff, and diner `createReservation` / large-party requests require a subscription in `trialing`, `active`, or `past_due`. Soft-cancel stays listed until `currentPeriodEnd`. Missing or `cancelled` / `paused` subscriptions are not listed. Staff and admins can still open the venue.
+- Builtin `base` plan: $0/mo, network and website cover $3.50, no trial, no premium features.
+- Why it matters: Cancelling is not a free listing. Base is the $0 way to stay public, paid for per cover.
+
+## [2026-10-16] Cancel at period end; upgrades start now
+- Partner cancel sets `cancelAtPeriodEnd` (Stripe `cancel_at_period_end`) and keeps status active until `currentPeriodEnd`. `immediate: true` still hard-cancels. `reactivateSubscription` clears the flag. `changePlan` upgrades (and `immediate: true` downgrades) clear soft-cancel and apply now. `getFeatures` keeps plan features while soft-cancelled.
+- Why it matters: Access is paid through the current period. A higher plan can start immediately instead of waiting for the cancel date.
+
+## [2026-10-16] Virtual 3D included on Pro; otherwise pay before access
+- `features.threeDView` (on by default for Pro) means the monthly Virtual 3D fee is included — no `billedMonths`, no upfront charge, `active` without the paid toggle.
+- Other eligible plans: `startVirtualRoomAddonPayment` charges the current month before `enabled`. Prepaid months skip the period-invoice line. Later months still sync onto the period invoice. Guest selection fees are unchanged.
+- Why it matters: “Available on Pro” is inclusion. Core cannot use 3D until the month is paid.
+
+## [2026-10-15] Partner signup welcome + approval emails
+- `registerRestaurantPartner` always fires `restaurant_created` (in addition to verification when required). Admin approve (`setRestaurantStatus` / bulk) fires `restaurant_approved` once when transitioning into `approved`.
+- Why it matters: Self-signup with verification off previously sent zero emails; the approved template existed but was never triggered.
+
+## [2026-10-15] Platform holidays: review only; manuals upsert/delete
+- `deleteDateScheduleOverride` throws on `platform_holiday` / `holidayKey`. `upsertDateScheduleOverride` rejects `holidayKey` and refuses overwriting an existing holiday row — partners only create `source: manual`. Enable/disable closing = `reviewDateScheduleOverride`. Default list includes rejected platform holidays (for re-enable) plus pending/approved manuals.
+- Why it matters: Hard delete re-seeded holidays; partners must not edit/delete catalog days as if they owned them.
+
+## [2026-10-15] Cancelled sub → re-subscribe, not changePlan
+- `changePlan` / `evaluatePlanChange` block cancelled. `createRestaurantSubscription` replaces cancelled docs. Partner Billing shows plan cards when `status === 'cancelled'`. SMS enable is rejected while cancelled/paused; `getFeatures` already falls back to Basic.
+- Why it matters: Change-plan UI was hidden and empty-state cards only rendered when `mySubscription` was null.
+
+## [2026-10-15] Virtual 3D billing (updated 2026-10-16)
+- Paid enable charges the current month upfront and marks that `billedMonths` row prepaid so the period invoice does not charge it again. Later months still sync onto the period invoice (due the 1st of next month UTC).
+- `features.threeDView` (default on for Pro) includes the monthly fee. Eligibility to buy still needs `floorPlans` when not included.
+- Why it matters: Do not put a prepaid month back on the period invoice, and do not bill included plans.
+
+## [2026-10-14] Automation pyramid lives outside API-only Vitest
+- Unit tests for pure domain now run in `@reservations/shared` (`pnpm test:unit`). API `__tests__` remain the GraphQL/integration layer (`pnpm test:integration`). Browser smoke is Playwright in `apps/e2e` (`pnpm test:e2e:smoke`, opt-in CI via `E2E_ENABLED`). Guide: `docs/automation-testing.md`.
+- Why it matters: Don’t put role/party-size/holiday pure helpers only in API tests — cover them in shared unit first; keep API tests for DB + resolver behavior.
+
 ## [2026-10-15] Diner `deleteMyAccount` anonymizes restaurant-visible history
 - Mutation `deleteMyAccount` (diner role only, no impersonation). Cancels `pending`/`confirmed` without late fees; retains `no_show`/`completed` rows with empty `guestNotes`.
 - Tombstones `User` (`firstName=Guest`, clears email/phone/auth, sets `deletedAt`). Deletes `GuestProfile` so Guests CRM loses the person. Scrubs waitlist name/phone and inquiry sender fields.

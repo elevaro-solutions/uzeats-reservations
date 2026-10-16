@@ -536,6 +536,7 @@ export const NOTIFICATION_TYPE_TO_EVENT: Record<string, NotificationEvent> = {
   points_redeemed: "loyaltyUpdates",
   points_refunded: "loyaltyUpdates",
   restaurant_created: "accountUpdates",
+  restaurant_approved: "accountUpdates",
   restaurant_slug_changed: "accountUpdates",
   restaurant_slug_denied: "accountUpdates",
   restaurant_profile_changed: "accountUpdates",

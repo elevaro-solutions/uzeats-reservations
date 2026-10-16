@@ -33,7 +33,37 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Unit (shared) + API integration. Browser E2E is opt-in below.
       - run: pnpm run test
+
+  e2e-smoke:
+    if: ${{ vars.E2E_ENABLED == '1' }}
+    runs-on: ubuntu-latest
+    needs: [test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @reservations/e2e exec playwright install --with-deps chromium
+      - name: Playwright smoke
+        env:
+          E2E_ENABLED: '1'
+          E2E_WEB_URL: ${{ vars.E2E_WEB_URL }}
+          E2E_DASHBOARD_URL: ${{ vars.E2E_DASHBOARD_URL }}
+          E2E_DINER_EMAIL: ${{ secrets.E2E_DINER_EMAIL }}
+          E2E_DINER_PASSWORD: ${{ secrets.E2E_DINER_PASSWORD }}
+          E2E_OWNER_EMAIL: ${{ secrets.E2E_OWNER_EMAIL }}
+          E2E_OWNER_PASSWORD: ${{ secrets.E2E_OWNER_PASSWORD }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_RESTAURANT_SLUG: ${{ vars.E2E_RESTAURANT_SLUG }}
+        run: pnpm run test:e2e:smoke
 
   build:
     runs-on: ubuntu-latest

@@ -9,7 +9,7 @@ describe('plan catalog', () => {
       launch: { name: 'Launch', monthlyPriceCents: 7900 },
     });
 
-    expect(all.map((plan) => plan.key)).toEqual(['basic', 'core', 'pro', 'launch']);
+    expect(all.map((plan) => plan.key)).toEqual(['base', 'basic', 'core', 'pro', 'launch']);
     expect(all.find((plan) => plan.key === 'basic')).toMatchObject({
       name: 'Starter',
       monthlyPriceCents: 3900,
@@ -17,7 +17,7 @@ describe('plan catalog', () => {
     });
 
     const catalog = visiblePlans(all, new Set(['basic']));
-    expect(catalog.map((plan) => plan.key)).toEqual(['core', 'pro', 'launch']);
+    expect(catalog.map((plan) => plan.key)).toEqual(['base', 'core', 'pro', 'launch']);
     expect(all.find((plan) => plan.key === 'basic')?.features).toEqual(PLANS.basic.features);
   });
 
@@ -40,6 +40,7 @@ describe('plan catalog', () => {
       'pro',
       'launch',
       'basic',
+      'base',
       'core',
     ]);
     expect(normalizePlanOrder(['basic', 'core', 'pro'], ['pro', 'missing', 'basic'])).toEqual([

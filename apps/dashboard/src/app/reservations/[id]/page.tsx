@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { Button, Card, Col, Dropdown, Modal, Row, Space, Spin, Typography, message } from 'antd';
+import { Alert, Button, Card, Col, Dropdown, Modal, Row, Space, Spin, Typography, message } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -62,6 +62,7 @@ type ReservationDetail = {
   confirmationNumber?: string | null;
   restaurantId: string;
   status: string;
+  largePartyRequest?: boolean;
   partySize: number;
   slotStart: string;
   slotEnd?: string | null;
@@ -412,6 +413,15 @@ function ReservationDetailPageContent() {
           extra={<StatusTag status={reservation.status} />}
         />
 
+        {reservation.largePartyRequest ? (
+          <Alert
+            type="info"
+            showIcon
+            message="Large party request"
+            description="No table is held. Contact the guest to confirm this group, then mark the reservation confirmed."
+          />
+        ) : null}
+
         <Card
           style={{
             borderRadius: radii.lg,
@@ -629,6 +639,7 @@ function ReservationDetailPageContent() {
               <InfoRow label="Party">
                 <Text>
                   <TeamOutlined style={{ marginRight: 8, color: colors.textTertiary }} />
+                  {reservation.largePartyRequest ? 'About ' : ''}
                   {reservation.partySize} {reservation.partySize === 1 ? 'guest' : 'guests'}
                 </Text>
               </InfoRow>
@@ -639,7 +650,7 @@ function ReservationDetailPageContent() {
                   {tableArea ? <Text type="secondary"> · {tableArea}</Text> : null}
                 </Text>
               </InfoRow>
-              <InfoRow label="Special request">
+              <InfoRow label={reservation.largePartyRequest ? 'Message' : 'Special request'}>
                 {reservation.guestNotes?.trim() ? (
                   <Text>{reservation.guestNotes}</Text>
                 ) : (

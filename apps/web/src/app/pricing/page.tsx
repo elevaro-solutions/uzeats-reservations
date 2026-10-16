@@ -179,7 +179,7 @@ const faqItems = [
     key: '7',
     label: 'Is there a free trial?',
     children:
-      'Yes — every plan includes a free 30-day trial. No credit card commitment required to explore the product; cancel anytime during the trial with no charge.',
+      'Paid plans include a free 30-day trial. Base is $0/mo with a higher cover fee and has no trial. Cancel anytime.',
   },
 ];
 
@@ -251,6 +251,22 @@ type ApiPlan = {
 };
 
 const FALLBACK_PLANS: ApiPlan[] = [
+  {
+    key: 'base',
+    name: 'Base',
+    description: 'Stay listed with no monthly fee. A higher cover fee applies to each seated guest.',
+    monthlyPriceCents: 0,
+    networkCoverFeeCents: 350,
+    websiteCoverFeeCents: 350,
+    trialDays: 0,
+    visibleOnPricing: true,
+    isCustom: false,
+    highlights: [
+      'Public Tablevera listing',
+      'Online reservations',
+      '$0 monthly subscription',
+    ],
+  },
   {
     key: 'basic',
     name: 'Basic',
@@ -523,7 +539,13 @@ export default function PricingPage() {
                 : '/mo';
 
             return (
-              <Col xs={24} md={8} key={plan.key} style={{ display: 'flex' }}>
+              <Col
+                xs={24}
+                md={12}
+                xl={visiblePlans.length > 3 ? 6 : 8}
+                key={plan.key}
+                style={{ display: 'flex' }}
+              >
                 <div
                   className={`pricing-plan-card${isCore ? ' pricing-plan-card--featured pricing-core-card' : ''}`}
                   onClick={() => setSelectedPlan(plan.key)}

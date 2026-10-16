@@ -123,6 +123,16 @@ describe('evaluatePlanChange', () => {
     expect(decision.blockedReason).toMatch(/payment/i);
   });
 
+  it('blocks changePlan on cancelled subscriptions (re-subscribe via createSubscription instead)', () => {
+    const decision = evaluatePlanChange({
+      subscription: sub({ status: 'cancelled' }),
+      fromPlan: fromCore,
+      toPlan: toPro,
+    });
+    expect(decision.allowed).toBe(false);
+    expect(decision.blockedReason).toMatch(/cancelled/i);
+  });
+
   it('allows only one paid upgrade per billing period', () => {
     const decision = evaluatePlanChange({
       subscription: sub({ lastPaidPlanChangeAt: new Date('2026-08-05T00:00:00.000Z') }),

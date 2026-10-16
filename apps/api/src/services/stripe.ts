@@ -713,6 +713,46 @@ export async function cancelStripeSubscription(subscriptionId: string) {
   }
 }
 
+/** Soft cancel — access continues until the current Stripe period ends. */
+export async function scheduleStripeCancelAtPeriodEnd(subscriptionId: string) {
+  const client = await getStripe();
+  if (!client || subscriptionId.startsWith('sub_dev_')) {
+    return { id: subscriptionId, cancel_at_period_end: true, status: 'active' };
+  }
+  try {
+    return await client.subscriptions.update(subscriptionId, { cancel_at_period_end: true });
+  } catch (err) {
+    if (isStripeResourceMissing(err)) {
+      logger.warn(
+        { subscriptionId, stripeMode: getActiveStripeMode() },
+        'Stripe subscription missing on schedule cancel (mode switch or deleted)',
+      );
+      return { id: subscriptionId, cancel_at_period_end: true, status: 'active' };
+    }
+    throw err;
+  }
+}
+
+/** Undo soft cancel so the subscription renews again. */
+export async function clearStripeCancelAtPeriodEnd(subscriptionId: string) {
+  const client = await getStripe();
+  if (!client || subscriptionId.startsWith('sub_dev_')) {
+    return { id: subscriptionId, cancel_at_period_end: false, status: 'active' };
+  }
+  try {
+    return await client.subscriptions.update(subscriptionId, { cancel_at_period_end: false });
+  } catch (err) {
+    if (isStripeResourceMissing(err)) {
+      logger.warn(
+        { subscriptionId, stripeMode: getActiveStripeMode() },
+        'Stripe subscription missing on resume (mode switch or deleted)',
+      );
+      return { id: subscriptionId, cancel_at_period_end: false, status: 'active' };
+    }
+    throw err;
+  }
+}
+
 /** False when the id is absent from the active Stripe mode (common after sandbox ↔ live switch). */
 export async function stripeSubscriptionExists(subscriptionId: string): Promise<boolean> {
   if (!subscriptionId || subscriptionId.startsWith('sub_dev_')) return false;

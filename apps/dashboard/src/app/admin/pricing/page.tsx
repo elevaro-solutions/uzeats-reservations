@@ -90,7 +90,8 @@ const FEATURE_TOGGLES = [
   {
     key: 'threeDView',
     label: '3D view',
-    tooltip: 'Included free with the package — Live floor 3D view for hosts (no Virtual 3D add-on charge).',
+    tooltip:
+      'Included free with the package — Virtual 3D room (no $50/mo add-on). Guest table-pick fees still follow platform settings.',
   },
 ];
 

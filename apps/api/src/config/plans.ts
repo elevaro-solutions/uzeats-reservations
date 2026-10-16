@@ -54,6 +54,7 @@ const CORE_FEATURES: FeatureKey[] = [
 const PRO_FEATURES: FeatureKey[] = [
   ...CORE_FEATURES,
   'premiumSms',
+  'threeDView',
   'emailCampaigns',
   'customWidget',
   'dedicatedSupport',
@@ -71,6 +72,19 @@ export const DEFAULT_MANAGER_SEATS = 1;
 
 /** Launch pricing — early-stage SaaS rates (raise as we grow). */
 export const PLANS = {
+  /**
+   * $0 monthly fee. Cover fees are higher so a listed restaurant still pays per seated guest.
+   * No active plan (including after cancel) is not this package — the venue is unlisted.
+   */
+  base: {
+    name: 'Base',
+    monthlyPriceCents: 0,
+    networkCoverFeeCents: 350,
+    websiteCoverFeeCents: 350,
+    trialDays: 0,
+    managerSeats: 1,
+    features: features([]),
+  },
   basic: {
     name: 'Basic',
     monthlyPriceCents: 4900,
@@ -112,6 +126,11 @@ export type PlanKey = keyof typeof PLANS;
 
 /** Default “Includes” lines on the public pricing cards until a super admin overrides them. */
 export const DEFAULT_PLAN_HIGHLIGHTS: Record<string, string[]> = {
+  base: [
+    'Public Tablevera listing',
+    'Online reservations',
+    '$0 monthly subscription',
+  ],
   basic: [
     'Tablevera listing & booking widget',
     'Deposits & no-show fees',
@@ -128,6 +147,7 @@ export const DEFAULT_PLAN_HIGHLIGHTS: Record<string, string[]> = {
     'Advanced guest insights',
     'Revenue forecasting',
     'Custom report builder',
+    'Virtual 3D room included',
     'Dedicated account manager',
   ],
 };

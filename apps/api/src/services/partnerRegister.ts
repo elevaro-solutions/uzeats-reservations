@@ -13,6 +13,7 @@ import { provisionDefaultRestaurantSetup } from './restaurantSetup.js';
 import { clampRegistrationRole } from './roleAccess.js';
 import { sendSignupVerificationEmail } from './auth.js';
 import { logger } from '../lib/logger.js';
+import { notifyOwnerRestaurantCreated } from './restaurantOwnerEmails.js';
 
 function restaurantSlugBase(name: string) {
   return (
@@ -157,6 +158,20 @@ export async function registerRestaurantPartner(input: RegisterRestaurantPartner
     resource: 'Restaurant',
     resourceId: restaurant._id.toString(),
     details: { plan: planDef.key },
+  });
+
+  // Always send the onboarding welcome email (same template as admin-created venues).
+  // Verification is additional when the platform requires signup email verification.
+  void notifyOwnerRestaurantCreated({
+    ownerId: user._id.toString(),
+    restaurantId: restaurant._id.toString(),
+    restaurantName: restaurant.name,
+    plan: planDef.key,
+  }).catch((err) => {
+    logger.error(
+      { err, userId: user._id.toString(), restaurantId: restaurant._id.toString() },
+      '[partnerRegister] restaurant_created email failed',
+    );
   });
 
   if (requireEmailVerification) {

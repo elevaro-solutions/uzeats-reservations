@@ -5,6 +5,8 @@ import request from 'supertest';
 import { typeDefs } from '../graphql/typeDefs.js';
 import { resolvers } from '../graphql/resolvers.js';
 import { createContext } from '../graphql/context.js';
+import { PLANS } from '../config/plans.js';
+import { Subscription } from '../models/Subscription.js';
 
 export async function createTestApp(): Promise<{
   app: express.Express;
@@ -52,6 +54,27 @@ let testPhoneSeq = 0;
 function nextTestPhone() {
   testPhoneSeq += 1;
   return `+1${String(5550000000 + testPhoneSeq)}`;
+}
+
+/** Active Basic plan so the restaurant stays on public search and can take diner bookings. */
+export async function ensurePublicListing(restaurantId: string) {
+  const fields = {
+    plan: 'basic',
+    status: 'active' as const,
+    monthlyPriceCents: PLANS.basic.monthlyPriceCents,
+    networkCoverFeeCents: PLANS.basic.networkCoverFeeCents,
+    websiteCoverFeeCents: PLANS.basic.websiteCoverFeeCents,
+    currentPeriodStart: new Date(),
+    currentPeriodEnd: new Date(Date.now() + 30 * 86_400_000),
+    cancelAtPeriodEnd: false,
+  };
+  const existing = await Subscription.findOne({ restaurantId });
+  if (existing && ['trialing', 'active', 'past_due'].includes(existing.status)) return existing;
+  if (existing) {
+    Object.assign(existing, fields);
+    return existing.save();
+  }
+  return Subscription.create({ restaurantId, ...fields });
 }
 
 export async function registerUser(

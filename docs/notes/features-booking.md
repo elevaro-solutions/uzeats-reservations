@@ -1,5 +1,22 @@
 # Booking — Learnings & Observations
 
+## [2026-10-16] Closure date ranges are one row per day
+- Partner Hub sends `date` + `endDate`. The API expands the inclusive range into one `Blackout` or manual `DateScheduleOverride` per calendar day (max 120) and rejects past days in the restaurant timezone. A range that includes a platform holiday is refused before any write.
+- Why it matters: Slot search still filters `date` equality. Grouping for display happens in the dashboard, not in Mongo.
+
+## [2026-10-16] Large party is a pending request, not a table hold
+- Diner Guests select still ends with `Large party (max+1)` when `maxPartySize` is below 999. Choosing it opens a request form (date, from–to, approximate guests, occasion, message, phone if the profile has none).
+- `createLargePartyRequest` stores a `pending` reservation with `largePartyRequest`, `requiresManualApproval`, and empty `tableIds`. Party size must be above the restaurant’s accepted online max. No deposit, no slot claim.
+- Success copy tells the diner a manager/staff member will contact them, and that status lives on their reservations page.
+- Why it matters: Do not route oversized parties through `createReservation` — that rejects them and tries to assign a table.
+
+## [2026-10-15] Platform holidays = enable/disable only
+- Platform catalog rows (`source: platform_holiday`) stay on Closures → **Platform holidays** with a Close/Open switch (`reviewDateScheduleOverride` approved ↔ rejected). `deleteDateScheduleOverride` and partner `upsert` refuse holiday-backed rows. Manual overrides live under **Your schedule overrides** (edit/delete). List keeps rejected platform holidays visible so closing can be turned back on; rejected manuals stay hidden.
+- Why it matters: Partners were deleting holidays (which re-seeded) or treating catalog days like self-created special hours.
+
+## [2026-10-15] Delete holiday override = reject sentinel (superseded)
+- Earlier soft-delete-on-delete for holidays. Replaced by forbidding delete and using review enable/disable.
+
 ## [2026-10-14] No-show marking is layered; manual path charges fees
 - Resolve order: table → floor-area setting → restaurant → platform → `manual_only`. Platform default is manual-only so hosts mark no-show and `chargeNoShowFee` runs on that status update.
 - BullMQ `no-show-check` no-ops when effective mode is `manual_only`. Auto mode still marks at `slotEnd` without charging the card-guarantee fee.

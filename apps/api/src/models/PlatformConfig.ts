@@ -151,6 +151,31 @@ const platformConfigSchema = new Schema(
         default: 'restaurant',
       },
     },
+    /**
+     * Prepaid guest SMS catalog. Plans with `premiumSms` included skip this.
+     * Everyone else buys a package (upfront credits) or tops up per-message.
+     */
+    smsBilling: {
+      packages: [
+        {
+          id: { type: String, required: true },
+          name: { type: String, required: true },
+          description: { type: String },
+          messageCount: { type: Number, required: true, min: 1 },
+          priceCents: { type: Number, required: true, min: 0 },
+          active: { type: Boolean, default: true },
+          sortOrder: { type: Number, default: 0 },
+        },
+      ],
+      perMessage: {
+        enabled: { type: Boolean, default: true },
+        priceCentsPerMessage: { type: Number, min: 1 },
+        topUpPresetsCents: { type: [Number], default: undefined },
+        allowCustomTopUp: { type: Boolean, default: true },
+        minCustomTopUpCents: { type: Number, min: 100 },
+        maxCustomTopUpCents: { type: Number, min: 100 },
+      },
+    },
     planOverrides: {
       type: Map,
       of: planOverrideSchema,

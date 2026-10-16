@@ -4,6 +4,38 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.84.0] — 2026-10-16
+
+### Added
+
+- Large party requests: groups above a restaurant’s online maximum can send a date, time window, approximate guest count, occasion, message, and confirmation phone. The request stays pending with no table held, and the diner is told staff will contact them or that they can check status in their profile
+- Automation pyramid: Vitest unit suite for `@reservations/shared`, Playwright browser smoke package `@reservations/e2e`, root scripts `test:unit` / `test:integration` / `test:e2e:smoke`, and optional CI job when `E2E_ENABLED=1`
+- Partner self-signup sends the `restaurant_created` welcome email (same template as admin-created venues); admin approve sends `restaurant_approved`
+
+### Changed
+
+- Closures & special hours: blackouts and special hours can cover a date range (up to 120 days). Consecutive days with the same setting show as one range, and deleting or editing applies to that whole range
+- Billing: cancel keeps access until the period ends (paid through); Resume restores renewal. Upgrades start immediately and clear a scheduled cancel. Downgrades can start right away or at period end. A fully ended subscription still uses the plan picker
+- Billing plan-change confirmation compares current and new price, lets you pick period-end or start now, and lists gained or lost features instead of one comma-separated paragraph
+- Base plan: $0/mo with a $3.50 network and website cover fee, so a restaurant can stay listed without a monthly subscription
+- A restaurant with no active plan (cancelled, or never subscribed) is inactive for the public: hidden from search, the public profile, and diner booking. Access continues through a scheduled cancel until the period ends
+- Cancel confirmation includes a Switch to Base button that opens the plan change instead of ending the subscription
+- Virtual 3D: Pro (`threeDView`) includes it with no monthly charge. Other eligible plans pay the monthly fee upfront before access; that month is not billed again on the period invoice
+- Closures & special hours: platform holidays are enable/disable only (Close/Open); self-created overrides keep edit/delete
+
+### Fixed
+
+- API tests: manager seat invite assertion matches “team seat” copy; floor-plan appearance helpers expect default `backgroundFit` / scale / rotation
+- Closures & special hours: platform holidays cannot be deleted or rewritten via upsert (use review enable/disable); manuals hard-delete as before
+- Premium SMS add-on cannot be enabled on cancelled/paused subscriptions (UI + API)
+- Partner Virtual 3D: paid plans require upfront payment before access; prepaid months are omitted from the period invoice. Pro includes Virtual 3D (`threeDView`) with no monthly charge
+
+### Docs
+
+- Platform automation guide (`docs/automation-testing.md`) and developer testing notes
+- Manual QA pack under `docs/qa/`: process README, evergreen role/feature checklist, release template, and **v0.81.0** release-delta checklist with sign-off
+- API, dashboard, booking, and Virtual 3D notes for listing eligibility, billing lifecycle, holiday overrides, and prepaid Virtual 3D
+
 ## [0.83.1] — 2026-10-15
 
 ### Fixed

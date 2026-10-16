@@ -1,5 +1,29 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-16] Closures date ranges
+- `/blackouts` date fields are ranges. `createBlackout` / `upsertDateScheduleOverride` take optional `endDate` and write one row per calendar day (cap 120). The lists collapse consecutive rows that share reason/mode/status/hours into one range; delete, approve, and edit act on every day in that range.
+- Why it matters: Availability still matches a single `date`. Do not store a range as one document.
+
+## [2026-10-15] Closures: platform holidays vs your overrides
+- `/blackouts` splits **Platform holidays** (Close/Open switch only) from **Your schedule overrides** (edit/delete). Special-hours form no longer has a holiday catalog picker.
+- Why it matters: Catalog holidays are not partner-owned rows; deleting them broke the approval queue.
+
+## [2026-10-16] Cancel copy and Base plan
+- Cancel confirmation states the location becomes inactive and drops off public search and booking when the plan ends. A Switch to Base button closes the cancel dialog and opens the plan-change preview.
+- Why it matters: Owners were told they only lose renewal, not the public listing.
+
+## [2026-10-16] Plan change confirmation layout
+- Billing change-plan dialog is a controlled modal: side-by-side price (and cover fee when it changes), period-end vs start-now choices on downgrade, feature deltas in a two-column list (first 8, then show all).
+- Why it matters: The old `Modal.confirm` buried timing in a text link and rendered every lost feature as one sentence.
+
+## [2026-10-16] Billing cancel stays paid-through; upgrade starts now
+- Cancel schedules end-of-period access (`cancelAtPeriodEnd`) with Resume. Cancel now ends access immediately and shows the plan picker. Change plan: upgrades start immediately (and clear a scheduled cancel). Downgrades default to period end, with “Start right away”.
+- Why it matters: Owners keep what they already paid for, and can move to a higher plan without waiting out the cancel date.
+
+## [2026-10-15] Billing after cancel shows plan picker
+- Cancelled subscriptions keep a `mySubscription` doc, so Billing used to hide both Change plan and the empty-state plan cards. Cancelled now routes to the subscribe cards; cancel modal copy matches immediate cancel. SMS switch disabled when cancelled/paused.
+- Why it matters: Owners could not pick another plan after cancel even though `createRestaurantSubscription` already replaces cancelled rows.
+
 ## [2026-10-14] Billing Danger zone — delete restaurant
 - Partner `/billing` (owners only): Danger zone deletes the active venue via `deleteMyRestaurant`. Confirm by typing the restaurant name.
 - Button disabled when `restaurantOpenInvoiceCount > 0`, `amountDueCents > 0`, or subscription `past_due`. On success: refetch `myRestaurants`, switch to another venue or `/onboarding`.

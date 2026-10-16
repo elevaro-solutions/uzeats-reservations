@@ -4,7 +4,7 @@ import request from 'supertest';
 import { User } from '../models/User.js';
 import { SearchEvent } from '../models/SearchEvent.js';
 import { UserSearchHistory } from '../models/UserSearchHistory.js';
-import { createTestApp, graphqlRequest, registerUser } from './helpers.js';
+import { createTestApp, ensurePublicListing, graphqlRequest, registerUser } from './helpers.js';
 
 const DISCOVERY_INDEX_QUERY = `
   query DiscoveryIndex($input: DiscoveryIndexInput) {
@@ -136,6 +136,7 @@ describe('Search discovery API', () => {
       { id: restaurantId, status: 'approved' },
       adminToken,
     );
+    await ensurePublicListing(restaurantId);
   });
 
   it('returns discovery index with new browse fields', async () => {

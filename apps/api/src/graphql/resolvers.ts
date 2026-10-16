@@ -10,6 +10,7 @@ import {
   renameFloorAreaInputSchema,
   deleteFloorAreaInputSchema,
   shiftInputSchema,
+  largePartyRequestInputSchema,
   reservationInputSchema,
   ownerReservationInputSchema,
   updateReservationInputSchema,
@@ -41,6 +42,8 @@ import {
   countPopularMenuItems,
   restaurantTimeZone,
   todayIsoInTimeZone,
+  eachCalendarDate,
+  isPastCalendarDay,
   RESTAURANT_MAX_PHOTOS,
   REVIEW_REPORT_DETAILS_MAX,
   formatReviewFlagReason,
@@ -187,6 +190,7 @@ import {
 } from "../services/waitlist.js";
 import { searchWaitlistGuests } from "../services/waitlistGuestSearch.js";
 import {
+  createLargePartyRequest,
   createReservation,
   createOwnerReservation,
   updateReservationDetails,
@@ -284,7 +288,6 @@ import {
 } from "../models/index.js";
 import crypto from "node:crypto";
 import {
-  cancelStripeSubscription,
   createDepositIntent,
   isStubPaymentIntent,
   retrievePaymentIntentClientSecret,
@@ -310,6 +313,10 @@ import {
   previewPlanChange,
 } from "../services/planChange.js";
 import { estimateUpgradeProrationCents } from "../services/planChangePolicy.js";
+import {
+  restaurantIsPubliclyListed,
+  viewerCanSeeUnlistedRestaurant,
+} from "../services/publicListing.js";
 import {
   createOwnerSupportTicket,
   addOwnerSupportReply,
@@ -417,6 +424,8 @@ import {
   recordVirtualRoomSelectionAttempt,
   removeVirtualRoomMedia,
   setVirtualRoomAddon,
+  startVirtualRoomAddonPayment,
+  confirmVirtualRoomAddonPayment,
   updateVirtualRoom,
 } from "../services/virtualRoom.js";
 import { startReconstruction } from "../services/virtualRoomReconstruction.js";
@@ -430,7 +439,6 @@ import {
   exportInvoicePdf,
   exportInvoicePdfByToken,
   generateInvoicesForPeriod,
-  refreshPeriodInvoiceForRestaurant,
   getInvoiceById,
   getInvoiceByPayToken,
   getPlatformRevenueReport,
@@ -486,6 +494,7 @@ function mapSubscription(sub: any, opts?: { includeStripeIds?: boolean }) {
     currentPeriodEnd: sub.currentPeriodEnd ?? null,
     trialEndsAt: sub.trialEndsAt ?? null,
     cancelledAt: sub.cancelledAt ?? null,
+    cancelAtPeriodEnd: Boolean(sub.cancelAtPeriodEnd),
     pendingPlan: sub.pendingPlan ?? null,
     pendingPlanEffectiveAt: sub.pendingPlanEffectiveAt ?? null,
     lastPaidPlanChangeAt: sub.lastPaidPlanChangeAt ?? null,
@@ -549,6 +558,26 @@ function reviewMongoSort(sort?: ReviewSort | null): Record<string, 1 | -1> {
     default:
       return { createdAt: -1 };
   }
+}
+
+/** Inclusive calendar dates for a blackout or special-hours range. Rejects past days. */
+async function closureDatesForRestaurant(
+  restaurantId: string,
+  startDate: string,
+  endDate?: string | null,
+): Promise<string[]> {
+  let dates: string[];
+  try {
+    dates = eachCalendarDate(startDate, endDate?.trim() || startDate);
+  } catch (err) {
+    throw new ValidationError(err instanceof Error ? err.message : 'Invalid date range');
+  }
+  const restaurant = await Restaurant.findById(restaurantId).select('address location').lean();
+  const timeZone = restaurantTimeZone(restaurant ?? {});
+  if (dates.some((date) => isPastCalendarDay(date, timeZone))) {
+    throw new ValidationError('Choose today or a future date');
+  }
+  return dates;
 }
 
 export const resolvers = {
@@ -881,7 +910,11 @@ export const resolvers = {
       },
     ) => getDiscoveryTaxonomyBySlug(args.kind, args.slug),
 
-    restaurant: async (_: unknown, args: { id?: string; slug?: string }) => {
+    restaurant: async (
+      _: unknown,
+      args: { id?: string; slug?: string },
+      ctx: GraphQLContext,
+    ) => {
       const doc = args.id
         ? await Restaurant.findById(args.id)
         : args.slug
@@ -889,7 +922,15 @@ export const resolvers = {
               $or: [{ slug: args.slug }, { previousSlugs: args.slug }],
             })
           : null;
-      return doc ? mapRestaurant(doc) : null;
+      if (!doc) return null;
+      const listed =
+        doc.status === "approved" &&
+        (await restaurantIsPubliclyListed(doc._id.toString()));
+      if (listed) return mapRestaurant(doc);
+      if (await viewerCanSeeUnlistedRestaurant(ctx.user, doc)) return mapRestaurant(doc);
+      // Pending and other non-approved rows stay reachable by id for existing staff tools.
+      if (doc.status !== "approved") return mapRestaurant(doc);
+      return null;
     },
 
     validatePromotion: async (
@@ -2240,10 +2281,14 @@ export const resolvers = {
         args.restaurantId,
         user.role,
       );
-      const sub = await Subscription.findOne({
+      let sub = await Subscription.findOne({
         restaurantId: args.restaurantId,
       });
       if (!sub) return null;
+      const { finalizeCancelAtPeriodEndIfDue } = await import(
+        "../services/subscriptionLifecycle.js"
+      );
+      sub = await finalizeCancelAtPeriodEndIfDue(sub);
       await applyPendingPlanChangeIfDue(sub);
       const stubStripe =
         !sub.stripeSubscriptionId ||
@@ -3297,7 +3342,16 @@ export const resolvers = {
       // Queue pending major-holiday closes (stay open until approved).
       await ensureUpcomingHolidayApprovals(args.restaurantId);
       const filter: Record<string, unknown> = { restaurantId: args.restaurantId };
-      if (args.status) filter.status = args.status;
+      if (args.status) {
+        filter.status = args.status;
+      } else {
+        // Manual rejected rows stay hidden. Platform holidays stay visible when rejected
+        // so owners can re-enable closing (enable/disable only — never delete).
+        filter.$or = [
+          { status: { $in: ["pending", "approved"] } },
+          { source: "platform_holiday" },
+        ];
+      }
       const items = await DateScheduleOverride.find(filter).sort({ date: 1 });
       return items.map(mapDateScheduleOverride);
     },
@@ -4074,6 +4128,7 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const admin = requireAdmin(ctx);
+      const previous = await Restaurant.findById(args.id).select("status").lean();
       const doc = await Restaurant.findByIdAndUpdate(
         args.id,
         { status: args.status },
@@ -4082,6 +4137,21 @@ export const resolvers = {
       if (!doc) throw new Error("Restaurant not found");
       if (args.status === "approved") {
         await provisionDefaultRestaurantSetup(doc._id);
+        if (previous?.status !== "approved" && doc.ownerId) {
+          const { notifyOwnerRestaurantApproved } = await import(
+            "../services/restaurantOwnerEmails.js"
+          );
+          void notifyOwnerRestaurantApproved({
+            ownerId: doc.ownerId.toString(),
+            restaurantId: doc._id.toString(),
+            restaurantName: doc.name,
+          }).catch((err) => {
+            logger.error(
+              { err, restaurantId: args.id },
+              "[setRestaurantStatus] restaurant_approved email failed",
+            );
+          });
+        }
       }
       await logAudit({
         actorId: admin._id.toString(),
@@ -4250,6 +4320,7 @@ export const resolvers = {
       args: {
         restaurantId: string;
         date: string;
+        endDate?: string | null;
         reason?: string;
         allDay?: boolean;
       },
@@ -4259,6 +4330,7 @@ export const resolvers = {
       const input = createBlackoutInputSchema.parse({
         restaurantId: args.restaurantId,
         date: args.date,
+        endDate: args.endDate,
         reason: args.reason,
         allDay: args.allDay,
       });
@@ -4267,18 +4339,39 @@ export const resolvers = {
         input.restaurantId,
         user.role,
       );
-      const doc = await Blackout.create({
+      const dates = await closureDatesForRestaurant(
+        input.restaurantId,
+        input.date,
+        input.endDate,
+      );
+      const allDay = input.allDay ?? true;
+      await Blackout.bulkWrite(
+        dates.map((date) => ({
+          updateOne: {
+            filter: { restaurantId: input.restaurantId, date },
+            update: {
+              $set: {
+                reason: input.reason ?? null,
+                allDay,
+                ...(allDay ? { startTime: null, endTime: null } : {}),
+              },
+              $setOnInsert: { restaurantId: input.restaurantId, date },
+            },
+            upsert: true,
+          },
+        })),
+      );
+      const doc = await Blackout.findOne({
         restaurantId: input.restaurantId,
-        date: input.date,
-        reason: input.reason,
-        allDay: input.allDay ?? true,
+        date: dates[0],
       });
+      if (!doc) throw new Error('Failed to save blackout');
       return {
         id: doc._id.toString(),
         restaurantId: input.restaurantId,
         date: doc.date,
         reason: doc.reason,
-        allDay: doc.allDay,
+        allDay: doc.allDay ?? true,
         startTime: doc.startTime,
         endTime: doc.endTime,
       };
@@ -4289,6 +4382,7 @@ export const resolvers = {
       args: {
         restaurantId: string;
         date: string;
+        endDate?: string | null;
         mode: string;
         startTime?: string | null;
         endTime?: string | null;
@@ -4310,39 +4404,76 @@ export const resolvers = {
       if (args.mode === 'custom_hours' && (!args.startTime || !args.endTime)) {
         throw new Error('custom_hours requires startTime and endTime');
       }
+      // Platform catalog holidays are enable/disable only — partners create manual overrides
+      // for their own special hours, never platform_holiday rows via this mutation.
+      if (args.holidayKey?.trim()) {
+        throw new ValidationError(
+          'Platform holidays cannot be created or edited here. Enable or disable closing on the holiday list.',
+        );
+      }
+      const dates = await closureDatesForRestaurant(
+        args.restaurantId,
+        args.date,
+        args.endDate,
+      );
+      const existingRows = await DateScheduleOverride.find({
+        restaurantId: args.restaurantId,
+        date: { $in: dates },
+      }).select('date source holidayKey');
+      const holidayDates = existingRows
+        .filter((row) => row.source === 'platform_holiday' || Boolean(row.holidayKey))
+        .map((row) => row.date)
+        .sort();
+      if (holidayDates.length > 0) {
+        const label = holidayDates.join(', ');
+        throw new ValidationError(
+          holidayDates.length === 1
+            ? `${label} is a platform holiday. Enable or disable closing on the holiday list instead of editing it.`
+            : `${label} are platform holidays. Remove them from the range, or enable or disable closing on the holiday list.`,
+        );
+      }
       const status =
         args.status === 'pending' || args.status === 'rejected'
           ? args.status
           : 'approved';
-      const holidayKey = args.holidayKey?.trim() || null;
-      const doc = await DateScheduleOverride.findOneAndUpdate(
-        { restaurantId: args.restaurantId, date: args.date },
-        {
-          $set: {
-            mode: args.mode,
-            startTime: args.startTime ?? null,
-            endTime: args.endTime ?? null,
-            reason: args.reason ?? null,
-            source: holidayKey ? 'platform_holiday' : 'manual',
-            holidayKey,
-            status,
-            ...(status === 'approved'
-              ? {
-                  reviewedById: user._id,
-                  reviewedAt: new Date(),
-                }
-              : {
-                  requestedById: user._id,
-                }),
+      const reviewedAt = new Date();
+      await DateScheduleOverride.bulkWrite(
+        dates.map((date) => ({
+          updateOne: {
+            filter: { restaurantId: args.restaurantId, date },
+            update: {
+              $set: {
+                mode: args.mode,
+                startTime: args.startTime ?? null,
+                endTime: args.endTime ?? null,
+                reason: args.reason ?? null,
+                source: 'manual',
+                holidayKey: null,
+                status,
+                ...(status === 'approved'
+                  ? {
+                      reviewedById: user._id,
+                      reviewedAt,
+                    }
+                  : {
+                      requestedById: user._id,
+                    }),
+              },
+              $setOnInsert: {
+                restaurantId: args.restaurantId,
+                date,
+              },
+            },
+            upsert: true,
           },
-          $setOnInsert: {
-            restaurantId: args.restaurantId,
-            date: args.date,
-          },
-        },
-        { upsert: true, new: true },
+        })),
       );
-      return mapDateScheduleOverride(doc!);
+      const doc = await DateScheduleOverride.findOne({
+        restaurantId: args.restaurantId,
+        date: dates[0],
+      });
+      if (!doc) throw new Error('Failed to save special hours');
+      return mapDateScheduleOverride(doc);
     },
 
     reviewDateScheduleOverride: async (
@@ -4381,6 +4512,12 @@ export const resolvers = {
         existing.restaurantId.toString(),
         user.role,
       );
+      // Platform holidays are enable/disable only (reviewDateScheduleOverride).
+      if (existing.source === "platform_holiday" || Boolean(existing.holidayKey)) {
+        throw new ValidationError(
+          "Platform holidays cannot be deleted. Enable or disable closing instead.",
+        );
+      }
       await existing.deleteOne();
       return true;
     },
@@ -4482,6 +4619,40 @@ export const resolvers = {
         reservation: mapReservation(result.reservation, result.clientSecret),
         clientSecret: result.clientSecret ?? null,
       };
+    },
+
+    createLargePartyRequest: async (
+      _: unknown,
+      args: { input: unknown },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const input = largePartyRequestInputSchema.parse(args.input);
+      await attachDinerProfilePhone(user._id.toString(), input.phone);
+      const reservation = await createLargePartyRequest({
+        dinerId: user._id.toString(),
+        restaurantId: input.restaurantId,
+        date: input.date,
+        timeFrom: input.timeFrom,
+        timeTo: input.timeTo,
+        partySize: input.partySize,
+        occasion: input.occasion,
+        message: input.message,
+      });
+      await logAudit({
+        actorId: user._id.toString(),
+        action: "createLargePartyRequest",
+        resource: "Reservation",
+        resourceId: reservation._id.toString(),
+        details: {
+          restaurantId: input.restaurantId,
+          partySize: input.partySize,
+          date: input.date,
+          timeFrom: input.timeFrom,
+          timeTo: input.timeTo,
+        },
+      });
+      return mapReservation(reservation);
     },
 
     createOwnerReservation: async (
@@ -5736,9 +5907,14 @@ export const resolvers = {
         customerEmail: user.email ?? undefined,
         customerName: restaurant.name,
         actorId: user._id.toString(),
+        collectPaymentMethod: planDef.monthlyPriceCents > 0,
       });
 
-      return mapSubscription(sub, { includeStripeIds: true });
+      return {
+        ...mapSubscription(sub, { includeStripeIds: true }),
+        clientSecret: sub.clientSecret ?? null,
+        paymentMode: sub.paymentMode ?? null,
+      };
     },
 
     adminAssignRestaurantPackage: async (
@@ -5757,6 +5933,29 @@ export const resolvers = {
 
     cancelSubscription: async (
       _: unknown,
+      args: { restaurantId: string; immediate?: boolean | null },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      assertCanManageBilling(user.role);
+      const { scheduleSubscriptionCancel } = await import(
+        "../services/subscriptionLifecycle.js"
+      );
+      const sub = await scheduleSubscriptionCancel({
+        restaurantId: args.restaurantId,
+        actorId: user._id.toString(),
+        immediate: Boolean(args.immediate),
+      });
+      return mapSubscription(sub, { includeStripeIds: true });
+    },
+
+    reactivateSubscription: async (
+      _: unknown,
       args: { restaurantId: string },
       ctx: GraphQLContext,
     ) => {
@@ -5767,29 +5966,13 @@ export const resolvers = {
         user.role,
       );
       assertCanManageBilling(user.role);
-
-      const sub = await Subscription.findOne({
+      const { reactivateSubscription } = await import(
+        "../services/subscriptionLifecycle.js"
+      );
+      const sub = await reactivateSubscription({
         restaurantId: args.restaurantId,
-      });
-      if (!sub) throw new NotFoundError("Subscription");
-      if (sub.status === "cancelled") throw new ConflictError("Subscription is already cancelled");
-
-      if (sub.stripeSubscriptionId) {
-        await cancelStripeSubscription(sub.stripeSubscriptionId);
-      }
-
-      sub.status = "cancelled";
-      sub.cancelledAt = new Date();
-      await sub.save();
-
-      await logAudit({
         actorId: user._id.toString(),
-        action: "cancelSubscription",
-        resource: "Subscription",
-        resourceId: sub._id.toString(),
-        details: { restaurantId: args.restaurantId },
       });
-
       return mapSubscription(sub, { includeStripeIds: true });
     },
 
@@ -5826,7 +6009,7 @@ export const resolvers = {
 
     changePlan: async (
       _: unknown,
-      args: { restaurantId: string; plan: string },
+      args: { restaurantId: string; plan: string; immediate?: boolean | null },
       ctx: GraphQLContext,
     ) => {
       const user = requireAuth(ctx);
@@ -5840,6 +6023,7 @@ export const resolvers = {
         restaurantId: args.restaurantId,
         plan: args.plan,
         actorId: user._id.toString(),
+        forceImmediate: Boolean(args.immediate),
       });
       return {
         subscription: mapSubscription(result.subscription, {
@@ -8063,6 +8247,15 @@ export const resolvers = {
         restaurantId: args.restaurantId,
       });
       if (!sub) throw new Error("No subscription found");
+      const { subscriptionGrantsEntitlements, finalizeCancelAtPeriodEndIfDue } =
+        await import("../services/subscriptionLifecycle.js");
+      await finalizeCancelAtPeriodEndIfDue(sub);
+      // Soft-cancel still grants entitlements until period end. Hard cancel / paused do not.
+      if (args.enabled && !subscriptionGrantsEntitlements(sub)) {
+        throw new ValidationError(
+          "Premium SMS requires an active subscription. Choose a plan to re-enable SMS.",
+        );
+      }
       if (sub.plan === "basic") {
         throw new Error("Premium SMS add-on requires the Core plan or higher");
       }
@@ -8088,10 +8281,24 @@ export const resolvers = {
     ) => {
       const user = await requireVirtualRoomManager(ctx, args.restaurantId);
       assertCanManageBilling(user.role);
-      const status = await setVirtualRoomAddon(args.restaurantId, args.enabled);
-      await refreshPeriodInvoiceForRestaurant(args.restaurantId).catch((err) =>
-        logger.warn({ err, restaurantId: args.restaurantId }, "[virtualRoom] invoice refresh failed"),
-      );
+      if (args.enabled) {
+        const current = await getVirtualRoomAddonStatus(args.restaurantId);
+        if (current.requiresPayment) {
+          throw new ValidationError(
+            "Payment is required before enabling Virtual 3D. Use startVirtualRoomAddonPayment.",
+          );
+        }
+      }
+      const status = await setVirtualRoomAddon(args.restaurantId, args.enabled, new Date(), {
+        paymentConfirmed: true,
+      });
+      if (args.enabled && !status.included && status.effectiveMonthlyPriceCents === 0) {
+        await ensurePeriodInvoiceForRestaurant(args.restaurantId, undefined, {
+          emailOwner: false,
+        }).catch((err) =>
+          logger.warn({ err, restaurantId: args.restaurantId }, "[virtualRoom] invoice ensure failed"),
+        );
+      }
       await logAudit({
         actorId: user._id.toString(),
         action: "setVirtualRoomAddon",
@@ -8099,9 +8306,52 @@ export const resolvers = {
         resourceId: args.restaurantId,
         details: {
           enabled: args.enabled,
+          included: status.included,
           monthlyPriceCents: status.monthlyPriceCents,
           perGuestFeeCents: status.perGuestFeeCents,
         },
+      });
+      return status;
+    },
+
+    startVirtualRoomAddonPayment: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = await requireVirtualRoomManager(ctx, args.restaurantId);
+      assertCanManageBilling(user.role);
+      const result = await startVirtualRoomAddonPayment(args.restaurantId);
+      await logAudit({
+        actorId: user._id.toString(),
+        action: "startVirtualRoomAddonPayment",
+        resource: "Restaurant",
+        resourceId: args.restaurantId,
+        details: {
+          paid: result.paid,
+          amountDueCents: result.amountDueCents,
+        },
+      });
+      return result;
+    },
+
+    confirmVirtualRoomAddonPayment: async (
+      _: unknown,
+      args: { restaurantId: string; paymentIntentId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = await requireVirtualRoomManager(ctx, args.restaurantId);
+      assertCanManageBilling(user.role);
+      const status = await confirmVirtualRoomAddonPayment(
+        args.restaurantId,
+        args.paymentIntentId,
+      );
+      await logAudit({
+        actorId: user._id.toString(),
+        action: "confirmVirtualRoomAddonPayment",
+        resource: "Restaurant",
+        resourceId: args.restaurantId,
+        details: { paymentIntentId: args.paymentIntentId },
       });
       return status;
     },

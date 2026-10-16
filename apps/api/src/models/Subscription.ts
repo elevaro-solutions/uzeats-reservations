@@ -27,6 +27,11 @@ const subscriptionSchema = new Schema(
     currentPeriodEnd: { type: Date },
     trialEndsAt: { type: Date },
     cancelledAt: { type: Date },
+    /**
+     * Soft cancel: Stripe cancel_at_period_end. Status stays active/trialing and
+     * features remain until currentPeriodEnd; then finalize to cancelled.
+     */
+    cancelAtPeriodEnd: { type: Boolean, default: false },
     pendingPlan: { type: String },
     pendingPlanEffectiveAt: { type: Date },
     lastPaidPlanChangeAt: { type: Date },
@@ -59,11 +64,19 @@ const subscriptionSchema = new Schema(
       featuredPlacement: { type: Boolean, default: false },
       boostCampaigns: { type: Boolean, default: false },
       threeDView: { type: Boolean, default: false },
-      // Premium SMS purchased as a $25/mo add-on on Core
+      // Legacy free toggle — guest SMS now uses prepaid credits (`addons.smsCredits`).
       premiumSmsAddon: { type: Boolean, default: false },
     },
     /** Paid add-ons kept outside `features`, which plan changes overwrite. */
     addons: {
+      /**
+       * Prepaid guest SMS balance. Plans with `premiumSms` included do not consume this.
+       * Purchases (packages / top-ups) credit `balance`; each sent guest SMS decrements by 1.
+       */
+      smsCredits: {
+        balance: { type: Number, default: 0, min: 0 },
+        updatedAt: { type: Date },
+      },
       virtualRoom3d: {
         enabled: { type: Boolean, default: false },
         enabledAt: { type: Date },
@@ -84,6 +97,9 @@ const subscriptionSchema = new Schema(
               _id: false,
               period: { type: String, required: true },
               priceCents: { type: Number, required: true },
+              /** Set when the month was charged upfront at enable (skip period-invoice line). */
+              prepaid: { type: Boolean, default: false },
+              paidAt: { type: Date },
             },
           ],
           default: [],

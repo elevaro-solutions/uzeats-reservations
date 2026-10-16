@@ -2,6 +2,14 @@
 
 Experimental add-on: billing (monthly + per-guest fees) and an external photogrammetry provider (KIRI Engine), so it lives in its own file.
 
+## [2026-10-16] Payment timing + Pro inclusion
+- Pro (`features.threeDView`, on by default) includes Virtual 3D: no monthly add-on charge and no upfront checkout.
+- Other eligible plans pay the current month before access (`startVirtualRoomAddonPayment`). That prepaid month is not added again to the period invoice. Later months still land on the period invoice (due the 1st of the next month, UTC).
+- Why it matters: Access is blocked until the first month is paid, and included packages are not charged the $50 fee.
+
+## [2026-10-15] Payment timing + Pro eligibility (not inclusion)
+- Superseded by the 2026-10-16 note above. Earlier behavior billed the full month on the period invoice for every Core/Pro enable and did not treat Pro as free.
+
 ## [2026-10-14] Drawn rooms own the 3D floor footprint
 - Floor slabs and wall planes follow fitted `floorRooms` polygons. `fitRoomToFurniture` no longer expands the floor AABB with exterior doors/windows/plants (or a manual `roomWidthM`/`roomDepthM` rect) past those outlines — that used to leave a slab sticking out while walls stayed on the drawn plan.
 - Without room polygons, structural bounds exclude openings/décor; size overrides still recenter that auto rect. Wall fixtures on an outline edge are skipped (outline already is the wall).
@@ -16,10 +24,9 @@ Experimental add-on: billing (monthly + per-guest fees) and an external photogra
 - Area settings `wallPhotoFit` (`stretch` | `tile`, default stretch) and `wallPhotoTileM` (0.25–4 m, default 1). Stretch keeps UV 0–1 per wall span (legacy). Tile sets `RepeatWrapping` and scales UVs by span size / tile meters so a small pattern repeats without stretching, including across door/window cut spans that share one material.
 - Why it matters: Wallpaper / brick / panel swatches look wrong when stretched across a long wall; partners need a pattern mode without uploading a full-wall photo.
 
-## [2026-10-09] Plan feature `threeDView` ≠ Virtual 3D add-on
-- Admin → Pricing Features has a free package toggle `threeDView` ("3D view"). That is a plan entitlement (included when on), not `addons.virtualRoom3d`.
-- Guest 3D table pick / editor / monthly add-on billing still use `featureFlags.virtualRoom3d` + `addons.virtualRoom3d` and require `floorPlans`.
-- Why it matters: Do not treat enabling `threeDView` on a package as enabling the paid Virtual 3D product.
+## [2026-10-09] Plan feature `threeDView` is the included Virtual 3D entitlement
+- As of 2026-10-16, `features.threeDView` (default on for Pro) means the Virtual 3D monthly fee is included. Paid opt-in for other plans stays on `addons.virtualRoom3d` and requires upfront payment.
+- Why it matters: Turning the package flag on must not also create a $50 billed month.
 
 ## [2026-10-09] Selection attempt counter is engagement, not bookings
 - `VirtualRoom.selectionAttemptCount` increments via public `recordVirtualRoomSelectionAttempt` when a diner opens the 3D picker **after** choosing a time (explore-only opens do not count). Client dedupes with `sessionStorage` (`vr-selection-attempt:<restaurantId>`) like blog reads.

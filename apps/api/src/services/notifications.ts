@@ -412,10 +412,10 @@ export async function notifyUser(
 
   if (channelPrefs.sms && opts?.smsRestaurantId && user.phone) {
     try {
-      const { hasPremiumSms } = await import('./plans.js');
-      if (await hasPremiumSms(opts.smsRestaurantId)) channels.push('sms');
+      const { consumeSmsCredit } = await import('./smsBilling.js');
+      if (await consumeSmsCredit(opts.smsRestaurantId)) channels.push('sms');
     } catch (err) {
-      logger.error({ err }, '[notify] premium sms check failed');
+      logger.error({ err }, '[notify] premium sms credit check failed');
     }
   }
 
@@ -455,9 +455,16 @@ export async function notifyUser(
       doc.sentAt = new Date();
       await doc.save();
     } catch (err) {
+      if (channel === 'sms' && opts?.smsRestaurantId) {
+        try {
+          const { refundSmsCredit } = await import('./smsBilling.js');
+          await refundSmsCredit(opts.smsRestaurantId, 'Refund after failed SMS send');
+        } catch (refundErr) {
+          logger.error({ err: refundErr }, '[notify] sms credit refund failed');
+        }
+      }
       doc.status = 'failed';
-      doc.error = err instanceof Error ? err.message : 'Unknown error';
-      await doc.save();
+      doc.error = err instanceof Error ? err.message : 'Unknown error';      await doc.save();
     }
   }
 }

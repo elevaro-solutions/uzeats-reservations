@@ -238,6 +238,36 @@ export function todayIsoInTimeZone(timeZone: string, now: Date = new Date()): st
   return isoDateInTimeZone(now, timeZone);
 }
 
+/** Inclusive span for a closure or special-hours range (one calendar day counts as 1). */
+export const MAX_CLOSURE_RANGE_DAYS = 120;
+
+/**
+ * Inclusive YYYY-MM-DD list from `startIso` through `endIso`.
+ * Throws when the range is inverted, malformed, or longer than `maxDays`.
+ */
+export function eachCalendarDate(
+  startIso: string,
+  endIso: string = startIso,
+  maxDays: number = MAX_CLOSURE_RANGE_DAYS,
+): string[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startIso) || !/^\d{4}-\d{2}-\d{2}$/.test(endIso)) {
+    throw new Error('Dates must be YYYY-MM-DD');
+  }
+  if (endIso < startIso) {
+    throw new Error('End date must be on or after the start date');
+  }
+  const dates: string[] = [];
+  let cursor = startIso;
+  while (cursor <= endIso) {
+    dates.push(cursor);
+    if (dates.length > maxDays) {
+      throw new Error(`Date range cannot exceed ${maxDays} days`);
+    }
+    cursor = addCalendarDays(cursor, 1);
+  }
+  return dates;
+}
+
 /** Add/subtract whole calendar days on a YYYY-MM-DD string (zone-agnostic arithmetic). */
 export function addCalendarDays(dateIso: string, days: number): string {
   const [year, month, day] = dateIso.split('-').map(Number);

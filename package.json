@@ -1,6 +1,6 @@
 {
   "name": "reservations",
-  "version": "0.83.1",
+  "version": "0.84.0",
   "private": true,
   "scripts": {
     "dev": "turbo run dev --parallel --filter='!@reservations/mobile' --filter='!@reservations/merchant-mobile'",
@@ -9,6 +9,10 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:unit": "pnpm --filter @reservations/shared test",
+    "test:integration": "pnpm --filter @reservations/api test",
+    "test:e2e": "pnpm --filter @reservations/e2e test:e2e",
+    "test:e2e:smoke": "pnpm --filter @reservations/e2e test:e2e:smoke",
     "db:up": "docker compose up -d --build",
     "db:down": "docker compose down",
     "db:reset": "docker compose down -v && docker compose up -d --build && sleep 8 && pnpm seed",

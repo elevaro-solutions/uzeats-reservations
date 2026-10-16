@@ -341,6 +341,7 @@ export function mapReservation(r: any, clientSecret?: string | null) {
     slotEnd: r.slotEnd,
     status: r.status,
     requiresManualApproval: r.requiresManualApproval === true,
+    largePartyRequest: r.largePartyRequest === true,
     occasion: r.occasion,
     guestNotes: r.guestNotes,
     depositAmountCents: r.depositAmountCents,

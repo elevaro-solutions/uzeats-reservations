@@ -4,7 +4,7 @@ import request from 'supertest';
 import { Restaurant } from '../models/Restaurant.js';
 import { Reservation } from '../models/Reservation.js';
 import { User } from '../models/User.js';
-import { createTestApp, graphqlRequest, registerUser } from './helpers.js';
+import { createTestApp, ensurePublicListing, graphqlRequest, registerUser } from './helpers.js';
 
 const RESERVATION_FIELDS = `
   id status depositAmountCents depositStatus
@@ -70,6 +70,7 @@ describe('Booking payment policy (card guarantee vs prepaid)', () => {
       depositRequired: true,
       depositAmountCents: 2500,
     });
+    await ensurePublicListing(restaurantId);
 
     await graphqlRequest(
       agent,

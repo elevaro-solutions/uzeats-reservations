@@ -1,5 +1,6 @@
 import { NotFoundError, ValidationError } from '../lib/errors.js';
 import { Restaurant } from '../models/Restaurant.js';
+import { publiclyListedRestaurantIds } from './publicListing.js';
 import { RestaurantBookmark, type RestaurantBookmarkKind } from '../models/RestaurantBookmark.js';
 
 export async function isRestaurantBookmarked(
@@ -17,7 +18,11 @@ export async function listBookmarkedRestaurants(userId: string, kind: Restaurant
     .select('restaurantId');
   const ids = bookmarks.map((b) => b.restaurantId);
   if (ids.length === 0) return [];
-  const restaurants = await Restaurant.find({ _id: { $in: ids }, status: 'approved' });
+  const listedIds = new Set((await publiclyListedRestaurantIds()).map((id) => id.toString()));
+  const restaurants = await Restaurant.find({
+    _id: { $in: ids.filter((id) => listedIds.has(id.toString())) },
+    status: 'approved',
+  });
   const byId = new Map(restaurants.map((r) => [r._id.toString(), r]));
   return ids.map((id) => byId.get(id.toString())).filter(Boolean);
 }

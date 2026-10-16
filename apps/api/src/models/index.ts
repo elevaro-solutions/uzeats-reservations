@@ -19,6 +19,7 @@ export { Subscription } from './Subscription.js';
 export { CoverFee } from './CoverFee.js';
 export { AddonFee } from './AddonFee.js';
 export { VirtualRoom } from './VirtualRoom.js';
+export { SmsCreditLedger } from './SmsCreditLedger.js';
 export { Invoice } from './Invoice.js';
 export { PlatformConfig } from './PlatformConfig.js';
 export { PlatformService } from './PlatformService.js';

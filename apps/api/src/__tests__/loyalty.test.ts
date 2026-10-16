@@ -7,7 +7,7 @@ import { Restaurant } from '../models/Restaurant.js';
 import { LoyaltyTransaction } from '../models/Loyalty.js';
 import { GuestProfile } from '../models/GuestProfile.js';
 import { RestaurantLoyaltyTransaction } from '../models/RestaurantLoyalty.js';
-import { createTestApp, graphqlRequest, registerUser } from './helpers.js';
+import { createTestApp, ensurePublicListing, graphqlRequest, registerUser } from './helpers.js';
 
 describe('resolveRedeemPoints', () => {
   it('returns null when no points requested', () => {
@@ -155,6 +155,7 @@ describe('Loyalty Phase 1 (E2E)', () => {
       { id: restaurantId, status: 'approved' },
       adminToken,
     );
+    await ensurePublicListing(restaurantId);
 
     await Restaurant.findByIdAndUpdate(restaurantId, {
       depositRequired: true,
@@ -489,6 +490,7 @@ describe('Restaurant loyalty (E2E)', () => {
       { id: restaurantId, status: 'approved' },
       adminToken,
     );
+    await ensurePublicListing(restaurantId);
 
     await Restaurant.findByIdAndUpdate(restaurantId, {
       depositRequired: true,

@@ -11,6 +11,7 @@ import {
   previewAvailableSlotTimes,
 } from './availability.js';
 import { listActiveCategoryDefs } from './discoveryTaxonomy.js';
+import { publiclyListedRestaurantIds } from './publicListing.js';
 
 type RestaurantLike = RestaurantTimeZoneInput & {
   _id: Types.ObjectId | { toString(): string };
@@ -62,7 +63,10 @@ function buildCategoryOrClause(
 export async function buildDiscoverySearchFilter(
   input: SearchRestaurantsInput,
 ): Promise<Record<string, unknown>> {
-  const filter: Record<string, unknown> = { status: 'approved' };
+  const filter: Record<string, unknown> = {
+    status: 'approved',
+    _id: { $in: await publiclyListedRestaurantIds() },
+  };
 
   if (input.query) {
     const q = input.query.trim();

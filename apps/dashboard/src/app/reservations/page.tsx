@@ -158,6 +158,7 @@ type ReservationRow = {
   confirmationNumber?: string | null;
   restaurantId?: string;
   status: string;
+  largePartyRequest?: boolean;
   partySize: number;
   slotStart: string;
   slotEnd?: string;
@@ -943,7 +944,13 @@ function ReservationsPageContent() {
               width: '10%',
               render: (v: string | null | undefined) => v || '—',
             },
-            { title: 'Party', dataIndex: 'partySize', width: '8%' },
+            {
+              title: 'Party',
+              dataIndex: 'partySize',
+              width: '10%',
+              render: (partySize: number, r: ReservationRow) =>
+                r.largePartyRequest ? `~${partySize} large` : partySize,
+            },
             {
               title: 'Table',
               width: '12%',

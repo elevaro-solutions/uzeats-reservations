@@ -18,6 +18,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for release history.
 | `apps/mobile` | Expo | React Native diner app |
 | `apps/merchant-mobile` | Expo | React Native partner ops app |
 | `apps/docs` | 3002 | Docusaurus documentation site |
+| `apps/e2e` | — | Playwright browser smoke tests (diner, partner, admin) |
 | `packages/shared` | — | Zod schemas, constants, types |
 | `packages/ui` | — | Design tokens, Ant Design theme, shared components |
 | `packages/widget` | — | Embeddable booking widget |
@@ -82,7 +83,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - **Bookmarks/Saved** — diners can save favorite restaurants and view them at `/saved` (Remove on list items to unsave/unfavorite)
 - **Restaurant inquiries** — contact restaurants directly from the detail page
 - Google Places address autocomplete and device near-me (falls back to curated US cities)
-- Concurrent-safe booking via atomic table slot claims (no replica set required); optional **manual approval** for online bookings (party-size and per-resource rules), with clear guest-facing “request / awaiting approval” copy on web and diner mobile
+- Concurrent-safe booking via atomic table slot claims (no replica set required); optional **manual approval** for online bookings (party-size and per-resource rules), with clear guest-facing “request / awaiting approval” copy on web and diner mobile; parties above the online maximum can send a **large party request** (pending, no table held)
 - Deposits / card guarantee via Stripe: restaurants pick **card guarantee** (save card, charge no-show / late-cancel fee) or **prepaid** (charge at booking); optional per-table deposit overrides; partner/admin no-show fee reports and charge/refund actions (stubbed without keys)
 - **Restaurant packages** — occasion/party-sized add-ons partners manage in the dashboard and diners select at booking
 - Waitlist + auto-notify on cancellation (convert/expire holds, seat walk-ins, overdue host alerts, partner edit + guest search, diner mobile My waitlist); **favorite availability alerts** when a near-term table opens
@@ -91,7 +92,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Menus + DO Spaces uploads (local `.data/uploads` fallback without Spaces keys; image types only)
 - Notifications: email (SendGrid) with booking confirmation `.ics` attachments plus Google Calendar and View reservation links, Telegram bot, web/Expo push (mobile soft-prompts after booking/waitlist; service worker on diner web), in-app inbox + channel prefs; transactional SMS with public `/sms` opt-in (platform kill switch for Premium SMS; auth OTP SMS always available)
 - Auth: email/password (forgot/reset on web and partner dashboard; optional signup email verification via 6-digit code), Google OAuth, Twilio phone OTP; browser sessions use HttpOnly cookies; mobile diner app uses SecureStore JWTs with Google Sign-In
-- Partner **Settings** hub of setup tools; floating **Setup guide** (and full-page `/onboarding`) for listing, service, payments, team, and go-live; **Restaurant profile** (`/restaurant-profile`) holds listing, photos, contact, deposits, loyalty, widget, public URL, and operations; **Team** invites managers and **hosts** (FOH) within package **manager seats**; notifications prefs, **Reviews** (reply, report, Gemini draft), multi-restaurant selector, self-registration with Stripe card collection, **add restaurant requires a payment method** (including during a free trial), plan change preview (prorated upgrades / scheduled downgrades), **Grow → Public profile** (change requests), **public URL slug change requests**, toggles to accept online reservations or hide the booking widget, **Support** tickets (rich text + screenshots), and **DoorDash/Uber Eats import** (saved `.mhtml`/`.html` page, including menu photos) from Settings, profile, register, and admin restaurant create
+- Partner **Settings** hub of setup tools; floating **Setup guide** (and full-page `/onboarding`) for listing, service, payments, team, and go-live; **Restaurant profile** (`/restaurant-profile`) holds listing, photos, contact, deposits, loyalty, widget, public URL, and operations; **Team** invites managers and **hosts** (FOH) within package **manager seats**; notifications prefs, **Reviews** (reply, report, Gemini draft), multi-restaurant selector, self-registration with Stripe card collection, **add restaurant requires a payment method** (including during a free trial), plan change preview (prorated upgrades / scheduled downgrades, including a **$0 Base** plan with a network cover fee), **Grow → Public profile** (change requests), **public URL slug change requests**, toggles to accept online reservations or hide the booking widget, **Support** tickets (rich text + screenshots), and **DoorDash/Uber Eats import** (saved `.mhtml`/`.html` page, including menu photos) from Settings, profile, register, and admin restaurant create. A location with no active plan is hidden from public search and booking. Cancel keeps access until the period ends; **Closures & special hours** can cover a date range
 - **Email branding** — customizable email templates per restaurant
 - Shareable booking links (`/restaurants/:slug`) and **Booking widget** page for embed script copy and theme (color, button text, reviews); first-touch UTMs and landing path are stored on reservations for partner/admin Traffic attribution
 - Owner phone / walk-in bookings, **diner and partner reservation edit**, reservation-scoped messaging, and **individual reservation detail pages** (partner list: status + date presets + custom range export Excel/PDF/JSON; cancel requires a preset reason + optional message; diner upcoming / past / deposit filters) plus diner **billing history** (`/billing`); bookings can attach **experiences** and private dining spaces; guests get **24h / 2h / 30 min** reminders (closer reminders can report running late)
@@ -146,6 +147,9 @@ pnpm db:down      # docker compose down
 pnpm db:reset     # wipe volumes, recreate Mongo RS, re-seed
 pnpm seed         # seed restaurants, tables, shifts, users (keeps admins)
 pnpm seed -- --clear  # delete seed data only; admin/super_admin accounts untouched
+pnpm test:unit    # Vitest for @reservations/shared
+pnpm test:integration  # API integration tests
+pnpm test:e2e:smoke    # Playwright smoke (needs a running stack; CI only when E2E_ENABLED=1)
 ```
 
 **Roles:** `super_admin` can permanently delete users/restaurants and wipe seed data. Regular `admin` and `account_manager` have read/write access to most platform ops but cannot modify super admins or perform destructive deletes. Managers can operate a venue but cannot add restaurants or manage billing. Hosts (`host`) are FOH-only (reservations, waitlist, floor, guests, messages, deposits, support).

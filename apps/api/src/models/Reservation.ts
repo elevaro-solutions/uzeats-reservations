@@ -64,6 +64,11 @@ const reservationSchema = new Schema(
     noShowFeeError: { type: String },
     /** True when this booking stays pending until restaurant staff confirms. */
     requiresManualApproval: { type: Boolean, default: false },
+    /**
+     * Group larger than the restaurant's online max. No table is held;
+     * staff contact the guest and confirm later.
+     */
+    largePartyRequest: { type: Boolean, default: false },
 
     loyaltyPointsEarned: { type: Number, default: 0 },
     loyaltyPointsRedeemed: { type: Number, default: 0 },

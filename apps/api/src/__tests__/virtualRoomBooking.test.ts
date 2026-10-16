@@ -111,7 +111,7 @@ describe('3D table selection booking (E2E)', () => {
   it('books a 3D-picked table once the room is live and bills the guest fee on completion', async () => {
     await getPlatformConfig();
     await PlatformConfig.updateOne({ key: 'default' }, { $set: { 'featureFlags.virtualRoom3d': true } });
-    await setVirtualRoomAddon(restaurantId, true);
+    await setVirtualRoomAddon(restaurantId, true, new Date(), { paymentConfirmed: true });
     await publishVirtualRoom(restaurantId, true);
 
     const list = await graphqlRequest(

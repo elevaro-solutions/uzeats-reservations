@@ -8,6 +8,10 @@ import {
 import { logAudit } from './audit.js';
 import { ConflictError, NotFoundError, ValidationError } from '../lib/errors.js';
 import { evaluatePlanChange, type PlanChangeDecision, type PlanSnapshot } from './planChangePolicy.js';
+import {
+  clearCancelAtPeriodEndIfSet,
+  finalizeCancelAtPeriodEndIfDue,
+} from './subscriptionLifecycle.js';
 
 async function toSnapshot(planKey: string): Promise<PlanSnapshot> {
   const plan = await getEffectivePlan(planKey);
@@ -91,16 +95,39 @@ export async function changeRestaurantPlan(input: {
   restaurantId: string;
   plan: string;
   actorId: string;
+  /**
+   * When true on a downgrade, apply the lower plan immediately instead of at period end.
+   * Upgrades are always immediate. Soft-cancel is cleared so the new plan starts now.
+   */
+  forceImmediate?: boolean;
 }): Promise<PlanChangeResult> {
-  const sub = await Subscription.findOne({ restaurantId: input.restaurantId });
+  let sub = await Subscription.findOne({ restaurantId: input.restaurantId });
   if (!sub) throw new NotFoundError('Subscription');
+  sub = await finalizeCancelAtPeriodEndIfDue(sub);
   await applyPendingPlanChangeIfDue(sub);
 
   const fromPlan = await toSnapshot(sub.plan);
   const toPlan = await toSnapshot(input.plan);
-  const decision = evaluatePlanChange({ subscription: sub, fromPlan, toPlan });
+  const decision = evaluatePlanChange({
+    subscription: sub,
+    fromPlan,
+    toPlan,
+    forceImmediate: input.forceImmediate,
+  });
 
   if (decision.direction === 'same') {
+    if (sub.cancelAtPeriodEnd) {
+      await clearCancelAtPeriodEndIfSet(sub);
+      await sub.save();
+      await logAudit({
+        actorId: input.actorId,
+        action: 'reactivateSubscription',
+        resource: 'Subscription',
+        resourceId: sub._id.toString(),
+        details: { restaurantId: input.restaurantId, via: 'changePlanSame' },
+      });
+      return { subscription: sub, clientSecret: null, paymentMode: null, amountDueCents: 0 };
+    }
     if (sub.pendingPlan) {
       clearPending(sub);
       await sub.save();
@@ -118,6 +145,11 @@ export async function changeRestaurantPlan(input: {
 
   if (!decision.allowed) {
     throw new ValidationError(decision.blockedReason ?? 'This plan change is not allowed.');
+  }
+
+  // Upgrading (or any immediate change) while soft-cancelled starts the new plan now.
+  if (decision.immediate || input.forceImmediate) {
+    await clearCancelAtPeriodEndIfSet(sub);
   }
 
   let clientSecret: string | null = null;

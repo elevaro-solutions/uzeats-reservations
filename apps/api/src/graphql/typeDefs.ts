@@ -605,6 +605,8 @@ export const typeDefs = `#graphql
     status: ReservationStatus!
     """True when this booking needs restaurant confirmation before it becomes confirmed."""
     requiresManualApproval: Boolean!
+    """True when the guest asked for a group larger than online booking. No table is held yet."""
+    largePartyRequest: Boolean!
     occasion: Occasion!
     guestNotes: String
     depositAmountCents: Int!
@@ -934,6 +936,8 @@ export const typeDefs = `#graphql
     currentPeriodEnd: DateTime
     trialEndsAt: DateTime
     cancelledAt: DateTime
+    """Soft cancel — access continues until currentPeriodEnd (paid through)."""
+    cancelAtPeriodEnd: Boolean!
     pendingPlan: String
     pendingPlanEffectiveAt: DateTime
     lastPaidPlanChangeAt: DateTime
@@ -942,6 +946,9 @@ export const typeDefs = `#graphql
     networkCoverFeeCents: Int!
     websiteCoverFeeCents: Int!
     features: SubscriptionFeatures!
+    """Present only on createSubscription when Stripe needs a SetupIntent / PaymentIntent."""
+    clientSecret: String
+    paymentMode: String
     createdAt: DateTime!
     updatedAt: DateTime!
   }
@@ -1569,6 +1576,86 @@ export const typeDefs = `#graphql
     selectionFeePayer: VirtualRoomSelectionFeePayer
   }
 
+  """Prepaid guest SMS packages and per-message top-up settings (platform catalog)."""
+  type SmsBillingPackage {
+    id: ID!
+    name: String!
+    description: String
+    messageCount: Int!
+    priceCents: Int!
+    active: Boolean!
+    sortOrder: Int!
+  }
+
+  type SmsPerMessageBilling {
+    enabled: Boolean!
+    priceCentsPerMessage: Int!
+    topUpPresetsCents: [Int!]!
+    allowCustomTopUp: Boolean!
+    minCustomTopUpCents: Int!
+    maxCustomTopUpCents: Int!
+  }
+
+  type SmsBillingConfig {
+    packages: [SmsBillingPackage!]!
+    perMessage: SmsPerMessageBilling!
+  }
+
+  input SmsBillingPackageInput {
+    id: ID
+    name: String!
+    description: String
+    messageCount: Int!
+    priceCents: Int!
+    active: Boolean
+    sortOrder: Int
+  }
+
+  input SmsPerMessageBillingInput {
+    enabled: Boolean
+    priceCentsPerMessage: Int
+    topUpPresetsCents: [Int!]
+    allowCustomTopUp: Boolean
+    minCustomTopUpCents: Int
+    maxCustomTopUpCents: Int
+  }
+
+  input SmsBillingInput {
+    packages: [SmsBillingPackageInput!]
+    perMessage: SmsPerMessageBillingInput
+  }
+
+  type SmsBillingStatus {
+    platformEnabled: Boolean!
+    includedInPlan: Boolean!
+    eligibleToPurchase: Boolean!
+    ineligibleReason: String
+    balance: Int!
+    catalog: SmsBillingConfig!
+  }
+
+  type SmsPurchasePayload {
+    status: SmsBillingStatus!
+    paid: Boolean!
+    clientSecret: String
+    paymentMode: String
+    paymentIntentId: String
+    amountDueCents: Int!
+    messagesGranted: Int!
+  }
+
+  type SmsCreditLedgerEntry {
+    id: ID!
+    kind: String!
+    deltaMessages: Int!
+    balanceAfter: Int!
+    amountCents: Int
+    packageId: String
+    packageName: String
+    note: String
+    createdAt: DateTime!
+  }
+
   enum AnnualBillingScope {
     all
     selected
@@ -1764,12 +1851,16 @@ export const typeDefs = `#graphql
     platformEnabled: Boolean!
     """Owner switched the add-on on (may still be inactive if no longer eligible)."""
     enabled: Boolean!
+    """Included free via plan feature threeDView (e.g. Pro) — no monthly charge."""
+    included: Boolean!
+    """True when enabling requires an upfront card charge before access."""
+    requiresPayment: Boolean!
     eligible: Boolean!
     """Enabled and eligible — diners can see the published room."""
     active: Boolean!
     ineligibleReason: String
     enabledAt: DateTime
-    """Platform default monthly price."""
+    """Platform default monthly price (0 when included)."""
     monthlyPriceCents: Int!
     """Price that applies right now (trial, override, or platform default)."""
     effectiveMonthlyPriceCents: Int!
@@ -1805,6 +1896,15 @@ export const typeDefs = `#graphql
   type AdminVirtualRoomAddonResult {
     addon: VirtualRoomAddon!
     invoice: Invoice
+  }
+
+  type VirtualRoomAddonPaymentPayload {
+    addon: VirtualRoomAddon!
+    clientSecret: String
+    paymentMode: String
+    amountDueCents: Int!
+    paid: Boolean!
+    paymentIntentId: String
   }
 
   type VirtualRoomPoint {
@@ -2975,6 +3075,22 @@ export const typeDefs = `#graphql
     active: Boolean
   }
 
+  input LargePartyRequestInput {
+    restaurantId: ID!
+    """Calendar date in the restaurant's timezone (YYYY-MM-DD)."""
+    date: String!
+    """Start of the requested window (HH:mm, restaurant local time)."""
+    timeFrom: String!
+    """End of the requested window (HH:mm, restaurant local time)."""
+    timeTo: String!
+    """Approximate guest count. Must be above the restaurant's online maximum."""
+    partySize: Int!
+    occasion: Occasion
+    message: String!
+    """Required when the diner has no profile phone. Saved as their profile phone."""
+    phone: String
+  }
+
   input ReservationInput {
     restaurantId: ID!
     partySize: Int!
@@ -3962,11 +4078,12 @@ export const typeDefs = `#graphql
     createShift(restaurantId: ID!, input: ShiftInput!): Shift!
     updateShift(id: ID!, input: ShiftInput!): Shift!
     deleteShift(id: ID!): Boolean!
-    createBlackout(restaurantId: ID!, date: String!, reason: String, allDay: Boolean): Blackout!
+    createBlackout(restaurantId: ID!, date: String!, endDate: String, reason: String, allDay: Boolean): Blackout!
     deleteBlackout(id: ID!): Boolean!
     upsertDateScheduleOverride(
       restaurantId: ID!
       date: String!
+      endDate: String
       mode: String!
       startTime: String
       endTime: String
@@ -3986,6 +4103,8 @@ export const typeDefs = `#graphql
     ): PlatformEngagementSendResult!
 
     createReservation(input: ReservationInput!): CreateReservationPayload!
+    """Pending request for a group larger than online booking. Staff contact the guest."""
+    createLargePartyRequest(input: LargePartyRequestInput!): Reservation!
     createOwnerReservation(input: OwnerReservationInput!): Reservation!
     """Accepts the PaymentIntent or SetupIntent id from the booking card step."""
     confirmDepositPayment(paymentIntentId: String!): Reservation!
@@ -4176,8 +4295,18 @@ export const typeDefs = `#graphql
     ): CsvExport!
     syncStripeInvoices(limit: Int): StripeSyncResult!
     createSubscription(restaurantId: ID!, plan: String!): SubscriptionType!
-    cancelSubscription(restaurantId: ID!): SubscriptionType!
-    changePlan(restaurantId: ID!, plan: String!): PlanChangePayload!
+    """
+    Schedule cancel at period end (default). Pass immediate: true to end access now.
+    Soft-cancelled restaurants keep plan features until currentPeriodEnd.
+    """
+    cancelSubscription(restaurantId: ID!, immediate: Boolean): SubscriptionType!
+    """Undo a scheduled cancel-at-period-end so the subscription renews."""
+    reactivateSubscription(restaurantId: ID!): SubscriptionType!
+    """
+    Change plan. Upgrades apply immediately (and clear soft-cancel).
+    Pass immediate: true to apply a downgrade right away instead of at period end.
+    """
+    changePlan(restaurantId: ID!, plan: String!, immediate: Boolean): PlanChangePayload!
     confirmPlanChangePayment(restaurantId: ID!): SubscriptionType!
     cancelPendingPlanChange(restaurantId: ID!): SubscriptionType!
 
@@ -4359,8 +4488,15 @@ export const typeDefs = `#graphql
 
     setPremiumSmsAddon(restaurantId: ID!, enabled: Boolean!): SubscriptionType!
 
-    """Owner-only. Billed monthly while on, plus a per-guest fee on 3D table picks."""
+    """
+    Owner-only. Included plans enable with no charge. Paid plans must use
+    startVirtualRoomAddonPayment before access.
+    """
     setVirtualRoomAddon(restaurantId: ID!, enabled: Boolean!): VirtualRoomAddon!
+    """Charge the monthly fee upfront (card on file or PaymentIntent). Grants access only when paid."""
+    startVirtualRoomAddonPayment(restaurantId: ID!): VirtualRoomAddonPaymentPayload!
+    """Complete Stripe Elements payment and enable Virtual 3D."""
+    confirmVirtualRoomAddonPayment(restaurantId: ID!, paymentIntentId: String!): VirtualRoomAddon!
     """Admin: enable/disable Virtual 3D with optional free/custom-price trial and generate the period invoice."""
     adminSetVirtualRoomAddon(input: AdminVirtualRoomAddonInput!): AdminVirtualRoomAddonResult!
     updateVirtualRoom(restaurantId: ID!, input: VirtualRoomInput!): VirtualRoomEditor!

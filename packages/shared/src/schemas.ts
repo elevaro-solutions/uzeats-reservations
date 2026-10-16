@@ -514,6 +514,27 @@ export const reservationInputSchema = z.object({
   phone: phoneSchema.optional(),
 });
 
+const wallClockSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time like 18:30");
+
+/** Request for a group larger than the restaurant's online party-size max. */
+export const largePartyRequestInputSchema = z
+  .object({
+    restaurantId: z.string().min(1),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a date"),
+    timeFrom: wallClockSchema,
+    timeTo: wallClockSchema,
+    partySize: z.number().int().min(1).max(MAX_PARTY_SIZE_SETTING),
+    occasion: z.enum(OCCASIONS).default("none"),
+    message: z.string().trim().min(1, "Add a short message").max(500),
+    phone: phoneSchema.optional(),
+  })
+  .refine((value) => value.timeTo > value.timeFrom, {
+    message: "End time must be after the start time",
+    path: ["timeTo"],
+  });
+
 export const restaurantPackageInputSchema = z.object({
   title: z.string().trim().min(1, 'Title is required').max(120),
   description: z.string().max(2000).optional().default(""),
@@ -794,6 +815,7 @@ export type FloorPlanSaveInput = z.infer<typeof floorPlanSaveInputSchema>;
 export type TablePositionInput = z.infer<typeof tablePositionInputSchema>;
 export type ShiftInput = z.infer<typeof shiftInputSchema>;
 export type ReservationInput = z.infer<typeof reservationInputSchema>;
+export type LargePartyRequestInput = z.infer<typeof largePartyRequestInputSchema>;
 export type RestaurantPackageInput = z.infer<
   typeof restaurantPackageInputSchema
 >;
@@ -1135,6 +1157,8 @@ export const updateWaitlistEntryInputSchema = z
 export const createBlackoutInputSchema = z.object({
   restaurantId: z.string().min(1),
   date: dateStringSchema,
+  /** Inclusive end. Omit for a single day. Expanded to one blackout per date. */
+  endDate: dateStringSchema.optional().nullable(),
   reason: z.string().max(500).optional().nullable(),
   allDay: z.boolean().optional(),
 });

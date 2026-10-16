@@ -157,7 +157,7 @@ describe('Manager seats from packages', () => {
       },
       ownerToken,
     );
-    expect(res.body.errors?.[0]?.message).toMatch(/manager seat/i);
+    expect(res.body.errors?.[0]?.message).toMatch(/team seat/i);
   });
 
   it('blocks owners from inviting restaurant_owner role', async () => {
