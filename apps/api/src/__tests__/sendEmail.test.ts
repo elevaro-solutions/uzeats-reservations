@@ -74,4 +74,34 @@ describe('sendEmail via SendGrid', () => {
     };
     expect(body.attachments[0]?.type).toBe('text/calendar');
   });
+
+  it('surfaces an unverified from-domain as a client error', async () => {
+    const previousFrom = env.EMAIL_FROM;
+    (env as { EMAIL_FROM: string }).EMAIL_FROM = 'Tablevera Staging <noreply@tablevera.app>';
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 403,
+      text: async () =>
+        JSON.stringify({
+          errors: [
+            {
+              message:
+                'The from address does not match a verified Sender Identity. Mail cannot be sent until this error is resolved.',
+              field: 'from',
+            },
+          ],
+        }),
+    });
+
+    try {
+      const attempt = sendEmail('diner@tablevera.online', 'Hello', 'Body');
+      await expect(attempt).rejects.toMatchObject({
+        name: 'AppError',
+        code: 'EMAIL_DELIVERY_FAILED',
+      });
+      await expect(attempt).rejects.toThrow(/Cannot send from noreply@tablevera\.app/);
+    } finally {
+      (env as { EMAIL_FROM: string }).EMAIL_FROM = previousFrom;
+    }
+  });
 });

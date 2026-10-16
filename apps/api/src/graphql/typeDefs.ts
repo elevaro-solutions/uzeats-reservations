@@ -1,7 +1,7 @@
 export const typeDefs = `#graphql
   scalar DateTime
 
-  enum UserRole { diner restaurant_owner manager host admin account_manager super_admin }
+  enum UserRole { diner restaurant_owner manager host admin account_manager super_admin qa }
   enum RestaurantStatus { pending approved rejected suspended }
   enum ReservationStatus { pending confirmed seated completed cancelled no_show }
   enum ReservationDatePeriod {
@@ -1205,6 +1205,44 @@ export const typeDefs = `#graphql
     openInvoices: Int!
   }
 
+  type QaChecklistItem {
+    id: ID!
+    gate: String!
+    group: String!
+    label: String!
+    checked: Boolean!
+    updatedAt: String
+  }
+
+  type QaChecklist {
+    release: String!
+    envNote: String!
+    p0Clear: Boolean!
+    notes: String!
+    status: String!
+    signedOffName: String!
+    signedOffRole: String!
+    signedAt: String
+    updatedAt: String
+    requiredDone: Boolean!
+    items: [QaChecklistItem!]!
+  }
+
+  input QaChecklistCheckInput {
+    itemId: String!
+    checked: Boolean!
+  }
+
+  input SaveQaChecklistInput {
+    release: String
+    envNote: String
+    p0Clear: Boolean
+    notes: String
+    checks: [QaChecklistCheckInput!]
+    signOff: Boolean
+    reopen: Boolean
+  }
+
   type LoyaltyTier {
     id: ID!
     name: String!
@@ -1306,6 +1344,8 @@ export const typeDefs = `#graphql
     subscriptionId: ID
     status: InvoiceStatus!
     billingPeriod: String!
+    """subscription, virtual_room, or service."""
+    category: String!
     currency: String!
     subtotalCents: Int!
     totalCents: Int!
@@ -1331,6 +1371,39 @@ export const typeDefs = `#graphql
   type InvoiceConnection {
     items: [Invoice!]!
     total: Int!
+  }
+
+  type InvoiceCategoryInsight {
+    category: String!
+    label: String!
+    invoiceCount: Int!
+    paidCents: Int!
+    outstandingCents: Int!
+    paidCount: Int!
+    openCount: Int!
+  }
+
+  type InvoiceTransaction {
+    id: ID!
+    number: String!
+    restaurantId: ID!
+    restaurantName: String
+    category: String!
+    status: InvoiceStatus!
+    totalCents: Int!
+    currency: String!
+    paidAt: DateTime
+    createdAt: DateTime!
+    billingPeriod: String!
+  }
+
+  type AdminInvoiceInsights {
+    period: String!
+    invoiceCount: Int!
+    paidCents: Int!
+    outstandingCents: Int!
+    categories: [InvoiceCategoryInsight!]!
+    recentTransactions: [InvoiceTransaction!]!
   }
 
   type GenerateInvoicesResult {
@@ -3842,6 +3915,8 @@ export const typeDefs = `#graphql
     adminRestaurantFilterMeta: AdminRestaurantFilterMeta!
     adminStats: PlatformStats!
     adminPendingRequestCounts: PlatformPendingRequestCounts!
+    """Manual QA checklist for one release. Super admin and QA only."""
+    qaChecklist(release: String): QaChecklist!
     adminLoyaltyStats: LoyaltyPlatformStats!
     adminReferralLeaders(limit: Int): [ReferralLeader!]!
     adminUsers(
@@ -3879,7 +3954,9 @@ export const typeDefs = `#graphql
       offset: Int
     ): NoShowFeeChargeConnection!
     adminUserRestaurants(userId: ID!): [Restaurant!]!
-    adminInvoices(status: InvoiceStatus, search: String, restaurantId: ID, limit: Int, offset: Int): InvoiceConnection!
+    adminInvoices(status: InvoiceStatus, search: String, restaurantId: ID, category: String, limit: Int, offset: Int): InvoiceConnection!
+    """Paid and open totals for subscriptions, Virtual 3D, and other services in a month."""
+    adminInvoiceInsights(period: String): AdminInvoiceInsights!
     adminInvoice(id: ID!): Invoice!
     invoiceByPayToken(token: String!): Invoice!
     exportInvoicePdf(id: ID!): InvoiceExportPayload!
@@ -4511,5 +4588,8 @@ export const typeDefs = `#graphql
     published and the add-on is active.
     """
     recordVirtualRoomSelectionAttempt(restaurantId: ID!): VirtualRoomAddon
+
+    """Save checks, notes, sign-off, or reopen. Super admin and QA only."""
+    saveQaChecklist(input: SaveQaChecklistInput!): QaChecklist!
   }
 `;

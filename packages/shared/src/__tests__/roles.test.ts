@@ -5,6 +5,7 @@ import {
   canCreateRestaurant,
   canImportRestaurant,
   canManageBilling,
+  canManageQaChecklist,
   canManageTeam,
   isHostRole,
   isPartnerMobileRole,
@@ -51,6 +52,10 @@ describe('roles', () => {
     expect(canCreateRestaurant('restaurant_owner')).toBe(true);
     expect(canCreateRestaurant('manager')).toBe(false);
     expect(canCreateRestaurant('host')).toBe(false);
+    expect(canCreateRestaurant('qa')).toBe(false);
+    expect(canManageQaChecklist('qa')).toBe(true);
+    expect(canManageQaChecklist('super_admin')).toBe(true);
+    expect(canManageQaChecklist('admin')).toBe(false);
   });
 
   it('allows import for owners, managers, and admins', () => {
@@ -74,6 +79,7 @@ describe('roles', () => {
 
   it('picks partner landing paths by role', () => {
     expect(partnerLandingPath('admin')).toBe('/admin');
+    expect(partnerLandingPath('qa')).toBe('/admin/qa');
     expect(partnerLandingPath('host')).toBe('/reservations');
     expect(partnerLandingPath('restaurant_owner')).toBe('/overview');
     expect(partnerLandingPath('manager')).toBe('/overview');

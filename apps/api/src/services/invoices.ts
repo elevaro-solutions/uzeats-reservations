@@ -79,14 +79,50 @@ function isDuplicateKeyError(err: unknown) {
   return Boolean(err && typeof err === 'object' && 'code' in err && (err as { code: number }).code === 11000);
 }
 
+/** Stored beside the calendar month so a prepaid 3D invoice can coexist with the period bill. */
+export const VIRTUAL_ROOM_INVOICE_SUFFIX = '~virtual-room';
+
+export function virtualRoomAddonBillingPeriod(period: string) {
+  return `${period}${VIRTUAL_ROOM_INVOICE_SUFFIX}`;
+}
+
+export function calendarBillingPeriod(stored: string) {
+  return String(stored).split('~')[0];
+}
+
+export type InvoiceCategory = 'subscription' | 'virtual_room' | 'service';
+
+const VIRTUAL_ROOM_LINE = /virtual 3d|3d table selection/i;
+
+export function inferInvoiceCategory(doc: {
+  category?: string | null;
+  billingPeriod?: string | null;
+  serviceIds?: unknown[] | null;
+}): InvoiceCategory {
+  if (doc.category === 'virtual_room' || doc.category === 'service' || doc.category === 'subscription') {
+    return doc.category;
+  }
+  if (String(doc.billingPeriod ?? '').endsWith(VIRTUAL_ROOM_INVOICE_SUFFIX)) return 'virtual_room';
+  if (Array.isArray(doc.serviceIds) && doc.serviceIds.length > 0) return 'service';
+  return 'subscription';
+}
+
+function periodBillingMatch(period: string) {
+  return { $in: [period, virtualRoomAddonBillingPeriod(period)] };
+}
+
 function isRefreshableAutoInvoice(doc: {
   stripeInvoiceId?: string | null;
   status?: string | null;
   serviceIds?: unknown[] | null;
   number?: string | null;
+  category?: string | null;
+  billingPeriod?: string | null;
 }) {
   if (doc.stripeInvoiceId) return false;
   if (doc.status === 'paid' || doc.status === 'canceled') return false;
+  if (doc.category === 'virtual_room' || doc.category === 'service') return false;
+  if (String(doc.billingPeriod ?? '').includes('~')) return false;
   if (Array.isArray(doc.serviceIds) && doc.serviceIds.length > 0) return false;
   const number = String(doc.number ?? '');
   if (/-M\d+$/.test(number) || number.includes('-STRIPE-')) return false;
@@ -158,7 +194,8 @@ export function mapInvoice(doc: any, restaurantName?: string) {
     restaurantName: restaurantName ?? null,
     subscriptionId: doc.subscriptionId?.toString() ?? null,
     status: doc.status,
-    billingPeriod: doc.billingPeriod,
+    billingPeriod: calendarBillingPeriod(doc.billingPeriod),
+    category: inferInvoiceCategory(doc),
     currency: doc.currency,
     subtotalCents: doc.subtotalCents,
     totalCents,
@@ -511,6 +548,7 @@ export async function createManualInvoice(input: {
     planKey: planKey ?? undefined,
     billingCycle: billingCycle ?? undefined,
     serviceIds,
+    category: serviceIds.length ? 'service' : 'subscription',
     payToken,
   });
 
@@ -773,15 +811,38 @@ export async function listInvoices(input: {
   search?: string;
   restaurantId?: string;
   billingPeriod?: string;
+  category?: string;
   limit?: number;
   offset?: number;
 }) {
   const limit = Math.min(input.limit ?? 50, 200);
   const offset = input.offset ?? 0;
+  const and: Record<string, unknown>[] = [];
   const filter: Record<string, unknown> = {};
   if (input.status) filter.status = input.status;
   if (input.restaurantId?.trim()) filter.restaurantId = input.restaurantId.trim();
-  if (input.billingPeriod?.trim()) filter.billingPeriod = input.billingPeriod.trim();
+  if (input.billingPeriod?.trim()) {
+    const period = input.billingPeriod.trim();
+    filter.billingPeriod = /^\d{4}-\d{2}$/.test(period) ? periodBillingMatch(period) : period;
+  }
+  if (input.category === 'virtual_room') {
+    and.push({
+      $or: [
+        { category: 'virtual_room' },
+        { billingPeriod: { $regex: `${VIRTUAL_ROOM_INVOICE_SUFFIX}$` } },
+      ],
+    });
+  } else if (input.category === 'service') {
+    and.push({
+      $or: [{ category: 'service' }, { 'serviceIds.0': { $exists: true } }],
+    });
+  } else if (input.category === 'subscription') {
+    and.push({
+      category: { $nin: ['virtual_room', 'service'] },
+      billingPeriod: { $not: { $regex: `${VIRTUAL_ROOM_INVOICE_SUFFIX}$` } },
+      $or: [{ serviceIds: { $size: 0 } }, { serviceIds: { $exists: false } }],
+    });
+  }
 
   if (input.search?.trim()) {
     const q = input.search.trim();
@@ -791,12 +852,15 @@ export async function listInvoices(input: {
       const restaurants = await Restaurant.find({
         name: { $regex: q, $options: 'i' },
       }).select('_id');
-      filter.$or = [
-        { number: { $regex: q, $options: 'i' } },
-        { restaurantId: { $in: restaurants.map((r) => r._id) } },
-      ];
+      and.push({
+        $or: [
+          { number: { $regex: q, $options: 'i' } },
+          { restaurantId: { $in: restaurants.map((r) => r._id) } },
+        ],
+      });
     }
   }
+  if (and.length) filter.$and = and;
 
   const [items, total] = await Promise.all([
     Invoice.find(filter).sort({ createdAt: -1, _id: -1 }).skip(offset).limit(limit),
@@ -1319,6 +1383,183 @@ export async function resumeInvoicePayment(token: string) {
   return startInvoicePayment(token);
 }
 
+/**
+ * Paid invoice for the month charged when an owner turns on Virtual 3D
+ * and the package does not include it. Idempotent per restaurant + month.
+ */
+export async function recordPrepaidVirtualRoomInvoice(input: {
+  restaurantId: string;
+  period: string;
+  amountCents: number;
+  paymentIntentId?: string | null;
+  paidAt?: Date;
+}) {
+  const amountCents = Math.round(input.amountCents);
+  if (!Number.isFinite(amountCents) || amountCents <= 0) return null;
+
+  const billingPeriod = virtualRoomAddonBillingPeriod(input.period);
+  const paidAt = input.paidAt ?? new Date();
+  const existing = await Invoice.findOne({
+    restaurantId: input.restaurantId,
+    billingPeriod,
+  });
+  if (existing) {
+    if (existing.status !== 'paid') {
+      existing.status = 'paid';
+      existing.paidAt = existing.paidAt ?? paidAt;
+    }
+    if (input.paymentIntentId && !existing.stripePaymentIntentId) {
+      existing.stripePaymentIntentId = input.paymentIntentId;
+    }
+    existing.category = 'virtual_room';
+    await existing.save();
+    const restaurant = await Restaurant.findById(input.restaurantId).select('name');
+    return mapInvoice(existing, restaurant?.name);
+  }
+
+  const sub = await Subscription.findOne({ restaurantId: input.restaurantId }).select('_id');
+  const config = await getPlatformConfig();
+  const prefix = config.invoicePrefix || 'INV';
+  const currency = config.currency || 'usd';
+  const countForPeriod = await Invoice.countDocuments({
+    billingPeriod: { $in: [input.period, billingPeriod] },
+  });
+  const seq = String(countForPeriod + 1).padStart(4, '0');
+  const description = `Virtual 3D room add-on - ${input.period}`;
+  const doc = await Invoice.create({
+    number: `${prefix}-${input.period.replace('-', '')}-3D${seq}`,
+    restaurantId: input.restaurantId,
+    subscriptionId: sub?._id,
+    status: 'paid',
+    billingPeriod,
+    category: 'virtual_room',
+    currency,
+    subtotalCents: amountCents,
+    totalCents: amountCents,
+    lines: [
+      {
+        description,
+        quantity: 1,
+        unitAmountCents: amountCents,
+        amountCents,
+      },
+    ],
+    dueDate: paidAt,
+    paidAt,
+    notes: 'Charged when Virtual 3D was turned on. This month is not billed again on the subscription invoice.',
+    stripePaymentIntentId: input.paymentIntentId || undefined,
+    payToken: newPayToken(),
+  });
+  const restaurant = await Restaurant.findById(input.restaurantId).select('name');
+  return mapInvoice(doc, restaurant?.name);
+}
+
+function lineBucket(description: string, category: InvoiceCategory): InvoiceCategory {
+  if (VIRTUAL_ROOM_LINE.test(description)) return 'virtual_room';
+  if (category === 'service' && !/\bplan\b/i.test(description)) return 'service';
+  if (category === 'virtual_room') return 'virtual_room';
+  return 'subscription';
+}
+
+export async function getAdminInvoiceInsights(period?: string) {
+  const currentPeriod = period?.trim() || new Date().toISOString().slice(0, 7);
+  const docs = await Invoice.find({
+    billingPeriod: periodBillingMatch(currentPeriod),
+    status: { $ne: 'canceled' },
+  }).sort({ paidAt: -1, createdAt: -1 });
+
+  const restaurantIds = [...new Set(docs.map((d) => d.restaurantId.toString()))];
+  const restaurants = await Restaurant.find({ _id: { $in: restaurantIds } }).select('name');
+  const nameById = new Map(restaurants.map((r) => [r._id.toString(), r.name]));
+
+  const empty = () => ({
+    invoiceCount: 0,
+    paidCents: 0,
+    outstandingCents: 0,
+    paidCount: 0,
+    openCount: 0,
+  });
+  const buckets: Record<InvoiceCategory, ReturnType<typeof empty>> = {
+    subscription: empty(),
+    virtual_room: empty(),
+    service: empty(),
+  };
+  const touched = new Set<string>();
+
+  for (const doc of docs) {
+    const category = inferInvoiceCategory(doc);
+    const paid = doc.status === 'paid';
+    const lines = doc.lines ?? [];
+    const portions: Record<InvoiceCategory, number> = {
+      subscription: 0,
+      virtual_room: 0,
+      service: 0,
+    };
+    if (!lines.length) {
+      portions[category] += doc.totalCents ?? 0;
+    } else {
+      for (const line of lines) {
+        portions[lineBucket(line.description, category)] += line.amountCents ?? 0;
+      }
+    }
+    (Object.keys(portions) as InvoiceCategory[]).forEach((key) => {
+      const cents = portions[key];
+      if (cents <= 0) return;
+      if (paid) buckets[key].paidCents += cents;
+      else buckets[key].outstandingCents += cents;
+    });
+    buckets[category].invoiceCount += 1;
+    if (paid) buckets[category].paidCount += 1;
+    else buckets[category].openCount += 1;
+    touched.add(doc._id.toString());
+  }
+
+  const labels: Record<InvoiceCategory, string> = {
+    subscription: 'Subscriptions',
+    virtual_room: 'Virtual 3D',
+    service: 'Other services',
+  };
+
+  const recentTransactions = docs.slice(0, 8).map((doc) => {
+    const category = inferInvoiceCategory(doc);
+    return {
+      id: doc._id.toString(),
+      number: doc.number,
+      restaurantId: doc.restaurantId.toString(),
+      restaurantName: nameById.get(doc.restaurantId.toString()) ?? null,
+      category,
+      status: doc.status,
+      totalCents: doc.totalCents,
+      currency: doc.currency || 'usd',
+      paidAt: doc.paidAt ?? null,
+      createdAt: doc.createdAt,
+      billingPeriod: calendarBillingPeriod(doc.billingPeriod),
+    };
+  });
+
+  const paidCents = (Object.values(buckets) as Array<ReturnType<typeof empty>>).reduce(
+    (sum, b) => sum + b.paidCents,
+    0,
+  );
+  const outstandingCents = (Object.values(buckets) as Array<ReturnType<typeof empty>>).reduce(
+    (sum, b) => sum + b.outstandingCents,
+    0,
+  );
+
+  return {
+    period: currentPeriod,
+    invoiceCount: touched.size,
+    paidCents,
+    outstandingCents,
+    categories: (Object.keys(labels) as InvoiceCategory[]).map((category) => ({
+      category,
+      label: labels[category],
+      ...buckets[category],
+    })),
+    recentTransactions,
+  };
+}
+
 export async function getPlatformRevenueReport(period?: string) {
   const now = new Date();
   const currentPeriod = period ?? now.toISOString().slice(0, 7);
@@ -1337,7 +1578,7 @@ export async function getPlatformRevenueReport(period?: string) {
     Subscription.countDocuments({ status: 'past_due' }),
     Subscription.countDocuments({ status: 'cancelled' }),
     Invoice.aggregate([
-      { $match: { billingPeriod: currentPeriod, status: { $ne: 'canceled' } } },
+      { $match: { billingPeriod: periodBillingMatch(currentPeriod), status: { $ne: 'canceled' } } },
       {
         $group: {
           _id: null,
@@ -1369,7 +1610,7 @@ export async function getPlatformRevenueReport(period?: string) {
       },
     ]),
     Invoice.aggregate([
-      { $match: { billingPeriod: currentPeriod } },
+      { $match: { billingPeriod: periodBillingMatch(currentPeriod) } },
       { $group: { _id: '$status', count: { $sum: 1 }, totalCents: { $sum: '$totalCents' } } },
     ]),
   ]);

@@ -213,7 +213,10 @@ function AdminAccountsListContent({ kind }: Props) {
   }));
   const platformRoleSelectOptions =
     (user && isSuperAdmin(user.role)) || !hasSuperAdmin
-      ? PLATFORM_ROLE_OPTIONS
+      ? [
+          ...PLATFORM_ROLE_OPTIONS,
+          ...(user && isSuperAdmin(user.role) ? [{ value: 'qa' as const, label: 'QA' }] : []),
+        ]
       : PLATFORM_ROLE_OPTIONS.filter((option) => option.value === 'account_manager');
   const platformCreateRoleOptions = platformRoleSelectOptions.filter(
     (option) => option.value !== 'super_admin',

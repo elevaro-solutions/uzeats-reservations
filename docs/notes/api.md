@@ -1,5 +1,15 @@
 # API — Learnings & Observations
 
+## [2026-10-16] QA checklist is a stored release document
+- `qaChecklist` / `saveQaChecklist` persist checks, environment note, P0 clear, and sign-off (name, role, time) on `QaReleaseChecklist`, one row per release. Only `super_admin` and `qa` may read or write it. Only a super admin can assign the `qa` role.
+- Why it matters: Docs checkboxes do not save. Partner Hub `/admin/qa` is the record. A signed checklist rejects further checks until someone reopens it.
+
+## [2026-10-16] SendGrid from-domain must be authenticated
+- `EMAIL_FROM` on `api.tablevera.app` is `Tablevera Staging <noreply@tablevera.app>`. SendGrid 403s that address (`verified Sender Identity`) because only `tablevera.online`, `uzeats.com`, and `advance-db.com` are authenticated. Production `formatError` turned the plain `Error` into `Internal server error`.
+- Domain auth id `33517339` is created and `valid: false` until these CNAMEs exist: `em3623.tablevera.app` → `u56515034.wl035.sendgrid.net`, `s1._domainkey.tablevera.app` → `s1.domainkey.u56515034.wl035.sendgrid.net`, `s2._domainkey.tablevera.app` → `s2.domainkey.u56515034.wl035.sendgrid.net`. Then `POST /v3/whitelabel/domains/33517339/validate`.
+- 4xx responses from mail send are now `AppError` `EMAIL_DELIVERY_FAILED`.
+- Why it matters: Sandbox mode returns 200 for an unverified from; a real send does not. DNS is on DigitalOcean (`ns1/2/3.digitalocean.com`). No MX is required to send.
+
 ## [2026-10-16] No active plan hides the public listing; Base is $0
 - Public search, suggestions, discovery counts, bookmarks, `restaurant` for non-staff, and diner `createReservation` / large-party requests require a subscription in `trialing`, `active`, or `past_due`. Soft-cancel stays listed until `currentPeriodEnd`. Missing or `cancelled` / `paused` subscriptions are not listed. Staff and admins can still open the venue.
 - Builtin `base` plan: $0/mo, network and website cover $3.50, no trial, no premium features.
@@ -28,7 +38,7 @@
 
 ## [2026-10-15] Virtual 3D billing (updated 2026-10-16)
 - Paid enable charges the current month upfront and marks that `billedMonths` row prepaid so the period invoice does not charge it again. Later months still sync onto the period invoice (due the 1st of next month UTC).
-- `features.threeDView` (default on for Pro) includes the monthly fee. Eligibility to buy still needs `floorPlans` when not included.
+- `features.threeDView` (default on for Pro) includes the monthly fee. Any other active subscription can buy Virtual 3D on demand; floor plans are not required to purchase.
 - Why it matters: Do not put a prepaid month back on the period invoice, and do not bill included plans.
 
 ## [2026-10-14] Automation pyramid lives outside API-only Vitest

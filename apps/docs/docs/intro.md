@@ -16,6 +16,7 @@ sidebar_position: 1
 | Platform operators | [Admins → Platform overview](/admins/platform-overview) | Partner dashboard (admin) |
 | Architects & contributors | [Architecture → Overview](/architecture/overview) | — |
 | AI / LLM agents | [LLM → Overview](/llm/overview) | — |
+| QA | [Manual QA](/qa/overview) | Docs site (this section) |
 
 ## Monorepo at a glance
 

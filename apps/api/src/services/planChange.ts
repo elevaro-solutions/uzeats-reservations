@@ -69,6 +69,8 @@ export async function applyPendingPlanChangeIfDue(sub: any, now = new Date()) {
   applyPlanFields(sub, snapshot);
   clearPending(sub);
   await sub.save();
+  const { syncVirtualRoomAddonAfterPlanChange } = await import('./virtualRoom.js');
+  await syncVirtualRoomAddonAfterPlanChange(String(sub.restaurantId));
   return sub;
 }
 
@@ -180,6 +182,8 @@ export async function changeRestaurantPlan(input: {
       sub.status = 'past_due';
     }
     await sub.save();
+    const { syncVirtualRoomAddonAfterPlanChange } = await import('./virtualRoom.js');
+    await syncVirtualRoomAddonAfterPlanChange(input.restaurantId);
   } else {
     sub.pendingPlan = toPlan.key;
     sub.pendingPlanEffectiveAt = decision.effectiveAt ?? sub.currentPeriodEnd ?? undefined;

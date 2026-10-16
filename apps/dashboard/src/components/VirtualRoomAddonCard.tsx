@@ -142,19 +142,20 @@ export function VirtualRoomAddonCard({
       return;
     }
 
-    if (status.requiresPayment || status.monthlyPriceCents > 0) {
+    if (status.requiresPayment) {
       Modal.confirm({
         title: 'Turn on the Virtual 3D room?',
         content: (
           <Space orientation="vertical" size={4}>
             <Text>
-              {monthly}/month is charged upfront before access. Later months while it stays on are
-              billed on your period invoice (due the 1st of the next month, UTC).
+              {monthly}/month is charged now, before access, and a paid invoice is created for this
+              month. Later months while it stays on are billed on your period invoice (due the 1st
+              of the next month, UTC). An active subscription is required.
             </Text>
             <Text>{feeCopy}</Text>
             <Text type="secondary">
-              Paid add-on for Core (and any plan with floor plans that does not include 3D). Pro
-              includes Virtual 3D free. Experimental — turn off anytime.
+              Available on any active plan that does not include 3D. Plans that include it stay free.
+              Experimental — turn off anytime.
             </Text>
           </Space>
         ),

@@ -115,6 +115,10 @@ export async function adminAssignRestaurantPackage(input: {
   }
 
   await sub.save();
+  if (!planDef.features.threeDView) {
+    const { syncVirtualRoomAddonAfterPlanChange } = await import('./virtualRoom.js');
+    await syncVirtualRoomAddonAfterPlanChange(input.restaurantId);
+  }
 
   await logAudit({
     actorId: input.actorId,

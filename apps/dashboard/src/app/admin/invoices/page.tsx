@@ -21,6 +21,7 @@ import {
   Segmented,
   Select,
   Space,
+  Statistic,
   Table,
   Tag,
   Typography,
@@ -54,6 +55,7 @@ import {
   EMAIL_DELIVERY_CONFIGURED,
   ENSURE_INVOICE_PAY_LINK,
   EXPORT_INVOICE_PDF,
+  ADMIN_INVOICE_INSIGHTS,
   GENERATE_INVOICES,
   PLATFORM_CONFIG,
   PLATFORM_SERVICES,
@@ -64,6 +66,22 @@ import {
 } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+
+const CATEGORY_OPTIONS = [
+  { value: 'subscription', label: 'Subscriptions' },
+  { value: 'virtual_room', label: 'Virtual 3D' },
+  { value: 'service', label: 'Other services' },
+];
+
+const CATEGORY_COLORS: Record<string, string> = {
+  subscription: 'blue',
+  virtual_room: 'purple',
+  service: 'cyan',
+};
+
+function categoryLabel(category: string) {
+  return CATEGORY_OPTIONS.find((o) => o.value === category)?.label ?? category;
+}
 
 const STATUS_OPTIONS = [
   { value: undefined, label: 'All statuses' },
@@ -125,10 +143,124 @@ type ManualInvoiceForm = {
   paidJustification?: string;
 };
 
+type InvoiceInsightsData = {
+  period: string;
+  invoiceCount: number;
+  paidCents: number;
+  outstandingCents: number;
+  categories: Array<{
+    category: string;
+    label: string;
+    invoiceCount: number;
+    paidCents: number;
+    outstandingCents: number;
+    paidCount: number;
+    openCount: number;
+  }>;
+  recentTransactions: Array<{
+    id: string;
+    number: string;
+    restaurantName?: string | null;
+    category: string;
+    status: string;
+    totalCents: number;
+    currency: string;
+    paidAt?: string | null;
+    billingPeriod: string;
+  }>;
+};
+
+function InvoiceInsights({
+  loading,
+  insights,
+  onCategory,
+}: {
+  loading: boolean;
+  insights?: InvoiceInsightsData | null;
+  onCategory: (category: string) => void;
+}) {
+  const categories = insights?.categories ?? [];
+  return (
+    <Space orientation="vertical" size={spacing.md} style={{ width: '100%' }}>
+      <Row gutter={[16, 16]}>
+        <Col xs={12} md={6}>
+          <Card loading={loading} size="small">
+            <Statistic title="Collected" value={money(insights?.paidCents ?? 0)} />
+          </Card>
+        </Col>
+        <Col xs={12} md={6}>
+          <Card loading={loading} size="small">
+            <Statistic title="Outstanding" value={money(insights?.outstandingCents ?? 0)} />
+          </Card>
+        </Col>
+        {categories.map((cat) => (
+          <Col xs={12} md={6} key={cat.category}>
+            <Card
+              loading={loading}
+              size="small"
+              hoverable
+              onClick={() => onCategory(cat.category)}
+            >
+              <Statistic title={cat.label} value={money(cat.paidCents)} />
+              <Typography.Text type="secondary">
+                {cat.invoiceCount} invoice{cat.invoiceCount === 1 ? '' : 's'}
+                {cat.outstandingCents > 0 ? ` · ${money(cat.outstandingCents)} open` : ''}
+                {cat.category === 'virtual_room' ? ' · includes 3D lines on subscription bills' : ''}
+              </Typography.Text>
+            </Card>
+          </Col>
+        ))}
+      </Row>
+      <Card title="Recent transactions" size="small" loading={loading}>
+        <Table
+          size="small"
+          pagination={false}
+          rowKey="id"
+          dataSource={insights?.recentTransactions ?? []}
+          locale={{ emptyText: 'No invoices for this month' }}
+          columns={[
+            {
+              title: 'Invoice',
+              dataIndex: 'number',
+              render: (number: string, row: InvoiceInsightsData['recentTransactions'][number]) => (
+                <Link href={`/admin/invoices/${row.id}`}>{number}</Link>
+              ),
+            },
+            { title: 'Restaurant', dataIndex: 'restaurantName', render: (v: string | null) => v || '—' },
+            {
+              title: 'Type',
+              dataIndex: 'category',
+              render: (c: string) => (
+                <Tag color={CATEGORY_COLORS[c] ?? 'default'}>{categoryLabel(c)}</Tag>
+              ),
+            },
+            {
+              title: 'Status',
+              dataIndex: 'status',
+              render: (s: string) => <Tag color={STATUS_COLORS[s] ?? 'default'}>{statusLabel(s)}</Tag>,
+            },
+            {
+              title: 'Amount',
+              dataIndex: 'totalCents',
+              render: (v: number, row: { currency: string }) => money(v, row.currency),
+            },
+            {
+              title: 'Paid',
+              dataIndex: 'paidAt',
+              render: (v: string | null) => (v ? new Date(v).toLocaleDateString('en-US') : '—'),
+            },
+          ]}
+        />
+      </Card>
+    </Space>
+  );
+}
+
 function AdminInvoicesContent() {
   const { ready } = useRequireAdmin();
   const router = useRouter();
   const [status, setStatus] = useState<string | undefined>();
+  const [category, setCategory] = useState<string | undefined>();
   const [search, setSearch] = useState('');
   const [period, setPeriod] = useState(currentPeriod());
   const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
@@ -159,9 +291,14 @@ function AdminInvoicesContent() {
     variables: {
       status: status || undefined,
       search: search || undefined,
+      category: category || undefined,
       limit,
       offset,
     },
+  });
+  const { data: insightsData, loading: insightsLoading } = useQuery(ADMIN_INVOICE_INSIGHTS, {
+    skip: !ready,
+    variables: { period },
   });
   const { data: restaurantsData } = useQuery(ADMIN_RESTAURANTS, {
     skip: !ready,
@@ -653,8 +790,29 @@ function AdminInvoicesContent() {
           title="Invoices"
           subtitle="Generate monthly invoices, create custom bills with packages and services, download PDFs, and share payment links."
         />
+        <InvoiceInsights
+          loading={insightsLoading}
+          insights={insightsData?.adminInvoiceInsights}
+          onCategory={(next) => {
+            setCategory(next);
+            setPagination(1);
+            setSelectedRowKeys([]);
+          }}
+        />
         <Card>
           <Space wrap style={{ marginBottom: 16, width: '100%' }}>
+            <Select
+              allowClear
+              placeholder="Type"
+              style={{ width: 180 }}
+              options={CATEGORY_OPTIONS}
+              value={category}
+              onChange={(v) => {
+                setCategory(v);
+                setPagination(1);
+                setSelectedRowKeys([]);
+              }}
+            />
             <Select
               allowClear
               placeholder="Filter status"
@@ -808,6 +966,14 @@ function AdminInvoicesContent() {
                   ) : (
                     <span style={{ whiteSpace: 'nowrap' }}>{v || '—'}</span>
                   ),
+              },
+              {
+                title: 'Type',
+                dataIndex: 'category',
+                width: 140,
+                render: (c: string) => (
+                  <Tag color={CATEGORY_COLORS[c] ?? 'default'}>{categoryLabel(c || 'subscription')}</Tag>
+                ),
               },
               {
                 title: 'Period',

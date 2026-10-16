@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Alert, App, Button, Form, Input, Space, Spin, Typography } from 'antd';
@@ -26,10 +27,12 @@ export default function AcceptInviteForm() {
   });
   const [acceptInvite, { loading: accepting }] = useMutation(ACCEPT_MANAGER_INVITE);
 
-  if (user) {
+  useEffect(() => {
+    if (!user) return;
     router.replace(partnerLandingPath(user.role));
-    return null;
-  }
+  }, [user, router]);
+
+  if (user) return null;
 
   if (!token) {
     return (

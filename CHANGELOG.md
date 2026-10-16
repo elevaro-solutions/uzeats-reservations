@@ -4,11 +4,29 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.85.0] — 2026-10-16
+
+### Added
+
+- Virtual 3D: turning on a paid add-on (not included in the package) charges the owner and creates a paid invoice for that month
+- Partner Hub `/admin/qa`: release checklist saved in the database. Only Super Admin and the QA role can open or edit it. Sign-off stores who signed and when, and the release stays active until every required item passes
+- QA role: lands on the checklist, cannot create restaurants, and only a super admin can assign it
+
+### Changed
+
+- Virtual 3D turns off when a plan change (or a platform plan edit) removes 3D from the package. The owner can turn it back on by paying the monthly fee. A month already paid is not charged again
+- Virtual 3D can be purchased on any active plan that does not include it, including plans without floor plans
+- Admin Invoices: month insights for subscriptions, Virtual 3D, and other services, plus recent transactions and a type filter
 
 ### Fixed
 
+- Partner Hub sign-in and invite acceptance no longer update the router while the page is rendering, which was throwing a React console error for already signed-in users
+- Test and transactional email from an unauthenticated domain (such as `tablevera.app`) returns the SendGrid sender-identity reason instead of Internal server error
 - API TypeScript build: Subscription uses HydratedDocument; blackout/special-hours bulkWrite ObjectId + mode narrowing; SMS balance reader accepts nullable addons (unblocks Dokku deploy of v0.84.0)
+
+### Docs
+
+- QA checklist published in the docs site (`/qa/overview`) and linked from the QA process README
 
 ## [0.84.0] — 2026-10-16
 

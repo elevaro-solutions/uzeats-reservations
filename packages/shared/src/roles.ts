@@ -37,6 +37,7 @@ export const PARTNER_HUB_ROLES = [
   'admin',
   'account_manager',
   'super_admin',
+  'qa',
 ] as const satisfies readonly UserRole[];
 
 /**
@@ -86,6 +87,15 @@ export function isSuperAdmin(role: string): role is UserRole {
   return role === 'super_admin';
 }
 
+/** Manual QA checklist: super admins and QA staff only. */
+export function canManageQaChecklist(role: string): boolean {
+  return role === 'super_admin' || role === 'qa';
+}
+
+export function isQaRole(role: string): boolean {
+  return role === 'qa';
+}
+
 /** Owners and platform admins may change plans, cancel, or subscribe. Managers/hosts are view-only / blocked. */
 export function canManageBilling(role: string): boolean {
   return role === 'restaurant_owner' || isPlatformAdmin(role);
@@ -98,7 +108,7 @@ export function canManageTeam(role: string): boolean {
 
 /** Managers and hosts cannot add locations; diners may convert to owners via onboarding. */
 export function canCreateRestaurant(role: string): boolean {
-  return role !== 'manager' && role !== 'host';
+  return role !== 'manager' && role !== 'host' && role !== 'qa';
 }
 
 /** DoorDash/Uber Eats MHTML import and menu-image fetch (dashboard, not diners/hosts). */
@@ -117,6 +127,7 @@ export function canAccessPartnerPath(role: string, pathname: string): boolean {
 
 /** Default Partner Hub landing after login. Hosts go straight to today's book. */
 export function partnerLandingPath(role: string): string {
+  if (role === 'qa') return '/admin/qa';
   if (isPlatformAdmin(role)) return '/admin';
   if (isHostRole(role)) return '/reservations';
   return '/overview';

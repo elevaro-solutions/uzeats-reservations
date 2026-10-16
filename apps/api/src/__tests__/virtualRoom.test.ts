@@ -7,6 +7,7 @@ import { Restaurant } from '../models/Restaurant.js';
 import { Subscription } from '../models/Subscription.js';
 import { Table } from '../models/Table.js';
 import { User } from '../models/User.js';
+import { changeRestaurantPlan } from '../services/planChange.js';
 import { getPlatformConfig } from '../services/platformConfig.js';
 import {
   ensurePeriodInvoiceForRestaurant,
@@ -80,12 +81,30 @@ describe('virtual 3D room add-on', () => {
     );
   });
 
-  it('requires a plan with floor plans', async () => {
+  it('lets any active plan purchase Virtual 3D when the package does not include it', async () => {
     await setPlatformFlag(true);
     const { restaurant } = await seedRestaurant('basic');
-    const status = await getVirtualRoomAddonStatus(restaurant._id.toString());
-    expect(status.eligible).toBe(false);
-    expect(status.ineligibleReason).toMatch(/floor plans/i);
+    const restaurantId = restaurant._id.toString();
+    const status = await getVirtualRoomAddonStatus(restaurantId);
+    expect(status).toMatchObject({
+      included: false,
+      eligible: true,
+      requiresPayment: true,
+      active: false,
+    });
+
+    await setVirtualRoomAddon(restaurantId, true, new Date('2026-08-03T10:00:00Z'), {
+      paymentConfirmed: true,
+    });
+    await syncVirtualRoomBilledMonths(new Date('2026-09-01T00:00:00Z'));
+    const sub = await Subscription.findOne({ restaurantId: restaurant._id }).lean();
+    expect((sub as any).addons.virtualRoom3d.billedMonths).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ period: '2026-08', priceCents: 5000, prepaid: true }),
+        expect.objectContaining({ period: '2026-09', priceCents: 5000, prepaid: false }),
+      ]),
+    );
+    expect((await getVirtualRoomAddonStatus(restaurantId)).active).toBe(true);
   });
 
   it('admin can enable a free multi-month trial and generate the period invoice', async () => {
@@ -181,6 +200,20 @@ describe('virtual 3D room add-on', () => {
     ]);
     expect(invoice!.totalCents).toBe(9900 + 800);
 
+    const addonInvoice = await Invoice.findOne({
+      restaurantId: restaurant._id,
+      billingPeriod: '2026-08~virtual-room',
+    });
+    expect(addonInvoice).toMatchObject({
+      status: 'paid',
+      category: 'virtual_room',
+      totalCents: 5000,
+    });
+    expect(addonInvoice!.lines[0]).toMatchObject({
+      description: 'Virtual 3D room add-on - 2026-08',
+      amountCents: 5000,
+    });
+
     const fee = await AddonFee.findOne({ reservationId });
     expect(fee!.status).toBe('charged');
   });
@@ -202,6 +235,77 @@ describe('virtual 3D room add-on', () => {
 
     const invoice = await Invoice.findOne({ restaurantId: restaurant._id, billingPeriod: period });
     expect(invoice!.totalCents).toBe(9900);
+  });
+
+  it('turns 3D off when a plan change drops threeDView, then requires payment to turn it back on', async () => {
+    await setPlatformFlag(true);
+    const { owner, restaurant, sub } = await seedRestaurant('pro');
+    await Subscription.updateOne(
+      { _id: sub._id },
+      {
+        $set: {
+          plan: 'pro',
+          monthlyPriceCents: 19900,
+          currentPeriodEnd: new Date('2026-11-01T00:00:00.000Z'),
+          'addons.virtualRoom3d.enabled': true,
+          'addons.virtualRoom3d.enabledAt': new Date('2026-08-01T00:00:00.000Z'),
+        },
+      },
+    );
+    const restaurantId = restaurant._id.toString();
+    expect(await getVirtualRoomAddonStatus(restaurantId)).toMatchObject({
+      included: true,
+      active: true,
+      enabled: true,
+    });
+
+    await changeRestaurantPlan({
+      restaurantId,
+      plan: 'core',
+      actorId: owner._id.toString(),
+      forceImmediate: true,
+    });
+
+    const after = await getVirtualRoomAddonStatus(restaurantId);
+    expect(after).toMatchObject({
+      included: false,
+      enabled: false,
+      active: false,
+      requiresPayment: true,
+    });
+
+    const started = await startVirtualRoomAddonPayment(restaurantId, new Date('2026-08-03T10:00:00Z'));
+    expect(started.paid).toBe(false);
+    expect(started.amountDueCents).toBe(5000);
+  });
+
+  it('does not charge again when turning 3D back on in a month that was already prepaid', async () => {
+    await setPlatformFlag(true);
+    const { owner, restaurant } = await seedRestaurant();
+    const restaurantId = restaurant._id.toString();
+    const now = new Date();
+    await setVirtualRoomAddon(restaurantId, true, now, { paymentConfirmed: true });
+
+    await Subscription.updateOne(
+      { restaurantId: restaurant._id },
+      { $set: { plan: 'pro', monthlyPriceCents: 19900 } },
+    );
+    await changeRestaurantPlan({
+      restaurantId,
+      plan: 'core',
+      actorId: owner._id.toString(),
+      forceImmediate: true,
+    });
+
+    const paused = await getVirtualRoomAddonStatus(restaurantId);
+    expect(paused).toMatchObject({ included: false, enabled: false, active: false, requiresPayment: false });
+
+    const restarted = await startVirtualRoomAddonPayment(restaurantId, now);
+    expect(restarted.paid).toBe(true);
+    expect(restarted.amountDueCents).toBe(0);
+    expect(restarted.addon).toMatchObject({ enabled: true, active: true });
+    const invoices = await Invoice.find({ restaurantId: restaurant._id, category: 'virtual_room' });
+    expect(invoices).toHaveLength(1);
   });
 
   it('Pro threeDView is included free — active without billing', async () => {
@@ -312,21 +416,6 @@ describe('virtual 3D room add-on', () => {
     expect((sub as any).addons.virtualRoom3d.billedMonths).toEqual([
       expect.objectContaining({ period: '2026-08', priceCents: 5000, prepaid: true }),
     ]);
-  });
-
-  it('skips monthly billing while the plan no longer includes floor plans', async () => {
-    await setPlatformFlag(true);
-    const { restaurant } = await seedRestaurant();
-    const restaurantId = restaurant._id.toString();
-    await setVirtualRoomAddon(restaurantId, true, new Date('2026-08-03T10:00:00Z'), { paymentConfirmed: true });
-    await Subscription.updateOne({ restaurantId: restaurant._id }, { $set: { plan: 'basic' } });
-    await syncVirtualRoomBilledMonths(new Date('2026-09-01T00:00:00Z'));
-
-    const sub = await Subscription.findOne({ restaurantId: restaurant._id }).lean();
-    expect((sub as any).addons.virtualRoom3d.billedMonths).toEqual([
-      expect.objectContaining({ period: '2026-08', priceCents: 5000, prepaid: true }),
-    ]);
-    expect((await getVirtualRoomAddonStatus(restaurantId)).active).toBe(false);
   });
 
   it('only exposes the scene to diners once published with the add-on active', async () => {

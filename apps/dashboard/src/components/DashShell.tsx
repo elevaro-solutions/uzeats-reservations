@@ -64,6 +64,7 @@ import {
 import { useSetupGuide } from '@/lib/useSetupGuide';
 import { SetupGuidePanel } from '@/components/SetupGuide';
 import {
+  ADMIN_PAGES,
   adminSiderPages,
   groupPagesForMenu,
   partnerSiderPages,
@@ -82,7 +83,7 @@ import {
   notificationHref,
 } from '@/lib/notificationLinks';
 import { getPublicWebUrl } from '@/lib/webUrl';
-import { canCreateRestaurant, canAccessPartnerPath, isHostRole, isPlatformAdmin, isSuperAdmin, partnerLandingPath } from '@/lib/roles';
+import { canCreateRestaurant, canAccessPartnerPath, isHostRole, isPlatformAdmin, isQaRole, isSuperAdmin, partnerLandingPath } from '@/lib/roles';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -119,6 +120,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isAdmin = user ? isPlatformAdmin(user.role) && !isImpersonating : false;
+  const isQaUser = user ? isQaRole(user.role) && !isImpersonating : false;
   const isSuperAdminUser = user ? isSuperAdmin(user.role) && !isImpersonating : false;
   // Impersonation must follow the *target* role — diner impersonation is not Partner Hub.
   const isPartner = Boolean(user) && PARTNER_ROLES.has(user!.role);
@@ -204,7 +206,14 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     router.replace('/verify-email');
   }, [authLoading, user, isImpersonating, pathname, router]);
 
-  // Hosts are FOH-only — bounce off settings/billing/grow/etc. to today's book.
+  // QA staff only manage the saved checklist.
+  useEffect(() => {
+    if (authLoading || !user || isAuthShellRoute) return;
+    if (!isQaRole(user.role)) return;
+    if (pathname === '/admin/qa' || pathname.startsWith('/admin/qa/')) return;
+    if (pathname.startsWith('/verify-email')) return;
+    router.replace('/admin/qa');
+  }, [authLoading, user, pathname, isAuthShellRoute, router]);
   useEffect(() => {
     if (authLoading || !user || isAuthShellRoute) return;
     if (!isHostRole(user.role)) return;
@@ -323,7 +332,9 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       '/admin/moderation': pendingModerationItems,
       '/admin/billing': openInvoicesAdmin,
     };
-    const pages = isAdmin
+    const pages = isQaUser
+      ? ADMIN_PAGES.filter((p) => p.href === '/admin/qa')
+      : isAdmin
       ? adminSiderPages({
           isSuperAdmin: isSuperAdminUser,
           showOnboarding,
@@ -343,6 +354,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     }));
   }, [
     isAdmin,
+    isQaUser,
     isSuperAdminUser,
     showOnboarding,
     pendingReservationCount,
@@ -693,9 +705,11 @@ export function DashShell({ children }: { children: React.ReactNode }) {
               onClick={() => setMobileNavOpen((open) => !open)}
               icon={mobileNavOpen ? <CloseOutlined /> : <MenuOutlined />}
             />
-            {isAdmin ? (
+            {isAdmin || isQaUser ? (
               <Text type="secondary" className="rt-dash-header__tagline">
-                Help diners & restaurants · manage billing & platform settings
+                {isQaUser
+                  ? 'Release QA checklist'
+                  : 'Help diners & restaurants · manage billing & platform settings'}
               </Text>
             ) : (
               <>

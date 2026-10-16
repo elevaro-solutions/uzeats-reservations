@@ -67,6 +67,7 @@ const userSchema = new Schema(
         'admin',
         'account_manager',
         'super_admin',
+        'qa',
       ],
       default: 'diner',
     },

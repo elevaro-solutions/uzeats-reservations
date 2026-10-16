@@ -2,6 +2,8 @@
 
 Full pyramid notes live in the monorepo at `docs/automation-testing.md`.
 
+Manual release checklists (role, feature, and the active release sign-off) are published at [Manual QA](/qa/overview).
+
 ## Running tests
 
 ```bash

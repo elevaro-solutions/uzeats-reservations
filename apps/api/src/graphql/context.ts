@@ -108,3 +108,11 @@ export function requireSuperAdmin(ctx: GraphQLContext) {
   }
   return requireRole(ctx, ['super_admin']);
 }
+
+/** Manual QA checklist reads and writes. */
+export function requireQaStaff(ctx: GraphQLContext) {
+  if (ctx.impersonator) {
+    throw new ForbiddenError('Exit impersonation before managing the QA checklist');
+  }
+  return requireRole(ctx, ['super_admin', 'qa']);
+}

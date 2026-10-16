@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { App, Button, Form, Input } from 'antd';
@@ -18,14 +18,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [form] = Form.useForm();
 
-  if (user) {
+  useEffect(() => {
+    if (!user) return;
     router.replace(
       user.needsEmailVerification
         ? '/verify-email'
         : partnerLandingPath(user.role),
     );
-    return null;
-  }
+  }, [user, router]);
+
+  if (user) return null;
 
   return (
     <div component="LoginPage" style={{ display: 'contents' }}><AuthLayout       heading="Partner Hub sign in"

@@ -1,0 +1,8 @@
+{
+  "label": "Manual QA",
+  "position": 8,
+  "link": {
+    "type": "doc",
+    "id": "qa/overview"
+  }
+}

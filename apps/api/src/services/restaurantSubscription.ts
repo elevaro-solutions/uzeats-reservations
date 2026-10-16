@@ -94,6 +94,10 @@ export async function createRestaurantSubscription(input: {
     existing.set('lastPaidPlanChangeAt', undefined);
     if (!stripeSub.trial_end) existing.set('trialEndsAt', undefined);
     sub = await existing.save();
+    if (!planDef.features.threeDView) {
+      const { syncVirtualRoomAddonAfterPlanChange } = await import('./virtualRoom.js');
+      await syncVirtualRoomAddonAfterPlanChange(input.restaurantId);
+    }
   } else {
     sub = await Subscription.create(fields);
   }

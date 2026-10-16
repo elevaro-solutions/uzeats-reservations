@@ -2,6 +2,21 @@
 
 Experimental add-on: billing (monthly + per-guest fees) and an external photogrammetry provider (KIRI Engine), so it lives in its own file.
 
+## [2026-10-16] On-demand purchase does not require floor plans
+- Eligibility is the platform flag plus an active subscription. `threeDView` still includes the month for free. Every other plan can turn Virtual 3D on by paying the monthly fee, including plans without `floorPlans`.
+- `syncVirtualRoomBilledMonths` keeps billing a paid add-on after a move to a plan that does not include floor plans.
+- Why it matters: The old gate hid the purchase behind Core/Pro floor plans, so a package without 3D could not buy it.
+
+## [2026-10-16] Plan change drops included 3D
+- When the plan in effect no longer has `threeDView` (immediate change, scheduled change when it starts, admin package assign, or the platform plan edited so 3D is no longer included), `addons.virtualRoom3d.enabled` is set false. An admin trial that has not ended stays on.
+- Turning it back on uses the normal upfront charge. If this UTC month was already prepaid, enable does not charge or invoice again.
+- Why it matters: Included 3D used to stay active after a downgrade whenever the add-on flag had been set, with no new payment.
+
+## [2026-10-16] Prepaid 3D month is its own paid invoice
+- Enabling Virtual 3D when the package does not include it (`threeDView` off) and the month price is above $0 charges first, then writes a paid invoice (`billingPeriod` `YYYY-MM~virtual-room`, category `virtual_room`). That month stays off the subscription invoice. $0 trials and included plans do not get this invoice.
+- Admin `/admin/invoices` insights split the selected month into subscriptions, Virtual 3D (add-on invoices plus 3D lines on period bills), and other platform services.
+- Why it matters: The upfront Stripe charge had no invoice row, so finance could not see the 3D fee next to service bills.
+
 ## [2026-10-16] Payment timing + Pro inclusion
 - Pro (`features.threeDView`, on by default) includes Virtual 3D: no monthly add-on charge and no upfront checkout.
 - Other eligible plans pay the current month before access (`startVirtualRoomAddonPayment`). That prepaid month is not added again to the period invoice. Later months still land on the period invoice (due the 1st of the next month, UTC).
@@ -59,7 +74,7 @@ Experimental add-on: billing (monthly + per-guest fees) and an external photogra
 
 ## [2026-10-07] Add-on state lives outside plan features
 - `featureFlags.virtualRoom3d` (platform kill switch, default off) gates everything. Per-restaurant opt-in is `Subscription.addons.virtualRoom3d`, not `features` — `getFeatures()` is recomputed from the plan and would wipe it.
-- Eligibility = flag on AND plan has `floorPlans`. `syncVirtualRoomBilledMonths` re-checks `floorPlans` per subscription so a downgrade to Basic pauses billing without turning the add-on off.
+- Eligibility = platform flag AND an active subscription. Superseded 2026-10-16: a plan without `floorPlans` can still buy Virtual 3D, and paid months keep billing.
 - Why it matters: Don't add `virtualRoom3d` to `PlanFeatures`. UI copy promising "paused, not billed" depends on that per-subscription check.
 
 ## [2026-10-07] Monthly price is snapshotted per billed month

@@ -1,6 +1,7 @@
 export {
   isPlatformAdmin,
   isSuperAdmin,
+  isQaRole,
   isHostRole,
   isPartnerHubRole,
   canAccessPartnerPath,

@@ -325,12 +325,14 @@ import {
   pendingFlaggedContentCount,
 } from "../services/supportOps.js";
 import { provisionDefaultRestaurantSetup } from "../services/restaurantSetup.js";
+import { getQaChecklist, qaActorName, saveQaChecklist } from "../services/qaChecklist.js";
 import { placeNewTable } from "../services/tablePlacement.js";
 import { restaurantInputToDb } from "../lib/restaurantInput.js";
 import {
   requireAuth,
   requireAdmin,
   requireSuperAdmin,
+  requireQaStaff,
   requireRole,
   type GraphQLContext,
 } from "./context.js";
@@ -439,6 +441,7 @@ import {
   exportInvoicePdf,
   exportInvoicePdfByToken,
   generateInvoicesForPeriod,
+  getAdminInvoiceInsights,
   getInvoiceById,
   getInvoiceByPayToken,
   getPlatformRevenueReport,
@@ -2034,6 +2037,15 @@ export const resolvers = {
       return { slugRequests, profileChangeRequests, moderationItems, openInvoices };
     },
 
+    qaChecklist: async (
+      _: unknown,
+      args: { release?: string | null },
+      ctx: GraphQLContext,
+    ) => {
+      requireQaStaff(ctx);
+      return getQaChecklist(args.release ?? undefined);
+    },
+
     loyaltyProgram: async () => getLoyaltyProgram(),
 
     adminLoyaltyStats: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
@@ -2419,6 +2431,7 @@ export const resolvers = {
         status?: string;
         search?: string;
         restaurantId?: string;
+        category?: string;
         limit?: number;
         offset?: number;
       },
@@ -2426,6 +2439,15 @@ export const resolvers = {
     ) => {
       requireAdmin(ctx);
       return listInvoices(args);
+    },
+
+    adminInvoiceInsights: async (
+      _: unknown,
+      args: { period?: string },
+      ctx: GraphQLContext,
+    ) => {
+      requireAdmin(ctx);
+      return getAdminInvoiceInsights(args.period);
     },
 
     adminInvoice: async (
@@ -5156,6 +5178,7 @@ export const resolvers = {
         "admin",
         "account_manager",
         "super_admin",
+        "qa",
       ];
       if (!validRoles.includes(args.role)) throw new Error("Invalid role");
       await assertCanAssignRole(admin.role, args.role);
@@ -5646,6 +5669,7 @@ export const resolvers = {
     ) => {
       const admin = requireAdmin(ctx);
       const key = args.input.key.trim().toLowerCase();
+      const planBefore = await getEffectivePlan(key);
       if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(key)) {
         throw new Error("Invalid plan key");
       }
@@ -5717,6 +5741,11 @@ export const resolvers = {
       }
       doc.markModified("planOverrides");
       await doc.save();
+      const planAfter = await getEffectivePlan(key);
+      if (planBefore?.features.threeDView && !planAfter?.features.threeDView) {
+        const { syncVirtualRoomAddonsForPlanKey } = await import("../services/virtualRoom.js");
+        await syncVirtualRoomAddonsForPlanKey(key);
+      }
       await logAudit({
         actorId: admin._id.toString(),
         action: "updatePlanPackage",
@@ -8494,6 +8523,29 @@ export const resolvers = {
       _: unknown,
       args: { restaurantId: string },
     ) => recordVirtualRoomSelectionAttempt(args.restaurantId),
+
+    saveQaChecklist: async (
+      _: unknown,
+      args: {
+        input: {
+          release?: string | null;
+          envNote?: string | null;
+          p0Clear?: boolean | null;
+          notes?: string | null;
+          checks?: Array<{ itemId: string; checked: boolean }> | null;
+          signOff?: boolean | null;
+          reopen?: boolean | null;
+        };
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireQaStaff(ctx);
+      return saveQaChecklist(args.input, {
+        id: user._id.toString(),
+        name: qaActorName(user),
+        role: user.role,
+      });
+    },
 
     ...adminOpsMutation,
   },

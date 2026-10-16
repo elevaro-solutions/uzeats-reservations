@@ -25,6 +25,9 @@ export function clampRegistrationRole(
 
 /** Enforces who may assign `admin` or `super_admin` roles. No bootstrap bypass. */
 export async function assertCanAssignRole(actorRole: UserRole, newRole: string): Promise<void> {
+  if (newRole === 'qa' && actorRole !== 'super_admin') {
+    throw new Error('Only a super admin can assign the QA role');
+  }
   if (!isElevatedAdminRole(newRole)) return;
   if (actorRole === 'super_admin') return;
   throw new Error('Only a super admin can assign admin or super admin roles');

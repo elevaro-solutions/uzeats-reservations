@@ -46,6 +46,7 @@ import {
   LockOutlined,
   ReadOutlined,
   StopOutlined,
+  CheckSquareOutlined,
 } from '@ant-design/icons';
 import { HOST_ALLOWED_PATH_PREFIXES } from '@reservations/shared';
 
@@ -399,6 +400,12 @@ export const ADMIN_PAGES: DashboardPage[] = [
     keywords: ['documentation'],
     description: 'Who can open partner documentation',
     parentSiderHref: '/admin/platform',
+  }),
+  page('/admin/qa', 'QA checklist', 'Platform', 'admin', <CheckSquareOutlined />, {
+    keywords: ['qa', 'sign-off', 'release', 'manual test'],
+    description: 'Saved release checklist for super admins and QA',
+    parentSiderHref: '/admin/platform',
+    when: 'super_admin',
   }),
   page('/admin/engagement', 'Engagement email', 'Platform', 'admin', <MailOutlined />, {
     description: 'Send one-off diner engagement emails from the platform.',

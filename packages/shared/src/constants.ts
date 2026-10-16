@@ -6,6 +6,7 @@ export const USER_ROLES = [
   "admin",
   "account_manager",
   "super_admin",
+  "qa",
 ] as const;
 
 export const DOCS_ACCESS_REQUEST_STATUSES = [

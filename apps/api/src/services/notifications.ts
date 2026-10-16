@@ -14,6 +14,7 @@ import {
   type Occasion,
 } from '@reservations/shared';
 import { env } from '../config/env.js';
+import { AppError } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { User } from '../models/User.js';
 import { Notification } from '../models/Loyalty.js';
@@ -201,6 +202,39 @@ function parseEmailFrom(from: string): { email: string; name?: string } {
   return { email: from.trim() };
 }
 
+/** SendGrid 4xx bodies are safe to show; production formatError hides plain Error. */
+function sendGridDeliveryError(status: number, errText: string, fromEmail: string) {
+  let providerMessage = '';
+  try {
+    const parsed = JSON.parse(errText) as { errors?: Array<{ message?: string }> };
+    providerMessage = (parsed.errors ?? [])
+      .map((e) => e.message?.trim())
+      .filter((message): message is string => Boolean(message))
+      .join(' ');
+  } catch {
+    providerMessage = '';
+  }
+
+  if (/verified Sender Identity/i.test(providerMessage)) {
+    const domain = fromEmail.split('@')[1] || fromEmail;
+    return new AppError(
+      `Cannot send from ${fromEmail}. Authenticate ${domain} in SendGrid before sending.`,
+      'EMAIL_DELIVERY_FAILED',
+      502,
+    );
+  }
+
+  if (status >= 500 || !providerMessage) {
+    return new AppError(
+      'Email provider rejected the message. Try again shortly.',
+      'EMAIL_DELIVERY_FAILED',
+      502,
+    );
+  }
+
+  return new AppError(providerMessage, 'EMAIL_DELIVERY_FAILED', 502);
+}
+
 async function sendViaSendGrid(
   to: string,
   title: string,
@@ -251,7 +285,9 @@ async function sendViaSendGrid(
   });
   if (!res.ok) {
     const errText = await res.text();
-    throw new Error(`SendGrid failed: ${res.status} ${errText}`);
+    const fromEmail = parseEmailFrom(env.EMAIL_FROM).email;
+    logger.error({ status: res.status, from: fromEmail, body: errText }, '[email] SendGrid rejected');
+    throw sendGridDeliveryError(res.status, errText, fromEmail);
   }
 }
 

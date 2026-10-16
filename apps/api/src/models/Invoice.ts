@@ -32,6 +32,16 @@ const invoiceSchema = new Schema(
       index: true,
     },
     billingPeriod: { type: String, required: true, index: true },
+    /**
+     * subscription = plan/period bill, virtual_room = prepaid 3D add-on,
+     * service = platform service lines.
+     */
+    category: {
+      type: String,
+      enum: ['subscription', 'virtual_room', 'service'],
+      default: 'subscription',
+      index: true,
+    },
     currency: { type: String, default: 'usd' },
     subtotalCents: { type: Number, required: true },
     totalCents: { type: Number, required: true },

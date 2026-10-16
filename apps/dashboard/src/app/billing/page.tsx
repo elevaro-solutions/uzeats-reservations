@@ -1675,6 +1675,7 @@ export default function BillingPage() {
 
             {activeRestaurantId ? (
               <VirtualRoomAddonCard
+                key={`${activeRestaurantId}-${subscription?.plan ?? ''}`}
                 restaurantId={activeRestaurantId}
                 canEditBilling={canEditBilling}
               />

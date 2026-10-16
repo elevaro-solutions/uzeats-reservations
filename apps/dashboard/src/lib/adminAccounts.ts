@@ -2,7 +2,7 @@ export type AccountKind = 'diner' | 'manager' | 'restaurant_owner' | 'platform';
 
 export type ManagedAccountRole = 'diner' | 'manager' | 'host' | 'restaurant_owner';
 
-export type PlatformAccountRole = 'admin' | 'account_manager' | 'super_admin';
+export type PlatformAccountRole = 'admin' | 'account_manager' | 'super_admin' | 'qa';
 
 export type RestaurantAccountRole = 'restaurant_owner' | 'manager' | 'host';
 
@@ -45,6 +45,7 @@ export const ROLE_LABELS: Record<string, string> = {
   admin: 'Admin',
   account_manager: 'Account manager',
   super_admin: 'Super Admin',
+  qa: 'QA',
 };
 
 export const PLATFORM_ROLE_OPTIONS: Array<{ value: PlatformAccountRole; label: string }> = [

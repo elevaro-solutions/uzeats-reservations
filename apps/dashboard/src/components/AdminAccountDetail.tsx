@@ -282,7 +282,7 @@ function AdminAccountDetailContent({ kind }: Props) {
   const canEdit = user && currentUser ? canEditUser(currentUser.role, user.role) : false;
   const canDeleteReviews = currentUser ? isSuperAdmin(currentUser.role) : false;
   const platformRoleSelectOptions = isSuperAdmin(currentUser?.role ?? '')
-    ? PLATFORM_ROLE_OPTIONS
+    ? [...PLATFORM_ROLE_OPTIONS, { value: 'qa' as const, label: 'QA' }]
     : PLATFORM_ROLE_OPTIONS.filter(
         (option) => option.value === 'admin' || option.value === 'account_manager',
       );

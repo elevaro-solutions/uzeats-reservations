@@ -2312,11 +2312,45 @@ export const ACCEPT_MANAGER_INVITE = gql`
   }
 `;
 
+export const ADMIN_INVOICE_INSIGHTS = gql`
+  query AdminInvoiceInsights($period: String) {
+    adminInvoiceInsights(period: $period) {
+      period
+      invoiceCount
+      paidCents
+      outstandingCents
+      categories {
+        category
+        label
+        invoiceCount
+        paidCents
+        outstandingCents
+        paidCount
+        openCount
+      }
+      recentTransactions {
+        id
+        number
+        restaurantId
+        restaurantName
+        category
+        status
+        totalCents
+        currency
+        paidAt
+        createdAt
+        billingPeriod
+      }
+    }
+  }
+`;
+
 export const ADMIN_INVOICES = gql`
   query AdminInvoices(
     $status: InvoiceStatus
     $search: String
     $restaurantId: ID
+    $category: String
     $limit: Int
     $offset: Int
   ) {
@@ -2324,6 +2358,7 @@ export const ADMIN_INVOICES = gql`
       status: $status
       search: $search
       restaurantId: $restaurantId
+      category: $category
       limit: $limit
       offset: $offset
     ) {
@@ -2335,6 +2370,7 @@ export const ADMIN_INVOICES = gql`
         restaurantName
         status
         billingPeriod
+        category
         currency
         subtotalCents
         totalCents
@@ -5022,4 +5058,54 @@ export const REVIEW_RESTAURANT_PROFILE_CHANGE_REQUEST = gql`
     }
   }
   ${RESTAURANT_PROFILE_CHANGE_REQUEST_FIELDS}
+`;
+
+export const QA_CHECKLIST = gql`
+  query QaChecklist($release: String) {
+    qaChecklist(release: $release) {
+      release
+      envNote
+      p0Clear
+      notes
+      status
+      signedOffName
+      signedOffRole
+      signedAt
+      updatedAt
+      requiredDone
+      items {
+        id
+        gate
+        group
+        label
+        checked
+        updatedAt
+      }
+    }
+  }
+`;
+
+export const SAVE_QA_CHECKLIST = gql`
+  mutation SaveQaChecklist($input: SaveQaChecklistInput!) {
+    saveQaChecklist(input: $input) {
+      release
+      envNote
+      p0Clear
+      notes
+      status
+      signedOffName
+      signedOffRole
+      signedAt
+      updatedAt
+      requiredDone
+      items {
+        id
+        gate
+        group
+        label
+        checked
+        updatedAt
+      }
+    }
+  }
 `;

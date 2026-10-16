@@ -37,7 +37,7 @@ import { Table } from '../models/Table.js';
 import { VirtualRoom, type VirtualRoomDocument } from '../models/VirtualRoom.js';
 import { NotFoundError, ValidationError } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
-import { getVirtualRoomPricing, isFeatureEnabled } from './platformConfig.js';
+import { getEffectivePlan, getVirtualRoomPricing, isFeatureEnabled } from './platformConfig.js';
 import { getFeatures } from './plans.js';
 import { isOwnUploadUrl } from './spaces.js';
 import { isReconstructionProviderConfigured } from './virtualRoomReconstruction.js';
@@ -172,8 +172,6 @@ export async function getVirtualRoomAddonStatus(restaurantId: string) {
     ineligibleReason = 'Virtual 3D rooms are not available on Tablevera right now.';
   } else if (!sub || !subscriptionGrantsEntitlements(sub)) {
     ineligibleReason = 'An active subscription is required.';
-  } else if (!included && !features?.floorPlans) {
-    ineligibleReason = 'Requires a Core or Pro plan that includes floor plans, or Pro (included).';
   }
 
   const now = new Date();
@@ -181,6 +179,9 @@ export async function getVirtualRoomAddonStatus(restaurantId: string) {
   const effectiveMonthlyPriceCents = included
     ? 0
     : resolveVirtualRoomMonthPrice(addon, pricing.monthlyPriceCents, now);
+  const periodPrepaid = addon.billedMonths.some(
+    (m) => m.period === utcPeriod(now) && Boolean(m.prepaid) && m.priceCents > 0,
+  );
   const entitled = ineligibleReason == null;
   const active = entitled && (included || addon.enabled);
 
@@ -189,7 +190,8 @@ export async function getVirtualRoomAddonStatus(restaurantId: string) {
     platformEnabled,
     enabled: included ? true : addon.enabled,
     included,
-    requiresPayment: entitled && !included && !addon.enabled && effectiveMonthlyPriceCents > 0,
+    requiresPayment:
+      entitled && !included && !addon.enabled && effectiveMonthlyPriceCents > 0 && !periodPrepaid,
     eligible: entitled,
     active,
     ineligibleReason,
@@ -217,7 +219,7 @@ export async function setVirtualRoomAddon(
   restaurantId: string,
   enabled: boolean,
   now = new Date(),
-  opts?: { paymentConfirmed?: boolean },
+  opts?: { paymentConfirmed?: boolean; paymentIntentId?: string | null },
 ) {
   const sub = await Subscription.findOne({ restaurantId });
   if (!sub) throw new ValidationError('No subscription found');
@@ -237,15 +239,20 @@ export async function setVirtualRoomAddon(
       if (!status.eligible) throw new ValidationError(status.ineligibleReason ?? 'Not available');
       const period = utcPeriod(now);
       const priceCents = resolveVirtualRoomMonthPrice(addon, status.monthlyPriceCents, now);
-      if (priceCents > 0 && !opts?.paymentConfirmed) {
+      const alreadyPrepaid = addon.billedMonths.some(
+        (m) => m.period === period && Boolean(m.prepaid) && m.priceCents > 0,
+      );
+      if (priceCents > 0 && !opts?.paymentConfirmed && !alreadyPrepaid) {
         throw new ValidationError(
           'Payment is required before enabling Virtual 3D. Complete checkout first.',
         );
       }
-      upsertBilledMonth(addon, period, priceCents, {
-        prepaid: priceCents > 0,
-        paidAt: priceCents > 0 ? now : null,
-      });
+      if (!alreadyPrepaid) {
+        upsertBilledMonth(addon, period, priceCents, {
+          prepaid: priceCents > 0,
+          paidAt: priceCents > 0 ? now : null,
+        });
+      }
       addon.enabled = true;
       addon.enabledAt = now;
       addon.disabledAt = null;
@@ -262,7 +269,66 @@ export async function setVirtualRoomAddon(
 
   sub.set('addons.virtualRoom3d', addon);
   await sub.save();
+
+  if (enabled && !features.threeDView) {
+    const period = utcPeriod(now);
+    const month = addon.billedMonths.find((m) => m.period === period);
+    if (month?.prepaid && month.priceCents > 0) {
+      const { recordPrepaidVirtualRoomInvoice } = await import('./invoices.js');
+      await recordPrepaidVirtualRoomInvoice({
+        restaurantId,
+        period,
+        amountCents: month.priceCents,
+        paymentIntentId: opts?.paymentIntentId,
+        paidAt: now,
+      }).catch((err) =>
+        logger.warn({ err, restaurantId, period }, '[virtualRoom] prepaid invoice failed'),
+      );
+    }
+  }
+
   return getVirtualRoomAddonStatus(restaurantId);
+}
+
+/**
+ * When the plan in effect does not include 3D, turn the add-on off.
+ * An in-progress admin trial stays on. A month already paid can be turned
+ * back on without a second charge.
+ */
+export async function syncVirtualRoomAddonAfterPlanChange(restaurantId: string, now = new Date()) {
+  const sub = await Subscription.findOne({ restaurantId });
+  if (!sub) return false;
+  const plan = await getEffectivePlan(sub.plan);
+  if (plan?.features?.threeDView) return false;
+  const addon = readAddon(sub);
+  if (!addon.enabled) return false;
+  if (addon.trialEndsAt && addon.trialEndsAt > now) return false;
+  addon.enabled = false;
+  addon.disabledAt = now;
+  sub.set('addons.virtualRoom3d', addon);
+  await sub.save();
+  return true;
+}
+
+/** Every subscription on this plan loses included 3D access (admin trials stay on). */
+export async function syncVirtualRoomAddonsForPlanKey(planKey: string, now = new Date()) {
+  const plan = await getEffectivePlan(planKey);
+  if (plan?.features?.threeDView) return 0;
+  const subs = await Subscription.find({
+    plan: planKey,
+    'addons.virtualRoom3d.enabled': true,
+  });
+  let turnedOff = 0;
+  for (const sub of subs) {
+    const addon = readAddon(sub);
+    if (addon.trialEndsAt && addon.trialEndsAt > now) continue;
+    addon.enabled = false;
+    addon.disabledAt = now;
+    sub.set('addons.virtualRoom3d', addon);
+    await sub.save();
+    turnedOff += 1;
+  }
+  return turnedOff;
 }
 
 /**
@@ -286,6 +352,21 @@ export async function startVirtualRoomAddonPayment(restaurantId: string, now = n
   }
   if (status.enabled) {
     throw new ConflictError('Virtual 3D is already enabled');
+  }
+
+  const subForPeriod = await Subscription.findOne({ restaurantId });
+  const alreadyPrepaid = readAddon(subForPeriod).billedMonths.some(
+    (m) => m.period === utcPeriod(now) && Boolean(m.prepaid) && m.priceCents > 0,
+  );
+  if (alreadyPrepaid) {
+    const addon = await setVirtualRoomAddon(restaurantId, true, now, { paymentConfirmed: true });
+    return {
+      addon,
+      clientSecret: null as string | null,
+      paymentMode: null as 'payment' | null,
+      amountDueCents: 0,
+      paid: true,
+    };
   }
 
   const amountDueCents = status.effectiveMonthlyPriceCents;
@@ -320,6 +401,7 @@ export async function startVirtualRoomAddonPayment(restaurantId: string, now = n
     if (pi.status === 'succeeded' || isStubPaymentIntent(pi.id)) {
       const addon = await setVirtualRoomAddon(restaurantId, true, now, {
         paymentConfirmed: true,
+        paymentIntentId: pi.id,
       });
       return {
         addon,
@@ -359,7 +441,10 @@ export async function confirmVirtualRoomAddonPayment(
     throw new ValidationError(status.ineligibleReason ?? 'Not available');
   }
   await assertPaymentIntentSucceeded(paymentIntentId);
-  return setVirtualRoomAddon(restaurantId, true, now, { paymentConfirmed: true });
+  return setVirtualRoomAddon(restaurantId, true, now, {
+    paymentConfirmed: true,
+    paymentIntentId,
+  });
 }
 
 export type AdminVirtualRoomAddonInput = {
@@ -411,7 +496,7 @@ export async function adminSetVirtualRoomAddon(
 
   const status = await getVirtualRoomAddonStatus(restaurantId);
   // Admins may enable while the partner would be ineligible only if the platform flag is on
-  // and a subscription exists — still require floor plans so billing stays consistent.
+  // and a subscription exists. 3D is an on-demand purchase when the package does not include it.
   if (!status.platformEnabled) {
     throw new ValidationError(
       'Turn on Virtual 3D rooms in Platform config → Experimental features first.',
@@ -493,7 +578,6 @@ export async function syncVirtualRoomBilledMonths(now = new Date()) {
     const features = await getFeatures(String(sub.restaurantId));
     // Included in package — never add paid month lines.
     if (features.threeDView) continue;
-    if (!features.floorPlans) continue;
     const addon = readAddon(sub);
     const priceCents = resolveVirtualRoomMonthPrice(addon, monthlyPriceCents, now);
     const res = await Subscription.updateOne(
