@@ -984,7 +984,7 @@ async function buildInvoicePdf(
     restaurantId: invoice.restaurantId,
     restaurantAddress: restaurantAddress ?? null,
     status: invoice.status,
-    billingPeriod: invoice.billingPeriod,
+    billingPeriod: invoice.billingPeriod ?? '',
     currency: invoice.currency || config.currency || 'usd',
     totalCents: invoice.totalCents,
     originalTotalCents: invoice.originalTotalCents,

@@ -4,6 +4,12 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- API TypeScript build: invoice PDF export accepts optional `billingPeriod` (unblocks Dokku deploy of v0.85.0)
+
 ## [0.85.0] — 2026-10-16
 
 ### Added
