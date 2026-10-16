@@ -307,7 +307,7 @@ function formatAddressLine(address?: {
 export async function searchRestaurantSuggestions(
   input: SearchSuggestionsInput,
 ): Promise<SearchSuggestionResult[]> {
-  const filter = await approvedAndListed(input);
+  const filter: Record<string, unknown> = { ...(await approvedAndListed(input)) };
   const q = input.query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   if (q) {
     const pattern = new RegExp(q, 'i');

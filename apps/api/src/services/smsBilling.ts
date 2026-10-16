@@ -20,8 +20,12 @@ import {
   isStubPaymentIntent,
 } from './stripe.js';
 
-function readBalance(sub: { addons?: { smsCredits?: { balance?: number | null } } } | null) {
-  const n = Number(sub?.addons?.smsCredits?.balance ?? 0);
+function readBalance(sub: { addons?: unknown } | null | undefined) {
+  const addons = sub?.addons as
+    | { smsCredits?: { balance?: number | null } }
+    | null
+    | undefined;
+  const n = Number(addons?.smsCredits?.balance ?? 0);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
 }
 

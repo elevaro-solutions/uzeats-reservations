@@ -4,6 +4,12 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- API TypeScript build: Subscription uses HydratedDocument; blackout/special-hours bulkWrite ObjectId + mode narrowing; SMS balance reader accepts nullable addons (unblocks Dokku deploy of v0.84.0)
+
 ## [0.84.0] — 2026-10-16
 
 ### Added

@@ -4345,17 +4345,20 @@ export const resolvers = {
         input.endDate,
       );
       const allDay = input.allDay ?? true;
+      const restaurantOid = new (await import("mongoose")).default.Types.ObjectId(
+        input.restaurantId,
+      );
       await Blackout.bulkWrite(
         dates.map((date) => ({
           updateOne: {
-            filter: { restaurantId: input.restaurantId, date },
+            filter: { restaurantId: restaurantOid, date },
             update: {
               $set: {
                 reason: input.reason ?? null,
                 allDay,
                 ...(allDay ? { startTime: null, endTime: null } : {}),
               },
-              $setOnInsert: { restaurantId: input.restaurantId, date },
+              $setOnInsert: { restaurantId: restaurantOid, date },
             },
             upsert: true,
           },
@@ -4401,7 +4404,9 @@ export const resolvers = {
       if (args.mode !== 'closed' && args.mode !== 'custom_hours') {
         throw new Error('mode must be closed or custom_hours');
       }
-      if (args.mode === 'custom_hours' && (!args.startTime || !args.endTime)) {
+      const mode: 'closed' | 'custom_hours' =
+        args.mode === 'custom_hours' ? 'custom_hours' : 'closed';
+      if (mode === 'custom_hours' && (!args.startTime || !args.endTime)) {
         throw new Error('custom_hours requires startTime and endTime');
       }
       // Platform catalog holidays are enable/disable only — partners create manual overrides
@@ -4437,17 +4442,20 @@ export const resolvers = {
           ? args.status
           : 'approved';
       const reviewedAt = new Date();
+      const restaurantOid = new (await import("mongoose")).default.Types.ObjectId(
+        args.restaurantId,
+      );
       await DateScheduleOverride.bulkWrite(
         dates.map((date) => ({
           updateOne: {
-            filter: { restaurantId: args.restaurantId, date },
+            filter: { restaurantId: restaurantOid, date },
             update: {
               $set: {
-                mode: args.mode,
+                mode,
                 startTime: args.startTime ?? null,
                 endTime: args.endTime ?? null,
                 reason: args.reason ?? null,
-                source: 'manual',
+                source: 'manual' as const,
                 holidayKey: null,
                 status,
                 ...(status === 'approved'
@@ -4460,7 +4468,7 @@ export const resolvers = {
                     }),
               },
               $setOnInsert: {
-                restaurantId: args.restaurantId,
+                restaurantId: restaurantOid,
                 date,
               },
             },

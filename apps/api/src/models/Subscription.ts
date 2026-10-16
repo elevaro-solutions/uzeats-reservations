@@ -1,4 +1,9 @@
-import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
+import mongoose, {
+  Schema,
+  type HydratedDocument,
+  type InferSchemaType,
+  type Model,
+} from 'mongoose';
 
 const subscriptionSchema = new Schema(
   {
@@ -110,10 +115,10 @@ const subscriptionSchema = new Schema(
   { timestamps: true },
 );
 
-export type SubscriptionDocument = InferSchemaType<typeof subscriptionSchema> & {
-  _id: mongoose.Types.ObjectId;
-};
+type SubscriptionFields = InferSchemaType<typeof subscriptionSchema>;
 
-export const Subscription: Model<SubscriptionDocument> =
+export type SubscriptionDocument = HydratedDocument<SubscriptionFields>;
+
+export const Subscription: Model<SubscriptionFields> =
   mongoose.models.Subscription ??
-  mongoose.model<SubscriptionDocument>('Subscription', subscriptionSchema);
+  mongoose.model<SubscriptionFields>('Subscription', subscriptionSchema);
