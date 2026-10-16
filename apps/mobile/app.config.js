@@ -57,8 +57,8 @@ const config = {
       {
         photosPermission:
           "Tablevera lets you choose a profile photo or attach photos to restaurant reviews.",
-        // Library pick only — no camera / mic.
-        cameraPermission: false,
+        cameraPermission:
+          "Tablevera may use your camera if you choose to take a photo for your profile or a review.",
         microphonePermission: false,
       },
     ],
@@ -88,8 +88,7 @@ const config = {
     [
       "expo-calendar",
       {
-        calendarPermission:
-          "Tablevera adds your reservation to your calendar.",
+        calendarPermission: "Tablevera adds your reservation to your calendar.",
         writeOnlyCalendarPermission:
           "Tablevera adds your reservation to your calendar.",
         writeOnlyAccess: true,
@@ -101,14 +100,12 @@ const config = {
         iosUrlScheme: iosUrlSchemeFromClientId(IOS_CLIENT_ID),
       },
     ],
-    [
-      "@react-native-community/datetimepicker",
-    ],
+    ["@react-native-community/datetimepicker"],
     [
       "@stripe/stripe-react-native",
       {
-        "merchantIdentifier": "merchant.com.tablevera.app",
-        "enableGooglePay": true,
+        merchantIdentifier: "merchant.com.tablevera.app",
+        enableGooglePay: true,
       },
     ],
     [
