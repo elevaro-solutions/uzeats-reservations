@@ -1,5 +1,16 @@
 # Web — Learnings & Observations
 
+## [2026-10-17] Discovery card photos fade in over a local placeholder
+- `RestaurantCard` keeps a CSS shimmer (no network) until `onLoad` for the current `src`. `DiscoveryRestaurantCard` must pass `onLoad` through `next/image` and the `<img>` fallback.
+- Why it matters: Remote covers (Spaces / Unsplash) stay blank for a long time on slow connections. The placeholder is local; do not swap in another remote “default” photo while waiting.
+
+## [2026-10-17] Mobile app links and downloads
+- Play URLs live in `packages/shared` `MOBILE_APPS`. Do not add an App Store href until iOS is live; badges stay “Coming soon”.
+- `/downloads` serves copies of logos and `docs/store/assets` from `apps/web/public/downloads`. Recopy after regenerating store art.
+- Footer badge follows the page: partner on `/for-restaurants` and `/pricing`, diner elsewhere, both on `/downloads`.
+- Phone and tablet (`max-width: 1024px`, or up to 1366px with a coarse pointer) get a dismissible bar under the header. Android links to Play. iPhone/iPad only says coming soon — no App Store URL. Dismissal is `localStorage` `rt-mobile-app-prompt`. Hidden on `/downloads`.
+- Why it matters: Store links and brand files are public marketing, not the listing kit in `docs/`. Do not put an install block back between the home hero and the restaurant list.
+
 ## [2026-10-15] Profile Danger zone — delete diner account
 - `/profile` Danger zone calls `deleteMyAccount`; confirm by typing `DELETE`, then `logout`.
 - Copy explains restaurants keep anonymous “Guest” history (incl. no-shows) without name/contact.
@@ -183,6 +194,10 @@
 - Admin TipTap posts were rendered with `dangerouslySetInnerHTML` and no sanitizer. `sanitizeBlogHtml` (`sanitize-html`) runs on GraphQL write (schema transform), `mapBlogPost` read, and the diner article page. Tags are TipTap-shaped; `a[href]` is http(s) only with `rel=noopener`.
 - Next `headers()` add CSP (`object-src 'none'`, `frame-ancestors 'none'`). Script-src still includes `'unsafe-inline'` because Next/Antd/Stripe/GSI need it — sanitizer is the XSS control, CSP is defense in depth for plugins/objects. `img-src` includes the GraphQL API origin so local upload URLs on `http://localhost:4000` are not blocked.
 - Why it matters: Never render CMS HTML raw. Don’t tighten `script-src` to `'self'` without Next nonces.
+
+## [2026-10-17] Phone restaurant cards are a row
+- Below 576px (the single-column grid), `.rt-restaurant-card` is `flex-direction: row`: the cover stretches to the full card height on the left, body on the right. Body padding is `16px 24px` on `.rt-restaurant-card > .rt-restaurant-card__body.ant-card-body` — a lone class loses to Ant Design's `.ant-card-body` padding. Wider breakpoints stay photo-on-top.
+- Why it matters: Do not set `flexDirection` or the cover height as inline styles on `RestaurantCard`. Inline styles beat the phone media query and the list goes tall again.
 
 ## [2026-10-03] Hero search bar control heights
 - Antd large `Input`/`Select`/`DatePicker`/`AutoComplete` each render at different heights in `DiscoverySearchPanel`, and a `min-height` on the inner `.ant-input`/`.ant-select-content` stacks on top of the wrapper's 11–12px padding (58px controls). The panel pins wrappers to `height: 36px` (30px in `--map`) with zero block padding so labels line up.

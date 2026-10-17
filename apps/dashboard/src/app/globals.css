@@ -174,13 +174,36 @@ a {
   width: calc(100% - 16px) !important;
   height: 36px !important;
   line-height: 36px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.rt-dash-sider .ant-menu-item .ant-menu-item-icon {
+  flex-shrink: 0;
+}
+
+.rt-dash-sider .ant-menu-title-content {
+  flex: 1 1 auto;
+  min-width: 0;
+  opacity: 1 !important;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .rt-dash-nav-link {
-  display: inline-flex;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   min-width: 0;
+  width: 100%;
+}
+
+.rt-dash-nav-link > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rt-dash-nav-link .ant-badge {
@@ -720,13 +743,111 @@ a {
   padding: 0;
 }
 
-.rt-dash-sider__brand {
-  padding: 20px 16px 16px;
+.rt-dash-sider .ant-layout-sider-children {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  height: 100%;
+  min-height: 0;
+}
+
+.rt-dash-sider__brand {
+  flex-shrink: 0;
+  padding: 16px 12px 14px 16px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   border-bottom: 1px solid var(--color-border-subtle);
-  margin-bottom: 4px;
+}
+
+.rt-dash-sider__close,
+.rt-dash-sider__logout {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.rt-dash-sider__close:hover,
+.rt-dash-sider__logout:hover {
+  background: var(--color-background);
+  color: var(--color-text);
+}
+
+.rt-dash-sider__nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 8px;
+}
+
+.rt-dash-sider__foot {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+.rt-dash-sider__app {
+  display: block;
+  margin: 0 12px 4px;
+  color: var(--color-brand-600, #0b3d2e);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.rt-dash-sider__app span {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.rt-dash-sider__account {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 0;
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
+}
+
+.rt-dash-sider__account-meta {
+  min-width: 0;
+  flex: 1 1 auto;
+  line-height: 1.25;
+}
+
+.rt-dash-sider__account-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rt-dash-sider__account-role {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  text-transform: capitalize;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .rt-dash-header.ant-layout-header {
@@ -805,12 +926,21 @@ a {
 }
 
 .rt-dash-sider__search {
-  padding: 12px 12px 0;
+  flex-shrink: 0;
+  padding: 12px 12px 4px;
 }
 
 .rt-dash-sider__search .rt-dash-search-trigger {
   width: 100%;
   max-width: none;
+  height: 40px;
+  padding: 0 12px;
+  justify-content: flex-start;
+}
+
+.rt-dash-sider__search .rt-dash-search-trigger__label,
+.rt-dash-sider__search .rt-dash-search-trigger__kbd {
+  display: inline;
 }
 
 .rt-dash-sider-mask {
@@ -820,8 +950,18 @@ a {
   margin: 0;
   padding: 0;
   border: none;
-  background: rgba(15, 23, 42, 0.45);
+  background: rgba(15, 23, 42, 0.48);
   cursor: pointer;
+  animation: rt-dash-mask-in 0.22s ease;
+}
+
+@keyframes rt-dash-mask-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .rt-dash-search__input-wrap {
@@ -928,7 +1068,7 @@ a {
   flex-shrink: 0;
 }
 
-.rt-dash-menu-btn {
+button.rt-dash-menu-btn.ant-btn {
   display: none;
   width: 40px;
   height: 40px;
@@ -1208,7 +1348,7 @@ a {
 }
 
 @media (max-width: 991px) {
-  /* Single sider: layout slot stays 0; burger adds --mobile-open for a fixed overlay */
+  /* Layout slot stays 0. The drawer is a fixed panel that slides in with full labels. */
   .rt-dash-sider.ant-layout-sider {
     position: fixed !important;
     top: 0;
@@ -1216,32 +1356,41 @@ a {
     bottom: 0;
     z-index: 1200;
     height: 100vh !important;
+    height: 100dvh !important;
     max-height: 100dvh !important;
+    width: min(300px, calc(100vw - 48px)) !important;
+    min-width: min(300px, calc(100vw - 48px)) !important;
+    max-width: min(300px, calc(100vw - 48px)) !important;
     flex: 0 0 0 !important;
-  }
-
-  .rt-dash-sider.ant-layout-sider-collapsed:not(.rt-dash-sider--mobile-open) {
-    pointer-events: none;
-    border-right-width: 0 !important;
     overflow: hidden !important;
+    border-right: 1px solid var(--color-border-subtle) !important;
+    box-shadow: none;
+    transform: translateX(-105%);
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s linear 0.28s !important;
   }
 
   .rt-dash-sider.rt-dash-sider--mobile-open.ant-layout-sider {
-    width: 248px !important;
-    max-width: 248px !important;
-    min-width: 248px !important;
-    flex: 0 0 0 !important;
+    transform: translateX(0);
+    visibility: visible;
     pointer-events: auto;
-    overflow: auto !important;
-    border-right: 1px solid var(--color-border-subtle) !important;
-    box-shadow: 8px 0 24px rgba(15, 23, 42, 0.12);
+    box-shadow: 18px 0 48px rgba(15, 23, 42, 0.16);
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), visibility 0s !important;
   }
 
+  .rt-dash-sider .ant-layout-sider-children,
   .rt-dash-sider.rt-dash-sider--mobile-open .ant-layout-sider-children {
-    width: 248px;
+    width: 100%;
+    overflow: hidden;
   }
 
-  .rt-dash-menu-btn {
+  .rt-dash-sider .ant-menu-inline,
+  .rt-dash-sider .ant-menu-inline-collapsed {
+    width: 100% !important;
+  }
+
+  button.rt-dash-menu-btn.ant-btn {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;

@@ -80,6 +80,7 @@ Phone OTP (dev): any phone + code `123456` when `AUTH_DEV_OTP=true`.
 - Restaurant search (city, cuisine, text, nearby geo) with **list and map views**, infinite scroll, SEO landing pages (city/state/cuisine/occasion/neighborhood/landmark hubs, cuisine×city, near-me, top/best restaurants), and live availability slots — taxonomy managed in admin **Discovery**
 - **Blog** — published articles with SEO metadata; platform admins manage posts in the dashboard
 - **For restaurants** marketing page (`/for-restaurants`) plus public pricing and contact-sales flows
+- **Downloads** (`/downloads`): Android diner and partner apps on Google Play, with logos and store graphics. iPhone apps are marked coming soon. Phones and tablets get a dismissible install bar; Partner Hub links to the partner app
 - **Bookmarks/Saved** — diners can save favorite restaurants and view them at `/saved` (Remove on list items to unsave/unfavorite)
 - **Restaurant inquiries** — contact restaurants directly from the detail page
 - Google Places address autocomplete and device near-me (falls back to curated US cities)

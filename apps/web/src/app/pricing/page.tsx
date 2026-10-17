@@ -15,6 +15,7 @@ import {
 } from 'antd';
 import { PLANS } from '@/lib/graphql';
 import type { BillingPeriod } from '@reservations/ui';
+import { AppStoreBadges } from '@reservations/ui';
 import {
   annualBillingAppliesToPlan,
   formatPlanDollars,
@@ -1044,6 +1045,14 @@ export default function PricingPage() {
               See a demo
             </Button>
           </Space>
+          <div style={{ marginTop: 28 }}>
+            <Paragraph style={{ color: 'rgba(255,255,255,0.75)', marginBottom: 12 }}>
+              Partner app — Android is live. iPhone is coming soon.
+            </Paragraph>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <AppStoreBadges app="partner" tone="dark" size="sm" />
+            </div>
+          </div>
         </Card>
       </Space>
 

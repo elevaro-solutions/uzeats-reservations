@@ -17,6 +17,7 @@ export type RestaurantCardPhotoRenderProps = {
   alt: string;
   style: CSSProperties;
   onError: () => void;
+  onLoad: () => void;
 };
 
 export interface RestaurantCardProps {
@@ -62,7 +63,9 @@ export function RestaurantCard({
     [photoUrl],
   );
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
   const imageSrc = photoCandidates[Math.min(photoIndex, photoCandidates.length - 1)] ?? DEFAULT_RESTAURANT_PHOTO;
+  const photoReady = loadedSrc === imageSrc;
 
   useEffect(() => {
     setPhotoIndex(0);
@@ -74,24 +77,28 @@ export function RestaurantCard({
     height: '100%',
     objectFit: 'cover',
     display: 'block',
+    opacity: photoReady ? 1 : 0,
     transform: hovered ? 'scale(1.05)' : 'scale(1)',
-    transition: 'transform 0.45s ease',
+    transition: 'opacity 0.35s ease, transform 0.45s ease',
   };
   const onPhotoError = () => {
     setPhotoIndex((current) => Math.min(current + 1, photoCandidates.length - 1));
+  };
+  const onPhotoLoad = () => {
+    setLoadedSrc(imageSrc);
   };
 
   return (
     <div component="RestaurantCard" style={{ display: 'contents' }}>
     <Card
       hoverable
+      className="rt-restaurant-card"
+      classNames={{ body: 'rt-restaurant-card__body' }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
         overflow: 'hidden',
         height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
         borderRadius: radii.lg,
         border: `1px solid ${colors.bordersubtle}`,
         transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
@@ -99,9 +106,24 @@ export function RestaurantCard({
         transition: 'transform 0.25s ease, box-shadow 0.25s ease',
       }}
       cover={
-        <div style={{ position: 'relative', height: 190, overflow: 'hidden' }}>
+        <div className="rt-restaurant-card__media" style={{ background: colors.neutral[100] }}>
+          {!photoReady && (
+            <span className="rt-card-photo-placeholder" aria-hidden>
+              <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+                <rect x="4" y="8" width="28" height="20" rx="3" stroke="currentColor" strokeWidth="1.6" />
+                <circle cx="13" cy="15" r="2.2" fill="currentColor" />
+                <path d="M6.5 24.5 13 18l4.5 4.5 3-3L29.5 26" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+              </svg>
+            </span>
+          )}
           {renderPhoto ? (
-            renderPhoto({ src: imageSrc, alt: name, style: photoStyle, onError: onPhotoError })
+            renderPhoto({
+              src: imageSrc,
+              alt: name,
+              style: photoStyle,
+              onError: onPhotoError,
+              onLoad: onPhotoLoad,
+            })
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -109,7 +131,11 @@ export function RestaurantCard({
               src={imageSrc}
               loading="lazy"
               decoding="async"
+              ref={(node) => {
+                if (node?.complete && node.naturalWidth > 0) onPhotoLoad();
+              }}
               onError={onPhotoError}
+              onLoad={onPhotoLoad}
               style={photoStyle}
             />
           )}
@@ -123,6 +149,7 @@ export function RestaurantCard({
             }}
           />
           <span
+            className="rt-restaurant-card__cuisine"
             style={{
               position: 'absolute',
               top: 12,
@@ -141,6 +168,7 @@ export function RestaurantCard({
           </span>
           {reviewCount > 0 && (
             <span
+              className="rt-restaurant-card__rating-chip"
               style={{
                 position: 'absolute',
                 top: 12,
@@ -163,7 +191,7 @@ export function RestaurantCard({
         </div>
       }
       onClick={() => onClick?.(id)}
-      styles={{ body: { padding: 16, flex: 1, display: 'flex', flexDirection: 'column' } }}
+      styles={{ body: { flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 } }}
     >
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
         <Text
@@ -229,7 +257,7 @@ export function RestaurantCard({
       )}
 
       {/* Pins slots to the card bottom so rows align when optional meta rows are absent. */}
-      <div style={{ marginTop: 'auto', paddingTop: 14 }}>
+      <div className="rt-restaurant-card__slots" style={{ marginTop: 'auto', paddingTop: 14 }}>
       {availableSlots.length > 0 ? (
         <div
           style={{

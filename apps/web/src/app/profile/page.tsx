@@ -25,7 +25,7 @@ import {
   MailOutlined,
   TrophyOutlined,
 } from '@ant-design/icons';
-import { PageHeader, colors, radii, shadows, formatPhoneDisplay } from '@reservations/ui';
+import { PageHeader, AppStoreBadges, colors, radii, shadows, formatPhoneDisplay } from '@reservations/ui';
 import { browserMediaUrl, defaultLoyaltyProgram, loyaltyRedeemProgress, resolveLoyaltyTier, buildRestaurantBookingPath } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
@@ -317,6 +317,14 @@ export default function ProfilePage() {
         title="Profile"
         subtitle="Manage your account, notifications, and loyalty rewards"
       />
+
+      <div className="rt-app-promo">
+        <div className="rt-app-promo__copy">
+          <strong>Get the Tablevera app</strong>
+          <span>Android is on Google Play. iPhone is coming soon.</span>
+        </div>
+        <AppStoreBadges app="diner" tone="light" size="sm" />
+      </div>
 
       <Card
         style={{

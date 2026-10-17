@@ -7,6 +7,7 @@ import { Drawer } from 'antd';
 import {
   TableveraLogo,
   TableveraWordmark,
+  AppStoreBadges,
   colors,
   radii,
   typography,
@@ -386,6 +387,20 @@ export function AuthLayout({
               </p>
             )}
             {children}
+
+            <div style={{ marginTop: 28, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+              <p
+                style={{
+                  margin: 0,
+                  color: colors.textSecondary,
+                  fontSize: typography.fontSize.sm,
+                  textAlign: 'center',
+                }}
+              >
+                Partner app — Android is live. iPhone is coming soon.
+              </p>
+              <AppStoreBadges app="partner" tone="light" size="sm" />
+            </div>
           </div>
 
           <p

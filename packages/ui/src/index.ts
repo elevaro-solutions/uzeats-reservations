@@ -26,6 +26,7 @@ export { antdUsLocale } from './antdLocale';
 export { tokens, colors, typography, spacing, radii, shadows, layout } from './tokens';
 export { RestaurantCard } from './RestaurantCard';
 export type { RestaurantCardProps, RestaurantCardPhotoRenderProps } from './RestaurantCard';
+export { AppStoreBadges } from './AppStoreBadges';
 export { StarRating } from './StarRating';
 export type { StarRatingProps } from './StarRating';
 export {

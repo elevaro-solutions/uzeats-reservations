@@ -1,5 +1,13 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-17] Partner app entry points
+- Sign-in and register (`AuthLayout`) show Google Play plus an App Store “coming soon” badge. Account menu “Partner app” and the small-screen sidebar open `MOBILE_APPS.partner.androidUrl`.
+- Why it matters: iOS has no store URL yet. Don’t point that menu item at a placeholder link.
+
+## [2026-10-17] Small-screen sidebar must stay expanded
+- Burger (≤991px) still uses one `Sider` with `collapsedWidth={0}` so the layout slot is 0. CSS slides that panel in (`rt-dash-sider--mobile-open`). `Menu` must set `inlineCollapsed={false}` — Sider context otherwise forces icon-only items while the panel is wide.
+- Why it matters: Don’t drop `inlineCollapsed={false}` or the open drawer goes back to icons and group titles with no labels.
+
 ## [2026-10-16] Closures date ranges
 - `/blackouts` date fields are ranges. `createBlackout` / `upsertDateScheduleOverride` take optional `endDate` and write one row per calendar day (cap 120). The lists collapse consecutive rows that share reason/mode/status/hours into one range; delete, approve, and edit act on every day in that range.
 - Why it matters: Availability still matches a single `date`. Do not store a range as one document.

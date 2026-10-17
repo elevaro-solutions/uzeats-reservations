@@ -4,12 +4,30 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.86.0] — 2026-10-17
+
+### Added
+
+- Diner site and Partner Hub link to the Android apps (Google Play). iPhone apps are marked coming soon
+- Public downloads page with both apps plus logos, app icons, and store graphics
+
+### Changed
+
+- Home search card on smaller screens keeps its rounded card and pill button. Only the search field is rounded, and only on the top left and top right
+- Phone restaurant list puts the photo on the left, full height of the card, and the name, location, rating, and times on the right
+- Home restaurant cards show a shimmer placeholder and fade the photo in once it has loaded
+- Home no longer shows an app block between the hero and the restaurant list. Phones and tablets get a dismissible install bar under the header instead. Android opens Google Play; iPhone and iPad see that the app is coming soon
 
 ### Fixed
 
+- Partner Hub sidebar on smaller screens opens as a full menu (labels, search, account) instead of an icon-only rail over a dimmed page
 - API TypeScript build: invoice PDF export accepts optional `billingPeriod` (unblocks Dokku deploy of v0.85.0)
 - Dashboard Admin Invoices: recent-transactions Amount column typing no longer collapses the table row type (unblocks Dokku dashboard build)
+- Diner iOS build declares a camera purpose string so App Store review 90683 passes, and EAS reads the app version from the remote
+
+### Docs
+
+- Diner web notes for Play links, the downloads page, the phone install bar, and discovery card photo placeholders
 
 ## [0.85.0] — 2026-10-16
 

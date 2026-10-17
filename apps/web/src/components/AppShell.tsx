@@ -29,10 +29,11 @@ import {
   CreditCardOutlined,
   LogoutOutlined,
   MenuOutlined,
+  MobileOutlined,
   StarOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { TableveraBrand, colors, layout, radii, typography } from '@reservations/ui';
+import { AppStoreBadges, TableveraBrand, colors, layout, radii, typography } from '@reservations/ui';
 import {
   browserMediaUrl,
   buildRestaurantBookingPath,
@@ -50,6 +51,7 @@ import { MY_NOTIFICATIONS, MARK_NOTIFICATIONS_READ, MARK_ALL_NOTIFICATIONS_READ 
 import { skipPollWhenHidden } from '@/lib/pollVisibility';
 import { getDashboardUrl } from '@/lib/urls';
 import { CookieConsent, openCookieSettings } from '@/components/CookieConsent';
+import { MobileAppPrompt } from '@/components/MobileAppPrompt';
 import { BookingAttributionCapture } from '@/components/BookingAttributionCapture';
 
 const { Header, Content, Footer } = Layout;
@@ -271,6 +273,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               </Link>
             ),
           },
+          { key: '/downloads', label: <Link href="/downloads">Get the app</Link> },
         ]),
   ];
 
@@ -281,6 +284,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
       key: '/contact?topic=restaurant',
       label: <Link href="/contact?topic=restaurant">Contact sales</Link>,
     },
+    { key: '/downloads', label: <Link href="/downloads#partner">Get the app</Link> },
   ];
 
   const navItems = isRestaurantMarketing ? restaurantNavItems : dinerNavItems;
@@ -290,6 +294,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
         { href: '/for-restaurants', label: 'For restaurants' },
         { href: '/pricing', label: 'Pricing' },
         { href: '/contact?topic=restaurant', label: 'Contact sales' },
+        { href: '/downloads#partner', label: 'Get the app' },
       ]
     : user
       ? [
@@ -300,11 +305,13 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           { href: '/waitlist', label: 'Waitlist' },
           { href: '/profile', label: 'Profile' },
           { href: '/blog', label: 'Blog' },
+          { href: '/downloads', label: 'Get the app' },
         ]
       : [
           { href: '/', label: 'Find a table' },
           { href: '/for-restaurants', label: 'For restaurants', newTab: true },
           { href: '/blog', label: 'Blog' },
+          { href: '/downloads', label: 'Get the app' },
         ];
 
   const selectedNavKey = (() => {
@@ -408,6 +415,12 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           icon: <CreditCardOutlined />,
           label: 'Billing & invoices',
           onClick: () => router.push('/billing'),
+        },
+        {
+          key: 'get-app',
+          icon: <MobileOutlined />,
+          label: 'Get the app',
+          onClick: () => router.push('/downloads'),
         },
         { type: 'divider' },
         {
@@ -664,6 +677,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                     if (key === 'saved') router.push('/saved');
                     if (key === 'waitlist') router.push('/waitlist');
                     if (key === 'billing') router.push('/billing');
+                    if (key === 'get-app') router.push('/downloads');
                   },
                 }}
                 placement="bottomRight"
@@ -736,6 +750,10 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           />
         </Space>
       </Header>
+
+      {pathname === '/downloads' ? null : (
+        <MobileAppPrompt app={isRestaurantMarketing ? 'partner' : 'diner'} />
+      )}
 
       <Drawer
         placement="right"
@@ -825,6 +843,29 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               <a href={`tel:${COMPANY_PHONE}`}>{COMPANY_PHONE_DISPLAY}</a>
               <span>{COMPANY_ADDRESS_DISPLAY}</span>
             </div>
+            <div className="rt-site-footer__apps">
+              {pathname === '/downloads' ? (
+                <>
+                  <p className="rt-site-footer__apps-label">Diner app</p>
+                  <AppStoreBadges app="diner" tone="dark" size="sm" />
+                  <p className="rt-site-footer__apps-label" style={{ marginTop: 14 }}>
+                    Partner app
+                  </p>
+                  <AppStoreBadges app="partner" tone="dark" size="sm" />
+                </>
+              ) : (
+                <>
+                  <p className="rt-site-footer__apps-label">
+                    {isRestaurantMarketing ? 'Partner app' : 'Diner app'}
+                  </p>
+                  <AppStoreBadges
+                    app={isRestaurantMarketing ? 'partner' : 'diner'}
+                    tone="dark"
+                    size="sm"
+                  />
+                </>
+              )}
+            </div>
           </div>
 
           <div className="rt-site-footer__links">
@@ -837,6 +878,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                     <Link href="/pricing">Pricing</Link>
                     <Link href="/contact?topic=restaurant">Contact sales</Link>
                     <a href={signInHref}>Partner sign in</a>
+                    <Link href="/downloads#partner">Get the app</Link>
                   </>
                 ) : (
                   <>
@@ -847,6 +889,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                         <Link href="/reviews">My reviews</Link>
                         <Link href="/waitlist">Waitlist</Link>
                         <Link href="/profile">Profile</Link>
+                        <Link href="/downloads">Get the app</Link>
                       </>
                     ) : (
                       <>
@@ -855,6 +898,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                         </Link>
                         <Link href="/pricing">Pricing</Link>
                         <a href={signInHref}>Sign in</a>
+                        <Link href="/downloads">Get the app</Link>
                       </>
                     )}
                   </>
@@ -884,6 +928,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               <div className="rt-site-footer__heading">Company</div>
               <div className="rt-site-footer__list">
                 <Link href="/blog">Blog</Link>
+                <Link href="/downloads">Downloads</Link>
                 <Link href="/contact">Contact</Link>
                 <Link href="/privacy">Privacy</Link>
                 <Link href="/terms">Terms</Link>

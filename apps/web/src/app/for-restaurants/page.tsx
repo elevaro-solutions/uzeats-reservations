@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Typography } from 'antd';
+import { AppStoreBadges } from '@reservations/ui';
 import {
   CalendarOutlined,
   CompassOutlined,
@@ -232,6 +233,23 @@ export default function ForRestaurantsPage() {
               </article>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="fr-app" aria-label="Partner app">
+        <div className="fr-wrap fr-app__inner">
+          <div>
+            <span className="fr-kicker">Partner app</span>
+            <Title level={2}>The host stand, in your pocket</Title>
+            <Paragraph>
+              Confirm, seat, and message guests from the floor. Android is on Google Play. The
+              iPhone app is coming soon.
+            </Paragraph>
+            <AppStoreBadges app="partner" tone="light" />
+          </div>
+          <Link href="/downloads#partner" className="fr-text-link">
+            Downloads & brand kit
+          </Link>
         </div>
       </section>
 

@@ -28,7 +28,7 @@ import {
   TeamOutlined,
 } from '@ant-design/icons';
 import Link from 'next/link';
-import { StatusTag, PageHeader, EmptyState, pickRestaurantPhoto } from '@reservations/ui';
+import { StatusTag, PageHeader, EmptyState, pickRestaurantPhoto, AppStoreBadges } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -211,6 +211,14 @@ export default function ReservationsPage() {
             </Space>
           }
         />
+      </div>
+
+      <div className="rt-app-promo">
+        <div className="rt-app-promo__copy">
+          <strong>Manage bookings in the app</strong>
+          <span>Android is on Google Play. iPhone is coming soon.</span>
+        </div>
+        <AppStoreBadges app="diner" tone="light" size="sm" />
       </div>
 
       {loading ? (

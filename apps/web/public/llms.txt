@@ -62,6 +62,10 @@ Booking is free for diners; optional deposits (if any) are disclosed before conf
 - Phone: +1 (650) 770-7788
 - Address: 20844 Waterbeach Place, Sterling, VA 20165, USA
 - Contact form: https://tablevera.online/contact
+- Apps and brand kit: https://tablevera.online/downloads
+- Diner Android app: https://play.google.com/store/apps/details?id=uz.alitech.tablevera
+- Partner Android app: https://play.google.com/store/apps/details?id=uz.alitech.tablevera.merchant
+- iPhone apps: coming soon
 
 ## Legal
 

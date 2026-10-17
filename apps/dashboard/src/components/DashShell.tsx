@@ -34,6 +34,7 @@ import {
   CustomerServiceOutlined,
   EyeOutlined,
   MenuOutlined,
+  MobileOutlined,
   PlusOutlined,
   CompassOutlined,
 } from '@ant-design/icons';
@@ -42,6 +43,7 @@ import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { buildRestaurantBookingUrl } from '@reservations/shared';
 import { TableveraWordmark, colors, radii, spacing, typography } from '@reservations/ui';
+import { MOBILE_APPS } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import {
   ADMIN_PENDING_REQUEST_COUNTS,
@@ -269,6 +271,20 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     return () => mq.removeEventListener('change', sync);
   }, []);
 
+  useEffect(() => {
+    if (!isMobileNav || !mobileNavOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileNavOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [isMobileNav, mobileNavOpen]);
+
   const selectedKey = useMemo(() => {
     if (pathname === '/edit' || pathname.startsWith('/edit/')) return '/settings';
     return siderKeyForPathname(
@@ -487,6 +503,11 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       : []),
     { type: 'divider' },
     {
+      key: 'partner-app',
+      icon: <MobileOutlined />,
+      label: 'Partner app',
+    },
+    {
       key: 'logout',
       icon: <LogoutOutlined />,
       label: 'Log out',
@@ -649,7 +670,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
         />
       )}
       <Layout hasSider>
-      {/* On mobile, Sider stays collapsed in the layout (width 0); --mobile-open expands the fixed overlay. */}
+      {/* On mobile the sider stays collapsed so it takes no layout width. CSS slides a full menu over the page. */}
       <Sider
         theme="light"
         width={248}
@@ -667,12 +688,22 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           left: 0,
           zIndex: isMobileNav ? 1200 : undefined,
           height: '100vh',
-          overflow: 'auto',
+          overflow: 'hidden',
           background: colors.surface,
         }}
       >
         <div className="rt-dash-sider__brand">
           <TableveraWordmark iconSize={28} />
+          {isMobileNav ? (
+            <button
+              type="button"
+              className="rt-dash-sider__close"
+              aria-label="Close menu"
+              onClick={() => setMobileNavOpen(false)}
+            >
+              <CloseOutlined />
+            </button>
+          ) : null}
         </div>
         {isMobileNav ? (
           <div className="rt-dash-sider__search">
@@ -684,15 +715,60 @@ export function DashShell({ children }: { children: React.ReactNode }) {
             />
           </div>
         ) : null}
-        <Menu
-          mode="inline"
-          selectedKeys={[selectedKey]}
-          items={items}
-          onClick={() => {
-            if (isMobileNav) setMobileNavOpen(false);
-          }}
-          style={{ border: 'none', paddingBlock: 8, background: 'transparent' }}
-        />
+        <div className="rt-dash-sider__nav">
+          <Menu
+            mode="inline"
+            inlineCollapsed={false}
+            selectedKeys={[selectedKey]}
+            items={items}
+            onClick={() => {
+              if (isMobileNav) setMobileNavOpen(false);
+            }}
+            style={{ border: 'none', paddingBlock: 4, background: 'transparent' }}
+          />
+        </div>
+        {isMobileNav ? (
+          <div className="rt-dash-sider__foot">
+            <a
+              className="rt-dash-sider__app"
+              href={MOBILE_APPS.partner.androidUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Get the Partner app
+              <span>Android · iPhone coming soon</span>
+            </a>
+            <div className="rt-dash-sider__account">
+            <Avatar
+              size={36}
+              style={{
+                background: colors.brand[50],
+                color: colors.brand[600],
+                fontWeight: 600,
+                border: `1px solid ${colors.brand[100]}`,
+                flexShrink: 0,
+              }}
+              icon={!user.firstName ? <UserOutlined /> : undefined}
+            >
+              {user.firstName?.[0]?.toUpperCase()}
+            </Avatar>
+            <div className="rt-dash-sider__account-meta">
+              <span className="rt-dash-sider__account-name">
+                {user.firstName} {user.lastName}
+              </span>
+              <span className="rt-dash-sider__account-role">{user.role.replace(/_/g, ' ')}</span>
+            </div>
+            <button
+              type="button"
+              className="rt-dash-sider__logout"
+              aria-label="Log out"
+              onClick={() => void logout()}
+            >
+              <LogoutOutlined />
+            </button>
+          </div>
+          </div>
+        ) : null}
       </Sider>
       <Layout className="rt-dash-main" style={{ background: colors.background, minWidth: 0 }}>
         <Header className="rt-dash-header">
@@ -829,6 +905,9 @@ export function DashShell({ children }: { children: React.ReactNode }) {
                   if (key === 'invoices') router.push('/admin/invoices');
                   if (key === 'admin-config') router.push('/admin/config');
                   if (key === 'setup-guide') openSetupGuide();
+                  if (key === 'partner-app') {
+                    window.open(MOBILE_APPS.partner.androidUrl, '_blank', 'noopener,noreferrer');
+                  }
                 },
               }}
               placement="bottomRight"

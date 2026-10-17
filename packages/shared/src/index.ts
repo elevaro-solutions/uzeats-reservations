@@ -31,3 +31,4 @@ export * from './virtualRoom.js';
 export * from './smsBilling.js';
 export * from './noShowMarking.js';
 export * from './holidays.js';
+export * from './mobileApps.js';
