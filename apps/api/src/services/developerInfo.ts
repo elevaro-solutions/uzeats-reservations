@@ -16,6 +16,16 @@ import { env } from '../config/env.js';
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(moduleDir, '../../../../');
 
+function readPackageVersion(path: string): string | undefined {
+  try {
+    const pkg = JSON.parse(readFileSync(path, 'utf-8')) as { version?: string };
+    if (pkg.version && pkg.version !== '0.0.0') return pkg.version;
+  } catch {
+    // missing or unreadable
+  }
+  return undefined;
+}
+
 function readAppVersion(): string {
   try {
     const changelog = readFileSync(resolve(repoRoot, 'CHANGELOG.md'), 'utf-8');
@@ -25,16 +35,13 @@ function readAppVersion(): string {
     // fall through
   }
 
-  try {
-    const pkg = JSON.parse(
-      readFileSync(resolve(moduleDir, '../../package.json'), 'utf-8'),
-    ) as { version?: string };
-    if (pkg.version && pkg.version !== '0.0.0') return pkg.version;
-  } catch {
-    // fall through
-  }
-
-  return 'unknown';
+  // Root package.json is what releases bump, and the API image already copies it.
+  // apps/api/package.json is not bumped on deploy and stays stale (last seen 0.73.1).
+  return (
+    readPackageVersion(resolve(repoRoot, 'package.json')) ??
+    readPackageVersion(resolve(moduleDir, '../../package.json')) ??
+    'unknown'
+  );
 }
 
 function readEnvFiles(paths: string[]): Record<string, string> {

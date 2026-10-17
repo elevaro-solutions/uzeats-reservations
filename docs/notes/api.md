@@ -1,5 +1,9 @@
 # API — Learnings & Observations
 
+## [2026-10-17] Developer page version is read inside the API image
+- `getDeveloperInfo` reads `CHANGELOG.md` from the repo root (`dist/services` is four levels down). The runner image used to omit that file, so production fell through to `apps/api/package.json`, which releases do not bump (stuck at 0.73.1). Root `package.json` is already copied and is the version git-push updates.
+- Why it matters: Admin → Developer only changes after an API deploy that includes `CHANGELOG.md`. Dashboard deploys do not update it.
+
 ## [2026-10-16] QA checklist is a stored release document
 - `qaChecklist` / `saveQaChecklist` persist checks, environment note, P0 clear, and sign-off (name, role, time) on `QaReleaseChecklist`, one row per release. Only `super_admin` and `qa` may read or write it. Only a super admin can assign the `qa` role.
 - Why it matters: Docs checkboxes do not save. Partner Hub `/admin/qa` is the record. A signed checklist rejects further checks until someone reopens it.

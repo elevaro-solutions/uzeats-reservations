@@ -4,6 +4,12 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.86.1] — 2026-10-17
+
+### Fixed
+
+- Admin → Developer package version stays on the deployed release. The API image now includes `CHANGELOG.md`, and if that file is missing the page uses the root package version instead of the stale API package version
+
 ## [0.86.0] — 2026-10-17
 
 ### Added
