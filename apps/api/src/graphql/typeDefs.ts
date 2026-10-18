@@ -1210,8 +1210,22 @@ export const typeDefs = `#graphql
     gate: String!
     group: String!
     label: String!
+    steps: [String!]!
     checked: Boolean!
+    note: String!
+    checkedAt: String
     updatedAt: String
+  }
+
+  type QaReleaseChange {
+    section: String!
+    text: String!
+  }
+
+  type QaReleaseHistoryEntry {
+    version: String!
+    date: String!
+    changes: [QaReleaseChange!]!
   }
 
   type QaChecklist {
@@ -1226,11 +1240,13 @@ export const typeDefs = `#graphql
     updatedAt: String
     requiredDone: Boolean!
     items: [QaChecklistItem!]!
+    history: [QaReleaseHistoryEntry!]!
   }
 
   input QaChecklistCheckInput {
     itemId: String!
-    checked: Boolean!
+    checked: Boolean
+    note: String
   }
 
   input SaveQaChecklistInput {
@@ -1784,6 +1800,11 @@ export const typeDefs = `#graphql
     envVars: [DeveloperEnvVar!]!
     missingCount: Int!
     requiredMissingCount: Int!
+  }
+
+  type AppReleaseNotes {
+    version: String!
+    releases: [QaReleaseHistoryEntry!]!
   }
 
   type PlatformHoliday {
@@ -3971,6 +3992,8 @@ export const typeDefs = `#graphql
     adminRevenueReport(period: String): PlatformRevenueReport!
     platformConfig: PlatformConfig!
     developerInfo: DeveloperInfo!
+    """Changelog entries for Partner Hub and Admin. Omits diner-only and deploy notes. Omit limit to return every matching release."""
+    appReleaseNotes(limit: Int): AppReleaseNotes!
     """Public: publishable key for the active Stripe environment (sandbox vs production)."""
     stripeClientConfig: StripeClientConfig!
     session: SessionInfo!

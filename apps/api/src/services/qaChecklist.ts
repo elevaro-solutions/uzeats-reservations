@@ -1,6 +1,7 @@
 import { QA_CHECKLIST_CATALOG, QA_CHECKLIST_RELEASE } from './qaChecklistCatalog.js';
 import { QaReleaseChecklist } from '../models/QaReleaseChecklist.js';
 import { ValidationError } from '../lib/errors.js';
+import { readQaReleaseHistory } from './qaReleaseHistory.js';
 
 type Actor = { id: string; name: string; role: string };
 
@@ -9,7 +10,7 @@ export type SaveQaChecklistInput = {
   envNote?: string | null;
   p0Clear?: boolean | null;
   notes?: string | null;
-  checks?: Array<{ itemId: string; checked: boolean }> | null;
+  checks?: Array<{ itemId: string; checked?: boolean | null; note?: string | null }> | null;
   signOff?: boolean | null;
   reopen?: boolean | null;
 };
@@ -46,15 +47,21 @@ export async function getQaChecklist(release = QA_CHECKLIST_RELEASE) {
     requiredDone,
     items: QA_CHECKLIST_CATALOG.map((item) => {
       const saved = byId.get(item.id);
+      const checked = Boolean(saved?.checked);
+      const checkedAt = saved?.checkedAt ?? (checked ? saved?.updatedAt : null);
       return {
         id: item.id,
         gate: item.gate,
         group: item.group,
         label: item.label,
-        checked: Boolean(saved?.checked),
+        steps: item.steps,
+        checked,
+        note: saved?.note ?? '',
+        checkedAt: checkedAt ? new Date(checkedAt).toISOString() : null,
         updatedAt: saved?.updatedAt ? new Date(saved.updatedAt).toISOString() : null,
       };
     }),
+    history: readQaReleaseHistory(),
   };
 }
 
@@ -85,15 +92,28 @@ export async function saveQaChecklist(input: SaveQaChecklistInput, actor: Actor)
     const now = new Date();
     for (const check of input.checks) {
       if (!allowed.has(check.itemId)) continue;
+      if (check.checked == null && check.note == null) continue;
       const current = doc.checks.find((row) => row.itemId === check.itemId);
       if (current) {
-        current.checked = check.checked;
+        if (check.note != null && current.checked && !current.checkedAt && current.updatedAt) {
+          current.checkedAt = current.updatedAt;
+        }
+        if (check.checked != null) {
+          const wasChecked = Boolean(current.checked);
+          current.checked = check.checked;
+          if (check.checked && !wasChecked) current.checkedAt = now;
+          if (!check.checked) current.checkedAt = undefined;
+        }
+        if (check.note != null) current.note = check.note;
         current.updatedBy = actor.id as unknown as typeof current.updatedBy;
         current.updatedAt = now;
       } else {
+        const checked = Boolean(check.checked);
         doc.checks.push({
           itemId: check.itemId,
-          checked: check.checked,
+          checked,
+          note: check.note ?? '',
+          checkedAt: checked ? now : undefined,
           updatedBy: actor.id as never,
           updatedAt: now,
         });

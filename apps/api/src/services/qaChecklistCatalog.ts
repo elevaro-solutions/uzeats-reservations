@@ -1,4 +1,4 @@
-export const QA_CHECKLIST_RELEASE = '0.81.0';
+export const QA_CHECKLIST_RELEASE = '0.87.0';
 
 export type QaChecklistGate = 'required' | 'recommended';
 
@@ -7,25 +7,82 @@ export type QaChecklistCatalogItem = {
   gate: QaChecklistGate;
   group: string;
   label: string;
+  /** How to verify this item. Shown beside the checkbox and in the steps panel. */
+  steps: string[];
 };
 
 /** Release-delta items stored by id. Labels ship with the API so the saved row stays small. */
 export const QA_CHECKLIST_CATALOG: QaChecklistCatalogItem[] = [
-  { id: 'rel-pin', gate: 'required', group: 'Partner Hub / Admin', label: 'Pin hub cards to the sidebar and confirm they persist after refresh' },
-  { id: 'rel-noshow', gate: 'required', group: 'Partner Hub / Admin', label: 'No-show mode manual_only charges a configured fee when staff mark a no-show; auto marks without charging' },
-  { id: 'rel-followup', gate: 'required', group: 'Partner Hub / Admin', label: 'Follow-up emails send for no-show and completed visits' },
-  { id: 'rel-engage', gate: 'required', group: 'Partner Hub / Admin', label: 'Admin Engagement email can send a one-off diner message' },
-  { id: 'rel-holiday', gate: 'required', group: 'Partner Hub / Admin', label: 'Holiday catalog stays open until staff approve closing; pickers show Name (key); date overrides work' },
-  { id: 'rel-setup', gate: 'required', group: 'Partner Hub / Admin', label: 'Setup guide includes no-show, holidays, follow-ups, and engagement' },
-  { id: 'rel-party', gate: 'required', group: 'Booking', label: 'Online min/max party size, Large party action, API rejects out of range, discovery allows up to 50' },
-  { id: 'rel-cuisine', gate: 'required', group: 'Partner Hub / Admin', label: 'Multi-cuisine (up to 8) saves and shows on the public listing' },
-  { id: 'rel-policies', gate: 'required', group: 'Partner Hub / Admin', label: 'Booking policies are grouped with tooltips and named holiday pickers' },
-  { id: 'rel-slug', gate: 'required', group: 'Partner Hub / Admin', label: 'New restaurant default slug is location-based (name-city-state)' },
-  { id: 'rel-floor', gate: 'required', group: 'Floor / Virtual 3D', label: 'Floor plan rotates walls and fixtures; underlay has fit, scale, and rotation' },
-  { id: 'rel-vroom', gate: 'required', group: 'Floor / Virtual 3D', label: 'Virtual 3D wall stretch/tile, rotation, and room outline follow the walls' },
-  { id: 'rel-signup', gate: 'required', group: 'Fixes', label: 'Partner signup Business step has no DoorDash or Uber Eats import' },
-  { id: 'rel-stars', gate: 'required', group: 'Fixes', label: 'Discovery star ratings do not stack into a tall column while styles load' },
-  { id: 'rel-coach', gate: 'required', group: 'Fixes', label: 'Import coachmark on first-time listing setup dismisses correctly' },
-  { id: 'rel-widget', gate: 'recommended', group: 'Booking', label: 'Widget Guests picker uses the same min, max, and Large party action' },
-  { id: 'rel-host', gate: 'recommended', group: 'Roles', label: 'A host can mark a no-show and cannot open billing' },
+  {
+    id: 'rel-version',
+    gate: 'required',
+    group: 'Partner Hub / Admin',
+    label: 'App version under the sidebar opens release notes, with filters for new features, updates, and fixes',
+    steps: [
+      'Sign in as an owner. Confirm the app version sits under the sidebar.',
+      'Click the version. Confirm the release notes page opens.',
+      'Filter new features, updates, and fixes. Confirm each filter shows only that kind of note.',
+      'Sign in as an admin and repeat. The version and the same page are there.',
+    ],
+  },
+  {
+    id: 'rel-accounts',
+    gate: 'required',
+    group: 'Partner Hub / Admin',
+    label: 'Platform accounts lists every platform role, including QA, when no role is selected',
+    steps: [
+      'Sign in as a super admin and open Admin → Platform accounts.',
+      'Clear the role filter.',
+      'Confirm admin, account manager, super admin, and QA accounts are all listed.',
+      'Select QA only and confirm the list narrows to QA accounts.',
+    ],
+  },
+  {
+    id: 'rel-qa-item',
+    gate: 'required',
+    group: 'QA checklist',
+    label: 'Opening a checklist item shows its steps, when it was completed, and an optional note',
+    steps: [
+      'Open /admin/qa as a super admin or QA user.',
+      'Confirm the list shows the label and status, and does not show the steps.',
+      'Open an item. Confirm the panel shows the steps, the completion time, and an optional note.',
+      'Save a note and confirm the list shows that a note was added.',
+      'Check the item and confirm a completion time appears. Uncheck it and confirm the time clears.',
+    ],
+  },
+  {
+    id: 'rel-qa-latest',
+    gate: 'required',
+    group: 'QA checklist',
+    label: 'The checklist shows only the latest release; older releases are on Versions, and the QA guide explains how to test',
+    steps: [
+      'On /admin/qa, confirm the release block is only the latest shipped version.',
+      'Open Versions from the QA sidebar. Confirm each release has a date, title, tags, and a copy link.',
+      'Open QA guide. Confirm it covers how to test, practical tips, and how to report a problem.',
+    ],
+  },
+  {
+    id: 'rel-qa-view',
+    gate: 'required',
+    group: 'Fixes',
+    label: 'Viewing as a QA account opens the QA checklist, not the restaurant owner sidebar',
+    steps: [
+      'As a super admin, use View as on a QA account.',
+      'Confirm the session opens the QA checklist.',
+      'Confirm the sidebar is the QA menu (checklist, Versions, Guide), not the restaurant owner sidebar.',
+      'Confirm the checklist loads during that session.',
+    ],
+  },
+  {
+    id: 'rel-qa-account',
+    gate: 'required',
+    group: 'Fixes',
+    label: 'Super admins can create and edit QA accounts',
+    steps: [
+      'As a super admin, create a user with role QA and no restaurant.',
+      'Confirm the account saves and is not rejected as an invalid role.',
+      'Edit that account and confirm the change saves.',
+      'Sign in as the new QA user and confirm they land on the checklist.',
+    ],
+  },
 ];

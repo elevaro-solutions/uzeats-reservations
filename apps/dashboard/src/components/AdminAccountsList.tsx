@@ -56,6 +56,7 @@ import { useUrlListFilters } from '@/lib/useUrlListFilters';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import {
   ACCOUNT_KIND_META,
+  PLATFORM_FILTER_ROLE_OPTIONS,
   PLATFORM_ROLE_OPTIONS,
   RESTAURANT_ACCOUNT_ROLE_OPTIONS,
   ROLE_LABELS,
@@ -223,6 +224,8 @@ function AdminAccountsListContent({ kind }: Props) {
   );
   const listRoleOptions: Array<{ value: string; label: string }> =
     kind === 'restaurant_owner' ? RESTAURANT_ACCOUNT_ROLE_OPTIONS : platformRoleSelectOptions;
+  const filterRoleOptions: Array<{ value: string; label: string }> =
+    kind === 'restaurant_owner' ? RESTAURANT_ACCOUNT_ROLE_OPTIONS : PLATFORM_FILTER_ROLE_OPTIONS;
   const createRoleOptions: Array<{ value: string; label: string }> =
     kind === 'restaurant_owner' ? RESTAURANT_ACCOUNT_ROLE_OPTIONS : platformCreateRoleOptions;
   const exporting = exportingDiners || exportingUsers;
@@ -434,7 +437,7 @@ function AdminAccountsListContent({ kind }: Props) {
                   : undefined
               : undefined,
           format,
-          basename: kind === 'platform' ? 'admins' : 'restaurant-accounts',
+          basename: kind === 'platform' ? 'platform-accounts' : 'restaurant-accounts',
           title: meta.title,
         },
       });
@@ -651,7 +654,7 @@ function AdminAccountsListContent({ kind }: Props) {
                     placeholder="All roles"
                     value={roleFilter}
                     onChange={(value) => setRole(value)}
-                    options={listRoleOptions}
+                    options={filterRoleOptions}
                     style={{ width: 140, flex: '0 0 auto' }}
                   />
                   {kind === 'restaurant_owner' ? (

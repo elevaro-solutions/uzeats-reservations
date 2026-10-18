@@ -79,7 +79,7 @@ function CapabilitiesTable<Row extends { id: string; capability: string }>({
 export function PlatformRolesCapabilitiesTable() {
   return (
     <CapabilitiesTable<PlatformCapabilityRow>
-      description="Admins operate the platform dashboard. Limited means the role cannot change elevated admin accounts."
+      description="Platform accounts use the admin dashboard. Limited means the role cannot change elevated admin accounts."
       columns={PLATFORM_ROLE_OPTIONS}
       dataSource={PLATFORM_ROLE_CAPABILITIES}
     />

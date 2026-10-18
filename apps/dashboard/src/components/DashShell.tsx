@@ -85,6 +85,7 @@ import {
   notificationHref,
 } from '@/lib/notificationLinks';
 import { getPublicWebUrl } from '@/lib/webUrl';
+import { AppVersionFooter } from '@/components/AppVersionFooter';
 import { canCreateRestaurant, canAccessPartnerPath, isHostRole, isPlatformAdmin, isQaRole, isSuperAdmin, partnerLandingPath } from '@/lib/roles';
 
 const { Header, Sider, Content } = Layout;
@@ -122,7 +123,8 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isAdmin = user ? isPlatformAdmin(user.role) && !isImpersonating : false;
-  const isQaUser = user ? isQaRole(user.role) && !isImpersonating : false;
+  // Follow the signed-in role, including while an admin is viewing as QA.
+  const isQaUser = user ? isQaRole(user.role) : false;
   const isSuperAdminUser = user ? isSuperAdmin(user.role) && !isImpersonating : false;
   // Impersonation must follow the *target* role — diner impersonation is not Partner Hub.
   const isPartner = Boolean(user) && PARTNER_ROLES.has(user!.role);
@@ -213,6 +215,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     if (authLoading || !user || isAuthShellRoute) return;
     if (!isQaRole(user.role)) return;
     if (pathname === '/admin/qa' || pathname.startsWith('/admin/qa/')) return;
+    if (pathname === '/release-notes' || pathname.startsWith('/release-notes/')) return;
     if (pathname.startsWith('/verify-email')) return;
     router.replace('/admin/qa');
   }, [authLoading, user, pathname, isAuthShellRoute, router]);
@@ -349,7 +352,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
       '/admin/billing': openInvoicesAdmin,
     };
     const pages = isQaUser
-      ? ADMIN_PAGES.filter((p) => p.href === '/admin/qa')
+      ? ADMIN_PAGES.filter((p) => p.href === '/admin/qa' || p.href.startsWith('/admin/qa/'))
       : isAdmin
       ? adminSiderPages({
           isSuperAdmin: isSuperAdminUser,
@@ -463,7 +466,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           },
         ]
       : []),
-    ...(isAdmin
+    ...(isAdmin || isQaUser
       ? []
       : [
           {
@@ -501,12 +504,16 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           },
         ]
       : []),
-    { type: 'divider' },
-    {
-      key: 'partner-app',
-      icon: <MobileOutlined />,
-      label: 'Partner app',
-    },
+    ...(isQaUser ? [] : [{ type: 'divider' as const }]),
+    ...(isQaUser
+      ? []
+      : [
+          {
+            key: 'partner-app',
+            icon: <MobileOutlined />,
+            label: 'Partner app',
+          },
+        ]),
     {
       key: 'logout',
       icon: <LogoutOutlined />,
@@ -727,6 +734,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
             style={{ border: 'none', paddingBlock: 4, background: 'transparent' }}
           />
         </div>
+        <AppVersionFooter />
         {isMobileNav ? (
           <div className="rt-dash-sider__foot">
             <a
@@ -995,6 +1003,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
         open={searchOpen}
         onOpenChange={setSearchOpen}
         isAdmin={isAdmin}
+        isQa={isQaUser}
         showOnboarding={showOnboarding}
         isSuperAdmin={isSuperAdminUser}
         role={user?.role}

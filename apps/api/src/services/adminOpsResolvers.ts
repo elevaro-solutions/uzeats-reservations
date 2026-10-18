@@ -604,9 +604,11 @@ export const adminOpsMutation = {
         'diner',
         'restaurant_owner',
         'manager',
+        'host',
         'admin',
         'account_manager',
         'super_admin',
+        'qa',
       ];
       if (!validRoles.includes(args.input.role)) throw new ValidationError('Invalid role');
       await assertCanAssignRole(admin.role, args.input.role);

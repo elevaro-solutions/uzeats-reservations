@@ -1,5 +1,22 @@
 # API — Learnings & Observations
 
+## [2026-10-18] QA checklist catalog is the current release only
+- `QA_CHECKLIST_RELEASE` is the active gate (`0.87.0`). `QA_CHECKLIST_CATALOG` is that release’s tasks. A new release replaces the catalog; older sign-off stays on its own `QaReleaseChecklist` row.
+- Why it matters: Leaving the previous release’s items in the catalog makes sign-off re-test work that already shipped.
+
+## [2026-10-18] QA checklist allows a QA impersonation session
+- `requireQaStaff` checks the session role (`super_admin` or `qa`) and does not reject `ctx.impersonator`. Platform admins still cannot be impersonated, so an owner or diner session cannot call `qaChecklist`.
+- `appReleaseNotes(limit)` is any Partner Hub role (including QA and impersonation). Omit `limit` for the release notes page. It is the changelog filtered for partners and admins.
+- Why it matters: “View as QA” must be the checklist, not a blocked query plus the owner shell.
+
+## [2026-10-18] QA checklist items store a completion time and an optional note
+- Each check row has `note` and `checkedAt`. `checkedAt` is set when the item turns checked and cleared when it is unchecked. A note-only save keeps the existing completion time (older rows copy `updatedAt` into `checkedAt` on that save). `qaChecklist.history` is `CHANGELOG.md` parsed newest-first, including Unreleased when it has bullets.
+- Why it matters: The steps live on the catalog, not in Mongo. A missing `CHANGELOG.md` in the API image returns an empty history list.
+
+## [2026-10-17] Creating a QA account is gated in Zod, not GraphQL
+- `UserRole` includes `qa`, and `assertCanAssignRole` allows only a super admin to assign it. `adminCreateUser` still rejected `qa` because `adminCreateUserSchema` and `CREATABLE_ACCOUNT_ROLES` omitted it. QA accounts are created with no `restaurantIds`.
+- Why it matters: Partner Hub can offer QA in the create form and still return `VALIDATION_ERROR` until the API schema matches the enum.
+
 ## [2026-10-17] Developer page version is read inside the API image
 - `getDeveloperInfo` reads `CHANGELOG.md` from the repo root (`dist/services` is four levels down). The runner image used to omit that file, so production fell through to `apps/api/package.json`, which releases do not bump (stuck at 0.73.1). Root `package.json` is already copied and is the version git-push updates.
 - Why it matters: Admin → Developer only changes after an API deploy that includes `CHANGELOG.md`. Dashboard deploys do not update it.

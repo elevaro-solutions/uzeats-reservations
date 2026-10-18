@@ -1,5 +1,25 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-18] QA impersonation uses the QA shell
+- `isQaUser` follows the signed-in role even while impersonating. The checklist API allows a QA session that has an impersonator. Owner, manager, host, and diner impersonation still cannot open it.
+- Why it matters: Gating the QA shell on `!isImpersonating` showed the owner sidebar and restaurant switcher, and `requireQaStaff` rejected the checklist query.
+
+## [2026-10-18] Sidebar version opens the release notes page
+- The version under the sidebar links to `/release-notes`. That page lists partner and admin changelog entries (Added, Changed, Fixed, Removed), with filters and a copyable link per version. QA and hosts can open it; it stays out of the sidebar because `parentSiderHref` is its own path.
+- Why it matters: Don’t send the version click back to a modal. Diner-only and Dokku/TypeScript bullets stay off this page.
+
+## [2026-10-18] QA sidebar is checklist, versions, and guide
+- QA role sidebar is every `/admin/qa` page: checklist, `/admin/qa/versions`, `/admin/qa/guide`. Super admins get the same three in a QA group (no longer a Platform hub card). The checklist shows the newest shipped changelog release only. Versions uses the release-notes layout (date, title, tags, copy link, load more), including Unreleased.
+- Why it matters: `siderKeyForPathname` must longest-match admin hrefs or Versions and Guide both highlight the checklist. QA route guard already allows anything under `/admin/qa/`.
+
+## [2026-10-18] QA checklist steps open in a right drawer
+- `/admin/qa` keeps the list to the label, gate, completion time, and note marker. Steps stay in the right drawer (completion time and optional note too).
+- Why it matters: The checkbox itself only toggles complete. Notes are blocked while the release is signed, same as checks.
+
+## [2026-10-17] Platform accounts includes QA when the role filter is empty
+- `/admin/users` is labeled Platform accounts. Cleared role filter queries `admin`, `account_manager`, `super_admin`, and `qa`. The filter dropdown lists all four. Inline role edits still follow who can assign elevated roles (QA stays super-admin only).
+- Why it matters: Don’t drop `qa` from `ACCOUNT_KIND_META.platform.roles` or an empty filter hides QA again. Don’t put QA on the capabilities matrix via `PLATFORM_ROLE_OPTIONS` — that list is the assignable admin roles, not the page filter.
+
 ## [2026-10-17] Partner app entry points
 - Sign-in and register (`AuthLayout`) show Google Play plus an App Store “coming soon” badge. Account menu “Partner app” and the small-screen sidebar open `MOBILE_APPS.partner.androidUrl`.
 - Why it matters: iOS has no store URL yet. Don’t point that menu item at a placeholder link.

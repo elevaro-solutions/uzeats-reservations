@@ -4,6 +4,24 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.87.0] — 2026-10-18
+
+### Added
+
+- Partner Hub and Admin show the app version under the sidebar. Clicking it opens the release notes page, with filters for new features, updates, and fixes
+- Partner Hub `/admin/qa` tasks for this release: sidebar version and release notes, Platform accounts including QA, checklist steps and notes, Versions and the QA guide, View as QA, and creating a QA account
+
+### Changed
+
+- Admin → Platform accounts (was Admins) lists every platform role, including QA, when no role is selected
+- Partner Hub `/admin/qa`: opening a checklist item shows its steps, when it was completed, and an optional note. The main list stays to the label and status. The checklist shows only the latest shipped release; older releases are on Versions
+- QA sidebar: Versions lists every changelog release in the release-notes layout (date, title, tags, copy link), and QA guide covers how to test, practical tips, and how to report a problem
+
+### Fixed
+
+- Viewing as a QA account opens the QA checklist. It no longer uses the restaurant owner sidebar, and the checklist loads during that session
+- Super admins can create and edit QA accounts. Creating a user with role `qa` no longer fails validation
+
 ## [0.86.1] — 2026-10-17
 
 ### Fixed

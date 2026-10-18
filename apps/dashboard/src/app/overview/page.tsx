@@ -38,7 +38,7 @@ import dayjs from 'dayjs';
 import { PLATFORM_TIMEZONE, todayIsoInTimeZone } from '@reservations/shared';
 import { EmptyState, PageHeader, StatusTag, colors, radii, spacing, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
-import { canCreateRestaurant, isHostRole, isPlatformAdmin, partnerLandingPath } from '@/lib/roles';
+import { canCreateRestaurant, isHostRole, isPlatformAdmin, isQaRole, partnerLandingPath } from '@/lib/roles';
 import {
   MARK_NOTIFICATIONS_READ,
   MY_NOTIFICATIONS,
@@ -149,9 +149,10 @@ export default function OverviewPage() {
   const [selectedAlert, setSelectedAlert] = useState<AppNotification | null>(null);
   const [alertsModalOpen, setAlertsModalOpen] = useState(false);
 
+  const isQa = Boolean(user && isQaRole(user.role));
   // Omit date so API uses each location's restaurant-local "today"
   const { data: overviewData, loading: overviewLoading } = useQuery(MY_OWNER_OVERVIEW, {
-    skip: !user,
+    skip: !user || isQa,
     fetchPolicy: 'cache-and-network',
   });
   const overviewTodayLabel = useMemo(
@@ -176,6 +177,7 @@ export default function OverviewPage() {
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
     if (!authLoading && user && isPlatformAdmin(user.role)) router.replace('/admin');
+    if (!authLoading && user && isQaRole(user.role)) router.replace('/admin/qa');
     if (!authLoading && user && isHostRole(user.role)) {
       router.replace(partnerLandingPath(user.role));
     }
@@ -286,7 +288,7 @@ export default function OverviewPage() {
     </Card>
   );
 
-  if (authLoading || (user && overviewLoading && !overview)) {
+  if (authLoading || isQa || (user && overviewLoading && !overview)) {
     return (
       <div className="rt-page-loader">
         <Spin size="large" />

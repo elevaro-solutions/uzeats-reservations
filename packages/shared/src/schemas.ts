@@ -152,6 +152,7 @@ export const adminCreateUserSchema = z.object({
     "host",
     "admin",
     "account_manager",
+    "qa",
   ]),
   restaurantIds: z.array(z.string().min(1)).optional(),
   emailVerified: z.boolean().optional(),

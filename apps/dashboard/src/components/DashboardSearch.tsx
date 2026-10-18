@@ -29,6 +29,7 @@ type DashboardSearchProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   isAdmin: boolean;
+  isQa?: boolean;
   showOnboarding?: boolean;
   isSuperAdmin?: boolean;
   role?: string;
@@ -88,6 +89,7 @@ export function DashboardSearch({
   open,
   onOpenChange,
   isAdmin,
+  isQa = false,
   showOnboarding = false,
   isSuperAdmin = false,
   role,
@@ -101,13 +103,22 @@ export function DashboardSearch({
   const [recentHrefs, setRecentHrefs] = useState<string[]>([]);
 
   const catalog = useMemo((): SearchablePage[] => {
-    const pages = filterPagesForUser(isAdmin ? ADMIN_PAGES : PARTNER_PAGES, {
+    const source = isQa
+      ? ADMIN_PAGES.filter(
+          (p) => p.href === '/admin/qa' || p.href.startsWith('/admin/qa/') || p.href === '/release-notes',
+        ).map(
+          ({ when: _when, ...page }) => page,
+        )
+      : isAdmin
+        ? ADMIN_PAGES
+        : PARTNER_PAGES;
+    const pages = filterPagesForUser(source, {
       showOnboarding,
       isSuperAdmin,
       role,
     }).map((p) => ({ ...p, kind: 'page' as const }));
 
-    if (isAdmin || restaurants.length === 0) return pages;
+    if (isAdmin || isQa || restaurants.length === 0) return pages;
 
     const restaurantEntries: SearchablePage[] = restaurants.map((r) => ({
       href: `restaurant:${r.id}`,
@@ -121,7 +132,7 @@ export function DashboardSearch({
     }));
 
     return [...pages, ...restaurantEntries];
-  }, [isAdmin, showOnboarding, isSuperAdmin, role, restaurants]);
+  }, [isAdmin, isQa, showOnboarding, isSuperAdmin, role, restaurants]);
 
   const results = useMemo(() => {
     if (query.trim()) return matchPages(catalog, query);

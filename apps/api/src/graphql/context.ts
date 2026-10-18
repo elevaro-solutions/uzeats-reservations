@@ -109,10 +109,12 @@ export function requireSuperAdmin(ctx: GraphQLContext) {
   return requireRole(ctx, ['super_admin']);
 }
 
-/** Manual QA checklist reads and writes. */
+/**
+ * Manual QA checklist reads and writes.
+ * Impersonating a QA account is that account: the role check is the gate.
+ * Platform admins cannot be impersonated, so this does not open the checklist
+ * while viewing as an owner, manager, host, or diner.
+ */
 export function requireQaStaff(ctx: GraphQLContext) {
-  if (ctx.impersonator) {
-    throw new ForbiddenError('Exit impersonation before managing the QA checklist');
-  }
   return requireRole(ctx, ['super_admin', 'qa']);
 }

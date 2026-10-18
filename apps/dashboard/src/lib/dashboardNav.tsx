@@ -47,6 +47,7 @@ import {
   ReadOutlined,
   StopOutlined,
   CheckSquareOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import { HOST_ALLOWED_PATH_PREFIXES } from '@reservations/shared';
 
@@ -289,6 +290,11 @@ export const PARTNER_PAGES: DashboardPage[] = [
     parentSiderHref: '/settings',
     hubSection: 'Team and access',
   }),
+  page('/release-notes', 'Release notes', 'Service', 'partner', <FileTextOutlined />, {
+    keywords: ['changelog', 'version', 'what\'s new', 'updates', 'fixes'],
+    description: 'Recent features and fixes for partners and admins',
+    parentSiderHref: '/release-notes',
+  }),
 ];
 
 /** Platform admin pages (sidebar + search). Group order follows first appearance. */
@@ -325,8 +331,8 @@ export const ADMIN_PAGES: DashboardPage[] = [
   page('/admin/owners', 'Restaurant accounts', 'Accounts', 'admin', <IdcardOutlined />, {
     keywords: ['partners', 'owners', 'managers', 'manager'],
   }),
-  page('/admin/users', 'Admins', 'Accounts', 'admin', <SafetyOutlined />, {
-    keywords: ['admins', 'account managers', 'platform users', 'accounts'],
+  page('/admin/users', 'Platform accounts', 'Accounts', 'admin', <SafetyOutlined />, {
+    keywords: ['admins', 'account managers', 'platform users', 'accounts', 'qa'],
   }),
   page('/admin/staff', 'Managers', 'Accounts', 'admin', <TeamOutlined />, {
     keywords: ['employees', 'manager', 'managers'],
@@ -401,10 +407,19 @@ export const ADMIN_PAGES: DashboardPage[] = [
     description: 'Who can open partner documentation',
     parentSiderHref: '/admin/platform',
   }),
-  page('/admin/qa', 'QA checklist', 'Platform', 'admin', <CheckSquareOutlined />, {
+  page('/admin/qa', 'QA checklist', 'QA', 'admin', <CheckSquareOutlined />, {
     keywords: ['qa', 'sign-off', 'release', 'manual test'],
     description: 'Saved release checklist for super admins and QA',
-    parentSiderHref: '/admin/platform',
+    when: 'super_admin',
+  }),
+  page('/admin/qa/versions', 'Versions', 'QA', 'admin', <HistoryOutlined />, {
+    keywords: ['qa', 'changelog', 'release', 'history', 'versions'],
+    description: 'Previous releases and what changed in each',
+    when: 'super_admin',
+  }),
+  page('/admin/qa/guide', 'QA guide', 'QA', 'admin', <ReadOutlined />, {
+    keywords: ['qa', 'how to test', 'bug report', 'best practices', 'knowledge'],
+    description: 'How to test a release and how to report what you find',
     when: 'super_admin',
   }),
   page('/admin/engagement', 'Engagement email', 'Platform', 'admin', <MailOutlined />, {
@@ -437,6 +452,11 @@ export const ADMIN_PAGES: DashboardPage[] = [
     description: 'Super-admin debug tools',
     when: 'super_admin',
     parentSiderHref: '/admin/platform',
+  }),
+  page('/release-notes', 'Release notes', 'Platform', 'admin', <FileTextOutlined />, {
+    keywords: ['changelog', 'version', 'what\'s new', 'updates', 'fixes'],
+    description: 'Recent features and fixes for partners and admins',
+    parentSiderHref: '/release-notes',
   }),
 ];
 
@@ -568,10 +588,13 @@ export function siderKeyForPathname(
 
   if (audience === 'admin') {
     if (pathname === '/admin' || pathname === '/admin/') return '/admin';
+    const prefixMatch = pages
+      .filter((p) => pathname === p.href || pathname.startsWith(`${p.href}/`))
+      .sort((a, b) => b.href.length - a.href.length)[0];
+    if (prefixMatch) return siderKeyForParentOrSelf(prefixMatch, pinned) ?? prefixMatch.href;
     const segments = pathname.split('/').filter(Boolean);
     const base = segments.length >= 2 ? `/${segments[0]}/${segments[1]}` : pathname;
-    const match = pages.find((p) => p.href === base);
-    return siderKeyForParentOrSelf(match, pinned) ?? base;
+    return base;
   }
 
   if (pathname === '/reservations' || pathname.startsWith('/reservations/')) {

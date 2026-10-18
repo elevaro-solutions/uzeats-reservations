@@ -38,8 +38,8 @@ const shortcuts = [
   },
   {
     href: '/admin/users',
-    title: 'Admins',
-    desc: 'Platform admins and account managers',
+    title: 'Platform accounts',
+    desc: 'Admins, account managers, and QA',
     icon: <TeamOutlined />,
   },
   {

@@ -2711,6 +2711,30 @@ export const ADMIN_REVENUE_REPORT = gql`
   }
 `;
 
+export const APP_VERSION = gql`
+  query AppVersion {
+    appReleaseNotes {
+      version
+    }
+  }
+`;
+
+export const APP_RELEASE_NOTES = gql`
+  query AppReleaseNotes {
+    appReleaseNotes {
+      version
+      releases {
+        version
+        date
+        changes {
+          section
+          text
+        }
+      }
+    }
+  }
+`;
+
 export const DEVELOPER_INFO = gql`
   query DeveloperInfo {
     developerInfo {
@@ -5078,8 +5102,19 @@ export const QA_CHECKLIST = gql`
         gate
         group
         label
+        steps
         checked
+        note
+        checkedAt
         updatedAt
+      }
+      history {
+        version
+        date
+        changes {
+          section
+          text
+        }
       }
     }
   }
@@ -5103,8 +5138,19 @@ export const SAVE_QA_CHECKLIST = gql`
         gate
         group
         label
+        steps
         checked
+        note
+        checkedAt
         updatedAt
+      }
+      history {
+        version
+        date
+        changes {
+          section
+          text
+        }
       }
     }
   }

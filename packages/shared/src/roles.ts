@@ -53,6 +53,7 @@ export const HOST_ALLOWED_PATH_PREFIXES = [
   '/messages',
   '/support',
   '/notifications',
+  '/release-notes',
 ] as const;
 
 export function isPlatformAdmin(role: string): role is UserRole {

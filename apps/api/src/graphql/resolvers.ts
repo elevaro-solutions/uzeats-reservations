@@ -35,6 +35,7 @@ import {
   passwordSchema,
   type AnnualBillingSettings,
   isPlatformAdmin,
+  isPartnerHubRole,
   assertCanEditUser,
   canManageBilling,
   canCreateRestaurant,
@@ -326,6 +327,7 @@ import {
 } from "../services/supportOps.js";
 import { provisionDefaultRestaurantSetup } from "../services/restaurantSetup.js";
 import { getQaChecklist, qaActorName, saveQaChecklist } from "../services/qaChecklist.js";
+import { partnerAdminReleaseNotes, readQaReleaseHistory } from "../services/qaReleaseHistory.js";
 import { placeNewTable } from "../services/tablePlacement.js";
 import { restaurantInputToDb } from "../lib/restaurantInput.js";
 import {
@@ -2553,6 +2555,21 @@ export const resolvers = {
     developerInfo: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
       requireSuperAdmin(ctx);
       return getDeveloperInfo();
+    },
+
+    appReleaseNotes: async (
+      _: unknown,
+      args: { limit?: number | null },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      if (!isPartnerHubRole(user.role)) {
+        throw new ForbiddenError('Partner Hub access required');
+      }
+      return partnerAdminReleaseNotes(
+        readQaReleaseHistory(),
+        args.limit ?? undefined,
+      );
     },
 
     stripeClientConfig: async () => getStripeClientConfig(),
@@ -8532,7 +8549,7 @@ export const resolvers = {
           envNote?: string | null;
           p0Clear?: boolean | null;
           notes?: string | null;
-          checks?: Array<{ itemId: string; checked: boolean }> | null;
+          checks?: Array<{ itemId: string; checked?: boolean | null; note?: string | null }> | null;
           signOff?: boolean | null;
           reopen?: boolean | null;
         };

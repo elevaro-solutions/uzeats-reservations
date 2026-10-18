@@ -4,6 +4,8 @@ const checkSchema = new Schema(
   {
     itemId: { type: String, required: true },
     checked: { type: Boolean, default: false },
+    note: { type: String, default: '' },
+    checkedAt: { type: Date },
     updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
     updatedAt: { type: Date },
   },

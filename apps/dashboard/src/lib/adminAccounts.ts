@@ -54,6 +54,17 @@ export const PLATFORM_ROLE_OPTIONS: Array<{ value: PlatformAccountRole; label: s
   { value: 'super_admin', label: 'Super Admin' },
 ];
 
+/** Every role listed on Platform accounts when the role filter is cleared. */
+export const PLATFORM_ACCOUNT_ROLES: PlatformAccountRole[] = [
+  'admin',
+  'account_manager',
+  'super_admin',
+  'qa',
+];
+
+export const PLATFORM_FILTER_ROLE_OPTIONS: Array<{ value: PlatformAccountRole; label: string }> =
+  PLATFORM_ACCOUNT_ROLES.map((value) => ({ value, label: ROLE_LABELS[value] }));
+
 export const RESTAURANT_ACCOUNT_ROLE_OPTIONS: Array<{
   value: RestaurantAccountRole;
   label: string;
@@ -86,7 +97,7 @@ export type RestaurantCapabilityRow = {
   host: PlatformCapabilityCell;
 };
 
-/** Shown on Admins → Roles & capabilities. */
+/** Shown on Platform accounts → Roles & capabilities. */
 export const PLATFORM_ROLE_CAPABILITIES: PlatformCapabilityRow[] = [
   {
     id: 'admin_dashboard',
@@ -285,11 +296,11 @@ export const ACCOUNT_KIND_META: Record<AccountKind, AccountKindMeta> = {
     showRoleColumn: true,
   },
   platform: {
-    title: 'Admins',
-    singular: 'Admin',
-    subtitle: 'Platform operators with admin dashboard access.',
-    createLabel: 'Create admin',
-    roles: ['admin', 'account_manager', 'super_admin'],
+    title: 'Platform accounts',
+    singular: 'Platform account',
+    subtitle: 'Admins, account managers, super admins, and QA with dashboard access.',
+    createLabel: 'Create account',
+    roles: [...PLATFORM_ACCOUNT_ROLES],
     showRestaurants: false,
     showLoyalty: false,
     showInvite: false,

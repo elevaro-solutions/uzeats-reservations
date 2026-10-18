@@ -186,6 +186,7 @@ const CREATABLE_ACCOUNT_ROLES = [
   'host',
   'admin',
   'account_manager',
+  'qa',
 ] as const;
 type CreatableAccountRole = (typeof CREATABLE_ACCOUNT_ROLES)[number];
 
@@ -212,7 +213,10 @@ export async function adminCreateUser(input: {
   }
 
   const restaurantIds =
-    input.role === 'diner' || input.role === 'admin' || input.role === 'account_manager'
+    input.role === 'diner' ||
+    input.role === 'admin' ||
+    input.role === 'account_manager' ||
+    input.role === 'qa'
       ? []
       : (input.restaurantIds ?? []);
   if (
