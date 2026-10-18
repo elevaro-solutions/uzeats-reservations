@@ -32,8 +32,10 @@ export function parseQaReleaseHistory(markdown: string): QaReleaseHistoryEntry[]
       if (current && (current.version !== 'Unreleased' || current.changes.length > 0)) {
         entries.push(current);
       }
+      const version = header[1]?.trim();
+      if (!version) continue;
       current = {
-        version: header[1].trim(),
+        version,
         date: (header[2] ?? '').trim(),
         changes: [],
       };
@@ -42,12 +44,13 @@ export function parseQaReleaseHistory(markdown: string): QaReleaseHistoryEntry[]
     }
     if (!current) continue;
     const sectionMatch = line.match(SECTION);
-    if (sectionMatch) {
-      section = sectionMatch[1].trim();
+    const heading = sectionMatch?.[1]?.trim();
+    if (heading) {
+      section = heading;
       continue;
     }
-    const bullet = line.match(BULLET);
-    if (bullet) current.changes.push({ section, text: bullet[1].trim() });
+    const text = line.match(BULLET)?.[1]?.trim();
+    if (text) current.changes.push({ section, text });
   }
 
   if (current && (current.version !== 'Unreleased' || current.changes.length > 0)) {

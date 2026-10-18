@@ -1,5 +1,9 @@
 # API — Learnings & Observations
 
+## [2026-10-18] Changelog regex groups are optional under noUncheckedIndexedAccess
+- `parseQaReleaseHistory` must read `header[1]`, section, and bullet captures only after a trim check. API `tsc` treats those groups as `string | undefined`.
+- Why it matters: Vitest does not typecheck this file. Dokku fails the image on TS2532.
+
 ## [2026-10-18] QA checklist catalog is the current release only
 - `QA_CHECKLIST_RELEASE` is the active gate (`0.87.0`). `QA_CHECKLIST_CATALOG` is that release’s tasks. A new release replaces the catalog; older sign-off stays on its own `QaReleaseChecklist` row.
 - Why it matters: Leaving the previous release’s items in the catalog makes sign-off re-test work that already shipped.

@@ -124,8 +124,11 @@ export default function AdminQaChecklistPage() {
 
   const latestRelease = useMemo(() => {
     const entries = checklist?.history ?? [];
-    return entries.find((entry) => entry.version !== 'Unreleased') ?? null;
-  }, [checklist?.history]);
+    const gated = checklist?.release
+      ? entries.find((entry) => entry.version === checklist.release)
+      : null;
+    return gated ?? entries.find((entry) => entry.version !== 'Unreleased') ?? null;
+  }, [checklist?.history, checklist?.release]);
 
   const signed = checklist?.status === 'signed';
   const requiredTotal = (checklist?.items ?? []).filter((item) => item.gate === 'required').length;

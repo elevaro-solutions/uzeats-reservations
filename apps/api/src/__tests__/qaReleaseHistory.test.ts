@@ -84,6 +84,6 @@ describe('parseQaReleaseHistory', () => {
   it('reads the repo changelog and includes the latest release', () => {
     const entries = readQaReleaseHistory();
     expect(entries.some((entry) => entry.version === '0.87.0')).toBe(true);
-    expect(entries[0]?.version).toBe('0.87.0');
+    expect(entries[0]?.version).toBe('0.87.1');
   });
 });

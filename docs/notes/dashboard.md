@@ -1,5 +1,9 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-18] QA checklist release block follows the gated version
+- `/admin/qa` shows `qaChecklist.release` from history when that version exists. A later changelog patch does not replace the tasks’ release notes.
+- Why it matters: A Dokku-only patch would otherwise become “Latest release” and hide the notes the checklist is signing off.
+
 ## [2026-10-18] QA impersonation uses the QA shell
 - `isQaUser` follows the signed-in role even while impersonating. The checklist API allows a QA session that has an impersonator. Owner, manager, host, and diner impersonation still cannot open it.
 - Why it matters: Gating the QA shell on `!isImpersonating` showed the owner sidebar and restaurant switcher, and `requireQaStaff` rejected the checklist query.

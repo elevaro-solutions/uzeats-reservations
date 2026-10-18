@@ -4,6 +4,13 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.87.1] — 2026-10-18
+
+### Fixed
+
+- API TypeScript build: changelog header captures are defined before use (unblocks Dokku deploy of v0.87.0)
+- Partner Hub `/admin/qa` release block stays on the checklist release when a later patch only fixes the build
+
 ## [0.87.0] — 2026-10-18
 
 ### Added
