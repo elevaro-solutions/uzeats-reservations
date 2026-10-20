@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.88.1] — 2026-10-20
+
+### Changed
+
+- Diner and merchant Expo apps now bump marketing versions independently on git-push when that app’s tree changed (not tied to the monorepo `0.x` release). Merchant production EAS builds also auto-increment native build numbers like diner.
+
+### Fixed
+
+- Merchant iOS App Store EAS builds: stop shipping a half-ignored `ios/` tree so EAS runs `expo prebuild` and finds a Podfile (was failing at Install pods with “No Podfile found”)
+
 ## [0.88.0] — 2026-10-20
 
 ### Changed

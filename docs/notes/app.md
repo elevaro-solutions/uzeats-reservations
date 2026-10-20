@@ -1,5 +1,10 @@
 # App — Learnings & Observations
 
+## [2026-10-20] Version bump is independent of merchant and root
+- Marketing `version` (and Android `versionCode` when present) lives in `app.config.js` and is mirrored in `package.json`. Git-push bumps them only when `apps/mobile` changed; never because merchant or root `0.x` moved.
+- EAS: `appVersionSource: "remote"` + production `autoIncrement` owns store build numbers. Local `version` / `versionCode` stay in repo for marketing + local prebuild.
+- Why it matters: Don’t sync diner to merchant or to CHANGELOG `0.x.y`.
+
 ## [2026-09-29] Keyboard: use react-native-keyboard-controller (not RN KAV alone)
 - Android edge-to-edge disables reliable `adjustResize`; stock `KeyboardAvoidingView` with `behavior={undefined}` on Android leaves auth/forms behind the keyboard. Fix: `react-native-keyboard-controller` + root `KeyboardProvider`, then `KeyboardAwareScrollView` / `KeyboardStickyView` on forms and chat composers. Native rebuild required after install.
 - Why it matters: Don’t reintroduce RN-only KAV for form screens; sheets with `keyboardAvoiding` use the library’s `KeyboardAvoidingView` + `behavior="padding"`.

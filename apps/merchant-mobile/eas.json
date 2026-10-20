@@ -15,6 +15,7 @@
       }
     },
     "production": {
+      "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api.tablevera.online/graphql"
       }

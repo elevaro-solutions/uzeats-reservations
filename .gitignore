@@ -19,6 +19,9 @@ apps/e2e/.auth
 apps/mobile/.expo
 apps/mobile/android
 apps/mobile/ios
+apps/merchant-mobile/.expo
+apps/merchant-mobile/android
+apps/merchant-mobile/ios
 packages/shared/src/generated
 apps/api/src/generated
 apps/web/public/widget.js

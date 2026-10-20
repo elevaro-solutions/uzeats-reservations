@@ -2,7 +2,7 @@
 const config = {
   name: "Tablevera Merchant",
   slug: "tablevera-merchant",
-  version: "1.0.0",
+  version: "1.0.1",
   orientation: "portrait",
   icon: "./assets/android-app-icon/android-icon-foreground.png",
   scheme: "tablevera-merchant",
@@ -17,6 +17,7 @@ const config = {
     },
   },
   android: {
+    versionCode: 2,
     adaptiveIcon: {
       foregroundImage: "./assets/android-app-icon/android-icon-foreground.png",
       monochromeImage: "./assets/android-app-icon/android-icon-monochrome.png",

@@ -1,5 +1,16 @@
 # app — Learnings & Observations
 
+## [2026-10-20] Version bump is independent of diner and root
+- Marketing `version` lives in `app.config.js` and is mirrored in `package.json`. Git-push bumps them only when `apps/merchant-mobile` changed; never because diner or root `0.x` moved.
+- EAS: `appVersionSource: "remote"` + production `autoIncrement` owns store build numbers. Local `version` is the marketing string kept in sync with app work.
+- Why it matters: Don’t sync merchant to diner or to CHANGELOG `0.x.y`.
+
+## [2026-10-20] EAS iOS: never commit a gitignored `ios/` tree
+- Symptom: Install pods → `No 'Podfile' found in the project directory.` Log also says prebuild was skipped because `ios/` already exists.
+- Cause: `ios/` was tracked from an early commit, then added to `.gitignore`. Default EAS upload respects `.gitignore`, so the Podfile never reaches the builder, while a local `ios/` still makes the job `generic` and skips `expo prebuild`.
+- Fix: `git rm -r --cached apps/merchant-mobile/ios`, keep `ios/` / `android/` ignored (app + root `.gitignore`, same as diner), delete local `ios/` before `eas build` so CNG runs on the worker. Android already worked because `android/` was never tracked.
+- Why it matters: Half-ignored native dirs break App Store builds; regenerate with prebuild / `expo run:ios` locally when needed.
+
 ## [2026-09-29] Keyboard: react-native-keyboard-controller + root KeyboardProvider
 - Same as diner: Android edge-to-edge breaks stock RN keyboard avoidance. Install `react-native-keyboard-controller`, wrap root `_layout` in `KeyboardProvider`, use `KeyboardAwareScrollView` / `KeyboardStickyView` on auth, create-reservation, and message composer. Native rebuild required.
 - Why it matters: Don’t rely on `adjustResize` alone for partner forms.
