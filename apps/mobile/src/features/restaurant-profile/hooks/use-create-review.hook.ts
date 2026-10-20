@@ -1,11 +1,11 @@
 import { useMutation } from "@apollo/client";
 import * as ImagePicker from "expo-image-picker";
 import { useEffect, useState } from "react";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import { REVIEW_MAX_PHOTOS } from "@reservations/shared";
 
 import { CREATE_REVIEW, MY_RESERVATIONS } from "@/graphql";
-import { uploadFile } from "@/graphql/upload";
+import { PhotoTooLargeError, uploadFile } from "@/graphql/upload";
 import { ensurePhotoLibraryAccess } from "@/lib/helpers";
 
 import type { MyReservationsQueryData } from "../types";
@@ -76,6 +76,12 @@ export function useCreateReview({
       allowsMultipleSelection: true,
       selectionLimit: remaining,
       quality: 0.85,
+      ...(Platform.OS === "ios"
+        ? {
+            preferredAssetRepresentationMode:
+              ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+          }
+        : {}),
     });
 
     if (result.canceled || !result.assets.length) return;
@@ -84,21 +90,19 @@ export function useCreateReview({
     try {
       const uploaded: string[] = [];
       for (const asset of result.assets.slice(0, remaining)) {
-        const response = await fetch(asset.uri);
-        const blob = await response.blob();
-        if (blob.size > MAX_FILE_SIZE) {
-          Alert.alert("File too large", "Each photo must be 5MB or smaller.");
-          continue;
+        const filename = asset.fileName?.trim() || `review-${Date.now()}.jpg`;
+        try {
+          const { publicUrl } = await uploadFile(asset.uri, filename, {
+            maxBytes: MAX_FILE_SIZE,
+          });
+          uploaded.push(publicUrl);
+        } catch (error) {
+          if (error instanceof PhotoTooLargeError) {
+            Alert.alert("File too large", "Each photo must be 5MB or smaller.");
+            continue;
+          }
+          throw error;
         }
-        const filename =
-          asset.fileName?.trim() ||
-          `review-${Date.now()}.${asset.mimeType?.split("/")[1] ?? "jpg"}`;
-        const { publicUrl } = await uploadFile(
-          blob,
-          filename,
-          asset.mimeType ?? blob.type,
-        );
-        uploaded.push(publicUrl);
       }
       if (uploaded.length) {
         setPhotos((prev) => [...prev, ...uploaded].slice(0, REVIEW_MAX_PHOTOS));

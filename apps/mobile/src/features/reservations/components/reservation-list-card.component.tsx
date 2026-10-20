@@ -143,6 +143,7 @@ export function ReservationListCard({ item, onPress }: ReservationListCardProps)
 
 const styles = StyleSheet.create(({ space, radius, colors }) => ({
   shadow: {
+    flex: 1,
     borderRadius: radius.lg,
     backgroundColor: colors.background,
     shadowColor: colors.slate12,

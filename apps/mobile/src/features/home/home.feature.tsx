@@ -1,7 +1,7 @@
 import { useQuery } from "@apollo/client";
+import { FlashList } from "@shopify/flash-list";
 import { useRouter } from "expo-router";
-import { useMemo } from "react";
-import { ScrollView } from "react-native";
+import { useCallback, useMemo } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StyleSheet } from "react-native-unistyles";
 
@@ -19,16 +19,18 @@ import {
   type SearchRestaurantsResult,
 } from "@/features/discovery";
 import { DISCOVERY_INDEX, MY_RESERVATIONS, SEARCH, useAuth } from "@/graphql";
+import { useGridColumns } from "@/lib/use-grid-columns";
 import { useAppStore } from "@/store";
 
 import { BookingsCarousel } from "./components/bookings-carousel.component";
+import { HomeFeedItemView } from "./components/home-feed-item.component";
 import { HomeHeader } from "./components/home-header.component";
-import { HomeRestaurantSection } from "./components/home-restaurant-section.component";
 import {
   HOME_CUISINES_LIMIT,
-  HOME_LIST_LIMIT,
   HOME_UPCOMING_BOOKINGS_LIMIT,
+  homeListLimit,
 } from "./home.constants";
+import { buildHomeFeedItems } from "./helpers/build-home-feed.helpers";
 import { mapUpcomingBookings } from "./helpers/map-upcoming-bookings.helpers";
 import {
   buildOpenSearchDiscoveryUpdate,
@@ -38,6 +40,8 @@ import type { MyReservationsData } from "./types";
 export function HomeFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const columns = useGridColumns();
+  const listLimit = homeListLimit(columns);
   const { user } = useAuth();
   const discovery = useAppStore((s) => s.discovery);
   const setDiscovery = useAppStore((s) => s.setDiscovery);
@@ -69,17 +73,17 @@ export function HomeFeature() {
   );
 
   const popularInput = useMemo(
-    () => buildHomeFeedInput(locationInput, { limit: HOME_LIST_LIMIT }),
-    [locationInput],
+    () => buildHomeFeedInput(locationInput, { limit: listLimit }),
+    [locationInput, listLimit],
   );
 
   const topRatedInput = useMemo(
     () =>
       buildHomeFeedInput(locationInput, {
         minRating: 4.5,
-        limit: HOME_LIST_LIMIT,
+        limit: listLimit,
       }),
-    [locationInput],
+    [locationInput, listLimit],
   );
 
   const { data: indexData, loading: indexLoading } = useQuery<{
@@ -131,79 +135,143 @@ export function HomeFeature() {
     [reservationsData],
   );
 
-  function openSearch(params?: {
-    cuisine?: string;
-    diningStyle?: DiningStyleTile;
-    minRating?: number;
-  }) {
-    setDiscovery(buildOpenSearchDiscoveryUpdate(params));
-    router.push("/search");
-  }
+  const openSearch = useCallback(
+    (params?: {
+      cuisine?: string;
+      diningStyle?: DiningStyleTile;
+      minRating?: number;
+    }) => {
+      setDiscovery(buildOpenSearchDiscoveryUpdate(params));
+      router.push("/search");
+    },
+    [router, setDiscovery],
+  );
 
-  function handleDiningStyle(tile: DiningStyleTile) {
-    if (tile.kind === "more") {
-      openSearch();
-      return;
-    }
-    openSearch({ diningStyle: tile });
-  }
+  const handleDiningStyle = useCallback(
+    (tile: DiningStyleTile) => {
+      if (tile.kind === "more") {
+        openSearch();
+        return;
+      }
+      openSearch({ diningStyle: tile });
+    },
+    [openSearch],
+  );
+
+  const feedItems = useMemo(
+    () =>
+      buildHomeFeedItems(
+        [
+          {
+            key: "popular",
+            title: `Popular in ${discovery.nearMe ? locationLabel : discovery.city}`,
+            loading: popularLoading,
+            error: popularError?.message,
+            items: popular,
+            limit: listLimit,
+          },
+          {
+            key: "topRated",
+            title: "Top rated",
+            loading: topRatedLoading,
+            error: topRatedError?.message,
+            items: topRated,
+            limit: listLimit,
+          },
+        ],
+        columns,
+      ),
+    [
+      columns,
+      discovery.city,
+      discovery.nearMe,
+      listLimit,
+      locationLabel,
+      popular,
+      popularError?.message,
+      popularLoading,
+      topRated,
+      topRatedError?.message,
+      topRatedLoading,
+    ],
+  );
+
+  const handleSeeAll = useCallback(
+    (key: "popular" | "topRated") => {
+      openSearch(key === "topRated" ? { minRating: 4.5 } : undefined);
+    },
+    [openSearch],
+  );
+
+  const listHeader = useMemo(
+    () => (
+      <Flex gap={4}>
+        <HomeHeader
+          locationLabel={locationLabel}
+          errorMessage={errorMessage}
+          onLocationPress={openLocationSheet}
+          onSearchPress={() => openSearch()}
+        />
+
+        {upcomingBookings.length > 0 ? (
+          <Flex gap={1} style={styles.bookingsSection}>
+            <SectionHeader
+              title="My bookings"
+              onActionPress={() => router.push("/reservations")}
+            />
+            <BookingsCarousel items={upcomingBookings} />
+          </Flex>
+        ) : null}
+
+        <Flex gap={1.5}>
+          <SectionHeader title="Dining Styles" />
+          <DiningStylesGrid onSelect={handleDiningStyle} />
+        </Flex>
+
+        <CuisineChipSection
+          title="Cuisines"
+          loading={indexLoading}
+          cuisines={cuisines}
+          onPress={(label) => openSearch({ cuisine: label })}
+        />
+      </Flex>
+    ),
+    [
+      cuisines,
+      errorMessage,
+      handleDiningStyle,
+      indexLoading,
+      locationLabel,
+      openLocationSheet,
+      openSearch,
+      router,
+      upcomingBookings,
+    ],
+  );
 
   return (
     <>
-      <ScrollView
+      <FlashList
+        data={feedItems}
+        style={styles.list}
+        key={`home-${columns}`}
+        keyExtractor={(item) => item.id}
+        getItemType={(item) => item.type}
+        extraData={columns}
         contentContainerStyle={[
           styles.content,
           { paddingTop: Math.max(insets.top, 12) + 8 },
         ]}
         showsVerticalScrollIndicator={false}
-      >
-        <Flex gap={4}>
-          <HomeHeader
-            locationLabel={locationLabel}
-            errorMessage={errorMessage}
-            onLocationPress={openLocationSheet}
-            onSearchPress={() => openSearch()}
+        ListHeaderComponent={listHeader}
+        renderItem={({ item }) => (
+          <HomeFeedItemView
+            item={item}
+            columns={columns}
+            onSeeAll={handleSeeAll}
           />
-
-          {upcomingBookings.length > 0 ? (
-            <Flex gap={1} style={styles.bookingsSection}>
-              <SectionHeader
-                title="My bookings"
-                onActionPress={() => router.push("/reservations")}
-              />
-              <BookingsCarousel items={upcomingBookings} />
-            </Flex>
-          ) : null}
-
-          <Flex gap={1.5}>
-            <SectionHeader title="Dining Styles" />
-            <DiningStylesGrid onSelect={handleDiningStyle} />
-          </Flex>
-
-          <CuisineChipSection
-            title="Cuisines"
-            loading={indexLoading}
-            cuisines={cuisines}
-            onPress={(label) => openSearch({ cuisine: label })}
-          />
-
-          <HomeRestaurantSection
-            title={`Popular in ${discovery.nearMe ? locationLabel : discovery.city}`}
-            loading={popularLoading}
-            error={popularError?.message}
-            items={popular}
-            onSeeAll={() => openSearch()}
-          />
-
-          <HomeRestaurantSection
-            title="Top rated"
-            loading={topRatedLoading}
-            error={topRatedError?.message}
-            items={topRated}
-            onSeeAll={() => openSearch({ minRating: 4.5 })}
-          />
-        </Flex>
-      </ScrollView>
+        )}
+      />
 
       <LocationSheet {...locationSheetProps} cities={cities} />
       <LocationPermissionModal {...permissionModalProps} />
@@ -212,6 +280,10 @@ export function HomeFeature() {
 }
 
 const styles = StyleSheet.create(({ space, colors }) => ({
+  list: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
   content: {
     paddingBottom: space(5),
     backgroundColor: colors.background,

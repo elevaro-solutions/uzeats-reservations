@@ -10,6 +10,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { ClipboardClockIcon, PlusIcon } from "@/assets";
 import { Button, Empty, InlineAlert, SegmentedControl } from "@/components";
 import { useActiveRestaurant } from "@/features/restaurants";
+import { useGridColumns } from "@/lib/use-grid-columns";
 
 import {
   ADD_IN_HOUSE_WAITLIST,
@@ -53,6 +54,7 @@ export function WaitlistFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
+  const columns = useGridColumns();
   const {
     activeRestaurantId,
     activeRestaurant,
@@ -188,14 +190,16 @@ export function WaitlistFeature() {
       ) : (
         <FlashList
           data={items}
+          key={`waitlist-${columns}`}
+          numColumns={columns}
           keyExtractor={(item) => item.id}
+          extraData={`${busyId}-${columns}`}
           contentContainerStyle={{
             paddingHorizontal: theme.space(2),
             paddingTop: theme.space(2),
             paddingBottom: theme.space(3),
             ...(isEmpty ? { flexGrow: 1 } : null),
           }}
-          ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -220,13 +224,15 @@ export function WaitlistFeature() {
             </View>
           }
           renderItem={({ item }) => (
-            <WaitlistCard
-              entry={item}
-              actionLoading={busyId === item.id}
-              onAction={(action) => {
-                void handleAction(item.id, action);
-              }}
-            />
+            <View style={columns > 1 ? styles.gridCell : styles.listCell}>
+              <WaitlistCard
+                entry={item}
+                actionLoading={busyId === item.id}
+                onAction={(action) => {
+                  void handleAction(item.id, action);
+                }}
+              />
+            </View>
           )}
         />
       )}
@@ -280,8 +286,14 @@ const styles = StyleSheet.create(({ space, colors, shadows }) => ({
     flex: 1,
     backgroundColor: colors.background,
   },
-  separator: {
-    height: space(1.5),
+  listCell: {
+    marginBottom: space(1.5),
+  },
+  gridCell: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: space(0.75),
+    marginBottom: space(1.5),
   },
   emptyWrap: {
     paddingHorizontal: space(2),

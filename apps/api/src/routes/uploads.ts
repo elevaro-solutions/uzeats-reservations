@@ -2,9 +2,9 @@ import { Router } from 'express';
 import { VIRTUAL_ROOM_VIDEO_MAX_BYTES } from '@reservations/shared';
 import { createContext } from '../graphql/context.js';
 import {
-  assertAllowedUploadContentType,
   assertAllowedVideoContentType,
   buildUploadKey,
+  resolveUploadImageContentType,
   uploadObject,
   uploadVideoObject,
 } from '../services/spaces.js';
@@ -72,20 +72,6 @@ uploadsRouter.post('/', async (req, res) => {
     return;
   }
 
-  let contentType: string;
-  try {
-    contentType = assertAllowedUploadContentType(
-      typeof req.headers['content-type'] === 'string'
-        ? req.headers['content-type']
-        : 'application/octet-stream',
-    );
-  } catch (err) {
-    res.status(400).json({
-      error: err instanceof Error ? err.message : 'Unsupported file type',
-    });
-    return;
-  }
-
   const body = req.body as Buffer;
 
   if (!Buffer.isBuffer(body) || body.length === 0) {
@@ -95,6 +81,16 @@ uploadsRouter.post('/', async (req, res) => {
 
   if (body.length > MAX_BYTES) {
     res.status(413).json({ error: 'File too large (max 10 MB)' });
+    return;
+  }
+
+  let contentType: string;
+  try {
+    contentType = resolveUploadImageContentType(body);
+  } catch (err) {
+    res.status(400).json({
+      error: err instanceof Error ? err.message : 'Unsupported file type',
+    });
     return;
   }
 

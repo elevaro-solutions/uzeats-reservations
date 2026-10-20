@@ -3,57 +3,69 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { Flex } from "@/components";
 import { MetaCluster, Skeleton } from "@/components/skeleton";
+import { chunkItems, useGridColumns } from "@/lib/use-grid-columns";
 
 function ReservationCardSkeleton() {
   const { theme } = useUnistyles();
 
   return (
-    <View style={styles.cardWrap}>
-      <View style={styles.card}>
-        <View style={styles.statusPill}>
-          <Skeleton width={56} height={18} radius="full" />
+    <View style={styles.card}>
+      <View style={styles.statusPill}>
+        <Skeleton width={56} height={18} radius="full" />
+      </View>
+
+      <Flex direction="row" alignItems="center" gap={1.5}>
+        <View style={styles.timeBlock}>
+          <Skeleton width={36} height={22} radius="md" />
+          <Skeleton width={24} height={10} radius="sm" />
         </View>
 
-        <Flex direction="row" alignItems="center" gap={1.5}>
-          <View style={styles.timeBlock}>
-            <Skeleton width={36} height={22} radius="md" />
-            <Skeleton width={24} height={10} radius="sm" />
-          </View>
-
-          <Flex flex={1} gap={0.5} style={styles.details}>
-            <Skeleton width="65%" height={16} />
-            <Flex direction="row" alignItems="center" gap={1}>
-              <MetaCluster textWidth={52} />
-              <MetaCluster textWidth={64} />
-            </Flex>
+        <Flex flex={1} gap={0.5} style={styles.details}>
+          <Skeleton width="65%" height={16} />
+          <Flex direction="row" alignItems="center" gap={1}>
+            <MetaCluster textWidth={52} />
+            <MetaCluster textWidth={64} />
           </Flex>
         </Flex>
+      </Flex>
 
-        <Flex direction="row" alignItems="center" gap={1} style={styles.actions}>
-          <View style={styles.primaryBtn}>
-            <Skeleton
-              width="100%"
-              height={theme.space(5)}
-              radius="md"
-            />
-          </View>
-          <Skeleton width={40} height={40} radius="md" />
-        </Flex>
-      </View>
+      <Flex direction="row" alignItems="center" gap={1} style={styles.actions}>
+        <View style={styles.primaryBtn}>
+          <Skeleton width="100%" height={theme.space(5)} radius="md" />
+        </View>
+        <Skeleton width={40} height={40} radius="md" />
+      </Flex>
     </View>
   );
 }
 
 export function ReservationListSkeleton({ count = 4 }: { count?: number }) {
   const { theme } = useUnistyles();
+  const columns = useGridColumns();
+  const placeholderCount = columns > 1 ? Math.max(count, columns * 2) : count;
+  const rows = chunkItems(
+    Array.from({ length: placeholderCount }, (_, index) => index),
+    columns,
+  );
 
   return (
     <Flex
       gap={0}
       style={[styles.list, { paddingTop: theme.space(1.5) }]}
     >
-      {Array.from({ length: count }).map((_, index) => (
-        <ReservationCardSkeleton key={index} />
+      {rows.map((row, rowIndex) => (
+        <Flex key={rowIndex} direction="row" gap={1.5} style={styles.cardRow}>
+          {row.map((index) => (
+            <View key={index} style={styles.cardCell}>
+              <ReservationCardSkeleton />
+            </View>
+          ))}
+          {row.length < columns
+            ? Array.from({ length: columns - row.length }, (_, spacer) => (
+                <View key={`spacer-${spacer}`} style={styles.cardCell} />
+              ))
+            : null}
+        </Flex>
       ))}
     </Flex>
   );
@@ -63,9 +75,13 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   list: {
     flex: 1,
   },
-  cardWrap: {
+  cardRow: {
     marginBottom: space(1.5),
     paddingHorizontal: space(2),
+  },
+  cardCell: {
+    flex: 1,
+    minWidth: 0,
   },
   card: {
     position: "relative",

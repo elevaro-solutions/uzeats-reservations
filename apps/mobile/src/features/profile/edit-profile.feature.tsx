@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,7 +25,7 @@ import {
   Typography,
 } from "@/components";
 import { useAuth, type MobileUser } from "@/graphql";
-import { uploadFile } from "@/graphql/upload";
+import { PhotoTooLargeError, uploadFile } from "@/graphql/upload";
 import { getGraphQLErrorMessage, getGraphQLFieldErrors } from "@/lib/graphql-errors";
 import { ensurePhotoLibraryAccess } from "@/lib/helpers";
 
@@ -92,23 +92,27 @@ function EditProfileForm({ user }: { user: MobileUser }) {
       mediaTypes: ["images"],
       allowsMultipleSelection: false,
       quality: 0.85,
+      ...(Platform.OS === "ios"
+        ? {
+            preferredAssetRepresentationMode:
+              ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+          }
+        : {}),
     });
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
     setUploadingPhoto(true);
     try {
-      const response = await fetch(asset.uri);
-      const blob = await response.blob();
-      if (blob.size > 5 * 1024 * 1024) {
+      const filename = asset.fileName?.trim() || `avatar-${Date.now()}.jpg`;
+      const uploaded = await uploadFile(asset.uri, filename, {
+        maxBytes: 5 * 1024 * 1024,
+      });
+      setAvatarUrl(uploaded.publicUrl);
+    } catch (error) {
+      if (error instanceof PhotoTooLargeError) {
         Alert.alert("File too large", "Photo must be 5MB or smaller.");
         return;
       }
-      const filename =
-        asset.fileName?.trim() ||
-        `avatar-${Date.now()}.${asset.mimeType?.split("/")[1] ?? "jpg"}`;
-      const uploaded = await uploadFile(blob, filename, asset.mimeType ?? blob.type);
-      setAvatarUrl(uploaded.publicUrl);
-    } catch (error) {
       Alert.alert(
         "Could not upload photo",
         error instanceof Error ? error.message : "Try again.",

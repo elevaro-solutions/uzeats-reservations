@@ -1,5 +1,9 @@
 # Lib — Learnings & Observations
 
+## [2026-10-19] Tablet grids use window width, not DeviceType
+- `useGridColumns` / `gridColumns(width)`: 1 below 768, 2 from 768, 3 from 1024. Dining Styles cap is separate (`DINING_STYLE_MAX_CELL` 128) so the bento does not stretch with the restaurant grid.
+- Why it matters: `supportsTablet` is on but there is no unistyles breakpoint; size from `useWindowDimensions`.
+
 ## [2026-09-26] formatSlotDateTime defaults to PLATFORM_TIMEZONE
 - Omitting `timeZone` used to format in the device zone while reservation helpers defaulted to `PLATFORM_TIMEZONE`. Now `formatSlotDateTime` / `formatSlotTime` / `formatSlotDateLong` default to `PLATFORM_TIMEZONE` via shared `formatTimeInTimeZone` / `formatUsDate`.
 - Why it matters: Forgotten args no longer silently diverge between home/booking and Reservations tab.

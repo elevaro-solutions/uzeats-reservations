@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  resolveUploadImageContentType,
   sanitizeSvg,
   sniffAllowedImageContentType,
   sniffSvgContentType,
@@ -57,6 +58,19 @@ describe('sniffAllowedImageContentType', () => {
       null,
     );
     expect(sniffAllowedImageContentType(Buffer.from('<html><script>alert(1)</script>'))).toBe(null);
+  });
+});
+
+describe('resolveUploadImageContentType', () => {
+  it('accepts JPEG bytes when the declared type would be application/octet-stream', () => {
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, ...Buffer.alloc(12)]);
+    expect(resolveUploadImageContentType(jpeg)).toBe('image/jpeg');
+  });
+
+  it('rejects a non-image body', () => {
+    expect(() => resolveUploadImageContentType(Buffer.from('not an image, just text'))).toThrow(
+      /Unsupported file type/,
+    );
   });
 });
 

@@ -1,5 +1,9 @@
 # GraphQL — Learnings & Observations
 
+## [2026-10-20] Local photo upload uses XHR `{ uri }`, not `fetch`
+- `uploadFile` sniffs the picker file, then `XMLHttpRequest.send({ uri })`. React Native `fetch` turns a plain `{ uri }` body into `"[object Object]"`, and posting the `blob()` from `fetch(fileUri)` sends the picker MIME (`application/octet-stream` for a browser JPEG).
+- Why it matters: Don’t upload review or avatar photos with `fetch(asset.uri).blob()` and `asset.mimeType`.
+
 ## [2026-09-28] `deleteReview`
 - `deleteReview(reviewId): Boolean!` — review author or super admin. Recomputes restaurant rating aggregates; reverses review loyalty points when possible.
 - Why it matters: Distinct from `setReviewHidden` (any platform admin). Regular `admin` / `account_manager` cannot delete.

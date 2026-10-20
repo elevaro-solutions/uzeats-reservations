@@ -45,6 +45,19 @@ export function assertAllowedUploadContentType(contentType: string) {
   return normalized === 'image/jpg' ? 'image/jpeg' : normalized;
 }
 
+/**
+ * Type to store for an upload body. The declared Content-Type is ignored:
+ * mobile pickers label browser-saved JPEGs as application/octet-stream (and
+ * sometimes image/heic) even when the bytes are a normal JPEG.
+ */
+export function resolveUploadImageContentType(body: Buffer): string {
+  const sniffed = sniffAllowedImageContentType(body) ?? sniffSvgContentType(body);
+  if (!sniffed) {
+    throw new Error('Unsupported file type. Allowed: JPEG, PNG, WebP, GIF, SVG');
+  }
+  return sniffed;
+}
+
 /** Detect JPEG/PNG/WebP/GIF from magic bytes; ignore the declared Content-Type. */
 export function sniffAllowedImageContentType(body: Buffer): string | null {
   if (body.length < 12) return null;

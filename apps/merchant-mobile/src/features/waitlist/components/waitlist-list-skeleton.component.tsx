@@ -3,6 +3,7 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { Flex } from "@/components";
 import { MetaCluster, Skeleton } from "@/components/skeleton";
+import { chunkItems, useGridColumns } from "@/lib/use-grid-columns";
 
 function WaitlistCardSkeleton() {
   const { theme } = useUnistyles();
@@ -40,10 +41,16 @@ function WaitlistCardSkeleton() {
 
 export function WaitlistListSkeleton({ count = 4 }: { count?: number }) {
   const { theme } = useUnistyles();
+  const columns = useGridColumns();
+  const placeholderCount = columns > 1 ? Math.max(count, columns * 2) : count;
+  const rows = chunkItems(
+    Array.from({ length: placeholderCount }, (_, index) => index),
+    columns,
+  );
 
   return (
     <Flex
-      gap={1.5}
+      gap={0}
       style={[
         styles.list,
         {
@@ -52,8 +59,19 @@ export function WaitlistListSkeleton({ count = 4 }: { count?: number }) {
         },
       ]}
     >
-      {Array.from({ length: count }).map((_, index) => (
-        <WaitlistCardSkeleton key={index} />
+      {rows.map((row, rowIndex) => (
+        <Flex key={rowIndex} direction="row" gap={1.5} style={styles.cardRow}>
+          {row.map((index) => (
+            <View key={index} style={styles.cardCell}>
+              <WaitlistCardSkeleton />
+            </View>
+          ))}
+          {row.length < columns
+            ? Array.from({ length: columns - row.length }, (_, spacer) => (
+                <View key={`spacer-${spacer}`} style={styles.cardCell} />
+              ))
+            : null}
+        </Flex>
       ))}
     </Flex>
   );
@@ -62,6 +80,13 @@ export function WaitlistListSkeleton({ count = 4 }: { count?: number }) {
 const styles = StyleSheet.create(({ space, colors, radius }) => ({
   list: {
     flex: 1,
+  },
+  cardRow: {
+    marginBottom: space(1.5),
+  },
+  cardCell: {
+    flex: 1,
+    minWidth: 0,
   },
   card: {
     position: "relative",

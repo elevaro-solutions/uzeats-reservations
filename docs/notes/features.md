@@ -73,6 +73,10 @@ See [features-virtual-room.md](./features-virtual-room.md) (experimental add-on 
 
 ## home
 
+### [2026-10-19] iPad uses a capped dining-styles bento + FlashList card grid
+- Dining Styles cells cap at 128pt and center, so iPad no longer inflates the 3-col bento to full width. Home is one FlashList: header (location, bookings, styles, cuisines) then chunked restaurant rows (`useGridColumns`: 1 / 2≥768 / 3≥1024). Tablet feed limit is 6 so rows fill.
+- Why it matters: Do not nest a restaurant FlashList in a ScrollView; section headers stay full-width because rows are pre-chunked, not `numColumns`.
+
 ### [2026-09-26] Upcoming cards use restaurant timezone
 - Home carousel maps `MY_RESERVATIONS` with `restaurant.timezone` into `formatBookingCardDate` / `formatBookingCardTimeRange` (same wall clock as Reservations tab). Types include `timezone` on the nested restaurant.
 - Why it matters: Leaving home on device-local clocks made the same booking disagree with the Reservations list for travelers.
@@ -206,6 +210,10 @@ See [features-virtual-room.md](./features-virtual-room.md) (experimental add-on 
 
 ## reservations
 
+### [2026-10-19] iPad list uses FlashList numColumns
+- Same `useGridColumns` as Home (2 from 768pt, 3 from 1024pt). `key={columns}` remounts the list. Cards `flex: 1` with a gutter wrapper; skeleton chunks to match.
+- Why it matters: Changing `numColumns` without remounting leaves the wrong layout until unmount.
+
 ### [2026-10-06] List segments re-sort by slot
 - `filterReservationsBySegment` sorts upcoming soonest-first; past/cancelled/all most-recent-first. API `myReservations` is still `slotStart: -1`.
 - Why it matters: Upcoming used to show the latest same-day booking first.
@@ -235,6 +243,11 @@ See [features-virtual-room.md](./features-virtual-room.md) (experimental add-on 
 - Why it matters: Booking time-helper changes often affect edit. Primary CTA order is intentional product priority.
 
 ## restaurant-profile
+
+### [2026-10-20] Review photo upload sniffs bytes, not the picker MIME
+- `POST /api/uploads` used to reject on the `Content-Type` header before looking at the body. A JPEG saved from the browser is often labeled `application/octet-stream` (Android content resolver) or comes back from the iOS simulator gallery without `image/jpeg`. The alert listed JPEG/PNG/WebP/GIF/SVG while the file was a JPEG.
+- The diner app now posts the picker file by URI and sets `Content-Type` from magic bytes. iOS uses `preferredAssetRepresentationMode: compatible` so the gallery file is a JPEG. The route stores the sniffed type.
+- Why it matters: Don’t send `asset.mimeType` as the upload type, and don’t reject an upload before `sniffAllowedImageContentType`.
 
 ### [2026-09-30] AddReviewSheet sticky Submit needs opaque footer + measured bottomOffset
 - `KeyboardStickyView` translates the Submit footer over the scroll view when the keyboard opens (layout is not resized). Without `backgroundColor` / `stickyFooter` shadow, Photos copy showed through under the button. `bottomOffset` must clear the measured footer height plus the multiline comment field — caret-based avoidance alone left Submit overlapping the input bottom.

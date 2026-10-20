@@ -4,6 +4,22 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+## [0.88.0] — 2026-10-20
+
+### Changed
+
+- Diner iPad Home: Dining Styles tiles stay phone-sized and centered instead of stretching into huge squares
+- Diner iPad Home: Popular and Top rated restaurant cards sit 2-up (3-up on 12.9") in a FlashList
+- Diner iPad Reservations: booking cards sit 2-up (3-up on 12.9") instead of one stretched column
+- Merchant iPad Reservations and Waitlist: cards sit 2-up (3-up on large tablets) instead of one stretched column; day headers stay full width
+
+### Fixed
+
+- Diner app: a JPEG saved from the browser can be attached to a review on iOS and Android. The upload is accepted from the file itself, not the photo picker’s file-type label
+- Merchant Reservations: day headers keep a clear gap above the cards below them, without a hairline divider under the date label
+
 ## [0.87.1] — 2026-10-18
 
 ### Fixed

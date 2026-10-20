@@ -2,6 +2,11 @@
 
 See also dated entries under `docs/notes/features.md` → `## merchant-mobile (partner app)` and `## merchant-more`.
 
+## [2026-10-20] Reservations/Waitlist tablet grid — chunk rows, don’t numColumns headers
+
+- Breakpoints match diner (`use-grid-columns`: ≥768 → 2, ≥1024 → 3). Waitlist uses FlashList `numColumns` (flat list). Reservations keep day headers full-width by chunking cards into `type: "row"` list items via `buildListRows(..., columns)` — do not put `numColumns` on the mixed header+card FlashList or headers shrink to one cell.
+- Why it matters: Staff on iPad were staring at phone-width cards stretched edge-to-edge; multi-column needs a different strategy when section headers are inline list rows.
+
 ## [2026-10-12] Floor plan is furniture on a room, not a CAD grid
 
 - Plan mode crops to table bounds, sizes cells to the screen width (32–56px), and renders tabletops + chairs with the same status palette as Cards. Labels stay upright when a table is rotated. Partner Hub keeps the editor grid; ops should scan like Cards.

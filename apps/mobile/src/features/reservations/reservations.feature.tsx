@@ -16,6 +16,7 @@ import {
 } from "@/components";
 import { Skeleton } from "@/components/skeleton";
 import { MY_RESERVATIONS, useAuth } from "@/graphql";
+import { useGridColumns } from "@/lib/use-grid-columns";
 
 import { ReservationListCard } from "./components/reservation-list-card.component";
 import { ReservationListSkeleton } from "./components/reservation-list-skeleton.component";
@@ -61,6 +62,7 @@ export function ReservationsFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { theme } = useUnistyles();
+  const columns = useGridColumns();
   const { data, loading, error, refetch } = useQuery<{
     myReservations: ReservationItem[];
   }>(MY_RESERVATIONS, {
@@ -211,21 +213,26 @@ export function ReservationsFeature() {
       ) : (
         <FlashList
           data={filtered}
+          key={`reservations-${columns}`}
+          numColumns={columns}
           keyExtractor={(item) => item.id}
+          extraData={columns}
           contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
           }
           renderItem={({ item }) => (
-            <ReservationListCard
-              item={item}
-              onPress={() =>
-                router.push({
-                  pathname: "/reservations/[id]",
-                  params: { id: item.id },
-                })
-              }
-            />
+            <View style={columns > 1 ? styles.gridCell : undefined}>
+              <ReservationListCard
+                item={item}
+                onPress={() =>
+                  router.push({
+                    pathname: "/reservations/[id]",
+                    params: { id: item.id },
+                  })
+                }
+              />
+            </View>
           )}
         />
       )}
@@ -249,6 +256,10 @@ const styles = StyleSheet.create(({ space, colors }) => ({
   list: {
     paddingHorizontal: space(2),
     paddingBottom: space(4),
+  },
+  gridCell: {
+    flex: 1,
+    paddingHorizontal: space(0.75),
   },
   statePad: {
     paddingHorizontal: space(2),

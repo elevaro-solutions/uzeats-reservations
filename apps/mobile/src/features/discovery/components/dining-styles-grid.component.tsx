@@ -2,14 +2,16 @@ import { Pressable, useWindowDimensions, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 
 import { Flex, Typography } from "@/components";
+import {
+  DINING_STYLE_COLS,
+  diningStyleGridMetrics,
+} from "@/lib/dining-style-grid-layout";
 
 import {
   DINING_STYLE_TILES,
   type DiningStyleIconLayout,
   type DiningStyleTile,
 } from "../data/dining-styles";
-
-const COLS = 3;
 
 const FALLBACK_LAYOUT: DiningStyleIconLayout = {
   sizeFactor: 0.68,
@@ -27,19 +29,18 @@ export type DiningStylesGridProps = {
 export function DiningStylesGrid({ onSelect }: DiningStylesGridProps) {
   const { theme } = useUnistyles();
   const { width: windowWidth } = useWindowDimensions();
-  const gutter = theme.space(1);
-  const padX = theme.space(2);
-  const gridWidth = windowWidth - padX * 2;
-  const cell = (gridWidth - gutter * (COLS - 1)) / COLS;
-  const heroWidth = cell * 2 + gutter;
-  const rowHeight = cell;
+  const { cell, gutter, heroWidth, rowHeight, gridInnerWidth } =
+    diningStyleGridMetrics(windowWidth, theme.space);
 
   return (
     <Flex gap={1} style={styles.grid}>
       {chunkTiles(DINING_STYLE_TILES).map((row, rowIndex) => (
         <View
           key={`row-${rowIndex}`}
-          style={[styles.row, { height: rowHeight, gap: gutter }]}
+          style={[
+            styles.row,
+            { height: rowHeight, gap: gutter, width: gridInnerWidth },
+          ]}
         >
           {row.map((tile) => {
             const tileWidth = tile.span === 2 ? heroWidth : cell;
@@ -131,14 +132,14 @@ function chunkTiles(tiles: DiningStyleTile[]): DiningStyleTile[][] {
   let used = 0;
 
   for (const tile of tiles) {
-    if (used + tile.span > COLS) {
+    if (used + tile.span > DINING_STYLE_COLS) {
       rows.push(current);
       current = [];
       used = 0;
     }
     current.push(tile);
     used += tile.span;
-    if (used === COLS) {
+    if (used === DINING_STYLE_COLS) {
       rows.push(current);
       current = [];
       used = 0;
@@ -152,6 +153,7 @@ function chunkTiles(tiles: DiningStyleTile[]): DiningStyleTile[][] {
 const styles = StyleSheet.create(({ space, radius, colors }) => ({
   grid: {
     paddingHorizontal: space(2),
+    alignItems: "center",
   },
   row: {
     flexDirection: "row",

@@ -5,7 +5,8 @@ import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { PlusIcon } from "@/assets";
-import { Button, Empty, Typography } from "@/components";
+import { Button, Empty, Flex, Typography } from "@/components";
+import type { GridColumns } from "@/lib/use-grid-columns";
 
 import type { ReservationListItem } from "./reservation-card.component";
 import { ReservationCard } from "./reservation-card.component";
@@ -15,6 +16,7 @@ import type { ListRow, RangeKey } from "../helpers/reservations-list.helpers";
 
 export type ReservationsListBodyProps = {
   listRows: ListRow[];
+  columns: GridColumns;
   range: RangeKey;
   timeZone?: string;
   showEmptyAdd: boolean;
@@ -33,6 +35,7 @@ export type ReservationsListBodyProps = {
 
 export function ReservationsListBody({
   listRows,
+  columns,
   range,
   timeZone,
   showEmptyAdd,
@@ -79,31 +82,41 @@ export function ReservationsListBody({
         );
       }
 
+      const spacers = Math.max(0, columns - item.reservations.length);
+
       return (
-        <View style={styles.cardWrap}>
-          <ReservationCard
-            reservation={item.reservation}
-            timeZone={timeZone}
-            actionLoading={updatingId === item.reservation.id}
-            onPress={() => onOpenDetail(item.reservation.id)}
-            onAction={(action) => {
-              onAction(item.reservation, action);
-            }}
-          />
-        </View>
+        <Flex direction="row" gap={1.5} style={styles.cardRow}>
+          {item.reservations.map((reservation) => (
+            <View key={reservation.id} style={styles.cardCell}>
+              <ReservationCard
+                reservation={reservation}
+                timeZone={timeZone}
+                actionLoading={updatingId === reservation.id}
+                onPress={() => onOpenDetail(reservation.id)}
+                onAction={(action) => {
+                  onAction(reservation, action);
+                }}
+              />
+            </View>
+          ))}
+          {Array.from({ length: spacers }, (_, index) => (
+            <View key={`spacer-${index}`} style={styles.cardCell} />
+          ))}
+        </Flex>
       );
     },
-    [onAction, onOpenDetail, timeZone, updatingId],
+    [columns, onAction, onOpenDetail, timeZone, updatingId],
   );
 
   return (
     <>
       <FlashList
         data={pending ? [] : listRows}
+        key={`reservations-${columns}`}
         keyExtractor={keyExtractor}
         getItemType={getItemType}
         contentContainerStyle={contentContainerStyle}
-        extraData={updatingId}
+        extraData={`${updatingId}-${columns}`}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -161,15 +174,19 @@ const styles = StyleSheet.create(({ space, colors, radius }) => ({
   dayHeader: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: space(1.25),
-    paddingHorizontal: space(2),
-    backgroundColor: colors.background,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.secondarySubtle,
-  },
-  cardWrap: {
+    paddingTop: space(1.25),
+    paddingBottom: space(1.5),
     marginBottom: space(1.5),
     paddingHorizontal: space(2),
+    backgroundColor: colors.background,
+  },
+  cardRow: {
+    marginBottom: space(1.5),
+    paddingHorizontal: space(2),
+  },
+  cardCell: {
+    flex: 1,
+    minWidth: 0,
   },
   emptyWrap: {
     paddingTop: space(4),

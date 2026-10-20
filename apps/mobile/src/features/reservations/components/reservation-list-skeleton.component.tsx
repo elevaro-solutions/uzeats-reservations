@@ -3,6 +3,7 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { Flex } from "@/components";
 import { Skeleton } from "@/components/skeleton";
+import { chunkItems, useGridColumns } from "@/lib/use-grid-columns";
 
 function MetaCluster({ textWidth }: { textWidth: number }) {
   return (
@@ -14,35 +15,51 @@ function MetaCluster({ textWidth }: { textWidth: number }) {
 }
 
 export function ReservationListSkeleton({ count = 3 }: { count?: number }) {
+  const columns = useGridColumns();
+  const placeholderCount = columns > 1 ? Math.max(count, columns * 2) : count;
+  const rows = chunkItems(
+    Array.from({ length: placeholderCount }, (_, index) => index),
+    columns,
+  );
+
   return (
     <Flex gap={0} style={styles.wrap}>
-      {Array.from({ length: count }).map((_, index) => (
-        <View key={index} style={styles.shadow}>
-          <View style={styles.card}>
-            <Flex gap={1.5}>
-              <Flex direction="row" gap={1.5} alignItems="center">
-                <Skeleton width={48} height={48} radius="md" />
-                <Flex gap={0.25} style={styles.grow}>
-                  <Skeleton width="70%" height={16} />
-                  <Skeleton width="45%" height={12} />
-                </Flex>
-                <Skeleton width={64} height={22} radius="full" />
-              </Flex>
+      {rows.map((row, rowIndex) => (
+        <Flex key={rowIndex} direction="row" gap={1.5}>
+          {row.map((index) => (
+            <View key={index} style={styles.shadow}>
+              <View style={styles.card}>
+                <Flex gap={1.5}>
+                  <Flex direction="row" gap={1.5} alignItems="center">
+                    <Skeleton width={48} height={48} radius="md" />
+                    <Flex gap={0.25} style={styles.grow}>
+                      <Skeleton width="70%" height={16} />
+                      <Skeleton width="45%" height={12} />
+                    </Flex>
+                    <Skeleton width={64} height={22} radius="full" />
+                  </Flex>
 
-              <View style={styles.metaWell}>
-                <Flex
-                  direction="row"
-                  alignItems="center"
-                  justifyContent="space-between"
-                >
-                  <MetaCluster textWidth={56} />
-                  <MetaCluster textWidth={48} />
-                  <MetaCluster textWidth={20} />
+                  <View style={styles.metaWell}>
+                    <Flex
+                      direction="row"
+                      alignItems="center"
+                      justifyContent="space-between"
+                    >
+                      <MetaCluster textWidth={56} />
+                      <MetaCluster textWidth={48} />
+                      <MetaCluster textWidth={20} />
+                    </Flex>
+                  </View>
                 </Flex>
               </View>
-            </Flex>
-          </View>
-        </View>
+            </View>
+          ))}
+          {row.length < columns
+            ? Array.from({ length: columns - row.length }, (_, spacer) => (
+                <View key={`spacer-${spacer}`} style={styles.cellSpacer} />
+              ))
+            : null}
+        </Flex>
       ))}
     </Flex>
   );
@@ -53,6 +70,8 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
     paddingHorizontal: space(2),
   },
   shadow: {
+    flex: 1,
+    minWidth: 0,
     borderRadius: radius.lg,
     backgroundColor: colors.background,
     shadowColor: colors.slate12,
@@ -78,5 +97,9 @@ const styles = StyleSheet.create(({ space, radius, colors }) => ({
   },
   grow: {
     flex: 1,
+  },
+  cellSpacer: {
+    flex: 1,
+    minWidth: 0,
   },
 }));

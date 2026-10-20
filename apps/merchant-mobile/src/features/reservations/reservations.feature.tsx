@@ -21,6 +21,7 @@ import {
   formatDisplayDate,
   todayIsoDate,
 } from "@/lib/helpers/date-time.helpers";
+import { useGridColumns } from "@/lib/use-grid-columns";
 import { PLATFORM_TIMEZONE } from "@reservations/shared";
 
 import {
@@ -60,6 +61,7 @@ const PERIOD_QUERY_OPTIONS = {
 export function ReservationsFeature() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const columns = useGridColumns();
   const { activeRestaurantId, activeRestaurant, loading: restaurantsLoading } =
     useActiveRestaurant();
   const timeZone = activeRestaurant?.timezone ?? PLATFORM_TIMEZONE;
@@ -123,8 +125,8 @@ export function ReservationsFeature() {
     [activeQuery.data, deferredRange],
   );
   const listRows = useMemo(
-    () => buildListRows(items, deferredRange, timeZone),
-    [items, deferredRange, timeZone],
+    () => buildListRows(items, deferredRange, timeZone, columns),
+    [items, deferredRange, timeZone, columns],
   );
 
   const refetchAll = useCallback(async () => {
@@ -251,6 +253,7 @@ export function ReservationsFeature() {
         ) : (
           <ReservationsListBody
             listRows={listRows}
+            columns={columns}
             range={deferredRange}
             timeZone={timeZone}
             showEmptyAdd={showEmptyAdd}

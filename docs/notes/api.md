@@ -410,6 +410,10 @@
 - `BlogPost.readCount` defaults to 0. Public `recordBlogPostRead(slug)` uses `findOneAndUpdate` + `$inc` with `status: 'published'` (draft/archived/missing → null). Admin `adminTopBlogPosts` sorts published posts by `readCount` desc; `adminBlogReadStats` sums all posts.
 - Why it matters: Never trust client-sent counts. Keep increments atomic so concurrent readers do not race.
 
+## [2026-10-20] `/api/uploads` stores the sniffed image type
+- `resolveUploadImageContentType` ignores the declared `Content-Type`. JPEG/PNG/WebP/GIF/SVG are detected from the body; anything else is 400 with the allowlist message. A browser JPEG labeled `application/octet-stream` is stored as `image/jpeg`.
+- Why it matters: Mobile photo pickers do not report `image/jpeg` for files saved from a browser. Don’t put the allowlist check back on the header.
+
 ## [2026-10-07] `/api/uploads/video` must mount before `/api/uploads`
 - `videoUploadsRouter` (250 MB, MP4/MOV/WebM) is registered ahead of `uploadsRouter` in `index.ts`. The `/api/uploads` mount's 10 MB `express.raw` parser would otherwise reject videos first.
 - `getPlatformConfig` races on a fresh DB (parallel first requests both `create`). It now catches 11000 and re-reads.
