@@ -26,6 +26,7 @@ import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { isSuperAdmin } from '@/lib/roles';
 import { useFormDirty } from '@/lib/useFormDirty';
 import { useUrlTab } from '@/lib/useUrlTab';
+import { AdminMessengerBotPanel } from '@/components/AdminMessengerBotPanel';
 
 const { Paragraph, Text } = Typography;
 
@@ -78,6 +79,12 @@ const CONFIG_SECTIONS = [
     key: 'security',
     label: 'Security',
     description: 'Extra safeguards for sensitive admin actions.',
+  },
+  {
+    key: 'messenger',
+    label: 'Messenger bot',
+    description:
+      'Platform Telegram bot for merchant reservation alerts (Accept / Reject / Seat / Complete).',
   },
   {
     key: 'features',
@@ -674,30 +681,34 @@ export default function AdminConfigPage() {
           </Card>
         </Col>
         <Col xs={24} md={16}>
-          <Card
-            title={activeSection.label}
-            loading={loading}
-            styles={
-              activeKey === 'danger'
-                ? { header: { color: '#a8071a' } }
-                : undefined
-            }
-            style={activeKey === 'danger' ? { borderColor: '#ffa39e' } : undefined}
-            extra={
-              activeKey !== 'danger' ? (
-                <Button type="primary" loading={saving} disabled={!dirty} onClick={onSave}>
-                  Save changes
-                </Button>
-              ) : undefined
-            }
-          >
-            <Paragraph type="secondary" style={{ marginTop: 0 }}>
-              {activeSection.description}
-            </Paragraph>
-            <Form form={form} layout="vertical" onValuesChange={onValuesChange}>
-              {renderSectionContent()}
-            </Form>
-          </Card>
+          {activeKey === 'messenger' ? (
+            <AdminMessengerBotPanel />
+          ) : (
+            <Card
+              title={activeSection.label}
+              loading={loading}
+              styles={
+                activeKey === 'danger'
+                  ? { header: { color: '#a8071a' } }
+                  : undefined
+              }
+              style={activeKey === 'danger' ? { borderColor: '#ffa39e' } : undefined}
+              extra={
+                activeKey !== 'danger' ? (
+                  <Button type="primary" loading={saving} disabled={!dirty} onClick={onSave}>
+                    Save changes
+                  </Button>
+                ) : undefined
+              }
+            >
+              <Paragraph type="secondary" style={{ marginTop: 0 }}>
+                {activeSection.description}
+              </Paragraph>
+              <Form form={form} layout="vertical" onValuesChange={onValuesChange}>
+                {renderSectionContent()}
+              </Form>
+            </Card>
+          )}
         </Col>
       </Row>
 

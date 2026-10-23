@@ -57,7 +57,14 @@ Transactional email via `SENDGRID_API_KEY`. Without the key, the API stubs sends
 
 ## Telegram
 
-Optional bot for reservation alerts. Requires public API URL for webhook registration in production.
+Two bots:
+
+| Bot | Config | Purpose |
+|---|---|---|
+| Legacy alerts | `TELEGRAM_BOT_TOKEN` + `/webhooks/telegram` | Plain text to `User.telegramChatId` |
+| Merchant messenger | Platform Config token + `/webhooks/messenger-bot` | Actionable reservation cards (Accept / Reject / Seat / …) |
+
+Merchant bot: connect token in Admin → Config → Messenger bot. Set `MESSENGER_BOT_WEBHOOK_BASE_URL` (https) for webhook mode; otherwise the API long-polls.
 
 ## Elevaro leads
 
@@ -80,7 +87,8 @@ Built during web app deploy; partners copy snippet from dashboard **Booking widg
 | Endpoint | Provider |
 |---|---|
 | `/webhooks/stripe` | Stripe |
-| `/webhooks/telegram` | Telegram |
+| `/webhooks/telegram` | Telegram (legacy chat-id alerts) |
+| `/webhooks/messenger-bot` | Telegram (merchant messenger bot) |
 
 ## Env var registry
 

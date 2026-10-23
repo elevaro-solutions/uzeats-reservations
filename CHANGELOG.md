@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.89.0] — 2026-10-24
+
+### Added
+
+- In-process merchant Telegram messenger bot (Accept / Reject / Seat / Complete / No-show / Cancel) with deep-link invites, per-chat profiles, edit-in-place cards, platform admin controls, and monthly fees on subscription invoices
+- Dashboard Notifications: MessengerBot card; Admin → Config → Messenger bot panel
+- `MESSENGER_BOT_WEBHOOK_BASE_URL` for webhook mode (`POST /webhooks/messenger-bot`); otherwise long polling
+
+### Removed
+
+- Elevaro Merchant Notifier client (`ELEVARO_NOTIFIER_*`, `createElevaroTelegramLink`, `/webhooks/elevaro-notifier`)
+
+### Changed
+
+- Merchant Telegram linking and actionable reservation alerts no longer depend on the external notifier service
+
 ## [0.88.1] — 2026-10-20
 
 ### Changed

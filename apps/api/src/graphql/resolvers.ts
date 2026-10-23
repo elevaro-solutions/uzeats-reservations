@@ -148,6 +148,10 @@ import {
   buildOwnerRestaurantFilter,
 } from "../services/restaurantFilters.js";
 import { listNoShowFeeCharges } from "../services/noShowFeeCharges.js";
+import {
+  messengerBotMutations,
+  messengerBotQueries,
+} from '../services/messengerBot/resolvers.js';
 import { buildOwnerOverview } from "../services/ownerOverview.js";
 import {
   applyGeoToFilter,
@@ -891,6 +895,7 @@ export const resolvers = {
       return mapUser({ ...user.toObject(), referralCode });
     },
     ...adminOpsQuery,
+    ...messengerBotQueries,
 
     blogPosts: async (
       _: unknown,
@@ -1766,34 +1771,6 @@ export const resolvers = {
         })),
         total,
       };
-    },
-
-    elevaroTelegramLinks: async (
-      _: unknown,
-      __: unknown,
-      ctx: GraphQLContext,
-    ) => {
-      const user = requireAuth(ctx);
-      if (user.role === 'diner') {
-        throw new ForbiddenError('Only restaurant managers can view merchant Telegram links');
-      }
-      const hasVenueAccess =
-        isPlatformAdmin(user.role) ||
-        user.role === 'restaurant_owner' ||
-        (Array.isArray(user.restaurantIds) && user.restaurantIds.length > 0);
-      if (!hasVenueAccess) {
-        throw new ForbiddenError('No restaurant access to view merchant Telegram links');
-      }
-      const { listElevaroTelegramLinks, ElevaroNotifierUnavailableError } = await import(
-        "../services/elevaroNotifier.js"
-      );
-      const result = await listElevaroTelegramLinks(user._id.toString());
-      if (!result) {
-        throw new ElevaroNotifierUnavailableError(
-          "Telegram notifications are not configured on this server",
-        );
-      }
-      return result;
     },
 
     unreadNotificationCount: async (
@@ -3675,6 +3652,7 @@ export const resolvers = {
   },
 
   Mutation: {
+    ...messengerBotMutations,
     register: async (
       _: unknown,
       args: { input: unknown },
@@ -6153,41 +6131,6 @@ export const resolvers = {
       await verifyTelegramChat(chatId);
       await User.findByIdAndUpdate(user._id, { telegramChatId: chatId });
       return true;
-    },
-
-    createElevaroTelegramLink: async (
-      _: unknown,
-      __: unknown,
-      ctx: GraphQLContext,
-    ) => {
-      const user = requireAuth(ctx);
-      if (user.role === 'diner') {
-        throw new ForbiddenError('Only restaurant managers can link the merchant Telegram bot');
-      }
-      const hasVenueAccess =
-        isPlatformAdmin(user.role) ||
-        user.role === 'restaurant_owner' ||
-        (Array.isArray(user.restaurantIds) && user.restaurantIds.length > 0);
-      if (!hasVenueAccess) {
-        throw new ForbiddenError('No restaurant access to link the merchant Telegram bot');
-      }
-      const {
-        createElevaroTelegramLink,
-        ElevaroNotifierUnavailableError,
-      } = await import("../services/elevaroNotifier.js");
-      const link = await createElevaroTelegramLink(user._id.toString());
-      if (!link) {
-        throw new ElevaroNotifierUnavailableError(
-          "Telegram notifications are not configured on this server",
-        );
-      }
-      return {
-        deepLink: link.deepLink,
-        expiresAt:
-          typeof link.expiresAt === 'string'
-            ? link.expiresAt
-            : new Date(link.expiresAt).toISOString(),
-      };
     },
 
     markNotificationsRead: async (

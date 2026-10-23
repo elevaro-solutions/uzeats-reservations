@@ -169,7 +169,7 @@
 
 ## [2026-10-02] Billing / Stripe / Telegram must use AppError (or formatStripeError)
 - Production `formatError` only preserves `AppError`, Zod, and Mongoose messages. Plain `Error` from `createSubscription`, `changePlan`, invoice pay-by-token, and Elevaro Telegram link paths showed as "Internal server error".
-- Stripe SDK failures are mapped via `formatStripeError` in `formatError` (and services throw `AppError` / `ValidationError` where we control the throw). Telegram link-limit / upstream failures use dedicated `AppError` subclasses in `elevaroNotifier.ts`.
+- Stripe SDK failures are mapped via `formatStripeError` in `formatError` (and services throw `AppError` / `ValidationError` where we control the throw). Merchant Telegram linking errors surface as GraphQL errors from `messengerBot` resolvers.
 - Why it matters: Owners hitting trial start, plan upgrade, invoice pay links, or Connect Telegram need the real message; prod logs alone are not enough for the UI.
 
 ## [2026-10-01] Reservation reminder offsets are minutes + late-check category
@@ -318,9 +318,12 @@
 - `buildReservationMessengerContent` prefixes `Restaurant: {name}` so multi-venue managers can tell bookings apart in one Telegram chat.
 - Why it matters: one Elevaro link covers all venues for a user; without the name, Accept/Reject alerts looked identical.
 
+## [2026-10-23] In-process messengerBot
+- Merchant bot: PlatformConfig token, `POST /webhooks/messenger-bot`, GraphQL `restaurantMessengerBot` / `adminMessengerBot` / link invite mutations. Max 3 links per user per restaurant (`MessengerLink`).
+- Why it matters: Replaces Elevaro notifier for Tablevera merchant Telegram.
+
 ## [2026-09-25] Multi Telegram per dashboard user
-- Elevaro allows up to 2 Telegram chats per `platformUserId`. GraphQL `elevaroTelegramLinks` + create returns limit error when full. Dashboard Notifications shows N/2.
-- Why it matters: Owners with two phones no longer need a second staff login; `/unlink` in a chat frees one slot.
+- Historical Elevaro limit was 2 chats per platform user. Current messengerBot allows up to 3 chats per user per restaurant.
 
 ## [2026-09-25] Elevaro Open URL must be detail path
 - Messenger `openUrl` is `{DASHBOARD_APP_URL}/reservations/{reservationId}`. `?id=` was ignored by the list page (it only deep-links via `reservationId` or `/reservations/[id]`).

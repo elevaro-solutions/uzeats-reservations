@@ -69,6 +69,8 @@ const envSchema = z.object({
   EMAIL_FROM: z.string().default('noreply@reservations.local'),
   TELEGRAM_BOT_TOKEN: z.string().optional().default(''),
   TELEGRAM_WEBHOOK_SECRET: z.string().optional().default(''),
+  /** Public https base for merchant messenger bot webhook (`/webhooks/messenger-bot`). Unset → long polling. */
+  MESSENGER_BOT_WEBHOOK_BASE_URL: z.string().optional().default(''),
   API_PUBLIC_URL: z.string().optional().default(''),
   VAPID_PUBLIC_KEY: z.string().optional().default(''),
   VAPID_PRIVATE_KEY: z.string().optional().default(''),
@@ -76,9 +78,6 @@ const envSchema = z.object({
   ELEVARO_LEADS_API_KEY: z.string().optional().default(''),
   ELEVARO_LEADS_REFERRER_DOMAIN: z.string().default('https://tablevera.online/'),
   ELEVARO_LEADS_SOURCE: z.string().default('ORDERING_APP'),
-  ELEVARO_NOTIFIER_URL: z.string().optional().default(''),
-  ELEVARO_NOTIFIER_API_KEY: z.string().optional().default(''),
-  ELEVARO_NOTIFIER_HMAC_SECRET: z.string().optional().default(''),
   GEMINI_API_KEY: z.string().optional().default(''),
   GEMINI_MODEL: z.string().optional().default('gemini-3.5-flash-lite'),
   /** Optional photogrammetry for the virtual 3D room; floor-plan rendering works without it. */

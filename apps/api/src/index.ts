@@ -33,6 +33,11 @@ import {
   handleTelegramWebhook,
   startTelegramBot,
 } from "./services/telegram.js";
+import {
+  startMessengerBot,
+} from "./services/messengerBot/transport.js";
+import { startMessengerBotFeeBillingProcessor } from "./services/messengerBot/billing.js";
+import { messengerBotWebhookHandler } from "./routes/messengerBotWebhook.js";
 import { logger } from "./lib/logger.js";
 import { AppError, formatMongooseError } from "./lib/errors.js";
 import { posRouter } from "./routes/pos.js";
@@ -41,7 +46,6 @@ import { uploadsRouter, videoUploadsRouter } from "./routes/uploads.js";
 import { importRestaurantRouter } from "./routes/importRestaurant.js";
 import { discoveryMagnificRouter } from "./routes/discoveryMagnific.js";
 import { LOCAL_UPLOAD_DIR } from "./services/spaces.js";
-import { handleElevaroNotifierWebhook } from "./routes/elevaroNotifierWebhook.js";
 
 const LOCAL_UPLOAD_CONTENT_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -285,17 +289,9 @@ async function main() {
     void handleTelegramWebhook(req, res);
   });
 
-  app.post(
-    "/webhooks/elevaro-notifier",
-    express.json({
-      verify: (req, _res, buf) => {
-        (req as express.Request & { rawBody?: string }).rawBody = buf.toString("utf8");
-      },
-    }),
-    (req, res) => {
-      void handleElevaroNotifierWebhook(req, res);
-    },
-  );
+  app.post("/webhooks/messenger-bot", express.json(), (req, res) => {
+    void messengerBotWebhookHandler(req, res);
+  });
 
   app.use(
     "/api/pos",
@@ -460,6 +456,8 @@ async function main() {
     void startTelegramBot().catch((err) => {
       logger.error({ err }, "[telegram] failed to start bot");
     });
+    startMessengerBot();
+    startMessengerBotFeeBillingProcessor();
   });
 }
 

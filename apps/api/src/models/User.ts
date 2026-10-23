@@ -86,6 +86,11 @@ const userSchema = new Schema(
     emailVerified: { type: Boolean, default: false },
     phoneVerified: { type: Boolean, default: false },
     restaurantIds: [{ type: Schema.Types.ObjectId, ref: 'Restaurant' }],
+    /**
+     * When false, this staff member cannot link or act via the merchant messenger bot.
+     * Owners are always allowed. Default true for venue staff.
+     */
+    canActViaMessenger: { type: Boolean, default: true },
     refreshTokens: [{ type: String }],
     /** Allows one reuse of a just-rotated refresh token (lost-response recovery). */
     refreshTokenGrace: {

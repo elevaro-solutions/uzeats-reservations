@@ -34,7 +34,6 @@ import {
   textToEmailHtml,
   wrapEmailHtml,
 } from './emailBranding.js';
-import { sendElevaroMerchantNotification } from './elevaroNotifier.js';
 
 export { wrapEmailHtml } from './emailBranding.js';
 
@@ -512,12 +511,6 @@ const RESERVATION_ALERT_TYPES = new Set([
   'reservation_needs_approval',
 ]);
 
-const MESSENGER_ALERT_TYPES = new Set([
-  'new_reservation',
-  'reservation_cancelled',
-  'reservation_updated',
-]);
-
 function reservationAlertTitle(type: string, fallback: string) {
   if (type === 'new_reservation') return 'New reservation';
   if (type === 'reservation_cancelled') return 'Reservation cancelled';
@@ -543,7 +536,6 @@ export async function notifyRestaurantManagers(
     $or: [{ _id: restaurant.ownerId }, { restaurantIds: restaurant._id }],
   }).select('_id role notificationPreferences');
   const staffIds = staff.map((u) => u._id.toString());
-  const ownerId = restaurant.ownerId.toString();
 
   const reservationId =
     typeof payload.data?.reservationId === 'string'
@@ -556,8 +548,7 @@ export async function notifyRestaurantManagers(
       : undefined;
 
   const needsAlertContent =
-    Boolean(reservationId) &&
-    (RESERVATION_ALERT_TYPES.has(payload.type) || MESSENGER_ALERT_TYPES.has(payload.type));
+    Boolean(reservationId) && RESERVATION_ALERT_TYPES.has(payload.type);
 
   const alertContent =
     needsAlertContent && reservationId
@@ -587,43 +578,7 @@ export async function notifyRestaurantManagers(
       notifyUser(id, staffPayload, { smsRestaurantId: restaurantId }),
     ),
   );
-
-  // Actionable messenger fan-out (Telegram / WhatsApp via Elevaro notifier)
-  if (reservationId && alertContent && MESSENGER_ALERT_TYPES.has(payload.type)) {
-    const prefEvent =
-      payload.type === 'new_reservation' ? 'newReservation' : 'reservationUpdates';
-    const messengerUserIds = staff
-      .filter((u) => {
-        const id = u._id.toString();
-        if (id === ownerId) return true;
-        const prefs = mapNotificationPreferences(u.notificationPreferences);
-        return prefs[prefEvent]?.messenger === true;
-      })
-      .map((u) => u._id.toString());
-
-    if (messengerUserIds.length === 0) return;
-
-    const actions =
-      payload.type === 'new_reservation'
-        ? (['accept', 'reject', 'open'] as const)
-        : (['open'] as const);
-
-    void sendElevaroMerchantNotification({
-      platformUserIds: messengerUserIds,
-      eventType: payload.type,
-      resourceType: 'reservation',
-      resourceId: reservationId,
-      idempotencyKey: `${payload.type}:${reservationId}`,
-      title: alertContent.title,
-      body: alertContent.body,
-      payload: {
-        ...alertContent.payload,
-        ...(payload.data ?? {}),
-      },
-      actions: [...actions],
-      openUrl,
-    });
-  }
+  // Merchant Telegram cards are owned by messengerBot via reservationEvents.
 }
 
 function formatReminderLead(minutes: number): string {

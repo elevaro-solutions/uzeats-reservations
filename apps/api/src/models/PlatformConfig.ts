@@ -194,6 +194,27 @@ const platformConfigSchema = new Schema(
       discountPercent: { type: Number, default: 17, min: 1, max: 99 },
     },
     loyalty: { type: loyaltyProgramSchema, default: undefined },
+    /** Merchant Telegram messenger bot (BotFather token). Separate from TELEGRAM_BOT_TOKEN legacy alerts. */
+    telegramBotToken: { type: String },
+    telegramBotUsername: { type: String, default: null, maxlength: 64 },
+    telegramWebhookSecret: { type: String, default: null },
+    messengerBotEnabled: { type: Boolean, default: false },
+    messengerBotAvailability: {
+      type: String,
+      enum: ['ALL', 'SELECTED'],
+      default: 'SELECTED',
+    },
+    messengerBotFeeMonthlyCents: { type: Number, default: 0, min: 0 },
+    messengerBotFeePricingMode: {
+      type: String,
+      enum: ['PER_RESTAURANT', 'PER_ACCOUNT'],
+      default: 'PER_RESTAURANT',
+    },
+    messengerBotFeeBillingMethod: {
+      type: String,
+      enum: ['MONTHLY_INVOICE'],
+      default: 'MONTHLY_INVOICE',
+    },
   },
   { timestamps: true },
 );

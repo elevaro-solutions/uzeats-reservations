@@ -6,6 +6,10 @@ import {
   type BillingPeriod,
 } from '@reservations/shared';
 import { CoverFee } from '../models/CoverFee.js';
+import {
+  markMessengerBotFeesCharged,
+  pendingMessengerBotFeeLines,
+} from './messengerBot/billing.js';
 import { Invoice } from '../models/Invoice.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { Subscription } from '../models/Subscription.js';
@@ -598,6 +602,7 @@ async function buildPeriodInvoiceLines(
   });
   lines.push(...buildCoverFeeLines(coverFees));
   lines.push(...(await buildVirtualRoomInvoiceLines(sub, period)));
+  lines.push(...(await pendingMessengerBotFeeLines(sub.restaurantId, period)));
 
   const subtotalCents = lines.reduce((sum, line) => sum + line.amountCents, 0);
   return { lines, subtotalCents };
@@ -614,6 +619,7 @@ async function markCoverFeesCharged(restaurantId: unknown, period: string) {
     { $set: { status: 'charged' } },
   );
   await markVirtualRoomFeesCharged(restaurantId, period);
+  await markMessengerBotFeesCharged(restaurantId, period);
 }
 
 async function applyPeriodInvoiceLines(

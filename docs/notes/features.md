@@ -136,8 +136,12 @@ See [features-virtual-room.md](./features-virtual-room.md) (experimental add-on 
 - Fix: map those types; unknown non-`password_reset` types now use defaults (platform on) and log a warning. Stub email without SendGrid/Resend throws so status is `failed`, not fake `sent`.
 - Why it matters: Manual-approval and inquiry alerts looked “broken” in Partner Hub / diner inbox despite successful SendGrid sends.
 
+### [2026-10-23] In-process merchant messengerBot replaces Elevaro
+- Merchant Telegram is now `apps/api/src/services/messengerBot/*`: PlatformConfig bot token, `MessengerLink` per restaurant (max 3), profiles FOH/HOST/APPROVER, actions accept/reject/seat/complete/no_show/cancel via `updateReservationStatus`. Events from `reservationEvents` bus. Fees → monthly invoice lines (`MessengerBotFeeCharge`). Dashboard Notifications card + Admin Config → Messenger bot. Webhook `POST /webhooks/messenger-bot` or long poll (`MESSENGER_BOT_WEBHOOK_BASE_URL`).
+- Why it matters: Elevaro notifier client removed; actionable alerts no longer depend on an external service.
+
 ### [2026-09-22] Messenger ACL for Telegram Accept/Reject
-- Channel `messenger` on notification preferences (default off). `notifyRestaurantManagers` Elevaro fan-out: restaurant owner always; staff only if `newReservation.messenger` (or `reservationUpdates.messenger` for update/cancel events). Action webhook re-checks that flag for non-owners. Dashboard `/notifications` exposes the column + Connect Telegram bot (up to 2 chats per user); `createElevaroTelegramLink` rejects diners and users without venue access; `elevaroTelegramLinks` returns current links + max.
+- Channel `messenger` on notification preferences (default off). Historical: Elevaro fan-out used owner-always + staff messenger pref. Current messengerBot uses `canActViaMessenger` + linked chats / profiles instead.
 - Why it matters: Previously every `restaurantIds` member got Accept/Reject; owners now opt managers in explicitly.
 
 ### [2026-09-22] Diner web push toggle needs local opt-in (+ VAPID for delivery)
@@ -149,9 +153,8 @@ See [features-virtual-room.md](./features-virtual-room.md) (experimental add-on 
 - `apps/web` `/profile` Notification preferences no longer shows the SMS toggle (email / push / favorite-table alerts remain). GraphQL `sms` channel fields and `/sms` opt-in are unchanged; SMS stays off by default.
 - Why it matters: Don’t re-add the profile SMS switch without product sign-off; partner Premium SMS is separate.
 
-### [2026-09-21] Elevaro merchant notifier fan-out
-- `notifyRestaurantManagers` POSTs to Elevaro Merchant Notifier when `ELEVARO_NOTIFIER_*` is set; Accept/Reject land on `POST /webhooks/elevaro-notifier` → `updateReservationStatus`. GraphQL `createElevaroTelegramLink` for `@elevaro_merchant_bot`.
-- Why it matters: Messenger Accept/Reject is out-of-process from the diner Telegram bot; Tablevera uses platform key `tablevera` (separate from UzEats).
+### [2026-09-21] Elevaro merchant notifier fan-out (superseded 2026-10-23)
+- Historical: `notifyRestaurantManagers` POSTed to Elevaro Merchant Notifier. Replaced by in-process messengerBot (see 2026-10-23).
 
 ### [2026-09-18] Partner Hub new-reservation tap fetches by id
 - Header bell `new_reservation` goes to `/reservations/:id?restaurant=`. `notifyRestaurantManagers` always attaches `restaurantId`. The detail page loads `restaurantReservation(id)` and switches the active venue.

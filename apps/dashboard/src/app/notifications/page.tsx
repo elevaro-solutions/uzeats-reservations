@@ -15,12 +15,10 @@ import {
   Typography,
   message,
 } from 'antd';
-import { SettingOutlined, SendOutlined } from '@ant-design/icons';
+import { SettingOutlined } from '@ant-design/icons';
 import { PageHeader } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import {
-  CREATE_ELEVARO_TELEGRAM_LINK,
-  ELEVARO_TELEGRAM_LINKS,
   MY_RESTAURANTS,
   PLATFORM_FEATURE_FLAGS,
   RESTAURANT_TEAM,
@@ -28,6 +26,7 @@ import {
 } from '@/lib/graphql';
 import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
 import { useFormDirty } from '@/lib/useFormDirty';
+import { MessengerBotCard } from '@/components/MessengerBotCard';
 
 const { Text } = Typography;
 
@@ -141,9 +140,6 @@ export default function NotificationsSettingsPage() {
     onError: (err: Error) => message.error(err.message),
   });
   const [updatePrefs] = useMutation(UPDATE_NOTIFICATION_PREFERENCES);
-  const [createTelegramLink, { loading: linkingTelegram }] = useMutation(
-    CREATE_ELEVARO_TELEGRAM_LINK,
-  );
 
   const [roleFilter, setRoleFilter] = useState('all');
   const [selected, setSelected] = useState<TeamUser | null>(null);
@@ -156,22 +152,7 @@ export default function NotificationsSettingsPage() {
   }, [authLoading, user, router]);
 
   const canManageTeam = user?.role === 'admin' || user?.role === 'restaurant_owner';
-  const canLinkTelegram =
-    user?.role === 'restaurant_owner' ||
-    user?.role === 'manager' ||
-    user?.role === 'host' ||
-    user?.role === 'admin' ||
-    user?.role === 'super_admin';
-  const {
-    data: telegramLinksData,
-    refetch: refetchTelegramLinks,
-  } = useQuery(ELEVARO_TELEGRAM_LINKS, {
-    skip: !user || !canLinkTelegram,
-  });
   const team: TeamUser[] = data?.restaurantTeam ?? [];
-  const telegramLinkCount = telegramLinksData?.elevaroTelegramLinks?.links?.length ?? 0;
-  const telegramMaxLinks = telegramLinksData?.elevaroTelegramLinks?.maxLinks ?? 2;
-  const telegramAtLimit = telegramLinkCount >= telegramMaxLinks;
   const visibleTeam = useMemo(() => {
     let list = team;
     if (!canManageTeam && user) {
@@ -237,23 +218,6 @@ export default function NotificationsSettingsPage() {
     }
   };
 
-  const handleConnectTelegram = async () => {
-    try {
-      const result = await createTelegramLink();
-      const deepLink = result.data?.createElevaroTelegramLink?.deepLink as string | undefined;
-      if (!deepLink) {
-        message.error('Telegram link unavailable');
-        return;
-      }
-      window.open(deepLink, '_blank', 'noopener,noreferrer');
-      message.success('Open Telegram and tap Start to link your account');
-      await refetchTelegramLinks();
-    } catch (err) {
-      message.error(err instanceof Error ? err.message : 'Failed to create Telegram link');
-      await refetchTelegramLinks();
-    }
-  };
-
   const matrixRows = EVENTS.map((event) => ({
     key: event.key,
     event,
@@ -264,44 +228,22 @@ export default function NotificationsSettingsPage() {
       <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <PageHeader
         title="Notifications"
-        subtitle="Select a team member to configure feature alerts by channel. Owners always receive Telegram Accept/Reject; enable Messenger for managers who should act on bookings."
+        subtitle="Configure team alerts by channel, and connect the Telegram messenger bot for Accept / Reject / Seat / Complete actions."
         extra={
-          <Space orientation="vertical" size={4} style={{ alignItems: 'flex-end' }}>
-            <Space wrap align="center">
-              {canLinkTelegram && (
-                <Button
-                  icon={<SendOutlined />}
-                  loading={linkingTelegram}
-                  disabled={telegramAtLimit}
-                  onClick={handleConnectTelegram}
-                >
-                  {telegramLinkCount > 0
-                    ? 'Connect another Telegram'
-                    : 'Connect Telegram bot'}
-                </Button>
-              )}
-              <Select
-                style={{ width: 260 }}
-                value={restaurantId}
-                onChange={setRestaurantId}
-                options={(restData?.myRestaurants ?? []).map((r: { id: string; name: string }) => ({
-                  value: r.id,
-                  label: r.name,
-                }))}
-                placeholder="Select restaurant"
-              />
-            </Space>
-            {canLinkTelegram && (
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                Telegram linked: {telegramLinkCount}/{telegramMaxLinks}
-                {telegramAtLimit
-                  ? ' — /unlink in Telegram to free a slot'
-                  : ''}
-              </Text>
-            )}
-          </Space>
+          <Select
+            style={{ width: 260 }}
+            value={restaurantId}
+            onChange={setRestaurantId}
+            options={(restData?.myRestaurants ?? []).map((r: { id: string; name: string }) => ({
+              value: r.id,
+              label: r.name,
+            }))}
+            placeholder="Select restaurant"
+          />
         }
       />
+
+      <MessengerBotCard restaurantId={restaurantId} />
 
       <Card className="rt-surface-card">
         <Space orientation="vertical" size="middle" style={{ width: '100%' }}>

@@ -22,6 +22,20 @@ export { VirtualRoom } from './VirtualRoom.js';
 export { SmsCreditLedger } from './SmsCreditLedger.js';
 export { Invoice } from './Invoice.js';
 export { PlatformConfig } from './PlatformConfig.js';
+export {
+  MessengerLink,
+  MESSENGER_BOT_ACTIONS,
+  MESSENGER_BOT_PROFILES,
+  MESSENGER_CHANNELS,
+} from './MessengerLink.js';
+export type {
+  MessengerBotActionCode,
+  MessengerBotProfile,
+  MessengerChannel,
+} from './MessengerLink.js';
+export { MessengerLinkToken } from './MessengerLinkToken.js';
+export { MessengerReservationMessage } from './MessengerReservationMessage.js';
+export { MessengerBotFeeCharge } from './MessengerBotFeeCharge.js';
 export { PlatformService } from './PlatformService.js';
 export { SupportTicket } from './SupportTicket.js';
 export { EmailTemplate } from './EmailTemplate.js';

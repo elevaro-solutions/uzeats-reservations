@@ -341,28 +341,13 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
     requirement: 'recommended',
   },
   {
-    key: 'ELEVARO_NOTIFIER_URL',
-    label: 'Elevaro merchant notifier URL',
+    key: 'MESSENGER_BOT_WEBHOOK_BASE_URL',
+    label: 'Messenger bot webhook base URL',
     group: 'notifications',
     apps: ['api'],
     requirement: 'recommended',
     description:
-      'Base URL of elevaro-merchant-notifier for Telegram/WhatsApp manager alerts.',
-  },
-  {
-    key: 'ELEVARO_NOTIFIER_API_KEY',
-    label: 'Elevaro notifier API key',
-    group: 'notifications',
-    apps: ['api'],
-    requirement: 'recommended',
-  },
-  {
-    key: 'ELEVARO_NOTIFIER_HMAC_SECRET',
-    label: 'Elevaro notifier HMAC secret',
-    group: 'notifications',
-    apps: ['api'],
-    requirement: 'recommended',
-    description: 'Verifies Accept/Reject callbacks from the notifier.',
+      'Public https origin for POST /webhooks/messenger-bot (merchant Telegram bot). Unset → long polling.',
   },
   {
     key: 'GEMINI_API_KEY',
@@ -383,15 +368,16 @@ export const ENV_VAR_DEFINITIONS: EnvVarDefinition[] = [
   },
   {
     key: 'TELEGRAM_BOT_TOKEN',
-    label: 'Telegram bot token',
+    label: 'Telegram bot token (legacy alerts)',
     group: 'notifications',
     apps: ['api'],
     requirement: 'recommended',
-    description: 'Optional Telegram notifications for managers.',
+    description:
+      'Optional plain Telegram alerts via User.telegramChatId. Merchant actionable bot token lives in Platform Config.',
   },
   {
     key: 'TELEGRAM_WEBHOOK_SECRET',
-    label: 'Telegram webhook secret',
+    label: 'Telegram webhook secret (legacy)',
     group: 'notifications',
     apps: ['api'],
     requirement: 'recommended',

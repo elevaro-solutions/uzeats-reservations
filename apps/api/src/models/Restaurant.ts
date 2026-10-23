@@ -236,6 +236,14 @@ const restaurantSchema = new Schema(
       unit: { type: String, enum: ['ft', 'm'], default: 'ft' },
       unitsPerCell: { type: Number, default: 2, min: 0.25, max: 50 },
     },
+    /** Merchant Telegram messenger bot entitlement / activation. */
+    messengerBotAccess: {
+      type: String,
+      enum: ['DEFAULT', 'ENABLED', 'DISABLED'],
+      default: 'DEFAULT',
+    },
+    messengerBotEnabled: { type: Boolean, default: false },
+    messengerBotFeeCentsOverride: { type: Number, min: 0, default: null },
   },
   { timestamps: true },
 );

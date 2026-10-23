@@ -80,6 +80,7 @@ import {
   notifyUser,
   scheduleReservationReminders,
 } from './notifications.js';
+import { emitReservationEvent } from './reservationEvents.js';
 import { renderEmailTemplate } from './emailTemplates.js';
 import {
   EMAIL_BRAND,
@@ -432,6 +433,11 @@ async function notifyRestaurantBookingNeedsApproval(input: {
       ? `Large party request: about ${input.partySize} guests${largePartyWindowLabel(input.slotStart, input.slotEnd, input.restaurant)} at ${when} — ${input.restaurantName}. Contact the guest to confirm.`
       : `Party of ${input.partySize} at ${when} — ${input.restaurantName}`,
     data: { reservationId: input.reservationId },
+  });
+  emitReservationEvent({
+    type: 'RESERVATION_NEEDS_APPROVAL',
+    reservationId: input.reservationId,
+    restaurantId: input.restaurantId,
   });
 }
 
@@ -1138,6 +1144,11 @@ export async function createReservation(input: {
           data: { reservationId },
         }),
       );
+      emitReservationEvent({
+        type: 'RESERVATION_CREATED',
+        reservationId,
+        restaurantId: input.restaurantId,
+      });
     } else if (needsManualApproval && !requiresPayment) {
       await softFail('diner pending-approval notice', () =>
         notifyDinerBookingPendingApproval({
@@ -1690,6 +1701,13 @@ export async function updateReservationStatus(
     }
   }
 
+  emitReservationEvent({
+    type: 'RESERVATION_STATUS_CHANGED',
+    reservationId: reservation._id.toString(),
+    restaurantId: reservation.restaurantId.toString(),
+    data: { status, previousStatus },
+  });
+
   return reservation;
 }
 
@@ -1885,6 +1903,11 @@ export async function confirmDeposit(intentId: string, known?: BookingIntentStat
             reservationId,
           },
         });
+        emitReservationEvent({
+          type: 'RESERVATION_CREATED',
+          reservationId,
+          restaurantId: reservation.restaurantId.toString(),
+        });
       } else if (wasPending && needsManualApproval) {
         const restaurant = await Restaurant.findById(reservation.restaurantId);
         await notifyDinerBookingPendingApproval({
@@ -2014,6 +2037,11 @@ export async function createOwnerReservation(input: {
       title: 'New reservation',
       body: `Party of ${input.partySize} at ${formatReservationWhen(input.slotStart, restaurant)} — ${restaurant.name}`,
       data: { reservationId: reservation._id.toString() },
+    });
+    emitReservationEvent({
+      type: 'RESERVATION_CREATED',
+      reservationId: reservation._id.toString(),
+      restaurantId: input.restaurantId,
     });
   }
 
@@ -2166,6 +2194,12 @@ export async function updateReservationDetails(
 
   const restaurantName = restaurant?.name ?? 'the restaurant';
   const when = formatReservationWhen(reservation.slotStart, restaurant);
+  emitReservationEvent({
+    type: 'RESERVATION_UPDATED',
+    reservationId: reservation._id.toString(),
+    restaurantId: reservation.restaurantId.toString(),
+  });
+
   if (isDiner) {
     await notifyRestaurantManagers(reservation.restaurantId.toString(), {
       type: 'reservation_updated',

@@ -4207,23 +4207,195 @@ export const UPDATE_NOTIFICATION_PREFERENCES = gql`
   }
 `;
 
-export const CREATE_ELEVARO_TELEGRAM_LINK = gql`
-  mutation CreateElevaroTelegramLink {
-    createElevaroTelegramLink {
-      deepLink
+export const RESTAURANT_MESSENGER_BOT = gql`
+  query RestaurantMessengerBot($restaurantId: ID!) {
+    restaurantMessengerBot(restaurantId: $restaurantId) {
+      restaurantId
+      restaurantName
+      available
+      enabled
+      botUsername
+      botUrl
+      feeMonthlyCents
+      feePricingMode
+      feePerAccountCents
+      linkedAccountCount
+      totalMonthlyCents
+      billingMethod
+      canActivate
+      canManageTeam
+      invoices {
+        id
+        billingPeriod
+        amountCents
+        status
+        billedAt
+      }
+      members {
+        userId
+        name
+        email
+        role
+        profile
+        canActViaMessenger
+        isYou
+        links {
+          id
+          channel
+          chatId
+          displayName
+          label
+          profileOverride
+          effectiveProfile
+          allowedActions
+          actionPreset
+          linkedAt
+          paused
+        }
+      }
+    }
+  }
+`;
+
+export const SET_RESTAURANT_MESSENGER_BOT_ENABLED = gql`
+  mutation SetRestaurantMessengerBotEnabled($restaurantId: ID!, $enabled: Boolean!) {
+    setRestaurantMessengerBotEnabled(restaurantId: $restaurantId, enabled: $enabled) {
+      restaurantId
+      enabled
+      available
+    }
+  }
+`;
+
+export const CREATE_MESSENGER_LINK_INVITE = gql`
+  mutation CreateMessengerLinkInvite($restaurantId: ID!, $userId: ID) {
+    createMessengerLinkInvite(restaurantId: $restaurantId, userId: $userId) {
+      url
+      token
       expiresAt
     }
   }
 `;
 
-export const ELEVARO_TELEGRAM_LINKS = gql`
-  query ElevaroTelegramLinks {
-    elevaroTelegramLinks {
-      maxLinks
-      links {
-        chatId
-        linkedAt
+export const ADD_MESSENGER_LINK_MANUAL = gql`
+  mutation AddMessengerLinkManual($input: AddMessengerLinkManualInput!) {
+    addMessengerLinkManual(input: $input) {
+      restaurantId
+      enabled
+      linkedAccountCount
+    }
+  }
+`;
+
+export const UPDATE_MESSENGER_LINK = gql`
+  mutation UpdateMessengerLink($input: UpdateMessengerLinkInput!) {
+    updateMessengerLink(input: $input) {
+      restaurantId
+      enabled
+    }
+  }
+`;
+
+export const REMOVE_MESSENGER_LINK = gql`
+  mutation RemoveMessengerLink($restaurantId: ID!, $linkId: ID!) {
+    removeMessengerLink(restaurantId: $restaurantId, linkId: $linkId)
+  }
+`;
+
+export const SEND_MESSENGER_BOT_TEST = gql`
+  mutation SendMessengerBotTest($restaurantId: ID!) {
+    sendMessengerBotTest(restaurantId: $restaurantId)
+  }
+`;
+
+export const ADMIN_MESSENGER_BOT = gql`
+  query AdminMessengerBot {
+    adminMessengerBot {
+      enabled
+      availability
+      feeMonthlyCents
+      feePricingMode
+      billingMethod
+      telegramConnected
+      telegramBotUsername
+      telegramBotUrl
+      webhookBaseConfigured
+      activeRestaurantCount
+      linkedChatCount
+      transport {
+        mode
+        webhookUrl
+        pendingUpdates
+        lastError
       }
+    }
+  }
+`;
+
+export const ADMIN_MESSENGER_BOT_RESTAURANTS = gql`
+  query AdminMessengerBotRestaurants($search: String, $page: Int, $pageSize: Int) {
+    adminMessengerBotRestaurants(search: $search, page: $page, pageSize: $pageSize) {
+      total
+      page
+      pageSize
+      restaurants {
+        restaurantId
+        name
+        access
+        enabled
+        available
+        active
+        feeOverrideCents
+        effectiveFeeCents
+        estimatedChargeCents
+        linkedChatCount
+      }
+    }
+  }
+`;
+
+export const ADMIN_UPDATE_MESSENGER_BOT = gql`
+  mutation AdminUpdateMessengerBot($input: AdminUpdateMessengerBotInput!) {
+    adminUpdateMessengerBot(input: $input) {
+      enabled
+      availability
+      feeMonthlyCents
+      feePricingMode
+      billingMethod
+      telegramConnected
+      telegramBotUsername
+    }
+  }
+`;
+
+export const ADMIN_CONNECT_TELEGRAM_BOT = gql`
+  mutation AdminConnectTelegramBot($botToken: String!) {
+    adminConnectTelegramBot(botToken: $botToken) {
+      telegramConnected
+      telegramBotUsername
+      telegramBotUrl
+    }
+  }
+`;
+
+export const ADMIN_DISCONNECT_TELEGRAM_BOT = gql`
+  mutation AdminDisconnectTelegramBot {
+    adminDisconnectTelegramBot {
+      telegramConnected
+      telegramBotUsername
+    }
+  }
+`;
+
+export const ADMIN_SET_RESTAURANT_MESSENGER_BOT = gql`
+  mutation AdminSetRestaurantMessengerBot($input: AdminSetRestaurantMessengerBotInput!) {
+    adminSetRestaurantMessengerBot(input: $input) {
+      restaurantId
+      access
+      enabled
+      feeOverrideCents
+      effectiveFeeCents
+      active
     }
   }
 `;

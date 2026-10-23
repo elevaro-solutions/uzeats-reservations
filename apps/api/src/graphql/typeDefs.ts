@@ -670,19 +670,149 @@ export const typeDefs = `#graphql
     clientSecret: String
   }
 
-  type ElevaroTelegramLink {
-    deepLink: String!
-    expiresAt: String!
+  type MessengerBotTransport {
+    mode: String!
+    webhookUrl: String
+    pendingUpdates: Int
+    lastError: String
   }
 
-  type ElevaroTelegramLinkedChat {
+  type AdminMessengerBot {
+    enabled: Boolean!
+    availability: String!
+    feeMonthlyCents: Int!
+    feePricingMode: String!
+    billingMethod: String!
+    telegramConnected: Boolean!
+    telegramBotUsername: String
+    telegramBotUrl: String
+    transport: MessengerBotTransport!
+    webhookBaseConfigured: Boolean!
+    activeRestaurantCount: Int!
+    linkedChatCount: Int!
+  }
+
+  type AdminMessengerBotRestaurant {
+    restaurantId: ID!
+    name: String!
+    access: String!
+    enabled: Boolean!
+    available: Boolean!
+    active: Boolean!
+    feeOverrideCents: Int
+    effectiveFeeCents: Int!
+    estimatedChargeCents: Int!
+    linkedChatCount: Int!
+  }
+
+  type AdminMessengerBotRestaurantConnection {
+    restaurants: [AdminMessengerBotRestaurant!]!
+    total: Int!
+    page: Int!
+    pageSize: Int!
+  }
+
+  input AdminUpdateMessengerBotInput {
+    enabled: Boolean
+    availability: String
+    feeMonthlyCents: Int
+    feePricingMode: String
+    billingMethod: String
+  }
+
+  input AdminSetRestaurantMessengerBotInput {
+    restaurantId: ID!
+    access: String
+    enabled: Boolean
+    feeOverrideCents: Int
+    clearFeeOverride: Boolean
+  }
+
+  type MessengerLinkInfo {
+    id: ID!
+    channel: String!
     chatId: String!
-    linkedAt: String!
+    displayName: String
+    label: String
+    profileOverride: String
+    effectiveProfile: String
+    allowedActions: [String!]
+    actionPreset: String
+    linkedAt: DateTime!
+    lastSeenAt: DateTime
+    paused: Boolean!
+    createdAt: DateTime!
+    updatedAt: DateTime!
   }
 
-  type ElevaroTelegramLinks {
-    links: [ElevaroTelegramLinkedChat!]!
-    maxLinks: Int!
+  type RestaurantMessengerBotMember {
+    userId: ID!
+    name: String
+    email: String
+    role: String!
+    profile: String
+    canActViaMessenger: Boolean!
+    isYou: Boolean!
+    links: [MessengerLinkInfo!]!
+  }
+
+  type MessengerBotFeeInvoice {
+    id: ID!
+    periodStart: DateTime!
+    periodEnd: DateTime!
+    billingPeriod: String!
+    amountCents: Int!
+    status: String!
+    billingMethod: String!
+    billedAt: DateTime
+    createdAt: DateTime!
+  }
+
+  type RestaurantMessengerBot {
+    restaurantId: ID!
+    restaurantName: String!
+    available: Boolean!
+    enabled: Boolean!
+    botUsername: String
+    botUrl: String
+    feeMonthlyCents: Int!
+    feePricingMode: String!
+    feePerAccountCents: Int!
+    linkedAccountCount: Int!
+    totalMonthlyCents: Int!
+    billingMethod: String!
+    canActivate: Boolean!
+    canManageTeam: Boolean!
+    invoices: [MessengerBotFeeInvoice!]!
+    members: [RestaurantMessengerBotMember!]!
+  }
+
+  type MessengerLinkInvite {
+    url: String!
+    token: String!
+    expiresAt: DateTime!
+  }
+
+  input AddMessengerLinkManualInput {
+    restaurantId: ID!
+    userId: ID!
+    chatId: String!
+    token: String
+    label: String
+    profileOverride: String
+    allowedActions: [String!]
+  }
+
+  input UpdateMessengerLinkInput {
+    restaurantId: ID!
+    linkId: ID!
+    label: String
+    clearLabel: Boolean
+    profileOverride: String
+    clearProfileOverride: Boolean
+    allowedActions: [String!]
+    clearAllowedActions: Boolean
+    paused: Boolean
   }
 
   type WaitlistEntry {
@@ -3905,7 +4035,13 @@ export const typeDefs = `#graphql
     myRestaurantLoyaltyBalance(restaurantId: ID!): Int!
     myRestaurantLoyaltyHistory(restaurantId: ID, limit: Int): [RestaurantLoyaltyTransaction!]!
     myNotifications(limit: Int, offset: Int): AppNotificationConnection!
-    elevaroTelegramLinks: ElevaroTelegramLinks!
+    adminMessengerBot: AdminMessengerBot!
+    adminMessengerBotRestaurants(
+      search: String
+      page: Int
+      pageSize: Int
+    ): AdminMessengerBotRestaurantConnection!
+    restaurantMessengerBot(restaurantId: ID!): RestaurantMessengerBot!
     unreadNotificationCount: Int!
     myOwnerSupportTickets(status: String, limit: Int, offset: Int): SupportTicketConnection!
     myOwnerSupportTicket(id: ID!): SupportTicket
@@ -4413,7 +4549,18 @@ export const typeDefs = `#graphql
     registerPushToken(token: String!, platform: String!): Boolean!
     unregisterPushToken(token: String!): Boolean!
     linkTelegram(chatId: String!): Boolean!
-    createElevaroTelegramLink: ElevaroTelegramLink!
+    adminUpdateMessengerBot(input: AdminUpdateMessengerBotInput!): AdminMessengerBot!
+    adminConnectTelegramBot(botToken: String!): AdminMessengerBot!
+    adminDisconnectTelegramBot: AdminMessengerBot!
+    adminSetRestaurantMessengerBot(
+      input: AdminSetRestaurantMessengerBotInput!
+    ): AdminMessengerBotRestaurant!
+    setRestaurantMessengerBotEnabled(restaurantId: ID!, enabled: Boolean!): RestaurantMessengerBot!
+    createMessengerLinkInvite(restaurantId: ID!, userId: ID): MessengerLinkInvite!
+    addMessengerLinkManual(input: AddMessengerLinkManualInput!): RestaurantMessengerBot!
+    updateMessengerLink(input: UpdateMessengerLinkInput!): RestaurantMessengerBot!
+    removeMessengerLink(restaurantId: ID!, linkId: ID!): Boolean!
+    sendMessengerBotTest(restaurantId: ID!): Int!
     updateNotificationPreferences(
       userId: ID
       restaurantId: ID

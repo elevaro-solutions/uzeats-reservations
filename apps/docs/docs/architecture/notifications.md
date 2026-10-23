@@ -101,7 +101,9 @@ Service worker registered on diner web for subscription management. The profile 
 
 ## Telegram
 
-When `TELEGRAM_BOT_TOKEN` is set:
+**Merchant messenger bot** (Partner Hub → Notifications): platform connects a BotFather token in Admin → Config → Messenger bot. Staff open an invite deep link (`createMessengerLinkInvite`) or paste a chat id. Cards support Accept / Reject / Seat / Complete / No-show / Cancel. Webhook: `{MESSENGER_BOT_WEBHOOK_BASE_URL}/webhooks/messenger-bot` (or long polling when unset).
+
+**Legacy plain alerts** when `TELEGRAM_BOT_TOKEN` is set:
 
 1. User links account via bot `/start` flow
 2. `telegramChatId` stored on User
