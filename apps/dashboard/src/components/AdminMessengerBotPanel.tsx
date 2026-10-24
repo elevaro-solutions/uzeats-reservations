@@ -26,6 +26,19 @@ import {
 
 const { Text, Paragraph } = Typography;
 
+type RestaurantBotRow = {
+  restaurantId: string;
+  name: string;
+  access: string;
+  enabled: boolean;
+  available: boolean;
+  active: boolean;
+  feeOverrideCents?: number | null;
+  effectiveFeeCents: number;
+  estimatedChargeCents: number;
+  linkedChatCount: number;
+};
+
 function money(cents: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
     (cents || 0) / 100,
@@ -44,7 +57,8 @@ export function AdminMessengerBotPanel() {
 
   const [botToken, setBotToken] = useState('');
   const bot = data?.adminMessengerBot;
-  const restaurants = restData?.adminMessengerBotRestaurants?.restaurants ?? [];
+  const restaurants: RestaurantBotRow[] =
+    restData?.adminMessengerBotRestaurants?.restaurants ?? [];
 
   const persist = async (input: Record<string, unknown>) => {
     try {
@@ -165,7 +179,7 @@ export function AdminMessengerBotPanel() {
       </Card>
 
       <Card title="Restaurant access">
-        <Table
+        <Table<RestaurantBotRow>
           size="small"
           rowKey="restaurantId"
           dataSource={restaurants}
@@ -178,7 +192,7 @@ export function AdminMessengerBotPanel() {
             {
               title: 'Access',
               width: 160,
-              render: (_: unknown, row: { restaurantId: string; access: string }) => (
+              render: (_value, row) => (
                 <Select
                   size="small"
                   style={{ width: 140 }}
@@ -195,7 +209,7 @@ export function AdminMessengerBotPanel() {
             {
               title: 'On',
               width: 70,
-              render: (_: unknown, row: { restaurantId: string; enabled: boolean }) => (
+              render: (_value, row) => (
                 <Switch
                   size="small"
                   checked={row.enabled}
@@ -206,8 +220,7 @@ export function AdminMessengerBotPanel() {
             {
               title: 'Fee',
               width: 120,
-              render: (_: unknown, row: { effectiveFeeCents: number; estimatedChargeCents: number }) =>
-                money(row.estimatedChargeCents || row.effectiveFeeCents),
+              render: (_value, row) => money(row.estimatedChargeCents || row.effectiveFeeCents),
             },
             {
               title: 'Chats',
@@ -217,7 +230,7 @@ export function AdminMessengerBotPanel() {
             {
               title: 'Active',
               width: 80,
-              render: (_: unknown, row: { active: boolean }) =>
+              render: (_value, row) =>
                 row.active ? <Tag color="green">Yes</Tag> : <Tag>No</Tag>,
             },
           ]}

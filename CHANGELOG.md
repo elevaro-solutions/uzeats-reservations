@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.89.1] — 2026-10-24
+
+### Fixed
+
+- Dashboard production build: Admin Messenger bot restaurant table column types
+
 ## [0.89.0] — 2026-10-24
 
 ### Added
