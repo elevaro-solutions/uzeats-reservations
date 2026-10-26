@@ -6,6 +6,7 @@ import {
   RESTAURANT_RESERVATION_CANCELLATION_REASONS,
   buildReservationCancellationReason,
 } from '@reservations/shared';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text } = Typography;
 
@@ -94,17 +95,16 @@ export function CancelReservationModal({
             Additional message{' '}
             {detailsRequired ? <Text type="danger">*</Text> : <Text type="secondary">(optional)</Text>}
           </Text>
-          <Input.TextArea
+          <RichTextArea
             rows={3}
             value={details}
-            onChange={(e) => setDetails(e.target.value)}
+            onChange={setDetails}
             placeholder={
               detailsRequired
                 ? 'Tell the guest why you are cancelling…'
                 : 'Optional note shared with the guest…'
             }
             maxLength={500}
-            showCount
           />
         </div>
       </Space>

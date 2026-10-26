@@ -19,6 +19,7 @@ import { useAuth } from '@/lib/auth';
 import { PLATFORM_TIMEZONE } from '@reservations/shared';
 import { RESERVATION_FOR_SURVEY, SURVEY_CONFIG, SUBMIT_SURVEY } from '@/lib/graphql';
 import { formatReservationWhen } from '@/lib/reservationDisplay';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Title, Text } = Typography;
 
@@ -185,10 +186,10 @@ export default function SurveyPage() {
           <Text strong style={{ display: 'block', marginBottom: 4 }}>
             Anything else you&apos;d like to share?
           </Text>
-          <Input.TextArea
+          <RichTextArea
             rows={4}
             value={feedback}
-            onChange={(e) => setFeedback(e.target.value)}
+            onChange={setFeedback}
             placeholder="Tell us about your experience..."
           />
         </div>

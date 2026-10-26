@@ -8,6 +8,7 @@ import { SupportAttachmentThumbs } from '@/components/SupportAttachmentThumbs';
 import SupportAttachmentUpload, {
   type SupportAttachmentDraft,
 } from '@/components/SupportAttachmentUpload';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text, Paragraph } = Typography;
 
@@ -282,22 +283,14 @@ export function ReviewReportComposer({
         value={attachments}
         onChange={onAttachmentsChange}
         leading={
-          <Input.TextArea
+          <RichTextArea
             value={body}
-            onChange={(e) => onBodyChange(e.target.value)}
+            onChange={onBodyChange}
             placeholder={placeholder}
             maxLength={5000}
-            autoSize={{ minRows: 1, maxRows: 4 }}
-            onPressEnter={(e) => {
-              if (!e.shiftKey) {
-                e.preventDefault();
-                submit();
-              }
-            }}
-            style={{
-              borderRadius: radii.lg,
-              resize: 'none',
-            }}
+            rows={1}
+            maxRows={4}
+            submitOnEnter={submit}
           />
         }
         trailing={

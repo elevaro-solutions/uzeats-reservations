@@ -33,6 +33,7 @@ import PhotoUpload from '@/components/PhotoUpload';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { useFormDirty } from '@/lib/useFormDirty';
 import { gql } from '@apollo/client';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Title } = Typography;
 const { TextArea } = Input;
@@ -415,7 +416,7 @@ function ExperiencesPageContent() {
             rules={[{ required: true, message: 'Enter a description' }]}
             style={{ marginBottom: 12 }}
           >
-            <TextArea rows={2} placeholder="Short overview guests will see" />
+            <RichTextArea rows={2} placeholder="Short overview guests will see" />
           </Form.Item>
           <Form.Item
             name="type"
@@ -516,7 +517,7 @@ function ExperiencesPageContent() {
           </Form.Item>
 
           <Form.Item name="includes" label="What's included (one per line)" style={{ marginBottom: 12 }}>
-            <TextArea rows={2} placeholder="5-course tasting menu&#10;Wine pairings&#10;Meet the chef" />
+            <RichTextArea rows={2} placeholder="5-course tasting menu&#10;Wine pairings&#10;Meet the chef" />
           </Form.Item>
           <Form.Item name="tags" label="Tags (comma-separated)" style={{ marginBottom: 12 }}>
             <Input placeholder="wine, tasting, special" />

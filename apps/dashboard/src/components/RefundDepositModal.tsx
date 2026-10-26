@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Input, InputNumber, Modal, Select, Space, Typography, message } from 'antd';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text } = Typography;
 
@@ -168,15 +169,14 @@ export function RefundDepositModal({
           <Text style={{ display: 'block', marginBottom: 6 }}>
             Details{detailsRequired ? <Text type="danger"> *</Text> : ' (optional)'}
           </Text>
-          <Input.TextArea
+          <RichTextArea
             value={details}
-            onChange={(e) => setDetails(e.target.value)}
+            onChange={setDetails}
             placeholder={
               detailsRequired ? 'Briefly explain why' : 'Optional note for the guest / audit log'
             }
             rows={3}
             maxLength={500}
-            showCount
           />
         </div>
       </Space>

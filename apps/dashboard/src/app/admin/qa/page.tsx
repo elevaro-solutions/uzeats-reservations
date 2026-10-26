@@ -20,6 +20,7 @@ import { PageHeader, spacing } from '@reservations/ui';
 import { QA_CHECKLIST, SAVE_QA_CHECKLIST } from '@/lib/graphql';
 import { useAuth } from '@/lib/auth';
 import { canManageQaChecklist } from '@reservations/shared';
+import { RichTextArea } from '@/components/RichTextArea';
 
 type QaItem = {
   id: string;
@@ -161,6 +162,7 @@ export default function AdminQaChecklistPage() {
       <PageHeader
         title={`QA checklist${checklist ? ` · v${checklist.release}` : ''}`}
         subtitle="Saved in the database. Only Super Admin and QA can view or change it."
+        extra={<Link href="/admin/qa/issues">Issues</Link>}
       />
       {signed ? (
         <Alert
@@ -286,11 +288,11 @@ export default function AdminQaChecklistPage() {
       ))}
 
       <Typography.Text type="secondary">Notes / waivers</Typography.Text>
-      <Input.TextArea
+      <RichTextArea
         rows={3}
         value={notes}
         disabled={signed}
-        onChange={(e) => setNotes(e.target.value)}
+        onChange={setNotes}
         onBlur={() => {
           if (notes !== (checklist?.notes ?? '')) persist({ notes });
         }}
@@ -350,12 +352,12 @@ export default function AdminQaChecklistPage() {
             </div>
             <div>
               <Typography.Text type="secondary">Optional note</Typography.Text>
-              <Input.TextArea
+              <RichTextArea
                 rows={4}
                 value={noteDraft}
                 disabled={signed || saving}
                 placeholder="Waiver, bug id, or what you saw. Leave blank if you have nothing to add."
-                onChange={(e) => setNoteDraft(e.target.value)}
+                onChange={setNoteDraft}
                 onBlur={saveItemNote}
                 style={{ marginTop: 8 }}
               />

@@ -5292,6 +5292,96 @@ export const QA_CHECKLIST = gql`
   }
 `;
 
+export const QA_ISSUES = gql`
+  query QaIssues(
+    $search: String
+    $status: String
+    $severity: String
+    $tags: [String!]
+    $limit: Int
+    $offset: Int
+  ) {
+    qaIssues(
+      search: $search
+      status: $status
+      severity: $severity
+      tags: $tags
+      limit: $limit
+      offset: $offset
+    ) {
+      total
+      limit
+      offset
+      items {
+        id
+        number
+        code
+        title
+        description
+        tags
+        status
+        severity
+        path
+        environment
+        release
+        attachments {
+          id
+          url
+          key
+          filename
+          contentType
+          size
+        }
+        reporterName
+        createdAt
+        updatedAt
+      }
+    }
+  }
+`;
+
+export const SAVE_QA_ISSUE = gql`
+  mutation SaveQaIssue($input: SaveQaIssueInput!) {
+    saveQaIssue(input: $input) {
+      id
+      code
+      title
+      status
+      updatedAt
+    }
+  }
+`;
+
+export const DELETE_QA_ISSUE = gql`
+  mutation DeleteQaIssue($id: ID!) {
+    deleteQaIssue(id: $id)
+  }
+`;
+
+export const EXPORT_QA_ISSUES = gql`
+  mutation ExportQaIssues(
+    $search: String
+    $status: String
+    $severity: String
+    $tags: [String!]
+    $format: String!
+  ) {
+    exportQaIssues(
+      search: $search
+      status: $status
+      severity: $severity
+      tags: $tags
+      format: $format
+    ) {
+      filename
+      content
+      rowCount
+      mimeType
+      encoding
+    }
+  }
+`;
+
 export const SAVE_QA_CHECKLIST = gql`
   mutation SaveQaChecklist($input: SaveQaChecklistInput!) {
     saveQaChecklist(input: $input) {

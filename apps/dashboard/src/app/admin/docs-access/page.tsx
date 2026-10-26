@@ -25,6 +25,7 @@ import {
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useUrlListFilters } from '@/lib/useUrlListFilters';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
@@ -245,7 +246,7 @@ function DocsAccessPageContent() {
             <Input placeholder="developer@company.com" />
           </Form.Item>
           <Form.Item name="notes" label="Notes (optional)">
-            <Input.TextArea rows={3} />
+            <RichTextArea rows={3} />
           </Form.Item>
         </Form>
       </Modal>

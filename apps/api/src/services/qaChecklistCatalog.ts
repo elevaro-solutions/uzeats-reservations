@@ -1,4 +1,4 @@
-export const QA_CHECKLIST_RELEASE = '0.87.0';
+export const QA_CHECKLIST_RELEASE = '0.90.0';
 
 export type QaChecklistGate = 'required' | 'recommended';
 
@@ -14,75 +14,61 @@ export type QaChecklistCatalogItem = {
 /** Release-delta items stored by id. Labels ship with the API so the saved row stays small. */
 export const QA_CHECKLIST_CATALOG: QaChecklistCatalogItem[] = [
   {
-    id: 'rel-version',
+    id: 'rel-issues',
     gate: 'required',
-    group: 'Partner Hub / Admin',
-    label: 'App version under the sidebar opens release notes, with filters for new features, updates, and fixes',
+    group: 'QA issues',
+    label: 'Super Admin and QA can file, edit, filter, and export bugs and features on Issues',
     steps: [
-      'Sign in as an owner. Confirm the app version sits under the sidebar.',
-      'Click the version. Confirm the release notes page opens.',
-      'Filter new features, updates, and fixes. Confirm each filter shows only that kind of note.',
-      'Sign in as an admin and repeat. The version and the same page are there.',
+      'Sign in as a QA user. Confirm Issues is in the QA sidebar and opens /admin/qa/issues.',
+      'Create an issue with a title, rich-text description, tag, severity, page path, environment, release, and a screenshot. Confirm it appears as QA-00x.',
+      'Open it, change the status from the table, then edit the title and save. Confirm the list and the form both show the new values.',
+      'Filter by status, severity, tag, and search (title or QA-001). Confirm the list matches. Export PDF, Excel, and Word with those filters and confirm the download includes only matching rows.',
+      'Sign in as a super admin and confirm the same page is available. Sign in as an owner and confirm /admin/qa/issues is not in the menu and does not load.',
     ],
   },
   {
-    id: 'rel-accounts',
+    id: 'rel-issues-guide',
     gate: 'required',
-    group: 'Partner Hub / Admin',
-    label: 'Platform accounts lists every platform role, including QA, when no role is selected',
+    group: 'QA issues',
+    label: 'The checklist and QA guide point to Issues for filing bugs and features',
     steps: [
-      'Sign in as a super admin and open Admin → Platform accounts.',
-      'Clear the role filter.',
-      'Confirm admin, account manager, super admin, and QA accounts are all listed.',
-      'Select QA only and confirm the list narrows to QA accounts.',
+      'On /admin/qa, confirm the Issues link is in the header.',
+      'Open QA guide. Confirm it tells you to file problems on Issues, with title, path, severity, tags, and a screenshot.',
+      'Follow that link and confirm it opens the Issues list, not the checklist.',
     ],
   },
   {
-    id: 'rel-qa-item',
+    id: 'rel-review-email',
     gate: 'required',
-    group: 'QA checklist',
-    label: 'Opening a checklist item shows its steps, when it was completed, and an optional note',
+    group: 'Reviews',
+    label: 'New-review emails to the owner and managers include a link to that venue’s reviews in Partner Hub',
     steps: [
-      'Open /admin/qa as a super admin or QA user.',
-      'Confirm the list shows the label and status, and does not show the steps.',
-      'Open an item. Confirm the panel shows the steps, the completion time, and an optional note.',
-      'Save a note and confirm the list shows that a note was added.',
-      'Check the item and confirm a completion time appears. Uncheck it and confirm the time clears.',
+      'As a diner, leave a review for a restaurant that has an owner or manager with email.',
+      'Open the new-review email (or the recorded stub if SendGrid is off). Confirm it includes a button or link to Partner Hub reviews for that restaurant (/reviews?restaurant=<id>).',
+      'Open that link while signed in as the owner or manager. Confirm it lands on that venue’s reviews.',
+      'If email is stubbed, write “stubbed” in the note. Inbox, push, and SMS can stay the short body without that dashboard URL.',
     ],
   },
   {
-    id: 'rel-qa-latest',
+    id: 'rel-rich-notes',
     gate: 'required',
-    group: 'QA checklist',
-    label: 'The checklist shows only the latest release; older releases are on Versions, and the QA guide explains how to test',
+    group: 'Notes and messages',
+    label: 'Notes, messages, and reviews use a formatting toolbar instead of a plain box',
     steps: [
-      'On /admin/qa, confirm the release block is only the latest shipped version.',
-      'Open Versions from the QA sidebar. Confirm each release has a date, title, tags, and a copy link.',
-      'Open QA guide. Confirm it covers how to test, practical tips, and how to report a problem.',
+      'On diner web, cancel a reservation or leave a review. Confirm the notes field has bold, lists, and links, and that saved text still shows after reload.',
+      'In Partner Hub, open a reservation cancel, a guest note, or a review reply. Confirm the same toolbar and that the saved formatting still displays.',
+      'On Issues, add bold and a list in the description. Save, reopen, and confirm the formatting is still there.',
     ],
   },
   {
-    id: 'rel-qa-view',
+    id: 'rel-sidebar-drawer',
     gate: 'required',
     group: 'Fixes',
-    label: 'Viewing as a QA account opens the QA checklist, not the restaurant owner sidebar',
+    label: 'Opening a right-hand drawer does not jump or hide the Partner Hub sidebar',
     steps: [
-      'As a super admin, use View as on a QA account.',
-      'Confirm the session opens the QA checklist.',
-      'Confirm the sidebar is the QA menu (checklist, Versions, Guide), not the restaurant owner sidebar.',
-      'Confirm the checklist loads during that session.',
-    ],
-  },
-  {
-    id: 'rel-qa-account',
-    gate: 'required',
-    group: 'Fixes',
-    label: 'Super admins can create and edit QA accounts',
-    steps: [
-      'As a super admin, create a user with role QA and no restaurant.',
-      'Confirm the account saves and is not rejected as an invalid role.',
-      'Edit that account and confirm the change saves.',
-      'Sign in as the new QA user and confirm they land on the checklist.',
+      'Sign in as a super admin or QA user on a desktop-width window. Scroll the checklist so the sidebar stays in view.',
+      'Open a checklist item (steps drawer). Confirm the sidebar does not jump up or slide away. Close the drawer and confirm the sidebar is still in the same place.',
+      'Repeat on another page that opens a right-hand panel (for example a reservation cancel). Confirm the page scrolls in the main column, not the whole window.',
     ],
   },
 ];

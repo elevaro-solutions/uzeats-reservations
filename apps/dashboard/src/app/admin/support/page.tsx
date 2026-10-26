@@ -35,6 +35,7 @@ import {
   SUPPORT_ASSIGNEE_ROLES,
   personLabel,
 } from '@/lib/supportTickets';
+import { RichTextArea } from '@/components/RichTextArea';
 
 function SupportPageContent() {
   const router = useRouter();
@@ -291,7 +292,7 @@ function SupportPageContent() {
             <AdminUserSelect allowClear placeholder="Optional" />
           </Form.Item>
           <Form.Item name="note" label="Initial internal note">
-            <Input.TextArea rows={3} />
+            <RichTextArea rows={3} />
           </Form.Item>
         </Form>
       </Modal>

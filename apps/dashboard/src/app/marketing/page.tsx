@@ -47,6 +47,7 @@ import {
   RESTAURANT_SETTINGS,
 } from '@/lib/graphql';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Title, Text } = Typography;
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -305,7 +306,7 @@ function GiftCardsTab({ restaurantId }: { restaurantId?: string }) {
             <DatePicker style={{ width: '100%' }} placeholder="Optional expiry date" />
           </Form.Item>
           <Form.Item name="note" label="Note">
-            <Input.TextArea rows={2} placeholder="Happy birthday — enjoy dinner on us" />
+            <RichTextArea rows={2} placeholder="Happy birthday — enjoy dinner on us" />
           </Form.Item>
         </Form>
       </Modal>
@@ -488,7 +489,7 @@ function PromotionsTab({ restaurantId }: { restaurantId?: string }) {
             <Input placeholder="Happy hour — 20% off" />
           </Form.Item>
           <Form.Item name="description" label="Description">
-            <Input.TextArea rows={3} placeholder="20% off all bookings before 6pm" />
+            <RichTextArea rows={3} placeholder="20% off all bookings before 6pm" />
           </Form.Item>
           <Row gutter={12}>
             <Col span={12}>

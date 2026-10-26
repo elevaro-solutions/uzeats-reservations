@@ -331,6 +331,7 @@ import {
 } from "../services/supportOps.js";
 import { provisionDefaultRestaurantSetup } from "../services/restaurantSetup.js";
 import { getQaChecklist, qaActorName, saveQaChecklist } from "../services/qaChecklist.js";
+import { deleteQaIssue, exportQaIssues, listQaIssues, saveQaIssue } from "../services/qaIssues.js";
 import { partnerAdminReleaseNotes, readQaReleaseHistory } from "../services/qaReleaseHistory.js";
 import { placeNewTable } from "../services/tablePlacement.js";
 import { restaurantInputToDb } from "../lib/restaurantInput.js";
@@ -2023,6 +2024,22 @@ export const resolvers = {
     ) => {
       requireQaStaff(ctx);
       return getQaChecklist(args.release ?? undefined);
+    },
+
+    qaIssues: async (
+      _: unknown,
+      args: {
+        search?: string | null;
+        status?: string | null;
+        severity?: string | null;
+        tags?: string[] | null;
+        limit?: number | null;
+        offset?: number | null;
+      },
+      ctx: GraphQLContext,
+    ) => {
+      requireQaStaff(ctx);
+      return listQaIssues(args);
     },
 
     loyaltyProgram: async () => getLoyaltyProgram(),
@@ -8505,6 +8522,57 @@ export const resolvers = {
         name: qaActorName(user),
         role: user.role,
       });
+    },
+
+    saveQaIssue: async (
+      _: unknown,
+      args: {
+        input: {
+          id?: string | null;
+          title?: string | null;
+          description?: string | null;
+          tags?: string[] | null;
+          status?: string | null;
+          severity?: string | null;
+          path?: string | null;
+          environment?: string | null;
+          release?: string | null;
+          attachments?: Array<{
+            url: string;
+            key?: string | null;
+            filename: string;
+            contentType: string;
+            size?: number | null;
+          }> | null;
+        };
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireQaStaff(ctx);
+      return saveQaIssue(args.input, {
+        id: user._id.toString(),
+        name: qaActorName(user),
+      });
+    },
+
+    deleteQaIssue: async (_: unknown, args: { id: string }, ctx: GraphQLContext) => {
+      requireQaStaff(ctx);
+      return deleteQaIssue(args.id);
+    },
+
+    exportQaIssues: async (
+      _: unknown,
+      args: {
+        search?: string | null;
+        status?: string | null;
+        severity?: string | null;
+        tags?: string[] | null;
+        format: string;
+      },
+      ctx: GraphQLContext,
+    ) => {
+      requireQaStaff(ctx);
+      return exportQaIssues(args, args.format);
     },
 
     ...adminOpsMutation,

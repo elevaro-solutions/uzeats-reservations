@@ -42,6 +42,7 @@ import {
 import { isSuperAdmin } from '@/lib/roles';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text } = Typography;
 
@@ -339,7 +340,7 @@ function AdminTableShapesContent() {
           </div>
 
           <Form.Item name="description" label="Description">
-            <Input.TextArea rows={2} placeholder="Optional help text for partners" />
+            <RichTextArea rows={2} placeholder="Optional help text for partners" />
           </Form.Item>
           <Form.Item
             name="renderPreset"

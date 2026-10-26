@@ -1,11 +1,19 @@
 # API — Learnings & Observations
 
+## [2026-10-20] QA issues are a separate collection from the checklist
+- `qaIssues`, `saveQaIssue`, `deleteQaIssue`, and `exportQaIssues` use `QaIssue` (number, tags, status, severity, path, attachments). Only `super_admin` and `qa` (`requireQaStaff`). A full page URL is stored as pathname + search + hash. Export `word` is a stored-zip `.docx` via `toDocx`; `pdf` and `excel` reuse `formatExport`. Cap is 1000 rows.
+- Why it matters: Checklist notes are not the bug list. Sign-off still reads `p0Clear` on `QaReleaseChecklist`; it does not count open `QaIssue` rows.
+
+## [2026-10-20] New-review manager email includes a Partner Hub reviews link
+- `notifyRestaurantManagers` for `new_review` sets `htmlBody` / `emailText` via `newReviewManagerEmail`. The button and plain-text line point at `DASHBOARD_APP_URL/reviews?restaurant=<id>` (fallback `http://localhost:3001`). Inbox, push, and SMS still use the short body.
+- Why it matters: A caller-supplied `htmlBody` skips this. Don’t put the dashboard URL in the in-app body — Partner Hub already deep-links `new_review` to `/reviews`.
+
 ## [2026-10-18] Changelog regex groups are optional under noUncheckedIndexedAccess
 - `parseQaReleaseHistory` must read `header[1]`, section, and bullet captures only after a trim check. API `tsc` treats those groups as `string | undefined`.
 - Why it matters: Vitest does not typecheck this file. Dokku fails the image on TS2532.
 
 ## [2026-10-18] QA checklist catalog is the current release only
-- `QA_CHECKLIST_RELEASE` is the active gate (`0.87.0`). `QA_CHECKLIST_CATALOG` is that release’s tasks. A new release replaces the catalog; older sign-off stays on its own `QaReleaseChecklist` row.
+- `QA_CHECKLIST_RELEASE` is the active gate (`0.90.0`). `QA_CHECKLIST_CATALOG` is that release’s tasks. A new release replaces the catalog; older sign-off stays on its own `QaReleaseChecklist` row.
 - Why it matters: Leaving the previous release’s items in the catalog makes sign-off re-test work that already shipped.
 
 ## [2026-10-18] QA checklist allows a QA impersonation session

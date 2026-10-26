@@ -8,19 +8,22 @@ import {
   FileExcelOutlined,
   FilePdfOutlined,
   FileTextOutlined,
+  FileWordOutlined,
 } from '@ant-design/icons';
 
-export type ListExportFormat = 'xlsx' | 'pdf' | 'json';
+export type ListExportFormat = 'xlsx' | 'pdf' | 'docx' | 'json';
 
 const LABELS: Record<ListExportFormat, string> = {
   xlsx: 'Excel',
   pdf: 'PDF',
+  docx: 'Word',
   json: 'JSON',
 };
 
 const ICONS: Record<ListExportFormat, ReactNode> = {
   xlsx: <FileExcelOutlined />,
   pdf: <FilePdfOutlined />,
+  docx: <FileWordOutlined />,
   json: <FileTextOutlined />,
 };
 

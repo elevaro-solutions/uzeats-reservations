@@ -4,7 +4,25 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.90.0] — 2026-10-26
+
+### Added
+
+- Partner Hub `/admin/qa/issues`: Super Admin and QA can file bugs and features (title, rich-text description, tags, severity, status, page path, environment, release, screenshots), filter and search the list, and download the current filters as PDF, Excel, or Word
+- New-review emails to restaurant owners and managers include a link to that venue’s reviews in Partner Hub
+- Partner Hub `/admin/qa` tasks for this release: Issues (file, filter, export), the guide link to Issues, new-review emails, formatted notes, and the sidebar staying put when a drawer opens
+
+### Changed
+
+- Notes, messages, and reviews on diner web and Partner Hub use a formatting toolbar (bold, lists, links) instead of a plain text box
+
+### Fixed
+
+- Partner Hub sidebar stays put when a drawer opens (QA checklist steps, and other right-hand panels). The page scrolls in the main column, so the drawer’s scroll lock no longer shifts the sidebar up
+
+### Docs
+
+- API and dashboard notes for QA issues, new-review manager emails, and drawer scroll lock
 
 ## [0.89.1] — 2026-10-24
 

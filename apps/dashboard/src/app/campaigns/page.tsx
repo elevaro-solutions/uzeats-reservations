@@ -31,6 +31,7 @@ import {
   SEND_CAMPAIGN,
 } from '@/lib/graphql';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Title, Text } = Typography;
 
@@ -229,7 +230,7 @@ function CampaignsPageContent() {
             <Input placeholder="We miss you at {{restaurantName}}!" />
           </Form.Item>
           <Form.Item name="body" label="Email body" rules={[{ required: true }]}>
-            <Input.TextArea
+            <RichTextArea
               rows={6}
               placeholder={'Hi {{firstName}},\n\nIt\'s been a while since your last visit…'}
             />

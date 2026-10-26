@@ -40,6 +40,7 @@ import {
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { useUrlListFilters } from '@/lib/useUrlListFilters';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text, Paragraph } = Typography;
 
@@ -500,7 +501,7 @@ function AdminBlogPageContent() {
           </Form.Item>
 
           <Form.Item name="excerpt" label="Excerpt" rules={[{ max: 500 }]}>
-            <Input.TextArea rows={2} maxLength={500} showCount placeholder="1–2 sentence summary" />
+            <RichTextArea rows={2} maxLength={500} placeholder="1–2 sentence summary" />
           </Form.Item>
 
           <Form.Item
@@ -529,7 +530,7 @@ function AdminBlogPageContent() {
             </Col>
             <Col xs={24} md={12}>
               <Form.Item name="seoDescription" label="SEO description" rules={[{ max: 160 }]}>
-                <Input.TextArea rows={2} maxLength={160} showCount />
+                <RichTextArea rows={2} maxLength={160} />
               </Form.Item>
             </Col>
           </Row>
@@ -573,7 +574,7 @@ function AdminBlogPageContent() {
                       label="Answer"
                       rules={[{ required: true, message: 'Answer is required' }, { max: 2000 }]}
                     >
-                      <Input.TextArea rows={2} maxLength={2000} showCount />
+                      <RichTextArea rows={2} maxLength={2000} />
                     </Form.Item>
                     <Button
                       type="text"

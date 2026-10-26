@@ -29,6 +29,7 @@ import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { useFormDirty } from '@/lib/useFormDirty';
 import { gql } from '@apollo/client';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -394,7 +395,7 @@ function PrivateDiningPageContent() {
             <Input placeholder="The Cellar Room" />
           </Form.Item>
           <Form.Item name="description" label="Description">
-            <TextArea rows={2} />
+            <RichTextArea rows={2} />
           </Form.Item>
           <Space>
             <Form.Item name="minGuests" label="Min Guests" rules={[{ required: true }]}>
@@ -468,7 +469,7 @@ function PrivateDiningPageContent() {
             />
           </Form.Item>
           <Form.Item name="response" label="Message to Diner">
-            <TextArea rows={4} placeholder="Thank you for your inquiry..." />
+            <RichTextArea rows={4} placeholder="Thank you for your inquiry..." />
           </Form.Item>
         </Form>
       </Modal>

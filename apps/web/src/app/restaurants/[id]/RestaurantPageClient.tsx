@@ -167,6 +167,7 @@ import {
   minBookableExperienceParty,
   type ExperienceItem,
 } from '@/lib/experiences';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const DepositPayment = dynamic(() => import('@/components/DepositPayment'), {
   ssr: false,
@@ -1909,16 +1910,15 @@ export default function RestaurantPageClient({
                     : undefined
                 }
               >
-                <Input.TextArea
-                  autoSize={{ minRows: 2, maxRows: 4 }}
+                <RichTextArea
+                  rows={2}
+                  maxRows={4}
                   value={notes}
-                  onChange={(e) => {
-                    setNotes(e.target.value);
+                  onChange={(html) => {
+                    setNotes(html);
                     clearFieldError('guestNotes');
                   }}
                   maxLength={500}
-                  showCount
-                  status={fieldErrors.guestNotes ? 'error' : undefined}
                   placeholder={
                     showVirtualRoom
                       ? 'Allergies, celebration details, accessibility needs…'
@@ -2447,12 +2447,13 @@ export default function RestaurantPageClient({
               </Space>
             </Form.Item>
             <Form.Item label="Message" required style={{ marginBottom: 12 }}>
-              <Input.TextArea
+              <RichTextArea
                 value={largePartyMessage}
                 maxLength={500}
-                autoSize={{ minRows: 3, maxRows: 5 }}
+                rows={3}
+                maxRows={5}
                 placeholder="Share the occasion, seating needs, or anything the restaurant should know."
-                onChange={(e) => setLargePartyMessage(e.target.value)}
+                onChange={setLargePartyMessage}
               />
             </Form.Item>
             {needsProfilePhone ? (

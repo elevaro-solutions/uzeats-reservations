@@ -38,6 +38,7 @@ import {
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { useUrlListFilters } from '@/lib/useUrlListFilters';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text, Paragraph } = Typography;
 
@@ -444,7 +445,7 @@ function KindPanel({ kind, hint }: { kind: TaxonomyKind; hint: string }) {
           </Form.Item>
 
           <Form.Item name="description" label="Description" rules={[{ max: 500 }]}>
-            <Input.TextArea rows={2} maxLength={500} showCount />
+            <RichTextArea rows={2} maxLength={500} />
           </Form.Item>
 
           {kind === 'category' ? (

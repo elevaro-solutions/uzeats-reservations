@@ -275,15 +275,23 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    document.querySelector('.rt-dash-main')?.scrollTo({ top: 0, left: 0 });
+  }, [pathname]);
+
+  useEffect(() => {
     if (!isMobileNav || !mobileNavOpen) return;
-    const previousOverflow = document.body.style.overflow;
+    const main = document.querySelector('.rt-dash-main');
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousMainOverflow = main instanceof HTMLElement ? main.style.overflow : '';
     document.body.style.overflow = 'hidden';
+    if (main instanceof HTMLElement) main.style.overflow = 'hidden';
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setMobileNavOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+      if (main instanceof HTMLElement) main.style.overflow = previousMainOverflow;
       window.removeEventListener('keydown', onKey);
     };
   }, [isMobileNav, mobileNavOpen]);
@@ -657,7 +665,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div component="DashShell" style={{ display: 'contents' }}><Layout hasSider={false} style={{ minHeight: '100vh', background: colors.background }}>
+    <div component="DashShell" style={{ display: 'contents' }}><Layout hasSider={false} className="rt-dash-shell" style={{ background: colors.background }}>
       {isImpersonating && impersonator && (
         <Alert
           type="warning"
@@ -676,7 +684,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           }
         />
       )}
-      <Layout hasSider>
+      <Layout hasSider className="rt-dash-body">
       {/* On mobile the sider stays collapsed so it takes no layout width. CSS slides a full menu over the page. */}
       <Sider
         theme="light"
@@ -694,7 +702,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           top: 0,
           left: 0,
           zIndex: isMobileNav ? 1200 : undefined,
-          height: '100vh',
+          height: '100%',
           overflow: 'hidden',
           background: colors.surface,
         }}

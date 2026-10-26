@@ -14,6 +14,7 @@ import {
   formatUsd,
   type NoShowFeeFields,
 } from '@/lib/reservationFormat';
+import { RichTextArea } from '@/components/RichTextArea';
 
 type MenuItems = NonNullable<MenuProps['items']>;
 
@@ -59,12 +60,12 @@ export function buildNoShowFeeActionItems(
     Modal.confirm({
       title: `Refund ${amount} fee?`,
       content: (
-        <Input.TextArea
+        <RichTextArea
           rows={3}
           maxLength={500}
           placeholder="Optional note for the guest"
-          onChange={(event) => {
-            reason = event.target.value;
+          onChange={(html) => {
+            reason = html;
           }}
         />
       ),

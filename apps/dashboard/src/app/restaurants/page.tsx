@@ -98,6 +98,7 @@ import { buildMenuSectionsFromImport } from '@/lib/importedMenu';
 import { uploadImportedMenuImageToSpaces } from '@/lib/importMenuImages';
 import { SignupPaymentForm, type SignupPaymentMode } from '@/components/SignupPaymentForm';
 import dayjs from 'dayjs';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text, Title } = Typography;
 
@@ -951,7 +952,7 @@ export default function MyRestaurantsPage() {
               </Col>
               <Col span={24}>
                 <Form.Item name="description" label="Description" tooltip={tips.description}>
-                  <Input.TextArea rows={3} maxLength={2000} showCount />
+                  <RichTextArea rows={3} maxLength={2000} />
                 </Form.Item>
               </Col>
               <Col xs={24} sm={12}>

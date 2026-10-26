@@ -6,6 +6,7 @@ import { useMutation } from '@apollo/client/react';
 import { useAuth } from '@/lib/auth';
 import { SEND_RESTAURANT_INQUIRY } from '@/lib/graphql';
 import { getGraphQLErrorMessage } from '@/lib/errors';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text } = Typography;
 
@@ -100,10 +101,9 @@ export function RestaurantMessageModal({ open, restaurantId, restaurantName, onC
             { max: 2000, message: 'Max 2000 characters' },
           ]}
         >
-          <Input.TextArea
+          <RichTextArea
             rows={4}
             maxLength={2000}
-            showCount
             placeholder="Ask about private dining, dietary needs, large parties…"
           />
         </Form.Item>

@@ -48,6 +48,7 @@ import {
   StopOutlined,
   CheckSquareOutlined,
   HistoryOutlined,
+  BugOutlined,
 } from '@ant-design/icons';
 import { HOST_ALLOWED_PATH_PREFIXES } from '@reservations/shared';
 
@@ -410,6 +411,11 @@ export const ADMIN_PAGES: DashboardPage[] = [
   page('/admin/qa', 'QA checklist', 'QA', 'admin', <CheckSquareOutlined />, {
     keywords: ['qa', 'sign-off', 'release', 'manual test'],
     description: 'Saved release checklist for super admins and QA',
+    when: 'super_admin',
+  }),
+  page('/admin/qa/issues', 'Issues', 'QA', 'admin', <BugOutlined />, {
+    keywords: ['qa', 'bug', 'feature', 'issue', 'defect'],
+    description: 'Bugs and features filed for a later fix',
     when: 'super_admin',
   }),
   page('/admin/qa/versions', 'Versions', 'QA', 'admin', <HistoryOutlined />, {

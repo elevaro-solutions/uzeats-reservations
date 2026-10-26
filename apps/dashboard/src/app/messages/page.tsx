@@ -20,6 +20,7 @@ import {
   MARK_RESTAURANT_INQUIRY_READ,
 } from '@/lib/graphql';
 import { skipPollWhenHidden } from '@/lib/pollVisibility';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Title, Text, Link } = Typography;
 
@@ -426,16 +427,12 @@ function MessagesContent() {
                 )}
               </div>
               <Space.Compact style={{ width: '100%' }}>
-                <Input.TextArea
-                  autoSize={{ minRows: 1, maxRows: 4 }}
+                <RichTextArea
+                  rows={1}
+                  maxRows={4}
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  onPressEnter={(e) => {
-                    if (!e.shiftKey) {
-                      e.preventDefault();
-                      handleSend();
-                    }
-                  }}
+                  onChange={setDraft}
+                  submitOnEnter={handleSend}
                   placeholder="Type a message…"
                 />
                 <Button

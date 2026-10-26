@@ -85,6 +85,7 @@ import { CancelReservationModal } from '@/components/CancelReservationModal';
 import { RefundDepositModal } from '@/components/RefundDepositModal';
 import { useNoShowFeeActions } from '@/lib/useNoShowFeeActions';
 import { ReservationMetaChip } from '@/components/ReservationMetaChip';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text, Title } = Typography;
 
@@ -847,7 +848,7 @@ function AdminReservationDetailContent() {
             </Col>
             <Col xs={24} sm={12}>
               <Form.Item name="guestNotes" label="Special requests">
-                <Input.TextArea rows={2} maxLength={500} showCount />
+                <RichTextArea rows={2} maxLength={500} />
               </Form.Item>
             </Col>
           </Row>

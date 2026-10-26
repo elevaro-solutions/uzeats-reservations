@@ -46,6 +46,7 @@ import { useAuth } from '@/lib/auth';
 import { isSuperAdmin } from '@/lib/roles';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { ReviewReportChat } from '@/components/ReviewReportThread';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text, Paragraph } = Typography;
 
@@ -436,10 +437,10 @@ export function AdminRestaurantReviewsPanel({
             >
               Auto-generate response
             </Button>
-            <Input.TextArea
+            <RichTextArea
               rows={6}
               value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
+              onChange={setReplyText}
               placeholder="Thank the guest, address their feedback…"
             />
           </Space>

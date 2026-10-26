@@ -12,6 +12,7 @@ import {
 } from '@reservations/shared';
 import { useQuery } from '@/lib/apollo-hooks';
 import { DISCOVERY_TAXONOMIES } from '@/lib/graphql';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text } = Typography;
 
@@ -67,7 +68,7 @@ export function RestaurantProfileFields({
           rules={[{ max: 2000, message: 'Max 2000 characters' }]}
           extra="Shown on your public restaurant page."
         >
-          <Input.TextArea rows={4} maxLength={2000} showCount placeholder="Tell diners what makes your restaurant special…" />
+          <RichTextArea rows={4} maxLength={2000} placeholder="Tell diners what makes your restaurant special…" />
         </Form.Item>
       ) : null}
 
@@ -191,7 +192,7 @@ export function RestaurantProfileFields({
                       label="Answer"
                       rules={[{ required: true, message: 'Answer is required' }, { max: 2000 }]}
                     >
-                      <Input.TextArea rows={2} maxLength={2000} showCount />
+                      <RichTextArea rows={2} maxLength={2000} />
                     </Form.Item>
                   </Col>
                 </Row>
@@ -213,10 +214,9 @@ export function RestaurantProfileFields({
         rules={[{ max: 8000, message: 'Max 8000 characters' }]}
         extra="Shown on your public restaurant page. Leave blank to use Tablevera defaults."
       >
-        <Input.TextArea
+        <RichTextArea
           rows={5}
           maxLength={8000}
-          showCount
           placeholder="Cancellation policy, deposit rules, dress code, age restrictions…"
         />
       </Form.Item>
@@ -266,7 +266,7 @@ export function RestaurantProfileFields({
                   </Col>
                   <Col span={24}>
                     <Form.Item {...rest} name={[name, 'description']} label="Description" rules={[{ max: 500 }]}>
-                      <Input.TextArea rows={2} maxLength={500} showCount placeholder="e.g. Best new restaurant of 2025" />
+                      <RichTextArea rows={2} maxLength={500} placeholder="e.g. Best new restaurant of 2025" />
                     </Form.Item>
                   </Col>
                   <Col span={24}>

@@ -7,6 +7,7 @@ import { DeleteOutlined, PictureOutlined } from '@ant-design/icons';
 import { REVIEW_MAX_PHOTOS, browserMediaUrl } from '@reservations/shared';
 import { UPDATE_REVIEW } from '@/lib/graphql';
 import { uploadFile } from '@/lib/upload';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text } = Typography;
 
@@ -181,13 +182,12 @@ export function EditReviewModal({ open, review, onClose, onSaved }: Props) {
             </div>
           ))}
         </Space>
-        <Input.TextArea
+        <RichTextArea
           rows={4}
           value={comment}
-          onChange={(e) => setComment(e.target.value)}
+          onChange={setComment}
           placeholder="How was your visit?"
           maxLength={1000}
-          showCount
         />
         <div>
           <Text strong style={{ display: 'block', marginBottom: 8 }}>

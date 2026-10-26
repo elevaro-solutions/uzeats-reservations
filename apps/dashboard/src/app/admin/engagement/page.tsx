@@ -19,6 +19,7 @@ import {
   SEND_PLATFORM_ENGAGEMENT_EMAIL,
 } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
+import { RichTextEditor } from '@/components/RichTextEditor';
 
 const { Paragraph, Text } = Typography;
 const { TextArea } = Input;
@@ -115,7 +116,7 @@ export default function AdminEngagementPage() {
               label="HTML body"
               rules={[{ required: true, min: 10, message: 'Body is required' }]}
             >
-              <TextArea rows={10} />
+              <RichTextEditor minHeight={220} placeholder="Email body…" />
             </Form.Item>
             <Form.Item name="bodyText" label="Plain text (optional)">
               <TextArea rows={4} />

@@ -70,6 +70,7 @@ import { useFormDirty } from '@/lib/useFormDirty';
 import { useUrlTab } from '@/lib/useUrlTab';
 import { buildMenuSectionsFromImport } from '@/lib/importedMenu';
 import { uploadImportedMenuImageToSpaces } from '@/lib/importMenuImages';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text } = Typography;
 
@@ -414,7 +415,7 @@ export default function RestaurantProfilePage() {
               tooltip={tips.description}
               rules={[{ max: 2000, message: 'Max 2000 characters' }]}
             >
-              <Input.TextArea rows={3} maxLength={2000} showCount />
+              <RichTextArea rows={3} maxLength={2000} />
             </Form.Item>
           </Col>
           <Col xs={24} sm={12}>

@@ -26,6 +26,7 @@ import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import PhotoUpload from '@/components/PhotoUpload';
 import { useFormDirty } from '@/lib/useFormDirty';
 import { gql } from '@apollo/client';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -304,7 +305,7 @@ function PackagesPageContent() {
             <Input placeholder="Birthday celebration package" />
           </Form.Item>
           <Form.Item name="description" label="Description">
-            <TextArea rows={3} placeholder="What the guest gets…" />
+            <RichTextArea rows={3} placeholder="What the guest gets…" />
           </Form.Item>
           <Space wrap style={{ width: '100%' }} styles={{ item: { flex: 1 } }}>
             <Form.Item
@@ -356,7 +357,7 @@ function PackagesPageContent() {
             </Form.Item>
           </Space>
           <Form.Item name="includes" label="Includes (one per line)">
-            <TextArea rows={4} placeholder={'Custom cake\nChampagne toast\nPhoto with chef'} />
+            <RichTextArea rows={4} placeholder={'Custom cake\nChampagne toast\nPhoto with chef'} />
           </Form.Item>
           <Form.Item name="photoUrls" label="Photo">
             <PhotoUpload maxCount={1} />

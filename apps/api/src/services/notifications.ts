@@ -31,6 +31,7 @@ import {
   emailLinkFallback,
   emailMuted,
   emailParagraph,
+  escapeHtml,
   textToEmailHtml,
   wrapEmailHtml,
 } from './emailBranding.js';
@@ -511,6 +512,25 @@ const RESERVATION_ALERT_TYPES = new Set([
   'reservation_needs_approval',
 ]);
 
+function partnerReviewsUrl(restaurantId: string) {
+  const base = (env.DASHBOARD_APP_URL || 'http://localhost:3001').replace(/\/$/, '');
+  return `${base}/reviews?restaurant=${encodeURIComponent(restaurantId)}`;
+}
+
+/** Owner/manager email for a new guest review. Inbox and push keep the short body. */
+export function newReviewManagerEmail(body: string, restaurantId: string) {
+  const reviewUrl = partnerReviewsUrl(restaurantId);
+  return {
+    reviewUrl,
+    htmlBody: [
+      emailParagraph(escapeHtml(body)),
+      emailButton(reviewUrl, 'View review'),
+      emailLinkFallback(reviewUrl),
+    ].join(''),
+    emailText: `${body}\n\nView review: ${reviewUrl}`,
+  };
+}
+
 function reservationAlertTitle(type: string, fallback: string) {
   if (type === 'new_reservation') return 'New reservation';
   if (type === 'reservation_cancelled') return 'Reservation cancelled';
@@ -564,13 +584,19 @@ export async function notifyRestaurantManagers(
       : null;
 
   // Keep the short one-liner for push/SMS/in-app; put full details in email HTML.
+  const reviewEmail =
+    payload.type === 'new_review' && !payload.htmlBody
+      ? newReviewManagerEmail(payload.body, restaurantId)
+      : null;
   const htmlBody =
     payload.htmlBody ??
+    reviewEmail?.htmlBody ??
     (RESERVATION_ALERT_TYPES.has(payload.type) ? alertContent?.htmlBody : undefined);
 
   const staffPayload = {
     ...payload,
     htmlBody,
+    ...(reviewEmail ? { emailText: reviewEmail.emailText } : {}),
     data: { ...payload.data, restaurantId },
   };
   await Promise.all(

@@ -13,6 +13,7 @@ import {
 } from '@reservations/shared';
 import { AVAILABILITY, MY_RESERVATION, MY_RESERVATIONS, UPDATE_RESERVATION } from '@/lib/graphql';
 import { formatOccasion } from '@/components/restaurant/ReservationConfirmModal';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text } = Typography;
 
@@ -183,15 +184,14 @@ export function EditReservationModal({ open, reservation, onClose, onUpdated }: 
         </div>
         <div>
           <Text style={{ display: 'block', marginBottom: 6 }}>Notes for the restaurant</Text>
-          <Input.TextArea
+          <RichTextArea
             rows={3}
             value={guestNotes}
-            onChange={(e) => {
-              setGuestNotes(e.target.value);
+            onChange={(html) => {
+              setGuestNotes(html);
               setDirty(true);
             }}
             maxLength={500}
-            showCount
           />
         </div>
       </Space>

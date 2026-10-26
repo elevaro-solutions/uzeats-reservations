@@ -29,6 +29,7 @@ import {
   profileValuesFromRestaurant,
   type RestaurantProfileFormValues,
 } from '@/lib/restaurantInput';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text } = Typography;
 
@@ -337,7 +338,7 @@ export default function ProfilePage() {
               label="Reason (optional)"
               extra="A short note helps the reviewer understand what changed."
             >
-              <Input.TextArea rows={2} maxLength={500} placeholder="Why should this public profile change?" />
+              <RichTextArea rows={2} maxLength={500} placeholder="Why should this public profile change?" />
             </Form.Item>
 
             <div style={{ marginTop: spacing.lg }}>

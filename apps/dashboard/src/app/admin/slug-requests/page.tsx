@@ -30,6 +30,7 @@ import {
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useUrlListFilters } from '@/lib/useUrlListFilters';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text } = Typography;
 
@@ -267,7 +268,7 @@ function SlugRequestsPageContent() {
       >
         <Form form={denyForm} layout="vertical">
           <Form.Item name="notes" label="Note to the owner">
-            <Input.TextArea rows={3} maxLength={2000} placeholder="Optional reason" />
+            <RichTextArea rows={3} maxLength={2000} placeholder="Optional reason" />
           </Form.Item>
         </Form>
       </Modal>

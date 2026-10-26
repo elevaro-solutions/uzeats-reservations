@@ -24,6 +24,7 @@ import {
 } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { RichTextArea } from '@/components/RichTextArea';
 
 type ServiceRow = {
   id: string;
@@ -207,7 +208,7 @@ function AdminServicesContent() {
             <Input placeholder="auto from name" />
           </Form.Item>
           <Form.Item name="description" label="Description">
-            <Input.TextArea rows={2} />
+            <RichTextArea rows={2} />
           </Form.Item>
           <Form.Item
             name="priceDollars"

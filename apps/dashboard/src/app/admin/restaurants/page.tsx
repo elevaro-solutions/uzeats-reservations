@@ -85,6 +85,7 @@ import { useUrlPagination } from '@/lib/useUrlPagination';
 import { useUrlListFilters } from '@/lib/useUrlListFilters';
 import { buildMenuSectionsFromImport } from '@/lib/importedMenu';
 import { uploadImportedMenuImageToSpaces } from '@/lib/importMenuImages';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const CREATE_STEPS = [
   { title: 'Owner' },
@@ -1206,7 +1207,7 @@ function AdminRestaurantsContent() {
                 </Col>
                 <Col span={24}>
                   <Form.Item name="description" label="Description" tooltip={tips.description}>
-                    <Input.TextArea rows={3} maxLength={2000} showCount />
+                    <RichTextArea rows={3} maxLength={2000} />
                   </Form.Item>
                 </Col>
                 <Col xs={24} sm={12}>

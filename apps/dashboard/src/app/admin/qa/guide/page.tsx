@@ -42,7 +42,7 @@ const sections: { title: string; body: string[] }[] = [
   {
     title: 'How to report a problem',
     body: [
-      'Leave the item unchecked when it failed. Put the report in that item’s optional note, and repeat a short line in Notes / waivers if it blocks sign-off.',
+      'File the problem on Issues (title, path, severity, tags, and a screenshot). Leave the checklist item unchecked, and add a short note there if it blocks sign-off.',
       'Start the note with severity. P0 blocks the release (data loss, payments, sign-in, or a required item that cannot be completed). P1 should be fixed before ship. P2 can follow in a later release.',
       'Include the version, the environment URL, the role you used, and the restaurant or account. Then the steps you took, what you expected, and what happened instead.',
       'Add a screenshot or a short recording when the bug is visual. Name the screen (Partner Hub → Closures, diner home, embed widget).',
@@ -74,7 +74,8 @@ export default function AdminQaGuidePage() {
         subtitle="How to test a release, what good coverage looks like, and how to write a report someone else can reproduce."
       />
       <Typography.Paragraph>
-        Work from the <Link href="/admin/qa">checklist</Link>. Past changes are on{' '}
+        Work from the <Link href="/admin/qa">checklist</Link>. File bugs and features on{' '}
+        <Link href="/admin/qa/issues">Issues</Link>. Past changes are on{' '}
         <Link href="/admin/qa/versions">Versions</Link>.
       </Typography.Paragraph>
       {sections.map((section) => (

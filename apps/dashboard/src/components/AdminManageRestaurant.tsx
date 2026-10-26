@@ -74,6 +74,7 @@ import {
   restaurantCuisinesForForm,
 } from '@reservations/shared';
 import { DepositPolicyField } from '@/components/DepositPolicyField';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text } = Typography;
 
@@ -791,7 +792,7 @@ export function AdminManageRestaurant({
           </Col>
           <Col span={24}>
             <Form.Item name="description" label="Description" tooltip={tips.description}>
-              <Input.TextArea rows={3} maxLength={2000} />
+              <RichTextArea rows={3} maxLength={2000} />
             </Form.Item>
           </Col>
           <Col xs={24} sm={12}>

@@ -51,6 +51,7 @@ import {
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { ReviewReportChat } from '@/components/ReviewReportThread';
 import type { SupportAttachmentDraft } from '@/components/SupportAttachmentUpload';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -573,10 +574,10 @@ function ReviewsPageContent() {
               >
                 Auto-generate response
               </Button>
-              <Input.TextArea
+              <RichTextArea
                 rows={6}
                 value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
+                onChange={setReplyText}
                 placeholder="Thank the guest, address their feedback…"
               />
               <Text type="secondary" style={{ fontSize: 12 }}>
@@ -645,12 +646,11 @@ function ReviewsPageContent() {
                 <Text strong style={{ display: 'block', marginBottom: 6 }}>
                   Details {reportReason === 'other' ? '(required)' : '(optional)'}
                 </Text>
-                <Input.TextArea
+                <RichTextArea
                   rows={4}
                   value={reportDetails}
                   maxLength={REVIEW_REPORT_DETAILS_MAX}
-                  showCount
-                  onChange={(e) => setReportDetails(e.target.value)}
+                  onChange={setReportDetails}
                   placeholder="Facts that support the report (what happened, why it violates policy)…"
                 />
               </div>

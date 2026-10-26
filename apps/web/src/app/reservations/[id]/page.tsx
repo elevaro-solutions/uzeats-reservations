@@ -61,6 +61,7 @@ import {
   isReservationUpcoming,
   resolvePrimaryReservationCta,
 } from '@/lib/reservationDisplay';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text } = Typography;
 
@@ -810,13 +811,12 @@ export default function ReservationDetailPage() {
               Additional details{' '}
               {cancelReasonPreset === 'Other' ? <Text type="danger">*</Text> : '(optional)'}
             </Text>
-            <Input.TextArea
+            <RichTextArea
               rows={3}
               value={cancelReasonDetails}
-              onChange={(e) => setCancelReasonDetails(e.target.value)}
+              onChange={setCancelReasonDetails}
               placeholder="e.g. Change of plans, running late, booked elsewhere…"
               maxLength={500}
-              showCount
             />
           </div>
         </Space>

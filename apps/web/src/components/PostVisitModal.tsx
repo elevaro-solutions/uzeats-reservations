@@ -23,6 +23,7 @@ import { useRouter } from 'next/navigation';
 import { REVIEW_MAX_PHOTOS, browserMediaUrl, buildRestaurantBookingPath } from '@reservations/shared';
 import { CREATE_REVIEW, SAVE_RESTAURANT } from '@/lib/graphql';
 import { uploadFile } from '@/lib/upload';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text } = Typography;
 
@@ -260,13 +261,12 @@ export function PostVisitModal({
               </div>
             ))}
           </Space>
-          <Input.TextArea
+          <RichTextArea
             rows={4}
             value={comment}
-            onChange={(e) => setComment(e.target.value)}
+            onChange={setComment}
             placeholder="How was your visit?"
             maxLength={1000}
-            showCount
           />
           <div>
             <Text strong style={{ display: 'block', marginBottom: 8 }}>

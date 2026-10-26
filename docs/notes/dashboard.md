@@ -1,5 +1,13 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-20] QA issues live under the QA sidebar
+- `/admin/qa/issues` is a QA-group page (`when: 'super_admin'`), so the QA role shell includes it via the `/admin/qa` prefix. Create and edit use one modal. Export uses the active search, status, severity, and tag filters. The v0.90.0 checklist catalog is Issues, review emails, formatted notes, and the drawer scroll lock.
+- Why it matters: A new QA page must stay under `/admin/qa/` or the QA route guard sends the user back to the checklist.
+
+## [2026-10-18] Drawers must not scroll the document
+- `DashShell` is `100dvh` with overflow hidden. `.rt-dash-main` is the scroller. The sider is `height: 100%` inside that row, not `100vh` sticky against the window.
+- Why it matters: Ant Design Drawer injects `html body { overflow-y: hidden }`. That makes `body` the sticky scrollport, so a window-scrolled sidebar jumps up by `scrollY`. Don’t put dashboard page scroll back on `window`/`body`.
+
 ## [2026-10-18] QA checklist release block follows the gated version
 - `/admin/qa` shows `qaChecklist.release` from history when that version exists. A later changelog patch does not replace the tasks’ release notes.
 - Why it matters: A Dokku-only patch would otherwise become “Latest release” and hide the notes the checklist is signing off.

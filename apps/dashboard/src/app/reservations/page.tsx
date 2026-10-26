@@ -89,6 +89,7 @@ import {
   buildRestaurantSelectOptions,
   restaurantSelectFilterOption,
 } from '@/lib/restaurants';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -1105,11 +1106,10 @@ function ReservationsPageContent() {
             </Col>
             <Col span={24}>
               <Form.Item name="guestNotes" label="Special requests">
-                <Input.TextArea
+                <RichTextArea
                   rows={3}
                   maxLength={500}
                   placeholder="Allergies, high chair, window seat…"
-                  showCount
                 />
               </Form.Item>
             </Col>
@@ -1238,11 +1238,10 @@ function ReservationsPageContent() {
             </Col>
             <Col span={24}>
               <Form.Item name="guestNotes" label="Special requests" style={{ marginBottom: 0 }}>
-                <Input.TextArea
+                <RichTextArea
                   rows={3}
                   maxLength={500}
                   placeholder="Allergies, high chair, window seat…"
-                  showCount
                 />
               </Form.Item>
             </Col>

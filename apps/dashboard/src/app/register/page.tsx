@@ -55,6 +55,7 @@ import {
   priceRangeOptions,
   restaurantFieldTooltips as tips,
 } from '@/lib/restaurantFormTooltips';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text } = Typography;
 
@@ -811,7 +812,7 @@ function RegisterForm() {
                   { max: 2000, message: 'Max 2000 characters' },
                 ]}
               >
-                <Input.TextArea rows={3} maxLength={2000} showCount placeholder="Neighborhood bistro with seasonal tasting menus" />
+                <RichTextArea rows={3} maxLength={2000} placeholder="Neighborhood bistro with seasonal tasting menus" />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>

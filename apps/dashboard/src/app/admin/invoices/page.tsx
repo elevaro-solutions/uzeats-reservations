@@ -66,6 +66,7 @@ import {
 } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useUrlPagination } from '@/lib/useUrlPagination';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const CATEGORY_OPTIONS = [
   { value: 'subscription', label: 'Subscriptions' },
@@ -1250,7 +1251,7 @@ function AdminInvoicesContent() {
             <Input placeholder="Used when no package/services selected" />
           </Form.Item>
           <Form.Item name="notes" label="Notes (optional)">
-            <Input.TextArea rows={2} placeholder="Internal note" />
+            <RichTextArea rows={2} placeholder="Internal note" />
           </Form.Item>
           <Form.Item name="markPaid" valuePropName="checked" style={{ marginBottom: markPaid ? 12 : 0 }}>
             <Checkbox>Mark as paid immediately</Checkbox>
@@ -1271,11 +1272,10 @@ function AdminInvoicesContent() {
               extra="Required when marking paid without collecting payment (e.g. offline payment, courtesy credit)."
               style={{ marginBottom: 0 }}
             >
-              <Input.TextArea
+              <RichTextArea
                 rows={3}
                 placeholder="e.g. Received wire transfer #4821 on Sep 29"
                 maxLength={500}
-                showCount
               />
             </Form.Item>
           ) : null}
@@ -1320,13 +1320,12 @@ function AdminInvoicesContent() {
               <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
                 Justification <Typography.Text type="danger">*</Typography.Text>
               </Typography.Text>
-              <Input.TextArea
+              <RichTextArea
                 rows={4}
                 value={duplicateJustification}
-                onChange={(e) => setDuplicateJustification(e.target.value)}
+                onChange={setDuplicateJustification}
                 placeholder="Why create another invoice for this period? e.g. Corrected package amount after plan change"
                 maxLength={500}
-                showCount
               />
               <Typography.Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
                 Saved on the invoice notes and audit log.

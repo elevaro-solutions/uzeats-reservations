@@ -12,6 +12,7 @@ import {
   RESTAURANT_SLUG_AVAILABLE,
 } from '@/lib/graphql';
 import { getPublicWebUrl } from '@/lib/webUrl';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text, Paragraph } = Typography;
 
@@ -177,7 +178,7 @@ export function RestaurantSlugPanel({ restaurant, canRequest }: RestaurantSlugPa
           />
         </Form.Item>
         <Form.Item name="reason" label="Reason (optional)">
-          <Input.TextArea rows={2} maxLength={500} placeholder="Why should this URL change?" />
+          <RichTextArea rows={2} maxLength={500} placeholder="Why should this URL change?" />
         </Form.Item>
         <Button type="primary" htmlType="submit" loading={submitting || checking}>
           {pending ? 'Update request' : 'Request URL change'}

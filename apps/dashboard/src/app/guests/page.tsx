@@ -45,6 +45,7 @@ import { ExportMenu, type ListExportFormat } from '@/components/ExportMenu';
 import { downloadExportPayload } from '@/lib/downloadExport';
 import { HubLinkCards } from '@/components/HubLinkCards';
 import { hubChildPages, PARTNER_PAGES } from '@/lib/dashboardNav';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Title, Text } = Typography;
 
@@ -451,7 +452,7 @@ function GuestsPageContent() {
                 <Input placeholder="peanuts, shellfish" />
               </Form.Item>
               <Form.Item name="notes" label="Notes">
-                <Input.TextArea rows={4} placeholder="Prefers corner booth, always orders the ribeye…" />
+                <RichTextArea rows={4} placeholder="Prefers corner booth, always orders the ribeye…" />
               </Form.Item>
             </Form>
           </Space>

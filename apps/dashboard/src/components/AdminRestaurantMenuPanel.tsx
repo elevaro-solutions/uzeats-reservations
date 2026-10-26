@@ -35,6 +35,7 @@ import { buildRestaurantInput } from '@/lib/restaurantInput';
 import type { AdminRestaurantRecord } from '@/components/AdminManageRestaurant';
 import { MAX_POPULAR_MENU_ITEMS, countPopularMenuItems } from '@reservations/shared';
 import { uploadFile } from '@/lib/upload';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text } = Typography;
 
@@ -629,7 +630,7 @@ function buildItemPanel({
           <Input placeholder="Dish name" />
         </Form.Item>
         <Form.Item name={[item.name, 'description']} label="Description">
-          <Input.TextArea rows={2} placeholder="Short description for diners" />
+          <RichTextArea rows={2} placeholder="Short description for diners" />
         </Form.Item>
         <Space wrap align="start" style={{ width: '100%' }}>
           <Form.Item name={[item.name, 'price']} label="Price ($)">

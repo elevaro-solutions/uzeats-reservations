@@ -1389,6 +1389,61 @@ export const typeDefs = `#graphql
     reopen: Boolean
   }
 
+  type QaIssueAttachment {
+    id: ID!
+    url: String!
+    key: String!
+    filename: String!
+    contentType: String!
+    size: Int
+  }
+
+  type QaIssue {
+    id: ID!
+    number: Int!
+    code: String!
+    title: String!
+    description: String!
+    tags: [String!]!
+    status: String!
+    severity: String!
+    path: String!
+    environment: String!
+    release: String!
+    attachments: [QaIssueAttachment!]!
+    reporterName: String!
+    createdAt: String
+    updatedAt: String
+  }
+
+  type QaIssueConnection {
+    total: Int!
+    limit: Int!
+    offset: Int!
+    items: [QaIssue!]!
+  }
+
+  input QaIssueAttachmentInput {
+    url: String!
+    key: String
+    filename: String!
+    contentType: String!
+    size: Int
+  }
+
+  input SaveQaIssueInput {
+    id: ID
+    title: String
+    description: String
+    tags: [String!]
+    status: String
+    severity: String
+    path: String
+    environment: String
+    release: String
+    attachments: [QaIssueAttachmentInput!]
+  }
+
   type LoyaltyTier {
     id: ID!
     name: String!
@@ -4074,6 +4129,8 @@ export const typeDefs = `#graphql
     adminPendingRequestCounts: PlatformPendingRequestCounts!
     """Manual QA checklist for one release. Super admin and QA only."""
     qaChecklist(release: String): QaChecklist!
+    """Bugs, features, and follow-ups filed by QA. Super admin and QA only."""
+    qaIssues(search: String, status: String, severity: String, tags: [String!], limit: Int, offset: Int): QaIssueConnection!
     adminLoyaltyStats: LoyaltyPlatformStats!
     adminReferralLeaders(limit: Int): [ReferralLeader!]!
     adminUsers(
@@ -4761,5 +4818,11 @@ export const typeDefs = `#graphql
 
     """Save checks, notes, sign-off, or reopen. Super admin and QA only."""
     saveQaChecklist(input: SaveQaChecklistInput!): QaChecklist!
+    """Create or update a QA issue. Super admin and QA only."""
+    saveQaIssue(input: SaveQaIssueInput!): QaIssue!
+    """Delete a QA issue. Super admin and QA only."""
+    deleteQaIssue(id: ID!): Boolean!
+    """Download the filtered QA issue list as pdf, excel, or word."""
+    exportQaIssues(search: String, status: String, severity: String, tags: [String!], format: String!): CsvExport!
   }
 `;

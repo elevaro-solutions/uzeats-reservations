@@ -59,6 +59,7 @@ import {
   bookingPaymentCopy,
   type ReservationListSegment,
 } from '@/lib/reservationDisplay';
+import { RichTextArea } from '@/components/RichTextArea';
 
 function bookAgainPath(r: {
   partySize?: number;
@@ -518,17 +519,16 @@ export default function ReservationsPage() {
           </div>
           <div>
             <Text style={{ display: 'block', marginBottom: 6 }}>Additional details (optional)</Text>
-            <Input.TextArea
+            <RichTextArea
               rows={3}
               value={cancelReasonDetails}
-              onChange={(e) => setCancelReasonDetails(e.target.value)}
+              onChange={setCancelReasonDetails}
               placeholder={
                 cancelReasonPreset === 'Other'
                   ? 'Tell us more about why you are cancelling…'
                   : 'Add any extra context for the restaurant…'
               }
               maxLength={500}
-              showCount
             />
           </div>
         </Space>

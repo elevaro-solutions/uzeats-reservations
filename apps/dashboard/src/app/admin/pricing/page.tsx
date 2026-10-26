@@ -43,6 +43,7 @@ import {
 import { isSuperAdmin } from '@/lib/roles';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { useFormDirty } from '@/lib/useFormDirty';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Text, Paragraph } = Typography;
 
@@ -1049,7 +1050,7 @@ export default function AdminPricingPage() {
               </Form.Item>
               <Form.Item label="Short description" tooltip={FIELD_TIPS.description}>
                 <Form.Item name="description" noStyle>
-                  <Input.TextArea rows={2} placeholder="Shown on the public pricing page" />
+                  <RichTextArea rows={2} placeholder="Shown on the public pricing page" />
                 </Form.Item>
                 {isSuperAdminUser ? (
                   <Button
@@ -1192,7 +1193,7 @@ export default function AdminPricingPage() {
           </Form.Item>
           <Form.Item label="Short description" tooltip={FIELD_TIPS.description}>
             <Form.Item name="description" noStyle>
-              <Input.TextArea rows={2} />
+              <RichTextArea rows={2} />
             </Form.Item>
             {isSuperAdminUser ? (
               <Button

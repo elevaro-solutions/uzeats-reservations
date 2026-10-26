@@ -34,6 +34,7 @@ import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { MY_RESTAURANTS, UPSERT_MENU, UPDATE_RESTAURANT } from '@/lib/graphql';
 import { buildRestaurantInput } from '@/lib/restaurantInput';
 import { uploadFile } from '@/lib/upload';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Title, Text } = Typography;
 
@@ -676,7 +677,7 @@ function buildItemPanel({
           <Input placeholder="Dish name" />
         </Form.Item>
         <Form.Item name={[item.name, 'description']} label="Description">
-          <Input.TextArea rows={2} placeholder="Short description" />
+          <RichTextArea rows={2} placeholder="Short description" />
         </Form.Item>
         <Space wrap align="start" style={{ width: '100%' }}>
           <Form.Item

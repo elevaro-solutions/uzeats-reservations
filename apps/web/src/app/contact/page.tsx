@@ -42,6 +42,7 @@ import {
   COMPANY_PHONE_DISPLAY,
   SUPPORT_EMAIL,
 } from '@/lib/legal';
+import { RichTextArea } from '@/components/RichTextArea';
 
 const { Title, Paragraph, Text } = Typography;
 const { TextArea } = Input;
@@ -373,10 +374,9 @@ function ContactContent() {
                         { min: 10, message: 'Message must be at least 10 characters' },
                       ]}
                     >
-                      <TextArea
+                      <RichTextArea
                         rows={6}
                         placeholder="Tell us how we can help — the more detail, the better we can assist you."
-                        style={{ resize: 'none' }}
                       />
                     </Form.Item>
 
