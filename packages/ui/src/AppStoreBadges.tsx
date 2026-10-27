@@ -62,13 +62,32 @@ function titleStyle(size: BadgeSize): CSSProperties {
   };
 }
 
-function PlayMark() {
+function PlayMark({ size }: { size: BadgeSize }) {
+  const height = size === 'sm' ? 20 : 24;
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
-      <path fill="#34A853" d="M1.2 1.4v15.2l9.1-7.6z" />
-      <path fill="#FBBC04" d="M12.4 8.2 10.3 9 1.2 16.6l9.4-1.6c.7-.1 1.2-.5 1.8-1.1z" />
-      <path fill="#EA4335" d="M1.2 1.4 10.3 9l2.1.8 1.6-1.1c.8-.6.8-1.6 0-2.2z" />
-      <path fill="#4285F4" d="M1.2 1.4 10.6 2.9c.6.1 1.1.4 1.6.9L10.3 9z" />
+    <svg
+      width={Math.round((height * 256) / 283)}
+      height={height}
+      viewBox="0 0 256 283"
+      aria-hidden
+      style={{ display: 'block', flexShrink: 0 }}
+    >
+      <path
+        fill="#EA4335"
+        d="M119.553 134.916 1.06 259.061a32.14 32.14 0 0 0 47.062 19.071l133.327-75.934z"
+      />
+      <path
+        fill="#FBBC04"
+        d="m239.37 113.814-57.655-33.024-64.898 56.95 65.162 64.28 57.216-32.67a31.345 31.345 0 0 0 0-55.537z"
+      />
+      <path
+        fill="#4285F4"
+        d="M1.06 23.487A30.6 30.6 0 0 0 0 31.61v219.327a32.3 32.3 0 0 0 1.06 8.124l122.555-120.966z"
+      />
+      <path
+        fill="#34A853"
+        d="m120.436 141.274 61.278-60.483L48.564 4.503A32.85 32.85 0 0 0 32.051 0C17.644-.028 4.978 9.534 1.06 23.399z"
+      />
     </svg>
   );
 }
@@ -103,7 +122,7 @@ export function AppStoreBadges({
         aria-label={`Get ${listing.name} on Google Play`}
         style={playBadgeStyle(size)}
       >
-        <PlayMark />
+        <PlayMark size={size} />
         <span>
           <span style={kickerStyle(size)}>Get it on</span>
           <span style={titleStyle(size)}>Google Play</span>

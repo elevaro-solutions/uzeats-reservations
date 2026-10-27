@@ -31,6 +31,7 @@ import {
   MenuOutlined,
   MobileOutlined,
   StarOutlined,
+  TrophyOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { AppStoreBadges, TableveraBrand, colors, layout, radii, typography } from '@reservations/ui';
@@ -135,6 +136,10 @@ function notificationHref(n: AppNotification): string {
       return '/reviews';
     case 'survey_invitation':
       return reservationDetailHref(data);
+    case 'points_earned':
+    case 'points_redeemed':
+    case 'points_refunded':
+      return '/profile/loyalty';
     default:
       return '/profile';
   }
@@ -304,6 +309,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           { href: '/saved', label: 'Saved' },
           { href: '/waitlist', label: 'Waitlist' },
           { href: '/profile', label: 'Profile' },
+          { href: '/profile/loyalty', label: 'Loyalty & rewards' },
           { href: '/blog', label: 'Blog' },
           { href: '/downloads', label: 'Get the app' },
         ]
@@ -333,6 +339,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     }
     return pathname;
   })();
+  const mobileActiveHref = pathname.startsWith('/profile/loyalty') ? '/profile/loyalty' : selectedNavKey;
 
   const accountMenu: MenuProps['items'] = user
     ? [
@@ -377,8 +384,14 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
         {
           key: 'profile',
           icon: <UserOutlined />,
-          label: 'Profile & loyalty',
+          label: 'Profile',
           onClick: () => router.push('/profile'),
+        },
+        {
+          key: 'loyalty',
+          icon: <TrophyOutlined />,
+          label: 'Loyalty & rewards',
+          onClick: () => router.push('/profile/loyalty'),
         },
         {
           key: 'notification-settings',
@@ -671,6 +684,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
                       return;
                     }
                     if (key === 'profile') router.push('/profile');
+                    if (key === 'loyalty') router.push('/profile/loyalty');
                     if (key === 'notification-settings') router.push('/profile#notifications');
                     if (key === 'reservations') router.push('/reservations');
                     if (key === 'reviews') router.push('/reviews');
@@ -782,7 +796,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`rt-mobile-nav__link${selectedNavKey === item.href ? ' is-active' : ''}`}
+                className={`rt-mobile-nav__link${mobileActiveHref === item.href ? ' is-active' : ''}`}
                 onClick={() => setMobileNavOpen(false)}
                 {...(newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
               >

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useQuery, useMutation } from '@apollo/client/react';
+import { useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 import {
   Alert,
@@ -23,49 +23,19 @@ import {
   HeartOutlined,
   EditOutlined,
   MailOutlined,
-  TrophyOutlined,
+  RightOutlined,
+  GiftFilled,
 } from '@ant-design/icons';
 import { PageHeader, AppStoreBadges, colors, radii, shadows, formatPhoneDisplay } from '@reservations/ui';
-import { browserMediaUrl, defaultLoyaltyProgram, loyaltyRedeemProgress, resolveLoyaltyTier, buildRestaurantBookingPath } from '@reservations/shared';
+import { browserMediaUrl } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { UPDATE_NOTIFICATION_PREFERENCES, LOYALTY_PROGRAM, DELETE_MY_ACCOUNT } from '@/lib/graphql';
+import { UPDATE_NOTIFICATION_PREFERENCES, DELETE_MY_ACCOUNT } from '@/lib/graphql';
 import { formatDinerAddress, ProfileAccountModal } from '@/components/profile/ProfileAccountCard';
+import { formatPoints, loyaltyTierClass } from '@/components/loyalty/loyaltyFormat';
 
 const { Title, Text, Paragraph } = Typography;
-
-const MY_LOYALTY = gql`
-  query MyLoyalty {
-    myLoyalty {
-      id
-      type
-      points
-      description
-      createdAt
-    }
-  }
-`;
-
-const MY_RESTAURANT_LOYALTY = gql`
-  query MyRestaurantLoyalty {
-    myRestaurantLoyalty {
-      restaurantId
-      restaurantName
-      restaurantSlug
-      points
-    }
-    myRestaurantLoyaltyHistory(limit: 20) {
-      id
-      restaurantId
-      restaurantName
-      type
-      points
-      description
-      createdAt
-    }
-  }
-`;
 
 const REGISTER_PUSH = gql`
   mutation RegisterPushToken($token: String!, $platform: String!) {
@@ -109,12 +79,9 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 export default function ProfilePage() {
   const { user, loading: authLoading, refreshMe, logout } = useAuth();
   const router = useRouter();
-  const { data } = useQuery(MY_LOYALTY, { skip: !user });
-  const { data: restaurantLoyaltyData } = useQuery(MY_RESTAURANT_LOYALTY, { skip: !user });
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [deleteMyAccount, { loading: deletingAccount }] = useMutation(DELETE_MY_ACCOUNT);
-  const { data: loyaltyProgramData } = useQuery(LOYALTY_PROGRAM);
   const [registerPush] = useMutation(REGISTER_PUSH);
   const [updatePrefs] = useMutation(UPDATE_NOTIFICATION_PREFERENCES);
   const [pushSubscription, setPushSubscription] = useState<PushSubscription | null>(null);
@@ -305,17 +272,11 @@ export default function ProfilePage() {
     return null;
   }
 
-  const program = (loyaltyProgramData as any)?.loyaltyProgram ?? defaultLoyaltyProgram();
-  const redeemProgress = loyaltyRedeemProgress(user?.loyaltyPoints ?? 0, program.minRedeemPoints);
-  const tier = resolveLoyaltyTier(user?.loyaltyCompletedVisits ?? 0, program.tiers);
-  const restaurantBalances = (restaurantLoyaltyData as any)?.myRestaurantLoyalty ?? [];
-  const restaurantHistory = (restaurantLoyaltyData as any)?.myRestaurantLoyaltyHistory ?? [];
-
   return (
     <div component="ProfilePage" style={{ display: 'contents' }}><Space orientation="vertical" size={20} style={{ width: '100%', maxWidth: 720 }}>
       <PageHeader
         title="Profile"
-        subtitle="Manage your account, notifications, and loyalty rewards"
+        subtitle="Manage your account, notifications, and privacy"
       />
 
       <div className="rt-app-promo">
@@ -331,14 +292,13 @@ export default function ProfilePage() {
           borderRadius: radii.lg,
           border: `1px solid ${colors.bordersubtle}`,
           boxShadow: shadows.sm,
-          background: `linear-gradient(135deg, ${colors.surface} 60%, ${colors.brand[50]} 100%)`,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
           <div
             style={{
-              width: 56,
-              height: 56,
+              width: 80,
+              height: 80,
               borderRadius: '50%',
               overflow: 'hidden',
               background: colors.brand[100],
@@ -346,7 +306,7 @@ export default function ProfilePage() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 22,
+              fontSize: 32,
               fontWeight: 700,
               flexShrink: 0,
             }}
@@ -380,65 +340,25 @@ export default function ProfilePage() {
           <Button icon={<EditOutlined />} onClick={() => setAccountOpen(true)}>
             Edit
           </Button>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              background: colors.surface,
-              border: `1px solid ${colors.brand[100]}`,
-              borderRadius: radii.pill,
-              padding: '8px 16px',
-            }}
-          >
-            <TrophyOutlined style={{ color: colors.brand[600] }} />
-            <Text strong style={{ color: colors.brand[700], fontSize: 16 }}>
-              {user?.loyaltyPoints ?? 0}
-            </Text>
-            <Text type="secondary" style={{ fontSize: 13 }}>
-              points
-            </Text>
-          </div>
         </div>
-        <div style={{ marginTop: 16 }}>
-          <div style={{
-            height: 8,
-            borderRadius: radii.pill,
-            background: colors.brand[100],
-            overflow: 'hidden',
-          }}>
-            <div style={{
-              width: `${redeemProgress.percent}%`,
-              height: '100%',
-              background: colors.brand[600],
-              borderRadius: radii.pill,
-            }} />
-          </div>
-          <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
-            {redeemProgress.canRedeem
-              ? `Ready to redeem (${program.minRedeemPoints}+ pts)`
-              : `${redeemProgress.remaining} pts until you can redeem`}
-          </Text>
-          <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
-            Tier: <Text strong>{user?.loyaltyTierName ?? tier.name}</Text>
-            {tier.visitsToNextTier != null
-              ? ` · ${tier.visitsToNextTier} visits to ${tier.nextTier?.name}`
-              : ' · top tier'}
-          </Text>
-          {user?.referralCode && (
-            <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
-              Referral code: <Text strong copyable>{user.referralCode}</Text>
-              {' · '}
-              Earn <Text strong>{program.referralBonusPoints}</Text> pts when a friend completes
-              their first visit
-            </Text>
-          )}
-          {user?.loyaltyPointsExpireAt && (
-            <Text type="secondary" style={{ display: 'block', marginTop: 8, fontSize: 13 }}>
-              Points expire: {new Date(user.loyaltyPointsExpireAt).toLocaleDateString('en-US')}
-            </Text>
-          )}
-        </div>
+        <Link
+          href="/profile/loyalty"
+          className={`rt-profile-loyalty-link ${loyaltyTierClass(user.loyaltyTier)}`}
+        >
+          <span className="rt-profile-loyalty-link__icon" aria-hidden>
+            <GiftFilled />
+          </span>
+          <span className="rt-profile-loyalty-link__copy">
+            <strong>
+              {user.loyaltyTierName ?? 'Bronze'} · {formatPoints(user.loyaltyPoints ?? 0)} pts
+            </strong>
+            <span>Status, referrals, and points history</span>
+          </span>
+          <span className="rt-profile-loyalty-link__cta">
+            <span className="rt-profile-loyalty-link__cta-label">Loyalty &amp; rewards</span>
+            <RightOutlined aria-hidden />
+          </span>
+        </Link>
       </Card>
 
       <ProfileAccountModal
@@ -447,77 +367,6 @@ export default function ProfilePage() {
         onClose={() => setAccountOpen(false)}
         onSaved={refreshMe}
       />
-
-      {(restaurantBalances.length > 0 || restaurantHistory.length > 0) && (
-        <Card
-          title="Restaurant rewards"
-          style={{
-            borderRadius: radii.lg,
-            border: `1px solid ${colors.bordersubtle}`,
-            boxShadow: shadows.sm,
-          }}
-        >
-          {restaurantBalances.length > 0 && (
-            <>
-              <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
-                Points you can redeem at specific restaurants when booking.
-              </Text>
-              <List
-                dataSource={restaurantBalances}
-                renderItem={(item: {
-                  restaurantId: string;
-                  restaurantName: string;
-                  restaurantSlug?: string | null;
-                  points: number;
-                }) => (
-                  <List.Item
-                    actions={[
-                      <Link
-                        key="book"
-                        href={buildRestaurantBookingPath(item.restaurantSlug, item.restaurantId)}
-                      >
-                        Book
-                      </Link>,
-                    ]}
-                  >
-                    <List.Item.Meta
-                      title={item.restaurantName}
-                      description={`${item.points} points available`}
-                    />
-                  </List.Item>
-                )}
-              />
-            </>
-          )}
-          {restaurantHistory.length > 0 && (
-            <div style={{ marginTop: restaurantBalances.length > 0 ? 16 : 0 }}>
-              <Title level={5} style={{ marginTop: 0 }}>
-                Restaurant activity
-              </Title>
-              {restaurantHistory.map((item: any, idx: number, arr: any[]) => (
-                <div
-                  key={item.id ?? idx}
-                  style={{
-                    padding: '12px 0',
-                    borderBottom: idx < arr.length - 1 ? `1px solid ${colors.bordersubtle}` : 'none',
-                  }}
-                >
-                  <Text strong style={{ color: item.points > 0 ? colors.success : colors.textPrimary }}>
-                    {item.points > 0 ? '+' : ''}
-                    {item.points} · {item.restaurantName}
-                  </Text>
-                  <Text type="secondary" style={{ display: 'block', fontSize: 13 }}>
-                    {item.description}
-                  </Text>
-                  <Text type="secondary" style={{ display: 'block', marginTop: 2, fontSize: 13 }}>
-                    {new Date(item.createdAt).toLocaleString('en-US')}
-                  </Text>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      )}
 
       <Card
         id="notifications"
@@ -584,36 +433,6 @@ export default function ProfilePage() {
             />
           </List.Item>
         </List>
-      </Card>
-
-      <Card
-        title="Loyalty history"
-        style={{
-          borderRadius: radii.lg,
-          border: `1px solid ${colors.bordersubtle}`,
-          boxShadow: shadows.sm,
-        }}
-      >
-        {((data as any)?.myLoyalty ?? []).length === 0 && (
-          <Text type="secondary">No loyalty activity yet — book a table to start earning points.</Text>
-        )}
-        {((data as any)?.myLoyalty ?? []).map((item: any, idx: number, arr: any[]) => (
-          <div
-            key={item.id ?? idx}
-            style={{
-              padding: '12px 0',
-              borderBottom: idx < arr.length - 1 ? `1px solid ${colors.bordersubtle}` : 'none',
-            }}
-          >
-            <Text strong style={{ color: item.points > 0 ? colors.success : colors.textPrimary }}>
-              {item.points > 0 ? '+' : ''}
-              {item.points} · {item.description}
-            </Text>
-            <Text type="secondary" style={{ display: 'block', marginTop: 2, fontSize: 13 }}>
-              {new Date(item.createdAt).toLocaleString('en-US')}
-            </Text>
-          </div>
-        ))}
       </Card>
 
       <Card

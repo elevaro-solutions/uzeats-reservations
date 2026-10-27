@@ -4,6 +4,34 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+## [0.91.0] — 2026-10-27
+
+### Added
+
+- Diner web **Loyalty & rewards** page (`/profile/loyalty`):
+  - Balance card: points, what they are worth off deposits, whether they are ready to redeem (or how many points to go, with a progress bar), next expiry date, and a **Find a table** button
+  - Completed visits, recent points earned, and current earn rate
+  - Tier ladder (Bronze, Silver, Gold) colored by your current tier, with visits needed for the next tier
+  - Referral code with copy and **Share invite link** (opens sign-up with the code filled in)
+  - Restaurant rewards per restaurant, with an explainer when you have none yet
+  - Points history grouped by month, with All / Earned / Redeemed / Expired tabs and counts
+  - "How Tablevera rewards work" cards and a **Common questions** FAQ
+- Diner web account menu and mobile menu link to **Loyalty & rewards**; points notifications (earned, redeemed, refunded) open that page
+
+### Changed
+
+- Diner web profile card: larger avatar, no gradient, and a compact tier and points row (gift icon) that links to the loyalty page instead of the full loyalty details. Restaurant rewards and loyalty history moved from the profile page to the loyalty page
+
+### Fixed
+
+- The Google Play badge on diner web (profile, reservations, downloads, footer) shows a complete, correctly shaped Google Play logo instead of a broken triangle with gaps
+
+### Docs
+
+- Diner docs and README describe the loyalty page; feature notes cover restaurant rewards visibility and points expiry
+
 ## [0.90.0] — 2026-10-26
 
 ### Added

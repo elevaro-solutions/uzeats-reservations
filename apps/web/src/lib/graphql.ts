@@ -424,6 +424,38 @@ export const MY_RESTAURANT_LOYALTY_BALANCE = gql`
   }
 `;
 
+export const MY_LOYALTY = gql`
+  query MyLoyalty {
+    myLoyalty {
+      id
+      type
+      points
+      description
+      createdAt
+    }
+  }
+`;
+
+export const MY_RESTAURANT_LOYALTY = gql`
+  query MyRestaurantLoyalty {
+    myRestaurantLoyalty {
+      restaurantId
+      restaurantName
+      restaurantSlug
+      points
+    }
+    myRestaurantLoyaltyHistory(limit: 20) {
+      id
+      restaurantId
+      restaurantName
+      type
+      points
+      description
+      createdAt
+    }
+  }
+`;
+
 export const LOYALTY_PROGRAM = gql`
   query LoyaltyProgram {
     loyaltyProgram {

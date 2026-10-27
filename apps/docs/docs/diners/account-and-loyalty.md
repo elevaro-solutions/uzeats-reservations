@@ -27,19 +27,19 @@ Each reservation has a detail page with:
 
 ## Loyalty program
 
-Tablevera runs a **platform loyalty** program plus optional **per-restaurant loyalty**:
+Tablevera runs a **platform loyalty** program plus optional **per-restaurant loyalty**. On the web, open **Loyalty & rewards** from the account menu or the link on your profile card (`/profile/loyalty`) to see your balance, status, referral code, restaurant rewards, points history, and how the program works.
 
 | Concept | Description |
 |---|---|
-| Points | Earned on completed visits; redeemable per program rules |
-| Tiers | Based on completed visit count (names shown in profile). Super admins set thresholds and earn multipliers in dashboard **Loyalty**. |
-| Expiry | Points may expire; expiry date shown on profile |
-| Referrals | Share your referral code to earn bonus points (amount shown on profile; awarded after the friend’s first completed visit) |
+| Points | Earned on completed visits, paid deposits, your first booking, and reviews. Redeem them as a discount on a booking deposit once you reach the minimum. |
+| Tiers | Based on completed visit count. Higher tiers multiply visit points. Super admins set thresholds and earn multipliers in dashboard **Loyalty**. |
+| Expiry | Each credit expires a set number of months after it was earned; the earliest expiry date is shown on the loyalty page. Oldest points are used first. |
+| Referrals | Share your referral code or invite link to earn bonus points (awarded after the friend’s first completed visit) |
+| Restaurant rewards | Restaurants that turn on their own loyalty award extra points on completed visits. Those points show on the loyalty page and only work at that restaurant. |
 | Gift cards | Redeem gift card codes at checkout |
 | Promo codes | Apply promotion codes during booking |
 
 Restaurant-specific loyalty settings are configured by each partner in their dashboard.
-
 ## Reviews
 
 After a **past visit** (managers marked `completed`, or a `confirmed`/`seated` booking whose slot has ended), you may receive a post-visit prompt to:

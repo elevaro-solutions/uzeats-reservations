@@ -179,6 +179,12 @@ See [features-virtual-room.md](./features-virtual-room.md) (experimental add-on 
 
 ## profile
 
+### [2026-10-27] Web loyalty moved to `/profile/loyalty`; restaurant rewards visibility
+- Diner web `/profile` card only links to `/profile/loyalty` (tier + points). Balance, tier ladder, referral, restaurant rewards, history, and how-it-works live on the new page. History category comes from `LoyaltyTransaction.description` (`LOYALTY_EARN_REASONS`, `Points expired (…)`, `Points refunded…`) plus `type`, mapped in `apps/web/src/lib/loyaltyHistory.ts`. `myLoyalty` is capped at 50 rows, so "Points earned" is labeled recent, not lifetime.
+- `myRestaurantLoyalty` returns a restaurant only when it has `loyaltyEnabled` and the diner has a positive `GuestProfile.loyaltyPoints` there (earned on a completed visit). The old profile card was hidden when empty, so diners never saw the feature; the loyalty page always shows the section with an explainer.
+- `loyaltyPointsExpireAt` is the earliest FIFO credit bucket expiry (each credit expires `pointsExpiryMonths` after it was earned), not an inactivity deadline.
+- Why it matters: Copy that says "book to keep points active" would be wrong, and QA testing restaurant rewards needs a completed visit at a loyalty-enabled restaurant.
+
 ### [2026-10-15] Android photo pick uses system picker (no READ_MEDIA_*)
 - Profile avatar and review attachments call `ensurePhotoLibraryAccess` then `launchImageLibraryAsync`. On Android that skips `requestMediaLibraryPermissionsAsync` so Play does not see broad gallery access; Expo’s `PickVisualMedia` path is enough. `app.config.js` removes `READ_MEDIA_IMAGES` and blocks `READ_MEDIA_IMAGES` / `READ_MEDIA_VIDEO` / `READ_MEDIA_VISUAL_USER_SELECTED`. iOS still prompts for Photos.
 - Why it matters: Declaring `READ_MEDIA_IMAGES` for one-off picks fails Google’s Photo and Video Permissions policy even with a written justification.
