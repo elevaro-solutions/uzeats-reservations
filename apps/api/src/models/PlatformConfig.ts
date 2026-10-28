@@ -193,6 +193,10 @@ const platformConfigSchema = new Schema(
       freeMonths: { type: Number, default: 2, min: 1, max: 11 },
       discountPercent: { type: Number, default: 17, min: 1, max: 99 },
     },
+    /** Public /pricing “Compare all features” table. Off until a platform admin opts in. */
+    showPricingComparisonTable: { type: Boolean, default: false },
+    /** How many plan cards show at once on public /pricing. Default 3. */
+    maxVisiblePricingPackages: { type: Number, default: 3, min: 1, max: 6 },
     loyalty: { type: loyaltyProgramSchema, default: undefined },
     /** Merchant Telegram messenger bot (BotFather token). Separate from TELEGRAM_BOT_TOKEN legacy alerts. */
     telegramBotToken: { type: String },

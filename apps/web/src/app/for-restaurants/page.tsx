@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Typography } from 'antd';
+import { Collapse, Typography } from 'antd';
+import { FOR_RESTAURANTS_FAQ } from '@/lib/partnerMarketing';
 import { AppStoreBadges } from '@reservations/ui';
 import {
   CalendarOutlined,
@@ -114,12 +115,12 @@ export default function ForRestaurantsPage() {
         <div className="fr-hero__inner">
           <span className="fr-badge">For restaurants</span>
           <Title className="fr-hero__title">
-            Fill more tables.
-            <span> Keep more of what you earn.</span>
+            Restaurant reservation system
+            <span> for small restaurants.</span>
           </Title>
           <Paragraph className="fr-hero__lead">
-            Tablevera helps restaurants get discovered, confirm the right guests, and cut no-shows —
-            so the floor stays busy and the host stand stays calm.
+            An OpenTable alternative with a free listing, a booking widget for your website, and
+            tools that fill tables without eating your margins.
           </Paragraph>
           <div className="fr-hero__actions">
             <Link href={PRICING_HREF} className="fr-btn fr-btn--primary">
@@ -130,7 +131,7 @@ export default function ForRestaurantsPage() {
             </a>
           </div>
           <ul className="fr-hero__proof">
-            <li>30-day free trial</li>
+            <li>30-day free trial on paid plans</li>
             <li>No annual contract</li>
             <li>Month-to-month plans</li>
           </ul>
@@ -289,8 +290,9 @@ export default function ForRestaurantsPage() {
             <span className="fr-kicker fr-kicker--on-dark">Get started</span>
             <Title level={2}>List your restaurant. Start seating more guests.</Title>
             <Paragraph>
-              Pick a plan on the pricing page, then register your venue. Every plan includes a
-              30-day free trial — no annual contract.
+              Pick a plan on the pricing page, then register your venue. Paid plans include a
+              30-day free trial — no annual contract. Base is $0/mo with a higher cover fee and no
+              trial.
             </Paragraph>
             <div className="fr-closing__actions">
               <Link href={PRICING_HREF} className="fr-btn fr-btn--primary">
@@ -302,6 +304,58 @@ export default function ForRestaurantsPage() {
             </div>
           </div>
         </article>
+      </section>
+
+      <section className="fr-compare" id="opentable-alternative">
+        <div className="fr-wrap">
+          <div className="fr-section-head">
+            <span className="fr-kicker">For independents</span>
+            <Title level={2}>An OpenTable alternative built for small restaurants</Title>
+            <Paragraph>
+              Tablevera is for the restaurants that need a listing, a website booking widget, and a
+              calm host stand — not a national-chain playbook. Start free, add tools when the floor
+              is ready, and keep website reservations free on Core and Pro.
+            </Paragraph>
+          </div>
+          <ul className="fr-compare__list">
+            <li>
+              <strong>Free restaurant listing with reservations</strong>
+              <span>Base is $0/mo so you can stay discoverable without a subscription.</span>
+            </li>
+            <li>
+              <strong>Booking widget for your website</strong>
+              <span>Guests reserve on your site. The embed includes a Book on Tablevera link.</span>
+            </li>
+            <li>
+              <strong>Cover fees only on seated network bookings</strong>
+              <span>No charge for no-shows, cancellations, phone, or walk-ins.</span>
+            </li>
+            <li>
+              <strong>Month-to-month, 30-day trial on paid plans</strong>
+              <span>No annual contract. Compare current prices on the pricing page.</span>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="fr-faq" aria-labelledby="fr-faq-heading">
+        <div className="fr-wrap">
+          <div className="fr-section-head">
+            <span className="fr-kicker">FAQ</span>
+            <Title level={2} id="fr-faq-heading">
+              Restaurant reservation questions
+            </Title>
+          </div>
+          <Collapse
+            bordered={false}
+            className="fr-faq__collapse"
+            items={FOR_RESTAURANTS_FAQ.map((item, index) => ({
+              key: String(index + 1),
+              label: item.question,
+              children: item.answer,
+            }))}
+          />
+        </div>
       </section>
     </div>
   );

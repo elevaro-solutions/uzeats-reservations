@@ -5,6 +5,7 @@ import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
   Button,
   Card,
+  Checkbox,
   Col,
   Form,
   Input,
@@ -120,6 +121,10 @@ const FIELD_TIPS = {
     'How annual savings are calculated: free months off the yearly total, or a percentage off the annual price.',
   globalAnnualFreeMonths: 'Months free when paying annually (e.g. 2 months free = pay for 10, get 12).',
   globalAnnualDiscountPercent: 'Percentage taken off the full annual price when billing annually.',
+  showPricingComparisonTable:
+    'When checked, public /pricing shows the Compare all features table under the plan cards. Unchecked (the default) hides the table.',
+  maxVisiblePricingPackages:
+    'How many plan cards show at once on public /pricing (1–6). Extra packages remain reachable with the carousel arrows. Default is 3.',
   networkCoverFee:
     'Per-cover fee when a diner discovers and books via the Tablevera network, app, or affiliates.',
   websiteCoverFee:
@@ -230,9 +235,11 @@ export default function AdminPricingPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [form] = Form.useForm();
   const [annualForm] = Form.useForm();
+  const [displayForm] = Form.useForm();
   const [createForm] = Form.useForm();
   const packageDirty = useFormDirty();
   const annualDirty = useFormDirty();
+  const displayDirty = useFormDirty();
   const createDirty = useFormDirty();
 
   const plans = data?.plans ?? [];
@@ -278,6 +285,16 @@ export default function AdminPricingPage() {
     annualForm.setFieldsValue(configData.platformConfig.annualBilling);
     annualDirty.clearDirty();
   }, [configData, annualForm, annualDirty.clearDirty]);
+
+  useEffect(() => {
+    if (!configData?.platformConfig) return;
+    displayForm.setFieldsValue({
+      showPricingComparisonTable:
+        configData.platformConfig.showPricingComparisonTable === true,
+      maxVisiblePricingPackages: configData.platformConfig.maxVisiblePricingPackages ?? 3,
+    });
+    displayDirty.clearDirty();
+  }, [configData, displayForm, displayDirty.clearDirty]);
 
   useEffect(() => {
     const plan = plans.find((p: any) => p.key === activeKey) ?? plans[0];
@@ -411,6 +428,27 @@ export default function AdminPricingPage() {
     } catch (err: any) {
       if (err?.errorFields) return;
       message.error(err.message || 'Failed to update annual billing');
+    }
+  };
+
+  const onSavePricingDisplay = async () => {
+    if (!displayDirty.dirty) return;
+    try {
+      const values = await displayForm.validateFields();
+      await updateConfig({
+        variables: {
+          input: {
+            showPricingComparisonTable: Boolean(values.showPricingComparisonTable),
+            maxVisiblePricingPackages: values.maxVisiblePricingPackages,
+          },
+        },
+      });
+      message.success('Pricing page display updated');
+      displayDirty.clearDirty();
+      refetchConfig();
+    } catch (err: any) {
+      if (err?.errorFields) return;
+      message.error(err.message || 'Failed to update pricing page display');
     }
   };
 
@@ -796,6 +834,50 @@ export default function AdminPricingPage() {
         title="Plans & pricing"
         subtitle="Edit package prices, cover fees, trial length, and included features. Changes apply to new subscriptions and plan changes."
       />
+
+      <Card
+        title="Public pricing page"
+        loading={loading}
+        extra={
+          <Button
+            type="primary"
+            loading={savingAnnual}
+            disabled={!displayDirty.dirty}
+            onClick={onSavePricingDisplay}
+          >
+            Save display settings
+          </Button>
+        }
+      >
+        <Paragraph type="secondary" style={{ marginTop: 0 }}>
+          Controls what visitors see on the public <Text code>/pricing</Text> page. Package cards
+          stay visible according to each package&rsquo;s &ldquo;Visible on pricing&rdquo; toggle.
+        </Paragraph>
+        <Form form={displayForm} layout="vertical" onValuesChange={displayDirty.onValuesChange}>
+          <Row gutter={16}>
+            <Col xs={24} md={8}>
+              <Form.Item
+                name="maxVisiblePricingPackages"
+                label="Packages visible at once"
+                tooltip={FIELD_TIPS.maxVisiblePricingPackages}
+                rules={[{ required: true, message: 'Enter how many packages to show' }]}
+              >
+                <InputNumber min={1} max={6} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col xs={24} md={16}>
+              <Form.Item
+                name="showPricingComparisonTable"
+                label="Comparison table"
+                valuePropName="checked"
+                tooltip={FIELD_TIPS.showPricingComparisonTable}
+              >
+                <Checkbox>Show the Compare all features table</Checkbox>
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
+      </Card>
 
       <Card
         title="Global annual billing"

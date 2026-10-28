@@ -7,6 +7,7 @@ import {
   listCuisineCityLandingParams,
   listCuisineLandingParams,
   listLandmarkLandingParams,
+  listMealCityLandingParams,
   listMealLandingParams,
   listNeighborhoodLandingParams,
   listOccasionLandingParams,
@@ -23,7 +24,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     { url: `${base}/`, lastModified: now, changeFrequency: 'daily', priority: 1 },
     { url: `${base}/top-restaurants`, lastModified: now, changeFrequency: 'weekly', priority: 0.85 },
-    { url: `${base}/best-restaurants`, lastModified: now, changeFrequency: 'weekly', priority: 0.85 },
     { url: `${base}/top-locations`, lastModified: now, changeFrequency: 'weekly', priority: 0.8 },
     { url: `${base}/near-me`, lastModified: now, changeFrequency: 'weekly', priority: 0.85 },
     { url: `${base}/near-me/restaurants`, lastModified: now, changeFrequency: 'weekly', priority: 0.85 },
@@ -39,6 +39,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/blog`, lastModified: now, changeFrequency: 'weekly', priority: 0.7 },
     { url: `${base}/for-restaurants`, lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${base}/pricing`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${base}/about`, lastModified: now, changeFrequency: 'monthly', priority: 0.5 },
     { url: `${base}/contact`, lastModified: now, changeFrequency: 'monthly', priority: 0.4 },
     { url: `${base}/downloads`, lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
     { url: `${base}/privacy`, lastModified: now, changeFrequency: 'yearly', priority: 0.3 },
@@ -56,6 +57,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     landmarkParams,
     categoryParams,
     mealParams,
+    mealCityParams,
     cuisineCityParams,
     categoryCityParams,
     restaurantEntries,
@@ -69,6 +71,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     listLandmarkLandingParams(),
     listCategoryLandingParams(),
     Promise.resolve(listMealLandingParams()),
+    listMealCityLandingParams(),
     listCuisineCityLandingParams(),
     listCategoryCityLandingParams(),
     fetchRestaurantSitemapEntries(),
@@ -138,13 +141,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.85,
   }));
 
-  const bestRestaurantStatePages = stateParams.map(({ slug }) => ({
-    url: `${base}/best-restaurants/state/${slug}`,
-    lastModified: now,
-    changeFrequency: 'weekly' as const,
-    priority: 0.85,
-  }));
-
   const nearMeRestaurantStatePages = stateParams.map(({ slug }) => ({
     url: `${base}/near-me/restaurants/state/${slug}`,
     lastModified: now,
@@ -194,14 +190,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.75,
   }));
 
-  const nearMeMealCityPages = mealParams.flatMap(({ slug }) =>
-    cityParams.map((city) => ({
-      url: `${base}/near-me/meals/${slug}/${city.slug}`,
-      lastModified: now,
-      changeFrequency: 'weekly' as const,
-      priority: 0.8,
-    })),
-  );
+  const nearMeMealCityPages = mealCityParams.map(({ slug, citySlug }) => ({
+    url: `${base}/near-me/meals/${slug}/${citySlug}`,
+    lastModified: now,
+    changeFrequency: 'weekly' as const,
+    priority: 0.8,
+  }));
 
   const cuisineCityPages = cuisineCityParams.map(({ slug, citySlug }) => ({
     url: `${base}/cuisine/${slug}/${citySlug}`,
@@ -242,7 +236,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...categoryPages,
     ...topRestaurantCityPages,
     ...topRestaurantStatePages,
-    ...bestRestaurantStatePages,
     ...nearMeRestaurantStatePages,
     ...nearMeRestaurantCityPages,
     ...nearMeNeighborhoodPages,

@@ -1,6 +1,5 @@
 import { cache } from 'react';
 import { PLATFORM_TIMEZONE, addCalendarDays, todayIsoInTimeZone } from '@reservations/shared';
-import { DEFAULT_LOCATION } from '@/lib/cities';
 import { serverGraphql } from '@/lib/serverGraphql';
 
 export type HomeSearchSeedItem = {
@@ -25,13 +24,14 @@ export type HomeSearchSeed = {
   items: HomeSearchSeedItem[];
   /** Variables used for the seed — client skips seed when filters diverge. */
   input: {
-    lat: number;
-    lng: number;
-    radiusKm: number;
+    lat?: number;
+    lng?: number;
+    radiusKm?: number;
     date: string;
     partySize: number;
     page: number;
     limit: number;
+    requireAvailability: boolean;
   };
 };
 
@@ -63,16 +63,14 @@ function defaultSeedDate(): string {
   return addCalendarDays(todayIsoInTimeZone(PLATFORM_TIMEZONE), 1);
 }
 
-/** Default home grid seed (NYC + tomorrow + party 2). Short revalidate — slots move. */
+/** Nationwide seed so crawlers see real partners instead of an empty NYC radius. */
 export const fetchHomeSearchSeed = cache(async (): Promise<HomeSearchSeed | null> => {
   const input = {
-    lat: DEFAULT_LOCATION.lat,
-    lng: DEFAULT_LOCATION.lng,
-    radiusKm: 16,
     date: defaultSeedDate(),
     partySize: 2,
     page: 1,
     limit: 24,
+    requireAvailability: false,
   };
   try {
     const data = await serverGraphql<{ searchRestaurants: Omit<HomeSearchSeed, 'input'> }>(

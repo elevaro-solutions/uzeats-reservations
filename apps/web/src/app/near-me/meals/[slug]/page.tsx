@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { mealNearMeLandingMeta } from '@reservations/shared';
-import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
-import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
+import { DiscoveryLanding } from '@/components/DiscoveryLanding';
 import {
   listCitiesForIndex,
   listMealLandingParams,
@@ -65,27 +64,18 @@ export default async function MealNearMePage({ params }: PageProps) {
   ];
 
   return (
-    <>
-      <DiscoveryLandingSchema
-        breadcrumbs={breadcrumbs}
-        faq={meta.faq}
-        canonicalPath={canonicalPath}
-        heading={meta.heading}
-        description={meta.description}
-      />
-      <DiscoveryLandingView
-        meta={meta}
-        canonicalPath={canonicalPath}
-        preset={{
+    <DiscoveryLanding
+      meta={meta}
+      canonicalPath={canonicalPath}
+      breadcrumbs={breadcrumbs}
+      relatedLinks={related}
+      preset={{
           meal,
           lat: DEFAULT_LOCATION.lat,
           lng: DEFAULT_LOCATION.lng,
           locationLabel: 'Near me',
           radiusKm: 16,
         }}
-        breadcrumbs={breadcrumbs}
-        relatedLinks={related}
-      />
-    </>
+    />
   );
 }

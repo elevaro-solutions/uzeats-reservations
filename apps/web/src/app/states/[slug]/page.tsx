@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { stateLandingMeta, seoTierRestaurantsIn } from '@reservations/shared';
-import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
-import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
+import { DiscoveryLanding } from '@/components/DiscoveryLanding';
 import {
   listCitiesForIndex,
   listStateLandingParams,
@@ -49,7 +48,7 @@ export default async function StateLandingPage({ params }: PageProps) {
   const related = [
     { href: `/near-me/restaurants/state/${slug}`, label: `Restaurants near me in ${state.name}` },
     { href: `/top-restaurants/state/${slug}`, label: `Top restaurants in ${state.name}` },
-    { href: `/best-restaurants/state/${slug}`, label: `Best restaurants in ${state.name}` },
+    { href: `/top-restaurants/state/${slug}`, label: `Top restaurants in ${state.name}` },
     ...cities.slice(0, 6).map((c) => ({
       href: `/cities/${c.slug}`,
       label: seoTierRestaurantsIn('best', c.label),
@@ -60,27 +59,19 @@ export default async function StateLandingPage({ params }: PageProps) {
   ];
 
   return (
-    <>
-      <DiscoveryLandingSchema
-        breadcrumbs={breadcrumbs}
-        faq={meta.faq}
-        canonicalPath={canonicalPath}
-        heading={meta.heading}
-        description={meta.description}
-      />
-      <DiscoveryLandingView
-        meta={meta}
-        canonicalPath={canonicalPath}
-        preset={{
+    <DiscoveryLanding
+      meta={meta}
+      canonicalPath={canonicalPath}
+      breadcrumbs={breadcrumbs}
+      relatedLinks={related}
+      requireInventory
+      preset={{
           state: state.code,
           lat: state.lat,
           lng: state.lng,
           locationLabel: state.name,
           radiusKm: 80,
         }}
-        breadcrumbs={breadcrumbs}
-        relatedLinks={related}
-      />
-    </>
+    />
   );
 }

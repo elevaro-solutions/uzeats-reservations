@@ -7,6 +7,7 @@ import {
   citySlug,
   cuisineSlug,
   discoverySlug,
+  filterInventorySlugs,
   seoCategoryLinkLabel,
   seoCategoryLinkParts,
   landmarkSlug,
@@ -233,29 +234,31 @@ export async function resolveOccasionBySlug(slug: string): Promise<string | null
 
 export async function listCityLandingParams(): Promise<Array<{ slug: string }>> {
   const index = await fetchDiscoveryIndex();
-  const slugs = new Set<string>([
-    ...POPULAR_CITIES.map((c) => citySlug(c.city, c.state)),
-    ...index.cities.map((c) => c.slug),
-  ]);
-  return [...slugs].map((slug) => ({ slug }));
+  return filterInventorySlugs(
+    index.cities,
+    POPULAR_CITIES.map((c) => citySlug(c.city, c.state)),
+  ).map((slug) => ({ slug }));
 }
 
 export async function listNeighborhoodLandingParams(): Promise<Array<{ slug: string }>> {
   const index = await fetchDiscoveryIndex();
-  const slugs = new Set<string>([
-    ...POPULAR_NEIGHBORHOODS.map((n) => neighborhoodSlug(n.neighborhood, n.city, n.state)),
-    ...index.neighborhoods.map((n) => n.slug),
-  ]);
-  return [...slugs].map((slug) => ({ slug }));
+  return filterInventorySlugs(
+    index.neighborhoods,
+    POPULAR_NEIGHBORHOODS.map((n) => neighborhoodSlug(n.neighborhood, n.city, n.state)),
+  ).map((slug) => ({ slug }));
 }
 
 /** Prefer live inventory; fall back to curated list when the API is empty at build time. */
 export async function listCuisineLandingParams(): Promise<Array<{ slug: string }>> {
   const index = await fetchDiscoveryIndex();
   if (index.cuisines.length > 0) {
-    return index.cuisines
-      .filter((c) => c.label && c.label !== 'Other')
-      .map((c) => ({ slug: c.slug }));
+    const slugs = filterInventorySlugs(
+      index.cuisines.filter((c) => c.label && c.label !== 'Other'),
+      [],
+    );
+    return (slugs.length ? slugs : index.cuisines.filter((c) => c.label && c.label !== 'Other').map((c) => c.slug)).map(
+      (slug) => ({ slug }),
+    );
   }
   return CUISINES.filter((c) => c !== 'Other').map((cuisine) => ({
     slug: cuisineSlug(cuisine),
@@ -288,7 +291,9 @@ export async function listCitiesForIndex(): Promise<
     });
   }
 
-  return [...bySlug.values()].sort((a, b) => a.label.localeCompare(b.label));
+  const values = [...bySlug.values()].sort((a, b) => a.label.localeCompare(b.label));
+  const withStock = values.filter((c) => (c.count ?? 0) > 0);
+  return withStock.length > 0 ? withStock : values;
 }
 
 export async function listNeighborhoodsForIndex(): Promise<
@@ -312,7 +317,9 @@ export async function listNeighborhoodsForIndex(): Promise<
     });
   }
 
-  return [...bySlug.values()].sort((a, b) => a.label.localeCompare(b.label));
+  const values = [...bySlug.values()].sort((a, b) => a.label.localeCompare(b.label));
+  const withStock = values.filter((n) => (n.count ?? 0) > 0);
+  return withStock.length > 0 ? withStock : values;
 }
 
 export async function listCuisinesForIndex(): Promise<
@@ -567,12 +574,11 @@ export function resolveMealBySlug(slug: string): Meal | null {
 export async function listCuisineCityLandingParams(): Promise<
   Array<{ slug: string; citySlug: string }>
 > {
-  const cuisines = await listCuisineLandingParams();
-  const cities = POPULAR_CITIES.map((c) => citySlug(c.city, c.state));
+  const [cuisines, cities] = await Promise.all([listCuisineLandingParams(), listCityLandingParams()]);
   const params: Array<{ slug: string; citySlug: string }> = [];
   for (const { slug } of cuisines) {
     for (const city of cities) {
-      params.push({ slug, citySlug: city });
+      params.push({ slug, citySlug: city.slug });
     }
   }
   return params;
@@ -581,12 +587,28 @@ export async function listCuisineCityLandingParams(): Promise<
 export async function listCategoryCityLandingParams(): Promise<
   Array<{ slug: string; citySlug: string }>
 > {
-  const categories = await listCategoryLandingParams();
-  const cities = POPULAR_CITIES.map((c) => citySlug(c.city, c.state));
+  const [categories, cities] = await Promise.all([
+    listCategoryLandingParams(),
+    listCityLandingParams(),
+  ]);
   const params: Array<{ slug: string; citySlug: string }> = [];
   for (const { slug } of categories) {
     for (const city of cities) {
-      params.push({ slug, citySlug: city });
+      params.push({ slug, citySlug: city.slug });
+    }
+  }
+  return params;
+}
+
+export async function listMealCityLandingParams(): Promise<Array<{ slug: string; citySlug: string }>> {
+  const [meals, cities] = await Promise.all([
+    Promise.resolve(listMealLandingParams()),
+    listCityLandingParams(),
+  ]);
+  const params: Array<{ slug: string; citySlug: string }> = [];
+  for (const { slug } of meals) {
+    for (const city of cities) {
+      params.push({ slug, citySlug: city.slug });
     }
   }
   return params;

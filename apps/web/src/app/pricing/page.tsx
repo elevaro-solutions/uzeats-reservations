@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@apollo/client/react';
 import {
   Typography,
@@ -15,7 +15,7 @@ import {
 } from 'antd';
 import { PLANS } from '@/lib/graphql';
 import type { BillingPeriod } from '@reservations/ui';
-import { AppStoreBadges } from '@reservations/ui';
+import { AppStoreBadges, StarRating } from '@reservations/ui';
 import {
   annualBillingAppliesToPlan,
   formatPlanDollars,
@@ -27,9 +27,9 @@ import {
   type AnnualBillingSettings,
 } from '@reservations/shared';
 import { getDashboardUrl } from '@/lib/urls';
+import { PRICING_FAQ } from '@/lib/partnerMarketing';
 import {
   CheckOutlined,
-  CloseOutlined,
   CalendarOutlined,
   TeamOutlined,
   BarChartOutlined,
@@ -40,6 +40,8 @@ import {
   SafetyCertificateOutlined,
   ClockCircleOutlined,
   FileProtectOutlined,
+  LeftOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
 
 const { Title, Paragraph, Text } = Typography;
@@ -49,6 +51,8 @@ interface PlanFeature {
   basic: boolean | string;
   core: boolean | string;
   pro: boolean | string;
+  /** Guest-facing listing tier. Defaults to false when omitted. */
+  base?: boolean | string;
 }
 
 interface FeatureCategory {
@@ -62,12 +66,12 @@ const featureCategories: FeatureCategory[] = [
     title: 'Help land more guests',
     icon: <TeamOutlined />,
     features: [
-      { name: 'Tablevera profile and listing', basic: true, core: true, pro: true },
-      { name: 'Booking widget for your website', basic: true, core: true, pro: 'Fully customizable' },
-      { name: 'Review management', basic: true, core: true, pro: true },
-      { name: 'Booking integrations (100+ sites & apps)', basic: true, core: true, pro: true },
-      { name: "Google's 'Reserve a table' button", basic: true, core: true, pro: true },
-      { name: 'Notify Me (waitlist for fully booked nights)', basic: true, core: true, pro: true },
+      { name: 'Tablevera profile and listing', base: true, basic: true, core: true, pro: true },
+      { name: 'Booking widget for your website', base: true, basic: true, core: true, pro: true },
+      { name: 'Review management', base: true, basic: true, core: true, pro: true },
+      { name: 'Booking integrations (100+ sites & apps)', base: true, basic: true, core: true, pro: true },
+      { name: "Google's 'Reserve a table' button", base: true, basic: true, core: true, pro: true },
+      { name: 'Notify Me (waitlist for fully booked nights)', base: true, basic: true, core: true, pro: true },
     ],
   },
   {
@@ -80,15 +84,15 @@ const featureCategories: FeatureCategory[] = [
       { name: 'Access Rules', basic: false, core: true, pro: true },
       { name: 'In-house and online waitlist', basic: false, core: true, pro: true },
       { name: 'Mobile app with floor plan', basic: false, core: true, pro: true },
-      { name: 'Automated reservation messages', basic: true, core: true, pro: true },
+      { name: 'Automated reservation messages', base: true, basic: true, core: true, pro: true },
     ],
   },
   {
     title: 'Build guest relationships',
     icon: <StarOutlined />,
     features: [
-      { name: 'Guest database, tags and notes', basic: true, core: true, pro: true },
-      { name: '360 guest profiles', basic: false, core: true, pro: 'Advanced insights' },
+      { name: 'Guest database, tags and notes', base: true, basic: true, core: true, pro: true },
+      { name: '360 guest profiles', basic: false, core: true, pro: true },
       { name: 'Real-time guest spend alerts', basic: false, core: true, pro: true },
       { name: 'Two-way messaging', basic: false, core: true, pro: true },
       { name: 'Pre-shift report', basic: false, core: false, pro: true },
@@ -100,9 +104,9 @@ const featureCategories: FeatureCategory[] = [
     title: 'Payments & security',
     icon: <SafetyOutlined />,
     features: [
-      { name: 'Deposits and credit card holds', basic: true, core: true, pro: true },
-      { name: 'No-show fees', basic: true, core: true, pro: true },
-      { name: 'PCI-compliant payment processing', basic: true, core: true, pro: true },
+      { name: 'Deposits and credit card holds', base: true, basic: true, core: true, pro: true },
+      { name: 'No-show fees', base: true, basic: true, core: true, pro: true },
+      { name: 'PCI-compliant payment processing', base: true, basic: true, core: true, pro: true },
       { name: 'Ticketed events & experiences', basic: false, core: true, pro: true },
     ],
   },
@@ -110,7 +114,7 @@ const featureCategories: FeatureCategory[] = [
     title: 'Reporting & analytics',
     icon: <BarChartOutlined />,
     features: [
-      { name: 'Standard reporting', basic: true, core: true, pro: true },
+      { name: 'Standard reporting', base: true, basic: true, core: true, pro: true },
       { name: 'Advanced analytics dashboard', basic: false, core: true, pro: true },
       { name: 'Revenue forecasting', basic: false, core: false, pro: true },
       { name: 'Custom report builder', basic: false, core: false, pro: true },
@@ -130,8 +134,8 @@ const featureCategories: FeatureCategory[] = [
     title: 'Support & onboarding',
     icon: <MobileOutlined />,
     features: [
-      { name: 'Online help center', basic: true, core: true, pro: true },
-      { name: 'Email support', basic: true, core: true, pro: true },
+      { name: 'Online help center', base: true, basic: true, core: true, pro: true },
+      { name: 'Email support', base: true, basic: true, core: true, pro: true },
       { name: 'Phone support', basic: false, core: true, pro: true },
       { name: 'Dedicated account manager', basic: false, core: false, pro: true },
       { name: 'Priority onboarding', basic: false, core: false, pro: true },
@@ -139,54 +143,25 @@ const featureCategories: FeatureCategory[] = [
   },
 ];
 
-const faqItems = [
-  {
-    key: '1',
-    label: "What's the commitment?",
-    children:
-      "None. Every plan is month-to-month — cancel anytime. We're just getting started, so we keep things simple: no annual contracts, no lock-in.",
-  },
-  {
-    key: '2',
-    label: 'Does Tablevera charge cover fees for every reservation?',
-    children:
-      "On Core and Pro plans, we only charge cover fees for diners that discover your restaurant on Tablevera's website, app, or through our affiliate network. If a diner books directly through your website or by calling the restaurant, we don't take a cent.",
-  },
-  {
-    key: '3',
-    label: 'Do I pay for reservations through my website?',
-    children:
-      'On Core and Pro plans, all reservations from your website are free. On the Basic plan, website reservations are $0.10 per cover or you can opt for a $19/month flat fee for unlimited website bookings.',
-  },
-  {
-    key: '4',
-    label: 'Do I pay for phone reservations? Walk-ins?',
-    children:
-      "No. When a diner books by calling the restaurant or walks in, we don't charge you anything.",
-  },
-  {
-    key: '5',
-    label: 'Will I still be charged a cover fee for a no-show or cancellation?',
-    children:
-      "You only pay for seated diners, which means there's no need to worry about being charged a cover fee for cancellations or no-shows.",
-  },
-  {
-    key: '6',
-    label: 'Can I offer ticketed events?',
-    children:
-      "Yes. Whether it's a ticketed event like a class or wine tasting or a special menu, you can offer customized Experiences on Core and Pro plans. A 2% service fee applies to deposits and ticketed experiences.",
-  },
-  {
-    key: '7',
-    label: 'Is there a free trial?',
-    children:
-      'Paid plans include a free 30-day trial. Base is $0/mo with a higher cover fee and has no trial. Cancel anytime.',
-  },
-];
+const faqItems = PRICING_FAQ.map((item, index) => ({
+  key: String(index + 1),
+  label: item.question,
+  children: item.answer,
+}));
 
 const PLAN_ORDER = ['basic', 'core', 'pro'] as const;
-const COMPARISON_PLAN_KEYS = ['basic', 'core', 'pro'] as const;
-const VISIBLE_CATEGORY_COUNT = 2;
+const DEFAULT_MAX_VISIBLE_PLAN_CARDS = 3;
+const MIN_MAX_VISIBLE_PLAN_CARDS = 1;
+const MAX_MAX_VISIBLE_PLAN_CARDS = 6;
+
+function normalizeMaxVisiblePlanCards(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_MAX_VISIBLE_PLAN_CARDS;
+  return Math.min(
+    MAX_MAX_VISIBLE_PLAN_CARDS,
+    Math.max(MIN_MAX_VISIBLE_PLAN_CARDS, Math.round(n)),
+  );
+}
 
 type PlanKey = (typeof PLAN_ORDER)[number];
 
@@ -222,7 +197,11 @@ function FeatureValue({ value }: { value: boolean | string }) {
     return <CheckOutlined style={{ color: '#52c41a', fontSize: 18 }} />;
   }
   if (value === false) {
-    return <CloseOutlined style={{ color: '#d9d9d9', fontSize: 14 }} />;
+    return (
+      <span aria-label="Not included" style={{ color: '#d0cbc2', fontSize: 16, lineHeight: 1 }}>
+        —
+      </span>
+    );
   }
   return (
     <div component="FeatureValue" style={{ display: 'contents' }}>
@@ -250,6 +229,15 @@ type ApiPlan = {
   isCustom: boolean;
   highlights?: string[] | null;
 };
+
+function featureValueForPlan(feature: PlanFeature, plan: ApiPlan): boolean | string {
+  if (plan.key === 'basic') return feature.basic;
+  if (plan.key === 'core') return feature.core;
+  if (plan.key === 'pro') return feature.pro;
+  if (plan.key === 'base') return feature.base ?? false;
+  // Custom packages (Unlimited, etc.) include everything in Pro.
+  return feature.pro;
+}
 
 const FALLBACK_PLANS: ApiPlan[] = [
   {
@@ -309,6 +297,16 @@ const FALLBACK_PLANS: ApiPlan[] = [
 function formatDollars(cents: number): string {
   const dollars = cents / 100;
   return Number.isInteger(dollars) ? `$${dollars}` : `$${dollars.toFixed(2)}`;
+}
+
+function compactPriceLabel(
+  plan: ApiPlan,
+  billingPeriod: BillingPeriod,
+  annualBilling: AnnualBillingSettings,
+): string {
+  const display = getPlanDisplay(plan, billingPeriod, annualBilling);
+  const suffix = display.primarySuffix.includes('year') ? '/yr' : '/mo';
+  return `${formatPlanDollars(display.primaryCents)}${suffix}`;
 }
 
 function getPlanDisplay(
@@ -392,7 +390,9 @@ function getFinePrint(
 export default function PricingPage() {
   const [selectedPlan, setSelectedPlan] = useState<string>('core');
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
-  const [showAllFeatures, setShowAllFeatures] = useState(false);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const { data: plansData } = useQuery(PLANS);
 
   const annualBilling: AnnualBillingSettings = useMemo(
@@ -401,6 +401,11 @@ export default function PricingPage() {
         (plansData as { annualBillingSettings?: AnnualBillingSettings })?.annualBillingSettings,
       ),
     [plansData],
+  );
+  const showPricingComparisonTable =
+    (plansData as { showPricingComparisonTable?: boolean })?.showPricingComparisonTable === true;
+  const maxVisiblePlanCards = normalizeMaxVisiblePlanCards(
+    (plansData as { maxVisiblePricingPackages?: number })?.maxVisiblePricingPackages,
   );
 
   const allPlans: ApiPlan[] =
@@ -412,10 +417,6 @@ export default function PricingPage() {
     () => allPlans.filter((p) => p.visibleOnPricing !== false),
     [allPlans],
   );
-
-  const comparisonPlans = visiblePlans
-    .map((plan) => plan.key)
-    .filter((key): key is PlanKey => (COMPARISON_PLAN_KEYS as readonly string[]).includes(key));
 
   const selectedPlanData = visiblePlans.find((p) => p.key === selectedPlan) ?? visiblePlans[1];
 
@@ -437,12 +438,49 @@ export default function PricingPage() {
     return savings > 0 ? `Annual (${savings}% off)` : 'Annual';
   }, [annualBilling]);
 
-  const visibleCategories = showAllFeatures
-    ? featureCategories
-    : featureCategories.slice(0, VISIBLE_CATEGORY_COUNT);
+  const gridColumns = `minmax(200px, 1.5fr) repeat(${visiblePlans.length}, minmax(110px, 1fr))`;
+  const coreColumnIndex = visiblePlans.findIndex((plan) => plan.key === 'core');
 
-  const gridColumns = `minmax(180px, 1.6fr) repeat(${comparisonPlans.length}, minmax(90px, 1fr))`;
-  const coreColumnIndex = comparisonPlans.indexOf('core');
+  const updateCarouselOverflow = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) {
+      setCanScrollLeft(false);
+      setCanScrollRight(false);
+      return;
+    }
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    setCanScrollLeft(el.scrollLeft > 8);
+    setCanScrollRight(maxScroll > 8 && el.scrollLeft < maxScroll - 8);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    el.scrollLeft = 0;
+    updateCarouselOverflow();
+    const onScroll = () => updateCarouselOverflow();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(onScroll) : null;
+    ro?.observe(el);
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      ro?.disconnect();
+    };
+  }, [updateCarouselOverflow, visiblePlans.length]);
+
+  const scrollPlans = (direction: -1 | 1) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const item = el.querySelector<HTMLElement>('.pricing-plan-carousel__item');
+    const delta = item
+      ? item.getBoundingClientRect().width + 20
+      : el.clientWidth / maxVisiblePlanCards;
+    el.scrollBy({ left: direction * delta, behavior: 'smooth' });
+  };
+
+  const showCarouselNav =
+    visiblePlans.length > maxVisiblePlanCards || canScrollLeft || canScrollRight;
+  const visibleCardCount = Math.max(1, Math.min(maxVisiblePlanCards, visiblePlans.length));
 
   const startTrial = (plan: string = selectedPlan) => {
     window.open(
@@ -479,12 +517,12 @@ export default function PricingPage() {
               margin: '0 auto 24px',
             }}
           >
-            30-day free trial · No contracts · Free website bookings on Core &amp; Pro
+            30-day free trial on paid plans · No contracts · Free website bookings on Core &amp; Pro
           </Paragraph>
           <Space size={[24, 12]} wrap style={{ justifyContent: 'center' }}>
             <Space size={8}>
               <ClockCircleOutlined style={{ color: 'rgba(255,255,255,0.85)' }} />
-              <Text style={{ color: 'rgba(255,255,255,0.9)' }}>30-day free trial</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.9)' }}>30-day trial on paid plans</Text>
             </Space>
             <Space size={8}>
               <FileProtectOutlined style={{ color: 'rgba(255,255,255,0.85)' }} />
@@ -498,7 +536,7 @@ export default function PricingPage() {
         </Card>
 
         {/* Billing toggle */}
-        <div style={{ textAlign: 'center' }}>
+        <div className="pricing-toolbar">
           <Segmented
             value={billingPeriod}
             onChange={(value) => setBillingPeriod(value as BillingPeriod)}
@@ -510,9 +548,27 @@ export default function PricingPage() {
           />
         </div>
 
-        {/* Pricing cards */}
-        <Row gutter={[20, 24]} align="stretch" justify="center">
-          {visiblePlans.map((plan) => {
+        {/* Pricing cards — extra packages scroll when more than the admin cap */}
+        <div>
+          <div className="pricing-plan-carousel">
+            {showCarouselNav ? (
+              <Button
+                className="pricing-plan-carousel__btn pricing-plan-carousel__btn--prev"
+                shape="circle"
+                aria-label="Show previous packages"
+                icon={<LeftOutlined />}
+                disabled={!canScrollLeft}
+                onClick={() => scrollPlans(-1)}
+              />
+            ) : null}
+            <div
+              ref={scrollerRef}
+              className="pricing-plan-carousel__scroller"
+              data-count={visiblePlans.length}
+              style={{ ['--pricing-visible-cards' as string]: String(visibleCardCount) }}
+              role="list"
+            >
+              {visiblePlans.map((plan) => {
             const isCore = plan.key === 'core';
             const planKey = plan.key as PlanKey;
             const description =
@@ -540,15 +596,9 @@ export default function PricingPage() {
                 : '/mo';
 
             return (
-              <Col
-                xs={24}
-                md={12}
-                xl={visiblePlans.length > 3 ? 6 : 8}
-                key={plan.key}
-                style={{ display: 'flex' }}
-              >
+              <div key={plan.key} className="pricing-plan-carousel__item" role="listitem">
                 <div
-                  className={`pricing-plan-card${isCore ? ' pricing-plan-card--featured pricing-core-card' : ''}`}
+                  className={`pricing-plan-card${isCore ? ' pricing-plan-card--featured pricing-core-card' : ''}${selectedPlan === plan.key ? ' is-selected' : ''}`}
                   onClick={() => setSelectedPlan(plan.key)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') setSelectedPlan(plan.key);
@@ -628,10 +678,22 @@ export default function PricingPage() {
                     </>
                   ) : null}
                 </div>
-              </Col>
+              </div>
             );
           })}
-        </Row>
+            </div>
+            {showCarouselNav ? (
+              <Button
+                className="pricing-plan-carousel__btn pricing-plan-carousel__btn--next"
+                shape="circle"
+                aria-label="Show next packages"
+                icon={<RightOutlined />}
+                disabled={!canScrollRight}
+                onClick={() => scrollPlans(1)}
+              />
+            ) : null}
+          </div>
+        </div>
 
         {/* Cover fees footnote */}
         {visiblePlans.length > 0 ? (
@@ -643,9 +705,10 @@ export default function PricingPage() {
               About cover fees
             </Text>
             <Paragraph type="secondary" style={{ marginBottom: 0, fontSize: 14 }}>
-              Cover fees apply only when diners discover your restaurant on Tablevera&apos;s network
-              (website, app, or affiliates). Phone, walk-in, and direct website bookings are never
-              charged a network fee.{' '}
+              Network cover fees apply only when diners discover your restaurant on Tablevera&apos;s
+              network (website, app, or affiliates). Phone and walk-in bookings are never charged.
+              Website-widget covers are free on Core and Pro; Base and Basic list a per-cover
+              website fee below.{' '}
               {visiblePlans
                 .map((p) => {
                   const web =
@@ -685,103 +748,66 @@ export default function PricingPage() {
               </Text>
               <Text type="secondary">Director of Operations, Metropolitan Dining Group</Text>
               <div style={{ marginTop: 8 }}>
-                <StarOutlined style={{ color: '#c5a059' }} />
-                <StarOutlined style={{ color: '#c5a059' }} />
-                <StarOutlined style={{ color: '#c5a059' }} />
-                <StarOutlined style={{ color: '#c5a059' }} />
-                <StarOutlined style={{ color: '#c5a059' }} />
+                <StarRating value={5} size={16} aria-label="Rated 5 out of 5" />
               </div>
             </Col>
           </Row>
         </Card>
 
-        {/* Feature comparison */}
+        {/* Feature comparison — admin-gated; default off */}
+        {showPricingComparisonTable ? (
         <div>
           <Title level={2} style={{ textAlign: 'center', marginBottom: 8 }}>
             Compare all features
           </Title>
           <Paragraph style={{ textAlign: 'center', marginBottom: 32, color: '#5a554d' }}>
-            {showAllFeatures
-              ? 'Full feature breakdown across all plans'
-              : `Showing top highlights — ${featureCategories.length - VISIBLE_CATEGORY_COUNT} more categories below`}
+            Included or not — every plan, side by side.
           </Paragraph>
 
-          <Card className="pricing-compare-desktop" style={{ borderRadius: 12 }} styles={{ body: { padding: 0 } }}>
+          <Card className="pricing-compare-desktop" styles={{ body: { padding: 0 } }}>
             <div className="pricing-compare-scroll">
             <div
-              className="pricing-compare-grid"
-              style={{
-                display: 'grid',
-                gridTemplateColumns: `minmax(180px, 1.6fr) repeat(${comparisonPlans.length}, minmax(90px, 1fr))`,
-                padding: '20px 24px',
-                background: '#fafafa',
-                borderBottom: '1px solid #f0f0f0',
-                position: 'sticky',
-                top: 0,
-                zIndex: 10,
-                borderRadius: '12px 12px 0 0',
-              }}
+              className="pricing-compare-grid pricing-compare__head"
+              style={{ gridTemplateColumns: gridColumns }}
             >
-              <Text strong>Features</Text>
-              {comparisonPlans.map((key, idx) => (
-                <Text
-                  key={key}
-                  strong
-                  style={{
-                    textAlign: 'center',
-                    color: key === 'core' ? '#0b3d2e' : undefined,
-                    background: idx === coreColumnIndex ? '#f0f7f4' : undefined,
-                    borderRadius: 6,
-                    padding: '4px 0',
-                  }}
+              <Text strong className="pricing-compare__feature">
+                Features
+              </Text>
+              {visiblePlans.map((plan, idx) => (
+                <div
+                  key={plan.key}
+                  className={`pricing-compare__plan${idx === coreColumnIndex ? ' is-core' : ''}`}
                 >
-                  {key.charAt(0).toUpperCase() + key.slice(1)}
-                </Text>
+                  <span className="pricing-compare__plan-name">{plan.name}</span>
+                  <span className="pricing-compare__plan-price">
+                    {compactPriceLabel(plan, billingPeriod, annualBilling)}
+                  </span>
+                </div>
               ))}
             </div>
 
-            {visibleCategories.map((category, catIdx) => (
+            {featureCategories.map((category) => (
               <div key={category.title}>
-                <div
-                  style={{
-                    padding: '16px 24px',
-                    background: '#fdf6f4',
-                    borderBottom: '1px solid #f0f0f0',
-                    borderTop: catIdx > 0 ? '1px solid #f0f0f0' : undefined,
-                  }}
-                >
+                <div className="pricing-compare__cat">
                   <Space>
-                    <span style={{ color: '#0b3d2e' }}>{category.icon}</span>
-                    <Text strong style={{ fontSize: 16 }}>
-                      {category.title}
-                    </Text>
+                    <span>{category.icon}</span>
+                    <span>{category.title}</span>
                   </Space>
                 </div>
 
-                {category.features.map((feature, featIdx) => (
+                {category.features.map((feature) => (
                   <div
                     key={feature.name}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: gridColumns,
-                      padding: '14px 24px',
-                      borderBottom:
-                        featIdx < category.features.length - 1 ? '1px solid #f5f5f5' : undefined,
-                      alignItems: 'center',
-                    }}
+                    className="pricing-compare-grid pricing-compare__row"
+                    style={{ gridTemplateColumns: gridColumns }}
                   >
-                    <Text>{feature.name}</Text>
-                    {comparisonPlans.map((key, idx) => (
+                    <Text className="pricing-compare__feature">{feature.name}</Text>
+                    {visiblePlans.map((plan, idx) => (
                       <div
-                        key={key}
-                        style={{
-                          textAlign: 'center',
-                          background: idx === coreColumnIndex ? '#f0f7f4' : undefined,
-                          borderRadius: 6,
-                          padding: '4px 0',
-                        }}
+                        key={plan.key}
+                        className={`pricing-compare__cell${idx === coreColumnIndex ? ' is-core' : ''}`}
                       >
-                        <FeatureValue value={feature[key]} />
+                        <FeatureValue value={featureValueForPlan(feature, plan)} />
                       </div>
                     ))}
                   </div>
@@ -789,46 +815,27 @@ export default function PricingPage() {
               </div>
             ))}
 
-            {!showAllFeatures ? (
-              <div style={{ padding: '20px 24px', textAlign: 'center', borderTop: '1px solid #f0f0f0' }}>
-                <Button type="link" onClick={() => setShowAllFeatures(true)} style={{ color: '#0b3d2e' }}>
-                  Show all {featureCategories.length} feature categories →
-                </Button>
-              </div>
-            ) : null}
-
             <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: gridColumns,
-                padding: '20px 24px',
-                background: '#fafafa',
-                borderTop: '1px solid #f0f0f0',
-                borderRadius: '0 0 12px 12px',
-              }}
+              className="pricing-compare-grid pricing-compare__foot"
+              style={{ gridTemplateColumns: gridColumns }}
             >
-              <div />
-              {comparisonPlans.map((key, idx) => (
+              <div className="pricing-compare__feature" />
+              {visiblePlans.map((plan, idx) => (
                 <div
-                  key={key}
-                  style={{
-                    textAlign: 'center',
-                    background: idx === coreColumnIndex ? '#f0f7f4' : undefined,
-                    borderRadius: 6,
-                    padding: '4px 0',
-                  }}
+                  key={plan.key}
+                  className={`pricing-compare__cell${idx === coreColumnIndex ? ' is-core' : ''}`}
                 >
                   <Button
-                    type={key === 'core' ? 'primary' : 'default'}
+                    type={plan.key === 'core' ? 'primary' : 'default'}
                     size="small"
                     style={
-                      key === 'core'
+                      plan.key === 'core'
                         ? { background: '#0b3d2e', borderColor: '#0b3d2e' }
                         : { borderColor: '#0b3d2e', color: '#0b3d2e' }
                     }
-                    onClick={() => startTrial(key)}
+                    onClick={() => startTrial(plan.key)}
                   >
-                    Get {key.charAt(0).toUpperCase() + key.slice(1)}
+                    Get {plan.name}
                   </Button>
                 </div>
               ))}
@@ -838,9 +845,9 @@ export default function PricingPage() {
 
           <div className="pricing-compare-mobile">
             <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-              {comparisonPlans.map((key) => (
-                <Card key={key} style={{ borderRadius: 12 }} title={`${key.charAt(0).toUpperCase()}${key.slice(1)} plan`}>
-                  {visibleCategories.map((category) => (
+              {visiblePlans.map((plan) => (
+                <Card key={plan.key} style={{ borderRadius: 12 }} title={`${plan.name} plan`}>
+                  {featureCategories.map((category) => (
                     <div key={category.title} style={{ marginBottom: 16 }}>
                       <Text strong style={{ display: 'block', marginBottom: 8 }}>
                         {category.title}
@@ -857,33 +864,29 @@ export default function PricingPage() {
                           }}
                         >
                           <Text style={{ flex: 1 }}>{feature.name}</Text>
-                          <FeatureValue value={feature[key]} />
+                          <FeatureValue value={featureValueForPlan(feature, plan)} />
                         </div>
                       ))}
                     </div>
                   ))}
                   <Button
-                    type={key === 'core' ? 'primary' : 'default'}
+                    type={plan.key === 'core' ? 'primary' : 'default'}
                     block
                     style={
-                      key === 'core'
+                      plan.key === 'core'
                         ? { background: '#0b3d2e', borderColor: '#0b3d2e' }
                         : { borderColor: '#0b3d2e', color: '#0b3d2e' }
                     }
-                    onClick={() => startTrial(key)}
+                    onClick={() => startTrial(plan.key)}
                   >
-                    Get {key.charAt(0).toUpperCase() + key.slice(1)}
+                    Get {plan.name}
                   </Button>
                 </Card>
               ))}
-              {!showAllFeatures ? (
-                <Button type="link" onClick={() => setShowAllFeatures(true)} style={{ color: '#0b3d2e' }}>
-                  Show all {featureCategories.length} feature categories →
-                </Button>
-              ) : null}
             </Space>
           </div>
         </div>
+        ) : null}
 
         {/* Additional solutions */}
         <div>
@@ -1000,14 +1003,18 @@ export default function PricingPage() {
         </Card>
 
         {/* FAQ */}
-        <div>
-          <Title level={2} style={{ textAlign: 'center', marginBottom: 32 }}>
+        <div className="pricing-faq">
+          <Title level={2} className="pricing-faq__title">
             Frequently asked questions
           </Title>
+          <Paragraph className="pricing-faq__lede">
+            Trials, billing, and what each plan includes.
+          </Paragraph>
           <Collapse
+            className="pricing-faq__list"
             items={faqItems}
             bordered={false}
-            style={{ background: '#fff', borderRadius: 12, maxWidth: 800, margin: '0 auto' }}
+            expandIconPlacement="end"
             size="large"
           />
         </div>

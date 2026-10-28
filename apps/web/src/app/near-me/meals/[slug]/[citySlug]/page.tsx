@@ -1,31 +1,21 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { citySlug, mealNearMeLandingMeta } from '@reservations/shared';
-import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
-import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
+import { mealNearMeLandingMeta } from '@reservations/shared';
+import { DiscoveryLanding } from '@/components/DiscoveryLanding';
 import {
   listCitiesForIndex,
-  listMealLandingParams,
+  listMealCityLandingParams,
   listMealsForIndex,
   resolveCityBySlug,
   resolveMealBySlug,
 } from '@/lib/discoveryIndex';
 import { discoveryLandingMetadata } from '@/lib/seo';
 import type { BreadcrumbItem } from '@/lib/seo';
-import { POPULAR_CITIES } from '@/lib/cities';
 
 type PageProps = { params: Promise<{ slug: string; citySlug: string }> };
 
 export async function generateStaticParams() {
-  const meals = listMealLandingParams();
-  const cities = POPULAR_CITIES.map((c) => citySlug(c.city, c.state));
-  const params: Array<{ slug: string; citySlug: string }> = [];
-  for (const { slug } of meals) {
-    for (const city of cities) {
-      params.push({ slug, citySlug: city });
-    }
-  }
-  return params;
+  return listMealCityLandingParams();
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -86,18 +76,13 @@ export default async function MealNearMeCityPage({ params }: PageProps) {
   ];
 
   return (
-    <>
-      <DiscoveryLandingSchema
-        breadcrumbs={breadcrumbs}
-        faq={meta.faq}
-        canonicalPath={canonicalPath}
-        heading={meta.heading}
-        description={meta.description}
-      />
-      <DiscoveryLandingView
-        meta={meta}
-        canonicalPath={canonicalPath}
-        preset={{
+    <DiscoveryLanding
+      meta={meta}
+      canonicalPath={canonicalPath}
+      breadcrumbs={breadcrumbs}
+      relatedLinks={related}
+      requireInventory
+      preset={{
           meal,
           city: city.city,
           state: city.state,
@@ -105,9 +90,6 @@ export default async function MealNearMeCityPage({ params }: PageProps) {
           lng: city.lng,
           locationLabel: place,
         }}
-        breadcrumbs={breadcrumbs}
-        relatedLinks={related}
-      />
-    </>
+    />
   );
 }

@@ -105,7 +105,6 @@ export default async function TopLocationsPage() {
           heading: 'Related',
           links: [
             { href: '/top-restaurants', label: 'Top restaurants' },
-            { href: '/best-restaurants', label: 'Best restaurants' },
             { href: '/states', label: 'Browse by state' },
             { href: '/near-me', label: 'Restaurants near me' },
             { href: '/near-me/food', label: 'Food near me' },

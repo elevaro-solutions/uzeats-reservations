@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { nearMeLandingMeta } from '@reservations/shared';
-import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
-import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
+import { DiscoveryLanding } from '@/components/DiscoveryLanding';
 import {
   listCitiesForIndex,
   listCuisinesForIndex,
@@ -60,18 +59,12 @@ export default async function NearMeRestaurantsPage() {
   ];
 
   return (
-    <>
-      <DiscoveryLandingSchema
-        breadcrumbs={breadcrumbs}
-        faq={meta.faq}
-        canonicalPath={canonicalPath}
-        heading={meta.heading}
-        description={meta.description}
-      />
-      <DiscoveryLandingView
-        meta={meta}
-        canonicalPath={canonicalPath}
-        preset={{
+    <DiscoveryLanding
+      meta={meta}
+      canonicalPath={canonicalPath}
+      breadcrumbs={breadcrumbs}
+      relatedLinks={related}
+      preset={{
           lat: DEFAULT_LOCATION.lat,
           lng: DEFAULT_LOCATION.lng,
           locationLabel: 'Near me',
@@ -79,9 +72,6 @@ export default async function NearMeRestaurantsPage() {
           useGeo: true,
           autoLocate: true,
         }}
-        breadcrumbs={breadcrumbs}
-        relatedLinks={related}
-      />
-    </>
+    />
   );
 }

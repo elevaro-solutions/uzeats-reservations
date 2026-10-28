@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
-import { buildRestaurantBookingPath } from '@reservations/shared';
+import { MOBILE_APPS, buildRestaurantBookingPath } from '@reservations/shared';
 
 export const DEFAULT_SITE_URL = 'https://tablevera.online';
+export const DEFAULT_OG_IMAGE_PATH = '/images/hero-restaurant.jpg';
+export const ORGANIZATION_LOGO_PATH = '/brand/apple-touch-icon.png';
 
 export function getSiteUrl(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL ?? DEFAULT_SITE_URL).replace(/\/$/, '');
@@ -11,6 +13,40 @@ export function absoluteUrl(path: string): string {
   if (path.startsWith('http')) return path;
   return `${getSiteUrl()}${path.startsWith('/') ? path : `/${path}`}`;
 }
+
+export function defaultOgImages(alt = 'Tablevera — find and book restaurants') {
+  return [{ url: absoluteUrl(DEFAULT_OG_IMAGE_PATH), alt }];
+}
+
+function socialSameAs(): string[] {
+  const fromEnv = [
+    process.env.NEXT_PUBLIC_LINKEDIN_URL,
+    process.env.NEXT_PUBLIC_INSTAGRAM_URL,
+    process.env.NEXT_PUBLIC_FACEBOOK_URL,
+  ]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value));
+
+  return [...new Set([...fromEnv, MOBILE_APPS.diner.androidUrl, MOBILE_APPS.partner.androidUrl])];
+}
+
+export const HOME_FAQ = [
+  {
+    question: 'How do I book a restaurant on Tablevera?',
+    answer:
+      'Search by city, neighbourhood, or cuisine, pick a restaurant, choose a date and party size, then confirm an open time slot. Confirmation is instant and free for diners.',
+  },
+  {
+    question: 'Is Tablevera free for diners?',
+    answer:
+      'Yes. Booking a table on Tablevera is free for diners. Some restaurants ask for a refundable deposit per guest that is applied to your bill; any deposit is shown before you confirm.',
+  },
+  {
+    question: 'Can I find restaurants by city or cuisine?',
+    answer:
+      'Yes. Open a city hub such as restaurants in Key West or Brooklyn, or a cuisine hub such as Uzbek or Italian restaurants, then filter by price, occasion, and amenities.',
+  },
+];
 
 export function priceRangeSymbols(level: number): string {
   return '$'.repeat(Math.min(4, Math.max(1, level)));
@@ -81,6 +117,7 @@ export function restaurantJsonLd(restaurant: {
   logoUrl?: string | null;
   phone?: string | null;
   website?: string | null;
+  menuUrl?: string | null;
   address: {
     line1: string;
     line2?: string | null;
@@ -93,6 +130,7 @@ export function restaurantJsonLd(restaurant: {
   dietaryTags?: string[];
   amenities?: string[];
   meals?: string[];
+  reservationsEnabled?: boolean | null;
   openingHoursSpecification?: Array<{
     '@type': 'OpeningHoursSpecification';
     dayOfWeek: string;
@@ -116,9 +154,11 @@ export function restaurantJsonLd(restaurant: {
     logo: restaurant.logoUrl || restaurant.photos?.[0] || undefined,
     telephone: restaurant.phone ?? undefined,
     sameAs: restaurant.website ? [restaurant.website] : undefined,
+    acceptsReservations: restaurant.reservationsEnabled !== false,
+    ...(restaurant.menuUrl ? { hasMenu: restaurant.menuUrl, menu: restaurant.menuUrl } : {}),
     servesCuisine,
     priceRange: priceRangeSymbols(restaurant.priceRange),
-    ...(restaurant.averageRating && restaurant.reviewCount
+    ...(restaurant.averageRating && (restaurant.reviewCount ?? 0) >= 1
       ? {
           aggregateRating: {
             '@type': 'AggregateRating',
@@ -156,8 +196,15 @@ export function restaurantJsonLd(restaurant: {
     })),
     potentialAction: {
       '@type': 'ReserveAction',
-      target: absoluteUrl(path),
       name: 'Reserve a table',
+      target: {
+        '@type': 'EntryPoint',
+        urlTemplate: absoluteUrl(path),
+        actionPlatform: [
+          'http://schema.org/DesktopWebPlatform',
+          'http://schema.org/MobileWebPlatform',
+        ],
+      },
     },
   };
 }
@@ -168,7 +215,7 @@ export function organizationJsonLd() {
     '@type': 'Organization',
     name: 'Tablevera',
     url: getSiteUrl(),
-    logo: absoluteUrl('/brand/tablevera_icon_v2.svg'),
+    logo: absoluteUrl(ORGANIZATION_LOGO_PATH),
     email: 'support@tablevera.online',
     telephone: '+16507707788',
     address: {
@@ -186,6 +233,7 @@ export function organizationJsonLd() {
       telephone: '+16507707788',
       url: absoluteUrl('/contact'),
     },
+    ...(socialSameAs().length ? { sameAs: socialSameAs() } : {}),
   };
 }
 
@@ -203,6 +251,24 @@ export function websiteJsonLd() {
       },
       'query-input': 'required name=search_term_string',
     },
+  };
+}
+
+export function softwareApplicationJsonLd() {
+  const sameAs = socialSameAs();
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'Tablevera',
+    applicationCategory: 'LifestyleApplication',
+    operatingSystem: 'Web, Android',
+    url: getSiteUrl(),
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'USD',
+    },
+    ...(sameAs.length ? { sameAs } : {}),
   };
 }
 
@@ -247,7 +313,7 @@ export function articleJsonLd(post: {
       name: 'Tablevera',
       logo: {
         '@type': 'ImageObject',
-        url: absoluteUrl('/brand/tablevera_icon_v2.svg'),
+        url: absoluteUrl(ORGANIZATION_LOGO_PATH),
       },
     },
     keywords: post.tags?.length ? post.tags.join(', ') : undefined,
@@ -271,11 +337,13 @@ export function discoveryLandingMetadata(params: {
       description: params.description,
       url,
       siteName: 'Tablevera',
+      images: defaultOgImages(params.title),
     },
     twitter: {
       card: 'summary_large_image',
       title: params.title,
       description: params.description,
+      images: [absoluteUrl(DEFAULT_OG_IMAGE_PATH)],
     },
   };
 }
@@ -299,7 +367,7 @@ export function webPageJsonLd(params: {
     },
     speakable: {
       '@type': 'SpeakableSpecification',
-      cssSelector: ['h1', '.rt-discovery-landing__footer'],
+      cssSelector: ['h1', '.rt-discovery-seo', '.rt-discovery-landing__footer'],
     },
   };
 }

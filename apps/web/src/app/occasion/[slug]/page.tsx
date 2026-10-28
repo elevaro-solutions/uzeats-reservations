@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { occasionLandingMeta, seoOccasionLinkLabel } from '@reservations/shared';
-import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
-import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
+import { DiscoveryLanding } from '@/components/DiscoveryLanding';
 import {
   listOccasionLandingParams,
   listOccasionsForIndex,
@@ -47,21 +46,12 @@ export default async function OccasionLandingPage({ params }: PageProps) {
     .map((o) => ({ href: `/occasion/${o.slug}`, label: seoOccasionLinkLabel(o.label) }));
 
   return (
-    <>
-      <DiscoveryLandingSchema
-        breadcrumbs={breadcrumbs}
-        faq={meta.faq}
-        canonicalPath={canonicalPath}
-        heading={meta.heading}
-        description={meta.description}
-      />
-      <DiscoveryLandingView
-        meta={meta}
-        canonicalPath={canonicalPath}
-        preset={{ occasion }}
-        breadcrumbs={breadcrumbs}
-        relatedLinks={related}
-      />
-    </>
+    <DiscoveryLanding
+      meta={meta}
+      canonicalPath={canonicalPath}
+      breadcrumbs={breadcrumbs}
+      relatedLinks={related}
+      preset={{ occasion }}
+    />
   );
 }

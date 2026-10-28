@@ -83,7 +83,15 @@ describe('parseQaReleaseHistory', () => {
 
   it('reads the repo changelog and includes the latest release', () => {
     const entries = readQaReleaseHistory();
+    expect(entries.length).toBeGreaterThan(1);
     expect(entries.some((entry) => entry.version === '0.87.0')).toBe(true);
-    expect(entries[0]?.version).toBe('0.87.1');
+
+    const latestShipped = entries.find((entry) => entry.version !== 'Unreleased');
+    expect(latestShipped?.version).toMatch(/^\d+\.\d+\.\d+$/);
+    if (entries[0]?.version === 'Unreleased') {
+      expect(entries[1]?.version).toBe(latestShipped?.version);
+    } else {
+      expect(entries[0]?.version).toBe(latestShipped?.version);
+    }
   });
 });

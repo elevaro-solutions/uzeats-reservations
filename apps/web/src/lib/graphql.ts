@@ -991,6 +991,8 @@ export const PLANS = gql`
       freeMonths
       discountPercent
     }
+    showPricingComparisonTable
+    maxVisiblePricingPackages
   }
 `;
 

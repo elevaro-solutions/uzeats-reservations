@@ -53,7 +53,6 @@ export default async function NearMeRestaurantsHubPage() {
             { href: '/near-me/meals', label: 'Meals near me by city' },
             { href: '/states', label: 'Browse by state' },
             { href: '/top-restaurants', label: 'Top restaurants' },
-            { href: '/best-restaurants', label: 'Best restaurants' },
             { href: '/cities', label: 'All cities' },
           ],
         },

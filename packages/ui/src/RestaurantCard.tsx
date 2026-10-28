@@ -119,7 +119,7 @@ export function RestaurantCard({
           {renderPhoto ? (
             renderPhoto({
               src: imageSrc,
-              alt: name,
+              alt: `${name}, ${city}`,
               style: photoStyle,
               onError: onPhotoError,
               onLoad: onPhotoLoad,
@@ -127,7 +127,7 @@ export function RestaurantCard({
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              alt={name}
+              alt={`${name}, ${city}`}
               src={imageSrc}
               loading="lazy"
               decoding="async"

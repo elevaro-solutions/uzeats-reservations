@@ -1,5 +1,13 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-27] Public pricing display lives on Plans & pricing, not Platform config
+- `/admin/pricing` “Public pricing page” card saves `maxVisiblePricingPackages` and `showPricingComparisonTable` via `updatePlatformConfig`. Default 3 cards, comparison table off.
+- Why it matters: Per-package `visibleOnPricing` is which packages exist on `/pricing`. Page-level count and compare visibility are platform config on this same screen, next to Global annual billing.
+
+## [2026-10-27] Widget embed includes a listing backlink
+- `buildWidgetEmbedCode` appends a “Book on Tablevera” `<a href>` when `listingUrl` is set. Partner Hub copy tells owners to keep that HTML link with the script.
+- Why it matters: The JS widget alone is not a reliable crawlable backlink. Onboarding should treat the credit link as required, not optional decoration.
+
 ## [2026-10-20] QA issues live under the QA sidebar
 - `/admin/qa/issues` is a QA-group page (`when: 'super_admin'`), so the QA role shell includes it via the `/admin/qa` prefix. Create and edit use one modal. Export uses the active search, status, severity, and tag filters. The v0.90.0 checklist catalog is Issues, review emails, formatted notes, and the drawer scroll lock.
 - Why it matters: A new QA page must stay under `/admin/qa/` or the QA route guard sends the user back to the checklist.

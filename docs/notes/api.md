@@ -1,5 +1,9 @@
 # API — Learnings & Observations
 
+## [2026-10-27] Public pricing display flags are not on admin-only `platformConfig`
+- `showPricingComparisonTable` defaults false (`=== true` only). `maxVisiblePricingPackages` defaults 3, clamped 1–6. Public queries sit next to `annualBillingSettings`. Admin writes them through `updatePlatformConfig`.
+- Why it matters: Diner web cannot read `platformConfig`. Unset documents must stay table-hidden and 3-up.
+
 ## [2026-10-20] QA issues are a separate collection from the checklist
 - `qaIssues`, `saveQaIssue`, `deleteQaIssue`, and `exportQaIssues` use `QaIssue` (number, tags, status, severity, path, attachments). Only `super_admin` and `qa` (`requireQaStaff`). A full page URL is stored as pathname + search + hash. Export `word` is a stored-zip `.docx` via `toDocx`; `pdf` and `excel` reuse `formatExport`. Cap is 1000 rows.
 - Why it matters: Checklist notes are not the bug list. Sign-off still reads `p0Clear` on `QaReleaseChecklist`; it does not count open `QaIssue` rows.

@@ -24,6 +24,21 @@ const nextConfig = {
         destination: '/near-me/restaurants/state/:slug',
         permanent: true,
       },
+      {
+        source: '/contact-sales',
+        destination: '/contact?topic=restaurant',
+        permanent: true,
+      },
+      {
+        source: '/best-restaurants',
+        destination: '/top-restaurants',
+        permanent: true,
+      },
+      {
+        source: '/best-restaurants/state/:slug',
+        destination: '/top-restaurants/state/:slug',
+        permanent: true,
+      },
     ];
   },
   async rewrites() {

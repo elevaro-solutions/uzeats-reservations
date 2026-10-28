@@ -28,8 +28,14 @@ export async function copyBookingText(text: string) {
   }
 }
 
+type ShareRestaurant = {
+  id: string;
+  slug?: string | null;
+  name?: string | null;
+};
+
 export function useBookingShare(
-  restaurant: { id: string; slug?: string | null } | null | undefined,
+  restaurant: ShareRestaurant | null | undefined,
   widgetTheme?: WidgetTheme | null,
   embedMode: 'inline' | 'button' = 'button',
 ) {
@@ -63,14 +69,16 @@ export function useBookingShare(
       primaryColor: widgetTheme?.primaryColor ?? undefined,
       buttonText: widgetTheme?.buttonText ?? 'Reserve a table',
       showReviews: widgetTheme?.showReviews ?? true,
+      listingUrl: bookingUrl,
+      restaurantName: restaurant.name ?? undefined,
     });
-  }, [restaurant?.id, restaurant?.slug, embedMode, widgetTheme, webUrl]);
+  }, [bookingUrl, restaurant?.id, restaurant?.name, embedMode, widgetTheme, webUrl]);
 
   return { bookingUrl, googleBusinessProfileUrl, widgetEmbedCode };
 }
 
 type BookingSharePanelProps = {
-  restaurant: { id: string; slug?: string | null } | null | undefined;
+  restaurant: ShareRestaurant | null | undefined;
   widgetTheme?: WidgetTheme | null;
   showBookingLink?: boolean;
   defaultEmbedMode?: 'inline' | 'button';
@@ -166,8 +174,9 @@ export function BookingSharePanel({
       </Text>
       <Paragraph type="secondary" style={{ marginBottom: spacing.sm }}>
         Copy this script and paste it into your restaurant website HTML — anywhere you want the
-        booking widget to appear. Clicks through to Tablevera include tracking parameters so you
-        can attribute website embed traffic.
+        booking widget to appear. Keep the &ldquo;Book on Tablevera&rdquo; link under the script so
+        guests and search engines can reach your public listing. Clicks through to Tablevera
+        include tracking parameters so you can attribute website embed traffic.
       </Paragraph>
       <Segmented
         value={embedMode}

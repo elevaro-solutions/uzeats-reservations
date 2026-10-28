@@ -39,6 +39,8 @@ export function buildWidgetEmbedCode(options: {
   primaryColor?: string;
   buttonText?: string;
   showReviews?: boolean;
+  listingUrl?: string;
+  restaurantName?: string;
 }): string {
   const widgetUrl = options.widgetUrl ?? 'https://tablevera.online/widget.js';
   const attrs = [`src="${widgetUrl}"`, `  data-restaurant-id="${options.restaurantId}"`];
@@ -47,7 +49,15 @@ export function buildWidgetEmbedCode(options: {
   if (options.primaryColor) attrs.push(`  data-primary-color="${options.primaryColor}"`);
   if (options.buttonText) attrs.push(`  data-button-text="${options.buttonText.replace(/"/g, '&quot;')}"`);
   if (options.showReviews === false) attrs.push('  data-show-reviews="false"');
-  return `<script\n${attrs.join('\n')}\n></script>`;
+  const script = `<script\n${attrs.join('\n')}\n></script>`;
+  const listingUrl = options.listingUrl?.trim();
+  if (!listingUrl) return script;
+  const label = options.restaurantName
+    ? `Book ${options.restaurantName} on Tablevera`
+    : 'Book on Tablevera';
+  const safeHref = listingUrl.replace(/"/g, '&quot;');
+  const safeLabel = label.replace(/</g, '');
+  return `${script}\n<p style="font:12px/1.4 system-ui,sans-serif;margin:8px 0 0"><a href="${safeHref}">${safeLabel}</a></p>`;
 }
 
 export function buildRestaurantBookingUrl(

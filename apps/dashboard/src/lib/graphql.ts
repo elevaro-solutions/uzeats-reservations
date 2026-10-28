@@ -2797,6 +2797,8 @@ export const PLATFORM_CONFIG = gql`
         freeMonths
         discountPercent
       }
+      showPricingComparisonTable
+      maxVisiblePricingPackages
       updatedAt
     }
   }
@@ -2839,6 +2841,8 @@ export const UPDATE_PLATFORM_CONFIG = gql`
         freeMonths
         discountPercent
       }
+      showPricingComparisonTable
+      maxVisiblePricingPackages
       updatedAt
     }
   }

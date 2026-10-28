@@ -2062,6 +2062,10 @@ export const typeDefs = `#graphql
     featureFlags: PlatformFeatureFlags!
     virtualRoomPricing: VirtualRoomPricing!
     annualBilling: AnnualBillingSettings!
+    """When true, public /pricing shows the Compare all features table. Default off."""
+    showPricingComparisonTable: Boolean!
+    """How many plan cards are visible at once on public /pricing. Default 3."""
+    maxVisiblePricingPackages: Int!
     updatedAt: DateTime!
   }
 
@@ -2098,6 +2102,10 @@ export const typeDefs = `#graphql
     featureFlags: PlatformFeatureFlagsInput
     virtualRoomPricing: VirtualRoomPricingInput
     annualBilling: AnnualBillingSettingsInput
+    """When true, public /pricing shows the Compare all features table."""
+    showPricingComparisonTable: Boolean
+    """How many plan cards are visible at once on public /pricing (1–6). Default 3."""
+    maxVisiblePricingPackages: Int
   }
 
   enum TableSelectionSource {
@@ -4236,6 +4244,10 @@ export const typeDefs = `#graphql
     partnerEmailAvailable(email: String!): Boolean!
     partnerRestaurantNameAvailable(name: String!, excludeRestaurantId: ID): Boolean!
     annualBillingSettings: AnnualBillingSettings!
+    """Public: whether /pricing renders the Compare all features table. Default false."""
+    showPricingComparisonTable: Boolean!
+    """Public: how many plan cards show at once on /pricing. Default 3."""
+    maxVisiblePricingPackages: Int!
     """Public kill switches (waitlist, SMS, etc.). Safe for partner and diner clients."""
     platformFeatureFlags: PlatformFeatureFlags!
     coverFeeSummary(restaurantId: ID!, period: String): CoverFeeSummary!

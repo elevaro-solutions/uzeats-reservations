@@ -1,10 +1,16 @@
 import type { Metadata } from 'next';
-import { permanentRedirect } from 'next/navigation';
-import { buildRestaurantBookingPath } from '@reservations/shared';
+import { notFound, permanentRedirect } from 'next/navigation';
+import { buildRestaurantBookingPath, citySlug } from '@reservations/shared';
 import { JsonLd } from '@/components/JsonLd';
 import { buildRestaurantFaq } from '@/lib/restaurantFaq';
 import { fetchRestaurantSeo } from '@/lib/restaurantSeoFetch';
-import { absoluteUrl, faqJsonLd, restaurantJsonLd } from '@/lib/seo';
+import {
+  DEFAULT_OG_IMAGE_PATH,
+  absoluteUrl,
+  breadcrumbJsonLd,
+  faqJsonLd,
+  restaurantJsonLd,
+} from '@/lib/seo';
 import {
   formatOpeningHoursLines,
   openingHoursSpecificationFromShifts,
@@ -33,19 +39,14 @@ function searchParamsToQuery(searchParams: Record<string, string | string[] | un
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
   const restaurant = await fetchRestaurantSeo(id);
-  if (!restaurant) {
-    return {
-      title: 'Restaurant | Tablevera',
-      description: 'Discover this restaurant and reserve a table on Tablevera.',
-    };
-  }
+  if (!restaurant) notFound();
 
   const path = buildRestaurantBookingPath(restaurant.slug, restaurant.id);
-  const title = `${restaurant.name} — ${restaurant.cuisine} in ${restaurant.address.city} | Tablevera`;
+  const title = `${restaurant.name} — ${restaurant.cuisine} in ${restaurant.address.city}, ${restaurant.address.state} | Book a Table on Tablevera`;
   const description =
     restaurant.description?.trim() ||
     `Reserve a table at ${restaurant.name}, a ${restaurant.cuisine} restaurant in ${restaurant.address.city}, ${restaurant.address.state}. Live availability on Tablevera.`;
-  const image = restaurant.photos?.[0];
+  const image = restaurant.photos?.[0] || DEFAULT_OG_IMAGE_PATH;
 
   return {
     title,
@@ -78,15 +79,14 @@ export default async function RestaurantPage({ params, searchParams }: PageProps
     );
   }
 
-  if (!restaurant) {
-    return <RestaurantPageClient />;
-  }
+  if (!restaurant) notFound();
 
   const openingHoursLines = formatOpeningHoursLines(
     restaurant.shifts ?? [],
     restaurant.timezone ?? undefined,
   );
   const faq = buildRestaurantFaq({ ...restaurant, openingHoursLines });
+  const path = buildRestaurantBookingPath(restaurant.slug, restaurant.id);
 
   return (
     <>
@@ -98,11 +98,22 @@ export default async function RestaurantPage({ params, searchParams }: PageProps
             dietaryTags: restaurant.dietaryTags,
             amenities: restaurant.amenities,
             meals: restaurant.meals,
+            menuUrl: restaurant.menuUrl,
+            reservationsEnabled: restaurant.reservationsEnabled,
             openingHoursSpecification: openingHoursSpecificationFromShifts(
               restaurant.shifts ?? [],
             ),
           }),
           faqJsonLd(faq),
+          breadcrumbJsonLd([
+            { name: 'Home', href: '/' },
+            { name: 'Restaurants', href: '/cities' },
+            {
+              name: `${restaurant.address.city}, ${restaurant.address.state}`,
+              href: `/cities/${citySlug(restaurant.address.city, restaurant.address.state)}`,
+            },
+            { name: restaurant.name, href: path },
+          ]),
         ]}
       />
       <RestaurantPageClient initialRestaurant={restaurant} />

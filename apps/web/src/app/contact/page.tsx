@@ -112,7 +112,7 @@ const FAQ_ITEMS = [
           compare plans
         </Link>
         , or send us a message with the &quot;Restaurant partnership&quot; topic.
-        Every plan includes a free 30-day trial.
+        Paid plans include a free 30-day trial. Base is $0/mo with no trial.
       </>
     ),
   },

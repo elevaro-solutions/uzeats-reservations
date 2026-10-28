@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { neighborhoodLandingMeta, citySlug, seoTierRestaurantsIn } from '@reservations/shared';
-import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
-import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
+import { DiscoveryLanding } from '@/components/DiscoveryLanding';
 import {
   listNeighborhoodLandingParams,
   listNeighborhoodsForIndex,
@@ -56,18 +55,13 @@ export default async function NeighborhoodLandingPage({ params }: PageProps) {
   ];
 
   return (
-    <>
-      <DiscoveryLandingSchema
-        breadcrumbs={breadcrumbs}
-        faq={meta.faq}
-        canonicalPath={canonicalPath}
-        heading={meta.heading}
-        description={meta.description}
-      />
-      <DiscoveryLandingView
-        meta={meta}
-        canonicalPath={canonicalPath}
-        preset={{
+    <DiscoveryLanding
+      meta={meta}
+      canonicalPath={canonicalPath}
+      breadcrumbs={breadcrumbs}
+      relatedLinks={related}
+      requireInventory
+      preset={{
           city: hood.city,
           state: hood.state,
           neighborhood: hood.neighborhood,
@@ -75,9 +69,6 @@ export default async function NeighborhoodLandingPage({ params }: PageProps) {
           lng: hood.lng,
           locationLabel: `${hood.neighborhood}, ${hood.city}, ${hood.state}`,
         }}
-        breadcrumbs={breadcrumbs}
-        relatedLinks={related}
-      />
-    </>
+    />
   );
 }

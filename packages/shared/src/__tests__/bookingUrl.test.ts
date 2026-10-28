@@ -49,5 +49,16 @@ describe('bookingUrl', () => {
     expect(code).toContain('data-mode="button"');
     expect(code).toContain('data-button-text="Book &quot;now&quot;"');
     expect(code).toContain('data-show-reviews="false"');
+    expect(code).not.toContain('Book on Tablevera');
+  });
+
+  it('appends a crawlable Tablevera listing link when listingUrl is set', () => {
+    const code = buildWidgetEmbedCode({
+      restaurantId: 'rest_1',
+      listingUrl: 'https://tablevera.online/restaurants/teahouse',
+      restaurantName: 'The Teahouse',
+    });
+    expect(code).toContain('href="https://tablevera.online/restaurants/teahouse"');
+    expect(code).toContain('Book The Teahouse on Tablevera');
   });
 });

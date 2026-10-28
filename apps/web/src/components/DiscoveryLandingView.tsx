@@ -45,6 +45,8 @@ import { StickyFiltersSidebar } from '@/components/StickyFiltersSidebar';
 import { JsonLd } from '@/components/JsonLd';
 import { itemListJsonLd } from '@/lib/seo';
 import type { BreadcrumbItem } from '@/lib/seo';
+import type { HomeSearchSeed } from '@/lib/homeSearchSeed';
+import type { DiscoverySearchPreset } from '@/lib/discoveryLandingSeed';
 
 const { Title, Paragraph, Text } = Typography;
 const NEARBY_RADIUS_KM = 16;
@@ -56,37 +58,7 @@ const HERO_HIGHLIGHTS = [
   { icon: <CrownFilled />, label: 'Loyalty rewards' },
 ] as const;
 
-export type DiscoverySearchPreset = {
-  cuisine?: string;
-  city?: string;
-  state?: string;
-  neighborhood?: string;
-  occasion?: string;
-  diningStyle?: string;
-  meal?: string;
-  dietary?: string;
-  amenity?: string;
-  /** Discovery category chip ids from RESTAURANT_DISCOVERY_CATEGORIES. */
-  categoryIds?: string[];
-  /** Landmark taxonomy slugs for curated “near landmark” association. */
-  landmarkIds?: string[];
-  /** Free-text query seed (used when category has a text query). */
-  query?: string;
-  topRatedOnly?: boolean;
-  lat?: number;
-  lng?: number;
-  /** Override default nearby radius (e.g. landmark proximity). */
-  radiusKm?: number;
-  locationLabel?: string;
-  /**
-   * When true, search uses lat/lng + radiusKm.
-   * When omitted: geo only for neighborhoods or when the diner enables Near Me.
-   * City/state/cuisine hubs match by address fields so SEO pages are not emptied by centroid radius.
-   */
-  useGeo?: boolean;
-  /** On mount, request device location and fill WHERE with city/state. */
-  autoLocate?: boolean;
-};
+export type { DiscoverySearchPreset };
 
 type DiscoveryLandingViewProps = {
   meta: DiscoveryLandingMeta;
@@ -94,6 +66,9 @@ type DiscoveryLandingViewProps = {
   canonicalPath: string;
   preset: DiscoverySearchPreset;
   relatedLinks?: Array<{ href: string; label: string }>;
+  initialSearch?: HomeSearchSeed | null;
+  /** Heading, FAQ, and related links are already in DiscoveryLandingChrome. */
+  hideSeoChrome?: boolean;
 };
 
 function defaultPresetLocation(preset: DiscoverySearchPreset): LocationSelection {
@@ -112,6 +87,8 @@ function DiscoveryLandingContent({
   canonicalPath,
   preset,
   relatedLinks = [],
+  initialSearch = null,
+  hideSeoChrome = false,
 }: DiscoveryLandingViewProps) {
   const router = useRouter();
   const presetLocation = useMemo(() => defaultPresetLocation(preset), [preset]);
@@ -252,6 +229,16 @@ function DiscoveryLandingContent({
     ],
   );
 
+  const seedMatches = Boolean(
+    initialSearch &&
+      !filters.query &&
+      mapPriceRange == null &&
+      !accessibleOnly &&
+      !usingDeviceLocation &&
+      partySize === (initialSearch.input.partySize ?? 2) &&
+      dateStr === initialSearch.input.date,
+  );
+
   const {
     items: restaurants,
     total,
@@ -259,9 +246,14 @@ function DiscoveryLandingContent({
     loadingMore,
     hasMore,
     loadMore,
-  } = useInfiniteRestaurantSearch(searchInput, { pageSize: 24 });
+  } = useInfiniteRestaurantSearch(searchInput, {
+    pageSize: 24,
+    initialResult: initialSearch,
+    seedMatches,
+  });
 
   const schemaBlocks = useMemo(() => {
+    if (hideSeoChrome) return [];
     const items = restaurants.map((r: any) => ({
       name: r.name,
       url: buildRestaurantBookingPath(r.slug, r.id),
@@ -275,7 +267,7 @@ function DiscoveryLandingContent({
         items,
       }),
     ];
-  }, [meta, restaurants, canonicalPath]);
+  }, [hideSeoChrome, meta, restaurants, canonicalPath]);
 
   const applyLocation = useCallback(
     (location: LocationSelection, fromDevice = false) => {
@@ -658,7 +650,9 @@ function DiscoveryLandingContent({
                 textAlign: 'center',
               }}
             >
-              <DiscoveryBreadcrumbs items={breadcrumbs} className="rt-hero-breadcrumbs" />
+              {hideSeoChrome ? null : (
+                <DiscoveryBreadcrumbs items={breadcrumbs} className="rt-hero-breadcrumbs" />
+              )}
 
               <span
                 className="rt-fade-up rt-hero-badge"
@@ -672,6 +666,7 @@ function DiscoveryLandingContent({
               </span>
 
               <Title
+                level={hideSeoChrome ? 2 : 1}
                 className="rt-fade-up"
                 style={{
                   color: '#fff',
@@ -791,7 +786,7 @@ function DiscoveryLandingContent({
             </div>
           </div>
 
-          {landingFooter}
+          {hideSeoChrome ? null : landingFooter}
         </div>
       )}
     </div>

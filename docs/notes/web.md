@@ -1,5 +1,46 @@
 # Web — Learnings & Observations
 
+## [2026-10-28] Discovery chrome is first in the DOM, visually second
+- `DiscoveryLanding` is a server wrapper: seed fetch, `notFound()` when `requireInventory` and total is 0, then `DiscoveryLandingSchema` + `DiscoveryLandingChrome` + client `DiscoveryLandingView` with `hideSeoChrome`.
+- Chrome is first in the DOM so crawlers see `h1`, named venue links, and FAQs. `.rt-discovery-page` uses flex `order` so users still see the interactive landing first.
+- `requireInventory` 404s location-specific empty hubs (city, neighborhood, cuisine×city, etc.). National hubs (top restaurants, cuisine, near-me home) stay crawlable even when the seed is empty.
+- `filterInventorySlugs`: if live index rows exist but all `count` are 0, keep the live slugs (build-time API with empty counts). Only fall back to curated slugs when the live index is empty.
+- Why it matters: JSON-LD on a client Suspense island is not a substitute for HTML. Do not put Ant Design breadcrumbs in the server chrome — use plain `<nav>` / `<Link>`.
+
+## [2026-10-28] Best vs top is one list; 301 instead of dual sitemap
+- `/best-restaurants` and `/top-restaurants` were the same 4.5+ filter. `next.config.mjs` 301s `/best-restaurants` and `/best-restaurants/state/:slug` to the top-restaurants URLs. Sitemap and public hub links no longer emit `/best-restaurants`.
+- Route files under `app/best-restaurants/` still exist behind the redirect so a missed internal link does not 404 before the 301.
+- Why it matters: Do not rebuild a second “best” sitemap. Keep city / top-rated / near-me as separate intents.
+
+## [2026-10-27] GEO: discovery hubs are client islands; /about is 404 in production
+- `DiscoveryLandingView` is `'use client'`. Live `/cities/philadelphia-pa` emits FAQ/HowTo/speakable JSON-LD from `DiscoveryLandingSchema`, but stripped HTML is ~empty and does not contain partner names (e.g. Silk Road). Speakable `cssSelector` `.rt-discovery-landing__footer` only exists after hydrate.
+- Production `GET /about` is 404 even though git has the NAP / Talavera-disambiguation page and `sitemap.ts` lists it. Live sitemap omits `/about`.
+- `/llms.txt` tells answer engines to prefer city / near-me / top-restaurants hubs, including `new-york-ny`, while the home NYC seed is `total: 0`.
+- Why it matters: GPTBot-class crawlers can use schema and llms.txt but still fail to cite named restaurants from hubs. Do not treat JSON-LD as a substitute for SSR copy. Point llms.txt at live venues and `/about`, not empty templates.
+
+## [2026-10-27] Unknown restaurant slugs are soft 404s; homepage seed is NYC
+- `apps/web/src/app/restaurants/[id]/page.tsx` returns `<RestaurantPageClient />` with title `Restaurant | Tablevera` when `fetchRestaurantSeo` is null — HTTP 200, no canonical, no noindex. Live check: `/restaurants/this-venue-does-not-exist-xyz`.
+- Home SSR seed (`homeSearchSeed.ts`) is hard-coded to `DEFAULT_LOCATION` (New York, NY, 16 km, tomorrow, party 2). Production HTML currently seeds `total: 0`.
+- Sitemap mix on 2026-10-27: 1,087 URLs, 11 restaurants, 441 category, 360 near-me. `listCuisineCityLandingParams` / `listCategoryCityLandingParams` cartesian with `POPULAR_CITIES` regardless of `count`.
+- `www.tablevera.online` shares the apex A record but the TLS cert does not include www.
+- Why it matters: Crawlers index empty/stub URLs while money pages are a tiny fraction of the sitemap. Gate landings on inventory; 404 missing venues; do not treat robots.txt disallow as noindex.
+
+## [2026-10-27] Pricing display settings are public GraphQL, not `platformConfig`
+- Public `/pricing` reads `showPricingComparisonTable` (default false) and `maxVisiblePricingPackages` (default 3) from dedicated queries. `platformConfig` is admin-only.
+- Compare table is omitted unless the flag is exactly `true`. Card count uses CSS `--pricing-visible-cards`; mobile still 1, tablet min(2, n), desktop n.
+- FAQ used `max-width: 800` which looked half-wide against the 1280 content column. Full-width `.pricing-faq__list` matches cards/CTAs.
+- Why it matters: Don’t hardcode `MAX_VISIBLE_PLAN_CARDS = 3` or always-render the matrix. Don’t query `platformConfig` from diner web.
+
+## [2026-10-27] Pricing cards cap at 3; compare grid follows `visibleOnPricing`
+- Plan cards on `/pricing` are a horizontal snap scroller: 1 / 2 / 3 visible by breakpoint, never more than 3. Extra `visibleOnPricing` packages (e.g. Unlimited) stay reachable via overlay arrows. Do not `scale()` the Core card inside the scroller — it clips neighbors.
+- The compare table is no longer hardcoded to Basic/Core/Pro keys. Columns are every visible plan; Base uses optional `base` cells, custom packages inherit Pro.
+- Why it matters: Four squeezed `xl={6}` cards made copy unreadable. Filtering the matrix to three keys hid Base and custom packages from “Compare all features”.
+
+## [2026-10-27] SEO foundations vs what still needs a human
+- Titles, canonicals, OG image, FAQ JSON-LD, `/about` NAP, sitemap `/about`, and `/contact-sales` → contact are in the diner web app. City/cuisine intros in `packages/shared` `CITY_INTRO_BLURBS` / `CUISINE_INTRO_BLURBS`.
+- Google Search Console verification, indexing, GBP, deleting “Test Restaurant”, real listing photos, and social `NEXT_PUBLIC_*_URL` sameAs values are not in code — they need live credentials and production data.
+- Why it matters: Shipping city pages before GSC shows indexed URLs will not create visibility. Do not invent social profile URLs or competitor prices in copy.
+
 ## [2026-10-17] Discovery card photos fade in over a local placeholder
 - `RestaurantCard` keeps a CSS shimmer (no network) until `onLoad` for the current `src`. `DiscoveryRestaurantCard` must pass `onLoad` through `next/image` and the `<img>` fallback.
 - Why it matters: Remote covers (Spaces / Unsplash) stay blank for a long time on slow connections. The placeholder is local; do not swap in another remote “default” photo while waiting.
@@ -8,7 +49,7 @@
 - Play URLs live in `packages/shared` `MOBILE_APPS`. Do not add an App Store href until iOS is live; badges stay “Coming soon”.
 - `/downloads` serves copies of logos and `docs/store/assets` from `apps/web/public/downloads`. Recopy after regenerating store art.
 - Footer badge follows the page: partner on `/for-restaurants` and `/pricing`, diner elsewhere, both on `/downloads`.
-- Phone and tablet (`max-width: 1024px`, or up to 1366px with a coarse pointer) get a dismissible bar under the header. Android links to Play. iPhone/iPad only says coming soon — no App Store URL. Dismissal is `localStorage` `rt-mobile-app-prompt`. Hidden on `/downloads`.
+- Phone and tablet (`max-width: 1024px`, or up to 1366px with a coarse pointer) get a dismissible gold bar **above** the header (sticky with it). Android links to Play. iPhone/iPad only says coming soon — no App Store URL. Dismissal is `localStorage` `rt-mobile-app-prompt`. Hidden on `/downloads`.
 - Why it matters: Store links and brand files are public marketing, not the listing kit in `docs/`. Do not put an install block back between the home hero and the restaurant list.
 
 ## [2026-10-15] Profile Danger zone — delete diner account

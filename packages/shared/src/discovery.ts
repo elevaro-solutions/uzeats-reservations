@@ -111,25 +111,58 @@ export interface DiscoveryLandingMeta {
 /** City-specific intro blurbs keyed by `city|STATE` (case-insensitive city). */
 const CITY_INTRO_BLURBS: Record<string, string> = {
   'new york|NY':
-    'New York’s dining scene spans fine dining, neighborhood staples, and late-night favorites. Use map search and live slots to book Midtown, downtown, and borough destinations without phone tag.',
+    'New York’s dining scene spans fine dining, neighborhood staples, and late-night favorites across the boroughs. Use map search and live slots to book Midtown, downtown, and neighborhood destinations without phone tag. Filter by cuisine, price, and occasion, then confirm a table instantly on Tablevera — free for diners.',
   'brooklyn|NY':
-    'Brooklyn dining runs from Williamsburg tasting menus to waterfront classics. Filter by neighborhood, cuisine, and occasion, then reserve open tables the same day or weeks ahead.',
+    'Brooklyn dining runs from Williamsburg tasting menus to waterfront classics and Central Asian kitchens in the borough’s neighborhoods. Filter by neighborhood, cuisine, and occasion, then reserve open tables the same day or weeks ahead. Tablevera shows live availability so you can book a table in Brooklyn without calling the restaurant.',
   'queens|NY':
     'Queens is one of the country’s great cuisine corridors — from Astoria to Flushing. Browse by cuisine and dietary needs, then lock in a table with real-time availability.',
   'jersey city|NJ':
     'Jersey City’s waterfront and downtown spots are an easy hop from Manhattan. Compare ratings, price, and amenities, then book with instant confirmation.',
   'miami|FL':
-    'Miami dining mixes Brickell nightlife, beachside seafood, and Latin-inspired kitchens. Filter by meal, occasion, and outdoor seating, then reserve live availability.',
+    'Miami dining mixes Brickell nightlife, beachside seafood, and Latin-inspired kitchens. Filter by meal, occasion, and outdoor seating, then reserve live availability. Whether you want a weeknight table in the city or a longer weekend reservation, Tablevera lists bookable restaurants in Miami with instant confirmation.',
+  'miami beach|FL':
+    'Miami Beach dining stretches from ocean-view terraces to neighborhood kitchens off the sand. Search by cuisine, price, and outdoor seating, then book a table with live availability instead of walking in at peak hour. Use Near Me when you are already on the beach, or lock in a weekend slot in advance.',
+  'key west|FL':
+    'Key West dining is a mix of waterfront seafood, casual island kitchens, and spots built for sunset. Browse restaurants in Key West by cuisine, price, and occasion, then reserve a table with live availability on Tablevera. Set party size before you search so you only see rooms that can actually seat your group — useful on busy Duval nights and holiday weekends.',
+  'dania beach|FL':
+    'Dania Beach sits between Fort Lauderdale and Hollywood with a quieter, local dining strip. Filter restaurants in Dania Beach by cuisine and meal, then book an open table instead of calling around. Tablevera is free for diners; any restaurant deposit is shown before you confirm.',
   'orlando|FL':
     'Orlando dining covers resort corridors and local favorites beyond the parks. Search by cuisine and party size so you only see tables that actually fit your plans.',
   'tampa|FL':
     'Tampa’s scene stretches from Ybor City to waterfront dining. Use occasion and cuisine filters to shortlist venues, then pick a live reservation slot.',
   'philadelphia|PA':
-    'Philadelphia dining ranges from Center City classics to neighborhood gems. Browse by cuisine, price, and amenities — then book without the phone call.',
+    'Philadelphia dining ranges from Center City classics to neighborhood gems. Browse by cuisine, price, and amenities — then book without the phone call. Open a cuisine hub if you already know what you want, or use Near Me when you are already in town.',
+  'fairfax|VA':
+    'Fairfax dining covers downtown spots and suburban kitchens across Northern Virginia. Search restaurants in Fairfax by cuisine, price, and occasion, then reserve with instant confirmation on Tablevera. It is a practical way to book weeknight tables without holding on the phone.',
+  'sterling|VA':
+    'Sterling dining is neighborhood-scale: local kitchens, family tables, and spots convenient to Dulles. Browse restaurants in Sterling, Virginia by cuisine and party size, then book a live slot on Tablevera. Reservations are free for diners.',
   'hoboken|NJ':
     'Hoboken’s walkable downtown packs date-night spots and casual favorites. Set your party size and date to see open tables, or tap Near Me when you’re already in town.',
   'newark|NJ':
     'Newark dining covers Ironbound classics and downtown destinations. Filter by cuisine and dietary needs, then reserve with live availability on Tablevera.',
+};
+
+const CUISINE_INTRO_BLURBS: Record<string, string> = {
+  uzbek:
+    'Uzbek restaurants on Tablevera specialize in plov, kebabs, lagman, and breads baked in a tandoor — a Central Asian table that is still under-served on national booking apps. Browse live availability, filter by city, and reserve a table instantly. Open a cuisine × city page when you already know where you want to eat.',
+  'central asian':
+    'Central Asian dining covers Uzbek, Uyghur, Kazakh, and related kitchens: hand-pulled noodles, grilled meats, and shared platters. Tablevera is built to help diners find these restaurants and book without a phone call. Filter by city, dietary needs, and party size, then confirm a live slot.',
+  'uzbek/central asian':
+    'Uzbek and Central Asian restaurants are a Tablevera niche: plov, kebabs, lagman, and Uyghur noodles that rarely show up on generic “restaurant reservations” searches. Search by city, set your party size, and book with instant confirmation.',
+  uyghur:
+    'Uyghur restaurants bring lagman, polo, and grilled skewers to the table. Find Uyghur kitchens on Tablevera, compare neighborhoods, and reserve a table with live availability — free for diners.',
+  turkish:
+    'Turkish restaurants on Tablevera range from meze and kebabs to baklava and tea service. Filter by city and occasion, then book an open table instead of walking in at peak hour.',
+  indian:
+    'Indian restaurants on Tablevera cover regional menus, vegetarian-friendly kitchens, and spice-forward tasting plates. Use dietary filters, pick a city, and reserve with instant confirmation.',
+  italian:
+    'Italian restaurants on Tablevera span neighborhood trattorias and special-occasion rooms. Filter by price, occasion, and amenities such as outdoor seating, then book a live table.',
+  american:
+    'American restaurants on Tablevera include steakhouses, diners, and contemporary kitchens. Search by city or Near Me, set party size, and confirm a table instantly.',
+  greek:
+    'Greek restaurants on Tablevera focus on meze, grilled seafood, and family-style plates. Browse by city, then reserve with live availability.',
+  mediterranean:
+    'Mediterranean restaurants on Tablevera cover Greek, Levantine, and coastal menus. Filter by dietary needs and occasion, then book a table without the phone tag.',
 };
 
 function cityIntroKey(city: string, state: string): string {
@@ -152,10 +185,12 @@ function bookingFaq(placeLabel: string): Array<{ question: string; answer: strin
 export function cuisineLandingMeta(cuisine: string): DiscoveryLandingMeta {
   const lower = cuisine.toLowerCase();
   return {
-    title: `Best ${cuisine} Restaurants — Book a Table | Tablevera`,
-    description: `Discover top-rated ${lower} restaurants near you. Compare menus, read reviews, and reserve tables instantly on Tablevera.`,
-    heading: `${cuisine} Restaurants`,
-    intro: `From neighborhood favorites to chef-driven destinations, explore ${lower} dining with real-time table availability. Filter by price, occasion, and amenities to find your perfect meal — then open a city hub for ${lower} restaurants near you.`,
+    title: `${cuisine} Restaurants — Book a Table | Tablevera`,
+    description: `Discover ${lower} restaurants near you. Compare menus, read reviews, and reserve tables instantly on Tablevera.`,
+    heading: `${cuisine} Restaurants — Book a Table`,
+    intro:
+      CUISINE_INTRO_BLURBS[lower] ??
+      `From neighborhood favorites to chef-driven destinations, explore ${lower} dining with real-time table availability. Filter by price, occasion, and amenities to find your perfect meal — then open a city hub for ${lower} restaurants near you.`,
     faq: [
       {
         question: `How do I book a ${lower} restaurant on Tablevera?`,
@@ -207,9 +242,9 @@ export function cityLandingMeta(city: string, state: string): DiscoveryLandingMe
   const place = `${city}, ${state}`;
   const blurb = CITY_INTRO_BLURBS[cityIntroKey(city, state)];
   return {
-    title: `Restaurants in ${place} — Book Tables | Tablevera`,
+    title: `Restaurants in ${place} — Book a Table | Tablevera`,
     description: `Explore restaurants in ${place}. Search by cuisine, neighborhood, price, and occasion with live table availability on Tablevera.`,
-    heading: `Restaurants in ${place}`,
+    heading: `Restaurants in ${place} — Book a Table`,
     intro:
       blurb ??
       `Whether you are planning a weeknight dinner or a special celebration, browse ${city}'s dining scene with map search, filters, and instant reservations. Jump to top restaurants, cuisine hubs, or restaurants near me in ${city} when you want a tighter list.`,
@@ -399,7 +434,7 @@ export function bestRestaurantsInStateMeta(stateName: string, stateCode: string)
 
 export function stateLandingMeta(stateName: string, stateCode: string): DiscoveryLandingMeta {
   return {
-    title: `Restaurants in ${stateName} (${stateCode}) — Book Tables | Tablevera`,
+    title: `Restaurants in ${stateName} (${stateCode}) — Book a Table | Tablevera`,
     description: `Find restaurants across ${stateName}. Browse by city, neighborhood, cuisine, and occasion with live table availability on Tablevera.`,
     heading: `Restaurants in ${stateName}`,
     intro: `Explore dining across ${stateName} — from major cities to neighborhood favorites — with filters and instant reservations.`,
@@ -867,4 +902,15 @@ export function cuisineInCityLandingMeta(
       },
     ],
   };
+}
+
+/** Keep live inventory slugs; fall back to curated slugs when the index is empty (build-time). */
+export function filterInventorySlugs(
+  live: Array<{ slug: string; count?: number | null }>,
+  fallback: string[],
+): string[] {
+  const withStock = live.filter((entry) => (entry.count ?? 0) > 0).map((entry) => entry.slug);
+  if (withStock.length > 0) return [...new Set(withStock)];
+  if (live.length > 0) return [...new Set(live.map((entry) => entry.slug))];
+  return [...new Set(fallback)];
 }

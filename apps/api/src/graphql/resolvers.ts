@@ -412,6 +412,9 @@ import {
   setPlanOrder,
   mapPlatformConfig,
   getAnnualBillingSettings,
+  getShowPricingComparisonTable,
+  getMaxVisiblePricingPackages,
+  normalizeMaxVisiblePricingPackages,
   mapAnnualBillingSettings,
   isFeatureEnabled,
   gatePlanSmsForClients,
@@ -2415,6 +2418,10 @@ export const resolvers = {
       ),
 
     annualBillingSettings: async () => getAnnualBillingSettings(),
+
+    showPricingComparisonTable: async () => getShowPricingComparisonTable(),
+
+    maxVisiblePricingPackages: async () => getMaxVisiblePricingPackages(),
 
     platformFeatureFlags: async () => {
       const doc = await getPlatformConfig();
@@ -5627,6 +5634,16 @@ export const resolvers = {
         });
         (doc as any).annualBilling = next;
         doc.markModified("annualBilling");
+      }
+      if (args.input.showPricingComparisonTable !== undefined) {
+        (doc as any).showPricingComparisonTable = Boolean(
+          args.input.showPricingComparisonTable,
+        );
+      }
+      if (args.input.maxVisiblePricingPackages !== undefined) {
+        (doc as any).maxVisiblePricingPackages = normalizeMaxVisiblePricingPackages(
+          args.input.maxVisiblePricingPackages,
+        );
       }
       await doc.save();
       await logAudit({

@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.92.0] — 2026-10-28
+
+### Added
+- Public `/pricing` package carousel: at most 3 plan cards on screen by default, with arrows when more packages are listed
+- Partner Hub Plans & pricing: “Public pricing page” settings for how many packages show at once (default 3) and a checkbox to show the Compare all features table (off by default)
+- Diner web `/about` page with company NAP (Sterling, VA) so brand search can attach Tablevera to this business
+- Default Open Graph image, homepage FAQ/ItemList schema, pricing and for-restaurants FAQ schema, and restaurant `hasMenu` when a menu URL exists
+- Booking-widget embed snippet includes a crawlable “Book on Tablevera” HTML link to the public listing
+- Unique intro copy on city hubs for Key West, Miami Beach, Dania Beach, Fairfax, and Sterling, plus cuisine intros for Uzbek / Central Asian and related niches
+- Server-rendered discovery hub copy (heading, named restaurants, FAQs) so crawlers and answer engines can read city/cuisine/near-me pages without JavaScript
+- PNG apple-touch-icon / Organization logo, SoftwareApplication JSON-LD, and Play Store URLs on Organization `sameAs`
+
+### Changed
+- Pricing “Compare all features” table lists every visible package (including Base and custom plans such as Unlimited), shows the full matrix up front, and uses a simple included / not-included mark — and only renders when a platform admin enables it
+- Pricing FAQ accordion uses the full content-column width of the sections above it
+- Pricing testimonial uses filled gold stars instead of outlined stars
+- Public pricing UI: overlay carousel arrows, equal-height cards without Core scale, and a cleaner compare table with prices in the header
+- Mobile app download suggestion sits above the site header as a gold banner (not under the nav)
+- Pricing page no longer shows package name chips under the Monthly / Annual toggle
+- Homepage, restaurant, city, cuisine, pricing, and for-restaurants titles/descriptions match search-oriented templates (including “Book a Table”)
+- Homepage hero copy is honest (no fake restaurant/diner counts) and links to city, cuisine, near-me, and restaurant-side hubs
+- Public pricing and partner marketing copy now match live plan rules: 30-day trial on paid plans only, website covers free on Core/Pro, Base/Basic website cover fees called out
+- `/contact-sales` permanently redirects to `/contact?topic=restaurant`
+- Homepage restaurant seed is nationwide (no empty NYC radius) and keeps partners visible even when no slots are open
+- `/llms.txt` points answer engines at `/about` and live venue pages, and tells them not to invent empty New York coverage
+- `/best-restaurants` permanently redirects to `/top-restaurants` (same 4.5+ list); sitemap and hub links drop the duplicate
+- Sitemap and static hub params keep cities/neighborhoods with live inventory instead of every curated popular city
+- Account routes (`/login`, `/profile`, `/reservations`, and related) send `noindex` via metadata and `X-Robots-Tag`
+
+### Fixed
+- Restaurant listing card photo alt text includes city so images are descriptive for search
+- Unknown restaurant slugs return 404 instead of an empty 200 stub
+- Location-specific discovery hubs with no listed restaurants return 404
+- Restaurant JSON-LD omits empty `aggregateRating`, sets `acceptsReservations`, and uses a `ReserveAction` entry point
+- `robots.txt` disallows `/billing`, `/verify-email`, `/invoice/`, and `/api/`
+
 ## [0.91.0] — 2026-10-27
 
 ### Added

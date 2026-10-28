@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { topRestaurantsLandingMeta, seoTierRestaurantsIn, seoTierRestaurantsNear } from '@reservations/shared';
-import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
-import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
+import { DiscoveryLanding } from '@/components/DiscoveryLanding';
 import {
   listCitiesForIndex,
   listLandmarksForIndex,
@@ -33,7 +32,6 @@ export default async function TopRestaurantsPage() {
   ]);
 
   const related = [
-    { href: '/best-restaurants', label: 'Best restaurants' },
     { href: '/states', label: 'Browse by state' },
     { href: '/top-locations', label: 'Top locations' },
     { href: '/near-me', label: 'Restaurants near me' },
@@ -56,27 +54,17 @@ export default async function TopRestaurantsPage() {
   ];
 
   return (
-    <>
-      <DiscoveryLandingSchema
-        breadcrumbs={breadcrumbs}
-        faq={meta.faq}
-        canonicalPath={canonicalPath}
-        heading={meta.heading}
-        description={meta.description}
-      />
-      <DiscoveryLandingView
-        meta={meta}
-        canonicalPath={canonicalPath}
-        preset={{
-          topRatedOnly: true,
-          lat: DEFAULT_LOCATION.lat,
-          lng: DEFAULT_LOCATION.lng,
-          locationLabel: `${DEFAULT_LOCATION.city}, ${DEFAULT_LOCATION.state}`,
-          // National top-rated list; map still centers on default city for UX.
-        }}
-        breadcrumbs={breadcrumbs}
-        relatedLinks={related}
-      />
-    </>
+    <DiscoveryLanding
+      meta={meta}
+      canonicalPath={canonicalPath}
+      breadcrumbs={breadcrumbs}
+      relatedLinks={related}
+      preset={{
+        topRatedOnly: true,
+        lat: DEFAULT_LOCATION.lat,
+        lng: DEFAULT_LOCATION.lng,
+        locationLabel: `${DEFAULT_LOCATION.city}, ${DEFAULT_LOCATION.state}`,
+      }}
+    />
   );
 }

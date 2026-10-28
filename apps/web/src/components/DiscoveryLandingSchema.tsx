@@ -3,6 +3,7 @@ import {
   breadcrumbJsonLd,
   faqJsonLd,
   howToBookJsonLd,
+  itemListJsonLd,
   webPageJsonLd,
   type BreadcrumbItem,
 } from '@/lib/seo';
@@ -17,6 +18,7 @@ type Props = {
   description?: string;
   /** Optional place label for HowTo (e.g. "New York, NY"). */
   placeLabel?: string;
+  restaurants?: Array<{ name: string; url: string }>;
 };
 
 /** Server-rendered FAQ + breadcrumb (+ optional WebPage/HowTo) schema for discovery landings. */
@@ -27,6 +29,7 @@ export function DiscoveryLandingSchema({
   heading,
   description,
   placeLabel,
+  restaurants = [],
 }: Props) {
   const blocks: Record<string, unknown>[] = [breadcrumbJsonLd(breadcrumbs), faqJsonLd(faq)];
   if (canonicalPath && heading && description) {
@@ -34,6 +37,16 @@ export function DiscoveryLandingSchema({
       webPageJsonLd({ name: heading, description, url: canonicalPath }),
       howToBookJsonLd(placeLabel),
     );
+    if (restaurants.length) {
+      blocks.push(
+        itemListJsonLd({
+          name: heading,
+          description,
+          url: canonicalPath,
+          items: restaurants,
+        }),
+      );
+    }
   }
   return <JsonLd data={blocks} />;
 }

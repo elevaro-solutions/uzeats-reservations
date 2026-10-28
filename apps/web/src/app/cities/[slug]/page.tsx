@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { cityLandingMeta, seoCuisineInCityLabel, seoTierRestaurantsIn } from '@reservations/shared';
-import { DiscoveryLandingSchema } from '@/components/DiscoveryLandingSchema';
-import { DiscoveryLandingView } from '@/components/DiscoveryLandingView';
+import { DiscoveryLanding } from '@/components/DiscoveryLanding';
 import {
   listCityLandingParams,
   listCitiesForIndex,
@@ -60,27 +59,20 @@ export default async function CityLandingPage({ params }: PageProps) {
   ];
 
   return (
-    <>
-      <DiscoveryLandingSchema
-        breadcrumbs={breadcrumbs}
-        faq={meta.faq}
-        canonicalPath={canonicalPath}
-        heading={meta.heading}
-        description={meta.description}
-      />
-      <DiscoveryLandingView
-        meta={meta}
-        canonicalPath={canonicalPath}
-        preset={{
-          city: city.city,
-          state: city.state,
-          lat: city.lat,
-          lng: city.lng,
-          locationLabel: `${city.city}, ${city.state}`,
-        }}
-        breadcrumbs={breadcrumbs}
-        relatedLinks={crossLinks}
-      />
-    </>
+    <DiscoveryLanding
+      meta={meta}
+      canonicalPath={canonicalPath}
+      breadcrumbs={breadcrumbs}
+      relatedLinks={crossLinks}
+      placeLabel={`${city.city}, ${city.state}`}
+      requireInventory
+      preset={{
+        city: city.city,
+        state: city.state,
+        lat: city.lat,
+        lng: city.lng,
+        locationLabel: `${city.city}, ${city.state}`,
+      }}
+    />
   );
 }

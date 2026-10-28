@@ -49,6 +49,9 @@ export function MobileAppPrompt({ app }: { app: MobileAppId }) {
 
   return (
     <div className="rt-app-prompt" role="region" aria-label={`Get the ${listing.name} app`}>
+      <span className="rt-app-prompt__badge" aria-hidden>
+        App
+      </span>
       <p className="rt-app-prompt__copy">
         {ios ? (
           <>

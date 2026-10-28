@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery } from '@apollo/client/react';
 import { useRouter } from 'next/navigation';
@@ -61,10 +62,11 @@ const HERO_HIGHLIGHTS = [
   { icon: <CrownFilled />, label: 'Loyalty rewards' },
 ] as const;
 
-const HERO_STATS = [
-  { value: '12,000+', label: 'Restaurants' },
-  { value: '2M+', label: 'Diners served' },
-  { value: '4.8★', label: 'Average rating' },
+const HERO_HUBS = [
+  { href: '/cities', label: 'Restaurants by city' },
+  { href: '/cuisine', label: 'Browse cuisines' },
+  { href: '/near-me', label: 'Near me' },
+  { href: '/for-restaurants', label: 'For restaurants' },
 ] as const;
 
 const CATEGORY_ICONS: Record<string, React.ReactNode> = {
@@ -693,7 +695,7 @@ function HomePageContent({ initialSearch = null }: HomePageClientProps) {
             }}
           >
             <StarFilled style={{ color: colors.rating }} />
-            Rated 4.8/5 by diners nationwide
+            Free for diners · Instant confirmation
           </span>
 
           <Title
@@ -709,9 +711,9 @@ function HomePageContent({ initialSearch = null }: HomePageClientProps) {
               animationDelay: '60ms',
             }}
           >
-            Find your table.{' '}
+            Find and book restaurants{' '}
             <span style={{ color: colors.accent[300], display: 'inline-block' }}>
-              Book it in seconds.
+              near you.
             </span>
           </Title>
 
@@ -726,8 +728,8 @@ function HomePageContent({ initialSearch = null }: HomePageClientProps) {
               animationDelay: '120ms',
             }}
           >
-            Reserve at thousands of restaurants across the USA — always free for
-            diners, confirmed instantly.
+            Search by neighbourhood or cuisine, then reserve with instant confirmation —
+            always free for diners.
           </Paragraph>
 
           {discoverySearch('hero')}
@@ -761,55 +763,17 @@ function HomePageContent({ initialSearch = null }: HomePageClientProps) {
             ))}
           </div>
 
-          {/* social proof stats */}
-          <div
-            className="rt-fade-up rt-hero-stats"
-            style={{
-              marginTop: 30,
-              animationDelay: '300ms',
-            }}
+          <nav
+            className="rt-fade-up rt-hero-hubs"
+            aria-label="Explore Tablevera"
+            style={{ animationDelay: '300ms' }}
           >
-            {HERO_STATS.map((s, i) => (
-              <div key={s.label} className="rt-hero-stat">
-                {i > 0 && (
-                  <span
-                    aria-hidden
-                    className="rt-hero-stat-sep"
-                    style={{
-                      width: 1,
-                      height: 30,
-                      background: 'rgba(255,255,255,0.16)',
-                      display: 'inline-block',
-                    }}
-                  />
-                )}
-                <div style={{ textAlign: 'center' }}>
-                  <div
-                    style={{
-                      color: '#fff',
-                      fontSize: typography.fontSize.lg,
-                      fontWeight: typography.fontWeight.bold,
-                      lineHeight: 1.1,
-                      letterSpacing: typography.letterSpacing.tight,
-                    }}
-                  >
-                    {s.value}
-                  </div>
-                  <div
-                    style={{
-                      color: 'rgba(255,255,255,0.6)',
-                      fontSize: typography.fontSize.xs,
-                      textTransform: 'uppercase',
-                      letterSpacing: typography.letterSpacing.wide,
-                      marginTop: 2,
-                    }}
-                  >
-                    {s.label}
-                  </div>
-                </div>
-              </div>
+            {HERO_HUBS.map((hub) => (
+              <Link key={hub.href} href={hub.href} className="rt-hero-hubs__link">
+                {hub.label}
+              </Link>
             ))}
-          </div>
+          </nav>
         </div>
       </section>
 

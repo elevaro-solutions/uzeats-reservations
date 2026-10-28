@@ -600,12 +600,13 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           </Button>
         </div>
       )}
+      <div className="rt-site-top">
+      {pathname === '/downloads' ? null : (
+        <MobileAppPrompt app={isRestaurantMarketing ? 'partner' : 'diner'} />
+      )}
       <Header
         className="rt-site-header"
         style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 100,
           display: 'flex',
           alignItems: 'center',
           width: '100%',
@@ -764,10 +765,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
           />
         </Space>
       </Header>
-
-      {pathname === '/downloads' ? null : (
-        <MobileAppPrompt app={isRestaurantMarketing ? 'partner' : 'diner'} />
-      )}
+      </div>
 
       <Drawer
         placement="right"
@@ -923,7 +921,6 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
               <div className="rt-site-footer__heading">Explore</div>
               <div className="rt-site-footer__list">
                 <Link href="/top-restaurants">Top restaurants</Link>
-                <Link href="/best-restaurants">Best restaurants</Link>
                 <Link href="/top-locations">Top locations</Link>
                 <Link href="/near-me">Restaurants near me</Link>
                 <Link href="/near-me/restaurants">Near me by city & state</Link>
@@ -941,6 +938,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             <div>
               <div className="rt-site-footer__heading">Company</div>
               <div className="rt-site-footer__list">
+                <Link href="/about">About</Link>
                 <Link href="/blog">Blog</Link>
                 <Link href="/downloads">Downloads</Link>
                 <Link href="/contact">Contact</Link>

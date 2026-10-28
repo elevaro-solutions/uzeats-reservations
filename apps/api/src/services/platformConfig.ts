@@ -435,6 +435,32 @@ export async function getAnnualBillingSettings(): Promise<AnnualBillingSettings>
   return mapAnnualBillingSettings(config);
 }
 
+export async function getShowPricingComparisonTable(): Promise<boolean> {
+  const config = await getPlatformConfig();
+  return (config as { showPricingComparisonTable?: boolean }).showPricingComparisonTable === true;
+}
+
+export const DEFAULT_MAX_VISIBLE_PRICING_PACKAGES = 3;
+export const MIN_MAX_VISIBLE_PRICING_PACKAGES = 1;
+export const MAX_MAX_VISIBLE_PRICING_PACKAGES = 6;
+
+export function normalizeMaxVisiblePricingPackages(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return DEFAULT_MAX_VISIBLE_PRICING_PACKAGES;
+  return Math.min(
+    MAX_MAX_VISIBLE_PRICING_PACKAGES,
+    Math.max(MIN_MAX_VISIBLE_PRICING_PACKAGES, Math.round(n)),
+  );
+}
+
+export async function getMaxVisiblePricingPackages(): Promise<number> {
+  const config = await getPlatformConfig();
+  const raw = (config as { maxVisiblePricingPackages?: number }).maxVisiblePricingPackages;
+  return raw == null
+    ? DEFAULT_MAX_VISIBLE_PRICING_PACKAGES
+    : normalizeMaxVisiblePricingPackages(raw);
+}
+
 export type VirtualRoomPricing = {
   monthlyPriceCents: number;
   /** Unit fee in cents; applied per guest or per table based on selectionFeeMode. */
@@ -564,6 +590,13 @@ export function mapPlatformConfig(doc: PlatformConfigDocument) {
     virtualRoomPricing: mapVirtualRoomPricing(doc),
     smsBilling: mapSmsBilling(doc),
     annualBilling: mapAnnualBillingSettings(doc),
+    showPricingComparisonTable: (doc as { showPricingComparisonTable?: boolean }).showPricingComparisonTable === true,
+    maxVisiblePricingPackages: (() => {
+      const raw = (doc as { maxVisiblePricingPackages?: number }).maxVisiblePricingPackages;
+      return raw == null
+        ? DEFAULT_MAX_VISIBLE_PRICING_PACKAGES
+        : normalizeMaxVisiblePricingPackages(raw);
+    })(),
     updatedAt: (doc as any).updatedAt ?? new Date(),
   };
 }
