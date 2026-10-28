@@ -1,0 +1,16 @@
+---
+description: Create Partner Hub QA checklist tasks before every git push / release
+alwaysApply: true
+---
+
+# QA tasks before push
+
+Never push a release (git-push skill, “git”, “push”, “deploy”) until that version has **Partner Hub `/admin/qa` tasks**.
+
+Do this after the changelog version is known, before commit:
+
+1. Replace `QA_CHECKLIST_RELEASE` and `QA_CHECKLIST_CATALOG` in `apps/api/src/services/qaChecklistCatalog.ts` with testable items for **this** version (group Added / Changed / Fixed; required steps a QA person can follow).
+2. Add `docs/qa/releases/vX.Y.Z.md` from `docs/qa/releases/_TEMPLATE.md`. Point `docs/qa/README.md` at it as Active.
+3. Changelog **Added**: `Partner Hub /admin/qa tasks for this release: …`
+
+Do not push if `QA_CHECKLIST_RELEASE` still names an older version. Do not replace a catalog that already gates this version’s product work (e.g. a patch that only ships those tasks).

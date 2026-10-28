@@ -49,6 +49,18 @@ When triggered, execute these steps in order. Do NOT skip steps.
 
 Only include sections that apply. Each bullet should be concise and describe the user-facing change.
 
+## Step 2b: Create QA tasks (required — never skip)
+
+Every release that is about to be pushed must have Partner Hub `/admin/qa` tasks **before** commit. Do not push if this step is missing.
+
+1. Read `apps/api/src/services/qaChecklistCatalog.ts`. If `QA_CHECKLIST_RELEASE` is not the version from Step 2, replace the catalog for **this** version.
+2. Turn CHANGELOG Added / Changed / Fixed into grouped, testable catalog items (`id`, `gate`, `group`, `label`, `steps`). Steps must tell QA what to click and what to see. Keep required items to the human-verifiable delta (about 5–12). Older sign-off stays on its own `QaReleaseChecklist` row — do not leave the previous release’s items in the catalog.
+3. Add `docs/qa/releases/v{VERSION}.md` from `docs/qa/releases/_TEMPLATE.md` (status Active, same items, role smoke for surfaces touched).
+4. Set the Active pointer in `docs/qa/README.md` to that file.
+5. Include a changelog **Added** bullet: `Partner Hub `/admin/qa` tasks for this release: …` (short list of what QA will check).
+
+**Exception:** If the only change in this push *is* the QA catalog for a version that already shipped (catalog `QA_CHECKLIST_RELEASE` already matches the product version being gated), do not replace it. Still refuse to push product work whose catalog is still on an older release.
+
 ## Step 3: Update README.md
 
 Review if the changes require README updates:
@@ -159,3 +171,4 @@ Rules for the QA summary:
 - Keep commit messages meaningful — summarize the overall intent, not individual file changes
 - Date format in CHANGELOG: `YYYY-MM-DD`
 - After every successful push, always show the Step 7 QA changelog summary in chat
+- Never push until Step 2b QA tasks exist for the version being released

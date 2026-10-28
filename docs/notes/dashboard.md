@@ -1,5 +1,9 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-28] QA checklist catalog is v0.92.0
+- `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.92.0`. Testers use Plans & pricing for the public carousel/compare flags, Grow for the widget backlink, and diner web for the rest.
+- Why it matters: Do not re-test v0.90.0 Issues / drawer items on this gate. Older sign-off stays on that version’s row and Versions.
+
 ## [2026-10-27] Public pricing display lives on Plans & pricing, not Platform config
 - `/admin/pricing` “Public pricing page” card saves `maxVisiblePricingPackages` and `showPricingComparisonTable` via `updatePlatformConfig`. Default 3 cards, comparison table off.
 - Why it matters: Per-package `visibleOnPricing` is which packages exist on `/pricing`. Page-level count and compare visibility are platform config on this same screen, next to Global annual billing.

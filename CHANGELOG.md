@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.92.1] — 2026-10-28
+
+### Added
+- Partner Hub `/admin/qa` tasks for v0.92.0: public pricing carousel and compare-table settings, About NAP, booking-widget backlink, discovery hub copy and empty-hub 404s, homepage seed and copy, app banner, redirects, crawler/privacy checks, and restaurant listing SEO
+
 ## [0.92.0] — 2026-10-28
 
 ### Added

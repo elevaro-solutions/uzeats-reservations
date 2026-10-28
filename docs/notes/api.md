@@ -1,5 +1,9 @@
 # API — Learnings & Observations
 
+## [2026-10-28] QA checklist catalog is v0.92.0
+- `QA_CHECKLIST_RELEASE` is `0.92.0`. Catalog groups are Pricing, About and brand, Partner Hub, Discovery, Diner web, and SEO. v0.90.0 Issues / review-email / drawer items stay on that release’s `QaReleaseChecklist` row.
+- Why it matters: Sign-off for this gate is public pricing, About NAP, widget backlink, discovery copy/404s, homepage, app banner, redirects, and crawler/listing SEO — not the previous Issues work.
+
 ## [2026-10-27] Public pricing display flags are not on admin-only `platformConfig`
 - `showPricingComparisonTable` defaults false (`=== true` only). `maxVisiblePricingPackages` defaults 3, clamped 1–6. Public queries sit next to `annualBillingSettings`. Admin writes them through `updatePlatformConfig`.
 - Why it matters: Diner web cannot read `platformConfig`. Unset documents must stay table-hidden and 3-up.
