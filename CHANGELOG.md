@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.92.2] — 2026-10-28
+
+### Added
+
+- Partner Hub `/admin/qa` tasks for this release: cookie banner hides behind Cookie preferences, preferences dialog always closable, and restaurant card quick time slots fit narrow cards
+
+### Fixed
+
+- Diner web: clicking **Customize** on the cookie banner now hides the banner while the Cookie preferences dialog is open, instead of leaving the banner on top of the dialog. Closing the dialog without saving brings the banner back
+- Diner web: the Cookie preferences dialog can always be closed with the close (X) button or by clicking outside it, including on a first visit before any cookie choice is saved
+- Diner web: restaurant cards have less side padding, so the three quick time slots (e.g. "11:30 AM") no longer get cut off on narrow cards such as the 4-column grid at ~1200px
+
 ## [0.92.1] — 2026-10-28
 
 ### Added

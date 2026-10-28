@@ -1910,7 +1910,12 @@ html.rt-map-view .rt-site-footer {
 }
 
 .rt-restaurant-card > .rt-restaurant-card__body.ant-card-body {
-  padding: 16px 24px;
+  padding: 16px 12px;
+}
+
+/* Overrides inline padding so three "11:30 AM" chips fit the 4-column grid at 1200px. */
+.rt-restaurant-card__slots button {
+  padding-inline: 2px !important;
 }
 
 .rt-restaurant-card__cuisine {
@@ -1981,7 +1986,7 @@ html.rt-map-view .rt-site-footer {
 }
 
 .rt-restaurant-card-skeleton__body {
-  padding: 16px;
+  padding: 16px 12px;
   display: flex;
   flex-direction: column;
   gap: 10px;

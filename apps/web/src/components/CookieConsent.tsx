@@ -88,7 +88,7 @@ export function CookieConsent() {
 
   return (
     <>
-      {visible && (
+      {visible && !prefsOpen && (
         <div className="cookie-consent" role="dialog" aria-label="Cookie consent">
           <div className="cookie-consent__panel">
             <div className="cookie-consent__icon" aria-hidden>
@@ -144,8 +144,6 @@ export function CookieConsent() {
           setPrefsOpen(false);
           if (!hasCookieConsent()) setVisible(true);
         }}
-        closable={hasCookieConsent()}
-        maskClosable={hasCookieConsent()}
         footer={
           <Space wrap style={{ width: '100%', justifyContent: 'flex-end' }}>
             <Button

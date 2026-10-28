@@ -237,7 +237,7 @@
 - Why it matters: Never render CMS HTML raw. Don’t tighten `script-src` to `'self'` without Next nonces.
 
 ## [2026-10-17] Phone restaurant cards are a row
-- Below 576px (the single-column grid), `.rt-restaurant-card` is `flex-direction: row`: the cover stretches to the full card height on the left, body on the right. Body padding is `16px 24px` on `.rt-restaurant-card > .rt-restaurant-card__body.ant-card-body` — a lone class loses to Ant Design's `.ant-card-body` padding. Wider breakpoints stay photo-on-top.
+- Below 576px (the single-column grid), `.rt-restaurant-card` is `flex-direction: row`: the cover stretches to the full card height on the left, body on the right. Body padding (`16px 12px`, matching the skeleton) is set on `.rt-restaurant-card > .rt-restaurant-card__body.ant-card-body` — a lone class loses to Ant Design's `.ant-card-body` padding. Wider breakpoints stay photo-on-top.
 - Why it matters: Do not set `flexDirection` or the cover height as inline styles on `RestaurantCard`. Inline styles beat the phone media query and the list goes tall again.
 
 ## [2026-10-03] Hero search bar control heights

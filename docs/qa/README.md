@@ -10,7 +10,7 @@ How the QA team verifies Tablevera releases before sign-off.
 | Published docs | [https://docs.tablevera.online/qa/overview](https://docs.tablevera.online/qa/overview) — role/feature checklist and the active release page (docs access required) |
 | Cursor canvas **Manual QA sign-off** (`canvases/manual-qa-signoff.canvas.tsx`) | Live checkboxes, progress, and release sign-off (who + date). Stays **Active** until every required release-delta item is checked. |
 | [Role & feature checklist](./manual-checklist.md) | Evergreen smoke matrix by role and feature (copy into tickets if needed). |
-| [Release folders](./releases/) | One file per version: **only the new/changed items** for that release + sign-off block. Active: [v0.92.0](./releases/v0.92.0.md). |
+| [Release folders](./releases/) | One file per version: **only the new/changed items** for that release + sign-off block. Active: [v0.92.2](./releases/v0.92.2.md). |
 | [Automation testing](../automation-testing.md) | Unit / API / Playwright — run before or alongside manual QA; does not replace manual sign-off. |
 
 ## Process
