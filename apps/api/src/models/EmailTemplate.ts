@@ -37,6 +37,9 @@ const emailTemplateSchema = new Schema(
         'restaurant_approved',
         'restaurant_created',
         'invoice_ready',
+        'invoice_payment_reminder',
+        'invoice_overdue',
+        'invoice_enforcement',
         'docs_access_otp',
       ],
     },
@@ -396,6 +399,70 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     ].join(''),
     bodyText:
       'Hi {{firstName}},\n\nInvoice {{invoiceNumber}} for {{period}} totaling {{amount}} is ready.',
+  },
+  {
+    key: 'invoice_payment_reminder',
+    name: 'Invoice payment reminder',
+    subject: 'Reminder: invoice {{invoiceNumber}} is due',
+    description: 'Sent on days 1, 3, and 7 after a platform invoice is due.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('{{headline}}'),
+      emailParagraph('{{body}}'),
+      emailDetailBox([
+        { label: 'Restaurant', value: '{{restaurantName}}' },
+        { label: 'Invoice', value: '{{invoiceNumber}}' },
+        { label: 'Amount', value: '{{amount}}' },
+        { label: 'Due', value: '{{dueDate}}' },
+      ]),
+      emailButton('{{invoiceUrl}}', 'Pay invoice'),
+      emailMuted('You can also open Partner Hub Billing: {{billingUrl}}'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\n{{headline}}\n\n{{body}}\n\nInvoice {{invoiceNumber}} · {{amount}} · due {{dueDate}}\nPay: {{invoiceUrl}}',
+  },
+  {
+    key: 'invoice_overdue',
+    name: 'Invoice overdue',
+    subject: 'Invoice {{invoiceNumber}} is overdue',
+    description: 'Sent when a platform invoice becomes overdue (day 8) and finance charges start.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('{{headline}}'),
+      emailParagraph('{{body}}'),
+      emailDetailBox([
+        { label: 'Restaurant', value: '{{restaurantName}}' },
+        { label: 'Invoice', value: '{{invoiceNumber}}' },
+        { label: 'Amount', value: '{{amount}}' },
+        { label: 'Due', value: '{{dueDate}}' },
+      ]),
+      emailButton('{{invoiceUrl}}', 'Pay now'),
+      emailMuted('Finance charges accrue monthly until the invoice is paid.'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\n{{headline}}\n\n{{body}}\n\nInvoice {{invoiceNumber}} · {{amount}} · due {{dueDate}}\nPay: {{invoiceUrl}}',
+  },
+  {
+    key: 'invoice_enforcement',
+    name: 'Invoice enforcement notice',
+    subject: '{{headline}}',
+    description:
+      'Listing hidden, Partner Hub restricted, or subscription ended because invoices were not paid.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph('{{headline}}'),
+      emailParagraph('{{body}}'),
+      emailDetailBox([
+        { label: 'Restaurant', value: '{{restaurantName}}' },
+        { label: 'Invoice', value: '{{invoiceNumber}}' },
+        { label: 'Amount', value: '{{amount}}' },
+        { label: 'Days past due', value: '{{daysPastDue}}' },
+      ]),
+      emailButton('{{billingUrl}}', 'Open Billing'),
+      emailMuted('Pay the balance to restore access, unless this location has already been terminated.'),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\n{{headline}}\n\n{{body}}\n\nInvoice {{invoiceNumber}} · {{amount}} · {{daysPastDue}} days past due\nBilling: {{billingUrl}}',
   },
   {
     key: 'docs_access_otp',

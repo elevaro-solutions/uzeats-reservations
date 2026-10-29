@@ -4,7 +4,19 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.93.0] — 2026-10-29
+
+### Added
+- Superadmin can set a restaurant’s paid subscription period start on Partner Hub restaurant Package (future date = trial until first charge; today or earlier = current paid cycle start, renews one month later)
+- Fail-to-pay policy for unpaid platform invoices: 7-day grace, then overdue notices and 1.5%/month finance charges (plus a $25 declined-card fee once per invoice). Day 14 hides the diner listing; day 30 limits Partner Hub to billing and existing reservations; day 60 cancels the subscription and remaining upcoming bookings. Partners can pay to restore before termination; admins can pause, waive fees, extend grace, or force-restore.
+- Partner Hub `/admin/qa` tasks for this release: superadmin paid-period start, fail-to-pay ladder and admin overrides, post-login preparing screen, and plan-switch full-price billing
+
+### Changed
+- After diner web or Partner Hub sign-in, a preparing screen (illustration, status messages, and progress) replaces the blank white page and “Signed in” toast while the session and landing page load
+- Partner plan switch “right away” charges the **full** new monthly price (not a leftover-period difference) and starts a new billing period; unused time on the current plan is not credited. Waiting until period end still costs $0 today.
+
+### Docs
+- Billing fail-to-pay ladder, paid-period start, and full-price plan switch notes (`docs/notes/features-billing.md`, API, dashboard)
 
 ## [0.92.2] — 2026-10-28
 

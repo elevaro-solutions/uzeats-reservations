@@ -1053,6 +1053,40 @@ export const typeDefs = `#graphql
     premiumSmsAddon: Boolean
   }
 
+  enum BillingEnforcementStage {
+    current
+    grace
+    overdue
+    unlisted
+    restricted
+    terminated
+  }
+
+  type BillingEnforcement {
+    stage: BillingEnforcementStage!
+    daysPastDue: Int
+    oldestUnpaidDueDate: DateTime
+    outstandingCents: Int!
+    paused: Boolean!
+    pauseReason: String
+    pausedAt: DateTime
+    graceExtendedUntil: DateTime
+    unlistedAt: DateTime
+    restrictedAt: DateTime
+    terminatedAt: DateTime
+    publiclyListed: Boolean!
+  }
+
+  type FailToPaySettings {
+    financeChargeBps: Int!
+    declinedFeeCents: Int!
+  }
+
+  input FailToPaySettingsInput {
+    financeChargeBps: Int
+    declinedFeeCents: Int
+  }
+
   type SubscriptionType {
     id: ID!
     restaurantId: ID!
@@ -1072,6 +1106,7 @@ export const typeDefs = `#graphql
     pendingPlanEffectiveAt: DateTime
     lastPaidPlanChangeAt: DateTime
     amountDueCents: Int!
+    billingEnforcement: BillingEnforcement!
     monthlyPriceCents: Int!
     networkCoverFeeCents: Int!
     websiteCoverFeeCents: Int!
@@ -1130,6 +1165,7 @@ export const typeDefs = `#graphql
     blockedReason: String
     immediate: Boolean!
     effectiveAt: DateTime
+    """Amount due today for this preview. Immediate switches are the full new monthly price."""
     proratedChargeCents: Int!
     featuresLost: [String!]!
     featuresGained: [String!]!
@@ -1522,6 +1558,8 @@ export const typeDefs = `#graphql
     unitAmountCents: Int!
     amountCents: Int!
     originalAmountCents: Int
+    """finance_charge or declined_fee when this is an enforcement fee."""
+    kind: String
   }
 
   enum InvoiceStatus {
@@ -2066,6 +2104,7 @@ export const typeDefs = `#graphql
     showPricingComparisonTable: Boolean!
     """How many plan cards are visible at once on public /pricing. Default 3."""
     maxVisiblePricingPackages: Int!
+    failToPay: FailToPaySettings!
     updatedAt: DateTime!
   }
 
@@ -2106,6 +2145,7 @@ export const typeDefs = `#graphql
     showPricingComparisonTable: Boolean
     """How many plan cards are visible at once on public /pricing (1–6). Default 3."""
     maxVisiblePricingPackages: Int
+    failToPay: FailToPaySettingsInput
   }
 
   enum TableSelectionSource {
@@ -4471,6 +4511,15 @@ export const typeDefs = `#graphql
     ): Restaurant!
     """Assign or update a restaurant package as admin. Extends billing period by one cycle."""
     adminAssignRestaurantPackage(restaurantId: ID!, plan: String!): SubscriptionType!
+    """
+    Superadmin: set when the paid subscription period starts.
+    A future date keeps the restaurant on trial until that day (first charge).
+    Today or earlier becomes the current paid cycle start; renewal is one calendar month later.
+    """
+    adminSetSubscriptionPaidPeriodStart(
+      restaurantId: ID!
+      paidPeriodStart: DateTime!
+    ): SubscriptionType!
     adminSendPasswordReset(userId: ID!, sendEmail: Boolean): PasswordResetLinkPayload!
     generateInvoices(period: String!): GenerateInvoicesResult!
     createManualInvoice(input: CreateManualInvoiceInput!): Invoice!
@@ -4486,6 +4535,15 @@ export const typeDefs = `#graphql
     deleteTableShapeDef(id: ID!): Boolean!
     setInvoiceStatus(id: ID!, status: InvoiceStatus!): Invoice!
     setInvoiceStatuses(ids: [ID!]!, status: InvoiceStatus!): BulkInvoiceStatusResult!
+    pauseBillingEnforcement(restaurantId: ID!, reason: String): BillingEnforcement!
+    resumeBillingEnforcement(restaurantId: ID!): BillingEnforcement!
+    extendBillingGrace(restaurantId: ID!, until: DateTime!): BillingEnforcement!
+    forceRestoreBillingAccess(restaurantId: ID!, reason: String): BillingEnforcement!
+    waiveInvoiceEnforcementFees(
+      invoiceId: ID!
+      financeCharges: Boolean
+      declinedFee: Boolean
+    ): Invoice!
     updatePlatformConfig(input: PlatformConfigInput!): PlatformConfig!
     updateLoyaltyProgram(input: LoyaltyProgramInput!): LoyaltyProgram!
     updatePlanPackage(input: PlanPackageInput!): PlanInfo!
@@ -4608,8 +4666,9 @@ export const typeDefs = `#graphql
     """Undo a scheduled cancel-at-period-end so the subscription renews."""
     reactivateSubscription(restaurantId: ID!): SubscriptionType!
     """
-    Change plan. Upgrades apply immediately (and clear soft-cancel).
-    Pass immediate: true to apply a downgrade right away instead of at period end.
+    Change plan. Immediate switches charge the new plan's full monthly price
+    (unused time is not credited) and start a new billing period.
+    Omit immediate to default: upgrades now, downgrades at period end.
     """
     changePlan(restaurantId: ID!, plan: String!, immediate: Boolean): PlanChangePayload!
     confirmPlanChangePayment(restaurantId: ID!): SubscriptionType!

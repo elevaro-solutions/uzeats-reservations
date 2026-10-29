@@ -193,6 +193,10 @@ const platformConfigSchema = new Schema(
       freeMonths: { type: Number, default: 2, min: 1, max: 11 },
       discountPercent: { type: Number, default: 17, min: 1, max: 99 },
     },
+    failToPay: {
+      financeChargeBps: { type: Number, default: 150, min: 0, max: 1500 },
+      declinedFeeCents: { type: Number, default: 2500, min: 0 },
+    },
     /** Public /pricing “Compare all features” table. Off until a platform admin opts in. */
     showPricingComparisonTable: { type: Boolean, default: false },
     /** How many plan cards show at once on public /pricing. Default 3. */

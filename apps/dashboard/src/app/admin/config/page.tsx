@@ -153,6 +153,8 @@ export default function AdminConfigPage() {
     const pricing = data.platformConfig.virtualRoomPricing;
     form.setFieldsValue({
       ...data.platformConfig,
+      failToPayDeclinedDollars:
+        (data.platformConfig.failToPay?.declinedFeeCents ?? 2500) / 100,
       virtualRoomPricingDollars: pricing
         ? {
             monthly: pricing.monthlyPriceCents / 100,
@@ -201,6 +203,12 @@ export default function AdminConfigPage() {
             : {}),
           invoicePrefix: values.invoicePrefix,
           currency: values.currency,
+          failToPay: {
+            financeChargeBps: Math.round(Number((values.failToPay as { financeChargeBps?: number })?.financeChargeBps ?? 150)),
+            declinedFeeCents: Math.round(
+              Number((values.failToPayDeclinedDollars as number | undefined) ?? 25) * 100,
+            ),
+          },
           cancellationPeriodHours:
             values.cancellationPeriodHours == null
               ? 24
@@ -345,6 +353,26 @@ export default function AdminConfigPage() {
                       { value: 'gbp', label: 'GBP' },
                     ]}
                   />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Row gutter={16}>
+              <Col xs={24} sm={12}>
+                <Form.Item
+                  name={['failToPay', 'financeChargeBps']}
+                  label="Overdue finance charge (basis points / month)"
+                  extra="150 = 1.5% per month after the 7-day grace. 0 disables the charge."
+                >
+                  <InputNumber min={0} max={1500} style={{ width: '100%' }} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item
+                  name="failToPayDeclinedDollars"
+                  label="Declined-card fee (USD)"
+                  extra="Charged once per invoice on the first auto-charge decline. 0 disables the fee."
+                >
+                  <InputNumber min={0} step={1} style={{ width: '100%' }} />
                 </Form.Item>
               </Col>
             </Row>

@@ -64,7 +64,7 @@ Never hardcode role string comparisons scattered across files — centralize in 
 ## Comments
 
 - Code should be self-explanatory
-- Comment only non-obvious business rules (e.g. loyalty expiry, plan change proration)
+- Comment only non-obvious business rules (e.g. loyalty expiry, plan change full-price switch)
 - Don't add narrating comments ("// import react")
 
 ## Tests

@@ -14,7 +14,6 @@ import {
   Modal,
   Row,
   Space,
-  Spin,
   Statistic,
   Table,
   Typography,
@@ -36,7 +35,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { PLATFORM_TIMEZONE, todayIsoInTimeZone } from '@reservations/shared';
-import { EmptyState, PageHeader, StatusTag, colors, radii, spacing, typography } from '@reservations/ui';
+import { EmptyState, PageHeader, SessionPreparing, StatusTag, colors, radii, spacing, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { canCreateRestaurant, isHostRole, isPlatformAdmin, isQaRole, partnerLandingPath } from '@/lib/roles';
 import {
@@ -289,11 +288,7 @@ export default function OverviewPage() {
   );
 
   if (authLoading || isQa || (user && overviewLoading && !overview)) {
-    return (
-      <div className="rt-page-loader">
-        <Spin size="large" />
-      </div>
-    );
+    return <SessionPreparing variant="partner" />;
   }
 
   if (user && locationsTotal === 0) {

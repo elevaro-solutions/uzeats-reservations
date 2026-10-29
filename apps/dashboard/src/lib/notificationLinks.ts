@@ -81,6 +81,9 @@ export function notificationHref(n: Pick<AppNotification, 'type' | 'data'>): str
     case 'review_report_response':
       return withRestaurantParam('/reviews', data);
     case 'invoice_ready':
+    case 'invoice_payment_reminder':
+    case 'invoice_overdue':
+    case 'invoice_enforcement':
       return withRestaurantParam('/billing', data);
     default:
       return '/notifications';

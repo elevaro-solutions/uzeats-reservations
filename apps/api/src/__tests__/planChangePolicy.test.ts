@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { PLANS } from '../config/plans.js';
 import {
-  estimateUpgradeProrationCents,
   evaluatePlanChange,
+  immediatePlanChangeChargeCents,
   planDirection,
 } from '../services/planChangePolicy.js';
 
@@ -60,22 +60,15 @@ describe('planDirection', () => {
   });
 });
 
-describe('estimateUpgradeProrationCents', () => {
-  it('prorates remaining time in the period', () => {
-    const mid = new Date('2026-08-16T00:00:00.000Z');
-    const cents = estimateUpgradeProrationCents({
-      fromPriceCents: 10000,
-      toPriceCents: 20000,
-      now: mid,
-      periodStart,
-      periodEnd,
-    });
-    expect(cents).toBe(Math.round((10000 * (periodEnd.getTime() - mid.getTime())) / (periodEnd.getTime() - periodStart.getTime())));
+describe('immediatePlanChangeChargeCents', () => {
+  it('charges the full new monthly price', () => {
+    expect(immediatePlanChangeChargeCents(19900)).toBe(19900);
+    expect(immediatePlanChangeChargeCents(0)).toBe(0);
   });
 });
 
 describe('evaluatePlanChange', () => {
-  it('applies upgrades immediately with a prorated charge', () => {
+  it('applies upgrades immediately with the full new monthly price', () => {
     const decision = evaluatePlanChange({
       subscription: sub(),
       fromPlan: fromCore,
@@ -84,8 +77,35 @@ describe('evaluatePlanChange', () => {
     });
     expect(decision.allowed).toBe(true);
     expect(decision.immediate).toBe(true);
-    expect(decision.proratedChargeCents).toBeGreaterThan(0);
+    expect(decision.proratedChargeCents).toBe(PLANS.pro.monthlyPriceCents);
     expect(decision.featuresGained.length).toBeGreaterThan(0);
+  });
+
+  it('charges the full new monthly price on an immediate downgrade', () => {
+    const decision = evaluatePlanChange({
+      subscription: sub(),
+      fromPlan: fromCore,
+      toPlan: toBasic,
+      now: new Date('2026-08-16T00:00:00.000Z'),
+      forceImmediate: true,
+    });
+    expect(decision.allowed).toBe(true);
+    expect(decision.immediate).toBe(true);
+    expect(decision.proratedChargeCents).toBe(PLANS.basic.monthlyPriceCents);
+  });
+
+  it('lets an upgrade wait until period end when forceImmediate is false', () => {
+    const decision = evaluatePlanChange({
+      subscription: sub(),
+      fromPlan: fromCore,
+      toPlan: toPro,
+      now: new Date('2026-08-16T00:00:00.000Z'),
+      forceImmediate: false,
+    });
+    expect(decision.allowed).toBe(true);
+    expect(decision.immediate).toBe(false);
+    expect(decision.effectiveAt).toEqual(periodEnd);
+    expect(decision.proratedChargeCents).toBe(0);
   });
 
   it('schedules downgrades for period end and lists lost features', () => {

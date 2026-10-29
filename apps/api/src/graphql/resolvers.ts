@@ -305,6 +305,7 @@ import { createRestaurantSubscription } from "../services/restaurantSubscription
 import { deleteMyRestaurant as deleteMyRestaurantService } from "../services/deleteMyRestaurant.js";
 import { deleteMyAccount as deleteMyAccountService } from "../services/deleteMyAccount.js";
 import { adminAssignRestaurantPackage as assignRestaurantPackageAsAdmin } from "../services/adminAssignPackage.js";
+import { adminSetSubscriptionPaidPeriodStart } from "../services/adminPaidPeriod.js";
 import {
   setRestaurantStatuses,
   adminDeleteRestaurants,
@@ -317,7 +318,6 @@ import {
   markPlanChangePaid,
   previewPlanChange,
 } from "../services/planChange.js";
-import { estimateUpgradeProrationCents } from "../services/planChangePolicy.js";
 import {
   restaurantIsPubliclyListed,
   viewerCanSeeUnlistedRestaurant,
@@ -457,12 +457,22 @@ import {
   getPlatformRevenueReport,
   isEmailDeliveryConfigured,
   listInvoices,
+  mapInvoice,
   resumeInvoicePayment,
   sendInvoiceEmail,
   setInvoiceStatus,
   setInvoiceStatuses,
   startInvoicePayment,
 } from "../services/invoices.js";
+import {
+  extendBillingGrace,
+  forceRestoreBillingAccess,
+  getVenueEnforcementSnapshot,
+  mapBillingEnforcement,
+  pauseBillingEnforcement,
+  resumeBillingEnforcement,
+  waiveInvoiceEnforcementFees,
+} from "../services/invoiceEnforcement.js";
 import {
   createPlatformService,
   deletePlatformService,
@@ -616,6 +626,43 @@ export const resolvers = {
   SubscriptionType: {
     features: async (sub: { features?: Record<string, unknown> }) =>
       gateSubscriptionFeaturesForSms(sub.features ?? {}),
+    billingEnforcement: async (
+      sub: { restaurantId: string },
+      _: unknown,
+      ctx: GraphQLContext,
+    ) => {
+      const snapshot = await getVenueEnforcementSnapshot(sub.restaurantId);
+      const mapped = mapBillingEnforcement(snapshot);
+      if (!ctx.user) {
+        return {
+          ...mapped,
+          outstandingCents: 0,
+          daysPastDue: null,
+          oldestUnpaidDueDate: null,
+          pauseReason: null,
+          pausedAt: null,
+          graceExtendedUntil: null,
+        };
+      }
+      try {
+        await assertRestaurantAccess(
+          ctx.user._id.toString(),
+          sub.restaurantId,
+          ctx.user.role,
+        );
+        return mapped;
+      } catch {
+        return {
+          ...mapped,
+          outstandingCents: 0,
+          daysPastDue: null,
+          oldestUnpaidDueDate: null,
+          pauseReason: null,
+          pausedAt: null,
+          graceExtendedUntil: null,
+        };
+      }
+    },
   },
 
   Restaurant: {
@@ -2301,32 +2348,6 @@ export const resolvers = {
       );
       sub = await finalizeCancelAtPeriodEndIfDue(sub);
       await applyPendingPlanChangeIfDue(sub);
-      const stubStripe =
-        !sub.stripeSubscriptionId ||
-        String(sub.stripeSubscriptionId).startsWith("sub_dev_");
-      if (
-        stubStripe &&
-        !(sub.amountDueCents > 0) &&
-        sub.lastPaidPlanChangeAt &&
-        sub.monthlyPriceCents > 0 &&
-        sub.currentPeriodStart &&
-        sub.currentPeriodEnd &&
-        sub.lastPaidPlanChangeAt >= sub.currentPeriodStart &&
-        sub.lastPaidPlanChangeAt <= sub.currentPeriodEnd
-      ) {
-        const due = estimateUpgradeProrationCents({
-          fromPriceCents: 0,
-          toPriceCents: sub.monthlyPriceCents,
-          now: sub.lastPaidPlanChangeAt,
-          periodStart: sub.currentPeriodStart,
-          periodEnd: sub.currentPeriodEnd,
-        });
-        if (due > 0) {
-          sub.amountDueCents = due;
-          sub.status = "past_due";
-          await sub.save();
-        }
-      }
       let amountDueCents = sub.amountDueCents ?? 0;
       if (sub.stripeSubscriptionId) {
         const open = await getOpenSubscriptionPayment(sub.stripeSubscriptionId);
@@ -4953,6 +4974,9 @@ export const resolvers = {
           "This restaurant is not accepting online reservations",
         );
       }
+      if (!(await restaurantIsPubliclyListed(input.restaurantId))) {
+        throw new ValidationError("Restaurant not available");
+      }
       const features = await getFeatures(input.restaurantId);
       if (!features.waitlist) {
         throw new ValidationError(
@@ -5541,6 +5565,80 @@ export const resolvers = {
       return result;
     },
 
+    pauseBillingEnforcement: async (
+      _: unknown,
+      args: { restaurantId: string; reason?: string | null },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireAdmin(ctx);
+      return mapBillingEnforcement(
+        await pauseBillingEnforcement({
+          restaurantId: args.restaurantId,
+          actorId: admin._id.toString(),
+          reason: args.reason ?? undefined,
+        }),
+      );
+    },
+
+    resumeBillingEnforcement: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireAdmin(ctx);
+      return mapBillingEnforcement(
+        await resumeBillingEnforcement({
+          restaurantId: args.restaurantId,
+          actorId: admin._id.toString(),
+        }),
+      );
+    },
+
+    extendBillingGrace: async (
+      _: unknown,
+      args: { restaurantId: string; until: Date | string },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireAdmin(ctx);
+      return mapBillingEnforcement(
+        await extendBillingGrace({
+          restaurantId: args.restaurantId,
+          actorId: admin._id.toString(),
+          until: new Date(args.until),
+        }),
+      );
+    },
+
+    forceRestoreBillingAccess: async (
+      _: unknown,
+      args: { restaurantId: string; reason?: string | null },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireAdmin(ctx);
+      return mapBillingEnforcement(
+        await forceRestoreBillingAccess({
+          restaurantId: args.restaurantId,
+          actorId: admin._id.toString(),
+          reason: args.reason ?? undefined,
+        }),
+      );
+    },
+
+    waiveInvoiceEnforcementFees: async (
+      _: unknown,
+      args: { invoiceId: string; financeCharges?: boolean | null; declinedFee?: boolean | null },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireAdmin(ctx);
+      const { invoice, restaurantName } = await waiveInvoiceEnforcementFees({
+        invoiceId: args.invoiceId,
+        actorId: admin._id.toString(),
+        financeCharges: args.financeCharges ?? true,
+        declinedFee: args.declinedFee ?? true,
+      });
+      return mapInvoice(invoice, restaurantName ?? undefined);
+    },
+
     updatePlatformConfig: async (
       _: unknown,
       args: { input: Record<string, unknown> },
@@ -5644,6 +5742,21 @@ export const resolvers = {
         (doc as any).maxVisiblePricingPackages = normalizeMaxVisiblePricingPackages(
           args.input.maxVisiblePricingPackages,
         );
+      }
+      if (args.input.failToPay && typeof args.input.failToPay === "object") {
+        const next = args.input.failToPay as {
+          financeChargeBps?: number | null;
+          declinedFeeCents?: number | null;
+        };
+        const current = (doc as any).failToPay ?? {};
+        if (next.financeChargeBps != null) {
+          current.financeChargeBps = Math.max(0, Math.min(1500, Math.round(next.financeChargeBps)));
+        }
+        if (next.declinedFeeCents != null) {
+          current.declinedFeeCents = Math.max(0, Math.round(next.declinedFeeCents));
+        }
+        (doc as any).failToPay = current;
+        doc.markModified("failToPay");
       }
       await doc.save();
       await logAudit({
@@ -5997,6 +6110,20 @@ export const resolvers = {
       return mapSubscription(sub, { includeStripeIds: true });
     },
 
+    adminSetSubscriptionPaidPeriodStart: async (
+      _: unknown,
+      args: { restaurantId: string; paidPeriodStart: Date },
+      ctx: GraphQLContext,
+    ) => {
+      const admin = requireSuperAdmin(ctx);
+      const sub = await adminSetSubscriptionPaidPeriodStart({
+        restaurantId: args.restaurantId,
+        paidPeriodStart: args.paidPeriodStart,
+        actorId: admin._id.toString(),
+      });
+      return mapSubscription(sub, { includeStripeIds: true });
+    },
+
     cancelSubscription: async (
       _: unknown,
       args: { restaurantId: string; immediate?: boolean | null },
@@ -6089,7 +6216,7 @@ export const resolvers = {
         restaurantId: args.restaurantId,
         plan: args.plan,
         actorId: user._id.toString(),
-        forceImmediate: Boolean(args.immediate),
+        forceImmediate: args.immediate ?? undefined,
       });
       return {
         subscription: mapSubscription(result.subscription, {
@@ -8149,6 +8276,10 @@ export const resolvers = {
         user.role,
       );
       await requireFeature(input.restaurantId, "waitlist");
+      const { assertPartnerMayCreateCover } = await import(
+        "../services/invoiceEnforcement.js"
+      );
+      await assertPartnerMayCreateCover(input.restaurantId);
       const restaurant = await Restaurant.findById(input.restaurantId)
         .select("address location")
         .lean();
@@ -8245,6 +8376,7 @@ export const resolvers = {
           guest,
           tableId: args.tableId ?? undefined,
           dinerId: entry.dinerId?.toString(),
+          honorExisting: true,
         });
         entry.status = "seated";
         entry.reservationId = reservation._id;

@@ -1,5 +1,23 @@
 # API — Learnings & Observations
 
+## [2026-10-29] QA checklist catalog is v0.93.0
+- `QA_CHECKLIST_RELEASE` is `0.93.0`. Catalog groups are Billing and Sign-in. v0.92.0 pricing / About / discovery / SEO items stay on that release’s `QaReleaseChecklist` row.
+- Why it matters: Sign-off for this gate is paid-period start, fail-to-pay, post-login preparing, and full-price plan switch — not the previous public-pricing work.
+
+## [2026-10-29] Fail-to-pay ladder vs `past_due` listing
+- `Subscription.billingEnforcement.stage` is advanced by the daily billing job (and immediately on pay / admin override). Public listing excludes `unlisted` / `restricted` / `terminated`. `past_due` still grants Hub entitlements through Restricted.
+- Finance/declined fee lines (`kind`) survive period-invoice refresh. Paying one invoice only clears `past_due` when no other platform debt remains. Re-subscribe after terminate requires a clear debt gate.
+- Why it matters: Do not treat `trialing|active|past_due` as “listed.” Mutations should use `getVenueEnforcementSnapshot`, not only the persisted stage.
+
+## [2026-10-29] Superadmin paid-period start is `trialEndsAt` / `currentPeriodStart`
+- `adminSetSubscriptionPaidPeriodStart` is `requireSuperAdmin`. Future date → `trialing`, `trialEndsAt` = that date, `currentPeriodEnd` = that date (first charge). Today/past → `currentPeriodStart` = that date, `currentPeriodEnd` = +1 calendar month; trialing becomes `active`. Cancelled/paused and missing subs are rejected.
+- Stripe: future dates set `trial_end`; ending a trial uses `trial_end: now` + `billing_cycle_anchor: now` (may invoice). Already-paid Stripe subs are not reset so a local re-anchor does not bill again — the next subscription webhook can overwrite local dates.
+- Why it matters: Do not reuse `adminAssignRestaurantPackage` (extends the period). Platform `admin` / `account_manager` cannot call this.
+
+## [2026-10-28] Immediate plan change charges full monthly price
+- `evaluatePlanChange` / `changeRestaurantPlan`: immediate switch (upgrade default, or `forceImmediate`) bills `toPlan.monthlyPriceCents` in full, resets `currentPeriodStart/End`, and updates Stripe with `proration_behavior: none` + `billing_cycle_anchor: now`. Scheduled changes stay $0 until period end (`proration_behavior: none` on apply).
+- Why it matters: Stripe `create_prorations` only collected the leftover-period delta. `Boolean(args.immediate)` would also turn omitted GraphQL `immediate` into `false` and schedule upgrades — pass `args.immediate ?? undefined`.
+
 ## [2026-10-28] QA checklist catalog is v0.92.0
 - `QA_CHECKLIST_RELEASE` is `0.92.0`. Catalog groups are Pricing, About and brand, Partner Hub, Discovery, Diner web, and SEO. v0.90.0 Issues / review-email / drawer items stay on that release’s `QaReleaseChecklist` row.
 - Why it matters: Sign-off for this gate is public pricing, About NAP, widget backlink, discovery copy/404s, homepage, app banner, redirects, and crawler/listing SEO — not the previous Issues work.

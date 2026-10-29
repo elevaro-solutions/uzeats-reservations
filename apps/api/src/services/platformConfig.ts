@@ -597,6 +597,18 @@ export function mapPlatformConfig(doc: PlatformConfigDocument) {
         ? DEFAULT_MAX_VISIBLE_PRICING_PACKAGES
         : normalizeMaxVisiblePricingPackages(raw);
     })(),
+    failToPay: {
+      financeChargeBps: (() => {
+        const raw = (doc as { failToPay?: { financeChargeBps?: number } }).failToPay
+          ?.financeChargeBps;
+        return typeof raw === 'number' && raw >= 0 ? raw : 150;
+      })(),
+      declinedFeeCents: (() => {
+        const raw = (doc as { failToPay?: { declinedFeeCents?: number } }).failToPay
+          ?.declinedFeeCents;
+        return typeof raw === 'number' && raw >= 0 ? raw : 2500;
+      })(),
+    },
     updatedAt: (doc as any).updatedAt ?? new Date(),
   };
 }

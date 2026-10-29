@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Spin } from 'antd';
+import { SessionPreparing } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { partnerLandingPath } from '@/lib/roles';
 
@@ -20,9 +20,5 @@ export default function HomeRedirectPage() {
     router.replace(partnerLandingPath(user.role));
   }, [authLoading, user, router]);
 
-  return (
-    <div className="rt-page-loader">
-      <Spin size="large" />
-    </div>
-  );
+  return <SessionPreparing variant="partner" />;
 }

@@ -1,7 +1,9 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { gql } from '@apollo/client';
+import { SessionPreparing, useSessionHandoffSettle } from '@reservations/ui';
 import { useMutation } from '@/lib/apollo-hooks';
 
 const LOGIN = gql`
@@ -67,12 +69,16 @@ const AuthContext = createContext<{
 const API_URI = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/graphql';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [user, setUser] = useState<DashUser | null>(null);
   const [impersonator, setImpersonator] = useState<Impersonator | null>(null);
   const [loading, setLoading] = useState(true);
+  const [preparingSession, setPreparingSession] = useState(false);
   const [loginMutation] = useMutation(LOGIN);
   const [logoutMutation] = useMutation(LOGOUT);
   const [endImpersonationMutation] = useMutation(END_IMPERSONATION);
+  const endPreparingSession = useCallback(() => setPreparingSession(false), []);
+  useSessionHandoffSettle(preparingSession, pathname, endPreparingSession);
 
   const refreshMe = useCallback(async () => {
     try {
@@ -149,6 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
     }
     setSession(nextUser);
+    if (!nextUser.needsEmailVerification) setPreparingSession(true);
     return nextUser;
   };
 
@@ -181,7 +188,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <div component="AuthProvider" style={{ display: 'contents' }}>
-      <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+      <AuthContext.Provider value={value}>
+        {preparingSession ? <SessionPreparing variant="partner" /> : null}
+        {children}
+      </AuthContext.Provider>
     </div>
   );
 }

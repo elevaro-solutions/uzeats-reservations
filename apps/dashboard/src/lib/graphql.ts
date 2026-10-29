@@ -631,7 +631,7 @@ const ADMIN_RESTAURANT_FIELDS = `
   featuredIn { title description url logoUrl }
   termsAndConditions
   widgetTheme { primaryColor buttonText showReviews }
-  subscription { id plan status trialEndsAt currentPeriodStart currentPeriodEnd monthlyPriceCents }
+  subscription { id plan status trialEndsAt currentPeriodStart currentPeriodEnd monthlyPriceCents billingEnforcement { stage daysPastDue outstandingCents paused publiclyListed } }
   createdAt
 `;
 
@@ -780,7 +780,7 @@ export const ADMIN_UPDATE_RESTAURANT = gql`
       address { line1 line2 city state zip country }
       location { lat lng }
       widgetTheme { primaryColor buttonText showReviews }
-      subscription { id plan status trialEndsAt currentPeriodStart currentPeriodEnd monthlyPriceCents }
+      subscription { id plan status trialEndsAt currentPeriodStart currentPeriodEnd monthlyPriceCents billingEnforcement { stage daysPastDue outstandingCents paused publiclyListed } }
     }
   }
 `;
@@ -2681,6 +2681,80 @@ export const SET_INVOICE_STATUSES = gql`
   }
 `;
 
+export const RESTAURANT_BILLING_ENFORCEMENT = gql`
+  query RestaurantBillingEnforcement($restaurantId: ID!) {
+    restaurant(id: $restaurantId) {
+      id
+      subscription {
+        id
+        status
+        billingEnforcement {
+          stage
+          daysPastDue
+          oldestUnpaidDueDate
+          outstandingCents
+          paused
+          pauseReason
+          pausedAt
+          graceExtendedUntil
+          publiclyListed
+        }
+      }
+    }
+  }
+`;
+
+export const PAUSE_BILLING_ENFORCEMENT = gql`
+  mutation PauseBillingEnforcement($restaurantId: ID!, $reason: String) {
+    pauseBillingEnforcement(restaurantId: $restaurantId, reason: $reason) {
+      stage paused pauseReason outstandingCents publiclyListed
+    }
+  }
+`;
+
+export const RESUME_BILLING_ENFORCEMENT = gql`
+  mutation ResumeBillingEnforcement($restaurantId: ID!) {
+    resumeBillingEnforcement(restaurantId: $restaurantId) {
+      stage paused outstandingCents publiclyListed
+    }
+  }
+`;
+
+export const EXTEND_BILLING_GRACE = gql`
+  mutation ExtendBillingGrace($restaurantId: ID!, $until: DateTime!) {
+    extendBillingGrace(restaurantId: $restaurantId, until: $until) {
+      stage graceExtendedUntil publiclyListed
+    }
+  }
+`;
+
+export const FORCE_RESTORE_BILLING_ACCESS = gql`
+  mutation ForceRestoreBillingAccess($restaurantId: ID!, $reason: String) {
+    forceRestoreBillingAccess(restaurantId: $restaurantId, reason: $reason) {
+      stage paused pauseReason publiclyListed
+    }
+  }
+`;
+
+export const WAIVE_INVOICE_ENFORCEMENT_FEES = gql`
+  mutation WaiveInvoiceEnforcementFees(
+    $invoiceId: ID!
+    $financeCharges: Boolean
+    $declinedFee: Boolean
+  ) {
+    waiveInvoiceEnforcementFees(
+      invoiceId: $invoiceId
+      financeCharges: $financeCharges
+      declinedFee: $declinedFee
+    ) {
+      id
+      totalCents
+      subtotalCents
+      lines { description amountCents kind }
+    }
+  }
+`;
+
 export const ADMIN_REVENUE_REPORT = gql`
   query AdminRevenueReport($period: String) {
     adminRevenueReport(period: $period) {
@@ -2799,6 +2873,7 @@ export const PLATFORM_CONFIG = gql`
       }
       showPricingComparisonTable
       maxVisiblePricingPackages
+      failToPay { financeChargeBps declinedFeeCents }
       updatedAt
     }
   }
@@ -2843,6 +2918,7 @@ export const UPDATE_PLATFORM_CONFIG = gql`
       }
       showPricingComparisonTable
       maxVisiblePricingPackages
+      failToPay { financeChargeBps declinedFeeCents }
       updatedAt
     }
   }
@@ -3299,6 +3375,15 @@ export const MY_SUBSCRIPTION = gql`
       networkCoverFeeCents
       websiteCoverFeeCents
       amountDueCents
+      billingEnforcement {
+        stage
+        daysPastDue
+        oldestUnpaidDueDate
+        outstandingCents
+        paused
+        pauseReason
+        publiclyListed
+      }
       features {
         floorPlans smartAssign waitlist premiumSms premiumSmsAddon threeDView
         guestProfiles360 emailCampaigns customWidget analytics dedicatedSupport
@@ -3449,6 +3534,26 @@ export const CREATE_SUBSCRIPTION = gql`
 export const ADMIN_ASSIGN_RESTAURANT_PACKAGE = gql`
   mutation AdminAssignRestaurantPackage($restaurantId: ID!, $plan: String!) {
     adminAssignRestaurantPackage(restaurantId: $restaurantId, plan: $plan) {
+      id
+      plan
+      status
+      monthlyPriceCents
+      currentPeriodStart
+      currentPeriodEnd
+      trialEndsAt
+    }
+  }
+`;
+
+export const ADMIN_SET_SUBSCRIPTION_PAID_PERIOD_START = gql`
+  mutation AdminSetSubscriptionPaidPeriodStart(
+    $restaurantId: ID!
+    $paidPeriodStart: DateTime!
+  ) {
+    adminSetSubscriptionPaidPeriodStart(
+      restaurantId: $restaurantId
+      paidPeriodStart: $paidPeriodStart
+    ) {
       id
       plan
       status

@@ -165,6 +165,8 @@ router.post('/walkin', async (req: PosAuthRequest, res) => {
     }
 
     const restaurantId = req.restaurant._id;
+    const { assertPartnerMayCreateCover } = await import('../services/invoiceEnforcement.js');
+    await assertPartnerMayCreateCover(restaurantId.toString());
     let tableIds: string[] = [];
 
     if (tableName) {

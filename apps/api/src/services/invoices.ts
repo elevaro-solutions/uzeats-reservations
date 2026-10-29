@@ -2,7 +2,10 @@ import crypto from 'crypto';
 import { Types } from 'mongoose';
 import {
   getPlanPriceDisplay,
+  invoiceStatusFromDaysPastDue,
+  isEnforcementFeeLineKind,
   planForBillingPeriod,
+  utcCalendarDaysBetween,
   type BillingPeriod,
 } from '@reservations/shared';
 import { CoverFee } from '../models/CoverFee.js';
@@ -44,6 +47,12 @@ import {
   saveInvoicePaymentMethodAsPreferred,
 } from './stripe.js';
 import { User } from '../models/User.js';
+import {
+  applyEnforcementForRestaurant,
+  assessDeclinedCardFee,
+  recalcInvoiceTotals,
+  syncSubscriptionPastDueFlag,
+} from './invoiceEnforcement.js';
 
 const COVER_SOURCE_ORDER = ['network', 'website', 'widget', 'phone', 'walkin'] as const;
 const COVER_SOURCE_LABELS: Record<(typeof COVER_SOURCE_ORDER)[number], string> = {
@@ -169,11 +178,7 @@ function invoiceStatusForDueDate(
   dueDate: Date,
   now = new Date(),
 ): 'upcoming' | 'pending' | 'overdue' {
-  const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  if (dueDate > startOfToday) return 'upcoming';
-  const graceMs = 7 * 24 * 60 * 60 * 1000;
-  if (now.getTime() - dueDate.getTime() > graceMs) return 'overdue';
-  return 'pending';
+  return invoiceStatusFromDaysPastDue(utcCalendarDaysBetween(dueDate, now));
 }
 
 function newPayToken() {
@@ -213,6 +218,7 @@ export function mapInvoice(doc: any, restaurantName?: string) {
       unitAmountCents: l.unitAmountCents,
       amountCents: l.amountCents,
       originalAmountCents: l.originalAmountCents ?? null,
+      kind: isEnforcementFeeLineKind(l.kind) ? l.kind : null,
     })),
     dueDate: doc.dueDate,
     paidAt: doc.paidAt ?? null,
@@ -632,11 +638,20 @@ async function applyPeriodInvoiceLines(
     paidAt?: Date;
   },
 ) {
-  existing.set('lines', input.lines);
+  const feeLines = (existing.lines ?? []).filter((line) =>
+    isEnforcementFeeLineKind((line as { kind?: string }).kind),
+  );
+  existing.set('lines', [...input.lines, ...feeLines]);
   existing.subtotalCents = input.subtotalCents;
-  existing.totalCents = input.subtotalCents;
+  recalcInvoiceTotals(existing);
+  const payable = existing.totalCents > 0;
   existing.dueDate = input.dueDate;
-  existing.status = input.nextStatus;
+  existing.status = payable
+    ? input.nextStatus === 'paid'
+      ? invoiceStatusForDueDate(input.dueDate)
+      : input.nextStatus
+    : 'paid';
+  if (!payable && !existing.paidAt) existing.paidAt = input.paidAt ?? new Date();
   if (input.paidAt && !existing.paidAt) existing.paidAt = input.paidAt;
   if (!existing.payToken) existing.payToken = newPayToken();
   await existing.save();
@@ -752,7 +767,14 @@ export async function generateDuePeriodInvoices(now = new Date()) {
   const currentResult =
     current === previous ? previousResult : await generateInvoicesForPeriod(current);
   const charged = await autoChargeDueInvoices(now);
-  return { previous: previousResult, current: currentResult, autoCharge: charged };
+  const { runFailToPayEnforcementJob } = await import('./invoiceEnforcement.js');
+  const enforcement = await runFailToPayEnforcementJob(now);
+  return {
+    previous: previousResult,
+    current: currentResult,
+    autoCharge: charged,
+    enforcement,
+  };
 }
 
 /**
@@ -909,6 +931,10 @@ export async function setInvoiceStatus(id: string, status: InvoiceStatusValue) {
     doc.canceledAt = undefined;
   }
   await doc.save();
+  if (status === 'paid' || status === 'canceled') {
+    await applyEnforcementForRestaurant(doc.restaurantId.toString());
+    await syncSubscriptionPastDueFlag(doc.restaurantId.toString());
+  }
   const restaurant = await Restaurant.findById(doc.restaurantId).select('name');
   return mapInvoice(doc, restaurant?.name);
 }
@@ -1236,10 +1262,8 @@ export async function confirmInvoicePayment(token: string, paymentIntentId: stri
     );
   }
 
-  await Subscription.updateOne(
-    { restaurantId: doc.restaurantId, status: 'past_due' },
-    { $set: { amountDueCents: 0, status: 'active' } },
-  );
+  await applyEnforcementForRestaurant(doc.restaurantId.toString());
+  await syncSubscriptionPastDueFlag(doc.restaurantId.toString());
 
   const restaurant = await Restaurant.findById(doc.restaurantId).select('name');
   return mapInvoice(doc, restaurant?.name);
@@ -1316,10 +1340,8 @@ export async function autoChargeDueInvoices(now = new Date()) {
         sub.preferredPaymentMethodId = paymentMethodId;
         await sub.save();
       }
-      await Subscription.updateOne(
-        { restaurantId: doc.restaurantId, status: 'past_due' },
-        { $set: { amountDueCents: 0, status: 'active' } },
-      );
+      await applyEnforcementForRestaurant(doc.restaurantId.toString());
+      await syncSubscriptionPastDueFlag(doc.restaurantId.toString());
       charged += 1;
     } catch (err) {
       failed += 1;
@@ -1327,10 +1349,15 @@ export async function autoChargeDueInvoices(now = new Date()) {
       doc.autoChargeError = message.slice(0, 500);
       if (doc.status === 'upcoming') doc.status = 'pending';
       await doc.save();
-      await Subscription.updateOne(
-        { restaurantId: doc.restaurantId, status: { $in: ['trialing', 'active'] } },
-        { $set: { status: 'past_due', amountDueCents: doc.totalCents } },
-      );
+      await assessDeclinedCardFee(doc._id.toString(), err);
+      const subAfter = await Subscription.findOne({ restaurantId: doc.restaurantId });
+      if (subAfter && (subAfter.status === 'trialing' || subAfter.status === 'active')) {
+        subAfter.status = 'past_due';
+        subAfter.amountDueCents = doc.totalCents;
+        if (!subAfter.pastDueSince) subAfter.pastDueSince = new Date();
+        await subAfter.save();
+      }
+      await applyEnforcementForRestaurant(doc.restaurantId.toString());
       logger.warn(
         { err, invoiceId: doc._id.toString(), restaurantId: String(doc.restaurantId) },
         'invoice auto-charge failed',

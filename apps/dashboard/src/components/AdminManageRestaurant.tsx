@@ -47,6 +47,7 @@ import PhotoUpload from '@/components/PhotoUpload';
 import CuisineSelect from '@/components/CuisineSelect';
 import { ManageDetailGroups, type ManageDetailGroup } from '@/components/ManageDetailGroups';
 import { RestaurantProfileFields } from '@/components/RestaurantProfileFields';
+import { AdminPaidPeriodStartForm } from '@/components/AdminPaidPeriodStartForm';
 import { useFormDirty } from '@/lib/useFormDirty';
 import {
   ADMIN_ASSIGN_RESTAURANT_PACKAGE,
@@ -1212,6 +1213,9 @@ export function AdminManageRestaurant({
               ) : (
                 <Text type="secondary">No package assigned yet. Choose a plan below to assign one.</Text>
               )}
+              {restaurant ? (
+                <AdminPaidPeriodStartForm restaurant={restaurant} onSaved={onSaved} />
+              ) : null}
               <Form layout="vertical">
                 <Form.Item label="Package" required style={{ marginBottom: spacing.md }}>
                   <PlanSelector plans={plans} value={selectedPlan} onChange={setSelectedPlan} />

@@ -70,7 +70,6 @@ function LoginContent() {
     try {
       const signedIn = await loginWithGoogle(idToken);
       if (signedIn.role !== 'diner') return;
-      message.success('Signed in with Google');
       goNext(signedIn);
     } catch (err) {
       const msg = getGraphQLErrorMessage(err, 'Google sign-in failed');
@@ -124,7 +123,6 @@ function LoginContent() {
                   try {
                     const signedIn = await login(values.email, values.password);
                     if (signedIn.role !== 'diner') return;
-                    message.success('Signed in');
                     goNext(signedIn);
                   } catch (err) {
                     if (!applyFieldErrors(loginForm, err)) {

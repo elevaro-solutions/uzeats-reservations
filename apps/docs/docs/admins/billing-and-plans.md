@@ -19,8 +19,8 @@ Policy implemented in `apps/api/src/services/planChangePolicy.ts`:
 
 | Change type | Behavior |
 |---|---|
-| **Upgrade** | Prorated charge immediately |
-| **Downgrade** | Scheduled for end of billing period |
+| **Switch right away** | Charge the **full** new monthly price today (not a prorated difference). Unused time on the current plan is not credited. A new billing period starts now. |
+| **Switch at period end** | Default for downgrades. $0 today; the new plan starts at renewal. |
 | **Preview** | Dashboard shows cost before confirming |
 
 ## Admin billing tools
@@ -77,3 +77,19 @@ Unpaid auto invoices are refreshed as more covers accrue. Manual invoices (`-M` 
 Admins can still run **Generate** for a period on **Invoices**. Partners see the selected month’s invoice and line items on **Billing**.
 
 Cover fees are recorded when a reservation is **completed**, then rolled into that month’s invoice. Stripe subscription renewals bill the plan separately and do **not** include cover fees. On partner **Billing**, the cover table shows covers and fee totals by source as a usage breakdown — the period invoice is the payable bill.
+
+## Fail-to-pay (unpaid platform invoices)
+
+Canonical policy: `docs/notes/features-billing.md`.
+
+Unpaid invoices with a balance follow a UTC-day ladder from the **oldest unpaid due date**:
+
+| Days past due | What happens |
+|---|---|
+| 0–7 | Grace. Daily card retry. Still listed. |
+| 8–13 | Overdue. 1.5%/month finance charge starts (or legal max). $25 once per invoice on the first card decline. |
+| 14–29 | Hidden from diner search and new online bookings. Partner Hub stays open so staff can honor existing reservations. Phone/walk-in logging still allowed. |
+| 30–59 | Partner Hub limited to Billing + honoring the existing book. No new in-product reservations. Owner gets a 30-day termination notice. |
+| 60+ | Subscription cancelled. Remaining upcoming diner reservations cancelled. Listing stays off until they pay everything and re-subscribe. |
+
+Admins on the restaurant Invoices tab can pause the ladder, extend grace, waive fees, or force-restore access (force-restore pauses so the job does not immediately re-unlist). Finance charge rate and declined-card fee are on **Platform config** (`failToPay`).

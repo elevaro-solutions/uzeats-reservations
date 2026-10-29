@@ -158,6 +158,46 @@ describe('period invoice generation', () => {
     expect(invoice!.lines.some((l) => l.description === 'Network cover (5 covers)')).toBe(true);
   });
 
+  it('keeps fail-to-pay fee lines when an unpaid auto invoice is refreshed', async () => {
+    const { owner, restaurant } = await seedRestaurant();
+    const period = '2026-08';
+    await addCover({
+      restaurantId: restaurant._id,
+      dinerId: owner._id,
+      period,
+      source: 'network',
+      partySize: 2,
+      feeCents: 100,
+    });
+    await generateInvoicesForPeriod(period);
+    const invoice = await Invoice.findOne({ restaurantId: restaurant._id, billingPeriod: period });
+    invoice!.lines.push({
+      description: 'Finance charge (1.5% overdue)',
+      quantity: 1,
+      unitAmountCents: 150,
+      amountCents: 150,
+      kind: 'finance_charge',
+    } as (typeof invoice.lines)[number]);
+    invoice!.financeChargeCount = 1;
+    invoice!.totalCents += 150;
+    await invoice!.save();
+
+    await addCover({
+      restaurantId: restaurant._id,
+      dinerId: owner._id,
+      period,
+      source: 'network',
+      partySize: 1,
+      feeCents: 50,
+    });
+    await generateInvoicesForPeriod(period);
+    const refreshed = await Invoice.findOne({ restaurantId: restaurant._id, billingPeriod: period });
+    expect(refreshed!.lines.some((l) => (l as { kind?: string }).kind === 'finance_charge')).toBe(
+      true,
+    );
+    expect(refreshed!.totalCents).toBe(9900 + 150 + 150);
+  });
+
   it('does not overwrite paid or manual invoices', async () => {
     const { restaurant } = await seedRestaurant();
     const period = '2026-08';

@@ -15,6 +15,7 @@ export async function runPeriodInvoiceJob() {
         previous: result.previous,
         current: result.current,
         autoCharge: result.autoCharge,
+        enforcement: result.enforcement,
       },
       'period invoices generated',
     );

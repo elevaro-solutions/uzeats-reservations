@@ -2,10 +2,21 @@
 
 import Link from 'next/link';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
-import { Button, Card, Space, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, DatePicker, Input, Space, Table, Tag, Typography, message } from 'antd';
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useState } from 'react';
+import dayjs from 'dayjs';
 import { spacing } from '@reservations/ui';
-import { ADMIN_INVOICES, SET_INVOICE_STATUS } from '@/lib/graphql';
+import {
+  ADMIN_INVOICES,
+  EXTEND_BILLING_GRACE,
+  FORCE_RESTORE_BILLING_ACCESS,
+  PAUSE_BILLING_ENFORCEMENT,
+  RESTAURANT_BILLING_ENFORCEMENT,
+  RESUME_BILLING_ENFORCEMENT,
+  SET_INVOICE_STATUS,
+  WAIVE_INVOICE_ENFORCEMENT_FEES,
+} from '@/lib/graphql';
 
 const { Text } = Typography;
 
@@ -42,9 +53,27 @@ export function AdminRestaurantInvoicesPanel({ restaurantId }: { restaurantId: s
   const { data, loading, refetch } = useQuery(ADMIN_INVOICES, {
     variables: { restaurantId, limit: 50, offset: 0 },
   });
+  const { data: enforcementData, refetch: refetchEnforcement } = useQuery(
+    RESTAURANT_BILLING_ENFORCEMENT,
+    { variables: { restaurantId } },
+  );
   const [setInvoiceStatus, { loading: updating }] = useMutation(SET_INVOICE_STATUS);
+  const [pauseEnforcement, { loading: pausing }] = useMutation(PAUSE_BILLING_ENFORCEMENT);
+  const [resumeEnforcement, { loading: resuming }] = useMutation(RESUME_BILLING_ENFORCEMENT);
+  const [extendGrace, { loading: extending }] = useMutation(EXTEND_BILLING_GRACE);
+  const [forceRestore, { loading: restoring }] = useMutation(FORCE_RESTORE_BILLING_ACCESS);
+  const [waiveFees, { loading: waiving }] = useMutation(WAIVE_INVOICE_ENFORCEMENT_FEES);
+  const [pauseReason, setPauseReason] = useState('');
+  const [graceUntil, setGraceUntil] = useState<dayjs.Dayjs | null>(null);
 
   const items = data?.adminInvoices?.items ?? [];
+  const enforcement = enforcementData?.restaurant?.subscription?.billingEnforcement;
+  const busy = updating || pausing || resuming || extending || restoring || waiving;
+
+  const refreshAll = () => {
+    void refetch();
+    void refetchEnforcement();
+  };
 
   const updateStatus = async (id: string, status: string) => {
     try {
@@ -58,12 +87,110 @@ export function AdminRestaurantInvoicesPanel({ restaurantId }: { restaurantId: s
 
   return (
     <Card>
+      {enforcement ? (
+        <Alert
+          style={{ marginBottom: spacing.md }}
+          type={enforcement.paused || enforcement.stage === 'current' || enforcement.stage === 'grace' ? 'info' : 'warning'}
+          message={`Fail-to-pay: ${enforcement.stage}${enforcement.paused ? ' (paused)' : ''}`}
+          description={
+            <span>
+              {enforcement.daysPastDue != null ? `${enforcement.daysPastDue} days past due. ` : ''}
+              {enforcement.outstandingCents
+                ? `Outstanding ${money(enforcement.outstandingCents)}. `
+                : ''}
+              Listing {enforcement.publiclyListed ? 'visible' : 'hidden'}.
+            </span>
+          }
+        />
+      ) : null}
       <Space wrap style={{ marginBottom: spacing.md, width: '100%' }}>
         <Link href={`/admin/invoices`}>
           <Button icon={<PlusOutlined />}>Open invoices admin</Button>
         </Link>
-        <Button icon={<ReloadOutlined />} onClick={() => void refetch()}>
+        <Button icon={<ReloadOutlined />} onClick={refreshAll}>
           Refresh
+        </Button>
+        {enforcement?.paused ? (
+          <Button
+            loading={resuming}
+            onClick={async () => {
+              try {
+                await resumeEnforcement({ variables: { restaurantId } });
+                message.success('Enforcement resumed');
+                refreshAll();
+              } catch (err: any) {
+                message.error(err.message || 'Failed to resume');
+              }
+            }}
+          >
+            Resume ladder
+          </Button>
+        ) : (
+          <Space.Compact>
+            <Input
+              placeholder="Pause reason"
+              value={pauseReason}
+              onChange={(e) => setPauseReason(e.target.value)}
+              style={{ width: 180 }}
+            />
+            <Button
+              loading={pausing}
+              onClick={async () => {
+                try {
+                  await pauseEnforcement({
+                    variables: { restaurantId, reason: pauseReason || undefined },
+                  });
+                  message.success('Enforcement paused');
+                  refreshAll();
+                } catch (err: any) {
+                  message.error(err.message || 'Failed to pause');
+                }
+              }}
+            >
+              Pause
+            </Button>
+          </Space.Compact>
+        )}
+        <Space.Compact>
+          <DatePicker
+            value={graceUntil}
+            onChange={(value) => setGraceUntil(value)}
+            placeholder="Extend grace until"
+          />
+          <Button
+            loading={extending}
+            disabled={!graceUntil}
+            onClick={async () => {
+              if (!graceUntil) return;
+              try {
+                await extendGrace({
+                  variables: { restaurantId, until: graceUntil.endOf('day').toISOString() },
+                });
+                message.success('Grace extended');
+                refreshAll();
+              } catch (err: any) {
+                message.error(err.message || 'Failed to extend grace');
+              }
+            }}
+          >
+            Extend grace
+          </Button>
+        </Space.Compact>
+        <Button
+          loading={restoring}
+          onClick={async () => {
+            try {
+              await forceRestore({
+                variables: { restaurantId, reason: pauseReason || 'Force-restored by admin' },
+              });
+              message.success('Listing restored (ladder paused)');
+              refreshAll();
+            } catch (err: any) {
+              message.error(err.message || 'Failed to restore');
+            }
+          }}
+        >
+          Force restore
         </Button>
         <Text type="secondary">
           {data?.adminInvoices?.total ?? 0} invoice
@@ -71,7 +198,7 @@ export function AdminRestaurantInvoicesPanel({ restaurantId }: { restaurantId: s
         </Text>
       </Space>
       <Table<InvoiceRow>
-        loading={loading || updating}
+        loading={loading || busy}
         rowKey="id"
         dataSource={items as InvoiceRow[]}
         pagination={false}
@@ -114,6 +241,23 @@ export function AdminRestaurantInvoicesPanel({ restaurantId }: { restaurantId: s
                 {r.status !== 'paid' && r.status !== 'canceled' ? (
                   <Button size="small" type="link" onClick={() => void updateStatus(r.id, 'paid')}>
                     Mark paid
+                  </Button>
+                ) : null}
+                {r.status !== 'paid' && r.status !== 'canceled' ? (
+                  <Button
+                    size="small"
+                    type="link"
+                    onClick={async () => {
+                      try {
+                        await waiveFees({ variables: { invoiceId: r.id } });
+                        message.success('Fees waived');
+                        refreshAll();
+                      } catch (err: any) {
+                        message.error(err.message || 'Failed to waive fees');
+                      }
+                    }}
+                  >
+                    Waive fees
                   </Button>
                 ) : null}
                 {r.status !== 'canceled' ? (

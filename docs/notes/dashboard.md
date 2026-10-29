@@ -1,5 +1,22 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-29] QA checklist catalog is v0.93.0
+- `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.93.0`. Testers use Super Admin restaurant Package for paid-period start, a disposable venue + Admin Invoices for the fail-to-pay ladder, owner Billing for plan-switch full price and pay-to-restore, and diner/Partner Hub login for the preparing screen.
+- Why it matters: Do not re-test v0.92.0 pricing/SEO items on this gate. Older sign-off stays on that version’s row and Versions.
+
+## [2026-10-29] Fail-to-pay banners lock Partner Hub routes
+- `mySubscription.billingEnforcement` drives a DashShell banner. Restricted keeps `/billing`, `/reservations`, `/waitlist`, `/floor-ops`, `/notifications`, `/support`. Terminated keeps billing + support/notifications. Other partner routes redirect to `/billing`.
+- Admin restaurant Invoices tab can pause, extend grace, waive fees, or force-restore. Force-restore pauses the ladder.
+- Why it matters: Do not hide the lock behind a billing-page-only alert — floor and grow pages must redirect.
+
+## [2026-10-29] Superadmin paid-period start lives on restaurant Package
+- `/admin/restaurants/[id]` Package tab (`AdminPaidPeriodStartForm`) and the list Edit drawer Package tab. Hidden unless `isSuperAdmin`. Date picker writes `adminSetSubscriptionPaidPeriodStart`. Trialing restaurants prefill `trialEndsAt`; paid ones prefill `currentPeriodStart`.
+- Why it matters: Account managers still assign packages but cannot change when paid billing starts. Partner `/billing` remains read-only for these dates.
+
+## [2026-10-28] Switch right away bills the full new monthly price
+- Billing change-plan dialog offers period-end vs start-now for every package. Start now charges `nextMonthlyPriceCents` in full, unused current-period time is not credited, and a new cycle starts today. Period end stays $0 today.
+- Why it matters: Owners were previously charged only the leftover-period price difference on upgrades.
+
 ## [2026-10-28] QA checklist catalog is v0.92.0
 - `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.92.0`. Testers use Plans & pricing for the public carousel/compare flags, Grow for the widget backlink, and diner web for the rest.
 - Why it matters: Do not re-test v0.90.0 Issues / drawer items on this gate. Older sign-off stays on that version’s row and Versions.

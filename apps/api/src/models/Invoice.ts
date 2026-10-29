@@ -7,6 +7,8 @@ const invoiceLineSchema = new Schema(
     unitAmountCents: { type: Number, required: true },
     amountCents: { type: Number, required: true },
     originalAmountCents: { type: Number },
+    /** finance_charge / declined_fee — preserved when period invoices refresh. */
+    kind: { type: String, enum: ['finance_charge', 'declined_fee'] },
   },
   { _id: false },
 );
@@ -67,6 +69,12 @@ const invoiceSchema = new Schema(
     /** Last auto-charge attempt metadata. */
     autoChargeAttemptedAt: { type: Date },
     autoChargeError: { type: String },
+    /** Monthly 1.5% assessments already applied. */
+    financeChargeCount: { type: Number, default: 0 },
+    lastFinanceChargeAt: { type: Date },
+    declinedFeeAssessedAt: { type: Date },
+    /** Notice keys already emailed (day_1, day_8, …). */
+    enforcementNoticesSent: { type: [String], default: [] },
   },
   { timestamps: true },
 );

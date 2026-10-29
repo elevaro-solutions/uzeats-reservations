@@ -34,7 +34,7 @@ import {
   TrophyOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { AppStoreBadges, TableveraBrand, colors, layout, radii, typography } from '@reservations/ui';
+import { AppStoreBadges, SessionPreparing, TableveraBrand, colors, layout, radii, typography } from '@reservations/ui';
 import {
   browserMediaUrl,
   buildRestaurantBookingPath,
@@ -244,7 +244,7 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
     isRestaurantMarketing && !pathname.startsWith('/for-restaurants') ? '/for-restaurants' : '/';
 
   if (!authLoading && user && user.role !== 'diner') {
-    return null;
+    return <SessionPreparing variant="partner" title="Taking you to Partner Hub" />;
   }
 
   if (isAuthRoute) {

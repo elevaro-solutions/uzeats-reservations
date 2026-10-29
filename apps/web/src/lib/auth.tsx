@@ -1,8 +1,10 @@
 'use client';
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { useMutation } from '@apollo/client/react';
 import { gql } from '@apollo/client';
+import { SessionPreparing, useSessionHandoffSettle } from '@reservations/ui';
 import { getDashboardUrl } from '@/lib/urls';
 
 const USER_FIELDS = `
@@ -144,14 +146,22 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const API_URI = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/graphql';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [impersonator, setImpersonator] = useState<Impersonator | null>(null);
   const [loading, setLoading] = useState(true);
+  const [preparingSession, setPreparingSession] = useState(false);
   const [loginMutation] = useMutation(LOGIN);
   const [googleLoginMutation] = useMutation(LOGIN_WITH_GOOGLE);
   const [registerMutation] = useMutation(REGISTER);
   const [logoutMutation] = useMutation(LOGOUT);
   const [endImpersonationMutation] = useMutation(END_IMPERSONATION);
+  const endPreparingSession = useCallback(() => setPreparingSession(false), []);
+  useSessionHandoffSettle(preparingSession, pathname, endPreparingSession);
+
+  const beginHandoffIfReady = (nextUser: AuthUser) => {
+    if (!nextUser.needsEmailVerification) setPreparingSession(true);
+  };
 
   const refreshMe = useCallback(async () => {
     try {
@@ -212,6 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const nextUser = (result.data as { login: { user: AuthUser } }).login.user;
     setUser(nextUser);
     setImpersonator(null);
+    beginHandoffIfReady(nextUser);
     sendNonDinerToDashboard(nextUser.role);
     return nextUser;
   };
@@ -221,6 +232,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const nextUser = (result.data as { loginWithGoogle: { user: AuthUser } }).loginWithGoogle.user;
     setUser(nextUser);
     setImpersonator(null);
+    beginHandoffIfReady(nextUser);
     sendNonDinerToDashboard(nextUser.role);
     return nextUser;
   };
@@ -240,6 +252,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const nextUser = data.register.user;
     setUser(nextUser);
     setImpersonator(null);
+    beginHandoffIfReady(nextUser);
     if (data.register.devCode) {
       sessionStorage.setItem('tv_verify_dev_code', data.register.devCode);
     } else {
@@ -286,7 +299,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [user, loading, impersonator, refreshMe],
   );
 
-  return <div component="AuthProvider" style={{ display: 'contents' }}><AuthContext.Provider value={value}>{children}</AuthContext.Provider></div>;
+  return (
+    <div component="AuthProvider" style={{ display: 'contents' }}>
+      <AuthContext.Provider value={value}>
+        {preparingSession ? <SessionPreparing variant="diner" /> : null}
+        {children}
+      </AuthContext.Provider>
+    </div>
+  );
 }
 
 export function useAuth() {

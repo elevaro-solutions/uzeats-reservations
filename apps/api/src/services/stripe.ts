@@ -858,6 +858,8 @@ export async function updateStripeSubscription(
   options?: {
     prorationBehavior?: 'create_prorations' | 'none';
     collectPayment?: boolean;
+    /** Bill a new cycle from now (full new price; unused time is not credited). */
+    resetBillingCycle?: boolean;
   },
 ): Promise<{
   id: string;
@@ -895,6 +897,10 @@ export async function updateStripeSubscription(
     items: [{ id: itemId, price: price.id }],
     proration_behavior: options?.prorationBehavior ?? 'create_prorations',
   };
+  if (options?.resetBillingCycle) {
+    updateParams.billing_cycle_anchor = 'now';
+    updateParams.proration_behavior = options.prorationBehavior ?? 'none';
+  }
   if (collectPayment) {
     // pending_if_incomplete cannot include payment_settings, and it requires a card on file.
     updateParams.payment_behavior = hasPm ? 'pending_if_incomplete' : 'allow_incomplete';
@@ -931,6 +937,42 @@ export async function updateStripeSubscription(
     clientSecret: payment.clientSecret,
     paymentMode: payment.paymentMode,
   };
+}
+
+/**
+ * Align Stripe trial / first charge with a superadmin-set paid-period start.
+ * Future dates set `trial_end`. Ending a trial uses `trial_end: now` (may invoice).
+ * Already-paid subs are left alone so resetting the cycle does not bill again.
+ */
+export async function updateStripePaidPeriodStart(
+  subscriptionId: string,
+  paidPeriodStart: Date,
+  options: { now?: Date; currentlyTrialing: boolean },
+): Promise<{ id: string; status?: string } | null> {
+  const client = await getStripe();
+  if (!client || subscriptionId.startsWith('sub_dev_')) return null;
+
+  const now = options.now ?? new Date();
+  const future = paidPeriodStart.getTime() > now.getTime();
+  const params: Stripe.SubscriptionUpdateParams = {
+    proration_behavior: 'none',
+  };
+  if (future) {
+    params.trial_end = Math.floor(paidPeriodStart.getTime() / 1000);
+  } else if (options.currentlyTrialing) {
+    params.trial_end = 'now';
+    params.billing_cycle_anchor = 'now';
+  } else {
+    return null;
+  }
+
+  try {
+    const updated = await client.subscriptions.update(subscriptionId, params);
+    return { id: updated.id, status: updated.status };
+  } catch (err) {
+    const mapped = formatStripeError(err);
+    throw mapped ?? err;
+  }
 }
 
 export async function getOpenSubscriptionPayment(subscriptionId: string): Promise<{

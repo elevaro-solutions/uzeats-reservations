@@ -1,5 +1,10 @@
 # Auth — Learnings & Observations
 
+## [2026-10-29] Post-login handoff is a preparing overlay, not a toast
+- Diner web and Partner Hub `AuthProvider`s set a session-handoff flag after successful login/register (skipped when email verification is next). `SessionPreparing` covers the viewport until the route changes (min ~1.2s, max ~4.5s).
+- Partner Hub `/login` no longer returns `null` while redirecting (that was the white screen + “Signed in” toast). Overview, root redirect, admin gate, and DashShell session restore use the same screen instead of a spinner or blank page.
+- Why it matters: Client navigation after `setUser` is slow enough to feel broken; a toast on white is not a loader. Do not add `message.success('Signed in')` back on these routes.
+
 ## [2026-10-15] Diner self-delete tombstones the User row
 - `deleteMyAccount` sets `User.deletedAt` and clears credentials/PII. JWT context and email login treat deleted users as unauthenticated.
 - Why it matters: Reservation `dinerId` FKs stay valid for restaurant history without exposing identity.

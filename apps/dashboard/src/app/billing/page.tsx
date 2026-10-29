@@ -40,7 +40,8 @@ import {
   TeamOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { getPlanDiscountLabel } from '@reservations/shared';
+import { getPlanDiscountLabel, type FailToPayStage } from '@reservations/shared';
+import { BillingEnforcementBanner } from '@/components/BillingEnforcementBanner';
 import {
   EmptyState,
   PageHeader,
@@ -946,11 +947,13 @@ export default function BillingPage() {
       }
 
       const target = plans.find((p) => p.key === plan);
-      const isUpgrade = preview.direction === 'upgrade' || preview.immediate;
-      const effective = preview.effectiveAt
-        ? dayjs(preview.effectiveAt).format('MMM D, YYYY')
-        : 'the next billing date';
-      setPlanChangeTiming('period_end');
+      const isUpgrade = preview.direction === 'upgrade';
+      const effective = subscription?.currentPeriodEnd
+        ? dayjs(subscription.currentPeriodEnd).format('MMM D, YYYY')
+        : preview.effectiveAt
+          ? dayjs(preview.effectiveAt).format('MMM D, YYYY')
+          : 'the next billing date';
+      setPlanChangeTiming(isUpgrade ? 'now' : 'period_end');
       setPlanChange({
         plan,
         planName: target?.name ?? plan,
@@ -959,7 +962,7 @@ export default function BillingPage() {
           String(subscription?.plan ?? plan).replace(/^./, (s: string) => s.toUpperCase()),
         isUpgrade,
         effective,
-        proratedChargeCents: preview.proratedChargeCents ?? 0,
+        proratedChargeCents: preview.nextMonthlyPriceCents ?? 0,
         currentMonthlyPriceCents: preview.currentMonthlyPriceCents ?? 0,
         nextMonthlyPriceCents: preview.nextMonthlyPriceCents ?? 0,
         currentNetworkCoverFeeCents: preview.currentNetworkCoverFeeCents ?? 0,
@@ -979,7 +982,7 @@ export default function BillingPage() {
 
   const confirmPlanChange = async () => {
     if (!activeRestaurantId || !planChange) return;
-    const immediate = planChange.isUpgrade || planChangeTiming === 'now';
+    const immediate = planChangeTiming === 'now';
     try {
       const { data: changeData } = await changePlan({
         variables: { restaurantId: activeRestaurantId, plan: planChange.plan, immediate },
@@ -993,14 +996,16 @@ export default function BillingPage() {
           paymentMode: payload.paymentMode === 'setup' ? 'setup' : 'payment',
           planName: planChange.planName,
           monthlyLabel: formatCents(planChange.nextMonthlyPriceCents),
-          amountDueCents: payload.amountDueCents || planChange.proratedChargeCents,
+          amountDueCents:
+            payload.amountDueCents ||
+            (immediate ? planChange.nextMonthlyPriceCents : 0),
         });
         return;
       }
       message.success(
         immediate
           ? `${planChange.planName} starts now`
-          : `Downgrade scheduled for ${planChange.effective}`,
+          : `Switch to ${planChange.planName} scheduled for ${planChange.effective}`,
       );
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Could not change plan');
@@ -1121,7 +1126,7 @@ export default function BillingPage() {
     } else if (isFreePlan) {
       planStory = 'This location is on a free plan — there is no recurring subscription charge.';
     } else if (amountDueNow > 0) {
-      planStory = `${formatCents(amountDueNow)} is due now for a prorated upgrade. After that, renewals are ${monthlyPriceLabel}/mo.`;
+      planStory = `${formatCents(amountDueNow)} is due now for switching plans. After that, renewals are ${monthlyPriceLabel}/mo.`;
     } else if (cancelAtPeriodEnd && subscription.currentPeriodEnd) {
       planStory = `Cancels on ${dayjs(subscription.currentPeriodEnd).format('MMM D, YYYY')}. You keep ${planDisplayName} until then. Resume to renew, or upgrade to start a new plan right away.`;
     } else if (subscription.pendingPlan && pendingPlanName) {
@@ -1132,7 +1137,7 @@ export default function BillingPage() {
     } else if (subscription.currentPeriodEnd) {
       planStory = `Next renewal ${dayjs(subscription.currentPeriodEnd).format('MMM D, YYYY')} for ${monthlyPriceLabel}.`;
       if (upgradedThisPeriod) {
-        planStory += ' Today’s prorated charge already covered the rest of this period.';
+        planStory += ' Today’s full-price charge already started this billing period.';
       }
     }
   }
@@ -1198,6 +1203,19 @@ export default function BillingPage() {
           </div>
         ) : showActiveSubscription ? (
           <>
+            <BillingEnforcementBanner
+              info={
+                subscription?.billingEnforcement
+                  ? {
+                      stage: subscription.billingEnforcement.stage as FailToPayStage,
+                      daysPastDue: subscription.billingEnforcement.daysPastDue,
+                      outstandingCents: subscription.billingEnforcement.outstandingCents,
+                      paused: subscription.billingEnforcement.paused,
+                      publiclyListed: subscription.billingEnforcement.publiclyListed,
+                    }
+                  : null
+              }
+            />
             <Row gutter={[16, 16]}>
               <Col xs={24} sm={8} style={{ display: 'flex' }}>
                 <StatCard
@@ -1262,7 +1280,7 @@ export default function BillingPage() {
                 type="warning"
                 showIcon
                 message={`${formatCents(amountDueNow)} due now`}
-                description="Prorated upgrade charge — pay to keep this plan for the rest of the period."
+                description="Full monthly price for switching plans — pay to keep this plan for the new billing period."
                 action={
                   canEditBilling ? (
                     <Button type="primary" onClick={() => void openDuePayment()}>
@@ -1912,11 +1930,9 @@ export default function BillingPage() {
           okText={
             !planChange
               ? 'Confirm'
-              : planChange.isUpgrade
-                ? 'Upgrade now'
-                : planChangeTiming === 'now'
-                  ? `Start ${planChange.planName} now`
-                  : `Switch on ${planChange.effective}`
+              : planChangeTiming === 'now'
+                ? `Start ${planChange.planName} now`
+                : `Switch on ${planChange.effective}`
           }
           okButtonProps={{
             danger: Boolean(planChange && !planChange.isUpgrade && planChangeTiming === 'now'),
@@ -1960,41 +1976,45 @@ export default function BillingPage() {
                 />
               </div>
 
-              {planChange.isUpgrade ? (
+              <div role="radiogroup" aria-label="When should this plan start">
+                <Text strong style={{ display: 'block', marginBottom: 8 }}>
+                  When should this start?
+                </Text>
+                <Space orientation="vertical" size={8} style={{ width: '100%' }}>
+                  <TimingOption
+                    tone="safe"
+                    selected={planChangeTiming === 'period_end'}
+                    badge={planChange.isUpgrade ? undefined : 'Recommended'}
+                    title={`Keep ${planChange.currentPlanName} until ${planChange.effective}`}
+                    detail={`Then ${planChange.planName} starts. Nothing is charged today.`}
+                    onSelect={() => setPlanChangeTiming('period_end')}
+                  />
+                  <TimingOption
+                    tone="now"
+                    selected={planChangeTiming === 'now'}
+                    badge={planChange.isUpgrade ? 'Recommended' : undefined}
+                    title={`Start ${planChange.planName} right away`}
+                    detail={
+                      planChange.nextMonthlyPriceCents > 0
+                        ? `Pay ${formatCents(planChange.nextMonthlyPriceCents)} today (full monthly price). Unused time on ${planChange.currentPlanName} is not credited.`
+                        : 'Features change today. Unused time on the current plan is not credited.'
+                    }
+                    onSelect={() => setPlanChangeTiming('now')}
+                  />
+                </Space>
+              </div>
+              {planChangeTiming === 'now' && planChange.nextMonthlyPriceCents > 0 ? (
                 <Alert
                   type="info"
                   showIcon
-                  message={`Charged ${formatCents(planChange.proratedChargeCents)} today`}
+                  message={`Charged ${formatCents(planChange.nextMonthlyPriceCents)} today`}
                   description={
                     planChange.clearsCancel
-                      ? `Prorated for the rest of this period, then ${formatCents(planChange.nextMonthlyPriceCents)}/mo. This also clears the scheduled cancellation.`
-                      : `Prorated for the rest of this period, then ${formatCents(planChange.nextMonthlyPriceCents)}/mo.`
+                      ? `Full monthly price for ${planChange.planName}. A new billing period starts today. This also clears the scheduled cancellation.`
+                      : `Full monthly price for ${planChange.planName}. A new billing period starts today.`
                   }
                 />
-              ) : (
-                <div role="radiogroup" aria-label="When should this plan start">
-                  <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                    When should this start?
-                  </Text>
-                  <Space orientation="vertical" size={8} style={{ width: '100%' }}>
-                    <TimingOption
-                      tone="safe"
-                      selected={planChangeTiming === 'period_end'}
-                      badge="Recommended"
-                      title={`Keep ${planChange.currentPlanName} until ${planChange.effective}`}
-                      detail={`Then ${planChange.planName} starts. Nothing is charged today.`}
-                      onSelect={() => setPlanChangeTiming('period_end')}
-                    />
-                    <TimingOption
-                      tone="now"
-                      selected={planChangeTiming === 'now'}
-                      title={`Start ${planChange.planName} right away`}
-                      detail="Features change today. The current period is not refunded."
-                      onSelect={() => setPlanChangeTiming('now')}
-                    />
-                  </Space>
-                </div>
-              )}
+              ) : null}
 
               <FeatureDeltaList title="You will gain" items={planChange.featuresGained} tone="gain" />
               <FeatureDeltaList
@@ -2011,7 +2031,7 @@ export default function BillingPage() {
         </Modal>
 
         <Modal
-          title="Complete your upgrade"
+          title="Complete your plan switch"
           open={Boolean(upgradePayment)}
           footer={null}
           destroyOnHidden
@@ -2024,7 +2044,7 @@ export default function BillingPage() {
               planName={upgradePayment.planName}
               monthlyLabel={upgradePayment.monthlyLabel}
               trialDays={0}
-              description={`Pay ${formatCents(upgradePayment.amountDueCents)} now (prorated for the rest of this period). Recurring ${upgradePayment.monthlyLabel}/mo starts on the next billing date.`}
+              description={`Pay ${formatCents(upgradePayment.amountDueCents)} now (full monthly price). Recurring ${upgradePayment.monthlyLabel}/mo starts a new billing period today.`}
               onSuccess={() => {
                 if (activeRestaurantId) {
                   void confirmPlanPayment({ variables: { restaurantId: activeRestaurantId } });

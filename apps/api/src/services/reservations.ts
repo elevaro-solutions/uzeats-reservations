@@ -39,6 +39,7 @@ import {
 import { Reservation } from '../models/Reservation.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { restaurantIsPubliclyListed } from './publicListing.js';
+import { assertPartnerMayCreateCover } from './invoiceEnforcement.js';
 import { Table } from '../models/Table.js';
 import { VirtualRoom } from '../models/VirtualRoom.js';
 import { User } from '../models/User.js';
@@ -1949,11 +1950,16 @@ export async function createOwnerReservation(input: {
   seatImmediately?: boolean;
   /** When seating an online waitlist diner, reuse their account. */
   dinerId?: string;
+  /** Seat an existing waitlist/booked party during Restricted. */
+  honorExisting?: boolean;
 }) {
   const restaurant = await Restaurant.findById(input.restaurantId);
   if (!restaurant || restaurant.status !== 'approved') {
     throw new ValidationError('Restaurant not available');
   }
+  await assertPartnerMayCreateCover(input.restaurantId, {
+    honorExisting: Boolean(input.honorExisting),
+  });
 
   const diner = input.dinerId
     ? await User.findById(input.dinerId)

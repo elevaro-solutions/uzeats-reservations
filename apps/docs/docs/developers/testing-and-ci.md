@@ -28,7 +28,7 @@ API tests live in `apps/api/src/__tests__/` and use Vitest + MongoMemoryServer. 
 
 - Booking, availability, deposits, confirmation numbers
 - Auth, loyalty, gift cards, promotion codes
-- Plan change policy (prorated upgrades, scheduled downgrades)
+- Plan change policy (full-price immediate switches, scheduled downgrades)
 - Waitlist ops, party-size bounds, holidays / location slugs
 - Owner/manager support tickets (`createOwnerSupportTicket` / `myOwnerSupportTickets`), including HTML details and image attachments
 - Telegram webhook handling

@@ -12,6 +12,10 @@ See [features-booking.md](./features-booking.md) (payments / Stripe).
 
 See [features-virtual-room.md](./features-virtual-room.md) (experimental add-on billing / KIRI Engine). API, dashboard, and web only — not in the mobile apps yet.
 
+## billing
+
+See [features-billing.md](./features-billing.md) (platform invoices, fail-to-pay ladder, finance charges).
+
 ## demo
 
 ### [2026-09-14] Dev component kit, not product UI

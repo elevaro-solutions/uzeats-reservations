@@ -153,6 +153,26 @@ describe('subscription cancel-at-period-end', () => {
     expect(stored!.cancelAtPeriodEnd).toBe(false);
   });
 
+  it('immediate switch charges the full new monthly price and starts a new period', async () => {
+    const { owner, restaurant, periodEnd } = await seedSub({ plan: 'core' });
+    const before = Date.now();
+    const result = await changeRestaurantPlan({
+      restaurantId: restaurant._id.toString(),
+      plan: 'pro',
+      actorId: owner._id.toString(),
+      forceImmediate: true,
+    });
+    expect(result.amountDueCents).toBe(PLANS.pro.monthlyPriceCents);
+    expect(result.subscription.amountDueCents).toBe(PLANS.pro.monthlyPriceCents);
+    expect(result.subscription.currentPeriodStart!.getTime()).toBeGreaterThanOrEqual(before);
+    expect(
+      result.subscription.currentPeriodEnd!.getTime() -
+        result.subscription.currentPeriodStart!.getTime(),
+    ).toBeGreaterThan(27 * 86_400_000);
+    expect(result.subscription.currentPeriodEnd!.getTime()).not.toBe(periodEnd.getTime());
+    expect(result.subscription.monthlyPriceCents).toBe(PLANS.pro.monthlyPriceCents);
+  });
+
   it('forceImmediate downgrade applies before period end and clears a scheduled cancel', async () => {
     const { owner, restaurant } = await seedSub({
       cancelAtPeriodEnd: true,

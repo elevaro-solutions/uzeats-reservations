@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { App, Button, Form, Input } from 'antd';
 import { LockOutlined, MailOutlined } from '@ant-design/icons';
-import { colors, typography } from '@reservations/ui';
+import { colors, SessionPreparing, typography } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { partnerLandingPath } from '@/lib/roles';
 import { AuthLayout } from '@/components/AuthLayout';
@@ -27,7 +27,7 @@ export default function LoginPage() {
     );
   }, [user, router]);
 
-  if (user) return null;
+  if (user) return <SessionPreparing variant="partner" />;
 
   return (
     <div component="LoginPage" style={{ display: 'contents' }}><AuthLayout       heading="Partner Hub sign in"
@@ -41,7 +41,6 @@ export default function LoginPage() {
           setLoading(true);
           try {
             const signedIn = await login(values.email, values.password);
-            message.success('Signed in');
             if (signedIn.needsEmailVerification) {
               router.push('/verify-email');
               return;

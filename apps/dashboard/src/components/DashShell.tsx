@@ -42,7 +42,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { buildRestaurantBookingUrl } from '@reservations/shared';
-import { TableveraWordmark, colors, radii, spacing, typography } from '@reservations/ui';
+import { SessionPreparing, TableveraWordmark, colors, radii, spacing, typography } from '@reservations/ui';
 import { MOBILE_APPS } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import {
@@ -52,6 +52,7 @@ import {
   MY_NOTIFICATIONS,
   MY_RESTAURANTS_SHELL,
   MY_RESTAURANT_PROFILE_CHANGE_REQUEST,
+  MY_SUBSCRIPTION,
   RESTAURANT_OPEN_INVOICE_COUNT,
   RESTAURANT_PENDING_RESERVATION_COUNT,
   RESTAURANT_UNREPLIED_REVIEW_COUNT,
@@ -87,6 +88,8 @@ import {
 import { getPublicWebUrl } from '@/lib/webUrl';
 import { AppVersionFooter } from '@/components/AppVersionFooter';
 import { canCreateRestaurant, canAccessPartnerPath, isHostRole, isPlatformAdmin, isQaRole, isSuperAdmin, partnerLandingPath } from '@/lib/roles';
+import { isFailToPayAllowedPartnerPath, type FailToPayStage } from '@reservations/shared';
+import { BillingEnforcementBanner } from '@/components/BillingEnforcementBanner';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -182,6 +185,12 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     pollInterval: 60_000,
     skipPollAttempt: skipPollWhenHidden,
   });
+  const { data: subscriptionShellData } = useQuery(MY_SUBSCRIPTION, {
+    skip: !user || isAdmin || !restaurantId || !isPartner,
+    variables: { restaurantId },
+    pollInterval: 60_000,
+    skipPollAttempt: skipPollWhenHidden,
+  });
   const [markRead] = useMutation(MARK_NOTIFICATIONS_READ, {
     refetchQueries: [{ query: MY_NOTIFICATIONS, variables: { limit: 20 } }],
   });
@@ -225,6 +234,29 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     if (canAccessPartnerPath(user.role, pathname)) return;
     router.replace(partnerLandingPath(user.role));
   }, [authLoading, user, pathname, isAuthShellRoute, router]);
+
+  const billingEnforcement = subscriptionShellData?.mySubscription?.billingEnforcement as
+    | { stage: FailToPayStage; daysPastDue?: number | null; outstandingCents?: number; paused?: boolean; publiclyListed?: boolean }
+    | undefined;
+
+  useEffect(() => {
+    if (authLoading || !user || isAuthShellRoute || isAdmin) return;
+    if (!isPartner) return;
+    if (pathname.startsWith('/admin')) return;
+    const stage = billingEnforcement?.stage;
+    if (!stage) return;
+    if (isFailToPayAllowedPartnerPath(pathname, stage)) return;
+    router.replace('/billing');
+  }, [
+    authLoading,
+    user,
+    isAuthShellRoute,
+    isAdmin,
+    isPartner,
+    pathname,
+    billingEnforcement?.stage,
+    router,
+  ]);
 
   useEffect(() => {
     if (!user || !isPartner) return;
@@ -409,6 +441,10 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     },
     [pathname, restaurants.length, router, searchParams],
   );
+
+  if (authLoading && !isAuthShellRoute) {
+    return <SessionPreparing variant="partner" />;
+  }
 
   if (!user || user.role === 'diner' || isAuthShellRoute) {
     return <>{children}</>;
@@ -967,6 +1003,12 @@ export function DashShell({ children }: { children: React.ReactNode }) {
             pathname === '/notifications' ? 'rt-dash-content rt-dash-content--fill' : 'rt-dash-content'
           }
         >
+          {!isAdmin && isPartner ? (
+            <BillingEnforcementBanner
+              info={billingEnforcement}
+              restaurantParam={activeRestaurantId}
+            />
+          ) : null}
           {showOnboardingBanner && (
             <Alert
               type="info"

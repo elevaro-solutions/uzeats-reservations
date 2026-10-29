@@ -41,6 +41,11 @@ export { SlotPicker } from './SlotPicker';
 export { StatusTag } from './StatusTag';
 export { PageHeader } from './PageHeader';
 export { EmptyState } from './EmptyState';
+export {
+  SessionPreparing,
+  useSessionHandoffSettle,
+  type SessionPreparingVariant,
+} from './SessionPreparing';
 export { StatCard } from './StatCard';
 export {
   AddressAutocomplete,

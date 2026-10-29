@@ -10,6 +10,7 @@ import {
   RESTAURANT_STATUS_OPTIONS,
   type AdminRestaurantRecord,
 } from '@/components/AdminManageRestaurant';
+import { AdminPaidPeriodStartForm } from '@/components/AdminPaidPeriodStartForm';
 import { ADMIN_ASSIGN_RESTAURANT_PACKAGE, PLANS, SET_RESTAURANT_STATUS } from '@/lib/graphql';
 
 const { Text } = Typography;
@@ -30,6 +31,28 @@ function money(cents?: number | null) {
 
 function statusLabel(status: string) {
   return status ? status.charAt(0).toUpperCase() + status.slice(1) : status;
+}
+
+function subscriptionFromPaidPeriodResult(
+  assigned: {
+    id: string;
+    plan: string;
+    status: string;
+    monthlyPriceCents?: number | null;
+    currentPeriodStart?: string | null;
+    currentPeriodEnd?: string | null;
+    trialEndsAt?: string | null;
+  },
+): NonNullable<AdminRestaurantRecord['subscription']> {
+  return {
+    id: assigned.id,
+    plan: assigned.plan,
+    status: assigned.status,
+    monthlyPriceCents: assigned.monthlyPriceCents ?? undefined,
+    currentPeriodStart: assigned.currentPeriodStart,
+    currentPeriodEnd: assigned.currentPeriodEnd,
+    trialEndsAt: assigned.trialEndsAt,
+  };
 }
 
 export function AdminRestaurantPackagePanel({
@@ -69,15 +92,7 @@ export function AdminRestaurantPackagePanel({
         if (assigned) {
           next = {
             ...next,
-            subscription: {
-              id: assigned.id,
-              plan: assigned.plan,
-              status: assigned.status,
-              monthlyPriceCents: assigned.monthlyPriceCents,
-              currentPeriodStart: assigned.currentPeriodStart,
-              currentPeriodEnd: assigned.currentPeriodEnd,
-              trialEndsAt: assigned.trialEndsAt,
-            },
+            subscription: subscriptionFromPaidPeriodResult(assigned),
           };
           const extended =
             previousEnd &&
@@ -156,6 +171,8 @@ export function AdminRestaurantPackagePanel({
           />
         </Col>
       </Row>
+
+      <AdminPaidPeriodStartForm restaurant={restaurant} onSaved={onSaved} />
 
       <Card title="Change package">
         <Text type="secondary" style={{ display: 'block', marginBottom: spacing.md }}>

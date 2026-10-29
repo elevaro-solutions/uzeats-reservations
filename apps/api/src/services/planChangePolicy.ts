@@ -60,22 +60,9 @@ export function featureDiff(from: PlanFeatures, to: PlanFeatures): { lost: strin
   return { lost, gained };
 }
 
-export function estimateUpgradeProrationCents(input: {
-  fromPriceCents: number;
-  toPriceCents: number;
-  now: Date;
-  periodStart?: Date | null;
-  periodEnd?: Date | null;
-}): number {
-  const delta = input.toPriceCents - input.fromPriceCents;
-  if (delta <= 0) return 0;
-  const start = input.periodStart;
-  const end = input.periodEnd;
-  if (!start || !end) return delta;
-  const periodMs = end.getTime() - start.getTime();
-  const remainingMs = end.getTime() - input.now.getTime();
-  if (periodMs <= 0 || remainingMs <= 0) return 0;
-  return Math.round((delta * remainingMs) / periodMs);
+/** Amount due today when switching immediately: the new plan's full monthly price. */
+export function immediatePlanChangeChargeCents(toPriceCents: number): number {
+  return Math.max(0, toPriceCents);
 }
 
 export function evaluatePlanChange(input: {
@@ -83,15 +70,18 @@ export function evaluatePlanChange(input: {
   fromPlan: PlanSnapshot;
   toPlan: PlanSnapshot;
   now?: Date;
-  /** Apply downgrade immediately (upgrades are always immediate). */
+  /**
+   * Start now and charge the new plan's full monthly price.
+   * Omit to default: upgrades now, downgrades at period end.
+   */
   forceImmediate?: boolean;
 }): PlanChangeDecision {
   const now = input.now ?? new Date();
   const sub = input.subscription;
   const direction = planDirection(input.fromPlan.monthlyPriceCents, input.toPlan.monthlyPriceCents);
   const diff = featureDiff(input.fromPlan.features, input.toPlan.features);
-  const immediate =
-    direction === 'upgrade' || Boolean(input.forceImmediate && direction === 'downgrade');
+  // Omit forceImmediate → upgrades start now, downgrades wait for period end.
+  const immediate = input.forceImmediate ?? direction === 'upgrade';
   const base: PlanChangeDecision = {
     fromPlan: input.fromPlan.key,
     toPlan: input.toPlan.key,
@@ -100,16 +90,9 @@ export function evaluatePlanChange(input: {
     blockedReason: null,
     immediate,
     effectiveAt: immediate ? now : (sub.currentPeriodEnd ?? null),
-    proratedChargeCents:
-      direction === 'upgrade'
-        ? estimateUpgradeProrationCents({
-            fromPriceCents: input.fromPlan.monthlyPriceCents,
-            toPriceCents: input.toPlan.monthlyPriceCents,
-            now,
-            periodStart: sub.currentPeriodStart,
-            periodEnd: sub.currentPeriodEnd,
-          })
-        : 0,
+    proratedChargeCents: immediate
+      ? immediatePlanChangeChargeCents(input.toPlan.monthlyPriceCents)
+      : 0,
     featuresLost: diff.lost,
     featuresGained: diff.gained,
     currentMonthlyPriceCents: input.fromPlan.monthlyPriceCents,

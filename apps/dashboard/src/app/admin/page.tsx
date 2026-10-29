@@ -10,7 +10,7 @@ import {
   TeamOutlined,
   ControlOutlined,
 } from '@ant-design/icons';
-import { PageHeader, colors, radii, spacing } from '@reservations/ui';
+import { PageHeader, SessionPreparing, colors, radii, spacing } from '@reservations/ui';
 import { ADMIN_STATS } from '@/lib/graphql';
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 
@@ -99,7 +99,7 @@ export default function AdminOverviewPage() {
   const { ready } = useRequireAdmin();
   const { data: stats } = useQuery(ADMIN_STATS, { skip: !ready });
 
-  if (!ready) return null;
+  if (!ready) return <SessionPreparing variant="partner" />;
 
   const s = stats?.adminStats;
 

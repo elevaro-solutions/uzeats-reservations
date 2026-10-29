@@ -98,8 +98,9 @@ export async function changeRestaurantPlan(input: {
   plan: string;
   actorId: string;
   /**
-   * When true on a downgrade, apply the lower plan immediately instead of at period end.
-   * Upgrades are always immediate. Soft-cancel is cleared so the new plan starts now.
+   * Start now and charge the new plan's full monthly price (unused time is not credited).
+   * Omit to default: upgrades now, downgrades at period end.
+   * Soft-cancel is cleared so the new plan starts now.
    */
   forceImmediate?: boolean;
 }): Promise<PlanChangeResult> {
@@ -159,10 +160,12 @@ export async function changeRestaurantPlan(input: {
   let amountDueCents = 0;
 
   if (decision.immediate) {
-    const collectPayment = toPlan.monthlyPriceCents > fromPlan.monthlyPriceCents;
+    const collectPayment = toPlan.monthlyPriceCents > 0;
+    const now = new Date();
     if (sub.stripeSubscriptionId) {
       const updated = await updateStripeSubscription(sub.stripeSubscriptionId, toPlan.monthlyPriceCents, {
-        prorationBehavior: 'create_prorations',
+        prorationBehavior: 'none',
+        resetBillingCycle: true,
         collectPayment,
       });
       clientSecret = updated.clientSecret;
@@ -173,8 +176,12 @@ export async function changeRestaurantPlan(input: {
     }
     applyPlanFields(sub, toPlan);
     clearPending(sub);
-    sub.lastPaidPlanChangeAt = new Date();
-    amountDueCents = clientSecret
+    sub.lastPaidPlanChangeAt = now;
+    sub.currentPeriodStart = now;
+    const periodEnd = new Date(now);
+    periodEnd.setMonth(periodEnd.getMonth() + 1);
+    sub.currentPeriodEnd = periodEnd;
+    amountDueCents = collectPayment
       ? decision.proratedChargeCents || toPlan.monthlyPriceCents
       : 0;
     sub.amountDueCents = amountDueCents;

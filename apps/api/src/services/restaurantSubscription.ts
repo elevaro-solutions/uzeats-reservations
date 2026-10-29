@@ -8,6 +8,8 @@ import {
 } from './stripe.js';
 import { logAudit } from './audit.js';
 import { ConflictError, ValidationError } from '../lib/errors.js';
+import { assertRestaurantClearOfPlatformDebt } from './restaurantDebt.js';
+import { resetBillingEnforcementFields } from './invoiceEnforcement.js';
 import { logger } from '../lib/logger.js';
 
 export type CreatedRestaurantSubscription = SubscriptionDocument & StripeSubscriptionPayment;
@@ -34,6 +36,9 @@ export async function createRestaurantSubscription(input: {
   const existing = await Subscription.findOne({ restaurantId: input.restaurantId });
   if (existing && (await existingBlocksCreate(existing))) {
     throw new ConflictError('Subscription already exists for this restaurant');
+  }
+  if (existing && (existing.status === 'cancelled' || existing.billingEnforcement?.stage === 'terminated')) {
+    await assertRestaurantClearOfPlatformDebt(input.restaurantId);
   }
 
   if (existing) {
@@ -93,6 +98,7 @@ export async function createRestaurantSubscription(input: {
     existing.set('pendingPlanEffectiveAt', undefined);
     existing.set('lastPaidPlanChangeAt', undefined);
     if (!stripeSub.trial_end) existing.set('trialEndsAt', undefined);
+    resetBillingEnforcementFields(existing);
     sub = await existing.save();
     if (!planDef.features.threeDView) {
       const { syncVirtualRoomAddonAfterPlanChange } = await import('./virtualRoom.js');

@@ -30,6 +30,7 @@ export * from './floorPlan.js';
 export * from './waitlist.js';
 export * from './virtualRoom.js';
 export * from './smsBilling.js';
+export * from './failToPay.js';
 export * from './noShowMarking.js';
 export * from './holidays.js';
 export * from './mobileApps.js';
