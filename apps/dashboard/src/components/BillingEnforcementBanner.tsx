@@ -81,7 +81,7 @@ export function BillingEnforcementBanner({
       showIcon
       className="rt-billing-enforcement-alert"
       style={{ marginBottom: spacing.lg, borderRadius: radii.lg }}
-      message={copy.message}
+      title={copy.message}
       description={
         <span>
           {copy.description}{' '}

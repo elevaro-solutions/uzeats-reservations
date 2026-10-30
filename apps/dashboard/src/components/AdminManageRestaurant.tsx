@@ -70,6 +70,8 @@ import { accountDetailPath } from '@/lib/adminAccounts';
 import { getPublicWebUrl } from '@/lib/webUrl';
 import {
   buildRestaurantBookingUrl,
+  formatPlanPriceSuffix,
+  isStandardMonthlyDuration,
   normalizeRestaurantSlug,
   resolveDepositPolicy,
   restaurantCuisinesForForm,
@@ -188,6 +190,8 @@ type PlanInfo = {
   monthlyPriceCents?: number;
   trialDays?: number;
   annualFreeMonths?: number;
+  durationUnit?: string | null;
+  durationCount?: number | null;
   visibleOnPricing?: boolean | null;
 };
 
@@ -253,11 +257,16 @@ export function PlanSelector({
     billing === 'annual' ? Math.max(0, regularAnnualPriceCents - selectedAnnualPriceCents) : 0;
   const selectedFreeMonths = activePlan?.annualFreeMonths ?? 2;
 
+  const packageDurationSuffix = formatPlanPriceSuffix(
+    activePlan?.durationUnit,
+    activePlan?.durationCount,
+  ).replace(' / ', '/');
   const packageLabel = activePlan
     ? `${activePlan.name} — ${
-        billing === 'annual'
+        billing === 'annual' &&
+        isStandardMonthlyDuration(activePlan.durationUnit, activePlan.durationCount)
           ? `${selectedAnnualPriceCents > 0 ? fmt(selectedAnnualPriceCents) : 'Free'}/year`
-          : `${selectedMonthlyPriceCents > 0 ? fmt(selectedMonthlyPriceCents) : 'Free'}/mo`
+          : `${selectedMonthlyPriceCents > 0 ? fmt(selectedMonthlyPriceCents) : 'Free'}${packageDurationSuffix}`
       }`
     : undefined;
 
@@ -283,16 +292,24 @@ export function PlanSelector({
             ...visiblePlans.map((plan) => {
               const monthly = plan.monthlyPriceCents ?? 0;
               const freeMonths = plan.annualFreeMonths ?? 2;
-              const effectiveMonthly = billing === 'annual' ? annualMonthlyPrice(monthly, freeMonths) : monthly;
+              const standardMonthly = isStandardMonthlyDuration(plan.durationUnit, plan.durationCount);
+              const suffix = formatPlanPriceSuffix(plan.durationUnit, plan.durationCount).replace(
+                ' / ',
+                '/',
+              );
+              const effectiveMonthly =
+                billing === 'annual' && standardMonthly
+                  ? annualMonthlyPrice(monthly, freeMonths)
+                  : monthly;
               const effectiveAnnual = annualTotalPrice(monthly, freeMonths);
               const price =
-                billing === 'annual'
+                billing === 'annual' && standardMonthly
                   ? monthly === 0
                     ? 'Free'
                     : `${fmt(effectiveAnnual)}/year`
                   : monthly === 0
                     ? 'Free'
-                    : `${fmt(effectiveMonthly)}/mo`;
+                    : `${fmt(effectiveMonthly)}${suffix}`;
               return {
                 value: plan.key,
                 label: `${plan.name} — ${price}${planOptionSuffix(plan)}`,

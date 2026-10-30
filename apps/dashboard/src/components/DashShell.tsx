@@ -707,7 +707,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           type="warning"
           banner
           showIcon
-          message={
+          title={
             <span>
               Viewing as <strong>{user.firstName} {user.lastName}</strong> ({user.role.replace(/_/g, ' ')})
               — signed in as admin {impersonator.firstName} {impersonator.lastName}
@@ -1015,7 +1015,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
               showIcon
               className="rt-onboarding-alert"
               style={{ marginBottom: spacing.lg, borderRadius: radii.lg }}
-              message="Finish setting up your restaurant"
+              title="Finish setting up your restaurant"
               description={
                 <span>
                   {setupProgress.completedRequired} of {setupProgress.totalRequired} required steps

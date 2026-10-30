@@ -10,7 +10,7 @@ import {
   Col,
   Drawer,
   Dropdown,
-  List,
+  Flex,
   Modal,
   Row,
   Space,
@@ -238,14 +238,21 @@ export default function OverviewPage() {
     ];
   };
 
-  const renderAlertItem = (item: AppNotification) => (
-    <List.Item
+  const renderAlertItem = (item: AppNotification, index: number, items: AppNotification[]) => (
+    <Flex
       key={item.id}
-      style={{ cursor: 'pointer', paddingInline: 0 }}
+      align="center"
+      gap={8}
       onClick={() => void openAlert(item)}
-      actions={[<RightOutlined key="open" style={{ color: colors.neutral[400] }} />]}
+      style={{
+        cursor: 'pointer',
+        paddingBlock: 8,
+        width: '100%',
+        borderBottom:
+          index < items.length - 1 ? `1px solid ${colors.bordersubtle}` : undefined,
+      }}
     >
-      <Space orientation="vertical" size={0} style={{ width: '100%', minWidth: 0 }}>
+      <Space orientation="vertical" size={0} style={{ flex: 1, minWidth: 0 }}>
         <Text strong style={{ opacity: item.readAt ? 0.75 : 1 }}>
           {item.title}
         </Text>
@@ -256,7 +263,8 @@ export default function OverviewPage() {
           {formatRelativeTime(item.createdAt)}
         </Text>
       </Space>
-    </List.Item>
+      <RightOutlined style={{ color: colors.neutral[400] }} />
+    </Flex>
   );
 
   const alertsCard = (
@@ -276,7 +284,9 @@ export default function OverviewPage() {
         <Text type="secondary">No recent notifications.</Text>
       ) : (
         <Space orientation="vertical" size={spacing.sm} style={{ width: '100%' }}>
-          <List size="small" dataSource={previewNotifications} renderItem={renderAlertItem} />
+          {previewNotifications.map((item, index) =>
+            renderAlertItem(item, index, previewNotifications),
+          )}
           {hasMoreAlerts ? (
             <Button type="link" style={{ paddingInline: 0 }} onClick={() => setAlertsModalOpen(true)}>
               Show more
@@ -646,7 +656,7 @@ export default function OverviewPage() {
         width={480}
         styles={{ body: { maxHeight: '70vh', overflowY: 'auto' } }}
       >
-        <List size="small" dataSource={notifications} renderItem={renderAlertItem} />
+        {notifications.map((item, index) => renderAlertItem(item, index, notifications))}
       </Modal>
 
       <Drawer

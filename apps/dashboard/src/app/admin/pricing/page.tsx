@@ -26,10 +26,15 @@ import {
   computeAnnualSavings,
   computeAmountOffPriceCents,
   computeDiscountedPriceCents,
+  durationCountMax,
   formatAnnualSavingsNote,
   formatPlanDollars,
+  formatPlanDuration,
+  formatPlanPriceSuffix,
   getAnnualSavingsPercentFromSettings,
+  isStandardMonthlyDuration,
   type PlanDiscountType,
+  type PlanDurationUnit,
 } from '@reservations/shared';
 import {
   ADMIN_PLANS,
@@ -105,7 +110,9 @@ const FIELD_TIPS = {
     'Drafts the short description from the package name, includes, features, and manager accounts. You can edit it before saving.',
   visibleOnPricing:
     'When on, this package appears as a card on the public /pricing page and in partner registration. When off (Hidden), partners and the public cannot select it — platform admins can still assign it when creating or editing restaurants, assigning packages, and creating invoices.',
-  monthlyPrice: 'Recurring monthly subscription price charged after any trial ends.',
+  monthlyPrice: 'Recurring subscription price charged after any trial ends, for the billing duration below.',
+  duration:
+    'How long one paid cycle lasts. Use 1 month for standard monthly billing, or a custom range such as 14 days, 2 weeks, 3 months, or 1 year.',
   listPrice:
     'Original list price shown with strikethrough when a discount is active (e.g. before 50% off or 1st month free).',
   discountType:
@@ -146,6 +153,45 @@ const DISCOUNT_OPTIONS: { value: PlanDiscountType; label: string }[] = [
   { value: 'first_month_free', label: '1st month free' },
   { value: 'annual_months_free', label: 'Annual — months free' },
 ];
+
+const DURATION_UNIT_OPTIONS: { value: PlanDurationUnit; label: string }[] = [
+  { value: 'day', label: 'Day' },
+  { value: 'week', label: 'Week' },
+  { value: 'month', label: 'Month' },
+  { value: 'year', label: 'Year' },
+];
+
+function PackageDurationFields({
+  unit,
+  count,
+}: {
+  unit?: PlanDurationUnit | string;
+  count?: number;
+}) {
+  const max = durationCountMax(unit);
+  return (
+    <Form.Item
+      label="Billing duration"
+      tooltip={FIELD_TIPS.duration}
+      style={{ marginBottom: 12 }}
+      extra={`One paid cycle is ${formatPlanDuration(unit, count)}.`}
+    >
+      <Space.Compact style={{ width: '100%' }}>
+        <Form.Item name="durationCount" noStyle rules={[{ required: true, type: 'number', min: 1 }]}>
+          <InputNumber min={1} max={max} precision={0} style={{ width: 120 }} />
+        </Form.Item>
+        <Form.Item name="durationUnit" noStyle rules={[{ required: true }]}>
+          <Select options={DURATION_UNIT_OPTIONS} style={{ minWidth: 140 }} />
+        </Form.Item>
+      </Space.Compact>
+    </Form.Item>
+  );
+}
+
+function priceFieldLabel(unit?: string | null, count?: number | null) {
+  if (isStandardMonthlyDuration(unit, count)) return 'Monthly price (USD)';
+  return `Price (USD) per ${formatPlanDuration(unit, count)}`;
+}
 
 function dollarsToCents(v: number | null | undefined) {
   return Math.round((v ?? 0) * 100);
@@ -267,8 +313,14 @@ export default function AdminPricingPage() {
   const discountAmount = Form.useWatch('discountAmount', form);
   const monthlyPrice = Form.useWatch('monthlyPrice', form);
   const annualFreeMonths = Form.useWatch('annualFreeMonths', form);
+  const durationUnit = Form.useWatch('durationUnit', form) as PlanDurationUnit | undefined;
+  const durationCount = Form.useWatch('durationCount', form) as number | undefined;
   const createTrialEnabled = Form.useWatch('trialEnabled', createForm);
   const createTrialPeriod = Form.useWatch('trialPeriod', createForm);
+  const createDurationUnit = Form.useWatch('durationUnit', createForm) as
+    | PlanDurationUnit
+    | undefined;
+  const createDurationCount = Form.useWatch('durationCount', createForm) as number | undefined;
   const createDiscountType = Form.useWatch('discountType', createForm) as
     | PlanDiscountType
     | undefined;
@@ -305,6 +357,8 @@ export default function AdminPricingPage() {
       name: plan.name,
       description: plan.description ?? '',
       monthlyPrice: centsToDollars(plan.monthlyPriceCents),
+      durationUnit: plan.durationUnit ?? 'month',
+      durationCount: plan.durationCount ?? 1,
       listPrice: plan.originalMonthlyPriceCents
         ? centsToDollars(plan.originalMonthlyPriceCents)
         : centsToDollars(plan.monthlyPriceCents),
@@ -479,6 +533,8 @@ export default function AdminPricingPage() {
             discountPercent: discount.discountPercent,
             discountAmountCents: discount.discountAmountCents,
             annualFreeMonths: discount.annualFreeMonths,
+            durationUnit: values.durationUnit || 'month',
+            durationCount: Math.max(1, Math.round(Number(values.durationCount) || 1)),
             networkCoverFeeCents: dollarsToCents(values.networkCoverFee),
             websiteCoverFeeCents: dollarsToCents(values.websiteCoverFee),
             trialDays: resolveTrialDays(values),
@@ -516,6 +572,8 @@ export default function AdminPricingPage() {
             discountPercent: discount.discountPercent,
             discountAmountCents: discount.discountAmountCents,
             annualFreeMonths: discount.annualFreeMonths,
+            durationUnit: values.durationUnit || 'month',
+            durationCount: Math.max(1, Math.round(Number(values.durationCount) || 1)),
             networkCoverFeeCents: dollarsToCents(values.networkCoverFee),
             websiteCoverFeeCents: dollarsToCents(values.websiteCoverFee),
             trialDays: resolveTrialDays(values),
@@ -1083,7 +1141,8 @@ export default function AdminPricingPage() {
                       <HolderOutlined />
                     </span>
                     <span style={{ flex: 1 }}>
-                      {p.name} · ${(p.monthlyPriceCents / 100).toFixed(0)}/mo
+                      {p.name} · ${(p.monthlyPriceCents / 100).toFixed(0)}
+                      {formatPlanPriceSuffix(p.durationUnit, p.durationCount).replace(' / ', '/')}
                       {typeof p.managerSeats === 'number' ? ` · ${p.managerSeats} mgr` : ''}
                     </span>
                     {p.visibleOnPricing === false ? (
@@ -1156,6 +1215,7 @@ export default function AdminPricingPage() {
               >
                 <Switch checkedChildren="Visible" unCheckedChildren="Hidden" />
               </Form.Item>
+              <PackageDurationFields unit={durationUnit} count={durationCount} />
               <Row gutter={16}>
                 {discountType !== 'first_month_free' &&
                 discountType !== 'percent_off' &&
@@ -1163,7 +1223,7 @@ export default function AdminPricingPage() {
                   <Col span={12}>
                     <Form.Item
                       name="monthlyPrice"
-                      label="Monthly price (USD)"
+                      label={priceFieldLabel(durationUnit, durationCount)}
                       tooltip={FIELD_TIPS.monthlyPrice}
                       rules={[{ required: true }]}
                     >
@@ -1258,6 +1318,8 @@ export default function AdminPricingPage() {
             annualFreeMonths: 2,
             monthlyPrice: 0,
             listPrice: 0,
+            durationUnit: 'month',
+            durationCount: 1,
             networkCoverFee: 0,
             websiteCoverFee: 0,
             managerSeats: 1,
@@ -1307,6 +1369,7 @@ export default function AdminPricingPage() {
           >
             <InputNumber min={1} max={100} step={1} style={{ width: 160 }} />
           </Form.Item>
+          <PackageDurationFields unit={createDurationUnit} count={createDurationCount} />
           <Row gutter={16}>
             {createDiscountType !== 'first_month_free' &&
             createDiscountType !== 'percent_off' &&
@@ -1314,7 +1377,7 @@ export default function AdminPricingPage() {
               <Col span={12}>
                 <Form.Item
                   name="monthlyPrice"
-                  label="Monthly price (USD)"
+                  label={priceFieldLabel(createDurationUnit, createDurationCount)}
                   tooltip={FIELD_TIPS.monthlyPrice}
                   rules={[{ required: true }]}
                 >

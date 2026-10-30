@@ -976,6 +976,8 @@ export const PLANS = gql`
       discountPercent
       discountAmountCents
       annualFreeMonths
+      durationUnit
+      durationCount
       networkCoverFeeCents
       websiteCoverFeeCents
       trialDays
@@ -1040,6 +1042,8 @@ export const INVOICE_BY_PAY_TOKEN = gql`
       isDiscounted
       dueDate
       packageDurationMonths
+      packageDurationUnit
+      packageDurationCount
       planKey
       billingCycle
       lines {

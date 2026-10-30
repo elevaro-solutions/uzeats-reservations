@@ -20,6 +20,16 @@ const ENV_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''
 
 export type SignupPaymentMode = 'payment' | 'setup';
 
+/** Local/dev PaymentIntent secrets (`pi_dev_*_secret_dev`) are not valid Stripe Elements secrets. */
+function isStubClientSecret(secret: string | null | undefined) {
+  if (!secret) return false;
+  return (
+    secret.includes('_secret_dev') ||
+    secret.startsWith('pi_dev_') ||
+    secret.startsWith('seti_dev_')
+  );
+}
+
 function PaymentInner({
   mode,
   onSuccess,
@@ -66,7 +76,7 @@ function PaymentInner({
     <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <PaymentElement />
       {error ? (
-        <Alert type="error" message={error} showIcon closable onClose={() => setError(null)} />
+        <Alert type="error" title={error} showIcon closable onClose={() => setError(null)} />
       ) : null}
       <Button
         type="primary"
@@ -119,13 +129,13 @@ export function SignupPaymentForm({
     );
   }
 
-  if (!publishableKey || !stripePromise || !clientSecret) {
+  if (!publishableKey || !stripePromise || !clientSecret || isStubClientSecret(clientSecret)) {
     return (
       <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <Alert
           type="info"
-          message="Payment processing is in demo mode"
-          description="Stripe is not configured. Continue without charging."
+          title="Payment processing is in demo mode"
+          description="Continue without charging a real card."
           showIcon
         />
         <Button

@@ -166,7 +166,7 @@ export function PartnerInvoiceDetail({
           type="success"
           showIcon
           icon={<CheckCircleOutlined />}
-          message={
+          title={
             invoice.paidAt
               ? `Paid on ${dayjs(invoice.paidAt).format('MMM D, YYYY · h:mm A')}`
               : 'This invoice is paid'
@@ -179,7 +179,7 @@ export function PartnerInvoiceDetail({
           type="error"
           showIcon
           icon={<WarningOutlined />}
-          message={
+          title={
             overdueDays > 0
               ? `Overdue by ${overdueDays} day${overdueDays === 1 ? '' : 's'}`
               : 'This invoice is overdue'
@@ -192,7 +192,7 @@ export function PartnerInvoiceDetail({
           type="warning"
           showIcon
           icon={<ClockCircleOutlined />}
-          message="Payment due"
+          title="Payment due"
           description={`Please pay by ${dayjs(invoice.dueDate).format('MMM D, YYYY')}.`}
         />
       ) : null}
@@ -200,7 +200,7 @@ export function PartnerInvoiceDetail({
         <Alert
           type="info"
           showIcon
-          message="Canceled"
+          title="Canceled"
           description="This invoice was canceled and does not require payment."
         />
       ) : null}

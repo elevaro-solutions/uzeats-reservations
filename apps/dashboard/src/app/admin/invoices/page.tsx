@@ -42,9 +42,16 @@ import {
 } from '@ant-design/icons';
 import { PageHeader, colors, radii, spacing } from '@reservations/ui';
 import {
+  durationCountMax,
+  formatPlanDuration,
+  formatPlanPriceSuffix,
   getPlanPriceDisplay,
+  isStandardMonthlyDuration,
+  normalizePlanDuration,
   planForBillingPeriod,
+  resolveInvoiceDuration,
   type BillingPeriod,
+  type PlanDurationUnit,
 } from '@reservations/shared';
 import dayjs, { type Dayjs } from 'dayjs';
 import {
@@ -138,6 +145,8 @@ type ManualInvoiceForm = {
   serviceIds?: string[];
   amountDollars: number;
   packageDurationMonths?: number;
+  packageDurationUnit?: PlanDurationUnit;
+  packageDurationCount?: number;
   description?: string;
   notes?: string;
   markPaid?: boolean;
@@ -280,6 +289,9 @@ function AdminInvoicesContent() {
   const [replaceExisting, setReplaceExisting] = useState(false);
   const [manualForm] = Form.useForm<ManualInvoiceForm>();
   const planKey = Form.useWatch('planKey', manualForm);
+  const packageDurationUnit = Form.useWatch('packageDurationUnit', manualForm) as
+    | PlanDurationUnit
+    | undefined;
   const billingCycle = Form.useWatch('billingCycle', manualForm) as BillingPeriod | undefined;
   const serviceIds = Form.useWatch('serviceIds', manualForm) as string[] | undefined;
   const amountDollars = Form.useWatch('amountDollars', manualForm) as number | undefined;
@@ -367,12 +379,20 @@ function AdminInvoicesContent() {
   ) => {
     let listCents = 0;
     let chargeCents = 0;
-    let durationMonths: number | null = null;
+    let duration = null as ReturnType<typeof normalizePlanDuration> | null;
 
     if (nextPlanKey) {
-      const plan = plans.find((p: { key: string }) => p.key === nextPlanKey);
+      const plan = plans.find(
+        (p: {
+          key: string;
+          durationUnit?: string | null;
+          durationCount?: number | null;
+        }) => p.key === nextPlanKey,
+      );
       if (plan) {
-        const cycle: BillingPeriod = nextCycle || 'monthly';
+        const standardMonthly = isStandardMonthlyDuration(plan.durationUnit, plan.durationCount);
+        const cycle: BillingPeriod =
+          nextCycle === 'annual' && standardMonthly ? 'annual' : 'monthly';
         const priced = planForBillingPeriod(plan, cycle, {
           annualBilling,
           planKey: plan.key,
@@ -383,7 +403,10 @@ function AdminInvoicesContent() {
           display.originalCents != null && display.originalCents > display.primaryCents
             ? display.originalCents
             : display.primaryCents;
-        durationMonths = cycle === 'annual' ? 12 : 1;
+        duration =
+          cycle === 'annual'
+            ? normalizePlanDuration({ durationUnit: 'month', durationCount: 12 })
+            : normalizePlanDuration(plan);
       }
     }
 
@@ -396,7 +419,7 @@ function AdminInvoicesContent() {
       }
     }
 
-    return { listCents, chargeCents, durationMonths };
+    return { listCents, chargeCents, duration };
   };
 
   const catalog = useMemo(
@@ -413,8 +436,12 @@ function AdminInvoicesContent() {
     const next = computeCatalog(nextPlanKey, nextCycle, nextServiceIds);
     manualForm.setFieldsValue({
       amountDollars: next.chargeCents / 100,
-      ...(next.durationMonths != null
-        ? { packageDurationMonths: next.durationMonths }
+      ...(next.duration
+        ? {
+            packageDurationMonths: next.duration.durationUnit === 'month' ? next.duration.durationCount : undefined,
+            packageDurationUnit: next.duration.durationUnit,
+            packageDurationCount: next.duration.durationCount,
+          }
         : {}),
     });
   };
@@ -424,8 +451,16 @@ function AdminInvoicesContent() {
     catalog.listCents > 0 &&
     Number.isFinite(amountCentsPreview) &&
     amountCentsPreview < catalog.listCents;
+  const selectedPlan = plans.find(
+    (p: { key: string; durationUnit?: string | null; durationCount?: number | null }) =>
+      p.key === planKey,
+  );
+  const selectedIsStandardMonthly = isStandardMonthlyDuration(
+    selectedPlan?.durationUnit,
+    selectedPlan?.durationCount,
+  );
   const cycle: BillingPeriod = billingCycle === 'annual' ? 'annual' : 'monthly';
-  const isAnnual = cycle === 'annual';
+  const isAnnual = cycle === 'annual' && selectedIsStandardMonthly;
 
   const packageOptions = useMemo(
     () =>
@@ -434,6 +469,8 @@ function AdminInvoicesContent() {
           key: string;
           name: string;
           monthlyPriceCents: number;
+          durationUnit?: string | null;
+          durationCount?: number | null;
           visibleOnPricing?: boolean | null;
         }) => {
           const priced = planForBillingPeriod(p, cycle, {
@@ -441,12 +478,13 @@ function AdminInvoicesContent() {
             planKey: p.key,
           });
           const display = getPlanPriceDisplay(priced);
+          const suffix = formatPlanPriceSuffix(p.durationUnit, p.durationCount).replace(' / ', '/');
           const priceLabel =
             display.primaryCents === 0
               ? 'Free'
-              : isAnnual
+              : isAnnual && isStandardMonthlyDuration(p.durationUnit, p.durationCount)
                 ? `${money(display.primaryCents)}/yr`
-                : `${money(display.primaryCents)}/mo`;
+                : `${money(display.primaryCents)}${suffix}`;
           const hiddenSuffix = p.visibleOnPricing === false ? ' · Hidden' : '';
           return {
             value: p.key,
@@ -492,6 +530,8 @@ function AdminInvoicesContent() {
       dueDate: now.startOf('month'),
       billingCycle: 'monthly',
       packageDurationMonths: 1,
+      packageDurationUnit: 'month',
+      packageDurationCount: 1,
       serviceIds: [],
       markPaid: false,
     });
@@ -507,17 +547,24 @@ function AdminInvoicesContent() {
     }
     const originalAmountCents =
       catalog.listCents > amountCents ? catalog.listCents : undefined;
-    const durationMonths =
-      (values.billingCycle || 'monthly') === 'annual'
-        ? 12
-        : values.packageDurationMonths || undefined;
+    const duration =
+      (values.billingCycle || 'monthly') === 'annual' &&
+      isStandardMonthlyDuration(values.packageDurationUnit, values.packageDurationCount)
+        ? normalizePlanDuration({ durationUnit: 'month', durationCount: 12 })
+        : normalizePlanDuration({
+            durationUnit: values.packageDurationUnit,
+            durationCount: values.packageDurationCount ?? values.packageDurationMonths,
+          });
     return {
       restaurantId: values.restaurantId,
       billingPeriod: values.billingPeriod.format('YYYY-MM'),
       dueDate: values.dueDate.toISOString(),
       amountCents,
       originalAmountCents,
-      packageDurationMonths: durationMonths,
+      packageDurationMonths:
+        duration.durationUnit === 'month' ? duration.durationCount : undefined,
+      packageDurationUnit: duration.durationUnit,
+      packageDurationCount: duration.durationCount,
       planKey: values.planKey || undefined,
       billingCycle: values.planKey ? values.billingCycle || 'monthly' : undefined,
       serviceIds: values.serviceIds?.length ? values.serviceIds : undefined,
@@ -897,15 +944,21 @@ function AdminInvoicesContent() {
             expandable={{
               expandedRowRender: (record: any) => (
                 <Space orientation="vertical" size="small" style={{ width: '100%' }}>
-                  {(record.notes || record.packageDurationMonths || record.planKey) && (
+                  {(record.notes ||
+                    record.packageDurationMonths ||
+                    record.packageDurationCount ||
+                    record.planKey) && (
                     <Typography.Text type="secondary">
                       {[
                         record.planKey
                           ? `Plan: ${record.planKey}${record.billingCycle ? ` (${record.billingCycle})` : ''}`
                           : null,
-                        record.packageDurationMonths
-                          ? `Package: ${record.packageDurationMonths} mo`
-                          : null,
+                        (() => {
+                          const duration = resolveInvoiceDuration(record);
+                          return duration
+                            ? `Package: ${formatPlanDuration(duration.durationUnit, duration.durationCount)}`
+                            : null;
+                        })(),
                         record.notes ? `Notes: ${record.notes}` : null,
                       ]
                         .filter(Boolean)
@@ -985,10 +1038,19 @@ function AdminInvoicesContent() {
               },
               {
                 title: 'Duration',
-                dataIndex: 'packageDurationMonths',
-                width: 90,
+                key: 'packageDuration',
+                width: 110,
                 onCell: () => ({ style: { whiteSpace: 'nowrap' } }),
-                render: (v: number | null) => (v ? `${v} mo` : '—'),
+                render: (_: unknown, record: {
+                  packageDurationMonths?: number | null;
+                  packageDurationUnit?: string | null;
+                  packageDurationCount?: number | null;
+                }) => {
+                  const duration = resolveInvoiceDuration(record);
+                  return duration
+                    ? formatPlanDuration(duration.durationUnit, duration.durationCount)
+                    : '—';
+                },
               },
               {
                 title: 'Status',
@@ -1085,6 +1147,8 @@ function AdminInvoicesContent() {
                   planKey: undefined,
                   billingCycle: 'monthly',
                   packageDurationMonths: 1,
+                  packageDurationUnit: 'month',
+                  packageDurationCount: 1,
                 });
                 syncAmountFromCatalog(null, 'monthly', all.serviceIds || []);
               }
@@ -1162,12 +1226,32 @@ function AdminInvoicesContent() {
             </Form.Item>
             {!isAnnual ? (
               <Form.Item
-                name="packageDurationMonths"
-                label="Package duration (months)"
+                label="Package duration"
                 style={{ marginBottom: 0 }}
-                extra="How many months of plan coverage this invoice includes."
+                extra="How long this invoice covers. Defaults from the selected plan."
               >
-                <InputNumber min={1} max={120} step={1} precision={0} style={{ width: '100%' }} />
+                <Space.Compact style={{ width: '100%' }}>
+                  <Form.Item name="packageDurationCount" noStyle>
+                    <InputNumber
+                      min={1}
+                      max={durationCountMax(packageDurationUnit)}
+                      step={1}
+                      precision={0}
+                      style={{ width: 120 }}
+                    />
+                  </Form.Item>
+                  <Form.Item name="packageDurationUnit" noStyle>
+                    <Select
+                      options={[
+                        { value: 'day', label: 'Days' },
+                        { value: 'week', label: 'Weeks' },
+                        { value: 'month', label: 'Months' },
+                        { value: 'year', label: 'Years' },
+                      ]}
+                      style={{ minWidth: 140 }}
+                    />
+                  </Form.Item>
+                </Space.Compact>
               </Form.Item>
             ) : (
               <Typography.Text type="secondary" style={{ fontSize: 13 }}>

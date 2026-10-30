@@ -1,5 +1,15 @@
 # API — Learnings & Observations
 
+## [2026-10-30] QA checklist catalog is v0.94.0
+- `QA_CHECKLIST_RELEASE` is `0.94.0`. Catalog groups are Added / Changed / Fixed. v0.93.0 fail-to-pay / paid-period / preparing items stay on that release’s `QaReleaseChecklist` row.
+- Why it matters: Sign-off for this gate is custom package duration, invoice duration, assign/switch period math, public pricing suffixes, and Billing Pay now — not the previous fail-to-pay work.
+
+## [2026-10-29] Plan duration is stored on plan overrides
+
+- `planOverrides.durationUnit` / `durationCount` (default month/1). GraphQL `PlanInfo`, create/update package inputs, and invoice `packageDurationUnit`/`packageDurationCount`.
+- Stripe price `recurring.interval_count` is clamped to Stripe’s 1-year max; `computeExtendedBillingPeriod` and immediate plan switch use the full local duration.
+- Why it matters: Existing packages without the fields stay monthly. Do not derive period length from the previous subscription when assigning a new package.
+
 ## [2026-10-29] QA checklist catalog is v0.93.0
 - `QA_CHECKLIST_RELEASE` is `0.93.0`. Catalog groups are Billing and Sign-in. v0.92.0 pricing / About / discovery / SEO items stay on that release’s `QaReleaseChecklist` row.
 - Why it matters: Sign-off for this gate is paid-period start, fail-to-pay, post-login preparing, and full-price plan switch — not the previous public-pricing work.
@@ -8,6 +18,11 @@
 - `Subscription.billingEnforcement.stage` is advanced by the daily billing job (and immediately on pay / admin override). Public listing excludes `unlisted` / `restricted` / `terminated`. `past_due` still grants Hub entitlements through Restricted.
 - Finance/declined fee lines (`kind`) survive period-invoice refresh. Paying one invoice only clears `past_due` when no other platform debt remains. Re-subscribe after terminate requires a clear debt gate.
 - Why it matters: Do not treat `trialing|active|past_due` as “listed.” Mutations should use `getVenueEnforcementSnapshot`, not only the persisted stage.
+
+## [2026-10-29] Stripe forbids `trial_end` after `billing_cycle_anchor`
+- Immediate plan switch sets `billing_cycle_anchor: now`. If the Stripe sub is still trialing, also set `trial_end: now` and locally end `trialing`. Stripe error: “Trial end cannot be after billing_cycle_anchor.”
+- Paid-period start to a future date past the current anchor cannot `update` in place. Create a replacement Stripe sub with `trial_end`, persist the new id, then cancel the old one so `customer.subscription.deleted` cannot mark the restaurant cancelled.
+- Why it matters: Core/Pro trials are 30 days. Upgrading during trial and putting an already-billed restaurant back on trial both hit this.
 
 ## [2026-10-29] Superadmin paid-period start is `trialEndsAt` / `currentPeriodStart`
 - `adminSetSubscriptionPaidPeriodStart` is `requireSuperAdmin`. Future date → `trialing`, `trialEndsAt` = that date, `currentPeriodEnd` = that date (first charge). Today/past → `currentPeriodStart` = that date, `currentPeriodEnd` = +1 calendar month; trialing becomes `active`. Cancelled/paused and missing subs are rejected.

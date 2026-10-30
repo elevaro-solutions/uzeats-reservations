@@ -22,6 +22,7 @@ import {
   MailOutlined,
 } from '@ant-design/icons';
 import { PageHeader, spacing } from '@reservations/ui';
+import { formatPlanDuration, resolveInvoiceDuration } from '@reservations/shared';
 import {
   ADMIN_INVOICE,
   EMAIL_DELIVERY_CONFIGURED,
@@ -245,7 +246,12 @@ export default function AdminInvoiceDetailPage() {
                 </Descriptions.Item>
                 <Descriptions.Item label="Billing period">{invoice.billingPeriod}</Descriptions.Item>
                 <Descriptions.Item label="Package duration">
-                  {invoice.packageDurationMonths ? `${invoice.packageDurationMonths} mo` : '—'}
+                  {(() => {
+                    const duration = resolveInvoiceDuration(invoice);
+                    return duration
+                      ? formatPlanDuration(duration.durationUnit, duration.durationCount)
+                      : '—';
+                  })()}
                 </Descriptions.Item>
                 <Descriptions.Item label="Plan">
                   {invoice.planKey

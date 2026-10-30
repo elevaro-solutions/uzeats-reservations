@@ -1,6 +1,9 @@
+import { addPlanDuration } from '@reservations/shared';
 import { Subscription } from '../models/Subscription.js';
 import { getEffectivePlan } from './platformConfig.js';
 import {
+  createCardCollectionSecret,
+  createPrepaymentIntent,
   getOpenSubscriptionPayment,
   syncPaidSubscriptionAfterCard,
   updateStripeSubscription,
@@ -22,6 +25,8 @@ async function toSnapshot(planKey: string): Promise<PlanSnapshot> {
     monthlyPriceCents: plan.monthlyPriceCents,
     networkCoverFeeCents: plan.networkCoverFeeCents,
     websiteCoverFeeCents: plan.websiteCoverFeeCents,
+    durationUnit: plan.durationUnit,
+    durationCount: plan.durationCount,
     features: plan.features,
   };
 }
@@ -64,6 +69,8 @@ export async function applyPendingPlanChangeIfDue(sub: any, now = new Date()) {
   if (sub.stripeSubscriptionId) {
     await updateStripeSubscription(sub.stripeSubscriptionId, snapshot.monthlyPriceCents, {
       prorationBehavior: 'none',
+      durationUnit: snapshot.durationUnit,
+      durationCount: snapshot.durationCount,
     });
   }
   applyPlanFields(sub, snapshot);
@@ -167,20 +174,36 @@ export async function changeRestaurantPlan(input: {
         prorationBehavior: 'none',
         resetBillingCycle: true,
         collectPayment,
+        durationUnit: toPlan.durationUnit,
+        durationCount: toPlan.durationCount,
       });
       clientSecret = updated.clientSecret;
       paymentMode = updated.paymentMode;
     } else if (collectPayment && decision.proratedChargeCents > 0) {
-      clientSecret = `pi_dev_${Date.now()}_secret_dev`;
+      const intent = await createPrepaymentIntent({
+        amountCents: decision.proratedChargeCents,
+        metadata: { restaurantId: input.restaurantId, kind: 'plan_change' },
+        customerId:
+          sub.stripeCustomerId && !sub.stripeCustomerId.startsWith('cus_dev_')
+            ? sub.stripeCustomerId
+            : undefined,
+        saveCardForOffSession: true,
+      });
+      clientSecret = intent.client_secret ?? `pi_dev_${Date.now()}_secret_dev`;
       paymentMode = 'payment';
     }
     applyPlanFields(sub, toPlan);
     clearPending(sub);
     sub.lastPaidPlanChangeAt = now;
     sub.currentPeriodStart = now;
-    const periodEnd = new Date(now);
-    periodEnd.setMonth(periodEnd.getMonth() + 1);
-    sub.currentPeriodEnd = periodEnd;
+    sub.currentPeriodEnd = addPlanDuration(now, toPlan.durationUnit, toPlan.durationCount);
+    if (
+      sub.status === 'trialing' ||
+      (sub.trialEndsAt && sub.trialEndsAt.getTime() > now.getTime())
+    ) {
+      sub.trialEndsAt = now;
+      if (sub.status === 'trialing') sub.status = 'active';
+    }
     amountDueCents = collectPayment
       ? decision.proratedChargeCents || toPlan.monthlyPriceCents
       : 0;
@@ -227,8 +250,23 @@ export async function getPlanChangePayment(restaurantId: string): Promise<PlanCh
     paymentMode = open.paymentMode;
   }
   if (amountDueCents > 0 && !clientSecret) {
-    clientSecret = `pi_dev_${Date.now()}_secret_dev`;
-    paymentMode = 'payment';
+    const collection = await createCardCollectionSecret(sub.stripeCustomerId);
+    if (collection.clientSecret) {
+      clientSecret = collection.clientSecret;
+      paymentMode = collection.paymentMode;
+    } else {
+      const intent = await createPrepaymentIntent({
+        amountCents: amountDueCents,
+        metadata: { restaurantId, kind: 'plan_change' },
+        customerId:
+          sub.stripeCustomerId && !sub.stripeCustomerId.startsWith('cus_dev_')
+            ? sub.stripeCustomerId
+            : undefined,
+        saveCardForOffSession: true,
+      });
+      clientSecret = intent.client_secret ?? `pi_dev_${Date.now()}_secret_dev`;
+      paymentMode = 'payment';
+    }
   }
   return { subscription: sub, clientSecret, paymentMode, amountDueCents };
 }

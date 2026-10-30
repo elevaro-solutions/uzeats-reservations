@@ -2210,7 +2210,7 @@ export default function RestaurantPageClient({
             title="Contact to reserve"
             className="rt-restaurant-booking-card"
           >
-            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={16} style={{ width: '100%' }}>
               <Text type="secondary">
                 Online reservations are currently unavailable. Please contact the restaurant directly to make a reservation.
               </Text>
@@ -2371,7 +2371,7 @@ export default function RestaurantPageClient({
         centered
         width={520}
       >
-        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
           <Text type="secondary">
             Online tables are for parties of {acceptedPartySize.min}–{acceptedPartySize.max}. Tell{' '}
             {restaurant?.name ?? 'the restaurant'} when you’d like to come and about how many guests.
@@ -2511,7 +2511,7 @@ export default function RestaurantPageClient({
       >
         {bookingSuccess && (
           <Space
-            direction="vertical"
+            orientation="vertical"
             size={14}
             style={{ width: '100%' }}
             styles={{ item: { width: '100%' } }}

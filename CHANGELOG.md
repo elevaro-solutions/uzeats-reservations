@@ -4,6 +4,28 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+## [0.94.0] — 2026-10-30
+
+### Added
+- Plans & pricing: custom package billing duration (number + day / week / month / year), so packages can be 14 days, 2 weeks, 3 months, 1 year, and similar — not only monthly
+- Manual invoices: package duration picker with days, weeks, months, or years (defaults from the selected plan)
+- Partner Hub `/admin/qa` tasks for this release: custom package duration on Plans & pricing, duration on public pricing and invoices, assign/switch paid period by duration, and Billing Pay now without a Stripe.js crash
+
+### Changed
+- Assigning or switching a package extends the paid period by that package’s duration (calendar days/weeks/months/years) instead of always one month
+- Public `/pricing` and Partner Hub plan pickers show the package duration (e.g. `/ 14 days`) instead of always `/mo`; annual billing only applies to 1-month packages
+
+### Fixed
+- Partner Hub billing and diner web no longer log an Ant Design console warning for the deprecated Space `direction` prop (uses `orientation` instead)
+- Partner Hub overview no longer logs an Ant Design console warning for the deprecated `List` component
+- Partner Hub Billing Pay now no longer crashes Stripe.js when the API returns a local stub payment secret (`pi_dev_*`); it collects a card when Stripe is configured
+- Partner Hub Billing no longer logs Ant Design console errors for deprecated Alert `message`, Drawer `width`, and static `message.success`
+
+### Docs
+- Package billing duration notes (`docs/notes/features-billing.md`, API, dashboard)
+
 ## [0.93.0] — 2026-10-29
 
 ### Added
@@ -14,6 +36,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - After diner web or Partner Hub sign-in, a preparing screen (illustration, status messages, and progress) replaces the blank white page and “Signed in” toast while the session and landing page load
 - Partner plan switch “right away” charges the **full** new monthly price (not a leftover-period difference) and starts a new billing period; unused time on the current plan is not credited. Waiting until period end still costs $0 today.
+
+### Fixed
+- Switching plans during a free trial no longer fails with a payment-provider error (trial ends so paid billing can start today)
+- Superadmin paid-period start on a restaurant that already has a Stripe billing date can put it back on trial until the chosen first-charge day
 
 ### Docs
 - Billing fail-to-pay ladder, paid-period start, and full-price plan switch notes (`docs/notes/features-billing.md`, API, dashboard)

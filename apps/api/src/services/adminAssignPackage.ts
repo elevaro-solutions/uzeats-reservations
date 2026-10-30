@@ -1,3 +1,4 @@
+import { addPlanDuration } from '@reservations/shared';
 import { Subscription, type SubscriptionDocument } from '../models/Subscription.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { getEffectivePlan } from './platformConfig.js';
@@ -5,24 +6,23 @@ import { updateStripeSubscription } from './stripe.js';
 import { createRestaurantSubscription } from './restaurantSubscription.js';
 import { logAudit } from './audit.js';
 
-const MONTH_MS = 30 * 86_400_000;
-
 export function computeExtendedBillingPeriod(input: {
   now?: Date;
   currentPeriodStart?: Date | null;
   currentPeriodEnd?: Date | null;
+  durationUnit?: string | null;
+  durationCount?: number | null;
 }): { currentPeriodStart: Date; currentPeriodEnd: Date; extendedFrom: Date } {
   const now = input.now ?? new Date();
   const prevStart = input.currentPeriodStart ?? null;
   const prevEnd = input.currentPeriodEnd ?? null;
 
-  let periodMs = MONTH_MS;
-  if (prevStart && prevEnd && prevEnd.getTime() > prevStart.getTime()) {
-    periodMs = prevEnd.getTime() - prevStart.getTime();
-  }
-
   const extendedFrom = prevEnd && prevEnd.getTime() > now.getTime() ? prevEnd : now;
-  const currentPeriodEnd = new Date(extendedFrom.getTime() + periodMs);
+  const currentPeriodEnd = addPlanDuration(
+    extendedFrom,
+    input.durationUnit,
+    input.durationCount,
+  );
   const currentPeriodStart =
     prevEnd && prevEnd.getTime() > now.getTime() && prevStart ? prevStart : now;
 
@@ -79,6 +79,8 @@ export async function adminAssignRestaurantPackage(input: {
       await updateStripeSubscription(sub.stripeSubscriptionId, planDef.monthlyPriceCents, {
         prorationBehavior: 'none',
         collectPayment: false,
+        durationUnit: planDef.durationUnit,
+        durationCount: planDef.durationCount,
       });
     }
     sub.plan = planDef.key;
@@ -104,6 +106,8 @@ export async function adminAssignRestaurantPackage(input: {
     now,
     currentPeriodStart: sub.currentPeriodStart,
     currentPeriodEnd: sub.currentPeriodEnd,
+    durationUnit: planDef.durationUnit,
+    durationCount: planDef.durationCount,
   });
   sub.currentPeriodStart = extended.currentPeriodStart;
   sub.currentPeriodEnd = extended.currentPeriodEnd;

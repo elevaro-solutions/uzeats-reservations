@@ -32,6 +32,7 @@ import {
   createBlackoutInputSchema,
   restaurantPackageInputSchema,
   normalizeAnnualBillingSettings,
+  normalizePlanDuration,
   passwordSchema,
   type AnnualBillingSettings,
   isPlatformAdmin,
@@ -5293,6 +5294,8 @@ export const resolvers = {
           amountCents: number;
           originalAmountCents?: number | null;
           packageDurationMonths?: number | null;
+          packageDurationUnit?: "day" | "week" | "month" | "year" | null;
+          packageDurationCount?: number | null;
           planKey?: string | null;
           billingCycle?: "monthly" | "annual" | null;
           serviceIds?: string[] | null;
@@ -5322,6 +5325,8 @@ export const resolvers = {
           billingCycle: args.input.billingCycle,
           serviceIds: args.input.serviceIds,
           packageDurationMonths: args.input.packageDurationMonths,
+          packageDurationUnit: args.input.packageDurationUnit,
+          packageDurationCount: args.input.packageDurationCount,
           markPaid: Boolean(args.input.markPaid),
           paidJustification: args.input.paidJustification ?? null,
           forceCreate: Boolean(args.input.forceCreate),
@@ -5798,6 +5803,8 @@ export const resolvers = {
           discountPercent?: number | null;
           discountAmountCents?: number | null;
           annualFreeMonths?: number | null;
+          durationUnit?: string | null;
+          durationCount?: number | null;
           networkCoverFeeCents?: number;
           websiteCoverFeeCents?: number;
           trialDays?: number;
@@ -5844,6 +5851,12 @@ export const resolvers = {
               discountAmountCents: args.input.discountAmountCents,
               annualFreeMonths: args.input.annualFreeMonths,
               originalMonthlyPriceCents: args.input.originalMonthlyPriceCents,
+            })
+          : {}),
+        ...(args.input.durationUnit !== undefined || args.input.durationCount !== undefined
+          ? normalizePlanDuration({
+              durationUnit: args.input.durationUnit ?? existing.durationUnit,
+              durationCount: args.input.durationCount ?? existing.durationCount,
             })
           : {}),
         ...(args.input.networkCoverFeeCents !== undefined
@@ -5912,6 +5925,8 @@ export const resolvers = {
           discountPercent?: number | null;
           discountAmountCents?: number | null;
           annualFreeMonths?: number | null;
+          durationUnit?: string | null;
+          durationCount?: number | null;
           networkCoverFeeCents?: number;
           websiteCoverFeeCents?: number;
           trialDays?: number;
@@ -5945,6 +5960,10 @@ export const resolvers = {
           discountAmountCents: args.input.discountAmountCents,
           annualFreeMonths: args.input.annualFreeMonths,
           originalMonthlyPriceCents: args.input.originalMonthlyPriceCents,
+        }),
+        ...normalizePlanDuration({
+          durationUnit: args.input.durationUnit,
+          durationCount: args.input.durationCount,
         }),
         networkCoverFeeCents: args.input.networkCoverFeeCents ?? 0,
         websiteCoverFeeCents: args.input.websiteCoverFeeCents ?? 0,

@@ -4,6 +4,12 @@
  */
 
 import {
+  addPlanDuration,
+  formatPlanDuration,
+  resolveInvoiceDuration,
+  type PlanDurationUnit,
+} from '@reservations/shared';
+import {
   TABLEVERA_LOGO_WHITE_HEIGHT,
   TABLEVERA_LOGO_WHITE_JPEG,
   TABLEVERA_LOGO_WHITE_WIDTH,
@@ -33,6 +39,8 @@ export type InvoicePdfInput = {
   paidAt?: Date | string | null;
   notes?: string | null;
   packageDurationMonths?: number | null;
+  packageDurationUnit?: string | null;
+  packageDurationCount?: number | null;
   planKey?: string | null;
   billingCycle?: string | null;
   payUrl?: string | null;
@@ -117,14 +125,27 @@ function formatPhoneDisplay(phone: string) {
 export function packagePeriodRange(
   billingPeriod: string,
   durationMonths?: number | null,
+  duration?: { unit?: string | null; count?: number | null } | null,
 ): { start: Date; end: Date } | null {
-  if (!durationMonths || durationMonths < 1) return null;
+  const resolved = resolveInvoiceDuration({
+    packageDurationUnit: duration?.unit,
+    packageDurationCount: duration?.count,
+    packageDurationMonths: durationMonths,
+  });
+  if (!resolved) return null;
   const [ys, ms] = billingPeriod.split('-');
   const year = Number(ys);
   const month = Number(ms);
   if (!year || !month || month < 1 || month > 12) return null;
   const start = new Date(Date.UTC(year, month - 1, 1));
-  const end = new Date(Date.UTC(year, month - 1 + durationMonths, 0));
+  if (resolved.durationUnit === 'month' || resolved.durationUnit === 'year') {
+    const months =
+      resolved.durationUnit === 'year' ? resolved.durationCount * 12 : resolved.durationCount;
+    const end = new Date(Date.UTC(year, month - 1 + months, 0));
+    return { start, end };
+  }
+  const exclusiveEnd = addPlanDuration(start, resolved.durationUnit as PlanDurationUnit, resolved.durationCount);
+  const end = new Date(exclusiveEnd.getTime() - 86_400_000);
   return { start, end };
 }
 
@@ -190,7 +211,11 @@ export function renderBrandedInvoicePdf(invoice: InvoicePdfInput): string {
   const currency = invoice.currency || 'usd';
   const billTo = invoice.restaurantName || 'Restaurant';
   const address = invoice.restaurantAddress?.trim() || '';
-  const packageRange = packagePeriodRange(invoice.billingPeriod, invoice.packageDurationMonths);
+  const packageDuration = resolveInvoiceDuration(invoice);
+  const packageRange = packagePeriodRange(invoice.billingPeriod, invoice.packageDurationMonths, {
+    unit: invoice.packageDurationUnit,
+    count: invoice.packageDurationCount,
+  });
   const links: LinkAnnot[] = [];
 
   const ops: string[] = [];
@@ -230,7 +255,9 @@ export function renderBrandedInvoicePdf(invoice: InvoicePdfInput): string {
   const packageBits = [
     invoice.planKey ? `Plan ${invoice.planKey}` : null,
     invoice.billingCycle || null,
-    invoice.packageDurationMonths ? `${invoice.packageDurationMonths} mo package` : null,
+    packageDuration
+      ? `${formatPlanDuration(packageDuration.durationUnit, packageDuration.durationCount)} package`
+      : null,
   ]
     .filter(Boolean)
     .join(' | ');

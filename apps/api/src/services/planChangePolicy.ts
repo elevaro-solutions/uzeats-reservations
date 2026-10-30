@@ -22,6 +22,8 @@ export type PlanSnapshot = {
   monthlyPriceCents: number;
   networkCoverFeeCents: number;
   websiteCoverFeeCents: number;
+  durationUnit?: string;
+  durationCount?: number;
   features: PlanFeatures;
 };
 

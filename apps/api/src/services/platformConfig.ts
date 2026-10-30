@@ -2,6 +2,7 @@ import type { UserRole } from '@reservations/shared';
 import {
   resolvePlanPricing,
   normalizeAnnualBillingSettings,
+  normalizePlanDuration,
   resolveCancellationPeriodHours,
   DEFAULT_NO_SHOW_MARKING_MODE,
   DEFAULT_PLATFORM_HOLIDAYS,
@@ -12,6 +13,7 @@ import {
   type AnnualBillingSettings,
   type NoShowMarkingMode,
   type PlanDiscountType,
+  type PlanDurationUnit,
   type PlatformHolidayDef,
   type SmsBillingConfig,
   type SmsBillingInput,
@@ -78,6 +80,9 @@ export type EffectivePlan = {
   isCustom: boolean;
   /** Public pricing card “Includes” lines. */
   highlights: string[];
+  /** Billing interval. Built-ins are 1 month. */
+  durationUnit: PlanDurationUnit;
+  durationCount: number;
   features: PlanFeatures;
 };
 
@@ -96,6 +101,8 @@ export type PlanOverrideFields = {
   managerSeats?: number;
   visibleOnPricing?: boolean;
   highlights?: string[] | null;
+  durationUnit?: PlanDurationUnit | string | null;
+  durationCount?: number | null;
   features?: Record<string, boolean> | Map<string, boolean>;
 };
 
@@ -294,6 +301,10 @@ function mapOverrideToPlan(
     highlights: Array.isArray(override?.highlights)
       ? sanitizePlanHighlights(override.highlights)
       : [...(DEFAULT_PLAN_HIGHLIGHTS[key] ?? [])],
+    ...normalizePlanDuration({
+      durationUnit: override?.durationUnit,
+      durationCount: override?.durationCount,
+    }),
     features: mergeFeatures(base?.features ?? emptyFeatures(), override?.features),
   };
 }

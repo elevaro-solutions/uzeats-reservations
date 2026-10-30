@@ -6,6 +6,9 @@ import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { Button, Card, Col, Form, Row, Select, Space, Typography, message } from 'antd';
 import { StatCard, StatusTag, spacing } from '@reservations/ui';
 import {
+  formatPlanPriceSuffix,
+} from '@reservations/shared';
+import {
   PlanSelector,
   RESTAURANT_STATUS_OPTIONS,
   type AdminRestaurantRecord,
@@ -21,6 +24,8 @@ type PlanInfo = {
   monthlyPriceCents?: number;
   trialDays?: number;
   annualFreeMonths?: number;
+  durationUnit?: string | null;
+  durationCount?: number | null;
   visibleOnPricing?: boolean | null;
 };
 
@@ -72,6 +77,11 @@ export function AdminRestaurantPackagePanel({
 
   const plans = (plansData?.plans ?? []) as PlanInfo[];
   const sub = restaurant.subscription;
+  const currentPlan = plans.find((p) => p.key === sub?.plan);
+  const priceSuffix = formatPlanPriceSuffix(currentPlan?.durationUnit, currentPlan?.durationCount).replace(
+    ' / ',
+    '/',
+  );
 
   useEffect(() => {
     setSelectedPlan(restaurant.subscription?.plan);
@@ -140,7 +150,11 @@ export function AdminRestaurantPackagePanel({
           <StatCard
             label="Current plan"
             value={sub?.plan ? String(sub.plan).toUpperCase() : 'None'}
-            hint={sub ? `${statusLabel(sub.status)} · ${money(sub.monthlyPriceCents)}/mo` : 'No package assigned'}
+            hint={
+              sub
+                ? `${statusLabel(sub.status)} · ${money(sub.monthlyPriceCents)}${priceSuffix}`
+                : 'No package assigned'
+            }
             hintTone={sub?.status === 'active' || sub?.status === 'trialing' ? 'positive' : 'neutral'}
           />
         </Col>
@@ -176,8 +190,8 @@ export function AdminRestaurantPackagePanel({
 
       <Card title="Change package">
         <Text type="secondary" style={{ display: 'block', marginBottom: spacing.md }}>
-          Changing the package extends the billing period by one cycle from the later of today or
-          the current end date.
+          Changing the package extends the billing period by that package’s duration from the later
+          of today or the current end date.
         </Text>
         <Form layout="vertical">
           <Form.Item label="Package" required style={{ marginBottom: spacing.md }}>

@@ -14,6 +14,8 @@ describe('plan catalog', () => {
       name: 'Starter',
       monthlyPriceCents: 3900,
       isCustom: false,
+      durationUnit: 'month',
+      durationCount: 1,
     });
 
     const catalog = visiblePlans(all, new Set(['basic']));
@@ -29,6 +31,31 @@ describe('plan catalog', () => {
     expect(catalog.find((plan) => plan.key === 'launch')).toMatchObject({
       name: 'Launch',
       visibleOnPricing: false,
+      durationUnit: 'month',
+      durationCount: 1,
+    });
+
+    const customDuration = assemblePlans({
+      sprint: {
+        name: 'Sprint',
+        monthlyPriceCents: 2900,
+        durationUnit: 'day',
+        durationCount: 14,
+      },
+      biweekly: {
+        name: 'Biweekly',
+        monthlyPriceCents: 1900,
+        durationUnit: 'week',
+        durationCount: 2,
+      },
+    });
+    expect(customDuration.find((plan) => plan.key === 'sprint')).toMatchObject({
+      durationUnit: 'day',
+      durationCount: 14,
+    });
+    expect(customDuration.find((plan) => plan.key === 'biweekly')).toMatchObject({
+      durationUnit: 'week',
+      durationCount: 2,
     });
   });
 

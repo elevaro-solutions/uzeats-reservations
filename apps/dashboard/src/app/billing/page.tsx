@@ -5,6 +5,7 @@ import { useMutation, useQuery, useLazyQuery } from '@/lib/apollo-hooks';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Alert,
+  App,
   Badge,
   Button,
   Card,
@@ -20,7 +21,6 @@ import {
   Switch,
   Tag,
   Typography,
-  message,
 } from 'antd';
 import {
   AppstoreOutlined,
@@ -40,7 +40,11 @@ import {
   TeamOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { getPlanDiscountLabel, type FailToPayStage } from '@reservations/shared';
+import {
+  formatPlanPriceSuffix,
+  getPlanDiscountLabel,
+  type FailToPayStage,
+} from '@reservations/shared';
 import { BillingEnforcementBanner } from '@/components/BillingEnforcementBanner';
 import {
   EmptyState,
@@ -154,6 +158,8 @@ type PlanRecord = {
   discountPercent?: number | null;
   discountAmountCents?: number | null;
   annualFreeMonths?: number | null;
+  durationUnit?: string | null;
+  durationCount?: number | null;
 };
 
 function formatCents(cents: number) {
@@ -639,6 +645,7 @@ function InvoiceListRow({
 }
 
 export default function BillingPage() {
+  const { message } = App.useApp();
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1279,7 +1286,7 @@ export default function BillingPage() {
               <Alert
                 type="warning"
                 showIcon
-                message={`${formatCents(amountDueNow)} due now`}
+                title={`${formatCents(amountDueNow)} due now`}
                 description="Full monthly price for switching plans — pay to keep this plan for the new billing period."
                 action={
                   canEditBilling ? (
@@ -1348,7 +1355,7 @@ export default function BillingPage() {
                         menu={{
                           items: switchablePlans.map((p) => ({
                             key: p.key,
-                            label: `${p.name} — ${formatCents(p.monthlyPriceCents)}/mo`,
+                            label: `${p.name} — ${formatCents(p.monthlyPriceCents)}${formatPlanPriceSuffix(p.durationUnit, p.durationCount).replace(' / ', '/')}`,
                             onClick: () => void handleChangePlan(p.key),
                           })),
                         }}
@@ -1404,7 +1411,7 @@ export default function BillingPage() {
                       <CheckCircleOutlined />
                     )
                   }
-                  message={planStory}
+                  title={planStory}
                   style={{ marginBottom: spacing.md }}
                 />
               ) : null}
@@ -1627,7 +1634,7 @@ export default function BillingPage() {
                   : 'Invoice'
               }
               placement="right"
-              width={520}
+              size={520}
               open={Boolean(selectedInvoiceId)}
               onClose={closeInvoice}
               destroyOnHidden
@@ -1723,7 +1730,7 @@ export default function BillingPage() {
                 type="info"
                 showIcon
                 style={{ marginBottom: 8 }}
-                message="Subscription cancelled"
+                title="Subscription cancelled"
                 description={`Your previous ${planDisplayName} plan has ended. This location is inactive and hidden from public search and booking until you choose a plan below. Re-subscribing replaces the cancelled subscription.`}
               />
             ) : (
@@ -1860,12 +1867,12 @@ export default function BillingPage() {
               header: { color: colors.error },
             }}
           >
-            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+            <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
               {hasPlatformDebt ? (
                 <Alert
                   type="warning"
                   showIcon
-                  message="Outstanding platform balance"
+                  title="Outstanding platform balance"
                   description={
                     <>
                       Pay all open invoices and any subscription balance before deleting this
@@ -2007,7 +2014,7 @@ export default function BillingPage() {
                 <Alert
                   type="info"
                   showIcon
-                  message={`Charged ${formatCents(planChange.nextMonthlyPriceCents)} today`}
+                  title={`Charged ${formatCents(planChange.nextMonthlyPriceCents)} today`}
                   description={
                     planChange.clearsCancel
                       ? `Full monthly price for ${planChange.planName}. A new billing period starts today. This also clears the scheduled cancellation.`
@@ -2046,12 +2053,21 @@ export default function BillingPage() {
               trialDays={0}
               description={`Pay ${formatCents(upgradePayment.amountDueCents)} now (full monthly price). Recurring ${upgradePayment.monthlyLabel}/mo starts a new billing period today.`}
               onSuccess={() => {
-                if (activeRestaurantId) {
-                  void confirmPlanPayment({ variables: { restaurantId: activeRestaurantId } });
-                }
-                setUpgradePayment(null);
-                message.success('Payment received');
-                refetchSub();
+                void (async () => {
+                  if (!activeRestaurantId) return;
+                  try {
+                    await confirmPlanPayment({
+                      variables: { restaurantId: activeRestaurantId },
+                    });
+                    setUpgradePayment(null);
+                    message.success('Payment received');
+                    await refetchSub();
+                  } catch (err: unknown) {
+                    message.error(
+                      err instanceof Error ? err.message : 'Could not confirm payment',
+                    );
+                  }
+                })();
               }}
             />
           ) : null}
@@ -2073,7 +2089,7 @@ export default function BillingPage() {
           }}
           destroyOnHidden
         >
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
             <Paragraph style={{ marginBottom: 0 }}>
               This permanently deletes <Text strong>{venueName || 'this restaurant'}</Text> and
               all related records. Type the restaurant name to confirm.

@@ -73,6 +73,8 @@ type PlanOption = {
     discountPercent?: number | null;
     discountAmountCents?: number | null;
     annualFreeMonths?: number | null;
+    durationUnit?: string | null;
+    durationCount?: number | null;
   };
 };
 
@@ -184,6 +186,8 @@ function RegisterForm() {
       discountPercent?: number | null;
       discountAmountCents?: number | null;
       annualFreeMonths?: number | null;
+      durationUnit?: string | null;
+      durationCount?: number | null;
       trialDays: number;
       visibleOnPricing?: boolean;
     }>;
@@ -203,6 +207,8 @@ function RegisterForm() {
               discountPercent: p.discountPercent,
               discountAmountCents: p.discountAmountCents,
               annualFreeMonths: p.annualFreeMonths,
+              durationUnit: p.durationUnit,
+              durationCount: p.durationCount,
             },
           }));
         })()

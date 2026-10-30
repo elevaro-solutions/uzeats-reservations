@@ -23,6 +23,9 @@ const planOverrideSchema = new Schema(
     visibleOnPricing: { type: Boolean, default: true },
     /** Public pricing card “Includes” lines. Absent means built-in defaults. */
     highlights: { type: [String], default: undefined },
+    /** Billing interval. Default 1 month. */
+    durationUnit: { type: String, enum: ['day', 'week', 'month', 'year'], default: 'month' },
+    durationCount: { type: Number, min: 1, max: 365, default: 1 },
     features: { type: Schema.Types.Mixed },
   },
   { _id: false },

@@ -233,7 +233,7 @@ export function VirtualRoomAddonCard({
             style={{ marginTop: 12 }}
             type={status.enabled ? 'warning' : 'info'}
             showIcon
-            message={status.ineligibleReason}
+            title={status.ineligibleReason}
             description={
               status.enabled
                 ? 'The add-on is paused and not billed until your plan qualifies again.'

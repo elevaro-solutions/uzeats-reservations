@@ -13,6 +13,7 @@ export * from './schemas.js';
 export * from './restaurantCuisines.js';
 export * from './sanitizeHtml.js';
 export * from './planPricing.js';
+export * from './planDuration.js';
 export * from './annualBilling.js';
 export * from './loyalty.js';
 export * from './restaurantLoyalty.js';

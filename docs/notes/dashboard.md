@@ -1,5 +1,14 @@
 # Dashboard — Learnings & Observations
 
+## [2026-10-30] QA checklist catalog is v0.94.0
+- `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.94.0`. Testers use Admin Plans & pricing for custom duration, Admin Invoices for the duration picker, restaurant Package for assign/switch period, diner `/pricing` for suffixes, and owner Billing Pay now.
+- Why it matters: Do not re-test v0.93.0 fail-to-pay / paid-period items on this gate. Older sign-off stays on that version’s row and Versions.
+
+## [2026-10-30] Billing Pay now: stub secrets vs Stripe Elements
+- Ant Design 6: Alert `message` is `title`; Drawer `width` is `size` (numeric size still works).
+- `SignupPaymentForm` must not pass `pi_dev_*` / `_secret_dev` client secrets to Stripe Elements. A real publishable key plus a stub secret throws `IntegrationError` (`clientSecret should be of the form ${id}_secret_${secret}`). Treat stubs as demo mode, same as diner invoice pay.
+- Why it matters: `getPlanChangePayment` fabricates stub secrets when amount is due but Stripe has no open invoice PI.
+
 ## [2026-10-29] QA checklist catalog is v0.93.0
 - `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.93.0`. Testers use Super Admin restaurant Package for paid-period start, a disposable venue + Admin Invoices for the fail-to-pay ladder, owner Billing for plan-switch full price and pay-to-restore, and diner/Partner Hub login for the preparing screen.
 - Why it matters: Do not re-test v0.92.0 pricing/SEO items on this gate. Older sign-off stays on that version’s row and Versions.
@@ -277,6 +286,12 @@
 ## [2026-10-01] Host sider + search filter
 - `filterPagesForUser(..., { role })` + `DashShell` redirect use `HOST_ALLOWED_PATH_PREFIXES`. Hosts bounce from `/` and forbidden routes to `/reservations`. ⌘K search receives the same `role` so hosts cannot jump to Settings via search.
 - Why it matters: Nav hide alone is not enough — deep links and search must enforce the same allowlist.
+
+## [2026-10-29] Package duration is number + day/week/month/year
+
+- Admin Plans & pricing: Billing duration compact control (count + unit) on create and edit. Price label follows the duration (`Monthly price` vs `Price per 14 days`).
+- Manual invoice: duration fields default from the selected plan. Annual still locks to 12 months only for standard monthly packages.
+- Why it matters: Hidden/custom packages used for short trials or quarterly deals need a duration other than 1 month.
 
 ## [2026-09-29] Stripe environment switcher is super-admin
 - `/admin/config` → Billing: Sandbox / Production `Segmented` (`stripeMode`). Non–super-admins see it disabled; saves omit the field. Mutation is super-admin only and requires the target mode’s secret keys to be configured.

@@ -1126,6 +1126,13 @@ export const typeDefs = `#graphql
     annual_months_free
   }
 
+  enum PlanDurationUnit {
+    day
+    week
+    month
+    year
+  }
+
   type PlanInfo {
     key: String!
     name: String!
@@ -1136,6 +1143,9 @@ export const typeDefs = `#graphql
     discountPercent: Int
     discountAmountCents: Int
     annualFreeMonths: Int
+    """Price covers this many duration units (e.g. 3 months, 14 days). Default 1 month."""
+    durationUnit: PlanDurationUnit!
+    durationCount: Int!
     networkCoverFeeCents: Int!
     websiteCoverFeeCents: Int!
     trialDays: Int!
@@ -1596,6 +1606,8 @@ export const typeDefs = `#graphql
     canceledAt: DateTime
     notes: String
     packageDurationMonths: Int
+    packageDurationUnit: PlanDurationUnit
+    packageDurationCount: Int
     planKey: String
     billingCycle: InvoiceBillingCycle
     serviceIds: [ID!]!
@@ -1660,6 +1672,8 @@ export const typeDefs = `#graphql
     amountCents: Int!
     originalAmountCents: Int
     packageDurationMonths: Int
+    packageDurationUnit: PlanDurationUnit
+    packageDurationCount: Int
     planKey: String
     billingCycle: InvoiceBillingCycle
     serviceIds: [ID!]
@@ -2516,6 +2530,8 @@ export const typeDefs = `#graphql
     discountPercent: Int
     discountAmountCents: Int
     annualFreeMonths: Int
+    durationUnit: PlanDurationUnit
+    durationCount: Int
     networkCoverFeeCents: Int
     websiteCoverFeeCents: Int
     trialDays: Int
@@ -2534,6 +2550,8 @@ export const typeDefs = `#graphql
     discountPercent: Int
     discountAmountCents: Int
     annualFreeMonths: Int
+    durationUnit: PlanDurationUnit
+    durationCount: Int
     networkCoverFeeCents: Int
     websiteCoverFeeCents: Int
     trialDays: Int

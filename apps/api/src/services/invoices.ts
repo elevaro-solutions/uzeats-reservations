@@ -1,10 +1,15 @@
 import crypto from 'crypto';
 import { Types } from 'mongoose';
 import {
+  durationToLegacyMonths,
+  formatPlanDuration,
   getPlanPriceDisplay,
   invoiceStatusFromDaysPastDue,
   isEnforcementFeeLineKind,
+  isStandardMonthlyDuration,
+  normalizePlanDuration,
   planForBillingPeriod,
+  resolveInvoiceDuration,
   utcCalendarDaysBetween,
   type BillingPeriod,
 } from '@reservations/shared';
@@ -196,6 +201,7 @@ export function mapInvoice(doc: any, restaurantName?: string) {
     doc.originalTotalCents != null ? doc.originalTotalCents : null;
   const totalCents = doc.totalCents ?? 0;
   const payToken = doc.payToken ?? null;
+  const packageDuration = resolveInvoiceDuration(doc);
   return {
     id: doc._id.toString(),
     number: doc.number,
@@ -225,6 +231,8 @@ export function mapInvoice(doc: any, restaurantName?: string) {
     canceledAt: doc.canceledAt ?? null,
     notes: doc.notes ?? null,
     packageDurationMonths: doc.packageDurationMonths ?? null,
+    packageDurationUnit: packageDuration?.durationUnit ?? null,
+    packageDurationCount: packageDuration?.durationCount ?? null,
     planKey: doc.planKey ?? null,
     billingCycle: doc.billingCycle ?? null,
     serviceIds: (doc.serviceIds ?? []).map((id: any) => id.toString()),
@@ -289,10 +297,6 @@ function parseDueDate(value: Date | string) {
   return dueDate;
 }
 
-function durationLabel(months: number) {
-  return months === 1 ? '1 month' : `${months} months`;
-}
-
 async function resolvePlanCatalogPrice(
   planKey: string,
   billingCycle: BillingPeriod,
@@ -300,12 +304,16 @@ async function resolvePlanCatalogPrice(
   amountCents: number;
   originalCents: number;
   description: string;
-  durationMonths: number;
+  durationUnit: 'day' | 'week' | 'month' | 'year';
+  durationCount: number;
 }> {
   const plan = await getEffectivePlan(planKey);
   if (!plan) throw new ValidationError(`Unknown plan: ${planKey}`);
   const annualBilling = await getAnnualBillingSettings();
-  const priced = planForBillingPeriod(plan, billingCycle, {
+  const standardMonthly = isStandardMonthlyDuration(plan.durationUnit, plan.durationCount);
+  const cycle: BillingPeriod =
+    billingCycle === 'annual' && standardMonthly ? 'annual' : 'monthly';
+  const priced = planForBillingPeriod(plan, cycle, {
     annualBilling,
     planKey: plan.key,
   });
@@ -315,13 +323,20 @@ async function resolvePlanCatalogPrice(
     display.originalCents != null && display.originalCents > amountCents
       ? display.originalCents
       : amountCents;
-  const durationMonths = billingCycle === 'annual' ? 12 : 1;
-  const cycleLabel = billingCycle === 'annual' ? 'annual' : 'monthly';
+  const duration =
+    cycle === 'annual'
+      ? normalizePlanDuration({ durationUnit: 'month', durationCount: 12 })
+      : normalizePlanDuration(plan);
+  const cycleLabel =
+    cycle === 'annual'
+      ? 'annual'
+      : formatPlanDuration(duration.durationUnit, duration.durationCount);
   return {
     amountCents,
     originalCents,
     description: `${plan.name} plan (${cycleLabel})`,
-    durationMonths,
+    durationUnit: duration.durationUnit,
+    durationCount: duration.durationCount,
   };
 }
 
@@ -332,6 +347,8 @@ export async function createManualInvoice(input: {
   amountCents: number;
   originalAmountCents?: number | null;
   packageDurationMonths?: number | null;
+  packageDurationUnit?: 'day' | 'week' | 'month' | 'year' | null;
+  packageDurationCount?: number | null;
   planKey?: string | null;
   billingCycle?: 'monthly' | 'annual' | null;
   serviceIds?: string[] | null;
@@ -424,10 +441,11 @@ export async function createManualInvoice(input: {
   };
   const lines: Line[] = [];
   let catalogTotal = 0;
-  let packageDurationMonths =
-    input.packageDurationMonths != null
-      ? Math.round(Number(input.packageDurationMonths))
-      : null;
+  let packageDuration = resolveInvoiceDuration({
+    packageDurationUnit: input.packageDurationUnit,
+    packageDurationCount: input.packageDurationCount,
+    packageDurationMonths: input.packageDurationMonths,
+  });
 
   if (planKey) {
     const cycle = billingCycle ?? 'monthly';
@@ -441,8 +459,11 @@ export async function createManualInvoice(input: {
         planLine.originalCents > planLine.amountCents ? planLine.originalCents : undefined,
     });
     catalogTotal += planLine.originalCents;
-    if (packageDurationMonths == null || packageDurationMonths < 1) {
-      packageDurationMonths = planLine.durationMonths;
+    if (!packageDuration) {
+      packageDuration = {
+        durationUnit: planLine.durationUnit,
+        durationCount: planLine.durationCount,
+      };
     }
   }
 
@@ -463,10 +484,9 @@ export async function createManualInvoice(input: {
   }
 
   if (!lines.length) {
-    const duration =
-      packageDurationMonths && packageDurationMonths >= 1
-        ? durationLabel(packageDurationMonths)
-        : null;
+    const duration = packageDuration
+      ? formatPlanDuration(packageDuration.durationUnit, packageDuration.durationCount)
+      : null;
     const description =
       input.description?.trim() ||
       `Custom invoice - ${period}${duration ? ` (${duration})` : ''}`;
@@ -479,8 +499,14 @@ export async function createManualInvoice(input: {
     catalogTotal = amountCents;
   }
 
-  if (packageDurationMonths != null && packageDurationMonths < 1) {
-    throw new ValidationError('packageDurationMonths must be at least 1');
+  const packageDurationMonths = packageDuration
+    ? durationToLegacyMonths(packageDuration.durationUnit, packageDuration.durationCount)
+    : null;
+  if (
+    (input.packageDurationMonths != null && Number(input.packageDurationMonths) < 1) ||
+    (input.packageDurationCount != null && Number(input.packageDurationCount) < 1)
+  ) {
+    throw new ValidationError('package duration must be at least 1');
   }
 
   const originalFromInput =
@@ -509,6 +535,8 @@ export async function createManualInvoice(input: {
     existing.canceledAt = undefined;
     existing.notes = notes;
     existing.packageDurationMonths = packageDurationMonths ?? undefined;
+    existing.packageDurationUnit = packageDuration?.durationUnit;
+    existing.packageDurationCount = packageDuration?.durationCount;
     existing.planKey = planKey ?? undefined;
     existing.billingCycle = billingCycle ?? undefined;
     existing.serviceIds = serviceIds.map((id) => new Types.ObjectId(id));
@@ -555,6 +583,8 @@ export async function createManualInvoice(input: {
     paidAt: markPaid ? new Date() : undefined,
     notes,
     packageDurationMonths: packageDurationMonths ?? undefined,
+    packageDurationUnit: packageDuration?.durationUnit,
+    packageDurationCount: packageDuration?.durationCount,
     planKey: planKey ?? undefined,
     billingCycle: billingCycle ?? undefined,
     serviceIds,
@@ -1038,6 +1068,8 @@ async function buildInvoicePdf(
     paidAt: invoice.paidAt,
     notes: invoice.notes,
     packageDurationMonths: invoice.packageDurationMonths,
+    packageDurationUnit: invoice.packageDurationUnit,
+    packageDurationCount: invoice.packageDurationCount,
     planKey: invoice.planKey,
     billingCycle: invoice.billingCycle,
     payUrl: invoice.payUrl,

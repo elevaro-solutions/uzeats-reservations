@@ -19,9 +19,11 @@ import { AppStoreBadges, StarRating } from '@reservations/ui';
 import {
   annualBillingAppliesToPlan,
   formatPlanDollars,
+  formatPlanDuration,
   getAnnualSavingsPercentFromSettings,
   getPlanDiscountLabel,
   getPlanPriceDisplay,
+  isStandardMonthlyDuration,
   normalizeAnnualBillingSettings,
   planForBillingPeriod,
   type AnnualBillingSettings,
@@ -222,6 +224,8 @@ type ApiPlan = {
   discountPercent?: number | null;
   discountAmountCents?: number | null;
   annualFreeMonths?: number | null;
+  durationUnit?: string | null;
+  durationCount?: number | null;
   networkCoverFeeCents: number;
   websiteCoverFeeCents: number;
   trialDays: number;
@@ -370,8 +374,11 @@ function getFinePrint(
   plan: ApiPlan,
   billingPeriod: BillingPeriod,
 ): string {
+  const durationLabel = formatPlanDuration(plan.durationUnit, plan.durationCount);
+  const standardMonthly = isStandardMonthlyDuration(plan.durationUnit, plan.durationCount);
   if (
     billingPeriod === 'annual' &&
+    standardMonthly &&
     display.annualDiscountedCents != null &&
     display.annualFullCents != null
   ) {
@@ -382,7 +389,11 @@ function getFinePrint(
       display.primarySuffix === ' / first month'
         ? formatPlanDollars(plan.monthlyPriceCents)
         : formatPlanDollars(display.primaryCents);
-    return `${plan.trialDays}-day free trial, then ${afterTrial}/mo. Cancel anytime.`;
+    const suffix = standardMonthly ? '/mo' : ` per ${durationLabel}`;
+    return `${plan.trialDays}-day free trial, then ${afterTrial}${suffix}. Cancel anytime.`;
+  }
+  if (!standardMonthly) {
+    return `Billed every ${durationLabel}. Cancel anytime.`;
   }
   return 'Month-to-month billing. Cancel anytime.';
 }

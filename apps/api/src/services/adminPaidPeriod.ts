@@ -1,13 +1,13 @@
+import { addPlanDuration } from '@reservations/shared';
 import { Subscription, type SubscriptionDocument } from '../models/Subscription.js';
 import { Restaurant } from '../models/Restaurant.js';
 import { logAudit } from './audit.js';
-import { updateStripePaidPeriodStart } from './stripe.js';
+import { cancelStripeSubscription, updateStripePaidPeriodStart } from './stripe.js';
+import { getEffectivePlan } from './platformConfig.js';
 import { NotFoundError, ValidationError } from '../lib/errors.js';
 
 export function addOneCalendarMonth(from: Date): Date {
-  const end = new Date(from.getTime());
-  end.setMonth(end.getMonth() + 1);
-  return end;
+  return addPlanDuration(from, 'month', 1);
 }
 
 export type PaidPeriodComputation = {
@@ -28,6 +28,8 @@ export function computePaidPeriodFromStart(input: {
   now?: Date;
   currentPeriodStart?: Date | null;
   status: string;
+  durationUnit?: string | null;
+  durationCount?: number | null;
 }): PaidPeriodComputation {
   const now = input.now ?? new Date();
   const start = input.paidPeriodStart;
@@ -46,7 +48,7 @@ export function computePaidPeriodFromStart(input: {
   const status = input.status === 'trialing' ? 'active' : input.status;
   return {
     currentPeriodStart: start,
-    currentPeriodEnd: addOneCalendarMonth(start),
+    currentPeriodEnd: addPlanDuration(start, input.durationUnit, input.durationCount),
     trialEndsAt: start,
     status,
     paidPeriodHasStarted: true,
@@ -86,19 +88,34 @@ export async function adminSetSubscriptionPaidPeriodStart(input: {
     currentPeriodEnd: sub.currentPeriodEnd?.toISOString() ?? null,
     trialEndsAt: sub.trialEndsAt?.toISOString() ?? null,
   };
+  const planDef = await getEffectivePlan(sub.plan);
   const next = computePaidPeriodFromStart({
     paidPeriodStart: input.paidPeriodStart,
     now,
     currentPeriodStart: sub.currentPeriodStart,
     status: sub.status,
+    durationUnit: planDef?.durationUnit,
+    durationCount: planDef?.durationCount,
   });
 
   const wasTrialing = sub.status === 'trialing';
+  let replacedStripeSubscriptionId: string | undefined;
   if (sub.stripeSubscriptionId) {
-    await updateStripePaidPeriodStart(sub.stripeSubscriptionId, input.paidPeriodStart, {
-      now,
-      currentlyTrialing: wasTrialing,
-    });
+    const stripeResult = await updateStripePaidPeriodStart(
+      sub.stripeSubscriptionId,
+      input.paidPeriodStart,
+      {
+        now,
+        currentlyTrialing: wasTrialing,
+      },
+    );
+    if (stripeResult?.previousSubscriptionId && stripeResult.id !== sub.stripeSubscriptionId) {
+      replacedStripeSubscriptionId = stripeResult.previousSubscriptionId;
+      sub.stripeSubscriptionId = stripeResult.id;
+      // Persist the new id before canceling so a Stripe `deleted` webhook cannot
+      // match the old id and mark this restaurant cancelled.
+      await sub.save();
+    }
   }
 
   sub.currentPeriodStart = next.currentPeriodStart;
@@ -115,6 +132,10 @@ export async function adminSetSubscriptionPaidPeriodStart(input: {
   }
 
   await sub.save();
+
+  if (replacedStripeSubscriptionId) {
+    await cancelStripeSubscription(replacedStripeSubscriptionId);
+  }
 
   await logAudit({
     actorId: input.actorId,

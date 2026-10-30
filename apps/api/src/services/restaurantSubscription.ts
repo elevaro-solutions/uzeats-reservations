@@ -1,3 +1,4 @@
+import { addPlanDuration } from '@reservations/shared';
 import { Subscription, type SubscriptionDocument } from '../models/Subscription.js';
 import { getEffectivePlan } from './platformConfig.js';
 import {
@@ -67,6 +68,8 @@ export async function createRestaurantSubscription(input: {
     trialDays: planDef.trialDays || undefined,
     metadata: { restaurantId: input.restaurantId, plan: planKey },
     collectPaymentMethod,
+    durationUnit: planDef.durationUnit,
+    durationCount: planDef.durationCount,
   });
 
   const fields = {
@@ -80,7 +83,7 @@ export async function createRestaurantSubscription(input: {
       : new Date(),
     currentPeriodEnd: stripeSub.current_period_end
       ? new Date(stripeSub.current_period_end * 1000)
-      : new Date(Date.now() + 30 * 86_400_000),
+      : addPlanDuration(new Date(), planDef.durationUnit, planDef.durationCount),
     trialEndsAt: stripeSub.trial_end ? new Date(stripeSub.trial_end * 1000) : undefined,
     amountDueCents: 0,
     monthlyPriceCents: planDef.monthlyPriceCents,

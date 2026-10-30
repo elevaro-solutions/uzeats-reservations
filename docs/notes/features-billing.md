@@ -48,6 +48,19 @@ Days 0 (`invoice_ready` / invoice email), 1, 3, 7 (reminder), 8 (overdue), 13, 1
 
 Pay the undisputed amount on time. Admin credits change the remaining total; the clock follows whatever is still unpaid. A dispute does not freeze the ladder unless an admin pauses it.
 
+## [2026-10-30] Plan-change stub secrets are not Stripe Elements secrets
+- `getPlanChangePayment` must expand `latest_invoice.confirmation_secret` (Stripe basil). If there is still no secret, collect a card via SetupIntent instead of fabricating `pi_dev_*_secret_dev`.
+- Partner Hub `SignupPaymentForm` must skip Elements for remaining stubs (`pi_dev_*` / `_secret_dev`). Passing them with a live publishable key throws Stripe `IntegrationError`.
+- Why it matters: Local `amountDueCents` plus a real publishable key used to crash Pay now. Demo continue is only for true stubs.
+
+## [2026-10-29] Plan packages have a billing duration, not only monthly
+
+- `durationUnit` (`day` | `week` | `month` | `year`) + `durationCount` on plan overrides / `PlanInfo`. Built-ins default to 1 month. Price is still stored as `monthlyPriceCents` but means **price per duration**.
+- Period math uses `addPlanDuration` (calendar months/years, exact days/weeks). Stripe recurring is clamped to a 1-year interval (`toStripeRecurring`); local `currentPeriodEnd` keeps the full duration.
+- Annual billing and first-month-free only apply to standard 1-month packages. Custom durations skip the monthly/annual toggle on public pricing.
+- Manual invoices store `packageDurationUnit` / `packageDurationCount` and keep `packageDurationMonths` for month/year only.
+- Why it matters: Do not assume every package is 30 days or 1 calendar month. Assigning a 14-day package must not extend by a month.
+
 ## [2026-10-29] Fail-to-pay ladder is persisted on the subscription
 
 - Daily billing job (after period invoices + auto-charge) assesses finance/declined fees, advances `Subscription.billingEnforcement.stage`, sends notices, unlists at day 14, restricts at day 30, and terminates at day 60.

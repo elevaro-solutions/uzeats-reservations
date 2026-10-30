@@ -157,7 +157,7 @@ export default function BillingPage() {
           }
         />
       ) : (
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <div
             style={{
               display: 'grid',
@@ -198,7 +198,7 @@ export default function BillingPage() {
               boxShadow: shadows.sm,
             }}
           >
-            <Space direction="vertical" size={0} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={0} style={{ width: '100%' }}>
               {billedReservations.map((reservation, idx) => (
                 <div
                   key={reservation.id}

@@ -204,6 +204,8 @@ type PlanOption = {
     discountPercent?: number | null;
     discountAmountCents?: number | null;
     annualFreeMonths?: number | null;
+    durationUnit?: string | null;
+    durationCount?: number | null;
   };
 };
 
@@ -672,6 +674,8 @@ export default function MyRestaurantsPage() {
       discountPercent?: number | null;
       discountAmountCents?: number | null;
       annualFreeMonths?: number | null;
+      durationUnit?: string | null;
+      durationCount?: number | null;
       trialDays: number;
       visibleOnPricing?: boolean;
       isCustom?: boolean;
@@ -691,6 +695,8 @@ export default function MyRestaurantsPage() {
               discountPercent: p.discountPercent,
               discountAmountCents: p.discountAmountCents,
               annualFreeMonths: p.annualFreeMonths,
+              durationUnit: p.durationUnit,
+              durationCount: p.durationCount,
             },
           }));
         })()

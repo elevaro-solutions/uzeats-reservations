@@ -153,6 +153,27 @@ describe('subscription cancel-at-period-end', () => {
     expect(stored!.cancelAtPeriodEnd).toBe(false);
   });
 
+  it('immediate upgrade during trial ends the trial and starts a paid period', async () => {
+    const trialEndsAt = new Date(Date.now() + 30 * 86_400_000);
+    const { owner, restaurant } = await seedSub({
+      plan: 'core',
+      status: 'trialing',
+      trialEndsAt,
+    });
+    const before = Date.now();
+    const result = await changeRestaurantPlan({
+      restaurantId: restaurant._id.toString(),
+      plan: 'pro',
+      actorId: owner._id.toString(),
+    });
+    expect(result.subscription.plan).toBe('pro');
+    expect(result.subscription.status).not.toBe('trialing');
+    expect(result.subscription.trialEndsAt!.getTime()).toBeGreaterThanOrEqual(before);
+    expect(result.subscription.trialEndsAt!.getTime()).toBeLessThanOrEqual(Date.now());
+    expect(result.amountDueCents).toBe(PLANS.pro.monthlyPriceCents);
+    expect(result.subscription.currentPeriodStart!.getTime()).toBeGreaterThanOrEqual(before);
+  });
+
   it('immediate switch charges the full new monthly price and starts a new period', async () => {
     const { owner, restaurant, periodEnd } = await seedSub({ plan: 'core' });
     const before = Date.now();

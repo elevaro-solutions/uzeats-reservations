@@ -2381,6 +2381,8 @@ export const ADMIN_INVOICES = gql`
         canceledAt
         notes
         packageDurationMonths
+        packageDurationUnit
+        packageDurationCount
         planKey
         billingCycle
         serviceIds
@@ -2418,6 +2420,8 @@ export const ADMIN_INVOICE = gql`
       canceledAt
       notes
       packageDurationMonths
+      packageDurationUnit
+      packageDurationCount
       planKey
       billingCycle
       serviceIds
@@ -2463,6 +2467,8 @@ export const CREATE_MANUAL_INVOICE = gql`
       isDiscounted
       dueDate
       packageDurationMonths
+      packageDurationUnit
+      packageDurationCount
       planKey
       billingCycle
       payUrl
@@ -3083,6 +3089,8 @@ const PLAN_PRICING_FIELDS = `
   discountPercent
   discountAmountCents
   annualFreeMonths
+  durationUnit
+  durationCount
 `;
 
 export const ADMIN_PLANS = gql`
@@ -3405,6 +3413,8 @@ export const PLANS = gql`
       discountPercent
       discountAmountCents
       annualFreeMonths
+      durationUnit
+      durationCount
       networkCoverFeeCents
       websiteCoverFeeCents
       trialDays

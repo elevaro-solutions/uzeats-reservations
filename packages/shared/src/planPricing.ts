@@ -1,5 +1,11 @@
 import type { AnnualBillingSettings, PlanForBillingPeriodOptions } from './annualBilling.js';
 import { annualBillingAppliesToPlan, normalizeAnnualBillingSettings } from './annualBilling.js';
+import {
+  formatPlanPriceSuffix,
+  isStandardMonthlyDuration,
+  normalizePlanDuration,
+  type PlanDurationUnit,
+} from './planDuration.js';
 
 export const PLAN_DISCOUNT_TYPES = [
   'none',
@@ -19,6 +25,10 @@ export interface PlanPricingFields {
   discountPercent?: number | null;
   discountAmountCents?: number | null;
   annualFreeMonths?: number | null;
+  /** Billing interval unit. Omitted = month. */
+  durationUnit?: PlanDurationUnit | string | null;
+  /** How many units per billing cycle. Omitted = 1. */
+  durationCount?: number | null;
 }
 
 export function formatPlanDollars(cents: number): string {
@@ -188,14 +198,31 @@ function stripAnnualRuntimeDiscount(plan: PlanPricingFields): PlanPricingFields 
   return plan;
 }
 
+function withPlanDuration(plan: PlanPricingFields): PlanPricingFields {
+  const duration = normalizePlanDuration(plan);
+  return {
+    ...plan,
+    durationUnit: duration.durationUnit,
+    durationCount: duration.durationCount,
+  };
+}
+
+function priceSuffixForPlan(plan: PlanPricingFields): string {
+  return formatPlanPriceSuffix(plan.durationUnit, plan.durationCount);
+}
+
 /** Adjust plan pricing fields for monthly vs annual billing display. */
 export function planForBillingPeriod(
   plan: PlanPricingFields,
   billingPeriod: BillingPeriod,
   options?: PlanForBillingPeriodOptions,
 ): PlanPricingFields {
+  const withDuration = withPlanDuration(plan);
+  if (!isStandardMonthlyDuration(withDuration.durationUnit, withDuration.durationCount)) {
+    return stripAnnualRuntimeDiscount(withDuration);
+  }
   if (billingPeriod === 'monthly') {
-    return stripAnnualRuntimeDiscount(plan);
+    return stripAnnualRuntimeDiscount(withDuration);
   }
 
   const annualBilling = normalizeAnnualBillingSettings(options?.annualBilling);
@@ -205,13 +232,13 @@ export function planForBillingPeriod(
   if (planKey && annualBillingAppliesToPlan(planKey, annualBilling)) {
     if (annualBilling.discountType === 'months_free') {
       return {
-        ...plan,
+        ...withDuration,
         discountType: 'annual_months_free',
         annualFreeMonths: annualBilling.freeMonths,
       };
     }
     return {
-      ...plan,
+      ...withDuration,
       discountType: 'annual_percent_off',
       discountPercent: annualBilling.discountPercent,
       annualFreeMonths: null,
@@ -220,15 +247,15 @@ export function planForBillingPeriod(
 
   // Per-package annual discount only when global rules do not apply.
   if (plan.discountType === 'annual_months_free' && plan.annualFreeMonths) {
-    return plan;
+    return withDuration;
   }
 
   if (plan.discountType === 'annual_percent_off') {
-    return plan;
+    return withDuration;
   }
 
   return {
-    ...plan,
+    ...withDuration,
     discountType: 'annual_percent_off',
     discountPercent: 0,
     annualFreeMonths: null,
@@ -266,7 +293,7 @@ export function getPlanPriceDisplay(plan: PlanPricingFields): PlanPriceDisplay {
     case 'percent_off':
       return {
         primaryCents: resolved.monthlyPriceCents,
-        primarySuffix: ' / month',
+        primarySuffix: priceSuffixForPlan(plan),
         originalCents: resolved.originalMonthlyPriceCents,
         showStrikethrough: Boolean(
           resolved.originalMonthlyPriceCents &&
@@ -279,7 +306,7 @@ export function getPlanPriceDisplay(plan: PlanPricingFields): PlanPriceDisplay {
     case 'amount_off':
       return {
         primaryCents: resolved.monthlyPriceCents,
-        primarySuffix: ' / month',
+        primarySuffix: priceSuffixForPlan(plan),
         originalCents: resolved.originalMonthlyPriceCents,
         showStrikethrough: Boolean(
           resolved.originalMonthlyPriceCents &&
@@ -296,7 +323,7 @@ export function getPlanPriceDisplay(plan: PlanPricingFields): PlanPriceDisplay {
       if (freeMonths <= 0) {
         return {
           primaryCents: resolved.monthlyPriceCents,
-          primarySuffix: ' / month',
+          primarySuffix: priceSuffixForPlan(plan),
           originalCents: null,
           showStrikethrough: false,
           discountTag: null,
@@ -352,7 +379,7 @@ export function getPlanPriceDisplay(plan: PlanPricingFields): PlanPriceDisplay {
     default:
       return {
         primaryCents: resolved.monthlyPriceCents,
-        primarySuffix: ' / month',
+        primarySuffix: priceSuffixForPlan(plan),
         originalCents: resolved.originalMonthlyPriceCents,
         showStrikethrough: Boolean(
           resolved.originalMonthlyPriceCents &&

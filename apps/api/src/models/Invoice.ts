@@ -50,8 +50,11 @@ const invoiceSchema = new Schema(
     /** Catalog / list price before any manual discount. */
     originalTotalCents: { type: Number },
     lines: { type: [invoiceLineSchema], default: [] },
-    /** Months of plan coverage for manually created invoices. */
+    /** Months of plan coverage for manually created invoices (legacy; month/year only). */
     packageDurationMonths: { type: Number, min: 1 },
+    /** Billing coverage unit for this invoice. Default inferred from packageDurationMonths. */
+    packageDurationUnit: { type: String, enum: ['day', 'week', 'month', 'year'] },
+    packageDurationCount: { type: Number, min: 1, max: 365 },
     planKey: { type: String },
     billingCycle: { type: String, enum: ['monthly', 'annual'] },
     serviceIds: [{ type: Schema.Types.ObjectId, ref: 'PlatformService' }],

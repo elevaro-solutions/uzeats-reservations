@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import { addPlanDuration, toStripeRecurring } from '@reservations/shared';
 import { env } from '../config/env.js';
 import { PlatformConfig } from '../models/PlatformConfig.js';
 import { User } from '../models/User.js';
@@ -608,6 +609,12 @@ export type StripeSubscriptionPayment = {
   paymentMode: 'payment' | 'setup' | null;
 };
 
+const SUBSCRIPTION_PAYMENT_EXPAND = [
+  'latest_invoice.payment_intent',
+  'latest_invoice.confirmation_secret',
+  'pending_setup_intent',
+];
+
 function extractSubscriptionPayment(sub: Stripe.Subscription): StripeSubscriptionPayment {
   const setup = sub.pending_setup_intent;
   if (setup && typeof setup === 'object' && setup.client_secret) {
@@ -638,12 +645,14 @@ export async function createStripeSubscription(input: {
   metadata: Record<string, string>;
   /** When true, create an incomplete subscription and return a client secret for Payment Element. */
   collectPaymentMethod?: boolean;
+  durationUnit?: string | null;
+  durationCount?: number | null;
 }) {
   const client = await getStripe();
+  const recurring = toStripeRecurring(input.durationUnit, input.durationCount);
   if (!client) {
     const now = new Date();
-    const periodEnd = new Date(now);
-    periodEnd.setMonth(periodEnd.getMonth() + 1);
+    const periodEnd = addPlanDuration(now, input.durationUnit, input.durationCount);
     const trialEnd = input.trialDays
       ? new Date(now.getTime() + input.trialDays * 86_400_000)
       : undefined;
@@ -664,7 +673,7 @@ export async function createStripeSubscription(input: {
   const price = await client.prices.create({
     currency: env.STRIPE_CURRENCY,
     unit_amount: input.priceAmountCents,
-    recurring: { interval: 'month' },
+    recurring: { interval: recurring.interval, interval_count: recurring.interval_count },
     product_data: { name: 'Tablevera Plan' },
   });
 
@@ -677,9 +686,7 @@ export async function createStripeSubscription(input: {
       ? { save_default_payment_method: 'on_subscription' }
       : undefined,
     metadata: input.metadata,
-    expand: collectPaymentMethod
-      ? ['latest_invoice.payment_intent', 'pending_setup_intent']
-      : undefined,
+    expand: collectPaymentMethod ? SUBSCRIPTION_PAYMENT_EXPAND : undefined,
   });
   const payment = collectPaymentMethod
     ? extractSubscriptionPayment(subscription)
@@ -768,8 +775,12 @@ export async function stripeSubscriptionExists(subscriptionId: string): Promise<
 }
 
 function isMissingPaymentMethodError(err: unknown) {
+  if (err instanceof Stripe.errors.StripeInvalidRequestError && err.code === 'missing') {
+    return true;
+  }
   const msg = err instanceof Error ? err.message : String(err);
-  return /no attached payment source or default payment method/i.test(msg);
+  return /no attached payment source or default payment method/i.test(msg)
+    || /no `?default_payment_method`? set/i.test(msg);
 }
 
 async function customerHasPaymentMethod(client: Stripe, customerId: string) {
@@ -792,6 +803,20 @@ async function createCustomerSetupIntent(client: Stripe, customerId: string) {
     clientSecret: setup.client_secret ?? null,
     paymentMode: 'setup' as const,
   };
+}
+
+/** Collect a card for an existing Stripe customer (or a stub secret when Stripe is off). */
+export async function createCardCollectionSecret(
+  customerId?: string | null,
+): Promise<StripeSubscriptionPayment> {
+  if (!customerId || customerId.startsWith('cus_dev_')) {
+    return { clientSecret: `seti_dev_${Date.now()}_secret_dev`, paymentMode: 'setup' };
+  }
+  const client = await getStripe();
+  if (!client) {
+    return { clientSecret: `seti_dev_${Date.now()}_secret_dev`, paymentMode: 'setup' };
+  }
+  return createCustomerSetupIntent(client, customerId);
 }
 
 export async function attachLatestCardAsDefault(customerId: string, subscriptionId?: string) {
@@ -852,6 +877,22 @@ export async function syncPaidSubscriptionAfterCard(input: {
   await payOpenSubscriptionInvoice(input.subscriptionId);
 }
 
+export function stripeSubscriptionIsTrialing(
+  sub: { status?: string | null; trial_end?: number | null },
+  nowSec = Math.floor(Date.now() / 1000),
+): boolean {
+  if (sub.status === 'trialing') return true;
+  return typeof sub.trial_end === 'number' && sub.trial_end > nowSec;
+}
+
+/** Stripe rejects `trial_end` later than `billing_cycle_anchor`. */
+export function stripeTrialEndAfterAnchor(
+  trialEndUnix: number,
+  billingCycleAnchor: number | null | undefined,
+): boolean {
+  return typeof billingCycleAnchor === 'number' && trialEndUnix > billingCycleAnchor;
+}
+
 export async function updateStripeSubscription(
   subscriptionId: string,
   priceAmountCents: number,
@@ -860,6 +901,8 @@ export async function updateStripeSubscription(
     collectPayment?: boolean;
     /** Bill a new cycle from now (full new price; unused time is not credited). */
     resetBillingCycle?: boolean;
+    durationUnit?: string | null;
+    durationCount?: number | null;
   },
 ): Promise<{
   id: string;
@@ -877,10 +920,11 @@ export async function updateStripeSubscription(
       paymentMode: collectPayment ? 'setup' : null,
     };
   }
+  const recurring = toStripeRecurring(options?.durationUnit, options?.durationCount);
   const price = await client.prices.create({
     currency: env.STRIPE_CURRENCY,
     unit_amount: priceAmountCents,
-    recurring: { interval: 'month' },
+    recurring: { interval: recurring.interval, interval_count: recurring.interval_count },
     product_data: { name: 'Tablevera Plan' },
   });
 
@@ -900,11 +944,16 @@ export async function updateStripeSubscription(
   if (options?.resetBillingCycle) {
     updateParams.billing_cycle_anchor = 'now';
     updateParams.proration_behavior = options.prorationBehavior ?? 'none';
+    // Stripe: trial_end cannot be after billing_cycle_anchor. Ending the trial
+    // is required to start a paid cycle now (immediate plan switch).
+    if (stripeSubscriptionIsTrialing(sub)) {
+      updateParams.trial_end = 'now';
+    }
   }
   if (collectPayment) {
     // pending_if_incomplete cannot include payment_settings, and it requires a card on file.
     updateParams.payment_behavior = hasPm ? 'pending_if_incomplete' : 'allow_incomplete';
-    updateParams.expand = ['latest_invoice.payment_intent', 'pending_setup_intent'];
+    updateParams.expand = SUBSCRIPTION_PAYMENT_EXPAND;
   }
 
   let updated: Stripe.Subscription;
@@ -939,16 +988,51 @@ export async function updateStripeSubscription(
   };
 }
 
+export type StripePaidPeriodResult = {
+  id: string;
+  status?: string;
+  /** Set when the Stripe sub was replaced; persist the new id, then cancel this one. */
+  previousSubscriptionId?: string;
+};
+
+async function createStripeSubscriptionForTrial(
+  client: Stripe,
+  existing: Stripe.Subscription,
+  trialEndUnix: number,
+): Promise<Stripe.Subscription> {
+  const item = existing.items.data[0];
+  const priceId = typeof item?.price === 'string' ? item.price : item?.price?.id;
+  if (!priceId) {
+    throw new AppError('Stripe subscription has no items', 'PAYMENT_PROVIDER_ERROR', 502);
+  }
+  const customerId = typeof existing.customer === 'string' ? existing.customer : existing.customer?.id;
+  if (!customerId) {
+    throw new AppError('Stripe subscription has no customer', 'PAYMENT_PROVIDER_ERROR', 502);
+  }
+  const defaultPm = existing.default_payment_method;
+  return client.subscriptions.create({
+    customer: customerId,
+    items: [{ price: priceId }],
+    trial_end: trialEndUnix,
+    metadata: existing.metadata ?? undefined,
+    default_payment_method:
+      typeof defaultPm === 'string' ? defaultPm : defaultPm?.id ?? undefined,
+    proration_behavior: 'none',
+  });
+}
+
 /**
  * Align Stripe trial / first charge with a superadmin-set paid-period start.
  * Future dates set `trial_end`. Ending a trial uses `trial_end: now` (may invoice).
  * Already-paid subs are left alone so resetting the cycle does not bill again.
+ * When `trial_end` would be after `billing_cycle_anchor`, Stripe cannot update in
+ * place — we create a replacement subscription (caller must cancel the previous id).
  */
 export async function updateStripePaidPeriodStart(
   subscriptionId: string,
   paidPeriodStart: Date,
   options: { now?: Date; currentlyTrialing: boolean },
-): Promise<{ id: string; status?: string } | null> {
+): Promise<StripePaidPeriodResult | null> {
   const client = await getStripe();
   if (!client || subscriptionId.startsWith('sub_dev_')) return null;
 
@@ -958,7 +1042,18 @@ export async function updateStripePaidPeriodStart(
     proration_behavior: 'none',
   };
   if (future) {
-    params.trial_end = Math.floor(paidPeriodStart.getTime() / 1000);
+    const trialEndUnix = Math.floor(paidPeriodStart.getTime() / 1000);
+    params.trial_end = trialEndUnix;
+    const existing = await client.subscriptions.retrieve(subscriptionId);
+    if (stripeTrialEndAfterAnchor(trialEndUnix, existing.billing_cycle_anchor)) {
+      try {
+        const created = await createStripeSubscriptionForTrial(client, existing, trialEndUnix);
+        return { id: created.id, status: created.status, previousSubscriptionId: existing.id };
+      } catch (err) {
+        const mapped = formatStripeError(err);
+        throw mapped ?? err;
+      }
+    }
   } else if (options.currentlyTrialing) {
     params.trial_end = 'now';
     params.billing_cycle_anchor = 'now';
@@ -988,7 +1083,7 @@ export async function getOpenSubscriptionPayment(subscriptionId: string): Promis
   }
   try {
     const sub = await client.subscriptions.retrieve(subscriptionId, {
-      expand: ['latest_invoice.payment_intent', 'pending_setup_intent'],
+      expand: SUBSCRIPTION_PAYMENT_EXPAND,
     });
     const invoice = sub.latest_invoice;
     const amountDueCents =
