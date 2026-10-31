@@ -1214,22 +1214,39 @@ export default function RestaurantPageClient({
     const preferredWindow = selectedSlot
       ? preferredWindowFromSlot(selectedSlot, timeZone)
       : null;
-    const { data: wlData } = await joinWaitlist({
-      variables: {
-        input: {
-          restaurantId: restaurantId!,
-          partySize,
-          preferredDate: date.format('YYYY-MM-DD'),
-          ...(preferredWindow ?? {}),
+    try {
+      const { data: wlData } = await joinWaitlist({
+        variables: {
+          input: {
+            restaurantId: restaurantId!,
+            partySize,
+            preferredDate: date.format('YYYY-MM-DD'),
+            ...(preferredWindow ?? {}),
+          },
         },
-      },
-    });
-    const entry = (wlData as any)?.joinWaitlist;
-    const eta =
-      entry?.position != null && entry?.estimatedWaitMinutes != null
-        ? ` You are #${entry.position} · ~${entry.estimatedWaitMinutes} min wait.`
-        : '';
-    message.success(`Added to waitlist.${eta}`);
+      });
+      const entry = (wlData as any)?.joinWaitlist;
+      const eta =
+        entry?.position != null && entry?.estimatedWaitMinutes != null
+          ? ` You are #${entry.position} · ~${entry.estimatedWaitMinutes} min wait.`
+          : '';
+      message.success(`Added to waitlist.${eta}`);
+    } catch (err) {
+      const errorMessage = getGraphQLErrorMessage(err, 'Could not join the waitlist');
+      if (/already on the waitlist/i.test(errorMessage)) {
+        message.warning({
+          content: (
+            <span>
+              {errorMessage}.{' '}
+              <a onClick={() => router.push('/waitlist')}>View my waitlist</a>
+            </span>
+          ),
+          duration: 6,
+        });
+        return;
+      }
+      message.error(errorMessage);
+    }
   };
 
   if (!restaurant) return <div component="RestaurantPage" style={{ display: 'contents' }}><Card loading /></div>;

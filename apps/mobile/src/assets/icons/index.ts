@@ -44,6 +44,7 @@ export { MailIcon } from "./icons/mail.icon";
 export { InstagramIcon } from "./icons/instagram.icon";
 export { SendIcon } from "./icons/send.icon";
 export { LogOutIcon } from "./icons/log-out.icon";
+export { TrashIcon } from "./icons/trash.icon";
 export { BellIcon } from "./icons/bell.icon";
 export { LockIcon } from "./icons/lock.icon";
 export { KeyIcon } from "./icons/key.icon";

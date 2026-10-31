@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.95.0] — 2026-10-31
+
+### Added
+- Diner mobile app: **Delete account** in Profile → Account opens tablevera.online/profile, where diners can permanently delete their account
+- Partner Hub `/admin/qa` tasks for this release: diner mobile Delete account link, diner web already-on-waitlist warning
+
+### Fixed
+- Diner web: tapping **Join waitlist** when you are already on that restaurant’s waitlist for the date now shows a warning with a link to your waitlist (other join failures show an error) instead of failing silently
+
 ## [0.94.0] — 2026-10-30
 
 ### Added

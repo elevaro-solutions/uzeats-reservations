@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { type ReactElement, type ReactNode, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { Linking, ScrollView, View } from "react-native";
 import { StyleSheet, useUnistyles } from "react-native-unistyles";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -17,6 +17,7 @@ import {
   LogOutIcon,
   ReceiptTextIcon,
   SlidersHorizontalIcon,
+  TrashIcon,
   UserIcon,
 } from "@/assets";
 import { Button, Empty, Flex, Typography } from "@/components";
@@ -29,6 +30,8 @@ import { ProfileLoyaltyCard } from "./components/profile-loyalty-card.component"
 import { ProfileMenuRow } from "./components/profile-menu-row.component";
 import { ProfileSkeleton } from "./components/profile-skeleton.component";
 import { SignOutConfirmationSheet } from "./components/sign-out-confirmation-sheet.component";
+
+const DELETE_ACCOUNT_URL = "https://tablevera.online/profile";
 
 type MenuItem = {
   title: string;
@@ -247,6 +250,13 @@ export function ProfileFeature() {
                 title: user.hasPassword === false ? "Add a password" : "Change password",
                 icon: <KeyIcon size={20} color={iconColor} />,
                 onPress: () => router.push("/change-password"),
+              },
+              {
+                title: "Delete account",
+                icon: <TrashIcon size={20} color={theme.colors.error} />,
+                tone: "danger",
+                onPress: () =>
+                  void Linking.openURL(DELETE_ACCOUNT_URL).catch(() => undefined),
               },
             ]}
           />
