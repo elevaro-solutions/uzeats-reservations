@@ -279,6 +279,13 @@ export function AdminRestaurantOverviewPanel({
                 <Descriptions.Item label="Menu URL">
                   {restaurant.menuUrl ? <ExternalLink href={restaurant.menuUrl} /> : '—'}
                 </Descriptions.Item>
+                <Descriptions.Item label="Order online">
+                  {restaurant.onlineOrderUrl ? (
+                    <ExternalLink href={restaurant.onlineOrderUrl} />
+                  ) : (
+                    '—'
+                  )}
+                </Descriptions.Item>
                 <Descriptions.Item label="Owner">
                   {owner ? (
                     <Space orientation="vertical" size={0}>

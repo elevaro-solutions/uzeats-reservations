@@ -257,6 +257,10 @@ See [features-billing.md](./features-billing.md) (platform invoices, fail-to-pay
 
 ## restaurant-profile
 
+### [2026-11-01] Order online is a stored URL, not the website
+- `Restaurant.onlineOrderUrl` is a separate optional https link (DoorDash / Uber Eats / Toast / other). Diner web shows an **Order online** action tile, Details row, and Contact-to-reserve button only when it is set. Partners/admins edit it next to website and menu URL.
+- Why it matters: Do not reuse `website` for ordering platforms; diners still need the restaurant site as Website.
+
 ### [2026-10-20] Review photo upload sniffs bytes, not the picker MIME
 - `POST /api/uploads` used to reject on the `Content-Type` header before looking at the body. A JPEG saved from the browser is often labeled `application/octet-stream` (Android content resolver) or comes back from the iOS simulator gallery without `image/jpeg`. The alert listed JPEG/PNG/WebP/GIF/SVG while the file was a JPEG.
 - The diner app now posts the picker file by URI and sets `Content-Type` from magic bytes. iOS uses `preferredAssetRepresentationMode: compatible` so the gallery file is a JPEG. The route stores the sniffed type.

@@ -46,10 +46,14 @@ import {
   assertPaymentIntentSucceeded,
   createInvoicePaymentIntent as createStripeInvoicePaymentIntent,
   createStripeCustomer,
+  getStripe,
   isStubPaymentIntent,
+  markStripeInvoicePaidOutOfBand,
   resolveCustomerDefaultPaymentMethodId,
   retrievePaymentIntentClientSecret,
   saveInvoicePaymentMethodAsPreferred,
+  upsertHostedStripeInvoice,
+  voidStripeInvoiceIfOpen,
 } from './stripe.js';
 import { User } from '../models/User.js';
 import {
@@ -105,7 +109,7 @@ export function virtualRoomAddonBillingPeriod(period: string) {
 }
 
 export function calendarBillingPeriod(stored: string) {
-  return String(stored).split('~')[0];
+  return String(stored).split('~')[0] || stored;
 }
 
 export type InvoiceCategory = 'subscription' | 'virtual_room' | 'service';
@@ -137,7 +141,6 @@ function isRefreshableAutoInvoice(doc: {
   category?: string | null;
   billingPeriod?: string | null;
 }) {
-  if (doc.stripeInvoiceId) return false;
   if (doc.status === 'paid' || doc.status === 'canceled') return false;
   if (doc.category === 'virtual_room' || doc.category === 'service') return false;
   if (String(doc.billingPeriod ?? '').includes('~')) return false;
@@ -243,6 +246,83 @@ export function mapInvoice(doc: any, restaurantName?: string) {
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   };
+}
+
+function invoiceServicePeriod(doc: { billingPeriod?: string | null; dueDate: Date }) {
+  const cal = calendarBillingPeriod(String(doc.billingPeriod ?? ''));
+  if (/^\d{4}-\d{2}$/.test(cal)) return periodBounds(cal);
+  const due = doc.dueDate instanceof Date ? doc.dueDate : new Date(doc.dueDate);
+  return { start: due, end: due, dueDate: due };
+}
+
+/** Create or refresh the Stripe hosted invoice that mirrors this local Invoice. */
+export async function attachStripeInvoiceToLocal(doc: {
+  _id: { toString(): string };
+  number: string;
+  restaurantId: unknown;
+  billingPeriod?: string | null;
+  currency?: string | null;
+  dueDate: Date;
+  lines?: Array<{ description: string; amountCents: number }> | null;
+  stripeInvoiceId?: string | null;
+  status?: string | null;
+  totalCents?: number | null;
+}) {
+  try {
+    if ((doc.totalCents ?? 0) <= 0) return;
+    if (!(await getStripe())) return;
+    const sub = await Subscription.findOne({ restaurantId: doc.restaurantId });
+    if (!sub) return;
+    const customerId = await ensureSubscriptionStripeCustomer(sub);
+    if (!customerId) return;
+    const restaurant = await Restaurant.findById(doc.restaurantId).select('name');
+    const { start, end } = invoiceServicePeriod(doc);
+    const result = await upsertHostedStripeInvoice({
+      localInvoiceId: doc._id.toString(),
+      number: doc.number,
+      restaurantId: String(doc.restaurantId),
+      restaurantName: restaurant?.name ?? null,
+      billingPeriod: calendarBillingPeriod(String(doc.billingPeriod ?? '')),
+      periodStart: start,
+      periodEnd: end,
+      dueDate: doc.dueDate instanceof Date ? doc.dueDate : new Date(doc.dueDate),
+      currency: doc.currency || 'usd',
+      customerId,
+      lines: (doc.lines ?? []).map((line) => ({
+        description: line.description,
+        amountCents: line.amountCents,
+      })),
+      existingStripeInvoiceId: doc.stripeInvoiceId,
+      alreadyPaid: doc.status === 'paid',
+    });
+    if (!result) return;
+    if (
+      doc.stripeInvoiceId !== result.id ||
+      (result.hostedInvoiceUrl &&
+        (doc as { stripeHostedInvoiceUrl?: string | null }).stripeHostedInvoiceUrl !==
+          result.hostedInvoiceUrl)
+    ) {
+      await Invoice.updateOne(
+        { _id: doc._id },
+        {
+          $set: {
+            stripeInvoiceId: result.id,
+            ...(result.hostedInvoiceUrl
+              ? { stripeHostedInvoiceUrl: result.hostedInvoiceUrl }
+              : {}),
+          },
+        },
+      );
+      doc.stripeInvoiceId = result.id;
+      (doc as { stripeHostedInvoiceUrl?: string | null }).stripeHostedInvoiceUrl =
+        result.hostedInvoiceUrl;
+    }
+  } catch (err) {
+    logger.warn(
+      { err, invoiceId: doc._id.toString(), invoiceNumber: doc.number },
+      'failed to mirror invoice to Stripe',
+    );
+  }
 }
 
 async function ensureSubscriptionStripeCustomer(sub: {
@@ -543,6 +623,7 @@ export async function createManualInvoice(input: {
     if (!existing.payToken) existing.payToken = newPayToken();
     existing.stripePaymentIntentId = undefined;
     await existing.save();
+    await attachStripeInvoiceToLocal(existing);
     const replaced = mapInvoice(existing, restaurant.name);
     if (!markPaid && replaced.totalCents > 0) {
       await maybeEmailInvoiceToOwner(replaced.id, { force: true });
@@ -561,6 +642,9 @@ export async function createManualInvoice(input: {
     // Move canceled invoice off the period key so the unique index allows the new doc.
     existing.billingPeriod = `${period}~canceled-${existing.number}`;
     await existing.save();
+    if (existing.stripeInvoiceId) {
+      await voidStripeInvoiceIfOpen(existing.stripeInvoiceId);
+    }
   }
 
   const countForPeriod = await Invoice.countDocuments({ billingPeriod: period });
@@ -591,6 +675,7 @@ export async function createManualInvoice(input: {
     category: serviceIds.length ? 'service' : 'subscription',
     payToken,
   });
+  await attachStripeInvoiceToLocal(doc);
 
   const mapped = mapInvoice(doc, restaurant.name);
   if (!markPaid && mapped.totalCents > 0) {
@@ -685,6 +770,7 @@ async function applyPeriodInvoiceLines(
   if (input.paidAt && !existing.paidAt) existing.paidAt = input.paidAt;
   if (!existing.payToken) existing.payToken = newPayToken();
   await existing.save();
+  await attachStripeInvoiceToLocal(existing);
 }
 
 /** Re-price this restaurant's unpaid auto invoice now instead of waiting for the daily job. */
@@ -738,6 +824,9 @@ export async function generateInvoicesForPeriod(period: string) {
 
     if (existing) {
       if (!isRefreshableAutoInvoice(existing)) {
+        if (!existing.stripeInvoiceId && existing.status !== 'canceled') {
+          await attachStripeInvoiceToLocal(existing);
+        }
         skipped += 1;
         continue;
       }
@@ -770,6 +859,7 @@ export async function generateInvoicesForPeriod(period: string) {
         paidAt,
         payToken: newPayToken(),
       });
+      await attachStripeInvoiceToLocal(doc);
       await markCoverFeesCharged(sub.restaurantId, period);
       created += 1;
       if (nextStatus !== 'paid' && subtotalCents > 0) {
@@ -835,6 +925,8 @@ export async function ensurePeriodInvoiceForRestaurant(
     if (isRefreshableAutoInvoice(existing)) {
       await applyPeriodInvoiceLines(existing, { lines, subtotalCents, dueDate, nextStatus, paidAt });
       await markCoverFeesCharged(sub.restaurantId, period);
+    } else if (!existing.stripeInvoiceId && existing.status !== 'canceled') {
+      await attachStripeInvoiceToLocal(existing);
     }
   } else {
     const countForPeriod = await Invoice.countDocuments({ billingPeriod: period });
@@ -853,6 +945,7 @@ export async function ensurePeriodInvoiceForRestaurant(
       paidAt,
       payToken: newPayToken(),
     });
+    await attachStripeInvoiceToLocal(existing);
     await markCoverFeesCharged(sub.restaurantId, period);
   }
 
@@ -1281,6 +1374,9 @@ export async function confirmInvoicePayment(token: string, paymentIntentId: stri
   doc.stripePaymentIntentId = paymentIntentId;
   doc.autoChargeError = undefined;
   await doc.save();
+  if (doc.stripeInvoiceId) {
+    await markStripeInvoicePaidOutOfBand(doc.stripeInvoiceId);
+  }
 
   try {
     await persistPreferredPaymentMethodFromInvoice({
@@ -1367,13 +1463,16 @@ export async function autoChargeDueInvoices(now = new Date()) {
       doc.stripePaymentIntentId = intent.id;
       doc.autoChargeError = undefined;
       await doc.save();
+      if (doc.stripeInvoiceId) {
+        await markStripeInvoicePaidOutOfBand(doc.stripeInvoiceId);
+      }
 
       if (!sub.preferredPaymentMethodId) {
         sub.preferredPaymentMethodId = paymentMethodId;
         await sub.save();
       }
-      await applyEnforcementForRestaurant(doc.restaurantId.toString());
-      await syncSubscriptionPastDueFlag(doc.restaurantId.toString());
+      await applyEnforcementForRestaurant(doc.restaurantId.toString(), now);
+      await syncSubscriptionPastDueFlag(doc.restaurantId.toString(), now);
       charged += 1;
     } catch (err) {
       failed += 1;
@@ -1386,10 +1485,10 @@ export async function autoChargeDueInvoices(now = new Date()) {
       if (subAfter && (subAfter.status === 'trialing' || subAfter.status === 'active')) {
         subAfter.status = 'past_due';
         subAfter.amountDueCents = doc.totalCents;
-        if (!subAfter.pastDueSince) subAfter.pastDueSince = new Date();
+        if (!subAfter.pastDueSince) subAfter.pastDueSince = now;
         await subAfter.save();
       }
-      await applyEnforcementForRestaurant(doc.restaurantId.toString());
+      await applyEnforcementForRestaurant(doc.restaurantId.toString(), now);
       logger.warn(
         { err, invoiceId: doc._id.toString(), restaurantId: String(doc.restaurantId) },
         'invoice auto-charge failed',
@@ -1515,6 +1614,7 @@ export async function recordPrepaidVirtualRoomInvoice(input: {
     stripePaymentIntentId: input.paymentIntentId || undefined,
     payToken: newPayToken(),
   });
+  await attachStripeInvoiceToLocal(doc);
   const restaurant = await Restaurant.findById(input.restaurantId).select('name');
   return mapInvoice(doc, restaurant?.name);
 }

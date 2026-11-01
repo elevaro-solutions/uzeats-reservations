@@ -5584,7 +5584,7 @@ body:has(.fr-page) .ant-layout {
   background: var(--color-brand-50);
 }
 
-/* App-like equal action tiles (Call / Directions / Website / Message) */
+/* App-like equal action tiles (Call / Directions / Website / Order online / Message) */
 .rt-restaurant-actions__tile {
   flex: 1 1 0;
   min-width: 72px;

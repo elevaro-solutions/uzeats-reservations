@@ -12,9 +12,15 @@ import {
   TeamOutlined,
   CalendarOutlined,
   ClockCircleOutlined,
+  ShoppingCartOutlined,
 } from '@ant-design/icons';
 import { priceRangeLabel } from '@reservations/ui';
-import { buildDirectionsUrl, buildMapsSearchUrl, formatRestaurantAddress } from '@/lib/restaurantLinks';
+import {
+  buildDirectionsUrl,
+  buildMapsSearchUrl,
+  formatRestaurantAddress,
+  normalizeHttpUrl,
+} from '@/lib/restaurantLinks';
 
 const { Title, Text } = Typography;
 
@@ -31,6 +37,7 @@ type Props = {
   address: Address;
   phone?: string | null;
   website?: string | null;
+  onlineOrderUrl?: string | null;
   cuisine: string;
   priceRange: number;
   diningStyles?: string[];
@@ -52,6 +59,7 @@ export function RestaurantDetailsSection({
   address,
   phone,
   website,
+  onlineOrderUrl,
   cuisine,
   priceRange,
   diningStyles = [],
@@ -71,6 +79,7 @@ export function RestaurantDetailsSection({
 
   const directionsUrl = buildDirectionsUrl(address, location);
   const mapsUrl = buildMapsSearchUrl(address, location);
+  const orderOnlineHref = normalizeHttpUrl(onlineOrderUrl);
 
   const rows: DetailRow[] = [
     {
@@ -164,6 +173,22 @@ export function RestaurantDetailsSection({
           value: (
             <a href={website} target="_blank" rel="noopener noreferrer" className="rt-restaurant-link">
               {website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+            </a>
+          ),
+        }
+      : null,
+    orderOnlineHref
+      ? {
+          icon: <ShoppingCartOutlined />,
+          label: 'Order online',
+          value: (
+            <a
+              href={orderOnlineHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rt-restaurant-link"
+            >
+              {orderOnlineHref.replace(/^https?:\/\//, '').replace(/\/$/, '')}
             </a>
           ),
         }

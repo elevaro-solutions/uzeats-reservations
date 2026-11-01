@@ -62,6 +62,7 @@ import ImportRestaurantModal, { type ImportedRestaurantData } from '@/components
 import { applyRestaurantImportToForm } from '@/lib/applyRestaurantImport';
 import {
   depositAmountWhenRequiredRule,
+  optionalHttpUrlRule,
   priceRangeOptions,
   restaurantFieldTooltips as tips,
 } from '@/lib/restaurantFormTooltips';
@@ -203,6 +204,7 @@ export default function RestaurantProfilePage() {
       phone: restaurant.phone ?? '',
       website: restaurant.website ?? '',
       menuUrl: restaurant.menuUrl ?? '',
+      onlineOrderUrl: restaurant.onlineOrderUrl ?? '',
       useSmartAssign: settings?.useSmartAssign ?? false,
       allowGuestTableSelection: settings?.allowGuestTableSelection ?? false,
       minPartySize: settings?.minPartySize ?? undefined,
@@ -262,6 +264,7 @@ export default function RestaurantProfilePage() {
               phone: values.phone || undefined,
               website: values.website || undefined,
               menuUrl: values.menuUrl || undefined,
+              onlineOrderUrl: values.onlineOrderUrl || undefined,
               photos,
               logoUrl: logoUrl ?? null,
             },
@@ -475,7 +478,7 @@ export default function RestaurantProfilePage() {
     {
       key: 'contact',
       label: 'Contact',
-      hint: 'Phone, website, and the full-menu link diners see.',
+      hint: 'Phone, website, menu link, and online ordering URL diners see.',
       icon: <PhoneOutlined />,
       children: (
         <Row gutter={16}>
@@ -507,13 +510,24 @@ export default function RestaurantProfilePage() {
               <Input placeholder="https://" />
             </Form.Item>
           </Col>
-          <Col span={24}>
+          <Col xs={24} sm={12}>
             <Form.Item
               name="menuUrl"
               label="Full menu URL"
               tooltip="External link for View full menu on the public restaurant page"
+              rules={[optionalHttpUrlRule]}
             >
               <Input placeholder="https://" />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item
+              name="onlineOrderUrl"
+              label="Online order URL"
+              tooltip={tips.onlineOrderUrl}
+              rules={[optionalHttpUrlRule]}
+            >
+              <Input placeholder="https://www.doordash.com/store/..." />
             </Form.Item>
           </Col>
         </Row>

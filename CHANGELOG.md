@@ -4,7 +4,23 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
+## [0.96.0] — 2026-11-01
+
+### Added
+- Partner Hub Billing: **View invoice** on outstanding platform balance (cancelled plan picker, Danger zone, and delete error) opens the unpaid invoice page
+- Platform invoices now create a matching Stripe invoice with number, description, amount, billing period, and due date (so Dashboard / hosted invoice pages are not blank)
+- Restaurant **Online order URL** (DoorDash, Uber Eats, Toast, and similar). When set, diners see an **Order online** button on the public restaurant page
+- Partner Hub `/admin/qa` tasks for this release: Order online URL, View invoice after cancel, Stripe hosted invoices, Core Recommended layout, and period-invoice Stripe refresh
+
+### Changed
+- Period invoice refresh still updates auto invoices after they are mirrored to Stripe; Stripe copies are voided and recreated when line items change
+
+### Fixed
+- Partner Hub Billing plan cards: Recommended no longer overlaps the plan price on Core
+- Partner Hub Billing still lists invoices after a subscription is cancelled so an outstanding balance can be paid
+
+### Docs
+- Online order URL, cancelled Billing invoices, and hosted Stripe invoice notes
 
 ## [0.95.0] — 2026-10-31
 

@@ -86,6 +86,7 @@ export const MY_RESTAURANTS = gql`
       phone
       website
       menuUrl
+      onlineOrderUrl
       address {
         line1
         line2
@@ -601,6 +602,7 @@ const ADMIN_RESTAURANT_FIELDS = `
   phone
   website
   menuUrl
+  onlineOrderUrl
   photos
   logoUrl
   ownerId
@@ -761,6 +763,7 @@ export const ADMIN_UPDATE_RESTAURANT = gql`
         phone
         website
         menuUrl
+        onlineOrderUrl
         photos
         logoUrl
       ownerId
@@ -3207,6 +3210,7 @@ export const RESTAURANT_PROFILE = gql`
       phone
       website
       menuUrl
+      onlineOrderUrl
       address {
         line1
         line2
@@ -3266,6 +3270,7 @@ export const UPDATE_RESTAURANT = gql`
       phone
       website
       menuUrl
+      onlineOrderUrl
       address {
         line1
         line2

@@ -62,6 +62,7 @@ import {
 import { addressSelectionToFields } from '@/lib/address';
 import {
   depositAmountWhenRequiredRule,
+  optionalHttpUrlRule,
   priceRangeOptions,
   restaurantFieldTooltips as tips,
 } from '@/lib/restaurantFormTooltips';
@@ -127,6 +128,7 @@ export type AdminRestaurantRecord = {
   phone?: string | null;
   website?: string | null;
   menuUrl?: string | null;
+  onlineOrderUrl?: string | null;
   photos?: string[];
   logoUrl?: string | null;
   ownerId: string;
@@ -401,6 +403,7 @@ function buildRestaurantInput(values: Record<string, unknown>, photoList: string
     phone: values.phone || undefined,
     website: values.website || undefined,
     menuUrl: values.menuUrl || undefined,
+    onlineOrderUrl: values.onlineOrderUrl || undefined,
     logoUrl: logoUrl ?? null,
     depositRequired: Boolean(values.depositRequired),
     depositAmountCents: Math.round((Number(values.depositAmountCents) || 0) * 100),
@@ -554,6 +557,7 @@ export function AdminManageRestaurant({
       phone: restaurant.phone ?? '',
       website: restaurant.website ?? '',
       menuUrl: restaurant.menuUrl ?? '',
+      onlineOrderUrl: restaurant.onlineOrderUrl ?? '',
       depositRequired: restaurant.depositRequired,
       depositAmountCents: restaurant.depositAmountCents
         ? restaurant.depositAmountCents / 100
@@ -880,7 +884,7 @@ export function AdminManageRestaurant({
     {
       key: 'contact',
       label: 'Contact',
-      hint: 'Phone, website, and the full-menu link diners see.',
+      hint: 'Phone, website, menu link, and online ordering URL diners see.',
       icon: <PhoneOutlined />,
       children: (
         <Row gutter={16}>
@@ -894,13 +898,24 @@ export function AdminManageRestaurant({
               <Input placeholder="https://" />
             </Form.Item>
           </Col>
-          <Col span={24}>
+          <Col xs={24} sm={12}>
             <Form.Item
               name="menuUrl"
               label="Full menu URL"
               tooltip="External link for View full menu on the public restaurant page"
+              rules={[optionalHttpUrlRule]}
             >
               <Input placeholder="https://" />
+            </Form.Item>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Form.Item
+              name="onlineOrderUrl"
+              label="Online order URL"
+              tooltip={tips.onlineOrderUrl}
+              rules={[optionalHttpUrlRule]}
+            >
+              <Input placeholder="https://www.doordash.com/store/..." />
             </Form.Item>
           </Col>
         </Row>

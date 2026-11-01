@@ -1152,4 +1152,300 @@ export async function listRecentStripeInvoices(limit = 50) {
   return { invoices: result.data, stub: false as const };
 }
 
+/** Metadata.source on Stripe invoices created from Tablevera Invoice docs. */
+export const STRIPE_LOCAL_INVOICE_SOURCE = 'tablevera_local';
+
+function toUnixSeconds(date: Date) {
+  return Math.floor(date.getTime() / 1000);
+}
+
+function formatUtcDate(date: Date) {
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+export type HostedStripeInvoiceLine = {
+  description: string;
+  amountCents: number;
+};
+
+export type HostedStripeInvoiceInput = {
+  localInvoiceId: string;
+  number: string;
+  restaurantId: string;
+  restaurantName?: string | null;
+  billingPeriod: string;
+  periodStart: Date;
+  periodEnd: Date;
+  dueDate: Date;
+  currency: string;
+  customerId: string;
+  lines: HostedStripeInvoiceLine[];
+  existingStripeInvoiceId?: string | null;
+  alreadyPaid?: boolean;
+};
+
+export function buildHostedStripeInvoiceContent(input: HostedStripeInvoiceInput) {
+  const periodLabel = `${formatUtcDate(input.periodStart)} – ${formatUtcDate(input.periodEnd)}`;
+  const dueLabel = formatUtcDate(input.dueDate);
+  const venue = (input.restaurantName || 'Restaurant').slice(0, 140);
+  const periodStartUnix = toUnixSeconds(input.periodStart);
+  const periodEndUnix = Math.max(toUnixSeconds(input.periodEnd), periodStartUnix);
+  const nowUnix = Math.floor(Date.now() / 1000);
+  return {
+    number: input.number,
+    description: [`${input.number} · ${venue}`, `Period: ${periodLabel}`, `Due: ${dueLabel}`].join(
+      '\n',
+    ),
+    customFields: [
+      { name: 'Invoice number', value: input.number.slice(0, 140) },
+      { name: 'Billing period', value: periodLabel.slice(0, 140) },
+      { name: 'Due date', value: dueLabel.slice(0, 140) },
+      { name: 'Restaurant', value: venue },
+    ],
+    metadata: {
+      source: STRIPE_LOCAL_INVOICE_SOURCE,
+      invoiceId: input.localInvoiceId,
+      invoiceNumber: input.number,
+      restaurantId: input.restaurantId,
+      billingPeriod: input.billingPeriod,
+    },
+    dueDateUnix: Math.max(toUnixSeconds(input.dueDate), nowUnix + 60),
+    period: { start: periodStartUnix, end: periodEndUnix },
+    lines: input.lines
+      .filter((line) => line.amountCents !== 0)
+      .map((line) => ({
+        description: line.description,
+        amount: line.amountCents,
+        period: { start: periodStartUnix, end: periodEndUnix },
+      })),
+  };
+}
+
+function isStubStripeInvoiceId(id?: string | null) {
+  return Boolean(id && id.startsWith('in_dev_'));
+}
+
+async function replaceDraftInvoiceLines(
+  client: Stripe,
+  invoiceId: string,
+  customerId: string,
+  currency: string,
+  lines: ReturnType<typeof buildHostedStripeInvoiceContent>['lines'],
+) {
+  const existing = await client.invoiceItems.list({ invoice: invoiceId, limit: 100 });
+  for (const item of existing.data) {
+    await client.invoiceItems.del(item.id);
+  }
+  for (const line of lines) {
+    await client.invoiceItems.create({
+      customer: customerId,
+      invoice: invoiceId,
+      currency,
+      amount: line.amount,
+      description: line.description,
+      period: line.period,
+    });
+  }
+}
+
+async function createFinalizedStripeInvoice(
+  client: Stripe,
+  input: HostedStripeInvoiceInput,
+  content: ReturnType<typeof buildHostedStripeInvoiceContent>,
+) {
+  const currency = (input.currency || env.STRIPE_CURRENCY).toLowerCase();
+  const createParams: Stripe.InvoiceCreateParams = {
+    customer: input.customerId,
+    currency,
+    collection_method: 'send_invoice',
+    auto_advance: false,
+    pending_invoice_items_behavior: 'exclude',
+    description: content.description,
+    footer: `Due ${formatUtcDate(input.dueDate)} · ${input.number}`,
+    custom_fields: content.customFields,
+    metadata: content.metadata,
+    due_date: content.dueDateUnix,
+  };
+  let invoice: Stripe.Invoice;
+  try {
+    invoice = await client.invoices.create({ ...createParams, number: content.number });
+  } catch (err) {
+    logger.warn(
+      { err, invoiceNumber: content.number },
+      '[stripe] custom invoice number rejected; creating without number',
+    );
+    invoice = await client.invoices.create(createParams);
+  }
+
+  const createdId = requireInvoiceId(invoice);
+  await replaceDraftInvoiceLines(client, createdId, input.customerId, currency, content.lines);
+
+  invoice = await client.invoices.finalizeInvoice(createdId, { auto_advance: false });
+  if (input.alreadyPaid && invoice.status !== 'paid') {
+    invoice = await client.invoices.pay(requireInvoiceId(invoice), { paid_out_of_band: true });
+  }
+  return invoice;
+}
+
+function stripeInvoiceNeedsRebuild(
+  invoice: Stripe.Invoice,
+  content: ReturnType<typeof buildHostedStripeInvoiceContent>,
+) {
+  const total = content.lines.reduce((sum, line) => sum + line.amount, 0);
+  if ((invoice.total ?? 0) !== total) return true;
+  const lineCount = invoice.lines?.data?.length ?? 0;
+  if (lineCount !== content.lines.length) return true;
+  return false;
+}
+
+function requireInvoiceId(invoice: { id?: string | null }): string {
+  if (!invoice.id) throw new Error('Stripe invoice is missing an id');
+  return invoice.id;
+}
+
+/**
+ * Mirror a Tablevera invoice onto Stripe so Dashboard / hosted invoice pages
+ * show number, description, amount, billing period, and due date.
+ * Collection stays on Tablevera (send_invoice, not auto-charged).
+ */
+export async function upsertHostedStripeInvoice(
+  input: HostedStripeInvoiceInput,
+): Promise<{ id: string; hostedInvoiceUrl: string | null; isStub: boolean } | null> {
+  const content = buildHostedStripeInvoiceContent(input);
+  if (content.lines.length === 0) return null;
+  if (input.customerId.startsWith('cus_dev_')) {
+    return { id: `in_dev_${input.localInvoiceId}`, hostedInvoiceUrl: null, isStub: true };
+  }
+
+  const client = await getStripe();
+  if (!client) {
+    return { id: `in_dev_${input.localInvoiceId}`, hostedInvoiceUrl: null, isStub: true };
+  }
+
+  const existingId =
+    input.existingStripeInvoiceId && !isStubStripeInvoiceId(input.existingStripeInvoiceId)
+      ? input.existingStripeInvoiceId
+      : null;
+
+  try {
+    if (existingId) {
+      try {
+        const existing = await client.invoices.retrieve(existingId, { expand: ['lines'] });
+        const existingInvoiceId = requireInvoiceId(existing);
+        if (existing.status === 'draft') {
+          await client.invoices.update(existingInvoiceId, {
+            description: content.description,
+            footer: `Due ${formatUtcDate(input.dueDate)} · ${input.number}`,
+            custom_fields: content.customFields,
+            metadata: content.metadata,
+            due_date: content.dueDateUnix,
+          });
+          await replaceDraftInvoiceLines(
+            client,
+            existingInvoiceId,
+            input.customerId,
+            (input.currency || env.STRIPE_CURRENCY).toLowerCase(),
+            content.lines,
+          );
+          let invoice = await client.invoices.finalizeInvoice(existingInvoiceId, {
+            auto_advance: false,
+          });
+          if (input.alreadyPaid && invoice.status !== 'paid') {
+            invoice = await client.invoices.pay(requireInvoiceId(invoice), {
+              paid_out_of_band: true,
+            });
+          }
+          return {
+            id: requireInvoiceId(invoice),
+            hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
+            isStub: false,
+          };
+        }
+        if (existing.status === 'open' && !input.alreadyPaid && !stripeInvoiceNeedsRebuild(existing, content)) {
+          return {
+            id: existingInvoiceId,
+            hostedInvoiceUrl: existing.hosted_invoice_url ?? null,
+            isStub: false,
+          };
+        }
+        if (existing.status === 'paid' && input.alreadyPaid) {
+          return {
+            id: existingInvoiceId,
+            hostedInvoiceUrl: existing.hosted_invoice_url ?? null,
+            isStub: false,
+          };
+        }
+        if (existing.status === 'open') {
+          await voidOrDeleteStripeInvoice(client, existing);
+        }
+      } catch (err) {
+        if (!(err instanceof Stripe.errors.StripeError && err.code === 'resource_missing')) {
+          throw err;
+        }
+      }
+    }
+
+    const invoice = await createFinalizedStripeInvoice(client, input, content);
+    return {
+      id: requireInvoiceId(invoice),
+      hostedInvoiceUrl: invoice.hosted_invoice_url ?? null,
+      isStub: false,
+    };
+  } catch (err) {
+    logger.warn(
+      { err, invoiceId: input.localInvoiceId, invoiceNumber: input.number },
+      '[stripe] failed to mirror local invoice',
+    );
+    return null;
+  }
+}
+
+async function voidOrDeleteStripeInvoice(client: Stripe, invoice: Stripe.Invoice) {
+  const id = requireInvoiceId(invoice);
+  if (invoice.status === 'draft') {
+    await client.invoices.del(id);
+    return;
+  }
+  if (invoice.status === 'open') {
+    await client.invoices.voidInvoice(id);
+  }
+}
+
+export async function voidStripeInvoiceIfOpen(stripeInvoiceId: string) {
+  if (!stripeInvoiceId || isStubStripeInvoiceId(stripeInvoiceId)) return;
+  const client = await getStripe();
+  if (!client) return;
+  try {
+    const invoice = await client.invoices.retrieve(stripeInvoiceId);
+    await voidOrDeleteStripeInvoice(client, invoice);
+  } catch (err) {
+    if (err instanceof Stripe.errors.StripeError && err.code === 'resource_missing') return;
+    logger.warn({ err, stripeInvoiceId }, '[stripe] void mirrored invoice failed');
+  }
+}
+
+export async function markStripeInvoicePaidOutOfBand(stripeInvoiceId: string) {
+  if (!stripeInvoiceId || isStubStripeInvoiceId(stripeInvoiceId)) return;
+  const client = await getStripe();
+  if (!client) return;
+  try {
+    const invoice = await client.invoices.retrieve(stripeInvoiceId);
+    if (invoice.status === 'paid' || invoice.status === 'void' || invoice.status === 'uncollectible') {
+      return;
+    }
+    const id = requireInvoiceId(invoice);
+    if (invoice.status !== 'open') {
+      await client.invoices.finalizeInvoice(id, { auto_advance: false });
+    }
+    await client.invoices.pay(id, { paid_out_of_band: true });
+  } catch (err) {
+    logger.warn({ err, stripeInvoiceId }, '[stripe] mark mirrored invoice paid failed');
+  }
+}
+
 export { getStripe };

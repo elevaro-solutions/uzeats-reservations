@@ -21,6 +21,14 @@ export function buildDirectionsUrl(address: Address, location?: Location): strin
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(formatRestaurantAddress(address))}`;
 }
 
+/** Prefix https:// when a stored URL is missing a scheme. */
+export function normalizeHttpUrl(url?: string | null): string | null {
+  const trimmed = url?.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
 export function buildMapsSearchUrl(address: Address, location?: Location): string {
   if (location?.lat != null && location?.lng != null) {
     return `https://maps.google.com/?q=${location.lat},${location.lng}`;

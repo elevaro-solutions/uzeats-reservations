@@ -6,35 +6,32 @@ import {
   GlobalOutlined,
   MessageOutlined,
   PhoneOutlined,
+  ShoppingCartOutlined,
 } from '@ant-design/icons';
 import type { Address } from '@/lib/restaurantLinks';
-import { buildDirectionsUrl } from '@/lib/restaurantLinks';
+import { buildDirectionsUrl, normalizeHttpUrl } from '@/lib/restaurantLinks';
 
 type Props = {
   address: Address;
   location?: { lat: number; lng: number } | null;
   phone?: string | null;
   website?: string | null;
+  onlineOrderUrl?: string | null;
   onMessage: () => void;
 };
-
-function normalizeWebsite(url: string): string {
-  const trimmed = url.trim();
-  if (!trimmed) return trimmed;
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  return `https://${trimmed}`;
-}
 
 export function RestaurantActions({
   address,
   location,
   phone,
   website,
+  onlineOrderUrl,
   onMessage,
 }: Props) {
   const directionsUrl = buildDirectionsUrl(address, location);
   const tel = phone?.trim() ? `tel:${phone.replace(/[^\d+]/g, '')}` : null;
-  const site = website?.trim() ? normalizeWebsite(website) : null;
+  const site = normalizeHttpUrl(website);
+  const orderOnline = normalizeHttpUrl(onlineOrderUrl);
 
   return (
     <div className="rt-restaurant-actions">
@@ -62,6 +59,17 @@ export function RestaurantActions({
         >
           <GlobalOutlined aria-hidden />
           <span>Website</span>
+        </a>
+      ) : null}
+      {orderOnline ? (
+        <a
+          href={orderOnline}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rt-restaurant-actions__tile"
+        >
+          <ShoppingCartOutlined aria-hidden />
+          <span>Order online</span>
         </a>
       ) : null}
       <Button

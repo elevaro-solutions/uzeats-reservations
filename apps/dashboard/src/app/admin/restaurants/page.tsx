@@ -73,6 +73,7 @@ import {
 import { addressSelectionToFields } from '@/lib/address';
 import {
   depositAmountWhenRequiredRule,
+  optionalHttpUrlRule,
   priceRangeOptions,
   restaurantFieldTooltips as tips,
 } from '@/lib/restaurantFormTooltips';
@@ -484,6 +485,7 @@ function AdminRestaurantsContent() {
     phone: values.phone || undefined,
     website: values.website || undefined,
     menuUrl: values.menuUrl || undefined,
+    onlineOrderUrl: values.onlineOrderUrl || undefined,
     logoUrl: logoUrl ?? null,
     depositRequired: Boolean(values.depositRequired),
     depositAmountCents: Math.round((Number(values.depositAmountCents) || 0) * 100),
@@ -1226,8 +1228,18 @@ function AdminRestaurantsContent() {
                   </Form.Item>
                 </Col>
                 <Col xs={24} sm={12}>
-                  <Form.Item name="menuUrl" label="Full menu URL">
+                  <Form.Item name="menuUrl" label="Full menu URL" rules={[optionalHttpUrlRule]}>
                     <Input placeholder="https://" />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12}>
+                  <Form.Item
+                    name="onlineOrderUrl"
+                    label="Online order URL"
+                    tooltip={tips.onlineOrderUrl}
+                    rules={[optionalHttpUrlRule]}
+                  >
+                    <Input placeholder="https://www.doordash.com/store/..." />
                   </Form.Item>
                 </Col>
                 <Col span={24}>

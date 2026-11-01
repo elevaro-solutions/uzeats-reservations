@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { useMutation, useQuery, useLazyQuery } from '@/lib/apollo-hooks';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -384,6 +385,79 @@ type PartnerInvoice = {
 const INVOICE_LIST_PREVIEW = 3;
 const PLAN_FEATURE_PREVIEW = 6;
 const FEATURE_DELTA_PREVIEW = 8;
+const OPEN_INVOICE_STATUSES = new Set(['pending', 'overdue', 'upcoming']);
+
+function isOpenInvoice(invoice: PartnerInvoice) {
+  return OPEN_INVOICE_STATUSES.has(invoice.status) && invoice.totalCents > 0;
+}
+
+function pickPrimaryOpenInvoice(invoices: PartnerInvoice[]) {
+  const rank = (status: string) => (status === 'overdue' ? 0 : status === 'pending' ? 1 : 2);
+  return (
+    invoices
+      .filter(isOpenInvoice)
+      .sort((a, b) => {
+        const byStatus = rank(a.status) - rank(b.status);
+        if (byStatus !== 0) return byStatus;
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      })[0] ?? null
+  );
+}
+
+function partnerInvoiceHref(invoiceId: string, restaurantId?: string | null) {
+  const qs = restaurantId ? `?restaurant=${encodeURIComponent(restaurantId)}` : '';
+  return `/billing/invoices/${invoiceId}${qs}`;
+}
+
+function OutstandingBalanceAlert({
+  outstandingCents,
+  openInvoiceCount,
+  amountDueNow,
+  invoiceHref,
+}: {
+  outstandingCents: number;
+  openInvoiceCount: number;
+  amountDueNow: number;
+  invoiceHref: string | null;
+}) {
+  return (
+    <Alert
+      type="warning"
+      showIcon
+      title="Outstanding platform balance"
+      description={
+        <>
+          {outstandingCents > 0 ? (
+            <>Outstanding balance: {formatCents(outstandingCents)}. </>
+          ) : null}
+          Pay all open invoices and any subscription balance before deleting this restaurant.
+          {openInvoiceCount > 0 ? (
+            <>
+              {' '}
+              You have {openInvoiceCount} unpaid invoice
+              {openInvoiceCount === 1 ? '' : 's'}
+              {amountDueNow > 0
+                ? ` and ${formatCents(amountDueNow)} due on the subscription`
+                : ''}
+              .
+            </>
+          ) : amountDueNow > 0 ? (
+            <> Subscription balance due: {formatCents(amountDueNow)}.</>
+          ) : null}
+        </>
+      }
+      action={
+        invoiceHref ? (
+          <Link href={invoiceHref}>
+            <Button size="small" type="primary">
+              View invoice
+            </Button>
+          </Link>
+        ) : null
+      }
+    />
+  );
+}
 
 type PlanChangeDraft = {
   plan: string;
@@ -855,7 +929,20 @@ export default function BillingPage() {
       const deletedId = activeRestaurantId;
       const res = await deleteMyRestaurant({ variables: { restaurantId: deletedId } });
       if (!res.data?.deleteMyRestaurant?.success) {
-        message.error(res.data?.deleteMyRestaurant?.message ?? 'Could not delete restaurant');
+        const msg = res.data?.deleteMyRestaurant?.message ?? 'Could not delete restaurant';
+        const primary = pickPrimaryOpenInvoice(invoices);
+        const href = primary ? partnerInvoiceHref(primary.id, deletedId) : null;
+        message.error({
+          content: href ? (
+            <span>
+              {msg}{' '}
+              <Link href={href}>View invoice</Link>
+            </span>
+          ) : (
+            msg
+          ),
+          duration: href ? 8 : 3,
+        });
         return;
       }
       setDeleteConfirmOpen(false);
@@ -874,7 +961,19 @@ export default function BillingPage() {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Could not delete restaurant';
-      message.error(msg);
+      const primary = pickPrimaryOpenInvoice(invoices);
+      const href = primary ? partnerInvoiceHref(primary.id, activeRestaurantId) : null;
+      message.error({
+        content: href ? (
+          <span>
+            {msg}{' '}
+            <Link href={href}>View invoice</Link>
+          </span>
+        ) : (
+          msg
+        ),
+        duration: href ? 8 : 3,
+      });
     }
   };
 
@@ -1098,9 +1197,23 @@ export default function BillingPage() {
   const canEditBilling = Boolean(user && canManageBilling(user.role));
   const amountDueNow = Number(subscription?.amountDueCents ?? 0);
   const openInvoiceCount = Number(openInvoiceCountData?.restaurantOpenInvoiceCount ?? 0);
+  const primaryOpenInvoice = pickPrimaryOpenInvoice(invoices);
+  const outstandingInvoiceHref = primaryOpenInvoice
+    ? partnerInvoiceHref(primaryOpenInvoice.id, activeRestaurantId)
+    : null;
+  const invoiceOutstandingCents = invoices
+    .filter(isOpenInvoice)
+    .reduce((sum, inv) => sum + inv.totalCents, 0);
+  const outstandingCents = Math.max(
+    Number(subscription?.billingEnforcement?.outstandingCents ?? 0),
+    invoiceOutstandingCents,
+    amountDueNow,
+  );
   const hasPlatformDebt =
     openInvoiceCount > 0 ||
     amountDueNow > 0 ||
+    outstandingCents > 0 ||
+    Boolean(primaryOpenInvoice) ||
     subscription?.status === 'past_due';
   const venueName = (activeRestaurant?.name ?? '').trim();
   const deleteNameMatches =
@@ -1476,6 +1589,7 @@ export default function BillingPage() {
             </Card>
 
             <Card
+              id="invoices"
               title="Usage & invoices"
               extra={periodToolbar}
               styles={{ body: { paddingTop: spacing.md } }}
@@ -1627,25 +1741,6 @@ export default function BillingPage() {
               </div>
             </Card>
 
-            <Drawer
-              title={
-                selectedInvoice
-                  ? `Invoice ${selectedInvoice.number}`
-                  : 'Invoice'
-              }
-              placement="right"
-              size={520}
-              open={Boolean(selectedInvoiceId)}
-              onClose={closeInvoice}
-              destroyOnHidden
-            >
-              <PartnerInvoiceDetail
-                invoice={selectedInvoice}
-                showOpenPageLink
-                restaurantQuery={activeRestaurantId}
-              />
-            </Drawer>
-
             {smsEnabled ? (
             <Card title="Premium SMS">
               <div
@@ -1729,7 +1824,6 @@ export default function BillingPage() {
               <Alert
                 type="info"
                 showIcon
-                style={{ marginBottom: 8 }}
                 title="Subscription cancelled"
                 description={`Your previous ${planDisplayName} plan has ended. This location is inactive and hidden from public search and booking until you choose a plan below. Re-subscribing replaces the cancelled subscription.`}
               />
@@ -1741,7 +1835,16 @@ export default function BillingPage() {
               />
             )}
 
-            <Row gutter={[16, 16]}>
+            {hasPlatformDebt ? (
+              <OutstandingBalanceAlert
+                outstandingCents={outstandingCents}
+                openInvoiceCount={openInvoiceCount}
+                amountDueNow={amountDueNow}
+                invoiceHref={outstandingInvoiceHref}
+              />
+            ) : null}
+
+            <Row gutter={[16, 16]} align="stretch">
               {plans.map((plan) => {
                 const isRecommended = plan.key === 'core';
                 const blurb =
@@ -1752,17 +1855,31 @@ export default function BillingPage() {
                   ([key]) => smsEnabled || (key !== 'premiumSms' && key !== 'premiumSmsAddon'),
                 );
                 return (
-                  <Col key={plan.key} xs={24} md={12} xl={6}>
+                  <Col key={plan.key} xs={24} md={12} xl={6} style={{ display: 'flex' }}>
                     <Card
                       style={{
                         height: '100%',
+                        width: '100%',
                         display: 'flex',
                         flexDirection: 'column',
                         borderRadius: radii.lg,
                         borderColor: isRecommended ? colors.brand[500] : colors.border,
-                        borderWidth: isRecommended ? 2 : 1,
+                        boxShadow: isRecommended ? `0 0 0 1px ${colors.brand[500]}` : undefined,
                       }}
                       styles={{
+                        header: {
+                          alignItems: 'flex-start',
+                          gap: 8,
+                        },
+                        title: {
+                          minWidth: 0,
+                          overflow: 'hidden',
+                        },
+                        extra: {
+                          flexShrink: 0,
+                          marginInlineStart: 8,
+                          whiteSpace: 'nowrap',
+                        },
                         body: {
                           flex: 1,
                           display: 'flex',
@@ -1770,10 +1887,9 @@ export default function BillingPage() {
                         },
                       }}
                       title={
-                        <Space>
+                        <Space size={8} style={{ minWidth: 0 }}>
                           <CrownOutlined />
                           <span>{plan.name}</span>
-                          {isRecommended ? <Tag color="green">Recommended</Tag> : null}
                         </Space>
                       }
                       extra={<PlanPrice plan={plan} size="small" showSecondaryNote={false} />}
@@ -1799,6 +1915,11 @@ export default function BillingPage() {
                         size={8}
                         style={{ width: '100%', flex: 1 }}
                       >
+                        {isRecommended ? (
+                          <Tag color="green" style={{ marginInlineEnd: 0, width: 'fit-content' }}>
+                            Recommended
+                          </Tag>
+                        ) : null}
                         {getPlanDiscountLabel(plan) ? (
                           <Tag color="gold">{getPlanDiscountLabel(plan)}</Tag>
                         ) : null}
@@ -1857,8 +1978,65 @@ export default function BillingPage() {
                 );
               })}
             </Row>
+
+            <Card
+              id="invoices"
+              title="Invoices"
+              styles={{ body: { paddingTop: spacing.md } }}
+            >
+              <Text type="secondary" style={{ display: 'block', marginBottom: spacing.md }}>
+                Open an invoice for the full breakdown, pay link, and PDF. Outstanding balances
+                must be paid before this restaurant can be deleted.
+              </Text>
+              {invoiceLoading && invoices.length === 0 ? (
+                <div style={{ display: 'grid', placeItems: 'center', minHeight: 120 }}>
+                  <Spin />
+                </div>
+              ) : invoices.length === 0 ? (
+                <Text type="secondary">No invoices yet for this restaurant.</Text>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gap: 8 }}>
+                    {visibleInvoices.map((invoice) => (
+                      <InvoiceListRow
+                        key={invoice.id}
+                        invoice={invoice}
+                        selected={invoice.id === selectedInvoiceId}
+                        onSelect={() => openInvoice(invoice)}
+                      />
+                    ))}
+                  </div>
+                  {invoices.length > INVOICE_LIST_PREVIEW ? (
+                    <Button
+                      type="link"
+                      onClick={() => setShowAllInvoices((v) => !v)}
+                      style={{ paddingInline: 0, marginTop: spacing.sm }}
+                    >
+                      {showAllInvoices ? 'Show less' : `Show all (${invoices.length})`}
+                    </Button>
+                  ) : null}
+                </>
+              )}
+            </Card>
           </>
         )}
+
+        {activeRestaurantId && !subLoading ? (
+          <Drawer
+            title={selectedInvoice ? `Invoice ${selectedInvoice.number}` : 'Invoice'}
+            placement="right"
+            size={520}
+            open={Boolean(selectedInvoiceId)}
+            onClose={closeInvoice}
+            destroyOnHidden
+          >
+            <PartnerInvoiceDetail
+              invoice={selectedInvoice}
+              showOpenPageLink
+              restaurantQuery={activeRestaurantId}
+            />
+          </Drawer>
+        ) : null}
 
         {canEditBilling && activeRestaurantId ? (
           <Card
@@ -1869,29 +2047,11 @@ export default function BillingPage() {
           >
             <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
               {hasPlatformDebt ? (
-                <Alert
-                  type="warning"
-                  showIcon
-                  title="Outstanding platform balance"
-                  description={
-                    <>
-                      Pay all open invoices and any subscription balance before deleting this
-                      restaurant.
-                      {openInvoiceCount > 0 ? (
-                        <>
-                          {' '}
-                          You have {openInvoiceCount} unpaid invoice
-                          {openInvoiceCount === 1 ? '' : 's'}
-                          {amountDueNow > 0
-                            ? ` and ${formatCents(amountDueNow)} due on the subscription`
-                            : ''}
-                          .
-                        </>
-                      ) : amountDueNow > 0 ? (
-                        <> Subscription balance due: {formatCents(amountDueNow)}.</>
-                      ) : null}
-                    </>
-                  }
+                <OutstandingBalanceAlert
+                  outstandingCents={outstandingCents}
+                  openInvoiceCount={openInvoiceCount}
+                  amountDueNow={amountDueNow}
+                  invoiceHref={outstandingInvoiceHref}
                 />
               ) : null}
               <div

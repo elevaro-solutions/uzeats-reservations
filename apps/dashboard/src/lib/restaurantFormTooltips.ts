@@ -51,6 +51,8 @@ export const restaurantFieldTooltips = {
     'Fewest points a guest can redeem in one visit. Guests with fewer points cannot apply loyalty toward a deposit.',
   phone: 'Restaurant contact phone number. US format, e.g. (212) 555-1234. Optional.',
   website: 'Full restaurant website URL including https://. Optional.',
+  onlineOrderUrl:
+    'DoorDash, Uber Eats, Toast, or another ordering page. When set, diners see an Order online button on the public restaurant page.',
   useSmartAssign: 'Automatically picks the best available table when a reservation is confirmed.',
   minPartySize:
     'Smallest party guests can book online. Leave empty to use the platform default (1). Access rules can still raise the minimum for specific times.',
@@ -66,6 +68,20 @@ export const restaurantFieldTooltips = {
   buttonText: 'Label shown on the booking widget CTA button.',
   showReviews: 'Show average rating and review count on the booking widget.',
 } as const;
+
+/** Optional https URL — empty is allowed. */
+export const optionalHttpUrlRule = {
+  validator(_: unknown, value: unknown) {
+    if (!value) return Promise.resolve();
+    try {
+      // eslint-disable-next-line no-new
+      new URL(String(value));
+      return Promise.resolve();
+    } catch {
+      return Promise.reject(new Error('Enter a valid URL'));
+    }
+  },
+};
 
 /** Reject $0 when "deposit required" is on (form value may be dollars or cents). */
 export const depositAmountWhenRequiredRule = ({

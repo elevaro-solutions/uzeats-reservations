@@ -118,6 +118,7 @@ export function restaurantJsonLd(restaurant: {
   phone?: string | null;
   website?: string | null;
   menuUrl?: string | null;
+  onlineOrderUrl?: string | null;
   address: {
     line1: string;
     line2?: string | null;
@@ -194,18 +195,36 @@ export function restaurantJsonLd(restaurant: {
       name,
       value: true,
     })),
-    potentialAction: {
-      '@type': 'ReserveAction',
-      name: 'Reserve a table',
-      target: {
-        '@type': 'EntryPoint',
-        urlTemplate: absoluteUrl(path),
-        actionPlatform: [
-          'http://schema.org/DesktopWebPlatform',
-          'http://schema.org/MobileWebPlatform',
-        ],
+    potentialAction: [
+      {
+        '@type': 'ReserveAction',
+        name: 'Reserve a table',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: absoluteUrl(path),
+          actionPlatform: [
+            'http://schema.org/DesktopWebPlatform',
+            'http://schema.org/MobileWebPlatform',
+          ],
+        },
       },
-    },
+      ...(restaurant.onlineOrderUrl
+        ? [
+            {
+              '@type': 'OrderAction',
+              name: 'Order online',
+              target: {
+                '@type': 'EntryPoint',
+                urlTemplate: restaurant.onlineOrderUrl,
+                actionPlatform: [
+                  'http://schema.org/DesktopWebPlatform',
+                  'http://schema.org/MobileWebPlatform',
+                ],
+              },
+            },
+          ]
+        : []),
+    ],
   };
 }
 

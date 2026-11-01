@@ -1,5 +1,18 @@
 # Dashboard — Learnings & Observations
 
+## [2026-11-01] QA checklist catalog is v0.96.0
+- `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.96.0`. Testers use Restaurant profile Contact for Order online URL, cancelled owner Billing for View invoice and Core Recommended, Admin Invoices / Stripe for hosted invoices, and a period-invoice refresh for the recommended Stripe void/recreate check.
+- Why it matters: Do not re-test v0.95.0 diner Delete account / waitlist items on this gate. Older sign-off stays on that version’s row and Versions.
+
+## [2026-11-01] Online order URL is next to website, not menu
+- Profile / admin restaurant Contact has `onlineOrderUrl` (DoorDash, Uber Eats, Toast). It is not `website` and not `menuUrl`. Empty omits the diner **Order online** button.
+- Why it matters: Don’t store an ordering platform in Website; diners would lose a restaurant homepage link.
+
+## [2026-10-31] Cancelled Billing still needs invoices
+- After cancel, Billing showed only plan cards and hid Usage & invoices. Outstanding debt appeared as a delete toast (`Settle outstanding platform balance…`) with no path to pay.
+- Cancelled view now has an outstanding-balance alert with **View invoice**, the invoice list, and a 1px recommended card highlight so Core’s tag/price do not collide in the header.
+- Why it matters: Terminated/cancelled venues still owe period invoices; delete stays blocked until they are paid.
+
 ## [2026-10-30] QA checklist catalog is v0.94.0
 - `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.94.0`. Testers use Admin Plans & pricing for custom duration, Admin Invoices for the duration picker, restaurant Package for assign/switch period, diner `/pricing` for suffixes, and owner Billing Pay now.
 - Why it matters: Do not re-test v0.93.0 fail-to-pay / paid-period items on this gate. Older sign-off stays on that version’s row and Versions.

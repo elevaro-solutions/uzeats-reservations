@@ -148,7 +148,7 @@ import { RestaurantTermsSection } from '@/components/restaurant/RestaurantTermsS
 import { RestaurantMessageModal } from '@/components/restaurant/RestaurantMessageModal';
 import { RestaurantHoursMeta } from '@/components/restaurant/RestaurantHoursMeta';
 import { RestaurantLogo } from '@/components/restaurant/RestaurantLogo';
-import { buildMapsSearchUrl } from '@/lib/restaurantLinks';
+import { buildMapsSearchUrl, normalizeHttpUrl } from '@/lib/restaurantLinks';
 import { RestaurantExperiencesSection } from '@/components/restaurant/RestaurantExperiencesSection';
 import { RestaurantPrivateDiningSection } from '@/components/restaurant/RestaurantPrivateDiningSection';
 import { ExperienceBookingModal } from '@/components/restaurant/ExperienceBookingModal';
@@ -1255,6 +1255,7 @@ export default function RestaurantPageClient({
   const bookingHoursLine = formatBookingHours(restaurant.shifts ?? [], timeZone);
   const restaurantFaq = buildRestaurantFaq({ ...restaurant, openingHoursLines });
   const mapsUrl = buildMapsSearchUrl(restaurant.address, restaurant.location);
+  const orderOnlineHref = normalizeHttpUrl(restaurant.onlineOrderUrl);
 
   const reviews = (reviewsData as any)?.restaurantReviews?.items ?? [];
   const bookingSuccessDateLabel = bookingSuccess?.dateLabel ?? formatBookingDateLabel(date);
@@ -1347,6 +1348,7 @@ export default function RestaurantPageClient({
             location={restaurant.location}
             phone={restaurant.phone}
             website={restaurant.website}
+            onlineOrderUrl={restaurant.onlineOrderUrl}
             onMessage={() => setMessageOpen(true)}
           />
         </div>
@@ -1452,6 +1454,7 @@ export default function RestaurantPageClient({
                 address={restaurant.address}
                 phone={restaurant.phone}
                 website={restaurant.website}
+                onlineOrderUrl={restaurant.onlineOrderUrl}
                 cuisine={restaurant.cuisine}
                 priceRange={restaurant.priceRange}
                 diningStyles={restaurant.diningStyles}
@@ -2234,6 +2237,17 @@ export default function RestaurantPageClient({
               {restaurant.phone && (
                 <Button type="primary" size="large" href={`tel:${restaurant.phone}`}>
                   Call {restaurant.phone}
+                </Button>
+              )}
+              {orderOnlineHref && (
+                <Button
+                  type={restaurant.phone ? 'default' : 'primary'}
+                  size="large"
+                  href={orderOnlineHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Order online
                 </Button>
               )}
               {restaurant.website && (

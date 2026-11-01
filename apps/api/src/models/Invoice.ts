@@ -66,6 +66,8 @@ const invoiceSchema = new Schema(
     payToken: { type: String, sparse: true, unique: true, index: true },
     stripePaymentIntentId: { type: String, sparse: true, index: true },
     stripeInvoiceId: { type: String, sparse: true, unique: true },
+    /** Hosted Invoice Page URL after the local invoice is mirrored to Stripe. */
+    stripeHostedInvoiceUrl: { type: String },
     /** When the invoice PDF was emailed to the owner (avoids repeat sends on daily refresh). */
     emailSentAt: { type: Date },
     emailSentTo: { type: String },

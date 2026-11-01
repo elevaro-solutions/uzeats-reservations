@@ -300,6 +300,7 @@ export async function assessDeclinedCardFee(invoiceId: string, err: unknown) {
   doc.declinedFeeAssessedAt = new Date();
   recalcInvoiceTotals(doc);
   await doc.save();
+  await resyncStripeInvoice(doc);
   return true;
 }
 
@@ -338,8 +339,18 @@ async function assessFinanceChargesForInvoice(
       doc.status = 'overdue';
     }
     await doc.save();
+    await resyncStripeInvoice(doc);
   }
   return changed;
+}
+
+async function resyncStripeInvoice(doc: InvoiceDoc) {
+  try {
+    const { attachStripeInvoiceToLocal } = await import('./invoices.js');
+    await attachStripeInvoiceToLocal(doc);
+  } catch (err) {
+    logger.warn({ err, invoiceId: String(doc._id) }, 'stripe invoice resync after fee failed');
+  }
 }
 
 export async function assessFinanceChargesForRestaurant(restaurantId: string, now = new Date()) {
@@ -725,7 +736,6 @@ export async function pauseBillingEnforcement(input: {
   const snapshot = await getVenueEnforcementSnapshot(input.restaurantId, new Date(), sub);
   writeEnforcement(sub, {
     ...envOf(sub),
-    stage: snapshot.stage,
     pausedAt: new Date(),
     pauseReason: input.reason?.trim() || 'Paused by admin',
     outstandingCents: snapshot.outstandingCents,
@@ -852,6 +862,7 @@ export async function waiveInvoiceEnforcementFees(input: {
   }
   recalcInvoiceTotals(doc);
   await doc.save();
+  await resyncStripeInvoice(doc);
   await logAudit({
     actorId: input.actorId,
     action: 'waiveInvoiceEnforcementFees',

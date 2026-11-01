@@ -210,6 +210,10 @@ export const restaurantInputObjectSchema = z.object({
     .union([z.string().url(), z.literal("")])
     .optional()
     .transform((v) => (v === "" || v == null ? undefined : v)),
+  onlineOrderUrl: z
+    .union([z.string().url(), z.literal("")])
+    .optional()
+    .transform((v) => (v === "" || v == null ? undefined : v)),
   logoUrl: z
     .union([z.string().url(), z.literal(""), z.null()])
     .optional()

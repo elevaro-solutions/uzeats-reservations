@@ -310,6 +310,8 @@ export const typeDefs = `#graphql
     phone: String
     website: String
     menuUrl: String
+    """DoorDash, Uber Eats, Toast, or other online ordering page."""
+    onlineOrderUrl: String
     logoUrl: String
     photos: [String!]!
     status: RestaurantStatus!
@@ -3232,6 +3234,8 @@ export const typeDefs = `#graphql
     phone: String
     website: String
     menuUrl: String
+    """DoorDash, Uber Eats, Toast, or other online ordering page."""
+    onlineOrderUrl: String
     logoUrl: String
     depositRequired: Boolean
     depositAmountCents: Int

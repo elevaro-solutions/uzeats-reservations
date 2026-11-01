@@ -103,6 +103,7 @@ export function mapRestaurant(r: any) {
     phone: r.phone,
     website: r.website,
     menuUrl: r.menuUrl ?? null,
+    onlineOrderUrl: r.onlineOrderUrl ?? null,
     logoUrl: r.logoUrl ?? null,
     photos: r.photos ?? [],
     status: r.status,

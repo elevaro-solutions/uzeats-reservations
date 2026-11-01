@@ -2,6 +2,12 @@
 
 Platform invoices, subscriptions, cover fees, and fail-to-pay enforcement. Split from `features.md` because this is payments + partner access.
 
+## [2026-11-01] Local invoices are mirrored to Stripe
+
+- Period, manual, prepaid 3D, and SMS invoices call `attachStripeInvoiceToLocal` after create/refresh. Stripe gets `collection_method: send_invoice`, our invoice number, line descriptions, period start/end, due date, and custom fields. Payment still goes through Tablevera PaymentIntents; Stripe is marked `paid_out_of_band` after a local pay.
+- `pending_invoice_items_behavior: exclude` so subscription pending items (e.g. Daily $2/day) are not pulled onto platform invoices. Webhooks for these mirrors (`metadata.source = tablevera_local`) must not overwrite local numbers or cancel the local row when we void a stale Stripe copy.
+- Why it matters: Opening the Stripe hosted invoice for `INV-202610-0082` used to be blank because only a PaymentIntent existed.
+
 ## Fail-to-pay invoice policy (canonical)
 
 OpenTable/Resy-style ladder for **platform invoices** (`totalCents > 0`, not paid/canceled): period bills (plan + covers + add-ons), manual invoices, and unpaid prepaid add-on invoices.
@@ -47,6 +53,11 @@ Days 0 (`invoice_ready` / invoice email), 1, 3, 7 (reminder), 8 (overdue), 13, 1
 ### Disputes
 
 Pay the undisputed amount on time. Admin credits change the remaining total; the clock follows whatever is still unpaid. A dispute does not freeze the ladder unless an admin pauses it.
+
+## [2026-10-31] Cancelled partners still need a pay path
+- Partner Billing hid invoices on the cancelled plan picker. Delete-blocked debt (`assertRestaurantClearOfPlatformDebt`) then only showed as a toast with no **View invoice** link.
+- Cancelled Billing now links the outstanding-balance alert to `/billing/invoices/:id` and lists invoices on that screen.
+- Why it matters: Termination/cancel does not write off period invoices. Owners must pay before venue delete.
 
 ## [2026-10-30] Plan-change stub secrets are not Stripe Elements secrets
 - `getPlanChangePayment` must expand `latest_invoice.confirmation_secret` (Stripe basil). If there is still no secret, collect a card via SetupIntent instead of fabricating `pi_dev_*_secret_dev`.

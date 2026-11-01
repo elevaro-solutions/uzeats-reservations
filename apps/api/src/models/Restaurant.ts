@@ -31,6 +31,8 @@ const restaurantSchema = new Schema(
     phone: { type: String },
     website: { type: String },
     menuUrl: { type: String },
+    /** DoorDash, Uber Eats, Toast, or other online ordering page. */
+    onlineOrderUrl: { type: String },
     logoUrl: { type: String },
     photos: [{ type: String }],
     status: {

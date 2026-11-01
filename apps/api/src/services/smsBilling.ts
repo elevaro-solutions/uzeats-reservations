@@ -19,6 +19,7 @@ import {
   createInvoicePaymentIntent,
   isStubPaymentIntent,
 } from './stripe.js';
+import { attachStripeInvoiceToLocal } from './invoices.js';
 
 function readBalance(sub: { addons?: unknown } | null | undefined) {
   const addons = sub?.addons as
@@ -132,6 +133,7 @@ async function createPaidSmsInvoice(input: {
     notes: `Prepaid SMS · ${input.messageCount} message${input.messageCount === 1 ? '' : 's'}`,
     stripePaymentIntentId: input.paymentIntentId,
   });
+  await attachStripeInvoiceToLocal(doc);
   return doc;
 }
 

@@ -21,6 +21,7 @@ export type RestaurantSeoData = {
   phone?: string | null;
   website?: string | null;
   menuUrl?: string | null;
+  onlineOrderUrl?: string | null;
   diningStyles?: string[];
   discoveryOccasions?: string[];
   categoryIds?: string[];
@@ -114,6 +115,7 @@ const RESTAURANT_PAGE_QUERY = `
       phone
       website
       menuUrl
+      onlineOrderUrl
       diningStyles
       discoveryOccasions
       categoryIds

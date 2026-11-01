@@ -1,5 +1,9 @@
 # API — Learnings & Observations
 
+## [2026-11-01] QA checklist catalog is v0.96.0
+- `QA_CHECKLIST_RELEASE` is `0.96.0`. Catalog groups are Restaurant listing and Billing. v0.95.0 diner Delete account / waitlist items stay on that release’s `QaReleaseChecklist` row.
+- Why it matters: Sign-off for this gate is Order online URL, View invoice after cancel, Stripe hosted invoices, Core Recommended layout, and period-invoice Stripe refresh — not the previous mobile delete-account work.
+
 ## [2026-10-30] QA checklist catalog is v0.94.0
 - `QA_CHECKLIST_RELEASE` is `0.94.0`. Catalog groups are Added / Changed / Fixed. v0.93.0 fail-to-pay / paid-period / preparing items stay on that release’s `QaReleaseChecklist` row.
 - Why it matters: Sign-off for this gate is custom package duration, invoice duration, assign/switch period math, public pricing suffixes, and Billing Pay now — not the previous fail-to-pay work.
@@ -259,6 +263,11 @@
 - `createReview` soft-fails `awardReviewPoints` (log only) so a points failure cannot 500 after the Review row is already inserted — same pattern as complete-status loyalty awards.
 - Plain `throw new Error("Already reviewed")` was masked as `INTERNAL_SERVER_ERROR` in production `formatError`; createReview now uses `ConflictError` / `NotFoundError` / `ValidationError`.
 - Why it matters: First createReview attempt wrote the review then crashed on points; retry looked like a mysterious 500 (`Already reviewed`).
+
+## [2026-11-01] Platform invoices create hosted Stripe invoices
+- `upsertHostedStripeInvoice` finalizes a `send_invoice` Stripe invoice (number, description, custom fields, line `period`, `due_date`). No-ops without Stripe keys. Local pay marks it `paid_out_of_band`.
+- `syncStripeInvoice` ignores void/rebuilds for `metadata.source=tablevera_local` so a refresh cannot wipe `INV-…` numbers.
+- Why it matters: Stripe Dashboard showed empty invoices when partners followed a pay link; Tablevera already had the bill locally.
 
 ## [2026-10-09] Orphan Stripe subscription IDs after mode switch
 - `mySubscription` used to call `getOpenSubscriptionPayment` and surface `resource_missing` (`No such subscription: 'sub_…'`) when Mongo still pointed at a `sub_` from the other Stripe mode. GraphQL nulled the field, Billing showed the plan picker, then `createSubscription` hit `Subscription already exists`.

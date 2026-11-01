@@ -1,9 +1,11 @@
+import mongoose from 'mongoose';
 import { Invoice } from '../models/Invoice.js';
 import { Subscription } from '../models/Subscription.js';
 import { getPlatformConfig } from './platformConfig.js';
 import { mapInvoice } from './invoices.js';
 import { logger } from '../lib/logger.js';
 import { applyPendingPlanChangeIfDue } from './planChange.js';
+import { STRIPE_LOCAL_INVOICE_SOURCE } from './stripe.js';
 
 function mapStripeInvoiceStatus(
   status: string | null | undefined,
@@ -46,6 +48,47 @@ export async function syncStripeInvoice(stripeInvoice: {
   if (!restaurantId) {
     logger.warn({ stripeInvoiceId: stripeInvoice.id }, '[stripe] invoice without restaurantId');
     return null;
+  }
+
+  const isLocalMirror = stripeInvoice.metadata?.source === STRIPE_LOCAL_INVOICE_SOURCE;
+  const metaInvoiceId = stripeInvoice.metadata?.invoiceId;
+  const existingMirror = await Invoice.findOne({
+    $or: [
+      { stripeInvoiceId: stripeInvoice.id },
+      ...(metaInvoiceId && mongoose.isValidObjectId(metaInvoiceId)
+        ? [{ _id: metaInvoiceId }]
+        : []),
+    ],
+  });
+  if (existingMirror && isLocalMirror) {
+    if (
+      existingMirror.stripeInvoiceId &&
+      existingMirror.stripeInvoiceId !== stripeInvoice.id
+    ) {
+      return mapInvoice(existingMirror);
+    }
+    const status = mapStripeInvoiceStatus(stripeInvoice.status);
+    if (status === 'paid' && existingMirror.status !== 'paid' && existingMirror.status !== 'canceled') {
+      existingMirror.status = 'paid';
+      existingMirror.paidAt = stripeInvoice.status_transitions?.paid_at
+        ? new Date(stripeInvoice.status_transitions.paid_at * 1000)
+        : new Date();
+      existingMirror.stripeInvoiceId = stripeInvoice.id;
+      existingMirror.autoChargeError = undefined;
+      await existingMirror.save();
+      await Subscription.updateOne(
+        { restaurantId, status: 'past_due' },
+        { $set: { amountDueCents: 0, status: 'active' } },
+      );
+      await Subscription.updateOne(
+        { restaurantId, status: { $ne: 'past_due' } },
+        { $set: { amountDueCents: 0 } },
+      );
+    } else if (!existingMirror.stripeInvoiceId) {
+      existingMirror.stripeInvoiceId = stripeInvoice.id;
+      await existingMirror.save();
+    }
+    return mapInvoice(existingMirror);
   }
 
   const config = await getPlatformConfig();
