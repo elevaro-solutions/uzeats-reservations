@@ -4,6 +4,35 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.97.0] — 2026-11-03
+
+### Added
+- Partner Hub restaurant visibility and activity: Visible / Not visible and Active / Inactive. Not visible hides the restaurant from diner search and its public page; Inactive keeps the public page but blocks new bookings. Existing restaurants stay visible and active until changed. Trial restaurants stay public unless an admin hides them.
+- Tablevera and Tablevera Partner iPhone apps on the App Store, linked from diner web (downloads, footer, install bar, profile, reservations, for restaurants, pricing) and Partner Hub (sign-in, account menu, sidebar)
+- Partner Hub `/admin/qa` tasks for this release: visibility / activity listing, Standing vs Listing and Suspend/Approve flags, reason prompts, App Store badges, admin invoice detail, Base plan upgrade, UTC due dates, and Stripe terminal PaymentIntent pay flows
+
+### Changed
+- Partner Hub admin invoice detail: clearer amount hero, status once in the header, compact pay-link actions, and a two-column Details / Line items layout instead of the bordered descriptions grid
+- Partner Hub restaurants More menu and bulk bar group Standing (Approve / Reject / Suspend) separately from Listing (Visible / Active). Listing actions only appear for approved restaurants.
+- Suspending a restaurant also marks it inactive and not visible. Approving marks it visible and active again. A suspended public page replaces the reservation form with a closed booking card.
+- Suspended diner booking card: calendar icon, clearer copy, and a fuller empty-state layout instead of plain text.
+- Inactive restaurants stay on their public page, but Complete reservation is disabled and the page says the restaurant is not accepting reservations. They stay out of diner search, and new bookings are rejected.
+- Partner Hub restaurant More menu: each action has an icon and a tooltip. Reject, Suspend, Not visible, Active, and Inactive ask for a reason before they apply. The reason is stored on the audit log.
+- App Store badges are live download links instead of “coming soon”
+- Partner Hub Billing: free (Base) plans no longer show a paid billing cycle, and switching off Base starts the new plan now
+- Plans & pricing: $0 packages hide billing duration (free plans have no paid cycle)
+
+### Fixed
+- Root `pnpm dev` no longer fails when web `predev` and widget `--watch` race on the same widget `dist/` (copy now writes `apps/web/public/widget.js` from the in-memory bundle)
+- Local/dev no longer spams `invoice owner email failed` for seed owners (`owner@tablevera.local`); period invoice auto-email skips non-deliverable addresses and marks them handled
+- Partners on the free Base plan can upgrade even if a leftover period date is already in the past (the “next upgrade after Oct 29” block)
+- Invoice due dates are shown as UTC calendar days, so “Payment due” no longer uses a local timezone or a date that already passed during grace
+- Invoice pay page no longer mounts Stripe Elements with a finished PaymentIntent (e.g. after 3DS redirect); a succeeded intent marks the invoice paid, and canceled intents get a fresh one
+- Partner Hub plan switch / Pay now no longer opens the card form with a finished PaymentIntent (the “terminal state” Elements error). A succeeded charge clears the balance; otherwise a new card form is created
+
+### Docs
+- Restaurant visibility / activity, App Store links, Base plan billing, and Stripe terminal PaymentIntent notes
+
 ## [0.96.0] — 2026-11-01
 
 ### Added

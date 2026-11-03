@@ -107,6 +107,8 @@ export function mapRestaurant(r: any) {
     logoUrl: r.logoUrl ?? null,
     photos: r.photos ?? [],
     status: r.status,
+    visibility: r.visibility === 'hidden' ? 'hidden' : 'visible',
+    activity: r.activity === 'inactive' ? 'inactive' : 'active',
     ownerId: r.ownerId.toString(),
     depositRequired: r.depositRequired,
     depositAmountCents: r.depositAmountCents,

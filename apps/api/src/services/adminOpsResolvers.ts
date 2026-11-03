@@ -719,6 +719,8 @@ export const adminOpsMutation = {
       ownerInput?: unknown;
       plan?: string | null;
       status?: string | null;
+      visibility?: 'visible' | 'hidden' | null;
+      activity?: 'active' | 'inactive' | null;
     },
     ctx: GraphQLContext,
   ) => {
@@ -752,6 +754,8 @@ export const adminOpsMutation = {
       }),
       ownerId: owner._id,
       status,
+      ...(args.visibility ? { visibility: args.visibility } : {}),
+      ...(args.activity ? { activity: args.activity } : {}),
     });
 
     await User.findByIdAndUpdate(owner._id, {

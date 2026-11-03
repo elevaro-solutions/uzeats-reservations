@@ -23,13 +23,21 @@ const STYLES: Record<string, StatusStyle> = {
   draft: { color: colors.textSecondary, background: colors.neutral[100] },
   published: { color: colors.success, background: colors.successBg },
   archived: { color: colors.warning, background: colors.warningBg },
+  visible: { color: colors.success, background: colors.successBg },
+  hidden: { color: colors.textSecondary, background: colors.neutral[100] },
+  active: { color: colors.success, background: colors.successBg },
+  inactive: { color: colors.warning, background: colors.warningBg },
+};
+
+const LABELS: Record<string, string> = {
+  hidden: 'Not visible',
 };
 
 const FALLBACK: StatusStyle = { color: colors.textSecondary, background: colors.neutral[100] };
 
 export function StatusTag({ status }: { status: string }) {
   const style = STYLES[status] ?? FALLBACK;
-  const label = status.replace(/_/g, ' ');
+  const label = LABELS[status] ?? status.replace(/_/g, ' ');
 
   return (
     <span component="StatusTag"

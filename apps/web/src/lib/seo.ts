@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { MOBILE_APPS, buildRestaurantBookingPath } from '@reservations/shared';
+import { mobileStoreUrls, buildRestaurantBookingPath } from '@reservations/shared';
 
 export const DEFAULT_SITE_URL = 'https://tablevera.online';
 export const DEFAULT_OG_IMAGE_PATH = '/images/hero-restaurant.jpg';
@@ -27,7 +27,7 @@ function socialSameAs(): string[] {
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value));
 
-  return [...new Set([...fromEnv, MOBILE_APPS.diner.androidUrl, MOBILE_APPS.partner.androidUrl])];
+  return [...new Set([...fromEnv, ...mobileStoreUrls()])];
 }
 
 export const HOME_FAQ = [
@@ -132,6 +132,8 @@ export function restaurantJsonLd(restaurant: {
   amenities?: string[];
   meals?: string[];
   reservationsEnabled?: boolean | null;
+  status?: string | null;
+  activity?: string | null;
   openingHoursSpecification?: Array<{
     '@type': 'OpeningHoursSpecification';
     dayOfWeek: string;
@@ -155,7 +157,10 @@ export function restaurantJsonLd(restaurant: {
     logo: restaurant.logoUrl || restaurant.photos?.[0] || undefined,
     telephone: restaurant.phone ?? undefined,
     sameAs: restaurant.website ? [restaurant.website] : undefined,
-    acceptsReservations: restaurant.reservationsEnabled !== false,
+    acceptsReservations:
+      restaurant.reservationsEnabled !== false &&
+      restaurant.activity !== 'inactive' &&
+      restaurant.status !== 'suspended',
     ...(restaurant.menuUrl ? { hasMenu: restaurant.menuUrl, menu: restaurant.menuUrl } : {}),
     servesCuisine,
     priceRange: priceRangeSymbols(restaurant.priceRange),
@@ -280,7 +285,7 @@ export function softwareApplicationJsonLd() {
     '@type': 'SoftwareApplication',
     name: 'Tablevera',
     applicationCategory: 'LifestyleApplication',
-    operatingSystem: 'Web, Android',
+    operatingSystem: 'Web, Android, iOS',
     url: getSiteUrl(),
     offers: {
       '@type': 'Offer',

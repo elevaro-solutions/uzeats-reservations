@@ -57,6 +57,7 @@ import {
   PLANS,
   REMOVE_USER_RESTAURANT,
   RESTAURANT_TEAM,
+  SET_RESTAURANT_LISTING,
   SET_RESTAURANT_STATUS,
 } from '@/lib/graphql';
 import { addressSelectionToFields } from '@/lib/address';
@@ -111,6 +112,24 @@ export const RESTAURANT_STATUS_OPTIONS = [
   { value: 'suspended', label: 'Suspended' },
 ];
 
+export const RESTAURANT_VISIBILITY_OPTIONS = [
+  { value: 'visible', label: 'Visible' },
+  { value: 'hidden', label: 'Not visible' },
+];
+
+export const RESTAURANT_ACTIVITY_OPTIONS = [
+  { value: 'active', label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+];
+
+export function restaurantVisibility(value?: string | null) {
+  return value === 'hidden' ? 'hidden' : 'visible';
+}
+
+export function restaurantActivity(value?: string | null) {
+  return value === 'inactive' ? 'inactive' : 'active';
+}
+
 const TEAM_ROLE_OPTIONS = [
   { value: 'manager', label: 'Manager' },
   { value: 'restaurant_owner', label: 'Owner' },
@@ -121,6 +140,8 @@ export type AdminRestaurantRecord = {
   name: string;
   slug?: string;
   status: string;
+  visibility?: string | null;
+  activity?: string | null;
   cuisine: string;
   cuisines?: string[] | null;
   description?: string | null;
@@ -485,6 +506,8 @@ export function AdminManageRestaurant({
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<string>();
   const [selectedRestaurantStatus, setSelectedRestaurantStatus] = useState<string>();
+  const [selectedVisibility, setSelectedVisibility] = useState<string>('visible');
+  const [selectedActivity, setSelectedActivity] = useState<string>('active');
   const [assignUserId, setAssignUserId] = useState<string>();
   const [assignRole, setAssignRole] = useState('manager');
   const [form] = Form.useForm();
@@ -508,6 +531,7 @@ export function AdminManageRestaurant({
   const [setStatus] = useMutation(SET_RESTAURANT_STATUS, {
     refetchQueries: ['PlatformSetupSignals'],
   });
+  const [setListing] = useMutation(SET_RESTAURANT_LISTING);
   const [assignPackage, { loading: assigningPlan }] = useMutation(ADMIN_ASSIGN_RESTAURANT_PACKAGE);
   const [assignUserRestaurants, { loading: assigningUser }] = useMutation(ASSIGN_USER_RESTAURANTS);
   const [removeUserRestaurant] = useMutation(REMOVE_USER_RESTAURANT);
@@ -546,6 +570,8 @@ export function AdminManageRestaurant({
     setLogoUrl(restaurant.logoUrl ?? null);
     setSelectedPlan(restaurant.subscription?.plan);
     setSelectedRestaurantStatus(restaurant.status);
+    setSelectedVisibility(restaurantVisibility(restaurant.visibility));
+    setSelectedActivity(restaurantActivity(restaurant.activity));
     setAssignUserId(undefined);
     setAssignRole('manager');
     form.setFieldsValue({
@@ -649,7 +675,19 @@ export function AdminManageRestaurant({
       let hasChanges = false;
       let next: AdminRestaurantRecord = { ...restaurant };
 
-      if (selectedPlan) {
+      const planChanged = Boolean(selectedPlan && selectedPlan !== restaurant.subscription?.plan);
+      const statusChanged = Boolean(
+        selectedRestaurantStatus && selectedRestaurantStatus !== restaurant.status,
+      );
+      const visibilityChanged = selectedVisibility !== restaurantVisibility(restaurant.visibility);
+      const activityChanged = selectedActivity !== restaurantActivity(restaurant.activity);
+
+      if (!planChanged && !statusChanged && !visibilityChanged && !activityChanged) {
+        message.info('No changes to save');
+        return;
+      }
+
+      if (planChanged && selectedPlan) {
         const previousEnd = restaurant.subscription?.currentPeriodEnd;
         const result = await assignPackage({
           variables: { restaurantId: restaurant.id, plan: selectedPlan },
@@ -685,10 +723,23 @@ export function AdminManageRestaurant({
         hasChanges = true;
       }
 
-      if (selectedRestaurantStatus && selectedRestaurantStatus !== restaurant.status) {
+      if (statusChanged && selectedRestaurantStatus) {
         await setStatus({ variables: { id: restaurant.id, status: selectedRestaurantStatus } });
         message.success('Status updated');
         next = { ...next, status: selectedRestaurantStatus };
+        hasChanges = true;
+      }
+
+      if (visibilityChanged || activityChanged) {
+        await setListing({
+          variables: {
+            id: restaurant.id,
+            visibility: selectedVisibility,
+            activity: selectedActivity,
+          },
+        });
+        message.success('Listing updated');
+        next = { ...next, visibility: selectedVisibility, activity: selectedActivity };
         hasChanges = true;
       }
 
@@ -734,7 +785,7 @@ export function AdminManageRestaurant({
     }
   };
 
-  const updateDisabled = !selectedPlan || !selectedRestaurantStatus;
+  const updateDisabled = !selectedRestaurantStatus || !selectedVisibility || !selectedActivity;
 
   const saveButton = (
     <Button type="primary" loading={saving} disabled={!dirty} onClick={() => void onSave()}>
@@ -1259,6 +1310,28 @@ export function AdminManageRestaurant({
                     options={RESTAURANT_STATUS_OPTIONS}
                   />
                 </Form.Item>
+                <Form.Item
+                  label="Visibility"
+                  extra="Not visible hides this restaurant from diner search and its public page."
+                  style={{ marginBottom: spacing.md }}
+                >
+                  <Select
+                    value={selectedVisibility}
+                    onChange={setSelectedVisibility}
+                    options={RESTAURANT_VISIBILITY_OPTIONS}
+                  />
+                </Form.Item>
+                <Form.Item
+                  label="Activity"
+                  extra="Inactive also hides it from diner search and the public page. Approval and trial are unchanged."
+                  style={{ marginBottom: spacing.md }}
+                >
+                  <Select
+                    value={selectedActivity}
+                    onChange={setSelectedActivity}
+                    options={RESTAURANT_ACTIVITY_OPTIONS}
+                  />
+                </Form.Item>
                 <Button
                   type="primary"
                   loading={assigningPlan}
@@ -1392,7 +1465,7 @@ export function AdminManageRestaurant({
         open={open}
         onClose={onClose}
         width={720}
-        destroyOnClose
+        destroyOnHidden
         footer={footer}
       >
         {body}
@@ -1406,7 +1479,7 @@ export function AdminManageRestaurant({
       open={open}
       onCancel={onClose}
       width={800}
-      destroyOnClose
+      destroyOnHidden
       footer={footer}
     >
       {body}

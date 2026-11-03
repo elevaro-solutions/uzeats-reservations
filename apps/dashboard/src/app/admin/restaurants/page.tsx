@@ -13,6 +13,7 @@ import {
   Dropdown,
   Form,
   Input,
+  Tooltip,
   InputNumber,
   Modal,
   Row,
@@ -32,6 +33,7 @@ import {
   EditOutlined,
   DeleteOutlined,
   EyeOutlined,
+  EyeInvisibleOutlined,
   ImportOutlined,
   SearchOutlined,
   PlusOutlined,
@@ -39,6 +41,13 @@ import {
   ArrowLeftOutlined,
   ArrowRightOutlined,
   CheckOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  PauseCircleOutlined,
+  SettingOutlined,
+  GlobalOutlined,
+  PlayCircleOutlined,
+  StopOutlined,
 } from '@ant-design/icons';
 import {
   AddressAutocomplete,
@@ -55,7 +64,11 @@ import { applyRestaurantImportToForm } from '@/lib/applyRestaurantImport';
 import {
   AdminManageRestaurant,
   PlanSelector,
+  RESTAURANT_ACTIVITY_OPTIONS,
   RESTAURANT_STATUS_OPTIONS,
+  RESTAURANT_VISIBILITY_OPTIONS,
+  restaurantActivity,
+  restaurantVisibility,
   type AdminRestaurantRecord,
 } from '@/components/AdminManageRestaurant';
 import {
@@ -66,6 +79,8 @@ import {
   ADMIN_DELETE_RESTAURANTS,
   ADMIN_USERS,
   PLANS,
+  SET_RESTAURANT_LISTING,
+  SET_RESTAURANT_LISTINGS,
   SET_RESTAURANT_STATUS,
   SET_RESTAURANT_STATUSES,
   UPSERT_MENU,
@@ -236,6 +251,27 @@ type PlanInfo = {
 
 type RestaurantRecord = AdminRestaurantRecord;
 
+type ReasonPrompt = {
+  restaurantId: string;
+  restaurantName: string;
+  title: string;
+  description: string;
+  okText: string;
+  danger?: boolean;
+  success: string;
+  status?: 'rejected' | 'suspended';
+  visibility?: 'hidden';
+  activity?: 'active' | 'inactive';
+};
+
+function MenuActionLabel({ label, description }: { label: string; description: string }) {
+  return (
+    <Tooltip title={description} placement="left" mouseEnterDelay={0.2}>
+      <span style={{ display: 'block' }}>{label}</span>
+    </Tooltip>
+  );
+}
+
 function formatPlanLabel(planKey: string, plans: Array<{ key: string; name: string }>) {
   const match = plans.find((p) => p.key === planKey);
   return match?.name ?? planKey;
@@ -249,15 +285,21 @@ function AdminRestaurantsContent() {
     search,
     searchQuery,
     status: statusFilter,
+    visibility: visibilityFilter,
+    activity: activityFilter,
     city: cityFilter,
     cuisine: cuisineFilter,
     setSearch,
     setStatus: setStatusFilter,
+    setVisibility: setVisibilityFilter,
+    setActivity: setActivityFilter,
     setCity: setCityFilter,
     setCuisine: setCuisineFilter,
   } = useUrlListFilters({
     search: 'q',
     status: 'status',
+    visibility: 'visibility',
+    activity: 'activity',
     city: 'city',
     cuisine: 'cuisine',
   });
@@ -269,6 +311,8 @@ function AdminRestaurantsContent() {
     variables: {
       search: searchQuery || undefined,
       status: statusFilter,
+      visibility: visibilityFilter,
+      activity: activityFilter,
       city: cityFilter,
       cuisine: cuisineFilter,
       limit,
@@ -290,7 +334,12 @@ function AdminRestaurantsContent() {
   const [setStatuses, { loading: bulkUpdating }] = useMutation(SET_RESTAURANT_STATUSES, {
     refetchQueries: ['PlatformSetupSignals'],
   });
+  const [setListing] = useMutation(SET_RESTAURANT_LISTING);
+  const [setListings, { loading: bulkListing }] = useMutation(SET_RESTAURANT_LISTINGS);
   const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
+  const [reasonPrompt, setReasonPrompt] = useState<ReasonPrompt | null>(null);
+  const [reasonText, setReasonText] = useState('');
+  const [savingReason, setSavingReason] = useState(false);
   const [createRestaurant, { loading: creating }] = useMutation(ADMIN_CREATE_RESTAURANT);
   const [deleteRestaurant] = useMutation(ADMIN_DELETE_RESTAURANT, {
     onCompleted: () => {
@@ -574,6 +623,8 @@ function AdminRestaurantsContent() {
           ownerInput,
           plan: values.plan || undefined,
           status: values.status || 'approved',
+          visibility: values.visibility || 'visible',
+          activity: values.activity || 'active',
           input: buildRestaurantInput(values, photos),
         },
       });
@@ -614,37 +665,102 @@ function AdminRestaurantsContent() {
     }
   };
 
+  const askReason = (prompt: ReasonPrompt) => {
+    setReasonText('');
+    setReasonPrompt(prompt);
+  };
+
+  const submitReason = async () => {
+    if (!reasonPrompt) return;
+    const reason = reasonText.trim();
+    if (!reason) {
+      message.warning('Enter a reason');
+      return;
+    }
+    setSavingReason(true);
+    try {
+      if (reasonPrompt.status) {
+        await setStatus({
+          variables: { id: reasonPrompt.restaurantId, status: reasonPrompt.status, reason },
+        });
+      } else {
+        await setListing({
+          variables: {
+            id: reasonPrompt.restaurantId,
+            visibility: reasonPrompt.visibility,
+            activity: reasonPrompt.activity,
+            reason,
+          },
+        });
+      }
+      message.success(reasonPrompt.success);
+      setReasonPrompt(null);
+      setReasonText('');
+      refetch();
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Update failed');
+    } finally {
+      setSavingReason(false);
+    }
+  };
+
   const actionItems = (r: RestaurantRecord): MenuProps['items'] => {
     const dinerUrl = buildRestaurantBookingUrl(getPublicWebUrl(), {
       slug: r.slug,
       id: r.id,
     });
+    const visibility = restaurantVisibility(r.visibility);
+    const activity = restaurantActivity(r.activity);
     const items: NonNullable<MenuProps['items']> = [
       {
         key: 'view',
         icon: <EyeOutlined />,
-        label: 'View as diner',
+        label: (
+          <MenuActionLabel
+            label="View as diner"
+            description="Opens the public restaurant page in a new tab, the way a diner sees it."
+          />
+        ),
         onClick: () => {
           window.open(dinerUrl, '_blank', 'noopener,noreferrer');
         },
       },
       {
         key: 'manage',
-        label: 'Manage',
+        icon: <SettingOutlined />,
+        label: (
+          <MenuActionLabel
+            label="Manage"
+            description="Opens this restaurant’s admin page for package, team, and profile."
+          />
+        ),
         onClick: () => router.push(`/admin/restaurants/${r.id}`),
       },
       {
         key: 'edit',
         icon: <EditOutlined />,
-        label: 'Edit',
+        label: (
+          <MenuActionLabel
+            label="Edit"
+            description="Edits the restaurant profile, photos, and listing details."
+          />
+        ),
         onClick: () => setEditing(r),
       },
+      { type: 'divider' },
     ];
 
+    const standing: NonNullable<MenuProps['items']> = [];
     if (r.status !== 'approved') {
-      items.push({
+      standing.push({
         key: 'approve',
-        label: 'Approve',
+        icon: <CheckCircleOutlined />,
+        label: (
+          <MenuActionLabel
+            label="Approve"
+            description="Approves the restaurant and marks it visible and active so diners can find it and book."
+          />
+        ),
         onClick: async () => {
           await setStatus({ variables: { id: r.id, status: 'approved' } });
           message.success('Approved');
@@ -652,28 +768,159 @@ function AdminRestaurantsContent() {
         },
       });
     }
-
     if (r.status !== 'rejected') {
-      items.push({
+      standing.push({
         key: 'reject',
-        label: 'Reject',
+        icon: <CloseCircleOutlined />,
+        label: (
+          <MenuActionLabel
+            label="Reject"
+            description="Rejects the restaurant. It stays off diner search and the public page."
+          />
+        ),
         danger: true,
-        onClick: async () => {
-          await setStatus({ variables: { id: r.id, status: 'rejected' } });
-          refetch();
-        },
+        onClick: () =>
+          askReason({
+            restaurantId: r.id,
+            restaurantName: r.name,
+            title: `Reject ${r.name}?`,
+            description:
+              'Rejected restaurants stay off diner search and the public page. The owner can still sign in.',
+            okText: 'Reject',
+            danger: true,
+            success: 'Rejected',
+            status: 'rejected',
+          }),
+      });
+    }
+    if (r.status === 'approved') {
+      standing.push({
+        key: 'suspend',
+        icon: <PauseCircleOutlined />,
+        label: (
+          <MenuActionLabel
+            label="Suspend"
+            description="Suspends the restaurant and marks it inactive and not visible. The public page says it is not accepting reservations."
+          />
+        ),
+        onClick: () =>
+          askReason({
+            restaurantId: r.id,
+            restaurantName: r.name,
+            title: `Suspend ${r.name}?`,
+            description:
+              'This also marks the restaurant inactive and not visible, so it leaves diner search. The public page stays up and says it is not accepting reservations. Approve marks it visible and active again.',
+            okText: 'Suspend',
+            danger: true,
+            success: 'Suspended',
+            status: 'suspended',
+          }),
+      });
+    }
+    if (standing.length) {
+      items.push({
+        type: 'group',
+        label: 'Standing',
+        children: standing,
       });
     }
 
+    // Listing only while approved — pending / rejected / suspended use Standing instead.
     if (r.status === 'approved') {
-      items.push({
-        key: 'suspend',
-        label: 'Suspend',
-        onClick: async () => {
-          await setStatus({ variables: { id: r.id, status: 'suspended' } });
-          refetch();
+      const listing: NonNullable<MenuProps['items']> = [
+        visibility === 'hidden'
+          ? {
+              key: 'visibility',
+              icon: <GlobalOutlined />,
+              label: (
+                <MenuActionLabel
+                  label="Visible"
+                  description="Shows the restaurant in diner search and on its public page when it is also active."
+                />
+              ),
+              onClick: async () => {
+                await setListing({
+                  variables: { id: r.id, visibility: 'visible' },
+                });
+                message.success('Visible in search');
+                refetch();
+              },
+            }
+          : {
+              key: 'visibility',
+              icon: <EyeInvisibleOutlined />,
+              label: (
+                <MenuActionLabel
+                  label="Not visible"
+                  description="Hides the restaurant from diner search and its public page. Standing and plan stay the same."
+                />
+              ),
+              onClick: () =>
+                askReason({
+                  restaurantId: r.id,
+                  restaurantName: r.name,
+                  title: `Hide ${r.name} from diners?`,
+                  description:
+                    'Not visible removes the restaurant from search and its public page. Standing, plan, and activity stay the same.',
+                  okText: 'Not visible',
+                  danger: true,
+                  success: 'Hidden from search',
+                  visibility: 'hidden',
+                }),
+            },
+        activity === 'inactive'
+          ? {
+              key: 'activity',
+              icon: <PlayCircleOutlined />,
+              label: (
+                <MenuActionLabel
+                  label="Active"
+                  description="Lets diners book when the restaurant is also visible. Search includes it again."
+                />
+              ),
+              onClick: () =>
+                askReason({
+                  restaurantId: r.id,
+                  restaurantName: r.name,
+                  title: `Mark ${r.name} active?`,
+                  description:
+                    'Active puts the restaurant back in search and enables Complete reservation when it is also visible.',
+                  okText: 'Mark active',
+                  success: 'Marked active',
+                  activity: 'active',
+                }),
+            }
+          : {
+              key: 'activity',
+              icon: <StopOutlined />,
+              label: (
+                <MenuActionLabel
+                  label="Inactive"
+                  description="Keeps the public page when visible, disables booking, and removes the restaurant from search."
+                />
+              ),
+              onClick: () =>
+                askReason({
+                  restaurantId: r.id,
+                  restaurantName: r.name,
+                  title: `Mark ${r.name} inactive?`,
+                  description:
+                    'Inactive removes the restaurant from search and disables Complete reservation. The public page stays up when it is still visible. Standing and plan stay the same.',
+                  okText: 'Mark inactive',
+                  danger: true,
+                  success: 'Marked inactive',
+                  activity: 'inactive',
+                }),
+            },
+      ];
+      items.push(
+        { type: 'divider' },
+        {
+          type: 'group',
+          label: 'Listing',
+          children: listing,
         },
-      });
+      );
     }
 
     if (canDeleteRestaurants) {
@@ -682,7 +929,12 @@ function AdminRestaurantsContent() {
         {
           key: 'delete',
           icon: <DeleteOutlined />,
-          label: 'Delete',
+          label: (
+            <MenuActionLabel
+              label="Delete"
+              description="Permanently deletes this restaurant and its related records. This cannot be undone."
+            />
+          ),
           danger: true,
           onClick: () => {
             Modal.confirm({
@@ -701,6 +953,20 @@ function AdminRestaurantsContent() {
     }
 
     return items;
+  };
+
+  const bulkUpdateListing = async (patch: { visibility?: string; activity?: string }) => {
+    const ids = selectedRowKeys.map(String);
+    if (!ids.length) return;
+    try {
+      const res = await setListings({ variables: { ids, ...patch } });
+      const updated = res.data?.setRestaurantListings?.updated ?? ids.length;
+      message.success(`Updated ${updated} restaurant${updated === 1 ? '' : 's'}`);
+      setSelectedRowKeys([]);
+      refetch();
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Bulk update failed');
+    }
   };
 
   const bulkUpdateStatus = async (status: string) => {
@@ -752,7 +1018,9 @@ function AdminRestaurantsContent() {
 
   const matchingTotal = data?.adminRestaurants?.total ?? 0;
   const overallTotal = filterMetaData?.adminRestaurantFilterMeta?.total ?? matchingTotal;
-  const hasActiveFilters = Boolean(searchQuery || statusFilter || cityFilter || cuisineFilter);
+  const hasActiveFilters = Boolean(
+    searchQuery || statusFilter || visibilityFilter || activityFilter || cityFilter || cuisineFilter,
+  );
   const cityOptions = (filterMetaData?.adminRestaurantFilterMeta?.cities ?? []).map(
     (city: string) => ({ value: city, label: city }),
   );
@@ -813,6 +1081,28 @@ function AdminRestaurantsContent() {
                 options={RESTAURANT_STATUS_OPTIONS}
               />
               <Select
+                placeholder="Visibility"
+                allowClear
+                style={{ width: 150 }}
+                value={visibilityFilter}
+                onChange={(value) => {
+                  setVisibilityFilter(value);
+                  setPagination(1);
+                }}
+                options={RESTAURANT_VISIBILITY_OPTIONS}
+              />
+              <Select
+                placeholder="Activity"
+                allowClear
+                style={{ width: 140 }}
+                value={activityFilter}
+                onChange={(value) => {
+                  setActivityFilter(value);
+                  setPagination(1);
+                }}
+                options={RESTAURANT_ACTIVITY_OPTIONS}
+              />
+              <Select
                 placeholder="Location"
                 allowClear
                 showSearch
@@ -845,38 +1135,80 @@ function AdminRestaurantsContent() {
               </Text>
             </Space>
             {selectedRowKeys.length > 0 && (
-              <Space wrap>
+              <Space wrap size="middle" align="center">
                 <Text type="secondary">{selectedRowKeys.length} selected</Text>
-                <Button
-                  size="small"
-                  loading={bulkUpdating}
-                  onClick={() => bulkUpdateStatus('approved')}
-                >
-                  Approve
-                </Button>
-                <Button
-                  size="small"
-                  loading={bulkUpdating}
-                  onClick={() => bulkUpdateStatus('rejected')}
-                >
-                  Reject
-                </Button>
-                <Button
-                  size="small"
-                  loading={bulkUpdating}
-                  onClick={() => bulkUpdateStatus('suspended')}
-                >
-                  Suspend
-                </Button>
-                {canDeleteRestaurants && (
+                <Space size={4} wrap>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Standing
+                  </Text>
                   <Button
                     size="small"
-                    danger
-                    loading={bulkDeleting}
-                    onClick={bulkDelete}
+                    loading={bulkUpdating}
+                    onClick={() => bulkUpdateStatus('approved')}
                   >
-                    Delete
+                    Approve
                   </Button>
+                  <Button
+                    size="small"
+                    loading={bulkUpdating}
+                    onClick={() => bulkUpdateStatus('rejected')}
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    size="small"
+                    loading={bulkUpdating}
+                    onClick={() => bulkUpdateStatus('suspended')}
+                  >
+                    Suspend
+                  </Button>
+                </Space>
+                <Divider type="vertical" style={{ margin: 0, height: 20 }} />
+                <Space size={4} wrap>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Listing
+                  </Text>
+                  <Button
+                    size="small"
+                    loading={bulkListing}
+                    onClick={() => bulkUpdateListing({ visibility: 'visible' })}
+                  >
+                    Visible
+                  </Button>
+                  <Button
+                    size="small"
+                    loading={bulkListing}
+                    onClick={() => bulkUpdateListing({ visibility: 'hidden' })}
+                  >
+                    Not visible
+                  </Button>
+                  <Button
+                    size="small"
+                    loading={bulkListing}
+                    onClick={() => bulkUpdateListing({ activity: 'active' })}
+                  >
+                    Active
+                  </Button>
+                  <Button
+                    size="small"
+                    loading={bulkListing}
+                    onClick={() => bulkUpdateListing({ activity: 'inactive' })}
+                  >
+                    Inactive
+                  </Button>
+                </Space>
+                {canDeleteRestaurants && (
+                  <>
+                    <Divider type="vertical" style={{ margin: 0, height: 20 }} />
+                    <Button
+                      size="small"
+                      danger
+                      loading={bulkDeleting}
+                      onClick={bulkDelete}
+                    >
+                      Delete
+                    </Button>
+                  </>
                 )}
                 <Button size="small" onClick={() => setSelectedRowKeys([])}>
                   Clear
@@ -933,6 +1265,18 @@ function AdminRestaurantsContent() {
                   render: (s: string) => <StatusTag status={s} />,
                 },
                 {
+                  title: 'Visibility',
+                  render: (_: unknown, r: RestaurantRecord) => (
+                    <StatusTag status={restaurantVisibility(r.visibility)} />
+                  ),
+                },
+                {
+                  title: 'Activity',
+                  render: (_: unknown, r: RestaurantRecord) => (
+                    <StatusTag status={restaurantActivity(r.activity)} />
+                  ),
+                },
+                {
                   title: 'Actions',
                   width: 90,
                   fixed: 'right',
@@ -958,7 +1302,7 @@ function AdminRestaurantsContent() {
           open={showCreate}
           onCancel={closeCreate}
           width={800}
-          destroyOnClose
+          destroyOnHidden
           footer={
             <Space style={{ width: '100%', justifyContent: 'space-between' }}>
               <Button onClick={closeCreate}>Cancel</Button>
@@ -1000,6 +1344,8 @@ function AdminRestaurantsContent() {
             initialValues={{
               ownerMode: 'new',
               status: 'approved',
+              visibility: 'visible',
+              activity: 'active',
               priceRange: 2,
               depositRequired: false,
               depositAmountCents: 0,
@@ -1151,6 +1497,16 @@ function AdminRestaurantsContent() {
                     rules={[{ required: true, message: 'Select an initial status' }]}
                   >
                     <Select options={RESTAURANT_STATUS_OPTIONS} />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12}>
+                  <Form.Item name="visibility" label="Visibility" initialValue="visible">
+                    <Select options={RESTAURANT_VISIBILITY_OPTIONS} />
+                  </Form.Item>
+                </Col>
+                <Col xs={24} sm={12}>
+                  <Form.Item name="activity" label="Activity" initialValue="active">
+                    <Select options={RESTAURANT_ACTIVITY_OPTIONS} />
                   </Form.Item>
                 </Col>
               </Row>
@@ -1439,6 +1795,14 @@ function AdminRestaurantsContent() {
                             <Text type="secondary">Status: </Text>
                             <Tag>{values.status ?? 'approved'}</Tag>
                           </Text>
+                          <Text>
+                            <Text type="secondary">Visibility: </Text>
+                            <Tag>{values.visibility === 'hidden' ? 'Not visible' : 'Visible'}</Tag>
+                          </Text>
+                          <Text>
+                            <Text type="secondary">Activity: </Text>
+                            <Tag>{values.activity === 'inactive' ? 'Inactive' : 'Active'}</Tag>
+                          </Text>
                         </Space>
                       </Card>
                       <Card size="small" title="Restaurant">
@@ -1488,6 +1852,38 @@ function AdminRestaurantsContent() {
             refetchFilterMeta();
           }}
         />
+
+        <Modal
+          title={reasonPrompt?.title}
+          open={Boolean(reasonPrompt)}
+          okText={reasonPrompt?.okText ?? 'Confirm'}
+          okButtonProps={{
+            danger: reasonPrompt?.danger,
+            disabled: !reasonText.trim(),
+            loading: savingReason,
+          }}
+          cancelButtonProps={{ disabled: savingReason }}
+          onCancel={() => {
+            if (savingReason) return;
+            setReasonPrompt(null);
+            setReasonText('');
+          }}
+          onOk={() => void submitReason()}
+          destroyOnHidden
+        >
+          <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+            <Text>{reasonPrompt?.description}</Text>
+            <Input.TextArea
+              value={reasonText}
+              onChange={(event) => setReasonText(event.target.value)}
+              placeholder="Reason"
+              rows={3}
+              maxLength={500}
+              showCount
+              autoFocus
+            />
+          </Space>
+        </Modal>
 
         <ImportRestaurantModal
           open={showImport}

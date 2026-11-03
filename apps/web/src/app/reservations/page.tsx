@@ -217,7 +217,7 @@ export default function ReservationsPage() {
       <div className="rt-app-promo">
         <div className="rt-app-promo__copy">
           <strong>Manage bookings in the app</strong>
-          <span>Android is on Google Play. iPhone is coming soon.</span>
+          <span>On Google Play and the App Store.</span>
         </div>
         <AppStoreBadges app="diner" tone="light" size="sm" />
       </div>

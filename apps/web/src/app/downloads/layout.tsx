@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: 'Downloads & brand kit — Tablevera',
   description:
-    'Download the Tablevera diner and partner apps for Android. iPhone apps are coming soon. Logos, app icons, and store graphics.',
+    'Download the Tablevera diner and partner apps for Android and iPhone. Logos, app icons, and store graphics.',
   alternates: { canonical: '/downloads' },
 };
 

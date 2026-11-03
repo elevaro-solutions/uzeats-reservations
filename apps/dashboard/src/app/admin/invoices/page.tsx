@@ -45,6 +45,7 @@ import {
   durationCountMax,
   formatPlanDuration,
   formatPlanPriceSuffix,
+  formatUtcCalendarDate,
   getPlanPriceDisplay,
   isStandardMonthlyDuration,
   normalizePlanDuration,
@@ -1066,7 +1067,8 @@ function AdminInvoicesContent() {
                 dataIndex: 'dueDate',
                 width: 120,
                 onCell: () => ({ style: { whiteSpace: 'nowrap' } }),
-                render: (v: string) => new Date(v).toLocaleDateString('en-US'),
+                render: (v: string) =>
+                  formatUtcCalendarDate(v, { month: 'numeric', day: 'numeric', year: 'numeric' }),
               },
               {
                 title: 'Total',

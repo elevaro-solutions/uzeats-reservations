@@ -2,6 +2,25 @@
 
 Platform invoices, subscriptions, cover fees, and fail-to-pay enforcement. Split from `features.md` because this is payments + partner access.
 
+## [2026-11-03] Plan-switch PaymentIntents must be Elements-ready
+
+- `extractSubscriptionPayment` returns the latest invoice PaymentIntent secret even after it is `succeeded` or `canceled`. Partner Hub Billing (“Complete your plan switch” / Pay now) passed that secret to Elements, which 400s: “This PaymentIntent is in a terminal state”.
+- `elementsReadyPayment` keeps only `requires_payment_method` / `requires_confirmation` / `requires_action`. Succeeded + nothing due clears local `amountDueCents`. Otherwise Pay now creates a new SetupIntent/PaymentIntent. The pay button stays hidden until Payment Element mounts.
+- Why it matters: Basic past-due “Pay $39 now” showed a broken modal and `confirmPayment()` then failed because no element was mounted.
+
+## [2026-11-03] Never hand terminal PaymentIntents to Elements
+
+- `resumeInvoicePayment` (GraphQL `startInvoicePayment`) used to return any stored PI `client_secret`. After 3DS / `return_url` the PI is often `succeeded` while the local invoice is still unpaid — Stripe then errors: "PaymentIntent is in a terminal state and cannot be used to initialize Elements".
+- Fix: only resume secrets in `requires_payment_method` / `requires_confirmation` / `requires_action`. If status is `succeeded`, confirm the invoice (`alreadyPaid`). Otherwise clear the id and create a new PI. Same Elements-usable filter on SetupIntent / reservation deposit secret retrieval.
+- Why it matters: Partners returning from card auth saw a broken pay form instead of Paid.
+
+## [2026-11-02] Free plans have no paid billing cycle
+
+- Base / $0 packages do not use `durationUnit`/`durationCount` to gate upgrades. The one-paid-upgrade-per-period lock applies only while a **paid** period is still open (`currentPeriodEnd > now` and `monthlyPriceCents > 0`).
+- Switching to a $0 plan clears `lastPaidPlanChangeAt`. Partner Hub Billing hides current-period dates on free plans; Plans & pricing hides duration when the package price is $0.
+- Invoice due dates are UTC calendar days (`00:00 UTC` on the 1st of the next month for period invoices). UI copy must format with `timeZone: 'UTC'` and must not say “Please pay by {past date}” during grace.
+- Why it matters: A restaurant on Base with a leftover Sep 29–Oct 29 window was blocked from upgrading on Nov 2 with “next upgrade after Oct 29”.
+
 ## [2026-11-01] Local invoices are mirrored to Stripe
 
 - Period, manual, prepaid 3D, and SMS invoices call `attachStripeInvoiceToLocal` after create/refresh. Stripe gets `collection_method: send_invoice`, our invoice number, line descriptions, period start/end, due date, and custom fields. Payment still goes through Tablevera PaymentIntents; Stripe is marked `paid_out_of_band` after a local pay.
@@ -53,6 +72,12 @@ Days 0 (`invoice_ready` / invoice email), 1, 3, 7 (reminder), 8 (overdue), 13, 1
 ### Disputes
 
 Pay the undisputed amount on time. Admin credits change the remaining total; the clock follows whatever is still unpaid. A dispute does not freeze the ladder unless an admin pauses it.
+
+## [2026-11-03] Seed owners must not retry invoice email forever
+- Period invoice job runs on every API start (`startBillingWorker`). Auto-email uses the restaurant owner address; seed is `owner@tablevera.local`.
+- `sendEmail` refuses `.local` / `.test` / `@example.com` (SendGrid reputation). If `emailSentAt` is never set, each restart WARN-retries.
+- `maybeEmailInvoiceToOwner` skips non-deliverable owners, sets `emailSentAt` (no `emailSentTo`), and logs at debug. Manual `sendInvoiceEmail` still ValidationErrors.
+- Why it matters: Local SENDGRID_API_KEY + seed owner used to flood the console on every turbo restart.
 
 ## [2026-10-31] Cancelled partners still need a pay path
 - Partner Billing hid invoices on the cancelled plan picker. Delete-blocked debt (`assertRestaurantClearOfPlatformDebt`) then only showed as a toast with no **View invoice** link.

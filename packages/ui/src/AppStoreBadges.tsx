@@ -6,7 +6,7 @@ type BadgeSize = 'md' | 'sm';
 
 const HEIGHT: Record<BadgeSize, number> = { md: 48, sm: 40 };
 
-function playBadgeStyle(size: BadgeSize): CSSProperties {
+function storeBadgeStyle(size: BadgeSize): CSSProperties {
   return {
     display: 'inline-flex',
     alignItems: 'center',
@@ -19,25 +19,6 @@ function playBadgeStyle(size: BadgeSize): CSSProperties {
     border: '1px solid #000',
     textDecoration: 'none',
     lineHeight: 1.05,
-    flexShrink: 0,
-  };
-}
-
-function soonBadgeStyle(tone: BadgeTone, size: BadgeSize): CSSProperties {
-  const onDark = tone === 'dark';
-  return {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: size === 'sm' ? 8 : 10,
-    height: HEIGHT[size],
-    padding: size === 'sm' ? '0 12px 0 8px' : '0 14px 0 10px',
-    borderRadius: 8,
-    background: onDark ? 'transparent' : '#fff',
-    color: onDark ? 'rgba(255,255,255,0.88)' : '#0B3D2E',
-    border: onDark ? '1px solid rgba(255,255,255,0.38)' : '1px solid rgba(11,61,46,0.28)',
-    textDecoration: 'none',
-    lineHeight: 1.05,
-    cursor: 'default',
     flexShrink: 0,
   };
 }
@@ -105,7 +86,6 @@ function AppleMark() {
 
 export function AppStoreBadges({
   app,
-  tone = 'light',
   size = 'md',
 }: {
   app: MobileAppId;
@@ -120,7 +100,7 @@ export function AppStoreBadges({
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`Get ${listing.name} on Google Play`}
-        style={playBadgeStyle(size)}
+        style={storeBadgeStyle(size)}
       >
         <PlayMark size={size} />
         <span>
@@ -128,17 +108,19 @@ export function AppStoreBadges({
           <span style={titleStyle(size)}>Google Play</span>
         </span>
       </a>
-      <span
-        role="img"
-        aria-label={`${listing.name} for iPhone is coming soon`}
-        style={soonBadgeStyle(tone, size)}
+      <a
+        href={listing.iosUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Download ${listing.name} on the App Store`}
+        style={storeBadgeStyle(size)}
       >
         <AppleMark />
         <span>
-          <span style={kickerStyle(size)}>Coming soon</span>
+          <span style={kickerStyle(size)}>Download on the</span>
           <span style={titleStyle(size)}>App Store</span>
         </span>
-      </span>
+      </a>
     </div>
   );
 }

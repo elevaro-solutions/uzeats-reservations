@@ -282,7 +282,7 @@ export default function ProfilePage() {
       <div className="rt-app-promo">
         <div className="rt-app-promo__copy">
           <strong>Get the Tablevera app</strong>
-          <span>Android is on Google Play. iPhone is coming soon.</span>
+          <span>On Google Play and the App Store.</span>
         </div>
         <AppStoreBadges app="diner" tone="light" size="sm" />
       </div>

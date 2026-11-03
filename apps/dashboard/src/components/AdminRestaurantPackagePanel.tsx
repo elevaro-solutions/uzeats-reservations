@@ -10,11 +10,20 @@ import {
 } from '@reservations/shared';
 import {
   PlanSelector,
+  RESTAURANT_ACTIVITY_OPTIONS,
   RESTAURANT_STATUS_OPTIONS,
+  RESTAURANT_VISIBILITY_OPTIONS,
+  restaurantActivity,
+  restaurantVisibility,
   type AdminRestaurantRecord,
 } from '@/components/AdminManageRestaurant';
 import { AdminPaidPeriodStartForm } from '@/components/AdminPaidPeriodStartForm';
-import { ADMIN_ASSIGN_RESTAURANT_PACKAGE, PLANS, SET_RESTAURANT_STATUS } from '@/lib/graphql';
+import {
+  ADMIN_ASSIGN_RESTAURANT_PACKAGE,
+  PLANS,
+  SET_RESTAURANT_LISTING,
+  SET_RESTAURANT_STATUS,
+} from '@/lib/graphql';
 
 const { Text } = Typography;
 
@@ -71,9 +80,12 @@ export function AdminRestaurantPackagePanel({
 }) {
   const [selectedPlan, setSelectedPlan] = useState<string>();
   const [selectedRestaurantStatus, setSelectedRestaurantStatus] = useState<string>();
+  const [selectedVisibility, setSelectedVisibility] = useState('visible');
+  const [selectedActivity, setSelectedActivity] = useState('active');
   const { data: plansData } = useQuery(PLANS);
   const [assignPackage, { loading: assigningPlan }] = useMutation(ADMIN_ASSIGN_RESTAURANT_PACKAGE);
   const [setStatus] = useMutation(SET_RESTAURANT_STATUS);
+  const [setListing] = useMutation(SET_RESTAURANT_LISTING);
 
   const plans = (plansData?.plans ?? []) as PlanInfo[];
   const sub = restaurant.subscription;
@@ -86,14 +98,34 @@ export function AdminRestaurantPackagePanel({
   useEffect(() => {
     setSelectedPlan(restaurant.subscription?.plan);
     setSelectedRestaurantStatus(restaurant.status);
-  }, [restaurant.id, restaurant.status, restaurant.subscription?.plan]);
+    setSelectedVisibility(restaurantVisibility(restaurant.visibility));
+    setSelectedActivity(restaurantActivity(restaurant.activity));
+  }, [
+    restaurant.id,
+    restaurant.status,
+    restaurant.visibility,
+    restaurant.activity,
+    restaurant.subscription?.plan,
+  ]);
 
   const applyPackageAndStatus = async () => {
     try {
       let hasChanges = false;
       let next: AdminRestaurantRecord = { ...restaurant };
 
-      if (selectedPlan) {
+      const planChanged = Boolean(selectedPlan && selectedPlan !== restaurant.subscription?.plan);
+      const statusChanged = Boolean(
+        selectedRestaurantStatus && selectedRestaurantStatus !== restaurant.status,
+      );
+      const visibilityChanged = selectedVisibility !== restaurantVisibility(restaurant.visibility);
+      const activityChanged = selectedActivity !== restaurantActivity(restaurant.activity);
+
+      if (!planChanged && !statusChanged && !visibilityChanged && !activityChanged) {
+        message.info('No changes to save');
+        return;
+      }
+
+      if (planChanged && selectedPlan) {
         const previousEnd = restaurant.subscription?.currentPeriodEnd;
         const result = await assignPackage({
           variables: { restaurantId: restaurant.id, plan: selectedPlan },
@@ -121,10 +153,23 @@ export function AdminRestaurantPackagePanel({
         hasChanges = true;
       }
 
-      if (selectedRestaurantStatus && selectedRestaurantStatus !== restaurant.status) {
+      if (statusChanged && selectedRestaurantStatus) {
         await setStatus({ variables: { id: restaurant.id, status: selectedRestaurantStatus } });
         message.success('Status updated');
         next = { ...next, status: selectedRestaurantStatus };
+        hasChanges = true;
+      }
+
+      if (visibilityChanged || activityChanged) {
+        await setListing({
+          variables: {
+            id: restaurant.id,
+            visibility: selectedVisibility,
+            activity: selectedActivity,
+          },
+        });
+        message.success('Listing updated');
+        next = { ...next, visibility: selectedVisibility, activity: selectedActivity };
         hasChanges = true;
       }
 
@@ -167,7 +212,11 @@ export function AdminRestaurantPackagePanel({
               Restaurant status
             </Text>
             <div style={{ marginTop: 8 }}>
-              <StatusTag status={restaurant.status} />
+              <Space size={6} wrap>
+                <StatusTag status={restaurant.status} />
+                <StatusTag status={restaurantVisibility(restaurant.visibility)} />
+                <StatusTag status={restaurantActivity(restaurant.activity)} />
+              </Space>
             </div>
           </Card>
         </Col>
@@ -204,10 +253,32 @@ export function AdminRestaurantPackagePanel({
               options={RESTAURANT_STATUS_OPTIONS}
             />
           </Form.Item>
+          <Form.Item
+            label="Visibility"
+            extra="Not visible hides this restaurant from diner search and its public page."
+            style={{ marginBottom: spacing.md }}
+          >
+            <Select
+              value={selectedVisibility}
+              onChange={setSelectedVisibility}
+              options={RESTAURANT_VISIBILITY_OPTIONS}
+            />
+          </Form.Item>
+          <Form.Item
+            label="Activity"
+            extra="Inactive also hides it from diner search and the public page. Approval and trial are unchanged."
+            style={{ marginBottom: spacing.md }}
+          >
+            <Select
+              value={selectedActivity}
+              onChange={setSelectedActivity}
+              options={RESTAURANT_ACTIVITY_OPTIONS}
+            />
+          </Form.Item>
           <Button
             type="primary"
             loading={assigningPlan}
-            disabled={!selectedPlan || !selectedRestaurantStatus}
+            disabled={!selectedRestaurantStatus || !selectedVisibility || !selectedActivity}
             onClick={() => void applyPackageAndStatus()}
           >
             Update package & status

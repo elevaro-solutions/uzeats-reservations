@@ -12,6 +12,11 @@ import {
   WarningOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import {
+  formatUtcBillingPeriod,
+  formatUtcCalendarDate,
+  utcCalendarDaysBetween,
+} from '@reservations/shared';
 import { colors, radii, spacing } from '@reservations/ui';
 import { EXPORT_INVOICE_PDF } from '@/lib/graphql';
 
@@ -89,7 +94,15 @@ function canPay(invoice: PartnerInvoiceDetailData) {
 }
 
 function daysPastDue(dueDate: string) {
-  return Math.max(0, dayjs().startOf('day').diff(dayjs(dueDate).startOf('day'), 'day'));
+  return utcCalendarDaysBetween(new Date(dueDate), new Date());
+}
+
+function pendingDueCopy(dueDate: string) {
+  const label = formatUtcCalendarDate(dueDate);
+  const days = daysPastDue(dueDate);
+  if (days > 0) return `Payment was due ${label}. Pay now to stay current.`;
+  if (days === 0) return 'Payment is due today.';
+  return `Please pay by ${label}.`;
 }
 
 function amountLabel(status: string) {
@@ -154,7 +167,7 @@ export function PartnerInvoiceDetail({
     : `/billing/invoices/${invoice.id}`;
   const payable = canPay(invoice);
   const overdueDays =
-    invoice.status === 'overdue' ? daysPastDue(invoice.dueDate) : 0;
+    invoice.status === 'overdue' ? Math.max(0, daysPastDue(invoice.dueDate)) : 0;
   const isPaid = invoice.status === 'paid';
   const isOverdue = invoice.status === 'overdue';
   const isCanceled = invoice.status === 'canceled';
@@ -184,7 +197,7 @@ export function PartnerInvoiceDetail({
               ? `Overdue by ${overdueDays} day${overdueDays === 1 ? '' : 's'}`
               : 'This invoice is overdue'
           }
-          description={`Due ${dayjs(invoice.dueDate).format('MMM D, YYYY')}. Pay now to bring your account current.`}
+          description={`Due ${formatUtcCalendarDate(invoice.dueDate)}. Pay now to bring your account current.`}
         />
       ) : null}
       {invoice.status === 'pending' ? (
@@ -193,7 +206,7 @@ export function PartnerInvoiceDetail({
           showIcon
           icon={<ClockCircleOutlined />}
           title="Payment due"
-          description={`Please pay by ${dayjs(invoice.dueDate).format('MMM D, YYYY')}.`}
+          description={pendingDueCopy(invoice.dueDate)}
         />
       ) : null}
       {isCanceled ? (
@@ -219,7 +232,7 @@ export function PartnerInvoiceDetail({
           >
             {STATUS_LABELS[invoice.status] ?? invoice.status}
           </Tag>
-          <Text type="secondary">{dayjs(invoice.billingPeriod).format('MMMM YYYY')}</Text>
+          <Text type="secondary">Period · {formatUtcBillingPeriod(invoice.billingPeriod)}</Text>
         </Space>
         <Text
           type="secondary"
@@ -252,10 +265,10 @@ export function PartnerInvoiceDetail({
             : isCanceled && invoice.canceledAt
               ? ` · Canceled ${dayjs(invoice.canceledAt).format('MMM D, YYYY · h:mm A')}`
               : isOverdue
-                ? ` · Due ${dayjs(invoice.dueDate).format('MMM D, YYYY')}${
+                ? ` · Due ${formatUtcCalendarDate(invoice.dueDate)}${
                     overdueDays > 0 ? ` · ${overdueDays}d overdue` : ''
                   }`
-                : ` · Due ${dayjs(invoice.dueDate).format('MMM D, YYYY')}`}
+                : ` · Due ${formatUtcCalendarDate(invoice.dueDate)}`}
         </Text>
       </div>
 

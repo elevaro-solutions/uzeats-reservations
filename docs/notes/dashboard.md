@@ -1,5 +1,27 @@
 # Dashboard — Learnings & Observations
 
+## [2026-11-03] QA checklist catalog is v0.97.0
+- `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.97.0`. Testers use Admin → Restaurants for visibility / Standing vs Listing / reasons, diner web for search hide and closed cards, downloads / Partner Hub for App Store badges, Admin invoice detail, and owner Billing for Base upgrade, UTC due dates, and Pay now.
+- Why it matters: Do not re-test v0.96.0 Order online / hosted invoice items on this gate. Older sign-off stays on that version’s row and Versions.
+
+## [2026-11-03] Standing vs listing in the restaurants menu
+- More menu groups: Standing (Approve / Reject / Suspend) then Listing (Visible / Active). Listing items only show when status is approved. Bulk bar uses the same Standing / Listing labels.
+- Suspend sets status suspended, activity inactive, and visibility hidden. Approve sets status approved, activity active, and visibility visible.
+- Why it matters: Do not mix Standing and Listing. Do not offer Visible / Active while the venue is pending, rejected, or suspended.
+
+## [2026-11-03] Suspend and approve move visibility and activity
+- Suspend sets status suspended, activity inactive, and visibility hidden. Approve sets status approved, activity active, and visibility visible. The row menu copy says so. Bulk Approve and Suspend use the same API, so they move the flags too.
+- Why it matters: Do not only flip `status` from the restaurants list. The listing flags are part of those two actions.
+
+## [2026-11-03] Restaurant visibility is separate from approval
+- Admin restaurants list, create, row menu, and Package tab set `visibility` (Visible / Not visible) and `activity` (Active / Inactive). Not visible or Inactive hides diner search and the public page. Saving the package form no longer re-assigns the same plan.
+- Row More menu items have icons and tooltips. Reject, Suspend, Not visible, Active, and Inactive open a confirmation that requires a reason. The reason is written to the audit log (`setRestaurantStatus` / `setRestaurantListing` details).
+- Why it matters: Approval and trial do not hide a restaurant. Use these two fields. Do not apply those five actions without a reason from the list menu.
+
+## [2026-11-02] Partner iPhone app is on the App Store
+- Sign-in and register (`AuthLayout`) show live Google Play and App Store badges. Account menu “Partner app” and the small-screen sidebar open `preferredMobileStoreUrl` (App Store on iPhone/iPad, Play otherwise).
+- Why it matters: Do not hardcode the Play URL on those entry points; iOS must land on `MOBILE_APPS.partner.iosUrl`.
+
 ## [2026-11-01] QA checklist catalog is v0.96.0
 - `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.96.0`. Testers use Restaurant profile Contact for Order online URL, cancelled owner Billing for View invoice and Core Recommended, Admin Invoices / Stripe for hosted invoices, and a period-invoice refresh for the recommended Stripe void/recreate check.
 - Why it matters: Do not re-test v0.95.0 diner Delete account / waitlist items on this gate. Older sign-off stays on that version’s row and Versions.
@@ -84,8 +106,8 @@
 - Why it matters: Don’t drop `qa` from `ACCOUNT_KIND_META.platform.roles` or an empty filter hides QA again. Don’t put QA on the capabilities matrix via `PLATFORM_ROLE_OPTIONS` — that list is the assignable admin roles, not the page filter.
 
 ## [2026-10-17] Partner app entry points
-- Sign-in and register (`AuthLayout`) show Google Play plus an App Store “coming soon” badge. Account menu “Partner app” and the small-screen sidebar open `MOBILE_APPS.partner.androidUrl`.
-- Why it matters: iOS has no store URL yet. Don’t point that menu item at a placeholder link.
+- Sign-in and register (`AuthLayout`) show Google Play and App Store badges. Account menu “Partner app” and the small-screen sidebar open the platform store via `preferredMobileStoreUrl`.
+- Why it matters: Don’t point that menu item at a placeholder link; iOS must use `MOBILE_APPS.partner.iosUrl`.
 
 ## [2026-10-17] Small-screen sidebar must stay expanded
 - Burger (≤991px) still uses one `Sider` with `collapsedWidth={0}` so the layout slot is 0. CSS slides that panel in (`rt-dash-sider--mobile-open`). `Menu` must set `inlineCollapsed={false}` — Sider context otherwise forces icon-only items while the panel is wide.

@@ -6,7 +6,9 @@ import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-
 import { useLazyQuery, useMutation, useQuery } from '@apollo/client/react';
 import { Alert, Button, Card, Result, Space, Spin, Typography, message } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
+import { useSearchParams } from 'next/navigation';
 import { PageHeader, colors, radii, shadows } from '@reservations/ui';
+import { formatUtcCalendarDate } from '@reservations/shared';
 import {
   CONFIRM_INVOICE_PAYMENT,
   EXPORT_INVOICE_PDF_BY_TOKEN,
@@ -155,6 +157,8 @@ function StubPayForm({
 }
 
 export default function InvoicePayClient({ token }: { token: string }) {
+  const searchParams = useSearchParams();
+  const returningFromStripe = searchParams.get('paid') === '1';
   const { data, loading, refetch, error } = useQuery(INVOICE_BY_PAY_TOKEN, {
     variables: { token },
     skip: !token,
@@ -265,7 +269,11 @@ export default function InvoicePayClient({ token }: { token: string }) {
           <Text type="secondary">
             Period {invoice.billingPeriod}
             {invoice.dueDate
-              ? ` · Due ${new Date(invoice.dueDate).toLocaleDateString('en-US')}`
+              ? ` · Due ${formatUtcCalendarDate(invoice.dueDate, {
+                  month: 'numeric',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}`
               : ''}
           </Text>
           {(invoice.lines ?? []).map((line: any, idx: number) => (
@@ -324,7 +332,11 @@ export default function InvoicePayClient({ token }: { token: string }) {
             <div style={{ textAlign: 'center', padding: 24 }}>
               <Spin />
               <div style={{ marginTop: 12 }}>
-                <Text type="secondary">Preparing secure payment…</Text>
+                <Text type="secondary">
+                  {returningFromStripe
+                    ? 'Confirming your payment…'
+                    : 'Preparing secure payment…'}
+                </Text>
               </div>
             </div>
           ) : isStub || !publishableKey ? (

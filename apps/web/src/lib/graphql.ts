@@ -95,6 +95,8 @@ export const RESTAURANT_DETAIL = gql`
       maxPartySize
       reservationsEnabled
       reservationsVisible
+      status
+      activity
       manualApprovalEnabled
       manualApprovalPartySizeOp
       manualApprovalPartySize

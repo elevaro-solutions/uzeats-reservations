@@ -12,12 +12,17 @@ import {
 import { buildRestaurantBookingUrl, resolveDepositPolicy } from '@reservations/shared';
 import {
   StatCard,
+  StatusTag,
   formatPhoneDisplay,
   priceRangeLabel,
   spacing,
   typography,
 } from '@reservations/ui';
-import type { AdminRestaurantRecord } from '@/components/AdminManageRestaurant';
+import {
+  restaurantActivity,
+  restaurantVisibility,
+  type AdminRestaurantRecord,
+} from '@/components/AdminManageRestaurant';
 import { accountDetailPath } from '@/lib/adminAccounts';
 import { getPublicWebUrl } from '@/lib/webUrl';
 
@@ -245,6 +250,12 @@ export function AdminRestaurantOverviewPanel({
                 <Descriptions.Item label="Price">
                   {priceRangeLabel(restaurant.priceRange || 1)}
                 </Descriptions.Item>
+                <Descriptions.Item label="Visibility">
+                  <StatusTag status={restaurantVisibility(restaurant.visibility)} />
+                </Descriptions.Item>
+                <Descriptions.Item label="Activity">
+                  <StatusTag status={restaurantActivity(restaurant.activity)} />
+                </Descriptions.Item>
                 <Descriptions.Item label="Featured">
                   <Tag color={restaurant.featured ? 'gold' : 'default'}>
                     {restaurant.featured ? 'Yes' : 'No'}
@@ -252,7 +263,15 @@ export function AdminRestaurantOverviewPanel({
                 </Descriptions.Item>
                 <Descriptions.Item label="Public URL" span={3}>
                   {publicUrl && restaurant.slug ? (
-                    <ExternalLink href={publicUrl} />
+                    <Space orientation="vertical" size={2}>
+                      <ExternalLink href={publicUrl} />
+                      {restaurantVisibility(restaurant.visibility) === 'hidden' ||
+                      restaurantActivity(restaurant.activity) === 'inactive' ? (
+                        <Text type="secondary">
+                          Hidden from diner search and the public page.
+                        </Text>
+                      ) : null}
+                    </Space>
                   ) : (
                     '—'
                   )}

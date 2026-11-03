@@ -297,11 +297,20 @@ export async function cancelBookingIntent(intentId: string) {
   }
 }
 
+/** Statuses Stripe Elements can initialize with a PaymentIntent / SetupIntent client secret. */
+const ELEMENTS_USABLE_INTENT_STATUSES = new Set([
+  'requires_payment_method',
+  'requires_confirmation',
+  'requires_action',
+]);
+
 export async function retrieveSetupIntentClientSecret(setupIntentId: string) {
   if (setupIntentId.startsWith('seti_dev_')) return `${setupIntentId}_secret_dev`;
   const client = await getStripe();
   if (!client) return null;
   const intent = await client.setupIntents.retrieve(setupIntentId);
+  // Terminal SetupIntents (succeeded/canceled) cannot initialize Elements.
+  if (!ELEMENTS_USABLE_INTENT_STATUSES.has(intent.status)) return null;
   return intent.client_secret ?? null;
 }
 
@@ -515,14 +524,33 @@ export async function assertPaymentIntentSucceeded(paymentIntentId: string) {
   }
 }
 
-export async function retrievePaymentIntentClientSecret(paymentIntentId: string) {
+/**
+ * Resume info for an existing PaymentIntent.
+ * `clientSecret` is only set when Elements can safely mount (non-terminal).
+ */
+export async function retrievePaymentIntentForCheckout(paymentIntentId: string): Promise<{
+  status: string;
+  clientSecret: string | null;
+} | null> {
   if (isStubPaymentIntent(paymentIntentId)) {
-    return `${paymentIntentId}_secret_dev`;
+    return {
+      status: 'requires_payment_method',
+      clientSecret: `${paymentIntentId}_secret_dev`,
+    };
   }
   const client = await getStripe();
   if (!client) return null;
   const intent = await client.paymentIntents.retrieve(paymentIntentId);
-  return intent.client_secret ?? null;
+  const usable = ELEMENTS_USABLE_INTENT_STATUSES.has(intent.status);
+  return {
+    status: intent.status,
+    clientSecret: usable ? intent.client_secret ?? null : null,
+  };
+}
+
+export async function retrievePaymentIntentClientSecret(paymentIntentId: string) {
+  const info = await retrievePaymentIntentForCheckout(paymentIntentId);
+  return info?.clientSecret ?? null;
 }
 
 /**
@@ -638,6 +666,62 @@ function extractSubscriptionPayment(sub: Stripe.Subscription): StripeSubscriptio
   return { clientSecret: null, paymentMode: null };
 }
 
+export type ElementsPaymentSecret = StripeSubscriptionPayment & {
+  /** Charge already completed — do not mount Elements or collect again. */
+  paymentSettled: boolean;
+  /** Stripe is finishing the charge; do not create a second PaymentIntent. */
+  paymentProcessing: boolean;
+};
+
+function intentIdFromClientSecret(secret: string): string | null {
+  const id = secret.split('_secret')[0] ?? '';
+  if (id.startsWith('pi_') || id.startsWith('seti_')) return id;
+  return null;
+}
+
+/**
+ * Stripe still returns client secrets for succeeded/canceled intents.
+ * Elements rejects those ("terminal state"). Drop them and say whether the charge already landed.
+ */
+async function elementsReadyPayment(
+  client: Stripe,
+  payment: StripeSubscriptionPayment,
+): Promise<ElementsPaymentSecret> {
+  const secret = payment.clientSecret;
+  if (!secret || secret.includes('_secret_dev')) {
+    return { ...payment, paymentSettled: false, paymentProcessing: false };
+  }
+  const id = intentIdFromClientSecret(secret);
+  if (!id) return { ...payment, paymentSettled: false, paymentProcessing: false };
+  try {
+    if (id.startsWith('seti_')) {
+      const setup = await client.setupIntents.retrieve(id);
+      if (ELEMENTS_USABLE_INTENT_STATUSES.has(setup.status)) {
+        return { ...payment, paymentSettled: false, paymentProcessing: false };
+      }
+      return {
+        clientSecret: null,
+        paymentMode: null,
+        paymentSettled: setup.status === 'succeeded',
+        paymentProcessing: false,
+      };
+    }
+    const intent = await client.paymentIntents.retrieve(id);
+    if (ELEMENTS_USABLE_INTENT_STATUSES.has(intent.status)) {
+      return { ...payment, paymentSettled: false, paymentProcessing: false };
+    }
+    return {
+      clientSecret: null,
+      paymentMode: null,
+      paymentSettled: intent.status === 'succeeded',
+      paymentProcessing: intent.status === 'processing',
+    };
+  } catch (err) {
+    logger.warn({ err, intentId: id }, '[stripe] could not check intent before Elements');
+    return { clientSecret: null, paymentMode: null, paymentSettled: false, paymentProcessing: false };
+  }
+}
+
 export async function createStripeSubscription(input: {
   customerId: string;
   priceAmountCents: number;
@@ -689,8 +773,8 @@ export async function createStripeSubscription(input: {
     expand: collectPaymentMethod ? SUBSCRIPTION_PAYMENT_EXPAND : undefined,
   });
   const payment = collectPaymentMethod
-    ? extractSubscriptionPayment(subscription)
-    : { clientSecret: null, paymentMode: null };
+    ? await elementsReadyPayment(client, extractSubscriptionPayment(subscription))
+    : { clientSecret: null, paymentMode: null, paymentSettled: false, paymentProcessing: false };
   return { ...subscription, isStub: false as const, ...payment };
 }
 
@@ -909,6 +993,7 @@ export async function updateStripeSubscription(
   status?: string;
   clientSecret: string | null;
   paymentMode: 'payment' | 'setup' | null;
+  paymentSettled: boolean;
 }> {
   const collectPayment = Boolean(options?.collectPayment && priceAmountCents > 0);
   const client = await getStripe();
@@ -918,6 +1003,7 @@ export async function updateStripeSubscription(
       status: collectPayment ? 'incomplete' : 'active',
       clientSecret: collectPayment ? `pi_dev_${Date.now()}_secret_dev` : null,
       paymentMode: collectPayment ? 'setup' : null,
+      paymentSettled: false,
     };
   }
   const recurring = toStripeRecurring(options?.durationUnit, options?.durationCount);
@@ -967,24 +1053,43 @@ export async function updateStripeSubscription(
         status: 'incomplete',
         clientSecret: setup.clientSecret,
         paymentMode: setup.paymentMode,
+        paymentSettled: false,
       };
     }
     throw err;
   }
 
   if (!collectPayment) {
-    return { id: updated.id, status: updated.status, clientSecret: null, paymentMode: null };
+    return {
+      id: updated.id,
+      status: updated.status,
+      clientSecret: null,
+      paymentMode: null,
+      paymentSettled: false,
+    };
   }
 
-  let payment = extractSubscriptionPayment(updated);
-  if (!payment.clientSecret && customerId) {
-    payment = await createCustomerSetupIntent(client, customerId);
+  let payment = await elementsReadyPayment(client, extractSubscriptionPayment(updated));
+  // Card on file already paid this invoice — do not hand the succeeded PaymentIntent to Elements.
+  if (payment.paymentSettled) {
+    return {
+      id: updated.id,
+      status: updated.status,
+      clientSecret: null,
+      paymentMode: null,
+      paymentSettled: true,
+    };
+  }
+  if (!payment.clientSecret && customerId && !payment.paymentProcessing) {
+    const setup = await createCustomerSetupIntent(client, customerId);
+    payment = { ...setup, paymentSettled: false, paymentProcessing: false };
   }
   return {
     id: updated.id,
     status: updated.status,
     clientSecret: payment.clientSecret,
     paymentMode: payment.paymentMode,
+    paymentSettled: false,
   };
 }
 
@@ -1074,23 +1179,42 @@ export async function getOpenSubscriptionPayment(subscriptionId: string): Promis
   amountDueCents: number;
   clientSecret: string | null;
   paymentMode: 'payment' | 'setup' | null;
+  paymentSettled: boolean;
+  paymentProcessing: boolean;
   /** Stripe has no subscription for this id under the active mode. */
   missing?: boolean;
 }> {
   const client = await getStripe();
   if (!client || subscriptionId.startsWith('sub_dev_')) {
-    return { amountDueCents: 0, clientSecret: null, paymentMode: null };
+    return {
+      amountDueCents: 0,
+      clientSecret: null,
+      paymentMode: null,
+      paymentSettled: false,
+      paymentProcessing: false,
+    };
   }
   try {
     const sub = await client.subscriptions.retrieve(subscriptionId, {
       expand: SUBSCRIPTION_PAYMENT_EXPAND,
     });
     const invoice = sub.latest_invoice;
+    const invoicePaid = Boolean(invoice && typeof invoice === 'object' && invoice.status === 'paid');
     const amountDueCents =
       invoice && typeof invoice === 'object' && invoice.status === 'open'
         ? invoice.amount_due ?? 0
         : 0;
-    const payment = extractSubscriptionPayment(sub);
+    const payment = await elementsReadyPayment(client, extractSubscriptionPayment(sub));
+    // A paid invoice's PaymentIntent is terminal. Never reuse it for Elements.
+    if (amountDueCents <= 0) {
+      return {
+        amountDueCents: 0,
+        clientSecret: null,
+        paymentMode: null,
+        paymentSettled: payment.paymentSettled || invoicePaid,
+        paymentProcessing: payment.paymentProcessing,
+      };
+    }
     return { amountDueCents, ...payment };
   } catch (err) {
     if (isStripeResourceMissing(err)) {
@@ -1102,6 +1226,8 @@ export async function getOpenSubscriptionPayment(subscriptionId: string): Promis
         amountDueCents: 0,
         clientSecret: null,
         paymentMode: null,
+        paymentSettled: false,
+        paymentProcessing: false,
         missing: true,
       };
     }

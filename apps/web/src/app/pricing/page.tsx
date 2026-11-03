@@ -1065,7 +1065,7 @@ export default function PricingPage() {
           </Space>
           <div style={{ marginTop: 28 }}>
             <Paragraph style={{ color: 'rgba(255,255,255,0.75)', marginBottom: 12 }}>
-              Partner app — Android is live. iPhone is coming soon.
+              Partner app — on Google Play and the App Store.
             </Paragraph>
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <AppStoreBadges app="partner" tone="dark" size="sm" />

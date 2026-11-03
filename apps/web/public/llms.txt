@@ -46,7 +46,8 @@ About / entity: https://tablevera.online/about
 - Apps and brand kit: https://tablevera.online/downloads
 - Diner Android app: https://play.google.com/store/apps/details?id=uz.alitech.tablevera
 - Partner Android app: https://play.google.com/store/apps/details?id=uz.alitech.tablevera.merchant
-- iPhone apps: coming soon
+- Diner iPhone app: https://apps.apple.com/app/tablevera/id6823634245
+- Partner iPhone app: https://apps.apple.com/app/tablevera-merchant/id6824937754
 
 ## Legal
 

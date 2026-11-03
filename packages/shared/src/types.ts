@@ -1,6 +1,8 @@
 import type {
   USER_ROLES,
   RESTAURANT_STATUSES,
+  RESTAURANT_VISIBILITIES,
+  RESTAURANT_ACTIVITIES,
   RESERVATION_STATUSES,
   OCCASIONS,
   PRICE_RANGES,
@@ -17,6 +19,8 @@ import type {
 
 export type UserRole = (typeof USER_ROLES)[number];
 export type RestaurantStatus = (typeof RESTAURANT_STATUSES)[number];
+export type RestaurantVisibility = (typeof RESTAURANT_VISIBILITIES)[number];
+export type RestaurantActivity = (typeof RESTAURANT_ACTIVITIES)[number];
 export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
 export type Occasion = (typeof OCCASIONS)[number];
 export type PriceRange = (typeof PRICE_RANGES)[number];

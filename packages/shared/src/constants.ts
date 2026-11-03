@@ -34,6 +34,12 @@ export const RESTAURANT_STATUSES = [
   "suspended",
 ] as const;
 
+/** Diner search and the public restaurant page. `hidden` is "not visible". */
+export const RESTAURANT_VISIBILITIES = ["visible", "hidden"] as const;
+
+/** Operating flag. `inactive` also hides the restaurant from diners. */
+export const RESTAURANT_ACTIVITIES = ["active", "inactive"] as const;
+
 export const RESERVATION_STATUSES = [
   "pending",
   "confirmed",

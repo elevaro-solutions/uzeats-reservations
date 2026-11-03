@@ -15,6 +15,8 @@ export function useUrlListFilters(
   keys: {
     search?: string;
     status?: string;
+    visibility?: string;
+    activity?: string;
     city?: string;
     cuisine?: string;
     role?: string;
@@ -35,6 +37,8 @@ export function useUrlListFilters(
     () => ({
       search: keys.search ? (searchParams.get(keys.search) ?? '') : '',
       status: keys.status ? (searchParams.get(keys.status) ?? undefined) : undefined,
+      visibility: keys.visibility ? (searchParams.get(keys.visibility) ?? undefined) : undefined,
+      activity: keys.activity ? (searchParams.get(keys.activity) ?? undefined) : undefined,
       city: keys.city ? (searchParams.get(keys.city) ?? undefined) : undefined,
       cuisine: keys.cuisine ? (searchParams.get(keys.cuisine) ?? undefined) : undefined,
       role: keys.role ? (searchParams.get(keys.role) ?? undefined) : undefined,
@@ -47,6 +51,8 @@ export function useUrlListFilters(
     [
       keys.search,
       keys.status,
+      keys.visibility,
+      keys.activity,
       keys.city,
       keys.cuisine,
       keys.role,
@@ -103,6 +109,22 @@ export function useUrlListFilters(
       }
     },
     [keys.search, replaceParams, searchDebounceMs],
+  );
+
+  const setVisibility = useCallback(
+    (value: string | undefined) => {
+      if (!keys.visibility) return;
+      replaceParams({ [keys.visibility]: value });
+    },
+    [keys.visibility, replaceParams],
+  );
+
+  const setActivity = useCallback(
+    (value: string | undefined) => {
+      if (!keys.activity) return;
+      replaceParams({ [keys.activity]: value });
+    },
+    [keys.activity, replaceParams],
   );
 
   const setStatus = useCallback(
@@ -183,6 +205,8 @@ export function useUrlListFilters(
     /** Search term from the URL (debounced); use for server queries. */
     searchQuery: filters.search,
     status: filters.status,
+    visibility: filters.visibility,
+    activity: filters.activity,
     city: filters.city,
     cuisine: filters.cuisine,
     role: filters.role,
@@ -193,6 +217,8 @@ export function useUrlListFilters(
     resource: filters.resource,
     setSearch,
     setStatus,
+    setVisibility,
+    setActivity,
     setCity,
     setCuisine,
     setRole,

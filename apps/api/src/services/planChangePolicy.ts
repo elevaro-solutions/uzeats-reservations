@@ -139,11 +139,24 @@ export function evaluatePlanChange(input: {
     };
   }
 
-  if (direction === 'upgrade' && sub.currentPeriodStart && sub.lastPaidPlanChangeAt) {
+  const paidPeriodStillOpen =
+    input.fromPlan.monthlyPriceCents > 0 &&
+    Boolean(sub.currentPeriodEnd && sub.currentPeriodEnd.getTime() > now.getTime());
+  if (
+    direction === 'upgrade' &&
+    paidPeriodStillOpen &&
+    sub.currentPeriodStart &&
+    sub.lastPaidPlanChangeAt
+  ) {
     const changedThisPeriod = sub.lastPaidPlanChangeAt.getTime() >= sub.currentPeriodStart.getTime();
     if (changedThisPeriod) {
       const nextAt = sub.currentPeriodEnd
-        ? sub.currentPeriodEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        ? sub.currentPeriodEnd.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            timeZone: 'UTC',
+          })
         : 'the next billing date';
       return {
         ...base,

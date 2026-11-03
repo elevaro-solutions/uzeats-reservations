@@ -397,7 +397,7 @@ export function AuthLayout({
                   textAlign: 'center',
                 }}
               >
-                Partner app — Android is live. iPhone is coming soon.
+                Partner app — on Google Play and the App Store.
               </p>
               <AppStoreBadges app="partner" tone="light" size="sm" />
             </div>

@@ -309,7 +309,9 @@ import { adminAssignRestaurantPackage as assignRestaurantPackageAsAdmin } from "
 import { adminSetSubscriptionPaidPeriodStart } from "../services/adminPaidPeriod.js";
 import {
   setRestaurantStatuses,
+  setRestaurantListings,
   adminDeleteRestaurants,
+  listingPatchForRestaurantStatus,
 } from "../services/adminBulkRestaurants.js";
 import {
   applyPendingPlanChangeIfDue,
@@ -321,6 +323,7 @@ import {
 } from "../services/planChange.js";
 import {
   restaurantIsPubliclyListed,
+  restaurantIsPubliclyViewable,
   viewerCanSeeUnlistedRestaurant,
 } from "../services/publicListing.js";
 import {
@@ -987,7 +990,7 @@ export const resolvers = {
       if (!doc) return null;
       const listed =
         doc.status === "approved" &&
-        (await restaurantIsPubliclyListed(doc._id.toString()));
+        (await restaurantIsPubliclyViewable(doc._id.toString()));
       if (listed) return mapRestaurant(doc);
       if (await viewerCanSeeUnlistedRestaurant(ctx.user, doc)) return mapRestaurant(doc);
       // Pending and other non-approved rows stay reachable by id for existing staff tools.
@@ -1941,6 +1944,8 @@ export const resolvers = {
       _: unknown,
       args: {
         status?: string;
+        visibility?: string;
+        activity?: string;
         search?: string;
         city?: string;
         cuisine?: string;
@@ -4187,14 +4192,21 @@ export const resolvers = {
 
     setRestaurantStatus: async (
       _: unknown,
-      args: { id: string; status: string },
+      args: { id: string; status: string; reason?: string | null },
       ctx: GraphQLContext,
     ) => {
       const admin = requireAdmin(ctx);
+      const reason = args.reason?.trim();
+      if (reason && reason.length > 500) {
+        throw new Error("Reason must be 500 characters or fewer");
+      }
       const previous = await Restaurant.findById(args.id).select("status").lean();
+      const listing = listingPatchForRestaurantStatus(
+        args.status as "pending" | "approved" | "rejected" | "suspended",
+      );
       const doc = await Restaurant.findByIdAndUpdate(
         args.id,
-        { status: args.status },
+        { status: args.status, ...listing },
         { new: true },
       );
       if (!doc) throw new Error("Restaurant not found");
@@ -4221,7 +4233,7 @@ export const resolvers = {
         action: "setRestaurantStatus",
         resource: "Restaurant",
         resourceId: args.id,
-        details: { status: args.status },
+        details: { status: args.status, ...listing, ...(reason ? { reason } : {}) },
       });
       return mapRestaurant(doc);
     },
@@ -4236,6 +4248,38 @@ export const resolvers = {
         args.status as "pending" | "approved" | "rejected" | "suspended",
         ctx,
       );
+    },
+
+    setRestaurantListing: async (
+      _: unknown,
+      args: {
+        id: string;
+        visibility?: "visible" | "hidden" | null;
+        activity?: "active" | "inactive" | null;
+        reason?: string | null;
+      },
+      ctx: GraphQLContext,
+    ) => {
+      const result = await setRestaurantListings(
+        [args.id],
+        { visibility: args.visibility, activity: args.activity, reason: args.reason },
+        ctx,
+      );
+      const doc = result.items[0];
+      if (!doc) throw new Error("Restaurant not found");
+      return doc;
+    },
+
+    setRestaurantListings: async (
+      _: unknown,
+      args: {
+        ids: string[];
+        visibility?: "visible" | "hidden" | null;
+        activity?: "active" | "inactive" | null;
+      },
+      ctx: GraphQLContext,
+    ) => {
+      return setRestaurantListings(args.ids, args, ctx);
     },
 
     adminDeleteRestaurants: async (

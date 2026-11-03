@@ -27,6 +27,7 @@ import { type ExportPayload } from './adminExport.js';
 import { brandedInvoiceExportPayload } from './invoicePdf.js';
 import {
   isEmailDeliveryConfigured,
+  isNonDeliverableEmail,
   sendEmail,
 } from './notifications.js';
 import {
@@ -50,7 +51,7 @@ import {
   isStubPaymentIntent,
   markStripeInvoicePaidOutOfBand,
   resolveCustomerDefaultPaymentMethodId,
-  retrievePaymentIntentClientSecret,
+  retrievePaymentIntentForCheckout,
   saveInvoicePaymentMethodAsPreferred,
   upsertHostedStripeInvoice,
   voidStripeInvoiceIfOpen,
@@ -363,6 +364,25 @@ export async function maybeEmailInvoiceToOwner(
   if (doc.emailSentAt && !options?.force) return { sent: false, skipped: 'already_sent' };
 
   try {
+    // Seed / lab owners use *.local (e.g. owner@tablevera.local). Mark handled so the
+    // period job (runs on every API start) does not WARN-retry forever.
+    const restaurant = await Restaurant.findById(doc.restaurantId).select('ownerId');
+    const owner = restaurant?.ownerId
+      ? await User.findById(restaurant.ownerId).select('email')
+      : null;
+    const ownerEmail = owner?.email?.trim().toLowerCase() || '';
+    if (ownerEmail && isNonDeliverableEmail(ownerEmail)) {
+      if (!doc.emailSentAt) {
+        doc.emailSentAt = new Date();
+        await doc.save();
+      }
+      logger.debug(
+        { invoiceId, to: ownerEmail },
+        'invoice owner email skipped (non-deliverable)',
+      );
+      return { sent: false, to: ownerEmail, skipped: 'non_deliverable' };
+    }
+
     const result = await sendInvoiceEmail(doc._id.toString());
     return { sent: true, to: result.to };
   } catch (err) {
@@ -1200,6 +1220,11 @@ export async function sendInvoiceEmail(
   if (!to) {
     throw new ValidationError('No recipient email found for this restaurant owner');
   }
+  if (isNonDeliverableEmail(to)) {
+    throw new ValidationError(
+      `Cannot send invoice email to non-deliverable address: ${to}`,
+    );
+  }
 
   const invoice = mapInvoice(doc, restaurant.name);
   if (!invoice.payUrl) {
@@ -1520,23 +1545,37 @@ export async function resumeInvoicePayment(token: string) {
   // Recreate when we still need to capture a preferred card (legacy PIs had no customer).
   const needsSaveableIntent = Boolean(sub && !sub.preferredPaymentMethodId);
 
-  // Never resume stub intents into Stripe Elements — recreate instead.
+  // Never resume stub / terminal intents into Stripe Elements — recreate instead.
+  // Succeeded PIs (e.g. after 3DS redirect) mark the invoice paid instead of remounting Elements.
   if (
     !needsSaveableIntent &&
     doc.stripePaymentIntentId &&
     !isStubPaymentIntent(doc.stripePaymentIntentId)
   ) {
-    const clientSecret = await retrievePaymentIntentClientSecret(doc.stripePaymentIntentId);
-    if (clientSecret) {
+    const existing = await retrievePaymentIntentForCheckout(doc.stripePaymentIntentId);
+    if (existing?.status === 'succeeded') {
+      const invoice = await confirmInvoicePayment(token, doc.stripePaymentIntentId);
+      return {
+        invoice,
+        clientSecret: null as string | null,
+        paymentIntentId: null as string | null,
+        alreadyPaid: true,
+        isStub: false,
+      };
+    }
+    if (existing?.clientSecret) {
       const restaurant = await Restaurant.findById(doc.restaurantId).select('name');
       return {
         invoice: mapInvoice(doc, restaurant?.name),
-        clientSecret,
+        clientSecret: existing.clientSecret,
         paymentIntentId: doc.stripePaymentIntentId,
         alreadyPaid: false,
         isStub: false,
       };
     }
+    // Canceled / processing / requires_capture / missing — drop and create a fresh PI.
+    doc.stripePaymentIntentId = undefined;
+    await doc.save();
   }
 
   if (needsSaveableIntent && doc.stripePaymentIntentId) {

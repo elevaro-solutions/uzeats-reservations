@@ -3,6 +3,10 @@ export const typeDefs = `#graphql
 
   enum UserRole { diner restaurant_owner manager host admin account_manager super_admin qa }
   enum RestaurantStatus { pending approved rejected suspended }
+  """Diner listing. hidden is not visible in search or on the public page."""
+  enum RestaurantVisibility { visible hidden }
+  """Operating flag. inactive hides the restaurant from search and the public page."""
+  enum RestaurantActivity { active inactive }
   enum ReservationStatus { pending confirmed seated completed cancelled no_show }
   enum ReservationDatePeriod {
     today
@@ -315,6 +319,10 @@ export const typeDefs = `#graphql
     logoUrl: String
     photos: [String!]!
     status: RestaurantStatus!
+    """Visible or not visible in diner search and on the public page."""
+    visibility: RestaurantVisibility!
+    """Active or inactive. Inactive hides the restaurant from diners."""
+    activity: RestaurantActivity!
     """Populated only on createRestaurant when a paid plan needs a card on file."""
     clientSecret: String
     paymentMode: String
@@ -4188,6 +4196,8 @@ export const typeDefs = `#graphql
     restaurantManagerSeats(restaurantId: ID!): ManagerSeatsUsage!
     adminRestaurants(
       status: RestaurantStatus
+      visibility: RestaurantVisibility
+      activity: RestaurantActivity
       search: String
       city: String
       cuisine: String
@@ -4434,8 +4444,20 @@ export const typeDefs = `#graphql
 
     createRestaurant(input: RestaurantInput!, plan: String): Restaurant!
     updateRestaurant(id: ID!, input: RestaurantInput!): Restaurant!
-    setRestaurantStatus(id: ID!, status: RestaurantStatus!): Restaurant!
+    setRestaurantStatus(id: ID!, status: RestaurantStatus!, reason: String): Restaurant!
     setRestaurantStatuses(ids: [ID!]!, status: RestaurantStatus!): BulkRestaurantStatusResult!
+    """Set diner visibility and/or activity. Omitted fields stay unchanged."""
+    setRestaurantListing(
+      id: ID!
+      visibility: RestaurantVisibility
+      activity: RestaurantActivity
+      reason: String
+    ): Restaurant!
+    setRestaurantListings(
+      ids: [ID!]!
+      visibility: RestaurantVisibility
+      activity: RestaurantActivity
+    ): BulkRestaurantStatusResult!
     adminDeleteRestaurants(ids: [ID!]!): BulkDeleteRestaurantsResult!
 
     createTable(restaurantId: ID!, input: TableInput!): Table!
@@ -4518,6 +4540,8 @@ export const typeDefs = `#graphql
       ownerInput: AdminCreateOwnerInput
       plan: String
       status: RestaurantStatus
+      visibility: RestaurantVisibility
+      activity: RestaurantActivity
     ): Restaurant!
     adminUpdateRestaurant(
       id: ID!

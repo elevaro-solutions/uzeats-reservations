@@ -1,19 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MOBILE_APPS, type MobileAppId } from '@reservations/shared';
+import { isIosClient, MOBILE_APPS, preferredMobileStoreUrl, type MobileAppId } from '@reservations/shared';
 
 const DISMISS_KEY = 'rt-mobile-app-prompt';
 
 /** Phone, or a tablet-sized screen that is actually touched (not a resized desktop window). */
 const HANDHELD_QUERY = '(max-width: 1024px), (max-width: 1366px) and (pointer: coarse)';
-
-function isIosDevice() {
-  const ua = navigator.userAgent;
-  const iOSDevice = /iPad|iPhone|iPod/i.test(ua);
-  const iPadOs = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
-  return iOSDevice || iPadOs;
-}
 
 export function MobileAppPrompt({ app }: { app: MobileAppId }) {
   const [open, setOpen] = useState(false);
@@ -28,7 +21,7 @@ export function MobileAppPrompt({ app }: { app: MobileAppId }) {
     }
     const media = window.matchMedia(HANDHELD_QUERY);
     const sync = () => {
-      setIos(isIosDevice());
+      setIos(isIosClient(navigator));
       setOpen(media.matches);
     };
     sync();
@@ -53,26 +46,17 @@ export function MobileAppPrompt({ app }: { app: MobileAppId }) {
         App
       </span>
       <p className="rt-app-prompt__copy">
-        {ios ? (
-          <>
-            <strong>{listing.name} for iPhone and iPad is coming soon.</strong>
-          </>
-        ) : (
-          <>
-            <strong>Get the {listing.name} app.</strong> Install it from Google Play.
-          </>
-        )}
+        <strong>Get the {listing.name} app.</strong> Install it from{' '}
+        {ios ? 'the App Store' : 'Google Play'}.
       </p>
-      {ios ? null : (
-        <a
-          className="rt-app-prompt__install"
-          href={listing.androidUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Install
-        </a>
-      )}
+      <a
+        className="rt-app-prompt__install"
+        href={preferredMobileStoreUrl(listing, navigator)}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Install
+      </a>
       <button type="button" className="rt-app-prompt__close" aria-label="Dismiss app suggestion" onClick={dismiss}>
         ×
       </button>

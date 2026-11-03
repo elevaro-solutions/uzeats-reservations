@@ -40,3 +40,37 @@ export function formatUsDateTime(
   if (!date) return "";
   return date.toLocaleString(DISPLAY_LOCALE, options);
 }
+
+/** Invoice due dates are UTC calendar days (00:00 UTC). Always format in UTC. */
+export function formatUtcCalendarDate(
+  value: Date | string | number,
+  options?: Intl.DateTimeFormatOptions,
+): string {
+  const date = toDate(value);
+  if (!date) return "";
+  return date.toLocaleDateString(DISPLAY_LOCALE, {
+    timeZone: "UTC",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    ...options,
+  });
+}
+
+/** `YYYY-MM` (optional `~suffix`) as a UTC month label, e.g. October 2026. */
+export function formatUtcBillingPeriod(
+  period: string | null | undefined,
+  options?: Intl.DateTimeFormatOptions,
+): string {
+  const cal = String(period ?? "").split("~")[0] ?? "";
+  const [yearStr, monthStr] = cal.split("-");
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  if (!year || !month || month < 1 || month > 12) return String(period ?? "");
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(DISPLAY_LOCALE, {
+    timeZone: "UTC",
+    month: "long",
+    year: "numeric",
+    ...options,
+  });
+}

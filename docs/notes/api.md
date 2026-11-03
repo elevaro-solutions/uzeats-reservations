@@ -1,5 +1,21 @@
 # API — Learnings & Observations
 
+## [2026-11-03] QA checklist catalog is v0.97.0
+- `QA_CHECKLIST_RELEASE` is `0.97.0`. Catalog groups are Restaurant listing, Downloads, Billing, and Dev. v0.96.0 Order online / Stripe hosted invoice items stay on that release’s `QaReleaseChecklist` row.
+- Why it matters: Sign-off for this gate is visibility / activity, Standing vs Listing, App Store badges, admin invoice detail, Base upgrade, UTC due dates, and terminal PaymentIntent pay — not the previous hosted-invoice work.
+
+## [2026-11-03] Suspend and approve also set listing flags
+- `setRestaurantStatus` / `setRestaurantStatuses`: `suspended` sets `visibility: hidden` and `activity: inactive`. `approved` sets `visibility: visible` and `activity: active`. Reject and pending do not touch those fields.
+- The public `restaurant` query still returns non-approved rows, so a suspended page loads and the diner app shows the closed card. Search stays closed because the venue is hidden and inactive.
+- Why it matters: Do not suspend without the listing patch, or the admin tags and search will stay open. Do not 404 a suspended page; the closed card is the diner state.
+
+## [2026-11-03] Diner listing is visibility + activity, not only the plan
+- `Restaurant.visibility` (`visible` | `hidden`) and `Restaurant.activity` (`active` | `inactive`). Either `hidden` or `inactive` drops the venue from `publiclyListedRestaurantIds` and `restaurantIsPubliclyListed`. Missing fields count as visible and active.
+- Approval (`pending` / `approved` / …) and subscription trial still apply. A trialing approved restaurant stays in search until an admin sets Not visible or Inactive.
+- Inactive (`activity: inactive`) is omitted from search and `restaurantIsPubliclyListed` (no new bookings) but `restaurantIsPubliclyViewable` still returns the public page when visibility is not hidden.
+- `setRestaurantStatus` and `setRestaurantListing` take an optional `reason` (max 500). It is stored on the audit log only.
+- Why it matters: Do not treat `trialing` as hidden. Hiding a trial venue is `setRestaurantListing`, not a subscription status change. Partner Hub requires a reason for Reject, Suspend, Not visible, Active, and Inactive; other callers may omit it.
+
 ## [2026-11-01] QA checklist catalog is v0.96.0
 - `QA_CHECKLIST_RELEASE` is `0.96.0`. Catalog groups are Restaurant listing and Billing. v0.95.0 diner Delete account / waitlist items stay on that release’s `QaReleaseChecklist` row.
 - Why it matters: Sign-off for this gate is Order online URL, View invoice after cancel, Stripe hosted invoices, Core Recommended layout, and period-invoice Stripe refresh — not the previous mobile delete-account work.

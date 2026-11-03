@@ -41,6 +41,20 @@ const restaurantSchema = new Schema(
       default: 'pending',
       index: true,
     },
+    /** `hidden` removes the venue from diner search and the public page. */
+    visibility: {
+      type: String,
+      enum: ['visible', 'hidden'],
+      default: 'visible',
+      index: true,
+    },
+    /** `inactive` removes the venue from diner search and the public page. */
+    activity: {
+      type: String,
+      enum: ['active', 'inactive'],
+      default: 'active',
+      index: true,
+    },
     ownerId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     depositRequired: { type: Boolean, default: false },
     depositAmountCents: { type: Number, default: 0 },

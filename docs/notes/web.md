@@ -1,5 +1,24 @@
 # Web — Learnings & Observations
 
+## [2026-11-03] Suspended restaurants replace the booking card
+- `status === 'suspended'` swaps the reservation form for a closed booking card (calendar icon, title, short copy pointing to Call / Directions / Message). The date, time, and Complete reservation controls are not rendered. Inactive-but-approved still keeps the form with the button disabled.
+- Why it matters: Key the closed card off approval status, not activity. Activity inactive is the softer closed state.
+
+## [2026-11-03] Inactive restaurants keep the public page, not the booking button
+- `activity === 'inactive'` still loads the diner restaurant page when the venue is visible. The booking card shows “This restaurant is not accepting reservations.” and Complete reservation stays disabled. Search and `createReservation` still use `restaurantIsPubliclyListed`, which excludes inactive.
+- Why it matters: Do not 404 an inactive-but-visible venue. The closed message is the diner-facing state.
+
+## [2026-11-03] Widget copy must not read dist during turbo parallel
+- Root `pnpm dev` runs `@reservations/web` `predev` (`vite build`) and `@reservations/widget` `dev` (`vite build --watch`) at once on the same `packages/widget/dist`.
+- One build’s `emptyOutDir` deletes the other’s `widget.iife.js` before `copyFileSync` in `closeBundle` → ENOENT and web `dev` exits.
+- `copy-widget-to-web` now uses `writeBundle` + in-memory chunk `code` → `apps/web/public/widget.js`.
+- Why it matters: Do not go back to copying from `dist/` in that plugin while turbo `--parallel` still double-builds the widget.
+
+## [2026-11-02] iPhone apps are live on the App Store
+- `MOBILE_APPS` in `packages/shared` now has `iosUrl` for diner (`id6823634245`) and partner (`id6824937754`). Region-neutral `apps.apple.com/app/...` links so Apple can send people to their storefront.
+- `AppStoreBadges` links both stores. Handheld install bar on iPhone/iPad opens the App Store. Organization `sameAs` and SoftwareApplication JSON-LD include iOS URLs; `operatingSystem` is `Web, Android, iOS`.
+- Why it matters: Do not put the App Store badge back to “coming soon”. Keep Play and App Store URLs in `MOBILE_APPS`, not copied into page copy.
+
 ## [2026-10-28] Discovery chrome is first in the DOM, visually second
 - `DiscoveryLanding` is a server wrapper: seed fetch, `notFound()` when `requireInventory` and total is 0, then `DiscoveryLandingSchema` + `DiscoveryLandingChrome` + client `DiscoveryLandingView` with `hideSeoChrome`.
 - Chrome is first in the DOM so crawlers see `h1`, named venue links, and FAQs. `.rt-discovery-page` uses flex `order` so users still see the interactive landing first.
@@ -46,10 +65,10 @@
 - Why it matters: Remote covers (Spaces / Unsplash) stay blank for a long time on slow connections. The placeholder is local; do not swap in another remote “default” photo while waiting.
 
 ## [2026-10-17] Mobile app links and downloads
-- Play URLs live in `packages/shared` `MOBILE_APPS`. Do not add an App Store href until iOS is live; badges stay “Coming soon”.
+- Play and App Store URLs live in `packages/shared` `MOBILE_APPS`.
 - `/downloads` serves copies of logos and `docs/store/assets` from `apps/web/public/downloads`. Recopy after regenerating store art.
 - Footer badge follows the page: partner on `/for-restaurants` and `/pricing`, diner elsewhere, both on `/downloads`.
-- Phone and tablet (`max-width: 1024px`, or up to 1366px with a coarse pointer) get a dismissible gold bar **above** the header (sticky with it). Android links to Play. iPhone/iPad only says coming soon — no App Store URL. Dismissal is `localStorage` `rt-mobile-app-prompt`. Hidden on `/downloads`.
+- Phone and tablet (`max-width: 1024px`, or up to 1366px with a coarse pointer) get a dismissible gold bar **above** the header (sticky with it). Android links to Play; iPhone/iPad to the App Store. Dismissal is `localStorage` `rt-mobile-app-prompt`. Hidden on `/downloads`.
 - Why it matters: Store links and brand files are public marketing, not the listing kit in `docs/`. Do not put an install block back between the home hero and the restaurant list.
 
 ## [2026-10-15] Profile Danger zone — delete diner account

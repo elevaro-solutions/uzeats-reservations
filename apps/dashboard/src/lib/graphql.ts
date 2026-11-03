@@ -595,6 +595,8 @@ const ADMIN_RESTAURANT_FIELDS = `
   name
   slug
   status
+  visibility
+  activity
   cuisine
   cuisines
   description
@@ -640,6 +642,8 @@ const ADMIN_RESTAURANT_FIELDS = `
 export const ADMIN_RESTAURANTS = gql`
   query AdminRestaurants(
     $status: RestaurantStatus
+    $visibility: RestaurantVisibility
+    $activity: RestaurantActivity
     $search: String
     $city: String
     $cuisine: String
@@ -648,6 +652,8 @@ export const ADMIN_RESTAURANTS = gql`
   ) {
     adminRestaurants(
       status: $status
+      visibility: $visibility
+      activity: $activity
       search: $search
       city: $city
       cuisine: $cuisine
@@ -709,6 +715,8 @@ export const ADMIN_CREATE_RESTAURANT = gql`
     $ownerInput: AdminCreateOwnerInput
     $plan: String
     $status: RestaurantStatus
+    $visibility: RestaurantVisibility
+    $activity: RestaurantActivity
   ) {
     adminCreateRestaurant(
       input: $input
@@ -716,6 +724,8 @@ export const ADMIN_CREATE_RESTAURANT = gql`
       ownerInput: $ownerInput
       plan: $plan
       status: $status
+      visibility: $visibility
+      activity: $activity
     ) {
       id
       name
@@ -806,8 +816,8 @@ export const ADMIN_UPDATE_USER = gql`
 `;
 
 export const SET_RESTAURANT_STATUS = gql`
-  mutation SetRestaurantStatus($id: ID!, $status: RestaurantStatus!) {
-    setRestaurantStatus(id: $id, status: $status) {
+  mutation SetRestaurantStatus($id: ID!, $status: RestaurantStatus!, $reason: String) {
+    setRestaurantStatus(id: $id, status: $status, reason: $reason) {
       id status
     }
   }
@@ -818,6 +828,34 @@ export const SET_RESTAURANT_STATUSES = gql`
     setRestaurantStatuses(ids: $ids, status: $status) {
       updated
       items { id status name }
+    }
+  }
+`;
+
+export const SET_RESTAURANT_LISTING = gql`
+  mutation SetRestaurantListing(
+    $id: ID!
+    $visibility: RestaurantVisibility
+    $activity: RestaurantActivity
+    $reason: String
+  ) {
+    setRestaurantListing(id: $id, visibility: $visibility, activity: $activity, reason: $reason) {
+      id
+      visibility
+      activity
+    }
+  }
+`;
+
+export const SET_RESTAURANT_LISTINGS = gql`
+  mutation SetRestaurantListings(
+    $ids: [ID!]!
+    $visibility: RestaurantVisibility
+    $activity: RestaurantActivity
+  ) {
+    setRestaurantListings(ids: $ids, visibility: $visibility, activity: $activity) {
+      updated
+      items { id visibility activity name }
     }
   }
 `;

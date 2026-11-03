@@ -1,11 +1,11 @@
 {
   "name": "reservations",
-  "version": "0.96.0",
+  "version": "0.97.0",
   "private": true,
   "scripts": {
-    "dev": "turbo run dev --parallel --filter='!@reservations/mobile' --filter='!@reservations/merchant-mobile'",
+    "dev": "NODE_OPTIONS='--max-old-space-size=8192' turbo run dev --parallel --filter='!@reservations/mobile' --filter='!@reservations/merchant-mobile'",
     "dev:mobile": "pnpm --filter @reservations/mobile dev",
-    "build": "turbo run build",
+    "build": "NODE_OPTIONS='--max-old-space-size=8192' turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",

@@ -12,7 +12,7 @@ export default function DownloadsPage() {
         <p className="rt-downloads__kicker">Downloads</p>
         <h1>Apps and brand kit</h1>
         <p className="rt-downloads__lead">
-          Android apps are on Google Play. The iPhone apps are coming soon. Logos, icons, and store
+          Android apps are on Google Play. iPhone apps are on the App Store. Logos, icons, and store
           graphics are free to download.
         </p>
       </header>

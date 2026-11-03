@@ -6,6 +6,7 @@ import { Alert, Button, Card, DatePicker, Input, Space, Table, Tag, Typography, 
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import dayjs from 'dayjs';
+import { formatUtcCalendarDate } from '@reservations/shared';
 import { spacing } from '@reservations/ui';
 import {
   ADMIN_INVOICES,
@@ -225,7 +226,8 @@ export function AdminRestaurantInvoicesPanel({ restaurantId }: { restaurantId: s
             title: 'Due',
             dataIndex: 'dueDate',
             width: 120,
-            render: (v: string) => new Date(v).toLocaleDateString('en-US'),
+            render: (v: string) =>
+              formatUtcCalendarDate(v, { month: 'numeric', day: 'numeric', year: 'numeric' }),
           },
           {
             title: 'Total',

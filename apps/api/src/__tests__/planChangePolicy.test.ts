@@ -163,4 +163,39 @@ describe('evaluatePlanChange', () => {
     expect(decision.allowed).toBe(false);
     expect(decision.blockedReason).toMatch(/one paid upgrade/i);
   });
+
+  it('does not lock upgrades after the paid billing period has already ended', () => {
+    const decision = evaluatePlanChange({
+      subscription: sub({ lastPaidPlanChangeAt: new Date('2026-08-05T00:00:00.000Z') }),
+      fromPlan: fromCore,
+      toPlan: toPro,
+      now: new Date('2026-09-02T00:00:00.000Z'),
+    });
+    expect(decision.allowed).toBe(true);
+  });
+
+  it('lets a free plan upgrade anytime, even with a stale period end', () => {
+    const fromBase = {
+      key: 'base',
+      name: 'Base',
+      monthlyPriceCents: 0,
+      networkCoverFeeCents: PLANS.base.networkCoverFeeCents,
+      websiteCoverFeeCents: PLANS.base.websiteCoverFeeCents,
+      features: PLANS.base.features,
+    };
+    const decision = evaluatePlanChange({
+      subscription: sub({
+        plan: 'base',
+        monthlyPriceCents: 0,
+        lastPaidPlanChangeAt: new Date('2026-09-29T00:00:00.000Z'),
+        currentPeriodStart: new Date('2026-09-29T00:00:00.000Z'),
+        currentPeriodEnd: new Date('2026-10-29T00:00:00.000Z'),
+      }),
+      fromPlan: fromBase,
+      toPlan: toPro,
+      now: new Date('2026-11-02T00:00:00.000Z'),
+    });
+    expect(decision.allowed).toBe(true);
+    expect(decision.immediate).toBe(true);
+  });
 });

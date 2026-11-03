@@ -43,6 +43,8 @@ import {
 import dayjs from 'dayjs';
 import {
   formatPlanPriceSuffix,
+  formatUtcBillingPeriod,
+  formatUtcCalendarDate,
   getPlanDiscountLabel,
   type FailToPayStage,
 } from '@reservations/shared';
@@ -476,6 +478,7 @@ type PlanChangeDraft = {
   featuresLost: string[];
   clearsCancel: boolean;
   showWebsiteCover: boolean;
+  canDeferToPeriodEnd: boolean;
 };
 
 function PlanPriceTile({
@@ -679,7 +682,7 @@ function InvoiceListRow({
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Text strong style={{ color: colors.textPrimary }}>
-            {dayjs(invoice.billingPeriod).format('MMM YYYY')}
+            {formatUtcBillingPeriod(invoice.billingPeriod, { month: 'short' })}
           </Text>
           <Tag
             color={INVOICE_STATUS_COLORS[invoice.status] ?? 'default'}
@@ -694,8 +697,8 @@ function InvoiceListRow({
           {invoice.status === 'paid' && invoice.paidAt
             ? `Paid ${dayjs(invoice.paidAt).format('MMM D, YYYY · h:mm A')}`
             : invoice.status === 'overdue'
-              ? `Overdue · was due ${dayjs(invoice.dueDate).format('MMM D, YYYY')}`
-              : `Due ${dayjs(invoice.dueDate).format('MMM D, YYYY')}`}
+              ? `Overdue · was due ${formatUtcCalendarDate(invoice.dueDate)}`
+              : `Due ${formatUtcCalendarDate(invoice.dueDate)}`}
         </Text>
       </div>
       <Text
@@ -1054,12 +1057,16 @@ export default function BillingPage() {
 
       const target = plans.find((p) => p.key === plan);
       const isUpgrade = preview.direction === 'upgrade';
-      const effective = subscription?.currentPeriodEnd
-        ? dayjs(subscription.currentPeriodEnd).format('MMM D, YYYY')
-        : preview.effectiveAt
-          ? dayjs(preview.effectiveAt).format('MMM D, YYYY')
-          : 'the next billing date';
-      setPlanChangeTiming(isUpgrade ? 'now' : 'period_end');
+      const periodStillOpen = Boolean(
+        subscription?.currentPeriodEnd &&
+          dayjs(subscription.currentPeriodEnd).isAfter(dayjs()) &&
+          (subscription.monthlyPriceCents ?? 0) > 0,
+      );
+      const canDeferToPeriodEnd = periodStillOpen;
+      const effective = canDeferToPeriodEnd
+        ? formatUtcCalendarDate(subscription?.currentPeriodEnd ?? preview.effectiveAt ?? new Date())
+        : 'today';
+      setPlanChangeTiming(isUpgrade || !canDeferToPeriodEnd ? 'now' : 'period_end');
       setPlanChange({
         plan,
         planName: target?.name ?? plan,
@@ -1080,6 +1087,7 @@ export default function BillingPage() {
         clearsCancel: Boolean(subscription?.cancelAtPeriodEnd),
         showWebsiteCover:
           preview.currentWebsiteCoverFeeCents !== preview.nextWebsiteCoverFeeCents,
+        canDeferToPeriodEnd,
       });
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Could not change plan');
@@ -1264,22 +1272,31 @@ export default function BillingPage() {
 
   const openDuePayment = async () => {
     if (!activeRestaurantId || !subscription) return;
-    const { data } = await loadPlanChangePayment({
-      variables: { restaurantId: activeRestaurantId },
-      fetchPolicy: 'network-only',
-    });
-    const payload = data?.planChangePayment;
-    if (!payload?.clientSecret) {
-      message.error('Could not start payment');
-      return;
+    try {
+      const { data } = await loadPlanChangePayment({
+        variables: { restaurantId: activeRestaurantId },
+        fetchPolicy: 'network-only',
+      });
+      const payload = data?.planChangePayment;
+      if (!payload?.clientSecret) {
+        if ((payload?.amountDueCents ?? 0) <= 0) {
+          message.success('This balance is already paid');
+          await refetchSub();
+          return;
+        }
+        message.error('Could not start payment');
+        return;
+      }
+      setUpgradePayment({
+        clientSecret: payload.clientSecret,
+        paymentMode: payload.paymentMode === 'setup' ? 'setup' : 'payment',
+        planName: planDisplayName,
+        monthlyLabel: formatCents(subscription.monthlyPriceCents),
+        amountDueCents: payload.amountDueCents || amountDueNow,
+      });
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Could not start payment');
     }
-    setUpgradePayment({
-      clientSecret: payload.clientSecret,
-      paymentMode: payload.paymentMode === 'setup' ? 'setup' : 'payment',
-      planName: planDisplayName,
-      monthlyLabel: formatCents(subscription.monthlyPriceCents),
-      amountDueCents: payload.amountDueCents || amountDueNow,
-    });
   };
 
   const periodToolbar = (
@@ -1551,11 +1568,13 @@ export default function BillingPage() {
                 <Col xs={24} md={12}>
                   <PlanPanel title="Billing timeline" icon={<CalendarOutlined />}>
                     <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-                      {subscription.currentPeriodStart && subscription.currentPeriodEnd ? (
+                      {!isFreePlan && subscription.currentPeriodStart && subscription.currentPeriodEnd ? (
                         <PlanFact label={isTrialing ? 'Trial window' : 'Current period'}>
                           {dayjs(subscription.currentPeriodStart).format('MMM D')} –{' '}
                           {dayjs(subscription.currentPeriodEnd).format('MMM D, YYYY')}
                         </PlanFact>
+                      ) : isFreePlan ? (
+                        <PlanFact label="Billing cycle">None — free plan</PlanFact>
                       ) : null}
                       {isTrialing && subscription.trialEndsAt ? (
                         <PlanFact label="First charge">
@@ -2143,33 +2162,35 @@ export default function BillingPage() {
                 />
               </div>
 
-              <div role="radiogroup" aria-label="When should this plan start">
-                <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                  When should this start?
-                </Text>
-                <Space orientation="vertical" size={8} style={{ width: '100%' }}>
-                  <TimingOption
-                    tone="safe"
-                    selected={planChangeTiming === 'period_end'}
-                    badge={planChange.isUpgrade ? undefined : 'Recommended'}
-                    title={`Keep ${planChange.currentPlanName} until ${planChange.effective}`}
-                    detail={`Then ${planChange.planName} starts. Nothing is charged today.`}
-                    onSelect={() => setPlanChangeTiming('period_end')}
-                  />
-                  <TimingOption
-                    tone="now"
-                    selected={planChangeTiming === 'now'}
-                    badge={planChange.isUpgrade ? 'Recommended' : undefined}
-                    title={`Start ${planChange.planName} right away`}
-                    detail={
-                      planChange.nextMonthlyPriceCents > 0
-                        ? `Pay ${formatCents(planChange.nextMonthlyPriceCents)} today (full monthly price). Unused time on ${planChange.currentPlanName} is not credited.`
-                        : 'Features change today. Unused time on the current plan is not credited.'
-                    }
-                    onSelect={() => setPlanChangeTiming('now')}
-                  />
-                </Space>
-              </div>
+              {planChange.canDeferToPeriodEnd ? (
+                <div role="radiogroup" aria-label="When should this plan start">
+                  <Text strong style={{ display: 'block', marginBottom: 8 }}>
+                    When should this start?
+                  </Text>
+                  <Space orientation="vertical" size={8} style={{ width: '100%' }}>
+                    <TimingOption
+                      tone="safe"
+                      selected={planChangeTiming === 'period_end'}
+                      badge={planChange.isUpgrade ? undefined : 'Recommended'}
+                      title={`Keep ${planChange.currentPlanName} until ${planChange.effective}`}
+                      detail={`Then ${planChange.planName} starts. Nothing is charged today.`}
+                      onSelect={() => setPlanChangeTiming('period_end')}
+                    />
+                    <TimingOption
+                      tone="now"
+                      selected={planChangeTiming === 'now'}
+                      badge={planChange.isUpgrade ? 'Recommended' : undefined}
+                      title={`Start ${planChange.planName} right away`}
+                      detail={
+                        planChange.nextMonthlyPriceCents > 0
+                          ? `Pay ${formatCents(planChange.nextMonthlyPriceCents)} today (full monthly price). Unused time on ${planChange.currentPlanName} is not credited.`
+                          : 'Features change today. Unused time on the current plan is not credited.'
+                      }
+                      onSelect={() => setPlanChangeTiming('now')}
+                    />
+                  </Space>
+                </div>
+              ) : null}
               {planChangeTiming === 'now' && planChange.nextMonthlyPriceCents > 0 ? (
                 <Alert
                   type="info"

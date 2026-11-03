@@ -11,6 +11,8 @@ Generated assets live in [`docs/store/assets/`](./store/assets/). Recreate with 
 | Binary name | Tablevera | Tablevera Merchant |
 | **Store name** | Tablevera | Tablevera Partner |
 | Bundle / package | `uz.alitech.tablevera` | `uz.alitech.tablevera.merchant` |
+| App Store | [Tablevera](https://apps.apple.com/app/tablevera/id6823634245) (`id6823634245`) | [Tablevera Merchant](https://apps.apple.com/app/tablevera-merchant/id6824937754) (`id6824937754`) |
+| Google Play | [Tablevera](https://play.google.com/store/apps/details?id=uz.alitech.tablevera) | [Tablevera Merchant](https://play.google.com/store/apps/details?id=uz.alitech.tablevera.merchant) |
 | EAS project | `@xondamir/tablevera` | `@xondamir/tablevera-merchant` |
 | Version | 1.0.0 | 1.0.0 |
 | Scheme | `tablevera` | `tablevera-merchant` |

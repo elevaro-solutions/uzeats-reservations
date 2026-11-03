@@ -112,7 +112,7 @@ const FIELD_TIPS = {
     'When on, this package appears as a card on the public /pricing page and in partner registration. When off (Hidden), partners and the public cannot select it — platform admins can still assign it when creating or editing restaurants, assigning packages, and creating invoices.',
   monthlyPrice: 'Recurring subscription price charged after any trial ends, for the billing duration below.',
   duration:
-    'How long one paid cycle lasts. Use 1 month for standard monthly billing, or a custom range such as 14 days, 2 weeks, 3 months, or 1 year.',
+    'How long one paid cycle lasts. Use 1 month for standard monthly billing, or a custom range such as 14 days, 2 weeks, 3 months, or 1 year. Free ($0) packages have no paid cycle.',
   listPrice:
     'Original list price shown with strikethrough when a discount is active (e.g. before 50% off or 1st month free).',
   discountType:
@@ -1215,7 +1215,17 @@ export default function AdminPricingPage() {
               >
                 <Switch checkedChildren="Visible" unCheckedChildren="Hidden" />
               </Form.Item>
-              <PackageDurationFields unit={durationUnit} count={durationCount} />
+              {(monthlyPrice ?? 0) > 0 ? (
+                <PackageDurationFields unit={durationUnit} count={durationCount} />
+              ) : (
+                <Form.Item
+                  label="Billing duration"
+                  tooltip={FIELD_TIPS.duration}
+                  extra="Free packages have no paid billing cycle. Set a price to choose a duration."
+                >
+                  <Text type="secondary">None — this is a free plan</Text>
+                </Form.Item>
+              )}
               <Row gutter={16}>
                 {discountType !== 'first_month_free' &&
                 discountType !== 'percent_off' &&
@@ -1369,7 +1379,17 @@ export default function AdminPricingPage() {
           >
             <InputNumber min={1} max={100} step={1} style={{ width: 160 }} />
           </Form.Item>
-          <PackageDurationFields unit={createDurationUnit} count={createDurationCount} />
+          {(createMonthlyPrice ?? 0) > 0 ? (
+            <PackageDurationFields unit={createDurationUnit} count={createDurationCount} />
+          ) : (
+            <Form.Item
+              label="Billing duration"
+              tooltip={FIELD_TIPS.duration}
+              extra="Free packages have no paid billing cycle. Set a price to choose a duration."
+            >
+              <Text type="secondary">None — this is a free plan</Text>
+            </Form.Item>
+          )}
           <Row gutter={16}>
             {createDiscountType !== 'first_month_free' &&
             createDiscountType !== 'percent_off' &&

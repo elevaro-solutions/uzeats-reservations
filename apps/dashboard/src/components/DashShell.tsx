@@ -41,9 +41,8 @@ import {
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { buildRestaurantBookingUrl } from '@reservations/shared';
+import { buildRestaurantBookingUrl, MOBILE_APPS, preferredMobileStoreUrl } from '@reservations/shared';
 import { SessionPreparing, TableveraWordmark, colors, radii, spacing, typography } from '@reservations/ui';
-import { MOBILE_APPS } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import {
   ADMIN_PENDING_REQUEST_COUNTS,
@@ -786,9 +785,15 @@ export function DashShell({ children }: { children: React.ReactNode }) {
               href={MOBILE_APPS.partner.androidUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(event) => {
+                const storeUrl = preferredMobileStoreUrl(MOBILE_APPS.partner, navigator);
+                if (storeUrl === MOBILE_APPS.partner.androidUrl) return;
+                event.preventDefault();
+                window.open(storeUrl, '_blank', 'noopener,noreferrer');
+              }}
             >
               Get the Partner app
-              <span>Android · iPhone coming soon</span>
+              <span>Google Play · App Store</span>
             </a>
             <div className="rt-dash-sider__account">
             <Avatar
@@ -958,7 +963,11 @@ export function DashShell({ children }: { children: React.ReactNode }) {
                   if (key === 'admin-config') router.push('/admin/config');
                   if (key === 'setup-guide') openSetupGuide();
                   if (key === 'partner-app') {
-                    window.open(MOBILE_APPS.partner.androidUrl, '_blank', 'noopener,noreferrer');
+                    window.open(
+                      preferredMobileStoreUrl(MOBILE_APPS.partner, navigator),
+                      '_blank',
+                      'noopener,noreferrer',
+                    );
                   }
                 },
               }}

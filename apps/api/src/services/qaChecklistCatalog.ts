@@ -1,4 +1,4 @@
-export const QA_CHECKLIST_RELEASE = '0.96.0';
+export const QA_CHECKLIST_RELEASE = '0.97.0';
 
 export type QaChecklistGate = 'required' | 'recommended';
 
@@ -14,58 +14,102 @@ export type QaChecklistCatalogItem = {
 /** Release-delta items stored by id. Labels ship with the API so the saved row stays small. */
 export const QA_CHECKLIST_CATALOG: QaChecklistCatalogItem[] = [
   {
-    id: 'rel-online-order-url',
+    id: 'rel-visibility-activity-search',
     gate: 'required',
     group: 'Restaurant listing',
-    label: 'Online order URL shows an Order online button on the public restaurant page',
+    label: 'Not visible hides search and public page; Inactive keeps the page but blocks booking',
     steps: [
-      'As an owner, open Restaurant profile → Contact. Confirm Online order URL is next to Website (not Menu). Save a DoorDash / Uber Eats / Toast https link. Confirm Website can still be the restaurant homepage.',
-      'Open the public diner listing. Confirm an Order online action (and Details / contact row) opens that URL in a new tab. Website still opens the restaurant site.',
-      'Clear Online order URL and save. Reload the diner page. Confirm Order online is gone. Repeat from Admin → restaurant Contact if you have Super Admin access.',
+      'As Super Admin, open Admin → Restaurants. Pick an approved, Visible, Active test venue. Confirm Visible / Active tags on the row.',
+      'More → Not visible, enter a reason, confirm. Confirm diner search no longer lists it and opening /restaurants/{id} does not show the normal public page. Set Visible again with a reason.',
+      'More → Inactive, enter a reason. Confirm it is out of diner search, the public page still loads, Complete reservation is disabled, and copy says the restaurant is not accepting reservations. Set Active again.',
     ],
   },
   {
-    id: 'rel-view-invoice-cancelled',
+    id: 'rel-standing-listing-menu',
+    gate: 'required',
+    group: 'Restaurant listing',
+    label: 'Standing and Listing are separate; Suspend / Approve move listing flags',
+    steps: [
+      'On an approved restaurant, open More. Confirm Standing (Approve / Reject / Suspend) is separate from Listing (Visible / Active). Confirm Listing items are hidden when the venue is pending, rejected, or suspended.',
+      'Suspend with a reason. Confirm status is Suspended, tags show Not visible and Inactive, diner search hides it, and the public page shows the closed booking card (calendar icon, no reservation form).',
+      'Approve with a reason (or Approve from the menu). Confirm Visible and Active again and the reservation form returns. Bulk bar uses the same Standing / Listing labels.',
+    ],
+  },
+  {
+    id: 'rel-listing-reason-audit',
+    gate: 'required',
+    group: 'Restaurant listing',
+    label: 'Reject, Suspend, Not visible, Active, and Inactive require a reason',
+    steps: [
+      'From Admin → Restaurants More menu, open Reject, Suspend, Not visible, Active, or Inactive. Confirm a confirmation asks for a reason and Cancel leaves the venue unchanged.',
+      'Submit with a short reason. Confirm the action applies and each menu item still has an icon and tooltip.',
+      'Skip deep audit-log inspection unless you have access; note “reason UI verified” if the log page is unavailable.',
+    ],
+  },
+  {
+    id: 'rel-app-store-badges',
+    gate: 'required',
+    group: 'Downloads',
+    label: 'App Store badges open live iPhone apps (diner web and Partner Hub)',
+    steps: [
+      'On diner web /downloads, confirm App Store and Google Play badges are links (not “coming soon”). On an iPhone or with an iPhone user-agent, open the App Store badge and confirm it goes to the Tablevera diner app.',
+      'Check footer, install bar (phone width), profile, reservations, for-restaurants, and pricing for live store links where badges appear.',
+      'On Partner Hub sign-in, confirm store badges. On a signed-in account menu / small-screen sidebar, open Partner app and confirm App Store on iPhone (Play otherwise).',
+    ],
+  },
+  {
+    id: 'rel-admin-invoice-detail',
     gate: 'required',
     group: 'Billing',
-    label: 'Cancelled Billing still lists invoices and View invoice opens the unpaid bill',
+    label: 'Admin invoice detail shows amount hero, one status, and two-column layout',
     steps: [
-      'Use a test restaurant with an unpaid platform invoice and a cancelled (or ended) subscription. Open Partner Hub Billing.',
-      'Confirm plan cards are shown, Usage & invoices is still listed (not hidden), and an outstanding-balance alert includes View invoice. Click it and confirm the unpaid invoice page opens.',
-      'In Danger zone, try Delete restaurant while that balance remains. Confirm the error includes View invoice and the venue is not deleted.',
+      'As Super Admin, open Admin → Invoices → an unpaid invoice with line items.',
+      'Confirm a clear amount hero, status appears once in the header (not repeated in a descriptions grid), pay-link actions are compact, and Details / Line items sit in two columns.',
+      'Open a paid invoice and confirm the same layout still reads cleanly.',
     ],
   },
   {
-    id: 'rel-stripe-hosted-invoice',
+    id: 'rel-base-plan-upgrade',
     gate: 'required',
     group: 'Billing',
-    label: 'Platform invoices create a Stripe invoice with number, amount, period, and due date',
+    label: 'Free Base plan hides paid cycle and can upgrade even after a leftover period date',
     steps: [
-      'As admin, create or open a platform invoice with a positive amount (manual invoice is fine) on a restaurant that has Stripe connected.',
-      'In Stripe Dashboard (or the hosted invoice URL), confirm it is not blank: invoice number (INV-…), restaurant, line description, amount, billing period, and due date match Tablevera.',
-      'Pay the invoice in Partner Hub (or the public /invoice link). Confirm Tablevera marks it paid and the Stripe copy is paid out of band. If Stripe keys are off, write “stubbed — no hosted URL” in the note.',
+      'Use a restaurant on the free Base plan. Open Partner Hub Billing. Confirm no paid billing-cycle dates are shown for Base.',
+      'Open Admin → Plans & pricing (or create/edit a $0 package). Confirm billing duration is hidden when price is $0.',
+      'From Billing, switch off Base to a paid plan “right away”. Confirm the upgrade is allowed even if an old period end date is in the past, and the new plan starts now (not blocked with “next upgrade after …”).',
     ],
   },
   {
-    id: 'rel-invoice-refresh-stripe',
+    id: 'rel-invoice-due-utc',
+    gate: 'required',
+    group: 'Billing',
+    label: 'Invoice due dates show as UTC calendar days (not a past local date in grace)',
+    steps: [
+      'Open an unpaid period invoice on Partner Hub Billing or Admin → Invoices (and the public /invoice pay page if available).',
+      'Confirm “Payment due” / due date matches the UTC calendar day (typically the 1st) and does not jump a day earlier in a US timezone.',
+      'During grace after that UTC day, confirm copy does not tell the partner to pay by a date that already passed solely because of local timezone.',
+    ],
+  },
+  {
+    id: 'rel-pay-terminal-intent',
+    gate: 'required',
+    group: 'Billing',
+    label: 'Invoice pay and Billing Pay now never open Stripe with a finished PaymentIntent',
+    steps: [
+      'On the public /invoice pay page, complete a card payment that needs 3DS (or return from a succeeded redirect). Confirm a finished PaymentIntent marks the invoice paid (or a fresh form appears) — no Stripe “terminal state” Elements error.',
+      'On Partner Hub Billing, open Pay now / Complete your plan switch when a charge is due. Confirm the card form mounts only with a usable intent; a already-succeeded charge clears the balance instead of breaking the modal.',
+      'If Stripe is stubbed in this env, write “stubbed — no live Elements” in the note after confirming Pay now still does not crash.',
+    ],
+  },
+  {
+    id: 'rel-widget-dev-race',
     gate: 'recommended',
-    group: 'Billing',
-    label: 'Refreshing a period invoice still updates Stripe when line items change',
+    group: 'Dev',
+    label: 'Root pnpm dev no longer fails on widget dist race',
     steps: [
-      'On a test restaurant with an unpaid auto period invoice that already has a Stripe copy, change a line (for example add a cover or regenerate the period invoice).',
-      'Confirm Tablevera still shows the invoice (not cancelled) with the new lines, and Stripe’s previous open copy is voided and replaced rather than left blank.',
-      'Skip if there is no unpaid period invoice in this environment; write that in the note.',
-    ],
-  },
-  {
-    id: 'rel-core-recommended-layout',
-    gate: 'required',
-    group: 'Billing',
-    label: 'Recommended on Core does not overlap the plan price',
-    steps: [
-      'Open Partner Hub Billing on a cancelled or no-plan restaurant so the plan cards show.',
-      'Find the Core card. Confirm Recommended sits in the header without covering the price, and the card still has a 1px brand outline.',
-      'Resize to a phone-width window. Confirm the tag and price still do not overlap.',
+      'On a local machine only: from repo root run `pnpm dev` and wait until web and widget settle.',
+      'Confirm web starts and `apps/web/public/widget.js` exists without ENOENT / predev copy failures.',
+      'Skip on staging-only QA; write “skipped — staging” in the note.',
     ],
   },
 ];

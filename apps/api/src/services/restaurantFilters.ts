@@ -5,6 +5,8 @@ type RestaurantSearchArgs = {
   status?: string;
   city?: string;
   cuisine?: string;
+  visibility?: string;
+  activity?: string;
 };
 
 function escapeRegex(value: string) {
@@ -16,6 +18,10 @@ export function buildRestaurantSearchClauses(
 ): Record<string, unknown>[] {
   const clauses: Record<string, unknown>[] = [];
   if (args.status) clauses.push({ status: args.status });
+  if (args.visibility === 'hidden') clauses.push({ visibility: 'hidden' });
+  else if (args.visibility === 'visible') clauses.push({ visibility: { $ne: 'hidden' } });
+  if (args.activity === 'inactive') clauses.push({ activity: 'inactive' });
+  else if (args.activity === 'active') clauses.push({ activity: { $ne: 'inactive' } });
   if (args.city?.trim()) {
     clauses.push({
       'address.city': new RegExp(`^${escapeRegex(args.city.trim())}$`, 'i'),

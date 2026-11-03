@@ -27,6 +27,7 @@ import {
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import {
+  CalendarOutlined,
   CheckCircleFilled,
   EnvironmentOutlined,
   GiftOutlined,
@@ -221,6 +222,8 @@ export default function RestaurantPageClient({
     fetchPolicy: initialRestaurant ? 'cache-and-network' : 'cache-first',
   });
   const restaurant = (data as { restaurant?: RestaurantSeoData } | undefined)?.restaurant ?? initialRestaurant;
+  const suspended = restaurant?.status === 'suspended';
+  const acceptingReservations = !suspended && restaurant?.activity !== 'inactive';
   const restaurantId = restaurant?.id ?? (isObjectId ? slugOrId : undefined);
   const bookingPath = buildRestaurantBookingPath(restaurant?.slug, restaurantId);
   const timeZone = useMemo(
@@ -1037,6 +1040,7 @@ export default function RestaurantPageClient({
   };
 
   const book = () => {
+    if (!acceptingReservations) return;
     if (!user) {
       message.info('Please sign in to complete your reservation');
       redirectToLoginForBooking();
@@ -1206,6 +1210,7 @@ export default function RestaurantPageClient({
   };
 
   const waitlist = async () => {
+    if (!acceptingReservations) return;
     if (!user) {
       message.info('Please sign in to join the waitlist');
       redirectToLoginForBooking();
@@ -1494,12 +1499,37 @@ export default function RestaurantPageClient({
                 bookSheetHighlight ? ' is-highlighted' : ''
               }`}
             >
-          {restaurant.reservationsVisible !== false ? (
+          {suspended ? (
+          <Card
+            id="booking-form"
+            className="rt-restaurant-booking-card rt-restaurant-booking-card--closed"
+          >
+            <div className="rt-restaurant-booking-card__closed">
+              <div className="rt-restaurant-booking-card__closed-icon" aria-hidden>
+                <CalendarOutlined />
+              </div>
+              <Title level={3} className="rt-restaurant-booking-card__closed-title">
+                Not accepting reservations
+              </Title>
+              <Paragraph type="secondary" className="rt-restaurant-booking-card__closed-copy">
+                Online booking is closed for now. You can still call, get directions, or send a
+                message from this page.
+              </Paragraph>
+            </div>
+          </Card>
+          ) : restaurant.reservationsVisible !== false ? (
           <Card
             id="booking-form"
             title="Make a reservation"
             className="rt-restaurant-booking-card"
           >
+            {!acceptingReservations ? (
+              <Alert
+                type="warning"
+                showIcon
+                message="This restaurant is not accepting reservations."
+              />
+            ) : null}
             {showResumeBanner && (
               <Alert
                 type="info"
@@ -2202,10 +2232,15 @@ export default function RestaurantPageClient({
               )}
 
               <div className="rt-restaurant-booking-card__actions">
-                <Button type="primary" loading={booking} onClick={book}>
+                <Button
+                  type="primary"
+                  loading={booking}
+                  disabled={!acceptingReservations}
+                  onClick={book}
+                >
                   Complete reservation
                 </Button>
-                {availableCount === 0 && (
+                {acceptingReservations && availableCount === 0 && (
                   <Button loading={waitlisting} onClick={waitlist}>
                     Join waitlist
                   </Button>
@@ -2267,11 +2302,17 @@ export default function RestaurantPageClient({
         </div>
       </div>
 
-      {isMobileLayout && restaurant.reservationsVisible !== false ? (
+      {isMobileLayout && (suspended || restaurant.reservationsVisible !== false) ? (
         <div className="rt-restaurant-book-footer">
-          <Button type="primary" size="large" block onClick={scrollToBooking}>
-            Book
-          </Button>
+          {acceptingReservations ? (
+            <Button type="primary" size="large" block onClick={scrollToBooking}>
+              Book
+            </Button>
+          ) : (
+            <Button type="primary" size="large" block disabled>
+              Not accepting reservations
+            </Button>
+          )}
         </div>
       ) : null}
       </div>

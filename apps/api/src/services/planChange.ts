@@ -75,6 +75,9 @@ export async function applyPendingPlanChangeIfDue(sub: any, now = new Date()) {
   }
   applyPlanFields(sub, snapshot);
   clearPending(sub);
+  if (snapshot.monthlyPriceCents <= 0) {
+    sub.set('lastPaidPlanChangeAt', undefined);
+  }
   await sub.save();
   const { syncVirtualRoomAddonAfterPlanChange } = await import('./virtualRoom.js');
   await syncVirtualRoomAddonAfterPlanChange(String(sub.restaurantId));
@@ -165,6 +168,7 @@ export async function changeRestaurantPlan(input: {
   let clientSecret: string | null = null;
   let paymentMode: 'payment' | 'setup' | null = null;
   let amountDueCents = 0;
+  let paymentSettled = false;
 
   if (decision.immediate) {
     const collectPayment = toPlan.monthlyPriceCents > 0;
@@ -179,6 +183,7 @@ export async function changeRestaurantPlan(input: {
       });
       clientSecret = updated.clientSecret;
       paymentMode = updated.paymentMode;
+      paymentSettled = updated.paymentSettled;
     } else if (collectPayment && decision.proratedChargeCents > 0) {
       const intent = await createPrepaymentIntent({
         amountCents: decision.proratedChargeCents,
@@ -194,7 +199,11 @@ export async function changeRestaurantPlan(input: {
     }
     applyPlanFields(sub, toPlan);
     clearPending(sub);
-    sub.lastPaidPlanChangeAt = now;
+    if (toPlan.monthlyPriceCents > 0) {
+      sub.lastPaidPlanChangeAt = now;
+    } else {
+      sub.set('lastPaidPlanChangeAt', undefined);
+    }
     sub.currentPeriodStart = now;
     sub.currentPeriodEnd = addPlanDuration(now, toPlan.durationUnit, toPlan.durationCount);
     if (
@@ -204,12 +213,15 @@ export async function changeRestaurantPlan(input: {
       sub.trialEndsAt = now;
       if (sub.status === 'trialing') sub.status = 'active';
     }
-    amountDueCents = collectPayment
-      ? decision.proratedChargeCents || toPlan.monthlyPriceCents
-      : 0;
+    amountDueCents =
+      !collectPayment || paymentSettled
+        ? 0
+        : decision.proratedChargeCents || toPlan.monthlyPriceCents;
     sub.amountDueCents = amountDueCents;
     if (clientSecret && amountDueCents > 0) {
       sub.status = 'past_due';
+    } else if (paymentSettled && sub.status === 'past_due') {
+      sub.status = 'active';
     }
     await sub.save();
     const { syncVirtualRoomAddonAfterPlanChange } = await import('./virtualRoom.js');
@@ -245,9 +257,23 @@ export async function getPlanChangePayment(restaurantId: string): Promise<PlanCh
   let paymentMode: 'payment' | 'setup' | null = null;
   if (sub.stripeSubscriptionId) {
     const open = await getOpenSubscriptionPayment(sub.stripeSubscriptionId);
+    if (open.paymentProcessing || (open.paymentSettled && open.amountDueCents > 0)) {
+      throw new ConflictError('Payment is still processing. Refresh in a moment.');
+    }
+    if (open.paymentSettled && open.amountDueCents <= 0) {
+      if ((sub.amountDueCents ?? 0) > 0 || sub.status === 'past_due') {
+        sub.amountDueCents = 0;
+        if (sub.status === 'past_due') sub.status = 'active';
+        await sub.save();
+      }
+      return { subscription: sub, clientSecret: null, paymentMode: null, amountDueCents: 0 };
+    }
     if (open.amountDueCents > 0) amountDueCents = open.amountDueCents;
-    clientSecret = open.clientSecret;
-    paymentMode = open.paymentMode;
+    // Only a non-terminal secret can initialize Elements. A finished PaymentIntent is dropped above.
+    if (open.clientSecret) {
+      clientSecret = open.clientSecret;
+      paymentMode = open.paymentMode;
+    }
   }
   if (amountDueCents > 0 && !clientSecret) {
     const collection = await createCardCollectionSecret(sub.stripeCustomerId);

@@ -243,8 +243,8 @@ export default function ForRestaurantsPage() {
             <span className="fr-kicker">Partner app</span>
             <Title level={2}>The host stand, in your pocket</Title>
             <Paragraph>
-              Confirm, seat, and message guests from the floor. Android is on Google Play. The
-              iPhone app is coming soon.
+              Confirm, seat, and message guests from the floor. Android is on Google Play. iPhone
+              is on the App Store.
             </Paragraph>
             <AppStoreBadges app="partner" tone="light" />
           </div>

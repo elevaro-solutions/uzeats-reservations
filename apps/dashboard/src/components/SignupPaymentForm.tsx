@@ -41,9 +41,11 @@ function PaymentInner({
   const elements = useElements();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [elementReady, setElementReady] = useState(false);
+  const [elementFailed, setElementFailed] = useState(false);
 
   const handleSubmit = async () => {
-    if (!stripe || !elements) return;
+    if (!stripe || !elements || elementFailed) return;
     setLoading(true);
     setError(null);
     try {
@@ -74,21 +76,34 @@ function PaymentInner({
 
   return (
     <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-      <PaymentElement />
+      <PaymentElement
+        onReady={() => setElementReady(true)}
+        onLoadError={(event) => {
+          setElementFailed(true);
+          setElementReady(true);
+          setError(event.error.message ?? 'Could not load the card form. Close this and try again.');
+        }}
+      />
       {error ? (
         <Alert type="error" title={error} showIcon closable onClose={() => setError(null)} />
       ) : null}
+      {elementReady ? (
       <Button
         type="primary"
         size="large"
         block
         loading={loading}
-        disabled={!stripe || !elements}
+        disabled={!stripe || !elements || elementFailed}
         onClick={() => void handleSubmit()}
         style={{ background: BRAND_COLOR, borderColor: BRAND_COLOR }}
       >
         {mode === 'setup' ? 'Save card and continue' : 'Pay and continue'}
       </Button>
+      ) : (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0 4px' }}>
+          <Spin />
+        </div>
+      )}
     </Space>
   );
 }
@@ -166,6 +181,7 @@ export function SignupPaymentForm({
         </Text>
       </div>
       <Elements
+        key={clientSecret}
         stripe={stripePromise}
         options={{
           clientSecret,

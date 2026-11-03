@@ -58,6 +58,8 @@ export type RestaurantSeoData = {
   maxPartySize?: number | null;
   reservationsEnabled?: boolean;
   reservationsVisible?: boolean;
+  status?: 'pending' | 'approved' | 'rejected' | 'suspended' | null;
+  activity?: 'active' | 'inactive' | null;
   manualApprovalEnabled?: boolean;
   manualApprovalPartySizeOp?: string;
   manualApprovalPartySize?: number | null;
@@ -155,6 +157,8 @@ const RESTAURANT_PAGE_QUERY = `
       maxPartySize
       reservationsEnabled
       reservationsVisible
+      status
+      activity
       manualApprovalEnabled
       manualApprovalPartySizeOp
       manualApprovalPartySize
