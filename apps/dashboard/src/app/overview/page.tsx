@@ -176,7 +176,7 @@ export default function OverviewPage() {
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
     if (!authLoading && user && isPlatformAdmin(user.role)) router.replace('/admin');
-    if (!authLoading && user && isQaRole(user.role)) router.replace('/admin/qa');
+    if (!authLoading && user && isQaRole(user.role)) router.replace('/admin/qa/dashboard');
     if (!authLoading && user && isHostRole(user.role)) {
       router.replace(partnerLandingPath(user.role));
     }

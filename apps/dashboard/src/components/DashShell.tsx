@@ -88,7 +88,12 @@ import { getPublicWebUrl } from '@/lib/webUrl';
 import { AppVersionFooter } from '@/components/AppVersionFooter';
 import { canCreateRestaurant, canAccessPartnerPath, isHostRole, isPlatformAdmin, isQaRole, isSuperAdmin, partnerLandingPath } from '@/lib/roles';
 import { isFailToPayAllowedPartnerPath, type FailToPayStage } from '@reservations/shared';
-import { BillingEnforcementBanner } from '@/components/BillingEnforcementBanner';
+import {
+  BILLING_ACCESS_FROM_PARAM,
+  BILLING_ACCESS_LOCKED_PARAM,
+  BILLING_ACCESS_LOCKED_VALUE,
+  BillingEnforcementBanner,
+} from '@/components/BillingEnforcementBanner';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -225,7 +230,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     if (pathname === '/admin/qa' || pathname.startsWith('/admin/qa/')) return;
     if (pathname === '/release-notes' || pathname.startsWith('/release-notes/')) return;
     if (pathname.startsWith('/verify-email')) return;
-    router.replace('/admin/qa');
+    router.replace('/admin/qa/dashboard');
   }, [authLoading, user, pathname, isAuthShellRoute, router]);
   useEffect(() => {
     if (authLoading || !user || isAuthShellRoute) return;
@@ -239,20 +244,39 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     | undefined;
 
   useEffect(() => {
-    if (authLoading || !user || isAuthShellRoute || isAdmin) return;
+    // Platform admins (and View as / impersonation) must keep full Partner Hub access for support.
+    if (authLoading || !user || isAuthShellRoute || isAdmin || isImpersonating) return;
     if (!isPartner) return;
     if (pathname.startsWith('/admin')) return;
+    if (pathname === '/billing' || pathname.startsWith('/billing/')) return;
     const stage = billingEnforcement?.stage;
     if (!stage) return;
     if (isFailToPayAllowedPartnerPath(pathname, stage)) return;
-    router.replace('/billing');
+    const params = new URLSearchParams();
+    const restaurant =
+      searchParams.get('restaurant') ||
+      restaurantId ||
+      (typeof window !== 'undefined' ? localStorage.getItem('activeRestaurantId') : null);
+    if (restaurant) params.set('restaurant', restaurant);
+    params.set(BILLING_ACCESS_LOCKED_PARAM, BILLING_ACCESS_LOCKED_VALUE);
+    params.set(BILLING_ACCESS_FROM_PARAM, pathname);
+    message.warning({
+      key: 'billing-access-lock',
+      content:
+        'Unpaid invoices limit Partner Hub. You were sent to Billing — pay to unlock other pages.',
+      duration: 6,
+    });
+    router.replace(`/billing?${params.toString()}`);
   }, [
     authLoading,
     user,
     isAuthShellRoute,
     isAdmin,
+    isImpersonating,
     isPartner,
     pathname,
+    restaurantId,
+    searchParams,
     billingEnforcement?.stage,
     router,
   ]);

@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
   Alert,
@@ -52,6 +52,8 @@ type QaChecklist = {
   signedAt: string | null;
   updatedAt: string | null;
   requiredDone: boolean;
+  isCurrent: boolean;
+  currentRelease: string;
   items: QaItem[];
   history: QaHistoryEntry[];
 };
@@ -80,11 +82,16 @@ function groupChanges(changes: QaChange[]) {
   return groups;
 }
 
-export default function AdminQaChecklistPage() {
+function AdminQaChecklistPageInner() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const releaseParam = searchParams.get('release')?.trim() || undefined;
   const allowed = Boolean(user && canManageQaChecklist(user.role));
-  const { data, loading } = useQuery(QA_CHECKLIST, { skip: !allowed });
+  const { data, loading } = useQuery(QA_CHECKLIST, {
+    skip: !allowed,
+    variables: releaseParam ? { release: releaseParam } : {},
+  });
   const [save, { loading: saving }] = useMutation(SAVE_QA_CHECKLIST);
   const checklist = data?.qaChecklist as QaChecklist | undefined;
   const [envNote, setEnvNote] = useState('');
@@ -132,6 +139,7 @@ export default function AdminQaChecklistPage() {
   }, [checklist?.history, checklist?.release]);
 
   const signed = checklist?.status === 'signed';
+  const viewingPrior = Boolean(checklist && !checklist.isCurrent);
   const requiredTotal = (checklist?.items ?? []).filter((item) => item.gate === 'required').length;
   const requiredChecked = (checklist?.items ?? []).filter(
     (item) => item.gate === 'required' && item.checked,
@@ -140,8 +148,18 @@ export default function AdminQaChecklistPage() {
   const persist = async (input: Record<string, unknown>) => {
     try {
       await save({
-        variables: { input },
-        refetchQueries: [{ query: QA_CHECKLIST }],
+        variables: {
+          input: {
+            release: checklist?.release ?? releaseParam,
+            ...input,
+          },
+        },
+        refetchQueries: [
+          {
+            query: QA_CHECKLIST,
+            variables: releaseParam ? { release: releaseParam } : {},
+          },
+        ],
         awaitRefetchQueries: true,
       });
     } catch (err) {
@@ -161,9 +179,31 @@ export default function AdminQaChecklistPage() {
     <div>
       <PageHeader
         title={`QA checklist${checklist ? ` · v${checklist.release}` : ''}`}
-        subtitle="Saved in the database. Only Super Admin and QA can view or change it."
-        extra={<Link href="/admin/qa/issues">Issues</Link>}
+        subtitle="Saved in the database. Prior releases stay in History after a deploy."
+        extra={
+          <Space>
+            <Link href="/admin/qa/dashboard">Dashboard</Link>
+            <Link href="/admin/qa/history">History</Link>
+            <Link href="/admin/qa/issues">Issues</Link>
+          </Space>
+        }
       />
+      {viewingPrior ? (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: spacing.lg }}
+          title={`Viewing prior release v${checklist?.release}. Live gate is v${checklist?.currentRelease}.`}
+          description="Keep working here if you are still testing this build. Progress, notes, and sign-off stay on this version."
+          action={
+            <Link href="/admin/qa">
+              <Button size="small" type="primary">
+                Open current
+              </Button>
+            </Link>
+          }
+        />
+      ) : null}
       {signed ? (
         <Alert
           type="success"
@@ -216,12 +256,17 @@ export default function AdminQaChecklistPage() {
             <div>
               <Typography.Title level={5} style={{ marginBottom: 0 }}>
                 {latestRelease.date
-                  ? `Latest release · v${latestRelease.version} — ${latestRelease.date}`
-                  : `Latest release · v${latestRelease.version}`}
+                  ? `Release notes · v${latestRelease.version} — ${latestRelease.date}`
+                  : `Release notes · v${latestRelease.version}`}
               </Typography.Title>
-              <Typography.Text type="secondary">Older releases are on Versions.</Typography.Text>
+              <Typography.Text type="secondary">
+                Changelog on Versions. Full QA runs on History.
+              </Typography.Text>
             </div>
-            <Link href="/admin/qa/versions">All versions</Link>
+            <Space>
+              <Link href="/admin/qa/history">Task history</Link>
+              <Link href="/admin/qa/versions">All versions</Link>
+            </Space>
           </Space>
           <Space orientation="vertical" size="small" style={{ width: '100%', marginTop: spacing.sm }}>
             {groupChanges(latestRelease.changes).map((group) => (
@@ -374,5 +419,13 @@ export default function AdminQaChecklistPage() {
         ) : null}
       </Drawer>
     </div>
+  );
+}
+
+export default function AdminQaChecklistPage() {
+  return (
+    <Suspense fallback={<Typography.Text>Loading checklist…</Typography.Text>}>
+      <AdminQaChecklistPageInner />
+    </Suspense>
   );
 }

@@ -4,6 +4,25 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.99.0] — 2026-11-03
+
+### Added
+- Partner Hub QA dashboard (`/admin/qa/dashboard`) with run counts, average required progress, current-gate progress, and recent sign-offs
+- Partner Hub QA task history (`/admin/qa/history`) keeps every prior checklist’s tasks, notes, progress, and sign-off after a new version deploys; open a prior run with `/admin/qa?release=…`
+- Partner Hub `/admin/qa` tasks for this release: QA Dashboard, History prior runs, catalog snapshots, View as on fail-to-pay venues, and owner lock redirect copy
+
+### Changed
+- Each QA checklist run stores a catalog snapshot so replacing the live gate no longer hides unfinished prior-version work
+- Partner Hub QA sidebar leads with Dashboard; QA users land on `/admin/qa/dashboard`
+- QA History uses a filterable run list and detail panel for notes, progress, and sign-off instead of a stacked accordion
+
+### Fixed
+- Platform admin View as no longer gets stuck on Billing when the venue is fail-to-pay restricted or terminated; Settings and other Partner Hub pages stay reachable while impersonating
+- Owners and managers sent to Billing by fail-to-pay locks see a toast and banner that name the page they tried (e.g. Settings) and explain that unpaid invoices limit Partner Hub until they pay
+
+### Docs
+- QA dashboard / history and fail-to-pay View as notes
+
 ## [0.98.0] — 2026-11-03
 
 ### Added

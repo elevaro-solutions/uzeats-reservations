@@ -46,9 +46,7 @@ import {
   formatUtcBillingPeriod,
   formatUtcCalendarDate,
   getPlanDiscountLabel,
-  type FailToPayStage,
 } from '@reservations/shared';
-import { BillingEnforcementBanner } from '@/components/BillingEnforcementBanner';
 import {
   EmptyState,
   PageHeader,
@@ -1340,19 +1338,6 @@ export default function BillingPage() {
           </div>
         ) : showActiveSubscription ? (
           <>
-            <BillingEnforcementBanner
-              info={
-                subscription?.billingEnforcement
-                  ? {
-                      stage: subscription.billingEnforcement.stage as FailToPayStage,
-                      daysPastDue: subscription.billingEnforcement.daysPastDue,
-                      outstandingCents: subscription.billingEnforcement.outstandingCents,
-                      paused: subscription.billingEnforcement.paused,
-                      publiclyListed: subscription.billingEnforcement.publiclyListed,
-                    }
-                  : null
-              }
-            />
             <Row gutter={[16, 16]}>
               <Col xs={24} sm={8} style={{ display: 'flex' }}>
                 <StatCard

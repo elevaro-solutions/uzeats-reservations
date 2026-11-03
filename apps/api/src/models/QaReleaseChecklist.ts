@@ -1,4 +1,4 @@
-import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
+import mongoose, { Schema, type HydratedDocument, type InferSchemaType, type Model } from 'mongoose';
 
 const checkSchema = new Schema(
   {
@@ -12,6 +12,17 @@ const checkSchema = new Schema(
   { _id: false },
 );
 
+const catalogItemSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    gate: { type: String, required: true },
+    group: { type: String, required: true },
+    label: { type: String, required: true },
+    steps: { type: [String], default: [] },
+  },
+  { _id: false },
+);
+
 const qaReleaseChecklistSchema = new Schema(
   {
     release: { type: String, required: true, unique: true, trim: true },
@@ -19,6 +30,8 @@ const qaReleaseChecklistSchema = new Schema(
     p0Clear: { type: Boolean, default: false },
     notes: { type: String, default: '' },
     status: { type: String, enum: ['active', 'signed'], default: 'active' },
+    /** Frozen task definitions for this release so a later catalog replace cannot erase them. */
+    catalog: { type: [catalogItemSchema], default: [] },
     checks: { type: [checkSchema], default: [] },
     signedOffBy: { type: Schema.Types.ObjectId, ref: 'User' },
     signedOffName: { type: String, default: '' },
@@ -28,10 +41,10 @@ const qaReleaseChecklistSchema = new Schema(
   { timestamps: true },
 );
 
-export type QaReleaseChecklistDocument = InferSchemaType<typeof qaReleaseChecklistSchema> & {
-  _id: mongoose.Types.ObjectId;
-};
+type QaReleaseChecklistFields = InferSchemaType<typeof qaReleaseChecklistSchema>;
 
-export const QaReleaseChecklist: Model<QaReleaseChecklistDocument> =
+export type QaReleaseChecklistDocument = HydratedDocument<QaReleaseChecklistFields>;
+
+export const QaReleaseChecklist: Model<QaReleaseChecklistFields> =
   mongoose.models.QaReleaseChecklist ??
-  mongoose.model<QaReleaseChecklistDocument>('QaReleaseChecklist', qaReleaseChecklistSchema);
+  mongoose.model<QaReleaseChecklistFields>('QaReleaseChecklist', qaReleaseChecklistSchema);

@@ -336,7 +336,13 @@ import {
   pendingFlaggedContentCount,
 } from "../services/supportOps.js";
 import { provisionDefaultRestaurantSetup } from "../services/restaurantSetup.js";
-import { getQaChecklist, qaActorName, saveQaChecklist } from "../services/qaChecklist.js";
+import {
+  getQaChecklist,
+  getQaChecklistDashboard,
+  listQaChecklistRuns,
+  qaActorName,
+  saveQaChecklist,
+} from "../services/qaChecklist.js";
 import { deleteQaIssue, exportQaIssues, listQaIssues, saveQaIssue } from "../services/qaIssues.js";
 import { partnerAdminReleaseNotes, readQaReleaseHistory } from "../services/qaReleaseHistory.js";
 import { placeNewTable } from "../services/tablePlacement.js";
@@ -2082,6 +2088,16 @@ export const resolvers = {
     ) => {
       requireQaStaff(ctx);
       return getQaChecklist(args.release ?? undefined);
+    },
+
+    qaChecklistRuns: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      requireQaStaff(ctx);
+      return listQaChecklistRuns();
+    },
+
+    qaChecklistDashboard: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+      requireQaStaff(ctx);
+      return getQaChecklistDashboard();
     },
 
     qaIssues: async (

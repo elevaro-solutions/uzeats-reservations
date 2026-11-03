@@ -79,7 +79,7 @@ describe('roles', () => {
 
   it('picks partner landing paths by role', () => {
     expect(partnerLandingPath('admin')).toBe('/admin');
-    expect(partnerLandingPath('qa')).toBe('/admin/qa');
+    expect(partnerLandingPath('qa')).toBe('/admin/qa/dashboard');
     expect(partnerLandingPath('host')).toBe('/reservations');
     expect(partnerLandingPath('restaurant_owner')).toBe('/overview');
     expect(partnerLandingPath('manager')).toBe('/overview');

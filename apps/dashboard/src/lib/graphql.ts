@@ -5443,6 +5443,8 @@ export const QA_CHECKLIST = gql`
       signedAt
       updatedAt
       requiredDone
+      isCurrent
+      currentRelease
       items {
         id
         gate
@@ -5462,6 +5464,86 @@ export const QA_CHECKLIST = gql`
           text
         }
       }
+    }
+  }
+`;
+
+export const QA_CHECKLIST_DASHBOARD = gql`
+  query QaChecklistDashboard {
+    qaChecklistDashboard {
+      currentRelease
+      totalRuns
+      signedRuns
+      activeRuns
+      averageRequiredProgress
+      current {
+        release
+        status
+        requiredTotal
+        requiredChecked
+        recommendedTotal
+        recommendedChecked
+        itemTotal
+        itemChecked
+        requiredDone
+        p0Clear
+        signedOffName
+        signedAt
+        updatedAt
+        isCurrent
+      }
+      runs {
+        release
+        envNote
+        p0Clear
+        notes
+        status
+        signedOffName
+        signedOffRole
+        signedAt
+        updatedAt
+        createdAt
+        requiredTotal
+        requiredChecked
+        recommendedTotal
+        recommendedChecked
+        itemTotal
+        itemChecked
+        requiredDone
+        isCurrent
+      }
+      recentSignOffs {
+        release
+        signedOffName
+        signedOffRole
+        signedAt
+        status
+      }
+    }
+  }
+`;
+
+export const QA_CHECKLIST_RUNS = gql`
+  query QaChecklistRuns {
+    qaChecklistRuns {
+      release
+      envNote
+      p0Clear
+      notes
+      status
+      signedOffName
+      signedOffRole
+      signedAt
+      updatedAt
+      createdAt
+      requiredTotal
+      requiredChecked
+      recommendedTotal
+      recommendedChecked
+      itemTotal
+      itemChecked
+      requiredDone
+      isCurrent
     }
   }
 `;
@@ -5569,6 +5651,8 @@ export const SAVE_QA_CHECKLIST = gql`
       signedAt
       updatedAt
       requiredDone
+      isCurrent
+      currentRelease
       items {
         id
         gate

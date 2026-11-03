@@ -128,7 +128,7 @@ export function canAccessPartnerPath(role: string, pathname: string): boolean {
 
 /** Default Partner Hub landing after login. Hosts go straight to today's book. */
 export function partnerLandingPath(role: string): string {
-  if (role === 'qa') return '/admin/qa';
+  if (role === 'qa') return '/admin/qa/dashboard';
   if (isPlatformAdmin(role)) return '/admin';
   if (isHostRole(role)) return '/reservations';
   return '/overview';

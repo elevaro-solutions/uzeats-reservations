@@ -1,5 +1,13 @@
 # API — Learnings & Observations
 
+## [2026-11-03] QA checklist catalog is v0.99.0
+- `QA_CHECKLIST_RELEASE` is `0.99.0`. Catalog groups are QA Hub and Partner Hub. v0.98.0 Spaces upload-folder items stay on that release’s `QaReleaseChecklist` row (and its catalog snapshot).
+- Why it matters: Sign-off for this gate is QA Dashboard / History, catalog snapshots, View as on fail-to-pay venues, and owner lock redirect copy — not the previous upload-folder work.
+
+## [2026-11-03] QA checklist runs keep a catalog snapshot
+- `QaReleaseChecklist.catalog` freezes the task definitions for that release. `getQaChecklist(release)` and `saveQaChecklist` use the snapshot, not only `QA_CHECKLIST_CATALOG`. `qaChecklistRuns` / `qaChecklistDashboard` summarize every row.
+- Why it matters: Deploying a new `QA_CHECKLIST_RELEASE` must not erase unfinished prior-version checks, notes, or sign-off. Open a prior run with `qaChecklist(release: "x.y.z")`.
+
 ## [2026-11-03] Legacy Spaces keys migrate by copy, then URL rewrite
 - `apps/api/scripts/migrate-spaces-layout.ts` copies `uploads/<file>` to the scoped folder inside the same bucket and rewrites Mongo (restaurants, menus, tables, experiences, packages, private dining, virtual rooms, reviews, avatars, support, QA, blog HTML, discovery, table shapes, profile-change drafts). Dry-run is the default. A non-local database refuses `--apply` without `--confirm-production`.
 - One object referenced from two folders is copied once to `platform/imports/`. Original keys stay until a later `--delete-sources` (do that only after live pages are checked, at least two weeks). Unreferenced bucket keys are listed with `--list-orphans` and are not deleted.

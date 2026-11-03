@@ -74,8 +74,10 @@ export default function AdminQaGuidePage() {
         subtitle="How to test a release, what good coverage looks like, and how to write a report someone else can reproduce."
       />
       <Typography.Paragraph>
-        Work from the <Link href="/admin/qa">checklist</Link>. File bugs and features on{' '}
-        <Link href="/admin/qa/issues">Issues</Link>. Past changes are on{' '}
+        Work from the <Link href="/admin/qa">checklist</Link>. Track progress on{' '}
+        <Link href="/admin/qa/dashboard">Dashboard</Link>. Prior runs stay on{' '}
+        <Link href="/admin/qa/history">History</Link>. File bugs and features on{' '}
+        <Link href="/admin/qa/issues">Issues</Link>. Changelog is on{' '}
         <Link href="/admin/qa/versions">Versions</Link>.
       </Typography.Paragraph>
       {sections.map((section) => (

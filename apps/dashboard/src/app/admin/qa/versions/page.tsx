@@ -131,7 +131,8 @@ export default function AdminQaVersionsPage() {
       <header className="rt-release-notes__intro">
         <h1 className="rt-release-notes__title">Release notes</h1>
         <p className="rt-release-notes__lede">
-          Every shipped change, newest first. The checklist keeps only the latest version.
+          Every shipped change, newest first. Open QA history for prior checklist tasks, notes, and
+          sign-off.
         </p>
       </header>
 

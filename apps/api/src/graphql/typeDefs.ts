@@ -1425,8 +1425,44 @@ export const typeDefs = `#graphql
     signedAt: String
     updatedAt: String
     requiredDone: Boolean!
+    """True when this row is the live gate from QA_CHECKLIST_RELEASE."""
+    isCurrent: Boolean!
+    """The release the Partner Hub checklist defaults to after deploy."""
+    currentRelease: String!
     items: [QaChecklistItem!]!
     history: [QaReleaseHistoryEntry!]!
+  }
+
+  type QaChecklistRunSummary {
+    release: String!
+    envNote: String!
+    p0Clear: Boolean!
+    notes: String!
+    status: String!
+    signedOffName: String!
+    signedOffRole: String!
+    signedAt: String
+    updatedAt: String
+    createdAt: String
+    requiredTotal: Int!
+    requiredChecked: Int!
+    recommendedTotal: Int!
+    recommendedChecked: Int!
+    itemTotal: Int!
+    itemChecked: Int!
+    requiredDone: Boolean!
+    isCurrent: Boolean!
+  }
+
+  type QaChecklistDashboard {
+    currentRelease: String!
+    totalRuns: Int!
+    signedRuns: Int!
+    activeRuns: Int!
+    averageRequiredProgress: Float!
+    current: QaChecklistRunSummary
+    runs: [QaChecklistRunSummary!]!
+    recentSignOffs: [QaChecklistRunSummary!]!
   }
 
   input QaChecklistCheckInput {
@@ -4209,6 +4245,10 @@ export const typeDefs = `#graphql
     adminPendingRequestCounts: PlatformPendingRequestCounts!
     """Manual QA checklist for one release. Super admin and QA only."""
     qaChecklist(release: String): QaChecklist!
+    """Every saved QA checklist run (current + past). Super admin and QA only."""
+    qaChecklistRuns: [QaChecklistRunSummary!]!
+    """QA progress totals across all checklist runs. Super admin and QA only."""
+    qaChecklistDashboard: QaChecklistDashboard!
     """Bugs, features, and follow-ups filed by QA. Super admin and QA only."""
     qaIssues(search: String, status: String, severity: String, tags: [String!], limit: Int, offset: Int): QaIssueConnection!
     adminLoyaltyStats: LoyaltyPlatformStats!

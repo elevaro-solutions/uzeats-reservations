@@ -1,5 +1,18 @@
 # Dashboard — Learnings & Observations
 
+## [2026-11-03] QA checklist catalog is v0.99.0
+- `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.99.0`. Testers use QA Dashboard and History for prior runs, `/admin/qa?release=` for a snapshot checklist, Super Admin View as on a fail-to-pay venue for Settings access, and an owner session for the Billing redirect toast/banner.
+- Why it matters: Do not re-test v0.98.0 Spaces upload-folder items on this gate. Older sign-off stays on that version’s row, History, and Versions.
+
+## [2026-11-03] QA sidebar leads with dashboard
+- Nav order: Dashboard, Checklist, History, Issues, Versions, Guide. QA login / overview redirect to `/admin/qa/dashboard`.
+- `/admin/qa/history` is a master–detail list (filter All/Active/Signed, search, selected run detail with notes and task cards).
+- Why it matters: Do not put Checklist above Dashboard in the QA sider. Prior runs stay on History after deploy.
+
+## [2026-11-03] QA history and dashboard keep prior checklist runs
+- `/admin/qa` is the live gate. `/admin/qa?release=x.y.z` opens a prior run. `/admin/qa/history` lists every saved checklist with notes and sign-off; `/admin/qa/dashboard` shows counts and required progress.
+- Why it matters: After deploy, QA can finish the previous version without losing progress. Do not tell testers the old checklist is gone because the catalog file changed.
+
 ## [2026-11-03] Uploads must name a storage folder
 - `uploadFile` / `uploadVideo` / `PhotoUpload` require a `target`: `restaurantUpload(id, kind)`, `accountUpload.avatar|support|drafts`, or `platformUpload.*`. The API returns 400 without `X-Upload-Scope` and `X-Upload-Kind`.
 - Photos taken before a restaurant exists (Add restaurant) use `accountUpload.drafts`. Logo, gallery, and imported covers for an existing venue use `branding`; dish photos use `menu`.
@@ -64,6 +77,14 @@
 ## [2026-10-29] QA checklist catalog is v0.93.0
 - `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.93.0`. Testers use Super Admin restaurant Package for paid-period start, a disposable venue + Admin Invoices for the fail-to-pay ladder, owner Billing for plan-switch full price and pay-to-restore, and diner/Partner Hub login for the preparing screen.
 - Why it matters: Do not re-test v0.92.0 pricing/SEO items on this gate. Older sign-off stays on that version’s row and Versions.
+
+## [2026-11-03] Fail-to-pay lock explains Billing redirects
+- Locked Partner Hub navigations replace to `/billing?access=locked&from=<path>&restaurant=…`. Toast + `BillingEnforcementBanner` name the blocked page (via `partnerPageLabel`) and tell owners/managers to pay to unlock.
+- Why it matters: Silent bounce to Billing looked like a bug; owners need the unpaid-invoice reason.
+
+## [2026-11-03] Fail-to-pay lock skips admin impersonation
+- DashShell fail-to-pay redirects skip when `isImpersonating` (platform admin View as). Restricted/terminated owners still bounce to `/billing`; View as can open Settings and other partner routes.
+- Why it matters: Support was stuck on Billing after View as on a restricted venue (e.g. Amir Choyxona 21).
 
 ## [2026-10-29] Fail-to-pay banners lock Partner Hub routes
 - `mySubscription.billingEnforcement` drives a DashShell banner. Restricted keeps `/billing`, `/reservations`, `/waitlist`, `/floor-ops`, `/notifications`, `/support`. Terminated keeps billing + support/notifications. Other partner routes redirect to `/billing`.

@@ -408,9 +408,19 @@ export const ADMIN_PAGES: DashboardPage[] = [
     description: 'Who can open partner documentation',
     parentSiderHref: '/admin/platform',
   }),
+  page('/admin/qa/dashboard', 'QA dashboard', 'QA', 'admin', <DashboardOutlined />, {
+    keywords: ['qa', 'progress', 'report', 'stats', 'sign-off'],
+    description: 'Numbers and progress across every QA checklist run',
+    when: 'super_admin',
+  }),
   page('/admin/qa', 'QA checklist', 'QA', 'admin', <CheckSquareOutlined />, {
     keywords: ['qa', 'sign-off', 'release', 'manual test'],
     description: 'Saved release checklist for super admins and QA',
+    when: 'super_admin',
+  }),
+  page('/admin/qa/history', 'QA history', 'QA', 'admin', <FileDoneOutlined />, {
+    keywords: ['qa', 'history', 'notes', 'sign-off', 'previous release', 'tasks'],
+    description: 'Past QA checklists with notes, progress, and sign-off',
     when: 'super_admin',
   }),
   page('/admin/qa/issues', 'Issues', 'QA', 'admin', <BugOutlined />, {
@@ -419,7 +429,7 @@ export const ADMIN_PAGES: DashboardPage[] = [
     when: 'super_admin',
   }),
   page('/admin/qa/versions', 'Versions', 'QA', 'admin', <HistoryOutlined />, {
-    keywords: ['qa', 'changelog', 'release', 'history', 'versions'],
+    keywords: ['qa', 'changelog', 'release', 'versions'],
     description: 'Previous releases and what changed in each',
     when: 'super_admin',
   }),
@@ -581,6 +591,16 @@ function siderKeyForParentOrSelf(
   if (!page) return undefined;
   if (page.parentSiderHref && !pinned.has(page.href)) return page.parentSiderHref;
   return page.href;
+}
+
+/** Human label for a Partner Hub path (redirect / lock copy). Falls back to “that page”. */
+export function partnerPageLabel(pathname: string): string {
+  const exact = PARTNER_PAGES.find((p) => p.href === pathname);
+  if (exact) return exact.label;
+  const prefixMatch = PARTNER_PAGES.filter(
+    (p) => pathname === p.href || pathname.startsWith(`${p.href}/`),
+  ).sort((a, b) => b.href.length - a.href.length)[0];
+  return prefixMatch?.label ?? 'that page';
 }
 
 /** Resolve which sider key should stay selected for the current path. */
