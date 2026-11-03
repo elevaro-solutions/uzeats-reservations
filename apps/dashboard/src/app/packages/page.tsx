@@ -19,7 +19,7 @@ import {
   message,
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import { BOOKABLE_OCCASIONS, OCCASION_LABELS } from '@reservations/shared';
+import { BOOKABLE_OCCASIONS, OCCASION_LABELS, restaurantUpload } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS } from '@/lib/graphql';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
@@ -360,7 +360,7 @@ function PackagesPageContent() {
             <RichTextArea rows={4} placeholder={'Custom cake\nChampagne toast\nPhoto with chef'} />
           </Form.Item>
           <Form.Item name="photoUrls" label="Photo">
-            <PhotoUpload maxCount={1} />
+            <PhotoUpload maxCount={1} target={restaurantUpload(activeRestaurantId ?? '', 'packages')} />
           </Form.Item>
           <Form.Item name="photoUrl" hidden>
             <Input />

@@ -41,15 +41,27 @@ Optional **review reply drafts** for partners (`generateReviewReplyDraft`).
 
 ## DigitalOcean Spaces
 
-S3-compatible object storage for restaurant and menu images.
+S3-compatible object storage. The API uploads the bytes (browser PUT to the bucket is not used) and stores the CDN URL.
 
-Flow:
+New objects use a folder prefix:
 
-1. Client requests presigned URL via API
-2. Direct upload to Spaces
-3. Document stores CDN URL
+| Prefix | Contents |
+|---|---|
+| `restaurants/{id}/branding` | Logo and gallery |
+| `restaurants/{id}/menu` | Dish photos |
+| `restaurants/{id}/floor` | Floor-plan and table photos |
+| `restaurants/{id}/experiences` | Experience covers |
+| `restaurants/{id}/packages` | Occasion package photos |
+| `restaurants/{id}/virtual-room` | Walkthrough photos, video, and the generated `.glb` |
+| `restaurants/{id}/reviews` | Diner review photos |
+| `accounts/{userId}/avatar` | Profile photo |
+| `accounts/{userId}/support` | Support attachments |
+| `accounts/{userId}/drafts` | Photos uploaded before a restaurant id exists |
+| `platform/blog`, `platform/discovery`, `platform/table-shapes` | Platform assets |
 
-**Stub behavior:** Upload mutations return placeholder URLs without credentials.
+Older files remain under `uploads/`.
+
+**Stub behavior:** Without Spaces credentials, files are written under `.data/uploads` and served from `GET /api/uploads/local/*`.
 
 ## SendGrid
 

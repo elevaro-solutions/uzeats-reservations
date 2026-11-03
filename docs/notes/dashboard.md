@@ -1,5 +1,14 @@
 # Dashboard — Learnings & Observations
 
+## [2026-11-03] Uploads must name a storage folder
+- `uploadFile` / `uploadVideo` / `PhotoUpload` require a `target`: `restaurantUpload(id, kind)`, `accountUpload.avatar|support|drafts`, or `platformUpload.*`. The API returns 400 without `X-Upload-Scope` and `X-Upload-Kind`.
+- Photos taken before a restaurant exists (Add restaurant) use `accountUpload.drafts`. Logo, gallery, and imported covers for an existing venue use `branding`; dish photos use `menu`.
+- Why it matters: Do not call `uploadFile(file, name)` with no target. A missing restaurant id is rejected; do not invent a folder name outside `packages/shared/src/objectStorage.ts`.
+
+## [2026-11-03] QA checklist catalog is v0.98.0
+- `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.98.0`. Testers check upload URL folders for branding, menu, Add restaurant drafts, diner avatar/reviews, and admin discovery/blog; optional support and virtual-room paths.
+- Why it matters: Do not re-test v0.97.1 create-conflict / install-bar items on this gate. Older sign-off stays on that version’s row and Versions.
+
 ## [2026-11-03] QA checklist catalog is v0.97.1
 - `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.97.1`. Testers use Admin → Restaurants Add restaurant for duplicate email/phone, cuisine on Review, and the $100,000 deposit cap; diner web phone width for the install bar; and a restaurant Overview for wrapping public URLs.
 - Why it matters: Do not re-test v0.97.0 visibility / App Store / billing items on this gate. Older sign-off stays on that version’s row and Versions.

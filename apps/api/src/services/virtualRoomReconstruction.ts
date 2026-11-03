@@ -4,6 +4,7 @@ import { unzipSync } from 'fflate';
 import {
   VIRTUAL_ROOM_MAX_CAPTURE_PHOTOS,
   VIRTUAL_ROOM_MIN_CAPTURE_PHOTOS,
+  uploadKeyPrefix,
 } from '@reservations/shared';
 import { env } from '../config/env.js';
 import { ConflictError, NotFoundError, ValidationError } from '../lib/errors.js';
@@ -163,6 +164,11 @@ async function rehostKiriModel(serialize: string, restaurantId: string) {
     .sort((a, b) => b[1].length - a[1].length)[0];
   if (!glb) throw new Error('The 3D scan finished but contained no .glb model');
   const uploaded = await uploadModelObject({
+    prefix: uploadKeyPrefix({
+      scope: 'restaurant',
+      restaurantId: restaurantId.toLowerCase(),
+      kind: 'virtual-room',
+    }),
     filename: `virtual-room-${restaurantId}.glb`,
     body: Buffer.from(glb[1]),
   });

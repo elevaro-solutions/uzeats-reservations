@@ -25,7 +25,7 @@ import {
 import { PlusOutlined, CheckOutlined, FileAddOutlined, EditOutlined } from '@ant-design/icons';
 import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
-import { restaurantTimeZone, zonedWallClockToUtc } from '@reservations/shared';
+import { restaurantTimeZone, restaurantUpload, zonedWallClockToUtc } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { MY_RESTAURANTS } from '@/lib/graphql';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
@@ -510,7 +510,10 @@ function ExperiencesPageContent() {
           </Row>
 
           <Form.Item name="photoUrls" label="Cover photo" style={{ marginBottom: 12 }}>
-            <PhotoUpload maxCount={1} />
+            <PhotoUpload
+              maxCount={1}
+              target={restaurantUpload(activeRestaurantId ?? '', 'experiences')}
+            />
           </Form.Item>
           <Form.Item name="photoUrl" hidden>
             <Input />

@@ -7,6 +7,7 @@ import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { Alert, Button, Card, Divider, Form, Input, Select, Space, Spin, Tag, Typography, message } from 'antd';
 import { ArrowRightOutlined, ImportOutlined, ReadOutlined } from '@ant-design/icons';
 import { PageHeader, colors, radii, spacing } from '@reservations/ui';
+import { restaurantUpload } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import {
   CANCEL_RESTAURANT_PROFILE_CHANGE_REQUEST,
@@ -149,6 +150,8 @@ export default function ProfilePage() {
       void uploadImportedMenuImageToSpaces({
         imageUrl: data.coverImageUrl,
         filenameHint: 'restaurant-cover.jpg',
+        restaurantId,
+        folder: 'branding',
       })
         .then((photoUrl) => {
           if (!photoUrl) return;
@@ -183,6 +186,8 @@ export default function ProfilePage() {
             return uploadImportedMenuImageToSpaces({
               imageUrl: item.imageUrl,
               filenameHint: `menu-item-${index + 1}.jpg`,
+              restaurantId,
+              folder: 'menu',
             });
           },
         });
@@ -311,6 +316,7 @@ export default function ProfilePage() {
                 Square mark shown next to your name on the public restaurant page.
               </Text>
               <PhotoUpload
+                target={restaurantUpload(restaurantId ?? '', 'branding')}
                 value={logoUrl ? [logoUrl] : []}
                 onChange={(urls) => setLogoUrl(urls[0] ?? null)}
                 maxCount={1}
@@ -326,7 +332,12 @@ export default function ProfilePage() {
                 Up to 10 photos. Drag to reorder the public hero — first is large, the next two
                 sit beside it, and the rest appear in the gallery.
               </Text>
-              <PhotoUpload value={photos} onChange={setPhotos} maxCount={10} />
+              <PhotoUpload
+                target={restaurantUpload(restaurantId ?? '', 'branding')}
+                value={photos}
+                onChange={setPhotos}
+                maxCount={10}
+              />
             </div>
 
             <Divider />

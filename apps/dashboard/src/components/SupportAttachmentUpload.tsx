@@ -9,6 +9,7 @@ import {
   SUPPORT_TICKET_ATTACHMENT_MAX_BYTES,
   SUPPORT_TICKET_ATTACHMENT_MAX_COUNT,
   browserMediaUrl,
+  accountUpload,
 } from '@reservations/shared';
 import { colors } from '@reservations/ui';
 import { uploadFile } from '@/lib/upload';
@@ -79,6 +80,7 @@ export default function SupportAttachmentUpload({
 
     try {
       const { publicUrl, key } = await uploadFile(file, file.name, {
+        target: accountUpload.support,
         onProgress: (pct) => setUploading((prev) => ({ ...prev, [uid]: pct })),
       });
       const next = [

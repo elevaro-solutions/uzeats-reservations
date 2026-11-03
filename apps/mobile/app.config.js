@@ -12,7 +12,7 @@ function iosUrlSchemeFromClientId(clientId) {
 const config = {
   name: "Tablevera",
   slug: "tablevera",
-  version: "1.1.0",
+  version: "1.2.0",
   orientation: "portrait",
   icon: "./assets/android-app-icon/android-icon-foreground.png",
   scheme: "tablevera",
@@ -31,7 +31,7 @@ const config = {
     },
   },
   android: {
-    versionCode: 4,
+    versionCode: 5,
     adaptiveIcon: {
       foregroundImage: "./assets/android-app-icon/android-icon-foreground.png",
       monochromeImage: "./assets/android-app-icon/android-icon-monochrome.png",

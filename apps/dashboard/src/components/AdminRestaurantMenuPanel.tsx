@@ -33,7 +33,7 @@ import { EmptyState } from '@reservations/ui';
 import { UPSERT_MENU, UPDATE_RESTAURANT } from '@/lib/graphql';
 import { buildRestaurantInput } from '@/lib/restaurantInput';
 import type { AdminRestaurantRecord } from '@/components/AdminManageRestaurant';
-import { MAX_POPULAR_MENU_ITEMS, countPopularMenuItems } from '@reservations/shared';
+import { MAX_POPULAR_MENU_ITEMS, countPopularMenuItems, restaurantUpload } from '@reservations/shared';
 import { uploadFile } from '@/lib/upload';
 import { RichTextArea } from '@/components/RichTextArea';
 
@@ -155,7 +155,9 @@ export function AdminRestaurantMenuPanel({
     const path = `${sectionIndex}-${itemIndex}`;
     setUploadingPath(path);
     try {
-      const { publicUrl } = await uploadFile(file, file.name);
+      const { publicUrl } = await uploadFile(file, file.name, {
+        target: restaurantUpload(restaurant.id, 'menu'),
+      });
       form.setFieldValue(['sections', sectionIndex, 'items', itemIndex, 'photoUrl'], publicUrl);
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Failed to upload photo');

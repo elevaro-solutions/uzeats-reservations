@@ -28,7 +28,7 @@ import {
 } from '@ant-design/icons';
 import type { RcFile } from 'antd/es/upload';
 import type { FormListFieldData } from 'antd/es/form/FormList';
-import { MAX_POPULAR_MENU_ITEMS, countPopularMenuItems } from '@reservations/shared';
+import { MAX_POPULAR_MENU_ITEMS, countPopularMenuItems, restaurantUpload } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { MY_RESTAURANTS, UPSERT_MENU, UPDATE_RESTAURANT } from '@/lib/graphql';
@@ -178,7 +178,9 @@ export default function MenuPage() {
     const path = `${sectionIndex}-${itemIndex}`;
     setUploadingPath(path);
     try {
-      const { publicUrl } = await uploadFile(file, file.name);
+      const { publicUrl } = await uploadFile(file, file.name, {
+        target: restaurantUpload(activeRestaurantId ?? '', 'menu'),
+      });
       form.setFieldValue(['sections', sectionIndex, 'items', itemIndex, 'photoUrl'], publicUrl);
       message.success('Photo uploaded');
     } catch (err: unknown) {

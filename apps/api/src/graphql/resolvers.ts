@@ -256,11 +256,13 @@ import {
 } from "../services/giftCards.js";
 import { GiftCard } from "../models/GiftCard.js";
 import { ensureUserReferralCode } from "../lib/referralCode.js";
+import { parseUploadTarget } from "@reservations/shared";
 import {
   assertAllowedUploadContentType,
-  buildUploadKey,
+  buildScopedObjectKey,
   createUploadUrl,
 } from "../services/spaces.js";
+import { UploadTargetError, authorizeUploadPrefix } from "../services/uploadTarget.js";
 import {
   User,
   Restaurant,
@@ -5243,12 +5245,33 @@ export const resolvers = {
 
     createUploadUrl: async (
       _: unknown,
-      args: { filename: string; contentType: string },
+      args: {
+        filename: string;
+        contentType: string;
+        scope: string;
+        kind: string;
+        restaurantId?: string | null;
+      },
       ctx: GraphQLContext,
     ) => {
-      requireAuth(ctx);
+      const user = requireAuth(ctx);
       const contentType = assertAllowedUploadContentType(args.contentType);
-      const key = buildUploadKey(args.filename, contentType);
+      let prefix: string;
+      try {
+        const target = parseUploadTarget({
+          scope: args.scope,
+          kind: args.kind,
+          restaurantId: args.restaurantId,
+        });
+        prefix = await authorizeUploadPrefix(user, target);
+      } catch (err) {
+        if (err instanceof UploadTargetError) {
+          if (err.status === 403) throw new ForbiddenError(err.message);
+          throw new ValidationError(err.message);
+        }
+        throw new ValidationError(err instanceof Error ? err.message : "Invalid upload folder");
+      }
+      const key = buildScopedObjectKey(prefix, args.filename, contentType);
       return createUploadUrl({ key, contentType });
     },
 

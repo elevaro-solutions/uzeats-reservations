@@ -1,6 +1,14 @@
+import type { UploadTarget } from '@reservations/shared';
+import { uploadTargetHeaders } from '@reservations/shared';
+
 export type UploadResult = {
   publicUrl: string;
   key: string;
+};
+
+export type UploadOptions = {
+  onProgress?: (percent: number) => void;
+  target: UploadTarget;
 };
 
 function graphqlUrl() {
@@ -18,7 +26,7 @@ function uploadsUrl() {
 export async function uploadFile(
   file: Blob,
   filename: string,
-  options?: { onProgress?: (percent: number) => void },
+  options: UploadOptions,
 ): Promise<UploadResult> {
   const contentType = file.type || 'application/octet-stream';
   const url = uploadsUrl();
@@ -64,6 +72,9 @@ export async function uploadFile(
     xhr.setRequestHeader('Content-Type', contentType);
     xhr.setRequestHeader('X-Upload-Filename', filename);
     xhr.setRequestHeader('X-Client-App', 'web');
+    for (const [header, value] of Object.entries(uploadTargetHeaders(options.target))) {
+      xhr.setRequestHeader(header, value);
+    }
     xhr.send(file);
   });
 }

@@ -59,6 +59,7 @@ import {
   VIRTUAL_ROOM_OVERALL_VIEW,
   VIRTUAL_ROOM_VIDEO_MAX_BYTES,
   browserMediaUrl,
+  restaurantUpload,
   type VirtualRoomWallPhotoFit,
 } from '@reservations/shared';
 import { EmptyState, PageHeader, spacing } from '@reservations/ui';
@@ -364,6 +365,7 @@ export default function VirtualRoomPage() {
       const ok = await run(async () => {
         const send = kind === 'video' ? uploadVideo : uploadFile;
         const { publicUrl } = await send(file, file.name, {
+          target: restaurantUpload(activeRestaurantId, 'virtual-room'),
           onProgress: (percent) => setUploading({ label, percent }),
         });
         const res = await addMedia({

@@ -1,13 +1,8 @@
 import { Router } from 'express';
 import { VIRTUAL_ROOM_VIDEO_MAX_BYTES } from '@reservations/shared';
 import { createContext } from '../graphql/context.js';
-import {
-  assertAllowedVideoContentType,
-  buildUploadKey,
-  resolveUploadImageContentType,
-  uploadObject,
-  uploadVideoObject,
-} from '../services/spaces.js';
+import { buildScopedObjectKey, resolveUploadImageContentType, uploadObject, uploadVideoObject } from '../services/spaces.js';
+import { UploadTargetError, authorizeUploadPrefix, uploadTargetFromHeaders } from '../services/uploadTarget.js';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -15,6 +10,13 @@ export const uploadsRouter: ReturnType<typeof Router> = Router();
 
 /** Walkthrough videos for the virtual 3D room. Partner accounts only. */
 export const videoUploadsRouter: ReturnType<typeof Router> = Router();
+
+function uploadErrorStatus(err: unknown): { status: number; error: string } | null {
+  if (err instanceof UploadTargetError) {
+    return { status: err.status, error: err.message };
+  }
+  return null;
+}
 
 videoUploadsRouter.post('/', async (req, res) => {
   const ctx = await createContext({ req, res });
@@ -33,15 +35,6 @@ videoUploadsRouter.post('/', async (req, res) => {
     return;
   }
 
-  try {
-    assertAllowedVideoContentType(
-      typeof req.headers['content-type'] === 'string' ? req.headers['content-type'] : '',
-    );
-  } catch (err) {
-    res.status(400).json({ error: err instanceof Error ? err.message : 'Unsupported video type' });
-    return;
-  }
-
   const body = req.body as Buffer;
   if (!Buffer.isBuffer(body) || body.length === 0) {
     res.status(400).json({ error: 'Empty body' });
@@ -53,8 +46,19 @@ videoUploadsRouter.post('/', async (req, res) => {
   }
 
   try {
-    res.json(await uploadVideoObject({ filename, body }));
+    const target = uploadTargetFromHeaders(req.headers);
+    if (target.scope !== 'restaurant' || target.kind !== 'virtual-room') {
+      res.status(400).json({ error: 'Videos are stored in the restaurant virtual-room folder' });
+      return;
+    }
+    const prefix = await authorizeUploadPrefix(ctx.user, target);
+    res.json(await uploadVideoObject({ prefix, filename, body }));
   } catch (err) {
+    const known = uploadErrorStatus(err);
+    if (known) {
+      res.status(known.status).json({ error: known.error });
+      return;
+    }
     res.status(400).json({ error: err instanceof Error ? err.message : 'Upload failed' });
   }
 });
@@ -95,10 +99,17 @@ uploadsRouter.post('/', async (req, res) => {
   }
 
   try {
-    const key = buildUploadKey(filename, contentType);
+    const target = uploadTargetFromHeaders(req.headers);
+    const prefix = await authorizeUploadPrefix(ctx.user, target);
+    const key = buildScopedObjectKey(prefix, filename, contentType);
     const result = await uploadObject({ key, contentType, body });
     res.json(result);
   } catch (err) {
+    const known = uploadErrorStatus(err);
+    if (known) {
+      res.status(known.status).json({ error: known.error });
+      return;
+    }
     res.status(500).json({
       error: err instanceof Error ? err.message : 'Upload failed',
     });

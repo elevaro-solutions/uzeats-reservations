@@ -1,5 +1,21 @@
 # API — Learnings & Observations
 
+## [2026-11-03] Legacy Spaces keys migrate by copy, then URL rewrite
+- `apps/api/scripts/migrate-spaces-layout.ts` copies `uploads/<file>` to the scoped folder inside the same bucket and rewrites Mongo (restaurants, menus, tables, experiences, packages, private dining, virtual rooms, reviews, avatars, support, QA, blog HTML, discovery, table shapes, profile-change drafts). Dry-run is the default. A non-local database refuses `--apply` without `--confirm-production`.
+- One object referenced from two folders is copied once to `platform/imports/`. Original keys stay until a later `--delete-sources` (do that only after live pages are checked, at least two weeks). Unreferenced bucket keys are listed with `--list-orphans` and are not deleted.
+- Non-Spaces URLs (Netlify landings, Google, venue sites) are reported only. Those still use `scripts/rehost-external-images.ts`.
+- Why it matters: Deploy the folder-aware API before the copy, or new uploads keep arriving in `uploads/` during the run. Do not delete sources in the same session as the first apply.
+
+## [2026-11-03] Object storage keys are scoped folders
+- New objects use `restaurants/{id}/{kind}/`, `accounts/{userId}/{kind}/`, or `platform/{kind}/`. Clients send `X-Upload-Scope`, `X-Upload-Kind`, and `X-Upload-Restaurant-Id`. The account id always comes from the session. `isOwnUploadUrl` still accepts legacy `uploads/` keys.
+- Restaurant writes require venue access. `reviews` is the diner exception and requires a reservation at that restaurant. Platform folders require a platform admin. Videos must use `restaurants/{id}/virtual-room/`.
+- Local dev writes the same relative key under `.data/uploads` and serves it at `GET /api/uploads/local/*`. Keys are unique (`timestamp` + random id), with `Cache-Control: immutable`.
+- Why it matters: Do not put new objects back in a flat `uploads/` prefix. Do not trust a client-supplied user id. Existing Mongo URLs keep pointing at the old keys — nothing is moved.
+
+## [2026-11-03] QA checklist catalog is v0.98.0
+- `QA_CHECKLIST_RELEASE` is `0.98.0`. Catalog groups are Partner Hub, Diner, and Admin (Spaces folder uploads). v0.97.1 create / install-bar items stay on that release’s `QaReleaseChecklist` row.
+- Why it matters: Sign-off for this gate is branding/menu/drafts/avatar/review/platform upload folders — not the previous create-conflict work.
+
 ## [2026-11-03] QA checklist catalog is v0.97.1
 - `QA_CHECKLIST_RELEASE` is `0.97.1`. Catalog groups are Restaurants, Diner web, and Partner Hub. v0.97.0 listing / App Store / billing items stay on that release’s `QaReleaseChecklist` row.
 - Why it matters: Sign-off for this gate is restaurant-create email/phone errors, the review cuisine line, deposit cap, install bar, and overview link wrap — not the previous visibility work.

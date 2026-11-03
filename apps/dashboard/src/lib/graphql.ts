@@ -473,8 +473,20 @@ export const CREATE_RESTAURANT = gql`
 `;
 
 export const CREATE_UPLOAD_URL = gql`
-  mutation CreateUploadUrl($filename: String!, $contentType: String!) {
-    createUploadUrl(filename: $filename, contentType: $contentType) {
+  mutation CreateUploadUrl(
+    $filename: String!
+    $contentType: String!
+    $scope: String!
+    $kind: String!
+    $restaurantId: ID
+  ) {
+    createUploadUrl(
+      filename: $filename
+      contentType: $contentType
+      scope: $scope
+      kind: $kind
+      restaurantId: $restaurantId
+    ) {
       uploadUrl publicUrl key
     }
   }

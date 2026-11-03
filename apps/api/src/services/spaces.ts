@@ -1,7 +1,20 @@
+import { randomBytes } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import {
+  ACCOUNT_UPLOAD_KINDS,
+  PLATFORM_UPLOAD_KINDS,
+  RESTAURANT_UPLOAD_KINDS,
+} from '@reservations/shared';
 import { env } from '../config/env.js';
 
 /**
@@ -157,7 +170,25 @@ function getClient() {
   });
 }
 
-export function buildUploadKey(filename: string, contentType?: string) {
+const SCOPED_PREFIX = new RegExp(
+  `^(?:restaurants/[a-f0-9]{24}/(?:${RESTAURANT_UPLOAD_KINDS.join('|')})|accounts/[a-f0-9]{24}/(?:${ACCOUNT_UPLOAD_KINDS.join('|')})|platform/(?:${PLATFORM_UPLOAD_KINDS.join('|')}))/$`,
+);
+
+/** True for a folder prefix this API is allowed to write. */
+export function isScopedUploadPrefix(prefix: string) {
+  return SCOPED_PREFIX.test(prefix);
+}
+
+const OWN_KEY_PREFIX = /^(?:uploads|restaurants|accounts|platform)\//;
+
+/**
+ * Object key under a scoped folder. Names are unique so a replaced photo does not
+ * overwrite the previous object (stored URLs keep working).
+ */
+export function buildScopedObjectKey(prefix: string, filename: string, contentType?: string) {
+  if (!isScopedUploadPrefix(prefix)) {
+    throw new Error('Invalid upload folder');
+  }
   const safeBase = filename
     .replace(/[^a-zA-Z0-9._-]/g, '_')
     .replace(/^\.+/, '')
@@ -165,12 +196,80 @@ export function buildUploadKey(filename: string, contentType?: string) {
   const extFromType = contentType ? EXT_BY_TYPE[contentType] : undefined;
   const baseNoExt = safeBase.replace(/\.[^.]+$/, '') || 'upload';
   const ext = extFromType ?? 'bin';
-  return `uploads/${Date.now()}-${baseNoExt}.${ext}`;
+  const id = randomBytes(8).toString('hex');
+  return `${prefix}${Date.now()}-${id}-${baseNoExt}.${ext}`;
 }
 
-function publicUrlForKey(key: string) {
+export function publicUrlForUploadKey(key: string) {
   const base = env.DO_SPACES_CDN || `${env.DO_SPACES_ENDPOINT}/${env.DO_SPACES_BUCKET}`;
   return `${base}/${key}`;
+}
+
+function isMissingObject(err: unknown) {
+  const named = err as { name?: string; $metadata?: { httpStatusCode?: number } };
+  return named.name === 'NotFound' || named.name === 'NoSuchKey' || named.$metadata?.httpStatusCode === 404;
+}
+
+/** Server-side copy inside the bucket. Used to move legacy `uploads/` keys without re-encoding bytes. */
+export async function copyUploadObject(fromKey: string, toKey: string) {
+  if (!fromKey.startsWith('uploads/') || fromKey.includes('..')) {
+    throw new Error('Refusing to copy that source');
+  }
+  const prefix = toKey.slice(0, toKey.lastIndexOf('/') + 1);
+  if (!isScopedUploadPrefix(prefix)) {
+    throw new Error('Refusing to copy into that folder');
+  }
+  const client = getClient();
+  if (!client) throw new Error('Spaces credentials are required to copy objects');
+
+  try {
+    await client.send(new HeadObjectCommand({ Bucket: env.DO_SPACES_BUCKET, Key: toKey }));
+    return { copied: false as const, key: toKey, publicUrl: publicUrlForUploadKey(toKey) };
+  } catch (err) {
+    if (!isMissingObject(err)) throw err;
+  }
+
+  await client.send(
+    new CopyObjectCommand({
+      Bucket: env.DO_SPACES_BUCKET,
+      Key: toKey,
+      CopySource: encodeURI(`${env.DO_SPACES_BUCKET}/${fromKey}`),
+      ACL: 'public-read',
+      MetadataDirective: 'COPY',
+    }),
+  );
+  return { copied: true as const, key: toKey, publicUrl: publicUrlForUploadKey(toKey) };
+}
+
+/** Delete a legacy flat key only. Scoped folders are never removed by this helper. */
+export async function deleteLegacyUploadObject(key: string) {
+  if (!key.startsWith('uploads/') || key.includes('..') || key.slice('uploads/'.length).includes('/')) {
+    throw new Error('Refusing to delete that object');
+  }
+  const client = getClient();
+  if (!client) throw new Error('Spaces credentials are required to delete objects');
+  await client.send(new DeleteObjectCommand({ Bucket: env.DO_SPACES_BUCKET, Key: key }));
+}
+
+export async function listLegacyUploadKeys(): Promise<string[]> {
+  const client = getClient();
+  if (!client) return [];
+  const keys: string[] = [];
+  let token: string | undefined;
+  do {
+    const page = await client.send(
+      new ListObjectsV2Command({
+        Bucket: env.DO_SPACES_BUCKET,
+        Prefix: 'uploads/',
+        ContinuationToken: token,
+      }),
+    );
+    for (const item of page.Contents ?? []) {
+      if (item.Key?.startsWith('uploads/')) keys.push(item.Key);
+    }
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token);
+  return keys;
 }
 
 function apiPublicBase() {
@@ -179,15 +278,47 @@ function apiPublicBase() {
 }
 
 function localPublicUrl(key: string) {
-  // Serve via API: GET /api/uploads/local/<filename>
-  const filename = key.replace(/^uploads\//, '');
-  return `${apiPublicBase()}/api/uploads/local/${encodeURIComponent(filename)}`;
+  const encoded = key.split('/').map((segment) => encodeURIComponent(segment)).join('/');
+  return `${apiPublicBase()}/api/uploads/local/${encoded}`;
+}
+
+/** Relative key from a local upload URL or route param. Rejects path traversal. */
+export function localUploadRelativeKey(raw: string | string[] | undefined): string {
+  const joined = (Array.isArray(raw) ? raw : [raw ?? ''])
+    .flatMap((part) => String(part).split('/'))
+    .map((part) => {
+      try {
+        return decodeURIComponent(part);
+      } catch {
+        return part;
+      }
+    })
+    .filter((part) => part.length > 0);
+  if (joined.length === 0 || joined.some((part) => part === '.' || part === '..')) {
+    throw new Error('Invalid upload path');
+  }
+  const key = joined.join('/');
+  const legacyFile = joined.length === 1 && /^[a-zA-Z0-9._-]+$/.test(key);
+  if (!legacyFile && !OWN_KEY_PREFIX.test(key)) {
+    throw new Error('Invalid upload path');
+  }
+  return key;
+}
+
+export function resolveLocalUploadPath(raw: string | string[] | undefined): string {
+  const key = localUploadRelativeKey(raw);
+  const root = path.resolve(LOCAL_UPLOAD_DIR);
+  const filePath = path.resolve(root, key);
+  if (filePath !== root && !filePath.startsWith(`${root}${path.sep}`)) {
+    throw new Error('Invalid upload path');
+  }
+  return filePath;
 }
 
 async function saveLocalObject(input: { key: string; body: Buffer }) {
-  const filename = input.key.replace(/^uploads\//, '');
-  await mkdir(LOCAL_UPLOAD_DIR, { recursive: true });
-  await writeFile(path.join(LOCAL_UPLOAD_DIR, filename), input.body);
+  const filePath = resolveLocalUploadPath(input.key);
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFile(filePath, input.body);
   return {
     publicUrl: localPublicUrl(input.key),
     key: input.key,
@@ -239,65 +370,92 @@ async function storeObject(input: {
       ContentType: input.contentType,
       ACL: 'public-read',
       Body: input.body,
+      CacheControl: 'public, max-age=31536000, immutable',
       ContentDisposition: input.contentDisposition,
     }),
   );
 
   return {
-    publicUrl: publicUrlForKey(input.key),
+    publicUrl: publicUrlForUploadKey(input.key),
     key: input.key,
   };
 }
 
-export async function uploadVideoObject(input: { filename: string; body: Buffer }) {
+export async function uploadVideoObject(input: { prefix: string; filename: string; body: Buffer }) {
   const contentType = sniffVideoContentType(input.body);
   if (!contentType) throw new Error('Unsupported video type. Allowed: MP4, MOV, WebM');
   return storeObject({
-    key: buildUploadKey(input.filename, contentType),
+    key: buildScopedObjectKey(input.prefix, input.filename, contentType),
     contentType,
     body: input.body,
   });
 }
 
 /** Server-generated 3D models (e.g. photogrammetry output). */
-export async function uploadModelObject(input: { filename: string; body: Buffer }) {
+export async function uploadModelObject(input: { prefix: string; filename: string; body: Buffer }) {
   if (!isGlb(input.body)) throw new Error('Model is not a binary glTF (.glb) file');
   return storeObject({
-    key: buildUploadKey(input.filename, GLB_CONTENT_TYPE),
+    key: buildScopedObjectKey(input.prefix, input.filename, GLB_CONTENT_TYPE),
     contentType: GLB_CONTENT_TYPE,
     body: input.body,
   });
 }
 
-/** True when `url` was produced by our upload endpoints (Spaces CDN/bucket or local fallback). */
-export function isOwnUploadUrl(url: string): boolean {
+export function uploadObjectKeyFromUrl(url: string): string | null {
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
-    return false;
+    return null;
   }
-  if (parsed.pathname.startsWith('/api/uploads/local/')) return true;
+  if (parsed.pathname.startsWith('/api/uploads/local/')) {
+    try {
+      return localUploadRelativeKey(parsed.pathname.slice('/api/uploads/local/'.length));
+    } catch {
+      return null;
+    }
+  }
   const bases = [env.DO_SPACES_CDN, `${env.DO_SPACES_ENDPOINT}/${env.DO_SPACES_BUCKET}`]
     .filter(Boolean)
     .map((base) => base.replace(/\/$/, ''));
-  if (bases.some((base) => url.startsWith(`${base}/uploads/`))) return true;
-  // Virtual-hosted bucket URLs: https://<bucket>.<region>.digitaloceanspaces.com/uploads/...
-  return (
+  for (const base of bases) {
+    if (url.startsWith(`${base}/`)) {
+      const key = safeDecode(url.slice(base.length + 1).split('?')[0] ?? '');
+      return key && OWN_KEY_PREFIX.test(key) ? key : null;
+    }
+  }
+  // Virtual-hosted bucket URLs: https://<bucket>.<region>.digitaloceanspaces.com/<key>
+  if (
     parsed.protocol === 'https:' &&
     parsed.hostname.startsWith(`${env.DO_SPACES_BUCKET}.`) &&
-    parsed.hostname.endsWith('.digitaloceanspaces.com') &&
-    parsed.pathname.startsWith('/uploads/')
-  );
+    parsed.hostname.endsWith('.digitaloceanspaces.com')
+  ) {
+    const key = safeDecode(parsed.pathname.replace(/^\//, ''));
+    return key && OWN_KEY_PREFIX.test(key) ? key : null;
+  }
+  return null;
+}
+
+function safeDecode(value: string): string | null {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
+
+/** True when `url` was produced by our upload endpoints (Spaces CDN/bucket or local fallback). */
+export function isOwnUploadUrl(url: string): boolean {
+  return uploadObjectKeyFromUrl(url) != null;
 }
 
 /** Bytes for one of our uploads. Local-fallback files are read from disk. */
 export async function readOwnUpload(url: string): Promise<Buffer> {
-  if (!isOwnUploadUrl(url)) throw new Error('Not an uploaded file');
+  const key = uploadObjectKeyFromUrl(url);
+  if (!key) throw new Error('Not an uploaded file');
   const parsed = new URL(url);
   if (parsed.pathname.startsWith('/api/uploads/local/')) {
-    const filename = path.basename(decodeURIComponent(parsed.pathname.replace('/api/uploads/local/', '')));
-    return readFile(path.join(LOCAL_UPLOAD_DIR, filename));
+    return readFile(resolveLocalUploadPath(key));
   }
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Could not download ${url} (${res.status})`);
@@ -328,7 +486,7 @@ export async function createUploadUrl(input: {
   const uploadUrl = await getSignedUrl(client, command, { expiresIn: 600 });
   return {
     uploadUrl,
-    publicUrl: publicUrlForKey(input.key),
+    publicUrl: publicUrlForUploadKey(input.key),
     key: input.key,
   };
 }

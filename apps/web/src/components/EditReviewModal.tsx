@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useMutation } from '@apollo/client/react';
 import { Button, Image, Input, Modal, Rate, Space, Typography, message } from 'antd';
 import { DeleteOutlined, PictureOutlined } from '@ant-design/icons';
-import { REVIEW_MAX_PHOTOS, browserMediaUrl } from '@reservations/shared';
+import { REVIEW_MAX_PHOTOS, browserMediaUrl, restaurantUpload } from '@reservations/shared';
 import { UPDATE_REVIEW } from '@/lib/graphql';
 import { uploadFile } from '@/lib/upload';
 import { RichTextArea } from '@/components/RichTextArea';
@@ -30,7 +30,7 @@ export type EditableReview = {
   atmosphereRating?: number | null;
   comment?: string | null;
   photos: string[];
-  restaurant?: { name?: string | null } | null;
+  restaurant?: { id?: string | null; name?: string | null } | null;
 };
 
 type Props = {
@@ -97,7 +97,13 @@ export function EditReviewModal({ open, review, onClose, onSaved }: Props) {
           message.error(`${file.name} exceeds 5MB limit`);
           continue;
         }
-        const { publicUrl } = await uploadFile(file, file.name);
+        if (!review?.restaurant?.id) {
+          message.error('Could not upload photo');
+          continue;
+        }
+        const { publicUrl } = await uploadFile(file, file.name, {
+          target: restaurantUpload(review.restaurant.id, 'reviews'),
+        });
         uploaded.push(publicUrl);
       }
       if (uploaded.length) {

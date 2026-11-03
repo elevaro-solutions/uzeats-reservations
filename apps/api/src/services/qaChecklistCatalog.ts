@@ -1,4 +1,4 @@
-export const QA_CHECKLIST_RELEASE = '0.97.1';
+export const QA_CHECKLIST_RELEASE = '0.98.0';
 
 export type QaChecklistGate = 'required' | 'recommended';
 
@@ -14,69 +14,91 @@ export type QaChecklistCatalogItem = {
 /** Release-delta items stored by id. Labels ship with the API so the saved row stays small. */
 export const QA_CHECKLIST_CATALOG: QaChecklistCatalogItem[] = [
   {
-    id: 'rel-create-duplicate-email',
-    gate: 'required',
-    group: 'Restaurants',
-    label: 'Add restaurant: an email that already exists points at the owner email, not Internal server error',
-    steps: [
-      'As Super Admin, open Admin → Restaurants → Add restaurant. Choose New owner and use an email that already has an account. Fill the rest of the wizard with a valid address and at least one cuisine, then Create restaurant.',
-      'Confirm you stay on the Owner step and the Email field says the address is already registered. Confirm the toast is not “Internal server error”.',
-      'Switch to Existing account, pick that owner, and confirm Create restaurant succeeds (or a different, specific error — not a blank internal error).',
-    ],
-  },
-  {
-    id: 'rel-create-duplicate-phone',
-    gate: 'required',
-    group: 'Restaurants',
-    label: 'Add restaurant: a phone that already exists points at the owner phone',
-    steps: [
-      'Start Add restaurant with a new email and a phone number already saved on another account (US format, 10 digits). Complete the wizard and Create restaurant.',
-      'Confirm you return to the Owner step and Phone explains the number is already registered (use a different number, leave it blank, or link the existing account). Confirm the message is not “Internal server error”.',
-      'Clear the phone (or enter a new one) and confirm the restaurant can be created.',
-    ],
-  },
-  {
-    id: 'rel-create-review-cuisine',
-    gate: 'required',
-    group: 'Restaurants',
-    label: 'Add restaurant Review lists the cuisines you selected',
-    steps: [
-      'On Add restaurant, select one or more cuisines on Details, then continue to Review.',
-      'Confirm the Restaurant card shows those cuisine names (not an em dash).',
-      'Go back, change the cuisine, and confirm Review updates.',
-    ],
-  },
-  {
-    id: 'rel-deposit-cap',
-    gate: 'required',
-    group: 'Restaurants',
-    label: 'Deposit amount cannot exceed $100,000',
-    steps: [
-      'On Add restaurant → Location (or restaurant profile deposit), turn Deposit required on and enter 100001.',
-      'Confirm the field rejects it with a message that the amount cannot be more than $100,000, and the request is not sent as Internal server error.',
-      'Enter 100000 (or a smaller amount) and confirm the value is accepted.',
-    ],
-  },
-  {
-    id: 'rel-install-bar-store',
-    gate: 'required',
-    group: 'Diner web',
-    label: 'Mobile install bar opens the matching store, or downloads when the device is unknown',
-    steps: [
-      'On diner web at phone width, with the install bar visible (clear site data if it was dismissed), use an iPhone or iPhone user-agent. Confirm copy mentions the App Store and Install opens the Tablevera App Store page.',
-      'Repeat with an Android user-agent. Confirm copy mentions Google Play and Install opens the Play listing.',
-      'On a narrow desktop window (unknown device), confirm one Install button goes to the downloads page (both store badges), not a guessed store.',
-    ],
-  },
-  {
-    id: 'rel-overview-url-wrap',
+    id: 'rel-branding-upload-folder',
     gate: 'required',
     group: 'Partner Hub',
-    label: 'Restaurant Overview wraps a long public URL inside the card',
+    label: 'Restaurant logo and gallery upload under restaurants/{id}/branding',
     steps: [
-      'Open a restaurant Overview in Partner Hub (owner or admin) that shows a long public URL in About / Contact.',
-      'Narrow the window. Confirm the URL wraps inside the card and does not spill past the card edge.',
-      'Confirm other external links in those cards wrap the same way.',
+      'As owner or admin on an existing restaurant, open Restaurant profile (or Admin manage restaurant) Photos. Upload a logo and one gallery photo.',
+      'Confirm both succeed and show on the form. Open the image URLs (or the returned key): they include restaurants/<that restaurant id>/branding/, not a flat uploads/ path.',
+      'Save the profile and confirm the public restaurant page still shows the new logo and hero photo.',
+    ],
+  },
+  {
+    id: 'rel-menu-upload-folder',
+    gate: 'required',
+    group: 'Partner Hub',
+    label: 'Menu dish photos upload under restaurants/{id}/menu',
+    steps: [
+      'Open Menu for an active restaurant. Upload a photo on a dish and save the menu.',
+      'Confirm the dish photo URL includes restaurants/<restaurant id>/menu/.',
+      'Reload Menu and confirm the photo is still on that dish.',
+    ],
+  },
+  {
+    id: 'rel-add-restaurant-drafts',
+    gate: 'required',
+    group: 'Admin',
+    label: 'Add restaurant photos before create go to accounts/.../drafts',
+    steps: [
+      'As Super Admin, open Admin → Restaurants → Add restaurant. On Details, upload a logo or gallery photo before Create restaurant.',
+      'Confirm the upload succeeds. The URL or key includes accounts/<your user id>/drafts/, not restaurants/... (there is no restaurant id yet).',
+      'Finish Create restaurant and confirm the logo or photo is still attached on the new restaurant.',
+    ],
+  },
+  {
+    id: 'rel-avatar-upload-folder',
+    gate: 'required',
+    group: 'Diner',
+    label: 'Profile photo uploads under accounts/{userId}/avatar',
+    steps: [
+      'As a diner on web, open Account / profile and upload a new profile photo.',
+      'Confirm the photo shows and its URL includes accounts/<your user id>/avatar/.',
+      'On diner mobile (if available for this build), edit profile photo and confirm the same folder pattern.',
+    ],
+  },
+  {
+    id: 'rel-review-photo-access',
+    gate: 'required',
+    group: 'Diner',
+    label: 'Review photos only for a booked restaurant, under reviews/',
+    steps: [
+      'As a diner with a completed (or reviewable) reservation, open post-visit / write review and attach a photo. Confirm upload succeeds and the URL includes restaurants/<that restaurant id>/reviews/.',
+      'Confirm the review submits with the photo visible on the restaurant reviews.',
+      'If you can try a restaurant you have never booked, confirm attaching a review photo is rejected (forbidden / cannot upload), not stored under that restaurant.',
+    ],
+  },
+  {
+    id: 'rel-platform-discovery-blog',
+    gate: 'required',
+    group: 'Admin',
+    label: 'Admin discovery and blog images land under platform/',
+    steps: [
+      'As admin, open Admin → Discovery, upload or replace a taxonomy image (or icon). Confirm the URL includes platform/discovery/.',
+      'Open Admin → Blog, set a cover image on a post. Confirm the URL includes platform/blog/.',
+      'Confirm both images still render in the admin form after reload.',
+    ],
+  },
+  {
+    id: 'rel-support-upload-folder',
+    gate: 'recommended',
+    group: 'Partner Hub',
+    label: 'Support ticket attachments go under accounts/.../support',
+    steps: [
+      'Open Support (owner or admin ticket detail) and attach an image.',
+      'Confirm the attachment URL or key includes accounts/<uploader id>/support/ (or platform/support for a platform-only path).',
+      'Confirm the attachment remains visible on the ticket after refresh.',
+    ],
+  },
+  {
+    id: 'rel-virtual-room-folder',
+    gate: 'recommended',
+    group: 'Partner Hub',
+    label: 'Virtual room media uploads under restaurants/{id}/virtual-room',
+    steps: [
+      'On a restaurant with Virtual room, upload a walkthrough photo (and a short video if practical).',
+      'Confirm the media URL includes restaurants/<restaurant id>/virtual-room/.',
+      'Confirm the media still appears in the Virtual room editor after reload.',
     ],
   },
 ];

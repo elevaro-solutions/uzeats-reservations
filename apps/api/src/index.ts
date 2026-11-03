@@ -45,7 +45,7 @@ import { partnerRouter } from "./routes/partner.js";
 import { uploadsRouter, videoUploadsRouter } from "./routes/uploads.js";
 import { importRestaurantRouter } from "./routes/importRestaurant.js";
 import { discoveryMagnificRouter } from "./routes/discoveryMagnific.js";
-import { LOCAL_UPLOAD_DIR } from "./services/spaces.js";
+import { resolveLocalUploadPath } from "./services/spaces.js";
 
 const LOCAL_UPLOAD_CONTENT_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -321,16 +321,11 @@ async function main() {
     partnerRouter,
   );
 
-  app.get("/api/uploads/local/:filename", async (req, res, next) => {
+  app.get("/api/uploads/local/{*key}", async (req, res, next) => {
     try {
-      const filename = path.basename(decodeURIComponent(req.params.filename));
-      if (!filename) {
-        res.status(400).json({ error: "Invalid filename" });
-        return;
-      }
-      const filePath = path.join(LOCAL_UPLOAD_DIR, filename);
+      const filePath = resolveLocalUploadPath(req.params.key);
       await access(filePath);
-      const ext = path.extname(filename).toLowerCase();
+      const ext = path.extname(filePath).toLowerCase();
       const contentType = LOCAL_UPLOAD_CONTENT_TYPES[ext] ?? "application/octet-stream";
       res.setHeader("Content-Type", contentType);
       res.setHeader("Cache-Control", "public, max-age=86400");
@@ -343,6 +338,10 @@ async function main() {
       }
       createReadStream(filePath).pipe(res);
     } catch (err) {
+      if (err instanceof Error && err.message === "Invalid upload path") {
+        res.status(400).json({ error: "Invalid filename" });
+        return;
+      }
       if ((err as NodeJS.ErrnoException)?.code === "ENOENT") {
         res.status(404).json({ error: "Not found" });
         return;

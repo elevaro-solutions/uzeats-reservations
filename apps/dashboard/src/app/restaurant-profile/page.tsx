@@ -40,6 +40,7 @@ import {
   platformHolidaySelectOptions,
   resolveDepositPolicy,
   restaurantCuisinesForForm,
+  restaurantUpload,
 } from '@reservations/shared';
 import { BookingSharePanel } from '@/components/BookingSharePanel';
 import { DepositPolicyField } from '@/components/DepositPolicyField';
@@ -316,6 +317,8 @@ export default function RestaurantProfilePage() {
       void uploadImportedMenuImageToSpaces({
         imageUrl: data.coverImageUrl,
         filenameHint: 'restaurant-cover.jpg',
+        restaurantId,
+        folder: 'branding',
       })
         .then((photoUrl) => {
           if (!photoUrl) return;
@@ -350,6 +353,8 @@ export default function RestaurantProfilePage() {
             return uploadImportedMenuImageToSpaces({
               imageUrl: item.imageUrl,
               filenameHint: `menu-item-${index + 1}.jpg`,
+              restaurantId,
+              folder: 'menu',
             });
           },
         });
@@ -447,6 +452,7 @@ export default function RestaurantProfilePage() {
               extra="Square mark shown next to the restaurant name on the public page."
             >
               <PhotoUpload
+                target={restaurantUpload(restaurantId ?? '', 'branding')}
                 value={logoUrl ? [logoUrl] : []}
                 onChange={(urls) => {
                   setLogoUrl(urls[0] ?? null);
@@ -463,6 +469,7 @@ export default function RestaurantProfilePage() {
               extra="Drag to reorder. The first photo is the large hero; the next two appear beside it on the public page."
             >
               <PhotoUpload
+                target={restaurantUpload(restaurantId ?? '', 'branding')}
                 value={photos}
                 onChange={(urls) => {
                   setPhotos(urls);

@@ -1,3 +1,4 @@
+export * from './objectStorage.js';
 export * from './bookingUrl.js';
 export * from './bookingAttribution.js';
 export * from './restaurantSlug.js';

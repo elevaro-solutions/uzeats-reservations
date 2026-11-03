@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { downloadMagnificStockPhoto, isMagnificStockImageUrl } from '@reservations/shared';
+import { downloadMagnificStockPhoto, isMagnificStockImageUrl, uploadKeyPrefix } from '@reservations/shared';
 import { createContext, requireAdmin } from '../graphql/context.js';
-import { buildUploadKey, uploadObject } from '../services/spaces.js';
+import { buildScopedObjectKey, uploadObject } from '../services/spaces.js';
 import {
   fetchAllowedImage,
   SafeRemoteImageError,
@@ -106,7 +106,11 @@ discoveryMagnificRouter.post('/upload-image', async (req, res) => {
       return;
     }
 
-    const key = buildUploadKey(defaultFilename, fetched.contentType);
+    const key = buildScopedObjectKey(
+      uploadKeyPrefix({ scope: 'platform', kind: 'discovery' }),
+      defaultFilename,
+      fetched.contentType,
+    );
     const uploaded = await uploadObject({
       key,
       contentType: fetched.contentType,

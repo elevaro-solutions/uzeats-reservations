@@ -2,7 +2,7 @@ import { useMutation } from "@apollo/client";
 import * as ImagePicker from "expo-image-picker";
 import { useEffect, useState } from "react";
 import { Alert, Platform } from "react-native";
-import { REVIEW_MAX_PHOTOS } from "@reservations/shared";
+import { REVIEW_MAX_PHOTOS, restaurantUpload } from "@reservations/shared";
 
 import { CREATE_REVIEW, MY_RESERVATIONS } from "@/graphql";
 import { PhotoTooLargeError, uploadFile } from "@/graphql/upload";
@@ -13,6 +13,7 @@ import type { MyReservationsQueryData } from "../types";
 export type UseCreateReviewOptions = {
   visible: boolean;
   reservationId: string | null;
+  restaurantId: string | null;
   onClose: () => void;
   onSubmitted: () => void;
 };
@@ -29,6 +30,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024;
 export function useCreateReview({
   visible,
   reservationId,
+  restaurantId,
   onClose,
   onSubmitted,
 }: UseCreateReviewOptions) {
@@ -91,9 +93,14 @@ export function useCreateReview({
       const uploaded: string[] = [];
       for (const asset of result.assets.slice(0, remaining)) {
         const filename = asset.fileName?.trim() || `review-${Date.now()}.jpg`;
+        if (!restaurantId) {
+          Alert.alert("Could not upload photo", "This review is not linked to a restaurant.");
+          continue;
+        }
         try {
           const { publicUrl } = await uploadFile(asset.uri, filename, {
             maxBytes: MAX_FILE_SIZE,
+            target: restaurantUpload(restaurantId, "reviews"),
           });
           uploaded.push(publicUrl);
         } catch (error) {

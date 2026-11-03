@@ -20,7 +20,7 @@ import {
 } from '@ant-design/icons';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { REVIEW_MAX_PHOTOS, browserMediaUrl, buildRestaurantBookingPath } from '@reservations/shared';
+import { REVIEW_MAX_PHOTOS, browserMediaUrl, buildRestaurantBookingPath, restaurantUpload } from '@reservations/shared';
 import { CREATE_REVIEW, SAVE_RESTAURANT } from '@/lib/graphql';
 import { uploadFile } from '@/lib/upload';
 import { RichTextArea } from '@/components/RichTextArea';
@@ -141,7 +141,13 @@ export function PostVisitModal({
           message.error(`${file.name} exceeds 5MB limit`);
           continue;
         }
-        const { publicUrl } = await uploadFile(file, file.name);
+        if (!restaurant?.id) {
+          message.error('Could not upload photo');
+          continue;
+        }
+        const { publicUrl } = await uploadFile(file, file.name, {
+          target: restaurantUpload(restaurant.id, 'reviews'),
+        });
         uploaded.push(publicUrl);
       }
       if (uploaded.length) {

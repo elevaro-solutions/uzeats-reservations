@@ -18,7 +18,7 @@ import {
   usPhoneRules,
   type AddressSelection,
 } from '@reservations/ui';
-import { browserMediaUrl, passwordSchema } from '@reservations/shared';
+import { accountUpload, browserMediaUrl, passwordSchema } from '@reservations/shared';
 import { uploadFile } from '@/lib/upload';
 import type { AuthUser, DinerAddress } from '@/lib/auth';
 import { getGraphQLErrorMessage, getGraphQLFieldErrors } from '@/lib/errors';
@@ -381,7 +381,9 @@ export function ProfileAccountModal({
     }
     setUploadingPhoto(true);
     try {
-      const { publicUrl } = await uploadFile(file, file.name);
+      const { publicUrl } = await uploadFile(file, file.name, {
+        target: accountUpload.avatar,
+      });
       setAvatarUrl(publicUrl);
     } catch (err) {
       message.error(err instanceof Error ? err.message : 'Could not upload photo');

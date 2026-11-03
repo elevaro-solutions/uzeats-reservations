@@ -45,6 +45,7 @@ import {
   type FloorPlanAreaAppearance,
   type FloorPlanBackgroundFit,
   type FloorPlanScale,
+  restaurantUpload,
 } from '@reservations/shared';
 import { PageHeader, colors, spacing } from '@reservations/ui';
 import { FloorAreaManageModal } from '@/components/FloorAreaManageModal';
@@ -526,7 +527,9 @@ export default function FloorPlanAreaSettingsPage() {
                       }
                       setBgUploading(true);
                       try {
-                        const { publicUrl } = await uploadFile(file, file.name);
+                        const { publicUrl } = await uploadFile(file, file.name, {
+                          target: restaurantUpload(activeRestaurantId ?? '', 'floor'),
+                        });
                         patchSelectedAppearance({ backgroundUrl: publicUrl });
                         message.success(`Background updated for ${selectedArea}`);
                       } catch (err: unknown) {

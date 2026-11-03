@@ -83,6 +83,7 @@ import {
   type FloorFixtureKind,
   type FloorLayoutTemplateId,
   type FloorRoom,
+  restaurantUpload,
 } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
@@ -301,6 +302,7 @@ function TableDetailsPanel({
   rows,
   overlap,
   sizeLabel,
+  restaurantId,
 }: {
   selected: FloorTable;
   selectedCount: number;
@@ -316,6 +318,7 @@ function TableDetailsPanel({
   rows: number;
   overlap: boolean;
   sizeLabel: string;
+  restaurantId: string;
 }) {
   const [areaDraft, setAreaDraft] = useState('');
   const { shapes } = useTableShapes();
@@ -674,6 +677,7 @@ function TableDetailsPanel({
             Table photo
           </FieldLabel>
           <PhotoUpload
+            target={restaurantUpload(restaurantId, 'floor')}
             maxCount={1}
             layout="compact"
             value={selected.photoUrl ? [selected.photoUrl] : []}
@@ -2719,6 +2723,7 @@ export default function FloorPlanPage() {
                 rows={canvasRows}
                 overlap={overlappingIds.has(selected.id)}
                 sizeLabel={`${formatCellLength(snapshot.scale, selected.width)} × ${formatCellLength(snapshot.scale, selected.height)}`}
+                restaurantId={activeRestaurantId ?? ''}
               />
             ) : selectedFixture ? (
               <Space orientation="vertical" size={12} style={{ width: '100%' }}>
@@ -2836,6 +2841,7 @@ export default function FloorPlanPage() {
             rows={canvasRows}
             overlap={overlappingIds.has(selected.id)}
             sizeLabel={`${formatCellLength(snapshot.scale, selected.width)} × ${formatCellLength(snapshot.scale, selected.height)}`}
+            restaurantId={activeRestaurantId ?? ''}
           />
         )}
       </Drawer>
@@ -2887,6 +2893,7 @@ export default function FloorPlanPage() {
           style={{ marginBottom: 0 }}
         >
           <TableFormFields
+            restaurantId={activeRestaurantId ?? ''}
             floorAreas={floorAreaOptions}
             onAddArea={(area) => {
               setCustomFloorAreas((prev) =>

@@ -4,6 +4,16 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.98.0] — 2026-11-03
+
+### Added
+- Partner Hub `/admin/qa` tasks for this release: branding, menu, and Add restaurant draft folders; diner avatar and review photo folders; admin discovery/blog platform folders; optional support and virtual-room paths
+- Ops script `apps/api/scripts/migrate-spaces-layout.ts` copies existing Spaces `uploads/` objects into the restaurant, account, and platform folders and rewrites stored URLs. It is a dry-run until `--apply --confirm-production`
+
+### Changed
+- Photos and videos are stored in folders: each restaurant has branding, menu, floor, experiences, packages, virtual room, reviews, and imports; avatars, support attachments, and not-yet-created restaurant photos sit under the account; blog, discovery, and table-shape files sit under platform
+- A diner can attach review photos only for a restaurant they have booked, and restaurant files can only be uploaded by that restaurant’s staff or a platform admin
+
 ## [0.97.1] — 2026-11-03
 
 ### Added

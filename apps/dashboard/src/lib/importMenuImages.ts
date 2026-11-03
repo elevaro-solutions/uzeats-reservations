@@ -8,6 +8,8 @@ function apiBaseUrl() {
 export async function uploadImportedMenuImageToSpaces(input: {
   imageUrl: string;
   filenameHint: string;
+  restaurantId?: string;
+  folder?: 'branding' | 'menu';
 }): Promise<string | undefined> {
   try {
     const res = await fetch(`${apiBaseUrl()}/api/import-restaurant/upload-image`, {
@@ -17,7 +19,12 @@ export async function uploadImportedMenuImageToSpaces(input: {
         'Content-Type': 'application/json',
         'X-Client-App': 'dashboard',
       },
-      body: JSON.stringify({ imageUrl: input.imageUrl, filename: input.filenameHint }),
+      body: JSON.stringify({
+        imageUrl: input.imageUrl,
+        filename: input.filenameHint,
+        restaurantId: input.restaurantId,
+        folder: input.folder,
+      }),
     });
 
     const json = (await res.json()) as UploadResponse;

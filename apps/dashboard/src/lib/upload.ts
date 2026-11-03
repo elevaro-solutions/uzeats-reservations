@@ -1,6 +1,14 @@
+import type { UploadTarget } from '@reservations/shared';
+import { uploadTargetHeaders } from '@reservations/shared';
+
 export type UploadResult = {
   publicUrl: string;
   key: string;
+};
+
+export type UploadOptions = {
+  onProgress?: (percent: number) => void;
+  target: UploadTarget;
 };
 
 function graphqlUrl() {
@@ -18,7 +26,7 @@ function uploadsUrl() {
 export async function uploadFile(
   file: Blob,
   filename: string,
-  options?: { onProgress?: (percent: number) => void },
+  options: UploadOptions,
 ): Promise<UploadResult> {
   return postUpload(uploadsUrl(), file, filename, options);
 }
@@ -27,7 +35,7 @@ export async function uploadFile(
 export async function uploadVideo(
   file: Blob,
   filename: string,
-  options?: { onProgress?: (percent: number) => void },
+  options: UploadOptions,
 ): Promise<UploadResult> {
   return postUpload(`${uploadsUrl()}/video`, file, filename, options);
 }
@@ -36,7 +44,7 @@ function postUpload(
   url: string,
   file: Blob,
   filename: string,
-  options?: { onProgress?: (percent: number) => void },
+  options: UploadOptions,
 ): Promise<UploadResult> {
   const contentType = file.type || 'application/octet-stream';
 
@@ -81,6 +89,9 @@ function postUpload(
     xhr.setRequestHeader('Content-Type', contentType);
     xhr.setRequestHeader('X-Upload-Filename', filename);
     xhr.setRequestHeader('X-Client-App', 'dashboard');
+    for (const [header, value] of Object.entries(uploadTargetHeaders(options.target))) {
+      xhr.setRequestHeader(header, value);
+    }
     xhr.send(file);
   });
 }

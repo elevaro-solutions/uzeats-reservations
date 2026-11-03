@@ -1,3 +1,4 @@
+import { uploadTargetHeaders, type UploadTarget } from "@reservations/shared";
 import * as SecureStore from "expo-secure-store";
 
 import { API_URL } from "./config";
@@ -9,6 +10,7 @@ export type UploadResult = {
 
 export type UploadFileOptions = {
   maxBytes?: number;
+  target: UploadTarget;
 };
 
 export class PhotoTooLargeError extends Error {
@@ -86,6 +88,7 @@ function postLocalFile(input: {
   filename: string;
   contentType: string;
   token: string;
+  target: UploadTarget;
 }): Promise<UploadResult> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -94,6 +97,9 @@ function postLocalFile(input: {
     xhr.setRequestHeader("Content-Type", input.contentType);
     xhr.setRequestHeader("X-Upload-Filename", headerFilename(input.filename));
     xhr.setRequestHeader("X-Client-App", "mobile");
+    for (const [header, value] of Object.entries(uploadTargetHeaders(input.target))) {
+      xhr.setRequestHeader(header, value);
+    }
     xhr.onload = () => {
       let payload: (UploadResult & { error?: string }) | null = null;
       try {
@@ -121,7 +127,7 @@ function postLocalFile(input: {
 export async function uploadFile(
   fileUri: string,
   filename: string,
-  options?: UploadFileOptions,
+  options: UploadFileOptions,
 ): Promise<UploadResult> {
   const token = await SecureStore.getItemAsync("accessToken");
   if (!token) {
@@ -139,5 +145,6 @@ export async function uploadFile(
     filename,
     contentType: image.contentType,
     token,
+    target: options.target,
   });
 }

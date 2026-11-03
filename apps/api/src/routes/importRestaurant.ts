@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { canImportRestaurant } from '@reservations/shared';
 import { createContext } from '../graphql/context.js';
 import { parseRestaurantFile } from '../services/mhtmlImport.js';
-import { buildUploadKey, uploadObject } from '../services/spaces.js';
+import { parseUploadTarget, uploadKeyPrefix } from '@reservations/shared';
+import { buildScopedObjectKey, uploadObject } from '../services/spaces.js';
+import { UploadTargetError, authorizeUploadPrefix } from '../services/uploadTarget.js';
 import {
   fetchAllowedImage,
   SafeRemoteImageError,
@@ -26,13 +28,20 @@ function isEmptyImport(data: { source: string; name?: string }) {
   return data.source === 'unknown' && !data.name;
 }
 
-function readJsonPayload(body: unknown): { imageUrl?: string; filename?: string } | null {
+function readJsonPayload(
+  body: unknown,
+): { imageUrl?: string; filename?: string; restaurantId?: string; folder?: string } | null {
   if (body && typeof body === 'object' && !Buffer.isBuffer(body)) {
-    return body as { imageUrl?: string; filename?: string };
+    return body as { imageUrl?: string; filename?: string; restaurantId?: string; folder?: string };
   }
   if (Buffer.isBuffer(body)) {
     try {
-      return JSON.parse(body.toString('utf-8')) as { imageUrl?: string; filename?: string };
+      return JSON.parse(body.toString('utf-8')) as {
+        imageUrl?: string;
+        filename?: string;
+        restaurantId?: string;
+        folder?: string;
+      };
     } catch {
       return null;
     }
@@ -88,7 +97,28 @@ importRestaurantRouter.post('/upload-image', async (req, res) => {
     const parsedUrl = new URL(imageUrl);
     const filename =
       payload.filename?.trim() || parsedUrl.pathname.split('/').pop() || 'imported-image';
-    const key = buildUploadKey(filename, fetched.contentType);
+    const folder = payload.folder?.trim() === 'menu' ? 'menu' : 'branding';
+    const restaurantId = payload.restaurantId?.trim();
+    let prefix: string;
+    try {
+      if (!restaurantId) {
+        prefix = uploadKeyPrefix({ scope: 'account', kind: 'drafts' }, user._id.toString());
+      } else {
+        const target = parseUploadTarget({
+          scope: 'restaurant',
+          kind: folder,
+          restaurantId,
+        });
+        prefix = await authorizeUploadPrefix(user, target);
+      }
+    } catch (err) {
+      if (err instanceof UploadTargetError) throw err;
+      throw new UploadTargetError(
+        400,
+        err instanceof Error ? err.message : 'Invalid upload folder',
+      );
+    }
+    const key = buildScopedObjectKey(prefix, filename, fetched.contentType);
     const uploaded = await uploadObject({
       key,
       contentType: fetched.contentType,
@@ -96,6 +126,10 @@ importRestaurantRouter.post('/upload-image', async (req, res) => {
     });
     res.json({ ok: true, ...uploaded });
   } catch (err) {
+    if (err instanceof UploadTargetError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
     if (err instanceof SafeRemoteImageError) {
       res.status(err.status).json({ error: err.message });
       return;

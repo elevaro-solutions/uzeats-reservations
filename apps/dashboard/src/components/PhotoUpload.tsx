@@ -14,6 +14,7 @@ import {
 import type { RcFile } from 'antd/es/upload';
 import { colors } from '@reservations/ui';
 import { uploadFile } from '@/lib/upload';
+import type { UploadTarget } from '@reservations/shared';
 
 const { Dragger } = Upload;
 const { Text } = Typography;
@@ -45,6 +46,8 @@ interface PhotoUploadProps {
    * - `compact` — square thumb + small upload controls (side panels)
    */
   layout?: 'inline' | 'stacked' | 'compact';
+  /** Where the file is stored in object storage. */
+  target: UploadTarget;
 }
 
 function galleryRole(index: number): { label: string; color?: string } {
@@ -71,6 +74,7 @@ export default function PhotoUpload({
   hint,
   showHeroOrder,
   layout = 'inline',
+  target,
 }: PhotoUploadProps) {
   const uploadHint = hint ?? 'JPG, PNG or WebP — max 5 MB';
   const compactHint = hint ?? 'JPG/PNG · max 5 MB';
@@ -122,6 +126,7 @@ export default function PhotoUpload({
 
     try {
       const { publicUrl } = await uploadFile(uploadBlob, file.name, {
+        target,
         onProgress: (pct) => setUploading((prev) => ({ ...prev, [uid]: pct })),
       });
       const next = maxCount === 1 ? [publicUrl] : [...urlsRef.current, publicUrl];

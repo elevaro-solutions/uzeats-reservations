@@ -49,6 +49,7 @@ import {
   getPlanPriceDisplay,
   normalizeAnnualBillingSettings,
   planForBillingPeriod,
+  accountUpload,
   resolveDepositPolicy,
   type AnnualBillingSettings,
 } from '@reservations/shared';
@@ -999,6 +1000,7 @@ export default function MyRestaurantsPage() {
                   extra="Square mark shown next to the restaurant name on the public page."
                 >
                   <PhotoUpload
+                    target={accountUpload.drafts}
                     value={logoUrl ? [logoUrl] : []}
                     onChange={(urls) => setLogoUrl(urls[0] ?? null)}
                     maxCount={1}
@@ -1011,7 +1013,7 @@ export default function MyRestaurantsPage() {
                   label="Photos"
                   extra="Drag to reorder. The first photo is the large hero; the next two appear beside it on the public page."
                 >
-                  <PhotoUpload value={photos} onChange={setPhotos} maxCount={10} />
+                  <PhotoUpload target={accountUpload.drafts} value={photos} onChange={setPhotos} maxCount={10} />
                 </Form.Item>
               </Col>
             </Row>

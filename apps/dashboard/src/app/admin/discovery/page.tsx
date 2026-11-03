@@ -26,7 +26,7 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 import { PageHeader, spacing } from '@reservations/ui';
-import { discoveryStockImageTerm } from '@reservations/shared';
+import { discoveryStockImageTerm, platformUpload } from '@reservations/shared';
 import PhotoUpload from '@/components/PhotoUpload';
 import MagnificStockPicker from '@/components/MagnificStockPicker';
 import {
@@ -520,6 +520,7 @@ function KindPanel({ kind, hint }: { kind: TaxonomyKind; hint: string }) {
                 valuePropName="value"
               >
                 <PhotoUpload
+                  target={platformUpload.discovery}
                   maxCount={1}
                   alt={defaultPreviewLabel || 'Taxonomy'}
                   placeholderSrc={!(imagePhotosWatch?.length) ? defaultPreviewSrc : null}
@@ -543,7 +544,11 @@ function KindPanel({ kind, hint }: { kind: TaxonomyKind; hint: string }) {
                 extra="Optional smaller mark for chips or compact UI."
                 valuePropName="value"
               >
-                <PhotoUpload maxCount={1} alt={`${defaultPreviewLabel || 'Taxonomy'} icon`} />
+                <PhotoUpload
+                  target={platformUpload.discovery}
+                  maxCount={1}
+                  alt={`${defaultPreviewLabel || 'Taxonomy'} icon`}
+                />
               </Form.Item>
             </Col>
           </Row>

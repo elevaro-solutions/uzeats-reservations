@@ -28,6 +28,7 @@ import {
   TABLE_SHAPE_LABEL_POSITIONS,
   TABLE_SHAPE_LABEL_POSITION_LABELS,
   TABLE_SHAPE_RENDER_PRESETS,
+  platformUpload,
 } from '@reservations/shared';
 import { PageHeader, spacing } from '@reservations/ui';
 import PhotoUpload from '@/components/PhotoUpload';
@@ -356,6 +357,7 @@ function AdminTableShapesContent() {
             extra="SVG preferred. Drawn inside tables on the floor plan."
           >
             <PhotoUpload
+              target={platformUpload['table-shapes']}
               maxCount={1}
               layout="compact"
               alt="Shape icon"

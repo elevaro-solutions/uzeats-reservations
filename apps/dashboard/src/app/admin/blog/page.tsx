@@ -28,6 +28,7 @@ import {
 } from '@ant-design/icons';
 import { PageHeader, StatusTag, spacing } from '@reservations/ui';
 import PhotoUpload from '@/components/PhotoUpload';
+import { platformUpload } from '@reservations/shared';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import {
   ADMIN_BLOG_POSTS,
@@ -514,7 +515,7 @@ function AdminBlogPageContent() {
           </Form.Item>
 
           <Form.Item name="coverPhotos" label="Cover image" valuePropName="value">
-            <PhotoUpload maxCount={1} />
+            <PhotoUpload maxCount={1} target={platformUpload.blog} />
           </Form.Item>
 
           <Row gutter={16}>

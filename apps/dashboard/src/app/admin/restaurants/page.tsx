@@ -95,7 +95,7 @@ import {
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { isPlatformAdmin, isSuperAdmin } from '@/lib/roles';
 import { getPublicWebUrl } from '@/lib/webUrl';
-import { buildRestaurantBookingUrl, resolveDepositPolicy } from '@reservations/shared';
+import { accountUpload, buildRestaurantBookingUrl, resolveDepositPolicy } from '@reservations/shared';
 import { DepositPolicyField } from '@/components/DepositPolicyField';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { useUrlListFilters } from '@/lib/useUrlListFilters';
@@ -1622,6 +1622,7 @@ function AdminRestaurantsContent() {
                     extra="Square mark shown next to the restaurant name on the public page."
                   >
                     <PhotoUpload
+                      target={accountUpload.drafts}
                       value={logoUrl ? [logoUrl] : []}
                       onChange={(urls) => setLogoUrl(urls[0] ?? null)}
                       maxCount={1}
@@ -1634,7 +1635,7 @@ function AdminRestaurantsContent() {
                     label="Photos"
                     extra="Drag to reorder. The first photo is the large hero; the next two appear beside it on the public page."
                   >
-                    <PhotoUpload value={photos} onChange={setPhotos} maxCount={10} />
+                    <PhotoUpload target={accountUpload.drafts} value={photos} onChange={setPhotos} maxCount={10} />
                   </Form.Item>
                 </Col>
               </Row>

@@ -25,6 +25,7 @@ import {
   Typography,
 } from "@/components";
 import { useAuth, type MobileUser } from "@/graphql";
+import { accountUpload } from "@reservations/shared";
 import { PhotoTooLargeError, uploadFile } from "@/graphql/upload";
 import { getGraphQLErrorMessage, getGraphQLFieldErrors } from "@/lib/graphql-errors";
 import { ensurePhotoLibraryAccess } from "@/lib/helpers";
@@ -106,6 +107,7 @@ function EditProfileForm({ user }: { user: MobileUser }) {
       const filename = asset.fileName?.trim() || `avatar-${Date.now()}.jpg`;
       const uploaded = await uploadFile(asset.uri, filename, {
         maxBytes: 5 * 1024 * 1024,
+        target: accountUpload.avatar,
       });
       setAvatarUrl(uploaded.publicUrl);
     } catch (error) {

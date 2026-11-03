@@ -17,10 +17,11 @@ import {
   SafeRemoteImageError,
 } from '../src/lib/safeRemoteImage.js';
 import {
-  buildUploadKey,
+  buildScopedObjectKey,
   sniffAllowedImageContentType,
   uploadObject,
 } from '../src/services/spaces.js';
+import { uploadKeyPrefix } from '@reservations/shared';
 import { Menu } from '../src/models/Menu.js';
 import { Restaurant } from '../src/models/Restaurant.js';
 
@@ -35,6 +36,7 @@ type Ref =
   | {
       kind: 'menu.item.photoUrl';
       menuId: string;
+      restaurantId: string;
       sectionIndex: number;
       itemIndex: number;
     };
@@ -221,6 +223,7 @@ function collectHits(
         add(item.photoUrl, {
           kind: 'menu.item.photoUrl',
           menuId,
+          restaurantId: String(menu.restaurantId),
           sectionIndex,
           itemIndex,
         });
@@ -229,6 +232,23 @@ function collectHits(
   }
 
   return byUrl;
+}
+
+function prefixForRehost(hit: UrlHit): string {
+  const restaurantIds = new Set<string>();
+  let hasMenu = false;
+  let hasBranding = false;
+  for (const ref of hit.refs) {
+    restaurantIds.add(ref.restaurantId);
+    if (ref.kind === 'menu.item.photoUrl') hasMenu = true;
+    else hasBranding = true;
+  }
+  const restaurantId = [...restaurantIds][0]?.toLowerCase();
+  if (restaurantIds.size === 1 && restaurantId && /^[a-f0-9]{24}$/.test(restaurantId)) {
+    const kind = hasMenu && hasBranding ? 'other' : hasMenu ? 'menu' : 'branding';
+    return uploadKeyPrefix({ scope: 'restaurant', restaurantId, kind });
+  }
+  return uploadKeyPrefix({ scope: 'platform', kind: 'imports' });
 }
 
 async function mapPool<T, R>(
@@ -318,7 +338,11 @@ async function main() {
   await mapPool(list, CONCURRENCY, async (hit) => {
     try {
       const fetched = await fetchStoredImage(hit.url);
-      const key = buildUploadKey(filenameHintFromUrl(hit.url), fetched.contentType);
+      const key = buildScopedObjectKey(
+        prefixForRehost(hit),
+        filenameHintFromUrl(hit.url),
+        fetched.contentType,
+      );
       const uploaded = await uploadObject({
         key,
         contentType: fetched.contentType,

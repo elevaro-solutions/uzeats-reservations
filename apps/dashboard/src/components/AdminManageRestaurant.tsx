@@ -77,6 +77,7 @@ import {
   normalizeRestaurantSlug,
   resolveDepositPolicy,
   restaurantCuisinesForForm,
+  restaurantUpload,
 } from '@reservations/shared';
 import { DepositPolicyField } from '@/components/DepositPolicyField';
 import { RichTextArea } from '@/components/RichTextArea';
@@ -904,6 +905,7 @@ export function AdminManageRestaurant({
               extra="Square mark shown next to the restaurant name on the public page."
             >
               <PhotoUpload
+                target={restaurantUpload(restaurant?.id ?? '', 'branding')}
                 value={logoUrl ? [logoUrl] : []}
                 onChange={(urls) => {
                   setLogoUrl(urls[0] ?? null);
@@ -920,6 +922,7 @@ export function AdminManageRestaurant({
               extra="Drag to reorder. The first photo is the large hero; the next two appear beside it on the public page."
             >
               <PhotoUpload
+                target={restaurantUpload(restaurant?.id ?? '', 'branding')}
                 value={photos}
                 onChange={(urls) => {
                   setPhotos(urls);

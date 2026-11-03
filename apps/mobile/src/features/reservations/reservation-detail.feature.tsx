@@ -612,6 +612,7 @@ export function ReservationDetailFeature() {
 
       <AddReviewSheet
         visible={reviewOpen}
+        restaurantId={reservation.restaurant?.id ?? null}
         restaurantName={reservation.restaurant?.name ?? "Restaurant"}
         restaurantPhoto={restaurantPhoto}
         reservationId={reservation.id}

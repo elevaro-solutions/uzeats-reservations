@@ -22,6 +22,7 @@ import { useCreateReview } from "../hooks/use-create-review.hook";
 
 export type AddReviewSheetProps = {
   visible: boolean;
+  restaurantId: string | null;
   restaurantName: string;
   restaurantPhoto?: string | null;
   reservationId: string | null;
@@ -38,6 +39,7 @@ const QUALITY_ROWS = [
 
 export function AddReviewSheet({
   visible,
+  restaurantId,
   restaurantName,
   restaurantPhoto,
   reservationId,
@@ -59,7 +61,7 @@ export function AddReviewSheet({
     hasAllRatings,
     loading,
     handleSubmit,
-  } = useCreateReview({ visible, reservationId, onClose, onSubmitted });
+  } = useCreateReview({ visible, reservationId, restaurantId, onClose, onSubmitted });
 
   // bottomOffset is caret→keyboard; sticky Submit sits in between, and the
   // multiline comment keeps the caret near the top of a tall field.

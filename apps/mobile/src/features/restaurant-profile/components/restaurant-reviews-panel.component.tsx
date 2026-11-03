@@ -107,6 +107,7 @@ export function RestaurantReviewsPanel({
 
       <AddReviewSheet
         visible={sheetOpen}
+        restaurantId={restaurant.id}
         restaurantName={restaurant.name}
         restaurantPhoto={restaurant.photos?.[0]}
         reservationId={reviewEligibility.reservationId}

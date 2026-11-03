@@ -869,6 +869,7 @@ function FloorPageContent() {
           style={{ marginBottom: 0 }}
         >
           <TableFormFields
+            restaurantId={activeRestaurantId ?? ''}
             floorAreas={floorAreas}
             onAddArea={(area) => {
               setCustomFloorAreas((prev) =>

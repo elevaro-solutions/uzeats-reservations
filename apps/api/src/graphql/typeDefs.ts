@@ -4513,7 +4513,14 @@ export const typeDefs = `#graphql
     createReview(input: ReviewInput!): Review!
     upsertMenu(restaurantId: ID!, input: MenuInput!): Menu!
 
-    createUploadUrl(filename: String!, contentType: String!): UploadUrl!
+    """Presigned Spaces PUT. Prefer POST /api/uploads, which sniffs the body and checks the folder."""
+    createUploadUrl(
+      filename: String!
+      contentType: String!
+      scope: String!
+      kind: String!
+      restaurantId: ID
+    ): UploadUrl!
     setUserRole(userId: ID!, role: UserRole!): User!
     adminUpdateUser(userId: ID!, input: AdminUserInput!): User!
     adminCreateUser(input: AdminCreateUserInput!): User!

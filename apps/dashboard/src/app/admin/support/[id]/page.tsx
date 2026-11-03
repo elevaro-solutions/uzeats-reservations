@@ -36,7 +36,7 @@ import {
 } from '@ant-design/icons';
 import type { RcFile } from 'antd/es/upload';
 import { PageHeader, spacing } from '@reservations/ui';
-import { htmlToPlainText } from '@reservations/shared';
+import { accountUpload, htmlToPlainText } from '@reservations/shared';
 import { SupportHtml } from '@/components/SupportHtml';
 import { SupportTicketThread } from '@/components/SupportTicketThread';
 import { RichTextEditor } from '@/components/RichTextEditor';
@@ -152,10 +152,9 @@ export default function SupportTicketDetailPage() {
     }
     setUploading(true);
     try {
-      const { publicUrl, key } = await uploadFile(
-        file,
-        file.name,
-      );
+      const { publicUrl, key } = await uploadFile(file, file.name, {
+        target: accountUpload.support,
+      });
       await addAttachment({
         variables: {
           ticketId: id,

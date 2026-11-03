@@ -14,6 +14,7 @@ import {
   Switch,
 } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { restaurantUpload } from '@reservations/shared';
 import PhotoUpload from '@/components/PhotoUpload';
 import {
   TABLE_SHAPE_SELECT_OPTIONS,
@@ -176,12 +177,14 @@ type TableFormFieldsProps = {
   onAddArea: (area: string) => void;
   /** When false, omit shape (e.g. surfaces that don't show the floor plan). Default true. */
   showShape?: boolean;
+  restaurantId: string;
 };
 
 export function TableFormFields({
   floorAreas,
   onAddArea,
   showShape = true,
+  restaurantId,
 }: TableFormFieldsProps) {
   const form = Form.useFormInstance();
   const depositRequired = Form.useWatch('depositRequired', form);
@@ -384,7 +387,7 @@ export function TableFormFields({
         tooltip={tableFormTips.photoUrl}
         style={{ marginBottom: 0 }}
       >
-        <PhotoUpload maxCount={1} />
+        <PhotoUpload maxCount={1} target={restaurantUpload(restaurantId, 'floor')} />
       </Form.Item>
     </>
   );
