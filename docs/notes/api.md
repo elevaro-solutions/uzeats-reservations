@@ -1,5 +1,14 @@
 # API — Learnings & Observations
 
+## [2026-11-03] QA checklist catalog is v0.97.1
+- `QA_CHECKLIST_RELEASE` is `0.97.1`. Catalog groups are Restaurants, Diner web, and Partner Hub. v0.97.0 listing / App Store / billing items stay on that release’s `QaReleaseChecklist` row.
+- Why it matters: Sign-off for this gate is restaurant-create email/phone errors, the review cuisine line, deposit cap, install bar, and overview link wrap — not the previous visibility work.
+
+## [2026-11-03] Duplicate account keys must be ConflictError, not a plain Error
+- `adminCreateOwnerUser` / `adminCreateUser` throw `ConflictError` for an existing email or phone (`Email already registered`, `Phone already in use`) before insert. `formatMongooseError` maps Mongo `11000` the same way so a race still returns `CONFLICT` instead of a masked internal error. Messages do not echo the stored phone or email.
+- GraphQL scalar coercion (`Int cannot represent non 32-bit…`) is rewritten in `formatError` to a validation message. Production still masks unexpected resolver throws.
+- Why it matters: A plain `Error` or `MongoServerError` becomes “Internal server error” when `NODE_ENV=production`. User-facing conflicts have to be `AppError` (or mapped in `formatMongooseError`).
+
 ## [2026-11-03] QA checklist catalog is v0.97.0
 - `QA_CHECKLIST_RELEASE` is `0.97.0`. Catalog groups are Restaurant listing, Downloads, Billing, and Dev. v0.96.0 Order online / Stripe hosted invoice items stay on that release’s `QaReleaseChecklist` row.
 - Why it matters: Sign-off for this gate is visibility / activity, Standing vs Listing, App Store badges, admin invoice detail, Base upgrade, UTC due dates, and terminal PaymentIntent pay — not the previous hosted-invoice work.

@@ -14,6 +14,7 @@ import {
   assertManagerSeatsAvailable,
   wouldConsumeManagerSeat,
 } from './managerSeats.js';
+import { ConflictError } from '../lib/errors.js';
 
 export async function startImpersonation(adminId: string, targetUserId: string) {
   if (adminId === targetUserId) throw new Error('Cannot impersonate yourself');
@@ -164,7 +165,11 @@ export async function adminCreateOwnerUser(input: {
 }) {
   const email = input.email.toLowerCase();
   const existing = await User.findOne({ email });
-  if (existing) throw new Error('Email already registered');
+  if (existing) throw new ConflictError('Email already registered');
+  if (input.phone) {
+    const phoneTaken = await User.findOne({ phone: input.phone });
+    if (phoneTaken) throw new ConflictError('Phone already in use');
+  }
 
   const user = await User.create({
     email,
@@ -206,10 +211,10 @@ export async function adminCreateUser(input: {
 
   const email = input.email.toLowerCase();
   const existing = await User.findOne({ email });
-  if (existing) throw new Error('Email already registered');
+  if (existing) throw new ConflictError('Email already registered');
   if (input.phone) {
     const phoneTaken = await User.findOne({ phone: input.phone });
-    if (phoneTaken) throw new Error('Phone already in use');
+    if (phoneTaken) throw new ConflictError('Phone already in use');
   }
 
   const restaurantIds =

@@ -224,6 +224,24 @@ function mapCreateApiErrorToFields(
     return true;
   }
 
+  if (/phone already in use/i.test(msg)) {
+    setMode('new');
+    form.setFieldsValue({ ownerMode: 'new' });
+    form.setFields([
+      {
+        name: 'ownerPhone',
+        errors: [
+          'This phone number is already registered. Use a different number, leave it blank, or link the existing account.',
+        ],
+      },
+    ]);
+    setStep(0);
+    requestAnimationFrame(() => {
+      form.scrollToField('ownerPhone', { block: 'center', behavior: 'smooth' });
+    });
+    return true;
+  }
+
   if (/owner user not found/i.test(msg)) {
     setMode('existing');
     form.setFieldsValue({ ownerMode: 'existing' });
@@ -1718,7 +1736,7 @@ function AdminRestaurantsContent() {
                   dependencies={['depositRequired']}
                   rules={[depositAmountWhenRequiredRule]}
                 >
-                  <InputNumber min={0} step={1} style={{ width: '100%' }} prefix="$" />
+                  <InputNumber min={0} max={100000} step={1} style={{ width: '100%' }} prefix="$" />
                 </Form.Item>
                 </Col>
                 <Col span={24}>
@@ -1813,7 +1831,9 @@ function AdminRestaurantsContent() {
                           </Text>
                           <Text>
                             <Text type="secondary">Cuisine: </Text>
-                            {values.cuisine || '—'}
+                            {(Array.isArray(values.cuisines) && values.cuisines.length
+                              ? values.cuisines.join(', ')
+                              : values.cuisine) || '—'}
                           </Text>
                           <Text>
                             <Text type="secondary">Price range: </Text>

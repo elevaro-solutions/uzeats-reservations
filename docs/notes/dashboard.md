@@ -1,5 +1,13 @@
 # Dashboard — Learnings & Observations
 
+## [2026-11-03] QA checklist catalog is v0.97.1
+- `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.97.1`. Testers use Admin → Restaurants Add restaurant for duplicate email/phone, cuisine on Review, and the $100,000 deposit cap; diner web phone width for the install bar; and a restaurant Overview for wrapping public URLs.
+- Why it matters: Do not re-test v0.97.0 visibility / App Store / billing items on this gate. Older sign-off stays on that version’s row and Versions.
+
+## [2026-11-03] Add restaurant maps email and phone conflicts onto the owner step
+- Create treats API messages `Email already registered` and `Phone already in use` as field errors on Owner (step 0), not a toast that only says the raw sentence. Review reads `cuisines` (the form field), not the unused `cuisine` key. Deposit USD is capped at $100,000 so cents stay inside GraphQL `Int`.
+- Why it matters: The owner phone input is US E.164 (`+1` + 10 digits). Reusing a number already on an account must say so on Phone; do not look for a separate `cuisine` form value on Review.
+
 ## [2026-11-03] QA checklist catalog is v0.97.0
 - `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.97.0`. Testers use Admin → Restaurants for visibility / Standing vs Listing / reasons, diner web for search hide and closed cards, downloads / Partner Hub for App Store badges, Admin invoice detail, and owner Billing for Base upgrade, UTC due dates, and Pay now.
 - Why it matters: Do not re-test v0.96.0 Order online / hosted invoice items on this gate. Older sign-off stays on that version’s row and Versions.

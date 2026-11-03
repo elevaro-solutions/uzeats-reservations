@@ -77,9 +77,12 @@ export function RestaurantSlugPanel({ restaurant, canRequest }: RestaurantSlugPa
 
   if (!canRequest) {
     return (
-      <div>
+      <div style={{ minWidth: 0, maxWidth: '100%' }}>
         <Text type="secondary">Public URL</Text>
-        <Paragraph copyable={{ text: currentUrl }} style={{ marginBottom: 0 }}>
+        <Paragraph
+          copyable={{ text: currentUrl }}
+          style={{ marginBottom: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+        >
           <a href={currentUrl} target="_blank" rel="noreferrer">
             {currentUrl}
           </a>
@@ -122,9 +125,16 @@ export function RestaurantSlugPanel({ restaurant, canRequest }: RestaurantSlugPa
   };
 
   return (
-    <div>
+    <div style={{ minWidth: 0, maxWidth: '100%' }}>
       <Text type="secondary">Current public URL</Text>
-      <Paragraph copyable={{ text: currentUrl }} style={{ marginBottom: spacing.sm }}>
+      <Paragraph
+        copyable={{ text: currentUrl }}
+        style={{
+          marginBottom: spacing.sm,
+          overflowWrap: 'anywhere',
+          wordBreak: 'break-word',
+        }}
+      >
         <a href={currentUrl} target="_blank" rel="noreferrer">
           {currentUrl}
         </a>

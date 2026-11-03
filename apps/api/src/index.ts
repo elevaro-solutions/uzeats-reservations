@@ -39,7 +39,7 @@ import {
 import { startMessengerBotFeeBillingProcessor } from "./services/messengerBot/billing.js";
 import { messengerBotWebhookHandler } from "./routes/messengerBotWebhook.js";
 import { logger } from "./lib/logger.js";
-import { AppError, formatMongooseError } from "./lib/errors.js";
+import { AppError, formatGraphqlInputMessage, formatMongooseError } from "./lib/errors.js";
 import { posRouter } from "./routes/pos.js";
 import { partnerRouter } from "./routes/partner.js";
 import { uploadsRouter, videoUploadsRouter } from "./routes/uploads.js";
@@ -193,6 +193,14 @@ async function main() {
             code: stripeError.code,
             ...(stripeError.details ?? {}),
           },
+        };
+      }
+
+      const inputMessage = formatGraphqlInputMessage(formattedError.message);
+      if (inputMessage) {
+        return {
+          message: inputMessage,
+          extensions: { code: "VALIDATION_ERROR" },
         };
       }
 

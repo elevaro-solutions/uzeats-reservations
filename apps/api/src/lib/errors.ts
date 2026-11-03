@@ -47,6 +47,26 @@ export class PlanFeatureError extends AppError {
   }
 }
 
+function duplicateKeyField(err: object): string | undefined {
+  const keyPattern = (err as { keyPattern?: Record<string, unknown> }).keyPattern;
+  if (keyPattern && typeof keyPattern === 'object') {
+    const key = Object.keys(keyPattern)[0];
+    if (key) return key;
+  }
+  const message = (err as { message?: string }).message ?? '';
+  const indexed = message.match(/index:\s+([A-Za-z0-9_.]+)/);
+  return indexed?.[1];
+}
+
+/** User-facing copy for a unique-index collision. Do not include the stored value. */
+export function duplicateKeyMessage(field: string | undefined): string {
+  const key = (field ?? '').toLowerCase();
+  if (key.includes('phone')) return 'Phone already in use';
+  if (key.includes('email')) return 'Email already registered';
+  if (key.includes('slug')) return 'That URL slug is already in use';
+  return 'That value is already in use';
+}
+
 export function formatMongooseError(err: unknown): AppError | null {
   if (!err || typeof err !== 'object') return null;
   const name = (err as { name?: string }).name;
@@ -60,6 +80,29 @@ export function formatMongooseError(err: unknown): AppError | null {
   }
   if (name === 'CastError') {
     return new ValidationError('Invalid ID or field value');
+  }
+  const code = (err as { code?: number }).code;
+  const message = (err as { message?: string }).message ?? '';
+  if (code === 11000 || (name === 'MongoServerError' && message.includes('E11000'))) {
+    return new ConflictError(duplicateKeyMessage(duplicateKeyField(err)));
+  }
+  return null;
+}
+
+/**
+ * GraphQL scalar coercion fails before the resolver, so production `formatError`
+ * would otherwise hide it as an internal error.
+ */
+export function formatGraphqlInputMessage(message: string | undefined): string | null {
+  if (!message) return null;
+  const intOverflow = message.match(
+    /Int cannot represent non 32-bit signed integer value: (-?\d+)/,
+  );
+  if (intOverflow) {
+    return `A number in this form is too large (${intOverflow[1]}). Use a smaller amount.`;
+  }
+  if (/^(Float|String|Boolean|ID) cannot represent /.test(message)) {
+    return message;
   }
   return null;
 }

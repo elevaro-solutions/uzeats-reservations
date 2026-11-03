@@ -22,20 +22,37 @@ export const MOBILE_APPS = {
 export type MobileAppId = keyof typeof MOBILE_APPS;
 export type MobileAppListing = (typeof MOBILE_APPS)[MobileAppId];
 
-export function isIosClient(nav: {
+export type MobileNavHints = {
   userAgent?: string;
   platform?: string;
   maxTouchPoints?: number;
-}): boolean {
+};
+
+/** Prefer App Store, Play Store, or both when the client is ambiguous (e.g. desktop phone preview). */
+export type MobileStorePreference = 'ios' | 'android' | 'both';
+
+export function isIosClient(nav: MobileNavHints): boolean {
   if (/iPad|iPhone|iPod/i.test(nav.userAgent ?? '')) return true;
   return nav.platform === 'MacIntel' && (nav.maxTouchPoints ?? 0) > 1;
 }
 
+export function isAndroidClient(nav: MobileNavHints): boolean {
+  return /Android/i.test(nav.userAgent ?? '');
+}
+
+export function mobileStorePreference(nav?: MobileNavHints): MobileStorePreference {
+  if (nav && isIosClient(nav)) return 'ios';
+  if (nav && isAndroidClient(nav)) return 'android';
+  return 'both';
+}
+
 export function preferredMobileStoreUrl(
   listing: MobileAppListing,
-  nav?: { userAgent?: string; platform?: string; maxTouchPoints?: number },
+  nav?: MobileNavHints,
 ): string {
   if (nav && isIosClient(nav)) return listing.iosUrl;
+  // Android and ambiguous clients (desktop phone preview, missing UA): Play for
+  // single-CTA surfaces. Use mobileStorePreference() when showing both stores.
   return listing.androidUrl;
 }
 

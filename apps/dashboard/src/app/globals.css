@@ -227,6 +227,18 @@ a {
   box-shadow: var(--shadow-sm);
 }
 
+/* Keep long public URLs / external links inside Overview description cards */
+.rt-overview-descriptions .ant-descriptions-view > table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.rt-overview-descriptions .ant-descriptions-item-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .rt-form-section-title {
   margin: 0 0 4px;
   font-size: 15px;

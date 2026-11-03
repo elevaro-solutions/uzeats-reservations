@@ -93,6 +93,9 @@ export const depositAmountWhenRequiredRule = ({
     if (getFieldValue('depositRequired') && !(Number(value) > 0)) {
       return Promise.reject(new Error('Enter a deposit amount greater than $0'));
     }
+    if (value != null && value !== '' && Number(value) > 100_000) {
+      return Promise.reject(new Error('Deposit amount cannot be more than $100,000'));
+    }
     return Promise.resolve();
   },
 });

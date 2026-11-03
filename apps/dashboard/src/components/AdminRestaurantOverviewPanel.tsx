@@ -72,8 +72,13 @@ function ExternalLink({ href }: { href: string }) {
       target="_blank"
       rel="noopener noreferrer"
       title={href}
-      ellipsis
-      style={{ maxWidth: '100%', display: 'inline-block' }}
+      style={{
+        display: 'block',
+        maxWidth: '100%',
+        overflowWrap: 'anywhere',
+        wordBreak: 'break-word',
+        whiteSpace: 'normal',
+      }}
     >
       {compactUrl(href)}
     </Typography.Link>
@@ -245,7 +250,12 @@ export function AdminRestaurantOverviewPanel({
                   No description yet.
                 </Paragraph>
               )}
-              <Descriptions column={{ xs: 1, sm: 3 }} size="small">
+              <Descriptions
+                className="rt-overview-descriptions"
+                column={{ xs: 1, sm: 3 }}
+                size="small"
+                styles={{ content: { minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' } }}
+              >
                 <Descriptions.Item label="Cuisine">{restaurant.cuisine || '—'}</Descriptions.Item>
                 <Descriptions.Item label="Price">
                   {priceRangeLabel(restaurant.priceRange || 1)}
@@ -263,15 +273,15 @@ export function AdminRestaurantOverviewPanel({
                 </Descriptions.Item>
                 <Descriptions.Item label="Public URL" span={3}>
                   {publicUrl && restaurant.slug ? (
-                    <Space orientation="vertical" size={2}>
+                    <div style={{ minWidth: 0, maxWidth: '100%' }}>
                       <ExternalLink href={publicUrl} />
                       {restaurantVisibility(restaurant.visibility) === 'hidden' ||
                       restaurantActivity(restaurant.activity) === 'inactive' ? (
-                        <Text type="secondary">
+                        <Text type="secondary" style={{ display: 'block', marginTop: 2 }}>
                           Hidden from diner search and the public page.
                         </Text>
                       ) : null}
-                    </Space>
+                    </div>
                   ) : (
                     '—'
                   )}
@@ -281,7 +291,12 @@ export function AdminRestaurantOverviewPanel({
           </Col>
           <Col xs={24} md={10}>
             <Card title="Contact & location">
-              <Descriptions column={1} size="small">
+              <Descriptions
+                className="rt-overview-descriptions"
+                column={1}
+                size="small"
+                styles={{ content: { minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' } }}
+              >
                 <Descriptions.Item label="Phone">
                   {phoneDisplay ? (
                     <Typography.Text copyable={{ text: restaurant.phone ?? phoneDisplay }}>

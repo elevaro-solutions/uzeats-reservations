@@ -4,6 +4,20 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.97.1] — 2026-11-03
+
+### Added
+- Partner Hub `/admin/qa` tasks for this release: duplicate owner email and phone on Add restaurant, Review cuisines, $100,000 deposit cap, diner install bar, and Overview link wrap
+
+### Changed
+- Diner web mobile install bar: iPhone opens the App Store, Android opens Google Play, and an unknown device gets one Install button to the downloads page (both store badges) instead of guessing a store in the bar
+
+### Fixed
+- Super Admin Add restaurant no longer shows Internal server error when the new owner’s email or phone is already registered. The Owner step names the email or phone so you can change it, leave the phone blank, or link the existing account
+- Add restaurant Review lists the cuisines selected on Details
+- Deposit amount cannot be more than $100,000 (a larger number no longer fails as Internal server error)
+- Partner Hub restaurant Overview: long public URL (and other external links) wrap inside the About / Contact cards instead of overflowing the card edge
+
 ## [0.97.0] — 2026-11-03
 
 ### Added
