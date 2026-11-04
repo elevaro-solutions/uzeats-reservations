@@ -6,7 +6,7 @@ import { Card, Col, Row, Select, Statistic, Typography, Alert } from 'antd';
 import { TrophyOutlined } from '@ant-design/icons';
 import { PageHeader, colors, radii } from '@reservations/ui';
 import { useQuery } from '@/lib/apollo-hooks';
-import { MY_RESTAURANTS, RESTAURANT_LOYALTY_STATS } from '@/lib/graphql';
+import { MY_RESTAURANTS_SHELL, RESTAURANT_LOYALTY_STATS } from '@/lib/graphql';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 
@@ -16,7 +16,7 @@ export default function RestaurantLoyaltyPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
-  const { data: restaurantsData, loading: restaurantsLoading } = useQuery(MY_RESTAURANTS, {
+  const { data: restaurantsData, loading: restaurantsLoading } = useQuery(MY_RESTAURANTS_SHELL, {
     skip: !user,
   });
 

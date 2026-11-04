@@ -105,6 +105,16 @@ import {
   recordBlogPostRead,
 } from "../services/blogPosts.js";
 import {
+  exportLegalAgreementPdf,
+  exportSignedLegalAgreementPdf,
+  getAgreementCompliance,
+  getLegalAgreement,
+  getPartnerAgreementCompliance,
+  mapLegalAgreement,
+  signCurrentAgreement,
+} from "../services/legalAgreements.js";
+import { agreementSignatureSchema } from "@reservations/shared";
+import {
   getDiscoveryTaxonomyBySlug,
   listPublicDiscoveryTaxonomies,
 } from "../services/discoveryTaxonomy.js";
@@ -414,6 +424,7 @@ import {
 } from "../services/reports.js";
 import {
   appendPlanToOrder,
+  applyExclusiveFeaturedOnPricing,
   BUILTIN_PLAN_KEYS,
   getDeletedPlanKeys,
   getEffectivePlan,
@@ -433,6 +444,8 @@ import {
   pickDiscountOverrides,
   toPlainPlanOverride,
   uniquePlanKey,
+  writePlanOverridesMap,
+  type PlanOverrideFields,
   applyStripeModeToConfig,
   applyVirtualRoomPricing,
   getStripeClientConfig,
@@ -456,6 +469,7 @@ import { startReconstruction } from "../services/virtualRoomReconstruction.js";
 import { getDeveloperInfo } from "../services/developerInfo.js";
 import {
   confirmInvoicePayment,
+  confirmOpenInvoicesPayment,
   countOpenInvoices,
   createManualInvoice,
   ensureInvoicePayLink,
@@ -475,6 +489,7 @@ import {
   setInvoiceStatus,
   setInvoiceStatuses,
   startInvoicePayment,
+  startOpenInvoicesPayment,
 } from "../services/invoices.js";
 import {
   extendBillingGrace,
@@ -967,6 +982,43 @@ export const resolvers = {
 
     blogPost: async (_: unknown, args: { slug: string }) =>
       getBlogPostBySlug(args.slug),
+
+    legalAgreement: async (_: unknown, args: { key: string }) =>
+      mapLegalAgreement(await getLegalAgreement(args.key)),
+
+    legalAgreementPdf: async (_: unknown, args: { key: string }) =>
+      exportLegalAgreementPdf(args.key),
+
+    mySignedLegalAgreementPdf: async (
+      _: unknown,
+      args: { key: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      return exportSignedLegalAgreementPdf(user._id.toString(), args.key);
+    },
+
+    partnerAgreementCompliance: async (
+      _: unknown,
+      __: unknown,
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      return getPartnerAgreementCompliance(user._id.toString(), user.role);
+    },
+
+    myAgreementCompliance: async (
+      _: unknown,
+      args: { key: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      return getAgreementCompliance(
+        user._id.toString(),
+        args.key as "terms_of_use" | "partner_agreement",
+        { required: true },
+      );
+    },
 
     discoveryTaxonomies: async (
       _: unknown,
@@ -3728,7 +3780,10 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const input = registerSchema.parse(args.input);
-      const result = await registerWithEmail(input);
+      const result = await registerWithEmail(input, {
+        ip: ctx.req.ip,
+        userAgent: ctx.req.get("user-agent") ?? undefined,
+      });
       const app = resolveBrowserAuthApp(ctx.req);
       if (app) setAuthCookies(ctx.res, result, app, result.user.role);
       return {
@@ -3744,7 +3799,10 @@ export const resolvers = {
       ctx: GraphQLContext,
     ) => {
       const input = registerRestaurantPartnerSchema.parse(args.input);
-      const result = await registerRestaurantPartner(input);
+      const result = await registerRestaurantPartner(input, {
+        ip: ctx.req.ip,
+        userAgent: ctx.req.get("user-agent") ?? undefined,
+      });
       const app = resolveBrowserAuthApp(ctx.req);
       if (app) setAuthCookies(ctx.res, result, app, result.user.role);
       return {
@@ -3945,6 +4003,23 @@ export const resolvers = {
 
     recordBlogPostRead: async (_: unknown, args: { slug: string }) =>
       recordBlogPostRead(args.slug),
+
+    signLegalAgreement: async (
+      _: unknown,
+      args: { key: string; signature: unknown },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      const signature = agreementSignatureSchema.parse(args.signature);
+      return signCurrentAgreement({
+        userId: user._id.toString(),
+        role: user.role,
+        agreementKey: args.key as "terms_of_use" | "partner_agreement",
+        signature,
+        ip: ctx.req.ip,
+        userAgent: ctx.req.get("user-agent") ?? undefined,
+      });
+    },
 
     createOwnerSupportTicket: async (
       _: unknown,
@@ -5466,6 +5541,36 @@ export const resolvers = {
       args: { token: string; paymentIntentId: string },
     ) => confirmInvoicePayment(args.token, args.paymentIntentId),
 
+    startOpenInvoicesPayment: async (
+      _: unknown,
+      args: { restaurantId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      assertCanManageBilling(user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      return startOpenInvoicesPayment(args.restaurantId);
+    },
+
+    confirmOpenInvoicesPayment: async (
+      _: unknown,
+      args: { restaurantId: string; paymentIntentId: string },
+      ctx: GraphQLContext,
+    ) => {
+      const user = requireAuth(ctx);
+      assertCanManageBilling(user.role);
+      await assertRestaurantAccess(
+        user._id.toString(),
+        args.restaurantId,
+        user.role,
+      );
+      return confirmOpenInvoicesPayment(args.restaurantId, args.paymentIntentId);
+    },
+
     createPlatformService: async (
       _: unknown,
       args: {
@@ -5893,6 +5998,7 @@ export const resolvers = {
           trialDays?: number;
           managerSeats?: number;
           visibleOnPricing?: boolean;
+          featuredOnPricing?: boolean;
           highlights?: string[] | null;
           features?: Record<string, boolean>;
         };
@@ -5957,6 +6063,9 @@ export const resolvers = {
         ...(args.input.visibleOnPricing !== undefined
           ? { visibleOnPricing: args.input.visibleOnPricing }
           : {}),
+        ...(args.input.featuredOnPricing !== undefined
+          ? { featuredOnPricing: args.input.featuredOnPricing }
+          : {}),
         ...(args.input.highlights !== undefined
           ? { highlights: sanitizePlanHighlights(args.input.highlights) }
           : {}),
@@ -5971,13 +6080,16 @@ export const resolvers = {
             }
           : {}),
       };
-      if (!(doc as any).planOverrides) (doc as any).planOverrides = new Map();
-      if ((doc as any).planOverrides instanceof Map) {
-        (doc as any).planOverrides.set(key, next);
-      } else {
-        (doc.planOverrides as any)[key] = next;
+      let nextOverrides: Record<string, PlanOverrideFields> = { ...overrides, [key]: next };
+      if (args.input.featuredOnPricing === true) {
+        const catalog = await getEffectivePlans();
+        nextOverrides = applyExclusiveFeaturedOnPricing(
+          nextOverrides,
+          key,
+          catalog.map((plan) => plan.key),
+        );
       }
-      doc.markModified("planOverrides");
+      writePlanOverridesMap(doc, nextOverrides);
       await doc.save();
       const planAfter = await getEffectivePlan(key);
       if (planBefore?.features.threeDView && !planAfter?.features.threeDView) {
@@ -6015,6 +6127,7 @@ export const resolvers = {
           trialDays?: number;
           managerSeats?: number;
           visibleOnPricing?: boolean;
+          featuredOnPricing?: boolean;
           highlights?: string[] | null;
           features?: Record<string, boolean>;
         };
@@ -6032,6 +6145,7 @@ export const resolvers = {
         ...Object.keys(overrides),
       ]);
       const key = uniquePlanKey(name, existingKeys);
+      const featuredOnPricing = args.input.featuredOnPricing === true;
 
       const next = {
         name,
@@ -6053,19 +6167,21 @@ export const resolvers = {
         trialDays: args.input.trialDays ?? 0,
         managerSeats: normalizeManagerSeats(args.input.managerSeats),
         visibleOnPricing: args.input.visibleOnPricing !== false,
+        featuredOnPricing,
         ...(args.input.highlights !== undefined
           ? { highlights: sanitizePlanHighlights(args.input.highlights) }
           : {}),
         features: args.input.features ?? {},
       };
 
-      if (!(doc as any).planOverrides) (doc as any).planOverrides = new Map();
-      if ((doc as any).planOverrides instanceof Map) {
-        (doc as any).planOverrides.set(key, next);
-      } else {
-        (doc.planOverrides as any)[key] = next;
+      let nextOverrides: Record<string, PlanOverrideFields> = { ...overrides, [key]: next };
+      if (featuredOnPricing) {
+        nextOverrides = applyExclusiveFeaturedOnPricing(nextOverrides, key, [
+          ...existingKeys,
+          key,
+        ]);
       }
-      doc.markModified("planOverrides");
+      writePlanOverridesMap(doc, nextOverrides);
       appendPlanToOrder(doc, key);
       await doc.save();
       await logAudit({

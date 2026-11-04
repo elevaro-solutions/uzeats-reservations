@@ -10,7 +10,7 @@ import { formatUsDateTime, restaurantTimeZone } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   CONVERSATIONS,
   CONVERSATION,
   MESSAGES,
@@ -74,7 +74,7 @@ function MessagesContent() {
   const [draft, setDraft] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
 
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, setRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const activeRestaurant = useMemo(

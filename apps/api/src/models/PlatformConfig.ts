@@ -21,6 +21,11 @@ const planOverrideSchema = new Schema(
     /** Owner-invited manager seats included with this package (≥1). */
     managerSeats: { type: Number, min: 1, max: 100 },
     visibleOnPricing: { type: Boolean, default: true },
+    /**
+     * Highlighted / “popular” card on public /pricing.
+     * At most one package should be true; unset falls back to Core in the catalog assembler.
+     */
+    featuredOnPricing: { type: Boolean, default: false },
     /** Public pricing card “Includes” lines. Absent means built-in defaults. */
     highlights: { type: [String], default: undefined },
     /** Billing interval. Default 1 month. */

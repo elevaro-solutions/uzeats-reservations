@@ -42,7 +42,7 @@ import {
   MARK_NOTIFICATIONS_READ,
   MY_NOTIFICATIONS,
   MY_OWNER_OVERVIEW,
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   MY_SUBSCRIPTION,
 } from '@/lib/graphql';
 import {
@@ -165,7 +165,7 @@ export default function OverviewPage() {
   const [markRead] = useMutation(MARK_NOTIFICATIONS_READ, {
     refetchQueries: [{ query: MY_NOTIFICATIONS, variables: { limit: ALERTS_FETCH_LIMIT } }],
   });
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId } = usePartnerRestaurant(restaurants);
   const { data: subData } = useQuery(MY_SUBSCRIPTION, {

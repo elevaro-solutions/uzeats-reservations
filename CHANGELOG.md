@@ -4,6 +4,47 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.100.0] — 2026-11-04
+
+### Added
+- Partner Hub `/admin/qa` tasks for this release: agreements editor and versions, signup signatures, 7-day re-sign window, signed-copy PDF, legacy owner signing, Pay all / unpaid list, featured pricing package, Platform hub / QA nav, menu and profile editor stability, and diner review counts / no-show card step
+- Partner Hub `/admin/agreements` (Platform → Content): superadmin rich-text editor for **Terms of Use** and **Restaurant Partner Agreement**, with OpenTable-style defaults seeded on API start
+- Signing an agreement means typing your full legal name or drawing a signature on screen. Diner Create account (Terms of Use) and Partner Hub `/register` Confirm step (Partner Agreement) require it before the account is created. Each signature is stored with version, time, IP address, and device info
+- Saving new agreement content publishes a new version. Restaurant owners see a banner with the days left and have 7 days to re-sign at `/agreements/sign`. After that, Partner Hub sends them to the signing page until they sign
+- Branded reminder emails (Partner Agreement and Terms of Use) go out 1–2 days before the 7-day window ends, with days remaining, a signing link, and a PDF download link
+- Agreements can be downloaded as branded A4 PDFs (Tablevera logo, forest and gold colors) from the signup step, the signing page, and the reminder email. The on-screen view uses the same branding
+- Diner web `/agreements/sign` page to review, download, and re-sign the Terms of Use
+- Partner Hub Settings → Account → **Agreements** card (owners only, also in ⌘K search) opens the Partner Agreement anytime to read, download the PDF, or re-sign
+- Owners with no Partner Agreement signature on file (accounts created before signing existed) see a **Please sign** banner and can sign at `/agreements/sign`. This isn't enforced until a new version is published
+- Super Admin `/admin/agreements` → **Preview signing page** opens the owner signing page in preview mode, with the signature pad visible and signing disabled
+- **Download signed copy** (owner Partner Agreement page and diner Terms of Use page): an A4 PDF with the signature (drawn image or typed name in script), signer name, email, date and time (UTC), agreement version, signing method, IP address, and device. It shows the exact text of the version that was signed, even after a newer version is published
+- After signing, the page stays open with the signed copy ready to download instead of jumping to Overview
+- Partner Hub setup guide → **Go live** has a required **Sign the Partner Agreement** step (owners only). It's done once the current version is signed, and shows the days left when an updated version is waiting
+- Partner Hub Admin → Pricing: **Featured / popular** switch per package highlights that card on public `/pricing` (only one package at a time)
+- Partner Hub Billing: **Pay all** settles every open unpaid invoice in one Stripe charge instead of paying each invoice link separately (one banner when 2+ invoices are open)
+- Partner Hub `/billing/unpaid` lists every open invoice; the Billing banner link **N unpaid invoices** opens that page with **Pay all**
+- Partner Hub `/menu` loading spinners while locations and dishes load
+
+### Changed
+- Public restaurant `/pricing` featured card follows `featuredOnPricing` from the plan catalog instead of always highlighting Core
+- Super Admin Partner Hub: QA dashboard, checklist, history, issues, versions, and guide live under Platform (pin from search if you want them in the sidebar). QA-role users still get the dedicated QA menu
+- Partner Hub `/admin/platform` groups link cards into Setup, Configuration, Content, Email, Monitoring, QA, and Advanced (with a filter), matching Settings
+- Partner Hub `/menu` loads the shell location list plus a single-restaurant menu query instead of the full `MY_RESTAURANTS` payload (tables, shifts, floor plan)
+- Partner Hub `/restaurant-profile` loads shell locations plus `RESTAURANT_OWNER_EDITOR` for the active venue instead of full `MY_RESTAURANTS`
+- Most Partner Hub pages that only need a location picker now use `MY_RESTAURANTS_SHELL` (with zip/country/lat/lng for timezone) instead of full `MY_RESTAURANTS`; floor plan, tables/shifts, virtual room, and reservations list still load the full query where nested data is required
+
+### Fixed
+- Diner restaurant page review counts ("Showing X of N", **Show all N reviews**, and the rating summary) now use the number of published reviews instead of the stored seed/import count; "1 review" is singular. Seed recomputes rating/count for restaurants it gives reviews
+- No-show / late-cancel fee: the booking card step now only offers cards (incl. Apple Pay / Google Pay), so diners can no longer save region-locked methods like BLIK that Stripe refuses to charge in USD. Charging an already-saved incompatible method fails with a short, readable reason instead of Stripe's raw error
+- Partner Hub admin restaurant Overview, detail header, and Restaurants table show every selected cuisine instead of only the first
+- Diner web impersonation bar: **Exit impersonation** button is now readable (white button on the green bar)
+- Partner Hub `/menu` Save no longer fails with `BAD_USER_INPUT` when updating `menuUrl` (Apollo `__typename` on `location` was sent as `LocationInput`)
+- Partner Hub `/menu` no longer collapses expanded dishes or resets the form (~30–60s) when shell/setup polls update Apollo cache; menu photo uploads are not interrupted by that remount
+- Partner Hub `/restaurant-profile` (including Photos) no longer resets the form or gallery when shell/setup polls update Apollo cache; unsaved photo uploads and reorders are preserved
+- Partner Hub `/profile`, admin restaurant menu editor, and Admin Manage Restaurant no longer re-hydrate (and wipe photos / collapse dishes) on every Apollo restaurant object identity change
+- Partner Hub `/menu` and `/restaurant-profile` no longer crash when no restaurant is selected yet (`undefined === undefined` restaurant id guard)
+- `pnpm run build` passes again: API create/update plan package typechecks, and diner web no longer warns about the deprecated `middleware` file or edge-runtime share images (now `proxy.ts`; Open Graph / Twitter images are prerendered statically)
+
 ## [0.99.0] — 2026-11-03
 
 ### Added

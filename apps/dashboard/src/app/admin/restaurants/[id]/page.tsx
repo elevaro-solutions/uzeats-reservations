@@ -34,7 +34,7 @@ import {
   ReloadOutlined,
   TableOutlined,
 } from '@ant-design/icons';
-import { buildRestaurantBookingUrl } from '@reservations/shared';
+import { buildRestaurantBookingUrl, formatRestaurantCuisines } from '@reservations/shared';
 import {
   PageHeader,
   StatusTag,
@@ -200,7 +200,7 @@ function AdminRestaurantDetailContent() {
 
   const identityLine = restaurant
     ? [
-        restaurant.cuisine,
+        formatRestaurantCuisines(restaurant) || null,
         priceRangeLabel(restaurant.priceRange || 1),
         [restaurant.address?.city, restaurant.address?.state].filter(Boolean).join(', ') || null,
       ]

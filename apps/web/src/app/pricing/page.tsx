@@ -230,6 +230,7 @@ type ApiPlan = {
   websiteCoverFeeCents: number;
   trialDays: number;
   visibleOnPricing: boolean;
+  featuredOnPricing?: boolean;
   isCustom: boolean;
   highlights?: string[] | null;
 };
@@ -253,6 +254,7 @@ const FALLBACK_PLANS: ApiPlan[] = [
     websiteCoverFeeCents: 350,
     trialDays: 0,
     visibleOnPricing: true,
+    featuredOnPricing: false,
     isCustom: false,
     highlights: [
       'Public Tablevera listing',
@@ -269,6 +271,7 @@ const FALLBACK_PLANS: ApiPlan[] = [
     websiteCoverFeeCents: 10,
     trialDays: 30,
     visibleOnPricing: true,
+    featuredOnPricing: false,
     isCustom: false,
     highlights: [...PLAN_HIGHLIGHTS.basic],
   },
@@ -281,6 +284,7 @@ const FALLBACK_PLANS: ApiPlan[] = [
     websiteCoverFeeCents: 0,
     trialDays: 30,
     visibleOnPricing: true,
+    featuredOnPricing: true,
     isCustom: false,
     highlights: [...PLAN_HIGHLIGHTS.core],
   },
@@ -293,6 +297,7 @@ const FALLBACK_PLANS: ApiPlan[] = [
     websiteCoverFeeCents: 0,
     trialDays: 30,
     visibleOnPricing: true,
+    featuredOnPricing: false,
     isCustom: false,
     highlights: [...PLAN_HIGHLIGHTS.pro],
   },
@@ -329,7 +334,7 @@ function getPlanDisplay(
 function getDiscountBadge(
   display: ReturnType<typeof getPlanPriceDisplay>,
   plan: ApiPlan,
-  isCore: boolean,
+  isFeatured: boolean,
   billingPeriod: BillingPeriod,
   annualBilling: AnnualBillingSettings,
 ): string | null {
@@ -340,11 +345,11 @@ function getDiscountBadge(
     annualBillingAppliesToPlan(plan.key, annualBilling)
   ) {
     const percent = annualBilling.discountPercent;
-    return isCore ? `Special offer · ${percent}% off` : `${percent}% off`;
+    return isFeatured ? `Special offer · ${percent}% off` : `${percent}% off`;
   }
 
   if (display.annualSavingsPercent && display.annualSavingsPercent > 0 && billingPeriod === 'annual') {
-    return isCore
+    return isFeatured
       ? `Special offer · ${display.annualSavingsPercent}% off`
       : `${display.annualSavingsPercent}% off`;
   }
@@ -450,7 +455,7 @@ export default function PricingPage() {
   }, [annualBilling]);
 
   const gridColumns = `minmax(200px, 1.5fr) repeat(${visiblePlans.length}, minmax(110px, 1fr))`;
-  const coreColumnIndex = visiblePlans.findIndex((plan) => plan.key === 'core');
+  const featuredColumnIndex = visiblePlans.findIndex((plan) => plan.featuredOnPricing === true);
 
   const updateCarouselOverflow = useCallback(() => {
     const el = scrollerRef.current;
@@ -580,7 +585,7 @@ export default function PricingPage() {
               role="list"
             >
               {visiblePlans.map((plan) => {
-            const isCore = plan.key === 'core';
+            const isFeatured = plan.featuredOnPricing === true;
             const planKey = plan.key as PlanKey;
             const description =
               plan.description?.trim() || PLAN_BLURBS[planKey] || 'Built for your restaurant.';
@@ -589,7 +594,7 @@ export default function PricingPage() {
               ? plan.highlights
               : (PLAN_HIGHLIGHTS[planKey] ?? []);
             const display = getPlanDisplay(plan, billingPeriod, annualBilling);
-            const badge = getDiscountBadge(display, plan, isCore, billingPeriod, annualBilling);
+            const badge = getDiscountBadge(display, plan, isFeatured, billingPeriod, annualBilling);
             const finePrint = getFinePrint(display, plan, billingPeriod);
             const coverFees = getPlanCoverFees(plan);
             const showStrike =
@@ -609,7 +614,7 @@ export default function PricingPage() {
             return (
               <div key={plan.key} className="pricing-plan-carousel__item" role="listitem">
                 <div
-                  className={`pricing-plan-card${isCore ? ' pricing-plan-card--featured pricing-core-card' : ''}${selectedPlan === plan.key ? ' is-selected' : ''}`}
+                  className={`pricing-plan-card${isFeatured ? ' pricing-plan-card--featured pricing-core-card' : ''}${selectedPlan === plan.key ? ' is-selected' : ''}`}
                   onClick={() => setSelectedPlan(plan.key)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') setSelectedPlan(plan.key);
@@ -634,12 +639,12 @@ export default function PricingPage() {
                   </div>
 
                   <Button
-                    type={isCore ? 'primary' : 'default'}
+                    type={isFeatured ? 'primary' : 'default'}
                     size="large"
                     block
                     className="pricing-plan-card__cta"
                     style={
-                      isCore
+                      isFeatured
                         ? {
                             background: '#fff',
                             color: '#0b3d2e',
@@ -787,7 +792,7 @@ export default function PricingPage() {
               {visiblePlans.map((plan, idx) => (
                 <div
                   key={plan.key}
-                  className={`pricing-compare__plan${idx === coreColumnIndex ? ' is-core' : ''}`}
+                  className={`pricing-compare__plan${idx === featuredColumnIndex ? ' is-core' : ''}`}
                 >
                   <span className="pricing-compare__plan-name">{plan.name}</span>
                   <span className="pricing-compare__plan-price">
@@ -816,7 +821,7 @@ export default function PricingPage() {
                     {visiblePlans.map((plan, idx) => (
                       <div
                         key={plan.key}
-                        className={`pricing-compare__cell${idx === coreColumnIndex ? ' is-core' : ''}`}
+                        className={`pricing-compare__cell${idx === featuredColumnIndex ? ' is-core' : ''}`}
                       >
                         <FeatureValue value={featureValueForPlan(feature, plan)} />
                       </div>
@@ -834,13 +839,13 @@ export default function PricingPage() {
               {visiblePlans.map((plan, idx) => (
                 <div
                   key={plan.key}
-                  className={`pricing-compare__cell${idx === coreColumnIndex ? ' is-core' : ''}`}
+                  className={`pricing-compare__cell${idx === featuredColumnIndex ? ' is-core' : ''}`}
                 >
                   <Button
-                    type={plan.key === 'core' ? 'primary' : 'default'}
+                    type={plan.featuredOnPricing === true ? 'primary' : 'default'}
                     size="small"
                     style={
-                      plan.key === 'core'
+                      plan.featuredOnPricing === true
                         ? { background: '#0b3d2e', borderColor: '#0b3d2e' }
                         : { borderColor: '#0b3d2e', color: '#0b3d2e' }
                     }
@@ -881,10 +886,10 @@ export default function PricingPage() {
                     </div>
                   ))}
                   <Button
-                    type={plan.key === 'core' ? 'primary' : 'default'}
+                    type={plan.featuredOnPricing === true ? 'primary' : 'default'}
                     block
                     style={
-                      plan.key === 'core'
+                      plan.featuredOnPricing === true
                         ? { background: '#0b3d2e', borderColor: '#0b3d2e' }
                         : { borderColor: '#0b3d2e', color: '#0b3d2e' }
                     }

@@ -1,5 +1,15 @@
 # API — Learnings & Observations
 
+## [2026-11-04] QA checklist catalog is v0.100.0
+- `QA_CHECKLIST_RELEASE` is `0.100.0`. Catalog groups are Agreements, Billing, Partner Hub, and Diner web. v0.99.0 QA dashboard / View as items stay on that release’s `QaReleaseChecklist` row and catalog snapshot.
+- `compareReleaseDesc` compares numeric parts, so `0.100.0` sorts above `0.99.0` in History and Dashboard.
+- Why it matters: Sign-off for this gate is legal agreements, Pay all, featured pricing, and editor stability — not the previous QA hub work.
+
+## [2026-11-04] Plan packages can set featuredOnPricing
+- `PlanInfo.featuredOnPricing` marks the highlighted / popular card on public `/pricing`. Unset overrides still default Core to featured so existing catalogs keep the old look.
+- `updatePlanPackage` / `createPlanPackage` with `featuredOnPricing: true` run `applyExclusiveFeaturedOnPricing`, which writes `false` on every other catalog key (including built-ins without prior overrides) so Core’s default fallback cannot leave two featured cards.
+- Why it matters: Do not hardcode `plan.key === 'core'` for the featured card. Clearing Featured without selecting another package leaves none highlighted.
+
 ## [2026-11-03] QA checklist catalog is v0.99.0
 - `QA_CHECKLIST_RELEASE` is `0.99.0`. Catalog groups are QA Hub and Partner Hub. v0.98.0 Spaces upload-folder items stay on that release’s `QaReleaseChecklist` row (and its catalog snapshot).
 - Why it matters: Sign-off for this gate is QA Dashboard / History, catalog snapshots, View as on fail-to-pay venues, and owner lock redirect copy — not the previous upload-folder work.

@@ -42,7 +42,7 @@ import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
   ADD_RESTAURANT_PHOTOS,
   GENERATE_REVIEW_REPLY_DRAFT,
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   REPORT_REVIEW,
   RESTAURANT_REVIEWS,
   REPLY_TO_REVIEW,
@@ -76,7 +76,7 @@ function ReviewsPageContent() {
     defaultPageSize: 20,
   });
 
-  const { data: restData, refetch: refetchRestaurants } = useQuery(MY_RESTAURANTS, {
+  const { data: restData, refetch: refetchRestaurants } = useQuery(MY_RESTAURANTS_SHELL, {
     skip: !user,
   });
   const restaurants = restData?.myRestaurants ?? [];

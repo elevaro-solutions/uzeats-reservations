@@ -95,7 +95,12 @@ import {
 import { useRequireAdmin } from '@/lib/useRequireAdmin';
 import { isPlatformAdmin, isSuperAdmin } from '@/lib/roles';
 import { getPublicWebUrl } from '@/lib/webUrl';
-import { accountUpload, buildRestaurantBookingUrl, resolveDepositPolicy } from '@reservations/shared';
+import {
+  accountUpload,
+  buildRestaurantBookingUrl,
+  formatRestaurantCuisines,
+  resolveDepositPolicy,
+} from '@reservations/shared';
 import { DepositPolicyField } from '@/components/DepositPolicyField';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { useUrlListFilters } from '@/lib/useUrlListFilters';
@@ -1257,7 +1262,10 @@ function AdminRestaurantsContent() {
                     </Link>
                   ),
                 },
-                { title: 'Cuisine', dataIndex: 'cuisine' },
+                {
+                  title: 'Cuisine',
+                  render: (_: unknown, r: RestaurantRecord) => formatRestaurantCuisines(r) || '—',
+                },
                 {
                   title: 'Location',
                   render: (_: unknown, r: RestaurantRecord) =>

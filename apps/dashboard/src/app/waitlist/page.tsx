@@ -46,7 +46,7 @@ import {
 } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import {
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   RESTAURANT_WAITLIST_FULL,
   ADD_IN_HOUSE_WAITLIST,
   UPDATE_WAITLIST_ENTRY,
@@ -115,7 +115,7 @@ function WaitlistPageContent() {
   const [form] = Form.useForm();
   const [selectedGuest, setSelectedGuest] = useState<WaitlistGuestOption | null>(null);
   const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 20 });
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
 

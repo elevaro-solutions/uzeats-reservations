@@ -32,7 +32,7 @@ import {
 } from '@reservations/shared';
 import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
-import { MY_RESTAURANTS, RESTAURANT_RESERVATIONS } from '@/lib/graphql';
+import { MY_RESTAURANTS_SHELL, RESTAURANT_RESERVATIONS } from '@/lib/graphql';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 
 const { Title, Text } = Typography;
@@ -41,7 +41,7 @@ export default function AnalyticsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const client = useApolloClient();
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const [allReservations, setAllReservations] = useState<any[]>([]);

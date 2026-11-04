@@ -14,6 +14,7 @@ import {
   Menu,
   Select,
   Space,
+  Spin,
   Switch,
   Typography,
   Upload,
@@ -31,7 +32,12 @@ import type { FormListFieldData } from 'antd/es/form/FormList';
 import { MAX_POPULAR_MENU_ITEMS, countPopularMenuItems, restaurantUpload } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
-import { MY_RESTAURANTS, UPSERT_MENU, UPDATE_RESTAURANT } from '@/lib/graphql';
+import {
+  MY_RESTAURANTS_SHELL,
+  RESTAURANT_MENU_EDITOR,
+  UPSERT_MENU,
+  UPDATE_RESTAURANT,
+} from '@/lib/graphql';
 import { buildRestaurantInput } from '@/lib/restaurantInput';
 import { uploadFile } from '@/lib/upload';
 import { RichTextArea } from '@/components/RichTextArea';
@@ -81,13 +87,65 @@ const EMPTY_SECTION: MenuSectionForm = {
 /** Active accordion panel keys, keyed by Form.List section field name. */
 type OpenKeysBySection = Record<string, string[]>;
 
+function sectionsFromRestaurant(restaurant: {
+  menu?: {
+    sections?: Array<{
+      name: string;
+      items: Array<{
+        name: string;
+        description?: string;
+        priceCents?: number;
+        dietary?: string[];
+        available?: boolean;
+        popular?: boolean;
+        photoUrl?: string;
+      }>;
+    }>;
+  } | null;
+}): MenuSectionForm[] {
+  if (!restaurant.menu?.sections?.length) {
+    return [
+      {
+        name: 'Starters',
+        items: [{ ...EMPTY_ITEM, name: 'Soup', price: 12 }],
+      },
+    ];
+  }
+  return restaurant.menu.sections.map((s) => ({
+    name: s.name,
+    items: s.items.map((i) => ({
+      name: i.name,
+      description: i.description ?? '',
+      price: (i.priceCents ?? 0) / 100,
+      dietary: i.dietary ?? [],
+      available: i.available ?? true,
+      popular: i.popular ?? false,
+      photoUrl: i.photoUrl ?? undefined,
+    })),
+  }));
+}
+
 export default function MenuPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [form] = Form.useForm<{ sections: MenuSectionForm[] }>();
-  const { data, refetch } = useQuery(MY_RESTAURANTS, { skip: !user });
-  const restaurants = data?.myRestaurants ?? [];
+  const { data: shellData, loading: shellLoading } = useQuery(MY_RESTAURANTS_SHELL, {
+    skip: !user,
+  });
+  const restaurants = shellData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
+  const {
+    data: menuData,
+    loading: menuLoading,
+    refetch,
+  } = useQuery(RESTAURANT_MENU_EDITOR, {
+    skip: !user || !activeRestaurantId,
+    variables: { id: activeRestaurantId },
+  });
+  const restaurant =
+    activeRestaurantId && menuData?.restaurant?.id === activeRestaurantId
+      ? menuData.restaurant
+      : null;
   const [upsertMenu, { loading }] = useMutation(UPSERT_MENU);
   const [updateRestaurant, { loading: savingMenuUrl }] = useMutation(UPDATE_RESTAURANT);
   const [menuUrl, setMenuUrl] = useState('');
@@ -102,52 +160,28 @@ export default function MenuPage() {
   const popularCount = countPopularMenuItems(watchedSections);
   /** Item counts from nested Form.List (authoritative; useWatch can lag on nested lists). */
   const [itemCounts, setItemCounts] = useState<Record<number, number>>({});
-
+  /** Restaurant id whose menu is currently in the form — skip re-hydrate on cache polls. */
+  const hydratedIdRef = useRef<string | null>(null);
+  /** When true, next hydrate resets accordion / category selection (restaurant switch). */
+  const resetEditorUiRef = useRef(true);
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
 
+  // Switching locations: allow a fresh hydrate and collapse UI.
   useEffect(() => {
-    const restaurant = restaurants.find(
-      (r: { id: string }) => r.id === activeRestaurantId,
-    );
-    if (!activeRestaurantId) return;
+    hydratedIdRef.current = null;
+    resetEditorUiRef.current = true;
+  }, [activeRestaurantId]);
 
-    setMenuUrl(restaurant?.menuUrl ?? '');
+  useEffect(() => {
+    if (!activeRestaurantId || !restaurant || restaurant.id !== activeRestaurantId) return;
+    // Keep editor stable while a photo upload is in flight (Form.List remount would abort it).
+    if (uploadingPath) return;
+    if (hydratedIdRef.current === activeRestaurantId) return;
 
-    const nextSections: MenuSectionForm[] = restaurant?.menu?.sections?.length
-      ? restaurant.menu.sections.map(
-          (s: {
-            name: string;
-            items: Array<{
-              name: string;
-              description?: string;
-              priceCents?: number;
-              dietary?: string[];
-              available?: boolean;
-              popular?: boolean;
-              photoUrl?: string;
-            }>;
-          }) => ({
-            name: s.name,
-            items: s.items.map((i) => ({
-              name: i.name,
-              description: i.description ?? '',
-              price: (i.priceCents ?? 0) / 100,
-              dietary: i.dietary ?? [],
-              available: i.available ?? true,
-              popular: i.popular ?? false,
-              photoUrl: i.photoUrl ?? undefined,
-            })),
-          }),
-        )
-      : [
-          {
-            name: 'Starters',
-            items: [{ ...EMPTY_ITEM, name: 'Soup', price: 12 }],
-          },
-        ];
-
+    const nextSections = sectionsFromRestaurant(restaurant);
+    setMenuUrl(restaurant.menuUrl ?? '');
     form.setFieldsValue({ sections: nextSections });
     setItemCounts(
       Object.fromEntries(nextSections.map((s, i) => [i, s.items.length])) as Record<
@@ -155,10 +189,14 @@ export default function MenuPage() {
         number
       >,
     );
-    setOpenKeys({});
-    itemKeysRef.current = {};
-    setActiveSectionName(0);
-  }, [data, activeRestaurantId, form, restaurants]);
+    if (resetEditorUiRef.current) {
+      setOpenKeys({});
+      itemKeysRef.current = {};
+      setActiveSectionName(0);
+      resetEditorUiRef.current = false;
+    }
+    hydratedIdRef.current = activeRestaurantId;
+  }, [activeRestaurantId, restaurant, form, uploadingPath]);
 
   // Keep the side-tab selection in range after removals.
   useEffect(() => {
@@ -190,6 +228,16 @@ export default function MenuPage() {
     }
   }
 
+  if (authLoading || (user && shellLoading && !shellData)) {
+    return (
+      <div style={{ display: 'grid', placeItems: 'center', minHeight: 320 }}>
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  const menuBusy = Boolean(activeRestaurantId) && menuLoading && !restaurant;
+
   return (
     <div component="MenuPage" style={{ display: 'contents' }}><Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <div
@@ -206,22 +254,23 @@ export default function MenuPage() {
         </Title>
         <Space wrap>
           <Select style={{ width: 240 }} {...restaurantSelectProps} />
-          <Button type="primary" htmlType="submit" form="menu-editor-form" loading={loading || savingMenuUrl}>
+          <Button type="primary" htmlType="submit" form="menu-editor-form" loading={loading || savingMenuUrl} disabled={menuBusy || !restaurant}>
             Save menu
           </Button>
         </Space>
       </div>
 
+      {menuBusy ? (
+        <div style={{ display: 'grid', placeItems: 'center', minHeight: 280 }}>
+          <Spin size="large" />
+        </div>
+      ) : (
       <Form
         id="menu-editor-form"
         form={form}
         layout="vertical"
         onFinish={async (values) => {
-          if (!activeRestaurantId) return;
-          const restaurant = restaurants.find(
-            (r: { id: string }) => r.id === activeRestaurantId,
-          );
-          if (!restaurant) return;
+          if (!activeRestaurantId || !restaurant) return;
           try {
             const sections = (values.sections ?? []).map((s) => ({
               name: s.name.trim(),
@@ -254,7 +303,8 @@ export default function MenuPage() {
               upsertMenu({ variables: { restaurantId: activeRestaurantId, input: { sections } } }),
             ]);
             message.success('Menu saved');
-            refetch();
+            // Refresh Apollo cache only — re-applying form values remounts Form.List keys and collapses items.
+            void refetch();
           } catch (err: unknown) {
             message.error(err instanceof Error ? err.message : 'Failed to save menu');
           }
@@ -498,6 +548,7 @@ export default function MenuPage() {
           Save menu
         </Button>
       </Form>
+      )}
     </Space></div>
   );
 }

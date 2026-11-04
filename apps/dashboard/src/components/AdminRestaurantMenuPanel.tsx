@@ -120,8 +120,19 @@ export function AdminRestaurantMenuPanel({
   const [itemCounts, setItemCounts] = useState<Record<number, number>>({});
   const [uploadingPath, setUploadingPath] = useState<string | null>(null);
   const itemKeysRef = useRef<Record<string, string[]>>({});
+  /** Once per restaurant id — parent refetch must not collapse items or wipe uploads. */
+  const hydratedIdRef = useRef<string | null>(null);
+  const resetUiRef = useRef(true);
 
   useEffect(() => {
+    hydratedIdRef.current = null;
+    resetUiRef.current = true;
+  }, [restaurant.id]);
+
+  useEffect(() => {
+    if (uploadingPath) return;
+    if (hydratedIdRef.current === restaurant.id) return;
+
     const sections = restaurant.menu?.sections?.length
       ? restaurant.menu.sections.map((section) => ({
           name: section.name,
@@ -140,12 +151,17 @@ export function AdminRestaurantMenuPanel({
       sections,
       menuUrl: restaurant.menuUrl ?? '',
     });
-    setActivePane(0);
-    setOpenKeys({});
     setItemCounts(
       Object.fromEntries(sections.map((section, index) => [index, section.items.length])),
     );
-  }, [restaurant, form]);
+    if (resetUiRef.current) {
+      setActivePane(0);
+      setOpenKeys({});
+      itemKeysRef.current = {};
+      resetUiRef.current = false;
+    }
+    hydratedIdRef.current = restaurant.id;
+  }, [restaurant, form, uploadingPath]);
 
   const liveSections = watchedSections ?? [];
   const itemCount = liveSections.reduce((count, section) => count + (section.items?.length ?? 0), 0);

@@ -21,7 +21,7 @@ import {
 import { PlusOutlined } from '@ant-design/icons';
 import { BOOKABLE_OCCASIONS, OCCASION_LABELS, restaurantUpload } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
-import { MY_RESTAURANTS } from '@/lib/graphql';
+import { MY_RESTAURANTS_SHELL } from '@/lib/graphql';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import PhotoUpload from '@/components/PhotoUpload';
 import { useFormDirty } from '@/lib/useFormDirty';
@@ -98,7 +98,7 @@ function PackagesPageContent() {
   const [form] = Form.useForm();
   const { dirty, clearDirty, onValuesChange } = useFormDirty();
 
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
 

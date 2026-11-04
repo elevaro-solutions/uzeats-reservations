@@ -41,6 +41,8 @@ const emailTemplateSchema = new Schema(
         'invoice_overdue',
         'invoice_enforcement',
         'docs_access_otp',
+        'partner_agreement_reminder',
+        'terms_of_use_reminder',
       ],
     },
     name: { type: String, required: true },
@@ -477,5 +479,55 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     ].join(''),
     bodyText:
       'You requested access to Tablevera Docs.\n\nYour verification code: {{code}}\n\nThis code expires in 10 minutes. If you did not request it, ignore this email.',
+  },
+  {
+    key: 'partner_agreement_reminder',
+    name: 'Partner Agreement reminder',
+    subject: 'Action needed: re-sign Tablevera Partner Agreement ({{daysRemaining}} left)',
+    description:
+      'Sent 1–2 days before the Partner Agreement re-accept grace period ends. Includes sign and PDF links.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph(
+        'We updated the <strong>{{agreementName}}</strong> (version {{version}}). You have <strong>{{daysRemaining}}</strong> left to review and re-sign before Partner Hub access is limited.',
+      ),
+      emailParagraph(
+        'Sign by typing your full legal name or drawing your signature. You can also download a branded A4 PDF copy.',
+      ),
+      emailButtons([
+        { href: '{{signUrl}}', label: 'Review & sign agreement' },
+        { href: '{{pdfUrl}}', label: 'Download PDF', variant: 'outline' },
+      ]),
+      emailMuted(
+        `Signing page: <a href="{{signUrl}}" style="color:${EMAIL_BRAND.brand};word-break:break-all;">{{signUrl}}</a><br />PDF: <a href="{{pdfUrl}}" style="color:${EMAIL_BRAND.brand};word-break:break-all;">{{pdfUrl}}</a>`,
+      ),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\nWe updated the {{agreementName}} (version {{version}}). You have {{daysRemaining}} left to review and re-sign.\n\nSign here: {{signUrl}}\nDownload PDF: {{pdfUrl}}\n',
+  },
+  {
+    key: 'terms_of_use_reminder',
+    name: 'Terms of Use reminder',
+    subject: 'Action needed: re-accept Tablevera Terms of Use ({{daysRemaining}} left)',
+    description:
+      'Sent 1–2 days before the Terms of Use re-accept grace period ends. Includes sign and PDF links.',
+    bodyHtml: [
+      emailGreeting('{{firstName}}'),
+      emailParagraph(
+        'We updated the <strong>{{agreementName}}</strong> (version {{version}}). You have <strong>{{daysRemaining}}</strong> left to review and re-sign.',
+      ),
+      emailParagraph(
+        'Sign by typing your full legal name or drawing your signature. Download a branded A4 PDF anytime.',
+      ),
+      emailButtons([
+        { href: '{{signUrl}}', label: 'Review & sign Terms' },
+        { href: '{{pdfUrl}}', label: 'Download PDF', variant: 'outline' },
+      ]),
+      emailMuted(
+        `Signing page: <a href="{{signUrl}}" style="color:${EMAIL_BRAND.brand};word-break:break-all;">{{signUrl}}</a><br />PDF: <a href="{{pdfUrl}}" style="color:${EMAIL_BRAND.brand};word-break:break-all;">{{pdfUrl}}</a>`,
+      ),
+    ].join(''),
+    bodyText:
+      'Hi {{firstName}},\n\nWe updated the {{agreementName}} (version {{version}}). You have {{daysRemaining}} left to re-sign.\n\nSign: {{signUrl}}\nPDF: {{pdfUrl}}\n',
   },
 ] as const;

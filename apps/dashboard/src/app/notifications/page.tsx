@@ -19,7 +19,7 @@ import { SettingOutlined } from '@ant-design/icons';
 import { PageHeader } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import {
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   PLATFORM_FEATURE_FLAGS,
   RESTAURANT_TEAM,
   UPDATE_NOTIFICATION_PREFERENCES,
@@ -122,7 +122,7 @@ function toPreferencesInput(prefs: NotificationPreferences): NotificationPrefere
 export default function NotificationsSettingsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const { data: featureFlagsData } = useQuery(PLATFORM_FEATURE_FLAGS, { skip: !user });
   const smsEnabled = featureFlagsData?.platformFeatureFlags?.sms !== false;
   const channels = useMemo(

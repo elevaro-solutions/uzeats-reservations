@@ -106,6 +106,31 @@ export const updateMyProfileSchema = z.object({
 export type UpdateMyProfileInput = z.infer<typeof updateMyProfileSchema>;
 export type DinerAddress = z.infer<typeof dinerAddressSchema>;
 
+/** Days restaurant owners may keep using Partner Hub after a new Partner Agreement version before access is blocked. */
+export const PARTNER_AGREEMENT_REACCEPT_GRACE_DAYS = 7;
+
+const signatureDataUrlSchema = z
+  .string()
+  .min(32)
+  .max(600_000)
+  .regex(/^data:image\/(png|jpeg|webp);base64,/i, 'Invalid signature image');
+
+/** Type full name or draw — required to accept a platform agreement. */
+export const agreementSignatureSchema = z.discriminatedUnion('method', [
+  z.object({
+    method: z.literal('typed'),
+    fullName: z.string().trim().min(2).max(120),
+    signatureDataUrl: z.string().optional(),
+  }),
+  z.object({
+    method: z.literal('drawn'),
+    fullName: z.string().trim().max(120).optional().default(''),
+    signatureDataUrl: signatureDataUrlSchema,
+  }),
+]);
+
+export type AgreementSignatureInput = z.infer<typeof agreementSignatureSchema>;
+
 export const registerSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
@@ -113,6 +138,11 @@ export const registerSchema = z.object({
   lastName: z.string().min(1).max(80),
   phone: phoneSchema,
   referralCode: z.string().min(4).max(20).optional(),
+  /**
+   * Diner Terms of Use signature. Diner web always sends it; diner mobile does not yet,
+   * so omitting it creates the account without an acceptance row (unsigned).
+   */
+  termsOfUseSignature: agreementSignatureSchema.optional(),
 });
 
 export const loginSchema = z.object({
@@ -289,9 +319,11 @@ export const restaurantInquiryInputSchema = z.object({
 
 /** Partner signup: account + restaurant listing + selected plan. */
 export const registerRestaurantPartnerSchema = z.object({
-  account: registerSchema.extend({
-    phone: phoneSchema,
-  }),
+  account: registerSchema
+    .omit({ termsOfUseSignature: true })
+    .extend({
+      phone: phoneSchema,
+    }),
   restaurant: withNormalizedRestaurantCuisines(
     restaurantInputObjectSchema.extend({
       phone: phoneSchema,
@@ -299,6 +331,13 @@ export const registerRestaurantPartnerSchema = z.object({
     }),
   ),
   plan: z.string().min(1).max(40),
+  /** Partner Agreement — type or draw signature required at Partner Hub signup. */
+  partnerAgreementSignature: agreementSignatureSchema,
+});
+
+/** Existing owner re-signs after a Partner Agreement version bump. */
+export const signPartnerAgreementSchema = z.object({
+  signature: agreementSignatureSchema,
 });
 
 /** Built-in or custom shape key (lowercase slug). */

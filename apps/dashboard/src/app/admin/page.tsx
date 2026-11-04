@@ -90,7 +90,7 @@ const shortcuts = [
   {
     href: '/admin/platform',
     title: 'Platform',
-    desc: 'Configuration, content, templates, and audit',
+    desc: 'Configuration, content, templates, audit, and QA',
     icon: <ControlOutlined />,
   },
 ];

@@ -31,7 +31,7 @@ import { colors } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   PROMOTIONS,
   CREATE_PROMOTION,
   UPDATE_PROMOTION,
@@ -784,7 +784,7 @@ function MarketingPageContent() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
 

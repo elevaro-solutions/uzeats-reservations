@@ -595,7 +595,11 @@ function AppShellInner({ children }: { children: React.ReactNode }) {
             Viewing as {user?.firstName} {user?.lastName} — signed in as admin{' '}
             {impersonator.firstName} {impersonator.lastName}
           </span>
-          <Button size="small" type="primary" ghost onClick={() => endImpersonation()}>
+          <Button
+            size="small"
+            onClick={() => endImpersonation()}
+            style={{ background: '#fff', borderColor: '#fff', color: colors.brand[700], fontWeight: 600 }}
+          >
             Exit impersonation
           </Button>
         </div>

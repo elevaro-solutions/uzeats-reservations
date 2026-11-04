@@ -18,6 +18,7 @@ import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { getDashboardUrl } from '@/lib/urls';
 import { UPDATE_NOTIFICATION_PREFERENCES } from '@/lib/graphql';
 import { getGraphQLErrorMessage, getGraphQLFieldErrors } from '@/lib/errors';
+import { AgreementAcceptField } from '@/components/AgreementAcceptField';
 
 export default function LoginPage() {
   return (
@@ -44,6 +45,8 @@ function LoginContent() {
   const [authBanner, setAuthBanner] = useState<string | null>(null);
   const [loginForm] = Form.useForm();
   const [registerForm] = Form.useForm();
+  const registerFirstName = Form.useWatch('firstName', registerForm) as string | undefined;
+  const registerLastName = Form.useWatch('lastName', registerForm) as string | undefined;
   const [updatePrefs] = useMutation(UPDATE_NOTIFICATION_PREFERENCES);
   const preferRegisterTab = search.get('tab') === 'register' || search.get('smsOptIn') === '1';
   const [activeTab, setActiveTab] = useState(preferRegisterTab ? 'register' : 'login');
@@ -202,6 +205,18 @@ function LoginContent() {
                 onFinish={async (values) => {
                   setLoading(true);
                   try {
+                    const sig = values.termsOfUseSignature as
+                      | { method: 'typed' | 'drawn'; fullName?: string; signatureDataUrl?: string }
+                      | undefined;
+                    if (!sig?.method) {
+                      registerForm.setFields([
+                        {
+                          name: 'termsOfUseSignature',
+                          errors: ['Sign by typing your name or drawing your signature'],
+                        },
+                      ]);
+                      return;
+                    }
                     const signedUp = await register({
                       email: values.email,
                       password: values.password,
@@ -209,6 +224,12 @@ function LoginContent() {
                       lastName: values.lastName,
                       phone: values.phone,
                       referralCode: values.referralCode?.trim() || undefined,
+                      termsOfUseSignature: {
+                        method: sig.method,
+                        fullName: sig.fullName || undefined,
+                        signatureDataUrl:
+                          sig.method === 'drawn' ? sig.signatureDataUrl : undefined,
+                      },
                     });
                     if (values.smsConsent) {
                       try {
@@ -329,6 +350,9 @@ function LoginContent() {
                 <Form.Item name="referralCode" label="Referral code (optional)">
                   <Input size="large" placeholder="Friend's code" />
                 </Form.Item>
+                <AgreementAcceptField
+                  suggestedFullName={`${registerFirstName ?? ''} ${registerLastName ?? ''}`.trim()}
+                />
                 <Button
                   type="primary"
                   htmlType="submit"

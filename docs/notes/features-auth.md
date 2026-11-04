@@ -1,5 +1,26 @@
 # Auth — Learnings & Observations
 
+## [2026-11-04] Signed agreement PDFs use frozen version text
+- `LegalAgreementVersion` stores `{ key, version, name, bodyHtml }` per published version. `updateLegalAgreement` snapshots the outgoing version before replacing the body, then the new one. `ensureDefaultLegalAgreements` keeps the version 1 snapshot in sync until a superadmin edits it.
+- `mySignedLegalAgreementPdf(key)` renders the user's latest acceptance against that version's snapshot plus a signature block. Drawn PNGs are decoded in `signatureImage.ts` (8-bit gray/RGB/RGBA, non-interlaced, flattened onto white) and embedded with FlateDecode. JPEGs embed as-is.
+- PDF text uses the standard Type1 fonts (WinAnsi), so non-Latin characters are dropped. A typed name with no Latin letters shows "Signed electronically"; a drawn signature is unaffected.
+- Why it matters: Don't render signed copies from the live `LegalAgreement.bodyHtml`. After a version bump it would show text the signer never agreed to.
+
+## [2026-11-04] Agreement signatures, re-sign window, and version 1 baseline
+- `register` takes `termsOfUseSignature` and `registerRestaurantPartner` takes `partnerAgreementSignature` (`{ method: typed|drawn, fullName?, signatureDataUrl? }`). The old boolean checkbox fields are gone. `termsOfUseSignature` is optional on the API because diner mobile has no signing step yet. Without it, the account is created with no acceptance row (logged as unsigned). Diner web still requires it in the form. The partner signature stays required.
+- `@reservations/shared` resolves to `dist/`. After changing schemas, rebuild it (`tsc -p packages/shared`) or API tests keep running the old Zod schema. `UserAgreementAcceptance` stores the method, typed name, drawn PNG data URL, IP, and user agent.
+- A body save bumps `version` and sets `versionPublishedAt`. That field has no schema default on purpose: a default would hand older records a fresh "now" each time they load, and the window would never start.
+- Version 1 counts as signed for everyone (`getAgreementCompliance`), so accounts created before signing existed are not locked 7 days after deploy. Only a version 2+ publish starts the 7-day grace → blocked flow for `restaurant_owner`.
+- Partner Hub enforces the block in the client only (`DashShell` sends blocked owners to `/agreements/sign`). GraphQL resolvers do not check compliance, and merchant mobile does not enforce it.
+- Reminder worker (`agreement-reminders`, daily 15:00 UTC) emails when 1–2 days remain. `User.agreementReminderSent.<key>` = version prevents duplicates. Terms of Use reminders only go to diners with an earlier Terms acceptance.
+- Why it matters: Do not add back a `versionPublishedAt` default or drop the version 1 baseline without a migration plan for existing owners.
+
+## [2026-11-04] Platform agreements required at email signup
+- `LegalAgreement` keys: `terms_of_use` (diners) and `partner_agreement` (Partner Hub register). Superadmin edits at `/admin/agreements` (TipTap); API seeds defaults on boot until `updatedById` is set.
+- `register` requires `acceptedTermsOfUse: true`; `registerRestaurantPartner` requires `acceptedPartnerAgreement: true`. Acceptance is stored in `UserAgreementAcceptance` (userId, key, version, ip, userAgent).
+- Public query `legalAgreement(key)` feeds signup modals. Google/phone OTP signup does not gate on these yet.
+- Why it matters: Do not drop the boolean from GraphQL inputs — Zod rejects missing acceptance before the user row is created.
+
 ## [2026-10-29] Post-login handoff is a preparing overlay, not a toast
 - Diner web and Partner Hub `AuthProvider`s set a session-handoff flag after successful login/register (skipped when email verification is next). `SessionPreparing` covers the viewport until the route changes (min ~1.2s, max ~4.5s).
 - Partner Hub `/login` no longer returns `null` while redirecting (that was the white screen + “Signed in” toast). Overview, root redirect, admin gate, and DashShell session restore use the same screen instead of a spinner or blank page.

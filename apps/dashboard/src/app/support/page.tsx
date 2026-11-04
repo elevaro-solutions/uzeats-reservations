@@ -24,7 +24,7 @@ import {
 import { EmptyState, PageHeader, colors, radii, shadows, spacing } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
-import { CREATE_OWNER_SUPPORT_TICKET, MY_OWNER_SUPPORT_TICKETS, MY_RESTAURANTS } from '@/lib/graphql';
+import { CREATE_OWNER_SUPPORT_TICKET, MY_OWNER_SUPPORT_TICKETS, MY_RESTAURANTS_SHELL } from '@/lib/graphql';
 import { STATUS_COLORS } from '@/lib/supportTickets';
 import { useFormDirty } from '@/lib/useFormDirty';
 import { RichTextEditor } from '@/components/RichTextEditor';
@@ -70,7 +70,7 @@ export default function PartnerSupportPage() {
   const { dirty, clearDirty, onValuesChange } = useFormDirty();
   const subjectKey = Form.useWatch('subjectKey', form);
 
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantOptions } = usePartnerRestaurant(restaurants);
 

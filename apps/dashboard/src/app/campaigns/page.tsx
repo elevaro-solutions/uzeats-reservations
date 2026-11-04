@@ -23,7 +23,7 @@ import dayjs from 'dayjs';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   CAMPAIGNS,
   CREATE_CAMPAIGN,
   UPDATE_CAMPAIGN,
@@ -50,7 +50,7 @@ function CampaignsPageContent() {
   const [form] = Form.useForm();
   const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 20 });
 
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const { data, loading, refetch } = useQuery(CAMPAIGNS, {

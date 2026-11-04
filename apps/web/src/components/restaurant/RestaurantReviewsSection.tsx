@@ -62,7 +62,9 @@ export function RestaurantReviewsSection({
             <div className="rt-restaurant-reviews__summary">
               <StarFilled style={{ color: colors.rating }} />
               <Text strong>{averageRating.toFixed(1)}</Text>
-              <Text type="secondary">({reviewCount} reviews)</Text>
+              <Text type="secondary">
+                ({reviewCount} {reviewCount === 1 ? 'review' : 'reviews'})
+              </Text>
             </div>
           )}
           {canLeaveReview && (

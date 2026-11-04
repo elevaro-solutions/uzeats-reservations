@@ -23,7 +23,7 @@ import {
 import { PlusOutlined } from '@ant-design/icons';
 import { useAuth } from '@/lib/auth';
 import {
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   MY_RESTAURANT_GROUPS,
   CREATE_RESTAURANT_GROUP,
   ADD_RESTAURANT_TO_GROUP,
@@ -40,7 +40,7 @@ export default function GroupsPage() {
   const [selectedGroupId, setSelectedGroupId] = useState<string>();
   const [form] = Form.useForm();
 
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const { data: groupsData, refetch } = useQuery(MY_RESTAURANT_GROUPS, { skip: !user });
   const { data: analyticsData, loading: analyticsLoading } = useQuery(GROUP_ANALYTICS, {
     skip: !selectedGroupId,

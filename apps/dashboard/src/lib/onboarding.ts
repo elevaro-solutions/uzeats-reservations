@@ -28,6 +28,12 @@ export type PartnerSetupSignals = {
   /** Platform deposits kill switch; `undefined` while loading. */
   depositsEnabled?: boolean;
   teamSeatsUsed?: number;
+  /** Owner-only Partner Agreement status; `undefined` while loading or for non-owners. */
+  partnerAgreement?: {
+    signed: boolean;
+    status: 'current' | 'grace' | 'blocked';
+    daysRemaining: number | null;
+  };
 };
 
 export type PlatformSetupSignals = {
@@ -103,6 +109,31 @@ function approvalTask(restaurant: OnboardingRestaurant): SetupTask {
     complete: approved,
     waiting: !approved && !blocked,
   };
+}
+
+function agreementTask(role: string, signals: PartnerSetupSignals): SetupTask[] {
+  const agreement = signals.partnerAgreement;
+  // Only owners sign; skip until the status loads so progress doesn't flash incomplete.
+  if (role !== 'restaurant_owner' || !agreement) return [];
+  const days = agreement.daysRemaining ?? 0;
+  const description = agreement.signed
+    ? 'Signed. Download your signed copy anytime from Settings → Agreements.'
+    : agreement.status === 'blocked'
+      ? 'An updated agreement is waiting. Partner Hub is limited until you sign it.'
+      : agreement.status === 'grace'
+        ? `An updated agreement is waiting. ${days} day${days === 1 ? '' : 's'} left to review and re-sign.`
+        : 'Review the Restaurant Partner Agreement and sign by typing your name or drawing your signature.';
+  return [
+    {
+      key: 'agreement',
+      title: 'Sign the Partner Agreement',
+      description,
+      href: '/agreements/sign',
+      required: true,
+      complete: agreement.signed,
+      cta: 'Review & sign',
+    },
+  ];
 }
 
 function rulesTask(role: string, signals: PartnerSetupSignals): SetupTask[] {
@@ -303,6 +334,7 @@ export function buildPartnerSetupGuide(
     key: 'golive',
     title: 'Go live',
     tasks: [
+      ...agreementTask(role, signals),
       approvalTask(restaurant),
       {
         key: 'share',

@@ -54,6 +54,11 @@ export const SAMPLE_EMAIL_TEMPLATE_VARS: Record<string, string> = {
   note: '.',
   feeLabel: 'no-show',
   feeTitle: 'No-show fee charged',
+  agreementName: 'Restaurant Partner Agreement',
+  version: '2',
+  daysRemaining: '2 days',
+  signUrl: 'https://dashboard.tablevera.online/agreements/sign',
+  pdfUrl: 'https://dashboard.tablevera.online/agreements/sign?download=1',
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

@@ -1,5 +1,46 @@
 # Dashboard — Learnings & Observations
 
+## [2026-11-04] QA checklist catalog is v0.100.0
+- `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.100.0`. Testers use Admin Agreements, diner and partner signup, owner `/agreements/sign` and Settings Agreements, the setup guide Go live step, Billing Pay all and `/billing/unpaid`, Admin Pricing Featured, Platform hub, `/menu`, `/restaurant-profile`, and diner restaurant pages.
+- Why it matters: Do not re-test v0.99.0 QA Dashboard / View as items on this gate. Super Admin now opens QA from Platform → QA, not a top-level sider group.
+
+## [2026-11-04] Menu editor: hydrate once + slim query
+- `/menu` uses `MY_RESTAURANTS_SHELL` (already cached by DashShell) for the location picker and `RESTAURANT_MENU_EDITOR` for the active venue only. Do not load full `MY_RESTAURANTS` (tables/shifts/floor) on this page.
+- Form hydrate runs once per `activeRestaurantId`. Re-applying `setFieldsValue` on every Apollo `data` change remounts Form.List keys, collapses accordions (~30–60s from shell/setup polls), and aborts in-flight photo uploads. Skip hydrate while `uploadingPath` is set; after Save, refetch cache but do not re-hydrate the form.
+- Why it matters: Expanding dishes or uploading photos must survive background polls. Switching locations still resets accordion UI via `resetEditorUiRef`.
+
+## [2026-11-04] Restaurant profile: same hydrate + slim query
+- `/restaurant-profile` uses shell + `RESTAURANT_OWNER_EDITOR` (+ `RESTAURANT_SETTINGS`). Hydrate once per `restaurantId`; skip while `dirty` so Photos uploads/reorders survive Apollo cache polls. Wait to paint the editor until hydrate (`hydratedId`) so the gallery does not flash the previous venue.
+- Why it matters: Photos section was losing in-progress uploads when `setPhotos(restaurant.photos)` re-ran on every `MY_RESTAURANTS` / settings identity change.
+
+## [2026-11-04] Prefer MY_RESTAURANTS_SHELL for pickers
+- Partner pages that only need location switcher (+ timezone) should use `MY_RESTAURANTS_SHELL`, not full `MY_RESTAURANTS`. Shell now includes address zip/country and location lat/lng for `restaurantTimeZone`.
+- Keep full `MY_RESTAURANTS` only when the page needs nested tables/shifts/floor/menu in that same query (Tables & shifts, Floor plan, Virtual room, Reservations list table assign).
+- When reading `queryData?.restaurant` gated by id equality, require a truthy selected id first — `undefined === undefined` is true and crashes on the true branch.
+- `/profile` and `AdminRestaurantMenuPanel` hydrate once per restaurant (and pending request id on profile); do not depend on Apollo object identity alone.
+- Why it matters: Full myRestaurants was the default for dozens of partner routes and paid N× nested resolvers on every visit.
+
+## [2026-11-04] Platform hub groups cards like Settings
+- `/admin/platform` uses `hubSection` on ADMIN_PAGES children (Setup, Configuration, Content, Email, Monitoring, QA, Advanced) plus a filter input. Same pattern as partner Settings.
+- Agreements (`/admin/agreements`) live under Platform → Content (`when: 'super_admin'`). Search keywords include terms, tos, partner agreement, legal.
+- Why it matters: New Platform hub children need `hubSection` or they fall into Other. Keep section order in `PLATFORM_HUB_SECTIONS` on the Platform page.
+
+## [2026-11-04] Super Admin QA nav nests under Platform
+- QA pages (`/admin/qa/*`) use `parentSiderHref: '/admin/platform'` so Super Admin sider no longer shows a top-level QA group. Cards appear on Platform hub; pin via search to restore sider entries.
+- QA-role users still load QA pages via the DashShell filter (bypasses `adminSiderPages` parent hiding).
+- Why it matters: Do not add a standalone QA sider group for Super Admin. Put new QA routes under Platform the same way as Developer / table shapes.
+
+## [2026-11-04] Featured pricing package toggle
+- Admin → Pricing package editor has **Featured / popular on pricing page** next to visibility. Saving with Featured on clears Featured on every other package (API exclusivity).
+- Package list shows a gold **Featured** tag when `featuredOnPricing` is true.
+- Why it matters: Public `/pricing` highlight is no longer hardcoded to Core. Toggle Featured off without picking another package leaves no featured card.
+
+## [2026-11-04] Pay all open invoices is one Stripe charge
+- Billing showed a combined outstanding total but Pay / View invoice always opened the primary open invoice (`pickPrimaryOpenInvoice`). Owners with several overdue invoices had to repeat checkout.
+- `startOpenInvoicesPayment` / `confirmOpenInvoicesPayment` create one PaymentIntent for the sum of open invoices, stamp that PI on each, and mark them all paid on confirm. Partner Hub Billing shows one **Pay all $X** banner when 2+ invoices are open (plan-switch `amountDueCents` Pay now is hidden while open invoices exist). `/billing/unpaid` lists every open invoice; the banner’s **N unpaid invoices** text links there.
+- Paying a single invoice pay link clears a shared batch PI from siblings first so amounts stay consistent.
+- Why it matters: Do not send “Pay all” to `/billing/invoices/:id` or a single `payUrl`. Per-invoice pay links remain for email / PDF flows.
+
 ## [2026-11-03] QA checklist catalog is v0.99.0
 - `/admin/qa` loads `QA_CHECKLIST_RELEASE` `0.99.0`. Testers use QA Dashboard and History for prior runs, `/admin/qa?release=` for a snapshot checklist, Super Admin View as on a fail-to-pay venue for Settings access, and an owner session for the Billing redirect toast/banner.
 - Why it matters: Do not re-test v0.98.0 Spaces upload-folder items on this gate. Older sign-off stays on that version’s row, History, and Versions.
@@ -501,7 +542,7 @@
 - Why it matters: Multiple open Partner Hub tabs were each polling every 15–60s in the background.
 
 ## [2026-09-23] DashShell uses shell restaurant query
-- Partner chrome loads `MY_RESTAURANTS_SHELL` (counts + profile fields for onboarding), not nested tables/shifts/menus. Floor/Menu/Profile pages still use full `MY_RESTAURANTS`.
+- Partner chrome loads `MY_RESTAURANTS_SHELL` (counts + profile fields for onboarding), not nested tables/shifts/menus. Most partner pages now use shell for the picker; Floor / Floor plan / Virtual room / Reservations list still use full `MY_RESTAURANTS` when they need nested tables. Menu uses shell + `RESTAURANT_MENU_EDITOR`; restaurant-profile uses shell + `RESTAURANT_OWNER_EDITOR`.
 - Why it matters: Every Partner Hub navigation used to pay N× nested GraphQL field resolvers before the location switcher painted.
 
 ## [2026-09-23] TextArea showCount needs reserved margin

@@ -15,6 +15,7 @@ import { env } from './config/env.js';
 import { PLANS } from './config/plans.js';
 import { hashPassword } from './services/auth.js';
 import { clearSeedData } from './services/seedData.js';
+import { recomputePublicReviewStats } from './services/reviewStats.js';
 import {
   User,
   Restaurant,
@@ -1067,6 +1068,9 @@ async function seed() {
       comment: 'Best shashlik in the neighborhood.',
     },
   ]);
+  for (const seeded of [samarkand, tashkent, bukhara]) {
+    await recomputePublicReviewStats(seeded.restaurant._id);
+  }
 
   await WaitlistEntry.insertMany([
     {

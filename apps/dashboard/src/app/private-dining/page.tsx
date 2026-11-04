@@ -24,7 +24,7 @@ import {
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useAuth } from '@/lib/auth';
-import { MY_RESTAURANTS } from '@/lib/graphql';
+import { MY_RESTAURANTS_SHELL } from '@/lib/graphql';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { useUrlPagination } from '@/lib/useUrlPagination';
 import { useFormDirty } from '@/lib/useFormDirty';
@@ -106,7 +106,7 @@ function PrivateDiningPageContent() {
   const respondDirty = useFormDirty();
   const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 10 });
 
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
 

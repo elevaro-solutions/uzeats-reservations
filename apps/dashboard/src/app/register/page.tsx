@@ -51,6 +51,7 @@ import { addressSelectionToFields } from '@/lib/address';
 import { getGraphQLErrorMessage, getGraphQLFieldErrors } from '@/lib/errors';
 import { PARTNER_EMAIL_AVAILABLE, PARTNER_RESTAURANT_NAME_AVAILABLE, PLANS, REGISTER_RESTAURANT_PARTNER } from '@/lib/graphql';
 import { SignupPaymentForm, type SignupPaymentMode } from '@/components/SignupPaymentForm';
+import { AgreementAcceptField } from '@/components/AgreementAcceptField';
 import {
   priceRangeOptions,
   restaurantFieldTooltips as tips,
@@ -377,16 +378,34 @@ function RegisterForm() {
         'priceRange',
         'lat',
         'lng',
+        'partnerAgreementSignature',
       ]);
       const values = form.getFieldsValue(true);
       const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
       const websiteRaw = str(values.website);
       const website = websiteRaw || undefined;
+      const sig = values.partnerAgreementSignature as
+        | { method: 'typed' | 'drawn'; fullName?: string; signatureDataUrl?: string }
+        | undefined;
+      if (!sig?.method) {
+        form.setFields([
+          {
+            name: 'partnerAgreementSignature',
+            errors: ['Sign by typing your name or drawing your signature'],
+          },
+        ]);
+        return;
+      }
 
       const { data } = await registerPartner({
         variables: {
           input: {
             plan,
+            partnerAgreementSignature: {
+              method: sig.method,
+              fullName: sig.fullName || undefined,
+              signatureDataUrl: sig.method === 'drawn' ? sig.signatureDataUrl : undefined,
+            },
             account: {
               firstName: str(values.firstName),
               lastName: str(values.lastName),
@@ -482,6 +501,7 @@ function RegisterForm() {
         );
         if (fieldErrors.email) setStep(1);
         else if (fieldErrors.name) setStep(2);
+        else if (fieldErrors.partnerAgreementSignature) setStep(3);
         const firstField = fieldEntries[0]?.[0];
         if (firstField) {
           requestAnimationFrame(() => {
@@ -1004,6 +1024,11 @@ function RegisterForm() {
                   ? ` Add a payment method to start your ${planInfo.trialDays}-day ${planInfo.name} trial. Charging starts ${chargingStartsOn}.`
                   : ` Enter payment details to start your ${planInfo.name} subscription.`}
             </Text>
+            <AgreementAcceptField
+              agreementKey="partner_agreement"
+              name="partnerAgreementSignature"
+              suggestedFullName={`${form.getFieldValue('firstName') ?? ''} ${form.getFieldValue('lastName') ?? ''}`.trim()}
+            />
           </div>
         </div>
 

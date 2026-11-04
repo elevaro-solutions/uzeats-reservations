@@ -985,6 +985,7 @@ export const PLANS = gql`
       websiteCoverFeeCents
       trialDays
       visibleOnPricing
+      featuredOnPricing
       isCustom
       highlights
     }
@@ -1126,6 +1127,73 @@ export const DELETE_MY_ACCOUNT = gql`
       success
       message
       deletedUserId
+    }
+  }
+`;
+
+export const LEGAL_AGREEMENT = gql`
+  query LegalAgreement($key: LegalAgreementKey!) {
+    legalAgreement(key: $key) {
+      id
+      key
+      name
+      description
+      bodyHtml
+      version
+      versionPublishedAt
+      updatedAt
+    }
+  }
+`;
+
+export const MY_AGREEMENT_COMPLIANCE = gql`
+  query MyAgreementCompliance($key: LegalAgreementKey!) {
+    myAgreementCompliance(key: $key) {
+      status
+      currentVersion
+      acceptedVersion
+      daysRemaining
+      graceEndsAt
+      agreementName
+      agreement {
+        id
+        name
+        bodyHtml
+        version
+        versionPublishedAt
+      }
+    }
+  }
+`;
+
+export const SIGN_LEGAL_AGREEMENT = gql`
+  mutation SignLegalAgreement($key: LegalAgreementKey!, $signature: AgreementSignatureInput!) {
+    signLegalAgreement(key: $key, signature: $signature) {
+      status
+      currentVersion
+      acceptedVersion
+    }
+  }
+`;
+
+export const MY_SIGNED_LEGAL_AGREEMENT_PDF = gql`
+  query MySignedLegalAgreementPdf($key: LegalAgreementKey!) {
+    mySignedLegalAgreementPdf(key: $key) {
+      filename
+      content
+      mimeType
+      encoding
+    }
+  }
+`;
+
+export const LEGAL_AGREEMENT_PDF = gql`
+  query LegalAgreementPdf($key: LegalAgreementKey!) {
+    legalAgreementPdf(key: $key) {
+      filename
+      content
+      mimeType
+      encoding
     }
   }
 `;

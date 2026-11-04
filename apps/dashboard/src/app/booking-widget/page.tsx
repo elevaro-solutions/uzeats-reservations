@@ -9,13 +9,13 @@ import { WidgetThemeEditor } from '@/components/WidgetThemeEditor';
 import { EmptyState, PageHeader, radii, spacing } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import { isPlatformAdmin } from '@/lib/roles';
-import { MY_RESTAURANTS, RESTAURANT_SETTINGS } from '@/lib/graphql';
+import { MY_RESTAURANTS_SHELL, RESTAURANT_SETTINGS } from '@/lib/graphql';
 import { useActiveRestaurant } from '@/lib/useActiveRestaurant';
 
 export default function BookingWidgetPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { data, loading: dataLoading } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data, loading: dataLoading } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurantIds = useMemo(
     () => (data?.myRestaurants ?? []).map((r: { id: string }) => r.id),
     [data],

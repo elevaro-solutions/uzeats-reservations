@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -51,9 +51,10 @@ import { RestaurantSlugPanel } from '@/components/RestaurantSlugPanel';
 import { useAuth } from '@/lib/auth';
 import { addressSelectionToFields } from '@/lib/address';
 import {
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   PLATFORM_HOLIDAYS,
   UPDATE_RESTAURANT,
+  RESTAURANT_OWNER_EDITOR,
   RESTAURANT_SETTINGS,
   UPDATE_RESTAURANT_SETTINGS,
   UPSERT_MENU,
@@ -114,17 +115,30 @@ export default function RestaurantProfilePage() {
   const [showImport, setShowImport] = useState(false);
   const [importCoachDismissed, setImportCoachDismissed] = useState(true);
   const { dirty, markDirty, clearDirty, onValuesChange } = useFormDirty();
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
   const [section, setSection] = useUrlTab({
     param: 'section',
     defaultValue: 'listing',
     allowed: PROFILE_SECTIONS,
   });
-  const { data, loading: dataLoading, refetch } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: shellData, loading: shellLoading } = useQuery(MY_RESTAURANTS_SHELL, {
+    skip: !user,
+  });
+  const restaurants = shellData?.myRestaurants ?? [];
   const restaurantIds = useMemo(
-    () => (data?.myRestaurants ?? []).map((r: { id: string }) => r.id),
-    [data],
+    () => restaurants.map((r: { id: string }) => r.id),
+    [restaurants],
   );
   const { restaurantId, setRestaurantId } = useActiveRestaurant(restaurantIds);
+  const {
+    data: editorData,
+    loading: editorLoading,
+    refetch,
+  } = useQuery(RESTAURANT_OWNER_EDITOR, {
+    skip: !user || !restaurantId,
+    variables: { id: restaurantId },
+  });
   const [updateRestaurant, { loading: saving }] = useMutation(UPDATE_RESTAURANT);
   const [upsertMenu] = useMutation(UPSERT_MENU);
   const { data: settingsData, refetch: refetchSettings } = useQuery(RESTAURANT_SETTINGS, {
@@ -140,10 +154,22 @@ export default function RestaurantProfilePage() {
     return fallbackHolidayOptions;
   }, [holidaysData]);
   const [updateSettings, { loading: savingSettings }] = useMutation(UPDATE_RESTAURANT_SETTINGS);
+  /** Skip re-applying server values on Apollo cache polls (wipes photos mid-edit). */
+  const hydratedIdRef = useRef<string | null>(null);
+  /** State mirror so we can wait to paint the editor until hydrate finishes. */
+  const [hydratedId, setHydratedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
+
+  useEffect(() => {
+    hydratedIdRef.current = null;
+    setHydratedId(null);
+    clearDirty();
+    setPhotos([]);
+    setLogoUrl(null);
+  }, [restaurantId, clearDirty]);
 
   useEffect(() => {
     if (!restaurantId || typeof window === 'undefined') {
@@ -153,11 +179,19 @@ export default function RestaurantProfilePage() {
     setImportCoachDismissed(localStorage.getItem(importCoachStorageKey(restaurantId)) === '1');
   }, [restaurantId]);
 
-  const restaurant = (data?.myRestaurants ?? []).find(
-    (r: { id: string }) => r.id === restaurantId,
-  );
-  const settings = settingsData?.restaurant;
-  const settingsLoading = Boolean(restaurantId) && settingsData === undefined;
+  const restaurant =
+    restaurantId && editorData?.restaurant?.id === restaurantId
+      ? editorData.restaurant
+      : null;
+  const settings =
+    restaurantId && settingsData?.restaurant?.id === restaurantId
+      ? settingsData.restaurant
+      : null;
+  const settingsLoading = Boolean(restaurantId) && !settings && settingsData === undefined;
+  const profileBusy =
+    Boolean(restaurantId) &&
+    (hydratedId !== restaurantId ||
+      ((editorLoading || settingsLoading) && !restaurant));
 
   const showImportCoach =
     restaurant != null && !importCoachDismissed && isFirstTimeListingConfig(restaurant);
@@ -174,7 +208,11 @@ export default function RestaurantProfilePage() {
   };
 
   useEffect(() => {
-    if (!restaurant || settingsLoading) return;
+    if (!restaurantId || !restaurant || restaurant.id !== restaurantId || settingsLoading) return;
+    if (hydratedIdRef.current === restaurantId) return;
+    // Keep unsaved photo/logo/form edits (and in-flight uploads that already marked dirty).
+    if (dirtyRef.current) return;
+
     form.setFieldsValue({
       name: restaurant.name,
       description: restaurant.description ?? '',
@@ -221,7 +259,9 @@ export default function RestaurantProfilePage() {
     setPhotos(restaurant.photos ?? []);
     setLogoUrl(restaurant.logoUrl ?? null);
     clearDirty();
-  }, [restaurant, settings, settingsLoading, form]);
+    hydratedIdRef.current = restaurantId;
+    setHydratedId(restaurantId);
+  }, [restaurantId, restaurant, settings, settingsLoading, form, clearDirty]);
 
   const handleSave = async () => {
     if (!restaurantId) return;
@@ -300,7 +340,8 @@ export default function RestaurantProfilePage() {
       }
       message.success('Restaurant updated');
       clearDirty();
-      await Promise.all([refetch(), refetchSettings()]);
+      // Refresh cache only — re-hydrating remounts photos and drops unsaved gallery order.
+      void Promise.all([refetch(), refetchSettings()]);
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'errorFields' in err) return;
       message.error(err instanceof Error ? err.message : 'Update failed');
@@ -1109,7 +1150,7 @@ export default function RestaurantProfilePage() {
     },
   ];
 
-  if (dataLoading) {
+  if (authLoading || (user && shellLoading && !shellData)) {
     return (
       <div style={{ display: 'grid', placeItems: 'center', minHeight: 320 }}>
         <Spin size="large" />
@@ -1143,7 +1184,7 @@ export default function RestaurantProfilePage() {
                 style={{ width: 260 }}
                 value={restaurantId}
                 onChange={setRestaurantId}
-                options={(data?.myRestaurants ?? []).map((r: { id: string; name: string }) => ({
+                options={restaurants.map((r: { id: string; name: string }) => ({
                   value: r.id,
                   label: r.name,
                 }))}
@@ -1153,7 +1194,13 @@ export default function RestaurantProfilePage() {
           }
         />
 
-        {restaurant && (
+        {profileBusy ? (
+          <div style={{ display: 'grid', placeItems: 'center', minHeight: 280 }}>
+            <Spin size="large" />
+          </div>
+        ) : null}
+
+        {restaurant && !profileBusy ? (
           <Card
             className="rt-surface-card"
             styles={{ body: { padding: spacing.lg } }}
@@ -1186,9 +1233,9 @@ export default function RestaurantProfilePage() {
               </Space>
             </Form>
           </Card>
-        )}
+        ) : null}
 
-        {!restaurant && !(data?.myRestaurants?.length) && (
+        {!profileBusy && !restaurant && restaurants.length === 0 ? (
           <Card style={{ borderRadius: radii.lg }}>
             <Text type="secondary">
               No restaurants yet.{' '}
@@ -1197,7 +1244,7 @@ export default function RestaurantProfilePage() {
               </Link>
             </Text>
           </Card>
-        )}
+        ) : null}
 
         <ImportRestaurantModal
           open={showImport}

@@ -33,7 +33,7 @@ import {
 import { PageHeader } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
 import {
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   CREATE_BLACKOUT,
   RESTAURANT_BLACKOUTS,
   DELETE_BLACKOUT,
@@ -181,7 +181,7 @@ export default function BlackoutsPage() {
   const [form] = Form.useForm();
   const [hoursForm] = Form.useForm();
   const [editingIdsByDate, setEditingIdsByDate] = useState<Record<string, string> | null>(null);
-  const { data } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = data?.myRestaurants ?? [];
   const restaurantIds = restaurants.map((r: { id: string }) => r.id);
   const { restaurantId, setRestaurantId } = useActiveRestaurant(restaurantIds);

@@ -15,6 +15,7 @@ const SETTINGS_HUB_SECTIONS = [
   'Floor and layout',
   'Booking',
   'Team and access',
+  'Account',
 ] as const;
 
 function toHubLink(page: DashboardPage): HubLink {
@@ -50,7 +51,10 @@ export default function SettingsPage() {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
 
-  const childPages = useMemo(() => hubChildPages(PARTNER_PAGES, '/settings'), []);
+  const childPages = useMemo(
+    () => hubChildPages(PARTNER_PAGES, '/settings', { role: user?.role }),
+    [user?.role],
+  );
 
   const sections = useMemo(() => {
     const q = filter.trim().toLowerCase();

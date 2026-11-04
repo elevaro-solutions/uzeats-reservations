@@ -199,6 +199,16 @@ export async function ensureDinerStripeCustomer(dinerId: string): Promise<string
 }
 
 /**
+ * Payment method types we save for an off-session no-show / late-cancel fee.
+ * Automatic methods can save region-locked wallets (e.g. BLIK is PLN-only) that
+ * Stripe later refuses to charge in our currency.
+ */
+const OFF_SESSION_FEE_PAYMENT_METHOD_TYPES = ['card'];
+
+/** Saved method types an off-session fee can charge (includes Link saved before card-only collection). */
+const OFF_SESSION_FEE_CHARGEABLE_TYPES = new Set(['card', 'link']);
+
+/**
  * Charge-now booking payment (prepaid deposit / add-ons). When the booking also
  * carries a no-show fee, the same card is saved for a later off-session charge.
  */
@@ -221,8 +231,12 @@ export async function createPrepaymentIntent(input: {
     currency: env.STRIPE_CURRENCY,
     metadata: input.metadata,
     customer: input.customerId,
-    setup_future_usage: input.saveCardForOffSession ? 'off_session' : undefined,
-    automatic_payment_methods: { enabled: true },
+    ...(input.saveCardForOffSession
+      ? {
+          setup_future_usage: 'off_session' as const,
+          payment_method_types: OFF_SESSION_FEE_PAYMENT_METHOD_TYPES,
+        }
+      : { automatic_payment_methods: { enabled: true } }),
   });
   return { ...intent, isStub: false as const };
 }
@@ -244,7 +258,7 @@ export async function createCardGuaranteeSetupIntent(input: {
     customer: input.customerId,
     usage: 'off_session',
     metadata: input.metadata,
-    automatic_payment_methods: { enabled: true },
+    payment_method_types: OFF_SESSION_FEE_PAYMENT_METHOD_TYPES,
   });
   return { ...intent, isStub: false as const };
 }
@@ -334,6 +348,13 @@ export async function chargeOffSessionFee(input: {
     return { ok: true, paymentIntentId: `pi_dev_fee_${Date.now()}` };
   }
   try {
+    const paymentMethod = await client.paymentMethods.retrieve(input.paymentMethodId);
+    if (!OFF_SESSION_FEE_CHARGEABLE_TYPES.has(paymentMethod.type)) {
+      return {
+        ok: false,
+        error: `The guest's saved payment method (${paymentMethod.type}) can't be charged in ${env.STRIPE_CURRENCY.toUpperCase()}. Collect the fee another way.`,
+      };
+    }
     const intent = await client.paymentIntents.create(
       {
         amount: input.amountCents,

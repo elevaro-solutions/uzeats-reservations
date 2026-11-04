@@ -135,6 +135,11 @@ type AuthContextValue = {
     lastName: string;
     phone: string;
     referralCode?: string;
+    termsOfUseSignature: {
+      method: 'typed' | 'drawn';
+      fullName?: string;
+      signatureDataUrl?: string;
+    };
   }) => Promise<AuthUser>;
   logout: () => void | Promise<void>;
   endImpersonation: () => void;
@@ -244,6 +249,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     lastName: string;
     phone: string;
     referralCode?: string;
+    termsOfUseSignature: {
+      method: 'typed' | 'drawn';
+      fullName?: string;
+      signatureDataUrl?: string;
+    };
   }) => {
     const result = await registerMutation({ variables: { input } });
     const data = result.data as {

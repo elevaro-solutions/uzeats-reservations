@@ -18,6 +18,7 @@ import {
   DownloadOutlined,
   ExperimentOutlined,
   FileDoneOutlined,
+  FileProtectOutlined,
   FileTextOutlined,
   FlagOutlined,
   FundOutlined,
@@ -63,7 +64,7 @@ export type DashboardPage = {
   /** Extra terms matched by page search (lowercase-friendly). */
   keywords?: string[];
   /** Soft gate — caller decides whether to include. */
-  when?: 'onboarding' | 'super_admin';
+  when?: 'onboarding' | 'super_admin' | 'owner';
   /** Short blurb for hub cards and search. */
   description?: string;
   /**
@@ -83,7 +84,7 @@ function page(
   icon: ReactNode,
   opts?: {
     keywords?: string[];
-    when?: 'onboarding' | 'super_admin';
+    when?: 'onboarding' | 'super_admin' | 'owner';
     description?: string;
     parentSiderHref?: string;
     hubSection?: string;
@@ -244,6 +245,11 @@ export const PARTNER_PAGES: DashboardPage[] = [
     description: 'Invoice breakdown, pay link, and PDF',
     parentSiderHref: '/billing',
   }),
+  page('/billing/unpaid', 'Unpaid invoices', 'Account', 'partner', <FileDoneOutlined />, {
+    keywords: ['invoice', 'overdue', 'pay all', 'outstanding'],
+    description: 'All open unpaid invoices with combined Pay all',
+    parentSiderHref: '/billing',
+  }),
   page('/support', 'Support', 'Account', 'partner', <CustomerServiceOutlined />, {
     keywords: ['help', 'ticket', 'contact'],
     description: 'Open a ticket with Tablevera about billing, settings, or the dashboard',
@@ -290,6 +296,22 @@ export const PARTNER_PAGES: DashboardPage[] = [
     description: 'Per-user alert matrix by feature and channel',
     parentSiderHref: '/settings',
     hubSection: 'Team and access',
+  }),
+  page('/agreements/sign', 'Agreements', 'Settings', 'partner', <FileProtectOutlined />, {
+    keywords: [
+      'partner agreement',
+      'terms',
+      'tos',
+      'contract',
+      'legal',
+      'sign',
+      'signature',
+      'pdf',
+    ],
+    description: 'Read, download (PDF), or re-sign the Restaurant Partner Agreement',
+    when: 'owner',
+    parentSiderHref: '/settings',
+    hubSection: 'Account',
   }),
   page('/release-notes', 'Release notes', 'Service', 'partner', <FileTextOutlined />, {
     keywords: ['changelog', 'version', 'what\'s new', 'updates', 'fixes'],
@@ -385,58 +407,91 @@ export const ADMIN_PAGES: DashboardPage[] = [
     parentSiderHref: '/admin/billing',
   }),
   page('/admin/platform', 'Platform', 'Platform', 'admin', <ControlOutlined />, {
-    keywords: ['settings', 'hub', 'ops'],
-    description: 'Configuration, content, templates, and audit',
+    keywords: ['settings', 'hub', 'ops', 'qa', 'agreements', 'terms'],
+    description: 'Configuration, content, agreements, templates, audit, and QA',
   }),
   page('/admin/config', 'Configuration', 'Platform', 'admin', <ControlOutlined />, {
     keywords: ['settings', 'env'],
     description: 'Platform feature flags and defaults',
     parentSiderHref: '/admin/platform',
+    hubSection: 'Configuration',
   }),
   page('/admin/discovery', 'Discovery', 'Platform', 'admin', <CompassOutlined />, {
     keywords: ['images', 'stock'],
     description: 'Stock images and discovery content',
     parentSiderHref: '/admin/platform',
+    hubSection: 'Content',
   }),
   page('/admin/blog', 'Blog', 'Platform', 'admin', <FileTextOutlined />, {
     keywords: ['posts', 'cms', 'reads', 'top articles'],
     description: 'Public blog posts, CMS, and top articles by reads',
     parentSiderHref: '/admin/platform',
+    hubSection: 'Content',
+  }),
+  page('/admin/agreements', 'Agreements', 'Platform', 'admin', <FileProtectOutlined />, {
+    keywords: [
+      'terms',
+      'tos',
+      'terms of use',
+      'terms of service',
+      'partner agreement',
+      'legal',
+      'contract',
+      'signup',
+      'accept',
+    ],
+    description: 'Edit Terms of Use and Partner Agreement shown at signup',
+    when: 'super_admin',
+    parentSiderHref: '/admin/platform',
+    hubSection: 'Content',
   }),
   page('/admin/docs-access', 'Docs access', 'Platform', 'admin', <BookOutlined />, {
     keywords: ['documentation'],
     description: 'Who can open partner documentation',
     parentSiderHref: '/admin/platform',
+    hubSection: 'Content',
   }),
   page('/admin/qa/dashboard', 'QA dashboard', 'QA', 'admin', <DashboardOutlined />, {
     keywords: ['qa', 'progress', 'report', 'stats', 'sign-off'],
     description: 'Numbers and progress across every QA checklist run',
     when: 'super_admin',
+    parentSiderHref: '/admin/platform',
+    hubSection: 'QA',
   }),
   page('/admin/qa', 'QA checklist', 'QA', 'admin', <CheckSquareOutlined />, {
     keywords: ['qa', 'sign-off', 'release', 'manual test'],
     description: 'Saved release checklist for super admins and QA',
     when: 'super_admin',
+    parentSiderHref: '/admin/platform',
+    hubSection: 'QA',
   }),
   page('/admin/qa/history', 'QA history', 'QA', 'admin', <FileDoneOutlined />, {
     keywords: ['qa', 'history', 'notes', 'sign-off', 'previous release', 'tasks'],
     description: 'Past QA checklists with notes, progress, and sign-off',
     when: 'super_admin',
+    parentSiderHref: '/admin/platform',
+    hubSection: 'QA',
   }),
   page('/admin/qa/issues', 'Issues', 'QA', 'admin', <BugOutlined />, {
     keywords: ['qa', 'bug', 'feature', 'issue', 'defect'],
     description: 'Bugs and features filed for a later fix',
     when: 'super_admin',
+    parentSiderHref: '/admin/platform',
+    hubSection: 'QA',
   }),
   page('/admin/qa/versions', 'Versions', 'QA', 'admin', <HistoryOutlined />, {
     keywords: ['qa', 'changelog', 'release', 'versions'],
     description: 'Previous releases and what changed in each',
     when: 'super_admin',
+    parentSiderHref: '/admin/platform',
+    hubSection: 'QA',
   }),
   page('/admin/qa/guide', 'QA guide', 'QA', 'admin', <ReadOutlined />, {
     keywords: ['qa', 'how to test', 'bug report', 'best practices', 'knowledge'],
     description: 'How to test a release and how to report what you find',
     when: 'super_admin',
+    parentSiderHref: '/admin/platform',
+    hubSection: 'QA',
   }),
   page('/admin/engagement', 'Engagement email', 'Platform', 'admin', <MailOutlined />, {
     description: 'Send one-off diner engagement emails from the platform.',
@@ -446,28 +501,33 @@ export const ADMIN_PAGES: DashboardPage[] = [
     keywords: ['transactional'],
     description: 'Transactional email copy and layouts',
     parentSiderHref: '/admin/platform',
+    hubSection: 'Email',
   }),
   page('/admin/sla', 'SLA metrics', 'Platform', 'admin', <DashboardOutlined />, {
     keywords: ['uptime', 'performance'],
     description: 'Uptime and support performance',
     parentSiderHref: '/admin/platform',
+    hubSection: 'Monitoring',
   }),
   page('/admin/audit', 'Audit logs', 'Platform', 'admin', <AuditOutlined />, {
     keywords: ['history', 'activity'],
     description: 'Admin activity and change history',
     parentSiderHref: '/admin/platform',
+    hubSection: 'Monitoring',
   }),
   page('/admin/table-shapes', 'Table shapes', 'Platform', 'admin', <LayoutOutlined />, {
     keywords: ['floor plan', 'booth', 'icons', 'silhouettes'],
     description: 'Manage floor-plan table shapes and preview icons',
     parentSiderHref: '/admin/platform',
     when: 'super_admin',
+    hubSection: 'Advanced',
   }),
   page('/admin/developer', 'Developer', 'Platform', 'admin', <ToolOutlined />, {
     keywords: ['debug', 'tools'],
     description: 'Super-admin debug tools',
     when: 'super_admin',
     parentSiderHref: '/admin/platform',
+    hubSection: 'Advanced',
   }),
   page('/release-notes', 'Release notes', 'Platform', 'admin', <FileTextOutlined />, {
     keywords: ['changelog', 'version', 'what\'s new', 'updates', 'fixes'],
@@ -488,6 +548,7 @@ export function filterPagesForUser(
   return pages.filter((p) => {
     if (p.when === 'onboarding') return Boolean(opts.showOnboarding);
     if (p.when === 'super_admin') return Boolean(opts.isSuperAdmin);
+    if (p.when === 'owner') return opts.role === 'restaurant_owner';
     if (opts.role === 'host') {
       return HOST_ALLOWED_PATH_PREFIXES.some(
         (prefix) => p.href === prefix || p.href.startsWith(`${prefix}/`),

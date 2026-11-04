@@ -1,5 +1,9 @@
 # Web — Learnings & Observations
 
+## [2026-11-04] Pricing featured card follows featuredOnPricing
+- Public `/pricing` applies `pricing-plan-card--featured` (and comparison-column `is-core` styling) from `plan.featuredOnPricing`, not `plan.key === 'core'`. Fallback plans still mark Core featured when the API is offline.
+- Why it matters: Changing which package looks “popular” is an Admin → Pricing switch; do not reintroduce a Core hardcode for card chrome.
+
 ## [2026-11-03] Suspended restaurants replace the booking card
 - `status === 'suspended'` swaps the reservation form for a closed booking card (calendar icon, title, short copy pointing to Call / Directions / Message). The date, time, and Complete reservation controls are not rendered. Inactive-but-approved still keeps the form with the button disabled.
 - Why it matters: Key the closed card off approval status, not activity. Activity inactive is the softer closed state.

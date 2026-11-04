@@ -52,6 +52,7 @@ import {
   MY_RESTAURANTS_SHELL,
   MY_RESTAURANT_PROFILE_CHANGE_REQUEST,
   MY_SUBSCRIPTION,
+  PARTNER_AGREEMENT_COMPLIANCE,
   RESTAURANT_OPEN_INVOICE_COUNT,
   RESTAURANT_PENDING_RESERVATION_COUNT,
   RESTAURANT_UNREPLIED_REVIEW_COUNT,
@@ -195,6 +196,23 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     pollInterval: 60_000,
     skipPollAttempt: skipPollWhenHidden,
   });
+  const { data: agreementComplianceData } = useQuery(PARTNER_AGREEMENT_COMPLIANCE, {
+    skip: !user || isAdmin || isImpersonating || user.role !== 'restaurant_owner' || isAuthShellRoute,
+    pollInterval: 120_000,
+    skipPollAttempt: skipPollWhenHidden,
+  });
+  const partnerAgreementCompliance = agreementComplianceData?.partnerAgreementCompliance as
+    | {
+        status: 'current' | 'grace' | 'blocked';
+        daysRemaining?: number | null;
+        agreementName?: string;
+        currentVersion?: number;
+        acceptedVersion?: number | null;
+      }
+    | undefined;
+  const ownerHasNoSignature =
+    partnerAgreementCompliance?.status === 'current' &&
+    partnerAgreementCompliance.acceptedVersion == null;
   const [markRead] = useMutation(MARK_NOTIFICATIONS_READ, {
     refetchQueries: [{ query: MY_NOTIFICATIONS, variables: { limit: 20 } }],
   });
@@ -223,6 +241,23 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     router.replace('/verify-email');
   }, [authLoading, user, isImpersonating, pathname, router]);
 
+  useEffect(() => {
+    if (authLoading || !user || isImpersonating || isAdmin || isAuthShellRoute) return;
+    if (user.role !== 'restaurant_owner') return;
+    if (partnerAgreementCompliance?.status !== 'blocked') return;
+    if (pathname.startsWith('/agreements/sign')) return;
+    router.replace('/agreements/sign');
+  }, [
+    authLoading,
+    user,
+    isImpersonating,
+    isAdmin,
+    isAuthShellRoute,
+    partnerAgreementCompliance?.status,
+    pathname,
+    router,
+  ]);
+
   // QA staff only manage the saved checklist.
   useEffect(() => {
     if (authLoading || !user || isAuthShellRoute) return;
@@ -249,6 +284,7 @@ export function DashShell({ children }: { children: React.ReactNode }) {
     if (!isPartner) return;
     if (pathname.startsWith('/admin')) return;
     if (pathname === '/billing' || pathname.startsWith('/billing/')) return;
+    if (pathname.startsWith('/agreements/')) return;
     const stage = billingEnforcement?.stage;
     if (!stage) return;
     if (isFailToPayAllowedPartnerPath(pathname, stage)) return;
@@ -743,6 +779,44 @@ export function DashShell({ children }: { children: React.ReactNode }) {
           }
         />
       )}
+      {partnerAgreementCompliance?.status === 'grace' &&
+      !pathname.startsWith('/agreements/sign') &&
+      !isAuthShellRoute ? (
+        <Alert
+          type="warning"
+          banner
+          showIcon
+          message={
+            <span>
+              Updated {partnerAgreementCompliance.agreementName ?? 'Partner Agreement'} (v
+              {partnerAgreementCompliance.currentVersion}).{' '}
+              <strong>
+                {partnerAgreementCompliance.daysRemaining ?? 0} day
+                {(partnerAgreementCompliance.daysRemaining ?? 0) === 1 ? '' : 's'} left
+              </strong>{' '}
+              to review and re-sign before Partner Hub is limited.
+            </span>
+          }
+          action={
+            <Button size="small" type="primary" onClick={() => router.push('/agreements/sign')}>
+              Review &amp; sign
+            </Button>
+          }
+        />
+      ) : null}
+      {ownerHasNoSignature && !pathname.startsWith('/agreements/sign') && !isAuthShellRoute ? (
+        <Alert
+          type="info"
+          banner
+          showIcon
+          message={`Please sign the ${partnerAgreementCompliance?.agreementName ?? 'Partner Agreement'} to keep a signed copy on file.`}
+          action={
+            <Button size="small" type="primary" onClick={() => router.push('/agreements/sign')}>
+              Review &amp; sign
+            </Button>
+          }
+        />
+      ) : null}
       <Layout hasSider className="rt-dash-body">
       {/* On mobile the sider stays collapsed so it takes no layout width. CSS slides a full menu over the page. */}
       <Sider

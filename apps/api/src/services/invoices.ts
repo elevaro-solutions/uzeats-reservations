@@ -1301,6 +1301,42 @@ export async function sendInvoiceEmail(
 
 export { isEmailDeliveryConfigured };
 
+const OPEN_INVOICE_STATUSES = ['pending', 'overdue', 'upcoming'] as const;
+
+async function findOpenInvoicesForRestaurant(restaurantId: string) {
+  return Invoice.find({
+    restaurantId,
+    status: { $in: [...OPEN_INVOICE_STATUSES] },
+    totalCents: { $gt: 0 },
+  }).sort({ dueDate: 1, createdAt: 1 });
+}
+
+/** Drop a shared batch PaymentIntent when an invoice is paid alone instead. */
+async function clearSharedBatchPaymentIntent(doc: {
+  _id: { toString(): string };
+  restaurantId: unknown;
+  stripePaymentIntentId?: string | null;
+}): Promise<boolean> {
+  const pi = doc.stripePaymentIntentId;
+  if (!pi) return false;
+  const siblings = await Invoice.countDocuments({
+    restaurantId: doc.restaurantId,
+    stripePaymentIntentId: pi,
+    _id: { $ne: doc._id },
+    status: { $in: [...OPEN_INVOICE_STATUSES] },
+  });
+  if (siblings === 0) return false;
+  await Invoice.updateMany(
+    {
+      restaurantId: doc.restaurantId,
+      stripePaymentIntentId: pi,
+      status: { $in: [...OPEN_INVOICE_STATUSES] },
+    },
+    { $unset: { stripePaymentIntentId: 1 } },
+  );
+  return true;
+}
+
 export async function startInvoicePayment(token: string) {
   const doc = await Invoice.findOne({ payToken: token });
   if (!doc) throw new NotFoundError('Invoice');
@@ -1318,6 +1354,11 @@ export async function startInvoicePayment(token: string) {
       alreadyPaid: true,
       isStub: false,
     };
+  }
+
+  // Paying one invoice abandons any shared "pay all" PaymentIntent on siblings.
+  if (await clearSharedBatchPaymentIntent(doc)) {
+    doc.stripePaymentIntentId = undefined;
   }
 
   // Drop leftover stub intents so a real Stripe key (or a fresh stub) can be used.
@@ -1584,6 +1625,166 @@ export async function resumeInvoicePayment(token: string) {
   }
 
   return startInvoicePayment(token);
+}
+
+/**
+ * One Stripe charge for every open unpaid invoice on a restaurant.
+ * Partner Hub "Pay all" uses this instead of paying each invoice link separately.
+ */
+export async function startOpenInvoicesPayment(restaurantId: string) {
+  const docs = await findOpenInvoicesForRestaurant(restaurantId);
+  const restaurant = await Restaurant.findById(restaurantId).select('name');
+  const restaurantName = restaurant?.name;
+
+  if (docs.length === 0) {
+    return {
+      invoices: [] as ReturnType<typeof mapInvoice>[],
+      totalCents: 0,
+      currency: 'usd',
+      clientSecret: null as string | null,
+      paymentIntentId: null as string | null,
+      alreadyPaid: true,
+      isStub: false,
+    };
+  }
+
+  const totalCents = docs.reduce((sum, d) => sum + d.totalCents, 0);
+  const currency = docs[0]?.currency || 'usd';
+  const mapAll = () => docs.map((d) => mapInvoice(d, restaurantName));
+
+  const sharedPi = docs[0]?.stripePaymentIntentId;
+  if (
+    sharedPi &&
+    docs.every((d) => d.stripePaymentIntentId === sharedPi) &&
+    !isStubPaymentIntent(sharedPi)
+  ) {
+    const existing = await retrievePaymentIntentForCheckout(sharedPi);
+    if (existing?.status === 'succeeded') {
+      const invoices = await confirmOpenInvoicesPayment(restaurantId, sharedPi);
+      return {
+        invoices,
+        totalCents: invoices.reduce((sum, inv) => sum + inv.totalCents, 0),
+        currency,
+        clientSecret: null as string | null,
+        paymentIntentId: null as string | null,
+        alreadyPaid: true,
+        isStub: false,
+      };
+    }
+    if (existing?.clientSecret) {
+      return {
+        invoices: mapAll(),
+        totalCents,
+        currency,
+        clientSecret: existing.clientSecret,
+        paymentIntentId: sharedPi,
+        alreadyPaid: false,
+        isStub: false,
+      };
+    }
+  }
+
+  for (const doc of docs) {
+    if (doc.stripePaymentIntentId && isStubPaymentIntent(doc.stripePaymentIntentId)) {
+      doc.stripePaymentIntentId = undefined;
+      await doc.save();
+    } else if (doc.stripePaymentIntentId && doc.stripePaymentIntentId !== sharedPi) {
+      doc.stripePaymentIntentId = undefined;
+      await doc.save();
+    } else if (sharedPi && isStubPaymentIntent(sharedPi)) {
+      doc.stripePaymentIntentId = undefined;
+      await doc.save();
+    }
+  }
+
+  const sub = await Subscription.findOne({ restaurantId });
+  const customerId = sub ? await ensureSubscriptionStripeCustomer(sub) : null;
+  const invoiceIds = docs.map((d) => d._id.toString());
+
+  const intent = await createStripeInvoicePaymentIntent({
+    amountCents: totalCents,
+    currency,
+    customerId,
+    metadata: {
+      restaurantId: String(restaurantId),
+      batchPay: '1',
+      invoiceCount: String(docs.length),
+      // Stripe metadata values max 500 chars — IDs are also stored on each invoice.
+      invoiceIds: invoiceIds.join(',').slice(0, 500),
+      savePaymentMethod: customerId ? '1' : '0',
+    },
+  });
+
+  for (const doc of docs) {
+    doc.stripePaymentIntentId = intent.id;
+    await doc.save();
+  }
+
+  return {
+    invoices: mapAll(),
+    totalCents,
+    currency,
+    clientSecret: intent.client_secret,
+    paymentIntentId: intent.id,
+    alreadyPaid: false,
+    isStub: Boolean(intent.isStub) || isStubPaymentIntent(intent.id),
+  };
+}
+
+export async function confirmOpenInvoicesPayment(
+  restaurantId: string,
+  paymentIntentId: string,
+) {
+  await assertPaymentIntentSucceeded(paymentIntentId);
+
+  const docs = await Invoice.find({
+    restaurantId,
+    stripePaymentIntentId: paymentIntentId,
+    status: { $in: [...OPEN_INVOICE_STATUSES] },
+  });
+
+  if (docs.length === 0) {
+    const alreadyPaid = await Invoice.find({
+      restaurantId,
+      stripePaymentIntentId: paymentIntentId,
+      status: 'paid',
+    });
+    if (alreadyPaid.length > 0) {
+      const restaurant = await Restaurant.findById(restaurantId).select('name');
+      return alreadyPaid.map((d) => mapInvoice(d, restaurant?.name));
+    }
+    throw new ConflictError('No open invoices match this payment');
+  }
+
+  for (const doc of docs) {
+    doc.status = 'paid';
+    doc.paidAt = new Date();
+    doc.canceledAt = undefined;
+    doc.stripePaymentIntentId = paymentIntentId;
+    doc.autoChargeError = undefined;
+    await doc.save();
+    if (doc.stripeInvoiceId) {
+      await markStripeInvoicePaidOutOfBand(doc.stripeInvoiceId);
+    }
+  }
+
+  try {
+    await persistPreferredPaymentMethodFromInvoice({
+      restaurantId,
+      paymentIntentId,
+    });
+  } catch (err) {
+    logger.warn(
+      { err, restaurantId, paymentIntentId },
+      'failed to save preferred payment method after open-invoices pay',
+    );
+  }
+
+  await applyEnforcementForRestaurant(restaurantId);
+  await syncSubscriptionPastDueFlag(restaurantId);
+
+  const restaurant = await Restaurant.findById(restaurantId).select('name');
+  return docs.map((d) => mapInvoice(d, restaurant?.name));
 }
 
 /**

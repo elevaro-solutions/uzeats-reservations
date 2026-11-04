@@ -31,3 +31,11 @@ export function restaurantCuisinesForForm(restaurant: {
 }): string[] {
   return normalizeRestaurantCuisines(restaurant).cuisines;
 }
+
+/** Display label for every cuisine a restaurant declares, e.g. "Uzbek, Middle Eastern". */
+export function formatRestaurantCuisines(
+  restaurant: { cuisine?: string | null; cuisines?: readonly string[] | null },
+  separator = ', ',
+): string {
+  return normalizeRestaurantCuisines(restaurant).cuisines.join(separator);
+}

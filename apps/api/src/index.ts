@@ -23,6 +23,8 @@ import { constructStripeEvent, formatStripeError } from "./services/stripe.js";
 import { confirmDeposit, syncDepositRefundedFromStripe } from "./services/reservations.js";
 import { startNotificationWorkers } from "./services/notifications.js";
 import { ensureDefaultEmailTemplates } from "./services/emailTemplates.js";
+import { ensureDefaultLegalAgreements } from "./services/legalAgreements.js";
+import { startAgreementReminderWorker } from "./services/agreementReminderJobs.js";
 import { ensureDefaultTableShapes } from "./services/tableShapes.js";
 import { startCampaignWorker } from "./services/campaigns.js";
 import { startLoyaltyWorker } from "./services/loyaltyExpiry.js";
@@ -65,12 +67,14 @@ async function main() {
   await connectDb();
   await migrateStaffRoleToManager();
   await ensureDefaultEmailTemplates();
+  await ensureDefaultLegalAgreements();
   await ensureDefaultTableShapes();
   await initStripeModeFromConfig();
   startNotificationWorkers();
   startCampaignWorker();
   startLoyaltyWorker();
   startBillingWorker();
+  startAgreementReminderWorker();
   startWaitlistWorker();
   startVirtualRoomWorker();
 

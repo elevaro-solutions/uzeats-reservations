@@ -136,10 +136,11 @@ export function useSetupGuide({
   const partnerEligible = Boolean(user) && !isAdmin && !isHostRole(role) && Boolean(restaurant);
   const platformEligible = isAdmin && (role === 'admin' || role === 'super_admin');
   const withTeam = canManageTeam(role);
+  const withAgreement = role === 'restaurant_owner';
 
   const { data: partnerData, refetch: refetchPartner } = useQuery(SETUP_GUIDE_SIGNALS, {
     skip: !partnerEligible,
-    variables: { restaurantId: restaurant?.id, withTeam },
+    variables: { restaurantId: restaurant?.id, withTeam, withAgreement },
     fetchPolicy: 'cache-and-network',
     errorPolicy: 'all',
   });
@@ -152,7 +153,24 @@ export function useSetupGuide({
   const guide: SetupGuide | null = useMemo(() => {
     if (partnerEligible && restaurant) {
       const seats = partnerData?.restaurantManagerSeats;
+      const agreement = partnerData?.partnerAgreementCompliance as
+        | {
+            status: 'current' | 'grace' | 'blocked';
+            currentVersion: number;
+            acceptedVersion?: number | null;
+            daysRemaining?: number | null;
+          }
+        | undefined;
       return buildPartnerSetupGuide(restaurant, role, {
+        partnerAgreement: agreement
+          ? {
+              signed:
+                agreement.acceptedVersion != null &&
+                agreement.acceptedVersion >= agreement.currentVersion,
+              status: agreement.status,
+              daysRemaining: agreement.daysRemaining ?? null,
+            }
+          : undefined,
         accessRuleCount: partnerData?.accessRules?.length,
         subscriptionStatus: partnerData?.mySubscription?.status,
         accessRulesIncluded: partnerData?.mySubscription?.features?.accessRules,

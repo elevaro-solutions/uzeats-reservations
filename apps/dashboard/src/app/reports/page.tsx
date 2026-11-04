@@ -26,7 +26,7 @@ import { formatTimeInTimeZone, restaurantTimeZone } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   PRE_SHIFT_REPORT,
   REVENUE_FORECAST,
   CUSTOM_REPORT,
@@ -351,7 +351,7 @@ export default function ReportsPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const activeRestaurant = restaurants.find(

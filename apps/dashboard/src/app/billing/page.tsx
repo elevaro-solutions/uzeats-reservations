@@ -60,7 +60,7 @@ import { useAuth } from '@/lib/auth';
 import { canManageBilling } from '@/lib/roles';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   MY_SUBSCRIPTION,
   PLANS,
   COVER_FEE_SUMMARY,
@@ -77,6 +77,8 @@ import {
   CONFIRM_PLAN_CHANGE_PAYMENT,
   PLATFORM_FEATURE_FLAGS,
   RESTAURANT_OPEN_INVOICE_COUNT,
+  START_OPEN_INVOICES_PAYMENT,
+  CONFIRM_OPEN_INVOICES_PAYMENT,
 } from '@/lib/graphql';
 import { SignupPaymentForm, type SignupPaymentMode } from '@/components/SignupPaymentForm';
 import { PartnerInvoiceDetail } from '@/components/PartnerInvoiceDetail';
@@ -409,45 +411,102 @@ function partnerInvoiceHref(invoiceId: string, restaurantId?: string | null) {
   return `/billing/invoices/${invoiceId}${qs}`;
 }
 
+function unpaidInvoicesHref(restaurantId?: string | null) {
+  const qs = restaurantId ? `?restaurant=${encodeURIComponent(restaurantId)}` : '';
+  return `/billing/unpaid${qs}`;
+}
+
 function OutstandingBalanceAlert({
   outstandingCents,
   openInvoiceCount,
+  invoiceOutstandingCents,
   amountDueNow,
   invoiceHref,
+  unpaidHref,
+  canPayAll,
+  payingAll,
+  onPayAll,
+  deleteContext,
 }: {
   outstandingCents: number;
   openInvoiceCount: number;
+  invoiceOutstandingCents: number;
   amountDueNow: number;
   invoiceHref: string | null;
+  unpaidHref?: string | null;
+  canPayAll?: boolean;
+  payingAll?: boolean;
+  onPayAll?: () => void;
+  deleteContext?: boolean;
 }) {
+  const multiOpen = openInvoiceCount > 1;
+  const unpaidLabel = `${openInvoiceCount} unpaid invoice${openInvoiceCount === 1 ? '' : 's'}`;
+  const unpaidLink =
+    unpaidHref && openInvoiceCount > 0 ? (
+      <Link
+        href={unpaidHref}
+        style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}
+      >
+        {unpaidLabel}
+      </Link>
+    ) : (
+      unpaidLabel
+    );
   return (
     <Alert
       type="warning"
       showIcon
-      title="Outstanding platform balance"
+      title={
+        multiOpen ? (
+          <>
+            {formatCents(invoiceOutstandingCents)} across {unpaidLink}
+          </>
+        ) : openInvoiceCount === 1 ? (
+          <>
+            {formatCents(invoiceOutstandingCents)}{' '}
+            {unpaidHref ? (
+              <Link
+                href={unpaidHref}
+                style={{ color: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}
+              >
+                unpaid invoice
+              </Link>
+            ) : (
+              'unpaid invoice'
+            )}
+          </>
+        ) : outstandingCents > 0 ? (
+          `Outstanding balance: ${formatCents(outstandingCents)}`
+        ) : (
+          'Outstanding platform balance'
+        )
+      }
       description={
         <>
-          {outstandingCents > 0 ? (
-            <>Outstanding balance: {formatCents(outstandingCents)}. </>
+          {deleteContext
+            ? multiOpen
+              ? 'Use Pay all above to settle open invoices before deleting this restaurant.'
+              : 'Pay open invoices and any subscription balance before deleting this restaurant.'
+            : multiOpen
+              ? 'Pay once to settle every open invoice in a single charge.'
+              : openInvoiceCount === 1
+                ? 'Open the invoice to pay and bring your account current.'
+                : null}
+          {openInvoiceCount > 0 && amountDueNow > 0 ? (
+            <> Subscription balance due separately: {formatCents(amountDueNow)}.</>
           ) : null}
-          Pay all open invoices and any subscription balance before deleting this restaurant.
-          {openInvoiceCount > 0 ? (
-            <>
-              {' '}
-              You have {openInvoiceCount} unpaid invoice
-              {openInvoiceCount === 1 ? '' : 's'}
-              {amountDueNow > 0
-                ? ` and ${formatCents(amountDueNow)} due on the subscription`
-                : ''}
-              .
-            </>
-          ) : amountDueNow > 0 ? (
+          {openInvoiceCount === 0 && amountDueNow > 0 ? (
             <> Subscription balance due: {formatCents(amountDueNow)}.</>
           ) : null}
         </>
       }
       action={
-        invoiceHref ? (
+        // Combined checkout only when 2+ invoices — single invoice uses its own pay link.
+        canPayAll && multiOpen && onPayAll ? (
+          <Button size="small" type="primary" loading={payingAll} onClick={onPayAll}>
+            Pay all {formatCents(invoiceOutstandingCents)}
+          </Button>
+        ) : invoiceHref ? (
           <Link href={invoiceHref}>
             <Button size="small" type="primary">
               View invoice
@@ -729,7 +788,7 @@ export default function BillingPage() {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [expandedPlans, setExpandedPlans] = useState<Record<string, boolean>>({});
 
-  const { data: restData, refetch: refetchRestaurants } = useQuery(MY_RESTAURANTS, {
+  const { data: restData, refetch: refetchRestaurants } = useQuery(MY_RESTAURANTS_SHELL, {
     skip: !user,
   });
   const restaurants = restData?.myRestaurants ?? [];
@@ -756,14 +815,21 @@ export default function BillingPage() {
     variables: { restaurantId: activeRestaurantId, period },
     skip: !activeRestaurantId,
   });
-  const { data: invoiceData, loading: invoiceLoading } = useQuery(RESTAURANT_INVOICES, {
+  const {
+    data: invoiceData,
+    loading: invoiceLoading,
+    refetch: refetchInvoices,
+  } = useQuery(RESTAURANT_INVOICES, {
     variables: { restaurantId: activeRestaurantId, limit: 24, offset: 0 },
     skip: !activeRestaurantId,
   });
-  const { data: openInvoiceCountData } = useQuery(RESTAURANT_OPEN_INVOICE_COUNT, {
-    variables: { restaurantId: activeRestaurantId },
-    skip: !activeRestaurantId,
-  });
+  const { data: openInvoiceCountData, refetch: refetchOpenInvoiceCount } = useQuery(
+    RESTAURANT_OPEN_INVOICE_COUNT,
+    {
+      variables: { restaurantId: activeRestaurantId },
+      skip: !activeRestaurantId,
+    },
+  );
 
   const [createSubscription, { loading: creating }] = useMutation(CREATE_SUBSCRIPTION);
   const [cancelSubscription, { loading: cancelling }] = useMutation(CANCEL_SUBSCRIPTION);
@@ -776,6 +842,10 @@ export default function BillingPage() {
   const [previewPlanChange] = useLazyQuery(PREVIEW_PLAN_CHANGE);
   const [loadPlanChangePayment] = useLazyQuery(PLAN_CHANGE_PAYMENT);
   const [confirmPlanPayment] = useMutation(CONFIRM_PLAN_CHANGE_PAYMENT);
+  const [startOpenInvoicesPayment, { loading: startingOpenInvoicesPay }] = useMutation(
+    START_OPEN_INVOICES_PAYMENT,
+  );
+  const [confirmOpenInvoicesPayment] = useMutation(CONFIRM_OPEN_INVOICES_PAYMENT);
   const [setPremiumSmsAddon, { loading: togglingSms }] = useMutation(SET_PREMIUM_SMS_ADDON);
   const [upgradePayment, setUpgradePayment] = useState<{
     clientSecret: string;
@@ -783,6 +853,13 @@ export default function BillingPage() {
     planName: string;
     monthlyLabel: string;
     amountDueCents: number;
+  } | null>(null);
+  const [openInvoicesPayment, setOpenInvoicesPayment] = useState<{
+    clientSecret: string;
+    paymentIntentId: string;
+    totalCents: number;
+    currency: string;
+    invoiceCount: number;
   } | null>(null);
   const [planChange, setPlanChange] = useState<PlanChangeDraft | null>(null);
   const [planChangeTiming, setPlanChangeTiming] = useState<'period_end' | 'now'>('period_end');
@@ -1207,9 +1284,14 @@ export default function BillingPage() {
   const outstandingInvoiceHref = primaryOpenInvoice
     ? partnerInvoiceHref(primaryOpenInvoice.id, activeRestaurantId)
     : null;
-  const invoiceOutstandingCents = invoices
-    .filter(isOpenInvoice)
-    .reduce((sum, inv) => sum + inv.totalCents, 0);
+  const openInvoicesListed = invoices.filter(isOpenInvoice);
+  const listedOpenInvoiceCount = openInvoicesListed.length;
+  const effectiveOpenInvoiceCount = Math.max(openInvoiceCount, listedOpenInvoiceCount);
+  const multiOpenInvoices = effectiveOpenInvoiceCount > 1;
+  const invoiceOutstandingCents = openInvoicesListed.reduce((sum, inv) => sum + inv.totalCents, 0);
+  // amountDueCents is often set from a failed invoice auto-charge (past_due), not a plan
+  // switch. When open invoices exist, Pay all / invoice pay is the only CTA — hide plan-switch Pay.
+  const showPlanChangeDuePay = amountDueNow > 0 && effectiveOpenInvoiceCount === 0;
   const outstandingCents = Math.max(
     Number(subscription?.billingEnforcement?.outstandingCents ?? 0),
     invoiceOutstandingCents,
@@ -1251,8 +1333,12 @@ export default function BillingPage() {
       planStory = `Free trial through ${dayjs(subscription.trialEndsAt).format('MMM D, YYYY')}. First charge is ${monthlyPriceLabel} on that date.`;
     } else if (isFreePlan) {
       planStory = 'This location is on a free plan — there is no recurring subscription charge.';
-    } else if (amountDueNow > 0) {
+    } else if (showPlanChangeDuePay) {
       planStory = `${formatCents(amountDueNow)} is due now for switching plans. After that, renewals are ${monthlyPriceLabel}/mo.`;
+    } else if (multiOpenInvoices && invoiceOutstandingCents > 0) {
+      planStory = `${formatCents(invoiceOutstandingCents)} is due across ${effectiveOpenInvoiceCount} open invoices. Pay all above to bring this location current; renewals are ${monthlyPriceLabel}/mo.`;
+    } else if (effectiveOpenInvoiceCount === 1 && invoiceOutstandingCents > 0) {
+      planStory = `${formatCents(invoiceOutstandingCents)} is due on an open invoice. Pay it to bring this location current; renewals are ${monthlyPriceLabel}/mo.`;
     } else if (cancelAtPeriodEnd && subscription.currentPeriodEnd) {
       planStory = `Cancels on ${dayjs(subscription.currentPeriodEnd).format('MMM D, YYYY')}. You keep ${planDisplayName} until then. Resume to renew, or upgrade to start a new plan right away.`;
     } else if (subscription.pendingPlan && pendingPlanName) {
@@ -1294,6 +1380,59 @@ export default function BillingPage() {
       });
     } catch (err: unknown) {
       message.error(err instanceof Error ? err.message : 'Could not start payment');
+    }
+  };
+
+  const openOpenInvoicesPayment = async () => {
+    if (!activeRestaurantId) return;
+    try {
+      const { data } = await startOpenInvoicesPayment({
+        variables: { restaurantId: activeRestaurantId },
+      });
+      const session = data?.startOpenInvoicesPayment;
+      if (!session) {
+        message.error('Could not start payment');
+        return;
+      }
+      const paidCount = session.invoices?.length ?? 0;
+      if (session.alreadyPaid || !session.clientSecret || !session.paymentIntentId) {
+        message.success(
+          paidCount > 1 || openInvoiceCount > 1
+            ? 'All open invoices are already paid'
+            : 'Invoice is already paid',
+        );
+        await Promise.all([refetchSub(), refetchInvoices(), refetchOpenInvoiceCount()]);
+        return;
+      }
+      setOpenInvoicesPayment({
+        clientSecret: session.clientSecret,
+        paymentIntentId: session.paymentIntentId,
+        totalCents: session.totalCents,
+        currency: session.currency || 'usd',
+        invoiceCount: paidCount || openInvoiceCount,
+      });
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Could not start payment');
+    }
+  };
+
+  const finishOpenInvoicesPayment = async () => {
+    if (!activeRestaurantId || !openInvoicesPayment) return;
+    try {
+      await confirmOpenInvoicesPayment({
+        variables: {
+          restaurantId: activeRestaurantId,
+          paymentIntentId: openInvoicesPayment.paymentIntentId,
+        },
+      });
+      const count = openInvoicesPayment.invoiceCount;
+      setOpenInvoicesPayment(null);
+      message.success(
+        count > 1 ? `Paid ${count} invoices` : 'Invoice paid',
+      );
+      await Promise.all([refetchSub(), refetchInvoices(), refetchOpenInvoiceCount()]);
+    } catch (err: unknown) {
+      message.error(err instanceof Error ? err.message : 'Could not confirm payment');
     }
   };
 
@@ -1397,7 +1536,7 @@ export default function BillingPage() {
               </Col>
             </Row>
 
-            {amountDueNow > 0 ? (
+            {showPlanChangeDuePay ? (
               <Alert
                 type="warning"
                 showIcon
@@ -1410,6 +1549,20 @@ export default function BillingPage() {
                     </Button>
                   ) : null
                 }
+              />
+            ) : null}
+
+            {multiOpenInvoices && invoiceOutstandingCents > 0 ? (
+              <OutstandingBalanceAlert
+                outstandingCents={outstandingCents}
+                openInvoiceCount={effectiveOpenInvoiceCount}
+                invoiceOutstandingCents={invoiceOutstandingCents}
+                amountDueNow={0}
+                invoiceHref={outstandingInvoiceHref}
+                unpaidHref={unpaidInvoicesHref(activeRestaurantId)}
+                canPayAll={canEditBilling}
+                payingAll={startingOpenInvoicesPay}
+                onPayAll={() => void openOpenInvoicesPayment()}
               />
             ) : null}
 
@@ -1460,7 +1613,7 @@ export default function BillingPage() {
                 </div>
                 {canEditBilling && subscription.status !== 'cancelled' ? (
                   <Space wrap>
-                    {amountDueNow > 0 ? (
+                    {showPlanChangeDuePay ? (
                       <Button type="primary" onClick={() => void openDuePayment()}>
                         Pay {formatCents(amountDueNow)} now
                       </Button>
@@ -1696,7 +1849,7 @@ export default function BillingPage() {
                   style={{
                     display: 'flex',
                     justifyContent: 'space-between',
-                    alignItems: 'baseline',
+                    alignItems: 'center',
                     gap: 12,
                     marginBottom: spacing.sm,
                     flexWrap: 'wrap',
@@ -1842,9 +1995,18 @@ export default function BillingPage() {
             {hasPlatformDebt ? (
               <OutstandingBalanceAlert
                 outstandingCents={outstandingCents}
-                openInvoiceCount={openInvoiceCount}
-                amountDueNow={amountDueNow}
+                openInvoiceCount={effectiveOpenInvoiceCount}
+                invoiceOutstandingCents={invoiceOutstandingCents}
+                amountDueNow={showPlanChangeDuePay ? amountDueNow : 0}
                 invoiceHref={outstandingInvoiceHref}
+                unpaidHref={
+                  effectiveOpenInvoiceCount > 0
+                    ? unpaidInvoicesHref(activeRestaurantId)
+                    : null
+                }
+                canPayAll={canEditBilling && multiOpenInvoices}
+                payingAll={startingOpenInvoicesPay}
+                onPayAll={() => void openOpenInvoicesPayment()}
               />
             ) : null}
 
@@ -1991,6 +2153,9 @@ export default function BillingPage() {
               <Text type="secondary" style={{ display: 'block', marginBottom: spacing.md }}>
                 Open an invoice for the full breakdown, pay link, and PDF. Outstanding balances
                 must be paid before this restaurant can be deleted.
+                {multiOpenInvoices
+                  ? ' Use Pay all above to settle every open invoice in one charge.'
+                  : ''}
               </Text>
               {invoiceLoading && invoices.length === 0 ? (
                 <div style={{ display: 'grid', placeItems: 'center', minHeight: 120 }}>
@@ -2053,9 +2218,16 @@ export default function BillingPage() {
               {hasPlatformDebt ? (
                 <OutstandingBalanceAlert
                   outstandingCents={outstandingCents}
-                  openInvoiceCount={openInvoiceCount}
-                  amountDueNow={amountDueNow}
+                  openInvoiceCount={effectiveOpenInvoiceCount}
+                  invoiceOutstandingCents={invoiceOutstandingCents}
+                  amountDueNow={showPlanChangeDuePay ? amountDueNow : 0}
                   invoiceHref={outstandingInvoiceHref}
+                  unpaidHref={
+                    effectiveOpenInvoiceCount > 0
+                      ? unpaidInvoicesHref(activeRestaurantId)
+                      : null
+                  }
+                  deleteContext
                 />
               ) : null}
               <div
@@ -2234,6 +2406,40 @@ export default function BillingPage() {
                     );
                   }
                 })();
+              }}
+            />
+          ) : null}
+        </Modal>
+
+        <Modal
+          title={
+            openInvoicesPayment && openInvoicesPayment.invoiceCount > 1
+              ? 'Pay all open invoices'
+              : 'Pay invoice'
+          }
+          open={Boolean(openInvoicesPayment)}
+          footer={null}
+          destroyOnHidden
+          onCancel={() => setOpenInvoicesPayment(null)}
+        >
+          {openInvoicesPayment ? (
+            <SignupPaymentForm
+              clientSecret={openInvoicesPayment.clientSecret}
+              paymentMode="payment"
+              planName={
+                openInvoicesPayment.invoiceCount > 1
+                  ? `${openInvoicesPayment.invoiceCount} invoices`
+                  : 'Open invoice'
+              }
+              monthlyLabel={formatCents(openInvoicesPayment.totalCents)}
+              trialDays={0}
+              description={
+                openInvoicesPayment.invoiceCount > 1
+                  ? `One charge of ${formatCents(openInvoicesPayment.totalCents)} covers all open invoices for this location.`
+                  : `Pay ${formatCents(openInvoicesPayment.totalCents)} to settle this invoice.`
+              }
+              onSuccess={() => {
+                void finishOpenInvoicesPayment();
               }}
             />
           ) : null}

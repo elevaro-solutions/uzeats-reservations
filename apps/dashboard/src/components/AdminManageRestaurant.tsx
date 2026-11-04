@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import dayjs from 'dayjs';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
 import {
@@ -513,6 +513,9 @@ export function AdminManageRestaurant({
   const [assignRole, setAssignRole] = useState('manager');
   const [form] = Form.useForm();
   const { dirty, markDirty, clearDirty, onValuesChange } = useFormDirty();
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  const hydratedIdRef = useRef<string | null>(null);
   const slugWatch = Form.useWatch('slug', form);
   const nameWatch = Form.useWatch('name', form);
 
@@ -566,7 +569,15 @@ export function AdminManageRestaurant({
   }, [active, restaurant?.id, editTabProp]);
 
   useEffect(() => {
+    hydratedIdRef.current = null;
+  }, [restaurant?.id, active]);
+
+  useEffect(() => {
     if (!active || !restaurant) return;
+    if (hydratedIdRef.current === restaurant.id) return;
+    // Keep unsaved photo/form edits when parent refetch replaces the restaurant object.
+    if (dirtyRef.current) return;
+
     setPhotos(restaurant.photos ?? []);
     setLogoUrl(restaurant.logoUrl ?? null);
     setSelectedPlan(restaurant.subscription?.plan);
@@ -629,6 +640,7 @@ export function AdminManageRestaurant({
       termsAndConditions: restaurant.termsAndConditions ?? '',
     });
     clearDirty();
+    hydratedIdRef.current = restaurant.id;
   }, [active, restaurant, form, clearDirty]);
 
   const onSave = async () => {

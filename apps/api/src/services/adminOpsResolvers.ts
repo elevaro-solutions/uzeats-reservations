@@ -62,6 +62,11 @@ import {
   updateEmailTemplate,
 } from './emailTemplates.js';
 import {
+  listLegalAgreements,
+  mapLegalAgreement,
+  updateLegalAgreement,
+} from './legalAgreements.js';
+import {
   createBlogPost,
   deleteBlogPost,
   getBlogPostById,
@@ -211,6 +216,12 @@ export const adminOpsQuery = {
     requireAdmin(ctx);
     const items = await listEmailTemplates();
     return items.map(mapEmailTemplate);
+  },
+
+  adminLegalAgreements: async (_: unknown, __: unknown, ctx: GraphQLContext) => {
+    requireSuperAdmin(ctx);
+    const items = await listLegalAgreements();
+    return items.map(mapLegalAgreement);
   },
 
   adminBlogPosts: async (
@@ -1139,6 +1150,27 @@ export const adminOpsMutation = {
       details: { key: args.key },
     });
     return mapEmailTemplate(doc);
+  },
+
+  updateLegalAgreement: async (
+    _: unknown,
+    args: {
+      key: string;
+      name?: string;
+      description?: string;
+      bodyHtml?: string;
+    },
+    ctx: GraphQLContext,
+  ) => {
+    const admin = requireSuperAdmin(ctx);
+    const doc = await updateLegalAgreement(args.key, args, admin._id.toString());
+    await logAudit({
+      actorId: admin._id.toString(),
+      action: 'updateLegalAgreement',
+      resource: 'LegalAgreement',
+      details: { key: args.key, version: doc.version },
+    });
+    return mapLegalAgreement(doc);
   },
 
   sendTestEmailTemplate: async (

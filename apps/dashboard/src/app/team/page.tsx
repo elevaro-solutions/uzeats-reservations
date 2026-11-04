@@ -27,7 +27,7 @@ import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { useFormDirty } from '@/lib/useFormDirty';
 import {
   INVITE_MANAGER,
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   REMOVE_USER_RESTAURANT,
   RESTAURANT_MANAGER_SEATS,
   RESTAURANT_TEAM,
@@ -61,7 +61,7 @@ export default function TeamPage() {
   const router = useRouter();
   const canEdit = Boolean(user && canManageTeam(user.role));
 
-  const { data: restaurantsData, loading: restaurantsLoading } = useQuery(MY_RESTAURANTS, {
+  const { data: restaurantsData, loading: restaurantsLoading } = useQuery(MY_RESTAURANTS_SHELL, {
     skip: !ready,
   });
   const restaurants = restaurantsData?.myRestaurants ?? [];

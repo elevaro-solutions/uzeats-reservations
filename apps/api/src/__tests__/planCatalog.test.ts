@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PLAN_HIGHLIGHTS, PLANS } from '../config/plans.js';
-import { assemblePlans, normalizePlanOrder, orderPlans, visiblePlans } from '../services/platformConfig.js';
+import {
+  applyExclusiveFeaturedOnPricing,
+  assemblePlans,
+  normalizePlanOrder,
+  orderPlans,
+  visiblePlans,
+} from '../services/platformConfig.js';
 
 describe('plan catalog', () => {
   it('hides deleted built-in packages from the catalog but keeps them resolvable', () => {
@@ -85,5 +91,27 @@ describe('plan catalog', () => {
     expect(plans.find((plan) => plan.key === 'basic')?.highlights).toEqual(['Custom line']);
     expect(plans.find((plan) => plan.key === 'core')?.highlights).toEqual(DEFAULT_PLAN_HIGHLIGHTS.core);
     expect(plans.find((plan) => plan.key === 'launch')?.highlights).toEqual([]);
+  });
+
+  it('defaults featuredOnPricing to Core and keeps exclusivity when applying overrides', () => {
+    const defaults = assemblePlans({});
+    expect(defaults.find((plan) => plan.key === 'core')?.featuredOnPricing).toBe(true);
+    expect(defaults.filter((plan) => plan.featuredOnPricing)).toHaveLength(1);
+
+    const featuredPro = assemblePlans({
+      pro: { featuredOnPricing: true },
+      core: { featuredOnPricing: false },
+    });
+    expect(featuredPro.find((plan) => plan.key === 'pro')?.featuredOnPricing).toBe(true);
+    expect(featuredPro.find((plan) => plan.key === 'core')?.featuredOnPricing).toBe(false);
+
+    const exclusive = applyExclusiveFeaturedOnPricing(
+      { launch: { name: 'Launch', monthlyPriceCents: 7900 } },
+      'launch',
+    );
+    expect(exclusive.launch?.featuredOnPricing).toBe(true);
+    expect(exclusive.core?.featuredOnPricing).toBe(false);
+    expect(exclusive.basic?.featuredOnPricing).toBe(false);
+    expect(exclusive.pro?.featuredOnPricing).toBe(false);
   });
 });

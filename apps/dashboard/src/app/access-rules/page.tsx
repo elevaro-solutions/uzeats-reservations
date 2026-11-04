@@ -27,7 +27,7 @@ import dayjs from 'dayjs';
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   ACCESS_RULES,
   CREATE_ACCESS_RULE,
   UPDATE_ACCESS_RULE,
@@ -44,7 +44,7 @@ export default function AccessRulesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form] = Form.useForm();
 
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const { data, loading, refetch } = useQuery(ACCESS_RULES, {

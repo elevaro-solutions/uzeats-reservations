@@ -77,6 +77,8 @@ export type EffectivePlan = {
   /** Owner-invited manager seats included (≥1). */
   managerSeats: number;
   visibleOnPricing: boolean;
+  /** Highlighted / popular card on public /pricing. Defaults to Core when unset. */
+  featuredOnPricing: boolean;
   isCustom: boolean;
   /** Public pricing card “Includes” lines. */
   highlights: string[];
@@ -100,6 +102,7 @@ export type PlanOverrideFields = {
   trialDays?: number;
   managerSeats?: number;
   visibleOnPricing?: boolean;
+  featuredOnPricing?: boolean;
   highlights?: string[] | null;
   durationUnit?: PlanDurationUnit | string | null;
   durationCount?: number | null;
@@ -227,6 +230,49 @@ export function getPlanOverridesMap(
   );
 }
 
+/**
+ * Ensure at most one package is featured on public /pricing.
+ * Writes `featuredOnPricing` on every known catalog key so Core’s default
+ * fallback does not keep a second highlight after another plan is featured.
+ */
+export function applyExclusiveFeaturedOnPricing(
+  overrides: Record<string, PlanOverrideFields>,
+  featuredKey: string | null,
+  catalogKeys: Iterable<string> = [...BUILTIN_KEYS, ...Object.keys(overrides)],
+): Record<string, PlanOverrideFields> {
+  const next: Record<string, PlanOverrideFields> = { ...overrides };
+  const keys = new Set(
+    [...catalogKeys, ...Object.keys(overrides)]
+      .map((key) => String(key).trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const featured = featuredKey ? featuredKey.trim().toLowerCase() : null;
+  for (const key of keys) {
+    const existing = toPlainPlanOverride(next[key]);
+    next[key] = {
+      ...existing,
+      featuredOnPricing: featured !== null && key === featured,
+    };
+  }
+  return next;
+}
+
+export function writePlanOverridesMap(
+  doc: PlatformConfigDocument,
+  overrides: Record<string, PlanOverrideFields>,
+): void {
+  if (!(doc as any).planOverrides) (doc as any).planOverrides = new Map();
+  if ((doc as any).planOverrides instanceof Map) {
+    (doc as any).planOverrides.clear();
+    for (const [key, value] of Object.entries(overrides)) {
+      (doc as any).planOverrides.set(key, value);
+    }
+  } else {
+    (doc as any).planOverrides = { ...overrides };
+  }
+  doc.markModified('planOverrides');
+}
+
 export function slugifyPlanKey(name: string): string {
   const base = name
     .toLowerCase()
@@ -297,6 +343,11 @@ function mapOverrideToPlan(
       override?.visibleOnPricing !== undefined
         ? Boolean(override.visibleOnPricing)
         : true,
+    // Preserve legacy “Core is popular” until an admin explicitly toggles featured.
+    featuredOnPricing:
+      override?.featuredOnPricing !== undefined
+        ? Boolean(override.featuredOnPricing)
+        : key === 'core',
     isCustom,
     highlights: Array.isArray(override?.highlights)
       ? sanitizePlanHighlights(override.highlights)

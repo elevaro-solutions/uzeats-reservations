@@ -45,7 +45,7 @@ import { useAuth } from '@/lib/auth';
 import { canManageBilling, isHostRole } from '@/lib/roles';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   FLOOR_PLAN_OPS,
   REFUND_RESERVATION_DEPOSIT,
   SEAT_RESERVATION_AT_TABLE,
@@ -734,7 +734,7 @@ export default function FloorOpsPage() {
   });
   const opsSnapshotRef = useRef('');
 
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const activeRestaurant = useMemo(

@@ -4,14 +4,14 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@/lib/apollo-hooks';
 import { useAuth } from '@/lib/auth';
-import { MY_RESTAURANTS, RESTAURANT_NO_SHOW_FEE_CHARGES } from '@/lib/graphql';
+import { MY_RESTAURANTS_SHELL, RESTAURANT_NO_SHOW_FEE_CHARGES } from '@/lib/graphql';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import { NoShowFeeChargesReport } from '@/components/NoShowFeeChargesReport';
 
 export default function PartnerNoShowFeesPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
-  const { data: restaurantsData } = useQuery(MY_RESTAURANTS, {
+  const { data: restaurantsData } = useQuery(MY_RESTAURANTS_SHELL, {
     skip: !user,
   });
   const restaurants = restaurantsData?.myRestaurants ?? [];

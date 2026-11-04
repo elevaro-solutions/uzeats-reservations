@@ -96,7 +96,8 @@ export function buildRestaurantInput(
       zip: base.address.zip,
       country: base.address.country ?? 'US',
     },
-    location: base.location,
+    // Pick lat/lng only — Apollo cache objects include `__typename`, which GraphQL rejects on LocationInput.
+    location: { lat: base.location.lat, lng: base.location.lng },
     phone: base.phone ?? undefined,
     website: base.website ?? undefined,
     menuUrl: base.menuUrl ?? undefined,

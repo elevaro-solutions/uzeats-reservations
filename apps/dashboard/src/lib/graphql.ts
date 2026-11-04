@@ -137,7 +137,11 @@ export const MY_RESTAURANTS = gql`
   }
 `;
 
-/** Location switcher + onboarding progress for DashShell — no nested tables/shifts/menu. */
+/**
+ * Location switcher + onboarding progress for DashShell — no nested tables/shifts/menu.
+ * Includes address zip/country + lat/lng so partner pages can resolve restaurantTimeZone
+ * without loading full MY_RESTAURANTS.
+ */
 export const MY_RESTAURANTS_SHELL = gql`
   query MyRestaurantsShell {
     myRestaurants {
@@ -151,6 +155,12 @@ export const MY_RESTAURANTS_SHELL = gql`
       address {
         city
         state
+        zip
+        country
+      }
+      location {
+        lat
+        lng
       }
       depositRequired
       tableCount
@@ -160,10 +170,92 @@ export const MY_RESTAURANTS_SHELL = gql`
   }
 `;
 
+/** Single-restaurant menu editor — avoids full MY_RESTAURANTS (tables/shifts/floor). */
+export const RESTAURANT_MENU_EDITOR = gql`
+  query RestaurantMenuEditor($id: ID!) {
+    restaurant(id: $id) {
+      id
+      name
+      description
+      cuisine
+      cuisines
+      priceRange
+      photos
+      logoUrl
+      phone
+      website
+      menuUrl
+      onlineOrderUrl
+      address {
+        line1
+        line2
+        city
+        state
+        zip
+        country
+        neighborhood
+      }
+      location {
+        lat
+        lng
+      }
+      depositRequired
+      depositAmountCents
+      depositPolicy
+      cancellationPeriodHours
+      loyaltyEnabled
+      loyaltyPointsPerVisit
+      loyaltyMinRedeemPoints
+      categoryIds
+      landmarkIds
+      diningStyles
+      discoveryOccasions
+      meals
+      dietaryTags
+      amenities
+      wheelchairAccessible
+      faq {
+        question
+        answer
+      }
+      featuredIn {
+        title
+        description
+        url
+        logoUrl
+      }
+      termsAndConditions
+      menu {
+        id
+        sections {
+          id
+          name
+          items {
+            id
+            name
+            description
+            priceCents
+            dietary
+            available
+            popular
+            photoUrl
+          }
+        }
+      }
+    }
+  }
+`;
+
 export const SETUP_GUIDE_SIGNALS = gql`
-  query SetupGuideSignals($restaurantId: ID!, $withTeam: Boolean!) {
+  query SetupGuideSignals($restaurantId: ID!, $withTeam: Boolean!, $withAgreement: Boolean!) {
     accessRules(restaurantId: $restaurantId) {
       id
+    }
+    partnerAgreementCompliance @include(if: $withAgreement) {
+      status
+      currentVersion
+      acceptedVersion
+      daysRemaining
     }
     mySubscription(restaurantId: $restaurantId) {
       id
@@ -1797,6 +1889,118 @@ export const UPDATE_EMAIL_TEMPLATE = gql`
   }
 `;
 
+export const ADMIN_LEGAL_AGREEMENTS = gql`
+  query AdminLegalAgreements {
+    adminLegalAgreements {
+      id
+      key
+      name
+      description
+      bodyHtml
+      version
+      updatedAt
+    }
+  }
+`;
+
+export const LEGAL_AGREEMENT = gql`
+  query LegalAgreement($key: LegalAgreementKey!) {
+    legalAgreement(key: $key) {
+      id
+      key
+      name
+      description
+      bodyHtml
+      version
+      versionPublishedAt
+      updatedAt
+    }
+  }
+`;
+
+export const LEGAL_AGREEMENT_PDF = gql`
+  query LegalAgreementPdf($key: LegalAgreementKey!) {
+    legalAgreementPdf(key: $key) {
+      filename
+      content
+      mimeType
+      encoding
+    }
+  }
+`;
+
+export const MY_SIGNED_LEGAL_AGREEMENT_PDF = gql`
+  query MySignedLegalAgreementPdf($key: LegalAgreementKey!) {
+    mySignedLegalAgreementPdf(key: $key) {
+      filename
+      content
+      mimeType
+      encoding
+    }
+  }
+`;
+
+export const PARTNER_AGREEMENT_COMPLIANCE = gql`
+  query PartnerAgreementCompliance {
+    partnerAgreementCompliance {
+      agreementKey
+      required
+      status
+      currentVersion
+      acceptedVersion
+      versionPublishedAt
+      graceEndsAt
+      daysRemaining
+      agreementName
+      agreement {
+        id
+        key
+        name
+        bodyHtml
+        version
+        versionPublishedAt
+      }
+    }
+  }
+`;
+
+export const SIGN_LEGAL_AGREEMENT = gql`
+  mutation SignLegalAgreement($key: LegalAgreementKey!, $signature: AgreementSignatureInput!) {
+    signLegalAgreement(key: $key, signature: $signature) {
+      status
+      currentVersion
+      acceptedVersion
+      daysRemaining
+      graceEndsAt
+    }
+  }
+`;
+
+export const UPDATE_LEGAL_AGREEMENT = gql`
+  mutation UpdateLegalAgreement(
+    $key: LegalAgreementKey!
+    $name: String
+    $description: String
+    $bodyHtml: String
+  ) {
+    updateLegalAgreement(
+      key: $key
+      name: $name
+      description: $description
+      bodyHtml: $bodyHtml
+    ) {
+      id
+      key
+      name
+      description
+      bodyHtml
+      version
+      versionPublishedAt
+      updatedAt
+    }
+  }
+`;
+
 export const SEND_TEST_EMAIL_TEMPLATE = gql`
   mutation SendTestEmailTemplate(
     $key: String!
@@ -3157,6 +3361,7 @@ export const ADMIN_PLANS = gql`
       websiteCoverFeeCents
       trialDays
       visibleOnPricing
+      featuredOnPricing
       isCustom
       managerSeats
       highlights
@@ -3201,6 +3406,7 @@ export const UPDATE_PLAN_PACKAGE = gql`
       websiteCoverFeeCents
       trialDays
       visibleOnPricing
+      featuredOnPricing
       isCustom
       managerSeats
       highlights
@@ -3219,6 +3425,7 @@ export const CREATE_PLAN_PACKAGE = gql`
       websiteCoverFeeCents
       trialDays
       visibleOnPricing
+      featuredOnPricing
       isCustom
       managerSeats
       highlights
@@ -3301,6 +3508,52 @@ export const RESTAURANT_PROFILE = gql`
         logoUrl
       }
       termsAndConditions
+    }
+  }
+`;
+
+/** Partner Hub restaurant-profile editor — one venue, no tables/shifts/menu/floor. */
+export const RESTAURANT_OWNER_EDITOR = gql`
+  query RestaurantOwnerEditor($id: ID!) {
+    restaurant(id: $id) {
+      id
+      slug
+      name
+      description
+      cuisine
+      cuisines
+      priceRange
+      photos
+      logoUrl
+      phone
+      website
+      menuUrl
+      onlineOrderUrl
+      address {
+        line1
+        line2
+        city
+        state
+        zip
+        country
+        neighborhood
+      }
+      location {
+        lat
+        lng
+      }
+      depositRequired
+      depositAmountCents
+      depositPolicy
+      cancellationPeriodHours
+      noShowMarkingMode
+      applyPlatformHolidays
+      holidayOptOutKeys
+      holidayOptInKeys
+      requireHolidayApproval
+      loyaltyEnabled
+      loyaltyPointsPerVisit
+      loyaltyMinRedeemPoints
     }
   }
 `;
@@ -3551,6 +3804,40 @@ export const RESTAURANT_INVOICES = gql`
           originalAmountCents
         }
       }
+    }
+  }
+`;
+
+export const START_OPEN_INVOICES_PAYMENT = gql`
+  mutation StartOpenInvoicesPayment($restaurantId: ID!) {
+    startOpenInvoicesPayment(restaurantId: $restaurantId) {
+      totalCents
+      currency
+      clientSecret
+      paymentIntentId
+      alreadyPaid
+      isStub
+      invoices {
+        id
+        number
+        status
+        billingPeriod
+        totalCents
+        currency
+        dueDate
+      }
+    }
+  }
+`;
+
+export const CONFIRM_OPEN_INVOICES_PAYMENT = gql`
+  mutation ConfirmOpenInvoicesPayment($restaurantId: ID!, $paymentIntentId: String!) {
+    confirmOpenInvoicesPayment(restaurantId: $restaurantId, paymentIntentId: $paymentIntentId) {
+      id
+      number
+      status
+      paidAt
+      totalCents
     }
   }
 `;

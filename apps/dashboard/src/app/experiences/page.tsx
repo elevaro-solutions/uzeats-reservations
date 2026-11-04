@@ -27,7 +27,7 @@ import type { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import { restaurantTimeZone, restaurantUpload, zonedWallClockToUtc } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
-import { MY_RESTAURANTS } from '@/lib/graphql';
+import { MY_RESTAURANTS_SHELL } from '@/lib/graphql';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import PhotoUpload from '@/components/PhotoUpload';
 import { useUrlPagination } from '@/lib/useUrlPagination';
@@ -117,7 +117,7 @@ function ExperiencesPageContent() {
   const { dirty, clearDirty, onValuesChange } = useFormDirty();
   const { limit, offset, tablePagination } = useUrlPagination({ defaultPageSize: 10 });
 
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const activeRestaurant = restaurants.find((r: { id: string }) => r.id === activeRestaurantId);

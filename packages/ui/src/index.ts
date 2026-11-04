@@ -68,6 +68,13 @@ export {
   type PlacePrediction,
 } from './googlePlaces';
 export { PhoneInput, type PhoneInputProps } from './PhoneInput';
+export {
+  SignaturePad,
+  isSignatureComplete,
+  type SignatureMethod,
+  type SignaturePadValue,
+  type SignaturePadProps,
+} from './SignaturePad';
 export { PlanPrice, type PlanPriceProps, type BillingPeriod, type AnnualBillingSettings } from './PlanPrice';
 export {
   DEFAULT_PHONE_COUNTRY,

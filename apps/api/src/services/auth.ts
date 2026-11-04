@@ -25,6 +25,11 @@ import {
   resolveRequireSignupEmailVerification,
 } from './platformConfig.js';
 import { clampRegistrationRole } from './roleAccess.js';
+import {
+  recordAgreementAcceptance,
+  requireAgreementSignature,
+} from './legalAgreements.js';
+import type { AgreementSignatureInput } from '@reservations/shared';
 import { generateUniqueReferralCode } from '../lib/referralCode.js';
 import {
   AuthenticationError,
@@ -133,14 +138,26 @@ export async function issueTokens(user: {
   return { accessToken, refreshToken };
 }
 
-export async function registerWithEmail(input: {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  referralCode?: string;
-}) {
+export async function registerWithEmail(
+  input: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+    referralCode?: string;
+    termsOfUseSignature?: AgreementSignatureInput;
+  },
+  meta?: { ip?: string; userAgent?: string },
+) {
+  const terms = input.termsOfUseSignature
+    ? await requireAgreementSignature(
+        'terms_of_use',
+        input.termsOfUseSignature,
+        'termsOfUseSignature',
+      )
+    : null;
+
   const existing = await User.findOne({ email: input.email.toLowerCase() });
   if (existing) throw new ConflictError('Email already registered', { field: 'email' });
 
@@ -181,6 +198,19 @@ export async function registerWithEmail(input: {
     referralCode: await generateUniqueReferralCode(input.firstName),
     referredByUserId,
   });
+
+  if (terms) {
+    await recordAgreementAcceptance({
+      userId: user._id.toString(),
+      agreementKey: terms.key,
+      version: terms.version,
+      signature: terms.signature,
+      ip: meta?.ip,
+      userAgent: meta?.userAgent,
+    });
+  } else {
+    logger.info({ userId: user._id.toString() }, '[auth] diner registered without Terms of Use signature');
+  }
 
   if (requireEmailVerification) {
     const sent = await sendSignupVerificationEmail(user).catch((err) => {

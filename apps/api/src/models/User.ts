@@ -108,6 +108,14 @@ const userSchema = new Schema(
     },
     /** Set when the diner self-deletes; tombstone row kept for reservation FKs without PII. */
     deletedAt: { type: Date, index: true },
+    /**
+     * Last Partner Agreement / Terms of Use version for which a grace reminder email was sent.
+     * Prevents duplicate reminder emails within the same published version.
+     */
+    agreementReminderSent: {
+      partner_agreement: { type: Number },
+      terms_of_use: { type: Number },
+    },
   },
   { timestamps: true },
 );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery } from '@/lib/apollo-hooks';
@@ -11,7 +11,7 @@ import { restaurantUpload } from '@reservations/shared';
 import { useAuth } from '@/lib/auth';
 import {
   CANCEL_RESTAURANT_PROFILE_CHANGE_REQUEST,
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   MY_RESTAURANT_PROFILE_CHANGE_REQUEST,
   REQUEST_RESTAURANT_PROFILE_CHANGE,
   RESTAURANT_PROFILE,
@@ -79,7 +79,7 @@ export default function ProfilePage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
 
-  const { data: listData, loading: listLoading } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: listData, loading: listLoading } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurantIds = useMemo(
     () => (listData?.myRestaurants ?? []).map((r: { id: string }) => r.id),
     [listData],
@@ -99,18 +99,30 @@ export default function ProfilePage() {
   const [cancelRequest, { loading: cancelling }] = useMutation(CANCEL_RESTAURANT_PROFILE_CHANGE_REQUEST);
   const [upsertMenu] = useMutation(UPSERT_MENU);
 
-  const restaurant = profileData?.restaurant;
+  const restaurant =
+    restaurantId && profileData?.restaurant?.id === restaurantId ? profileData.restaurant : null;
   const request = requestData?.myRestaurantProfileChangeRequest as ProfileChangeRequest | null | undefined;
   const pending = request?.status === 'pending' ? request : null;
   const latestDenied =
     request?.status === 'denied' && request.notes !== 'Cancelled by restaurant' ? request : null;
+  const hydratedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/login');
   }, [authLoading, user, router]);
 
   useEffect(() => {
-    if (!restaurant) return;
+    hydratedKeyRef.current = null;
+    setPhotos([]);
+    setLogoUrl(null);
+  }, [restaurantId]);
+
+  useEffect(() => {
+    if (!restaurantId || !restaurant) return;
+    const pendingKey = pending?.id ?? 'none';
+    const key = `${restaurantId}:${pendingKey}`;
+    if (hydratedKeyRef.current === key) return;
+
     const source = pending?.proposed;
     form.setFieldsValue({
       ...(source ? profileValuesFromChange(source) : profileValuesFromRestaurant(restaurant)),
@@ -118,7 +130,8 @@ export default function ProfilePage() {
     });
     setPhotos(source?.photos ?? restaurant.photos ?? []);
     setLogoUrl(source?.logoUrl ?? restaurant.logoUrl ?? null);
-  }, [restaurant, pending, form]);
+    hydratedKeyRef.current = key;
+  }, [restaurantId, restaurant, pending, form]);
 
   const handleSave = async (values: RestaurantProfileFormValues & { reason?: string }) => {
     if (!restaurant) return;

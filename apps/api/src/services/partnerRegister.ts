@@ -14,6 +14,10 @@ import { clampRegistrationRole } from './roleAccess.js';
 import { sendSignupVerificationEmail } from './auth.js';
 import { logger } from '../lib/logger.js';
 import { notifyOwnerRestaurantCreated } from './restaurantOwnerEmails.js';
+import {
+  recordAgreementAcceptance,
+  requireAgreementSignature,
+} from './legalAgreements.js';
 
 function restaurantSlugBase(name: string) {
   return (
@@ -66,7 +70,16 @@ function isDuplicateKeyError(err: unknown): boolean {
   return Boolean(err && typeof err === 'object' && 'code' in err && (err as { code: number }).code === 11000);
 }
 
-export async function registerRestaurantPartner(input: RegisterRestaurantPartnerInput) {
+export async function registerRestaurantPartner(
+  input: RegisterRestaurantPartnerInput,
+  meta?: { ip?: string; userAgent?: string },
+) {
+  const agreement = await requireAgreementSignature(
+    'partner_agreement',
+    input.partnerAgreementSignature,
+    'partnerAgreementSignature',
+  );
+
   const config = await getPlatformConfig();
   if (config.allowPartnerRegistration === false) {
     throw new ForbiddenError('Partner registration is currently disabled');
@@ -98,6 +111,15 @@ export async function registerRestaurantPartner(input: RegisterRestaurantPartner
     phone: input.account.phone,
     role: clampRegistrationRole(config.defaultPartnerRole, 'restaurant_owner'),
     emailVerified: !requireEmailVerification,
+  });
+
+  await recordAgreementAcceptance({
+    userId: user._id.toString(),
+    agreementKey: agreement.key,
+    version: agreement.version,
+    signature: agreement.signature,
+    ip: meta?.ip,
+    userAgent: meta?.userAgent,
   });
 
   let restaurant;

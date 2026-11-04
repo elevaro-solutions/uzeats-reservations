@@ -23,7 +23,7 @@ import { ApiOutlined, CopyOutlined, KeyOutlined, PlusOutlined } from '@ant-desig
 import { useAuth } from '@/lib/auth';
 import { usePartnerRestaurant } from '@/lib/usePartnerRestaurant';
 import {
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   INTEGRATIONS,
   CREATE_INTEGRATION,
   SET_INTEGRATION_ENABLED,
@@ -56,7 +56,7 @@ export default function IntegrationsPage() {
   const [posKey, setPosKey] = useState<string | null>(null);
   const [form] = Form.useForm();
 
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { activeRestaurantId, restaurantSelectProps } = usePartnerRestaurant(restaurants);
   const { data, loading, refetch } = useQuery(INTEGRATIONS, {

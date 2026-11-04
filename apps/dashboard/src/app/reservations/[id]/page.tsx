@@ -31,7 +31,7 @@ import { EmptyState, PageHeader, StatusTag, colors, radii, shadows, spacing, typ
 import { useAuth } from '@/lib/auth';
 import {
   DELETE_RESERVATION,
-  MY_RESTAURANTS,
+  MY_RESTAURANTS_SHELL,
   REFUND_RESERVATION_DEPOSIT,
   RESTAURANT_RESERVATION,
   PENDING_BADGE_REFETCH,
@@ -136,7 +136,7 @@ function ReservationDetailPageContent() {
   const { user, loading: authLoading } = useAuth();
   const reservationId = params.id;
 
-  const { data: restData } = useQuery(MY_RESTAURANTS, { skip: !user });
+  const { data: restData } = useQuery(MY_RESTAURANTS_SHELL, { skip: !user });
   const restaurants = restData?.myRestaurants ?? [];
   const { setRestaurantId } = usePartnerRestaurant(restaurants);
 

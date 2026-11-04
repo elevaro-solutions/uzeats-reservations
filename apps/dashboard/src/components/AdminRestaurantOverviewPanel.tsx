@@ -9,7 +9,11 @@ import {
   TagOutlined,
   TeamOutlined,
 } from '@ant-design/icons';
-import { buildRestaurantBookingUrl, resolveDepositPolicy } from '@reservations/shared';
+import {
+  buildRestaurantBookingUrl,
+  formatRestaurantCuisines,
+  resolveDepositPolicy,
+} from '@reservations/shared';
 import {
   StatCard,
   StatusTag,
@@ -256,7 +260,9 @@ export function AdminRestaurantOverviewPanel({
                 size="small"
                 styles={{ content: { minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' } }}
               >
-                <Descriptions.Item label="Cuisine">{restaurant.cuisine || '—'}</Descriptions.Item>
+                <Descriptions.Item label="Cuisine">
+                  {formatRestaurantCuisines(restaurant) || '—'}
+                </Descriptions.Item>
                 <Descriptions.Item label="Price">
                   {priceRangeLabel(restaurant.priceRange || 1)}
                 </Descriptions.Item>

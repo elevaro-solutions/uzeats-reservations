@@ -1162,6 +1162,8 @@ export const typeDefs = `#graphql
     """Owner-invited manager seats included with this package. Always ≥ 1."""
     managerSeats: Int!
     visibleOnPricing: Boolean!
+    """Highlighted / popular card on public /pricing. At most one package is featured."""
+    featuredOnPricing: Boolean!
     isCustom: Boolean!
     """Public pricing card Includes lines."""
     highlights: [String!]!
@@ -1738,6 +1740,17 @@ export const typeDefs = `#graphql
 
   type InvoicePaymentSession {
     invoice: Invoice!
+    clientSecret: String
+    paymentIntentId: String
+    alreadyPaid: Boolean!
+    isStub: Boolean!
+  }
+
+  """One Stripe charge covering every open unpaid invoice for a restaurant."""
+  type OpenInvoicesPaymentSession {
+    invoices: [Invoice!]!
+    totalCents: Int!
+    currency: String!
     clientSecret: String
     paymentIntentId: String
     alreadyPaid: Boolean!
@@ -2583,6 +2596,7 @@ export const typeDefs = `#graphql
     trialDays: Int
     managerSeats: Int
     visibleOnPricing: Boolean
+    featuredOnPricing: Boolean
     highlights: [String!]
     features: SubscriptionFeaturesInput
   }
@@ -2603,6 +2617,7 @@ export const typeDefs = `#graphql
     trialDays: Int
     managerSeats: Int
     visibleOnPricing: Boolean
+    featuredOnPricing: Boolean
     highlights: [String!]
     features: SubscriptionFeaturesInput
   }
@@ -2778,6 +2793,61 @@ export const typeDefs = `#graphql
     bodyText: String!
     description: String!
     updatedAt: DateTime!
+  }
+
+  """Platform legal documents edited by superadmin (Terms of Use, Partner Agreement)."""
+  enum LegalAgreementKey {
+    terms_of_use
+    partner_agreement
+  }
+
+  type LegalAgreement {
+    id: ID!
+    key: LegalAgreementKey!
+    name: String!
+    description: String!
+    bodyHtml: String!
+    version: Int!
+    versionPublishedAt: DateTime
+    updatedAt: DateTime
+  }
+
+  enum AgreementSignatureMethod {
+    typed
+    drawn
+  }
+
+  """Type full legal name or draw a signature (PNG data URL)."""
+  input AgreementSignatureInput {
+    method: AgreementSignatureMethod!
+    fullName: String
+    signatureDataUrl: String
+  }
+
+  enum AgreementComplianceStatus {
+    current
+    grace
+    blocked
+  }
+
+  type AgreementCompliance {
+    agreementKey: LegalAgreementKey!
+    required: Boolean!
+    status: AgreementComplianceStatus!
+    currentVersion: Int!
+    acceptedVersion: Int
+    versionPublishedAt: DateTime
+    graceEndsAt: DateTime
+    daysRemaining: Int
+    agreementName: String!
+    agreement: LegalAgreement!
+  }
+
+  type LegalAgreementPdfExport {
+    filename: String!
+    content: String!
+    mimeType: String!
+    encoding: String!
   }
 
   enum BlogPostStatus { draft published archived }
@@ -3188,6 +3258,8 @@ export const typeDefs = `#graphql
     lastName: String!
     phone: String!
     referralCode: String
+    """Type or draw signature for Terms of Use. Omitted by diner mobile until it has a signing step; the account is then recorded as unsigned."""
+    termsOfUseSignature: AgreementSignatureInput
   }
 
   input ContactFormInput {
@@ -3340,6 +3412,8 @@ export const typeDefs = `#graphql
     account: PartnerAccountInput!
     restaurant: PartnerRestaurantInput!
     plan: String!
+    """Type or draw signature for Partner Agreement (required at partner signup)."""
+    partnerAgreementSignature: AgreementSignatureInput!
   }
 
   input AdminCreateOwnerInput {
@@ -4320,6 +4394,18 @@ export const typeDefs = `#graphql
     ): SupportTicketConnection!
     supportTicket(id: ID!): SupportTicket!
     emailTemplates: [EmailTemplate!]!
+    """Public: current Terms of Use / Partner Agreement for signup and legal pages."""
+    legalAgreement(key: LegalAgreementKey!): LegalAgreement!
+    """Public: branded A4 PDF (base64) for Terms of Use or Partner Agreement."""
+    legalAgreementPdf(key: LegalAgreementKey!): LegalAgreementPdfExport!
+    """Signed-in user: branded A4 PDF of the version they signed, with their signature block."""
+    mySignedLegalAgreementPdf(key: LegalAgreementKey!): LegalAgreementPdfExport!
+    """Partner owner: Partner Agreement re-accept status (grace / blocked)."""
+    partnerAgreementCompliance: AgreementCompliance!
+    """Signed-in user: compliance for a specific agreement key."""
+    myAgreementCompliance(key: LegalAgreementKey!): AgreementCompliance!
+    """Superadmin: list both agreement templates."""
+    adminLegalAgreements: [LegalAgreement!]!
     adminBlogPosts(
       search: String
       status: BlogPostStatus
@@ -4620,6 +4706,10 @@ export const typeDefs = `#graphql
     sendInvoiceEmail(id: ID!, toEmail: String): InvoiceEmailResult!
     startInvoicePayment(token: String!): InvoicePaymentSession!
     confirmInvoicePayment(token: String!, paymentIntentId: String!): Invoice!
+    """Create (or resume) one PaymentIntent for all open unpaid invoices on a venue."""
+    startOpenInvoicesPayment(restaurantId: ID!): OpenInvoicesPaymentSession!
+    """Mark every open invoice covered by the PaymentIntent as paid."""
+    confirmOpenInvoicesPayment(restaurantId: ID!, paymentIntentId: String!): [Invoice!]!
     createPlatformService(input: PlatformServiceInput!): PlatformService!
     updatePlatformService(id: ID!, input: PlatformServiceInput!): PlatformService!
     deletePlatformService(id: ID!): Boolean!
@@ -4721,6 +4811,18 @@ export const typeDefs = `#graphql
       bodyText: String
       name: String
     ): EmailTemplate!
+    """Superadmin: save Terms of Use or Partner Agreement (bumps version when body changes)."""
+    updateLegalAgreement(
+      key: LegalAgreementKey!
+      name: String
+      description: String
+      bodyHtml: String
+    ): LegalAgreement!
+    """Re-sign current published agreement (type or draw). Required after version bump."""
+    signLegalAgreement(
+      key: LegalAgreementKey!
+      signature: AgreementSignatureInput!
+    ): AgreementCompliance!
     sendTestEmailTemplate(
       key: String!
       to: String!

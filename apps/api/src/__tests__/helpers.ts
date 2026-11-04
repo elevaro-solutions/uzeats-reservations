@@ -82,7 +82,11 @@ export async function registerUser(
   input: { email: string; password: string; firstName: string; lastName: string; phone?: string },
 ) {
   const res = await graphqlRequest(agent, REGISTER_MUTATION, {
-    input: { ...input, phone: input.phone ?? nextTestPhone() },
+    input: {
+      ...input,
+      phone: input.phone ?? nextTestPhone(),
+      termsOfUseSignature: { method: 'typed', fullName: `${input.firstName} ${input.lastName}` },
+    },
   });
   const data = res.body.data?.register;
   return data as { accessToken: string; refreshToken: string; user: { id: string; role: string } };

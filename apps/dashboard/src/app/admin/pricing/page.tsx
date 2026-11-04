@@ -110,6 +110,8 @@ const FIELD_TIPS = {
     'Drafts the short description from the package name, includes, features, and manager accounts. You can edit it before saving.',
   visibleOnPricing:
     'When on, this package appears as a card on the public /pricing page and in partner registration. When off (Hidden), partners and the public cannot select it — platform admins can still assign it when creating or editing restaurants, assigning packages, and creating invoices.',
+  featuredOnPricing:
+    'When on, this package is the highlighted / popular card on public /pricing (dark featured styling). Turning it on clears Featured from every other package so only one is featured.',
   monthlyPrice: 'Recurring subscription price charged after any trial ends, for the billing duration below.',
   duration:
     'How long one paid cycle lasts. Use 1 month for standard monthly billing, or a custom range such as 14 days, 2 weeks, 3 months, or 1 year. Free ($0) packages have no paid cycle.',
@@ -372,6 +374,7 @@ export default function AdminPricingPage() {
       trialPeriod: trialPeriodValue(days),
       customTrialDays: days > 0 && !(TRIAL_PRESETS as readonly number[]).includes(days) ? days : 7,
       visibleOnPricing: plan.visibleOnPricing !== false,
+      featuredOnPricing: plan.featuredOnPricing === true,
       managerSeats: plan.managerSeats ?? 1,
       highlights: Array.isArray(plan.highlights) ? plan.highlights : [],
       features: featuresInput(plan.features),
@@ -539,6 +542,7 @@ export default function AdminPricingPage() {
             websiteCoverFeeCents: dollarsToCents(values.websiteCoverFee),
             trialDays: resolveTrialDays(values),
             visibleOnPricing: values.visibleOnPricing,
+            featuredOnPricing: values.featuredOnPricing === true,
             ...(isSuperAdminUser ? { highlights: highlightsInput(values.highlights) } : {}),
             managerSeats: Math.max(1, Math.round(Number(values.managerSeats) || 1)),
             features: nextFeatures,
@@ -578,6 +582,7 @@ export default function AdminPricingPage() {
             websiteCoverFeeCents: dollarsToCents(values.websiteCoverFee),
             trialDays: resolveTrialDays(values),
             visibleOnPricing: values.visibleOnPricing !== false,
+            featuredOnPricing: values.featuredOnPricing === true,
             ...(isSuperAdminUser ? { highlights: highlightsInput(values.highlights) } : {}),
             managerSeats: Math.max(1, Math.round(Number(values.managerSeats) || 1)),
             features: featuresInput(values.features),
@@ -1145,6 +1150,11 @@ export default function AdminPricingPage() {
                       {formatPlanPriceSuffix(p.durationUnit, p.durationCount).replace(' / ', '/')}
                       {typeof p.managerSeats === 'number' ? ` · ${p.managerSeats} mgr` : ''}
                     </span>
+                    {p.featuredOnPricing === true ? (
+                      <Tag color="gold" style={{ marginInlineEnd: 0 }}>
+                        Featured
+                      </Tag>
+                    ) : null}
                     {p.visibleOnPricing === false ? (
                       <Tag style={{ marginInlineEnd: 0 }}>Hidden</Tag>
                     ) : (
@@ -1214,6 +1224,14 @@ export default function AdminPricingPage() {
                 valuePropName="checked"
               >
                 <Switch checkedChildren="Visible" unCheckedChildren="Hidden" />
+              </Form.Item>
+              <Form.Item
+                name="featuredOnPricing"
+                label="Featured / popular on pricing page"
+                tooltip={FIELD_TIPS.featuredOnPricing}
+                valuePropName="checked"
+              >
+                <Switch checkedChildren="Featured" unCheckedChildren="Off" />
               </Form.Item>
               {(monthlyPrice ?? 0) > 0 ? (
                 <PackageDurationFields unit={durationUnit} count={durationCount} />
@@ -1322,6 +1340,7 @@ export default function AdminPricingPage() {
             trialPeriod: 30,
             customTrialDays: 7,
             visibleOnPricing: true,
+            featuredOnPricing: false,
             discountType: 'none',
             discountPercent: 50,
             discountAmount: 10,
@@ -1370,6 +1389,14 @@ export default function AdminPricingPage() {
             valuePropName="checked"
           >
             <Switch checkedChildren="Visible" unCheckedChildren="Hidden" />
+          </Form.Item>
+          <Form.Item
+            name="featuredOnPricing"
+            label="Featured / popular on pricing page"
+            tooltip={FIELD_TIPS.featuredOnPricing}
+            valuePropName="checked"
+          >
+            <Switch checkedChildren="Featured" unCheckedChildren="Off" />
           </Form.Item>
           <Form.Item
             name="managerSeats"

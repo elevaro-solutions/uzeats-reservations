@@ -61,12 +61,36 @@ describe('Authentication (E2E)', () => {
             firstName: 'Second',
             lastName: 'User',
             phone: '+15555550999',
+            termsOfUseSignature: { method: 'typed', fullName: 'Second User' },
           },
         },
       );
 
       expect(res.body.errors).toBeDefined();
       expect(res.body.errors[0].message).toMatch(/already registered/i);
+    });
+
+    it('registers without a Terms of Use signature and records no acceptance', async () => {
+      const res = await graphqlRequest(
+        agent,
+        `mutation Register($input: RegisterInput!) {
+          register(input: $input) { user { id } }
+        }`,
+        {
+          input: {
+            email: 'unsigned-mobile@test.com',
+            password: 'SecurePass123!',
+            firstName: 'Mobile',
+            lastName: 'Diner',
+            phone: '+15555559871',
+          },
+        },
+      );
+
+      expect(res.body.errors).toBeUndefined();
+      const userId = res.body.data.register.user.id;
+      const { UserAgreementAcceptance } = await import('../models/UserAgreementAcceptance.js');
+      expect(await UserAgreementAcceptance.countDocuments({ userId })).toBe(0);
     });
 
     it('should fail registration without a phone number', async () => {

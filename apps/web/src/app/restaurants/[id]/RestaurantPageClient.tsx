@@ -1263,6 +1263,9 @@ export default function RestaurantPageClient({
   const orderOnlineHref = normalizeHttpUrl(restaurant.onlineOrderUrl);
 
   const reviews = (reviewsData as any)?.restaurantReviews?.items ?? [];
+  // Stored reviewCount can come from seed/import data; list counts must match real reviews.
+  const reviewTotal: number =
+    (reviewsData as any)?.restaurantReviews?.total ?? restaurant.reviewCount ?? 0;
   const bookingSuccessDateLabel = bookingSuccess?.dateLabel ?? formatBookingDateLabel(date);
   const bookingSuccessTimeLabel =
     bookingSuccess?.timeLabel ??
@@ -1303,7 +1306,11 @@ export default function RestaurantPageClient({
                   <span className="rt-restaurant-profile__rating">
                     <StarFilled style={{ color: colors.rating }} />
                     <Text strong>{restaurant.averageRating.toFixed(1)}</Text>
-                    <Text type="secondary">({restaurant.reviewCount} reviews)</Text>
+                    {reviewTotal > 0 ? (
+                      <Text type="secondary">
+                        ({reviewTotal} {reviewTotal === 1 ? 'review' : 'reviews'})
+                      </Text>
+                    ) : null}
                   </span>
                 )}
                 <Text>{priceRangeLabel(restaurant.priceRange)}</Text>
@@ -1437,7 +1444,7 @@ export default function RestaurantPageClient({
                 restaurantName={restaurant.name}
                 reviews={reviews}
                 averageRating={restaurant.averageRating}
-                reviewCount={restaurant.reviewCount}
+                reviewCount={reviewTotal}
                 sort={reviewSort}
                 onSortChange={setReviewSort}
                 canLeaveReview={Boolean(reviewableReservation)}
