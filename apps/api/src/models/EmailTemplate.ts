@@ -495,7 +495,7 @@ export const DEFAULT_EMAIL_TEMPLATES = [
         'Sign by typing your full legal name or drawing your signature. You can also download a branded A4 PDF copy.',
       ),
       emailButtons([
-        { href: '{{signUrl}}', label: 'Review & sign agreement' },
+        { href: '{{signUrl}}', label: 'Review & sign Partner Agreement' },
         { href: '{{pdfUrl}}', label: 'Download PDF', variant: 'outline' },
       ]),
       emailMuted(

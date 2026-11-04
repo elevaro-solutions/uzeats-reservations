@@ -53,11 +53,16 @@ function SignContent() {
   const isPreview = Boolean(user && !isOwner && isPlatformAdmin(user.role));
 
   useEffect(() => {
-    if (authLoading || !user) return;
+    if (authLoading) return;
+    if (!user) {
+      const next = `/agreements/sign${search.get('download') === '1' ? '?download=1' : ''}`;
+      router.replace(`/login?next=${encodeURIComponent(next)}`);
+      return;
+    }
     if (!isOwner && !isPlatformAdmin(user.role)) {
       router.replace('/overview');
     }
-  }, [authLoading, user, isOwner, router]);
+  }, [authLoading, user, isOwner, router, search]);
 
   useEffect(() => {
     if (!agreement || search.get('download') !== '1') return;

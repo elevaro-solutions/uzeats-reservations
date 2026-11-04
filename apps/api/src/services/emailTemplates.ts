@@ -100,6 +100,18 @@ export async function ensureDefaultEmailTemplates() {
     { key: 'restaurant_created', name: 'Restaurant created — onboarding & invoice' },
     { $set: { name: 'Restaurant created' } },
   );
+  // Repair Partner Agreement reminder CTA if it still says "Terms" from an earlier draft.
+  const partnerReminder = DEFAULT_EMAIL_TEMPLATES.find((t) => t.key === 'partner_agreement_reminder');
+  if (partnerReminder) {
+    const { key: _key, ...partnerFields } = partnerReminder;
+    await EmailTemplate.updateOne(
+      {
+        key: 'partner_agreement_reminder',
+        bodyHtml: { $regex: 'Review & sign Terms' },
+      },
+      { $set: partnerFields },
+    );
+  }
 }
 
 export async function listEmailTemplates() {

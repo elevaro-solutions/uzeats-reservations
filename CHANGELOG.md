@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.100.2] — 2026-11-04
+
+### Added
+- Partner Hub `/admin/qa` tasks for this release: `/agreements/sign` live (no 404), Partner reminder CTA copy, signup modal smoke
+
+### Fixed
+- Partner Hub `/agreements/sign` is reachable after deploy (was 404 on stale Dokku build); signed-out visitors go to login with `next=`
+- Partner Agreement reminder email CTA says “Review & sign Partner Agreement” instead of “Terms” (repairs older seeded copy)
+
 ## [0.100.1] — 2026-11-04
 
 ### Added
