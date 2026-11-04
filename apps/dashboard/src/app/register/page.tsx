@@ -379,6 +379,7 @@ function RegisterForm() {
         'lat',
         'lng',
         'partnerAgreementSignature',
+        'partnerAgreementAccepted',
       ]);
       const values = form.getFieldsValue(true);
       const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
@@ -392,6 +393,15 @@ function RegisterForm() {
           {
             name: 'partnerAgreementSignature',
             errors: ['Sign by typing your name or drawing your signature'],
+          },
+        ]);
+        return;
+      }
+      if (!values.partnerAgreementAccepted) {
+        form.setFields([
+          {
+            name: 'partnerAgreementAccepted',
+            errors: ['Please read and accept the agreement'],
           },
         ]);
         return;
@@ -501,7 +511,8 @@ function RegisterForm() {
         );
         if (fieldErrors.email) setStep(1);
         else if (fieldErrors.name) setStep(2);
-        else if (fieldErrors.partnerAgreementSignature) setStep(3);
+        else if (fieldErrors.partnerAgreementSignature || fieldErrors.partnerAgreementAccepted)
+          setStep(3);
         const firstField = fieldEntries[0]?.[0];
         if (firstField) {
           requestAnimationFrame(() => {

@@ -75,6 +75,11 @@ export {
   type SignaturePadValue,
   type SignaturePadProps,
 } from './SignaturePad';
+export { useScrollReachedEnd } from './useScrollReachedEnd';
+export {
+  AgreementReviewModal,
+  type AgreementReviewModalProps,
+} from './AgreementReviewModal';
 export { PlanPrice, type PlanPriceProps, type BillingPeriod, type AnnualBillingSettings } from './PlanPrice';
 export {
   DEFAULT_PHONE_COUNTRY,

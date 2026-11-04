@@ -4,6 +4,19 @@ All notable changes to Tablevera are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+## [0.100.1] — 2026-11-04
+
+### Added
+- Partner Hub `/admin/qa` tasks for this release: signup modal scroll-gate, re-sign signature-first flow, already-signed view without scroll gate
+
+### Changed
+- Legal agreement acceptance opens in a scroll-to-end modal; signature pad sits above the accept checkbox on signup and re-sign flows
+
+### Fixed
+- Viewing an already-signed agreement no longer requires scrolling to the end before Done
+
 ## [0.100.0] — 2026-11-04
 
 ### Added

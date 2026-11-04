@@ -3,14 +3,17 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLazyQuery, useMutation, useQuery } from '@/lib/apollo-hooks';
-import { Alert, Button, Card, Space, Typography, message } from 'antd';
+import { Alert, Button, Card, Checkbox, Typography, message } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
 import {
+  AgreementReviewModal,
   SignaturePad,
   isSignatureComplete,
   PageHeader,
   colors,
+  radii,
   spacing,
+  typography,
   type SignaturePadValue,
 } from '@reservations/ui';
 import { useAuth } from '@/lib/auth';
@@ -20,11 +23,11 @@ import {
   PARTNER_AGREEMENT_COMPLIANCE,
   SIGN_LEGAL_AGREEMENT,
 } from '@/lib/graphql';
-import { BrandedAgreementView, downloadBase64Pdf } from '@/components/BrandedAgreementView';
+import { downloadBase64Pdf } from '@/components/BrandedAgreementView';
 import { getGraphQLErrorMessage } from '@/lib/errors';
 import { isPlatformAdmin } from '@/lib/roles';
 
-const { Text, Paragraph } = Typography;
+const { Title, Text, Paragraph } = Typography;
 
 function SignContent() {
   const { user, loading: authLoading } = useAuth();
@@ -40,6 +43,8 @@ function SignContent() {
     { fetchPolicy: 'network-only' },
   );
   const [signature, setSignature] = useState<SignaturePadValue | null>(null);
+  const [accepted, setAccepted] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const compliance = data?.partnerAgreementCompliance;
   const agreement = compliance?.agreement;
@@ -72,6 +77,10 @@ function SignContent() {
   const suggested = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
 
   const onSign = async () => {
+    if (!accepted) {
+      message.error('Please read and accept the agreement');
+      return;
+    }
     if (!isSignatureComplete(signature)) {
       message.error('Sign by typing your name or drawing your signature');
       return;
@@ -90,6 +99,7 @@ function SignContent() {
       });
       message.success('Agreement signed. You can download your signed copy below.');
       setSignature(null);
+      setAccepted(false);
       await refetch();
     } catch (err) {
       message.error(getGraphQLErrorMessage(err, 'Could not save signature'));
@@ -133,6 +143,7 @@ function SignContent() {
   const hasSignedCurrent =
     acceptedVersion != null && currentVersion != null && acceptedVersion >= currentVersion;
   const showPad = isPreview || (isOwner && !hasSignedCurrent);
+  const canSign = !isPreview && accepted && isSignatureComplete(signature);
 
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', padding: spacing.lg }}>
@@ -141,7 +152,7 @@ function SignContent() {
         subtitle={
           hasSignedCurrent
             ? 'The agreement you signed. Download the A4 PDF for your records.'
-            : 'Review the agreement, download the A4 PDF if you like, then type or draw your signature.'
+            : 'Sign below, then read and accept the agreement before continuing.'
         }
       />
 
@@ -222,16 +233,7 @@ function SignContent() {
       ) : null}
 
       {agreement ? (
-        <Space orientation="vertical" size={spacing.lg} style={{ width: '100%' }}>
-          <BrandedAgreementView
-            name={agreement.name}
-            version={agreement.version}
-            bodyHtml={agreement.bodyHtml}
-            versionPublishedAt={agreement.versionPublishedAt}
-            onDownloadPdf={downloadPdf}
-            downloading={downloading}
-          />
-
+        <div style={{ display: 'flex', flexDirection: 'column', gap: spacing.lg }}>
           {showPad ? (
             <Card title="Your signature">
               <Paragraph type="secondary">
@@ -243,29 +245,96 @@ function SignContent() {
                 onChange={setSignature}
                 suggestedFullName={suggested}
               />
-              <Button
-                type="primary"
-                size="large"
-                loading={signing}
-                onClick={onSign}
-                disabled={isPreview || !isSignatureComplete(signature)}
-                style={{
-                  marginTop: spacing.md,
-                  ...(isPreview || !isSignatureComplete(signature)
-                    ? {}
-                    : { background: colors.brand[600] }),
-                }}
-                block
-              >
-                {isPreview ? 'Sign & continue (owners only)' : 'Sign & continue'}
-              </Button>
             </Card>
+          ) : null}
+
+          <div
+            style={{
+              border: `1px solid ${colors.border}`,
+              borderRadius: radii.lg,
+              padding: spacing.md,
+              background: colors.surface,
+            }}
+          >
+            <Title level={5} style={{ margin: 0 }}>
+              {agreement.name}
+            </Title>
+            <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+              Version {agreement.version}
+              {agreement.versionPublishedAt
+                ? ` · Effective ${new Date(agreement.versionPublishedAt).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}`
+                : ''}
+            </Text>
+            {showPad ? (
+              <Checkbox
+                style={{ display: 'block', marginTop: spacing.md }}
+                checked={accepted}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setModalOpen(true);
+                  } else {
+                    setAccepted(false);
+                  }
+                }}
+              >
+                I have read and accept the {agreement.name} (version {agreement.version})
+              </Checkbox>
+            ) : (
+              <div style={{ marginTop: spacing.sm }}>
+                <Button type="link" style={{ paddingInline: 0 }} onClick={() => setModalOpen(true)}>
+                  View agreement
+                </Button>
+                <Button
+                  type="link"
+                  icon={<DownloadOutlined />}
+                  loading={downloading}
+                  onClick={downloadPdf}
+                >
+                  Download PDF (A4)
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <AgreementReviewModal
+            open={modalOpen}
+            onCancel={() => setModalOpen(false)}
+            onConfirm={() => {
+              if (showPad) setAccepted(true);
+              setModalOpen(false);
+            }}
+            name={agreement.name}
+            version={agreement.version}
+            bodyHtml={agreement.bodyHtml}
+            versionPublishedAt={agreement.versionPublishedAt}
+            onDownloadPdf={downloadPdf}
+            downloading={downloading}
+            confirmLabel={showPad ? 'I accept' : 'Done'}
+            requireScrollToEnd={showPad}
+          />
+
+          {showPad ? (
+            <Button
+              type="primary"
+              size="large"
+              loading={signing}
+              onClick={onSign}
+              disabled={!canSign}
+              style={canSign ? { background: colors.brand[600] } : undefined}
+              block
+            >
+              {isPreview ? 'Sign & continue (owners only)' : 'Sign & continue'}
+            </Button>
           ) : (
             <Button type="primary" onClick={() => router.push('/overview')}>
               Back to Partner Hub
             </Button>
           )}
-        </Space>
+        </div>
       ) : (
         <Text type="secondary">Loading agreement…</Text>
       )}

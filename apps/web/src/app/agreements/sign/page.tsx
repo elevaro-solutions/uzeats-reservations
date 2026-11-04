@@ -3,11 +3,11 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useLazyQuery, useMutation, useQuery } from '@apollo/client/react';
-import { Alert, Button, Card, Typography, message } from 'antd';
+import { Alert, Button, Card, Checkbox, Typography, message } from 'antd';
 import { DownloadOutlined } from '@ant-design/icons';
 import {
+  AgreementReviewModal,
   SignaturePad,
-  TableveraBrand,
   colors,
   isSignatureComplete,
   radii,
@@ -46,6 +46,8 @@ function SignTermsContent() {
   const router = useRouter();
   const search = useSearchParams();
   const [signature, setSignature] = useState<SignaturePadValue | null>(null);
+  const [accepted, setAccepted] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const { data, loading, refetch } = useQuery(MY_AGREEMENT_COMPLIANCE, {
     variables: { key: 'terms_of_use' },
     skip: authLoading || !user,
@@ -89,6 +91,10 @@ function SignTermsContent() {
   if (authLoading || loading || !user) return null;
 
   const onSign = async () => {
+    if (!accepted) {
+      message.error('Please read and accept the agreement');
+      return;
+    }
     if (!signature || !isSignatureComplete(signature)) {
       message.error('Sign by typing your name or drawing your signature');
       return;
@@ -106,6 +112,7 @@ function SignTermsContent() {
       });
       message.success('Terms of Use signed. You can download your signed copy below.');
       setSignature(null);
+      setAccepted(false);
       await refetch();
     } catch (err) {
       message.error(getGraphQLErrorMessage(err, 'Could not save signature'));
@@ -166,68 +173,8 @@ function SignTermsContent() {
         />
       ) : null}
 
-      {agreement ? (
-        <div
-          style={{
-            border: `1px solid ${colors.border}`,
-            borderRadius: radii.lg,
-            overflow: 'hidden',
-            background: colors.surface,
-            marginBottom: spacing.lg,
-          }}
-        >
-          <div
-            style={{
-              background: colors.brand[800],
-              padding: `${spacing.md}px ${spacing.lg}px`,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              borderBottom: `3px solid ${colors.accent[500]}`,
-            }}
-          >
-            <TableveraBrand surface="dark" iconSize={28} />
-            <Text style={{ color: colors.accent[400], fontSize: 12, letterSpacing: '0.06em' }}>
-              LEGAL AGREEMENT
-            </Text>
-          </div>
-          <div style={{ padding: spacing.lg }}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                gap: spacing.md,
-                flexWrap: 'wrap',
-                marginBottom: spacing.md,
-              }}
-            >
-              <div>
-                <Title level={4} style={{ margin: 0 }}>
-                  {agreement.name}
-                </Title>
-                <Text type="secondary">Version {agreement.version}</Text>
-              </div>
-              <Button icon={<DownloadOutlined />} loading={downloading} onClick={downloadPdf}>
-                Download PDF (A4)
-              </Button>
-            </div>
-            <div
-              style={{
-                maxHeight: 360,
-                overflow: 'auto',
-                padding: spacing.md,
-                background: colors.background,
-                borderRadius: radii.md,
-                fontSize: typography.fontSize.base,
-              }}
-              dangerouslySetInnerHTML={{ __html: agreement.bodyHtml }}
-            />
-          </div>
-        </div>
-      ) : null}
-
       {compliance && !hasSignedCurrent ? (
-        <Card title="Your signature">
+        <Card title="Your signature" style={{ marginBottom: spacing.lg }}>
           <Paragraph type="secondary">
             Type your full legal name or draw your signature. We store the version, time, IP
             address, and device info with your acceptance.
@@ -237,21 +184,90 @@ function SignTermsContent() {
             onChange={setSignature}
             suggestedFullName={`${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()}
           />
-          <Button
-            type="primary"
-            size="large"
-            block
-            loading={signing}
-            disabled={!isSignatureComplete(signature)}
-            onClick={onSign}
+        </Card>
+      ) : null}
+
+      {agreement ? (
+        <>
+          <div
             style={{
-              marginTop: spacing.md,
-              ...(isSignatureComplete(signature) ? { background: colors.brand[600] } : {}),
+              border: `1px solid ${colors.border}`,
+              borderRadius: radii.lg,
+              padding: spacing.md,
+              background: colors.surface,
+              marginBottom: spacing.lg,
             }}
           >
-            Sign Terms of Use
-          </Button>
-        </Card>
+            <Title level={5} style={{ margin: 0 }}>
+              {agreement.name}
+            </Title>
+            <Text type="secondary" style={{ fontSize: typography.fontSize.sm }}>
+              Version {agreement.version}
+            </Text>
+            {hasSignedCurrent ? (
+              <div style={{ marginTop: spacing.sm }}>
+                <Button type="link" style={{ paddingInline: 0 }} onClick={() => setModalOpen(true)}>
+                  View agreement
+                </Button>
+                <Button
+                  type="link"
+                  icon={<DownloadOutlined />}
+                  loading={downloading}
+                  onClick={downloadPdf}
+                >
+                  Download PDF (A4)
+                </Button>
+              </div>
+            ) : (
+              <Checkbox
+                style={{ display: 'block', marginTop: spacing.md }}
+                checked={accepted}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setModalOpen(true);
+                  } else {
+                    setAccepted(false);
+                  }
+                }}
+              >
+                I have read and accept the {agreement.name} (version {agreement.version})
+              </Checkbox>
+            )}
+          </div>
+
+          <AgreementReviewModal
+            open={modalOpen}
+            onCancel={() => setModalOpen(false)}
+            onConfirm={() => {
+              if (!hasSignedCurrent) setAccepted(true);
+              setModalOpen(false);
+            }}
+            name={agreement.name}
+            version={agreement.version}
+            bodyHtml={agreement.bodyHtml}
+            versionPublishedAt={agreement.versionPublishedAt}
+            onDownloadPdf={downloadPdf}
+            downloading={downloading}
+            confirmLabel={hasSignedCurrent ? 'Done' : 'I accept'}
+            requireScrollToEnd={!hasSignedCurrent}
+          />
+        </>
+      ) : null}
+
+      {compliance && !hasSignedCurrent ? (
+        <Button
+          type="primary"
+          size="large"
+          block
+          loading={signing}
+          disabled={!accepted || !isSignatureComplete(signature)}
+          onClick={onSign}
+          style={{
+            ...(accepted && isSignatureComplete(signature) ? { background: colors.brand[600] } : {}),
+          }}
+        >
+          Sign Terms of Use
+        </Button>
       ) : null}
     </div>
   );
